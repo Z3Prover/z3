@@ -22,8 +22,8 @@ from sets import Set
 log_h   = open('api_log_macros.h', 'w')
 log_c   = open('api_log_macros.cpp', 'w')
 exe_c   = open('api_commands.cpp', 'w')
-core_py = open('..\\python\\z3core.py', 'w')
-dotnet_fileout = '..\\Microsoft.Z3\\Native.cs'
+core_py = open('..%spython%sz3core.py' % (os.sep, os.sep), 'w')
+dotnet_fileout = '..%sMicrosoft.Z3%sNative.cs' % (os.sep, os.sep)
 ##
 log_h.write('// Automatically generated file, generator: api.py\n')
 log_h.write('#include\"z3.h\"\n')

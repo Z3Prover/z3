@@ -6,11 +6,12 @@
 # Author: Leonardo de Moura (leonardo)
 ############################################
 import re
+import os
 
 tactic_pat  = re.compile("^[ \t]*ADD_TACTIC_CMD")
 probe_pat   = re.compile("^[ \t]*ADD_PROBE")
 
-cppfile = open('..\\lib\\install_tactics.cpp', 'r')
+cppfile = open('..%slib%sinstall_tactics.cpp' % (os.sep, os.sep), 'r')
 
 z3tactics  = open('z3tactics.py', 'w')
 z3tactics.write('# Automatically generated file, generator: mk_z3tactics.py\n')

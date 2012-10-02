@@ -1,7 +1,8 @@
 import re
+import os
 
 pat1 = re.compile(".*Z3_API.*")
-api = open('..\lib\z3_api.h', 'r')
+api = open('..%slib%sz3_api.h' % (os.sep, os.sep), 'r')
 
 z3def = open('z3.def', 'w')
 z3dbgdef = open('z3_dbg.def', 'w')
