@@ -7,6 +7,7 @@
 #         Christoph M. Wintersteiger (cwinter)
 ############################################
 import re
+import os
 
 blank_pat      = re.compile("^ *$")
 comment_pat    = re.compile("^ *//.*$")
@@ -15,7 +16,7 @@ typedef2_pat   = re.compile("typedef enum { *")
 openbrace_pat  = re.compile("{ *")
 closebrace_pat = re.compile("}.*;")
 
-api = open('..\\lib\\z3_api.h', 'r')
+api = open('..%slib%sz3_api.h' % (os.sep, os.sep), 'r')
 
 DeprecatedEnums = { 'Z3_search_failure' }
 
