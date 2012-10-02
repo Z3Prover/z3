@@ -11,6 +11,3 @@ pushd python
 python mk_z3consts.py
 python mk_z3tactics.py
 popd
-pushd ml 
-call build.cmd 32
-popd
