@@ -8,7 +8,7 @@ This function has the following signature:
 API(function name, return type, argument list)
 The return type only needs to be specified if the function returns a Z3 object.
 The file lib\api.py contains many examples.
-3) Execute update_api.cmd
+3) Execute update_api.cmd (on Windows) update_api.sh (on Linux or OSX)
 This script updates the .def files in the directory dll, and generates the API logging macros.
 
 If one only wants to generate the logging macros. Then it only needs to execute
