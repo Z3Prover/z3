@@ -1,0 +1,52 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    qfauflia_tactic.cpp
+
+Abstract:
+
+    Tactic for QF_AUFLIA
+
+Author:
+
+    Leonardo (leonardo) 2012-02-21
+
+Notes:
+
+--*/
+#include"tactical.h"
+#include"simplify_tactic.h"
+#include"propagate_values_tactic.h"
+#include"propagate_ineqs_tactic.h"
+#include"solve_eqs_tactic.h"
+#include"elim_uncnstr_tactic.h"
+#include"smt_tactic.h"
+
+tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
+    params_ref main_p;
+    main_p.set_bool(":elim-and", true);
+    main_p.set_bool(":som", true);
+    main_p.set_bool(":sort-store", true);
+    
+    params_ref ctx_simp_p;
+    ctx_simp_p.set_uint(":max-depth", 30);
+    ctx_simp_p.set_uint(":max-steps", 5000000);
+
+    params_ref solver_p;
+    solver_p.set_bool(":array-old-simplifier", false);
+
+    tactic * preamble_st = and_then(mk_simplify_tactic(m),
+                                    mk_propagate_values_tactic(m),
+                                    mk_solve_eqs_tactic(m),
+                                    mk_elim_uncnstr_tactic(m),
+                                    mk_simplify_tactic(m)
+                                    );
+    
+    tactic * st = and_then(using_params(preamble_st, main_p),
+                           using_params(mk_smt_tactic(), solver_p));
+    
+    st->updt_params(p);
+    return st;
+}

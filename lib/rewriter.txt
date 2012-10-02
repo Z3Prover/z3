@@ -1,0 +1,145 @@
+
+
+The following classes implement theory specific rewriting rules:
+  - bool_rewriter
+  - arith_rewriter
+  - bv_rewriter
+  - array_rewriter
+  - datatype_rewriter
+
+Each of the provide the method
+    br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result)
+where
+  - f is expected to be a func_decl of the given theory
+  - If the return value if different from BR_FAILED, the result is stored in result.
+
+The template rewriter_tpl<Cfg> can be instantiated to implement 
+rewriters that traverse ASTs applying some kind of transformation/simplification.
+The parameter Cfg is expected to be a class with the following methods:
+    bool cache_all_results() const;
+    bool cache_results() const;
+    bool flat_assoc(func_decl * f) const;
+    bool rewrite_patterns() const;
+    bool max_scopes_exceeded(unsigned num_scopes) const;
+    bool max_frames_exceeded(unsigned num_frames) const;
+    bool max_steps_exceeded(unsigned num_steps) const;
+    bool pre_visit(expr * t);
+    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
+    bool reduce_quantifier(quantifier * old_q, 
+                           expr * new_body, 
+                           expr * const * new_patterns, 
+                           expr * const * new_no_patterns,
+                           expr_ref & result,
+                           proof_ref & result_pr);
+    bool get_macro(func_decl * d, expr * & def, quantifier * & q, proof * & def_pr);
+    bool get_subst(expr * s, expr * & t, proof * & t_pr);
+    void reset();
+    void cleanup();
+
+The class default_rewriter_cfg provides a default implementation for these methods.
+
+The method reduce_app is the most important one. When implementing new rewriter,
+we usually redefine this method.
+We should return BR_FAILED, if we do not want to apply a "simplification" to
+ (f args[0] ... args[num-1])
+This is very important for performance reasons, since the rewriter tries to
+reuse AST when BR_FAILED is returned.
+If one wants to simply (f args[0] ... args[num-1]) to t, then use:
+   result = t;
+   return BR_DONE;
+Sometimes, by applying a simplification rule we may create new opportunites for
+rewriting. One can instruct the rewriter to revisit the result by returning:
+    BR_REWRITE1,               // rewrite the result (bounded by depth 1)
+    BR_REWRITE2,               // rewrite the result (bounded by depth 2)
+    BR_REWRITE3,               // rewrite the result (bounded by depth 3)
+    BR_REWRITE_FULL,           // rewrite the result unbounded
+Example:
+Suppose one wants to implement the rewriting rule
+    (= (ite c t e) v) --> (ite c (= t v) (= e v))
+This rule may create new opportunites for simplification since
+it creates the equalities (= t v) and (= e v).
+So, to force the rewriter to process these new equalities,
+BR_REWRITE2 should be returned.
+It is also correct (but unnecessary) to return BR_REWRITE3 and BR_REWRITE_FULL.
+
+To instantiate a new rewriter, one should
+1) Define a new configuration class. 
+    class mycfg : public default_rewriter_cfg {
+       ...
+    }
+2) Force template instantiation using the new cfg.
+    templace class rewriter_tpl<mycfg>;
+
+3) Define a subclass of rewriter_tpl<mycfg> that
+  owns the new cfg.
+  
+  class myrewriter : public rewriter_tpl<mycfg> {
+        mycfg m_cfg;
+  public:
+        myrewriter(ast_manager & m):
+           rewriter_tpl<mycfg>(m, m.proofs_enabled(), m_cfg),
+           m_cfg(...) {
+        }
+  };
+
+The rewriter_tpl template supports proof production.
+It can be disabled even when proof productions is
+enabled in the ast_manager.
+
+Examples of rewriter_tpl instances:
+- th_rewriter.cpp
+- assertion_set_bit_blaster.cpp
+- model_evaluator.cpp
+- elim_distinct.cpp
+
+Notes for additional Cfg methods:
+- bool rewrite_patterns() const;
+If false is returned, then the rewriter will ignore patterns.
+- bool pre_visit(expr * t);
+If false is returned, then the rewriter will not process t.
+This is very useful, for example, for implementing rewriters that will only
+"process" the Boolean skeleton.
+- bool max_steps_exceeded(unsigned num_steps) const;
+If false, it interrupts the execution of the rewriter.
+The interruption is performed by throwing an exception.
+One can also used this callback to check whether the 
+amount of memory used is still reasonable.
+- bool cache_all_results() const;
+By default, the rewriter only caches the results of 
+non-atomic shared ASTs (get_ref_count() > 1). If true, 
+is returned, the rewriter will cache all intermediate results.
+- bool flat_assoc(func_decl * f) const;
+If true is returned, then the rewriter will do flattening of
+non-shared nodes. For example,
+   (+ a (+ b (+ c d)))
+will be treated as (+ a b c d)
+Shared nodes are not considered. Thus, exponential blowup 
+in the rewriter stack is avoided.
+So, when implementing 
+    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
+one should not assume that for an associative f, there is not
+f-application in args when true is returned by flat_assoc.
+
+when implementing 
+    br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr);
+If result_pr is set to 0, and proofs are enabled, then the rewriter will use a generic 
+"rewrite" proof step for justifying that (f args[0] ... args[num-1]) is equal to result.
+
+The th_rewriter takes care of flattening. So, in principle, there is
+not need to return true in flat_assoc.
+
+ 
+
+
+
+
+
+
+
+
+
+           
+
+
+
+

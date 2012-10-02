@@ -1,0 +1,28 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    default_tactic.h
+
+Abstract:
+
+    General purpose tactic for the Z3 logic (when the logic is not specified).
+
+Author:
+
+    Leonardo (leonardo) 2012-02-22
+
+Notes:
+
+--*/
+#ifndef _DEFAULT_TACTIC_
+#define _DEFAULT_TACTIC_
+
+#include"params.h"
+class ast_manager;
+class tactic;
+
+tactic * mk_default_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+#endif

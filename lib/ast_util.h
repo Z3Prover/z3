@@ -1,0 +1,99 @@
+/*++
+Copyright (c) 2006 Microsoft Corporation
+
+Module Name:
+
+    ast_util.h
+
+Abstract:
+
+    Helper functions
+
+Author:
+
+    Leonardo de Moura (leonardo) 2007-06-08.
+
+Revision History:
+
+--*/
+#ifndef _AST_UTIL_H_
+#define _AST_UTIL_H_
+
+#include"ast.h"
+#include"obj_hashtable.h"
+
+template<typename C>
+void remove_duplicates(C & v) {
+    expr_fast_mark1 visited;
+    if (!v.empty()) {
+        unsigned sz = v.size();
+        unsigned j = 0;
+        for (unsigned i = 0; i < sz; i++) {
+            typename C::data curr = v.get(i);
+            if (!visited.is_marked(curr)) {
+                visited.mark(curr);
+                if (i != j)
+                    v.set(j, curr);
+                j++;
+            }
+        }
+        v.shrink(j);
+    }
+}
+
+app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr * const * args);
+app * mk_list_assoc_app(ast_manager & m, family_id fid, decl_kind k, unsigned num_args, expr * const * args);
+
+bool is_well_formed_vars(ptr_vector<sort>& bound, expr* n);
+
+inline bool args_are_vars(app const * n) {
+    unsigned sz = n->get_num_args();
+    for (unsigned i = 0; i < sz; i++) {
+        if (!is_var(n->get_arg(i)))
+            return false;
+    }
+    return true;
+}
+
+inline bool depth_leq_one(app * n) {
+    unsigned sz = n->get_num_args();
+    for (unsigned i = 0; i < sz; i++) {
+        expr * arg = n->get_arg(i);
+        if (is_app(arg) && to_app(arg)->get_num_args() > 0)
+            return false;
+    }
+    return true;
+}
+
+template<typename AST>
+void dec_ref(ast_manager & m, obj_hashtable<AST> & s) {
+    typename obj_hashtable<AST>::iterator it  = s.begin();
+    typename obj_hashtable<AST>::iterator end = s.end();
+    for (;it != end; ++it) {
+        m.dec_ref(*it);
+    }
+}
+
+template<typename AST>
+void inc_ref(ast_manager & m, obj_hashtable<AST> & s) {
+    typename obj_hashtable<AST>::iterator it  = s.begin();
+    typename obj_hashtable<AST>::iterator end = s.end();
+    for (;it != end; ++it) {
+        m.inc_ref(*it);
+    }
+}
+
+// -----------------------------------
+//
+// Clauses (as ASTs) support
+//
+// -----------------------------------
+bool is_atom(ast_manager & m, expr * n);
+bool is_literal(ast_manager & m, expr * n);
+void get_literal_atom_sign(ast_manager & m, expr * n, expr * & atom, bool & sign);
+bool is_clause(ast_manager & m, expr * n);
+unsigned get_clause_num_literals(ast_manager & m, expr * cls);
+expr * get_clause_literal(ast_manager & m, expr * cls, unsigned idx);
+
+#endif /* _AST_UTIL_H_ */
+

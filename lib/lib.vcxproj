@@ -1,0 +1,2161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="bench|Win32">
+      <Configuration>bench</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="bench|x64">
+      <Configuration>bench</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="commercial|Win32">
+      <Configuration>commercial</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="commercial|x64">
+      <Configuration>commercial</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_opt|Win32">
+      <Configuration>debug_opt</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="debug_opt|x64">
+      <Configuration>debug_opt</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_64|Win32">
+      <Configuration>external_64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_64|x64">
+      <Configuration>external_64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_dbg|Win32">
+      <Configuration>external_dbg</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_dbg|x64">
+      <Configuration>external_dbg</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_parallel_x64|Win32">
+      <Configuration>external_parallel_x64</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_parallel_x64|x64">
+      <Configuration>external_parallel_x64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_parallel|Win32">
+      <Configuration>external_parallel</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external_parallel|x64">
+      <Configuration>external_parallel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external|Win32">
+      <Configuration>external</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="external|x64">
+      <Configuration>external</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mpi_debug|Win32">
+      <Configuration>mpi_debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mpi_debug|x64">
+      <Configuration>mpi_debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mpi_release|Win32">
+      <Configuration>mpi_release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="mpi_release|x64">
+      <Configuration>mpi_release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="parallel_debug|Win32">
+      <Configuration>parallel_debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="parallel_debug|x64">
+      <Configuration>parallel_debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="parallel_release|Win32">
+      <Configuration>parallel_release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="parallel_release|x64">
+      <Configuration>parallel_release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseD|Win32">
+      <Configuration>ReleaseD</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseD|x64">
+      <Configuration>ReleaseD</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_mt|Win32">
+      <Configuration>release_mt</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_mt|x64">
+      <Configuration>release_mt</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_static|Win32">
+      <Configuration>release_static</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="release_static|x64">
+      <Configuration>release_static</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="smtcomp|Win32">
+      <Configuration>smtcomp</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="smtcomp|x64">
+      <Configuration>smtcomp</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Trace|Win32">
+      <Configuration>Trace</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Trace|x64">
+      <Configuration>Trace</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{4A7E5A93-19D8-4382-8950-FB2EDEC7A76E}</ProjectGuid>
+    <RootNamespace>lib</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='bench|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_64|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release_static|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='external|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='commercial|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='bench|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Trace|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='bench|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_64|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='release_static|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='external|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='commercial|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='bench|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Trace|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.30319.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Trace|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Trace|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='bench|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='bench|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='bench|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='bench|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external|Win32'">$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='commercial|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='commercial|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'">$(Configuration)\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='release_static|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='release_static|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'">$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'">$(Configuration)\</IntDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='bench|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='bench|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='bench|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='bench|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='bench|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='bench|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_64|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_64|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external|Win32'" />
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='external|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='commercial|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='external|x64'" />
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='commercial|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='external|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='commercial|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='release_static|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='release_static|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='release_static|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'" />
+    <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='Trace|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
+    <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Trace|x64'" />
+    <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Trace|x64'" />
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='bench|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'">z3_dbg</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='bench|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'">z3_dbg</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='external|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='commercial|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='mpi_debug|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='ReleaseD|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='release_static|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'">z3lib</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Trace|x64'">z3lib</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_LIB;_TRACE;_WINDOWS;ASYNC_COMMANDS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;Z3DEBUG;_DEBUG;_LIB;_TRACE;_WINDOWS;ASYNC_COMMANDS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;ASYNC_COMMANDS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Trace|Win32'">
+    <ClCompile>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Trace|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_TRACE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|Win32'">
+    <ClCompile>
+      <AdditionalOptions>/INCLUDE:compile_term %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;Z3DEBUG;_LIB;_WINDOWS;_TRACE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='debug_opt|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <AdditionalOptions>/INCLUDE:compile_term %(AdditionalOptions)</AdditionalOptions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_LIB;_WINDOWS;_TRACE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='bench|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='bench|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>_NO_OMP_;WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <OpenMPSupport>false</OpenMPSupport>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='commercial|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_COMMERCIAL;_EXTERNAL_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='commercial|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_COMMERCIAL;_EXTERNAL_RELEASE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseD|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;Z3DEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3_dbg.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_dbg|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3_dbg.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_LIB;_TRACE;ASYNC_COMMANDS;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='parallel_debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_LIB;_TRACE;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;ASYNC_COMMANDS;_Z3_BUILD_PARALLEL_SMT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3$(ProjectName).lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='parallel_release|x64'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_Z3_BUILD_PARALLEL_MPI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='mpi_release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_Z3_BUILD_PARALLEL_MPI;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='mpi_debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_LIB;_TRACE;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_Z3_BUILD_PARALLEL_MPI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;SMTCOMP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>false</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level4</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='smtcomp|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release_static|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <OpenMPSupport>false</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release_static|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <Lib>
+      <OutputFile>$(OutDir)z3lib.lib</OutputFile>
+    </Lib>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel_x64|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|Win32'">
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_EXTERNAL_RELEASE;_Z3_BUILD_PARALLEL_SMT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='external_parallel|x64'">
+    <Midl>
+      <TargetEnvironment>X64</TargetEnvironment>
+    </Midl>
+    <ClCompile>
+      <Optimization>Full</Optimization>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <AdditionalIncludeDirectories>C:\Program Files\Microsoft HPC Pack 2008 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_WINDOWS;_Z3_BUILD_PARALLEL_SMT;_EXTERNAL_RELEASE;_AMD64_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <OpenMPSupport>true</OpenMPSupport>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='release_mt|x64'">
+    <ClCompile>
+      <OpenMPSupport>false</OpenMPSupport>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Full</Optimization>
+      <PreprocessorDefinitions>_NO_OMP_;_AMD64_;WIN32;NDEBUG;_LIB;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="act_cache.cpp" />
+    <ClCompile Include="add_bounds.cpp" />
+    <ClCompile Include="add_bounds_tactic.cpp" />
+    <ClCompile Include="aig.cpp" />
+    <ClCompile Include="aig_tactic.cpp" />
+    <ClCompile Include="algebraic_numbers.cpp" />
+    <ClCompile Include="api_ast.cpp" />
+    <ClCompile Include="api_ast_vector.cpp" />
+    <ClCompile Include="api_ast_map.cpp" />
+    <ClCompile Include="api_arith.cpp" />
+    <ClCompile Include="api_array.cpp" />
+    <ClCompile Include="api_bv.cpp" />
+    <ClCompile Include="api_commands.cpp" />
+    <ClCompile Include="api_config_params.cpp" />
+    <ClCompile Include="api_context.cpp" />
+    <ClCompile Include="api_datalog.cpp" />
+    <ClCompile Include="api_datatype.cpp" />
+    <ClCompile Include="api_goal.cpp" />
+    <ClCompile Include="api_log.cpp" />
+    <ClCompile Include="api_log_macros.cpp" />
+    <ClCompile Include="api_model.cpp" />
+    <ClCompile Include="api_numeral.cpp" />
+    <ClCompile Include="api_params.cpp" />
+    <ClCompile Include="api_parsers.cpp" />
+    <ClCompile Include="api_quant.cpp" />
+    <ClCompile Include="api_solver_old.cpp" />
+    <ClCompile Include="api_solver.cpp" />
+    <ClCompile Include="api_stats.cpp" />
+    <ClCompile Include="api_tactic.cpp" />
+    <ClCompile Include="api_user_theory.cpp" />
+    <ClCompile Include="approx_nat.cpp" />
+    <ClCompile Include="approx_set.cpp" />
+    <ClCompile Include="arith_decl_plugin.cpp" />
+    <ClCompile Include="arith_eq_adapter.cpp" />
+    <ClCompile Include="arith_eq_solver.cpp" />
+    <ClCompile Include="arith_rewriter.cpp" />
+    <ClCompile Include="arith_simplifier_params.cpp" />
+    <ClCompile Include="arith_simplifier_plugin.cpp" />
+    <ClCompile Include="arith_solver_plugin.cpp" />
+    <ClCompile Include="arith_bounds_tactic.cpp" />
+    <ClCompile Include="array_rewriter.cpp" />
+    <ClCompile Include="array_decl_plugin.cpp" />
+    <ClCompile Include="array_factory.cpp" />
+    <ClCompile Include="array_property_expander.cpp" />
+    <ClCompile Include="array_property_recognizer.cpp" />
+    <ClCompile Include="array_simplifier_plugin.cpp" />
+    <ClCompile Include="asserted_formulas.cpp" />
+    <ClCompile Include="assertion_stack.cpp" />
+    <ClCompile Include="assertion_set.cpp" />
+    <ClCompile Include="assertion_set2sat.cpp" />
+    <ClCompile Include="assertion_set_rewriter.cpp" />
+    <ClCompile Include="assertion_set_util.cpp" />
+    <ClCompile Include="assertion_set_strategy.cpp" />
+    <ClCompile Include="ast.cpp" />
+    <ClCompile Include="ast_dag_pp.cpp" />
+    <ClCompile Include="ast_ll_pp.cpp" />
+    <ClCompile Include="ast_lt.cpp" />
+    <ClCompile Include="ast_pp.cpp" />
+    <ClCompile Include="ast_smt_pp.cpp" />
+    <ClCompile Include="ast_smt2_pp.cpp" />
+    <ClCompile Include="ast_translation.cpp" />
+    <ClCompile Include="ast_util.cpp" />
+    <ClCompile Include="atom2bool_var.cpp" />
+    <ClCompile Include="basic_simplifier_plugin.cpp" />
+    <ClCompile Include="basic_cmds.cpp" />
+    <ClCompile Include="bit2int.cpp" />
+    <ClCompile Include="bit_blaster_model_converter.cpp" />
+    <ClCompile Include="bit_blaster.cpp" />
+    <ClCompile Include="bit_blaster_rewriter.cpp" />
+    <ClCompile Include="bit_blaster_tactic.cpp" />
+    <ClCompile Include="bit_vector.cpp" />
+    <ClCompile Include="bit_util.cpp" />
+    <ClCompile Include="bool_rewriter.cpp" />
+    <ClCompile Include="bound_manager.cpp" />
+    <ClCompile Include="bound_propagator.cpp" />
+    <ClCompile Include="bv1_blaster_tactic.cpp" />
+    <ClCompile Include="bv2int_rewriter.cpp" />
+    <ClCompile Include="bv2real_rewriter.cpp" />
+    <ClCompile Include="bv_decl_plugin.cpp" />
+    <ClCompile Include="bv_elim.cpp" />
+    <ClCompile Include="bv_rewriter.cpp" />
+    <ClCompile Include="bv_size_reduction_tactic.cpp" />
+    <ClCompile Include="bv_simplifier_plugin.cpp" />
+    <ClCompile Include="cached_var_subst.cpp" />
+    <ClCompile Include="check_logic.cpp" />
+    <ClCompile Include="cmd_context_types.cpp" />
+    <ClCompile Include="cmd_context.cpp" />
+    <ClCompile Include="cmd_util.cpp" />
+    <ClCompile Include="cnf.cpp" />
+    <ClCompile Include="cnf_params.cpp" />
+    <ClCompile Include="cofactor_elim_term_ite.cpp" />
+    <ClCompile Include="cofactor_term_ite_tactic.cpp" />
+    <ClCompile Include="cooperate.cpp" />
+    <ClCompile Include="cost_evaluator.cpp" />
+    <ClCompile Include="cost_parser.cpp" />
+    <ClCompile Include="ctx_simplify_tactic.cpp" />
+    <ClCompile Include="ctx_solver_simplify_tactic.cpp" />
+    <ClCompile Include="datalog_parser.cpp" />
+    <ClCompile Include="datatype_decl_plugin.cpp" />
+    <ClCompile Include="datatype_factory.cpp" />
+    <ClCompile Include="datatype_simplifier_plugin.cpp" />
+    <ClCompile Include="datatype_rewriter.cpp" />
+    <ClCompile Include="dbg_cmds.cpp" />
+    <ClCompile Include="debug.cpp" />
+    <ClCompile Include="decl_collector.cpp" />
+    <ClCompile Include="defined_names.cpp" />
+    <ClCompile Include="default_tactic.cpp" />
+    <ClCompile Include="degree_shift_tactic.cpp" />
+    <ClCompile Include="demodulator.cpp" />
+    <ClCompile Include="der.cpp" />
+    <ClCompile Include="dimacs.cpp" />
+    <ClCompile Include="diff_neq_tactic.cpp" />
+    <ClCompile Include="distribute_forall.cpp" />
+    <ClCompile Include="distribute_forall_tactic.cpp" />
+    <ClCompile Include="dl_base.cpp" />
+    <ClCompile Include="dl_bmc_engine.cpp" />
+    <ClCompile Include="dl_bound_relation.cpp" />
+    <ClCompile Include="dl_check_table.cpp" />
+    <ClCompile Include="dl_compiler.cpp" />
+    <ClCompile Include="dl_context.cpp" />
+    <ClCompile Include="dl_costs.cpp" />
+    <ClCompile Include="dl_cmds.cpp" />
+    <ClCompile Include="dl_decl_plugin.cpp" />
+    <ClCompile Include="dl_mk_coi_filter.cpp" />
+    <ClCompile Include="dl_mk_explanations.cpp" />
+    <ClCompile Include="dl_mk_partial_equiv.cpp" />
+    <ClCompile Include="dl_external_relation.cpp" />
+    <ClCompile Include="dl_finite_product_relation.cpp" />
+    <ClCompile Include="dl_instruction.cpp" />
+    <ClCompile Include="dl_interval_relation.cpp" />
+    <ClCompile Include="dl_mk_bit_blast.cpp" />
+    <ClCompile Include="dl_mk_filter_rules.cpp" />
+    <ClCompile Include="dl_mk_slice.cpp" />
+    <ClCompile Include="dl_mk_interp_tail_simplifier.cpp" />
+    <ClCompile Include="dl_mk_magic_sets.cpp" />
+    <ClCompile Include="dl_mk_rule_inliner.cpp" />
+    <ClCompile Include="dl_mk_similarity_compressor.cpp" />
+    <ClCompile Include="dl_mk_simple_joins.cpp" />
+    <ClCompile Include="dl_mk_subsumption_checker.cpp" />
+    <ClCompile Include="dl_mk_unbound_compressor.cpp" />
+    <ClCompile Include="dl_relation_manager.cpp" />
+    <ClCompile Include="dl_product_relation.cpp" />
+    <ClCompile Include="dl_rule.cpp" />
+    <ClCompile Include="dl_rule_set.cpp" />
+    <ClCompile Include="dl_rule_subsumption_index.cpp" />
+    <ClCompile Include="dl_rule_transformer.cpp" />
+    <ClCompile Include="dl_sieve_relation.cpp" />
+    <ClCompile Include="dl_rewriter.cpp" />
+    <ClCompile Include="dl_skip_table.cpp" />
+    <ClCompile Include="dl_smt_relation.cpp" />
+    <ClCompile Include="dl_sparse_table.cpp" />
+    <ClCompile Include="dl_table.cpp" />
+    <ClCompile Include="dl_table_relation.cpp" />
+    <ClCompile Include="dl_util.cpp" />
+    <ClCompile Include="dyn_ack.cpp" />
+    <ClCompile Include="dyn_ack_params.cpp" />
+    <ClCompile Include="eager_bit_blaster.cpp" />
+    <ClCompile Include="elim_bounds.cpp" />
+    <ClCompile Include="elim_term_ite.cpp" />
+    <ClCompile Include="elim_term_ite_strategy.cpp" />
+    <ClCompile Include="elim_term_ite_tactic.cpp" />
+    <ClCompile Include="elim_distinct.cpp" />
+    <ClCompile Include="elim_var_model_converter.cpp" />
+    <ClCompile Include="elim_uncnstr_tactic.cpp" />
+    <ClCompile Include="eval_cmd.cpp" />
+    <ClCompile Include="euclidean_solver.cpp" />
+    <ClCompile Include="expr2dot.cpp" />
+    <ClCompile Include="expr_functors.cpp" />
+    <ClCompile Include="expr2polynomial.cpp" />
+    <ClCompile Include="expr2subpaving.cpp" />
+    <ClCompile Include="expr2var.cpp" />
+    <ClCompile Include="expr_abstract.cpp" />
+    <ClCompile Include="expr_context_simplifier.cpp" />
+    <ClCompile Include="expr_delta.cpp" />
+    <ClCompile Include="expr_map.cpp" />
+    <ClCompile Include="expr_pattern_match.cpp" />
+    <ClCompile Include="expr_substitution.cpp" />
+    <ClCompile Include="expr_rand.cpp" />
+    <ClCompile Include="expr_replacer.cpp" />
+    <ClCompile Include="expr_stat.cpp" />
+    <ClCompile Include="expr_weight.cpp" />
+    <ClCompile Include="extension_model_converter.cpp" />
+    <ClCompile Include="factor_rewriter.cpp" />
+    <ClCompile Include="factor_tactic.cpp" />
+    <ClCompile Include="filter_model_converter.cpp" />
+    <ClCompile Include="fingerprints.cpp" />
+    <ClCompile Include="fix_dl_var_tactic.cpp" />
+    <ClCompile Include="float_decl_plugin.cpp" />
+    <ClCompile Include="float_rewriter.cpp" />
+    <ClCompile Include="fm_tactic.cpp" />
+    <ClCompile Include="for_each_ast.cpp" />
+    <ClCompile Include="for_each_expr.cpp" />
+    <ClCompile Include="format.cpp" />
+    <ClCompile Include="fpa2bv_converter.cpp" />
+    <ClCompile Include="fpa2bv_tactic.cpp" />
+    <ClCompile Include="front_end_params.cpp" />
+    <ClCompile Include="func_decl_dependencies.cpp" />
+    <ClCompile Include="func_interp.cpp" />
+    <ClCompile Include="gaussian_elim.cpp" />
+    <ClCompile Include="goal.cpp" />
+    <ClCompile Include="goal2sat.cpp" />
+    <ClCompile Include="goal2nlsat.cpp" />
+    <ClCompile Include="goal_shared_occs.cpp" />
+    <ClCompile Include="goal_util.cpp" />
+    <ClCompile Include="grobner.cpp" />
+    <ClCompile Include="has_free_vars.cpp" />
+    <ClCompile Include="hash.cpp" />
+    <ClCompile Include="hwf.cpp" />
+    <ClCompile Include="horn_subsume_model_converter.cpp" />
+    <ClCompile Include="imdd.cpp" />
+    <ClCompile Include="inf_int_rational.cpp" />
+    <ClCompile Include="inf_rational.cpp" />
+    <ClCompile Include="inf_s_integer.cpp" />
+    <ClCompile Include="ini_file.cpp" />
+    <ClCompile Include="inj_axiom.cpp" />
+    <ClCompile Include="install_tactics.cpp" />
+    <ClCompile Include="instruction_count.cpp" />
+    <ClCompile Include="old_interval.cpp" />
+    <ClCompile Include="kbo.cpp" />
+    <ClCompile Include="lbool.cpp" />
+    <ClCompile Include="lia2pb_tactic.cpp" />
+    <ClCompile Include="linear_equation.cpp" />
+    <ClCompile Include="lpo.cpp" />
+    <ClCompile Include="lru_cache.cpp" />
+    <ClCompile Include="luby.cpp" />
+    <ClCompile Include="lu.cpp" />
+    <ClCompile Include="macro_finder.cpp" />
+    <ClCompile Include="macro_manager.cpp" />
+    <ClCompile Include="macro_util.cpp" />
+    <ClCompile Include="macro_substitution.cpp" />
+    <ClCompile Include="mam.cpp" />
+    <ClCompile Include="matcher.cpp" />
+    <ClCompile Include="maximise_ac_sharing.cpp" />
+    <ClCompile Include="max_bv_sharing_tactic.cpp" />
+    <ClCompile Include="mip_tactic.cpp" />
+    <ClCompile Include="mem_stat.cpp" />
+    <ClCompile Include="memory_manager.cpp" />
+    <ClCompile Include="mk_simplified_app.cpp" />
+    <ClCompile Include="model.cpp" />
+    <ClCompile Include="model_core.cpp" />
+    <ClCompile Include="model_converter.cpp" />
+    <ClCompile Include="model_evaluator.cpp" />
+    <ClCompile Include="model_params.cpp" />
+    <ClCompile Include="model_pp.cpp" />
+    <ClCompile Include="model_v2_pp.cpp" />
+    <ClCompile Include="model_smt2_pp.cpp" />
+    <ClCompile Include="model2expr.cpp" />
+    <ClCompile Include="normalize_bounds_tactic.cpp" />
+    <ClCompile Include="mpf.cpp" />
+    <ClCompile Include="mpff.cpp" />
+    <ClCompile Include="mpfx.cpp" />
+    <ClCompile Include="mpn.cpp" />
+    <ClCompile Include="mpq.cpp" />
+    <ClCompile Include="mpq_inf.cpp" />
+    <ClCompile Include="mpbq.cpp" />
+    <ClCompile Include="mpz.cpp" />
+    <ClCompile Include="name_exprs.cpp" />
+    <ClCompile Include="ni_solver.cpp" />
+    <ClCompile Include="nlarith_util.cpp" />
+    <ClCompile Include="nla2bv_tactic.cpp" />
+    <ClCompile Include="nlsat_types.cpp" />
+    <ClCompile Include="nlsat_clause.cpp" />
+    <ClCompile Include="nlsat_explain.cpp" />
+    <ClCompile Include="nlsat_interval_set.cpp" />
+    <ClCompile Include="nlsat_evaluator.cpp" />
+    <ClCompile Include="nlsat_solver.cpp" />
+    <ClCompile Include="nlsat_tactic.cpp" />
+    <ClCompile Include="nnf.cpp" />
+    <ClCompile Include="nnf_params.cpp" />
+    <ClCompile Include="nnf_tactic.cpp" />
+    <ClCompile Include="normalize_vars.cpp" />
+    <ClCompile Include="nra_tactic.cpp" />
+    <ClCompile Include="num_occurs.cpp" />
+    <ClCompile Include="numeral_factory.cpp" />
+    <ClCompile Include="occurs.cpp" />
+    <ClCompile Include="occf_tactic.cpp" />
+    <ClCompile Include="order.cpp" />
+    <ClCompile Include="order_params.cpp" />
+    <ClCompile Include="page.cpp" />
+    <ClCompile Include="params.cpp" />
+    <ClCompile Include="params2front_end_params.cpp" />
+    <ClCompile Include="parametric_cmd.cpp" />
+    <ClCompile Include="parser_params.cpp" />
+    <ClCompile Include="pattern_inference.cpp" />
+    <ClCompile Include="pattern_inference_params.cpp" />
+    <ClCompile Include="pattern_validation.cpp" />
+    <ClCompile Include="pb2bv_model_converter.cpp" />
+    <ClCompile Include="pb2bv_tactic.cpp" />
+    <ClCompile Include="pdr_context.cpp" />
+    <ClCompile Include="pdr_dl_interface.cpp" />
+    <ClCompile Include="pdr_farkas_learner.cpp" />
+    <ClCompile Include="pdr_generalizers.cpp" />
+    <ClCompile Include="pdr_interpolant_provider.cpp" />
+    <ClCompile Include="pdr_manager.cpp" />
+    <ClCompile Include="pdr_smt_context_manager.cpp" />
+    <ClCompile Include="pdr_util.cpp" />
+    <ClCompile Include="pdr_prop_solver.cpp" />
+    <ClCompile Include="pdr_quantifiers.cpp" />
+    <ClCompile Include="pdr_reachable_cache.cpp" />
+    <ClCompile Include="pdr_sym_mux.cpp" />
+    <ClCompile Include="permutation.cpp" />
+    <ClCompile Include="polynomial_factorization.cpp" />
+    <ClCompile Include="poly_simplifier_plugin.cpp" />
+    <ClCompile Include="polynomial.cpp" />
+    <ClCompile Include="polynomial_cmds.cpp" />
+    <ClCompile Include="polynomial_cache.cpp" />
+    <ClCompile Include="pp.cpp" />
+    <ClCompile Include="pp_params.cpp" />
+    <ClCompile Include="prime_generator.cpp" />
+    <ClCompile Include="precedence.cpp" />
+    <ClCompile Include="preprocessor.cpp" />
+    <ClCompile Include="probe.cpp" />
+    <ClCompile Include="probe_arith.cpp" />
+    <ClCompile Include="propagate_values_tactic.cpp" />
+    <ClCompile Include="propagate_ineqs_tactic.cpp" />
+    <ClCompile Include="proof_checker.cpp" />
+    <ClCompile Include="proof_converter.cpp" />
+    <ClCompile Include="proto_model.cpp" />
+    <ClCompile Include="pdecl.cpp" />
+    <ClCompile Include="pull_ite_tree.cpp" />
+    <ClCompile Include="pull_quant.cpp" />
+    <ClCompile Include="push_app_ite.cpp" />
+    <ClCompile Include="purify_arith_tactic.cpp" />
+    <ClCompile Include="qe.cpp" />
+    <ClCompile Include="qe_cmd.cpp" />
+    <ClCompile Include="qe_array_plugin.cpp" />
+    <ClCompile Include="qe_arith_plugin.cpp" />
+    <ClCompile Include="qe_bool_plugin.cpp" />
+    <ClCompile Include="qe_bv_plugin.cpp" />
+    <ClCompile Include="qe_datatype_plugin.cpp" />
+    <ClCompile Include="qe_dl_plugin.cpp" />
+    <ClCompile Include="qe_sat_tactic.cpp" />
+    <ClCompile Include="qe_tactic.cpp" />
+    <ClCompile Include="qffpa_tactic.cpp" />
+    <ClCompile Include="qfnia_tactic.cpp" />
+    <ClCompile Include="qfnra_tactic.cpp" />
+    <ClCompile Include="qfnra_nlsat_tactic.cpp" />
+    <ClCompile Include="qfaufbv_tactic.cpp" />
+    <ClCompile Include="qfauflia_tactic.cpp" />
+    <ClCompile Include="qfidl_tactic.cpp" />
+    <ClCompile Include="qfuf_tactic.cpp" />
+    <ClCompile Include="qfbv_tactic.cpp" />
+    <ClCompile Include="qfufbv_tactic.cpp" />
+    <ClCompile Include="qflia_tactic.cpp" />
+    <ClCompile Include="qflra_tactic.cpp" />
+    <ClCompile Include="qi_queue.cpp" />
+    <ClCompile Include="quant_hoist.cpp" />
+    <ClCompile Include="quant_tactics.cpp" />
+    <ClCompile Include="quasi_macros.cpp" />
+    <ClCompile Include="rational.cpp" />
+    <ClCompile Include="recover_01_tactic.cpp" />
+    <ClCompile Include="reduce_args.cpp" />
+    <ClCompile Include="reduce_args_tactic.cpp" />
+    <ClCompile Include="region.cpp" />
+    <ClCompile Include="replace_proof_converter.cpp" />
+    <ClCompile Include="rewriter.cpp" />
+    <ClCompile Include="rpolynomial.cpp" />
+    <ClCompile Include="seq_decl_plugin.cpp" />
+    <ClCompile Include="sls_tactic.cpp" />
+    <ClCompile Include="symmetry_reduce_tactic.cpp" />
+    <ClCompile Include="s_integer.cpp" />
+    <ClCompile Include="scanner.cpp" />
+    <ClCompile Include="scoped_timer.cpp" />
+    <ClCompile Include="scoped_ctrl_c.cpp" />
+    <ClCompile Include="shallow_context_simplifier.cpp" />
+    <ClCompile Include="shared_occs.cpp" />
+    <ClCompile Include="simple_parser.cpp" />
+    <ClCompile Include="simplifier.cpp" />
+    <ClCompile Include="simplifier_plugin.cpp" />
+    <ClCompile Include="simplify_cmd.cpp" />
+    <ClCompile Include="simplify_tactic.cpp" />
+    <ClCompile Include="split_clause_tactic.cpp" />
+    <ClCompile Include="small_object_allocator.cpp" />
+    <ClCompile Include="sat_asymm_branch.cpp" />
+    <ClCompile Include="sat_clause.cpp" />
+    <ClCompile Include="sat_clause_set.cpp" />
+    <ClCompile Include="sat_clause_use_list.cpp" />
+    <ClCompile Include="sat_cleaner.cpp" />
+    <ClCompile Include="sat_iff3_finder.cpp" />
+    <ClCompile Include="sat_probing.cpp" />
+    <ClCompile Include="sat_solver.cpp" />
+    <ClCompile Include="sat_solver_strategy.cpp" />
+    <ClCompile Include="sat_tactic.cpp" />
+    <ClCompile Include="sat_config.cpp" />
+    <ClCompile Include="sat_elim_eqs.cpp" />
+    <ClCompile Include="sat_integrity_checker.cpp" />
+    <ClCompile Include="sat_model_converter.cpp" />
+    <ClCompile Include="sat_scc.cpp" />
+    <ClCompile Include="sat_simplifier.cpp" />
+    <ClCompile Include="sat_watched.cpp" />
+    <ClCompile Include="sexpr.cpp" />
+    <ClCompile Include="sexpr2upolynomial.cpp" />
+    <ClCompile Include="solve_eqs_tactic.cpp" />
+    <ClCompile Include="smt_arith.cpp" />
+    <ClCompile Include="smt_formula_compiler.cpp" />
+    <ClCompile Include="smt_solver.cpp" />
+    <ClCompile Include="smt_solver_exp.cpp" />
+    <ClCompile Include="smt_solver_strategy.cpp" />
+    <ClCompile Include="smt_strategic_solver.cpp" />
+    <ClCompile Include="smt_almost_cg_table.cpp" />
+    <ClCompile Include="smt_case_split_queue.cpp" />
+    <ClCompile Include="smt_cg_table.cpp" />
+    <ClCompile Include="smt_checker.cpp" />
+    <ClCompile Include="smt_clause.cpp" />
+    <ClCompile Include="smt_conflict_resolution.cpp" />
+    <ClCompile Include="smt_euf.cpp" />
+    <ClCompile Include="smt_context.cpp" />
+    <ClCompile Include="smt_context_inv.cpp" />
+    <ClCompile Include="smt_context_pp.cpp" />
+    <ClCompile Include="smt_context_stat.cpp" />
+    <ClCompile Include="smt_enode.cpp" />
+    <ClCompile Include="smt_for_each_relevant_expr.cpp" />
+    <ClCompile Include="smt_implied_equalities.cpp" />
+    <ClCompile Include="smt_internalizer.cpp" />
+    <ClCompile Include="smt_justification.cpp" />
+    <ClCompile Include="smt_literal.cpp" />
+    <ClCompile Include="smt_model_finder.cpp" />
+    <ClCompile Include="smt_model_generator.cpp" />
+    <ClCompile Include="smt_model_checker.cpp" />
+    <ClCompile Include="smt_params.cpp" />
+    <ClCompile Include="smt_quantifier_stat.cpp" />
+    <ClCompile Include="smt_quantifier.cpp" />
+    <ClCompile Include="smt_quick_checker.cpp" />
+    <ClCompile Include="smt_relevancy.cpp" />
+    <ClCompile Include="smt_setup.cpp" />
+    <ClCompile Include="smt_statistics.cpp" />
+    <ClCompile Include="smt_tactic.cpp" />
+    <ClCompile Include="smt_theory.cpp" />
+    <ClCompile Include="smtlib.cpp" />
+    <ClCompile Include="smtlib_solver.cpp" />
+    <ClCompile Include="smtparser.cpp" />
+    <ClCompile Include="smt2scanner.cpp" />
+    <ClCompile Include="smt2parser.cpp" />
+    <ClCompile Include="solver.cpp" />
+    <ClCompile Include="spc_asserted_literals.cpp" />
+    <ClCompile Include="spc_clause.cpp" />
+    <ClCompile Include="spc_clause_selection.cpp" />
+    <ClCompile Include="spc_context.cpp" />
+    <ClCompile Include="spc_decl_plugin.cpp" />
+    <ClCompile Include="spc_der.cpp" />
+    <ClCompile Include="spc_eq_resolution.cpp" />
+    <ClCompile Include="spc_factoring.cpp" />
+    <ClCompile Include="spc_justification.cpp" />
+    <ClCompile Include="spc_literal.cpp" />
+    <ClCompile Include="spc_literal_selection.cpp" />
+    <ClCompile Include="spc_params.cpp" />
+    <ClCompile Include="spc_prover.cpp" />
+    <ClCompile Include="spc_rewriter.cpp" />
+    <ClCompile Include="spc_semantic_tautology.cpp" />
+    <ClCompile Include="spc_statistics.cpp" />
+    <ClCompile Include="spc_subsumption.cpp" />
+    <ClCompile Include="spc_superposition.cpp" />
+    <ClCompile Include="spc_unary_inference.cpp" />
+    <ClCompile Include="st2tactic.cpp" />
+    <ClCompile Include="stack.cpp" />
+    <ClCompile Include="static_features.cpp" />
+    <ClCompile Include="statistics.cpp" />
+    <ClCompile Include="strategy_exception.cpp" />
+    <ClCompile Include="strategic_solver.cpp" />
+    <ClCompile Include="struct_factory.cpp" />
+    <ClCompile Include="subpaving.cpp" />
+    <ClCompile Include="subpaving_cmds.cpp" />
+    <ClCompile Include="subpaving_tactic.cpp" />
+    <ClCompile Include="subpaving_mpq.cpp" />
+    <ClCompile Include="subpaving_mpf.cpp" />
+    <ClCompile Include="subpaving_mpff.cpp" />
+    <ClCompile Include="subpaving_mpfx.cpp" />
+    <ClCompile Include="subpaving_hwf.cpp" />
+    <ClCompile Include="substitution.cpp" />
+    <ClCompile Include="substitution_tree.cpp" />
+    <ClCompile Include="symbol.cpp" />
+    <ClCompile Include="tactic.cpp" />
+    <ClCompile Include="tactic2solver.cpp" />
+    <ClCompile Include="tactical.cpp" />
+    <ClCompile Include="tactic_exception.cpp" />
+    <ClCompile Include="tactic_cmds.cpp" />
+    <ClCompile Include="tactic_manager.cpp" />
+    <ClCompile Include="theory_arith.cpp" />
+    <ClCompile Include="theory_arith_params.cpp" />
+    <ClCompile Include="theory_array.cpp" />
+    <ClCompile Include="theory_array_base.cpp" />
+    <ClCompile Include="theory_array_full.cpp" />
+    <ClCompile Include="theory_bv.cpp" />
+    <ClCompile Include="theory_datatype.cpp" />
+    <ClCompile Include="theory_dense_diff_logic.cpp" />
+    <ClCompile Include="theory_diff_logic.cpp" />
+    <ClCompile Include="theory_dl.cpp" />
+    <ClCompile Include="theory_dummy.cpp" />
+    <ClCompile Include="theory_instgen.cpp" />
+    <ClCompile Include="th_rewriter.cpp" />
+    <ClCompile Include="timeit.cpp" />
+    <ClCompile Include="timeout.cpp" />
+    <ClCompile Include="timer.cpp" />
+    <ClCompile Include="trace.cpp" />
+    <ClCompile Include="tseitin_cnf_tactic.cpp" />
+    <ClCompile Include="ufbv_strategy.cpp" />
+    <ClCompile Include="unifier.cpp" />
+    <ClCompile Include="unit_subsumption_tactic.cpp" />
+    <ClCompile Include="upolynomial_factorization.cpp" />
+    <ClCompile Include="user_rewriter.cpp" />
+    <ClCompile Include="use_list.cpp" />
+    <ClCompile Include="used_vars.cpp" />
+    <ClCompile Include="user_decl_plugin.cpp" />
+    <ClCompile Include="user_simplifier_plugin.cpp" />
+    <ClCompile Include="user_smt_theory.cpp" />
+    <ClCompile Include="uses_theory.cpp" />
+    <ClCompile Include="util.cpp" />
+    <ClCompile Include="value_factory.cpp" />
+    <ClCompile Include="var_subst.cpp" />
+    <ClCompile Include="vsubst_tactic.cpp" />
+    <ClCompile Include="upolynomial.cpp" />
+    <ClCompile Include="warning.cpp" />
+    <ClCompile Include="watch_list.cpp" />
+    <ClCompile Include="well_sorted.cpp" />
+    <ClCompile Include="z3_exception.cpp" />
+    <ClCompile Include="z3_replayer.cpp" />
+    <ClCompile Include="z3_solver.cpp" />
+    <ClCompile Include="z3_solver_params.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="approx_nat.h" />
+    <ClInclude Include="approx_set.h" />
+    <ClInclude Include="arith_decl_plugin.h" />
+    <ClInclude Include="arith_eq_adapter.h" />
+    <ClInclude Include="arith_eq_solver.h" />
+    <ClInclude Include="arith_simplifier_params.h" />
+    <ClInclude Include="arith_simplifier_plugin.h" />
+    <ClInclude Include="arith_solver_plugin.h" />
+    <ClInclude Include="arith_bounds_tactic.h" />
+    <ClInclude Include="array_axiom.h" />
+    <ClInclude Include="array_decl_plugin.h" />
+    <ClInclude Include="array_factory.h" />
+    <ClInclude Include="array_map.h" />
+    <ClInclude Include="array_simplifier_plugin.h" />
+    <ClInclude Include="asserted_formulas.h" />
+    <ClInclude Include="ast.h" />
+    <ClInclude Include="ast_dag_pp.h" />
+    <ClInclude Include="ast_fido.h" />
+    <ClInclude Include="ast_ll_pp.h" />
+    <ClInclude Include="ast_mpi_serialization.h" />
+    <ClInclude Include="ast_pp.h" />
+    <ClInclude Include="ast_serialization.h" />
+    <ClInclude Include="ast_smt_pp.h" />
+    <ClInclude Include="ast_translation.h" />
+    <ClInclude Include="ast_util.h" />
+    <ClInclude Include="base_simplifier.h" />
+    <ClInclude Include="basic_simplifier_plugin.h" />
+    <ClInclude Include="big_rational.h" />
+    <ClInclude Include="bit_blaster.h" />
+    <ClInclude Include="bit_blaster_params.h" />
+    <ClInclude Include="bit_blaster_rewriter.h" />
+    <ClInclude Include="bit_vector.h" />
+    <ClInclude Include="buffer.h" />
+    <ClInclude Include="bv2int_rewriter.h" />
+    <ClInclude Include="bv2real_rewriter.h" />
+    <ClInclude Include="bv_decl_plugin.h" />
+    <ClInclude Include="bv_elim.h" />
+    <ClInclude Include="bv_simplifier_params.h" />
+    <ClInclude Include="bv_simplifier_plugin.h" />
+    <ClInclude Include="cached_var_subst.h" />
+    <ClInclude Include="cnf.h" />
+    <ClInclude Include="cnf_params.h" />
+    <ClInclude Include="contains_var.h" />
+    <ClInclude Include="cost_evaluator.h" />
+    <ClInclude Include="cost_parser.h" />
+    <ClInclude Include="database.h" />
+    <ClInclude Include="datalog_parser.h" />
+    <ClInclude Include="datatype_decl_plugin.h" />
+    <ClInclude Include="datatype_factory.h" />
+    <ClInclude Include="datatype_simplifier_plugin.h" />
+    <ClInclude Include="debug.h" />
+    <ClInclude Include="defined_names.h" />
+    <ClInclude Include="dependency.h" />
+    <ClInclude Include="der.h" />
+    <ClInclude Include="diff_logic.h" />
+    <ClInclude Include="dl_decl_plugin.h" />
+    <ClInclude Include="dl_mk_bit_blast.h" />
+    <ClInclude Include="dl_mk_slice.h" />
+    <ClInclude Include="dl_mk_coi_filter.h" />
+    <ClInclude Include="dl_mk_explanations.h" />
+    <ClInclude Include="dl_mk_partial_equiv.h" />
+    <ClInclude Include="dl_external_relation.h" />
+    <ClInclude Include="dl_finite_product_relation.h" />
+    <ClInclude Include="dl_mk_interp_tail_simplifier.h" />
+    <ClInclude Include="dl_mk_magic_sets.h" />
+    <ClInclude Include="dl_mk_rule_inliner.h" />
+    <ClInclude Include="dl_mk_similarity_compressor.h" />
+    <ClInclude Include="dl_mk_subsumption_checker.h" />
+    <ClInclude Include="dl_mk_unbound_compressor.h" />
+    <ClInclude Include="dl_relation_manager.h" />
+    <ClInclude Include="dl_product_relation.h" />
+    <ClInclude Include="dl_rule_subsumption_index.h" />
+    <ClInclude Include="dl_sieve_relation.h" />
+    <ClInclude Include="dl_rewriter.h" />
+    <ClInclude Include="dl_skip_table.h" />
+    <ClInclude Include="dl_smt_relation.h" />
+    <ClInclude Include="dl_sparse_table.h" />
+    <ClInclude Include="dl_table_relation.h" />
+    <ClInclude Include="dl_bound_relation.h" />
+    <ClInclude Include="dl_check_table.h" />
+    <ClInclude Include="dl_compiler.h" />
+    <ClInclude Include="dl_context.h" />
+    <ClInclude Include="dl_costs.h" />
+    <ClInclude Include="dl_instruction.h" />
+    <ClInclude Include="dl_interval_relation.h" />
+    <ClInclude Include="dl_mk_filter_rules.h" />
+    <ClInclude Include="dl_mk_simple_joins.h" />
+    <ClInclude Include="dl_rule.h" />
+    <ClInclude Include="dl_rule_set.h" />
+    <ClInclude Include="dl_rule_transformer.h" />
+    <ClInclude Include="dl_table.h" />
+    <ClInclude Include="dl_base.h" />
+    <ClInclude Include="dl_bmc_engine.h" />
+    <ClInclude Include="dl_util.h" />
+    <ClInclude Include="dl_vector_relation.h" />
+    <ClInclude Include="dummy_big_rational.h" />
+    <ClInclude Include="dyn_ack.h" />
+    <ClInclude Include="dyn_ack_params.h" />
+    <ClInclude Include="eager_bit_blaster.h" />
+    <ClInclude Include="elim_bounds.h" />
+    <ClInclude Include="elim_term_ite.h" />
+    <ClInclude Include="error_codes.h" />
+    <ClInclude Include="expr2dot.h" />
+    <ClInclude Include="expr_abstract.h" />
+    <ClInclude Include="expr_context_simplifier.h" />
+    <ClInclude Include="expr_delta.h" />
+    <ClInclude Include="expr_delta_pair.h" />
+    <ClInclude Include="expr_functors.h" />
+    <ClInclude Include="expr_map.h" />
+    <ClInclude Include="expr_offset.h" />
+    <ClInclude Include="expr_offset_map.h" />
+    <ClInclude Include="expr_pattern_match.h" />
+    <ClInclude Include="expr_rand.h" />
+    <ClInclude Include="expr_stat.h" />
+    <ClInclude Include="expr_weight.h" />
+    <ClInclude Include="ext_gcd.h" />
+    <ClInclude Include="factor_rewriter.h" />
+    <ClInclude Include="fingerprints.h" />
+    <ClInclude Include="fixed_buffer.h" />
+    <ClInclude Include="for_each_ast.h" />
+    <ClInclude Include="for_each_expr.h" />
+    <ClInclude Include="format.h" />
+    <ClInclude Include="fpa2bv_converter.h" />
+    <ClInclude Include="fpa2bv_tactic.h" />
+    <ClInclude Include="front_end_params.h" />
+    <ClInclude Include="fvi.h" />
+    <ClInclude Include="fvi_def.h" />
+    <ClInclude Include="grobner.h" />
+    <ClInclude Include="has_free_vars.h" />
+    <ClInclude Include="hash.h" />
+    <ClInclude Include="hashtable.h" />
+    <ClInclude Include="heap.h" />
+    <ClInclude Include="horn_subsume_model_converter.h" />
+    <ClInclude Include="id_gen.h" />
+    <ClInclude Include="imdd.h" />
+    <ClInclude Include="inf_int_rational.h" />
+    <ClInclude Include="inf_rational.h" />
+    <ClInclude Include="inf_s_integer.h" />
+    <ClInclude Include="ini_file.h" />
+    <ClInclude Include="inj_axiom.h" />
+    <ClInclude Include="instruction_count.h" />
+    <ClInclude Include="old_interval.h" />
+    <ClInclude Include="interval_skip_list.h" />
+    <ClInclude Include="kbo.h" />
+    <ClInclude Include="lbool.h" />
+    <ClInclude Include="list.h" />
+    <ClInclude Include="lockless_queue.h" />
+    <ClInclude Include="lpo.h" />
+    <ClInclude Include="luby.h" />
+    <ClInclude Include="machine.h" />
+    <ClInclude Include="macro_expansion.h" />
+    <ClInclude Include="mam.h" />
+    <ClInclude Include="map.h" />
+    <ClInclude Include="marker.h" />
+    <ClInclude Include="matcher.h" />
+    <ClInclude Include="maximise_ac_sharing.h" />
+    <ClInclude Include="mem_stat.h" />
+    <ClInclude Include="memory_manager.h" />
+    <ClInclude Include="model.h" />
+    <ClInclude Include="model_params.h" />
+    <ClInclude Include="model2expr.h" />
+    <ClInclude Include="mpbq.h" />
+    <ClInclude Include="mpq.h" />
+    <ClInclude Include="mpz.h" />
+    <ClInclude Include="nat_set.h" />
+    <ClInclude Include="nlarith_util.h" />
+    <ClInclude Include="nnf.h" />
+    <ClInclude Include="nnf_params.h" />
+    <ClInclude Include="normalize_vars.h" />
+    <ClInclude Include="num_occurs.h" />
+    <ClInclude Include="numeral_factory.h" />
+    <ClInclude Include="obj_hashtable.h" />
+    <ClInclude Include="obj_mark.h" />
+    <ClInclude Include="obj_pair_hashtable.h" />
+    <ClInclude Include="obj_ref.h" />
+    <ClInclude Include="occurs.h" />
+    <ClInclude Include="optional.h" />
+    <ClInclude Include="order.h" />
+    <ClInclude Include="order_params.h" />
+    <ClInclude Include="parameters.h" />
+    <ClInclude Include="parser_params.h" />
+    <ClInclude Include="patricia.h" />
+    <ClInclude Include="pattern_inference.h" />
+    <ClInclude Include="pattern_inference_params.h" />
+    <ClInclude Include="pattern_validation.h" />
+    <ClInclude Include="pb2bv_model_converter.h" />
+    <ClInclude Include="pb2bv_tactic.h" />
+    <ClInclude Include="pdr_context.h" />
+    <ClInclude Include="pdr_dl.h" />
+    <ClInclude Include="pdr_dl_interface.h" />
+    <ClInclude Include="pdr_farkas_learner.h" />
+    <ClInclude Include="pdr_interpolant_provider.h" />
+    <ClInclude Include="pdr_manager.h" />
+    <ClInclude Include="pdr_quantifiers.h" />
+    <ClInclude Include="pdr_rc_task.h" />
+    <ClInclude Include="pdr_relation.h" />
+    <ClInclude Include="pdr_smt_context_manager.h" />
+    <ClInclude Include="pdr_util.h" />
+    <ClInclude Include="pdr_prop_solver.h" />
+    <ClInclude Include="pdr_reachable_cache.h" />
+    <ClInclude Include="pdr_sym_mux.h" />
+    <ClInclude Include="plugin_manager.h" />
+    <ClInclude Include="polynomial_factorization.h" />
+    <ClInclude Include="poly_simplifier_plugin.h" />
+    <ClInclude Include="pool.h" />
+    <ClInclude Include="pop_scopes.h" />
+    <ClInclude Include="pp.h" />
+    <ClInclude Include="pp_params.h" />
+    <ClInclude Include="precedence.h" />
+    <ClInclude Include="preprocessor.h" />
+    <ClInclude Include="preprocessor_params.h" />
+    <ClInclude Include="proof_checker.h" />
+    <ClInclude Include="pull_ite_tree.h" />
+    <ClInclude Include="pull_quant.h" />
+    <ClInclude Include="push_app_ite.h" />
+    <ClInclude Include="qe_sat_tactic.h" />
+    <ClInclude Include="qfnra_sign.h" />
+    <ClInclude Include="qfuf_strategy.h" />
+    <ClInclude Include="qi_params.h" />
+    <ClInclude Include="qi_queue.h" />
+    <ClInclude Include="quant_hoist.h" />
+    <ClInclude Include="rational.h" />
+    <ClInclude Include="recurse_expr.h" />
+    <ClInclude Include="recurse_expr_def.h" />
+    <ClInclude Include="ref.h" />
+    <ClInclude Include="ref_buffer.h" />
+    <ClInclude Include="ref_vector.h" />
+    <ClInclude Include="region.h" />
+    <ClInclude Include="replace_proof_converter.h" />
+    <ClInclude Include="resource.h" />
+    <ClInclude Include="resource_limit.h" />
+    <ClInclude Include="sls_tactic.h" />
+    <ClInclude Include="s_integer.h" />
+    <ClInclude Include="sat.h" />
+    <ClInclude Include="sat_def.h" />
+    <ClInclude Include="sat_types.h" />
+    <ClInclude Include="scanner.h" />
+    <ClInclude Include="simple_parser.h" />
+    <ClInclude Include="simplifier.h" />
+    <ClInclude Include="simplifier_plugin.h" />
+    <ClInclude Include="small_object_allocator.h" />
+    <ClInclude Include="smt_almost_cg_table.h" />
+    <ClInclude Include="smt_b_justification.h" />
+    <ClInclude Include="smt_bool_var_data.h" />
+    <ClInclude Include="smt_case_split_queue.h" />
+    <ClInclude Include="smt_cg_table.h" />
+    <ClInclude Include="smt_checker.h" />
+    <ClInclude Include="smt_classifier.h" />
+    <ClInclude Include="smt_clause.h" />
+    <ClInclude Include="smt_conflict_resolution.h" />
+    <ClInclude Include="smt_context.h" />
+    <ClInclude Include="smt_enode.h" />
+    <ClInclude Include="smt_eq_justification.h" />
+    <ClInclude Include="smt_for_each_relevant_expr.h" />
+    <ClInclude Include="smt_implied_equalities.h" />
+    <ClInclude Include="smt_justification.h" />
+    <ClInclude Include="smt_literal.h" />
+    <ClInclude Include="smt_model_cheker.h" />
+    <ClInclude Include="smt_model_generator.h" />
+    <ClInclude Include="smt_params.h" />
+    <ClInclude Include="smt_progress_callback.h" />
+    <ClInclude Include="smt_quantifier_instances.h" />
+    <ClInclude Include="smt_quantifier_stat.h" />
+    <ClInclude Include="smt_relevancy.h" />
+    <ClInclude Include="smt_setup.h" />
+    <ClInclude Include="smt_statistics.h" />
+    <ClInclude Include="smt_theory.h" />
+    <ClInclude Include="smt_theory_var_list.h" />
+    <ClInclude Include="smt_trail.h" />
+    <ClInclude Include="smt_types.h" />
+    <ClInclude Include="smtlib.h" />
+    <ClInclude Include="smtlib_solver.h" />
+    <ClInclude Include="smtparser.h" />
+    <ClInclude Include="solver_plugin.h" />
+    <ClInclude Include="sparse_use_list.h" />
+    <ClInclude Include="spc_asserted_literals.h" />
+    <ClInclude Include="spc_clause.h" />
+    <ClInclude Include="spc_clause_pos_set.h" />
+    <ClInclude Include="spc_clause_selection.h" />
+    <ClInclude Include="spc_context.h" />
+    <ClInclude Include="spc_decl_plugin.h" />
+    <ClInclude Include="spc_der.h" />
+    <ClInclude Include="spc_eq_resolution.h" />
+    <ClInclude Include="spc_factoring.h" />
+    <ClInclude Include="spc_justification.h" />
+    <ClInclude Include="spc_literal.h" />
+    <ClInclude Include="spc_literal_selection.h" />
+    <ClInclude Include="spc_params.h" />
+    <ClInclude Include="spc_prover.h" />
+    <ClInclude Include="spc_rewriter.h" />
+    <ClInclude Include="spc_semantic_tautology.h" />
+    <ClInclude Include="spc_statistics.h" />
+    <ClInclude Include="spc_subsumption.h" />
+    <ClInclude Include="spc_superposition.h" />
+    <ClInclude Include="spc_unary_inference.h" />
+    <ClInclude Include="splay_tree.h" />
+    <ClInclude Include="splay_tree_def.h" />
+    <ClInclude Include="splay_tree_map.h" />
+    <ClInclude Include="static_features.h" />
+    <ClInclude Include="stopwatch.h" />
+    <ClInclude Include="str_hashtable.h" />
+    <ClInclude Include="stream_buffer.h" />
+    <ClInclude Include="string_buffer.h" />
+    <ClInclude Include="struct_factory.h" />
+    <ClInclude Include="substitution.h" />
+    <ClInclude Include="substitution_tree.h" />
+    <ClInclude Include="symbol.h" />
+    <ClInclude Include="symbol_table.h" />
+    <ClInclude Include="theory_arith.h" />
+    <ClInclude Include="theory_arith_aux.h" />
+    <ClInclude Include="theory_arith_core.h" />
+    <ClInclude Include="theory_arith_def.h" />
+    <ClInclude Include="theory_arith_eq.h" />
+    <ClInclude Include="theory_arith_int.h" />
+    <ClInclude Include="theory_arith_inv.h" />
+    <ClInclude Include="theory_arith_nl.h" />
+    <ClInclude Include="theory_arith_params.h" />
+    <ClInclude Include="theory_arith_pp.h" />
+    <ClInclude Include="theory_array.h" />
+    <ClInclude Include="theory_array_base.h" />
+    <ClInclude Include="theory_array_full.h" />
+    <ClInclude Include="theory_array_params.h" />
+    <ClInclude Include="theory_bv.h" />
+    <ClInclude Include="theory_bv_params.h" />
+    <ClInclude Include="theory_datatype.h" />
+    <ClInclude Include="theory_datatype_params.h" />
+    <ClInclude Include="theory_dense_diff_logic.h" />
+    <ClInclude Include="theory_dense_diff_logic_def.h" />
+    <ClInclude Include="theory_diff_logic.h" />
+    <ClInclude Include="theory_diff_logic_def.h" />
+    <ClInclude Include="theory_dummy.h" />
+    <ClInclude Include="theory_instgen.h" />
+    <ClInclude Include="timeit.h" />
+    <ClInclude Include="timeout.h" />
+    <ClInclude Include="timer.h" />
+    <ClInclude Include="total_order.h" />
+    <ClInclude Include="tptr.h" />
+    <ClInclude Include="trace.h" />
+    <ClInclude Include="trail.h" />
+    <ClInclude Include="trans_axiom.h" />
+    <ClInclude Include="uint_set.h" />
+    <ClInclude Include="unifier.h" />
+    <ClInclude Include="union_find.h" />
+    <ClInclude Include="unit_subsumption_tactic.h" />
+    <ClInclude Include="upolynomial.h" />
+    <ClInclude Include="use_list.h" />
+    <ClInclude Include="used_vars.h" />
+    <ClInclude Include="user_decl_plugin.h" />
+    <ClInclude Include="uses_theory.h" />
+    <ClInclude Include="util.h" />
+    <ClInclude Include="value.h" />
+    <ClInclude Include="value_compiler_extension.h" />
+    <ClInclude Include="value_factory.h" />
+    <ClInclude Include="var_offset_map.h" />
+    <ClInclude Include="var_subst.h" />
+    <ClInclude Include="vector.h" />
+    <ClInclude Include="version.h" />
+    <ClInclude Include="used_symbols.h" />
+    <ClInclude Include="warning.h" />
+    <ClInclude Include="watch_list.h" />
+    <ClInclude Include="well_sorted.h" />
+    <ClInclude Include="y.tab.h" />
+    <ClInclude Include="z3.h" />
+    <ClInclude Include="z3_api.h" />
+    <ClInclude Include="z3_private.h" />
+    <ClInclude Include="z3_solver.h" />
+    <ClInclude Include="z3_solver_params.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram1.cd" />
+    <None Include="ReadMe.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

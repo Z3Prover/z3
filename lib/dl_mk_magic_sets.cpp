@@ -1,0 +1,395 @@
+/*++
+Copyright (c) 2006 Microsoft Corporation
+
+Module Name:
+
+    dl_mk_magic_sets.cpp
+
+Abstract:
+
+    <abstract>
+
+Author:
+
+    Krystof Hoder (t-khoder) 2010-10-04.
+
+Revision History:
+
+--*/
+
+#include<utility>
+#include<sstream>
+#include"ast_pp.h"
+#include"dl_mk_magic_sets.h"
+
+namespace datalog {
+
+    mk_magic_sets::mk_magic_sets(context & ctx, rule * goal_rule) :
+        plugin(10000, true),
+        m_context(ctx),
+        m_manager(ctx.get_manager()),
+        m_rules(ctx.get_rule_manager()),
+        m_pinned(m_manager),
+        m_goal_rule(goal_rule, ctx.get_rule_manager()) {
+    }
+
+    void mk_magic_sets::reset() {
+        m_extentional.reset();
+        m_todo.reset();
+        m_adorned_preds.reset();
+        m_adornments.reset();
+        m_magic_preds.reset();
+        m_rules.reset();
+        m_pinned.reset();
+    }
+
+    void mk_magic_sets::adornment::populate(app * lit, const var_idx_set & bound_vars) {
+        SASSERT(empty());
+        unsigned arity = lit->get_num_args();
+        for(unsigned i=0; i<arity; i++) {
+            const expr * arg = lit->get_arg(i);
+            bool bound = !is_var(arg) || bound_vars.contains(to_var(arg)->get_idx());
+            push_back(bound ? AD_BOUND : AD_FREE);
+        }
+    }
+
+    std::string mk_magic_sets::adornment::to_string() const {
+        std::string res;
+        const_iterator eit = begin();
+        const_iterator eend = end();
+        for(; eit!=eend; ++eit) {
+            switch(*eit) {
+            case AD_BOUND:
+                res+='b';
+                break;
+            case AD_FREE:
+                res+='f';
+                break;
+            default:
+                UNREACHABLE();
+            }
+        }
+        return res;
+    }
+    
+    unsigned get_bound_arg_count(app * lit, const var_idx_set & bound_vars) {
+        unsigned res = 0;
+        unsigned n = lit->get_num_args();
+        for(unsigned i=0; i<n; i++) {
+            const expr * arg = lit->get_arg(i);
+            if(is_var(arg) && !bound_vars.contains(to_var(arg)->get_idx())) {
+                continue;
+            }
+            SASSERT(is_var(arg) || is_app(arg));
+            SASSERT(!is_app(arg) || to_app(arg)->get_num_args()==0);
+            res++;
+        }
+        return res;
+    }
+
+    float mk_magic_sets::get_unbound_cost(app * lit, const var_idx_set & bound_vars) {
+        func_decl * pred = lit->get_decl();
+        float res = 1;
+        unsigned n = lit->get_num_args();
+        for(unsigned i=0; i<n; i++) {
+            const expr * arg = lit->get_arg(i);
+            if(is_var(arg) && !bound_vars.contains(to_var(arg)->get_idx())) {
+                res*=m_context.get_sort_size_estimate(pred->get_domain(i));
+            }
+            //res-=1;
+        }
+        return res;
+    }
+
+    /**
+       \brief From \c cont which is list of indexes of tail literals of rule \c r, select
+       the index pointing to a literal with at least one bound variable that will be the next
+       bound literal in the process of creating an adorned rule. If all literals are unbound,
+       return -1.
+     */
+    int mk_magic_sets::pop_bound(unsigned_vector & cont, rule * r, const var_idx_set & bound_vars) {
+        float best_cost;
+        int candidate_index = -1;
+        unsigned n = cont.size();
+        for(unsigned i=0; i<n; i++) {
+            app * lit = r->get_tail(cont[i]);
+            unsigned bound_cnt = get_bound_arg_count(lit, bound_vars);
+            if(bound_cnt==0) {
+                continue;
+            }
+            float cost = get_unbound_cost(lit, bound_vars);
+            if(candidate_index==-1 || cost<best_cost) {
+                best_cost = cost;
+                candidate_index = i;
+            }
+        }
+        if(candidate_index==-1) {
+            return -1;
+        }
+        if(candidate_index != static_cast<int>(n-1)) {
+            std::swap(cont[candidate_index], cont[n-1]);
+        }
+        unsigned res = cont.back();
+        cont.pop_back();
+        return res;
+    }
+
+    app * mk_magic_sets::adorn_literal(app * lit, const var_idx_set & bound_vars) {
+        SASSERT(!m_extentional.contains(lit->get_decl()));
+        func_decl * old_pred = lit->get_decl();
+        SASSERT(m_manager.is_bool(old_pred->get_range()));
+        adornment_desc adn(old_pred);
+        adn.m_adornment.populate(lit, bound_vars);
+        adornment_map::entry * e = m_adorned_preds.insert_if_not_there2(adn, 0);
+        func_decl * new_pred = e->get_data().m_value;
+        if(new_pred==0) {
+            std::string suffix = "ad_"+adn.m_adornment.to_string();
+            new_pred = m_context.mk_fresh_head_predicate(
+                old_pred->get_name(), symbol(suffix.c_str()), 
+                old_pred->get_arity(), old_pred->get_domain(), old_pred);
+            m_pinned.push_back(new_pred);
+            e->get_data().m_value = new_pred;
+            m_todo.push_back(adn);
+            m_adornments.insert(new_pred, adn.m_adornment);
+        }
+        app * res = m_manager.mk_app(new_pred, lit->get_args());
+        m_pinned.push_back(res);
+        return res;
+    }
+    
+    app * mk_magic_sets::create_magic_literal(app * l) {
+        func_decl * l_pred = l->get_decl();
+        SASSERT(m_manager.is_bool(l_pred->get_range()));
+        pred_adornment_map::obj_map_entry * ae = m_adornments.find_core(l_pred);
+        SASSERT(ae);
+        const adornment & adn = ae->get_data().m_value;
+
+        unsigned l_arity = l->get_num_args();
+        ptr_vector<expr> bound_args;
+        for(unsigned i=0; i<l_arity; i++) {
+            if(adn[i]==AD_BOUND) {
+                bound_args.push_back(l->get_arg(i));
+            }
+        }
+
+        pred2pred::obj_map_entry * e = m_magic_preds.insert_if_not_there2(l_pred, 0);
+        func_decl * mag_pred = e->get_data().m_value;
+        if(mag_pred==0) {
+            unsigned mag_arity = bound_args.size();
+
+            ptr_vector<sort> mag_domain;
+            for(unsigned i=0; i<l_arity; i++) {
+                if(adn[i]==AD_BOUND) {
+                    mag_domain.push_back(l_pred->get_domain(i));
+                }
+            }
+
+            mag_pred = m_context.mk_fresh_head_predicate(l_pred->get_name(), symbol("ms"), 
+                mag_arity, mag_domain.c_ptr(), l_pred);
+            m_pinned.push_back(mag_pred);
+            e->get_data().m_value = mag_pred;
+        }
+
+        app * res = m_manager.mk_app(mag_pred, bound_args.c_ptr());
+        m_pinned.push_back(res);
+        return res;
+    }
+
+    void mk_magic_sets::create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated) {
+        //TODO: maybe include relevant interpreted predicates from the original rule
+        ptr_vector<app> new_tail;
+        svector<bool> negations;
+        new_tail.push_back(create_magic_literal(head));
+        new_tail.append(tail_cnt, tail);
+        negations.push_back(false);
+        negations.append(tail_cnt, negated);
+
+        for(unsigned i=0; i<tail_cnt; i++) {
+            if(m_extentional.contains(tail[i]->get_decl())) {
+                continue;
+            }
+            app * mag_head = create_magic_literal(tail[i]);
+            rule * r = m_context.get_rule_manager().mk(mag_head, i+1, new_tail.c_ptr(), negations.c_ptr());
+            TRACE("dl", r->display(m_context,tout); );
+            m_rules.push_back(r);
+        }
+    }
+
+    void mk_magic_sets::transform_rule(const adornment & head_adornment,  rule * r) {
+        app * head = r->get_head();
+        unsigned head_len = head->get_num_args();
+        SASSERT(head_len==head_adornment.size());
+
+        var_idx_set bound_vars;
+        for(unsigned i=0; i<head_len; i++) {
+            expr * arg = head->get_arg(i);
+            if(head_adornment[i]==AD_BOUND && is_var(arg)) {
+                bound_vars.insert(to_var(arg)->get_idx());
+            }
+        }
+
+        unsigned processed_tail_len = r->get_uninterpreted_tail_size();
+        unsigned_vector exten_tails;
+        unsigned_vector inten_tails;
+        for(unsigned i=0; i<processed_tail_len; i++) {
+            app * t = r->get_tail(i);
+            if(m_extentional.contains(t->get_decl())) {
+                exten_tails.push_back(i);
+            }
+            else {
+                inten_tails.push_back(i);
+            }
+        }
+
+        ptr_vector<app> new_tail;
+        svector<bool> negations;
+        while(new_tail.size()!=processed_tail_len) {
+            bool intentional = false;
+            int curr_index = pop_bound(exten_tails, r, bound_vars);
+            if(curr_index==-1) {
+                curr_index = pop_bound(inten_tails, r,bound_vars);
+                if(curr_index!=-1) {
+                    intentional = true;
+                }
+            }
+            if(curr_index==-1) {
+                if(!exten_tails.empty()) {
+                    curr_index = exten_tails.back();
+                    exten_tails.pop_back();
+                }
+                else {
+                    SASSERT(!inten_tails.empty());
+                    curr_index = inten_tails.back();
+                    inten_tails.pop_back();
+                    intentional = true;
+                }
+            }
+            SASSERT(curr_index!=-1);
+            app * curr = r->get_tail(curr_index);
+            if(intentional) {
+                curr = adorn_literal(curr, bound_vars);
+            }
+            new_tail.push_back(curr);
+            negations.push_back(r->is_neg_tail(curr_index));
+            collect_vars(m_manager, curr, bound_vars);
+        }
+
+
+        func_decl * new_head_pred;
+        VERIFY( m_adorned_preds.find(adornment_desc(head->get_decl(), head_adornment), new_head_pred) );
+        app * new_head = m_manager.mk_app(new_head_pred, head->get_args());
+
+        SASSERT(new_tail.size()==r->get_uninterpreted_tail_size());
+        create_magic_rules(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr());
+
+        unsigned tail_len = r->get_tail_size();
+        for(unsigned i=processed_tail_len; i<tail_len; i++) {
+            new_tail.push_back(r->get_tail(i));
+            negations.push_back(r->is_neg_tail(i));
+        }
+
+        new_tail.push_back(create_magic_literal(new_head));
+        negations.push_back(false);
+
+        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr());
+        m_rules.push_back(nr);
+        nr->set_accounting_parent_object(m_context, r);
+    }
+    
+    void mk_magic_sets::create_transfer_rule(const adornment_desc & d) {
+        func_decl * adn_pred;
+        TRUSTME( m_adorned_preds.find(d, adn_pred) );
+        unsigned arity = adn_pred->get_arity();
+        SASSERT(arity==d.m_pred->get_arity());
+
+        ptr_vector<expr> args;
+        for(unsigned i=0; i<arity; i++) {
+            args.push_back(m_manager.mk_var(i, adn_pred->get_domain(i)));
+        }
+
+        app * lit = m_manager.mk_app(d.m_pred, args.c_ptr());
+        app * adn_lit = m_manager.mk_app(adn_pred, args.c_ptr());
+        app * mag_lit = create_magic_literal(adn_lit);
+
+        app * tail[] = {lit, mag_lit};
+
+        rule * r = m_context.get_rule_manager().mk(adn_lit, 2, tail, 0);
+        m_rules.push_back(r);
+    }
+
+    rule_set * mk_magic_sets::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
+        SASSERT(!mc && !pc);
+        unsigned init_rule_cnt = source.get_num_rules();
+        {
+            func_decl_set intentional;
+            for(unsigned i=0; i<init_rule_cnt; i++) {
+                intentional.insert(source.get_rule(i)->get_head()->get_decl());
+            }
+            //now we iterate through all predicates and collect the set of extentional ones
+            const rule_dependencies * deps;
+            rule_dependencies computed_deps(m_context);
+            if(source.is_closed()) {
+                deps = &source.get_dependencies();
+            }
+            else {
+                computed_deps.populate(source);
+                deps = &computed_deps;
+            }
+            rule_dependencies::iterator it = deps->begin();
+            rule_dependencies::iterator end = deps->end();
+            for(; it!=end; ++it) {
+                func_decl * pred = it->m_key;
+                if(intentional.contains(pred)) {
+                    continue;
+                }
+                SASSERT(it->m_value->empty());//extentional predicates have no dependency
+                m_extentional.insert(pred);
+            }
+        }
+
+        SASSERT(m_rules.empty());
+
+        app * goal_head = m_goal_rule->get_head();
+        //adornment goal_adn;
+        //goal_adn.populate(goal_head, );
+        var_idx_set empty_var_idx_set;
+        adorn_literal(goal_head, empty_var_idx_set);
+
+        while(!m_todo.empty()) {
+            adornment_desc task = m_todo.back();
+            m_todo.pop_back();
+            const rule_vector & pred_rules = source.get_predicate_rules(task.m_pred);
+            rule_vector::const_iterator it = pred_rules.begin();
+            rule_vector::const_iterator end = pred_rules.end();
+            for(; it!=end; ++it) {
+                rule * r = *it;
+                transform_rule(task.m_adornment, r);
+            }
+            if(!m_context.get_relation(task.m_pred).empty()) {
+                //we need a rule to copy facts that are already in a relation into the adorned
+                //relation (since out intentional predicates can have facts, not only rules)
+                create_transfer_rule(task);
+            }
+        }
+
+        app * adn_goal_head = adorn_literal(goal_head, empty_var_idx_set);
+        app * mag_goal_head = create_magic_literal(adn_goal_head);
+        SASSERT(mag_goal_head->is_ground());
+        //SASSERT(is_fact(m_manager, mag_goal_head));
+        //m_context.add_fact(mag_goal_head);
+        rule * mag_goal_rule = m_context.get_rule_manager().mk(mag_goal_head, 0, 0, 0);
+        m_rules.push_back(mag_goal_rule);
+
+        rule * back_to_goal_rule = m_context.get_rule_manager().mk(goal_head, 1, &adn_goal_head, 0);
+        m_rules.push_back(back_to_goal_rule);
+
+        rule_set * result = static_cast<rule_set *>(0);
+        result = alloc(rule_set, m_context);
+        unsigned fin_rule_cnt = m_rules.size();
+        for(unsigned i=0; i<fin_rule_cnt; i++) {
+            result->add_rule(m_rules.get(i));
+        }
+        return result;
+    }
+};
+

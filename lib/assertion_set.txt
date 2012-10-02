@@ -1,0 +1,78 @@
+
+The assertion_set class is essentially a set of formulas.
+The assertion_set copy() method is constant time. They use persistent
+arrays for "sharing" common parts.
+The goal is to provide functors (strategies) that apply transformations to these sets.
+Examples of transformations are:
+         - simplification
+         - gaussian elimination
+         - CNF, NNF, OCNF transformation
+         - bit-blasting
+         - abstraction
+         - grobner basis computation
+         - completion
+         - term rewriting
+         - bound propagation
+         - contextal simplification
+         - if-then-else lifting
+         - quantifier elimination
+         - etc
+
+A functor/strategy is essentially updating an assertion set. It may
+also provide a model_converter to convert a model for the resultant
+assertion_set into a model for the original assertion_set. See
+gaussian_elim.cpp for an example of model_converter. A functor may
+return a vector of assertion sets. It may also return a
+proof_converter for converting proofs for the resultant assertion
+set(s) into a proof for the original assertion_set.  The
+functor/strategy user is responsible for "plumbing" the
+model_converter(s) and proof_converter(s).  In the future we may have
+tacticals for combining these functors/strategies. This is not needed
+now.
+
+The idea is to provide assertion_set_solvers. They are essentially end-game
+strategies. The abstract API for them is defined at assertion_set_solver.h. 
+Currently, the only assertion_set_solver is based on smt_context.h. 
+The next one will be based on a pure SAT solver. I also have plans for 
+one based on linear programming.
+
+The main goals of the new design are:
+    - increase modularity.
+    - expose assertion_set abstraction to external users.
+    - expose these functor/strategies to external users.
+    - allow us to combine problem specific solvers in a modular way.
+    - everything can be interrupted.
+    - some actions may be resumed.
+    - clean parallel_z3 implementation.
+    - support non-satisfiability preserving transformations.
+      the basic idea is:
+        * if the transformation is an over-approximation,
+          then the model_converter must throw an exception if it
+          can't convert the model into a model for the original assertion_set.
+        * if the transformation is an under-approximation,
+          then the proof_converter must throw an exception if it 
+          can't convert the proof(s) into a proof for the original assertion_set.
+        I don't expect us to provide extensive support for proofs.
+        So, under-approximations will never really be used to show that
+        an assertion_set is unsatisfiable. 
+
+Another goal is to a solver object that is essentially invoking an
+external solver (process). I expect the external solver (in most cases) to be 
+Z3 itself.  The main advantages are: the main process is safe from crashes,
+and we can even invoke solvers in remote machines.  
+
+The new functor/strategy design is not meant for incremental solving.
+We may still have solvers that are incremental such as smt_context.h.
+
+Additional remarks:
+
+Failures and interruptions are reported using exceptions.
+Each functor must provide a cancel() method that can be invoked to
+interrupt it.  A resume() method is optional. It is a must have if the
+functor/strategy may be too time consuming.  Each functor may have its
+own set of parameters. See rewriter_params.h for an example.  The
+parameters may have options such as m_max_memory for blocking the
+executiong of the functor.  Each functor should have a cleanup()
+method that must reclaim (almost) all memory consumed by the functor.
+
+
