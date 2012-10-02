@@ -1,0 +1,5 @@
+WARNING: invalid function application, sort mismatch on argument at position 1
+WARNING: (define iff Bool Bool Bool) applied to: 
+x of sort Int
+y of sort Bool
+

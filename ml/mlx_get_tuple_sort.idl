@@ -1,0 +1,12 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_tuple_sort c ty ] \] is the pair [(mk_decl, fields)] where [mk_decl] is the constructor declaration of [ty], and [fields] is the array of fields in [ty].
+
+  - {b See also}: {!get_tuple_sort_mk_decl}
+  - {b See also}: {!get_tuple_sort_num_fields}
+  - {b See also}: {!get_tuple_sort_field_decl}
+*)
+val get_tuple_sort: context -> sort -> (func_decl * func_decl array)
+");

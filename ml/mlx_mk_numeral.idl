@@ -1,0 +1,21 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mlmli,"
+(**
+  Summary: \[ [ numeral_refined ] \] is the refined view of a numeral .
+*)
+type numeral_refined =
+  | Numeral_int      of int * sort
+  | Numeral_int64    of int64 * sort
+  | Numeral_large    of string * sort
+  | Numeral_rational of numeral_refined * numeral_refined
+");
+
+quote(mli,"
+(**
+   Summary: \[ [ embed_numeral c nr ] \] constructs the numeral described by [nr].
+
+   - {b See also}: {!numeral_refine}
+*)
+val embed_numeral: context -> numeral_refined -> ast
+");

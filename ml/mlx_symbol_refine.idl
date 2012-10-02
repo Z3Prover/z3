@@ -1,0 +1,8 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ symbol_refine c s ] \] is the refined view of [s].
+*)
+val symbol_refine: context -> symbol -> symbol_refined
+");

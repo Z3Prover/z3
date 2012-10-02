@@ -1,0 +1,11 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_array_sort c t ] \] is the domain and the range of [t].
+
+  - {b See also}: {!get_array_sort_domain}
+  - {b See also}: {!get_array_sort_range}
+*)
+val get_array_sort: context -> sort -> sort * sort
+");

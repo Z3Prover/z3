@@ -1,0 +1,69 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mlmli,"
+(**
+   A datatype constructor descriptor.
+*)
+type datatype_constructor_desc = {
+  constructor_desc : symbol;            	(** name of the constructor function *)
+  recognizer_desc : symbol;             	(** name of the recognizer function *)
+  accessor_descs : (symbol * sort) array;	(** names and sorts of the fields *)
+}
+
+(**
+   A datatype is described by a name and constructor descriptors.
+*)
+type datatype_desc = symbol * datatype_constructor_desc array
+
+(**
+   A datatype constructor representation.
+*)
+type datatype_constructor = {
+  constructor : func_decl;              	(** constructor function *)
+  recognizer : func_decl;               	(** recognizer function *)
+  accessors : func_decl array;          	(** field accessor functions *)
+}
+
+(**
+   A datatype is represented by a sort and constructors.
+*)
+type datatype = sort * datatype_constructor array
+
+(**
+   Refined view of a {!sort}.
+
+   - {b See also}: {!mk_sort}
+   - {b See also}: {!sort_refine}
+*)
+type sort_refined =
+  | Sort_uninterpreted of symbol
+  | Sort_bool
+  | Sort_int
+  | Sort_bv of int
+  | Sort_finite_domain of symbol * int64
+  | Sort_real
+  | Sort_array of sort * sort
+  | Sort_datatype of datatype_constructor array
+  | Sort_relation of sort array
+  | Sort_unknown
+");
+
+quote(mli,"
+(**
+   Summary: \[ [ mk_sort c sr ] \] constructs the sort described by [sr].
+
+   - {b Precondition}: [sr] is not of form [Sort_relation] or [Sort_unknown], which cannot be directly constructed
+   - {b See also}: {!mk_datatypes}
+   - {b See also}: {!sort_refine}
+*)
+val mk_sort: context -> sort_refined -> sort
+
+(**
+   \[ [mk_datatypes ctx sorts_to_descriptors] \] creates mutually recursive datatypes described by
+   [sorts_to_descriptors], which is a function from the sorts of the datatypes to be created to
+   descriptors of the datatypes' constructors.
+
+   - {b See also}: {!Test_mlapi.forest_example}
+*)
+val mk_datatypes: context -> (sort array -> (datatype_desc array) option) -> datatype array
+");

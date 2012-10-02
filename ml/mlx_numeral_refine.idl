@@ -1,0 +1,10 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+   Summary: \[ [ numeral_refine c a ] \] is the refined view of [a].
+
+   - {b Precondition}: [get_ast_kind c a = NUMERAL_AST]
+*)
+val numeral_refine : context -> ast -> numeral_refined
+");

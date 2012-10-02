@@ -1,0 +1,162 @@
+/*++
+Copyright (c) Microsoft Corporation
+
+Module Name:
+
+    error_handling
+
+Abstract:
+
+    Error handling in the OCaml API for Z3.
+
+    The wrapper of each Z3 API routine that takes a Z3_context or a Z3_theory
+    argument calls check_error_code before returning.  (These calls are added
+    in generate_mlapi.cmd using the build.sed script.)
+
+    There are two error handling schemes implemented, depending on whether
+    (UN)SAFE_ERRORS is set.
+
+    - SAFE_ERRORS checks Z3_error_code after each call and raises an OCaml
+      exception in error conditions.  Z3_set_error_handler is not exposed by
+      the SAFE_ERRORS version.
+
+    - UNSAFE_ERRORS sets a Z3 error handler routine that either calls a
+      globally registered OCaml function or, by default, raises an OCaml
+      exception.  This avoids overhead of repeatedly checking
+      Z3_get_error_code, but leaves Z3 in a broken state.
+
+Notes:
+
+    The current SAFE_ERRORS implementation interacts badly with theory plugin
+    callbacks.  Z3 errors are converted into OCaml exceptions, which the
+    wrappers of theory plugin callbacks are not expecting.  Therefore, if a
+    theory plugin calls a Z3 API routine that triggers an error, an OCaml
+    exception will be raised and bypass any C++ destructors pushed onto the
+    stack by Z3 before the call to the plugin and after the preceding OCaml
+    exception handler.  One solution to this would be to modify the theory
+    plugin callback registration functions to wrap callbacks in an OCaml
+    exception handler.  Since OCaml exceptions are cheap to raise at the
+    expense of some cost to install a handler, this may not be desirable.
+    Another solution would be to modify check_error_code to detect if it is
+    executing in a plugin callback and simply maintain the Z3_error_code, or
+    raise a C++ exception, instead of raising an OCaml exception.
+
+Author:
+
+    Josh Berdine (jjb) 2012-03-21
+
+--*/
+
+
+#if !defined(UNSAFE_ERRORS) && !defined(SAFE_ERRORS)
+#define SAFE_ERRORS
+#endif
+
+
+#ifdef SAFE_ERRORS
+
+quote(mlmli,"
+(** Exceptions raised by Z3. It is safe to continue interacting with Z3 after
+    catching [Error] exceptions.
+
+    - {b See also}: {!get_error_msg}
+*)
+exception Error of context * error_code
+");
+quote(ml,"
+/* Register dynamically-generated exception tag for use from C */
+let _ = Callback.register_exception \"Z3.Error\" (Error (Obj.magic None, OK))
+");
+
+quote(c,"
+value camlidl_c2ml_z3_Z3_error_code(Z3_error_code * _c2, camlidl_ctx _ctx);
+
+/* Error checking routine that raises OCaml Error exceptions */
+void check_error_code (Z3_context c)
+{
+  static struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  value* exn_tag = NULL;
+  value ctx_err[2];
+  Z3_error_code e;
+  e = Z3_get_error_code(c);
+  if (e != Z3_OK) {
+    ctx_err[0] = c2ml_Z3_context(&c);
+    ctx_err[1] = camlidl_c2ml_z3_Z3_error_code(&e, &_ctxs);
+    exn_tag = caml_named_value(\"Z3.Error\");
+    if (*exn_tag == 0) {
+      fprintf(stderr, \"Z3.Error not found\");
+      exit(1);
+    }
+    caml_raise_with_args(*exn_tag, 2, ctx_err);
+  }
+}
+
+/* Disable default error handler, all error checking is done by check_error_code */
+void* error_handler_static = NULL;
+");
+
+#else
+
+quote(mlmli,"
+(** Exceptions raised by Z3.  {b Warning}: It is unsafe to continue
+    interacting with Z3 after catching [Error] exceptions. To recover from
+    error conditions, use {!set_error_handler} to set an error handler that
+    does nothing, and then test {!get_error_code} after every call to Z3.
+
+    - {b See also}: {!get_error_msg}
+*)
+exception Error of context * error_code
+");
+quote(ml,"
+/* Register dynamically-generated exception tag for use from C */
+let _ = Callback.register_exception \"Z3.Error\" (Error (Obj.magic None, OK))
+");
+
+quote(c,"
+/* Error checking routine that does nothing */
+void check_error_code(Z3_context c) {}
+
+/* All contexts share the same handler */
+static value caml_error_handler = 0;
+
+static void error_handler_static (Z3_context c, Z3_error_code e)
+{
+  static struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  value* exn_tag = NULL;
+  value ctx_err[2];
+  ctx_err[0] = c2ml_Z3_context(&c);
+  ctx_err[1] = camlidl_c2ml_z3_Z3_error_code(&e, &_ctxs);
+  if (caml_error_handler) {
+    caml_callback2(caml_error_handler, ctx_err[0], ctx_err[1]);
+  } else {
+    /* if no handler set, raise OCaml Error exception */
+    exn_tag = caml_named_value(\"Z3.Error\");
+    if (*exn_tag == 0) {
+      fprintf(stderr, \"Z3.Error not found\");
+      exit(1);
+    }
+    caml_raise_with_args(*exn_tag, 2, ctx_err);
+  }
+}
+
+void ml2c_Z3_error_handler (value ml_handler, void* c_handler)
+{
+  caml_error_handler = ml_handler;
+  c_handler = (void*)error_handler_static;
+}
+
+/* Never called */
+value c2ml_Z3_error_handler (void* _)
+{
+  return 0;
+}
+");
+
+typedef [mltype("context -> error_code -> unit"),
+         ml2c(ml2c_Z3_error_handler),
+         c2ml(c2ml_Z3_error_handler)
+        ] void Z3_error_handler;
+
+quote(c,"#define Z3_error_handler void*");
+
+#endif

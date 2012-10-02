@@ -1,0 +1,10 @@
+quote(mlmli,"
+type stat_datum = Stat_int of int | Stat_float of float
+type stats_refined = (string, stat_datum) Hashtbl.t
+");
+quote(mli,"
+(** 
+   Summary: [stats_refine c s] is the refined stats of [s].
+*)
+val stats_refine : context -> stats -> stats_refined
+");

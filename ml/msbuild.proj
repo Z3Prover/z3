@@ -1,0 +1,72 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <ItemGroup>
+    <MyIn Include="
+      build.sed;
+      clean.cmd;
+      diff.exe;
+      import\mldoc_footer.html;
+      import\msbig_rational.lib;
+      import\tabs.css;
+      import\test_capi.c;
+      import\test_mlapi_header.html;
+      import\z3.exe;
+      import\z3.h;
+      import\z3.png;
+      import\z3_api.h;
+      import\z3_ml.css;
+      import\z3_mlapi_header.html;
+      import\z3lib.lib;
+      import.cmd;
+      msbuild.proj;
+      queen.ml;
+      queen.regress.err;
+      queen.regress.txt;
+      readme.txt;
+      regress.cmd;
+      sed.exe;
+      test_capi.regress.err;
+      test_capi.regress.txt;
+      test_mlapi.ml;
+      test_mlapi.regress.err;
+      test_mlapi.regress.txt;
+      update-ml-doc.cmd;
+      x3.ml;
+      x3.mli;
+      z3.idl;
+      z3.proj;
+    "/>
+    <MyOut Include="
+      doc\index.html;
+      libz3.lib;
+      queen.err;
+      queen.exe;
+      queen.txt;
+      test_capi.err;
+      test_capi.exe;
+      test_capi.txt;
+      test_mlapi.err;
+      test_mlapi.exe;
+      test_mlapi.txt;
+      z3.cmi;
+      z3.cmxa;
+      z3.lib;
+      z3.mli;
+    "/>
+    <CleanDependsOn Include="MyBeforeClean"/>
+    <BuildDependsOn Include="MyBeforeBuild"/>
+  </ItemGroup>
+
+  <Target Name="MyBeforeClean">
+    <Exec Command ="clean.cmd" />
+  </Target>
+
+  <Target Name="MyBeforeBuild" 
+    Inputs="@(MyIn)"
+    Outputs="@(MyOut)" >
+    <Exec Command ="build.cmd" />
+  </Target>
+
+  <Import Project="$(SLAMSRC)\msbuild\sdv.targets" />
+
+</Project>

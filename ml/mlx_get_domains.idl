@@ -1,0 +1,11 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_domains c d ] \] is the array of parameters of [d].
+
+  - {b See also}: {!get_domain_size}
+  - {b See also}: {!get_domain}
+*)
+val get_domains: context -> func_decl -> sort array
+");

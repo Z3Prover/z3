@@ -1,0 +1,8 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+   Summary: \[ [ sort_refine c s ] \] is the refined view of [s].
+*)
+val sort_refine: context -> sort -> sort_refined
+");

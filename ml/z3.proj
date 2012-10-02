@@ -1,0 +1,11 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <ItemGroup>
+    <MLLibs Include="$(SLAMSRC)\slam\engine\slam2\z3\z3.cmxa"/>
+  </ItemGroup>
+
+  <PropertyGroup>
+    <MLFlags>$(MLFlags) -I $(SLAMSRC)\slam\engine\slam2\z3</MLFlags>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,11 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_app_args c a ] \] is the array of arguments of an application. If [t] is a constant, then the array is empty.
+
+  - {b See also}: {!get_app_num_args}
+  - {b See also}: {!get_app_arg}
+*)
+val get_app_args: context -> app -> ast array
+");

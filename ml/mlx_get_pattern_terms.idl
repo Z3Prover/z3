@@ -1,0 +1,11 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_pattern_terms c p ] \] is the ast's in pattern.
+
+  - {b See also}: {!get_pattern_num_terms}
+  - {b See also}: {!get_pattern}
+*)
+val get_pattern_terms: context -> pattern -> ast array;;
+");

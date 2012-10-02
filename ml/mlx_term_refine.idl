@@ -1,0 +1,37 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mlmli,"
+(**
+  Summary: \[ [ binder_type ] \] is a universal or existential quantifier.
+
+  - {b See also}: {!term_refined}
+*)
+type binder_type = Forall | Exists
+
+(**
+  Summary: \[ [ term_refined ] \] is the refinement of a {!ast} .
+
+  - {b See also}: {!term_refine}
+*)
+type term_refined =
+  | Term_numeral    of numeral_refined
+  | Term_app        of decl_kind * func_decl * ast array
+  | Term_quantifier of binder_type * int * ast array array * (symbol * sort) array * ast
+  | Term_var        of int * sort
+");
+
+quote(mli,"
+(**
+   Summary: \[ [ mk_term c tr ] \] constructs the term described by [tr].
+
+   - {b Precondition}: [tr] is not of form
+   - {b See also}: {!term_refine}
+*)
+(* val mk_term: context -> term_refined -> ast *)
+
+
+(**
+   Summary: \[ [ term_refine c a ] \] is the refined view of [a].
+*)
+val term_refine : context -> ast -> term_refined
+");

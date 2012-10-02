@@ -1,0 +1,32 @@
+datatype created:
+sort: tree
+constructor: (define leaf[tree:0] Int tree) recognizer: (define is_leaf[tree:0] tree Bool) accessors: (define data[tree:0:0] tree Int)
+constructor: (define node[tree:1] forest tree) recognizer: (define is_node[tree:1] tree Bool) accessors: (define children[tree:1:0] tree forest)
+sort: forest
+constructor: (define nil[forest:0] forest) recognizer: (define is_nil[forest:0] forest Bool) accessors:
+constructor: (define cons[forest:1] tree forest forest) recognizer: (define is_cons[forest:1] forest Bool) accessors: (define hd[forest:1:0] forest tree) (define tl[forest:1:1] forest forest)
+
+t1: (node (cons (leaf 1) (cons (leaf 2) nil)))
+t2: (node (cons (node (cons (leaf 1) (cons (leaf 2) nil))) (cons (leaf 3) nil)))
+t3: (node (cons (node (cons (leaf 1) (cons (leaf 2) nil)))
+            (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)))
+t4: (node (cons (leaf 4) (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)))
+f1: (cons (leaf 0) nil)
+f2: (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)
+f3: (cons (node (cons (leaf 1) (cons (leaf 2) nil))) (cons (leaf 0) nil))
+t1: (node (cons (leaf 1) (cons (leaf 2) nil)))
+t2: (node (cons (node (cons (leaf 1) (cons (leaf 2) nil))) (cons (leaf 3) nil)))
+t3: (node (cons (node (cons (leaf 1) (cons (leaf 2) nil)))
+            (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)))
+t4: (node (cons (leaf 4) (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)))
+f1: (cons (leaf 0) nil)
+f2: (cons (node (cons (leaf 1) (cons (leaf 2) nil))) nil)
+f3: (cons (node (cons (leaf 1) (cons (leaf 2) nil))) (cons (leaf 0) nil))
+valid
+valid
+l1: (cons x u)
+l2: (cons y v)
+valid
+valid
+valid
+valid

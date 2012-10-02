@@ -1,0 +1,36 @@
+quote(mlmli,"external mk_context: (string * string) list -> context = \"caml_z3_mk_context\"
+");
+// Note: lack of whitespace and comments in the previous 2 lines is important for the documentation generation
+quote(c,"
+value caml_z3_mk_context(value key_val_list)
+{
+  CAMLparam1( key_val_list );
+  CAMLlocal4( item, vkey, vval, _vres );
+  char * ckey;
+  char * cval;
+  Z3_config cfg;
+  Z3_context _res;
+  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  camlidl_ctx _ctx = &_ctxs;
+
+  cfg = Z3_mk_config();
+
+  while (key_val_list != Val_emptylist)
+  {
+    item = Field(key_val_list, 0);
+    vkey = Field(item, 0);
+    vval = Field(item, 1);
+    ckey = camlidl_malloc_string(vkey, _ctx);
+    cval = camlidl_malloc_string(vval, _ctx);
+    Z3_set_param_value(cfg, ckey, cval);
+    key_val_list = Field(key_val_list, 1);
+  }
+
+  _res = Z3_mk_context_rc(cfg);
+  Z3_del_config(cfg);
+  _vres = camlidl_c2ml_z3_Z3_context(&_res, _ctx);
+  camlidl_free(_ctx);
+  Z3_set_error_handler(_res, error_handler_static);
+  CAMLreturn(_vres);
+}
+");

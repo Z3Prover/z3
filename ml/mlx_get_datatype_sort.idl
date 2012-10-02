@@ -1,0 +1,13 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mli,"
+(**
+  Summary: \[ [ get_datatype_sort c ty ] \] is the array of triples [(constructor, recognizer, fields)] where [constructor] is the constructor declaration of [ty], [recognizer] is the recognizer for the [constructor], and [fields] is the array of fields in [ty].
+
+  - {b See also}: {!get_datatype_sort_num_constructors}
+  - {b See also}: {!get_datatype_sort_constructor}
+  - {b See also}: {!get_datatype_sort_recognizer}
+  - {b See also}: {!get_datatype_sort_constructor_accessor}
+*)
+val get_datatype_sort: context -> sort -> datatype_constructor array
+");

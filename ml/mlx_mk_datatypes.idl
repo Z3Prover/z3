@@ -1,0 +1,28 @@
+quote(mlmli,"
+(** A constructor of a datatype is described by: *)
+type datatype_constructor_desc = {
+  constructor_desc : symbol;            	(** name of the constructor function *)
+  recognizer_desc : symbol;             	(** name of the recognizer function *)
+  accessor_descs : (symbol * sort) array;	(** names and sorts of the fields *)
+}
+
+(** A datatype is described by a name and constructor descriptors. *)
+type datatype_desc = symbol * datatype_constructor_desc array
+
+(** A constructor of a datatype is represented by: *)
+type datatype_constructor = {
+  constructor : func_decl;              	(** constructor function *)
+  recognizer : func_decl;               	(** recognizer function *)
+  accessors : func_decl array;          	(** field accessor functions *)
+}
+
+(** A datatype is represented by a sort and constructors. *)
+type datatype = sort * datatype_constructor array
+");
+
+quote(mli,"
+(** [mk_datatypes ctx sorts_to_descriptors] creates mutually recursive datatypes described by
+    [sorts_to_descriptors], which is a function from the sorts of the datatypes to be created to
+    descriptors of the datatypes' constructors. {b See also}: {!Test_mlapi.forest_example} *)
+val mk_datatypes: context -> (sort array -> (datatype_desc array) option) -> datatype array
+");

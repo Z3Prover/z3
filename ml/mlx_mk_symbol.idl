@@ -1,0 +1,22 @@
+/* Copyright (c) Microsoft Corporation */
+
+quote(mlmli,"
+(**
+   Refined view of a {!symbol}.
+
+   - {b See also}: {!mk_symbol}
+   - {b See also}: {!symbol_refine}
+*)
+type symbol_refined =
+  | Symbol_int of int
+  | Symbol_string of string
+");
+
+quote(mli,"
+(**
+  Summary: \[ [ mk_symbol c sr ] \] constructs the symbol described by [sr].
+
+  - {b See also}: {!symbol_refine}
+*)
+val mk_symbol: context -> symbol_refined -> symbol
+");

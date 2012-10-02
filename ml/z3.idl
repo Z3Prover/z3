@@ -1,0 +1,607 @@
+/*++
+Copyright (c) Microsoft Corporation
+
+Module Name:
+
+    Z3
+
+Abstract:
+
+    OCaml API for Z3.
+
+    The following design is used for the treatment of reference counting:
+
+    - The conversion of Z3_context from ML to C remembers the Z3 context, and
+      registers a finalizer using Gc.finalize that calls Z3_del_context.
+
+    - The conversion of Z3_ast and other reference counted types from C to ML:
+
+      + stores the last translated context with the Z3_ast in the wrapper
+        object;
+
+      + registers a finalizer using Gc.finalize that decrements the reference
+        counter of the Z3_ast;
+
+      + increments the reference count of the Z3_ast.
+
+      The finalizers are registered using (the C interface to) Gc.finalize,
+      not attaching a finalizer to a custom block.  The finalizers registered
+      by Gc.finalize are guaranteed to be called in reverse
+      registration-order, which is necessary to ensure that Z3_context's are
+      finalized only after all the Z3_ast's within them.
+
+    - ML Z3.ast (and subtypes) are given generic hash and comparison
+      operations using Z3_get_ast_hash and Z3_get_ast_id.  Other types could
+      be handled similarly if analogous hash and id operations were exported
+      by the C API.
+
+    - The wrapper for Z3_mk_context is customized (using quote(call,...) in
+      z3_api.patched.h) to call Z3_mk_context_rc, and the ML API does not
+      include mk_context_rc.
+
+    This scheme relies on the property that all reference counted values
+    returned from C to ML are in the Z3_context that was last sent from ML to
+    C.  This is normally straightforward, but note that it depends on the
+    argument order of e.g. the Z3_*translate functions.
+
+    Non-reference counted Z3 types that have delete operations have finalizers
+    that call the delete operations.  The exposed delete operations are
+    shadowed by nop functions.  The types whose delete operation accepts a
+    context use Gc.finalize while those that do not use custom block
+    finalizers.
+
+    Custom c2ml functions check the Z3 error code prior to allocating ML
+    values or registering finalizers.  Other functions check the Z3 error code
+    after making a Z3 library call.
+
+    Some operations return NULL pointers when operations fail, or accept NULL
+    pointers.  To handle these cases Z3_{ast,func_interp,sort}_opt types are
+    introduced.  These are synonyms of Z3_{ast,func_interp,sort} but are
+    translated into OCaml option types.  If the NULL pointers were passed to
+    ML, even if the user does not access them, they will have finalizers
+    registered, so when they die the OCaml GC will crash trying to call
+    dec_ref on NULL.
+
+    There is an alternate implementation, enabled by setting LEAK_CONTEXTS,
+    that avoids the overhead of Gc.finalize finalizers, but at the price of
+    leaking Z3_context objects.
+
+Notes:
+
+    OCaml does not support unsigned types, so CamlIDL conflates signed and
+    unsigned types of the same size.  Therefore, functions in the C API
+    operating on unsigned values that become redundant after this conflation
+    are excluded from the ML API using [#ifndef CAMLIDL] in z3_api.h.
+
+    CamlIDL does not support function pointers, so functions in the C API with
+    function pointer arguments are handled manually.
+
+Author:
+
+    Jakob Lichtenberg (JakobL) 2007-08-08
+    Josh Berdine (jjb) 2012-03-21
+
+--*/
+
+
+// cpp trick to include expanded macro arguments in string literals
+#define xstr(s) str(s)
+#define str(s) #s
+quote(c,"#define xstr(s) str(s)");
+quote(c,"#define str(s) #s");
+
+
+// CamlIDL (1.05) has a bug where it does not accept [unsigned] as a type,
+// only as a specifier, so unsigned is defined to be unsigned int.
+#define unsigned unsigned int
+
+
+// Suppress "warning C4090: 'function' : different 'const' qualifiers" as
+// CamlIDL does not seem to get this right.
+quote(c,"#pragma warning(disable:4090)");
+
+
+#ifndef MLAPIV3
+
+#define DEFINE_TYPE(T) typedef [abstract] void* T
+#define DEFINE_VOID(T) typedef [abstract] void* T
+
+#define BEGIN_MLAPI_EXCLUDE quote(mli,"(*");
+#define END_MLAPI_EXCLUDE quote(mli,"*)");
+
+#ifdef LEAK_CONTEXTS
+
+  // Declare pointer type with custom conversion functions.
+  #define DEFINE_CUST_TYPE(T) \
+    typedef [abstract, ml2c(ml2c_Z3_ ## T), c2ml(c2ml_Z3_ ## T)] void* Z3_ ## T
+
+#else
+  
+  // Declare pointer type with custom conversion functions.
+  // Register an OCaml closure that just calls a C finalization function.
+  #define DEFINE_CUST_TYPE(T) \
+    quote(ml,xstr(\
+      external finalize_Z3_ ## T : T -> unit = xstr(finalize_Z3_ ## T);; \
+      let _ = Callback.register xstr(finalize_Z3_ ## T) finalize_Z3_ ## T \
+    )); \
+    typedef [abstract, ml2c(ml2c_Z3_ ## T), c2ml(c2ml_Z3_ ## T)] void* Z3_ ## T
+
+#endif
+
+
+// Z3_context
+quote(c,"
+void check_error_code (Z3_context c);
+
+Z3_context last_ctx;
+");
+
+#ifdef LEAK_CONTEXTS
+
+  quote(c,"
+  value c2ml_Z3_context(Z3_context* c)
+  {
+    value v;
+    v = caml_alloc_small(1, Abstract_tag);
+    *((Z3_context *) Bp_val(v)) = *c;
+    return v;
+  }
+
+  void ml2c_Z3_context(value v, Z3_context* c)
+  {
+    *c = *((Z3_context *) Bp_val(v));
+    last_ctx = *c;
+  }
+  ");
+
+#else
+
+  quote(c,"
+  // caml_final_register is the implementation of Gc.finalize
+  value caml_final_register (value f, value v);
+
+  void register_finalizer(value** closure, char* name, Z3_context ctx, value v)
+  {
+    if (*closure == NULL) {
+      *closure = caml_named_value(name);
+      if (*closure == NULL) {
+        Z3_set_error(ctx, Z3_INTERNAL_FATAL);
+        return;
+      }
+    }
+    caml_final_register(**closure, v);
+  }
+
+  value c2ml_Z3_context (Z3_context* c)
+  {
+    static value* finalize_Z3_context_closure = NULL;
+    value v;
+    v = caml_alloc_small(1, Abstract_tag);
+    Field(v, 0) = (value) *c;
+    register_finalizer(&finalize_Z3_context_closure, \"finalize_Z3_context\",
+                       (Z3_context) *c, v);
+    return v;
+  }
+
+  void ml2c_Z3_context (value v, Z3_context* c)
+  {
+    *c = (Z3_context) Field(v, 0);
+    last_ctx = *c;
+  }
+
+  value finalize_Z3_context (value v)
+  {
+    Z3_context c;
+    c = (Z3_context) Field(v, 0);
+    Z3_del_context(c);
+    return Val_unit;
+  }
+  ");
+
+#endif
+
+DEFINE_CUST_TYPE(context);
+
+
+// Z3_symbol
+typedef [abstract] void* Z3_symbol;
+
+
+// Z3_ast: reference counted type with hashing and comparison
+quote(c,"
+typedef struct _Z3_ast_context {
+  Z3_ast ast;
+  Z3_context ctx;
+} Z3_ast_context;
+
+void ml2c_Z3_ast (value v, Z3_ast* c)
+{
+  *c = ((Z3_ast_context*) Data_custom_val(v))->ast;
+}
+
+static int compare_Z3_ast (value v1, value v2)
+{
+  Z3_ast_context* ac1;
+  Z3_ast_context* ac2;
+  unsigned id1, id2;
+  ac1 = Data_custom_val(v1);
+  ac2 = Data_custom_val(v2);
+  id1 = Z3_get_ast_id(ac1->ctx, ac1->ast);
+  check_error_code(ac1->ctx);
+  id2 = Z3_get_ast_id(ac2->ctx, ac2->ast);
+  check_error_code(ac2->ctx);
+  return id2 - id1;
+}
+
+static intnat hash_Z3_ast (value v)
+{
+  Z3_ast_context* ac;
+  unsigned hash;
+  ac = Data_custom_val(v);
+  hash = Z3_get_ast_hash(ac->ctx, ac->ast);
+  check_error_code(ac->ctx);
+  return hash;
+}
+");
+
+#ifdef LEAK_CONTEXTS
+
+  quote(c,"
+  static void finalize_Z3_ast (value v)
+  {
+    Z3_ast_context* ac;
+    ac = Data_custom_val(v);
+    Z3_dec_ref(ac->ctx, ac->ast);
+    check_error_code(ac->ctx);
+  }
+
+  static struct custom_operations cops_Z3_ast = {
+    NULL,
+    finalize_Z3_ast,
+    compare_Z3_ast,
+    hash_Z3_ast,
+    custom_serialize_default,
+    custom_deserialize_default
+  };
+
+  value c2ml_Z3_ast (Z3_ast* c)
+  {
+    value v;
+    Z3_ast_context* ac;
+    check_error_code(last_ctx);
+    v = alloc_custom(&cops_Z3_ast, sizeof(Z3_ast_context), 0, 1);
+    ac = Data_custom_val(v);
+    ac->ctx = last_ctx;
+    ac->ast = *c;
+    Z3_inc_ref(ac->ctx, ac->ast);
+    return v;
+  }
+  ");
+
+#else
+
+  quote(c,"
+  value finalize_Z3_ast (value v)
+  {
+    Z3_ast_context* ac;
+    ac = Data_custom_val(v);
+    Z3_dec_ref(ac->ctx, ac->ast);
+    check_error_code(ac->ctx);
+    return Val_unit;
+  }
+
+  static struct custom_operations cops_Z3_ast = {
+    NULL,
+    custom_finalize_default,
+    compare_Z3_ast,
+    hash_Z3_ast,
+    custom_serialize_default,
+    custom_deserialize_default
+  };
+
+  value c2ml_Z3_ast (Z3_ast* c)
+  {
+    static value* finalize_Z3_ast_closure = NULL;
+    value v;
+    Z3_ast_context* ac;
+    check_error_code(last_ctx);
+    v = caml_alloc_custom(&cops_Z3_ast, sizeof(Z3_ast_context), 0, 1);
+    ac = Data_custom_val(v);
+    ac->ast = *c;
+    ac->ctx = last_ctx;
+    register_finalizer(&finalize_Z3_ast_closure, \"finalize_Z3_ast\",
+                       (Z3_context) *c, v);
+    Z3_inc_ref(last_ctx, *c);
+    return v;
+  }
+  ");
+
+#endif
+
+DEFINE_CUST_TYPE(ast);
+
+
+// subtypes of Z3_ast
+quote(c,"\
+#define DEFINE_SUBAST_OPS(T) \
+  void ml2c_ ## T (value v, T * a) \
+  { \
+    ml2c_Z3_ast(v, (Z3_ast*) a); \
+  } \
+ \
+  value c2ml_ ## T (T * a) \
+  { \
+    return c2ml_Z3_ast((Z3_ast*) a); \
+  } \
+");
+
+#define DEFINE_SUBAST(T) \
+  typedef [mltype("private ast"), ml2c(ml2c_ ## T), c2ml(c2ml_ ## T)] Z3_ast T
+
+quote(c,"DEFINE_SUBAST_OPS(Z3_sort)");		DEFINE_SUBAST(Z3_sort);
+quote(c,"DEFINE_SUBAST_OPS(Z3_func_decl)");	DEFINE_SUBAST(Z3_func_decl);
+quote(c,"DEFINE_SUBAST_OPS(Z3_app)");		DEFINE_SUBAST(Z3_app);
+quote(c,"DEFINE_SUBAST_OPS(Z3_pattern)");	DEFINE_SUBAST(Z3_pattern);
+
+
+// reference counted types without hashing and comparison
+#ifdef LEAK_CONTEXTS
+
+  quote(c,"\
+  #define DEFINE_RC_OPS(T) \
+    typedef struct _ ## T ## _context { \
+      T dat; \
+      Z3_context ctx; \
+    } T ## _context; \
+   \
+    static void finalize_ ## T (value v) \
+    { \
+      T ## _context* ac; \
+      ac = Data_custom_val(v); \
+      T ## _dec_ref(ac->ctx, ac->dat); \
+      check_error_code(ac->ctx); \
+    } \
+ \
+    static struct custom_operations cops_ ## T = { \
+      NULL, \
+      finalize_ ## T, \
+      custom_compare_default, \
+      custom_hash_default, \
+      custom_serialize_default, \
+      custom_deserialize_default \
+    }; \
+ \
+    value c2ml_ ## T (T * c) \
+    { \
+      value v; \
+      T ## _context* ac; \
+      check_error_code(last_ctx); \
+      v = alloc_custom(&cops_ ## T, sizeof(T ## _context), 0, 1); \
+      ac = Data_custom_val(v); \
+      ac->dat = *c; \
+      ac->ctx = last_ctx; \
+      T ## _inc_ref(ac->ctx, ac->dat); \
+      return v; \
+    } \
+ \
+    void ml2c_ ## T (value v, T * c) \
+    { \
+      *c = ((T ## _context*) Data_custom_val(v))->dat; \
+    } \
+  ");
+
+#else
+
+  quote(c,"\
+  #define DEFINE_RC_OPS(T) \
+    value c2ml_ ## T (T * c) \
+    { \
+      static value* finalize_ ## T ## _closure = NULL; \
+      value v; \
+      check_error_code(last_ctx); \
+      v = caml_alloc_small(2, Abstract_tag); \
+      Field(v, 0) = (value) *c; \
+      Field(v, 1) = (value) last_ctx; \
+      register_finalizer(&finalize_ ## T ## _closure, xstr(finalize_ ## T), \
+                         (Z3_context) *c, v); \
+      T ## _inc_ref(last_ctx, *c); \
+      return v; \
+    } \
+   \
+    void ml2c_ ## T (value v, T * c) \
+    { \
+      *c = (T) Field(v, 0); \
+    } \
+   \
+    value finalize_ ## T (value v) \
+    { \
+      Z3_context c; \
+      c = (Z3_context) Field(v, 1); \
+      T ## _dec_ref(c, (T) Field(v, 0)); \
+      check_error_code(c); \
+      return Val_unit; \
+    } \
+  ");
+
+#endif
+
+quote(c,"DEFINE_RC_OPS(Z3_params)");	   DEFINE_CUST_TYPE(params);
+quote(c,"DEFINE_RC_OPS(Z3_param_descrs)");	   DEFINE_CUST_TYPE(param_descrs);
+quote(c,"DEFINE_RC_OPS(Z3_model)");	   DEFINE_CUST_TYPE(model);
+quote(c,"DEFINE_RC_OPS(Z3_func_interp)");  DEFINE_CUST_TYPE(func_interp);
+quote(c,"DEFINE_RC_OPS(Z3_func_entry)");   DEFINE_CUST_TYPE(func_entry);
+quote(c,"DEFINE_RC_OPS(Z3_fixedpoint)");   DEFINE_CUST_TYPE(fixedpoint);
+quote(c,"DEFINE_RC_OPS(Z3_ast_vector)");   DEFINE_CUST_TYPE(ast_vector);
+quote(c,"DEFINE_RC_OPS(Z3_ast_map)");	   DEFINE_CUST_TYPE(ast_map);
+quote(c,"DEFINE_RC_OPS(Z3_goal)");	   DEFINE_CUST_TYPE(goal);
+quote(c,"DEFINE_RC_OPS(Z3_tactic)");	   DEFINE_CUST_TYPE(tactic);
+quote(c,"DEFINE_RC_OPS(Z3_probe)");	   DEFINE_CUST_TYPE(probe);
+quote(c,"DEFINE_RC_OPS(Z3_apply_result)"); DEFINE_CUST_TYPE(apply_result);
+quote(c,"DEFINE_RC_OPS(Z3_solver)");	   DEFINE_CUST_TYPE(solver);
+quote(c,"DEFINE_RC_OPS(Z3_stats)");	   DEFINE_CUST_TYPE(stats);
+
+
+// possibly-NULL pointer types, translated to OCaml option types
+quote(c,"\
+#define DEFINE_OPT_OPS(T) \
+  void ml2c_ ## T ## _opt (value v, T* c) \
+  { \
+    struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL }; \
+    camlidl_ctx _ctx = &_ctxs; \
+    if (v != Val_int(0)) { \
+      camlidl_ml2c_z3_ ## T(Field(v, 0), c, _ctx); \
+    } else { \
+      *c = NULL; \
+    } \
+  } \
+ \
+  value c2ml_ ## T ## _opt (T* c) \
+  { \
+    struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL }; \
+    camlidl_ctx _ctx = &_ctxs; \
+    value v; \
+    value a; \
+    if (*c) { \
+      a = camlidl_c2ml_z3_ ## T(c, _ctx); \
+      Begin_root(a) \
+        v = caml_alloc_small(1, 0); \
+        Field(v, 0) = a; \
+      End_roots(); \
+    } else { \
+      v = Val_int(0); \
+    } \
+    return v; \
+  }
+");
+
+#define DEFINE_OPT_TYPE(T) \
+  typedef [mltype(xstr(T option)), \
+           ml2c(ml2c_Z3_ ## T ## _opt), \
+           c2ml(c2ml_Z3_ ## T ## _opt) \
+          ] Z3_ ## T Z3_ ## T ## _opt
+
+quote(c,"DEFINE_OPT_OPS(Z3_ast)");
+DEFINE_OPT_TYPE(ast);
+
+quote(c,"DEFINE_OPT_OPS(Z3_sort)");
+DEFINE_OPT_TYPE(sort);
+
+quote(c,"DEFINE_OPT_OPS(Z3_func_interp)");
+DEFINE_OPT_TYPE(func_interp);
+
+
+// ToDo: these unnecessarily appear in the API documentation
+DEFINE_TYPE(Z3_constructor);
+DEFINE_TYPE(Z3_constructor_list);
+
+
+// shadow delete operations with nops
+quote(ml,"
+let del_constructor _ _ = ()
+let del_constructor_list _ _ = ()
+let del_model _ _ = ()
+let del_context _ = ()
+let reset_memory () = ()
+");
+
+
+#else // MLAPIV3
+
+// Provide custom error handler:
+quote (c,"Z3_error_handler caml_z3_error_handler;");
+quote (c,"void caml_z3_error_handler(Z3_context c, Z3_error_code e) { static char buffer[128]; char * msg = Z3_get_error_msg_ex(c, e); if (strlen(msg) > 100) { failwith(\"Z3: error message is too big to fit in buffer\"); } else { sprintf(buffer, \"Z3: %s\", msg); failwith(buffer); } }");
+
+
+#define DEFINE_TYPE(T) typedef [abstract] void* T
+#define DEFINE_VOID(T) typedef [abstract] void* T
+
+#define BEGIN_MLAPI_EXCLUDE
+#define END_MLAPI_EXCLUDE
+
+#endif // MLAPIV3
+
+
+
+#ifndef __in
+#define __in [in]
+#endif
+
+#ifndef __out
+#define __out [out]
+#endif
+
+#ifndef __out_opt
+#define __out_opt [out,unique]
+#endif
+
+#ifndef __ecount
+#define __ecount(num_args) [NOT_SUPPORTED]
+#endif
+
+#ifndef __in_ecount
+#define __in_ecount(num_args) [in, size_is(num_args), length_is(num_args)]
+#endif
+
+#ifndef __out_ecount
+#define __out_ecount(num_args) [out, size_is(num_args), length_is(num_args)]
+#endif
+
+#ifndef __inout_ecount
+#define __inout_ecount(num_args) [in, out, size_is(num_args), length_is(num_args)]
+#endif
+
+#ifndef __inout
+#define __inout [in, out]
+#endif
+
+#ifndef Z3_bool_opt
+#define Z3_bool_opt void
+#endif
+
+
+#define Z3_API
+
+#ifdef MLAPIV3
+
+#include "z3V3_api.idl"
+#include "x3V3.mli"
+#include "x3V3.ml"
+
+#else
+
+#include "z3_api.idl"
+#include "x3.ml"
+
+quote(ml,"
+let _ =
+  Printexc.register_printer (function
+    | Error(c,e) -> Some (\"Z3 \"^(get_error_msg c e))
+    | _ -> None
+  )
+");
+
+
+quote(mli,"
+(** 
+   {2 {L Legacy V3 API}} 
+*) 
+
+module V3 : sig
+(** 
+   {2 {L Legacy V3 API}} 
+*) 
+");
+
+quote(ml,"
+module V3 = struct
+");
+
+#endif
+
+#ifdef MLAPIV3
+
+quote(mlmli,"
+end
+");
+
+#endif
