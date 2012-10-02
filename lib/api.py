@@ -60,7 +60,7 @@ def _find_lib():
      winlibdir = 'x64'
   else:
      winlibdir = 'bin'
-  locs = [_dir, '%s%s..%s%s' % (_dir, os.sep, os.sep, winlibdir), '%s%s..%slib' % (_dir, os.sep, os.sep), '%s%s..%sexternal' % (_dir, os.sep, os.sep)]
+  locs = [_dir, '%s%s..%s%s' % (_dir, os.sep, os.sep, winlibdir), '%s%s..%slib' % (_dir, os.sep, os.sep), '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   for loc in locs:
     for lib in libs:
       f = '%s%s%s' % (loc, os.sep, lib)
