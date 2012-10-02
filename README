@@ -1,0 +1,52 @@
+Z3 is a theorem prover from Microsoft Research.
+Z3 is licensed under MSR-LA (Microsoft Research License Agreement). 
+See http://z3.codeplex.com/license for more information about this license.
+Z3 can be built using Visual Studio Command Prompt, Visual Studio and make/gcc.
+
+1) Building Z3 on Windows using Visual Studio Command Prompt
+
+- Open a Visual Studio Command Prompt, then execute one of the following commands to build the desired component.
+
+- For building all components, execute
+    msbuild z3-prover.sln /p:configuration=external 
+  All components will be located at /external
+
+- For building all components (64-bit), execute
+    msbuild z3-prover.sln /p:configuration=external_64 /p:platform=x64
+  All components will be located at /external_64
+
+- For building all components (in debug mode), execute
+    msbuild z3-prover.sln 
+  All components will be located at /debug
+
+1) Building Z3 using g++/make
+Your machine must also have the following commands to be able to build Z3:
+autoconf, sed, awk, dos2unix commands
+
+
+- Open a shell
+- For building the z3 executable, execute
+ 
+  autoconf
+  ./configure
+  make
+
+The z3 executable will be located at bin/external/
+
+- If you want a static library for Z3
+
+  make a
+
+- If you also want the z3 shared library, execute
+
+  make so
+
+  for libz3.so (on Linux)
+
+  make dylib
+
+  for libz3.dylib (on OSX)
+
+Remark: the Z3 makefile imports the source file list from Visual Studio project files.
+To add new source files to the Z3 core, you must include them at: lib/lib.vcxproj
+

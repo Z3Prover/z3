@@ -1,0 +1,26 @@
+Instructions for updating external Z3 API
+-----------------------------------------
+
+1) Add the new function to the file lib\z3_api.h
+2) If the function requires logging, then add its definition to lib\api.py.
+Each definition is a call to the API function in this python script.
+This function has the following signature:
+API(function name, return type, argument list)
+The return type only needs to be specified if the function returns a Z3 object.
+The file lib\api.py contains many examples.
+3) Execute update_api.cmd
+This script updates the .def files in the directory dll, and generates the API logging macros.
+
+If one only wants to generate the logging macros. Then it only needs to execute
+cd lib
+python api.py
+
+The script api.py generates the following files:
+lib\z3_api_log.h: macros and function definitions for logging API invocations.
+lib\z3_api_log.cpp
+lib\z3_api_commands.cpp: bindings for z3_replayer.cpp (log interpreter)
+
+
+
+
+

@@ -1,0 +1,113 @@
+AC_PREREQ(2.50)
+AC_INIT(lib/util.h)
+
+ARITH="internal"
+AC_ARG_WITH([gmp], [AS_HELP_STRING([--with-gmp], [Use GMP for multi-precision naturals (default=no)])], [use_gmp=yes], [use_gmp=no])
+AS_IF([test "$use_gmp" = "yes"],[
+  ARITH="gmp"
+  CPPFLAGS="$CPPFLAGS -D_MP_GMP"
+],[
+  CPPFLAGS="$CPPFLAGS -D_MP_INTERNAL"
+])
+AC_SUBST(EXTRA_LIB_SRCS)
+
+AC_PATH_PROG([D2U], [dos2unix], [no], [~/bin$PATH_SEPARATOR$PATH])
+AS_IF([test "$D2U" = "no"], [AC_MSG_ERROR(dos2unix not found)])
+AC_SUBST(D2U)
+
+AC_PROG_CXX(g++)
+AC_PROG_MAKE_SET
+
+AC_LANG_CPLUSPLUS
+
+host_os=`uname -s`
+
+AS_IF([test "$host_os" = "Darwin"], [
+  PLATFORM=osx
+  SO_EXT=dylib
+  SLIBFLAGS="-dynamiclib -fopenmp"
+  COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
+  STATIC_FLAGS=
+  CPPFLAGS+=" -mmacosx-version-min=10.4"
+], [test "$host_os" = "Linux"], [
+  PLATFORM=linux
+  SO_EXT=so
+  LDFLAGS=-lrt
+  SLIBFLAGS="-shared -fopenmp"
+  COMP_VERSIONS=
+  STATIC_FLAGS=-static
+], [
+  AC_MSG_ERROR([Unknown host platform: $host_os])
+])
+AC_SUBST(PLATFORM)
+AC_SUBST(SO_EXT)
+AC_SUBST(SLIBFLAGS)
+AC_SUBST(COMP_VERSIONS)
+AC_SUBST(STATIC_FLAGS)
+
+cat > tst64.c <<EOF
+    int main() {
+    	return sizeof(unsigned) == sizeof(void*);
+    }
+EOF
+
+AC_SUBST(EXTRA_LIBS)
+
+g++ $CPPFLAGS tst64.c -o tst64
+if ./tst64; then
+   dnl In 64-bit systems we have to compile using -fPIC
+   CPPFLAGS="$CPPFLAGS -D_AMD64_"
+   dnl Only enable use of thread local storage for 64-bit Linux. It is disabled for OSX and 32-bit Linux
+   if test $PLATFORM = "linux"; then
+      CPPFLAGS="$CPPFLAGS -D_USE_THREAD_LOCAL" 
+   fi
+   CXXFLAGS="-fPIC"
+   EXTRA_LIBS=""
+   dnl Rewrite -lz3-gmp to -lz3 in the files:
+   dnl  - test_capi/build-external-linux.sh 
+   dnl  - test_user_theory/build-external-linux.sh
+   dnl Reason: the library libz3-gmp.so is not available in 64-bit systems
+   dnl sed 's|lz3-gmp|lz3|' test_capi/build-external-linux.sh > tmp.sh
+   dnl mv tmp.sh test_capi/build-external-linux.sh
+   dnl sed 's|lz3-gmp|lz3|' test_user_theory/build-external-linux.sh > tmp.sh
+   dnl mv tmp.sh test_user_theory/build-external-linux.sh
+else
+   CXXFLAGS=""
+   dnl In 64-bit systems it is not possible to build a dynamic library using static gmp.
+   dnl EXTRA_LIBS="\$(BIN_DIR)/lib\$(Z3)-gmp.so"
+fi
+rm -f tst64.c
+rm -f tst64
+
+AC_SUBST(GMP_STATIC_LIB)
+GMP_STATIC_LIB=""
+
+if test "$ARITH" = "gmp"; then
+   AC_CHECK_HEADER([gmp.h], GMP='gmp', AC_MSG_ERROR([GMP include file not found]))
+   AC_SUBST(LIBS)
+   AC_CHECK_LIB(gmp, __gmpz_cmp, LIBS="-lgmp $LIBS", AC_MSG_ERROR([GMP library not found]))
+   dnl Look for libgmp.a at /usr/local/lib and /usr/lib
+   dnl TODO: make the following test more robust...
+   if test -e /usr/local/lib/libgmp.a; then
+      GMP_STATIC_LIB="/usr/local/lib/libgmp.a"
+   else if test -e /usr/lib/libgmp.a; then
+      GMP_STATIC_LIB="/usr/lib/libgmp.a"
+   else if test -e /usr/lib/libgmp.dll.a; then
+      GMP_STATIC_LIB="/usr/lib/libgmp.dll.a"
+   else
+      AC_MSG_ERROR([Failed to find libgmp.a])   
+   fi fi fi
+fi
+
+AC_PROG_CXXCPP
+
+AC_OUTPUT(Makefile)
+
+cat <<EOF
+
+Z3 was configured with success.
+Host platform: $PLATFORM
+Arithmetic:    $ARITH
+
+Type 'make' to compile Z3.
+EOF
