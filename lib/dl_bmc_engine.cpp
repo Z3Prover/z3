@@ -512,7 +512,7 @@ namespace datalog {
                     conjs.push_back(tmp);
                 }
                 bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
-                expr* rule_pred = m.mk_app(rule_pred_i, trace_arg, path_var.get());
+                expr* rule_pred = m.mk_app(rule_pred_i, trace_arg.get(), path_var.get());
                 ptr_vector<sort> q_sorts;
                 vector<symbol> names;
                 for (unsigned i = 0; i < vars.size(); ++i) {
