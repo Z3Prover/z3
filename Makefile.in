@@ -22,8 +22,6 @@ LDFLAGS_EXTRA=
 
 Z3=z3
 TEST_CAPI=test_capi
-EPR=epr
-GROBNER=grobner
 TEST=test
 
 BIN_DIR=bin/$(Z3_BUILD_MODE)
@@ -137,18 +135,6 @@ shell.srcs: shell/shell.vcxproj
 	@rm -f shell1.srcs
 	@rm -f shell2.srcs
 
-epr.srcs: epr/epr.vcxproj
-	@echo Making 'epr.srcs'...
-	@cp $< epr0.srcs
-	@chmod +rw epr0.srcs
-	@$(DOS2UNIX) epr0.srcs
-	@$(AWK) '/cpp\"/{ print $$0 }' epr0.srcs > epr1.srcs
-	@$(SED) 's|\"||g;s|<ClCompile||g;s|/>||g;s|Include=|epr/|g' epr1.srcs > epr2.srcs
-	@$(AWK) 'BEGIN { printf ("EPR_SRCS= "); } { printf($$1 " ") } END { print ""; }' epr2.srcs > $@
-	@rm -f epr0.srcs
-	@rm -f epr1.srcs
-	@rm -f epr2.srcs
-
 test.srcs: test/test.vcxproj
 	@echo Making 'test.srcs'...
 	@cp $< test0.srcs
@@ -164,7 +150,6 @@ test.srcs: test/test.vcxproj
 
 include lib.srcs
 include shell.srcs
-include epr.srcs
 include test.srcs
 
 LIB_SRCS+=@EXTRA_LIB_SRCS@
@@ -173,8 +158,6 @@ SHELL_OBJS=$(SHELL_SRCS:shell/%.cpp=$(OBJ_DIR)/%.o)
 
 OBJS=$(LIB_OBJS) $(SHELL_OBJS)
 TEST_CAPI_OBJS=$(OBJ_DIR)/test_capi.o $(LIB_OBJS)
-EPR_OBJS=$(EPR_SRCS:epr/%.cpp=$(OBJ_DIR)/%.o) $(LIB_OBJS)
-GROBNER_OBJS=$(OBJ_DIR)/grobner_main.o $(LIB_OBJS)
 TEST_OBJS=$(TEST_SRCS:test/%.cpp=$(OBJ_TEST_DIR)/%.o)
 
 $(BIN_DIR)/$(Z3): $(OBJ_DIR) $(BIN_DIR) $(OBJS)
@@ -189,10 +172,6 @@ $(BIN_DIR)/$(TEST_CAPI): $(OBJ_DIR) $(BIN_DIR) $(TEST_CAPI_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) -o $(BIN_DIR)/$(TEST_CAPI) $(TEST_CAPI_OBJS) $(LDFLAGS) $(LDFLAGS_EXTRA) $(LIBS)
 
-$(BIN_DIR)/$(EPR): $(OBJ_DIR) $(BIN_DIR) $(EPR_OBJS)
-	@mkdir -p $(BIN_DIR)
-	$(CXX) -o $(BIN_DIR)/$(EPR) $(EPR_OBJS) $(LDFLAGS) $(LDFLAGS_EXTRA) $(LIBS)
-
 $(BIN_DIR)/lib$(Z3).@SO_EXT@: $(OBJ_DIR) $(BIN_DIR) $(LIB_OBJS)
 	@mkdir -p $(BIN_DIR)
 	$(CXX) -o $(BIN_DIR)/lib$(Z3).@SO_EXT@  $(LIB_OBJS) $(LIBFLAGS) $(LIBS) @COMP_VERSIONS@
@@ -200,10 +179,6 @@ $(BIN_DIR)/lib$(Z3).@SO_EXT@: $(OBJ_DIR) $(BIN_DIR) $(LIB_OBJS)
 $(BIN_DIR)/lib$(Z3).a: $(OBJ_DIR) $(BIN_DIR) $(LIB_OBJS)
 	@mkdir -p $(BIN_DIR)
 	ar -cvr $(BIN_DIR)/lib$(Z3).a $(LIB_OBJS)
-
-$(BIN_DIR)/$(GROBNER): $(OBJ_DIR) $(BIN_DIR) $(GROBNER_OBJS)
-	@mkdir -p $(BIN_DIR)
-	$(CXX) -o $(BIN_DIR)/$(GROBNER) $(GROBNER_OBJS) $(LDFLAGS) $(LDFLAGS_EXTRA) $(LIBS)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
@@ -227,13 +202,9 @@ smtcomp07: $(BIN_DIR)/$(Z3)
 
 test_capi: $(BIN_DIR)/$(TEST_CAPI)
 
-epr: $(BIN_DIR)/$(EPR)
-
 @SO_EXT@: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 
 a: $(BIN_DIR)/lib$(Z3).a
-
-grobner: $(BIN_DIR)/$(GROBNER)
 
 test: $(BIN_DIR)/$(TEST)
 
@@ -271,10 +242,6 @@ $(OBJ_DIR)/%.o : shell/%.cpp
 $(OBJ_DIR)/%.o : test_capi/%.c
 	@mkdir -p $(OBJ_DIR)
 	$(CXX)  $(CPPFLAGS) $(CXXFLAGS) -I ../lib -c -o $@ $<
-
-$(OBJ_DIR)/%.o : epr/%.cpp
-	@mkdir -p $(OBJ_DIR)
-	$(CXX)  $(CPPFLAGS) $(CXXFLAGS) -c -o $@ $<
 
 ################################
 #
