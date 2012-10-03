@@ -198,12 +198,12 @@ public:
     
     ref_vector(ref_vector const & other): 
         super(ref_manager_wrapper<T, TManager>(other.m_manager)) {
-        append(other);
+        this->append(other);
     }
 
     ref_vector(TManager & m, unsigned sz, T * const * data):
         super(ref_manager_wrapper<T, TManager>(m)) {
-        append(sz, data);
+        this->append(sz, data);
     }
     
     TManager & get_manager() const {
@@ -271,7 +271,7 @@ public:
     ref_vector & set(ref_vector const& other) {
         if (this != &other) {
             this->reset();
-            append(other);
+            this->append(other);
         }
         return *this;
     }

@@ -240,7 +240,7 @@ class ptr_buffer : public buffer<T *, false, INITIAL_SIZE> {
 public:
     void append(unsigned n, T * const * elems) {
         for (unsigned i = 0; i < n; i++) {
-            push_back(elems[i]);
+            this->push_back(elems[i]);
         }
     }
 };
