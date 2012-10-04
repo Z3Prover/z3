@@ -17,6 +17,9 @@ Revision History:
 
 --*/
 #include<cstdio>
+#ifndef _WINDOWS
+#include<unistd.h>
+#endif
 #include<iostream>
 #include"str_hashtable.h"
 

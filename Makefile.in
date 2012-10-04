@@ -7,6 +7,7 @@ DOS2UNIX=@D2U@
 @SET_MAKE@
 
 ##### Configuration #####
+CXX=@CXX@
 CPPFLAGS_CORE=@CPPFLAGS@ -I lib -fopenmp -msse -msse2 -mfpmath=sse
 CXXFLAGS_CORE=@CXXFLAGS@
 ifeq ($(MODE),)
@@ -299,6 +300,19 @@ clean:
 # NOTE: In 64-bit systems it is not possible to build a dynamic library using static gmp.
 # So, EXTRA_LIBS="" in 64-bit systems.
 #     EXTRA_LIBS="$(BIN_DIR)/lib$(Z3)-gmp.so" in 32-bit systems.
+#
+# Remark: disable ocaml bindings in the release.
+# They will be re-enabled in the future. 
+# To re-enable them, I just have to include ocamlrelease in the list of dependencies.
+# I had to disable them because the stub generator uses non-portable scripts, and
+# were not included at z3.codeplex.com. Thus, this part is temporarily broken.  
+#
+# iZ3 is also temporarily removed from the release package. To re-enable it, we just have to include iz3release in the
+# list of dependencies.
+#
+# I also permanently removed test_user_theory example. Now, that the source code
+# is available, we don't need it anymore.
+#
 ################################
 release: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@ @EXTRA_LIBS@ $(BIN_DIR)/lib$(Z3).a
 	@rm -f -r z3
@@ -307,32 +321,15 @@ release: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@ @EXTRA_LIBS@ $(BIN_DIR)/l
 	@mkdir -p z3/lib
 	@mkdir -p z3/include
 	@mkdir -p z3/examples
-	@mkdir -p z3/ocaml
 	@mkdir -p z3/python
 	@mkdir -p z3/examples/c	
 	@mkdir -p z3/examples/c++	
 	@mkdir -p z3/examples/python
 	@mkdir -p z3/examples/maxsat	
-	@mkdir -p z3/examples/theory	
-	@mkdir -p z3/examples/ocaml
 	@cp lib/z3.h z3/include
 	@cp lib/z3_v1.h z3/include
 	@cp lib/z3_api.h z3/include
 	@cp lib/z3_macros.h z3/include
-	@cp ml/z3_stubs.c z3/ocaml
-	@cp ml/z3_theory_stubs.c z3/ocaml
-	@cp ml/z3.mli z3/ocaml
-	@cp ml/z3.ml z3/ocaml
-	@cp ml_release/build-lib.sh z3/ocaml
-	@$(DOS2UNIX) z3/ocaml/build-lib.sh
-	@chmod +rwx z3/ocaml/build-lib.sh
-	@cp ml_release/README_$(PLATFORM) z3/ocaml/README
-	@$(DOS2UNIX) z3/ocaml/README
-	@cp ml_release/build-test.sh z3/examples/ocaml
-	@$(DOS2UNIX) z3/examples/ocaml/build-test.sh
-	@chmod +rwx z3/examples/ocaml/build-test.sh
-	@cp ml_release/README_test_$(PLATFORM) z3/examples/ocaml/README
-	@$(DOS2UNIX) z3/examples/ocaml/README
 	@$(DOS2UNIX) z3/include/*
 	@cp $(BIN_DIR)/$(Z3) z3/bin
 	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ z3/lib
@@ -363,24 +360,6 @@ release: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@ @EXTRA_LIBS@ $(BIN_DIR)/l
 	@cp maxsat/exec-external-$(PLATFORM).sh z3/examples/maxsat/exec.sh
 	@$(DOS2UNIX) z3/examples/maxsat/exec.sh
 	@chmod +rwx z3/examples/maxsat/exec.sh
-	@cp test_user_theory/test_user_theory.c z3/examples/theory
-	@$(DOS2UNIX) z3/examples/theory/test_user_theory.c
-	@cp test_user_theory/README-$(PLATFORM).txt z3/examples/theory/README
-	@$(DOS2UNIX) z3/examples/theory/README
-	@cp test_user_theory/build-external-$(PLATFORM).sh z3/examples/theory/build.sh
-	@cp test_user_theory/build-static-$(PLATFORM).sh z3/examples/theory/build-static.sh
-	@$(DOS2UNIX) z3/examples/theory/build.sh
-	@chmod +rwx z3/examples/theory/build.sh
-	@$(DOS2UNIX) z3/examples/theory/build-static.sh
-	@chmod +rwx z3/examples/theory/build-static.sh
-	@cp test_user_theory/exec-external-$(PLATFORM).sh z3/examples/theory/exec.sh
-	@$(DOS2UNIX) z3/examples/theory/exec.sh
-	@chmod +rwx z3/examples/theory/exec.sh
-	@cp ml_release/exec-$(PLATFORM).sh z3/examples/ocaml/exec.sh
-	@$(DOS2UNIX) z3/examples/ocaml/exec.sh
-	@chmod +rwx z3/examples/ocaml/exec.sh
-	@cp ml/test_mlapi.ml z3/examples/ocaml
-	@$(DOS2UNIX) z3/examples/ocaml/test_mlapi.ml
 	@cp c++/z3++.h z3/include
 	@cp c++/example.cpp z3/examples/c++
 	@cp c++/build-external-$(PLATFORM).sh z3/examples/c++/build.sh
@@ -402,10 +381,35 @@ release: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@ @EXTRA_LIBS@ $(BIN_DIR)/l
 	@$(DOS2UNIX) z3/examples/python/*.py
 	@$(DOS2UNIX) z3/examples/python/*.sh
 	@chmod +rwx z3/examples/python/*.sh
+	@tar -cvzf z3.tar.gz z3
+
+ocamlrelease:
+	@mkdir -p z3/ocaml
+	@mkdir -p z3/examples/ocaml
+	@cp ml/z3_stubs.c z3/ocaml
+	@cp ml/z3_theory_stubs.c z3/ocaml
+	@cp ml/z3.mli z3/ocaml
+	@cp ml/z3.ml z3/ocaml
+	@cp ml_release/build-lib.sh z3/ocaml
+	@$(DOS2UNIX) z3/ocaml/build-lib.sh
+	@chmod +rwx z3/ocaml/build-lib.sh
+	@cp ml_release/README_$(PLATFORM) z3/ocaml/README
+	@$(DOS2UNIX) z3/ocaml/README
+	@cp ml_release/build-test.sh z3/examples/ocaml
+	@$(DOS2UNIX) z3/examples/ocaml/build-test.sh
+	@chmod +rwx z3/examples/ocaml/build-test.sh
+	@cp ml_release/README_test_$(PLATFORM) z3/examples/ocaml/README
+	@$(DOS2UNIX) z3/examples/ocaml/README
+	@cp ml_release/exec-$(PLATFORM).sh z3/examples/ocaml/exec.sh
+	@$(DOS2UNIX) z3/examples/ocaml/exec.sh
+	@chmod +rwx z3/examples/ocaml/exec.sh
+	@cp ml/test_mlapi.ml z3/examples/ocaml
+	@$(DOS2UNIX) z3/examples/ocaml/test_mlapi.ml
+
+iz3release:
 	@$(DOS2UNIX) iZ3/pack-iz3-$(PLATFORM).sh
 	@chmod +rwx iZ3/pack-iz3-$(PLATFORM).sh
 	@iZ3/pack-iz3-$(PLATFORM).sh
-	@tar -cvzf z3.tar.gz z3
 
 ################################
 #

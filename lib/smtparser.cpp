@@ -4243,7 +4243,7 @@ private:
             constructor_decl * c = declare_constructor(*children, dt_names);
             if (!c) {
                 del_constructor_decls(constructors.size(), constructors.c_ptr());
-                return false;
+                return 0;
             }
             constructors.push_back(c);
             ++children;
@@ -4251,7 +4251,7 @@ private:
         
         if (constructors.size() == 0) {
             set_error("datatype must have at least one constructor", e);
-            return false;
+            return 0;
         }
 
         return mk_datatype_decl(name, constructors.size(), constructors.c_ptr());
