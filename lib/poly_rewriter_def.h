@@ -581,10 +581,11 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             hoist_cmul(new_args);
         }
         else if (m_sort_sums) {
+            TRACE("sort_sums_bug", tout << "new_args.size(): " << new_args.size() << "\n";);
             if (c.is_zero())
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
-            else 
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size() - 1, ast_to_lt());
+            else
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
         }
         result = mk_add_app(new_args.size(), new_args.c_ptr());
         if (hoist_multiplication(result)) {
@@ -616,7 +617,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             if (c.is_zero())
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), ast_to_lt());
             else 
-                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size() - 1, ast_to_lt());
+                std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), ast_to_lt());
         }
         result = mk_add_app(new_args.size(), new_args.c_ptr());        
         if (hoist_multiplication(result)) {
