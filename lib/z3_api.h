@@ -2912,8 +2912,8 @@ END_MLAPI_EXCLUDE
        \param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
        \param num_patterns number of patterns.
        \param patterns array containing the patterns created using #Z3_mk_pattern.
-       \param num_no_patterns number of patterns.
-       \param no_patterns array containing the patterns created using #Z3_mk_pattern.
+       \param num_no_patterns number of no_patterns.
+       \param no_patterns array containing subexpressions to be excluded from inferred patterns.
        \param num_decls number of variables to be bound.
        \param sorts array of sorts of the bound variables.
        \param decl_names names of the bound variables.
