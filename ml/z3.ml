@@ -1038,6 +1038,9 @@ external get_quantifier_num_no_patterns : context -> ast -> int
 external get_quantifier_no_pattern_ast : context -> ast -> int -> ast
 	= "camlidl_z3_Z3_get_quantifier_no_pattern_ast"
 
+external get_quantifier_num_bound : context -> ast -> int
+	= "camlidl_z3_Z3_get_quantifier_num_bound"
+
 external get_quantifier_bound_name : context -> ast -> int -> symbol
 	= "camlidl_z3_Z3_get_quantifier_bound_name"
 
@@ -1046,9 +1049,6 @@ external get_quantifier_bound_sort : context -> ast -> int -> sort
 
 external get_quantifier_body : context -> ast -> ast
 	= "camlidl_z3_Z3_get_quantifier_body"
-
-external get_quantifier_num_bound : context -> ast -> int
-	= "camlidl_z3_Z3_get_quantifier_num_bound"
 
 external simplify : context -> ast -> ast
 	= "camlidl_z3_Z3_simplify"
@@ -2830,6 +2830,9 @@ external get_quantifier_num_no_patterns : context -> ast -> int
 external get_quantifier_no_pattern_ast : context -> ast -> int -> ast
 	= "camlidl_z3V3_Z3_get_quantifier_no_pattern_ast"
 
+external get_quantifier_num_bound : context -> ast -> int
+	= "camlidl_z3V3_Z3_get_quantifier_num_bound"
+
 external get_quantifier_bound_name : context -> ast -> int -> symbol
 	= "camlidl_z3V3_Z3_get_quantifier_bound_name"
 
@@ -2838,9 +2841,6 @@ external get_quantifier_bound_sort : context -> ast -> int -> sort
 
 external get_quantifier_body : context -> ast -> ast
 	= "camlidl_z3V3_Z3_get_quantifier_body"
-
-external get_quantifier_num_bound : context -> ast -> int
-	= "camlidl_z3V3_Z3_get_quantifier_num_bound"
 
 external simplify : context -> ast -> ast
 	= "camlidl_z3V3_Z3_simplify"

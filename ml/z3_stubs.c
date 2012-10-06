@@ -6661,6 +6661,28 @@ check_error_code(c);
   return _vres;
 }
 
+value camlidl_z3_Z3_get_quantifier_num_bound(
+	value _v_c,
+	value _v_a)
+{
+  Z3_context c; /*in*/
+  Z3_ast a; /*in*/
+  unsigned int _res;
+  value _vres;
+
+  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  camlidl_ctx _ctx = &_ctxs;
+  camlidl_ml2c_z3_Z3_context(_v_c, &c, _ctx);
+  camlidl_ml2c_z3_Z3_ast(_v_a, &a, _ctx);
+  _res = Z3_get_quantifier_num_bound(c, a);
+  _vres = Val_int(_res);
+  camlidl_free(_ctx);
+  /* begin user-supplied deallocation sequence */
+check_error_code(c);
+  /* end user-supplied deallocation sequence */
+  return _vres;
+}
+
 value camlidl_z3_Z3_get_quantifier_bound_name(
 	value _v_c,
 	value _v_a,
@@ -6726,28 +6748,6 @@ value camlidl_z3_Z3_get_quantifier_body(
   camlidl_ml2c_z3_Z3_ast(_v_a, &a, _ctx);
   _res = Z3_get_quantifier_body(c, a);
   _vres = camlidl_c2ml_z3_Z3_ast(&_res, _ctx);
-  camlidl_free(_ctx);
-  /* begin user-supplied deallocation sequence */
-check_error_code(c);
-  /* end user-supplied deallocation sequence */
-  return _vres;
-}
-
-value camlidl_z3_Z3_get_quantifier_num_bound(
-	value _v_c,
-	value _v_a)
-{
-  Z3_context c; /*in*/
-  Z3_ast a; /*in*/
-  unsigned int _res;
-  value _vres;
-
-  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
-  camlidl_ctx _ctx = &_ctxs;
-  camlidl_ml2c_z3_Z3_context(_v_c, &c, _ctx);
-  camlidl_ml2c_z3_Z3_ast(_v_a, &a, _ctx);
-  _res = Z3_get_quantifier_num_bound(c, a);
-  _vres = Val_int(_res);
   camlidl_free(_ctx);
   /* begin user-supplied deallocation sequence */
 check_error_code(c);
@@ -16691,6 +16691,25 @@ value camlidl_z3V3_Z3_get_quantifier_no_pattern_ast(
   return _vres;
 }
 
+value camlidl_z3V3_Z3_get_quantifier_num_bound(
+	value _v_c,
+	value _v_a)
+{
+  Z3_context c; /*in*/
+  Z3_ast a; /*in*/
+  unsigned int _res;
+  value _vres;
+
+  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  camlidl_ctx _ctx = &_ctxs;
+  camlidl_ml2c_z3V3_Z3_context(_v_c, &c, _ctx);
+  camlidl_ml2c_z3V3_Z3_ast(_v_a, &a, _ctx);
+  _res = Z3_get_quantifier_num_bound(c, a);
+  _vres = Val_int(_res);
+  camlidl_free(_ctx);
+  return _vres;
+}
+
 value camlidl_z3V3_Z3_get_quantifier_bound_name(
 	value _v_c,
 	value _v_a,
@@ -16750,25 +16769,6 @@ value camlidl_z3V3_Z3_get_quantifier_body(
   camlidl_ml2c_z3V3_Z3_ast(_v_a, &a, _ctx);
   _res = Z3_get_quantifier_body(c, a);
   _vres = camlidl_c2ml_z3V3_Z3_ast(&_res, _ctx);
-  camlidl_free(_ctx);
-  return _vres;
-}
-
-value camlidl_z3V3_Z3_get_quantifier_num_bound(
-	value _v_c,
-	value _v_a)
-{
-  Z3_context c; /*in*/
-  Z3_ast a; /*in*/
-  unsigned int _res;
-  value _vres;
-
-  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
-  camlidl_ctx _ctx = &_ctxs;
-  camlidl_ml2c_z3V3_Z3_context(_v_c, &c, _ctx);
-  camlidl_ml2c_z3V3_Z3_ast(_v_a, &a, _ctx);
-  _res = Z3_get_quantifier_num_bound(c, a);
-  _vres = Val_int(_res);
   camlidl_free(_ctx);
   return _vres;
 }

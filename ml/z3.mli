@@ -2741,8 +2741,8 @@ external mk_quantifier : context -> bool -> int -> pattern array -> sort array -
        @param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
        @param num_patterns number of patterns.
        @param patterns array containing the patterns created using {!mk_pattern}.
-       @param num_no_patterns number of patterns.
-       @param no_patterns array containing the patterns created using {!mk_pattern}.
+       @param num_no_patterns number of no_patterns.
+       @param no_patterns array containing subexpressions to be excluded from inferred patterns.
        @param num_decls number of variables to be bound.
        @param sorts array of sorts of the bound variables.
        @param decl_names names of the bound variables.
@@ -3586,6 +3586,14 @@ external get_quantifier_no_pattern_ast : context -> ast -> int -> ast
 	= "camlidl_z3_Z3_get_quantifier_no_pattern_ast"
 
 (**
+       Summary: Return number of bound variables of quantifier.
+       
+       - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
+*)
+external get_quantifier_num_bound : context -> ast -> int
+	= "camlidl_z3_Z3_get_quantifier_num_bound"
+
+(**
        Summary: Return symbol of the i'th bound variable.
        
        - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
@@ -3608,14 +3616,6 @@ external get_quantifier_bound_sort : context -> ast -> int -> sort
 *)
 external get_quantifier_body : context -> ast -> ast
 	= "camlidl_z3_Z3_get_quantifier_body"
-
-(**
-       Summary: Return number of bound variables of quantifier.
-       
-       - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
-*)
-external get_quantifier_num_bound : context -> ast -> int
-	= "camlidl_z3_Z3_get_quantifier_num_bound"
 
 (**
         {3 {L Simplification}} 
@@ -7737,8 +7737,8 @@ external mk_quantifier : context -> bool -> int -> pattern array -> sort array -
        @param weight quantifiers are associated with weights indicating the importance of using the quantifier during instantiation. By default, pass the weight 0.
        @param num_patterns number of patterns.
        @param patterns array containing the patterns created using {!mk_pattern}.
-       @param num_no_patterns number of patterns.
-       @param no_patterns array containing the patterns created using {!mk_pattern}.
+       @param num_no_patterns number of no_patterns.
+       @param no_patterns array containing subexpressions to be excluded from inferred patterns.
        @param num_decls number of variables to be bound.
        @param sorts array of sorts of the bound variables.
        @param decl_names names of the bound variables.
@@ -8501,6 +8501,14 @@ external get_quantifier_no_pattern_ast : context -> ast -> int -> ast
 	= "camlidl_z3V3_Z3_get_quantifier_no_pattern_ast"
 
 (**
+       Summary: Return number of bound variables of quantifier.
+       
+       - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
+*)
+external get_quantifier_num_bound : context -> ast -> int
+	= "camlidl_z3V3_Z3_get_quantifier_num_bound"
+
+(**
        Summary: Return symbol of the i'th bound variable.
        
        - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
@@ -8523,14 +8531,6 @@ external get_quantifier_bound_sort : context -> ast -> int -> sort
 *)
 external get_quantifier_body : context -> ast -> ast
 	= "camlidl_z3V3_Z3_get_quantifier_body"
-
-(**
-       Summary: Return number of bound variables of quantifier.
-       
-       - {b Precondition}: get_ast_kind a == QUANTIFIER_AST
-*)
-external get_quantifier_num_bound : context -> ast -> int
-	= "camlidl_z3V3_Z3_get_quantifier_num_bound"
 
 (**
         {3 {L Simplification}} 
