@@ -2,6 +2,8 @@
 SETLOCAL
 
 REM Script to test the Z3 OCaml API
+REM
+REM Assumes that environment variables are set to provide access to the C and OCaml compilers, as well as the following commands: diff, dos2unix, sed
 
 REM directory containing z3_api.h
 set Z3SRC=%1
@@ -46,13 +48,14 @@ sed <queen.orig.err >queen.err "s/ \[.*\]/ [...]/g"
 del test_capi.orig.err test_mlapi.orig.err test_mlapiV3.orig.err queen.orig.err
 
 REM Compare with regressions
-diff test_capi.regress.out test_capi.out >NUL || echo Regression failed, see: windiff test_capi.regress.out test_capi.out
-diff test_mlapi.regress.out test_mlapi.out >NUL || echo Regression failed, see: windiff test_mlapi.regress.out test_mlapi.out
-diff test_mlapiV3.regress.out test_mlapiV3.out >NUL || echo Regression failed, see: windiff test_mlapiV3.regress.out test_mlapiV3.out
-diff test_capi.regress.err test_capi.err >NUL || echo Regression failed, see: windiff test_capi.regress.err test_capi.err
-diff test_mlapi.regress.err test_mlapi.err >NUL || echo Regression failed, see: windiff test_mlapi.regress.err test_mlapi.err
-diff test_mlapiV3.regress.err test_mlapiV3.err >NUL || echo Regression failed, see: windiff test_mlapiV3.regress.err test_mlapiV3.err
-diff queen.regress.out queen.out >NUL || echo Regression failed, see: windiff queen.regress.out queen.out
-diff queen.regress.err queen.err >NUL || echo Regression failed, see: windiff queen.regress.err queen.err
+dos2unix *.out *.err 2>NUL
+diff test_capi.regress.out test_capi.out >NUL || echo Regression failed, see: diff test_capi.regress.out test_capi.out
+diff test_mlapi.regress.out test_mlapi.out >NUL || echo Regression failed, see: diff test_mlapi.regress.out test_mlapi.out
+diff test_mlapiV3.regress.out test_mlapiV3.out >NUL || echo Regression failed, see: diff test_mlapiV3.regress.out test_mlapiV3.out
+diff test_capi.regress.err test_capi.err >NUL || echo Regression failed, see: diff test_capi.regress.err test_capi.err
+diff test_mlapi.regress.err test_mlapi.err >NUL || echo Regression failed, see: diff test_mlapi.regress.err test_mlapi.err
+diff test_mlapiV3.regress.err test_mlapiV3.err >NUL || echo Regression failed, see: diff test_mlapiV3.regress.err test_mlapiV3.err
+diff queen.regress.out queen.out >NUL || echo Regression failed, see: diff queen.regress.out queen.out
+diff queen.regress.err queen.err >NUL || echo Regression failed, see: diff queen.regress.err queen.err
 
 ENDLOCAL

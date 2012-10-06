@@ -2,7 +2,10 @@
 SETLOCAL
 
 REM Script to compile the Z3 OCaml API
+REM
 REM Compiles byte and debug native code versions with debug info, optimized native code versions without
+REM
+REM Assumes that environment variables are set to provide access to the C and OCaml compilers
 
 REM directory containing z3_api.h
 set Z3SRC=%1

@@ -1,6 +1,9 @@
 @echo off
 
 REM Script to generate the Z3 OCaml API
+REM
+REM Assumes that environment variables are set to provide access to the following commands: camlidl, dos2unix, grep, sed, unix2dos
+REM
 REM Invoke with "-D UNSAFE_ERRORS" to build version that does not support recoverable errors, but avoids some error-checking overhead.
 REM Invoke with "-D LEAK_CONTEXTS" to build version that leaks Z3_context objects, but avoids some garbage-collection overhead.
 
