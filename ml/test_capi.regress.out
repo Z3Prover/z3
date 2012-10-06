@@ -1,4 +1,4 @@
-Z3 4.0.0.0
+Z3 4.2.0.0
 
 simple_example
 CONTEXT:
@@ -47,13 +47,13 @@ valid
 disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1
 invalid
 counterexample:
-z -> -1
-y -> -7719
-x -> -7719
+z -> (- 1)
+y -> (- 7719)
+x -> (- 7719)
 g -> {
-  -7719 -> 0
+  (- 7719) -> 0
   0 -> 2
-  -1 -> 3
+  (- 1) -> 3
   else -> 0
 }
 
@@ -100,8 +100,8 @@ reason for last failure: 7 (7 = quantifiers)
 
 array_example1
 prove: store(a1, i1, v1) = store(a2, i2, v2) implies (i1 = i3 or i2 = i3 or select(a1, i3) = select(a2, i3))
-(implies (= (store a1 i1 v1) (store a2 i2 v2))
-         (or (= i1 i3) (= i2 i3) (= (select a1 i3) (select a2 i3))))
+(=> (= (store a1 i1 v1) (store a2 i2 v2))
+    (or (= i1 i3) (= i2 i3) (= (select a1 i3) (select a2 i3))))
 valid
 
 array_example2
@@ -214,14 +214,14 @@ x -> 1
 parser_example2
 formula: (> x y)
 sat
-y -> -1
+y -> (- 1)
 x -> 0
 
 
 parser_example3
 assert axiom:
 (forall (x Int) (y Int) (= (g x y) (g y x)) :qid {k!1})
-formula: (forall (x Int) (y Int) (implies (= x y) (= (g x 0) (g 0 y))) :qid {k!1})
+formula: (forall (x Int) (y Int) (=> (= x y) (= (g x 0) (g 0 y))) :qid {k!1})
 valid
 
 parser_example4
@@ -240,7 +240,7 @@ Error message: 'ERROR: line 1 column 41: could not find sort symbol 'y'.
 numeral_example
 Numerals n1:1/2 n2:1/2
 valid
-Numerals n1:-1/3 n2:-33333333333333333333333333333333333333333333333333/100000000000000000000000000000000000000000000000000
+Numerals n1:(- 1/3) n2:(- 33333333333333333333333333333333333333333333333333/100000000000000000000000000000000000000000000000000)
 valid
 
 ite_example
@@ -254,7 +254,7 @@ valid
 valid
 valid
 valid
-Formula (implies (is_cons u) (= u (cons (head u) (tail u))))
+Formula (=> (is_cons u) (= u (cons (head u) (tail u))))
 valid
 invalid
 counterexample:
@@ -267,7 +267,7 @@ valid
 valid
 valid
 valid
-Formula (implies (is_cons u) (= u (cons (car u) (cdr u))))
+Formula (=> (is_cons u) (= u (cons (car u) (cdr u))))
 valid
 invalid
 counterexample:
