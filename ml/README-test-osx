@@ -1,0 +1,17 @@
+This directory contains scripts to build the test application using
+OCaml. You also need CamlIDL to be able to generate the OCaml API.
+
+- To download OCaml:
+  http://caml.inria.fr/ocaml/      
+
+- To download CamlIDL:
+  http://forge.ocamlcore.org/projects/camlidl/
+
+- One must build the OCaml library before compiling the example.
+  Go to directory ../ocaml
+
+- Use 'build-test.sh' to build the test application using the OCaml compiler.
+
+Remark: The OCaml and C compiler tool chains must be configured in your environment.
+  
+- Use 'exec.sh' to execute test_mlapi. The script sets DYLD_LIBRARY_PATH, and invokes test_mlapi.
