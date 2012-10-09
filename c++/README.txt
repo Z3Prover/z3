@@ -14,10 +14,11 @@ example.exe can find z3.dll.
 
 2) Using gcc
 
-Use 'build.sh' to build the test application using g++. 
-The script 'exec.sh' adds the bin directory to the path. So, 
-example.exe can find z3.dll.
+You must install Z3 before running this example.
+To install Z3, execute the following command in the Z3 root directory.
 
-Remark: the scripts 'build.sh' and 'exec.sh' assumes you are in a
-Cygwin or Mingw shell.
+  sudo make install
+
+Use 'build.sh' to build the test application using g++. 
+It generates the executable 'example'.
 
