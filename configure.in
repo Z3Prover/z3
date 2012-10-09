@@ -11,6 +11,17 @@ AS_IF([test "$use_gmp" = "yes"],[
 ])
 AC_SUBST(EXTRA_LIB_SRCS)
 
+AC_ARG_WITH(python,
+[AS_HELP_STRING([--with-python=PYTHON_PATH],
+		[specify the location of the python 2.x executable.])])
+
+PYTHON="python"
+if test "x$with_python" != x; then
+  PYTHON="$with_python"
+fi
+
+AC_SUBST(PYTHON)
+
 AC_PATH_PROG([D2U], [dos2unix], [no], [~/bin$PATH_SEPARATOR$PATH])
 AS_IF([test "$D2U" = "no"], [AC_MSG_ERROR(dos2unix not found)])
 AC_SUBST(D2U)
@@ -52,14 +63,14 @@ if version >= "3":
 exit(0)
 EOF
 
-if python tst_python.py; then
+if $PYTHON tst_python.py; then
   HAS_PYTHON="1"
   HAS_PYTHON_MSG="yes"
 cat > get_py_dir.py << EOF
 import distutils.sysconfig
 print distutils.sysconfig.get_python_lib()
 EOF
-  if python get_py_dir.py > dir.txt; then
+  if $PYTHON get_py_dir.py > dir.txt; then
     PYTHON_PACKAGE_DIR=`cat dir.txt`
   else
     HAS_PYTHON="0"
@@ -136,9 +147,10 @@ AC_OUTPUT(Makefile)
 cat <<EOF
 
 Z3 was configured with success.
-Host platform: $PLATFORM
-Arithmetic:    $ARITH
-Python:        $HAS_PYTHON_MSG
+Host platform:  $PLATFORM
+Arithmetic:     $ARITH
+Python Support: $HAS_PYTHON_MSG
+Pyyhon:         $PYTHON 
 
 Type 'make' to compile Z3.
 Type 'sudo make install' to install Z3.

@@ -22,6 +22,7 @@ LDFLAGS_EXTRA=
 PREFIX=@prefix@
 HAS_PYTHON=@HAS_PYTHON@
 PYTHON_PACKAGE_DIR=@PYTHON_PACKAGE_DIR@
+PYTHON=@PYTHON@
 #########################
 
 Z3=z3
@@ -470,21 +471,22 @@ uninstall:
 install-python: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
 	@echo "Installing Python bindings at $(PYTHON_PACKAGE_DIR)."
-	@cp python/z3.py $(PYTHON_PACKAGE_DIR)
-	@cp python/z3core.py $(PYTHON_PACKAGE_DIR)
-	@cp python/z3types.py $(PYTHON_PACKAGE_DIR)
-	@cp python/z3consts.py $(PYTHON_PACKAGE_DIR)
-	@cp python/z3tactics.py $(PYTHON_PACKAGE_DIR)
-	@cp python/z3printer.py $(PYTHON_PACKAGE_DIR)
+	@$(PYTHON) python/example.py > /dev/null
+	@cp python/z3.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3core.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3types.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3consts.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3tactics.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3printer.pyc $(PYTHON_PACKAGE_DIR)
 	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PYTHON_PACKAGE_DIR)
 
 uninstall-python: 
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
 	@echo "Uninstalling Python bindings from $(PYTHON_PACKAGE_DIR)."
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3core.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3types.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3consts.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3tactics.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/z3printer.py
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3core.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3types.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3consts.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3tactics.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3printer.pyc
 	@rm -f $(PYTHON_PACKAGE_DIR)/$(BIN_DIR)/lib$(Z3).@SO_EXT@
