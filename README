@@ -19,33 +19,26 @@ Z3 can be built using Visual Studio Command Prompt, Visual Studio and make/gcc.
     msbuild z3-prover.sln 
   All components will be located at /debug
 
-1) Building Z3 using g++/make
+2) Building Z3 using g++/make
 Your machine must also have the following commands to be able to build Z3:
 autoconf, sed, awk, dos2unix commands
 
-
-- Open a shell
-- For building the z3 executable, execute
- 
   autoconf
   ./configure
   make
+  sudo make install
 
-The z3 executable will be located at bin/external/
+It will install z3 executable at /usr/local/bin, libraries at /usr/local/lib, and include files at /usr/local/include.
+Use the following commands to install in a different prefix (e.g., /usr).
 
-- If you want a static library for Z3
+  autoconf
+  ./configure --prefix=/usr
+  make
+  sudo make install
 
-  make a
+To uninstall z3, use
 
-- If you also want the z3 shared library, execute
-
-  make so
-
-  for libz3.so (on Linux)
-
-  make dylib
-
-  for libz3.dylib (on OSX)
+  sudo make uninstall
 
 Remark: the Z3 makefile imports the source file list from Visual Studio project files.
 To add new source files to the Z3 core, you must include them at: lib/lib.vcxproj
