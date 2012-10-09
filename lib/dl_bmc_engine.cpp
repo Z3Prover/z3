@@ -93,12 +93,12 @@ namespace datalog {
             return l_false;
         }
 
-        if (false && is_linear()) {
+        if (is_linear()) {
             return check_linear();
         }
         else {
             IF_VERBOSE(1, verbose_stream() << "non-linear BMC is not supported\n";);
-            // return l_undef;
+            return l_undef;
             return check_nonlinear();
         }
     }

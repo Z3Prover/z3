@@ -67,6 +67,7 @@ struct simplify_tactic::imp {
         TRACE("after_simplifier_bug", g.display(tout););
         g.elim_redundancies();
         TRACE("after_simplifier", g.display(tout););
+        TRACE("after_simplifier_detail", g.display_with_dependencies(tout););
         SASSERT(g.is_well_sorted());
     }
 

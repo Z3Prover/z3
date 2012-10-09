@@ -357,6 +357,7 @@ class imdd_manager {
     imdd * mk_filter_equal_main(imdd * d, unsigned vidx, unsigned value, bool destructive, bool memoize_res);
     
 
+    // original 
     imdd2intervals m_imdd2interval_set;
     ptr_vector<sl_interval_set> m_alloc_is;
     typedef sl_manager_base<unsigned> sl_imanager;
@@ -375,12 +376,36 @@ class imdd_manager {
                                           bool destructive, bool memoize_res);
     imdd * mk_filter_identical_main(imdd * d, unsigned num_vars, unsigned * vars, bool destructive, bool memoize_res);
 
+    // v2
     obj_map<imdd, imdd*> m_filter_identical_cache;
     void  filter_identical_core2(imdd* d, unsigned num_vars, unsigned b, unsigned e, ptr_vector<imdd>& ch);
     imdd* filter_identical_core2(imdd* d, unsigned var, unsigned num_vars, bool memoize_res);
     void  filter_identical_main2(imdd * d, imdd_ref& r, unsigned num_vars, unsigned * vars, bool destructive, bool memoize_res);
     void  swap_in(imdd * d, imdd_ref& r, unsigned num_vars, unsigned * vars);
     void  swap_out(imdd * d, imdd_ref& r, unsigned num_vars, unsigned * vars);
+
+    // v3
+    struct interval {
+        unsigned m_lo;
+        unsigned m_hi;
+        interval(unsigned lo, unsigned hi): m_lo(lo), m_hi(hi) {}
+    };
+    struct interval_dd : public interval {
+        imdd* m_dd;
+        interval_dd(unsigned lo, unsigned hi, imdd* d): interval(lo, hi), m_dd(d) {}
+    };
+    typedef obj_map<imdd, svector<interval> > filter_id_map;
+    typedef obj_map<imdd, svector<interval_dd> > filter_idd_map;
+    void filter_identical_main3(imdd * d, imdd_ref& r, unsigned num_vars, unsigned * vars, bool destructive, bool memoize_res);
+    void filter_identical_main3(imdd * d, imdd_ref& r, unsigned v1, bool del1, unsigned v2, bool del2, bool memoize_res);
+    imdd* filter_identical_loop3(imdd * d, unsigned v1, bool del1, unsigned v2, bool del2, bool memoize_res);
+    void refine_intervals(svector<interval>& i_nodes, svector<interval_dd> const& i_nodes_dd);
+    void merge_intervals(svector<interval>& dst, svector<interval> const& src);
+    imdd* filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bool del2, bool memoize_res);
+    void print_filter_idd(std::ostream& out, filter_idd_map const& m);
+    void print_interval_dd(std::ostream& out, svector<interval_dd> const& m);
+
+    
 
     unsigned               m_proj_num_vars;
     unsigned *             m_proj_begin_vars;
@@ -565,11 +590,11 @@ public:
 
     void mk_filter_identical_dupdt(imdd_ref & d, unsigned num_vars, unsigned * vars, bool memoize_res = true) {
         // d = mk_filter_identical_main(d, num_vars, vars, true, memoize_res);
-        filter_identical_main2(d, d, num_vars, vars, true, memoize_res);
+        filter_identical_main3(d, d, num_vars, vars, true, memoize_res);
     }
 
     void mk_filter_identical(imdd * d, imdd_ref & r, unsigned num_vars, unsigned * vars, bool memoize_res = true) {
-        filter_identical_main2(d, r, num_vars, vars, false, memoize_res);
+        filter_identical_main3(d, r, num_vars, vars, false, memoize_res);
 
         STRACE("imdd_trace", tout << "mk_filter_identical(0x" << d << ", 0x" << r.get() << ", ";
            for (unsigned i = 0; i < num_vars; i++) tout << vars[i] << ", ";
