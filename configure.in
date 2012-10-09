@@ -45,6 +45,36 @@ AC_SUBST(SLIBFLAGS)
 AC_SUBST(COMP_VERSIONS)
 AC_SUBST(STATIC_FLAGS)
 
+cat > tst_python.py <<EOF
+from sys import version
+if version >= "3":
+   exit(1)
+exit(0)
+EOF
+
+if python tst_python.py; then
+  HAS_PYTHON="1"
+  HAS_PYTHON_MSG="yes"
+cat > get_py_dir.py << EOF
+import distutils.sysconfig
+print distutils.sysconfig.get_python_lib()
+EOF
+  if python get_py_dir.py > dir.txt; then
+    PYTHON_PACKAGE_DIR=`cat dir.txt`
+  else
+    HAS_PYTHON="0"
+    HAS_PYTHON_MSG="no"
+  fi
+  rm -f dir.txt
+  rm -f get_py_dir.py
+else
+  HAS_PYTHON="0"
+  HAS_PYTHON_MSG="no"
+fi
+AC_SUBST(PYTHON_PACKAGE_DIR)
+AC_SUBST(HAS_PYTHON)
+rm -f tst_python.py
+
 cat > tst64.c <<EOF
     int main() {
     	return sizeof(unsigned) == sizeof(void*);
@@ -108,6 +138,9 @@ cat <<EOF
 Z3 was configured with success.
 Host platform: $PLATFORM
 Arithmetic:    $ARITH
+Python:        $HAS_PYTHON_MSG
 
 Type 'make' to compile Z3.
+Type 'sudo make install' to install Z3.
+Type 'sudo make install-python' to install Z3 Python bindings.
 EOF
