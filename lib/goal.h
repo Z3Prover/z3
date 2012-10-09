@@ -180,6 +180,7 @@ public:
     void display_dimacs(std::ostream & out) const;
     void display_with_dependencies(cmd_context & ctx, std::ostream & out) const;
     void display_with_dependencies(cmd_context & ctx) const;
+    void display_with_dependencies(std::ostream & out) const;
 
     bool sat_preserved() const { 
         return prec() == PRECISE || prec() == UNDER; 
