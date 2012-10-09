@@ -19,6 +19,7 @@ LIBS=@LIBS@
 ## -lrt is for timer_create and timer_settime
 LDFLAGS=@LDFLAGS@ -lpthread -fopenmp
 LDFLAGS_EXTRA=
+PREFIX=@prefix@
 #########################
 
 Z3=z3
@@ -435,3 +436,31 @@ checkgmake:
 	@ ./gmaketest --make=$(MAKE) || \
           (echo "Z3 needs GNU-Make to be built"; exit 1)
 
+################################
+#
+# installation/uninstallation
+#
+################################
+
+install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).so  $(BIN_DIR)/lib$(Z3).a
+	@mkdir -p $(PREFIX)/bin
+	@mkdir -p $(PREFIX)/lib
+	@mkdir -p $(PREFIX)/include
+	@cp $(BIN_DIR)/$(Z3) $(PREFIX)/bin
+	@cp $(BIN_DIR)/lib$(Z3).so $(PREFIX)/lib
+	@cp $(BIN_DIR)/lib$(Z3).a $(PREFIX)/lib
+	@cp lib/z3_api.h    $(PREFIX)/include
+	@cp lib/z3.h        $(PREFIX)/include
+	@cp lib/z3_v1.h     $(PREFIX)/include
+	@cp lib/z3_macros.h $(PREFIX)/include
+	@cp c++/z3++.h      $(PREFIX)/include
+
+uninstall:
+	@rm -f $(PREFIX)/bin/$(Z3)
+	@rm -f $(PREFIX)/lib/lib$(Z3).so
+	@rm -f $(PREFIX)/lib/lib$(Z3).a
+	@rm -f $(PREFIX)/include/z3_api.h
+	@rm -f $(PREFIX)/include/z3.h
+	@rm -f $(PREFIX)/include/z3_v1.h
+	@rm -f $(PREFIX)/include/z3_macros.h
+	@rm -f $(PREFIX)/include/z3++.h
