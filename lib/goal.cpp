@@ -497,7 +497,7 @@ void goal::elim_redundancies() {
                     proof * prs[2] = { pr(get_idx(atom)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
                 }
-                expr_dependency * d = 0;
+                expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_idx(atom)), dep(i));
                 push_back(m().mk_false(), p, d);                    
@@ -514,7 +514,7 @@ void goal::elim_redundancies() {
                     proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
                 }
-                expr_dependency * d = 0;
+                expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_not_idx(f)), dep(i));
                 push_back(m().mk_false(), p, d);
