@@ -964,7 +964,7 @@ extern "C" {
             case PR_CNF_STAR: return Z3_OP_PR_CNF_STAR; 
             case PR_MODUS_PONENS_OEQ: return Z3_OP_PR_MODUS_PONENS_OEQ; 
             case PR_TH_LEMMA: return Z3_OP_PR_TH_LEMMA; 
-
+            case PR_HYPER_RESOLVE: return Z3_OP_PR_HYPER_RESOLVE;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;

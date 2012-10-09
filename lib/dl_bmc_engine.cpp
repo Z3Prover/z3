@@ -179,7 +179,7 @@ namespace datalog {
 
                  substs.push_back(sub1);
                  substs.push_back(sub);
-                 pr = util.mk_hyper_resolve(2, premises, concl, positions, substs);
+                 pr = m.mk_hyper_resolve(2, premises, concl, positions, substs);
                  r0 = r1;
              }
              else {
@@ -191,7 +191,7 @@ namespace datalog {
                  }
                  else {
                      substs.push_back(sub);
-                     pr = util.mk_hyper_resolve(1, &p, concl, positions, substs);
+                     pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
                  }
                  r0 = r2;
              }

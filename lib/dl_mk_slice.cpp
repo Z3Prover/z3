@@ -181,7 +181,7 @@ namespace datalog {
             proof_ref_vector premises0(m);
             vector<expr_ref_vector> substs, substs0;
 
-            if (!util.is_hyper_resolve(p, premises0, slice_concl, positions, substs0)) {
+            if (!m.is_hyper_resolve(p, premises0, slice_concl, positions, substs0)) {
                 return false;
             }
             unsigned num_args = p->get_num_args();
@@ -240,7 +240,7 @@ namespace datalog {
                 r1 = r3;
             }
             r1->to_formula(concl);
-            proof* new_p = util.mk_hyper_resolve(premises.size(), premises.c_ptr(), concl, positions, substs);
+            proof* new_p = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), concl, positions, substs);
             m_pinned_exprs.push_back(new_p);
             m_pinned_rules.push_back(r1.get());
             m_sliceform2rule.insert(slice_concl, r1.get());

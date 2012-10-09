@@ -1093,7 +1093,7 @@ namespace pdr {
                 }
                 expr_ref fml_concl(m);
                 reduced_rule->to_formula(fml_concl);                    
-                p1 = util.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
+                p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
             }
             cache.insert(n->state(), p1);
             rules.insert(n->state(), reduced_rule);

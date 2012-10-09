@@ -48,7 +48,6 @@ namespace datalog {
         OP_RA_CLONE,
         OP_DL_CONSTANT,
         OP_DL_LT,
-        OP_DL_HYPER_RESOLVE,
         LAST_RA_OP
     };
     
@@ -210,48 +209,6 @@ namespace datalog {
         ast_manager& get_manager() const { return m; }
 
         family_id get_family_id() const { return m_fid; }
-
-        /**
-           \brief Hyper-resolution rule that works for Horn clauses (implication)
-           
-           Somewhat related to unit resolution and resolution rule from SPC, but
-           a general sledgehammer rule. 
-           The clause/implication from the first premise is the main clause.
-           One of the literals in each of the other premises is resolved with the main clause.
-           
-           The facts in the premises are closed formulas. Substitutions required for unification
-           are passed in.
-
-           positions is a vector of pairs of positions in the main clause and the side clause.
-
-           For clauses that are disjunctions the positions are indexed from 0 starting with the first
-           literal.
-
-           We use the following (Prolog style) convention for Horn implications:
-           The head of a Horn implication is position 0,
-           the first conjunct in the body of an implication is position 1
-           the second conjunct in the body of an implication is position 2
-
-           For general implications where the head is a disjunction, the
-           first n positions correspond to the n disjuncts in the head.
-           The next m positions correspond to the m conjuncts in the body.
-        */
-        proof* mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
-                                svector<std::pair<unsigned, unsigned> > const& positions,
-                                vector<expr_ref_vector> const& substs);
-
-        bool is_hyper_resolve(proof* p) const { return is_app_of(p, m_fid, OP_DL_HYPER_RESOLVE); }
-
-
-        /**
-            \brief extract components of a hyper-resolution proof rule.
-
-        */
-        bool is_hyper_resolve(proof* p, 
-                              proof_ref_vector& premises,
-                              expr_ref& conclusion,
-                              svector<std::pair<unsigned, unsigned> > & positions,
-                              vector<expr_ref_vector>& substs) const;
 
     };
     
