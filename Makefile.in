@@ -444,12 +444,12 @@ checkgmake:
 #
 ################################
 
-install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).so  $(BIN_DIR)/lib$(Z3).a
+install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@  $(BIN_DIR)/lib$(Z3).a
 	@mkdir -p $(PREFIX)/bin
 	@mkdir -p $(PREFIX)/lib
 	@mkdir -p $(PREFIX)/include
 	@cp $(BIN_DIR)/$(Z3) $(PREFIX)/bin
-	@cp $(BIN_DIR)/lib$(Z3).so $(PREFIX)/lib
+	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PREFIX)/lib
 	@cp $(BIN_DIR)/lib$(Z3).a $(PREFIX)/lib
 	@cp lib/z3_api.h    $(PREFIX)/include
 	@cp lib/z3.h        $(PREFIX)/include
@@ -459,7 +459,7 @@ install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).so  $(BIN_DIR)/lib$(Z3).a
 
 uninstall:
 	@rm -f $(PREFIX)/bin/$(Z3)
-	@rm -f $(PREFIX)/lib/lib$(Z3).so
+	@rm -f $(PREFIX)/lib/lib$(Z3).@SO_EXT@
 	@rm -f $(PREFIX)/lib/lib$(Z3).a
 	@rm -f $(PREFIX)/include/z3_api.h
 	@rm -f $(PREFIX)/include/z3.h
@@ -467,7 +467,7 @@ uninstall:
 	@rm -f $(PREFIX)/include/z3_macros.h
 	@rm -f $(PREFIX)/include/z3++.h
 
-install-python: $(BIN_DIR)/lib$(Z3).so
+install-python: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
 	@echo "Installing Python bindings at $(PYTHON_PACKAGE_DIR)."
 	@cp python/z3.py $(PYTHON_PACKAGE_DIR)
@@ -476,7 +476,7 @@ install-python: $(BIN_DIR)/lib$(Z3).so
 	@cp python/z3consts.py $(PYTHON_PACKAGE_DIR)
 	@cp python/z3tactics.py $(PYTHON_PACKAGE_DIR)
 	@cp python/z3printer.py $(PYTHON_PACKAGE_DIR)
-	@cp $(BIN_DIR)/lib$(Z3).so $(PYTHON_PACKAGE_DIR)
+	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PYTHON_PACKAGE_DIR)
 
 uninstall-python: 
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
@@ -487,4 +487,4 @@ uninstall-python:
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3consts.py
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3tactics.py
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3printer.py
-	@rm -f $(PYTHON_PACKAGE_DIR)/$(BIN_DIR)/lib$(Z3).so
+	@rm -f $(PYTHON_PACKAGE_DIR)/$(BIN_DIR)/lib$(Z3).@SO_EXT@
