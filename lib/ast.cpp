@@ -646,7 +646,8 @@ basic_decl_plugin::basic_decl_plugin():
     m_def_intro_decl(0),
     m_iff_oeq_decl(0),
     m_skolemize_decl(0),
-    m_mp_oeq_decl(0) {
+    m_mp_oeq_decl(0),
+    m_hyper_res_decl0(0) {
 }
 
 bool basic_decl_plugin::check_proof_sorts(basic_op_kind k, unsigned arity, sort * const * domain) const {
@@ -751,6 +752,9 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
         SASSERT(num_parents == 0);
         return mk_proof_decl("quant-inst", k, num_parameters, params, num_parents);
     }
+    case PR_HYPER_RESOLVE: {
+        return mk_proof_decl("hyper-res", k, num_parameters, params, num_parents);
+    }
     default:
         UNREACHABLE();
         return 0;
@@ -813,6 +817,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
+    case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
     default:
         UNREACHABLE();
         return 0;
@@ -934,6 +939,7 @@ void basic_decl_plugin::finalize() {
     DEC_ARRAY_REF(m_cnf_star_decls);
 
     DEC_ARRAY_REF(m_th_lemma_decls);
+    DEC_REF(m_hyper_res_decl0);
 
 }
 
@@ -2828,6 +2834,82 @@ proof * ast_manager::mk_th_lemma(
     args.append(num_proofs, (expr**) proofs);
     args.push_back(fact);
     return mk_app(m_basic_family_id, PR_TH_LEMMA, num_params+1, parameters.c_ptr(), args.size(), args.c_ptr());
+}
+
+proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
+                                     svector<std::pair<unsigned, unsigned> > const& positions,
+                                     vector<expr_ref_vector> const& substs) {
+    ptr_vector<expr> fmls;
+    SASSERT(positions.size() + 1 == substs.size());
+    for (unsigned i = 0; i < num_premises; ++i) {
+        TRACE("dl", tout << mk_pp(premises[i], *this) << "\n";);
+        fmls.push_back(get_fact(premises[i]));
+    }
+    SASSERT(is_bool(concl));
+    vector<parameter> params;
+    for (unsigned i = 0; i < substs.size(); ++i) {
+        expr_ref_vector const& vec = substs[i];
+        for (unsigned j = 0; j < vec.size(); ++j) {
+            params.push_back(parameter(vec[j]));
+        }
+        if (i + 1 < substs.size()) {
+            params.push_back(parameter(positions[i].first));
+            params.push_back(parameter(positions[i].second));
+        }
+    }
+    ptr_vector<sort> sorts;
+    ptr_vector<expr> args;
+    for (unsigned i = 0; i < num_premises; ++i) {
+        sorts.push_back(mk_proof_sort());
+        args.push_back(premises[i]);
+    }
+    sorts.push_back(mk_bool_sort());
+    args.push_back(concl);
+    app* result = mk_app(m_basic_family_id, PR_HYPER_RESOLVE, params.size(), params.c_ptr(), args.size(), args.c_ptr());
+    SASSERT(result->get_family_id() == m_basic_family_id);
+    SASSERT(result->get_decl_kind() == PR_HYPER_RESOLVE);
+    return result;
+}
+
+bool ast_manager::is_hyper_resolve(
+    proof* p, 
+    proof_ref_vector& premises,
+    expr_ref& conclusion,
+    svector<std::pair<unsigned, unsigned> > & positions,
+    vector<expr_ref_vector> & substs) {
+    if (!is_hyper_resolve(p)) {
+        return false;
+    }
+    unsigned sz = p->get_num_args();
+    SASSERT(sz > 0);
+    for (unsigned i = 0; i + 1 < sz; ++i) {
+        premises.push_back(to_app(p->get_arg(i)));
+    }
+    conclusion = p->get_arg(sz-1);
+    func_decl* d = p->get_decl();
+    unsigned num_p = d->get_num_parameters();
+    parameter const* params = d->get_parameters();
+    
+    substs.push_back(expr_ref_vector(*this));
+    for (unsigned i = 0; i < num_p; ++i) {
+        if (params[i].is_int()) {
+            SASSERT(i + 1 < num_p);
+            SASSERT(params[i+1].is_int());
+            unsigned x = static_cast<unsigned>(params[i].get_int());
+            unsigned y = static_cast<unsigned>(params[i+1].get_int());
+            positions.push_back(std::make_pair(x, y));
+            substs.push_back(expr_ref_vector(*this));
+            ++i;
+        }
+        else {
+            SASSERT(params[i].is_ast());
+            ast* a = params[i].get_ast();
+            SASSERT(is_expr(a));
+            substs.back().push_back(to_expr(a));                
+        }
+    }
+    
+    return true;
 }
 
 

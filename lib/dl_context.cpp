@@ -54,6 +54,7 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
+#include"datatype_decl_plugin.h"
 
 namespace datalog {
 
@@ -1118,10 +1119,11 @@ namespace datalog {
     class context::engine_type_proc {
         ast_manager& m;
         arith_util   a;
+        datatype_util dt;
         DL_ENGINE    m_engine;
 
     public:
-        engine_type_proc(ast_manager& m): m(m), a(m), m_engine(DATALOG_ENGINE) {}
+        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}
 
         DL_ENGINE get_engine() const { return m_engine; }
         void operator()(expr* e) {
@@ -1132,6 +1134,9 @@ namespace datalog {
                 m_engine = PDR_ENGINE;
             }
             else if (is_var(e) && m.is_bool(e)) {
+                m_engine = PDR_ENGINE;
+            }
+            else if (dt.is_datatype(m.get_sort(e))) {
                 m_engine = PDR_ENGINE;
             }
         }

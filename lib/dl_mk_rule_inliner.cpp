@@ -735,7 +735,7 @@ namespace datalog {
         }
         m_subst.reset();
         m_subst.reserve_vars(max_var+1);
-        m_subst.reserve_offsets(std::max(m_tail_index.get_approx_num_regs(), m_head_index.get_approx_num_regs()));
+        m_subst.reserve_offsets(std::max(m_tail_index.get_approx_num_regs(), 2+m_head_index.get_approx_num_regs()));
 
         svector<bool> valid;
         valid.reset();

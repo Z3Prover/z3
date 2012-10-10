@@ -761,6 +761,47 @@ typedef enum
          - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
 
 
+      - Z3_OP_PR_HYPER_RESOLVE: Hyper-resolution rule.
+
+        The premises of the rules is a sequence of clauses.
+        The first clause argument is the main clause of the rule.
+        One literal from the second, third, .. clause is resolved
+        with a literal from the first (main) clause.
+
+        Premises of the rules are of the form
+        \nicebox{
+                (or l0 l1 l2 .. ln)
+        }
+        or
+        \nicebox{
+             (=> (and ln+1 ln+2 .. ln+m) l0)
+        }
+        or in the most general (ground) form:
+        \nicebox{
+             (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1))
+        }
+        In other words we use the following (Prolog style) convention for Horn 
+        implications:
+        The head of a Horn implication is position 0,
+        the first conjunct in the body of an implication is position 1
+        the second conjunct in the body of an implication is position 2
+
+        For general implications where the head is a disjunction, the
+        first n positions correspond to the n disjuncts in the head.
+        The next m positions correspond to the m conjuncts in the body.
+
+        The premises can be universally quantified so that the most
+        general non-ground form is:
+
+        \nicebox{
+             (forall (vars) (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1)))
+        }
+
+        The hyper-resolution rule takes a sequence of parameters.
+        The parameters are substitutions of bound variables separated by pairs
+        of literal positions from the main clause and side clause.
+
+
       - Z3_OP_RA_STORE: Insert a record into a relation.
         The function takes \c n+1 arguments, where the first argument is the relation and the remaining \c n elements 
         correspond to the \c n columns of the relation.
@@ -982,6 +1023,7 @@ typedef enum {
     Z3_OP_PR_SKOLEMIZE,
     Z3_OP_PR_MODUS_PONENS_OEQ, 
     Z3_OP_PR_TH_LEMMA, 
+    Z3_OP_PR_HYPER_RESOLVE,
 
     // Sequences
     Z3_OP_RA_STORE = 0x600,
@@ -5039,7 +5081,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Backtrack one backtracking point.
        
-       \sa Z3_fixedpoing_push
+       \sa Z3_fixedpoint_push
 
        \pre The number of calls to pop cannot exceed calls to push.
     */
