@@ -479,8 +479,8 @@ namespace smt {
             return;
         }
         expr* to_r = m_util.mk_to_real(n);
-        expr* lo = m_util.mk_le(to_r, x);
-        expr* hi = m_util.mk_lt(x, m_util.mk_add(to_r, m_util.mk_numeral(rational(1), false)));
+        expr_ref lo(m_util.mk_le(to_r, x), m);
+        expr_ref hi(m_util.mk_lt(x, m_util.mk_add(to_r, m_util.mk_numeral(rational(1), false))), m);
         mk_axiom(m.mk_false(), lo);
         mk_axiom(m.mk_false(), hi);
     }

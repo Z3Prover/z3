@@ -60,6 +60,11 @@ namespace pdr {
             return a.mk_add(e1, e2);
         }
 
+        app* mk_mul(expr* e1, expr* e2) {
+            mk_coerce(e1, e2);
+            return a.mk_mul(e1, e2);
+        }
+
         app* mk_le(expr* e1, expr* e2) {
             mk_coerce(e1, e2);
             return a.mk_le(e1, e2);
@@ -86,7 +91,7 @@ namespace pdr {
                 tmp = e;
             }
             else {
-                tmp = a.mk_mul(a.mk_numeral(c, a.is_int(e)), e);
+                tmp = mk_mul(a.mk_numeral(c, c.is_int() && a.is_int(e)), e);
             }
             res = mk_add(res, tmp);
         }
