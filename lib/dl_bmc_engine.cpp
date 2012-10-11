@@ -512,7 +512,6 @@ namespace datalog {
                     conjs.push_back(tmp);
                 }
                 bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
-                expr* rule_pred = m.mk_app(rule_pred_i, trace_arg.get(), path_var.get());
                 ptr_vector<sort> q_sorts;
                 vector<symbol> names;
                 for (unsigned i = 0; i < vars.size(); ++i) {
@@ -526,17 +525,18 @@ namespace datalog {
                 SASSERT(vars.size() == names.size());
                 symbol qid = r.name(), skid;
                 
-                patterns.reset();
-                patterns.push_back(m.mk_pattern(to_app(rule_pred)));
+                //patterns.reset();
+                //patterns.push_back(m.mk_pattern(to_app(rule_pred)));
+                //
+                //fml = m.mk_implies(rule_pred, rule_body);
+                //fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
+                //assert_expr(fml);
+
                 expr_ref fml(m);
-                fml = m.mk_implies(rule_pred, rule_body);
-                fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
-                assert_expr(fml);
-                
                 tmp = m.mk_app(mk_predicate(p), trace_arg.get(), path_var.get());
                 patterns.reset();
                 patterns.push_back(m.mk_pattern(to_app(tmp)));
-                fml = m.mk_implies(tmp, rule_pred);
+                fml = m.mk_implies(tmp, rule_body);
                 fml = m.mk_forall(vars.size(), sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
                 assert_expr(fml);
                 
