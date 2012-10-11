@@ -465,7 +465,7 @@ namespace datalog {
                         path_arg = path_var.get();
                     }
                     else {
-                        path_arg = m.mk_app(succs[j-1], path_var.get());
+                        path_arg = m.mk_app(succs[j], path_var.get());
                     }
                     for (unsigned k = 0; k < q->get_arity(); ++k) {
                         expr* arg = r.get_tail(j)->get_arg(k);
@@ -496,7 +496,7 @@ namespace datalog {
                         path_arg = path_var.get();
                     }
                     else {
-                        path_arg = m.mk_app(succs[j-1], path_var.get());
+                        path_arg = m.mk_app(succs[j], path_var.get());
                     }
                     func_decl* q = r.get_decl(j);
                     for (unsigned k = 0; k < q->get_arity(); ++k) {
@@ -531,18 +531,16 @@ namespace datalog {
                 expr_ref fml(m);
                 fml = m.mk_implies(rule_pred, rule_body);
                 fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
-                std::cout << mk_pp(fml, m) << "\n";
                 assert_expr(fml);
+                
+                tmp = m.mk_app(mk_predicate(p), trace_arg.get(), path_var.get());
+                patterns.reset();
+                patterns.push_back(m.mk_pattern(to_app(tmp)));
+                fml = m.mk_implies(tmp, rule_pred);
+                fml = m.mk_forall(vars.size(), sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
+                assert_expr(fml);
+                
             }
-            bool_rewriter(m).mk_or(rules.size(), rules.c_ptr(), tmp);
-            symbol names[2] = { symbol("Trace"), symbol("Path")  };
-            symbol qid = p->get_name(), skid;
-            patterns.reset();
-            patterns.push_back(m.mk_pattern(to_app(pred)));
-            expr_ref fml(m);
-            fml = m.mk_implies(pred, tmp);
-            fml = m.mk_forall(2, sorts, names, fml, 1, qid, skid, 1, patterns.c_ptr());
-            assert_expr(fml);
         }               
     }
 
