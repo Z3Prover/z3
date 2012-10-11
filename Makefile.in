@@ -20,6 +20,9 @@ LIBS=@LIBS@
 LDFLAGS=@LDFLAGS@ -lpthread -fopenmp
 LDFLAGS_EXTRA=
 PREFIX=@prefix@
+HAS_PYTHON=@HAS_PYTHON@
+PYTHON_PACKAGE_DIR=@PYTHON_PACKAGE_DIR@
+PYTHON=@PYTHON@
 #########################
 
 Z3=z3
@@ -296,124 +299,6 @@ clean:
 
 ################################
 #
-# Release
-# 
-# NOTE: In 64-bit systems it is not possible to build a dynamic library using static gmp.
-# So, EXTRA_LIBS="" in 64-bit systems.
-#     EXTRA_LIBS="$(BIN_DIR)/lib$(Z3)-gmp.so" in 32-bit systems.
-#
-# Remark: disable ocaml bindings in the release.
-# They will be re-enabled in the future. 
-# To re-enable them, I just have to include ocamlrelease in the list of dependencies.
-# I had to disable them because the stub generator uses non-portable scripts, and
-# were not included at z3.codeplex.com. Thus, this part is temporarily broken.  
-#
-# iZ3 is also temporarily removed from the release package. To re-enable it, we just have to include iz3release in the
-# list of dependencies.
-#
-# I also permanently removed test_user_theory example. Now, that the source code
-# is available, we don't need it anymore.
-#
-################################
-release: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@ @EXTRA_LIBS@ $(BIN_DIR)/lib$(Z3).a
-	@rm -f -r z3
-	@mkdir -p z3
-	@mkdir -p z3/bin
-	@mkdir -p z3/lib
-	@mkdir -p z3/include
-	@mkdir -p z3/examples
-	@mkdir -p z3/python
-	@mkdir -p z3/examples/c	
-	@mkdir -p z3/examples/c++	
-	@mkdir -p z3/examples/python
-	@mkdir -p z3/examples/maxsat	
-	@cp lib/z3.h z3/include
-	@cp lib/z3_v1.h z3/include
-	@cp lib/z3_api.h z3/include
-	@cp lib/z3_macros.h z3/include
-	@$(DOS2UNIX) z3/include/*
-	@cp $(BIN_DIR)/$(Z3) z3/bin
-	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ z3/lib
-	@cp $(BIN_DIR)/lib$(Z3).a z3/lib
-	@cp test_capi/test_capi.c z3/examples/c
-	@$(DOS2UNIX) z3/examples/c/test_capi.c
-	@cp test_capi/README-$(PLATFORM).txt z3/examples/c/README
-	@$(DOS2UNIX) z3/examples/c/README
-	@cp test_capi/build-external-$(PLATFORM).sh z3/examples/c/build.sh
-	@cp test_capi/build-static-$(PLATFORM).sh z3/examples/c/build-static.sh
-	@$(DOS2UNIX) z3/examples/c/build.sh
-	@chmod +rwx z3/examples/c/build.sh
-	@$(DOS2UNIX) z3/examples/c/build-static.sh
-	@chmod +rwx z3/examples/c/build-static.sh
-	@cp test_capi/exec-external-$(PLATFORM).sh z3/examples/c/exec.sh
-	@$(DOS2UNIX) z3/examples/c/exec.sh
-	@chmod +rwx z3/examples/c/exec.sh
-	@cp maxsat/maxsat.c z3/examples/maxsat
-	@$(DOS2UNIX) z3/examples/maxsat/maxsat.c
-	@cp maxsat/README-$(PLATFORM).txt z3/examples/maxsat/README
-	@$(DOS2UNIX) z3/examples/maxsat/README
-	@cp maxsat/build-external-$(PLATFORM).sh z3/examples/maxsat/build.sh
-	@cp maxsat/build-static-$(PLATFORM).sh z3/examples/maxsat/build-static.sh
-	@$(DOS2UNIX) z3/examples/maxsat/build.sh
-	@chmod +rwx z3/examples/maxsat/build.sh
-	@$(DOS2UNIX) z3/examples/maxsat/build-static.sh
-	@chmod +rwx z3/examples/maxsat/build-static.sh
-	@cp maxsat/exec-external-$(PLATFORM).sh z3/examples/maxsat/exec.sh
-	@$(DOS2UNIX) z3/examples/maxsat/exec.sh
-	@chmod +rwx z3/examples/maxsat/exec.sh
-	@cp c++/z3++.h z3/include
-	@cp c++/example.cpp z3/examples/c++
-	@cp c++/build-external-$(PLATFORM).sh z3/examples/c++/build.sh
-	@$(DOS2UNIX) z3/examples/c++/build.sh
-	@chmod +rwx z3/examples/c++/build.sh
-	@cp c++/exec-external-$(PLATFORM).sh z3/examples/c++/exec.sh
-	@$(DOS2UNIX) z3/examples/c++/exec.sh
-	@chmod +rwx z3/examples/c++/exec.sh
-	@cp python/z3.py z3/python
-	@cp python/z3core.py z3/python
-	@cp python/z3types.py z3/python
-	@cp python/z3consts.py z3/python
-	@cp python/z3tactics.py z3/python
-	@cp python/z3printer.py z3/python
-	@cp python/README-$(PLATFORM).txt z3/examples/python/README
-	@cp python/exec-$(PLATFORM).sh z3/examples/python/exec.sh
-	@cp python/example.py z3/examples/python
-	@$(DOS2UNIX) z3/python/*.py
-	@$(DOS2UNIX) z3/examples/python/*.py
-	@$(DOS2UNIX) z3/examples/python/*.sh
-	@chmod +rwx z3/examples/python/*.sh
-	@tar -cvzf z3.tar.gz z3
-
-ocamlrelease:
-	@mkdir -p z3/ocaml
-	@mkdir -p z3/examples/ocaml
-	@cp ml/z3_stubs.c z3/ocaml
-	@cp ml/z3_theory_stubs.c z3/ocaml
-	@cp ml/z3.mli z3/ocaml
-	@cp ml/z3.ml z3/ocaml
-	@cp ml_release/build-lib.sh z3/ocaml
-	@$(DOS2UNIX) z3/ocaml/build-lib.sh
-	@chmod +rwx z3/ocaml/build-lib.sh
-	@cp ml_release/README_$(PLATFORM) z3/ocaml/README
-	@$(DOS2UNIX) z3/ocaml/README
-	@cp ml_release/build-test.sh z3/examples/ocaml
-	@$(DOS2UNIX) z3/examples/ocaml/build-test.sh
-	@chmod +rwx z3/examples/ocaml/build-test.sh
-	@cp ml_release/README_test_$(PLATFORM) z3/examples/ocaml/README
-	@$(DOS2UNIX) z3/examples/ocaml/README
-	@cp ml_release/exec-$(PLATFORM).sh z3/examples/ocaml/exec.sh
-	@$(DOS2UNIX) z3/examples/ocaml/exec.sh
-	@chmod +rwx z3/examples/ocaml/exec.sh
-	@cp ml/test_mlapi.ml z3/examples/ocaml
-	@$(DOS2UNIX) z3/examples/ocaml/test_mlapi.ml
-
-iz3release:
-	@$(DOS2UNIX) iZ3/pack-iz3-$(PLATFORM).sh
-	@chmod +rwx iZ3/pack-iz3-$(PLATFORM).sh
-	@iZ3/pack-iz3-$(PLATFORM).sh
-
-################################
-#
 # Support
 # 
 ################################
@@ -442,12 +327,12 @@ checkgmake:
 #
 ################################
 
-install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).so  $(BIN_DIR)/lib$(Z3).a
+install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@  $(BIN_DIR)/lib$(Z3).a
 	@mkdir -p $(PREFIX)/bin
 	@mkdir -p $(PREFIX)/lib
 	@mkdir -p $(PREFIX)/include
 	@cp $(BIN_DIR)/$(Z3) $(PREFIX)/bin
-	@cp $(BIN_DIR)/lib$(Z3).so $(PREFIX)/lib
+	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PREFIX)/lib
 	@cp $(BIN_DIR)/lib$(Z3).a $(PREFIX)/lib
 	@cp lib/z3_api.h    $(PREFIX)/include
 	@cp lib/z3.h        $(PREFIX)/include
@@ -457,10 +342,33 @@ install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).so  $(BIN_DIR)/lib$(Z3).a
 
 uninstall:
 	@rm -f $(PREFIX)/bin/$(Z3)
-	@rm -f $(PREFIX)/lib/lib$(Z3).so
+	@rm -f $(PREFIX)/lib/lib$(Z3).@SO_EXT@
 	@rm -f $(PREFIX)/lib/lib$(Z3).a
 	@rm -f $(PREFIX)/include/z3_api.h
 	@rm -f $(PREFIX)/include/z3.h
 	@rm -f $(PREFIX)/include/z3_v1.h
 	@rm -f $(PREFIX)/include/z3_macros.h
 	@rm -f $(PREFIX)/include/z3++.h
+
+install-python: $(BIN_DIR)/lib$(Z3).@SO_EXT@
+	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
+	@echo "Installing Python bindings at $(PYTHON_PACKAGE_DIR)."
+	@$(PYTHON) python/example.py > /dev/null
+	@cp python/z3.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3core.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3types.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3consts.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3tactics.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3printer.pyc $(PYTHON_PACKAGE_DIR)
+	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PYTHON_PACKAGE_DIR)
+
+uninstall-python: 
+	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
+	@echo "Uninstalling Python bindings from $(PYTHON_PACKAGE_DIR)."
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3core.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3types.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3consts.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3tactics.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3printer.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/$(BIN_DIR)/lib$(Z3).@SO_EXT@

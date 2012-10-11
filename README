@@ -36,9 +36,18 @@ Use the following commands to install in a different prefix (e.g., /usr).
   make
   sudo make install
 
-To uninstall z3, use
+To uninstall Z3, use
 
   sudo make uninstall
+
+To install Z3 Python bindings, use
+
+  sudo make install-python
+
+To uninstall Z3 Python bindings, use
+
+  sudo make uninstall-python
+  
 
 Remark: the Z3 makefile imports the source file list from Visual Studio project files.
 To add new source files to the Z3 core, you must include them at: lib/lib.vcxproj
