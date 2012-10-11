@@ -96,6 +96,9 @@ namespace datalog {
             (*m_tocheck)(tocheck(tgt), tocheck(src), tocheck(delta));
             (*m_checker)(checker(tgt), checker(src), checker(delta));
             get(tgt).well_formed();
+            if (delta) {
+                get(*delta).well_formed();
+            }
         }
     };
 

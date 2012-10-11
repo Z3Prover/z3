@@ -329,7 +329,7 @@ namespace pdr {
         m_ctx->pop(1);
 
         IF_VERBOSE(3, {
-                for (unsigned i = 0; i < lemmas.size(); ++i) {
+                for (unsigned i = 0; i < ilemmas.size(); ++i) {
                     verbose_stream() << "B': " << mk_pp(ilemmas[i].get(), m) << "\n";
                 }
             });

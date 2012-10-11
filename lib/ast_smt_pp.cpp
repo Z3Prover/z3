@@ -602,12 +602,22 @@ class smt_printer {
                 }
             }
 
-            m_out << " :pat { ";
+            if (m_is_smt2) {
+                m_out << " :pattern ( ";
+            }
+            else {
+                m_out << " :pat { ";
+            }
             for (unsigned j = 0; j < pat->get_num_args(); ++j) {
                 print_no_lets(pat->get_arg(j));
                 m_out << " ";
             }
-            m_out << "}";
+            if (m_is_smt2) {
+                m_out << ")";
+            }
+            else {
+                m_out << "}";
+            }
         }
         if (m_is_smt2 && q->get_num_patterns() > 0) {
             m_out << ")";
