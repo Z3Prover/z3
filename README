@@ -9,15 +9,15 @@ Z3 can be built using Visual Studio Command Prompt, Visual Studio and make/gcc.
 
 - For building all components, execute
     msbuild z3-prover.sln /p:configuration=external 
-  All components will be located at /external
+  All components will be located at \external
 
 - For building all components (64-bit), execute
-    msbuild z3-prover.sln /p:configuration=external_64 /p:platform=x64
-  All components will be located at /external_64
+    msbuild z3-prover.sln /p:configuration=external /p:platform=x64
+  All components will be located at \x64\external
 
 - For building all components (in debug mode), execute
     msbuild z3-prover.sln 
-  All components will be located at /debug
+  All components will be located at \Debug
 
 2) Building Z3 using g++/make
 Your machine must also have the following commands to be able to build Z3:
