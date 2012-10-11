@@ -605,6 +605,12 @@ namespace datalog {
                     body.push_back(r.get_tail(i));
                 }
             }
+            TRACE("dl_dr", 
+                  tout << r.get_decl()->get_name() << "\n";
+                  for (unsigned i = 0; i < body.size(); ++i) {
+                      tout << mk_pp(body[i].get(), m) << "\n";
+                  });
+                      
             mc->insert(r.get_head(), body.size(), body.c_ptr());
         }
     }

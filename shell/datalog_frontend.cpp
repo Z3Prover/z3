@@ -43,11 +43,13 @@ static datalog::execution_context * g_ectx;
 static front_end_params * g_params;
 
 datalog_params::datalog_params():
-    m_default_table("sparse")
+    m_default_table("sparse"),
+    m_default_table_checked(false)
 {}
 
 void datalog_params::register_params(ini_params& p) {
     p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
+    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
 }
 
 static void display_statistics(
@@ -129,6 +131,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
     params_ref params;
     params.set_sym(":engine", symbol("datalog"));
     params.set_sym(":default-table", dl_params.m_default_table);
+    params.set_bool(":default-table-checked", dl_params.m_default_table_checked);
 
     datalog::context ctx(m, front_end_params, params);
     size_t watermark = front_end_params.m_memory_high_watermark;

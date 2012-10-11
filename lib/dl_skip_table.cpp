@@ -215,7 +215,9 @@ namespace datalog {
                 col2 = m_cycle[0];
                 swap2(n, col1, col2);
             }
-            return alloc(skip_table, s.get_plugin(), get_result_signature(), n);
+            skip_table* res = alloc(skip_table, s.get_plugin(), get_result_signature(), n);
+            TRACE("skip",res->display(tout););
+            return res;
         }
     };
     

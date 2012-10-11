@@ -551,11 +551,37 @@ static void tst21() {
     std::cout << mk_ll_pp(d2, m) << "\n";       
 }
 
+static void tst22() {
+    std::cout << "--------------------------------\n";
+    std::cout << "swap\n";
+    imdd_manager m;
+    imdd_ref d2(m), d3(m), d4(m);
+
+    d2 = m.mk_empty(3);
+    random_gen rand;
+    for (unsigned i = 0; i < 130; ++i) {
+        unsigned a = rand(20);
+        unsigned b = rand(20);
+        unsigned c = rand(20);
+        add_triple(m, d2, a, a, b, b, c, c);
+    }
+    std::cout << mk_ll_pp(d2, m) << "\n";
+
+    m.mk_swap(d2, d3, 0, true);
+    std::cout << mk_ll_pp(d3, m) << "\n";
+
+    m.mk_swap(d3, d4, 0, true);
+    std::cout << mk_ll_pp(d4, m) << "\n";
+    SASSERT(m.is_subset(d2, d4));
+    SASSERT(m.is_subset(d4, d2));
+}
+
 void tst_imdd() {
     // enable_trace("imdd_add_bug");
     // enable_trace("add_facts_bug");
     enable_trace("mk_distinct_imdd");
     enable_trace("mk_union_core");
+    tst22();
     tst0();
     tst1();
     tst2();
@@ -578,5 +604,6 @@ void tst_imdd() {
     tst18();
     tst20();
     tst21();
+
 }
 

@@ -1214,9 +1214,8 @@ namespace datalog {
 
     lbool context::pdr_query(expr* query) {
         ensure_pdr();
-        lbool result  = m_pdr->query(query);
-        m_last_answer = m_pdr->get_answer();
-        return result;
+        m_last_answer = 0; 
+        return m_pdr->query(query);
     }
 
     void context::ensure_bmc() {
@@ -1227,9 +1226,8 @@ namespace datalog {
 
     lbool context::bmc_query(expr* query) {
         ensure_bmc();
-        lbool result = m_bmc->query(query);
-        m_last_answer = m_bmc->get_answer();
-        return result;
+        m_last_answer = 0;
+        return m_bmc->query(query);
     }
 
 #define BEGIN_QUERY()                           \
@@ -1442,6 +1440,23 @@ namespace datalog {
     }
     
     expr* context::get_answer_as_formula() {
+        if (m_last_answer) {
+            return m_last_answer.get();
+        }
+        switch(get_engine()) {
+        case PDR_ENGINE: 
+        case QPDR_ENGINE:
+            ensure_pdr();
+            m_last_answer = m_pdr->get_answer();
+            return m_last_answer.get();
+        case BMC_ENGINE:
+            ensure_bmc();
+            m_last_answer = m_bmc->get_answer();
+            return m_last_answer.get();
+        default:
+            UNREACHABLE();
+        }
+        m_last_answer = m.mk_false();
         return m_last_answer.get();
     }
 

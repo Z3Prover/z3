@@ -97,9 +97,9 @@ namespace datalog {
             return check_linear();
         }
         else {
+            check_nonlinear();
             IF_VERBOSE(1, verbose_stream() << "non-linear BMC is not supported\n";);
             return l_undef;
-            return check_nonlinear();
         }
     }
 
@@ -640,14 +640,19 @@ namespace datalog {
     lbool bmc::check_query() {
         sort* trace_sort = m_pred2sort.find(m_query_pred);
         func_decl_ref q = mk_predicate(m_query_pred);
-        assert_expr(m.mk_app(q, m.mk_const(symbol("trace"), trace_sort), m.mk_const(symbol("path"),m_path_sort)));
+        expr_ref trace(m), path(m);
+        trace = m.mk_const(symbol("trace"), trace_sort);
+        path  = m.mk_const(symbol("path"),m_path_sort);
+        assert_expr(m.mk_app(q, trace, path));
         lbool is_sat = m_solver.check();
         if (is_sat == l_undef) {
             model_ref md;
             proof_ref pr(m);
             m_solver.get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            
+            md->eval(trace, trace);
+            IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";);
+            IF_VERBOSE(2, m_solver.display(verbose_stream()););
         }
         return is_sat;
     }

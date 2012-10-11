@@ -48,6 +48,7 @@ namespace datalog {
      table_base const* check_table_plugin::tocheck(table_base const* r) { return r?(get(*r).m_tocheck):0; }
 
     table_base * check_table_plugin::mk_empty(const table_signature & s) {
+        IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
         table_base* checker = m_checker.mk_empty(s);
         table_base* tocheck = m_tocheck.mk_empty(s);
         return alloc(check_table, *this, s, tocheck, checker);
@@ -65,9 +66,11 @@ namespace datalog {
         }
 
         virtual table_base* operator()(const table_base & t1, const table_base & t2) {
+            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* ttocheck = (*m_tocheck)(tocheck(t1), tocheck(t2));
             table_base* tchecker = (*m_checker)(checker(t1), checker(t2));
-            return alloc(check_table, get(t1).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            check_table* result = alloc(check_table, get(t1).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            return result;
         }
     };
 
@@ -89,9 +92,10 @@ namespace datalog {
         }
         
         virtual void operator()(table_base& tgt, const table_base& src, table_base* delta) {
+            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             (*m_tocheck)(tocheck(tgt), tocheck(src), tocheck(delta));
             (*m_checker)(checker(tgt), checker(src), checker(delta));
-            SASSERT(get(tgt).well_formed());
+            get(tgt).well_formed();
         }
     };
 
@@ -113,9 +117,11 @@ namespace datalog {
         }
 
         table_base* operator()(table_base const& src) {
+            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
-            return alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
+            check_table* result = alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
+            return result;
         }
     };
     
@@ -136,9 +142,11 @@ namespace datalog {
         }
 
         table_base* operator()(table_base const& src) {
+            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
-            return alloc(check_table, get(src).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            check_table* result = alloc(check_table, get(src).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            return result;
         }
     };
     
@@ -162,7 +170,7 @@ namespace datalog {
         void operator()(table_base & t) {
             (*m_checker)(checker(t));
             (*m_tocheck)(tocheck(t));
-            SASSERT(get(t).well_formed());
+            get(t).well_formed();
         }
     };
 
@@ -187,7 +195,7 @@ namespace datalog {
         virtual void operator()(table_base& src) {
             (*m_checker)(checker(src));
             (*m_tocheck)(tocheck(src));
-            SASSERT(get(src).well_formed());
+            get(src).well_formed();
         }
     };
 
@@ -211,7 +219,7 @@ namespace datalog {
         virtual void operator()(table_base& src) {
             (*m_checker)(checker(src));
             (*m_tocheck)(tocheck(src));
-            SASSERT(get(src).well_formed());
+            get(src).well_formed();
         }
     };
 
@@ -236,9 +244,10 @@ namespace datalog {
         }
 
         virtual void operator()(table_base& src, table_base const& negated_obj) {
+            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             (*m_checker)(checker(src), checker(negated_obj));
             (*m_tocheck)(tocheck(src), tocheck(negated_obj));
-            SASSERT(get(src).well_formed());
+            get(src).well_formed();
         }
         
     };
@@ -258,14 +267,14 @@ namespace datalog {
 
     check_table::check_table(check_table_plugin & p, const table_signature & sig):
         table_base(p, sig) {
-        SASSERT(well_formed());
+        (well_formed());
     }
 
     check_table::check_table(check_table_plugin & p, const table_signature & sig, table_base* tocheck, table_base* checker):
         table_base(p, sig),
         m_checker(checker),
         m_tocheck(tocheck) {            
-        SASSERT(well_formed());
+        well_formed();
     }
 
     check_table::~check_table() {
@@ -274,6 +283,10 @@ namespace datalog {
     }
 
     bool check_table::well_formed() const {
+        get_plugin().m_count++;
+        if (get_plugin().m_count == 497) {
+            std::cout << "here\n";
+        }
         iterator it = m_tocheck->begin(), end = m_tocheck->end();
         for (; it != end; ++it) {
             table_fact fact;
@@ -281,7 +294,9 @@ namespace datalog {
             if (!m_checker->contains_fact(fact)) {
                 m_tocheck->display(verbose_stream());
                 m_checker->display(verbose_stream());
+                verbose_stream() << get_plugin().m_count << "\n";
                 UNREACHABLE();
+                fatal_error(0);
                 return false;
             }
         }
@@ -292,7 +307,9 @@ namespace datalog {
             if (!m_tocheck->contains_fact(fact)) {
                 m_tocheck->display(verbose_stream());
                 m_checker->display(verbose_stream());
+                verbose_stream() << get_plugin().m_count << "\n";
                 UNREACHABLE();
+                fatal_error(0);
                 return false;
             }
         }
@@ -300,20 +317,28 @@ namespace datalog {
     }
 
     bool check_table::empty() const {
+        if (m_tocheck->empty() != m_checker->empty()) {
+            m_tocheck->display(verbose_stream());
+            m_checker->display(verbose_stream());
+            verbose_stream() << get_plugin().m_count << "\n";
+            fatal_error(0);
+        }
         return m_tocheck->empty();
     }
 
 
     void check_table::add_fact(const table_fact & f) {
+        IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
         m_tocheck->add_fact(f);
         m_checker->add_fact(f);
-        SASSERT(well_formed());        
+        well_formed();        
     }
 
     void check_table::remove_fact(const table_element*  f) {
+        IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
         m_tocheck->remove_fact(f);
         m_checker->remove_fact(f);
-        SASSERT(well_formed());        
+        well_formed();        
     }
 
     bool check_table::contains_fact(const table_fact & f) const {
@@ -321,11 +346,14 @@ namespace datalog {
     }
     
     table_base * check_table::clone() const {        
-        return alloc(check_table, get_plugin(), get_signature(), m_tocheck->clone(), m_checker->clone());
+        IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
+        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->clone(), m_checker->clone());
+        return result;
     }
 
     table_base * check_table::complement(func_decl* p) const {
-        return alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p), m_checker->complement(p));
+        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p), m_checker->complement(p));
+        return result;
     }
 
 };
