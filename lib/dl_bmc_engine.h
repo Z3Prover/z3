@@ -34,6 +34,7 @@ namespace datalog {
         front_end_params m_fparams;
         smt::solver      m_solver;
         obj_map<func_decl, sort*> m_pred2sort;
+        obj_map<sort, func_decl*> m_sort2pred;
         obj_map<func_decl, func_decl*> m_pred2newpred;
         obj_map<func_decl, ptr_vector<func_decl> > m_pred2args;
         ast_ref_vector   m_pinned;
@@ -46,6 +47,8 @@ namespace datalog {
 
         lbool check_query();
 
+        proof_ref get_proof(model_ref& md, app* trace, app* path);
+
         void checkpoint();
 
         void declare_datatypes();
@@ -57,6 +60,8 @@ namespace datalog {
         expr_ref mk_var_nonlinear(func_decl* pred, sort* s, unsigned idx, expr* path_arg, expr* trace_arg);
 
         expr_ref mk_arg_nonlinear(func_decl* pred, unsigned idx, expr* path_arg, expr* trace_arg);
+
+        void mk_subst(rule& r, expr* path, app* trace, expr_ref_vector& sub);
 
         bool is_linear() const;
 

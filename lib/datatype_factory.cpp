@@ -38,6 +38,7 @@ expr * datatype_factory::get_some_value(sort * s) {
     }
     expr * r = m_manager.mk_app(c, args.size(), args.c_ptr());
     register_value(r);
+    TRACE("datatype_factory", tout << mk_pp(r, m_util.get_manager()) << "\n";);
     return r;
 }
 

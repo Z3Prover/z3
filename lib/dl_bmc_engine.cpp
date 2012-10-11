@@ -42,15 +42,17 @@ namespace datalog {
             m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_model = true;
             m_fparams.m_model_compact = true;
+            m_fparams.m_mbqi = false;
+            m_fparams.m_auto_config = false;
         }
 
     bmc::~bmc() {}
 
     lbool bmc::query(expr* query) {
-
         m_solver.reset();
         m_pinned.reset();
         m_pred2sort.reset();
+        m_sort2pred.reset();
         m_pred2newpred.reset();
         m_pred2args.reset();
         m_answer = 0;
@@ -65,7 +67,6 @@ namespace datalog {
         rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
         m_ctx.add_rules(query_rules);
         expr_ref bg_assertion = m_ctx.get_background_assertion();
-
         
         model_converter_ref mc = datalog::mk_skip_model_converter();
         m_pc = datalog::mk_skip_proof_converter();
@@ -97,7 +98,7 @@ namespace datalog {
             return check_linear();
         }
         else {
-            check_nonlinear();
+            return check_nonlinear();
             IF_VERBOSE(1, verbose_stream() << "non-linear BMC is not supported\n";);
             return l_undef;
         }
@@ -402,6 +403,50 @@ namespace datalog {
         return expr_ref(m.mk_app(fn, trace_arg, path_arg), m);
     }
 
+    void bmc::mk_subst(datalog::rule& r, expr* path, app* trace, expr_ref_vector& sub) {
+        datatype_util dtu(m);
+        sort_ref_vector sorts(m);
+        func_decl* p = r.get_decl();
+        ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
+        // populate substitution of bound variables.
+        r.get_vars(sorts);
+        sub.reset();
+        sub.resize(sorts.size());
+        for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
+            expr* arg = r.get_head()->get_arg(k);
+            if (is_var(arg)) {
+                unsigned idx = to_var(arg)->get_idx();
+                if (!sub[idx].get()) {
+                    sub[idx] = mk_arg_nonlinear(p, k, path, trace);
+                }
+            }
+        }
+        for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
+            func_decl* q = r.get_decl(j);
+            expr_ref path_arg(m);
+            if (j == 0) {
+                path_arg = path;
+            }
+            else {
+                path_arg = m.mk_app(succs[j], path);
+            }
+            for (unsigned k = 0; k < q->get_arity(); ++k) {
+                expr* arg = r.get_tail(j)->get_arg(k);
+                if (is_var(arg)) {
+                    unsigned idx = to_var(arg)->get_idx();
+                    if (!sub[idx].get()) {
+                        sub[idx] = mk_arg_nonlinear(q, k, path_arg, trace->get_arg(j));
+                    }
+                }
+            }
+        }
+        for (unsigned j = 0, idx = 0; j < sorts.size(); ++j) {
+            if (sorts[j].get() && !sub[j].get()) {
+                sub[j] = mk_var_nonlinear(r.get_decl(), sorts[j].get(), idx++, path, trace);
+            }
+        }
+    }
+
     /**
        \brief compile Horn rule into co-Horn implication.
          forall args . R(path_var, rule_i(trace_vars)) => Body[X(path_var, rule_i(trace_vars)), Y(S_j(path_var), trace_vars_j)]
@@ -416,9 +461,9 @@ namespace datalog {
             rule_vector const& rls = *it->m_value;
             
             // Assert: p_level => r1_level \/ r2_level \/ r3_level \/ ...
-            // Assert: r_i_level => body of rule i for level + equalities for head of rule i
+            // where:  r_i_level = body of rule i for level + equalities for head of rule i
 
-            expr_ref rule_body(m), tmp(m), pred(m), trace_arg(m);
+            expr_ref rule_body(m), tmp(m), pred(m), trace_arg(m), fml(m);
             var_ref path_var(m), trace_var(m);
             expr_ref_vector rules(m), sub(m), conjs(m), vars(m), patterns(m);
             sort* pred_sort = m_pred2sort.find(p);
@@ -445,43 +490,7 @@ namespace datalog {
                 }
                 trace_arg = m.mk_app(cnstr, vars.size(), vars.c_ptr());
 
-                sort_ref_vector sorts(m);
-                r.get_vars(sorts);
-                // populate substitution of bound variables.
-                sub.resize(sorts.size());
-                for (unsigned k = 0; k < r.get_decl()->get_arity(); ++k) {
-                    expr* arg = r.get_head()->get_arg(k);
-                    if (is_var(arg)) {
-                        unsigned idx = to_var(arg)->get_idx();
-                        if (!sub[idx].get()) {
-                            sub[idx] = mk_arg_nonlinear(p, k, path_var, trace_arg);
-                        }
-                    }
-                }
-                for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
-                    func_decl* q = r.get_decl(j);
-                    expr_ref path_arg(m);
-                    if (j == 0) {
-                        path_arg = path_var.get();
-                    }
-                    else {
-                        path_arg = m.mk_app(succs[j], path_var.get());
-                    }
-                    for (unsigned k = 0; k < q->get_arity(); ++k) {
-                        expr* arg = r.get_tail(j)->get_arg(k);
-                        if (is_var(arg)) {
-                            unsigned idx = to_var(arg)->get_idx();
-                            if (!sub[idx].get()) {
-                                sub[idx] = mk_arg_nonlinear(q, k, path_arg, vars[j].get());
-                            }
-                        }
-                    }
-                }
-                for (unsigned j = 0, idx = 0; j < sorts.size(); ++j) {
-                    if (sorts[j].get() && !sub[j].get()) {
-                        sub[j] = mk_var_nonlinear(r.get_decl(), sorts[j].get(), idx++, path_var, trace_arg);
-                    }
-                }
+                mk_subst(r, path_var, to_app(trace_arg), sub);
 
                 // apply substitution to body.
                 var_subst vs(m, false);
@@ -520,24 +529,15 @@ namespace datalog {
                 }
                 vars.push_back(path_var);
                 q_sorts.push_back(m.get_sort(path_var));
-                names.push_back(symbol("Path"));
+                names.push_back(symbol("path"));
                 SASSERT(names.size() == q_sorts.size());
                 SASSERT(vars.size() == names.size());
-                symbol qid = r.name(), skid;
-                
-                //patterns.reset();
-                //patterns.push_back(m.mk_pattern(to_app(rule_pred)));
-                //
-                //fml = m.mk_implies(rule_pred, rule_body);
-                //fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
-                //assert_expr(fml);
-
-                expr_ref fml(m);
+                symbol qid = r.name(), skid;               
                 tmp = m.mk_app(mk_predicate(p), trace_arg.get(), path_var.get());
                 patterns.reset();
                 patterns.push_back(m.mk_pattern(to_app(tmp)));
                 fml = m.mk_implies(tmp, rule_body);
-                fml = m.mk_forall(vars.size(), sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
+                fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
                 assert_expr(fml);
                 
             }
@@ -590,8 +590,8 @@ namespace datalog {
 
         it  = m_rules.begin_grouped_rules();
         for (unsigned i = 0; it != end; ++it, ++i) {       
-            std::cout << "insert: " << it->m_key->get_name() << "\n";
             m_pred2sort.insert(it->m_key, new_sorts[i].get());
+            m_sort2pred.insert(new_sorts[i].get(), it->m_key);
             m_pinned.push_back(new_sorts[i].get());            
         }
         if (new_sorts.size() > 0) {
@@ -628,10 +628,70 @@ namespace datalog {
                 accs.push_back(mk_accessor_decl(name, tr));
                 cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
             }        
-            dts.push_back(mk_datatype_decl(symbol("path"), cnstrs.size(), cnstrs.c_ptr()));
+            dts.push_back(mk_datatype_decl(symbol("Path"), cnstrs.size(), cnstrs.c_ptr()));
             VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), new_sorts));
             m_path_sort = new_sorts[0].get();
         }
+    }
+
+    proof_ref bmc::get_proof(model_ref& md, app* trace, app* path) {
+        datatype_util dtu(m);
+        sort* trace_sort = m.get_sort(trace);
+        func_decl* p = m_sort2pred.find(trace_sort);
+        datalog::rule_vector const& rules = m_rules.get_predicate_rules(p);
+        ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(trace_sort);
+        ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
+        bool found = false;
+        for (unsigned i = 0; i < cnstrs.size(); ++i) {
+            if (trace->get_decl() == cnstrs[i]) {
+                found = true;
+                svector<std::pair<unsigned, unsigned> > positions;
+                scoped_coarse_proof _sc(m);
+                proof_ref_vector prs(m);
+                expr_ref_vector sub(m);
+                vector<expr_ref_vector> substs;
+                proof_ref pr(m);
+                expr_ref fml(m), head(m), tmp(m);
+                app_ref path1(m);
+
+                var_subst vs(m, false);
+                mk_subst(*rules[i], path, trace, sub);
+                rules[i]->to_formula(fml);
+                prs.push_back(m.mk_asserted(fml));
+                unsigned sz = trace->get_num_args();
+                if (sub.empty() && sz == 0) {
+                    pr = prs[0].get();
+                    return pr;
+                }
+                for (unsigned j = 0; j < sub.size(); ++j) {
+                    md->eval(sub[j].get(), tmp);
+                    sub[j] = tmp;
+                }
+                rule_ref rl(m_ctx.get_rule_manager());
+                rl = rules[i];
+                m_ctx.get_rule_manager().substitute(rl, sub.size(), sub.c_ptr());
+
+                substs.push_back(sub);
+
+                for (unsigned j = 0; j < sz; ++j) {
+                    if (j == 0) {
+                        path1 = path; 
+                    }
+                    else {
+                        path1 = m.mk_app(succs[j], path);
+                    }
+                    
+                    prs.push_back(get_proof(md, to_app(trace->get_arg(j)), path1));
+                    positions.push_back(std::make_pair(j+1,0));
+                    substs.push_back(expr_ref_vector(m));  
+                }
+                head = rl->get_head();
+                pr = m.mk_hyper_resolve(sz+1, prs.c_ptr(), head, positions, substs);                
+                return pr;
+            }
+        }
+        UNREACHABLE();
+        return proof_ref(0, m);
     }
 
     // instantiation of algebraic data-types takes care of the rest.
@@ -640,7 +700,7 @@ namespace datalog {
         func_decl_ref q = mk_predicate(m_query_pred);
         expr_ref trace(m), path(m);
         trace = m.mk_const(symbol("trace"), trace_sort);
-        path  = m.mk_const(symbol("path"),m_path_sort);
+        path  = m.mk_const(symbol("path"), m_path_sort);
         assert_expr(m.mk_app(q, trace, path));
         lbool is_sat = m_solver.check();
         if (is_sat == l_undef) {
@@ -649,8 +709,11 @@ namespace datalog {
             m_solver.get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
             md->eval(trace, trace);
+            md->eval(path, path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";);
-            IF_VERBOSE(2, m_solver.display(verbose_stream()););
+            IF_VERBOSE(2, m_solver.display(verbose_stream()); verbose_stream() << "\n";);
+            m_answer = get_proof(md, to_app(trace), to_app(path));
+            is_sat = l_true;
         }
         return is_sat;
     }
