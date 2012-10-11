@@ -641,7 +641,7 @@ namespace datalog {
         expr_ref trace(m), path(m);
         trace = m.mk_const(symbol("trace"), trace_sort);
         path  = m.mk_const(symbol("path"),m_path_sort);
-        assert_expr(m.mk_app(q, trace, path));
+        assert_expr(m.mk_app(q, trace.get(), path.get()));
         lbool is_sat = m_solver.check();
         if (is_sat == l_undef) {
             model_ref md;
