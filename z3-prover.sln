@@ -313,7 +313,7 @@ Global
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.commercial|Win32.ActiveCfg = commercial|Win32
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.commercial|x64.ActiveCfg = commercial|x64
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.commercial|x86.ActiveCfg = commercial|x64
-		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.Debug|Mixed Platforms.Build.0 = Debug|Win32
 		{0BF8CB94-61C7-4545-AE55-C58D858AA8B6}.Debug|Win32.ActiveCfg = Debug|Win32
@@ -409,7 +409,7 @@ Global
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.commercial|Win32.ActiveCfg = commercial|Win32
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.commercial|x64.ActiveCfg = commercial|x64
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.commercial|x86.ActiveCfg = commercial|x64
-		{7C154132-AAAB-4F60-B652-F8C51A63D244}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{7C154132-AAAB-4F60-B652-F8C51A63D244}.Debug|Any CPU.ActiveCfg = Debug|Win32
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.Debug|Mixed Platforms.ActiveCfg = Debug|Win32
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.Debug|Mixed Platforms.Build.0 = Debug|Win32
 		{7C154132-AAAB-4F60-B652-F8C51A63D244}.Debug|Win32.ActiveCfg = Debug|Win32
@@ -457,7 +457,7 @@ Global
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.commercial|Win32.ActiveCfg = Release_delaysign|x64
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.commercial|x64.ActiveCfg = Release_delaysign|x64
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.commercial|x86.ActiveCfg = Release_delaysign|x64
-		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.Debug|Mixed Platforms.ActiveCfg = Debug|Any CPU
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.Debug|Mixed Platforms.Build.0 = Debug|Any CPU
 		{EC3DB697-B734-42F7-9468-5B62821EEB5A}.Debug|Win32.ActiveCfg = Debug|Any CPU
