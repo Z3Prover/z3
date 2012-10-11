@@ -184,7 +184,7 @@ namespace test_mapi
         /// </summary>
         public static void SimpleExample()
         {
-            Console.WriteLine("SimpleExample");            
+            Console.WriteLine("SimpleExample");
 
             using (Context ctx = new Context())
             {
@@ -649,7 +649,7 @@ namespace test_mapi
                 { "MBQI", "false" },
                 { "PROOF_MODE", "2" },
                 { "AUTO_CONFIG", "false" }
-                };            
+                };
 
             /* If quantified formulas are asserted in a logical context, then
                the model produced by Z3 should be viewed as a potential model. */
@@ -975,7 +975,7 @@ namespace test_mapi
         /// </summary>        
         static void SMT1FileTest(string filename)
         {
-            Console.Write("SMT File test ");            
+            Console.Write("SMT File test ");
 
             using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
             {
@@ -983,7 +983,7 @@ namespace test_mapi
 
                 BoolExpr a = ctx.MkAnd(ctx.SMTLIBFormulas);
                 Console.WriteLine("read formula: " + a);
-            }            
+            }
         }
 
         /// <summary>
@@ -2022,30 +2022,30 @@ namespace test_mapi
             }
         }
 
-	public static void FiniteDomainExample(Context ctx)
-	{
+        public static void FiniteDomainExample(Context ctx)
+        {
             Console.WriteLine("FiniteDomainExample");
 
-	    var s = ctx.MkFiniteDomainSort("S", 10);
-	    var t = ctx.MkFiniteDomainSort("T", 10);
-	    var s1 = ctx.MkNumeral(1, s);
-	    var t1 = ctx.MkNumeral(1, t);
-	    Console.WriteLine("{0}", s);
-	    Console.WriteLine("{0}", t);
-	    Console.WriteLine("{0}", s1);
-	    Console.WriteLine("{0}", ctx.MkNumeral(2, s));
-	    Console.WriteLine("{0}", t1);
+            var s = ctx.MkFiniteDomainSort("S", 10);
+            var t = ctx.MkFiniteDomainSort("T", 10);
+            var s1 = ctx.MkNumeral(1, s);
+            var t1 = ctx.MkNumeral(1, t);
+            Console.WriteLine("{0}", s);
+            Console.WriteLine("{0}", t);
+            Console.WriteLine("{0}", s1);
+            Console.WriteLine("{0}", ctx.MkNumeral(2, s));
+            Console.WriteLine("{0}", t1);
             // But you cannot mix numerals of different sorts
             // even if the size of their domains are the same:
-	    // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
-	}
+            // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
+        }
 
         static void Main(string[] args)
         {
             try
             {
                 Context.ToggleWarningMessages(true);
-                Log.Open("test.log");                
+                Log.Open("test.log");
 
                 Console.Write("Z3 Major Version: ");
                 Console.WriteLine(Microsoft.Z3.Version.Major.ToString());
@@ -2090,7 +2090,7 @@ namespace test_mapi
                     EvalExample2(ctx);
                     FindSmallModelExample(ctx);
                     SimplifierExample(ctx);
-		    FiniteDomainExample(ctx);
+                    FiniteDomainExample(ctx);
                 }
 
                 QuantifierExample3();
