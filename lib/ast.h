@@ -972,7 +972,7 @@ enum basic_op_kind {
     PR_HYPOTHESIS, PR_LEMMA, PR_UNIT_RESOLUTION, PR_IFF_TRUE, PR_IFF_FALSE, PR_COMMUTATIVITY, PR_DEF_AXIOM,
 
     PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_NNF_STAR, PR_SKOLEMIZE, PR_CNF_STAR, 
-    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, LAST_BASIC_PR
+    PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
 };
 
 class basic_decl_plugin : public decl_plugin {
@@ -1034,6 +1034,7 @@ protected:
     ptr_vector<func_decl> m_cnf_star_decls;
 
     ptr_vector<func_decl> m_th_lemma_decls;
+    func_decl * m_hyper_res_decl0;
 
     static bool is_proof(decl_kind k) { return k > LAST_BASIC_OP; }
     bool check_proof_sorts(basic_op_kind k, unsigned arity, sort * const * domain) const;
@@ -1928,6 +1929,11 @@ public:
 
     bool is_proof(expr const * n) const { return is_app(n) && to_app(n)->get_decl()->get_range() == m_proof_sort; }
 
+    proof* mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
+                            svector<std::pair<unsigned, unsigned> > const& positions,
+                            vector<ref_vector<expr, ast_manager> > const& substs);
+    
+
     bool is_undef_proof(expr const * e) const { return e == m_undef_proof; }
     bool is_asserted(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_ASSERTED); }
     bool is_goal(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_GOAL); }
@@ -1947,6 +1953,12 @@ public:
     bool is_lemma(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_LEMMA); }
     bool is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<expr>& binding) const;
     bool is_rewrite(expr const* e, expr*& r1, expr*& r2) const;
+    bool is_hyper_resolve(proof* p) const { return is_app_of(p, m_basic_family_id, PR_HYPER_RESOLVE); }
+    bool is_hyper_resolve(proof* p, 
+                          ref_vector<proof, ast_manager>& premises,
+                          obj_ref<expr, ast_manager>& conclusion,
+                          svector<std::pair<unsigned, unsigned> > & positions,
+                          vector<ref_vector<expr, ast_manager> >& substs);
 
     
     bool is_def_intro(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_DEF_INTRO); }

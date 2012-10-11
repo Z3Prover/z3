@@ -605,6 +605,12 @@ namespace datalog {
                     body.push_back(r.get_tail(i));
                 }
             }
+            TRACE("dl_dr", 
+                  tout << r.get_decl()->get_name() << "\n";
+                  for (unsigned i = 0; i < body.size(); ++i) {
+                      tout << mk_pp(body[i].get(), m) << "\n";
+                  });
+                      
             mc->insert(r.get_head(), body.size(), body.c_ptr());
         }
     }
@@ -634,7 +640,7 @@ namespace datalog {
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
               tout << premises[1]->get_id() << " " << mk_pp(premises[1].get(), m) << "\n";); 
 
-        pr = util.mk_hyper_resolve(2, premises.c_ptr(), fml3, positions, substs);
+        pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml3, positions, substs);
         pc->insert(pr);
     }
 

@@ -21,6 +21,7 @@ Revision History:
 
 struct datalog_params {
     symbol m_default_table;
+    bool   m_default_table_checked;
     datalog_params();
     virtual void register_params(ini_params& p);        
 };

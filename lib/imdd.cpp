@@ -255,6 +255,7 @@ void imdd_manager::mark_as_dead(imdd * d) {
 
 void imdd_manager::deallocate_imdd(imdd * d) { 
     SASSERT(d->is_dead());
+    memset(d, 0, sizeof(*d));
     m_alloc.deallocate(sizeof(imdd), d); 
 }
 
@@ -724,7 +725,7 @@ imdd * imdd_manager::mk_union_core(imdd * d1, imdd * d2, bool destructive, bool 
 
                 if (head1 < head2) {
                     it1.move_to(head2);
-                    head1 = it1 != end1 ? it1->begin_key() : UINT_MAX;
+                    head1 = it1 != end1 ? (it1->begin_key() < head2?head2:it1->begin_key()): UINT_MAX;
                 }
                 else if (head1 > head2) {
                     copy_upto(head2, it2, end2, head1, to_insert);
@@ -1635,7 +1636,8 @@ imdd* imdd_manager::filter_identical_loop3(imdd * d, unsigned v1, bool del1, uns
 }
 
 void imdd_manager::merge_intervals(svector<interval>& dst, svector<interval> const& src) {
-    svector<interval> tmp;
+    svector<interval>& tmp = m_i_nodes_tmp;
+    tmp.reset();
     // invariant: intervals are sorted.
     for (unsigned i = 0, j = 0; i < src.size() || j < dst.size();) {
         SASSERT(!(i + 1 < src.size()) || src[i].m_hi < src[i+1].m_lo);
@@ -1685,8 +1687,8 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
     // For each level up to 'v' create a list of nodes visited
     // insert to a map the set of intervals that visit the node.
     // 
-    filter_id_map nodes;
-    filter_id_map::obj_map_entry* e;
+    m_nodes.reset();
+    filter_id_map& nodes = m_nodes;
     imdd* d1, *d2, *d3;
     vector<ptr_vector<imdd> > levels;
     levels.push_back(ptr_vector<imdd>());
@@ -1696,24 +1698,23 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
     imdd* curr_child;
     for (; it != end; ++it) {
         curr_child = it->val();
-        e = nodes.insert_if_not_there2(curr_child, svector<interval>());
-        if (e->get_data().m_value.empty()) {
+        svector<interval>& iv = nodes.init(curr_child);
+        if (iv.empty()) {
             levels.back().push_back(curr_child);
         }
-        e->get_data().m_value.push_back(interval(it->begin_key(), it->end_key()));        
+        iv.push_back(interval(it->begin_key(), it->end_key()));        
     }
 
     for (unsigned j = 0; j+1 < v; ++j) {
         levels.push_back(ptr_vector<imdd>());        
         for (unsigned i = 0; i < levels[j].size(); ++i) {
             d1 = levels[j][i];
-            svector<interval> i_nodes = nodes.find(d1);
+            svector<interval>& i_nodes = nodes.init(d1);
             it  = d1->begin_children();
             end = d1->end_children();
             for(; it != end; ++it) {
                 imdd* curr_child = it->val();
-                e = nodes.insert_if_not_there2(curr_child, svector<interval>());
-                svector<interval>& i_nodes2 = e->get_data().m_value;
+                svector<interval>& i_nodes2 = nodes.init(curr_child);
                 if (i_nodes2.empty()) {
                     levels[j+1].push_back(curr_child);
                     i_nodes2.append(i_nodes);
@@ -1730,7 +1731,7 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
               tout << "Level: " << i << "\n";
               for (unsigned j = 0; j < levels[i].size(); ++j) {
                   tout << levels[i][j]->get_id() << " ";
-                  svector<interval> const& i_nodes = nodes.find(levels[i][j]);
+                  svector<interval> const& i_nodes = nodes.init(levels[i][j]);
                   for (unsigned k = 0; k < i_nodes.size(); ++k) {
                       tout << i_nodes[k].m_lo << ":" << i_nodes[k].m_hi << " ";
                   }
@@ -1749,15 +1750,16 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
     //   => del1 & !del2:    d |-> [I |-> d'[I:ch]] // intersections of intervals.
     //
     
-    filter_idd_map nodes_dd;
+    m_nodes_dd.reset();
+    filter_idd_map& nodes_dd = m_nodes_dd;
     SASSERT(levels.size() == v);
     for (unsigned i = 0; i < levels[v-1].size(); ++i) {
         d1 = levels[v-1][i];
-        svector<interval> const & i_nodes = nodes.find(d1);
+        svector<interval> const & i_nodes = nodes.init(d1);
         it  = d1->begin_children();
         end = d1->end_children();
         unsigned j = 0;
-        svector<interval_dd> i_nodes_dd;
+        svector<interval_dd>& i_nodes_dd = nodes_dd.init(d1);
         while (it != end && j < i_nodes.size()) {
             unsigned lo1 = it->begin_key();
             unsigned hi1 = it->end_key();
@@ -1816,7 +1818,6 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
                 i_nodes_dd[k].m_dd = d2;
             }
         }
-        nodes_dd.insert(d1, i_nodes_dd);
     }    
 
     TRACE("imdd", print_filter_idd(tout, nodes_dd););  
@@ -1841,15 +1842,21 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
         --i;
         for (unsigned j = 0; j < levels[i].size(); ++j) {
             d1 = levels[i][j];
-            svector<interval_dd> i_nodes_dd;
-            svector<interval> i_nodes = nodes.find(d1);
+            m_i_nodes_dd.reset();
+            svector<interval> i_nodes = nodes.init(d1);
+            svector<interval_dd>& i_nodes_dd = nodes_dd.init(d1);
             it  = d1->begin_children();
             end = d1->end_children();
-            unsigned_vector offsets;
+            unsigned num_children = 0;
+            for( ; it != end; ++it, ++num_children);
+
+            m_offsets.reset();
+            unsigned_vector& offsets = m_offsets;
+            offsets.resize(num_children);
+            it  = d1->begin_children();
             for( ; it != end; ++it) {
                 curr_child = it->val();
-                refine_intervals(i_nodes, nodes_dd.find(curr_child));
-                offsets.push_back(0);
+                refine_intervals(i_nodes, nodes_dd.init(curr_child));
             }            
             
             for (unsigned k = 0; k < i_nodes.size(); ++k) {
@@ -1858,7 +1865,7 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
                 it = d1->begin_children();
                 for(unsigned child_id = 0; it != end; ++it, ++child_id) {
                     curr_child = it->val();
-                    svector<interval_dd> const& ch_nodes_dd = nodes_dd.find(curr_child);
+                    svector<interval_dd> const& ch_nodes_dd = nodes_dd.init(curr_child);
                     unsigned offset = offsets[child_id];
                     TRACE("imdd_verbose", tout << intv.m_lo << ":" << intv.m_hi << "\n";
                           for (unsigned l = offset; l < ch_nodes_dd.size(); ++l) {
@@ -1899,7 +1906,7 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
                 }
             }
             TRACE("imdd", tout << d1->get_id() << ": "; print_interval_dd(tout, i_nodes_dd););                           
-            nodes_dd.insert(d1, i_nodes_dd);
+            
         }
     }
 
@@ -1919,11 +1926,14 @@ imdd* imdd_manager::filter_identical_mk_nodes(imdd* d, unsigned v, bool del1, bo
     it  = d->begin_children();
     end = d->end_children();
     d1  = _mk_empty(d->get_arity()-del1-del2);
-    svector<interval_dd> i_nodes_dd, i_nodes_tmp;
+    m_i_nodes_dd.reset();
+    m_i_nodes_tmp.reset();
+    svector<interval_dd>& i_nodes_dd = m_i_nodes_dd;
+    svector<interval_dd>& i_nodes_tmp = m_i_nodes_dd_tmp;
     for (; it != end; ++it) {
         curr_child = it->val();
         i_nodes_tmp.reset();
-        svector<interval_dd> const& i_nodes_dd1 = nodes_dd.find(curr_child);
+        svector<interval_dd> const& i_nodes_dd1 = nodes_dd.init(curr_child);
         for (unsigned i = 0, j = 0; i < i_nodes_dd.size() || j < i_nodes_dd1.size(); ) {
             if (i < i_nodes_dd.size() && j < i_nodes_dd1.size()) {
                 interval_dd const& iv1 = i_nodes_dd[i];
@@ -1986,9 +1996,9 @@ void imdd_manager::print_interval_dd(std::ostream& out, svector<interval_dd> con
 
 void imdd_manager::print_filter_idd(std::ostream& out, filter_idd_map const& m) {
     filter_idd_map::iterator it = m.begin(), end = m.end();
-    for (; it != end; ++it) {
-        out << it->m_key->get_id() << ": ";
-        print_interval_dd(out, it->m_value);
+    for (unsigned i = 0; it != end; ++it, ++i) {
+        out << i << ": ";
+        print_interval_dd(out, *it);
     }
 }
 
@@ -1999,12 +2009,16 @@ void imdd_manager::print_filter_idd(std::ostream& out, filter_idd_map const& m) 
 */
 
 void imdd_manager::refine_intervals(svector<interval>& i_nodes, svector<interval_dd> const& i_nodes_dd) {
-    svector<interval> result;
-    for (unsigned i = 0, j = 0; i < i_nodes.size(); ++i) {
-        result.push_back(i_nodes[i]);
-        unsigned lo = result.back().m_lo;
-        unsigned hi = result.back().m_hi;
-        for (; j < i_nodes_dd.size(); ++j) {
+    m_i_nodes.reset();
+    svector<interval>& result = m_i_nodes;
+    unsigned sz1 = i_nodes.size();
+    unsigned sz2 = i_nodes_dd.size();
+    for (unsigned i = 0, j = 0; i < sz1; ++i) {
+        interval& iv = i_nodes[i];
+        result.push_back(iv);
+        unsigned lo = iv.m_lo;
+        unsigned hi = iv.m_hi;
+        for (; j < sz2; ++j) {
             unsigned lo1 = i_nodes_dd[j].m_lo;
             unsigned hi1 = i_nodes_dd[j].m_hi;
             SASSERT(lo <= hi);
@@ -2402,6 +2416,7 @@ void imdd_manager::mk_swap_acc1_dupdt(imdd_ref & d, unsigned lower, unsigned upp
     if (lower <= upper) {
         add_child(d, lower, upper, grandchild);
     }
+    TRACE("mk_swap_bug", tout << "after mk_swap_acc1_dupt\n" << mk_ll_pp(d, *this) << "\n";);
 }
 
 void imdd_manager::mk_swap_acc1(imdd * d, imdd_ref & r, unsigned lower, unsigned upper, imdd * grandchild, bool memoize_res) {
@@ -2437,6 +2452,7 @@ void imdd_manager::mk_swap_acc1(imdd * d, imdd_ref & r, unsigned lower, unsigned
     if (lower <= upper) {
         add_child(r, lower, upper, grandchild);
     }
+    TRACE("mk_swap_bug", tout << "after mk_swap_acc1\n" << mk_ll_pp(r, *this) << "\n";);
 }
 
 /**
@@ -2456,6 +2472,7 @@ void imdd_manager::mk_swap_acc2(imdd_ref & r, unsigned lower1, unsigned upper1, 
     imdd_children::ext_iterator it;  
     imdd_children::ext_iterator end;
     r->m_children.move_geq(it, lower1);
+    SASSERT(m_swap_new_child == 0);    
     
     while(it != end && lower1 <= upper1) {
         imdd_children::entry const & curr_entry = *it;
@@ -2463,6 +2480,7 @@ void imdd_manager::mk_swap_acc2(imdd_ref & r, unsigned lower1, unsigned upper1, 
         unsigned curr_entry_end_key   = curr_entry.end_key();
         imdd *   curr_entry_val       = curr_entry.val();
         bool     move_head            = true;
+        TRACE("mk_swap_bug", tout << lower1 << " " << upper1 << " " << curr_entry_begin_key << "\n";);
         if (upper1 < curr_entry_begin_key)
             break;
         if (lower1 < curr_entry_begin_key) {
@@ -2508,6 +2526,10 @@ void imdd_manager::mk_swap_acc2(imdd_ref & r, unsigned lower1, unsigned upper1, 
     if (lower1 <= upper1) {
         imdd * new_child = mk_swap_new_child(lower2, upper2, grandchild);            
         add_child(r, lower1, upper1, new_child);
+    }
+    if (m_swap_new_child != 0) {
+        dec_ref(m_swap_new_child);
+        m_swap_new_child = 0;
     }
     TRACE("mk_swap_bug", tout << "after mk_swap_acc2\n" << mk_ll_pp(r, *this) << "\n";);
 }
@@ -2562,10 +2584,7 @@ void imdd_manager::mk_swap_top_vars(imdd * d, imdd_ref & r, bool memoize_res) {
             imdd * grandchild = it2->val();
             mk_swap_acc2(r, it2->begin_key(), it2->end_key(), it->begin_key(), it->end_key(), grandchild, memoize_res);
         }
-        if (m_swap_new_child != 0) {
-            dec_ref(m_swap_new_child);
-            m_swap_new_child = 0;
-        }
+        SASSERT(m_swap_new_child == 0);
     }
 
     if (memoize_res && m_swap_granchildren_memoized) {

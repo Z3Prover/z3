@@ -32,6 +32,7 @@ namespace datalog {
         friend class check_table;
         table_plugin& m_checker;
         table_plugin& m_tocheck;
+        unsigned m_count;
     protected:
         class join_fn;
         class union_fn;
@@ -47,7 +48,7 @@ namespace datalog {
         check_table_plugin(relation_manager & manager, symbol const& checker, symbol const& tocheck) 
             : table_plugin(symbol("check"), manager),
             m_checker(*manager.get_table_plugin(checker)),
-            m_tocheck(*manager.get_table_plugin(tocheck)) {}
+            m_tocheck(*manager.get_table_plugin(tocheck)), m_count(0) {}
 
         virtual table_base * mk_empty(const table_signature & s);
 

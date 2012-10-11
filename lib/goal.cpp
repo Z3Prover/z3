@@ -284,6 +284,30 @@ void goal::display_with_dependencies(cmd_context & ctx, std::ostream & out) cons
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
 }
 
+void goal::display_with_dependencies(std::ostream & out) const {
+    ptr_vector<expr> deps;
+    out << "(goal";
+    unsigned sz = size();
+    for (unsigned i = 0; i < sz; i++) {
+        out << "\n  |-";
+        deps.reset();
+        m().linearize(dep(i), deps);
+        ptr_vector<expr>::iterator it  = deps.begin();
+        ptr_vector<expr>::iterator end = deps.end();
+        for (; it != end; ++it) {
+            expr * d = *it;
+            if (is_uninterp_const(d)) {
+                out << " " << mk_ismt2_pp(d, m());
+            }
+            else {
+                out << " #" << d->get_id();
+            }
+        }
+        out << "\n  " << mk_ismt2_pp(form(i), m(), 2);
+    }
+    out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
+}
+
 void goal::display(cmd_context & ctx) const {
     display(ctx, ctx.regular_stream());
 }
@@ -473,7 +497,7 @@ void goal::elim_redundancies() {
                     proof * prs[2] = { pr(get_idx(atom)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
                 }
-                expr_dependency * d = 0;
+                expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_idx(atom)), dep(i));
                 push_back(m().mk_false(), p, d);                    
@@ -490,7 +514,7 @@ void goal::elim_redundancies() {
                     proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
                 }
-                expr_dependency * d = 0;
+                expr_dependency_ref d(m());
                 if (unsat_core_enabled())
                     d = m().mk_join(dep(get_not_idx(f)), dep(i));
                 push_back(m().mk_false(), p, d);

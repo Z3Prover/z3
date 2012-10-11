@@ -37,9 +37,9 @@ void rewriter_tpl<Config>::process_var(var * v) {
         unsigned idx = v->get_idx();
         if (idx < m_bindings.size()) {
             expr * r = m_bindings[m_bindings.size() - idx - 1];
-            TRACE("process_var", tout << "idx: " << idx << " --> " << mk_ismt2_pp(r, m()) << "\n";
+            TRACE("process_var", if (r) tout << "idx: " << idx << " --> " << mk_ismt2_pp(r, m()) << "\n";
                   tout << "bindings:\n";
-                  for (unsigned i = 0; i < m_bindings.size(); i++) tout << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << "\n";);
+                  for (unsigned i = 0; i < m_bindings.size(); i++) if (m_bindings[i]) tout << i << ": " << mk_ismt2_pp(m_bindings[i], m()) << "\n";);
             if (r != 0) {
                 if (m_num_qvars == 0 || is_ground(r)) {
                     result_stack().push_back(r);

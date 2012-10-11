@@ -394,8 +394,87 @@ class imdd_manager {
         imdd* m_dd;
         interval_dd(unsigned lo, unsigned hi, imdd* d): interval(lo, hi), m_dd(d) {}
     };
-    typedef obj_map<imdd, svector<interval> > filter_id_map;
-    typedef obj_map<imdd, svector<interval_dd> > filter_idd_map;
+    template<typename I>
+    class id_map {
+        unsigned m_T;
+        unsigned_vector m_Ts;
+        svector<svector<I>*> m_vecs;
+        unsigned_vector m_alloc;
+        unsigned        m_first_free;
+        void hard_reset() {
+            std::for_each(m_vecs.begin(), m_vecs.end(), delete_proc<svector<I> >());
+            m_alloc.reset();
+            m_first_free = 0;
+            m_vecs.reset();
+            m_Ts.reset();
+            m_T = 0;
+        }
+
+        void allocate_entry(unsigned id) {
+            if (m_vecs[id]) {
+               return;
+            }
+            while (m_first_free < m_alloc.size()) {
+                if (m_vecs[m_first_free] && m_Ts[m_first_free] < m_T) {
+                    svector<I>* v = m_vecs[m_first_free];
+                    m_vecs[m_first_free] = 0;
+                    m_vecs[id] = v;
+                    ++m_first_free;
+                    return;
+                }
+                ++m_first_free;
+            }
+            m_vecs[id] = alloc(svector<I>);
+            m_alloc.push_back(id);
+        }
+    public:
+        id_map():m_T(0) {}
+        ~id_map() { hard_reset(); }
+        void reset() { ++m_T; m_first_free = 0; if (m_T == UINT_MAX) hard_reset(); }
+        svector<I>& init(imdd* d) {
+            unsigned id = d->get_id();
+            if (id >= m_vecs.size()) {
+                m_vecs.resize(id+1);
+                m_Ts.resize(id+1);
+            }
+            if (m_Ts[id] < m_T) {
+                allocate_entry(id);
+                m_vecs[id]->reset();
+                m_Ts[id] = m_T;
+            }
+            return *m_vecs[id];
+        }
+
+        typedef svector<I> data;
+        struct iterator { 
+            unsigned m_offset; 
+            id_map const& m; 
+            iterator(unsigned o, id_map const& m):m_offset(o),m(m) {}
+            data const & operator*() const { return *m.m_vecs[m_offset]; }
+            data const * operator->() const { return &(operator*()); }
+            data * operator->() { return &(operator*()); }
+            iterator & operator++() { ++m_offset; return move_to_used(); }
+            iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
+            bool operator==(iterator const & it) const { return m_offset == it.m_offset; }
+            bool operator!=(iterator const & it) const { return m_offset != it.m_offset; }
+            iterator & move_to_used() {
+                while (m_offset < m.m_vecs.size() &&
+                       m.m_Ts[m_offset] < m.m_T) {
+                    ++m_offset;
+                }
+                return *this;
+            }
+        };         
+        iterator begin() const { return iterator(0, *this).move_to_used(); }
+        iterator end() const { return iterator(m_vecs.size(), *this); }        
+    };
+    typedef id_map<interval >    filter_id_map;
+    typedef id_map<interval_dd > filter_idd_map;
+    filter_id_map        m_nodes;
+    filter_idd_map       m_nodes_dd;
+    svector<interval_dd> m_i_nodes_dd, m_i_nodes_dd_tmp;
+    svector<interval>    m_i_nodes,    m_i_nodes_tmp;
+    unsigned_vector      m_offsets;
     void filter_identical_main3(imdd * d, imdd_ref& r, unsigned num_vars, unsigned * vars, bool destructive, bool memoize_res);
     void filter_identical_main3(imdd * d, imdd_ref& r, unsigned v1, bool del1, unsigned v2, bool del2, bool memoize_res);
     imdd* filter_identical_loop3(imdd * d, unsigned v1, bool del1, unsigned v2, bool del2, bool memoize_res);

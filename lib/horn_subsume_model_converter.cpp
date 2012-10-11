@@ -23,6 +23,7 @@ Revision History:
 #include "ast_pp.h"
 #include "model_smt2_pp.h"
 #include "bool_rewriter.h"
+#include "th_rewriter.h"
 
 void horn_subsume_model_converter::insert(app* head, expr* body) {
     func_decl_ref pred(m);
@@ -174,19 +175,49 @@ bool horn_subsume_model_converter::mk_horn(
     }
 }
 
+void horn_subsume_model_converter::add_default_proc::operator()(app* n) {
+    //
+    // predicates that have not been assigned values 
+    // in the Horn model are assumed false.
+    //
+    if (m.is_bool(n) && 
+        !m_md->has_interpretation(n->get_decl()) &&
+        (n->get_family_id() == null_family_id)) {
+        TRACE("dl_mc", tout << "adding: " << n->get_decl()->get_name() << "\n";);
+        if (n->get_decl()->get_arity() == 0) {
+            m_md->register_decl(n->get_decl(), m.mk_false());
+        }
+        else { 
+            func_interp* fi = alloc(func_interp, m, n->get_decl()->get_arity());
+            fi->set_else(m.mk_false());
+            m_md->register_decl(n->get_decl(), fi);            
+        }
+    }
+}
+
+void horn_subsume_model_converter::add_default_false_interpretation(expr* e, model_ref& md) {
+    add_default_proc proc(m, md);
+    for_each_expr(proc, e);
+}
+
 
 void horn_subsume_model_converter::operator()(model_ref& mr) {
+    TRACE("dl_mc", model_smt2_pp(tout, m, *mr, 0););
     for (unsigned i = m_funcs.size(); i > 0; ) {
         --i;
         func_decl* h = m_funcs[i].get();
         expr_ref body(m_bodies[i].get(), m);
         unsigned arity = h->get_arity();
-        
+        add_default_false_interpretation(body, mr);
+                
+        TRACE("dl_mc", tout << "eval: " << h->get_name() << "\n" << mk_pp(body, m) << "\n";);
         expr_ref tmp(body);
         mr->eval(tmp, body);
-        TRACE("dl", tout << "eval: " << mk_pp(tmp, m) << "\nto:\n" << mk_pp(body, m) << "\n";);
-        TRACE("dl", model_smt2_pp(tout, m, *mr, 0););
+        th_rewriter rw(m);
+        rw(body);
         
+        TRACE("dl_mc", tout << "to:\n" << mk_pp(body, m) << "\n";);
+                
         if (arity == 0) {
             expr* e = mr->get_const_interp(h);
             if (e) {

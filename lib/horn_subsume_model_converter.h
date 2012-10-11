@@ -42,6 +42,16 @@ class horn_subsume_model_converter : public model_converter {
     func_decl_ref_vector m_funcs;
     expr_ref_vector      m_bodies;
 
+    void add_default_false_interpretation(expr* e, model_ref& md);
+
+    struct add_default_proc {
+        ast_manager& m;
+        model_ref& m_md;
+        add_default_proc(ast_manager& m, model_ref& md): m(m), m_md(md) {}
+        void operator()(app* n);
+        void operator()(expr* n) {}
+    };
+
 public:
 
     horn_subsume_model_converter(ast_manager& m): m(m), m_funcs(m), m_bodies(m) {}

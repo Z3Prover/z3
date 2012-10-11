@@ -97,9 +97,9 @@ namespace datalog {
             return check_linear();
         }
         else {
+            check_nonlinear();
             IF_VERBOSE(1, verbose_stream() << "non-linear BMC is not supported\n";);
             return l_undef;
-            return check_nonlinear();
         }
     }
 
@@ -179,7 +179,7 @@ namespace datalog {
 
                  substs.push_back(sub1);
                  substs.push_back(sub);
-                 pr = util.mk_hyper_resolve(2, premises, concl, positions, substs);
+                 pr = m.mk_hyper_resolve(2, premises, concl, positions, substs);
                  r0 = r1;
              }
              else {
@@ -191,7 +191,7 @@ namespace datalog {
                  }
                  else {
                      substs.push_back(sub);
-                     pr = util.mk_hyper_resolve(1, &p, concl, positions, substs);
+                     pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
                  }
                  r0 = r2;
              }
@@ -465,7 +465,7 @@ namespace datalog {
                         path_arg = path_var.get();
                     }
                     else {
-                        path_arg = m.mk_app(succs[j-1], path_var.get());
+                        path_arg = m.mk_app(succs[j], path_var.get());
                     }
                     for (unsigned k = 0; k < q->get_arity(); ++k) {
                         expr* arg = r.get_tail(j)->get_arg(k);
@@ -496,7 +496,7 @@ namespace datalog {
                         path_arg = path_var.get();
                     }
                     else {
-                        path_arg = m.mk_app(succs[j-1], path_var.get());
+                        path_arg = m.mk_app(succs[j], path_var.get());
                     }
                     func_decl* q = r.get_decl(j);
                     for (unsigned k = 0; k < q->get_arity(); ++k) {
@@ -512,7 +512,6 @@ namespace datalog {
                     conjs.push_back(tmp);
                 }
                 bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
-                expr* rule_pred = m.mk_app(rule_pred_i, trace_arg.get(), path_var.get());
                 ptr_vector<sort> q_sorts;
                 vector<symbol> names;
                 for (unsigned i = 0; i < vars.size(); ++i) {
@@ -526,23 +525,22 @@ namespace datalog {
                 SASSERT(vars.size() == names.size());
                 symbol qid = r.name(), skid;
                 
-                patterns.reset();
-                patterns.push_back(m.mk_pattern(to_app(rule_pred)));
+                //patterns.reset();
+                //patterns.push_back(m.mk_pattern(to_app(rule_pred)));
+                //
+                //fml = m.mk_implies(rule_pred, rule_body);
+                //fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
+                //assert_expr(fml);
+
                 expr_ref fml(m);
-                fml = m.mk_implies(rule_pred, rule_body);
-                fml = m.mk_forall(vars.size(), q_sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
-                std::cout << mk_pp(fml, m) << "\n";
+                tmp = m.mk_app(mk_predicate(p), trace_arg.get(), path_var.get());
+                patterns.reset();
+                patterns.push_back(m.mk_pattern(to_app(tmp)));
+                fml = m.mk_implies(tmp, rule_body);
+                fml = m.mk_forall(vars.size(), sorts.c_ptr(), names.c_ptr(), fml, 1, qid, skid, 1, patterns.c_ptr());
                 assert_expr(fml);
+                
             }
-            bool_rewriter(m).mk_or(rules.size(), rules.c_ptr(), tmp);
-            symbol names[2] = { symbol("Trace"), symbol("Path")  };
-            symbol qid = p->get_name(), skid;
-            patterns.reset();
-            patterns.push_back(m.mk_pattern(to_app(pred)));
-            expr_ref fml(m);
-            fml = m.mk_implies(pred, tmp);
-            fml = m.mk_forall(2, sorts, names, fml, 1, qid, skid, 1, patterns.c_ptr());
-            assert_expr(fml);
         }               
     }
 
@@ -640,14 +638,19 @@ namespace datalog {
     lbool bmc::check_query() {
         sort* trace_sort = m_pred2sort.find(m_query_pred);
         func_decl_ref q = mk_predicate(m_query_pred);
-        assert_expr(m.mk_app(q, m.mk_const(symbol("trace"), trace_sort), m.mk_const(symbol("path"),m_path_sort)));
+        expr_ref trace(m), path(m);
+        trace = m.mk_const(symbol("trace"), trace_sort);
+        path  = m.mk_const(symbol("path"),m_path_sort);
+        assert_expr(m.mk_app(q, trace, path));
         lbool is_sat = m_solver.check();
         if (is_sat == l_undef) {
             model_ref md;
             proof_ref pr(m);
             m_solver.get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            
+            md->eval(trace, trace);
+            IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";);
+            IF_VERBOSE(2, m_solver.display(verbose_stream()););
         }
         return is_sat;
     }

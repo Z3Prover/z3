@@ -1,0 +1,673 @@
+RELEASE NOTES
+
+First source code release (October 2, 2012)
+===========================================
+
+- Fixed bug in Z3Py. The method that builds Z3 applications could crash if one of the arguments have to be "casted" into the correct sort (Thanks to Dennis Yurichev).
+
+- Fixed bug in datatype theory (Thanks to Ayrat).
+
+- Fixed bug in the definition of MkEmptySet and MkFullSet in the .Net API.
+
+- Display warning message and ignore option CASE_SPLIT=3,4 or 5 when auto configuration is enabled (AUTO_CONFIG=true) (Thanks Tobias from StackOverflow). 
+
+- Made the predicates <, <=, > and >= chainable as defined in the SMT 2.0 standard (Thanks to Matthias Weiler). 
+
+- Added missing Z3_decl_kind's for datatypes: Z3_OP_DT_CONSTRUCTOR, Z3_OP_DT_ACCESSOR, Z3_OP_DT_RECOGNISER.
+
+- Added support for numbers in scientific notation at Z3_ast Z3_mk_numeral(__in Z3_context c, __in Z3_string numeral, __in Z3_sort ty).
+
+- New builtin symbols in the arithmetic theory: pi, euler, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh. The first two are constants, and the others are unary functions. These symbols are not available if the a SMT 2.0 logic is specified (e.g., QF_LRA, QF_NRA, QF_LIA, etc) because these symbols are not defined in these logics. That is, the new symbols are only available if the logic is not specified.
+
+Version 4.1
+===========
+
+- New OCAML API (Many thanks to Josh Berdine)
+
+- CodeContracts in the .NET API (Many thanks to Francesco Logozzo).
+  Users can now check whether they are using the .NET API correctly
+  using <a href="http://msdn.microsoft.com/en-us/devlabs/dd491992">Clousot</a>.
+
+- Added option :error-behavior. The default value is
+  continued-execution. Now, users can force the Z3 SMT 2.0 frontend to
+  exit whenever an error is reported.  They just have to use the
+  command (set-option :error-behavior immediate-exit).
+
+- Fixed bug in term-if-then-else elimination (Thanks to Artur Niewiadomski).  
+
+- Fixed bug in difference logic detection code (Thanks to Dejan Jovanovic).
+      
+- Fixed bug in the pseudo-boolean preprocessor (Thanks to Adrien Champion).
+
+- Fixed bug in bvsmod preprocessing rules (Thanks to Dejan Jovanovic).
+
+- Fixed bug in Tactic tseitin-cnf (Thanks to Georg Hofferek).
+
+- Added missing simplification step in nlsat. 
+
+- Fixed bug in model construction for linear real arithmetic (Thanks to Marcello Bersani).
+
+- Fixed bug in preprocessor that eliminated rational powers (e.g., (^ x (/ 1.0 2.0))), the bug affected only problems where the denominator was even (Thanks to Johannes Eriksson).
+
+- Fixed bug in the k-th root operation in the algebraic number package. The result was correct, but the resulting polynomial could be incorrectly tagged as minimal and trigger nontermination on comparison operations. (Thanks to Johannes Eriksson).
+  
+- Fixed bug affecting problems containing patterns with n-ary arithmetic terms such as (p (+ x y 2)). This bug was introduced in Z3 4.0. (Thanks to Paul Jackson). 
+
+- Fixed crash when running out of memory.
+
+- Fixed crash reported by Alex Summers. The crash was happening on scripts that contain quantifiers, and use boolean formulas inside terms.
+
+- Fixed crash in the MBQI module (Thanks to Stephan Falke).     
+
+- Fixed bug in the E-matching engine. It was missing instances of multi-patterns (Thanks Alex Summers). 
+      
+- Fixed bug in Z3Py pretty printer.
+
+- The pattern inference module does not generate warning messages by default anymore. This module was responsible for producing messages such as: "WARNING: failed to find a pattern for quantifier (quantifier id: k!199)". The option PI_WARNINGS=true can be used to enable these warning messages.
+
+- Added missing return statements in z3++.h (Thanks to Daniel Neider).
+
+- Removed support for TPTP5 and Simplify input formats. 
+
+- Removed support for Z3 (low-level) input format. It is still available in the API.
+
+- Removed support for "SMT 1.5" input format (aka .smtc files). This was a hybrid input format that was implemented while the SMT 2.0 standard was being designed. Users should move to SMT 2.0 format. Note that SMT 1.0 format is still available.
+
+- Made tseitin-cnf tactic more "user friendly". It automatically applies required transformations needed to eliminate operators such as: and, distinct, etc.
+
+- Implemented new PSC (principal subresultant coefficient) algorithm. This was one of the bottlenecks in the new nlsat solver/tactic.
+
+Version 4.0
+===========
+
+Z3 4.0 is a major release. The main new features are:
+- New C API, and it is backwards compatible, but several methods are marked as deprecated.
+  In the new API, many solvers can be created in the same context. It also includes support
+  for user defined strategies using Tactics. It also exposes a new interface for browsing models.
+
+- A thin C++ layer around the C API that illustrates how to 
+  leverage reference counting of ast objects.
+  Several examples can be found in the directory 'examples/c++'.
+
+- New .NET API together with updated version of the legacy .NET API. 
+  The new .NET API supports the new features, Tactics, Solvers, Goals, 
+  and integration of  with reference counting. Terms and sorts life-times 
+  no longer requires a scoping discipline.
+
+- <a class="el" href="http://rise4fun.com/Z3Py/tutorial/guide">Z3Py: Python interface for Z3</a>. 
+  It covers all main features in the Z3 API.
+
+- <a class="el" href="http://research.microsoft.com/apps/pubs/default.aspx?id=159549">NLSAT solver</a> for nonlinear arithmetic.  
+       
+- The PDR algorithm in muZ. 
+   
+- iZ3: an interpolating theorem prover built on top of Z3 (\ref iz3documentation). iZ3 is only available for Windows and Linux. 
+
+- New logging infrastructure. Z3 logs are used to record every Z3 API call performed by your application.
+  If you find a bug, just the log need to be sent to the Z3 team.
+  The following APIs were removed: Z3_trace_to_file, Z3_trace_to_stderr, Z3_trace_to_stdout, Z3_trace_off. 
+  The APIs: Z3_open_log, Z3_append_log and Z3_close_log do not receive a Z3_context anymore.
+  When creating a log, you must invoke Z3_open_log before any other Z3 function call.
+  The new logs are much more precise. 
+  However, they still have two limitations. They are not useful for logging applications that use callbacks (e.g., theory plugins) 
+  because the log interpreter does not have access to these callbacks.
+  They are not precise for applications that are using multiple threads for processing multiple Z3 contexts.
+        
+- Z3 (for Linux and OSX) does not depend on GMP anymore.
+
+- Z3 1.x backwards compatibility macros are defined in z3_v1.h. If you still use them, you have to explicitly include this file.
+      
+- Fixed all bugs reported at Stackoverflow.
+
+Temporarily disabled features:
+
+- User theories cannot be used with the new Solver API yet. Users may still use them with the deprecated solver API.
+
+- Parallel Z3 is also disabled in this release. However, we have parallel combinators for creating stragegies (See <a href="http://rise4fun.com/Z3/tutorial/strategies"> tutorial</a>).
+      
+The two features above will return in future releases. 
+
+Here is a list of all <a class="el" href="deprecated.html">deprecated functions</a>.
+
+Version 3.2
+===========
+
+This is a bug-fix refresh that fixes reported problems with 3.1.
+        
+- Added support for chainable and right associative attributes. 
+
+- Fixed model generation for QBVF (aka UFBV) logic. Now, Z3 officially supports the logics BV and UFBV. 
+  These are essentially QF_BV and QF_UFBV with quantifiers.
+
+- Fixed bug in eval and get-value commands. Thanks to Levent Erkok.
+
+- Fixed performance bug that was affecting VCC and Slayer. Thanks to Michal Moskal.
+
+- Fixed time measurement on Linux. Thanks to Ayrat Khalimov.
+
+- Fixed bug in destructive equality resolution (DER=true).
+        
+- Fixed bug in map operator in the theory of arrays. Thanks to Shaz Quadeer.
+        
+- Improved OCaml build scripts for Windows. Thanks to Josh Berdine.
+        
+- Fixed crash in MBQI (when Real variables were used). 
+
+- Fixed bugs in quantifier elimination. Thanks to Josh Berdine.
+
+- Fixed crash when an invalid datatype declaration is used.
+        
+- Fixed bug in the SMT2 parser.        
+
+- Fixed crash in quick checker for quantified formulas. Thanks to Swen Jacobs.
+
+- Fixed bug in the bvsmod simplifier. Thanks to Trevor Hansen.
+
+- New APIs: \c Z3_substitute and \c Z3_substitute_vars.
+
+- Fixed crash in MBQI. Thanks to Dejan Jovanovic.
+
+Version 3.1
+===========
+
+This is a bug-fix refresh that fixes reported problems with 3.0.
+
+- Fixed a bug in model generation. Thanks to Arlen Cox and Gordon Fraser.
+        
+- Fixed a bug in Z3_check_assumptions that prevented it from being used between satisfiable instances. Thanks to Krystof Hoder.
+
+- Fixed two bugs in quantifier elimination. Thanks to Josh Berdine.        
+
+- Fixed bugs in the preprocessor.
+
+- Fixed performance bug in MBQI. Thanks to Kathryn Stolee.
+
+- Improved strategy for QBVF (aka UFBV) logic.
+
+- Added support for negative assumptions in the check-sat command.
+
+Version 3.0
+===========
+
+- Fully compliant SMT-LIB 2.0 (SMT2) front-end. The old front-end is still available (command line option -smtc).
+  The <a class="el" href="http://rise4fun.com/z3/tutorial/guide">Z3 Guide</a> describes the new front-end.
+
+- Parametric inductive datatypes, and parametric user defined types.
+
+- New SAT solver. Z3 can also read dimacs input formulas.
+
+- New Bitvector (QF_BV) solver. The new solver is only available when using the new SMT2 front-end.
+
+- Major performace improvements. 
+
+- New preprocessing stack.
+
+- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the the SMT2 front-end.
+
+- Added API for parsing SMT2 files.
+
+- Fixed bug in AUTO_CONFIG=true. Thanks to Alberto Griggio.
+
+- Fixed bug in the Z3 simplifier cache. It was not being reset during backtracking. Thanks to Alberto Griggio.
+
+- Fixed many other bugs reported by users.
+
+- Improved model-based quantifier instantiation (MBQI).
+
+- New solver for Quantified Bitvector Logic (QBVF). 
+
+- Z3 checks the user specified logic.
+        
+- <a href="http://www.cs.miami.edu/~tptp/">TPTP</a> 5 front-end.
+
+Version 2.19
+============
+
+- In the SMT-LIB 1.0 frontend, Z3 will only display the model when requested by the user (MODEL=true).
+
+- Fixed bug in the variable elimination preprocessor. Thanks to Alberto Griggio.
+        
+- Fixed bug in the expression strong simplifier. Thanks to Marko.
+
+- Fixed bug in the Z3 auto configuration mode. Thanks to Vladimir Klebanov.
+
+- Fixed bug when model generation is used in the context of user-defined-theories. Thanks to Philippe Suter.
+
+- Fixed bug in quantifier elimination procedure. Thanks to Mikkel Larsen Pedersen.
+        
+- Improved speed of Z3 lexer for SMT-LIB frontend.
+
+- Added a sample under examples/fixedpoints to illustrate using
+	  the API for pluggable relations.
+
+- Added an API method \c Z3_get_param_value for retrieving a 
+  configuration value given a configuration parameter name.
+
+Version 2.18
+============
+
+- Z3 has a new mode for solving fixed-point queries.
+  It allows formulating Datalogish queries combined with constraints.
+  <a class="el" href="http://rise4fun.com/z3py/tutorial/fixedpoints">Try it online</a>.
+
+- Fixed bug that affects the array theory over the API using
+  RELEVANCY=0. Thanks to Josh Berdine.
+
+Version 2.17
+============
+      
+- Z3 has new model finding capabilities for Quantified SMT formulas.
+  The new features are enabled with <tt>MBQI=true</tt>.
+  (Model Based Quantifier Instantiation). MBQI implements a
+  counter-example based refinement loop, where candidate models are
+  built and checked. When the model checking step fails, it creates new
+  quantifier instantiations. The models are returned as simple
+  functional programs. The new feature is also a decision procedure for
+  many known decidable fragments such as: EPR (Effectively
+  Propositional), Bradley&Manna&Sipma's Array Property Fragment (VMCAI'06), Almost
+  Uninterpreted Fragment (Complete instantiation for quantified SMT formulas, CAV'09),
+  McPeak&Necula's list fragment (CAV'05), QBVF (Quantified Bit-Vector Formulas FMCAD'10), 
+  to cite a few. 
+  MBQI is useful for checking the consistency of background axiomatizations,
+  synthesizing functions, and building real counterexamples for
+  verification tools. Users can constrain the search space by
+  providing templates for function symbols, and constraints
+  on the size of the universe and range of functions.
+          
+- Fixed bug in the command <tt>(simplify [expr])</tt> SMT-LIB 2.0 frontend.
+        
+- New model pretty printer. The old style is still available (option <tt>MODEL_V2=true</tt>).
+  Z3 1.x style is also available (option <tt>MODEL_V1=true</tt>). 
+
+- Removed \c ARRAY_PROPERTY option. It is subsumed by <tt>MBQI=true</tt>.
+
+- Z3 uses the <tt>(set-logic [name])</tt> to configure itself.
+  
+- Assumptions can be provided to the \c check-sat command.
+  The command <tt>(check-sat [assumptions])</tt> checks the satisfiability of the logical context modulo
+  the given set of assumptions. The assumptions must be Boolean constants or
+  the negation of Boolean constants. When the logical context is
+  unsatisfiable modulo the given assumptions, Z3 will display a subset
+  of the \c assumptions that contributed to the conflict. Lemmas
+  learned during the execution of \c check-sat are preserved.
+
+- Added command <tt>(echo [string])</tt> to the SMT-LIB 2.0 frontend.
+
+- Z3 models explicitly include an interpretation for uninterpreted sorts.
+  The interpretation is presented using the \c define-sort primitive.
+  For example, 
+  \code
+      (define-sort S e_1 ... e_n)          
+  \endcode
+  states that the interpretation of the uninterpreted sort S is finite, and
+  its universe is composed by values \c e_1, ..., \c e_n.
+
+- Options \c WARNING and \c VERBOSE can be set in the SMT-LIB 2.0 frontend using
+  the commands <tt>(set-option WARNING <flag>)</tt> <tt>(set-option VERBOSE <flag>)</tt>.
+        
+- Fixed unintentional side-effects in the Z3 pretty printer. Thanks to Swen Jacobs.
+
+- Added interpreted constants of the form <tt>as-array[f]</tt>. The constants
+  are used in models produced by Z3 to encode the interpretation of arrays. 
+  The following axiom scheme axiomatizes the new constants:
+  \code
+     (forall (x1 S1) ... (xn Sn) (= (select as-array[f] x1 ... xn) (f x1 ... xn)))
+  \endcode
+        
+- Fixed bug in the option MACRO_FINDER=true.
+
+- Fixed bug in the <tt>(eval [expr])</tt> command in the SMT-LIB 2.0 frontend.
+
+- Soundness bug in solver for array property fragment. Thanks to Trevor Hansen.
+
+Version 2.16
+============
+
+The following bugs are fixed in this release:
+
+- Bugs in quantifier elimination. Thanks to Mikkel Larsen Pedersen.
+
+- Crash in non-linear arithmetic. Thanks to Trevor Hansen.
+
+- Unsoundness in mixed integer-linear version using to_real. Thanks to Hirai.
+
+- A crash and bugs in check_assumptions feature. Thanks to Akash Lal and Shaz Qadeer.
+
+Version 2.15
+============
+
+The following bugs are fixed in this release:
+
+- A bug in the quantifier elimination that affects nested
+  alternating quantifiers that cannot be fully eliminated.
+
+- A crash in proof generation. Thanks to Sascha Boehme.
+
+Version 2.14
+============
+
+The following bugs are fixed in this release:
+
+- A crash in arithmetic simplification. Thanks to Trevor Hansen.
+
+- An unsoundness bug in the quantifier elimination. 
+  It affects the equivalence of answers that are computed 
+  in some cases.
+
+- Incorrect printing of parameters and other values
+  in SMT-LIB2 mode.
+  Thanks to Tjark Weber.
+
+Version 2.13
+============
+
+The following bugs are fixed in this release:
+
+- Soundness bug in solver for array property fragment. Thanks to Trevor Hansen.
+
+- Soundness bug introduced in macro expansion utilities. Thanks to Wintersteiger.
+
+- Incorrect handling of QF_NRA. Thanks to Trevor Hansen.
+
+- Mixup between SMT2 and SMT1 pretty printing formats. Thanks to Alvin Cheung and Tjark Weber.	
+
+Version 2.12
+============
+
+News:
+	
+- Philippe Suter made a JNI binding available.
+  There is also an existing Python binding by Sascha Boehme.
+  See \ref contrib.
+
+The following features are added in this release:
+
+- Enable check_assumptions without enclosing push/pop.
+  This resolves the limitation described 
+  in \ref sub_release_limitations_2_0.
+
+- Expose coefficients used in arithmetical proofs.
+
+- Allow quantified theory axioms.
+
+The following bugs are fixed in this release:
+
+- Fixes to the SMT-LIB 2.0 pretty printing mode.
+
+- Detect miss-annotated SMT-LIB benchmarks to avoid crashes when 
+  using the wrong solvers. Thanks to Trevor Hansen.
+
+- A digression in the managed API from 2.10 
+  when passing null parameters.
+
+- Crash/incorrect handling of inequalities over the reals
+  during quantifier elimination.
+  Thanks to Mikkel Larsen Pedersen.
+
+- Bug in destructive equality resolution.
+  Thanks to Sascha Boehme.
+
+- Bug in initialization for x64_mt executable on SMT benchmarks.
+  Thanks to Alvin Cheung.
+	
+
+Version 2.11
+============
+
+The following features are added in this release:
+
+- SMT-LIB 2.0 parsing support for (! ..) in quantifiers and (_ ..).
+
+- Allow passing strings to function and sort declarations in the .NET Theory builders.
+
+- Add a parameter to the proof construct for theory lemmas to indicate which theory
+  provided the lemma.
+	
+- More detailed proof production in rewrite steps.
+  
+The following bugs are fixed in this release:
+
+- A bug in BV propagation. Thanks to Trevor Hansen.
+
+
+Version 2.10
+============
+
+The following bugs are fixed in this release:
+
+- Inconsistent printing of integer and real types from 
+  the low level and SMT-LIB pretty printers. 
+  Thanks to Sascha Boehme.
+
+- Missing relevancy propagation and memory smash in
+  user-theory plugins.
+  Thanks to Stan Rosenberg.
+
+Version 2.9
+===========
+
+The following bugs are fixed in this release:
+
+- Incorrect constant folding of extraction for large bit-vectors.
+  Thanks to Alvin.
+	
+- Z3 crashed when using patterns that are variables.
+  Thanks to Michael Emmi.
+
+- Unsound array property fragment handling of non-integer types.
+  Thanks to Juergen Christ.
+
+- The quantifier elimination procedure for data-types has
+  been replaced.
+  Thanks to Josh Berdine.
+
+- Refresh 2.9.1: Add missing AssumeEq to the .NET managed API. 
+  Thanks to Stan Rosenberg.
+
+Version 2.8
+===========
+
+The following features have been added:
+
+- User theories: The user can add theory solvers that
+  get invoked by Z3's core during search.
+  See also \ref theory_plugin_ex.
+
+- SMT2 features: parse smt2 let bindings.
+    
+The following bugs are fixed in this release:
+	
+- Incorrect semantics of constant folding for (bvsmod 0 x), where
+  x is positive, incorrect constant folding for bvsdiv, incorrect
+  simplification of bvnor, bvnand, incorrect compilation of
+  bvshl when using a shift amount that evaluates to the length
+  of the bit-vector. Thanks to Trevor Hansen and Robert Brummayer. 
+
+- Incorrect NNF conversion in linear quantifier elimniation routines.
+  Thanks to Josh Berdine.
+
+- Missing constant folding of extraction for large bit-vectors.
+  Thanks to Alvin.
+
+- Missing APIs for bvredand and bvredor. 
+
+Version 2.7
+===========
+
+The following features have been added:
+	
+- Partial support for SMT-LIB 2.0 format:
+  Added declare-fun, define-fun, declare-sort, define-sort, get-value
+
+- Added coercion function to_int and testing function is_int. 
+  To coerce from reals to integers and to test whether a real is an integer.
+  The function to_real was already supported.
+
+- Added Z3_repeat to create the repetition of bit-vectors.
+
+The following bugs are fixed in this release:
+	
+- Incorrect semantics of constant folding for bvsmod. 
+
+- Incorrect semantics of constant folding for div/mod.
+  Thanks to Sascha Boehme.	  
+
+- Non-termination problem associated with option LOOKAHEAD=true.
+  It gets set for QF_UF in auto-configuration mode.
+  Thanks to Pierre-Christophe Bué.
+
+- Incorrect axioms created for injective functions.
+  Thanks to Sascha Boehme.
+
+- Stack overflow during simplification of large nested
+  bit-vector terms. Thanks to David Molnar.
+
+- Crash in unsat-core generation when enabling SOLVER=true.
+  Thanks to Lucas Cordeiro.
+
+- Unlimited cache growth while simplifying bit-vectors.
+  Thanks to Eric Landers.
+
+- Crash when solving array property formulas using non-standard
+  array operators. 
+  Thanks to Sascha Boehme.
+
+Version 2.6
+===========
+
+This release fixes a few bugs.
+Thanks to Marko Kääramees for reporting a bug in the strong context simplifier and
+to Josh Berdine. 
+
+This release also introduces some new preprocessing features:
+
+- More efficient destructive equality resolution DER=true.
+        
+- DISTRIBUTE_FORALL=true (distributes universal quatifiers over conjunctions, this transformation may affect pattern inference). 
+
+- Rewriter that uses universally quantified equations PRE_DEMODULATOR=true (yes, the option name is not good, we will change it in a future release).
+
+- REDUCE_ARGS=true (this transformation is essentially a partial ackermannization for functions where a particular argument is always an interpreted value).
+
+- Better support for macro detection (a macro is a universally quantified formula of the form Forall X. F(X) = T[X]). We also change the option name, now it is called MACRO_FINDER=true.
+
+- ELIM_QUANTIFIERS=true enables quantifier elimination methods. Previous variants called QUANT_ARITH are deprecated.
+
+Version 2.5
+===========
+
+This release introduces the following features:
+
+- STRONG_CONTEXT_SIMPLIFIER=true allows simplifying sub-formulas
+  to true/false depending on context-dependent information.
+  The approach that we use is described on
+  the <a href="http://community.research.microsoft.com/forums/p/4493/8140.aspx">
+  Microsoft Z3 forum</a>.
+
+- Some parameter values can be updated over the API. This functionality is called
+  <tt>Z3_update_param_value</tt> in the C API. This is particularly useful
+  for turning the strong context simplifier on and off.  
+ 
+It also fixes bugs reported by Enric Rodríguez Carbonell, 
+Nuno Lopes, Josh Berdine, Ethan Jackson, Rob Quigley and 
+Lucas Cordeiro.
+
+Version 2.4
+===========
+        
+This release introduces the following features:
+
+- Labeled literals for the SMT-LIB format. 
+  The Simplify format has supported labeled formulas 
+  to simplify displaying counter-examples. 
+  Section \ref smtlib_labels explains how labels are now
+  supported in the SMT-LIB format.
+
+- Preliminary support for SMT-LIB2
+
+It fixes the following bugs:
+
+- Bug in non-linear arithmetic routines.
+
+- Crash observed a class of modular integer arithmetic formulas.
+
+- Incomplete saturation leading to incorrectly sat labeling.
+
+- Crash in the bit-vector procedure when using int2bv and bv2int.
+
+Thanks to Michal Moskal, Sascha Boehme and Ethan Jackson.
+
+Version 2.3
+===========
+
+This release introduces the following features:
+
+- F# Quotation utilities. The release contains a new directory 'utils'. 
+  It contains utilities built on top of Z3. The main one is support for
+  translating F# quoted expressions into Z3 formulas.
+
+- QUANT_ARITH configuration. 
+  Complete quantifier-elimination simplification for linear real and linear integer
+  arithmetic. QUANT_ARITH=1 uses Ferrante/Rackhoff for reals and Cooper's method for integers.
+  QUANT_ARITH=2 uses Fourier-Motzkin for reals and the Omega test for integers.
+
+It fixes the following bugs:
+
+- Incorrect simplification of map over store in the extendted array theory. Reported by Catalin Hritcu.
+
+- Incomplete handling of equality propagation with constant arrays. Reported by Catalin Hritcu.
+
+- Crash in bit-vector theory.
+ 
+- Incorrectness in proof reconstruction for quantifier manipulation.
+
+Thanks to Catalin Hritcu, Nikolai Tillmann and Sascha Boehme.
+
+Version 2.2
+===========
+
+This release fixes minor bugs. 
+It introduces some additional features in the SMT-LIB front-end 
+to make it easier to parse new operators in the theory of arrays.
+These are described in \ref smtlibext. 
+
+Version 2.1
+===========
+
+This is a bug fix release.
+Many thanks to Robert Brummayer, Carine Pascal, François Remy, 
+Rajesh K Karmani, Roberto Lublinerman and numerous others for their 
+feedback and bug reports.
+
+Version 2.0
+===========
+
+- <a href="http://research.microsoft.com/en-us/um/people/leonardo/parallel_z3.pdf">Parallel Z3</a>. 
+  Thanks to Christoph Wintersteiger there is a binary 
+  supporting running multiple instances of Z3 from different threads,
+  but more interestingly, also making use of multiple cores for 
+  a single formula. 
+
+- Check Assumptions.
+  The binary API exposes a new call #Z3_check_assumptions, which
+  allows passing in additional assumptions while checking for 
+  consistency of the already asserted formulas.
+  The API function returns a subset of the assumptions that were
+  used in an unsatisfiable core. It also returns an optional
+  proof object.
+
+- Proof Objects.
+  The #Z3_check_assumptions retuns a proof object if 
+  the configuration flag PROOF_MODE is set to 1 or 2.
+
+- Partial support for non-linear arithmetic. 
+  The support uses support for computing Groebner bases.
+  It allows solving some, but far from all, formulas using 
+  polynomials over the reals. Uses should be aware that the 
+  support for non-linear arithmetic (over the reals) is not complete in Z3.
+       
+- Recursive data-types.
+  The theory of well-founded recursive data-types is supported
+  over the binary APIs. It supports ground satisfiability checking
+  for tuples, enumeration types (scalars), 
+  lists and mututally recursive data-types.

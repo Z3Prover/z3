@@ -489,12 +489,6 @@ namespace datalog {
         return m_manager->mk_func_decl(m_clone_sym, 1, &s, s, info);
     }
 
-    func_decl * dl_decl_plugin::mk_hyper_res(unsigned num_params, parameter const* params, unsigned arity, sort *const* domain) {
-        ast_manager& m = *m_manager;
-        func_decl_info info(m_family_id, OP_DL_HYPER_RESOLVE, num_params, params);
-        return m_manager->mk_func_decl(m_hyper_resolve_sym, arity, domain, m_manager->mk_proof_sort(), info);
-    }
-
     func_decl * dl_decl_plugin::mk_func_decl(
         decl_kind k, unsigned num_parameters, parameter const * parameters, 
         unsigned arity, sort * const * domain, sort * range) {
@@ -605,10 +599,6 @@ namespace datalog {
                 }
                 result = mk_compare(OP_DL_LT, m_lt_sym, domain);
                 break;                
-
-            case OP_DL_HYPER_RESOLVE:
-                result = mk_hyper_res(num_parameters, parameters, arity, domain);
-                break;
 
             default:
                 m_manager->raise_exception("operator not recognized");
@@ -750,82 +740,6 @@ namespace datalog {
         }
         func_decl* f = m.mk_func_decl(name, num_args, sorts.c_ptr(), mk_rule_sort());
         return m.mk_app(f, num_args, args);
-    }
-
-    proof* dl_decl_util::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
-                                          svector<std::pair<unsigned, unsigned> > const& positions,
-                                          vector<expr_ref_vector> const& substs) {
-        ptr_vector<expr> fmls;
-        SASSERT(positions.size() + 1 == substs.size());
-        for (unsigned i = 0; i < num_premises; ++i) {
-            TRACE("dl", tout << mk_pp(premises[i], m) << "\n";);
-            fmls.push_back(m.get_fact(premises[i]));
-        }
-        SASSERT(m.is_bool(concl));
-        vector<parameter> params;
-        for (unsigned i = 0; i < substs.size(); ++i) {
-            expr_ref_vector const& vec = substs[i];
-            for (unsigned j = 0; j < vec.size(); ++j) {
-                params.push_back(parameter(vec[j]));
-            }
-            if (i + 1 < substs.size()) {
-                params.push_back(parameter(positions[i].first));
-                params.push_back(parameter(positions[i].second));
-            }
-        }
-        ptr_vector<sort> sorts;
-        ptr_vector<expr> args;
-        for (unsigned i = 0; i < num_premises; ++i) {
-            sorts.push_back(m.mk_proof_sort());
-            args.push_back(premises[i]);
-        }
-        sorts.push_back(m.mk_bool_sort());
-        args.push_back(concl);
-        app* result = m.mk_app(m_fid, OP_DL_HYPER_RESOLVE, params.size(), params.c_ptr(), args.size(), args.c_ptr());
-        SASSERT(result->get_family_id() == m_fid);
-        SASSERT(result->get_decl_kind() == OP_DL_HYPER_RESOLVE);
-        return result;
-    }
-
-    bool dl_decl_util::is_hyper_resolve(
-        proof* p, 
-        proof_ref_vector& premises,
-        expr_ref& conclusion,
-        svector<std::pair<unsigned, unsigned> > & positions,
-        vector<expr_ref_vector> & substs) const {
-        if (!is_hyper_resolve(p)) {
-            return false;
-        }
-        unsigned sz = p->get_num_args();
-        SASSERT(sz > 0);
-        for (unsigned i = 0; i + 1 < sz; ++i) {
-            premises.push_back(to_app(p->get_arg(i)));
-        }
-        conclusion = p->get_arg(sz-1);
-        func_decl* d = p->get_decl();
-        unsigned num_p = d->get_num_parameters();
-        parameter const* params = d->get_parameters();
-        
-        substs.push_back(expr_ref_vector(m));
-        for (unsigned i = 0; i < num_p; ++i) {
-            if (params[i].is_int()) {
-                SASSERT(i + 1 < num_p);
-                SASSERT(params[i+1].is_int());
-                unsigned x = static_cast<unsigned>(params[i].get_int());
-                unsigned y = static_cast<unsigned>(params[i+1].get_int());
-                positions.push_back(std::make_pair(x, y));
-                substs.push_back(expr_ref_vector(m));
-                ++i;
-            }
-            else {
-                SASSERT(params[i].is_ast());
-                ast* a = params[i].get_ast();
-                SASSERT(is_expr(a));
-                substs.back().push_back(to_expr(a));                
-            }
-        }
-
-        return true;
     }
 
 };

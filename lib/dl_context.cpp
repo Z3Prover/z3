@@ -54,6 +54,7 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
+#include"datatype_decl_plugin.h"
 
 namespace datalog {
 
@@ -1118,10 +1119,11 @@ namespace datalog {
     class context::engine_type_proc {
         ast_manager& m;
         arith_util   a;
+        datatype_util dt;
         DL_ENGINE    m_engine;
 
     public:
-        engine_type_proc(ast_manager& m): m(m), a(m), m_engine(DATALOG_ENGINE) {}
+        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}
 
         DL_ENGINE get_engine() const { return m_engine; }
         void operator()(expr* e) {
@@ -1132,6 +1134,9 @@ namespace datalog {
                 m_engine = PDR_ENGINE;
             }
             else if (is_var(e) && m.is_bool(e)) {
+                m_engine = PDR_ENGINE;
+            }
+            else if (dt.is_datatype(m.get_sort(e))) {
                 m_engine = PDR_ENGINE;
             }
         }
@@ -1209,9 +1214,8 @@ namespace datalog {
 
     lbool context::pdr_query(expr* query) {
         ensure_pdr();
-        lbool result  = m_pdr->query(query);
-        m_last_answer = m_pdr->get_answer();
-        return result;
+        m_last_answer = 0; 
+        return m_pdr->query(query);
     }
 
     void context::ensure_bmc() {
@@ -1222,9 +1226,8 @@ namespace datalog {
 
     lbool context::bmc_query(expr* query) {
         ensure_bmc();
-        lbool result = m_bmc->query(query);
-        m_last_answer = m_bmc->get_answer();
-        return result;
+        m_last_answer = 0;
+        return m_bmc->query(query);
     }
 
 #define BEGIN_QUERY()                           \
@@ -1437,6 +1440,23 @@ namespace datalog {
     }
     
     expr* context::get_answer_as_formula() {
+        if (m_last_answer) {
+            return m_last_answer.get();
+        }
+        switch(get_engine()) {
+        case PDR_ENGINE: 
+        case QPDR_ENGINE:
+            ensure_pdr();
+            m_last_answer = m_pdr->get_answer();
+            return m_last_answer.get();
+        case BMC_ENGINE:
+            ensure_bmc();
+            m_last_answer = m_bmc->get_answer();
+            return m_last_answer.get();
+        default:
+            UNREACHABLE();
+        }
+        m_last_answer = m.mk_false();
         return m_last_answer.get();
     }
 
