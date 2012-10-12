@@ -20,7 +20,7 @@ Revision History:
 #ifndef _STOPWATCH_H_
 #define _STOPWATCH_H_
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
 
 // Does this redefinition work?
 #define ARRAYSIZE_TEMP ARRAYSIZE

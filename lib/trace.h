@@ -19,6 +19,11 @@ Revision History:
 
 #ifndef _TRACE_H_
 #define _TRACE_H_
+
+#ifdef _CYGWIN
+#undef max
+#undef min
+#endif
 #include<fstream>
 
 #ifdef _TRACE

@@ -20,6 +20,10 @@ Revision History:
 #ifndef _PDR_CONTEXT_H_
 #define _PDR_CONTEXT_H_
 
+#ifdef _CYGWIN
+#undef min
+#undef max
+#endif
 #include <deque>
 #include "pdr_manager.h"
 #include "dl_base.h"

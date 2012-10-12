@@ -54,6 +54,7 @@ AS_IF([test "$host_os" = "Darwin"], [
    SLIBFLAGS="-shared -fopenmp"
    COMP_VERSIONS=
    STATIC_FLAGS=-static
+   CPPFLAGS+=" -D_CYGWIN"
 ],
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
