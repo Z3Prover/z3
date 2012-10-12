@@ -532,6 +532,8 @@ void cmd_context::init_manager() {
     m_manager  = alloc(ast_manager, m_params.m_proof_mode, m_params.m_trace_stream);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
+    if (m_params.m_smtlib2_compliant)
+        m_manager->enable_int_real_coercions(false);
 }
 
 void cmd_context::init_external_manager() {

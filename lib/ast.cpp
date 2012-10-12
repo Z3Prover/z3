@@ -1231,6 +1231,7 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
 }
 
 void ast_manager::init() {
+    m_int_real_coercions = true;
     m_debug_ref_count = false;
     m_fresh_id = 0;
     m_expr_id_gen.reset(0);
@@ -1241,6 +1242,7 @@ void ast_manager::init() {
     m_pattern_family_id        = get_family_id("pattern");
     m_model_value_family_id    = get_family_id("model-value");
     m_user_sort_family_id      = get_family_id("user-sort");
+    m_arith_family_id          = get_family_id("arith");
     basic_decl_plugin * plugin = alloc(basic_decl_plugin);
     register_plugin(m_basic_family_id, plugin);
     m_bool_sort = plugin->mk_bool_sort();
@@ -1772,7 +1774,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
             sort * given = get_sort(args[i]);
-            if (expected != given) {	
+            if (!compatible_sorts(expected, given)) {
                 string_buffer<> buff;
                 buff << "invalid function application, sort mismatch on argument at position " << (i+1);
                 throw ast_exception(buff.c_str());
@@ -1786,7 +1788,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
         for (unsigned i = 0; i < num_args; i++) {
             sort * expected = decl->get_domain(i);
             sort * given    = get_sort(args[i]);
-            if (expected != given) {	
+            if (!compatible_sorts(expected, given)) {
                 string_buffer<> buff;
                 buff << "invalid function application, sort mismatch on argument at position " << (i+1);
                 throw ast_exception(buff.c_str());
@@ -1822,11 +1824,80 @@ bool ast_manager::check_sorts(ast const * n) const {
     }
 }
 
+bool ast_manager::compatible_sorts(sort * s1, sort * s2) const {
+    if (s1 == s2)
+        return true;
+    if (m_int_real_coercions)
+        return s1->get_family_id() == m_arith_family_id && s2->get_family_id() == m_arith_family_id;
+    return false;
+}
+
+bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * const * args) {
+    SASSERT(m_int_real_coercions);
+    if (decl->is_associative()) {
+        sort * d = decl->get_domain(0);
+        if (d->get_family_id() == m_arith_family_id) {
+            for (unsigned i = 0; i < num_args; i++) {
+                if (d != get_sort(args[i]))
+                    return true;
+            }
+        }
+    }
+    else {
+        for (unsigned i = 0; i < num_args; i++) {
+            sort * d = decl->get_domain(i);
+            if (d->get_family_id() == m_arith_family_id && d != get_sort(args[i]))
+                return true;
+        }
+    }
+    return false;
+}
+
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
     unsigned sz       = app::get_obj_size(num_args);
     void * mem        = allocate_node(sz);
-    app * new_node    = new (mem) app(decl, num_args, args);
-    app * r           = register_node(new_node);
+    app * new_node;
+    app * r;
+    if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
+        expr_ref_buffer new_args(*this);
+        if (decl->is_associative()) {
+            sort * d = decl->get_domain(0);
+            for (unsigned i = 0; i < num_args; i++) {
+                sort * s = get_sort(args[i]);
+                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                    if (d->get_decl_kind() == REAL_SORT)
+                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                    else
+                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                }
+                else {
+                    new_args.push_back(args[i]);
+                }
+            }
+        }
+        else {
+            for (unsigned i = 0; i < num_args; i++) {
+                sort * d = decl->get_domain(i);
+                sort * s = get_sort(args[i]);
+                if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
+                    if (d->get_decl_kind() == REAL_SORT)
+                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
+                    else
+                        new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
+                }
+                else {
+                    new_args.push_back(args[i]);
+                }
+            }
+        }
+        SASSERT(new_args.size() == num_args);
+        new_node = new (mem) app(decl, num_args, new_args.c_ptr());
+        r = register_node(new_node);
+    }
+    else {
+        new_node = new (mem) app(decl, num_args, args);
+        r = register_node(new_node);
+    }
 #ifndef SMTCOMP
     if (m_trace_stream != NULL && r == new_node) {
         *m_trace_stream << "[mk-app] #" << r->get_id() << " ";        

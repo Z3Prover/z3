@@ -258,6 +258,7 @@ protected:
     symbol      m_global_decls;
     symbol      m_numeral_as_real;
     symbol      m_error_behavior;
+    symbol      m_int_real_coercions;
     ini_params  m_ini;
 
     bool is_builtin_option(symbol const & s) const {
@@ -288,6 +289,7 @@ public:
         m_global_decls(":global-decls"),
         m_numeral_as_real(":numeral-as-real"),
         m_error_behavior(":error-behavior"),
+        m_int_real_coercions(":int-real-coercions"),
         m_ini(false) {
         params.register_params(m_ini);
         register_pp_params(m_ini);
@@ -375,6 +377,9 @@ class set_option_cmd : public set_get_option_cmd {
         }
         else if (m_option == m_numeral_as_real) {
             ctx.set_numeral_as_real(to_bool(value));
+        }
+        else if (m_option == m_int_real_coercions) {
+            ctx.m().enable_int_real_coercions(to_bool(value));
         }
 #ifdef Z3DEBUG
         else if (m_option == ":enable-assertions") {
@@ -535,6 +540,9 @@ public:
             else {
                 print_string(ctx, "continued-execution");
             }
+        }
+        else if (opt == m_int_real_coercions) {
+            print_bool(ctx, ctx.m().int_real_coercions());
         }
         else {
             std::string iopt = smt_keyword2opt_name(opt);

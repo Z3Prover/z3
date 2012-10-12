@@ -237,18 +237,20 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         m_manager->raise_exception("select requires as many arguments as the size of the domain");
         return 0;
     }
-    if (domain[0] != s) {
-        m_manager->raise_exception("first argument of select needs to be an array");
-        return 0;
-    }
+    ptr_buffer<sort> new_domain; // we need this because of coercions.
+    new_domain.push_back(s);
     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
-        if (!parameters[i].is_ast() || domain[i+1] != parameters[i].get_ast()) {
+        if (!parameters[i].is_ast() || 
+            !is_sort(parameters[i].get_ast()) || 
+            !m_manager->compatible_sorts(domain[i+1], to_sort(parameters[i].get_ast()))) {
             m_manager->raise_exception("domain sort and parameter do not match");
             UNREACHABLE();
             return 0;
         }
+        new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
-    return m_manager->mk_func_decl(m_select_sym, arity, domain, get_array_range(domain[0]),
+    SASSERT(new_domain.size() == arity);
+    return m_manager->mk_func_decl(m_select_sym, arity, new_domain.c_ptr(), get_array_range(domain[0]),
                                    func_decl_info(m_family_id, OP_SELECT));
 }
 
@@ -273,18 +275,22 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         UNREACHABLE();
         return 0;
     }
+    ptr_buffer<sort> new_domain; // we need this because of coercions.
+    new_domain.push_back(s);
     for (unsigned i = 0; i < num_parameters; ++i) {
-        if (!parameters[i].is_ast()) {
+        if (!parameters[i].is_ast() || !is_sort(parameters[i].get_ast())) {
             m_manager->raise_exception("expecting sort parameter");
             return 0;
         }
-        if (parameters[i].get_ast() != domain[i+1]) {
+        if (!m_manager->compatible_sorts(to_sort(parameters[i].get_ast()), domain[i+1])) {
             m_manager->raise_exception("domain sort and parameter do not match");
             UNREACHABLE();
             return 0;
         }
+        new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
-    return m_manager->mk_func_decl(m_store_sym, arity, domain, domain[0],
+    SASSERT(new_domain.size() == arity);
+    return m_manager->mk_func_decl(m_store_sym, arity, new_domain.c_ptr(), domain[0],
                                    func_decl_info(m_family_id, OP_STORE));
 }
 
