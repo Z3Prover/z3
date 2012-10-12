@@ -232,10 +232,10 @@ EXPORTS
 	Z3_get_quantifier_pattern_ast @230
 	Z3_get_quantifier_num_no_patterns @231
 	Z3_get_quantifier_no_pattern_ast @232
-	Z3_get_quantifier_bound_name @233
-	Z3_get_quantifier_bound_sort @234
-	Z3_get_quantifier_body @235
-	Z3_get_quantifier_num_bound @236
+	Z3_get_quantifier_num_bound @233
+	Z3_get_quantifier_bound_name @234
+	Z3_get_quantifier_bound_sort @235
+	Z3_get_quantifier_body @236
 	Z3_simplify @237
 	Z3_simplify_ex @238
 	Z3_simplify_get_help @239
