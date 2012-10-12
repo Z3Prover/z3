@@ -75,12 +75,7 @@ namespace Microsoft.Z3
         /// </summary>    
         public override string ToString()
         {
-            String res = "";
-            Symbol[] n = Names;
-            if (n.Length > 0) res = n[0].ToString();
-            for (uint i = 1; i < n.Length; i++)
-                res += " " + n[i].ToString();
-            return res;
+            return Native.Z3_param_descrs_to_string(Context.nCtx, NativeObject); 
         }
 
         #region Internal
