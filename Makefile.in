@@ -361,6 +361,7 @@ install-python: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 	@cp python/z3tactics.pyc $(PYTHON_PACKAGE_DIR)
 	@cp python/z3printer.pyc $(PYTHON_PACKAGE_DIR)
 	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PYTHON_PACKAGE_DIR)
+	@if python python/z3test.py; then echo "Z3Py was successfully installed."; else echo "Failed to execute Z3Py regressions..."; exit 1; fi
 
 uninstall-python: 
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
