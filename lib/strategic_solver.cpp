@@ -33,7 +33,7 @@ strategic_solver::strategic_solver():
     m_check_sat_executed(false),
     m_inc_solver(0),
     m_inc_solver_timeout(UINT_MAX),
-    m_tactic_if_undef(false),
+    m_inc_unknown_behavior(IUB_USE_TACTIC_IF_QF),
     m_default_fct(0),
     m_curr_tactic(0),
     m_proof(0),
@@ -54,6 +54,29 @@ strategic_solver::~strategic_solver() {
     }
     if (m_proof)
         m().dec_ref(m_proof);
+}
+
+bool strategic_solver::has_quantifiers() const {
+    unsigned sz = get_num_assertions();
+    for (unsigned i = 0; i < sz; i++) {
+        if (::has_quantifiers(get_assertion(i)))
+            return true;
+    }
+    return false;
+}
+
+/**
+   \brief Return true if a tactic should be used when the incremental solver returns unknown.
+*/
+bool strategic_solver::use_tactic_when_undef() const {
+    switch (m_inc_unknown_behavior) {
+    case IUB_RETURN_UNDEF: return false;
+    case IUB_USE_TACTIC_IF_QF: return !has_quantifiers();
+    case IUB_USE_TACTIC: return true;
+    default:
+        UNREACHABLE();
+        return false;
+    }
 }
 
 void strategic_solver::set_inc_solver(solver * s) {
@@ -84,13 +107,6 @@ void strategic_solver::collect_param_descrs(param_descrs & r) {
 */
 void strategic_solver::set_inc_solver_timeout(unsigned timeout) {
     m_inc_solver_timeout = timeout;
-}
-
-/**
-   \brief Use tactic when the incremental solver return undef.
-*/
-void strategic_solver::use_tactic_if_undef(bool f) {
-    m_tactic_if_undef = f;
 }
 
 /**
@@ -285,7 +301,7 @@ lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assum
             IF_VERBOSE(PS_VB_LVL, verbose_stream() << "using incremental solver (without a timeout).\n";);            
             m_use_inc_solver_results = true;
             lbool r = m_inc_solver->check_sat(0, 0);
-            if (r != l_undef || factory == 0 || !m_tactic_if_undef) {
+            if (r != l_undef || factory == 0 || !use_tactic_when_undef()) {
                 m_use_inc_solver_results = true;
                 return r;
             }
@@ -299,7 +315,7 @@ lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assum
                 scoped_timer timer(m_inc_solver_timeout, &eh);
                 r = m_inc_solver->check_sat(0, 0);
             }
-            if ((r != l_undef || !m_tactic_if_undef) && !eh.m_canceled) {
+            if ((r != l_undef || !use_tactic_when_undef()) && !eh.m_canceled) {
                 m_use_inc_solver_results = true;
                 return r;
             }
