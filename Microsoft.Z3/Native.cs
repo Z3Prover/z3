@@ -1133,6 +1133,9 @@ namespace Microsoft.Z3
             public extern static IntPtr Z3_param_descrs_get_name(Z3_context a0, Z3_param_descrs a1, uint a2);
 
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static IntPtr Z3_param_descrs_to_string(Z3_context a0, Z3_param_descrs a1);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             public extern static void Z3_interrupt(Z3_context a0);
 
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
@@ -4291,6 +4294,14 @@ namespace Microsoft.Z3
             if (err != Z3_error_code.Z3_OK)
                 throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
             return r;
+        }
+
+        public static string Z3_param_descrs_to_string(Z3_context a0, Z3_param_descrs a1) {
+            IntPtr r = LIB.Z3_param_descrs_to_string(a0, a1);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+            return Marshal.PtrToStringAnsi(r);
         }
 
         public static void Z3_interrupt(Z3_context a0) {

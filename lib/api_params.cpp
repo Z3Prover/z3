@@ -179,4 +179,21 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_string Z3_API Z3_param_descrs_to_string(Z3_context c, Z3_param_descrs p) {
+        Z3_TRY;
+        LOG_Z3_param_descrs_to_string(c, p);
+        RESET_ERROR_CODE();
+        std::ostringstream buffer;
+        buffer << "(";
+        unsigned sz = to_param_descrs_ptr(p)->size();
+        for (unsigned i = 0; i < sz; i++) {
+            if (i > 0) 
+                buffer << ", ";
+            buffer << to_param_descrs_ptr(p)->get_param_name(i);
+        }
+        buffer << ")";
+        return mk_c(c)->mk_external_string(buffer.str());
+        Z3_CATCH_RETURN("");
+    }
+
 };

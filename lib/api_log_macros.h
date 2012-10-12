@@ -741,6 +741,8 @@ void log_Z3_param_descrs_size(Z3_context a0, Z3_param_descrs a1);
 #define LOG_Z3_param_descrs_size(_ARG0, _ARG1) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_param_descrs_size(_ARG0, _ARG1); }
 void log_Z3_param_descrs_get_name(Z3_context a0, Z3_param_descrs a1, unsigned a2);
 #define LOG_Z3_param_descrs_get_name(_ARG0, _ARG1, _ARG2) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_param_descrs_get_name(_ARG0, _ARG1, _ARG2); }
+void log_Z3_param_descrs_to_string(Z3_context a0, Z3_param_descrs a1);
+#define LOG_Z3_param_descrs_to_string(_ARG0, _ARG1) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_param_descrs_to_string(_ARG0, _ARG1); }
 void log_Z3_interrupt(Z3_context a0);
 #define LOG_Z3_interrupt(_ARG0) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_interrupt(_ARG0); }
 void log_Z3_get_error_msg_ex(Z3_context a0, Z3_error_code a1);

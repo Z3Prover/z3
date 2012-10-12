@@ -2570,23 +2570,29 @@ void log_Z3_param_descrs_get_name(Z3_context a0, Z3_param_descrs a1, unsigned a2
   U(a2);
   C(359);
 }
+void log_Z3_param_descrs_to_string(Z3_context a0, Z3_param_descrs a1) {
+  R();
+  P(a0);
+  P(a1);
+  C(360);
+}
 void log_Z3_interrupt(Z3_context a0) {
   R();
   P(a0);
-  C(360);
+  C(361);
 }
 void log_Z3_get_error_msg_ex(Z3_context a0, Z3_error_code a1) {
   R();
   P(a0);
   U(static_cast<unsigned>(a1));
-  C(361);
+  C(362);
 }
 void log_Z3_translate(Z3_context a0, Z3_ast a1, Z3_context a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(362);
+  C(363);
 }
 void log_Z3_mk_goal(Z3_context a0, Z3_bool a1, Z3_bool a2, Z3_bool a3) {
   R();
@@ -2594,144 +2600,144 @@ void log_Z3_mk_goal(Z3_context a0, Z3_bool a1, Z3_bool a2, Z3_bool a3) {
   I(a1);
   I(a2);
   I(a3);
-  C(363);
+  C(364);
 }
 void log_Z3_goal_inc_ref(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(364);
+  C(365);
 }
 void log_Z3_goal_dec_ref(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(365);
+  C(366);
 }
 void log_Z3_goal_precision(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(366);
+  C(367);
 }
 void log_Z3_goal_assert(Z3_context a0, Z3_goal a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(367);
+  C(368);
 }
 void log_Z3_goal_inconsistent(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(368);
+  C(369);
 }
 void log_Z3_goal_depth(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(369);
+  C(370);
 }
 void log_Z3_goal_reset(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(370);
+  C(371);
 }
 void log_Z3_goal_size(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(371);
+  C(372);
 }
 void log_Z3_goal_formula(Z3_context a0, Z3_goal a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(372);
+  C(373);
 }
 void log_Z3_goal_num_exprs(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(373);
+  C(374);
 }
 void log_Z3_goal_is_decided_sat(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(374);
+  C(375);
 }
 void log_Z3_goal_is_decided_unsat(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(375);
+  C(376);
 }
 void log_Z3_goal_translate(Z3_context a0, Z3_goal a1, Z3_context a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(376);
+  C(377);
 }
 void log_Z3_goal_to_string(Z3_context a0, Z3_goal a1) {
   R();
   P(a0);
   P(a1);
-  C(377);
+  C(378);
 }
 void log_Z3_mk_tactic(Z3_context a0, Z3_string a1) {
   R();
   P(a0);
   S(a1);
-  C(378);
+  C(379);
 }
 void log_Z3_mk_probe(Z3_context a0, Z3_string a1) {
   R();
   P(a0);
   S(a1);
-  C(379);
+  C(380);
 }
 void log_Z3_tactic_inc_ref(Z3_context a0, Z3_tactic a1) {
   R();
   P(a0);
   P(a1);
-  C(380);
+  C(381);
 }
 void log_Z3_tactic_dec_ref(Z3_context a0, Z3_tactic a1) {
   R();
   P(a0);
   P(a1);
-  C(381);
+  C(382);
 }
 void log_Z3_probe_inc_ref(Z3_context a0, Z3_probe a1) {
   R();
   P(a0);
   P(a1);
-  C(382);
+  C(383);
 }
 void log_Z3_probe_dec_ref(Z3_context a0, Z3_probe a1) {
   R();
   P(a0);
   P(a1);
-  C(383);
+  C(384);
 }
 void log_Z3_tactic_and_then(Z3_context a0, Z3_tactic a1, Z3_tactic a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(384);
+  C(385);
 }
 void log_Z3_tactic_or_else(Z3_context a0, Z3_tactic a1, Z3_tactic a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(385);
+  C(386);
 }
 void log_Z3_tactic_par_or(Z3_context a0, unsigned a1, Z3_tactic const * a2) {
   R();
@@ -2739,28 +2745,28 @@ void log_Z3_tactic_par_or(Z3_context a0, unsigned a1, Z3_tactic const * a2) {
   U(a1);
   for (unsigned i = 0; i < a1; i++) { P(a2[i]); }
   Ap(a1);
-  C(386);
+  C(387);
 }
 void log_Z3_tactic_par_and_then(Z3_context a0, Z3_tactic a1, Z3_tactic a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(387);
+  C(388);
 }
 void log_Z3_tactic_try_for(Z3_context a0, Z3_tactic a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(388);
+  C(389);
 }
 void log_Z3_tactic_when(Z3_context a0, Z3_probe a1, Z3_tactic a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(389);
+  C(390);
 }
 void log_Z3_tactic_cond(Z3_context a0, Z3_probe a1, Z3_tactic a2, Z3_tactic a3) {
   R();
@@ -2768,163 +2774,163 @@ void log_Z3_tactic_cond(Z3_context a0, Z3_probe a1, Z3_tactic a2, Z3_tactic a3) 
   P(a1);
   P(a2);
   P(a3);
-  C(390);
+  C(391);
 }
 void log_Z3_tactic_repeat(Z3_context a0, Z3_tactic a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(391);
+  C(392);
 }
 void log_Z3_tactic_skip(Z3_context a0) {
   R();
   P(a0);
-  C(392);
+  C(393);
 }
 void log_Z3_tactic_fail(Z3_context a0) {
   R();
   P(a0);
-  C(393);
+  C(394);
 }
 void log_Z3_tactic_fail_if(Z3_context a0, Z3_probe a1) {
   R();
   P(a0);
   P(a1);
-  C(394);
+  C(395);
 }
 void log_Z3_tactic_fail_if_not_decided(Z3_context a0) {
   R();
   P(a0);
-  C(395);
+  C(396);
 }
 void log_Z3_tactic_using_params(Z3_context a0, Z3_tactic a1, Z3_params a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(396);
+  C(397);
 }
 void log_Z3_probe_const(Z3_context a0, double a1) {
   R();
   P(a0);
   D(a1);
-  C(397);
+  C(398);
 }
 void log_Z3_probe_lt(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(398);
+  C(399);
 }
 void log_Z3_probe_le(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(399);
+  C(400);
 }
 void log_Z3_probe_gt(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(400);
+  C(401);
 }
 void log_Z3_probe_ge(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(401);
+  C(402);
 }
 void log_Z3_probe_eq(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(402);
+  C(403);
 }
 void log_Z3_probe_and(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(403);
+  C(404);
 }
 void log_Z3_probe_or(Z3_context a0, Z3_probe a1, Z3_probe a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(404);
+  C(405);
 }
 void log_Z3_probe_not(Z3_context a0, Z3_probe a1) {
   R();
   P(a0);
   P(a1);
-  C(405);
+  C(406);
 }
 void log_Z3_get_num_tactics(Z3_context a0) {
   R();
   P(a0);
-  C(406);
+  C(407);
 }
 void log_Z3_get_tactic_name(Z3_context a0, unsigned a1) {
   R();
   P(a0);
   U(a1);
-  C(407);
+  C(408);
 }
 void log_Z3_get_num_probes(Z3_context a0) {
   R();
   P(a0);
-  C(408);
+  C(409);
 }
 void log_Z3_get_probe_name(Z3_context a0, unsigned a1) {
   R();
   P(a0);
   U(a1);
-  C(409);
+  C(410);
 }
 void log_Z3_tactic_get_help(Z3_context a0, Z3_tactic a1) {
   R();
   P(a0);
   P(a1);
-  C(410);
+  C(411);
 }
 void log_Z3_tactic_get_param_descrs(Z3_context a0, Z3_tactic a1) {
   R();
   P(a0);
   P(a1);
-  C(411);
+  C(412);
 }
 void log_Z3_tactic_get_descr(Z3_context a0, Z3_string a1) {
   R();
   P(a0);
   S(a1);
-  C(412);
+  C(413);
 }
 void log_Z3_probe_get_descr(Z3_context a0, Z3_string a1) {
   R();
   P(a0);
   S(a1);
-  C(413);
+  C(414);
 }
 void log_Z3_probe_apply(Z3_context a0, Z3_probe a1, Z3_goal a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(414);
+  C(415);
 }
 void log_Z3_tactic_apply(Z3_context a0, Z3_tactic a1, Z3_goal a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(415);
+  C(416);
 }
 void log_Z3_tactic_apply_ex(Z3_context a0, Z3_tactic a1, Z3_goal a2, Z3_params a3) {
   R();
@@ -2932,38 +2938,38 @@ void log_Z3_tactic_apply_ex(Z3_context a0, Z3_tactic a1, Z3_goal a2, Z3_params a
   P(a1);
   P(a2);
   P(a3);
-  C(416);
+  C(417);
 }
 void log_Z3_apply_result_inc_ref(Z3_context a0, Z3_apply_result a1) {
   R();
   P(a0);
   P(a1);
-  C(417);
+  C(418);
 }
 void log_Z3_apply_result_dec_ref(Z3_context a0, Z3_apply_result a1) {
   R();
   P(a0);
   P(a1);
-  C(418);
+  C(419);
 }
 void log_Z3_apply_result_to_string(Z3_context a0, Z3_apply_result a1) {
   R();
   P(a0);
   P(a1);
-  C(419);
+  C(420);
 }
 void log_Z3_apply_result_get_num_subgoals(Z3_context a0, Z3_apply_result a1) {
   R();
   P(a0);
   P(a1);
-  C(420);
+  C(421);
 }
 void log_Z3_apply_result_get_subgoal(Z3_context a0, Z3_apply_result a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(421);
+  C(422);
 }
 void log_Z3_apply_result_convert_model(Z3_context a0, Z3_apply_result a1, unsigned a2, Z3_model a3) {
   R();
@@ -2971,104 +2977,104 @@ void log_Z3_apply_result_convert_model(Z3_context a0, Z3_apply_result a1, unsign
   P(a1);
   U(a2);
   P(a3);
-  C(422);
+  C(423);
 }
 void log_Z3_mk_solver(Z3_context a0) {
   R();
   P(a0);
-  C(423);
+  C(424);
 }
 void log_Z3_mk_simple_solver(Z3_context a0) {
   R();
   P(a0);
-  C(424);
+  C(425);
 }
 void log_Z3_mk_solver_for_logic(Z3_context a0, Z3_symbol a1) {
   R();
   P(a0);
   Sy(a1);
-  C(425);
+  C(426);
 }
 void log_Z3_mk_solver_from_tactic(Z3_context a0, Z3_tactic a1) {
   R();
   P(a0);
   P(a1);
-  C(426);
+  C(427);
 }
 void log_Z3_solver_get_help(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(427);
+  C(428);
 }
 void log_Z3_solver_get_param_descrs(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(428);
+  C(429);
 }
 void log_Z3_solver_set_params(Z3_context a0, Z3_solver a1, Z3_params a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(429);
+  C(430);
 }
 void log_Z3_solver_inc_ref(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(430);
+  C(431);
 }
 void log_Z3_solver_dec_ref(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(431);
+  C(432);
 }
 void log_Z3_solver_push(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(432);
+  C(433);
 }
 void log_Z3_solver_pop(Z3_context a0, Z3_solver a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(433);
+  C(434);
 }
 void log_Z3_solver_reset(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(434);
+  C(435);
 }
 void log_Z3_solver_get_num_scopes(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(435);
+  C(436);
 }
 void log_Z3_solver_assert(Z3_context a0, Z3_solver a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(436);
+  C(437);
 }
 void log_Z3_solver_get_assertions(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(437);
+  C(438);
 }
 void log_Z3_solver_check(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(438);
+  C(439);
 }
 void log_Z3_solver_check_assumptions(Z3_context a0, Z3_solver a1, unsigned a2, Z3_ast const * a3) {
   R();
@@ -3077,132 +3083,132 @@ void log_Z3_solver_check_assumptions(Z3_context a0, Z3_solver a1, unsigned a2, Z
   U(a2);
   for (unsigned i = 0; i < a2; i++) { P(a3[i]); }
   Ap(a2);
-  C(439);
+  C(440);
 }
 void log_Z3_solver_get_model(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(440);
+  C(441);
 }
 void log_Z3_solver_get_proof(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(441);
+  C(442);
 }
 void log_Z3_solver_get_unsat_core(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(442);
+  C(443);
 }
 void log_Z3_solver_get_reason_unknown(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(443);
+  C(444);
 }
 void log_Z3_solver_get_statistics(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(444);
+  C(445);
 }
 void log_Z3_solver_to_string(Z3_context a0, Z3_solver a1) {
   R();
   P(a0);
   P(a1);
-  C(445);
+  C(446);
 }
 void log_Z3_stats_to_string(Z3_context a0, Z3_stats a1) {
   R();
   P(a0);
   P(a1);
-  C(446);
+  C(447);
 }
 void log_Z3_stats_inc_ref(Z3_context a0, Z3_stats a1) {
   R();
   P(a0);
   P(a1);
-  C(447);
+  C(448);
 }
 void log_Z3_stats_dec_ref(Z3_context a0, Z3_stats a1) {
   R();
   P(a0);
   P(a1);
-  C(448);
+  C(449);
 }
 void log_Z3_stats_size(Z3_context a0, Z3_stats a1) {
   R();
   P(a0);
   P(a1);
-  C(449);
+  C(450);
 }
 void log_Z3_stats_get_key(Z3_context a0, Z3_stats a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(450);
+  C(451);
 }
 void log_Z3_stats_is_uint(Z3_context a0, Z3_stats a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(451);
+  C(452);
 }
 void log_Z3_stats_is_double(Z3_context a0, Z3_stats a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(452);
+  C(453);
 }
 void log_Z3_stats_get_uint_value(Z3_context a0, Z3_stats a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(453);
+  C(454);
 }
 void log_Z3_stats_get_double_value(Z3_context a0, Z3_stats a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(454);
+  C(455);
 }
 void log_Z3_mk_ast_vector(Z3_context a0) {
   R();
   P(a0);
-  C(455);
+  C(456);
 }
 void log_Z3_ast_vector_inc_ref(Z3_context a0, Z3_ast_vector a1) {
   R();
   P(a0);
   P(a1);
-  C(456);
+  C(457);
 }
 void log_Z3_ast_vector_dec_ref(Z3_context a0, Z3_ast_vector a1) {
   R();
   P(a0);
   P(a1);
-  C(457);
+  C(458);
 }
 void log_Z3_ast_vector_size(Z3_context a0, Z3_ast_vector a1) {
   R();
   P(a0);
   P(a1);
-  C(458);
+  C(459);
 }
 void log_Z3_ast_vector_get(Z3_context a0, Z3_ast_vector a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(459);
+  C(460);
 }
 void log_Z3_ast_vector_set(Z3_context a0, Z3_ast_vector a1, unsigned a2, Z3_ast a3) {
   R();
@@ -3210,65 +3216,65 @@ void log_Z3_ast_vector_set(Z3_context a0, Z3_ast_vector a1, unsigned a2, Z3_ast 
   P(a1);
   U(a2);
   P(a3);
-  C(460);
+  C(461);
 }
 void log_Z3_ast_vector_resize(Z3_context a0, Z3_ast_vector a1, unsigned a2) {
   R();
   P(a0);
   P(a1);
   U(a2);
-  C(461);
+  C(462);
 }
 void log_Z3_ast_vector_push(Z3_context a0, Z3_ast_vector a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(462);
+  C(463);
 }
 void log_Z3_ast_vector_translate(Z3_context a0, Z3_ast_vector a1, Z3_context a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(463);
+  C(464);
 }
 void log_Z3_ast_vector_to_string(Z3_context a0, Z3_ast_vector a1) {
   R();
   P(a0);
   P(a1);
-  C(464);
+  C(465);
 }
 void log_Z3_mk_ast_map(Z3_context a0) {
   R();
   P(a0);
-  C(465);
+  C(466);
 }
 void log_Z3_ast_map_inc_ref(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(466);
+  C(467);
 }
 void log_Z3_ast_map_dec_ref(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(467);
+  C(468);
 }
 void log_Z3_ast_map_contains(Z3_context a0, Z3_ast_map a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(468);
+  C(469);
 }
 void log_Z3_ast_map_find(Z3_context a0, Z3_ast_map a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(469);
+  C(470);
 }
 void log_Z3_ast_map_insert(Z3_context a0, Z3_ast_map a1, Z3_ast a2, Z3_ast a3) {
   R();
@@ -3276,36 +3282,36 @@ void log_Z3_ast_map_insert(Z3_context a0, Z3_ast_map a1, Z3_ast a2, Z3_ast a3) {
   P(a1);
   P(a2);
   P(a3);
-  C(470);
+  C(471);
 }
 void log_Z3_ast_map_erase(Z3_context a0, Z3_ast_map a1, Z3_ast a2) {
   R();
   P(a0);
   P(a1);
   P(a2);
-  C(471);
+  C(472);
 }
 void log_Z3_ast_map_size(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(472);
+  C(473);
 }
 void log_Z3_ast_map_reset(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(473);
+  C(474);
 }
 void log_Z3_ast_map_keys(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(474);
+  C(475);
 }
 void log_Z3_ast_map_to_string(Z3_context a0, Z3_ast_map a1) {
   R();
   P(a0);
   P(a1);
-  C(475);
+  C(476);
 }

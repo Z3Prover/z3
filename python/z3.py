@@ -4421,18 +4421,7 @@ class ParamDescrsRef:
             return self.get_kind(arg)
 
     def __repr__(self):
-        r = io.StringIO()
-        first = True
-        r.write(u'(')
-        for i in range(self.size()):
-            if first:
-                first = False
-            else:
-                r.write(u' ')
-            r.write(u'%s' % self.get_name(i))
-        r.write(u')')
-        return r.getvalue()
-
+        return Z3_param_descrs_to_string(self.ctx.ref(), self.descr)
 
 #########################################
 #

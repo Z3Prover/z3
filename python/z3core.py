@@ -696,6 +696,8 @@ def init(PATH):
   _lib.Z3_param_descrs_size.argtypes = [ContextObj, ParamDescrs]
   _lib.Z3_param_descrs_get_name.restype = Symbol
   _lib.Z3_param_descrs_get_name.argtypes = [ContextObj, ParamDescrs, ctypes.c_uint]
+  _lib.Z3_param_descrs_to_string.restype = ctypes.c_char_p
+  _lib.Z3_param_descrs_to_string.argtypes = [ContextObj, ParamDescrs]
   _lib.Z3_interrupt.argtypes = [ContextObj]
   _lib.Z3_get_error_msg_ex.restype = ctypes.c_char_p
   _lib.Z3_get_error_msg_ex.argtypes = [ContextObj, ctypes.c_uint]
@@ -3336,6 +3338,13 @@ def Z3_param_descrs_size(a0, a1):
 
 def Z3_param_descrs_get_name(a0, a1, a2):
   r = lib().Z3_param_descrs_get_name(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_param_descrs_to_string(a0, a1):
+  r = lib().Z3_param_descrs_to_string(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
