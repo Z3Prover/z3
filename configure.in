@@ -150,9 +150,10 @@ Z3 was configured with success.
 Host platform:  $PLATFORM
 Arithmetic:     $ARITH
 Python Support: $HAS_PYTHON_MSG
-Pyyhon:         $PYTHON 
+Python:         $PYTHON 
+Prefix:         $prefix
 
 Type 'make' to compile Z3.
 Type 'sudo make install' to install Z3.
-Type 'sudo make install-python' to install Z3 Python bindings.
+Type 'sudo make install-z3py' to install Z3 Python (Z3Py) bindings.
 EOF
