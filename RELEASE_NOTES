@@ -27,6 +27,9 @@ Version 4.2
 
 - Added Xor procedure to Z3Py.
 
+- Z3 by default switches to an incremental solver when a Solver object is used to solve many queries.
+  In the this version, we switch back to the tactic framework if the incremental solver returns "unknown".
+
 First source code release (October 2, 2012)
 ===========================================
 
