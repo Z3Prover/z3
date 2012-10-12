@@ -50,7 +50,7 @@ namespace Microsoft.Z3
             Contract.Requires(settings != null);
 
             IntPtr cfg = Native.Z3_mk_config();
-            foreach(KeyValuePair<string,string> kv in settings)
+            foreach (KeyValuePair<string, string> kv in settings)
                 Native.Z3_set_param_value(cfg, kv.Key, kv.Value);
             m_ctx = Native.Z3_mk_context_rc(cfg);
             Native.Z3_del_config(cfg);
@@ -88,7 +88,7 @@ namespace Microsoft.Z3
         /// </summary>
         internal Symbol[] MkSymbols(string[] names)
         {
-            Contract.Ensures(names == null || Contract.Result<Symbol[]>() != null); 
+            Contract.Ensures(names == null || Contract.Result<Symbol[]>() != null);
             Contract.Ensures(names != null || Contract.Result<Symbol[]>() == null);
             Contract.Ensures(Contract.Result<Symbol[]>() == null || Contract.Result<Symbol[]>().Length == names.Length);
             Contract.Ensures(Contract.Result<Symbol[]>() == null || Contract.ForAll(Contract.Result<Symbol[]>(), s => s != null));
@@ -129,7 +129,7 @@ namespace Microsoft.Z3
                 if (m_intSort == null) m_intSort = new IntSort(this); return m_intSort;
             }
         }
-        
+
 
         /// <summary>
         /// Retrieves the Real sort of the context.
@@ -204,7 +204,7 @@ namespace Microsoft.Z3
             Contract.Requires(domain != null);
             Contract.Requires(range != null);
             Contract.Ensures(Contract.Result<ArraySort>() != null);
-            
+
             CheckContextMatch(domain);
             CheckContextMatch(range);
             return new ArraySort(this, domain, range);
@@ -392,9 +392,9 @@ namespace Microsoft.Z3
                 Contract.Assume(Contract.ForAll(constructor, arr => arr != null), "Clousot does not support yet quantified formula on multidimensional arrays");
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
-                n_constr[i] = cla[i].NativeObject;                                               
+                n_constr[i] = cla[i].NativeObject;
             }
-            IntPtr[] n_res = new IntPtr[n];            
+            IntPtr[] n_res = new IntPtr[n];
             Native.Z3_mk_datatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
             DatatypeSort[] res = new DatatypeSort[n];
             for (uint i = 0; i < n; i++)
@@ -526,7 +526,7 @@ namespace Microsoft.Z3
 
             CheckContextMatch(range);
             return new FuncDecl(this, MkSymbol(name), null, range);
-        }        
+        }
 
         /// <summary>
         /// Creates a fresh constant function declaration with a name prefixed with <paramref name="prefix"/>.
@@ -728,7 +728,7 @@ namespace Microsoft.Z3
             CheckContextMatch(f);
             CheckContextMatch(args);
             return Expr.Create(this, f, args);
-        }        
+        }
 
         #region Propositional
         /// <summary>
@@ -800,7 +800,7 @@ namespace Microsoft.Z3
             CheckContextMatch(a);
             return new BoolExpr(this, Native.Z3_mk_not(nCtx, a.NativeObject));
         }
-        
+
         /// <summary>    
         ///  Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>.
         /// </summary>
@@ -895,7 +895,7 @@ namespace Microsoft.Z3
         /// </summary>    
         public ArithExpr MkAdd(params ArithExpr[] t)
         {
-            Contract.Requires(t != null); 
+            Contract.Requires(t != null);
             Contract.Requires(Contract.ForAll(t, a => a != null));
             Contract.Ensures(Contract.Result<ArithExpr>() != null);
 
@@ -1167,7 +1167,7 @@ namespace Microsoft.Z3
             Contract.Requires(t1 != null);
             Contract.Requires(t2 != null);
             Contract.Ensures(Contract.Result<BitVecExpr>() != null);
-            
+
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             return new BitVecExpr(this, Native.Z3_mk_bvor(nCtx, t1.NativeObject, t2.NativeObject));
@@ -1634,8 +1634,8 @@ namespace Microsoft.Z3
         {
             Contract.Requires(t1 != null);
             Contract.Requires(t2 != null);
-            Contract.Ensures(Contract.Result<BitVecExpr>() != null);            
-            
+            Contract.Ensures(Contract.Result<BitVecExpr>() != null);
+
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             return new BitVecExpr(this, Native.Z3_mk_bvshl(nCtx, t1.NativeObject, t2.NativeObject));
@@ -1658,7 +1658,7 @@ namespace Microsoft.Z3
             Contract.Requires(t1 != null);
             Contract.Requires(t2 != null);
             Contract.Ensures(Contract.Result<BitVecExpr>() != null);
-            
+
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             return new BitVecExpr(this, Native.Z3_mk_bvlshr(nCtx, t1.NativeObject, t2.NativeObject));
@@ -1683,7 +1683,7 @@ namespace Microsoft.Z3
             Contract.Requires(t1 != null);
             Contract.Requires(t2 != null);
             Contract.Ensures(Contract.Result<BitVecExpr>() != null);
-            
+
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             return new BitVecExpr(this, Native.Z3_mk_bvashr(nCtx, t1.NativeObject, t2.NativeObject));
@@ -1700,7 +1700,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(t != null);
             Contract.Ensures(Contract.Result<BitVecExpr>() != null);
-            
+
             CheckContextMatch(t);
             return new BitVecExpr(this, Native.Z3_mk_rotate_left(nCtx, i, t.NativeObject));
         }
@@ -2147,7 +2147,7 @@ namespace Microsoft.Z3
         {
             Contract.Requires(args != null);
             Contract.Requires(Contract.ForAll(args, a => a != null));
-            
+
             CheckContextMatch(args);
             return Expr.Create(this, Native.Z3_mk_set_union(nCtx, (uint)args.Length, AST.ArrayToNative(args)));
         }
@@ -2213,7 +2213,7 @@ namespace Microsoft.Z3
             Contract.Requires(arg1 != null);
             Contract.Requires(arg2 != null);
             Contract.Ensures(Contract.Result<Expr>() != null);
-            
+
             CheckContextMatch(arg1);
             CheckContextMatch(arg2);
             return Expr.Create(this, Native.Z3_mk_set_subset(nCtx, arg1.NativeObject, arg2.NativeObject));
@@ -2538,7 +2538,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(names, n => n != null));
             Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
-            
+
             Contract.Ensures(Contract.Result<Quantifier>() != null);
 
             return new Quantifier(this, true, sorts, names, body, weight, patterns, noPatterns, quantifierID, skolemID);
@@ -2607,7 +2607,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(names, n => n != null));
             Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
-            
+
             Contract.Ensures(Contract.Result<Quantifier>() != null);
 
             if (universal)
@@ -2626,7 +2626,7 @@ namespace Microsoft.Z3
             Contract.Requires(boundConstants == null || Contract.ForAll(boundConstants, n => n != null));
             Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
-            
+
             Contract.Ensures(Contract.Result<Quantifier>() != null);
 
             if (universal)
@@ -2702,10 +2702,10 @@ namespace Microsoft.Z3
             uint cdn = Symbol.ArrayLength(declNames);
             uint cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
-                throw new Z3Exception("Argument size mismatch");	
+                throw new Z3Exception("Argument size mismatch");
             Native.Z3_parse_smtlib_string(nCtx, str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));	
+                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
         }
 
         /// <summary>
@@ -2722,7 +2722,7 @@ namespace Microsoft.Z3
                 throw new Z3Exception("Argument size mismatch");
             Native.Z3_parse_smtlib_file(nCtx, fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));            
+                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
         }
 
         /// <summary>
@@ -2811,7 +2811,7 @@ namespace Microsoft.Z3
                     res[i] = Sort.Create(this, Native.Z3_get_smtlib_sort(nCtx, i));
                 return res;
             }
-        }        
+        }
 
         /// <summary>
         /// Parse the given string using the SMT-LIB2 parser. 
@@ -2965,7 +2965,7 @@ namespace Microsoft.Z3
             Contract.Requires(ts == null || Contract.ForAll(0, ts.Length, j => ts[j] != null));
             Contract.Ensures(Contract.Result<Tactic>() != null);
 
-            
+
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             CheckContextMatch(ts);
@@ -2982,7 +2982,7 @@ namespace Microsoft.Z3
                 last = Native.Z3_tactic_and_then(nCtx, t2.NativeObject, last);
                 return new Tactic(this, Native.Z3_tactic_and_then(nCtx, t1.NativeObject, last));
             }
-            else 
+            else
                 return new Tactic(this, Native.Z3_tactic_and_then(nCtx, t1.NativeObject, t2.NativeObject));
         }
 
@@ -3313,7 +3313,7 @@ namespace Microsoft.Z3
             Contract.Requires(p1 != null);
             Contract.Requires(p2 != null);
             Contract.Ensures(Contract.Result<Probe>() != null);
-            
+
             CheckContextMatch(p1);
             CheckContextMatch(p2);
             return new Probe(this, Native.Z3_probe_eq(nCtx, p1.NativeObject, p2.NativeObject));
@@ -3328,7 +3328,7 @@ namespace Microsoft.Z3
             Contract.Requires(p1 != null);
             Contract.Requires(p2 != null);
             Contract.Ensures(Contract.Result<Probe>() != null);
-            
+
             CheckContextMatch(p1);
             CheckContextMatch(p2);
             return new Probe(this, Native.Z3_probe_and(nCtx, p1.NativeObject, p2.NativeObject));
@@ -3343,7 +3343,7 @@ namespace Microsoft.Z3
             Contract.Requires(p1 != null);
             Contract.Requires(p2 != null);
             Contract.Ensures(Contract.Result<Probe>() != null);
-            
+
             CheckContextMatch(p1);
             CheckContextMatch(p2);
             return new Probe(this, Native.Z3_probe_or(nCtx, p1.NativeObject, p2.NativeObject));
@@ -3423,7 +3423,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a Fixedpoint context.
         /// </summary>
-        public Fixedpoint MkFixedpoint() 
+        public Fixedpoint MkFixedpoint()
         {
             Contract.Ensures(Contract.Result<Fixedpoint>() != null);
 
@@ -3464,7 +3464,7 @@ namespace Microsoft.Z3
         {
             return a.NativeObject;
         }
-        
+
         /// <summary>
         /// Return a string describing all available parameters to <c>Expr.Simplify</c>.
         /// </summary>
@@ -3478,14 +3478,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves parameter descriptions for simplifier.
         /// </summary>
-	public ParamDescrs SimplifyParameterDescriptions 
-	{
-           get
-           {
-               return new ParamDescrs(this, Native.Z3_simplify_get_param_descrs(nCtx));
-           }	
-	}
-
+        public ParamDescrs SimplifyParameterDescriptions
+        {
+            get { return new ParamDescrs(this, Native.Z3_simplify_get_param_descrs(nCtx)); }
+        }
 
         /// <summary>
         /// Enable/disable printing of warning messages to the console.

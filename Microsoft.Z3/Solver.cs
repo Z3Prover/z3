@@ -60,10 +60,7 @@ namespace Microsoft.Z3
         /// </summary>
         public ParamDescrs ParameterDescriptions
         {
-            get
-            {
-                return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(Context.nCtx, NativeObject));
-            }
+            get { return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(Context.nCtx, NativeObject)); }
         }
 
 

@@ -34,10 +34,11 @@ namespace Microsoft.Z3
         /// </summary>
         public string Help
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<string>() != null);
-                return Native.Z3_fixedpoint_get_help(Context.nCtx, NativeObject); 
-	    }
+                return Native.Z3_fixedpoint_get_help(Context.nCtx, NativeObject);
+            }
         }
 
         /// <summary>
@@ -56,13 +57,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves parameter descriptions for Fixedpoint solver.
         /// </summary>
-	public ParamDescrs ParameterDescriptions 
-	{
-	   get
-	   {
-               return new ParamDescrs(Context, Native.Z3_fixedpoint_get_param_descrs(Context.nCtx, NativeObject));
-	   }	
-	}
+        public ParamDescrs ParameterDescriptions
+        {
+            get { return new ParamDescrs(Context, Native.Z3_fixedpoint_get_param_descrs(Context.nCtx, NativeObject)); }
+        }
 
 
         /// <summary>
@@ -146,7 +144,7 @@ namespace Microsoft.Z3
             Contract.Requires(Contract.ForAll(0, relations.Length, i => relations[i] != null));
 
             Context.CheckContextMatch(relations);
-            Z3_lbool r = (Z3_lbool)Native.Z3_fixedpoint_query_relations(Context.nCtx, NativeObject, 
+            Z3_lbool r = (Z3_lbool)Native.Z3_fixedpoint_query_relations(Context.nCtx, NativeObject,
                                    AST.ArrayLength(relations), AST.ArrayToNative(relations));
             switch (r)
             {
@@ -179,7 +177,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Update named rule into in the fixedpoint solver.
         /// </summary>        
-	public void UpdateRule(BoolExpr rule, Symbol name)
+        public void UpdateRule(BoolExpr rule, Symbol name)
         {
             Contract.Requires(rule != null);
 
@@ -210,18 +208,18 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve the number of levels explored for a given predicate.
         /// </summary>                
-	    public uint GetNumLevels(FuncDecl predicate)
-	    {
-	        return Native.Z3_fixedpoint_get_num_levels(Context.nCtx, NativeObject, predicate.NativeObject);
-	    }
+        public uint GetNumLevels(FuncDecl predicate)
+        {
+            return Native.Z3_fixedpoint_get_num_levels(Context.nCtx, NativeObject, predicate.NativeObject);
+        }
 
         /// <summary>
         /// Retrieve the cover of a predicate.
         /// </summary>                
         public Expr GetCoverDelta(int level, FuncDecl predicate)
         {
-             IntPtr res = Native.Z3_fixedpoint_get_cover_delta(Context.nCtx, NativeObject, level, predicate.NativeObject);
-             return (res == IntPtr.Zero) ? null : Expr.Create(Context, res);
+            IntPtr res = Native.Z3_fixedpoint_get_cover_delta(Context.nCtx, NativeObject, level, predicate.NativeObject);
+            return (res == IntPtr.Zero) ? null : Expr.Create(Context, res);
         }
 
         /// <summary>
@@ -230,7 +228,7 @@ namespace Microsoft.Z3
         /// </summary>                
         public void AddCover(int level, FuncDecl predicate, Expr property)
         {
-             Native.Z3_fixedpoint_add_cover(Context.nCtx, NativeObject, level, predicate.NativeObject, property.NativeObject);
+            Native.Z3_fixedpoint_add_cover(Context.nCtx, NativeObject, level, predicate.NativeObject, property.NativeObject);
         }
 
         /// <summary>
@@ -259,7 +257,7 @@ namespace Microsoft.Z3
         public string ToString(BoolExpr[] queries)
         {
 
-            return Native.Z3_fixedpoint_to_string(Context.nCtx, NativeObject, 
+            return Native.Z3_fixedpoint_to_string(Context.nCtx, NativeObject,
                              AST.ArrayLength(queries), AST.ArrayToNative(queries));
         }
 

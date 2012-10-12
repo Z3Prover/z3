@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// A ParameterSet represents a configuration in the form of Symbol/value pairs.
+    /// A ParamDescrs describes a set of parameters.
     /// </summary>
     [ContractVerification(true)]
     public class ParamDescrs : Z3Object
@@ -60,6 +60,27 @@ namespace Microsoft.Z3
                   }
                   return names;
             }
+        }
+
+        /// <summary>
+        /// The size of the ParamDescrs.
+        /// </summary>
+        public uint Size
+        {
+            get { return Native.Z3_param_descrs_size(Context.nCtx, NativeObject); }
+        }
+
+        /// <summary>
+        /// Retrieves a string representation of the ParamDescrs. 
+        /// </summary>    
+        public override string ToString()
+        {
+            String res = "";
+            Symbol[] n = Names;
+            if (n.Length > 0) res = n[0].ToString();
+            for (uint i = 1; i < n.Length; i++)
+                res += " " + n[i].ToString();
+            return res;
         }
 
         #region Internal
