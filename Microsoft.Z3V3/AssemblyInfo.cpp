@@ -25,10 +25,10 @@ using namespace System::Security::Permissions;
 [assembly:AssemblyVersionAttribute("4.2.0.0")];
 [assembly:AssemblyFileVersionAttribute("4.2.0.0")];
 
-#ifdef DELAYSIGN
-[assembly:AssemblyKeyFile("35MSSharedLib1024.snk")];
-[assembly:AssemblyDelaySign(true)];
-#else
-[assembly:AssemblyKeyFile("z3.snk")];
-[assembly:AssemblyDelaySign(true)];
-#endif
+//#ifdef DELAYSIGN
+//[assembly:AssemblyKeyFile("35MSSharedLib1024.snk")];
+//[assembly:AssemblyDelaySign(true)];
+//#else
+//[assembly:AssemblyKeyFile("z3.snk")];
+//[assembly:AssemblyDelaySign(true)];
+//#endif
