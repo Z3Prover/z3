@@ -70,6 +70,7 @@ Notes:
 #include"qfbv_tactic.h"
 #include"subpaving_tactic.h"
 #include"unit_subsumption_tactic.h"
+#include"qfnra_nlsat_tactic.h"
 
 MK_SIMPLE_TACTIC_FACTORY(simplifier_fct,         mk_simplify_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(split_clause_fct,       mk_split_clause_tactic(p));
@@ -193,6 +194,7 @@ void install_tactics(tactic_manager & ctx) {
     ADD_TACTIC_CMD("qflra", "builtin strategy for solving QF_LRA problems.", qflra_fct);
     ADD_TACTIC_CMD("qfnia", "builtin strategy for solving QF_NIA problems.", qfnia_fct);
     ADD_TACTIC_CMD("qfnra", "builtin strategy for solving QF_NRA problems.", qfnra_fct);
+    ADD_TACTIC_CMD("qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", qfnra_nlsat_fct);
     ADD_TACTIC_CMD("qfbv",  "builtin strategy for solving QF_BV problems.", qfbv_fct);
 #ifndef _EXTERNAL_RELEASE
     ADD_TACTIC_CMD("subpaving", "tactic for testing subpaving module.", subpaving_fct);
