@@ -8,10 +8,9 @@ def _find_lib():
   _dir = os.path.dirname(os.path.abspath(__file__))
   libs = ['z3.dll', 'libz3.so', 'libz3.dylib']
   if sys.maxsize > 2**32:
-     winlibdir = 'x64'
+    locs = [_dir, '%s%s..%sx64%sexternal' % (_dir, os.sep, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   else:
-     winlibdir = 'bin'
-  locs = [_dir, '%s%s..%s%s' % (_dir, os.sep, os.sep, winlibdir), '%s%s..%slib' % (_dir, os.sep, os.sep), '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
+    locs = [_dir, '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   for loc in locs:
     for lib in libs:
       f = '%s%s%s' % (loc, os.sep, lib)
@@ -697,6 +696,8 @@ def init(PATH):
   _lib.Z3_param_descrs_size.argtypes = [ContextObj, ParamDescrs]
   _lib.Z3_param_descrs_get_name.restype = Symbol
   _lib.Z3_param_descrs_get_name.argtypes = [ContextObj, ParamDescrs, ctypes.c_uint]
+  _lib.Z3_param_descrs_to_string.restype = ctypes.c_char_p
+  _lib.Z3_param_descrs_to_string.argtypes = [ContextObj, ParamDescrs]
   _lib.Z3_interrupt.argtypes = [ContextObj]
   _lib.Z3_get_error_msg_ex.restype = ctypes.c_char_p
   _lib.Z3_get_error_msg_ex.argtypes = [ContextObj, ctypes.c_uint]
@@ -3337,6 +3338,13 @@ def Z3_param_descrs_size(a0, a1):
 
 def Z3_param_descrs_get_name(a0, a1, a2):
   r = lib().Z3_param_descrs_get_name(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_param_descrs_to_string(a0, a1):
+  r = lib().Z3_param_descrs_to_string(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))

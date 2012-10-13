@@ -57,10 +57,9 @@ def _find_lib():
   _dir = os.path.dirname(os.path.abspath(__file__))
   libs = ['z3.dll', 'libz3.so', 'libz3.dylib']
   if sys.maxsize > 2**32:
-     winlibdir = 'x64'
+    locs = [_dir, '%s%s..%sx64%sexternal' % (_dir, os.sep, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   else:
-     winlibdir = 'bin'
-  locs = [_dir, '%s%s..%s%s' % (_dir, os.sep, os.sep, winlibdir), '%s%s..%slib' % (_dir, os.sep, os.sep), '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
+    locs = [_dir, '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   for loc in locs:
     for lib in libs:
       f = '%s%s%s' % (loc, os.sep, lib)
@@ -1101,6 +1100,7 @@ API('Z3_param_descrs_dec_ref', VOID, (_in(CONTEXT), _in(PARAM_DESCRS)))
 API('Z3_param_descrs_get_kind', UINT, (_in(CONTEXT), _in(PARAM_DESCRS), _in(SYMBOL)))
 API('Z3_param_descrs_size', UINT, (_in(CONTEXT), _in(PARAM_DESCRS)))
 API('Z3_param_descrs_get_name', SYMBOL, (_in(CONTEXT), _in(PARAM_DESCRS), _in(UINT)))
+API('Z3_param_descrs_to_string', STRING, (_in(CONTEXT), _in(PARAM_DESCRS)))
 # New APIs
 API('Z3_interrupt', VOID, (_in(CONTEXT),))
 API('Z3_get_error_msg_ex', STRING, (_in(CONTEXT), _in(ERROR_CODE)))

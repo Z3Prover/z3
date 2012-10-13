@@ -39,21 +39,19 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<string>() != null);
- 
-                return Native.Z3_tactic_get_help(Context.nCtx, NativeObject); }
+
+                return Native.Z3_tactic_get_help(Context.nCtx, NativeObject);
+            }
         }
 
 
         /// <summary>
         /// Retrieves parameter descriptions for Tactics.
         /// </summary>
-	public ParamDescrs ParameterDescriptions 
-	{
-	   get
-	   {
-               return new ParamDescrs(Context, Native.Z3_tactic_get_param_descrs(Context.nCtx, NativeObject));
-	   }	
-	}
+        public ParamDescrs ParameterDescriptions
+        {
+            get { return new ParamDescrs(Context, Native.Z3_tactic_get_param_descrs(Context.nCtx, NativeObject)); }
+        }
 
 
         /// <summary>
@@ -83,7 +81,7 @@ namespace Microsoft.Z3
             {
                 Contract.Requires(g != null);
                 Contract.Ensures(Contract.Result<ApplyResult>() != null);
-                
+
                 return Apply(g);
             }
         }
@@ -103,11 +101,13 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal Tactic(Context ctx, IntPtr obj) : base(ctx, obj) 
+        internal Tactic(Context ctx, IntPtr obj)
+            : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
         }
-        internal Tactic(Context ctx, string name) : base(ctx, Native.Z3_mk_tactic(ctx.nCtx, name)) 
+        internal Tactic(Context ctx, string name)
+            : base(ctx, Native.Z3_mk_tactic(ctx.nCtx, name))
         {
             Contract.Requires(ctx != null);
         }
@@ -123,7 +123,7 @@ namespace Microsoft.Z3
             {
                 Native.Z3_tactic_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
         {

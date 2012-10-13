@@ -21,10 +21,8 @@ Revision History:
 
 #include<algorithm>
 
-#ifndef _WINDOWS
 #ifndef __fallthrough
 #define __fallthrough
-#endif
 #endif
 
 #define mix(a,b,c)              \

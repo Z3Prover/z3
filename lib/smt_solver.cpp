@@ -181,10 +181,6 @@ namespace smt {
         void updt_params(params_ref const & p) {
             params2front_end_params(p, fparams());
         }
-
-        void collect_param_descrs(param_descrs & d) {
-            solver_front_end_params_descrs(d);
-        }
     };
 
     solver::solver(ast_manager & m, front_end_params & fp, params_ref const & p) {
@@ -346,8 +342,8 @@ namespace smt {
         return m_imp->updt_params(p);
     }
 
-    void solver::collect_param_descrs(param_descrs & d) const {
-        return m_imp->collect_param_descrs(d);
+    void solver::collect_param_descrs(param_descrs & d) {
+        solver_front_end_params_descrs(d);
     }
 
     context & solver::kernel() {

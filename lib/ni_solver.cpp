@@ -146,6 +146,12 @@ public:
         if (m_context)
             m_context->set_progress_callback(callback);
     }
+
+
+    virtual void collect_param_descrs(param_descrs & r) {
+        smt::solver::collect_param_descrs(r);
+    }
+
 };
 
 solver * mk_non_incremental_smt_solver(cmd_context & ctx) {

@@ -26,6 +26,15 @@ class progress_callback;
 struct front_end_params;
 
 class strategic_solver : public solver {
+public:
+    // Behavior when the incremental solver returns unknown.
+    enum inc_unknown_behavior {
+        IUB_RETURN_UNDEF,      // just return unknown
+        IUB_USE_TACTIC_IF_QF,  // invoke tactic if problem is quantifier free
+        IUB_USE_TACTIC         // invoke tactic
+    };
+
+private:
     ast_manager *        m_manager;
     front_end_params *   m_fparams;
     symbol               m_logic;
@@ -34,7 +43,7 @@ class strategic_solver : public solver {
     bool                 m_check_sat_executed;
     scoped_ptr<solver>   m_inc_solver;
     unsigned             m_inc_solver_timeout;
-    bool                 m_tactic_if_undef;
+    inc_unknown_behavior m_inc_unknown_behavior;
     scoped_ptr<tactic_factory>  m_default_fct;
     dictionary<tactic_factory*> m_logic2fct;
 
@@ -63,6 +72,9 @@ class strategic_solver : public solver {
 
     struct mk_tactic;
 
+    bool has_quantifiers() const;
+    bool use_tactic_when_undef() const;
+
 public:
     strategic_solver();
     ~strategic_solver();
@@ -73,7 +85,7 @@ public:
     void set_inc_solver_timeout(unsigned timeout);
     void set_default_tactic(tactic_factory * fct);
     void set_tactic_for(symbol const & logic, tactic_factory * fct);
-    void use_tactic_if_undef(bool f);
+    void set_inc_unknown_behavior(inc_unknown_behavior b) { m_inc_unknown_behavior = b; }
     void force_tactic(bool f) { m_force_tactic = f; }
 
     virtual void set_front_end_params(front_end_params & p) { m_fparams = &p; }

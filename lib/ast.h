@@ -1282,6 +1282,8 @@ enum proof_gen_mode {
 //
 // -----------------------------------
 
+class arith_decl_plugin;
+
 class ast_manager {
 protected:
 protected:
@@ -1331,11 +1333,13 @@ protected:
     expr_dependency_array_manager m_expr_dependency_array_manager;
     ptr_vector<decl_plugin>   m_plugins;
     proof_gen_mode            m_proof_mode;
+    bool                      m_int_real_coercions; // If true, use hack that automatically introduces to_int/to_real when needed.
     family_id                 m_basic_family_id;
     family_id                 m_label_family_id;
     family_id                 m_pattern_family_id;
     family_id                 m_model_value_family_id;
     family_id                 m_user_sort_family_id;
+    family_id                 m_arith_family_id;
     ast_table                 m_ast_table;       
     id_gen                    m_expr_id_gen;
     id_gen                    m_decl_id_gen;
@@ -1355,11 +1359,19 @@ protected:
 
     void init();
 
+    bool coercion_needed(func_decl * decl, unsigned num_args, expr * const * args);
+
 public:
     ast_manager(proof_gen_mode = PGM_DISABLED, std::ostream * trace_stream = NULL, bool is_format_manager = false);
     ast_manager(ast_manager const & src, bool disable_proofs = false);
     ~ast_manager();
+
+    void enable_int_real_coercions(bool f) { m_int_real_coercions = f; }
+    bool int_real_coercions() const { return m_int_real_coercions; }
     
+    // Return true if s1 and s2 are equal, or coercions are enabled, and s1 and s2 are compatible.
+    bool compatible_sorts(sort * s1, sort * s2) const;
+
     // For debugging purposes
     void display_free_ids(std::ostream & out) { m_expr_id_gen.display_free_ids(out); out << "\n"; m_decl_id_gen.display_free_ids(out); }
     

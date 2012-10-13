@@ -19,6 +19,10 @@ Revision History:
 #ifndef _DL_CONTEXT_H_
 #define _DL_CONTEXT_H_
 
+#ifdef _CYGWIN
+#undef min
+#undef max
+#endif
 #include"arith_decl_plugin.h"
 #include"front_end_params.h"
 #include"map.h"

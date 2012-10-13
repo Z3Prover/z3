@@ -246,6 +246,7 @@ namespace z3 {
         ast(ast const & s):object(s), m_ast(s.m_ast) { Z3_inc_ref(ctx(), m_ast); }
         ~ast() { if (m_ast) Z3_dec_ref(*m_ctx, m_ast); }
         operator Z3_ast() const { return m_ast; }
+        operator bool() const { return m_ast != 0; }
         ast & operator=(ast const & s) { Z3_inc_ref(s.ctx(), s.m_ast); if (m_ast) Z3_dec_ref(ctx(), m_ast); m_ctx = s.m_ctx; m_ast = s.m_ast; return *this; }
         Z3_ast_kind kind() const { Z3_ast_kind r = Z3_get_ast_kind(ctx(), m_ast); check_error(); return r; }
         unsigned hash() const { unsigned r = Z3_get_ast_hash(ctx(), m_ast); check_error(); return r; }

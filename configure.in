@@ -47,7 +47,16 @@ AS_IF([test "$host_os" = "Darwin"], [
   SLIBFLAGS="-shared -fopenmp"
   COMP_VERSIONS=
   STATIC_FLAGS=-static
-], [
+], [test "${host_os:0:6}" = "CYGWIN"], [
+   PLATFORM=win
+   SO_EXT=dll
+   LDFLAGS=
+   SLIBFLAGS="-shared -fopenmp"
+   COMP_VERSIONS=
+   STATIC_FLAGS=-static
+   CPPFLAGS+=" -D_CYGWIN"
+],
+[
   AC_MSG_ERROR([Unknown host platform: $host_os])
 ])
 AC_SUBST(PLATFORM)
@@ -150,9 +159,10 @@ Z3 was configured with success.
 Host platform:  $PLATFORM
 Arithmetic:     $ARITH
 Python Support: $HAS_PYTHON_MSG
-Pyyhon:         $PYTHON 
+Python:         $PYTHON 
+Prefix:         $prefix
 
 Type 'make' to compile Z3.
 Type 'sudo make install' to install Z3.
-Type 'sudo make install-python' to install Z3 Python bindings.
+Type 'sudo make install-z3py' to install Z3 Python (Z3Py) bindings.
 EOF

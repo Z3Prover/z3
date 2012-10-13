@@ -332,8 +332,8 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_SUB:     return is_real ? m_r_sub_decl : m_i_sub_decl;
     case OP_UMINUS:  return is_real ? m_r_uminus_decl : m_i_uminus_decl;
     case OP_MUL:     return is_real ? m_r_mul_decl : m_i_mul_decl;
-    case OP_DIV:     SASSERT(is_real);   return m_r_div_decl;
-    case OP_IDIV:    SASSERT(!is_real);  return m_i_div_decl;
+    case OP_DIV:     return m_r_div_decl;
+    case OP_IDIV:    return m_i_div_decl;
     case OP_REM:     return m_i_rem_decl;
     case OP_MOD:     return m_i_mod_decl;
     case OP_TO_REAL: return m_to_real_decl;
@@ -415,6 +415,24 @@ func_decl * arith_decl_plugin::mk_num_decl(unsigned num_parameters, parameter co
     else
         return m_manager->mk_const_decl(m_realv_sym, m_real_decl, func_decl_info(m_family_id, OP_NUM, num_parameters, parameters));
 }
+
+static bool use_coercion(decl_kind k) {
+    return k == OP_ADD || k == OP_SUB || k == OP_MUL || k == OP_POWER || k == OP_LE || k == OP_GE || k == OP_LT || k == OP_GT || k == OP_UMINUS;
+}
+
+static bool has_real_arg(unsigned arity, sort * const * domain, sort * real_sort) {
+    for (unsigned i = 0; i < arity; i++)
+        if (domain[i] == real_sort)
+            return true;
+    return false;
+}
+
+static bool has_real_arg(ast_manager * m, unsigned num_args, expr * const * args, sort * real_sort) {
+    for (unsigned i = 0; i < num_args; i++)
+        if (m->get_sort(args[i]) == real_sort)
+            return true;
+    return false;
+}
     
 func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                           unsigned arity, sort * const * domain, sort * range) {
@@ -424,8 +442,13 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return 0;
     }
-    bool is_real = arity > 0 && domain[0] == m_real_decl;
-    return mk_func_decl(fix_kind(k, arity), is_real);
+    if (m_manager->int_real_coercions() && use_coercion(k)) {
+        return mk_func_decl(fix_kind(k, arity), has_real_arg(arity, domain, m_real_decl));
+    }
+    else {
+        bool is_real = arity > 0 && domain[0] == m_real_decl;
+        return mk_func_decl(fix_kind(k, arity), is_real);
+    }
 }
 
 func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
@@ -436,8 +459,13 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return 0;
     }
-    bool is_real = num_args > 0 && m_manager->get_sort(args[0]) == m_real_decl;
-    return mk_func_decl(fix_kind(k, num_args), is_real);
+    if (m_manager->int_real_coercions() && use_coercion(k)) {
+        return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
+    }
+    else {
+        bool is_real = num_args > 0 && m_manager->get_sort(args[0]) == m_real_decl;
+        return mk_func_decl(fix_kind(k, num_args), is_real);
+    }
 }
 
 void arith_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {

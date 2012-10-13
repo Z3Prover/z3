@@ -228,7 +228,7 @@ namespace smt {
         /**
            \brief Collect a description of the configuration parameters.
         */
-        void collect_param_descrs(param_descrs & d) const;
+        static void collect_param_descrs(param_descrs & d);
 
         /**
            \brief Return a reference to the kernel.

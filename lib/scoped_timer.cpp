@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include"z3_exception.h"
 #include"z3_omp.h"
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
 // Windows
 #include<windows.h>
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -40,12 +40,16 @@ Revision History:
 #endif 
 
 #include"scoped_timer.h"
+#ifdef _CYGWIN
+#undef min
+#undef max
+#endif
 #include"util.h"
 #include<limits.h>
 
 struct scoped_timer::imp {
     event_handler *  m_eh;
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
     HANDLE           m_timer;
     bool             m_first;
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -62,7 +66,7 @@ struct scoped_timer::imp {
     timer_t         m_timerid;
 #endif
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
     static void CALLBACK abort_proc(PVOID param, BOOLEAN timer_or_wait_fired) {
         imp * obj = static_cast<imp*>(param);
         if (obj->m_first) {
@@ -117,7 +121,7 @@ struct scoped_timer::imp {
 
     imp(unsigned ms, event_handler * eh):
         m_eh(eh) {
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
         m_first = true;
         CreateTimerQueueTimer(&m_timer,			
                               NULL,				
@@ -167,7 +171,7 @@ struct scoped_timer::imp {
     }
 
     ~imp() {
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
         DeleteTimerQueueTimer(NULL,
                               m_timer,
                               INVALID_HANDLE_VALUE);
@@ -191,7 +195,7 @@ struct scoped_timer::imp {
 
 };
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS) || defined(_CYGWIN)
 #elif defined(__APPLE__) && defined(__MACH__)
 // Mac OS X
 #else

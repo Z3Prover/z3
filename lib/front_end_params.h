@@ -95,8 +95,7 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
 #else
         m_auto_config(false), 
 #endif
-#if    1 
-        // #if defined(SMTCOMP) TODO: put it back after SMTCOMP
+#if    0 
         m_smtlib2_compliant(true),
 #else
         m_smtlib2_compliant(false),        

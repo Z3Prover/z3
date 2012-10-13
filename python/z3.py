@@ -43,6 +43,7 @@ from z3types import *
 from z3consts import *
 from z3tactics import *
 from z3printer import *
+import io
 
 # We use _z3_assert instead of the assert command because we want to
 # produce nice error messages in Z3Py at rise4fun.com
@@ -4418,6 +4419,9 @@ class ParamDescrsRef:
             return self.get_name(arg)
         else:
             return self.get_kind(arg)
+
+    def __repr__(self):
+        return Z3_param_descrs_to_string(self.ctx.ref(), self.descr)
 
 #########################################
 #

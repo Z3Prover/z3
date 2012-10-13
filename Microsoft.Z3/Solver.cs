@@ -33,10 +33,12 @@ namespace Microsoft.Z3
         /// </summary>
         public string Help
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<string>() != null);
 
-                return Native.Z3_solver_get_help(Context.nCtx, NativeObject); }
+                return Native.Z3_solver_get_help(Context.nCtx, NativeObject);
+            }
         }
 
         /// <summary>
@@ -56,13 +58,10 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves parameter descriptions for solver.
         /// </summary>
-	ParamDescrs ParameterDescriptions 
-	{
-	   get
-	   {
-               return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(Context.nCtx, NativeObject));
-	   }	
-	}
+        public ParamDescrs ParameterDescriptions
+        {
+            get { return new ParamDescrs(Context, Native.Z3_solver_get_param_descrs(Context.nCtx, NativeObject)); }
+        }
 
 
         /// <summary>
@@ -250,10 +249,12 @@ namespace Microsoft.Z3
         /// </summary>
         public Statistics Statistics
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<Statistics>() != null);
 
-                return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject)); }
+                return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject));
+            }
         }
 
         /// <summary>
@@ -282,7 +283,7 @@ namespace Microsoft.Z3
             {
                 Native.Z3_solver_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
         {

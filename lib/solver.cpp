@@ -55,9 +55,16 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        if (m_context == 0)
-            return;
-        m_context->collect_param_descrs(r);
+        if (m_context == 0) {
+            ast_manager m;
+            m.register_decl_plugins();
+            front_end_params p;
+            smt::solver s(m, p);
+            s.collect_param_descrs(r);
+        }
+        else {
+            m_context->collect_param_descrs(r);
+        }
     }
 
     virtual void init(ast_manager & m, symbol const & logic) {

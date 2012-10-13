@@ -1,5 +1,35 @@
 RELEASE NOTES
 
+Version 4.2
+===========
+
+- Now, Z3 automatically adds arithmetic coercions: to_real and to_int.
+  Option (set-option :int-real-coercions false) disables this feature.
+  If SMTLIB2_COMPLIANT=true in the command line, then :int-real-coercions is also set to false.
+
+- SMTLIB2_COMPLIANT is false by default. Use command line option SMTLIB2_COMPLIANT=true to enable it back.
+
+- Added "make install" and "make uninstall" to Makefile.in.
+  
+- Added "make install-z3py" and "make uninstall-z3py" to Makefile.in.
+
+- Fixed crash/bug in the simplifier. The crash occurred when option ":sort-sums true" was used.
+
+- Added "--with-python=<path>" option to configure script.
+
+- Cleanned c++, maxsat, test_mapi examples.
+
+- Move RELEASE_NOTES files to source code distribution.
+
+- Removed unnecessary files from source code distribution.
+
+- Removed unnecessary compilation modes from z3-prover.sln.
+
+- Added Xor procedure to Z3Py.
+
+- Z3 by default switches to an incremental solver when a Solver object is used to solve many queries.
+  In the this version, we switch back to the tactic framework if the incremental solver returns "unknown".
+
 First source code release (October 2, 2012)
 ===========================================
 
