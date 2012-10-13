@@ -873,11 +873,18 @@ bool asserted_formulas::solve_core() {
 }
 
 void asserted_formulas::solve() {
+    // This method is buggy when unsatisfiable cores are enabled.
+    // It may eliminate answer literals.
+    // Since I will remove asserted_formulas.cpp in the future, I just disabled it.
+    // Note: asserted_formulas.cpp is based on the obsolete preprocessing stack.
+    // Users should the solve-eqs tactic if they want to eliminate variables. 
+#if 0
     while (solve_core()) {
         IF_IVERBOSE(10, verbose_stream() << "reducing...\n";);
         flush_cache(); // collect garbage
         reduce_asserted_formulas();
     }
+#endif
 }
 
 void asserted_formulas::reduce_asserted_formulas() {
