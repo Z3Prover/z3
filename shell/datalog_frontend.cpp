@@ -22,6 +22,10 @@ Revision History:
 #include<time.h>
 #include<signal.h>
 #include"stopwatch.h"
+#ifdef _CYGWIN
+#undef min
+#undef max
+#endif
 #include"front_end_params.h"
 #include"datalog_parser.h"
 #include"arith_decl_plugin.h"
