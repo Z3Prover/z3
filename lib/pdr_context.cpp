@@ -1245,55 +1245,23 @@ namespace pdr {
         pt->add_cover(lvl, property);
     }
 
-
-    class context::is_propositional_proc {
+    class context::classifier_proc {
         ast_manager& m;
-        arith_util   a;
-        bool m_is_propositional;        
-    public:
-        is_propositional_proc(ast_manager& m):m(m), a(m), m_is_propositional(true) {}
-        void operator()(expr* e) {
-            if (m_is_propositional) {
-                
-                if (!m.is_bool(e) && !a.is_int_real(e)) {
-                    m_is_propositional = false;
-                }
-                else if (!is_app(e)) {
-                    m_is_propositional = false;
-                }
-                else if (to_app(e)->get_num_args() > 0 &&
-                         to_app(e)->get_family_id() != m.get_basic_family_id() &&
-                         to_app(e)->get_family_id() != a.get_family_id()) {
-                    m_is_propositional = false;
-                }
-            }
-        }
-        bool is_propositional() { return m_is_propositional; }        
-    };
-
-    bool context::is_propositional(datalog::rule_set& rules) {
-        expr_fast_mark1 mark;
-        is_propositional_proc proc(m);
-        datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
-        for (; proc.is_propositional() && it != end; ++it) {              
-            quick_for_each_expr(proc, mark, (*it)->get_head());
-            for (unsigned i = 0; i < (*it)->get_tail_size(); ++i) {
-                quick_for_each_expr(proc, mark, (*it)->get_tail(i));                
-            }
-        }
-        return proc.is_propositional();
-    }
-
-    class context::is_bool_proc {
-        ast_manager& m;
+        arith_util a;
         bool m_is_bool;
+        bool m_is_bool_arith;
     public:
-        is_bool_proc(ast_manager& m):m(m), m_is_bool(true) {}
+        classifier_proc(ast_manager& m, datalog::rule_set& rules):
+            m(m), a(m), m_is_bool(true), m_is_bool_arith(true) {
+            classify(rules);
+        }
         void operator()(expr* e) {
-            if (m_is_bool) {
-                
+            if (m_is_bool) {                
                 if (!m.is_bool(e)) {
                     m_is_bool = false;
+                }
+                else if (is_var(e)) {
+                    // no-op.
                 }
                 else if (!is_app(e)) {
                     m_is_bool = false;
@@ -1303,22 +1271,54 @@ namespace pdr {
                     m_is_bool = false;
                 }
             }
-        }
-        bool is_bool() { return m_is_bool; }
-    };
-
-    bool context::is_bool(datalog::rule_set& rules) {
-        expr_fast_mark1 mark;
-        is_bool_proc proc(m);
-        datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
-        for (; proc.is_bool() && it != end; ++it) {            
-            quick_for_each_expr(proc, mark, (*it)->get_head());
-            for (unsigned i = 0; i < (*it)->get_tail_size(); ++i) {
-                quick_for_each_expr(proc, mark, (*it)->get_tail(i));                
+            if (m_is_bool_arith) {                
+                if (!m.is_bool(e) && !a.is_int_real(e)) {
+                    m_is_bool_arith = false;
+                }
+                else if (is_var(e)) {
+                    // no-op
+                }
+                else if (!is_app(e)) {
+                    m_is_bool_arith = false;
+                }
+                else if (to_app(e)->get_num_args() > 0 &&
+                         to_app(e)->get_family_id() != m.get_basic_family_id() &&
+                         to_app(e)->get_family_id() != a.get_family_id()) {
+                    m_is_bool_arith = false;
+                }
             }
         }
-        return proc.is_bool();
-    }
+
+        bool is_bool() const { return m_is_bool; }
+
+        bool is_bool_arith() const { return m_is_bool_arith; }
+
+
+    private:
+
+        void classify(datalog::rule_set& rules) {
+            expr_fast_mark1 mark;
+            datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
+            for (; it != end; ++it) {      
+                datalog::rule& r = *(*it);
+                classify_pred(mark, r.get_head());
+                unsigned utsz = r.get_uninterpreted_tail_size();
+                for (unsigned i = 0; i < utsz; ++i) {
+                    classify_pred(mark, r.get_tail(i));                
+                }
+                for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
+                    quick_for_each_expr(*this, mark, r.get_tail(i));
+                }
+            }
+        }
+
+        void classify_pred(expr_fast_mark1& mark, app* pred) {
+            for (unsigned i = 0; i < pred->get_num_args(); ++i) {
+                quick_for_each_expr(*this, mark, pred->get_arg(i));
+            }
+        }
+    };
+
 
     void context::reset_model_generalizers() {
         std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
@@ -1327,17 +1327,16 @@ namespace pdr {
 
     void context::init_model_generalizers(datalog::rule_set& rules) {
         reset_model_generalizers();
-        if (is_propositional(rules)) {
+        classifier_proc classify(m, rules);
+        if (classify.is_bool_arith()) {
             m_model_generalizers.push_back(alloc(bool_model_evaluation_generalizer, *this, m));
         }
         else {
             m_model_generalizers.push_back(alloc(model_evaluation_generalizer, *this, m));
         }
-
         if (m_params.get_bool(":use-farkas-model", false)) {
             m_model_generalizers.push_back(alloc(model_farkas_generalizer, *this));
         }        
-
         if (m_params.get_bool(":use-precondition-generalizer", false)) {
             m_model_generalizers.push_back(alloc(model_precond_generalizer, *this));
         }
@@ -1350,11 +1349,12 @@ namespace pdr {
 
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
+        classifier_proc classify(m, rules);
         if (m_params.get_bool(":use-multicore-generalizer", false)) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this));
         }
-        if (m_params.get_bool(":use-farkas", true) && !is_bool(rules)) {
-            if (m_params.get_bool(":use-proofs", true)) {
+        if (m_params.get_bool(":use-farkas", true) && !classify.is_bool()) {
+            if (m_params.get_bool(":inline-proof-mode", true)) {
                 m.toggle_proof_mode(PGM_FINE);
                 m_fparams.m_proof_mode = PGM_FINE;
                 m_fparams.m_arith_bound_prop = BP_NONE;

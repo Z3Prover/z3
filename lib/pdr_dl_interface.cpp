@@ -212,6 +212,7 @@ void dl_interface::collect_params(param_descrs& p) {
                             "PDR: (default true) simplify clause set using slicing"););
     p.insert(":generate-proof-trace", CPK_BOOL,
              "PDR: (default false) trace for 'sat' answer as proof object");
+    p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
 
 
 }

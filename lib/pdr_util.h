@@ -207,10 +207,33 @@ class ternary_model_evaluator  : public model_evaluator_base {
     ast_fast_mark2 m2;
     unsigned m_level1;
     unsigned m_level2;
+    expr_mark m_visited;
 
     void setup_model(expr_ref_vector const& model);
     void add_model(expr* e);
     void del_model(expr* e);
+    
+    bool get_assignment(expr* e, expr*& var, expr*& val);
+    void prune_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
+    void prune_by_probing(ptr_vector<expr> const & formulas, expr_ref_vector& model);
+
+    //00 -- non-visited
+    //01 -- X
+    //10 -- false
+    //11 -- true
+    inline bool is_unknown(expr* x)  { return !m1.is_marked(x) && !m2.is_marked(x); }
+    inline void set_unknown(expr* x)  { m1.reset_mark(x); m2.reset_mark(x); }
+    inline bool is_x(expr* x)  { return !m1.is_marked(x) && m2.is_marked(x); }
+    inline bool is_false(expr* x)  { return m1.is_marked(x) && !m2.is_marked(x); }
+    inline bool is_true(expr* x)  { return m1.is_marked(x) && m2.is_marked(x); }
+    inline void set_x(expr* x) { SASSERT(is_unknown(x)); m2.mark(x); }
+    inline void set_v(expr* x) { SASSERT(is_unknown(x)); m1.mark(x); }
+    inline void set_false(expr* x) { SASSERT(is_unknown(x)); m1.mark(x); }
+    inline void set_true(expr* x) { SASSERT(is_unknown(x)); m1.mark(x); m2.mark(x); }
+    inline void set_bool(expr* x, bool v) { if (v) { set_true(x); } else { set_false(x); } }
+    inline rational const& get_value(expr* x) const { return m_values.find(x); }
+    inline void set_value(expr* x, rational const& v) { set_v(x); TRACE("pdr_verbose", tout << mk_pp(x,m) << " " << v << "\n";); m_values.insert(x,v); }
+
 
 protected:
     bool check_model(ptr_vector<expr> const & formulas);
@@ -222,6 +245,8 @@ protected:
 public:
     ternary_model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m) {}
     virtual void minimize_model(ptr_vector<expr> const & formulas, expr_ref_vector & model);
+
+    void operator()(expr* e) { m_visited.mark(e, true); }
 };
 
 void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res);

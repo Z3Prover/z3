@@ -324,10 +324,7 @@ namespace pdr {
 
 
         // Initialization
-        class is_propositional_proc;
-        bool is_propositional(datalog::rule_set& rules);
-        class is_bool_proc;
-        bool is_bool(datalog::rule_set& rules);
+        class classifier_proc;
         void init_model_generalizers(datalog::rule_set& rules); 
         void init_core_generalizers(datalog::rule_set& rules);
 
