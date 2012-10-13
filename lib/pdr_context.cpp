@@ -1354,16 +1354,18 @@ namespace pdr {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this));
         }
         if (m_params.get_bool(":use-farkas", true) && !is_bool(rules)) {
-            // TBD: 
-            m.toggle_proof_mode(PGM_FINE);
-            m_fparams.m_proof_mode = PGM_FINE;
-            m_fparams.m_arith_bound_prop = BP_NONE;
-            m_fparams.m_arith_auto_config_simplex = true;
-            m_fparams.m_arith_propagate_eqs = false;
-            m_fparams.m_arith_eager_eq_axioms = false;
-            m_fparams.m_arith_eq_bounds = false;
-
-            // m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
+            if (m_params.get_bool(":use-proofs", true)) {
+                m.toggle_proof_mode(PGM_FINE);
+                m_fparams.m_proof_mode = PGM_FINE;
+                m_fparams.m_arith_bound_prop = BP_NONE;
+                m_fparams.m_arith_auto_config_simplex = true;
+                m_fparams.m_arith_propagate_eqs = false;
+                m_fparams.m_arith_eager_eq_axioms = false;
+                m_fparams.m_arith_eq_bounds = false;
+            }
+            else {
+                m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
+            }
         }
         if (m_params.get_bool(":use-farkas-properties", false)) {
             m_core_generalizers.push_back(alloc(core_farkas_properties_generalizer, *this));

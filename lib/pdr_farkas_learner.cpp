@@ -512,12 +512,10 @@ namespace pdr {
             for_each_expr(collect_proc, *it);
         }
 
-        proof_ref tmp(root, m);
-        proof_utils::reduce_hypotheses(tmp);
-        IF_VERBOSE(2, verbose_stream() << "Elim Hyps:\n" << mk_ismt2_pp(tmp, m) << "\n";);
-
         proof_ref pr(root, m);
-        permute_unit_resolution(pr);
+        proof_utils::reduce_hypotheses(pr);
+        IF_VERBOSE(2, verbose_stream() << "Elim Hyps:\n" << mk_ismt2_pp(pr, m) << "\n";);
+        proof_utils::permute_unit_resolution(pr);
         
         ptr_vector<expr_set> hyprefs;
         obj_map<expr, expr_set*> hypmap;
@@ -751,94 +749,6 @@ namespace pdr {
         }
     }
 
-    // permute unit resolution over Theory lemmas to track premises.
-    void farkas_learner::permute_unit_resolution(proof_ref& pr) {
-        expr_ref_vector refs(pr.get_manager());
-        obj_map<proof,proof*> cache;
-        permute_unit_resolution(refs, cache, pr);
-    }
-
-    void farkas_learner::permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr) {
-        ast_manager& m = pr.get_manager();
-        proof* pr2 = 0;
-        proof_ref_vector parents(m);
-        proof_ref prNew(pr); 
-        if (cache.find(pr, pr2)) {
-            pr = pr2;
-            return;
-        }
-
-        for (unsigned i = 0; i < m.get_num_parents(pr); ++i) {
-            prNew = m.get_parent(pr, i);
-            permute_unit_resolution(refs, cache, prNew);
-            parents.push_back(prNew);
-        }
-
-        prNew = pr;
-        if (pr->get_decl_kind() == PR_UNIT_RESOLUTION &&
-            parents[0]->get_decl_kind() == PR_TH_LEMMA) { 
-                /*
-                Unit resolution:
-                    T1:      (or l_1 ... l_n l_1' ... l_m')
-                    T2:      (not l_1)
-                    ...
-                    T(n+1):  (not l_n)
-                    [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m')
-                Th lemma:
-                    T1:      (not l_1)
-                    ...
-                    Tn:      (not l_n)
-                    [th-lemma T1 ... Tn]: (or l_{n+1} ... l_m)
-
-                    Such that (or l_1 .. l_n l_{n+1} .. l_m) is a theory axiom.
-
-                Implement conversion:
-
-                    T1 |- not l_1 ... Tn |- not l_n  
-                    -------------------------------  TH_LEMMA
-                           (or k_1 .. k_m j_1 ... j_m)    S1 |- not k_1 ... Sm |- not k_m
-                           -------------------------------------------------------------- UNIT_RESOLUTION
-                                         (or j_1 .. j_m)
-
-
-                    |-> 
-
-                    T1 |- not l_1 ... Tn |- not l_n S1 |- not k_1 ... Sm |- not k_m
-                    ---------------------------------------------------------------- TH_LEMMA
-                                        (or j_1 .. j_m)
-
-                */
-                proof_ref_vector premises(m);
-                proof* thLemma = parents[0].get();
-                for (unsigned i = 0; i < m.get_num_parents(thLemma); ++i) {
-                    premises.push_back(m.get_parent(thLemma, i));
-                }
-                for (unsigned i = 1; i < parents.size(); ++i) {
-                    premises.push_back(parents[i].get());
-                }
-                parameter const* params = thLemma->get_decl()->get_parameters();
-                unsigned num_params = thLemma->get_decl()->get_num_parameters();
-                SASSERT(params[0].is_symbol());
-                family_id tid = m.get_family_id(params[0].get_symbol());
-                SASSERT(tid != null_family_id);
-                prNew = m.mk_th_lemma(tid, m.get_fact(pr), 
-                                      premises.size(), premises.c_ptr(), num_params-1, params+1);
-        }
-        else {
-            ptr_vector<expr> args;
-            for (unsigned i = 0; i < parents.size(); ++i) {
-                args.push_back(parents[i].get());
-            }
-            if (m.has_fact(pr)) {
-                args.push_back(m.get_fact(pr));
-            }
-            prNew = m.mk_app(pr->get_decl(), args.size(), args.c_ptr());
-        }    
-      
-        cache.insert(pr, prNew);
-        refs.push_back(prNew);
-        pr = prNew;
-    }	
 
     bool farkas_learner::is_farkas_lemma(ast_manager& m, expr* e) {
         app * a;

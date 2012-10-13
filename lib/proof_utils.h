@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Utilities for proofs.
+    Utilities for transforming proofs.
 
 Author:
 
@@ -30,6 +30,11 @@ public:
        \brief Check that a proof does not contain open hypotheses.
     */
     static bool is_closed(ast_manager& m, proof* p);
+
+    /**
+       \brief Permute unit resolution rule with th-lemma
+    */
+    static void permute_unit_resolution(proof_ref& pr);
 
 };
 

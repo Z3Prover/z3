@@ -69,10 +69,6 @@ class farkas_learner {
    
     void get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, expr_ref_vector& lemmas);
 
-    void permute_unit_resolution(proof_ref& pr);
-
-    void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr);
-
     bool is_pure_expr(func_decl_set const& symbs, expr* e) const;
 
     static void test();

@@ -1370,10 +1370,11 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
           decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();            
           register_plugin(fid, new_p);
           SASSERT(new_p->get_family_id() == fid);
+          SASSERT(has_plugin(fid));
       }
       SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
       SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
-      SASSERT(from.has_plugin(fid) == has_plugin(fid));      
+      SASSERT(!from.has_plugin(fid) || has_plugin(fid));      
     }
 }
 
