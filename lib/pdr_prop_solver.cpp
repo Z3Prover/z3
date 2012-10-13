@@ -25,13 +25,14 @@ Revision History:
 #include "dl_util.h"
 #include "model_pp.h"
 #include "front_end_params.h"
-
-#define CTX_VERB_LBL 21
+#include "datatype_decl_plugin.h"
+#include "pdr_farkas_learner.h"
+#include "ast_smt2_pp.h"
 
 //
 // Auxiliary structure to introduce propositional names for assumptions that are not
 // propositional. It is to work with the smt::context's restriction
-// that assumptions be propositional atoms.
+// that assumptions be propositional literals.
 //
 
 namespace pdr {
@@ -40,8 +41,10 @@ namespace pdr {
         prop_solver&        s;
         ast_manager&        m;
         expr_ref_vector     m_atoms;
+        expr_ref_vector     m_assumptions;
         obj_map<app,expr *> m_fresh2expr;
         obj_map<expr, app*> m_expr2fresh;
+        obj_hashtable<expr> m_equivs;
         unsigned            m_num_fresh;
 
         app * mk_fresh(expr* atom) {
@@ -64,28 +67,62 @@ namespace pdr {
             ++m_num_fresh;
             m_expr2fresh.insert(atom, res);
             m_fresh2expr.insert(res, atom);
-            expr_ref equiv(m.mk_eq(atom, res), m);
+            expr_ref equiv(m.mk_or(atom, m.mk_not(res)), m);
             s.m_ctx->assert_expr(equiv);
+            m_assumptions.push_back(equiv);
+            m_equivs.insert(equiv);
             TRACE("pdr_verbose", tout << "name asserted " << mk_pp(equiv, m) << "\n";);    
             return res;
         }
 
         void mk_safe(expr_ref_vector& conjs) {
             datalog::flatten_and(conjs);
+            expand_literals(conjs);
             for (unsigned i = 0; i < conjs.size(); ++i) {
-                expr * atom = conjs[i].get();
-                bool negated = m.is_not(atom, atom); //remove negation
-                SASSERT(!m.is_true(atom));
-                if (!is_uninterp(atom) || to_app(atom)->get_num_args() != 0) {
-                    app * name = mk_fresh(atom);
-                    conjs[i] = negated?m.mk_not(name):name;
+                expr * lit = conjs[i].get();
+                expr * lit_core = lit;
+                m.is_not(lit, lit_core);
+                SASSERT(!m.is_true(lit));
+                if (!is_uninterp(lit_core) || to_app(lit_core)->get_num_args() != 0) {
+                    conjs[i] = mk_fresh(lit);
+                }
+            }
+            m_assumptions.append(conjs);
+        }
+
+        void expand_literals(expr_ref_vector& conjs) {
+            arith_util arith(m);
+            datatype_util dt(m);
+            expr* e1, *e2, *c, *val;
+            for (unsigned i = 0; i < conjs.size(); ++i) {
+
+                expr* e = conjs[i].get();
+                if (m.is_eq(e, e1, e2) && arith.is_int_real(e1)) {
+                    conjs[i] = arith.mk_le(e1,e2);
+                    if (i+1 == conjs.size()) {
+                        conjs.push_back(arith.mk_ge(e1, e2));
+                    }
+                    else {
+                        conjs.push_back(conjs[i+1].get());
+                        conjs[i+1] = arith.mk_ge(e1, e2);
+                    }
+                    ++i;
+                }
+                else if (m.is_eq(e, c, val) && is_app(val) && dt.is_constructor(to_app(val))) {
+                    func_decl* f = to_app(val)->get_decl();
+                    func_decl* r = dt.get_constructor_recognizer(f);
+                    conjs[i] = m.mk_app(r,c);
+                    ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
+                    for (unsigned i = 0; i < acc.size(); ++i) {
+                        conjs.push_back(m.mk_eq(m.mk_app(acc[i], c), to_app(val)->get_arg(i)));
+                    }
                 }
             }
         }
 
     public:
         safe_assumptions(prop_solver& s, expr_ref_vector const& assumptions): 
-          s(s), m(s.m), m_atoms(assumptions), m_num_fresh(0) {
+            s(s), m(s.m), m_atoms(assumptions), m_assumptions(m), m_num_fresh(0) {
               mk_safe(m_atoms);
           }
 
@@ -94,13 +131,26 @@ namespace pdr {
 
           expr_ref_vector const& atoms() const { return m_atoms; }
 
+          unsigned assumptions_size() const { return m_assumptions.size(); }
+
+          expr* assumptions(unsigned i) const { return m_assumptions[i]; }
+
+          expr* undo_naming(expr* atom) {
+              if (m_equivs.contains(atom)) {
+                  return m.mk_true();
+              }
+              SASSERT(is_app(atom)); //only apps can be used in safe cubes
+              m_fresh2expr.find(to_app(atom), atom);
+              return atom;
+          }
+
           void undo_naming(expr_ref_vector& literals) {
               for (unsigned i = 0; i < literals.size(); ++i) {
-                  expr * atom = literals[i].get(), *orig_atom;
-                  bool negated = m.is_not(atom, atom); //remove negation
-                  SASSERT(is_app(atom)); //only apps can be used in safe cubes
-                  if (m_fresh2expr.find(to_app(atom), orig_atom)) {
-                      literals[i] = negated?m.mk_not(orig_atom):orig_atom;
+                  literals[i] = undo_naming(literals[i].get());
+                  if (m.is_true(literals[i].get())) {
+                      literals[i] = literals.back();
+                      literals.pop_back();
+                      --i;
                   }
               }        
           }
@@ -162,7 +212,7 @@ namespace pdr {
     void prop_solver::add_formula(expr * form) {
         SASSERT(!m_in_level);
         m_ctx->assert_expr(form);
-        IF_VERBOSE(CTX_VERB_LBL, verbose_stream() << "$ asserted " << mk_pp(form, m) << "\n";);
+        IF_VERBOSE(21, verbose_stream() << "$ asserted " << mk_pp(form, m) << "\n";);
         TRACE("pdr", tout << "add_formula: " << mk_pp(form, m) << "\n";);
     }
 
@@ -175,6 +225,7 @@ namespace pdr {
 
 
     lbool prop_solver::check_safe_assumptions(
+        safe_assumptions& safe,
         const expr_ref_vector& atoms, 
         expr_ref_vector* core, 
         model_ref * mdl, 
@@ -211,7 +262,32 @@ namespace pdr {
             }
         }
 
-        if (result == l_false && core) {      
+        if (result == l_false && core && m.proofs_enabled()) {
+            proof_ref pr(m);
+            pr = m_ctx->get_proof();
+            IF_VERBOSE(21, verbose_stream() << mk_ismt2_pp(pr, m) << "\n";);
+            farkas_learner fl(m_fparams, m);
+            expr_ref_vector lemmas(m);
+            obj_hashtable<expr> bs;
+            for (unsigned i = 0; i < safe.assumptions_size(); ++i) {
+                bs.insert(safe.assumptions(i));
+            }
+            fl.get_lemmas(pr, bs, lemmas);
+            safe.undo_naming(lemmas);
+            fl.simplify_lemmas(lemmas);
+
+            IF_VERBOSE(2, 
+                verbose_stream() << "Lemmas\n";            
+                for (unsigned i = 0; i < lemmas.size(); ++i) {
+                    verbose_stream() << mk_pp(lemmas[i].get(), m) << "\n";
+                });
+
+            core->reset();
+            core->append(lemmas);
+            return result;
+        }
+
+        if (result == l_false && core) {
             core->reset();
             for (unsigned i = 0; i < core_size; ++i) {
                 expr * core_expr = m_ctx->get_unsat_core_expr(i);
@@ -226,6 +302,10 @@ namespace pdr {
                 }
                 core->push_back(to_app(core_expr));
             }
+            SASSERT(expr_atoms.size() >= core->size());
+
+            safe.undo_naming(*core);
+
             TRACE("pdr", 
                 tout << mk_pp(m_pm.mk_and(expr_atoms), m) << "\n";
                 tout << "core_exprs: ";
@@ -235,7 +315,7 @@ namespace pdr {
                 tout << "\n";
                 tout << "core: " << mk_pp(m_pm.mk_and(*core), m) << "\n";              
                 );
-            SASSERT(expr_atoms.size() >= core->size());
+            
         }
         return result;
     }
@@ -260,7 +340,8 @@ namespace pdr {
     }
 
     lbool prop_solver::check_assumptions_and_formula(
-        const expr_ref_vector & atoms, expr * form, 
+        const expr_ref_vector & atoms, 
+        expr * form, 
         expr_ref_vector * core, 
         model_ref * mdl, 
         bool& assumes_level) 
@@ -269,20 +350,17 @@ namespace pdr {
         safe_assumptions safe(*this, atoms);
         m_ctx->assert_expr(form);    
         CTRACE("pdr", !m.is_true(form), tout << "check with formula: " << mk_pp(form, m) << "\n";);
-        lbool res = check_safe_assumptions(safe.atoms(), core, mdl, assumes_level);
+        lbool res = check_safe_assumptions(safe, safe.atoms(), core, mdl, assumes_level);
         if (res == l_false && core && m_try_minimize_core) {
             unsigned sz = core->size();
             bool assumes_level1 = false;
-            lbool res2 = check_safe_assumptions(*core, core, mdl, assumes_level1);
+            lbool res2 = check_safe_assumptions(safe, *core, core, mdl, assumes_level1);
             if (res2 == l_false && sz > core->size()) {
-                res = res2;
                 assumes_level = assumes_level1;
                 IF_VERBOSE(1, verbose_stream() << "reduced core size from " << sz << " to " << core->size() << "\n";);
             }
         }
-        if (core) {
-            safe.undo_naming(*core);
-        }
+
         //
         // we don't have to undo model naming, as from the model 
         // we extract the values for state variables directly

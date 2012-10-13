@@ -53,14 +53,16 @@ namespace pdr {
         void push_level_atoms(unsigned level, expr_ref_vector & tgt) const;
         
         void ensure_level(unsigned lvl);
+
+        class safe_assumptions;
         
         lbool check_safe_assumptions(
-            const expr_ref_vector & atoms, 
+            safe_assumptions& assumptions,
+            expr_ref_vector const& atoms,
             expr_ref_vector * core, 
             model_ref * mdl, 
             bool& assumes_level);
         
-        class safe_assumptions;
         
     public:
         prop_solver(pdr::manager& pm, symbol const& name);

@@ -667,18 +667,8 @@ namespace pdr {
     }
 
     void pred_transformer::model2cube(app* c, expr* val, expr_ref_vector& res) const {
-        datatype_util dt(m);
         if (m.is_bool(val)) {
             res.push_back(m.is_true(val)?c:m.mk_not(c));
-        }
-        else if (is_app(val) && dt.is_constructor(to_app(val))) {
-            func_decl* f = to_app(val)->get_decl();
-            func_decl* r = dt.get_constructor_recognizer(f);
-            res.push_back(m.mk_app(r,c));
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
-            for (unsigned i = 0; i < acc.size(); ++i) {
-                model2cube(m.mk_app(acc[i], c), to_app(val)->get_arg(i), res);
-            }
         }
         else {
             res.push_back(m.mk_eq(c, val));
@@ -1142,6 +1132,8 @@ namespace pdr {
     }
 
     context::~context() {
+        reset_model_generalizers();
+        reset_core_generalizers();
         reset();
     }
 
@@ -1153,10 +1145,6 @@ namespace pdr {
             dealloc(it->m_value);
         }
         m_rels.reset();
-        std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
-        std::for_each(m_core_generalizers.begin(),  m_core_generalizers.end(),  delete_proc<core_generalizer>());
-        m_model_generalizers.reset();
-        m_core_generalizers.reset();
         m_search.reset();
         m_query = 0;       
         m_last_result = l_undef;
@@ -1206,6 +1194,8 @@ namespace pdr {
 
     void context::update_rules(datalog::rule_set& rules) {
         decl2rel rels;
+        init_model_generalizers(rules);
+        init_core_generalizers(rules);
         init_rules(rules, rels); 
         decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
@@ -1219,8 +1209,6 @@ namespace pdr {
         for (; it != end; ++it) {
             m_rels.insert(it->m_key, it->m_value);
         }
-        init_model_generalizers();
-        init_core_generalizers();
         VERIFY(m_rels.find(m_query_pred, m_query));
     }
 
@@ -1283,12 +1271,15 @@ namespace pdr {
         bool is_propositional() { return m_is_propositional; }        
     };
 
-    bool context::is_propositional() {
+    bool context::is_propositional(datalog::rule_set& rules) {
         expr_fast_mark1 mark;
         is_propositional_proc proc(m);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();        
-        for (; proc.is_propositional() && it != end; ++it) {            
-            quick_for_each_expr(proc, mark, it->m_value->transition());
+        datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
+        for (; proc.is_propositional() && it != end; ++it) {              
+            quick_for_each_expr(proc, mark, (*it)->get_head());
+            for (unsigned i = 0; i < (*it)->get_tail_size(); ++i) {
+                quick_for_each_expr(proc, mark, (*it)->get_tail(i));                
+            }
         }
         return proc.is_propositional();
     }
@@ -1316,19 +1307,27 @@ namespace pdr {
         bool is_bool() { return m_is_bool; }
     };
 
-    bool context::is_bool() {
+    bool context::is_bool(datalog::rule_set& rules) {
         expr_fast_mark1 mark;
         is_bool_proc proc(m);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();        
+        datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
         for (; proc.is_bool() && it != end; ++it) {            
-            quick_for_each_expr(proc, mark, it->m_value->transition());
+            quick_for_each_expr(proc, mark, (*it)->get_head());
+            for (unsigned i = 0; i < (*it)->get_tail_size(); ++i) {
+                quick_for_each_expr(proc, mark, (*it)->get_tail(i));                
+            }
         }
         return proc.is_bool();
     }
 
+    void context::reset_model_generalizers() {
+        std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
+        m_model_generalizers.reset();
+    }
 
-    void context::init_model_generalizers() {
-        if (is_propositional()) {
+    void context::init_model_generalizers(datalog::rule_set& rules) {
+        reset_model_generalizers();
+        if (is_propositional(rules)) {
             m_model_generalizers.push_back(alloc(bool_model_evaluation_generalizer, *this, m));
         }
         else {
@@ -1344,12 +1343,27 @@ namespace pdr {
         }
     }
 
-    void context::init_core_generalizers() {
+    void context::reset_core_generalizers() {
+        std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
+        m_core_generalizers.reset();
+    }
+
+    void context::init_core_generalizers(datalog::rule_set& rules) {
+        reset_core_generalizers();
         if (m_params.get_bool(":use-multicore-generalizer", false)) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this));
         }
-        if (m_params.get_bool(":use-farkas", true) && !is_bool()) {
-            m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
+        if (m_params.get_bool(":use-farkas", true) && !is_bool(rules)) {
+            // TBD: 
+            m.toggle_proof_mode(PGM_FINE);
+            m_fparams.m_proof_mode = PGM_FINE;
+            m_fparams.m_arith_bound_prop = BP_NONE;
+            m_fparams.m_arith_auto_config_simplex = true;
+            m_fparams.m_arith_propagate_eqs = false;
+            m_fparams.m_arith_eager_eq_axioms = false;
+            m_fparams.m_arith_eq_bounds = false;
+
+            // m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
         }
         if (m_params.get_bool(":use-farkas-properties", false)) {
             m_core_generalizers.push_back(alloc(core_farkas_properties_generalizer, *this));

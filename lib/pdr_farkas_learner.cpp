@@ -33,6 +33,7 @@ Revision History:
 #include "pdr_interpolant_provider.h"
 #include "ast_ll_pp.h"
 #include "arith_bounds_tactic.h"
+#include "proof_utils.h"
 
 #define PROOF_MODE PGM_FINE
 //#define PROOF_MODE PGM_COARSE
@@ -224,14 +225,13 @@ namespace pdr {
     
     farkas_learner::farkas_learner(front_end_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
-          m(PROOF_MODE),
-          m_brwr(m),
-          p2o(m, outer_mgr),
-          o2p(outer_mgr, m),
+          m_pr(PROOF_MODE),
+          p2o(m_pr, outer_mgr),
+          o2p(outer_mgr, m_pr),
           m_simplifier(mk_arith_bounds_tactic(outer_mgr))
     {
-        m.register_decl_plugins();
-        m_ctx = alloc(smt::solver, m, m_proof_params);
+        m_pr.register_decl_plugins();
+        m_ctx = alloc(smt::solver, m_pr, m_proof_params);
     }
 
     front_end_params farkas_learner::get_proof_params(front_end_params& orig_params) {
@@ -283,13 +283,13 @@ namespace pdr {
 
     bool farkas_learner::get_lemma_guesses(expr * A_ext, expr * B_ext, expr_ref_vector& lemmas)
     {
-        expr_ref A(o2p(A_ext), m);
-        expr_ref B(o2p(B_ext), m);
-        proof_ref pr(m);
-        expr_ref tmp(m);
-        expr_ref_vector ilemmas(m);
-        equality_expander_cfg ee_rwr_cfg(m);
-        rewriter_tpl<equality_expander_cfg> ee_rwr(m, false, ee_rwr_cfg);
+        expr_ref A(o2p(A_ext), m_pr);
+        expr_ref B(o2p(B_ext), m_pr);
+        proof_ref pr(m_pr);
+        expr_ref tmp(m_pr);
+        expr_ref_vector ilemmas(m_pr);
+        equality_expander_cfg ee_rwr_cfg(m_pr);
+        rewriter_tpl<equality_expander_cfg> ee_rwr(m_pr, false, ee_rwr_cfg);
 
         lemmas.reset();
 
@@ -297,17 +297,15 @@ namespace pdr {
         ee_rwr(B, B);
 
         expr_set bs;
-        func_decl_set Bsymbs;
-        expr_ref_vector blist(m);
+        expr_ref_vector blist(m_pr);
         datalog::flatten_and(B, blist);
         for (unsigned i = 0; i < blist.size(); ++i) {
             bs.insert(blist[i].get());
         }
-        collect_pure_proc collect_proc(Bsymbs);
-        for_each_expr(collect_proc, B);
+
 
         if (!m_ctx) {
-            m_ctx = alloc(smt::solver, m, m_proof_params);
+            m_ctx = alloc(smt::solver, m_pr, m_proof_params);
         }
 
         m_ctx->push();
@@ -320,7 +318,7 @@ namespace pdr {
         bool is_unsat = res == l_false;
         if (is_unsat) {
             pr = m_ctx->get_proof();
-            get_lemmas(m_ctx->get_proof(), bs, Bsymbs, A, ilemmas);
+            get_lemmas(m_ctx->get_proof(), bs, ilemmas);
             for (unsigned i = 0; i < ilemmas.size(); ++i) {
                 lemmas.push_back(p2o(ilemmas[i].get()));
             }
@@ -330,7 +328,7 @@ namespace pdr {
 
         IF_VERBOSE(3, {
                 for (unsigned i = 0; i < ilemmas.size(); ++i) {
-                    verbose_stream() << "B': " << mk_pp(ilemmas[i].get(), m) << "\n";
+                    verbose_stream() << "B': " << mk_pp(ilemmas[i].get(), m_pr) << "\n";
                 }
             });
 
@@ -339,7 +337,7 @@ namespace pdr {
               tout << "A: " << mk_pp(A_ext, m_ctx->m()) << "\n";
               tout << "B: " << mk_pp(B_ext, m_ctx->m()) << "\n";
               for (unsigned i = 0; i < lemmas.size(); ++i) {
-                  tout << "B': " << mk_pp(ilemmas[i].get(), m) << "\n";
+                  tout << "B': " << mk_pp(ilemmas[i].get(), m_pr) << "\n";
               });
         DEBUG_CODE(
             if (is_unsat) {
@@ -371,7 +369,7 @@ namespace pdr {
         }
         model_converter_ref mc;
         proof_converter_ref pc;
-        expr_dependency_ref core(m);
+        expr_dependency_ref core(lemmas.get_manager());
         goal_ref_buffer result;
         (*m_simplifier)(g, result, mc, pc, core);
         lemmas.reset();
@@ -385,6 +383,7 @@ namespace pdr {
 
     void farkas_learner::combine_constraints(unsigned n, app * const * lits, rational const * coeffs, expr_ref& res)
     {
+        ast_manager& m = res.get_manager();
         constr res_c(m);
         for(unsigned i = 0; i < n; ++i) {
             res_c.add(coeffs[i], lits[i]);
@@ -503,7 +502,19 @@ namespace pdr {
        units under Farkas.
                     
     */
-    void farkas_learner::get_lemmas(proof* root, expr_set const& bs, func_decl_set const& Bsymbs, expr* A, expr_ref_vector& lemmas) {
+    void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector& lemmas) {
+        ast_manager& m = lemmas.get_manager();
+        bool_rewriter brwr(m);
+        func_decl_set Bsymbs;
+        collect_pure_proc collect_proc(Bsymbs);
+        expr_set::iterator it = bs.begin(), end = bs.end();
+        for (; it != end; ++it) {
+            for_each_expr(collect_proc, *it);
+        }
+
+        proof_ref tmp(root, m);
+        proof_utils::reduce_hypotheses(tmp);
+        IF_VERBOSE(2, verbose_stream() << "Elim Hyps:\n" << mk_ismt2_pp(tmp, m) << "\n";);
 
         proof_ref pr(root, m);
         permute_unit_resolution(pr);
@@ -567,7 +578,7 @@ namespace pdr {
 
             // Add lemmas that depend on bs, have no hypotheses, don't depend on A.
             if ((!hyps->empty() || a_depend.is_marked(p)) && 
-                b_depend.is_marked(p) && !is_farkas_lemma(p)) {
+                b_depend.is_marked(p) && !is_farkas_lemma(m, p)) {
                 for (unsigned i = 0; i < m.get_num_parents(p); ++i) {                
                     app* arg = to_app(p->get_arg(i));
                     if (IS_B_PURE(arg)) {
@@ -592,7 +603,6 @@ namespace pdr {
                     b_depend.mark(p, true);
                 }
                 else {
-                    SASSERT(m.get_fact(p) == A);
                     a_depend.mark(p, true);
                 }
                 break;
@@ -621,7 +631,7 @@ namespace pdr {
                     for (unsigned i = 0; i < to_app(fml)->get_num_args(); ++i) {
                         expr* f = to_app(fml)->get_arg(i);
                         expr_ref hyp(m);
-                        m_brwr.mk_not(f, hyp);
+                        brwr.mk_not(f, hyp);
                         hyps->remove(hyp);
                     }
                 }
@@ -629,7 +639,7 @@ namespace pdr {
                 break;
             }
             case PR_TH_LEMMA: {
-                if (!is_farkas_lemma(p)) break;
+                if (!is_farkas_lemma(m, p)) break;
                
                 SASSERT(m.has_fact(p));
                 unsigned prem_cnt = m.get_num_parents(p);
@@ -686,7 +696,7 @@ namespace pdr {
                     SASSERT(prem_cnt + 2 + num_args == d->get_num_parameters());
                     for (unsigned i = 0; i < num_args; ++i) {
                         expr* prem_e = args[i];
-                        m_brwr.mk_not(prem_e, tmp);
+                        brwr.mk_not(prem_e, tmp);
                         VERIFY(params[i].is_rational(coef));
                         SASSERT(is_app(tmp));
                         lits.push_back(to_app(tmp));
@@ -712,6 +722,7 @@ namespace pdr {
     }
 
     void farkas_learner::get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, expr_ref_vector& lemmas) {
+        ast_manager& m = lemmas.get_manager();
         ast_mark visited;
         proof* p0 = p;
         ptr_vector<proof> todo;        
@@ -742,11 +753,13 @@ namespace pdr {
 
     // permute unit resolution over Theory lemmas to track premises.
     void farkas_learner::permute_unit_resolution(proof_ref& pr) {
-        expr_ref_vector refs(m);
+        expr_ref_vector refs(pr.get_manager());
         obj_map<proof,proof*> cache;
         permute_unit_resolution(refs, cache, pr);
     }
+
     void farkas_learner::permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr) {
+        ast_manager& m = pr.get_manager();
         proof* pr2 = 0;
         proof_ref_vector parents(m);
         proof_ref prNew(pr); 
@@ -825,10 +838,9 @@ namespace pdr {
         cache.insert(pr, prNew);
         refs.push_back(prNew);
         pr = prNew;
-    }
-	
+    }	
 
-    bool farkas_learner::is_farkas_lemma(expr* e) {
+    bool farkas_learner::is_farkas_lemma(ast_manager& m, expr* e) {
         app * a;
         func_decl* d;
         symbol sym;

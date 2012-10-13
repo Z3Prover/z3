@@ -321,11 +321,11 @@ namespace pdr {
 
         // Initialization
         class is_propositional_proc;
-        bool is_propositional();
+        bool is_propositional(datalog::rule_set& rules);
         class is_bool_proc;
-        bool is_bool();
-        void init_model_generalizers(); 
-        void init_core_generalizers();
+        bool is_bool(datalog::rule_set& rules);
+        void init_model_generalizers(datalog::rule_set& rules); 
+        void init_core_generalizers(datalog::rule_set& rules);
 
         bool check_invariant(unsigned lvl);
         bool check_invariant(unsigned lvl, func_decl* fn);
@@ -335,6 +335,9 @@ namespace pdr {
         void init_rules(datalog::rule_set& rules, decl2rel& transformers);
 
         void simplify_formulas();
+
+        void reset_model_generalizers();
+        void reset_core_generalizers();
 
     public:       
         
