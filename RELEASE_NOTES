@@ -30,6 +30,10 @@ Version 4.2
 - Z3 by default switches to an incremental solver when a Solver object is used to solve many queries.
   In the this version, we switch back to the tactic framework if the incremental solver returns "unknown".
 
+- Now, Z3 can be compiled inside cygwin using gcc.
+
+- Fixed bug in the unsat core generation.
+
 First source code release (October 2, 2012)
 ===========================================
 

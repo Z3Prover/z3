@@ -16,6 +16,11 @@ Author:
 Revision History:
 
 --*/
+#ifdef _CYGWIN
+// Hack to make CreateTimerQueueTimer available on cygwin
+#define _WIN32_WINNT 0x0600
+#endif
+
 #include"z3_exception.h"
 #include"z3_omp.h"
 #if defined(_WINDOWS) || defined(_CYGWIN)
