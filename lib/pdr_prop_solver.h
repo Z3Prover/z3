@@ -33,6 +33,7 @@ Revision History:
 
 namespace pdr {
     class prop_solver {
+    
     private:
         front_end_params&   m_fparams;        
         ast_manager&        m;
@@ -44,7 +45,11 @@ namespace pdr {
         app_ref_vector      m_pos_level_atoms;  // atoms used to identify level
         app_ref_vector      m_neg_level_atoms;  // 
         obj_hashtable<expr> m_level_atoms_set;
-        app_ref_vector      m_fresh;            // predicates for assumptions
+        app_ref_vector      m_proxies;          // predicates for assumptions
+        expr_ref_vector*    m_core; 
+        model_ref*          m_model;
+        bool                m_subset_based_core;
+        bool                m_assumes_level;
         func_decl_set       m_aux_symbols;      
         bool                m_in_level;         
         unsigned            m_current_level;    // set when m_in_level
@@ -55,13 +60,14 @@ namespace pdr {
         void ensure_level(unsigned lvl);
 
         class safe_assumptions;
+
+        void extract_theory_core(safe_assumptions& assumptions);
+
+        void extract_subset_core(safe_assumptions& assumptions);
         
         lbool check_safe_assumptions(
             safe_assumptions& assumptions,
-            expr_ref_vector const& atoms,
-            expr_ref_vector * core, 
-            model_ref * mdl, 
-            bool& assumes_level);
+            expr_ref_vector const& atoms);
         
         
     public:
@@ -73,6 +79,11 @@ namespace pdr {
                 m_aux_symbols.contains(s) ||
                 m_ctx->is_aux_predicate(s); 
         }
+
+        void set_core(expr_ref_vector* core) { m_core = core; }
+        void set_model(model_ref* mdl) { m_model = mdl; }
+        void set_subset_based_core(bool f) { m_subset_based_core = f; }
+        bool assumes_level() const { return m_assumes_level; }
         
         void add_level();
         unsigned level_cnt() const;
@@ -99,24 +110,16 @@ namespace pdr {
          * If the conjunction of atoms is consistent with the solver state and o_model is non-zero,
          * o_model will contain the "o" literals true in the assignment.
          */
-        lbool check_assumptions(
-            const expr_ref_vector & atoms, 
-            expr_ref_vector * core, model_ref * mdl, 
-            bool& assumes_level);
+        lbool check_assumptions(const expr_ref_vector & atoms);
         
-        lbool check_conjunction_as_assumptions(
-            expr * conj, expr_ref_vector * core, 
-            model_ref * mdl, bool& assumes_level);
+        lbool check_conjunction_as_assumptions(expr * conj);
         
         /**
          * Like check_assumptions, except it also asserts an extra formula
          */
         lbool check_assumptions_and_formula(
             const expr_ref_vector & atoms, 
-            expr * form, 
-            expr_ref_vector * core, 
-            model_ref * mdl, 
-            bool& assumes_level);
+            expr * form);
         
         void collect_statistics(statistics& st) const;
         

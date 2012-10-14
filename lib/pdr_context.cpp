@@ -382,16 +382,15 @@ namespace pdr {
     }
 
     lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core) {
-        unsigned level = n.level();
-        expr* state = n.state();
+        TRACE("pdr", 
+              tout << "is-reachable: " << head()->get_name() << " level: " << n.level() << "\n";
+              tout << mk_pp(n.state(), m) << "\n";);
+        ensure_level(n.level());   
         model_ref model;
-        ensure_level(level);        
-        prop_solver::scoped_level _sl(m_solver, level);
-        TRACE("pdr", tout << "is-reachable: " << head()->get_name() << " level: " << level << "\n";
-              tout << mk_pp(state, m) << "\n";);
-
-        bool assumes_level;
-        lbool is_sat = m_solver.check_conjunction_as_assumptions(state, core, &model, assumes_level);
+        prop_solver::scoped_level _sl(m_solver, n.level());
+        m_solver.set_core(core);
+        m_solver.set_model(&model);
+        lbool is_sat = m_solver.check_conjunction_as_assumptions(n.state());
         if (is_sat == l_true && core) {            
             core->reset();
             model2cube(*model, *core);
@@ -411,7 +410,31 @@ namespace pdr {
         }
         tmp = pm.mk_and(conj);
         prop_solver::scoped_level _sl(m_solver, level);
-        return m_solver.check_conjunction_as_assumptions(tmp, core, 0, assumes_level) == l_false;
+        m_solver.set_core(core);
+        lbool r = m_solver.check_conjunction_as_assumptions(tmp);
+        if (r == l_false) {
+            assumes_level = m_solver.assumes_level();
+        }
+        return r == l_false;
+    }
+
+    bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& lits, bool& assumes_level) {
+        manager& pm = get_pdr_manager();
+        expr_ref_vector conj(m), core(m);
+        expr_ref fml(m), states(m);
+        states = m.mk_not(pm.mk_and(lits));
+        mk_assumptions(head(), states, conj);
+        fml = pm.mk_and(conj);
+        prop_solver::scoped_level _sl(m_solver, level);
+        m_solver.set_core(&core);
+        m_solver.set_subset_based_core(true);
+        lbool res = m_solver.check_assumptions_and_formula(lits, fml);
+        if (res == l_false) {
+            lits.reset();
+            lits.append(core);
+            assumes_level = m_solver.assumes_level();
+        }
+        return res == l_false;
     }
 
     void pred_transformer::mk_assumptions(func_decl* head, expr* fml, expr_ref_vector& result) {
@@ -425,7 +448,6 @@ namespace pdr {
             for (unsigned i = 0; i < m_predicates.size(); i++) {
                 func_decl* d = m_predicates[i];
                 if (d == head) {
-                    // tmp1 = (m_tag2rule.size() == 1)?fml:m.mk_implies(pred, fml);
                     tmp1 = m.mk_implies(pred, fml);
                     pm.formula_n2o(tmp1, tmp2, i);
                     result.push_back(tmp2);
@@ -883,10 +905,21 @@ namespace pdr {
         return result;
     }
 
+    bool model_search::is_repeated(model_node& n) const {
+        model_node* p = n.parent();
+        while (p) {
+            if (p->state() == n.state()) {
+                return true;
+            }
+            p = p->parent();
+        }
+        return false;
+    }
+
     void model_search::add_leaf(model_node& n) {
         unsigned& count = cache(n).insert_if_not_there2(n.state(), 0)->get_data().m_value;
         ++count;
-        if (count == 1) {
+        if (count == 1 || is_repeated(n)) {
             set_leaf(n);
         }
         else {
@@ -944,7 +977,6 @@ namespace pdr {
     }
 
     void model_search::erase_leaf(model_node& n) {
-
         if (n.children().empty() && n.is_open()) {
             std::deque<model_node*>::iterator 
                 it  = m_leaves.begin(), 
@@ -1619,7 +1651,7 @@ namespace pdr {
                 TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncube, m) << "\n";);
                 n.pt().add_property(ncube, uses_level?n.level():infty_level);
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace",false), n);
+                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace", false), n);
                 break;
             }
             case l_undef: {
