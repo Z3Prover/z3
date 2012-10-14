@@ -43,7 +43,6 @@ class farkas_learner {
     front_end_params         m_proof_params;
     ast_manager              m_pr;
     scoped_ptr<smt::solver>  m_ctx;
-    scoped_ptr<tactic>       m_simplifier;
 
 
     static front_end_params get_proof_params(front_end_params& orig_params);
@@ -67,7 +66,7 @@ class farkas_learner {
 
     bool is_farkas_lemma(ast_manager& m, expr* e);
    
-    void get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, expr_ref_vector& lemmas);
+    void get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, obj_hashtable<expr>& lemma_set, expr_ref_vector& lemmas);
 
     bool is_pure_expr(func_decl_set const& symbs, expr* e) const;
 

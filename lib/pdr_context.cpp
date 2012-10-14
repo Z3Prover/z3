@@ -914,7 +914,7 @@ namespace pdr {
     }
 
     obj_map<expr, unsigned>& model_search::cache(model_node const& n) {
-        unsigned l = n.level();
+        unsigned l = n.orig_level();
         if (l >= m_cache.size()) {
             m_cache.resize(l + 1);
         }
@@ -1106,6 +1106,21 @@ namespace pdr {
             dealloc(m_root);
             m_root = 0;
         }
+    }
+
+    void model_search::backtrack_level(bool uses_level, model_node& n) {
+        SASSERT(m_root);
+        if (uses_level && m_root->level() > n.level()) {
+            IF_VERBOSE(2, verbose_stream() << "Increase level " << n.level() << "\n";);
+            n.increase_level();
+            m_leaves.push_back(&n);
+        }
+        else {
+            model_node* p = n.parent();
+            if (p) {
+                set_leaf(*p);
+            }               
+        }     
     }
 
     // ----------------
@@ -1604,10 +1619,7 @@ namespace pdr {
                 TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncube, m) << "\n";);
                 n.pt().add_property(ncube, uses_level?n.level():infty_level);
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                model_node* p = n.parent();
-                if (p) {
-                    m_search.set_leaf(*p);
-                }            
+                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace",true), n);
                 break;
             }
             case l_undef: {

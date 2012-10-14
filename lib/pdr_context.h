@@ -171,10 +171,11 @@ namespace pdr {
         model_ref              m_model;
         ptr_vector<model_node> m_children;
         unsigned               m_level;
+        unsigned               m_orig_level;
         bool                   m_closed;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
-            m_parent(parent), m_pt(pt), m_state(state), m_model(0), m_level(level), m_closed(false) {
+            m_parent(parent), m_pt(pt), m_state(state), m_model(0), m_level(level), m_orig_level(level), m_closed(false) {
             if (m_parent) {
                 m_parent->m_children.push_back(this);
                 SASSERT(m_parent->m_level == level+1);
@@ -183,6 +184,8 @@ namespace pdr {
         }
         void set_model(model_ref& m) { m_model = m; }
         unsigned level() const { return m_level; }
+        unsigned orig_level() const { return m_orig_level; }
+        void     increase_level() { ++m_level; }
         expr*    state() const { return m_state; }
         ptr_vector<model_node> const& children() { return m_children; }
         pred_transformer& pt() const { return m_pt; }
@@ -245,6 +248,8 @@ namespace pdr {
         expr_ref get_trace() const;
 
         proof_ref get_proof_trace(context const& ctx) const;
+
+        void backtrack_level(bool uses_level, model_node& n);
     };
 
     struct model_exception { };
