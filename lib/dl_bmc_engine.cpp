@@ -215,6 +215,7 @@ namespace datalog {
     lbool bmc::check_linear() {
         for (unsigned i = 0; ; ++i) {
             IF_VERBOSE(1, verbose_stream() << "level: " << i << "\n";); 
+            checkpoint();
             compile_linear(i);
             lbool res = check_linear(i);
             if (res == l_undef) {

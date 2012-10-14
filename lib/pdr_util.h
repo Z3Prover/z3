@@ -214,7 +214,7 @@ class ternary_model_evaluator  : public model_evaluator_base {
     void del_model(expr* e);
     
     bool get_assignment(expr* e, expr*& var, expr*& val);
-    void prune_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
+    void prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
     void prune_by_probing(ptr_vector<expr> const & formulas, expr_ref_vector& model);
 
     //00 -- non-visited
@@ -246,7 +246,8 @@ public:
     ternary_model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m) {}
     virtual void minimize_model(ptr_vector<expr> const & formulas, expr_ref_vector & model);
 
-    void operator()(expr* e) { m_visited.mark(e, true); }
+    // for_each_expr visitor.
+    void operator()(expr* e) {} 
 };
 
 void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res);

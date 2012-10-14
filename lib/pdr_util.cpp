@@ -290,7 +290,7 @@ void ternary_model_evaluator::minimize_model(ptr_vector<expr> const & formulas, 
         for (unsigned i = 0; i < formulas.size(); ++i) tout << mk_pp(formulas[i], m) << "\n"; 
     );
 
-    prune_cone_of_influence(formulas, model);
+    prune_by_cone_of_influence(formulas, model);
 
     // prune_by_probing(formulas, model);
 
@@ -335,7 +335,7 @@ void ternary_model_evaluator::prune_by_probing(ptr_vector<expr> const& formulas,
     TRACE("pdr", tout << sz1 << " ==> " << model.size() << "\n";);
 }
 
-void ternary_model_evaluator::prune_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model) {
+void ternary_model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model) {
     ptr_vector<expr> todo, tocollect;
     todo.append(formulas);
     m_visited.reset();
@@ -364,28 +364,35 @@ void ternary_model_evaluator::prune_cone_of_influence(ptr_vector<expr> const & f
             case OP_EQ:
             case OP_IFF:
                 if (e->get_arg(0) == e->get_arg(1)) {
-                    break;
+                    // no-op                    
                 }
-                if (!m.is_bool(e->get_arg(0))) {
+                else if (!m.is_bool(e->get_arg(0))) {
                     tocollect.push_back(e);
-                    break;
                 }
-                todo.append(sz, args);
-                break;
-                              
+                else {
+                    todo.append(sz, args);
+                }
+                break;                              
             case OP_DISTINCT:
                 tocollect.push_back(e);
                 break;
             case OP_ITE:
-                if (e->get_arg(1) == e->get_arg(2)) {
-                    break;
+                if (args[1] == args[2]) {
+                    // 
                 }
-                todo.push_back(args[0]);
-                if (is_true(args[0])) {
+                else if (is_true(args[1]) && is_true(args[2])) {
+                    todo.append(2, args+1);
+                }
+                else if (is_false(args[2]) && is_false(args[2])) {
+                    todo.append(2, args+1);
+                }
+                else if (is_true(args[0])) {
+                    todo.push_back(args[0]);
                     todo.push_back(args[1]);
                 }
                 else {
                     SASSERT(is_false(args[0]));
+                    todo.push_back(args[0]);
                     todo.push_back(args[2]);
                 }
                 break;
@@ -395,8 +402,11 @@ void ternary_model_evaluator::prune_cone_of_influence(ptr_vector<expr> const & f
                 }
                 else {
                     unsigned i = 0;
-                    for (; !is_false(args[i]) && i < sz; ++i);
-                    SASSERT(i < sz);
+                    for (; !is_false(args[i]) && i < sz; ++i);     
+                    if (i == sz) {
+                        fatal_error(1);
+                    }
+                    VERIFY(i < sz);
                     todo.push_back(args[i]);
                 }
                 break;
@@ -404,7 +414,10 @@ void ternary_model_evaluator::prune_cone_of_influence(ptr_vector<expr> const & f
                 if (v) {
                     unsigned i = 0;
                     for (; !is_true(args[i]) && i < sz; ++i);
-                    SASSERT(i < sz);
+                    if (i == sz) {
+                        fatal_error(1);
+                    }
+                    VERIFY(i < sz);
                     todo.push_back(args[i]);
                 }
                 else {
