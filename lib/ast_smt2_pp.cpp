@@ -1130,3 +1130,11 @@ std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     return out;
 }
 
+#ifdef Z3DEBUG
+void pp(expr const * n, ast_manager & m) {
+    std::cout << mk_ismt2_pp(const_cast<expr*>(n), m) << std::endl;
+}
+void pp(expr_ref const & n) {
+    std::cout << mk_ismt2_pp(n.get(), n.m()) << std::endl;
+}
+#endif
