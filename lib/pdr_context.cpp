@@ -1619,7 +1619,7 @@ namespace pdr {
                 TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncube, m) << "\n";);
                 n.pt().add_property(ncube, uses_level?n.level():infty_level);
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace",true), n);
+                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace",false), n);
                 break;
             }
             case l_undef: {

@@ -186,7 +186,7 @@ void dl_interface::collect_params(param_descrs& p) {
     p.insert(":use-farkas", CPK_BOOL, "PDR: (default true) use lemma generator based on Farkas (for linear real arithmetic)");
     p.insert(":generate-proof-trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
     p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
-    p.insert(":flexible-trace", CPK_BOOL, "PDR: (default true) allow PDR generate long counter-examples by extending candidate trace within search area");
+    p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples by extending candidate trace within search area");
     PRIVATE_PARAMS(p.insert(":use-farkas-model", CPK_BOOL, "PDR: (default false) enable using Farkas generalization through model propagation"););
     PRIVATE_PARAMS(p.insert(":use-precondition-generalizer", CPK_BOOL, "PDR: (default false) enable generalizations from weakest pre-conditions"););
     PRIVATE_PARAMS(p.insert(":use-multicore-generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););
