@@ -105,14 +105,14 @@ namespace pdr {
             lit = core[i].get();
             core[i] = m.mk_true();
             state = m.mk_not(n.pt().get_pdr_manager().mk_and(core));
-            bool assumes_level = false;
-            if (n.pt().is_invariant(n.level(), state, true, assumes_level, 0)) {
+            bool uses_level_tmp = false;
+            if (n.pt().is_invariant(n.level(), state, true, uses_level_tmp, 0)) {
                 num_failures = 0;
                 core[i] = core.back();
                 core.pop_back();
                 TRACE("pdr", tout << "Remove: " << mk_pp(lit, m) << "\n";);
                 ++num_changes;
-                uses_level = assumes_level;
+                uses_level = uses_level_tmp;
             }
             else {
                 core[i] = lit;
@@ -120,6 +120,7 @@ namespace pdr {
                 ++i;
             }
         }
+        IF_VERBOSE(1, verbose_stream() << "changes: " << num_changes << " size: " << core.size() << "\n";);
         TRACE("pdr", tout << "changes: " << num_changes << " index: " << i << " size: " << core.size() << "\n";);
     }
 

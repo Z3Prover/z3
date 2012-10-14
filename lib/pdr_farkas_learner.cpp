@@ -514,7 +514,7 @@ namespace pdr {
 
         proof_ref pr(root, m);
         proof_utils::reduce_hypotheses(pr);
-        IF_VERBOSE(2, verbose_stream() << "Elim Hyps:\n" << mk_ismt2_pp(pr, m) << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "Elim Hyps:\n" << mk_ismt2_pp(pr, m) << "\n";);
         proof_utils::permute_unit_resolution(pr);
         
         ptr_vector<expr_set> hyprefs;
