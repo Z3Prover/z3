@@ -139,6 +139,7 @@ namespace pdr {
 
         lbool is_reachable(model_node& n, expr_ref_vector* core);
         bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = 0);
+        bool check_inductive(unsigned level, expr_ref_vector& state, bool& assumes_level);
 
         expr_ref get_formulas(unsigned level, bool add_axioms);
 
@@ -234,6 +235,8 @@ namespace pdr {
         void reset();
 
         model_node* next();
+
+        bool is_repeated(model_node& n) const;
 
         void add_leaf(model_node& n); // add fresh node.
 
