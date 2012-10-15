@@ -87,17 +87,12 @@ namespace smt2 {
             next();
         }
     }
-    
-    scanner::token scanner::read_symbol() {
-        SASSERT(m_normalized[static_cast<unsigned>(curr())] == 'a' || curr() == ':');
-        m_string.reset();
-        m_string.push_back(curr());
-        next();
-        
+
+    scanner::token scanner::read_symbol_core() {
         while (true) {
             char c = curr();
             char n = m_normalized[static_cast<unsigned char>(c)];
-            if (n == 'a' || n == '0') {
+            if (n == 'a' || n == '0' || n == '-') {
                 m_string.push_back(c);
                 next();
             }
@@ -108,6 +103,14 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
         }
+    }
+    
+    scanner::token scanner::read_symbol() {
+        SASSERT(m_normalized[static_cast<unsigned>(curr())] == 'a' || curr() == ':' || curr() == '-');
+        m_string.reset();
+        m_string.push_back(curr());
+        next();
+        read_symbol_core();
     }
     
     scanner::token scanner::read_number() {
@@ -139,6 +142,22 @@ namespace smt2 {
             m_number /= q;
         TRACE("scanner", tout << "new number: " << m_number << "\n";);
         return is_float ? FLOAT_TOKEN : INT_TOKEN;
+    }
+
+    scanner::token scanner::read_signed_number() {
+        SASSERT(curr() == '-');
+        next();
+        if ('0' <= curr() && curr() <= '9') {
+            scanner::token r = read_number();
+            m_number.neg();
+            return r;
+        }
+        else {
+            // it is a symbol.
+            m_string.reset();
+            m_string.push_back('-');
+            return read_symbol_core();
+        }
     }
     
     scanner::token scanner::read_string() {
@@ -222,7 +241,8 @@ namespace smt2 {
         }
     }
     
-    scanner::scanner(std::istream& stream, bool interactive):
+    scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive):
+        m_ctx(ctx),
         m_interactive(interactive), 
         m_spos(0),
         m_curr(0), // avoid Valgrind warning
@@ -259,7 +279,7 @@ namespace smt2 {
         m_normalized[static_cast<int>('&')] = 'a';
         m_normalized[static_cast<int>('*')] = 'a';
         m_normalized[static_cast<int>('_')] = 'a';
-        m_normalized[static_cast<int>('-')] = 'a';
+        m_normalized[static_cast<int>('-')] = '-';
         m_normalized[static_cast<int>('+')] = 'a';
         m_normalized[static_cast<int>('=')] = 'a';
         m_normalized[static_cast<int>('<')] = 'a';
@@ -304,6 +324,11 @@ namespace smt2 {
                 return read_number();
             case '#':
                 return read_bv_literal();
+            case '-':
+                if (m_ctx.is_smtlib2_compliant())
+                    return read_symbol();
+                else
+                    return read_signed_number();
             case -1:
                 return EOF_TOKEN;
             default: {

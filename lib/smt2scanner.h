@@ -31,6 +31,7 @@ namespace smt2 {
     
     class scanner {
     private:
+        cmd_context &      m_ctx;
         bool               m_interactive;
         int                m_spos; // position in the current line of the stream
         char               m_curr;  // current char;
@@ -73,7 +74,7 @@ namespace smt2 {
             EOF_TOKEN
         };
         
-        scanner(std::istream& stream, bool interactive = false);
+        scanner(cmd_context & ctx, std::istream& stream, bool interactive = false);
         
         ~scanner() {}    
         
@@ -85,10 +86,12 @@ namespace smt2 {
         char const * get_string() const { return m_string.begin(); }
         token scan();
         
+        token read_symbol_core();
         token read_symbol();
         token read_quoted_symbol();
         void read_comment();
         token read_number();
+        token read_signed_number();
         token read_string();
         token read_bv_literal();
 

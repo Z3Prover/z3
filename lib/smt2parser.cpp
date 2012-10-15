@@ -2353,7 +2353,7 @@ namespace smt2 {
     public:
         parser(cmd_context & ctx, std::istream & is, bool interactive):
             m_ctx(ctx), 
-            m_scanner(is, interactive), 
+            m_scanner(ctx, is, interactive), 
             m_curr(scanner::NULL_TOKEN),
             m_curr_cmd(0),
             m_num_bindings(0),
