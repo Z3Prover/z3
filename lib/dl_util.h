@@ -467,8 +467,8 @@ namespace datalog {
 
     void del_rule(horn_subsume_model_converter* mc, rule& r);
 
-    void resolve_rule(replace_proof_converter* pc, rule& r1, rule& r2, unsigned idx, 
-                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res);
+    void resolve_rule(replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
+                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res);
 
     model_converter* mk_skip_model_converter();
 

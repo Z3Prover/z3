@@ -259,7 +259,7 @@ namespace datalog {
             rm(ctx.get_rule_manager()),
             m_pinned_rules(rm),
             m_pinned_exprs(m),
-            m_unifier(rm, ctx, m) {}
+            m_unifier(ctx) {}
 
         void insert(rule* orig_rule, rule* slice_rule, unsigned sz, unsigned const* renaming) {
             m_rule2slice.insert(orig_rule, slice_rule);

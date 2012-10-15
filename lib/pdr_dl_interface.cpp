@@ -30,6 +30,7 @@ Revision History:
 #include "pdr_dl_interface.h"
 #include "dl_rule_set.h"
 #include "dl_mk_slice.h"
+#include "dl_mk_unfold.h"
 
 using namespace pdr;
 
@@ -117,6 +118,17 @@ lbool dl_interface::query(expr * query) {
         m_ctx.set_output_predicate(query_pred);
     }
 
+    if (m_ctx.get_params().get_uint(":unfold-rules",0) > 0) {
+        unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules",0);
+        datalog::rule_transformer transformer(m_ctx);
+        datalog::mk_unfold* unfold = alloc(datalog::mk_unfold, m_ctx);
+        transformer.register_plugin(unfold);
+        while (num_unfolds > 0) {
+            m_ctx.transform_rules(transformer, mc, pc);        
+            --num_unfolds;
+        }
+    }
+
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
     m_pdr_rules.add_rules(m_ctx.get_rules());
     m_pdr_rules.close();
@@ -187,6 +199,7 @@ void dl_interface::collect_params(param_descrs& p) {
     p.insert(":generate-proof-trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
     p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
     p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples by extending candidate trace within search area");
+    p.insert(":unfold-rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
     PRIVATE_PARAMS(p.insert(":use-farkas-model", CPK_BOOL, "PDR: (default false) enable using Farkas generalization through model propagation"););
     PRIVATE_PARAMS(p.insert(":use-precondition-generalizer", CPK_BOOL, "PDR: (default false) enable generalizations from weakest pre-conditions"););
     PRIVATE_PARAMS(p.insert(":use-multicore-generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););

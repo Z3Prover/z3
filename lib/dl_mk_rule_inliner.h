@@ -40,24 +40,25 @@ namespace datalog {
         bool           m_ready;
         unsigned       m_deltas[2];
     public:
-        rule_unifier(rule_manager& rm, context& ctx, ast_manager& m)
-            : m(m), m_rm(rm), m_context(ctx), m_interp_simplifier(ctx), m_subst(m), m_unif(m), m_ready(false) {}
+        rule_unifier(context& ctx)
+            : m(ctx.get_manager()), m_rm(ctx.get_rule_manager()), m_context(ctx), 
+              m_interp_simplifier(ctx), m_subst(m), m_unif(m), m_ready(false) {}
             
         /** Reset subtitution and unify tail tgt_idx of the target rule and the head of the src rule */
-        bool unify_rules(const rule& tgt, unsigned tgt_idx, const rule& src);
+        bool unify_rules(rule const& tgt, unsigned tgt_idx, rule const& src);
 
         /**
            \brief Apply unifier to rules.
            Return false if the resulting rule is a tautology (the interpreted tail is unsat).
         */
-        bool apply(rule& tgt, unsigned tgt_idx, rule& src, rule_ref& result);
+        bool apply(rule const& tgt, unsigned tgt_idx, rule const& src, rule_ref& result);
 
         void display(std::ostream& stm) { m_subst.display(stm, 2, m_deltas); }
 
         /**
            Retrieve substitutions for src/tgt. (second argument of unify_rules).
         */
-        expr_ref_vector get_rule_subst(const rule& r, bool is_tgt);
+        expr_ref_vector get_rule_subst(rule const& r, bool is_tgt);
 
     private:
         void apply(app * a, bool is_tgt, app_ref& res);
@@ -66,7 +67,7 @@ namespace datalog {
            Apply substitution to a rule tail. Tail with skipped_index is skipped, 
            unless skipped_index is equal to UINT_MAX
         */        
-        void apply(rule& r, bool is_tgt, unsigned skipped_index, app_ref_vector& res, 
+        void apply(rule const& r, bool is_tgt, unsigned skipped_index, app_ref_vector& res, 
                    svector<bool>& res_neg);
         
     };
@@ -178,7 +179,7 @@ namespace datalog {
             m_simp(m_context.get_rewriter()),
             m_pinned(m_rm),
             m_inlined_rules(m_context),
-            m_unifier(ctx.get_rule_manager(), ctx, m),
+            m_unifier(ctx),
             m_mc(0),
             m_pc(0),
             m_head_index(m),

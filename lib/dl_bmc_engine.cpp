@@ -118,7 +118,7 @@ namespace datalog {
          expr_ref level_query = mk_level_predicate(m_query_pred, level);
          model_ref md;
          proof_ref pr(m);
-         rule_unifier unifier(rm, m_ctx, m);
+         rule_unifier unifier(m_ctx);
          m_solver.get_model(md);
          func_decl* pred = m_query_pred;
          SASSERT(m.is_true(md->get_const_interp(to_app(level_query)->get_decl())));

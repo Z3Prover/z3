@@ -110,7 +110,7 @@ namespace smt2 {
         m_string.reset();
         m_string.push_back(curr());
         next();
-        read_symbol_core();
+        return read_symbol_core();
     }
     
     scanner::token scanner::read_number() {

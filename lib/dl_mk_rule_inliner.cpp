@@ -91,7 +91,7 @@ namespace datalog {
     }
 
     void rule_unifier::apply(
-        rule& r, bool is_tgt, unsigned skipped_index, 
+        rule const& r, bool is_tgt, unsigned skipped_index, 
         app_ref_vector& res, svector<bool>& res_neg) {
         unsigned rule_len = r.get_tail_size();
         for (unsigned i = 0; i < rule_len; i++) {
@@ -104,7 +104,7 @@ namespace datalog {
         }
     }
 
-    bool rule_unifier::apply(rule& tgt, unsigned tail_index, rule& src, rule_ref& res) {
+    bool rule_unifier::apply(rule const& tgt, unsigned tail_index, rule const& src, rule_ref& res) {
         SASSERT(m_ready);
         app_ref new_head(m);
         app_ref_vector tail(m);
@@ -116,7 +116,7 @@ namespace datalog {
         mk_rule_inliner::remove_duplicate_tails(tail, tail_neg);
         SASSERT(tail.size()==tail_neg.size());
         res = m_rm.mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
-        res->set_accounting_parent_object(m_context, &tgt);
+        res->set_accounting_parent_object(m_context, const_cast<rule*>(&tgt));
         res->norm_vars(m_rm);
         if (m_context.fix_unbound_vars()) {
             m_rm.fix_unbound_vars(res, true);

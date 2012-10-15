@@ -615,8 +615,8 @@ namespace datalog {
         }
     }
 
-    void resolve_rule(replace_proof_converter* pc, rule& r1, rule& r2, unsigned idx, 
-                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res) {
+    void resolve_rule(replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
+                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res) {
         if (!pc) return;
         ast_manager& m = s1.get_manager();
         dl_decl_util util(m);

@@ -1026,7 +1026,7 @@ namespace pdr {
         ast_manager& m = pt.get_manager();
         datalog::context& dctx = ctx.get_context();
         datalog::rule_manager& rm = dctx.get_rule_manager();
-        datalog::rule_unifier unifier(rm, dctx, m);
+        datalog::rule_unifier unifier(dctx);
         datalog::dl_decl_util util(m);
         datalog::rule_ref r0(rm), r1(rm);
         obj_map<expr, proof*> cache;
