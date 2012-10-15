@@ -30,6 +30,10 @@ Version 4.2
 - Z3 by default switches to an incremental solver when a Solver object is used to solve many queries.
   In the this version, we switch back to the tactic framework if the incremental solver returns "unknown".
 
+- Allow negative numerals in the SMT 2.0 frontend. That is, Z3 SMT 2.0 parser now accepts numerals such as "-2". It is not needed to encode them as "(- 2)" anymore.
+  The parser still accepts -foo as a symbol. That is, it is *not* a shorthand for (- foo).
+  This feature is disabled when SMTLIB2_COMPLIANT=true is set in the command line.
+
 - Now, Z3 can be compiled inside cygwin using gcc.
 
 - Fixed bug in the unsat core generation.

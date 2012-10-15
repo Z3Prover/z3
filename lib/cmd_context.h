@@ -246,6 +246,7 @@ protected:
 public:
     cmd_context(front_end_params & params, bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
+    bool is_smtlib2_compliant() const { return m_params.m_smtlib2_compliant; }
     void set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }
