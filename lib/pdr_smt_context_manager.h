@@ -40,6 +40,7 @@ namespace pdr {
         virtual void assert_expr(expr* e) = 0;
         virtual lbool check(expr_ref_vector& assumptions) = 0;
         virtual void get_model(model_ref& model) = 0;
+        virtual proof* get_proof() = 0;
         virtual unsigned get_unsat_core_size() = 0;
         virtual expr* get_unsat_core_expr(unsigned i) = 0;
         virtual void push() = 0;
@@ -62,6 +63,7 @@ namespace pdr {
         virtual void assert_expr(expr* e);
         virtual lbool check(expr_ref_vector& assumptions);
         virtual void get_model(model_ref& model);
+        virtual proof* get_proof();
         virtual void push() { m_context.push(); }
         virtual void pop() { m_context.pop(1); }
         virtual unsigned get_unsat_core_size() { return m_context.get_unsat_core_size(); }
@@ -77,6 +79,7 @@ namespace pdr {
         virtual void assert_expr(expr* e);
         virtual lbool check(expr_ref_vector& assumptions);
         virtual void get_model(model_ref& model);
+        virtual proof* get_proof();
         virtual void pop() { m_solver.pop(1); }
         virtual void push() { m_solver.push(); }
         // TBD: add unsat core extraction with sat::solver.

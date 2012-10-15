@@ -99,28 +99,26 @@ namespace pdr {
         }
         ast_manager& m = core.get_manager();
         TRACE("pdr", for (unsigned i = 0; i < core.size(); ++i) { tout << mk_pp(core[i].get(), m) << "\n"; } "\n";);
-        unsigned num_failures = 0, i = 0, num_changes = 0;
-        while (i < core.size() && (!m_failure_limit || num_failures <= m_failure_limit)) {
-            expr_ref lit(m), state(m);
+        unsigned num_failures = 0, i = 0, old_core_size = core.size();
+        ptr_vector<expr> processed;
+
+        while (i < core.size() && 1 < core.size() && (!m_failure_limit || num_failures <= m_failure_limit)) {
+            expr_ref lit(m);
             lit = core[i].get();
-            core[i] = m.mk_true();
-            state = m.mk_not(n.pt().get_pdr_manager().mk_and(core));
-            bool assumes_level = false;
-            if (n.pt().is_invariant(n.level(), state, true, assumes_level, 0)) {
+            core[i] = m.mk_true();            
+            if (n.pt().check_inductive(n.level(), core, uses_level)) {
                 num_failures = 0;
-                core[i] = core.back();
-                core.pop_back();
-                TRACE("pdr", tout << "Remove: " << mk_pp(lit, m) << "\n";);
-                ++num_changes;
-                uses_level = assumes_level;
+                for (i = 0; i < core.size() && processed.contains(core[i].get()); ++i);
             }
             else {
                 core[i] = lit;
+                processed.push_back(lit);
                 ++num_failures;
                 ++i;
             }
         }
-        TRACE("pdr", tout << "changes: " << num_changes << " index: " << i << " size: " << core.size() << "\n";);
+        IF_VERBOSE(2, verbose_stream() << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
+        TRACE("pdr", tout << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
     }
 
     //

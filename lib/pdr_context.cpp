@@ -382,16 +382,15 @@ namespace pdr {
     }
 
     lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core) {
-        unsigned level = n.level();
-        expr* state = n.state();
+        TRACE("pdr", 
+              tout << "is-reachable: " << head()->get_name() << " level: " << n.level() << "\n";
+              tout << mk_pp(n.state(), m) << "\n";);
+        ensure_level(n.level());   
         model_ref model;
-        ensure_level(level);        
-        prop_solver::scoped_level _sl(m_solver, level);
-        TRACE("pdr", tout << "is-reachable: " << head()->get_name() << " level: " << level << "\n";
-              tout << mk_pp(state, m) << "\n";);
-
-        bool assumes_level;
-        lbool is_sat = m_solver.check_conjunction_as_assumptions(state, core, &model, assumes_level);
+        prop_solver::scoped_level _sl(m_solver, n.level());
+        m_solver.set_core(core);
+        m_solver.set_model(&model);
+        lbool is_sat = m_solver.check_conjunction_as_assumptions(n.state());
         if (is_sat == l_true && core) {            
             core->reset();
             model2cube(*model, *core);
@@ -411,7 +410,31 @@ namespace pdr {
         }
         tmp = pm.mk_and(conj);
         prop_solver::scoped_level _sl(m_solver, level);
-        return m_solver.check_conjunction_as_assumptions(tmp, core, 0, assumes_level) == l_false;
+        m_solver.set_core(core);
+        lbool r = m_solver.check_conjunction_as_assumptions(tmp);
+        if (r == l_false) {
+            assumes_level = m_solver.assumes_level();
+        }
+        return r == l_false;
+    }
+
+    bool pred_transformer::check_inductive(unsigned level, expr_ref_vector& lits, bool& assumes_level) {
+        manager& pm = get_pdr_manager();
+        expr_ref_vector conj(m), core(m);
+        expr_ref fml(m), states(m);
+        states = m.mk_not(pm.mk_and(lits));
+        mk_assumptions(head(), states, conj);
+        fml = pm.mk_and(conj);
+        prop_solver::scoped_level _sl(m_solver, level);
+        m_solver.set_core(&core);
+        m_solver.set_subset_based_core(true);
+        lbool res = m_solver.check_assumptions_and_formula(lits, fml);
+        if (res == l_false) {
+            lits.reset();
+            lits.append(core);
+            assumes_level = m_solver.assumes_level();
+        }
+        return res == l_false;
     }
 
     void pred_transformer::mk_assumptions(func_decl* head, expr* fml, expr_ref_vector& result) {
@@ -425,7 +448,6 @@ namespace pdr {
             for (unsigned i = 0; i < m_predicates.size(); i++) {
                 func_decl* d = m_predicates[i];
                 if (d == head) {
-                    // tmp1 = (m_tag2rule.size() == 1)?fml:m.mk_implies(pred, fml);
                     tmp1 = m.mk_implies(pred, fml);
                     pm.formula_n2o(tmp1, tmp2, i);
                     result.push_back(tmp2);
@@ -667,18 +689,8 @@ namespace pdr {
     }
 
     void pred_transformer::model2cube(app* c, expr* val, expr_ref_vector& res) const {
-        datatype_util dt(m);
         if (m.is_bool(val)) {
             res.push_back(m.is_true(val)?c:m.mk_not(c));
-        }
-        else if (is_app(val) && dt.is_constructor(to_app(val))) {
-            func_decl* f = to_app(val)->get_decl();
-            func_decl* r = dt.get_constructor_recognizer(f);
-            res.push_back(m.mk_app(r,c));
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
-            for (unsigned i = 0; i < acc.size(); ++i) {
-                model2cube(m.mk_app(acc[i], c), to_app(val)->get_arg(i), res);
-            }
         }
         else {
             res.push_back(m.mk_eq(c, val));
@@ -893,10 +905,21 @@ namespace pdr {
         return result;
     }
 
+    bool model_search::is_repeated(model_node& n) const {
+        model_node* p = n.parent();
+        while (p) {
+            if (p->state() == n.state()) {
+                return true;
+            }
+            p = p->parent();
+        }
+        return false;
+    }
+
     void model_search::add_leaf(model_node& n) {
         unsigned& count = cache(n).insert_if_not_there2(n.state(), 0)->get_data().m_value;
         ++count;
-        if (count == 1) {
+        if (count == 1 || is_repeated(n)) {
             set_leaf(n);
         }
         else {
@@ -924,7 +947,7 @@ namespace pdr {
     }
 
     obj_map<expr, unsigned>& model_search::cache(model_node const& n) {
-        unsigned l = n.level();
+        unsigned l = n.orig_level();
         if (l >= m_cache.size()) {
             m_cache.resize(l + 1);
         }
@@ -954,7 +977,6 @@ namespace pdr {
     }
 
     void model_search::erase_leaf(model_node& n) {
-
         if (n.children().empty() && n.is_open()) {
             std::deque<model_node*>::iterator 
                 it  = m_leaves.begin(), 
@@ -1118,6 +1140,21 @@ namespace pdr {
         }
     }
 
+    void model_search::backtrack_level(bool uses_level, model_node& n) {
+        SASSERT(m_root);
+        if (uses_level && m_root->level() > n.level()) {
+            IF_VERBOSE(2, verbose_stream() << "Increase level " << n.level() << "\n";);
+            n.increase_level();
+            m_leaves.push_back(&n);
+        }
+        else {
+            model_node* p = n.parent();
+            if (p) {
+                set_leaf(*p);
+            }               
+        }     
+    }
+
     // ----------------
     // context
 
@@ -1142,6 +1179,8 @@ namespace pdr {
     }
 
     context::~context() {
+        reset_model_generalizers();
+        reset_core_generalizers();
         reset();
     }
 
@@ -1153,10 +1192,6 @@ namespace pdr {
             dealloc(it->m_value);
         }
         m_rels.reset();
-        std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
-        std::for_each(m_core_generalizers.begin(),  m_core_generalizers.end(),  delete_proc<core_generalizer>());
-        m_model_generalizers.reset();
-        m_core_generalizers.reset();
         m_search.reset();
         m_query = 0;       
         m_last_result = l_undef;
@@ -1206,6 +1241,8 @@ namespace pdr {
 
     void context::update_rules(datalog::rule_set& rules) {
         decl2rel rels;
+        init_model_generalizers(rules);
+        init_core_generalizers(rules);
         init_rules(rules, rels); 
         decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
@@ -1219,8 +1256,6 @@ namespace pdr {
         for (; it != end; ++it) {
             m_rels.insert(it->m_key, it->m_value);
         }
-        init_model_generalizers();
-        init_core_generalizers();
         VERIFY(m_rels.find(m_query_pred, m_query));
     }
 
@@ -1257,52 +1292,23 @@ namespace pdr {
         pt->add_cover(lvl, property);
     }
 
-
-    class context::is_propositional_proc {
+    class context::classifier_proc {
         ast_manager& m;
-        arith_util   a;
-        bool m_is_propositional;        
-    public:
-        is_propositional_proc(ast_manager& m):m(m), a(m), m_is_propositional(true) {}
-        void operator()(expr* e) {
-            if (m_is_propositional) {
-                
-                if (!m.is_bool(e) && !a.is_int_real(e)) {
-                    m_is_propositional = false;
-                }
-                else if (!is_app(e)) {
-                    m_is_propositional = false;
-                }
-                else if (to_app(e)->get_num_args() > 0 &&
-                         to_app(e)->get_family_id() != m.get_basic_family_id() &&
-                         to_app(e)->get_family_id() != a.get_family_id()) {
-                    m_is_propositional = false;
-                }
-            }
-        }
-        bool is_propositional() { return m_is_propositional; }        
-    };
-
-    bool context::is_propositional() {
-        expr_fast_mark1 mark;
-        is_propositional_proc proc(m);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();        
-        for (; proc.is_propositional() && it != end; ++it) {            
-            quick_for_each_expr(proc, mark, it->m_value->transition());
-        }
-        return proc.is_propositional();
-    }
-
-    class context::is_bool_proc {
-        ast_manager& m;
+        arith_util a;
         bool m_is_bool;
+        bool m_is_bool_arith;
     public:
-        is_bool_proc(ast_manager& m):m(m), m_is_bool(true) {}
+        classifier_proc(ast_manager& m, datalog::rule_set& rules):
+            m(m), a(m), m_is_bool(true), m_is_bool_arith(true) {
+            classify(rules);
+        }
         void operator()(expr* e) {
-            if (m_is_bool) {
-                
+            if (m_is_bool) {                
                 if (!m.is_bool(e)) {
                     m_is_bool = false;
+                }
+                else if (is_var(e)) {
+                    // no-op.
                 }
                 else if (!is_app(e)) {
                     m_is_bool = false;
@@ -1312,44 +1318,101 @@ namespace pdr {
                     m_is_bool = false;
                 }
             }
+            if (m_is_bool_arith) {                
+                if (!m.is_bool(e) && !a.is_int_real(e)) {
+                    m_is_bool_arith = false;
+                }
+                else if (is_var(e)) {
+                    // no-op
+                }
+                else if (!is_app(e)) {
+                    m_is_bool_arith = false;
+                }
+                else if (to_app(e)->get_num_args() > 0 &&
+                         to_app(e)->get_family_id() != m.get_basic_family_id() &&
+                         to_app(e)->get_family_id() != a.get_family_id()) {
+                    m_is_bool_arith = false;
+                }
+            }
         }
-        bool is_bool() { return m_is_bool; }
+
+        bool is_bool() const { return m_is_bool; }
+
+        bool is_bool_arith() const { return m_is_bool_arith; }
+
+
+    private:
+
+        void classify(datalog::rule_set& rules) {
+            expr_fast_mark1 mark;
+            datalog::rule_set::iterator it = rules.begin(), end = rules.end();        
+            for (; it != end; ++it) {      
+                datalog::rule& r = *(*it);
+                classify_pred(mark, r.get_head());
+                unsigned utsz = r.get_uninterpreted_tail_size();
+                for (unsigned i = 0; i < utsz; ++i) {
+                    classify_pred(mark, r.get_tail(i));                
+                }
+                for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
+                    quick_for_each_expr(*this, mark, r.get_tail(i));
+                }
+            }
+        }
+
+        void classify_pred(expr_fast_mark1& mark, app* pred) {
+            for (unsigned i = 0; i < pred->get_num_args(); ++i) {
+                quick_for_each_expr(*this, mark, pred->get_arg(i));
+            }
+        }
     };
 
-    bool context::is_bool() {
-        expr_fast_mark1 mark;
-        is_bool_proc proc(m);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();        
-        for (; proc.is_bool() && it != end; ++it) {            
-            quick_for_each_expr(proc, mark, it->m_value->transition());
-        }
-        return proc.is_bool();
+
+    void context::reset_model_generalizers() {
+        std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
+        m_model_generalizers.reset();
     }
 
-
-    void context::init_model_generalizers() {
-        if (is_propositional()) {
+    void context::init_model_generalizers(datalog::rule_set& rules) {
+        reset_model_generalizers();
+        classifier_proc classify(m, rules);
+        if (classify.is_bool_arith()) {
             m_model_generalizers.push_back(alloc(bool_model_evaluation_generalizer, *this, m));
         }
         else {
             m_model_generalizers.push_back(alloc(model_evaluation_generalizer, *this, m));
         }
-
         if (m_params.get_bool(":use-farkas-model", false)) {
             m_model_generalizers.push_back(alloc(model_farkas_generalizer, *this));
         }        
-
         if (m_params.get_bool(":use-precondition-generalizer", false)) {
             m_model_generalizers.push_back(alloc(model_precond_generalizer, *this));
         }
     }
 
-    void context::init_core_generalizers() {
+    void context::reset_core_generalizers() {
+        std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
+        m_core_generalizers.reset();
+    }
+
+    void context::init_core_generalizers(datalog::rule_set& rules) {
+        reset_core_generalizers();
+        classifier_proc classify(m, rules);
         if (m_params.get_bool(":use-multicore-generalizer", false)) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this));
         }
-        if (m_params.get_bool(":use-farkas", true) && !is_bool()) {
-            m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
+        if (m_params.get_bool(":use-farkas", true) && !classify.is_bool()) {
+            if (m_params.get_bool(":inline-proof-mode", true)) {
+                m.toggle_proof_mode(PGM_FINE);
+                m_fparams.m_proof_mode = PGM_FINE;
+                m_fparams.m_arith_bound_prop = BP_NONE;
+                m_fparams.m_arith_auto_config_simplex = true;
+                m_fparams.m_arith_propagate_eqs = false;
+                m_fparams.m_arith_eager_eq_axioms = false;
+                m_fparams.m_arith_eq_bounds = false;
+            }
+            else {
+                m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
+            }
         }
         if (m_params.get_bool(":use-farkas-properties", false)) {
             m_core_generalizers.push_back(alloc(core_farkas_properties_generalizer, *this));
@@ -1588,10 +1651,7 @@ namespace pdr {
                 TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncube, m) << "\n";);
                 n.pt().add_property(ncube, uses_level?n.level():infty_level);
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                model_node* p = n.parent();
-                if (p) {
-                    m_search.set_leaf(*p);
-                }            
+                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace", false), n);
                 break;
             }
             case l_undef: {

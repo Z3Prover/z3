@@ -139,6 +139,7 @@ namespace pdr {
 
         lbool is_reachable(model_node& n, expr_ref_vector* core);
         bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = 0);
+        bool check_inductive(unsigned level, expr_ref_vector& state, bool& assumes_level);
 
         expr_ref get_formulas(unsigned level, bool add_axioms);
 
@@ -171,10 +172,11 @@ namespace pdr {
         model_ref              m_model;
         ptr_vector<model_node> m_children;
         unsigned               m_level;
+        unsigned               m_orig_level;
         bool                   m_closed;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
-            m_parent(parent), m_pt(pt), m_state(state), m_model(0), m_level(level), m_closed(false) {
+            m_parent(parent), m_pt(pt), m_state(state), m_model(0), m_level(level), m_orig_level(level), m_closed(false) {
             if (m_parent) {
                 m_parent->m_children.push_back(this);
                 SASSERT(m_parent->m_level == level+1);
@@ -183,6 +185,8 @@ namespace pdr {
         }
         void set_model(model_ref& m) { m_model = m; }
         unsigned level() const { return m_level; }
+        unsigned orig_level() const { return m_orig_level; }
+        void     increase_level() { ++m_level; }
         expr*    state() const { return m_state; }
         ptr_vector<model_node> const& children() { return m_children; }
         pred_transformer& pt() const { return m_pt; }
@@ -232,6 +236,8 @@ namespace pdr {
 
         model_node* next();
 
+        bool is_repeated(model_node& n) const;
+
         void add_leaf(model_node& n); // add fresh node.
 
         void set_leaf(model_node& n); // Set node as leaf, remove children.
@@ -245,6 +251,8 @@ namespace pdr {
         expr_ref get_trace() const;
 
         proof_ref get_proof_trace(context const& ctx) const;
+
+        void backtrack_level(bool uses_level, model_node& n);
     };
 
     struct model_exception { };
@@ -324,12 +332,9 @@ namespace pdr {
 
 
         // Initialization
-        class is_propositional_proc;
-        bool is_propositional();
-        class is_bool_proc;
-        bool is_bool();
-        void init_model_generalizers(); 
-        void init_core_generalizers();
+        class classifier_proc;
+        void init_model_generalizers(datalog::rule_set& rules); 
+        void init_core_generalizers(datalog::rule_set& rules);
 
         bool check_invariant(unsigned lvl);
         bool check_invariant(unsigned lvl, func_decl* fn);
@@ -339,6 +344,9 @@ namespace pdr {
         void init_rules(datalog::rule_set& rules, decl2rel& transformers);
 
         void simplify_formulas();
+
+        void reset_model_generalizers();
+        void reset_core_generalizers();
 
     public:       
         

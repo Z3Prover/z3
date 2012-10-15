@@ -736,6 +736,7 @@
     <ClCompile Include="propagate_ineqs_tactic.cpp" />
     <ClCompile Include="proof_checker.cpp" />
     <ClCompile Include="proof_converter.cpp" />
+    <ClCompile Include="proof_utils.cpp" />
     <ClCompile Include="proto_model.cpp" />
     <ClCompile Include="pdecl.cpp" />
     <ClCompile Include="pull_ite_tree.cpp" />
@@ -1151,6 +1152,7 @@
     <ClInclude Include="preprocessor.h" />
     <ClInclude Include="preprocessor_params.h" />
     <ClInclude Include="proof_checker.h" />
+    <ClInclude Include="proof_utils.h" />
     <ClInclude Include="pull_ite_tree.h" />
     <ClInclude Include="pull_quant.h" />
     <ClInclude Include="push_app_ite.h" />

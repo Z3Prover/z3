@@ -30,12 +30,10 @@ Revision History:
 #include "front_end_params.h"
 #include "tactic.h"
 
-
 namespace pdr {
 
 class farkas_learner {
     class farkas_collector;
-    class asserted_premise_collector;
     class constant_replacer_cfg;
     class equality_expander_cfg;
     class constr;
@@ -43,10 +41,8 @@ class farkas_learner {
     typedef obj_hashtable<expr> expr_set;
 
     front_end_params         m_proof_params;
-    ast_manager              m;
-    bool_rewriter            m_brwr;       /** bool rewriter for m_proof_mgr */
+    ast_manager              m_pr;
     scoped_ptr<smt::solver>  m_ctx;
-    scoped_ptr<tactic>       m_simplifier;
 
 
     static front_end_params get_proof_params(front_end_params& orig_params);
@@ -68,21 +64,13 @@ class farkas_learner {
 
     bool try_ensure_lemma_in_language(expr_ref& lemma, expr* A, const func_decl_set& lang);
 
-    bool is_farkas_lemma(expr* e);
-    
-    void get_lemmas(proof* root, expr_set const& bs, func_decl_set const& Bsymbs, expr* A, expr_ref_vector& lemmas);
-
-    void get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, expr_ref_vector& lemmas);
-
-    void permute_unit_resolution(proof_ref& pr);
-
-    void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr);
+    bool is_farkas_lemma(ast_manager& m, expr* e);
+   
+    void get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, obj_hashtable<expr>& lemma_set, expr_ref_vector& lemmas);
 
     bool is_pure_expr(func_decl_set const& symbs, expr* e) const;
 
     static void test();
-
-    void simplify_lemmas(expr_ref_vector& lemmas);
 
 public:
     farkas_learner(front_end_params& params, ast_manager& m);
@@ -99,6 +87,16 @@ public:
     */
 
     bool get_lemma_guesses(expr * A, expr * B, expr_ref_vector& lemmas);
+
+    /**
+        Traverse a proof and retrieve lemmas using the vocabulary from bs.
+    */
+    void get_lemmas(proof* root, expr_set const& bs, expr_ref_vector& lemmas);
+
+    /**
+       \brief Simplify lemmas using subsumption.
+     */
+    void simplify_lemmas(expr_ref_vector& lemmas);
 
     void collect_statistics(statistics& st) const;
 

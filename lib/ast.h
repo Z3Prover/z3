@@ -1835,7 +1835,9 @@ public:
     bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
     bool is_true(expr const * n) const { return n == m_true; }
     bool is_false(expr const * n) const { return n == m_false; }
-    bool is_complement_core(expr const * n1, expr const * n2) const { return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2); }
+    bool is_complement_core(expr const * n1, expr const * n2) const { 
+        return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2);
+    }
     bool is_complement(expr const * n1, expr const * n2) const { return is_complement_core(n1, n2) || is_complement_core(n2, n1); }
 
     bool is_or(func_decl const * d) const { return is_decl_of(d, m_basic_family_id, OP_OR); }

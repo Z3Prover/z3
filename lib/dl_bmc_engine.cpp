@@ -27,6 +27,7 @@ Revision History:
 #include "dl_decl_plugin.h"
 #include "bool_rewriter.h"
 #include "model_smt2_pp.h"
+#include "ast_smt_pp.h"
 
 namespace datalog {
     bmc::bmc(context& ctx): 
@@ -214,6 +215,7 @@ namespace datalog {
     lbool bmc::check_linear() {
         for (unsigned i = 0; ; ++i) {
             IF_VERBOSE(1, verbose_stream() << "level: " << i << "\n";); 
+            checkpoint();
             compile_linear(i);
             lbool res = check_linear(i);
             if (res == l_undef) {
@@ -711,7 +713,11 @@ namespace datalog {
             md->eval(trace, trace);
             md->eval(path, path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";);
-            IF_VERBOSE(2, m_solver.display(verbose_stream()); verbose_stream() << "\n";);
+            ast_smt_pp pp(m);
+            for (unsigned i = 0; i < m_solver.size(); ++i) {
+                pp.add_assumption(m_solver.get_formulas()[i]);
+            }
+            IF_VERBOSE(2, pp.display_smt2(verbose_stream(), m.mk_true()); verbose_stream() << "\n";);
             m_answer = get_proof(md, to_app(trace), to_app(path));
             is_sat = l_true;
         }
