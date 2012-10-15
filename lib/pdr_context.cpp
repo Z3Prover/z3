@@ -386,6 +386,7 @@ namespace pdr {
               tout << "is-reachable: " << head()->get_name() << " level: " << n.level() << "\n";
               tout << mk_pp(n.state(), m) << "\n";);
         ensure_level(n.level());        
+        model_ref model;
         prop_solver::scoped_level _sl(m_solver, n.level());
         m_solver.set_core(core);
         m_solver.set_model(&model);

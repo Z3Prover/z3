@@ -40,11 +40,10 @@ namespace datalog {
         m_query_pred(m),
         m_answer(m),
         m_path_sort(m) {
-            m_fparams.m_relevancy_lvl = 0;
-            m_fparams.m_model = true;
-            m_fparams.m_model_compact = true;
-            m_fparams.m_mbqi = false;
-            m_fparams.m_auto_config = false;
+        m_fparams.m_model = true;
+        m_fparams.m_model_compact = true;
+        m_fparams.m_mbqi = false;
+        // m_fparams.m_auto_config = false;
         }
 
     bmc::~bmc() {}
@@ -99,9 +98,8 @@ namespace datalog {
             return check_linear();
         }
         else {
+            IF_VERBOSE(0, verbose_stream() << "WARNING: non-linear BMC is highly inefficient\n";);
             return check_nonlinear();
-            IF_VERBOSE(1, verbose_stream() << "non-linear BMC is not supported\n";);
-            return l_undef;
         }
     }
 
@@ -213,6 +211,7 @@ namespace datalog {
 
 
     lbool bmc::check_linear() {
+        m_fparams.m_relevancy_lvl = 0;
         for (unsigned i = 0; ; ++i) {
             IF_VERBOSE(1, verbose_stream() << "level: " << i << "\n";); 
             checkpoint();
@@ -365,6 +364,7 @@ namespace datalog {
 
 
     lbool bmc::check_nonlinear() {
+        m_fparams.m_relevancy_lvl = 2;
         declare_datatypes();
         compile_nonlinear();        
         return check_query();      
@@ -702,27 +702,50 @@ namespace datalog {
         func_decl_ref q = mk_predicate(m_query_pred);
         expr_ref trace(m), path(m);
         trace = m.mk_const(symbol("trace"), trace_sort);
-        path  = m.mk_const(symbol("path"),m_path_sort);
+        path  = m.mk_const(symbol("path"), m_path_sort);
         assert_expr(m.mk_app(q, trace.get(), path.get()));
-        lbool is_sat = m_solver.check();
-        if (is_sat == l_undef) {
+        while (true) {
+            lbool is_sat = m_solver.check();
             model_ref md;
-            proof_ref pr(m);
-            m_solver.get_model(md);
-            IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            md->eval(trace, trace);
-            md->eval(path, path);
-            IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";);
-            ast_smt_pp pp(m);
-            for (unsigned i = 0; i < m_solver.size(); ++i) {
-                pp.add_assumption(m_solver.get_formulas()[i]);
+            if (is_sat == l_false) {
+                return is_sat;
             }
-            IF_VERBOSE(2, pp.display_smt2(verbose_stream(), m.mk_true()); verbose_stream() << "\n";);
-            m_answer = get_proof(md, to_app(trace), to_app(path));
-            is_sat = l_true;
+            m_solver.get_model(md);
+            mk_answer_nonlinear(md, trace, path);
+            return l_true;            
         }
-        return is_sat;
     }
+
+    bool bmc::check_model_nonlinear(model_ref& md, expr* trace) {
+        expr_ref trace_val(m), eq(m);
+        md->eval(trace, trace_val);
+        eq = m.mk_eq(trace, trace_val);
+        m_solver.push();
+        m_solver.assert_expr(eq);
+        lbool is_sat = m_solver.check();
+        if (is_sat != l_false) {
+            m_solver.get_model(md);
+        }
+        m_solver.pop(1);
+        if (is_sat == l_false) {
+            IF_VERBOSE(1, verbose_stream() << "infeasible trace " << mk_pp(trace_val, m) << "\n";);
+            m_solver.assert_expr(m.mk_not(eq));
+        }
+        return is_sat != l_false;       
+    }
+
+    void bmc::mk_answer_nonlinear(model_ref& md, expr_ref& trace, expr_ref& path) {                
+        proof_ref pr(m);            
+        IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
+        md->eval(trace, trace);
+        md->eval(path, path);
+        IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
+            for (unsigned i = 0; i < m_solver.size(); ++i) {
+                verbose_stream() << mk_pp(m_solver.get_formulas()[i], m) << "\n";
+            });
+        m_answer = get_proof(md, to_app(trace), to_app(path));
+    }
+
 
     void bmc::checkpoint() {
         if (m_cancel) {
@@ -741,23 +764,15 @@ namespace datalog {
     }
 
     void bmc::display_certificate(std::ostream& out) const {
-
+        out << mk_pp(m_answer, m) << "\n";
     }
 
     void bmc::collect_statistics(statistics& st) const {
-
+        m_solver.collect_statistics(st);
     }
 
     expr_ref bmc::get_answer() {        
         return m_answer;
-    }
-
-    void bmc::collect_params(param_descrs& p) {
-
-    }
-
-    void bmc::updt_params() {
-
     }
 
 };

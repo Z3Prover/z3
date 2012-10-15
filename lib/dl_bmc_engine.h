@@ -66,6 +66,10 @@ namespace datalog {
         bool is_linear() const;
 
         lbool check_nonlinear();
+
+        bool check_model_nonlinear(model_ref& md, expr* trace);
+
+        void mk_answer_nonlinear(model_ref& md, expr_ref& trace, expr_ref& path);
         
         func_decl_ref mk_predicate(func_decl* p);
 
@@ -115,9 +119,6 @@ namespace datalog {
 
         expr_ref get_answer();
 
-        static void collect_params(param_descrs& p);
-
-        void updt_params();
         
     };
 };
