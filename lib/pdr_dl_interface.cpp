@@ -31,6 +31,7 @@ Revision History:
 #include "dl_rule_set.h"
 #include "dl_mk_slice.h"
 #include "dl_mk_unfold.h"
+#include "dl_mk_coalesce.h"
 
 using namespace pdr;
 
@@ -120,11 +121,12 @@ lbool dl_interface::query(expr * query) {
 
     if (m_ctx.get_params().get_uint(":unfold-rules",0) > 0) {
         unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules",0);
-        datalog::rule_transformer transformer(m_ctx);
-        datalog::mk_unfold* unfold = alloc(datalog::mk_unfold, m_ctx);
-        transformer.register_plugin(unfold);
+        datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
+        transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
+        m_ctx.transform_rules(transformer1, mc, pc);
+        transformer2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         while (num_unfolds > 0) {
-            m_ctx.transform_rules(transformer, mc, pc);        
+            m_ctx.transform_rules(transformer2, mc, pc);        
             --num_unfolds;
         }
     }

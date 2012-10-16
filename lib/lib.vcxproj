@@ -542,6 +542,7 @@
     <ClCompile Include="dl_costs.cpp" />
     <ClCompile Include="dl_cmds.cpp" />
     <ClCompile Include="dl_decl_plugin.cpp" />
+    <ClCompile Include="dl_mk_coalesce.cpp" />
     <ClCompile Include="dl_mk_coi_filter.cpp" />
     <ClCompile Include="dl_mk_explanations.cpp" />
     <ClCompile Include="dl_mk_partial_equiv.cpp" />
@@ -998,6 +999,7 @@
     <ClInclude Include="diff_logic.h" />
     <ClInclude Include="dl_decl_plugin.h" />
     <ClInclude Include="dl_mk_bit_blast.h" />
+    <ClInclude Include="dl_mk_coalesce.h" />
     <ClInclude Include="dl_mk_slice.h" />
     <ClInclude Include="dl_mk_coi_filter.h" />
     <ClInclude Include="dl_mk_explanations.h" />

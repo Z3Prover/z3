@@ -21,7 +21,7 @@ Revision History:
 namespace datalog {
 
     mk_unfold::mk_unfold(context& ctx):
-        rule_transformer::plugin(0, false),
+        rule_transformer::plugin(100, false),
         m_ctx(ctx),
         m(ctx.get_manager()),
         rm(ctx.get_rule_manager()),
