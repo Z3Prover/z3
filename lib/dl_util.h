@@ -507,13 +507,13 @@ namespace datalog {
     //
     // -----------------------------------
 
-    template<class Set>
-    void set_intersection(Set & tgt, const Set & src) {
-        svector<typename Set::data> to_remove;
-        typename Set::iterator vit = tgt.begin();
-        typename Set::iterator vend = tgt.end();
+    template<class Set1, class Set2>
+    void set_intersection(Set1 & tgt, const Set2 & src) {
+        svector<typename Set1::data> to_remove;
+        typename Set1::iterator vit = tgt.begin();
+        typename Set1::iterator vend = tgt.end();
         for(;vit!=vend;++vit) {
-            typename Set::data itm=*vit;
+            typename Set1::data itm=*vit;
             if(!src.contains(itm)) {
                 to_remove.push_back(itm);
             }
@@ -534,12 +534,12 @@ namespace datalog {
         }
     }
 
-    template<class Set>
-    void set_union(Set & tgt, const Set & to_add) {
-        typename Set::iterator vit = to_add.begin();
-        typename Set::iterator vend = to_add.end();
+    template<class Set1, class Set2>
+    void set_union(Set1 & tgt, const Set2 & to_add) {
+        typename Set2::iterator vit = to_add.begin();
+        typename Set2::iterator vend = to_add.end();
         for(;vit!=vend;++vit) {
-            typename Set::data itm=*vit;
+            typename Set1::data itm=*vit;
             tgt.insert(itm);
         }
     }

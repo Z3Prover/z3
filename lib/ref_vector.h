@@ -113,7 +113,12 @@ public:
 
     T * const * c_ptr() const { return m_nodes.begin(); }
 
+    typedef T* const* iterator;
+
     T ** c_ptr() { return m_nodes.begin(); }
+
+    iterator begin() const { return m_nodes.begin(); }
+    iterator end() const { return begin() + size(); }
 
     void set(unsigned idx, T * n) {
         inc_ref(n);

@@ -69,6 +69,10 @@ namespace pdr {
         for (; it2 != end2; ++it2) {
             dealloc(it2->m_value);
         }
+        rule2expr::iterator it3 = m_rule2transition.begin(), end3 = m_rule2transition.end();
+        for (; it3 != end3; ++it3) {
+            m.dec_ref(it3->m_value);
+        }
     }
 
     std::ostream& pred_transformer::display(std::ostream& out) const {
@@ -118,7 +122,7 @@ namespace pdr {
         return m_reachable.is_reachable(state);
     }
 
-    datalog::rule const* pred_transformer::find_rule(model_core const& model) const {
+    datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr",
               for (; it != end; ++it) {
@@ -130,7 +134,7 @@ namespace pdr {
         
         it = m_tag2rule.begin();
         if (m_tag2rule.size() == 1) {
-            return it->m_value;
+            return *it->m_value;
         }
 
         expr_ref vl(m);
@@ -138,11 +142,11 @@ namespace pdr {
             expr* pred = it->m_key;
             TRACE("pdr", tout << mk_pp(pred, m) << "\n";);
             if (model.eval(to_app(pred)->get_decl(), vl) && m.is_true(vl)) {
-                return it->m_value;
+                return *it->m_value;
             }
         }
         UNREACHABLE();
-        return 0;
+        return *((datalog::rule*)0);
     }
 
     void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const {
@@ -154,10 +158,7 @@ namespace pdr {
     }
 
     void pred_transformer::find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const {
-        datalog::rule const* r = find_rule(model);
-        if (r) {
-            find_predecessors(*r, preds);
-        }
+        find_predecessors(find_rule(model), preds);        
     }
 
     void pred_transformer::remove_predecessors(expr_ref_vector& literals) {
@@ -562,6 +563,8 @@ namespace pdr {
             SASSERT(is_ground(tmp));
         }         
         expr_ref fml = pm.mk_and(conj);
+        th_rewriter rw(m);
+        rw(fml);
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
         SASSERT(is_ground(fml));
         if (m.is_false(fml)) {
@@ -574,6 +577,8 @@ namespace pdr {
                 init = m.mk_or(init, fml);
             }
             transitions.push_back(fml);            
+            m.inc_ref(fml);
+            m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
         }
         if (qi) {
@@ -715,81 +720,6 @@ namespace pdr {
         }   
     }
 
-    void pred_transformer::model2properties(
-        const model_core & mdl, 
-        unsigned index, 
-        model_node const& n, 
-        expr_ref_vector & res) const {
-        expr_ref tr1(transition(), m), tr2(m);
-        expr_ref_vector trs(m), refs(m);
-        expr_substitution sub(m);        
-        unsigned sz = mdl.get_num_constants();
-        obj_map<expr,ptr_vector<app> > equivs;
-
-        for (unsigned i = 0; i < sz; i++) {
-             func_decl * d = mdl.get_constant(i);    
-             expr_ref interp(m);
-             ptr_vector<app> cs;
-             obj_map<expr,ptr_vector<app> >::obj_map_entry* e;
-             get_value_from_model(mdl, d, interp);  
-             app* c = m.mk_const(d);
-             refs.push_back(c);
-             refs.push_back(interp);
-             if (m.is_bool(d->get_range())) {
-                 sub.insert(c, interp);
-             }
-             else {
-                 e = equivs.insert_if_not_there2(interp, cs);
-                 e->get_data().m_value.push_back(c);
-             }
-        }
-        obj_map<expr,ptr_vector<app> >::iterator it = equivs.begin(), end = equivs.end();
-        for (; it != end; ++it) {
-            // 
-            // determine equivalence class representative.
-            // it is either one of the indexed variables, or it
-            // is the constant evaluated by the model.
-            // 
-            ptr_vector<app> const& cs = it->m_value;
-            expr* rep = 0;
-            for (unsigned i = 0; !rep && i < cs.size(); ++i) {
-                if (pm.is_o(cs[i]->get_decl(), index)) {
-                    rep = cs[i];
-                }
-            }
-            if (!rep) {
-                rep = it->m_key;
-            }
-            for (unsigned i = 0; i < cs.size(); ++i) {
-                if (!pm.is_o(cs[i]->get_decl(), index)) {
-                    sub.insert(cs[i], rep);
-                }
-            }            
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        (*rep)(tr1);
-        th_rewriter rw(m);
-        rw(tr1);
-        TRACE("pdr", tout << "Transition:\n" << mk_pp(tr1, m) << "\n";);
-        pm.formula_o2n(tr1, tr2, index);
-        datalog::flatten_and(tr2, trs);
-        res.append(trs);
-        TRACE("pdr", tout << "Reduced transition:\n" << mk_pp(tr2, m) << "\n";);
-
-        // 
-        // Take state-invariant for indexed formula and select the literals
-        // that are true under the assignment.
-        // 
-        //
-#if 0
-        IF_VERBOSE(2, verbose_stream() << "index: " << index << "\n"
-                   << "level: " << n.level() << "\n"
-                   << mk_pp(n.pt().get_propagation_formula(m_rels, n.level()), m) << "\n"          
-                   << "propagation formula\n"
-                   << mk_pp(n.parent()->pt().get_propagation_formula(m_rels, n.level()+1), m) << "\n";);
-#endif
-    }
 
     // ----------------
     // model_node
@@ -844,8 +774,7 @@ namespace pdr {
                 model.insert(e, m.mk_true());
             }
         }
-        r0 = const_cast<datalog::rule*>(pt().find_rule(*m_model.get()));
-        SASSERT(r0);
+        r0 = const_cast<datalog::rule*>(&pt().find_rule(*m_model.get()));
         app_ref_vector& inst = pt().get_inst(r0);
         TRACE("pdr", tout << mk_pp(state(), m) << "\n";);
         for (unsigned i = 0; i < inst.size(); ++i) {
@@ -886,12 +815,6 @@ namespace pdr {
         return 0;
     }
 
-    void model_node::get_properties(expr_ref_vector& props) const {
-        model_node* p = parent();
-        if (p) {
-            p->pt().model2properties(p->model(), index(), *this, props);
-        }
-    }
 
     // ----------------
     // model_search
@@ -1256,7 +1179,6 @@ namespace pdr {
         for (; it != end; ++it) {
             m_rels.insert(it->m_key, it->m_value);
         }
-        VERIFY(m_rels.find(m_query_pred, m_query));
     }
 
     unsigned context::get_num_levels(func_decl* p) {
@@ -1397,8 +1319,9 @@ namespace pdr {
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
-        if (m_params.get_bool(":use-multicore-generalizer", false)) {
-            m_core_generalizers.push_back(alloc(core_multi_generalizer, *this));
+        bool use_mc = m_params.get_bool(":use-multicore-generalizer", false);
+        if (use_mc) {
+            m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
         if (m_params.get_bool(":use-farkas", true) && !classify.is_bool()) {
             if (m_params.get_bool(":inline-proof-mode", true)) {
@@ -1414,10 +1337,7 @@ namespace pdr {
                 m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
             }
         }
-        if (m_params.get_bool(":use-farkas-properties", false)) {
-            m_core_generalizers.push_back(alloc(core_farkas_properties_generalizer, *this));
-        }
-        if (m_params.get_bool(":use-inductive-generalizer", true)) {
+        if (!use_mc && m_params.get_bool(":use-inductive-generalizer", true)) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
         }
         if (m_params.get_bool(":use-interpolants", false)) {
@@ -1540,6 +1460,9 @@ namespace pdr {
     }
 
     void context::solve_impl() {
+        if (!m_rels.find(m_query_pred, m_query)) {
+            throw inductive_exception();            
+        }
         unsigned lvl = 0;
         bool reachable;
         while (true) {
@@ -1643,15 +1566,28 @@ namespace pdr {
                 }
                 break;
             case l_false: {
-                bool uses_level = true;
-                for (unsigned i = 0; !cube.empty() && i < m_core_generalizers.size(); ++i) {
-                    (*m_core_generalizers[i])(n, cube, uses_level);
+                core_generalizer::cores cores;
+                cores.push_back(std::make_pair(cube, true));
+                
+                for (unsigned i = 0; !cores.empty() && i < m_core_generalizers.size(); ++i) {
+                    core_generalizer::cores new_cores;                    
+                    for (unsigned j = 0; j < cores.size(); ++j) {
+                        (*m_core_generalizers[i])(n, cores[j].first, cores[j].second, new_cores);
+                    }
+                    cores.reset();
+                    cores.append(new_cores);
                 }
-                expr_ref ncube(m_pm.mk_not_and(cube), m);
-                TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncube, m) << "\n";);
-                n.pt().add_property(ncube, uses_level?n.level():infty_level);
+                bool found_invariant = false;
+                for (unsigned i = 0; i < cores.size(); ++i) {
+                    expr_ref_vector const& core = cores[i].first;
+                    bool uses_level = cores[i].second;
+                    found_invariant = !uses_level || found_invariant;
+                    expr_ref ncore(m_pm.mk_not_and(core), m);
+                    TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncore, m) << "\n";);
+                    n.pt().add_property(ncore, uses_level?n.level():infty_level);
+                }
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                m_search.backtrack_level(uses_level && m_params.get_bool(":flexible-trace", false), n);
+                m_search.backtrack_level(!found_invariant && m_params.get_bool(":flexible-trace", false), n);
                 break;
             }
             case l_undef: {
@@ -1707,10 +1643,13 @@ namespace pdr {
         SASSERT(level > 0);
         n.pt().find_predecessors(n.model(), preds);
         n.pt().remove_predecessors(literals);
-        TRACE("pdr", tout << mk_pp(model, m) << "\n";
+        TRACE("pdr", 
               model_v2_pp(tout, n.model());
+              tout << "Model cube\n";
+              tout << mk_pp(model, m) << "\n";
+              tout << "Predecessors\n";
               for (unsigned i = 0; i < preds.size(); ++i) {
-                  tout << mk_pp(preds[i], m) << "\n";
+                  tout << preds[i]->get_name() << "\n";
               }
              );
         for (unsigned i = 0; i < preds.size(); ++i) {            
@@ -1726,6 +1665,58 @@ namespace pdr {
         }
         check_pre_closed(n);
         
+        TRACE("pdr", m_search.display(tout););
+    }
+
+    /**
+       \brief create children states from model cube.
+
+       Introduce the shorthands:
+
+       - T(x0,x1,x)   for transition
+       - phi(x)       for n.state()
+       - psi(x0,x1,x) for psi
+       - M(x0,x1,x)   for n.model()
+
+       Assumptions:
+         M => psi
+         psi => phi & T
+         psi & M  agree on which rules are taken.
+
+       In other words, 
+       1. psi is a weakening of M
+       2. phi & T is implied by psi
+       
+       Goal is to find phi0(x0), phi1(x1) such that:
+
+       phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
+
+       Strategy: 
+
+       - perform cheap existential quantifier elimination on 
+         exists x . T(x0,x1,x) & phi(x)
+         (e.g., destructive equality resolution) 
+
+       - pull equalities that use 
+       
+       
+    */
+    void context::create_children2(model_node& n, expr* psi) {        
+        SASSERT(n.level() > 0);
+
+        model_core const& M = n.model();
+        datalog::rule const& r = n.pt().find_rule(M);
+        expr* T   = n.pt().get_transition(r);
+        expr* phi = n.state();
+
+        expr_ref_vector Ts(m);
+        datalog::flatten_and(T, Ts);
+
+        ptr_vector<func_decl> preds;
+        n.pt().find_predecessors(r, preds);        
+        n.pt().remove_predecessors(Ts);
+
+        // TBD ...
         TRACE("pdr", m_search.display(tout););
     }
 

@@ -421,7 +421,7 @@ namespace pdr {
         if (!(&node.model())) {
             return;
         }
-        m_current_rule = pt.find_rule(node.model());   
+        m_current_rule = &pt.find_rule(node.model());   
         m_current_pt = &pt;
         m_current_node = &node;
         if (!m_current_rule) { 

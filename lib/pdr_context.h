@@ -59,6 +59,8 @@ namespace pdr {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
 
+        typedef obj_map<datalog::rule const, expr*> rule2expr;
+
         manager&                     pm;        // pdr-manager
         ast_manager&                 m;         // manager
         
@@ -71,9 +73,10 @@ namespace pdr {
         expr_ref_vector              m_invariants;  // properties that are invariant.
         obj_map<expr, unsigned>      m_prop2level;  // map property to level where it occurs.
         obj_map<expr, datalog::rule const*> m_tag2rule; // map tag predicate to rule. 
-        obj_map<datalog::rule const, expr*> m_rule2tag; // map rule to predicate tag.
+        rule2expr                    m_rule2tag; // map rule to predicate tag.
         qinst_map                    m_rule2qinst;      // map tag to quantifier instantiation.
         rule2inst                    m_rule2inst;       // map rules to instantiations of indices
+        rule2expr                    m_rule2transition; // map rules to transition 
         expr_ref                     m_transition;      // transition relation.
         expr_ref                     m_initial_state;   // initial state.
         reachable_cache              m_reachable; 
@@ -132,7 +135,8 @@ namespace pdr {
         void remove_predecessors(expr_ref_vector& literals);
         void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
         void find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const;
-        datalog::rule const* find_rule(model_core const& model) const;
+        datalog::rule const& find_rule(model_core const& model) const;
+        expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
 
         bool propagate_to_next_level(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
@@ -151,7 +155,6 @@ namespace pdr {
         ast_manager& get_manager() const { return m; }
 
         void model2cube(const model_core & mdl, expr_ref_vector & res) const;
-        void model2properties(const model_core & mdl, unsigned index, model_node const& n, expr_ref_vector & res) const;
 
         void add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r);
 
@@ -193,7 +196,6 @@ namespace pdr {
         model_node* parent() const { return m_parent; }
         model_core const& model() const { return *m_model; }
         unsigned index() const;
-        void get_properties(expr_ref_vector& props) const;
 
         bool is_closed() const { return m_closed; }
         bool is_open() const { return !is_closed(); }
@@ -278,9 +280,16 @@ namespace pdr {
     protected:
         context& m_ctx;
     public:
+        typedef vector<std::pair<expr_ref_vector,bool> > cores;
         core_generalizer(context& ctx): m_ctx(ctx) {}
         virtual ~core_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level) = 0;
+        virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
+            new_cores.push_back(std::make_pair(core, uses_level));
+            if (!core.empty()) {
+                (*this)(n, new_cores.back().first, new_cores.back().second);
+            }
+        }
         virtual void collect_statistics(statistics& st) {}
     };
 
@@ -324,6 +333,7 @@ namespace pdr {
         void expand_node(model_node& n);
         lbool expand_state(model_node& n, expr_ref_vector& cube);
         void create_children(model_node& n, expr* cube);
+        void create_children2(model_node& n, expr* cube);
         expr_ref mk_sat_answer() const;
         expr_ref mk_unsat_answer() const;
         

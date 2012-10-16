@@ -64,13 +64,6 @@ namespace pdr {
         virtual void operator()(model_node& n, expr_ref_vector& cube);
     };
 
-    class core_farkas_properties_generalizer : public core_generalizer {
-    public:
-        core_farkas_properties_generalizer(context& ctx): core_generalizer(ctx) {}
-        virtual ~core_farkas_properties_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);        
-    };
-
     class model_evaluation_generalizer : public model_generalizer {        
         th_rewriter_model_evaluator m_model_evaluator;
     public:        
@@ -80,10 +73,12 @@ namespace pdr {
     };
 
     class core_multi_generalizer : public core_generalizer {
+        core_bool_inductive_generalizer m_gen;
     public:
-        core_multi_generalizer(context& ctx): core_generalizer(ctx) {}
+        core_multi_generalizer(context& ctx, unsigned max_failures): core_generalizer(ctx), m_gen(ctx, max_failures) {}
         virtual ~core_multi_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+        virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
     };
 
     class core_interpolant_generalizer : public core_generalizer {

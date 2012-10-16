@@ -124,51 +124,41 @@ namespace pdr {
     //
     // extract multiple cores from unreachable state.
     //
+
+
     void core_multi_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
+        UNREACHABLE();
+    }
+
+    /**
+       \brief Find minimal cores.
+       Apply a simple heuristic: find a minimal core, then find minimal cores that exclude at least one
+       literal from each of the literals in the minimal cores.
+    */
+    void core_multi_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
         ast_manager& m = core.get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        expr_ref_vector states(m), cores(m);
-        datalog::flatten_and(n.state(), states);
-        obj_hashtable<expr> core_exprs;
-        for (unsigned i = 0; i < core.size(); ++i) {
-            core_exprs.insert(core[i].get());
-        }
-        TRACE("pdr", 
-            tout << "Old core:\n"; for (unsigned i = 0; i < core.size(); ++i) tout << mk_pp(core[i].get(), m) << "\n";
-            tout << "State:\n"; for (unsigned i = 0; i < states.size(); ++i) tout << mk_pp(states[i].get(), m) << "\n";
-        );
-        cores.push_back(pm.mk_and(core));
-        bool change = false;
-        for (unsigned i = 0; i < states.size(); ++i) {
-            expr_ref tmp(states[i].get(), m), new_state(m);
-            expr_ref_vector new_core(m);
-            if (core_exprs.contains(tmp.get())) {
-                states[i] = m.mk_true();
-                new_state = m.mk_not(pm.mk_and(states));
-                bool assumes_level;
-                if (n.pt().is_invariant(n.level(), new_state, false, assumes_level, &new_core)) {
-#if 0
-                    for (unsigned j = 0; j < new_core.size(); ++j) {
-                        core_exprs.insert(new_core[j].get());
-                    }
-#endif
-                    if (assumes_level) {
-                        uses_level = true;
-                    }
-                    tmp = pm.mk_and(new_core);
-                    TRACE("pdr", tout << "New core:\n" << mk_pp(tmp, m) << "\n";);
-                    cores.push_back(tmp);
-                    change = true;
-                }
-                else {
-                    states[i] = tmp;
+        expr_ref_vector old_core(m), core0(core);
+        bool uses_level1 = uses_level;
+        m_gen(n, core0, uses_level1);
+        new_cores.push_back(std::make_pair(core0, uses_level1));
+        obj_hashtable<expr> core_exprs, core1_exprs;
+        datalog::set_union(core_exprs, core0);
+        for (unsigned i = 0; i < old_core.size(); ++i) {
+            expr* lit = old_core[i].get();             
+            if (core_exprs.contains(lit)) {
+                expr_ref_vector core1(old_core);
+                core1[i] = core1.back();
+                core1.pop_back();
+                uses_level1 = uses_level;
+                m_gen(n, core1, uses_level1);
+                SASSERT(core1.size() <= old_core.size());
+                if (core1.size() < old_core.size()) {
+                    new_cores.push_back(std::make_pair(core1, uses_level1));
+                    core1_exprs.reset();
+                    datalog::set_union(core1_exprs, core1);
+                    datalog::set_intersection(core_exprs, core1_exprs);
                 }
             }
-        }
-        if (change) {
-            core.reset();
-            core.push_back(pm.mk_or(cores));
-            TRACE("pdr", tout << "New Cores:\n" << mk_pp(core[0].get(), m) << "\n";);
         }
     }
 
@@ -649,37 +639,6 @@ namespace pdr {
             }          
         }
         TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-    }
-
-    //
-    // use properties from predicate transformer to strengthen state.
-    //
-    void core_farkas_properties_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        if (core.empty()) return;
-
-        front_end_params& p = m_ctx.get_fparams();
-        ast_manager& m = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        expr_ref_vector lemmas(m), properties(m);
-        expr_ref A(m), B(m);
-        farkas_learner learner(p, m);
-        n.get_properties(properties);
-        A = n.pt().get_propagation_formula(m_ctx.get_pred_transformers(), n.level());
-        B = m.mk_and(properties.size(), properties.c_ptr());
-        if (learner.get_lemma_guesses(A, B, lemmas)) {
-            TRACE("pdr", 
-                  tout << "Properties:\n";
-                  for (unsigned i = 0; i < properties.size(); ++i) {
-                      tout << mk_pp(properties[i].get(), m) << "\n";
-                  }
-                  tout << mk_pp(B, m) << "\n";
-                  tout << "New core:\n";
-                  for (unsigned i = 0; i < lemmas.size(); ++i) {
-                      tout << mk_pp(lemmas[i].get(), m) << "\n";
-                  });
-            core.append(lemmas); // disjunction?
-            uses_level = true;
-        }
     }
 
 };

@@ -122,8 +122,8 @@ lbool dl_interface::query(expr * query) {
     if (m_ctx.get_params().get_uint(":unfold-rules",0) > 0) {
         unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules",0);
         datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
-        transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
-        m_ctx.transform_rules(transformer1, mc, pc);
+        //transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
+        //m_ctx.transform_rules(transformer1, mc, pc);
         transformer2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         while (num_unfolds > 0) {
             m_ctx.transform_rules(transformer2, mc, pc);        
@@ -205,7 +205,6 @@ void dl_interface::collect_params(param_descrs& p) {
     PRIVATE_PARAMS(p.insert(":use-farkas-model", CPK_BOOL, "PDR: (default false) enable using Farkas generalization through model propagation"););
     PRIVATE_PARAMS(p.insert(":use-precondition-generalizer", CPK_BOOL, "PDR: (default false) enable generalizations from weakest pre-conditions"););
     PRIVATE_PARAMS(p.insert(":use-multicore-generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););
-    PRIVATE_PARAMS(p.insert(":use-farkas-properties", CPK_BOOL, "PDR: (default false) experimental Farkas lemma generation method"););
     PRIVATE_PARAMS(p.insert(":use-inductive-generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening"););
     PRIVATE_PARAMS(p.insert(":use-interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation"););
     PRIVATE_PARAMS(p.insert(":dump-interpolants", CPK_BOOL, "PDR: (default false) display interpolants"););
