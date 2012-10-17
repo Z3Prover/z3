@@ -214,6 +214,9 @@ class ternary_model_evaluator  : public model_evaluator_base {
     void del_model(expr* e);
     
     bool get_assignment(expr* e, expr*& var, expr*& val);
+
+    void collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect);
+    void process_formula(app* e, ptr_vector<expr> todo, ptr_vector<expr>& tocollect);
     void prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
     void prune_by_probing(ptr_vector<expr> const & formulas, expr_ref_vector& model);
 
@@ -245,6 +248,13 @@ protected:
 public:
     ternary_model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m) {}
     virtual void minimize_model(ptr_vector<expr> const & formulas, expr_ref_vector & model);
+
+    /**
+       \brief extract literals from formulas that satisfy formulas.
+
+       \pre model satisfies formulas
+    */
+    expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, expr_ref_vector const & model);
 
     // for_each_expr visitor.
     void operator()(expr* e) {} 

@@ -121,10 +121,6 @@ namespace pdr {
         TRACE("pdr", tout << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
     }
 
-    //
-    // extract multiple cores from unreachable state.
-    //
-
 
     void core_multi_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
         UNREACHABLE();
@@ -567,78 +563,4 @@ namespace pdr {
             uses_level = true;
         }
     }
-
-
-    //
-    // cube => n.state() & formula
-    // so n.state() & cube & ~formula is unsat
-    // so weaken cube while result is still unsat.
-    //
-    void model_farkas_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ast_manager& m  = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        front_end_params& p = m_ctx.get_fparams();
-        farkas_learner learner(p, m);
-        expr_ref A0(m), A(m), B(m), state(m);
-        expr_ref_vector states(m);
-
-        A0 = n.pt().get_formulas(n.level(), true);   
-
-        // extract substitution for next-state variables.
-        expr_substitution sub(m);        
-        solve_for_next_vars(A0, n, sub);
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        (*rep)(A0);        
-        A0 = m.mk_not(A0);
-        
-        state = n.state();
-        (*rep)(state);
-
-        datalog::flatten_and(state, states);
-
-        ptr_vector<func_decl> preds;
-        n.pt().find_predecessors(n.model(), preds);
-
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-
-        for (unsigned i = 0; i < preds.size(); ++i) {            
-            pred_transformer& pt = m_ctx.get_pred_transformer(preds[i]);
-            SASSERT(pt.head() == preds[i]);              
-            expr_ref_vector lemmas(m), o_cube(m), other(m), o_state(m), other_state(m);
-            pm.partition_o_atoms(cube,   o_cube,  other, i);
-            pm.partition_o_atoms(states, o_state, other_state, i);
-            TRACE("pdr", 
-                  tout << "cube:\n";
-                  for (unsigned i = 0; i < cube.size(); ++i)    tout << mk_pp(cube[i].get(), m) << "\n";
-                  tout << "o_cube:\n";
-                  for (unsigned i = 0; i < o_cube.size(); ++i)  tout << mk_pp(o_cube[i].get(), m) << "\n";
-                  tout << "other:\n";
-                  for (unsigned i = 0; i < other.size(); ++i)   tout << mk_pp(other[i].get(), m) << "\n";
-                  tout << "o_state:\n";
-                  for (unsigned i = 0; i < o_state.size(); ++i) tout << mk_pp(o_state[i].get(), m) << "\n";
-                  tout << "other_state:\n";
-                  for (unsigned i = 0; i < other_state.size(); ++i) tout << mk_pp(other_state[i].get(), m) << "\n";
-            );
-            A = m.mk_and(A0, pm.mk_and(other), pm.mk_and(other_state));
-            B = m.mk_and(pm.mk_and(o_cube), pm.mk_and(o_state));
-
-            TRACE("pdr", 
-                  tout << "A: " << mk_pp(A, m) << "\n";
-                  tout << "B: " << mk_pp(B, m) << "\n";);
-                     
-            if (learner.get_lemma_guesses(A, B, lemmas)) {
-                cube.append(lemmas);
-                cube.append(o_state);
-                TRACE("pdr", 
-                      tout << "New lemmas:\n";
-                      for (unsigned i = 0; i < lemmas.size(); ++i) {
-                          tout << mk_pp(lemmas[i].get(), m) << "\n";
-                      }
-                      );                
-            }          
-        }
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-    }
-
 };

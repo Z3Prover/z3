@@ -299,6 +299,35 @@ void ternary_model_evaluator::minimize_model(ptr_vector<expr> const & formulas, 
     m_values.reset();
 }
 
+expr_ref_vector ternary_model_evaluator::minimize_literals(ptr_vector<expr> const& formulas, expr_ref_vector const& model) {
+    
+    setup_model(model);
+
+    expr_ref_vector result(m);
+    ptr_vector<expr> tocollect;
+    m_visited.reset();
+    m1.set_level(m_level1);
+    m2.set_level(m_level2);
+    
+    VERIFY(check_model(formulas));
+    collect(formulas, tocollect);
+    for (unsigned i = 0; i < tocollect.size(); ++i) {
+        expr* e = tocollect[i];
+        SASSERT(m.is_bool(e));
+        SASSERT(is_true(e) || is_false(e));
+        if (is_true(e)) {
+            result.push_back(e);
+        }
+        else {
+            result.push_back(m.mk_not(e));
+        }
+    }
+    m_visited.reset();
+    m1.reset();
+    m2.reset();
+    m_values.reset();
+    return result;
+}
 
 void ternary_model_evaluator::prune_by_probing(ptr_vector<expr> const& formulas, expr_ref_vector& model) {
     unsigned sz1 = model.size();
@@ -335,8 +364,112 @@ void ternary_model_evaluator::prune_by_probing(ptr_vector<expr> const& formulas,
     TRACE("pdr", tout << sz1 << " ==> " << model.size() << "\n";);
 }
 
-void ternary_model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model) {
-    ptr_vector<expr> todo, tocollect;
+void ternary_model_evaluator::process_formula(app* e, ptr_vector<expr> todo, ptr_vector<expr>& tocollect) {
+    SASSERT(m.is_bool(e));
+    SASSERT(is_true(e) || is_false(e));
+    unsigned v = is_true(e);
+    unsigned sz = e->get_num_args();
+    expr* const* args = e->get_args();
+    if (e->get_family_id() == m.get_basic_family_id()) {
+        switch(e->get_decl_kind()) {
+        case OP_TRUE:
+            break;
+        case OP_FALSE:
+            break;
+        case OP_EQ:
+        case OP_IFF:
+            if (e->get_arg(0) == e->get_arg(1)) {
+                // no-op                    
+            }
+            else if (!m.is_bool(e->get_arg(0))) {
+                tocollect.push_back(e);
+            }
+            else {
+                todo.append(sz, args);
+            }
+            break;                              
+        case OP_DISTINCT:
+            tocollect.push_back(e);
+            break;
+        case OP_ITE:
+            if (args[1] == args[2]) {
+                // 
+            }
+            else if (is_true(args[1]) && is_true(args[2])) {
+                todo.append(2, args+1);
+            }
+            else if (is_false(args[2]) && is_false(args[2])) {
+                todo.append(2, args+1);
+            }
+            else if (is_true(args[0])) {
+                todo.push_back(args[0]);
+                todo.push_back(args[1]);
+            }
+            else {
+                SASSERT(is_false(args[0]));
+                todo.push_back(args[0]);
+                todo.push_back(args[2]);
+            }
+            break;
+        case OP_AND:
+            if (v) {
+                todo.append(sz, args);
+            }
+            else {
+                unsigned i = 0;
+                for (; !is_false(args[i]) && i < sz; ++i);     
+                if (i == sz) {
+                    fatal_error(1);
+                }
+                VERIFY(i < sz);
+                todo.push_back(args[i]);
+            }
+            break;
+        case OP_OR:
+            if (v) {
+                unsigned i = 0;
+                for (; !is_true(args[i]) && i < sz; ++i);
+                if (i == sz) {
+                    fatal_error(1);
+                }
+                VERIFY(i < sz);
+                todo.push_back(args[i]);
+            }
+            else {
+                todo.append(sz, args);
+            }
+            break;
+        case OP_XOR: 
+        case OP_NOT:
+            todo.append(sz, args);
+            break;
+        case OP_IMPLIES:
+            if (v) {
+                if (is_true(args[1])) {
+                    todo.push_back(args[1]);
+                }
+                else if (is_false(args[0])) {
+                    todo.push_back(args[0]);
+                }
+                else {
+                    UNREACHABLE();
+                }
+            }
+            else {
+                todo.append(sz, args);
+            }
+            break;
+        default:
+            UNREACHABLE();
+        }
+    }
+    else {
+        tocollect.push_back(e);
+    }
+}
+
+void ternary_model_evaluator::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect) {
+    ptr_vector<expr> todo;
     todo.append(formulas);
     m_visited.reset();
     m1.set_level(m_level1);
@@ -347,115 +480,19 @@ void ternary_model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const 
     while (!todo.empty()) {
         app*  e = to_app(todo.back());
         todo.pop_back();
-        if (m_visited.is_marked(e)) {
-            continue;
+        if (!m_visited.is_marked(e)) {
+            process_formula(e, todo, tocollect);
+            m_visited.mark(e, true);
         }
-        unsigned v = is_true(e);
-        SASSERT(m.is_bool(e));
-        SASSERT(is_true(e) || is_false(e));
-        unsigned sz = e->get_num_args();
-        expr* const* args = e->get_args();
-        if (e->get_family_id() == m.get_basic_family_id()) {
-            switch(e->get_decl_kind()) {
-            case OP_TRUE:
-                break;
-            case OP_FALSE:
-                break;
-            case OP_EQ:
-            case OP_IFF:
-                if (e->get_arg(0) == e->get_arg(1)) {
-                    // no-op                    
-                }
-                else if (!m.is_bool(e->get_arg(0))) {
-                    tocollect.push_back(e);
-                }
-                else {
-                    todo.append(sz, args);
-                }
-                break;                              
-            case OP_DISTINCT:
-                tocollect.push_back(e);
-                break;
-            case OP_ITE:
-                if (args[1] == args[2]) {
-                    // 
-                }
-                else if (is_true(args[1]) && is_true(args[2])) {
-                    todo.append(2, args+1);
-                }
-                else if (is_false(args[2]) && is_false(args[2])) {
-                    todo.append(2, args+1);
-                }
-                else if (is_true(args[0])) {
-                    todo.push_back(args[0]);
-                    todo.push_back(args[1]);
-                }
-                else {
-                    SASSERT(is_false(args[0]));
-                    todo.push_back(args[0]);
-                    todo.push_back(args[2]);
-                }
-                break;
-            case OP_AND:
-                if (v) {
-                    todo.append(sz, args);
-                }
-                else {
-                    unsigned i = 0;
-                    for (; !is_false(args[i]) && i < sz; ++i);     
-                    if (i == sz) {
-                        fatal_error(1);
-                    }
-                    VERIFY(i < sz);
-                    todo.push_back(args[i]);
-                }
-                break;
-            case OP_OR:
-                if (v) {
-                    unsigned i = 0;
-                    for (; !is_true(args[i]) && i < sz; ++i);
-                    if (i == sz) {
-                        fatal_error(1);
-                    }
-                    VERIFY(i < sz);
-                    todo.push_back(args[i]);
-                }
-                else {
-                    todo.append(sz, args);
-                }
-                break;
-            case OP_XOR: 
-            case OP_NOT:
-                todo.append(sz, args);
-                break;
-            case OP_IMPLIES:
-                if (v) {
-                    if (is_true(args[1])) {
-                        todo.push_back(args[1]);
-                    }
-                    else if (is_false(args[0])) {
-                        todo.push_back(args[0]);
-                    }
-                    else {
-                        UNREACHABLE();
-                    }
-                }
-                else {
-                    todo.append(sz, args);
-                }
-                break;
-            default:
-                UNREACHABLE();
-            }
-        }
-        else {
-            tocollect.push_back(e);
-        }
-        m_visited.mark(e, true);
     }
     m1.set_level(m_level1);
     m2.set_level(m_level2);
     m_visited.reset();
+}
+
+void ternary_model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model) {
+    ptr_vector<expr> tocollect;
+    collect(formulas, tocollect);
     for (unsigned i = 0; i < tocollect.size(); ++i) {
         for_each_expr(*this, m_visited, tocollect[i]);
     }

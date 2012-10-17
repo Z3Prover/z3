@@ -70,10 +70,10 @@ namespace pdr {
         ptr_vector<datalog::rule>    m_rules;   // rules used to derive transformer
         prop_solver                  m_solver;  // solver context
         vector<expr_ref_vector>      m_levels;  // level formulas
-        expr_ref_vector              m_invariants;  // properties that are invariant.
-        obj_map<expr, unsigned>      m_prop2level;  // map property to level where it occurs.
+        expr_ref_vector              m_invariants;      // properties that are invariant.
+        obj_map<expr, unsigned>      m_prop2level;      // map property to level where it occurs.
         obj_map<expr, datalog::rule const*> m_tag2rule; // map tag predicate to rule. 
-        rule2expr                    m_rule2tag; // map rule to predicate tag.
+        rule2expr                    m_rule2tag;        // map rule to predicate tag.
         qinst_map                    m_rule2qinst;      // map tag to quantifier instantiation.
         rule2inst                    m_rule2inst;       // map rules to instantiations of indices
         rule2expr                    m_rule2transition; // map rules to transition 

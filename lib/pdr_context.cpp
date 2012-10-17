@@ -1303,9 +1303,6 @@ namespace pdr {
         else {
             m_model_generalizers.push_back(alloc(model_evaluation_generalizer, *this, m));
         }
-        if (m_params.get_bool(":use-farkas-model", false)) {
-            m_model_generalizers.push_back(alloc(model_farkas_generalizer, *this));
-        }        
         if (m_params.get_bool(":use-precondition-generalizer", false)) {
             m_model_generalizers.push_back(alloc(model_precond_generalizer, *this));
         }
@@ -1689,32 +1686,60 @@ namespace pdr {
        
        Goal is to find phi0(x0), phi1(x1) such that:
 
-       phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
+         phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
+
+       or at least (ignoring psi alltogether):
+
+         phi(x) & phi0(x0) & phi1(x1) => T(x0, x1, x)       
 
        Strategy: 
 
-       - perform cheap existential quantifier elimination on 
-         exists x . T(x0,x1,x) & phi(x)
-         (e.g., destructive equality resolution) 
+       - Extract literals from T & phi using ternary simulation with M.
+       - resulting formula is Phi.
 
-       - pull equalities that use 
-       
-       
+       - perform cheap existential quantifier elimination on 
+         Phi <- exists x . Phi(x0,x1,x)
+         (e.g., destructive equality resolution) 
+   
+       - Sub-strategy 1: rename  remaining x to fresh variables.
+       - Sub-strategy 2: replace remaining x to M(x).
+
+       - For each literal L in result:
+
+         - if L is x0 pure, add L to L0
+         - if L is x1 pure, add L to L1
+         - if L mixes x0, x1, add x1 = M(x1) to L1, add L(x1 |-> M(x1)) to L0
+         
+       - Create sub-goals for L0 and L1.
+
     */
     void context::create_children2(model_node& n, expr* psi) {        
         SASSERT(n.level() > 0);
-
+ 
+        pred_transformer& pt = n.pt();
         model_core const& M = n.model();
-        datalog::rule const& r = n.pt().find_rule(M);
-        expr* T   = n.pt().get_transition(r);
+        datalog::rule const& r = pt.find_rule(M);
+        expr* T   = pt.get_transition(r);
         expr* phi = n.state();
 
-        expr_ref_vector Ts(m);
-        datalog::flatten_and(T, Ts);
+        ternary_model_evaluator tmev(m);
+        expr_ref_vector mdl(m);
+        ptr_vector<expr> forms;
+        forms.push_back(T);
+        forms.push_back(phi);
+        datalog::flatten_and(psi, mdl);
+        expr_ref_vector Phi = tmev.minimize_literals(forms, mdl);
 
         ptr_vector<func_decl> preds;
-        n.pt().find_predecessors(r, preds);        
-        n.pt().remove_predecessors(Ts);
+        pt.find_predecessors(r, preds);
+        pt.remove_predecessors(Phi);
+
+        expr_ref_vector vars(m);
+        unsigned sig_size = pt.head()->get_arity();
+        for (unsigned i = 0; i < sig_size; ++i) {
+            vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
+        }
+        // TBD: reduce_vars(vars, Phi);
 
         // TBD ...
         TRACE("pdr", m_search.display(tout););
