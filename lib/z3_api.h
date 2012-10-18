@@ -1160,7 +1160,7 @@ typedef enum
   Definitions for update_api.py
   
   def_Type('CONFIG',           'Z3_config',           'Config')
-  def_Type('CONTEXT',          'Z3_context',          'Context')
+  def_Type('CONTEXT',          'Z3_context',          'ContextObj')
   def_Type('AST',              'Z3_ast',              'Ast')
   def_Type('APP',              'Z3_app',              'Ast')
   def_Type('SORT',             'Z3_sort',             'Sort')
@@ -4683,7 +4683,7 @@ END_MLAPI_EXCLUDE
     /**
        \brief Log interaction to a file.
        
-       extra_def_API('Z3_open_log', INT, (_in(STRING),))
+       extra_API('Z3_open_log', INT, (_in(STRING),))
     */
     Z3_bool Z3_API Z3_open_log(__in Z3_string filename);
 
@@ -4694,14 +4694,14 @@ END_MLAPI_EXCLUDE
        It contains the formulas that are checked using Z3.
        You can use this command to append comments, for instance.
 
-       extra_def_API('Z3_append_log', VOID, (_in(STRING),))
+       extra_API('Z3_append_log', VOID, (_in(STRING),))
     */
     void Z3_API Z3_append_log(__in Z3_string string);
 
     /**
        \brief Close interaction log.
 
-       extra_def_API('Z3_close_log', VOID, ())
+       extra_API('Z3_close_log', VOID, ())
     */
     void Z3_API Z3_close_log();
 

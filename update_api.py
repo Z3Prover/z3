@@ -446,6 +446,7 @@ def mk_py_binding(name, result, params):
     core_py.write("]\n")
 
 def extra_API(name, result, params):
+    print 'extra_API(%s)' % name
     mk_py_binding(name, result, params)
     reg_dotnet(name, result, params)
 
@@ -848,10 +849,14 @@ def mk_bindings():
 # Collect API(...) commands from
 def def_APIs():
     pat1 = re.compile(" *def_API.*")
+    pat2 = re.compile(" *extra_API.*")
     for api_file in API_FILES:
         api = open(api_file, 'r')
         for line in api:
             m = pat1.match(line)
+            if m:
+                eval(line)
+            m = pat2.match(line)
             if m:
                 eval(line)
 

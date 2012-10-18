@@ -863,6 +863,15 @@ namespace Microsoft.Z3
             public extern static Z3_ast Z3_func_entry_get_arg(Z3_context a0, Z3_func_entry a1, uint a2);
 
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static int Z3_open_log(string a0);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static void Z3_append_log(string a0);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static void Z3_close_log();
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             public extern static void Z3_toggle_warning_messages(int a0);
 
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
@@ -3606,6 +3615,19 @@ namespace Microsoft.Z3
             if (err != Z3_error_code.Z3_OK)
                 throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
             return r;
+        }
+
+        public static int Z3_open_log(string a0) {
+            int r = LIB.Z3_open_log(a0);
+            return r;
+        }
+
+        public static void Z3_append_log(string a0) {
+            LIB.Z3_append_log(a0);
+        }
+
+        public static void Z3_close_log() {
+            LIB.Z3_close_log();
         }
 
         public static void Z3_toggle_warning_messages(int a0) {
