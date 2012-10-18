@@ -520,9 +520,9 @@ EXPORTS
 	Z3_context_to_string @520
 	Z3_statistics_to_string @521
 	Z3_get_context_assignment @522
-	Z3_mk_polynomial_manager @1
-	Z3_del_polynomial_manager @2
-	Z3_mk_zero_polynomial @3
-	Z3_polynomial_inc_ref @4
-	Z3_polynomial_dec_ref @5
-	Z3_polynomial_to_string @6
+	Z3_mk_polynomial_manager @523
+	Z3_del_polynomial_manager @524
+	Z3_mk_zero_polynomial @525
+	Z3_polynomial_inc_ref @526
+	Z3_polynomial_dec_ref @527
+	Z3_polynomial_to_string @528

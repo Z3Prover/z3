@@ -203,9 +203,9 @@ def mk_dll_defs():
     z3dbgdef = open('dll%sz3_dbg.def' % os.sep, 'w')
     z3def.write('LIBRARY "Z3"\nEXPORTS\n')
     z3dbgdef.write('LIBRARY "Z3_DBG"\nEXPORTS\n')
+    num = 1
     for api_file in API_FILES:
         api = open(api_file, 'r')
-        num = 1
         for line in api:
             m = pat1.match(line)
             if m:
