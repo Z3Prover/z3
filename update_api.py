@@ -509,6 +509,7 @@ def mk_dotnet():
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
+    dotnet.write('           '
                  '            const string Z3_DLL_NAME = \"z3.dll\";\n'
                  '            \n');
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')

@@ -46,12 +46,8 @@ namespace Microsoft.Z3
 
         public unsafe class LIB
         {
-            #if DEBUG
-            const string Z3_DLL_NAME = "z3_dbg.dll";
-            #else
-            const string Z3_DLL_NAME = "z3.dll";
-            #endif
-
+                       const string Z3_DLL_NAME = "z3.dll";
+            
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);
 
