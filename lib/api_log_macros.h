@@ -975,3 +975,15 @@ void log_Z3_statistics_to_string(Z3_context a0);
 #define LOG_Z3_statistics_to_string(_ARG0) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_statistics_to_string(_ARG0); }
 void log_Z3_get_context_assignment(Z3_context a0);
 #define LOG_Z3_get_context_assignment(_ARG0) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_get_context_assignment(_ARG0); }
+void log_Z3_mk_polynomial_manager(Z3_context a0);
+#define LOG_Z3_mk_polynomial_manager(_ARG0) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_mk_polynomial_manager(_ARG0); }
+void log_Z3_del_polynomial_manager(Z3_context a0, Z3_polynomial_manager a1);
+#define LOG_Z3_del_polynomial_manager(_ARG0, _ARG1) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_del_polynomial_manager(_ARG0, _ARG1); }
+void log_Z3_mk_zero_polynomial(Z3_context a0, Z3_polynomial_manager a1);
+#define LOG_Z3_mk_zero_polynomial(_ARG0, _ARG1) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_mk_zero_polynomial(_ARG0, _ARG1); }
+void log_Z3_polynomial_inc_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
+#define LOG_Z3_polynomial_inc_ref(_ARG0, _ARG1, _ARG2) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_polynomial_inc_ref(_ARG0, _ARG1, _ARG2); }
+void log_Z3_polynomial_dec_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
+#define LOG_Z3_polynomial_dec_ref(_ARG0, _ARG1, _ARG2) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_polynomial_dec_ref(_ARG0, _ARG1, _ARG2); }
+void log_Z3_polynomial_to_string(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
+#define LOG_Z3_polynomial_to_string(_ARG0, _ARG1, _ARG2) z3_log_ctx _LOG_CTX; if (_LOG_CTX.enabled()) { log_Z3_polynomial_to_string(_ARG0, _ARG1, _ARG2); }

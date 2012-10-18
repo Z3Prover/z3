@@ -3315,3 +3315,41 @@ void log_Z3_get_context_assignment(Z3_context a0) {
   P(a0);
   C(476);
 }
+void log_Z3_mk_polynomial_manager(Z3_context a0) {
+  R();
+  P(a0);
+  C(477);
+}
+void log_Z3_del_polynomial_manager(Z3_context a0, Z3_polynomial_manager a1) {
+  R();
+  P(a0);
+  P(a1);
+  C(478);
+}
+void log_Z3_mk_zero_polynomial(Z3_context a0, Z3_polynomial_manager a1) {
+  R();
+  P(a0);
+  P(a1);
+  C(479);
+}
+void log_Z3_polynomial_inc_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+  R();
+  P(a0);
+  P(a1);
+  P(a2);
+  C(480);
+}
+void log_Z3_polynomial_dec_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+  R();
+  P(a0);
+  P(a1);
+  P(a2);
+  C(481);
+}
+void log_Z3_polynomial_to_string(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+  R();
+  P(a0);
+  P(a1);
+  P(a2);
+  C(482);
+}

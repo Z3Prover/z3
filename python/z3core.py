@@ -904,6 +904,15 @@ def init(PATH):
   _lib.Z3_statistics_to_string.argtypes = [ContextObj]
   _lib.Z3_get_context_assignment.restype = Ast
   _lib.Z3_get_context_assignment.argtypes = [ContextObj]
+  _lib.Z3_mk_polynomial_manager.restype = PolynomialManagerObj
+  _lib.Z3_mk_polynomial_manager.argtypes = [ContextObj]
+  _lib.Z3_del_polynomial_manager.argtypes = [ContextObj, PolynomialManagerObj]
+  _lib.Z3_mk_zero_polynomial.restype = PolynomialObj
+  _lib.Z3_mk_zero_polynomial.argtypes = [ContextObj, PolynomialManagerObj]
+  _lib.Z3_polynomial_inc_ref.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
+  _lib.Z3_polynomial_dec_ref.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
+  _lib.Z3_polynomial_to_string.restype = ctypes.c_char_p
+  _lib.Z3_polynomial_to_string.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
 
 def Z3_mk_config():
   r = lib().Z3_mk_config()
@@ -4137,6 +4146,45 @@ def Z3_statistics_to_string(a0):
 
 def Z3_get_context_assignment(a0):
   r = lib().Z3_get_context_assignment(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_mk_polynomial_manager(a0):
+  r = lib().Z3_mk_polynomial_manager(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_del_polynomial_manager(a0, a1):
+  lib().Z3_del_polynomial_manager(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_mk_zero_polynomial(a0, a1):
+  r = lib().Z3_mk_zero_polynomial(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_polynomial_inc_ref(a0, a1, a2):
+  lib().Z3_polynomial_inc_ref(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_polynomial_dec_ref(a0, a1, a2):
+  lib().Z3_polynomial_dec_ref(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_polynomial_to_string(a0, a1, a2):
+  r = lib().Z3_polynomial_to_string(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))

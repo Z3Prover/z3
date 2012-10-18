@@ -16,6 +16,8 @@ def add_api_file(dir, file):
     API_FILES.append("%s%s%s" % (dir, os.sep, file))
 
 add_api_file('lib', 'z3_api.h')
+add_api_file('lib', 'z3_internal_types.h')
+add_api_file('lib', 'z3_poly.h')
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
 def mk_z3consts_donet():
@@ -238,6 +240,7 @@ log_c.write('#include\"z3_logger.h\"\n')
 ##
 exe_c.write('// Automatically generated file, generator: update_api.py\n')
 exe_c.write('#include\"z3.h\"\n')
+exe_c.write('#include\"z3_internal.h\"\n')
 exe_c.write('#include\"z3_replayer.h\"\n')
 ##
 log_h.write('extern std::ostream * g_z3_log;\n')

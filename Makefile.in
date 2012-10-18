@@ -338,6 +338,9 @@ install: $(BIN_DIR)/$(Z3) $(BIN_DIR)/lib$(Z3).@SO_EXT@  $(BIN_DIR)/lib$(Z3).a
 	@cp lib/z3.h        $(PREFIX)/include
 	@cp lib/z3_v1.h     $(PREFIX)/include
 	@cp lib/z3_macros.h $(PREFIX)/include
+	@cp lib/z3_internal.h $(PREFIX)/include
+	@cp lib/z3_internal_types.h $(PREFIX)/include
+	@cp lib/z3_poly.h   $(PREFIX)/include
 	@cp c++/z3++.h      $(PREFIX)/include
 
 uninstall:
@@ -349,6 +352,9 @@ uninstall:
 	@rm -f $(PREFIX)/include/z3_v1.h
 	@rm -f $(PREFIX)/include/z3_macros.h
 	@rm -f $(PREFIX)/include/z3++.h
+	@rm -f $(PREFIX)/include/z3_internal.h
+	@rm -f $(PREFIX)/include/z3_internal_types.h
+	@rm -f $(PREFIX)/include/z3_poly.h
 
 install-z3py: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 	@if test $(HAS_PYTHON) -eq 0; then echo "Python is not available in your system."; exit 1; fi
@@ -360,6 +366,7 @@ install-z3py: $(BIN_DIR)/lib$(Z3).@SO_EXT@
 	@cp python/z3consts.pyc $(PYTHON_PACKAGE_DIR)
 	@cp python/z3tactics.pyc $(PYTHON_PACKAGE_DIR)
 	@cp python/z3printer.pyc $(PYTHON_PACKAGE_DIR)
+	@cp python/z3poly.pyc $(PYTHON_PACKAGE_DIR)
 	@cp $(BIN_DIR)/lib$(Z3).@SO_EXT@ $(PYTHON_PACKAGE_DIR)
 	@if python python/z3test.py; then echo "Z3Py was successfully installed."; else echo "Failed to execute Z3Py regressions..."; exit 1; fi
 
@@ -372,4 +379,5 @@ uninstall-z3py:
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3consts.pyc
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3tactics.pyc
 	@rm -f $(PYTHON_PACKAGE_DIR)/z3printer.pyc
+	@rm -f $(PYTHON_PACKAGE_DIR)/z3poly.pyc
 	@rm -f $(PYTHON_PACKAGE_DIR)/$(BIN_DIR)/lib$(Z3).@SO_EXT@

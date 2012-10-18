@@ -1,5 +1,6 @@
 // Automatically generated file, generator: update_api.py
 #include"z3.h"
+#include"z3_internal.h"
 #include"z3_replayer.h"
 void Z3_replacer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\n", Z3_get_error_msg_ex(ctx, c)); }
 void exec_Z3_mk_config(z3_replayer & in) {
@@ -3003,6 +3004,40 @@ void exec_Z3_get_context_assignment(z3_replayer & in) {
     reinterpret_cast<Z3_context>(in.get_obj(0)));
   in.store_result(result);
 }
+void exec_Z3_mk_polynomial_manager(z3_replayer & in) {
+  Z3_polynomial_manager result = Z3_mk_polynomial_manager(
+    reinterpret_cast<Z3_context>(in.get_obj(0)));
+  in.store_result(result);
+}
+void exec_Z3_del_polynomial_manager(z3_replayer & in) {
+  Z3_del_polynomial_manager(
+    reinterpret_cast<Z3_context>(in.get_obj(0)),
+    reinterpret_cast<Z3_polynomial_manager>(in.get_obj(1)));
+}
+void exec_Z3_mk_zero_polynomial(z3_replayer & in) {
+  Z3_polynomial result = Z3_mk_zero_polynomial(
+    reinterpret_cast<Z3_context>(in.get_obj(0)),
+    reinterpret_cast<Z3_polynomial_manager>(in.get_obj(1)));
+  in.store_result(result);
+}
+void exec_Z3_polynomial_inc_ref(z3_replayer & in) {
+  Z3_polynomial_inc_ref(
+    reinterpret_cast<Z3_context>(in.get_obj(0)),
+    reinterpret_cast<Z3_polynomial_manager>(in.get_obj(1)),
+    reinterpret_cast<Z3_polynomial>(in.get_obj(2)));
+}
+void exec_Z3_polynomial_dec_ref(z3_replayer & in) {
+  Z3_polynomial_dec_ref(
+    reinterpret_cast<Z3_context>(in.get_obj(0)),
+    reinterpret_cast<Z3_polynomial_manager>(in.get_obj(1)),
+    reinterpret_cast<Z3_polynomial>(in.get_obj(2)));
+}
+void exec_Z3_polynomial_to_string(z3_replayer & in) {
+  Z3_polynomial_to_string(
+    reinterpret_cast<Z3_context>(in.get_obj(0)),
+    reinterpret_cast<Z3_polynomial_manager>(in.get_obj(1)),
+    reinterpret_cast<Z3_polynomial>(in.get_obj(2)));
+}
 void register_z3_replayer_cmds(z3_replayer & in) {
   in.register_cmd(0, exec_Z3_mk_config);
   in.register_cmd(1, exec_Z3_del_config);
@@ -3481,4 +3516,10 @@ void register_z3_replayer_cmds(z3_replayer & in) {
   in.register_cmd(474, exec_Z3_context_to_string);
   in.register_cmd(475, exec_Z3_statistics_to_string);
   in.register_cmd(476, exec_Z3_get_context_assignment);
+  in.register_cmd(477, exec_Z3_mk_polynomial_manager);
+  in.register_cmd(478, exec_Z3_del_polynomial_manager);
+  in.register_cmd(479, exec_Z3_mk_zero_polynomial);
+  in.register_cmd(480, exec_Z3_polynomial_inc_ref);
+  in.register_cmd(481, exec_Z3_polynomial_dec_ref);
+  in.register_cmd(482, exec_Z3_polynomial_to_string);
 }

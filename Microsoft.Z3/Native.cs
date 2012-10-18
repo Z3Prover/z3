@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
+    using Z3_monomial = System.IntPtr;
     using Z3_config = System.IntPtr;
     using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
@@ -34,6 +35,8 @@ namespace Microsoft.Z3
     using Z3_func_entry = System.IntPtr;
     using Z3_fixedpoint = System.IntPtr;
     using Z3_param_descrs = System.IntPtr;
+    using Z3_polynomial_manager = System.IntPtr;
+    using Z3_polynomial = System.IntPtr;
 
     public class Native
     {
@@ -1491,6 +1494,24 @@ namespace Microsoft.Z3
 
             [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
             public extern static Z3_ast Z3_get_context_assignment(Z3_context a0);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static Z3_polynomial_manager Z3_mk_polynomial_manager(Z3_context a0);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static void Z3_del_polynomial_manager(Z3_context a0, Z3_polynomial_manager a1);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static Z3_polynomial Z3_mk_zero_polynomial(Z3_context a0, Z3_polynomial_manager a1);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static void Z3_polynomial_inc_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static void Z3_polynomial_dec_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
+
+            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
+            public extern static IntPtr Z3_polynomial_to_string(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2);
 
         }
 
@@ -5213,6 +5234,51 @@ namespace Microsoft.Z3
             if (err != Z3_error_code.Z3_OK)
                 throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
             return r;
+        }
+
+        public static Z3_polynomial_manager Z3_mk_polynomial_manager(Z3_context a0) {
+            Z3_polynomial_manager r = LIB.Z3_mk_polynomial_manager(a0);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+            return r;
+        }
+
+        public static void Z3_del_polynomial_manager(Z3_context a0, Z3_polynomial_manager a1) {
+            LIB.Z3_del_polynomial_manager(a0, a1);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+        }
+
+        public static Z3_polynomial Z3_mk_zero_polynomial(Z3_context a0, Z3_polynomial_manager a1) {
+            Z3_polynomial r = LIB.Z3_mk_zero_polynomial(a0, a1);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+            return r;
+        }
+
+        public static void Z3_polynomial_inc_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+            LIB.Z3_polynomial_inc_ref(a0, a1, a2);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+        }
+
+        public static void Z3_polynomial_dec_ref(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+            LIB.Z3_polynomial_dec_ref(a0, a1, a2);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+        }
+
+        public static string Z3_polynomial_to_string(Z3_context a0, Z3_polynomial_manager a1, Z3_polynomial a2) {
+            IntPtr r = LIB.Z3_polynomial_to_string(a0, a1, a2);
+            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);
+            if (err != Z3_error_code.Z3_OK)
+                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));
+            return Marshal.PtrToStringAnsi(r);
         }
 
     }

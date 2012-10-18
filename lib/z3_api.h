@@ -1,3 +1,6 @@
+#ifndef _Z3_API_H_
+#define _Z3_API_H_
+
 #ifdef CAMLIDL
   #ifdef MLAPIV3
     #define ML3only
@@ -7556,3 +7559,5 @@ END_MLAPI_EXCLUDE
 #endif // CAMLIDL
 
 /*@}*/
+
+#endif
