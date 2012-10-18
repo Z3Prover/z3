@@ -200,9 +200,7 @@ def mk_z3tactics_py():
 def mk_dll_defs():
     pat1 = re.compile(".*Z3_API.*")
     z3def = open('dll%sz3.def' % os.sep, 'w')
-    z3dbgdef = open('dll%sz3_dbg.def' % os.sep, 'w')
     z3def.write('LIBRARY "Z3"\nEXPORTS\n')
-    z3dbgdef.write('LIBRARY "Z3_DBG"\nEXPORTS\n')
     num = 1
     for api_file in API_FILES:
         api = open(api_file, 'r')
@@ -215,7 +213,6 @@ def mk_dll_defs():
                     if w == 'Z3_API':
                         f = words[i+1]
                         z3def.write('\t%s @%s\n' % (f, num))
-                        z3dbgdef.write('\t%s @%s\n' % (f, num))
                     i = i + 1
                 num = num + 1
 
@@ -512,11 +509,8 @@ def mk_dotnet():
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
-    dotnet.write('            #if DEBUG\n'
-                 '            const string Z3_DLL_NAME = \"z3_dbg.dll\";\n'
-                 '            #else\n'
                  '            const string Z3_DLL_NAME = \"z3.dll\";\n'
-                 '            #endif\n\n');
+                 '            \n');
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
     for name, result, params in _dotnet_decls:
