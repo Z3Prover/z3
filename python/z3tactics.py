@@ -1,4 +1,4 @@
-# Automatically generated file, generator: mk_z3tactics.py
+# Automatically generated file, generator: update_api.py
 import z3core
 import z3
 
@@ -225,6 +225,10 @@ def qfnia_tactic(ctx=None):
 def qfnra_tactic(ctx=None):
   ctx = z3._get_ctx(ctx)
   return z3.Tactic(z3core.Z3_mk_tactic(ctx.ref(), 'qfnra'), ctx)
+
+def qfnra_nlsat_tactic(ctx=None):
+  ctx = z3._get_ctx(ctx)
+  return z3.Tactic(z3core.Z3_mk_tactic(ctx.ref(), 'qfnra-nlsat'), ctx)
 
 def qfbv_tactic(ctx=None):
   ctx = z3._get_ctx(ctx)
