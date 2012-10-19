@@ -90,33 +90,6 @@ std::string pp_cube(unsigned sz, expr * const * lits, ast_manager& m) {
 //
 
 
-
-bool model_evaluator::get_assignment(expr* e, expr*& var, expr*& val) {
-    if (m.is_eq(e, var, val)) {
-        if (!is_uninterp(var)) {
-            std::swap(var, val);
-        }
-        if (m.is_true(val) || m.is_false(val) || m_arith.is_numeral(val)) {
-            return true;
-        }
-        TRACE("pdr_verbose", tout << "no value for " << mk_pp(val, m) << "\n";);
-        return false;
-    }
-    else if (m.is_not(e, var)) {
-        val = m.mk_false();
-        return true;
-    }
-    else if (m.is_bool(e)) {
-        val = m.mk_true();
-        var = e;
-        return true;
-    }
-    else {
-        TRACE("pdr_verbose", tout << "no value set of " << mk_pp(e, m) << "\n";);
-        return false;
-    }
-}
-
 void model_evaluator::assign_value(expr* e, expr* val) {
     rational r;
     if (m.is_true(val)) {
@@ -166,7 +139,7 @@ void model_evaluator::reset() {
     m_model = 0;
 }
 
-void model_evaluator::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl, expr_ref_vector & model) {
+expr_ref_vector model_evaluator::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl) {
     setup_model(mdl);
 
     TRACE("pdr_verbose", 
@@ -174,7 +147,7 @@ void model_evaluator::minimize_model(ptr_vector<expr> const & formulas, model_re
           for (unsigned i = 0; i < formulas.size(); ++i) tout << mk_pp(formulas[i], m) << "\n"; 
           );
 
-    prune_by_cone_of_influence(formulas, model);
+    expr_ref_vector model = prune_by_cone_of_influence(formulas);
     TRACE("pdr_verbose",
           tout << "pruned model:\n";
           for (unsigned i = 0; i < model.size(); ++i) tout << mk_pp(model[i].get(), m) << "\n";);
@@ -185,6 +158,8 @@ void model_evaluator::minimize_model(ptr_vector<expr> const & formulas, model_re
         setup_model(mdl);
         VERIFY(check_model(formulas));
         reset(););
+
+    return model;
 }
 
 expr_ref_vector model_evaluator::minimize_literals(ptr_vector<expr> const& formulas, model_ref& mdl) {
@@ -340,7 +315,7 @@ void model_evaluator::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>
     m_visited.reset();
 }
 
-void model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model) {
+expr_ref_vector model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formulas) {
     ptr_vector<expr> tocollect;
     collect(formulas, tocollect);
     m1.reset();
@@ -349,19 +324,23 @@ void model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> const & formul
         TRACE("pdr_verbose", tout << "collect: " << mk_pp(tocollect[i], m) << "\n";);
         for_each_expr(*this, m_visited, tocollect[i]);
     }
-    unsigned sz1 = model.size();
-    for (unsigned i = 0; i < model.size(); ++i) {
-        expr* e = model[i].get(), *var, *val;
-        if (get_assignment(e, var, val)) {
-            if (!m_visited.is_marked(var)) {
-                model[i] = model.back();
-                model.pop_back(); 
-                --i;
-            }
+    unsigned sz = m_model->get_num_constants();
+    expr_ref e(m), eq(m);
+    expr_ref_vector model(m);
+    bool_rewriter rw(m);
+    for (unsigned i = 0; i < sz; i++) {
+        func_decl * d = m_model->get_constant(i); 
+        expr* val = m_model->get_const_interp(d);
+        e = m.mk_const(d);
+        if (m_visited.is_marked(e)) {
+            rw.mk_eq(e, val, eq);
+            model.push_back(eq);
         }
     }
     m_visited.reset();
-    TRACE("pdr", tout << sz1 << " ==> " << model.size() << "\n";);
+    TRACE("pdr", tout << sz << " ==> " << model.size() << "\n";);
+    return model;
+
 }
 
 void model_evaluator::eval_arith(app* e) {

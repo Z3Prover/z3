@@ -194,10 +194,9 @@ class model_evaluator {
     void reset();
     void setup_model(model_ref& model);
     void assign_value(expr* e, expr* v);
-    bool get_assignment(expr* e, expr*& var, expr*& val);
     void collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect);
     void process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect);
-    void prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
+    expr_ref_vector prune_by_cone_of_influence(ptr_vector<expr> const & formulas);
     void eval_arith(app* e);
     void eval_basic(app* e);
     void eval_iff(app* e, expr* arg1, expr* arg2);
@@ -230,7 +229,13 @@ protected:
 public:
     model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m), m_refs(m) {}
 
-    virtual void minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl, expr_ref_vector& model);
+    /**
+       \brief extract equalities from model that suffice to satisfy formula.
+
+       \pre model satisfies formulas
+    */
+
+    expr_ref_vector minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl);
 
     /**
        \brief extract literals from formulas that satisfy formulas.
@@ -239,12 +244,6 @@ public:
     */
     expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, model_ref& mdl);
 
-    /**
-       \brief extract literals from formulas that satisfy formulas.
-
-       \pre model satisfies formulas
-    */
-    expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, expr_ref_vector const & model);
 
     // for_each_expr visitor.
     void operator()(expr* e) {} 

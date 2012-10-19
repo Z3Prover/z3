@@ -30,19 +30,6 @@ namespace pdr {
 
 
     //
-    // eliminate conjuncts from cube as long as state is satisfied.
-    // 
-    void model_evaluation_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        expr_ref_vector forms(cube.get_manager());
-        forms.push_back(n.state());
-        forms.push_back(n.pt().transition());
-        datalog::flatten_and(forms);
-        ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
-        model_ref mdl = n.model_ptr();
-        m_model_evaluator.minimize_model(forms1, mdl, cube);
-    }
-
-    //
     // main propositional induction generalizer.
     // drop literals one by one from the core and check if the core is still inductive.
     //    

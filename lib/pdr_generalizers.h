@@ -25,14 +25,6 @@ Revision History:
 
 namespace pdr {
 
-    class model_evaluation_generalizer : public model_generalizer {        
-        model_evaluator m_model_evaluator;
-    public:
-        model_evaluation_generalizer(context& ctx, ast_manager& m) : model_generalizer(ctx), m_model_evaluator(m) {}
-        virtual ~model_evaluation_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& cube);
-    };
-
     class core_bool_inductive_generalizer : public core_generalizer {
         unsigned m_failure_limit;
     public:
