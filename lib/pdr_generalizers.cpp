@@ -28,65 +28,18 @@ Revision History:
 
 namespace pdr {
 
-    static void solve_for_next_vars(expr_ref& F, model_node& n, expr_substitution& sub) {
-        ast_manager& m = F.get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        const model_core & mdl = n.model();
-        unsigned sz = mdl.get_num_constants();
-        expr_ref_vector refs(m);
-
-        for (unsigned i = 0; i < sz; i++) {
-             func_decl * d = mdl.get_constant(i);    
-             expr_ref interp(m);
-             ptr_vector<app> cs;
-             if (m.is_bool(d->get_range())) {
-                get_value_from_model(mdl, d, interp);  
-                app* c = m.mk_const(d);
-                refs.push_back(c);
-                refs.push_back(interp);
-                sub.insert(c, interp);
-             }
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        (*rep)(F);
-        th_rewriter rw(m);
-        rw(F);
-        ptr_vector<expr> todo;
-        todo.push_back(F);
-        expr* e1, *e2;
-        while (!todo.empty()) {
-            expr* e = todo.back();
-            todo.pop_back();
-            if (m.is_and(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else if ((m.is_eq(e, e1, e2) && pm.is_n(e1) && pm.is_o_formula(e2)) ||
-                     (m.is_eq(e, e2, e1) && pm.is_n(e1) && pm.is_o_formula(e2))) {
-                sub.insert(e1, e2);
-                TRACE("pdr", tout << mk_pp(e1, m) << " |-> " << mk_pp(e2, m) << "\n";);
-            }
-        }
-    }
 
     //
     // eliminate conjuncts from cube as long as state is satisfied.
     // 
     void model_evaluation_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ptr_vector<expr> forms;
+        expr_ref_vector forms(cube.get_manager());
         forms.push_back(n.state());
         forms.push_back(n.pt().transition());
-        m_model_evaluator.minimize_model(forms, cube);
-    }
-
-    //
-    // eliminate conjuncts from cube as long as state is satisfied.
-    // 
-    void bool_model_evaluation_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ptr_vector<expr> forms;
-        forms.push_back(n.state());
-        forms.push_back(n.pt().transition());
-        m_model_evaluator.minimize_model(forms, cube);
+        datalog::flatten_and(forms);
+        ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
+        model_ref mdl = n.model_ptr();
+        m_model_evaluator.minimize_model(forms1, mdl, cube);
     }
 
     //
@@ -120,10 +73,6 @@ namespace pdr {
         IF_VERBOSE(2, verbose_stream() << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
         TRACE("pdr", tout << "old size: " << old_core_size << " new size: " << core.size() << "\n";);
     }
-
-    //
-    // extract multiple cores from unreachable state.
-    //
 
 
     void core_multi_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
@@ -207,31 +156,6 @@ namespace pdr {
         m_farkas_learner.collect_statistics(st);
     }
 
-    void model_precond_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ast_manager& m  = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        expr_ref A(m), state(m);
-        expr_ref_vector states(m);
-        A = n.pt().get_formulas(n.level(), true);   
-
-        // extract substitution for next-state variables.
-        expr_substitution sub(m);        
-        solve_for_next_vars(A, n, sub);
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        A = m.mk_and(A, n.state());
-        (*rep)(A);                
-
-        datalog::flatten_and(A, states);
-
-        for (unsigned i = 0; i < states.size(); ++i) {
-            expr* s = states[i].get();
-            if (pm.is_o_formula(s) && pm.is_homogenous_formula(s)) {
-                cube.push_back(s);
-            }
-        }
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-    }
 
     /**
               < F, phi, i + 1 >
@@ -567,78 +491,4 @@ namespace pdr {
             uses_level = true;
         }
     }
-
-
-    //
-    // cube => n.state() & formula
-    // so n.state() & cube & ~formula is unsat
-    // so weaken cube while result is still unsat.
-    //
-    void model_farkas_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ast_manager& m  = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        front_end_params& p = m_ctx.get_fparams();
-        farkas_learner learner(p, m);
-        expr_ref A0(m), A(m), B(m), state(m);
-        expr_ref_vector states(m);
-
-        A0 = n.pt().get_formulas(n.level(), true);   
-
-        // extract substitution for next-state variables.
-        expr_substitution sub(m);        
-        solve_for_next_vars(A0, n, sub);
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        (*rep)(A0);        
-        A0 = m.mk_not(A0);
-        
-        state = n.state();
-        (*rep)(state);
-
-        datalog::flatten_and(state, states);
-
-        ptr_vector<func_decl> preds;
-        n.pt().find_predecessors(n.model(), preds);
-
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-
-        for (unsigned i = 0; i < preds.size(); ++i) {            
-            pred_transformer& pt = m_ctx.get_pred_transformer(preds[i]);
-            SASSERT(pt.head() == preds[i]);              
-            expr_ref_vector lemmas(m), o_cube(m), other(m), o_state(m), other_state(m);
-            pm.partition_o_atoms(cube,   o_cube,  other, i);
-            pm.partition_o_atoms(states, o_state, other_state, i);
-            TRACE("pdr", 
-                  tout << "cube:\n";
-                  for (unsigned i = 0; i < cube.size(); ++i)    tout << mk_pp(cube[i].get(), m) << "\n";
-                  tout << "o_cube:\n";
-                  for (unsigned i = 0; i < o_cube.size(); ++i)  tout << mk_pp(o_cube[i].get(), m) << "\n";
-                  tout << "other:\n";
-                  for (unsigned i = 0; i < other.size(); ++i)   tout << mk_pp(other[i].get(), m) << "\n";
-                  tout << "o_state:\n";
-                  for (unsigned i = 0; i < o_state.size(); ++i) tout << mk_pp(o_state[i].get(), m) << "\n";
-                  tout << "other_state:\n";
-                  for (unsigned i = 0; i < other_state.size(); ++i) tout << mk_pp(other_state[i].get(), m) << "\n";
-            );
-            A = m.mk_and(A0, pm.mk_and(other), pm.mk_and(other_state));
-            B = m.mk_and(pm.mk_and(o_cube), pm.mk_and(o_state));
-
-            TRACE("pdr", 
-                  tout << "A: " << mk_pp(A, m) << "\n";
-                  tout << "B: " << mk_pp(B, m) << "\n";);
-                     
-            if (learner.get_lemma_guesses(A, B, lemmas)) {
-                cube.append(lemmas);
-                cube.append(o_state);
-                TRACE("pdr", 
-                      tout << "New lemmas:\n";
-                      for (unsigned i = 0; i < lemmas.size(); ++i) {
-                          tout << mk_pp(lemmas[i].get(), m) << "\n";
-                      }
-                      );                
-            }          
-        }
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-    }
-
 };

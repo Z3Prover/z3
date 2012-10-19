@@ -228,6 +228,76 @@ bool sym_mux::is_homogenous(const expr_ref_vector & vect, unsigned idx) const
     return true;
 }
 
+class sym_mux::index_collector {
+    sym_mux const& m_parent;
+    svector<bool> m_indices;
+public:
+    index_collector(sym_mux const& s): 
+      m_parent(s) {}
+
+    void operator()(expr * e) {    
+        if (is_app(e)) {
+            func_decl * sym = to_app(e)->get_decl();
+            unsigned idx;
+            if (m_parent.try_get_index(sym, idx)) { 
+                SASSERT(idx > 0);
+                --idx;
+                if (m_indices.size() <= idx) {
+                    m_indices.resize(idx+1, false);
+                }
+                m_indices[idx] = true;
+            }
+        }
+    }
+
+    void extract(unsigned_vector& indices) {
+        for (unsigned i = 0; i < m_indices.size(); ++i) {
+            if (m_indices[i]) {
+                indices.push_back(i);
+            }
+        }
+    }
+};
+
+
+
+void sym_mux::collect_indices(expr* e, unsigned_vector& indices) const {
+    indices.reset();
+    index_collector collector(*this);
+    for_each_expr(collector, m_visited, e);
+    m_visited.reset();
+    collector.extract(indices);
+}
+
+class sym_mux::variable_collector {
+    sym_mux const& m_parent;
+    vector<ptr_vector<app> >& m_vars;
+public:
+    variable_collector(sym_mux const& s, vector<ptr_vector<app> >& vars): 
+      m_parent(s), m_vars(vars) {}
+
+    void operator()(expr * e) {    
+        if (is_app(e)) {
+            func_decl * sym = to_app(e)->get_decl();
+            unsigned idx;
+            if (m_parent.try_get_index(sym, idx)) { 
+                SASSERT(idx > 0);
+                --idx;
+                if (m_vars.size() <= idx) {
+                    m_vars.resize(idx+1, ptr_vector<app>());
+                }
+                m_vars[idx].push_back(to_app(e));
+            }
+        }
+    }
+};
+
+void sym_mux::collect_variables(expr* e, vector<ptr_vector<app> >& vars) const {
+    vars.reset();
+    variable_collector collector(*this, vars);
+    for_each_expr(collector, m_visited, e);
+    m_visited.reset();
+}
 
 class sym_mux::hmg_checker {
     const sym_mux & m_parent;
@@ -443,38 +513,6 @@ void sym_mux::filter_non_model_lits(expr_ref_vector & vect) const {
         vect[i] = vect.back();
         vect.pop_back();
     }
-}
-
-void sym_mux::get_muxed_cube_from_model(const model_core & mdl, expr_ref_vector & res) const
-{
-    res.reset();
-    unsigned sz = mdl.get_num_constants();
-    for (unsigned i = 0; i < sz; i++) {
-        func_decl * d = mdl.get_constant(i);
-
-        if(!is_muxed(d) || m_non_model_syms.contains(get_primary(d))) { continue; }
-
-        SASSERT(d->get_arity()==0);
-        expr_ref interp(m);
-        get_value_from_model(mdl, d, interp);
-
-        app_ref constant(m.mk_const(d), m);
-        app_ref lit(m);
-        if(m.is_bool(d->get_range())) {
-            if(m.is_true(interp)) {
-                lit = constant;
-            }
-            else {
-                SASSERT(m.is_false(interp));
-                lit = m.mk_not(constant);
-            }
-        }
-        else {
-            lit = m.mk_eq(constant, interp);
-        }
-        res.push_back(lit);
-    }
-    //LOGV(5, " got cube "<<pp_cube(res, m));
 }
 
 class sym_mux::decl_idx_comparator

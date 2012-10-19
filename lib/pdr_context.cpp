@@ -41,6 +41,7 @@ Notes:
 #include "model_smt2_pp.h"
 #include "dl_mk_rule_inliner.h"
 #include "ast_smt2_pp.h"
+#include "qe_lite.h"
 
 namespace pdr {
 
@@ -124,7 +125,7 @@ namespace pdr {
 
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
         obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
-        TRACE("pdr",
+        TRACE("pdr_verbose",
               for (; it != end; ++it) {
                   expr* pred = it->m_key;
                   tout << mk_pp(pred, m) << ":\n";
@@ -394,7 +395,7 @@ namespace pdr {
         lbool is_sat = m_solver.check_conjunction_as_assumptions(n.state());
         if (is_sat == l_true && core) {            
             core->reset();
-            model2cube(*model, *core);
+            model2cube(*model,*core);
             n.set_model(model);
         }
         return is_sat;
@@ -522,6 +523,7 @@ namespace pdr {
         expr_ref_vector conj(m);
         app_ref_vector& var_reprs = *(alloc(app_ref_vector, m));
         qinst* qi = 0;
+        ptr_vector<app> aux_vars;
                 
         unsigned ut_size = rule.get_uninterpreted_tail_size();
         unsigned t_size  = rule.get_tail_size();   
@@ -534,7 +536,7 @@ namespace pdr {
             init_atom(pts, rule.get_tail(i), var_reprs, conj, i);
         }                  
         for (unsigned i = ut_size; i < t_size; ++i) {
-            ground_free_vars(rule.get_tail(i), var_reprs);
+            ground_free_vars(rule.get_tail(i), var_reprs, aux_vars);
         }
         SASSERT(check_filled(var_reprs));
         expr_ref_vector tail(m);
@@ -585,6 +587,7 @@ namespace pdr {
             m_rule2qinst.insert(&rule, qi);            
         }
         m_rule2inst.insert(&rule,&var_reprs);
+        m_rule2vars.insert(&rule, aux_vars);
     }
 
     bool pred_transformer::check_filled(app_ref_vector const& v) const {
@@ -595,7 +598,7 @@ namespace pdr {
     }
 
     // create constants for free variables in tail.
-    void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars) {
+    void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars) {
         ptr_vector<sort> sorts;
         get_free_vars(e, sorts);
         while (vars.size() < sorts.size()) {
@@ -604,6 +607,7 @@ namespace pdr {
         for (unsigned i = 0; i < sorts.size(); ++i) {
             if (sorts[i] && !vars[i].get()) {
                 vars[i] = m.mk_fresh_const("aux", sorts[i]);
+                aux_vars.push_back(vars[i].get());
             }
         }
     }
@@ -1099,6 +1103,7 @@ namespace pdr {
           m_inductive_lvl(0),
           m_cancel(false)
     {
+        m_use_model_generalizer = m_params.get_bool("use-model-generalizer", false);
     }
 
     context::~context() {
@@ -1296,18 +1301,8 @@ namespace pdr {
 
     void context::init_model_generalizers(datalog::rule_set& rules) {
         reset_model_generalizers();
-        classifier_proc classify(m, rules);
-        if (classify.is_bool_arith()) {
-            m_model_generalizers.push_back(alloc(bool_model_evaluation_generalizer, *this, m));
-        }
-        else {
+        if (m_use_model_generalizer) {
             m_model_generalizers.push_back(alloc(model_evaluation_generalizer, *this, m));
-        }
-        if (m_params.get_bool(":use-farkas-model", false)) {
-            m_model_generalizers.push_back(alloc(model_farkas_generalizer, *this));
-        }        
-        if (m_params.get_bool(":use-precondition-generalizer", false)) {
-            m_model_generalizers.push_back(alloc(model_precond_generalizer, *this));
         }
     }
 
@@ -1556,12 +1551,11 @@ namespace pdr {
                     close_node(n);
                 }
                 else {
-                    TRACE("pdr", tout << "node: " << &n << "\n"; 
-                          expr_ref cb(m.mk_and(cube.size(),cube.c_ptr()), m); 
-                          tout << mk_pp(cb.get(), m) << "\n";);
+                    TRACE("pdr", tout << "node: " << &n << "\n";); 
                     for (unsigned i = 0; i < m_model_generalizers.size(); ++i) {
                         (*m_model_generalizers[i])(n, cube);
-                    }
+                    }                    
+
                     create_children(n, m_pm.mk_and(cube));
                 }
                 break;
@@ -1634,7 +1628,11 @@ namespace pdr {
     }
 
     // create children states from model cube.
-    void context::create_children(model_node& n, expr* model) {        
+    void context::create_children(model_node& n, expr* model) {
+        if (!m_use_model_generalizer) {
+            create_children2(n);
+            return;
+        }
         expr_ref_vector literals(m), sub_lits(m);
         expr_ref o_cube(m), n_cube(m);
         datalog::flatten_and(model, literals);
@@ -1652,6 +1650,7 @@ namespace pdr {
                   tout << preds[i]->get_name() << "\n";
               }
              );
+        
         for (unsigned i = 0; i < preds.size(); ++i) {            
             pred_transformer& pt = *m_rels.find(preds[i]);
             SASSERT(pt.head() == preds[i]);
@@ -1689,34 +1688,149 @@ namespace pdr {
        
        Goal is to find phi0(x0), phi1(x1) such that:
 
-       phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
+         phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
+
+       or at least (ignoring psi alltogether):
+
+         phi(x) & phi0(x0) & phi1(x1) => T(x0, x1, x)       
 
        Strategy: 
 
+       - Extract literals from T & phi using ternary simulation with M.
+       - resulting formula is Phi.
+
        - perform cheap existential quantifier elimination on 
-         exists x . T(x0,x1,x) & phi(x)
+         Phi <- exists x . Phi(x0,x1,x)
          (e.g., destructive equality resolution) 
+   
+       - Sub-strategy 1: rename  remaining x to fresh variables.
+       - Sub-strategy 2: replace remaining x to M(x).
 
-       - pull equalities that use 
-       
-       
+       - For each literal L in result:
+
+         - if L is x0 pure, add L to L0
+         - if L is x1 pure, add L to L1
+         - if L mixes x0, x1, add x1 = M(x1) to L1, add L(x1 |-> M(x1)) to L0
+         
+       - Create sub-goals for L0 and L1.
+
     */
-    void context::create_children2(model_node& n, expr* psi) {        
+    void context::create_children2(model_node& n) {        
         SASSERT(n.level() > 0);
-
-        model_core const& M = n.model();
-        datalog::rule const& r = n.pt().find_rule(M);
-        expr* T   = n.pt().get_transition(r);
+ 
+        pred_transformer& pt = n.pt();
+        model_ref M = n.model_ptr();
+        datalog::rule const& r = pt.find_rule(*M);
+        expr* T   = pt.get_transition(r);
         expr* phi = n.state();
 
-        expr_ref_vector Ts(m);
-        datalog::flatten_and(T, Ts);
+        IF_VERBOSE(2, verbose_stream() << "Model:\n";
+                   model_smt2_pp(verbose_stream(), m, *M, 0);
+                   verbose_stream() << "\n";
+                   verbose_stream() << "Transition:\n" << mk_pp(T, m) << "\n";
+                   verbose_stream() << "Phi:\n" << mk_pp(phi, m) << "\n";);
+                      
+        model_evaluator mev(m);
+        expr_ref_vector mdl(m), forms(m);
+        forms.push_back(T);
+        forms.push_back(phi);
+        datalog::flatten_and(forms);        
+        ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
+        expr_ref_vector Phi = mev.minimize_literals(forms1, M);
 
         ptr_vector<func_decl> preds;
-        n.pt().find_predecessors(r, preds);        
-        n.pt().remove_predecessors(Ts);
+        pt.find_predecessors(r, preds);
+        pt.remove_predecessors(Phi);
 
-        // TBD ...
+        app_ref_vector vars(m);
+        unsigned sig_size = pt.head()->get_arity();
+        for (unsigned i = 0; i < sig_size; ++i) {
+            vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
+        }
+        ptr_vector<app> aux_vars;
+        pt.get_aux_vars(r, aux_vars);
+        vars.append(aux_vars.size(), aux_vars.c_ptr());
+
+        qe_lite qe(m);
+        expr_ref phi1 = m_pm.mk_and(Phi);
+        qe(vars, phi1);
+
+        IF_VERBOSE(2, 
+                   verbose_stream() << "Vars:\n";
+                   for (unsigned i = 0; i < vars.size(); ++i) {
+                       verbose_stream() << mk_pp(vars[i].get(), m) << "\n";
+                   }
+                   verbose_stream() << "Literals\n";
+                   verbose_stream() << mk_pp(m_pm.mk_and(Phi), m) << "\n";
+                   verbose_stream() << "Reduced\n" << mk_pp(phi1, m) << "\n";);
+        
+        if (!vars.empty()) {
+            // also fresh names for auxiliary variables in body?
+            expr_substitution sub(m);
+            expr_ref tmp(m);
+            proof_ref pr(m);
+            pr = m.mk_asserted(m.mk_true());
+
+            for (unsigned i = 0; i < vars.size(); ++i) {                
+                M->eval(vars[i]->get_decl(), tmp);                
+                sub.insert(vars[i].get(), tmp, pr);
+            }
+            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+            rep->set_substitution(&sub);
+            (*rep)(phi1);
+            IF_VERBOSE(2, verbose_stream() << "Projected:\n" << mk_pp(phi1, m) << "\n";);
+        }
+        Phi.reset();
+        datalog::flatten_and(phi1, Phi);
+        unsigned_vector indices;
+        vector<expr_ref_vector> child_states;
+        child_states.resize(preds.size(), expr_ref_vector(m));
+        for (unsigned i = 0; i < Phi.size(); ++i) {            
+            m_pm.collect_indices(Phi[i].get(), indices);    
+            if (indices.size() == 0) {
+                IF_VERBOSE(2, verbose_stream() << "Skipping " << mk_pp(Phi[i].get(), m) << "\n";);
+            }
+            else if (indices.size() == 1) {
+                child_states[indices.back()].push_back(Phi[i].get());
+            }
+            else {
+                expr_substitution sub(m);
+                expr_ref tmp(m);
+                proof_ref pr(m);
+                pr = m.mk_asserted(m.mk_true());
+                vector<ptr_vector<app> > vars;
+                m_pm.collect_variables(Phi[i].get(), vars);
+                SASSERT(vars.size() == indices.back()+1);
+                for (unsigned j = 1; j < indices.size(); ++j) {
+                    ptr_vector<app> const& vs = vars[indices[j]];
+                    for (unsigned k = 0; k < vs.size(); ++k) {
+                        M->eval(vs[k]->get_decl(), tmp);
+                        sub.insert(vs[k], tmp, pr);
+                        child_states[indices[j]].push_back(m.mk_eq(vs[k], tmp));
+                    }
+                }
+                tmp = Phi[i].get();
+                scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+                rep->set_substitution(&sub);
+                (*rep)(tmp);
+                child_states[indices[0]].push_back(tmp);
+            }
+        }
+        
+        expr_ref n_cube(m);
+        for (unsigned i = 0; i < preds.size(); ++i) {            
+            pred_transformer& pt = *m_rels.find(preds[i]);
+            SASSERT(pt.head() == preds[i]);           
+            expr_ref o_cube = m_pm.mk_and(child_states[i]);            
+            m_pm.formula_o2n(o_cube, n_cube, i);
+            model_node* child = alloc(model_node, &n, n_cube, pt, n.level()-1);
+            ++m_stats.m_num_nodes;
+            m_search.add_leaf(*child); 
+            IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+        }
+        check_pre_closed(n);
+
+
         TRACE("pdr", m_search.display(tout););
     }
 

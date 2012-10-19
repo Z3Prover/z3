@@ -223,6 +223,20 @@ namespace pdr {
         bool is_homogenous_formula(expr * e) const {
             return m_mux.is_homogenous_formula(e);
         }
+
+        /**
+            Collect indices used in expression.
+        */
+        void collect_indices(expr* e, unsigned_vector& indices) const {
+            m_mux.collect_indices(e, indices);
+        }
+
+        /**
+            Collect used variables of each index.
+        */
+        void collect_variables(expr* e, vector<ptr_vector<app> >& vars) const {
+            m_mux.collect_variables(e, vars);
+        }
         
         /**
            Return true iff both s1 and s2 are either "n" or "o" of the same index.
@@ -275,8 +289,6 @@ namespace pdr {
         bool try_get_state_and_value_from_atom(expr * atom, app *& state, app_ref& value);
         bool try_get_state_decl_from_atom(expr * atom, func_decl *& state);
         
-        void get_state_cube_from_model(const model_core & mdl, expr_ref_vector & cube) const
-        {  return m_mux.get_muxed_cube_from_model(mdl, cube); }
         
         std::string pp_model(const model_core & mdl) const
             {  return m_mux.pp_model(mdl); }

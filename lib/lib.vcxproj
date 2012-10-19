@@ -753,6 +753,7 @@
     <ClCompile Include="qe_bv_plugin.cpp" />
     <ClCompile Include="qe_datatype_plugin.cpp" />
     <ClCompile Include="qe_dl_plugin.cpp" />
+    <ClCompile Include="qe_lite.cpp" />
     <ClCompile Include="qe_sat_tactic.cpp" />
     <ClCompile Include="qe_tactic.cpp" />
     <ClCompile Include="qffpa_tactic.cpp" />
@@ -1160,6 +1161,7 @@
     <ClInclude Include="pull_ite_tree.h" />
     <ClInclude Include="pull_quant.h" />
     <ClInclude Include="push_app_ite.h" />
+    <ClInclude Include="qe_lite.h" />
     <ClInclude Include="qe_sat_tactic.h" />
     <ClInclude Include="qfnra_sign.h" />
     <ClInclude Include="qfuf_strategy.h" />

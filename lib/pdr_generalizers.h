@@ -25,11 +25,11 @@ Revision History:
 
 namespace pdr {
 
-    class bool_model_evaluation_generalizer : public model_generalizer {        
-        ternary_model_evaluator m_model_evaluator;
+    class model_evaluation_generalizer : public model_generalizer {        
+        model_evaluator m_model_evaluator;
     public:
-        bool_model_evaluation_generalizer(context& ctx, ast_manager& m) : model_generalizer(ctx), m_model_evaluator(m) {}
-        virtual ~bool_model_evaluation_generalizer() {}
+        model_evaluation_generalizer(context& ctx, ast_manager& m) : model_generalizer(ctx), m_model_evaluator(m) {}
+        virtual ~model_evaluation_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector& cube);
     };
 
@@ -48,28 +48,6 @@ namespace pdr {
         virtual ~core_farkas_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);  
         virtual void collect_statistics(statistics& st) const;
-    };
-
-    class model_precond_generalizer : public model_generalizer {
-    public:
-        model_precond_generalizer(context& ctx): model_generalizer(ctx) {}
-        virtual ~model_precond_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& cube);
-    };
-
-    class model_farkas_generalizer : public model_generalizer {
-    public:
-        model_farkas_generalizer(context& ctx) : model_generalizer(ctx) {}
-        virtual ~model_farkas_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& cube);
-    };
-
-    class model_evaluation_generalizer : public model_generalizer {        
-        th_rewriter_model_evaluator m_model_evaluator;
-    public:        
-        model_evaluation_generalizer(context& ctx, ast_manager& m) : model_generalizer(ctx), m_model_evaluator(m) {}
-        virtual ~model_evaluation_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& cube);
     };
 
     class core_multi_generalizer : public core_generalizer {

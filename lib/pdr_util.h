@@ -170,34 +170,15 @@ void vect_set_union(ref_vector<Type,Mgr> & tgt, ref_vector<Type,Mgr> & src, Comp
 }
 
 
-class model_evaluator_base {
-protected:
-    virtual void check_model(ptr_vector<expr> const & formulas, 
-                             expr_ref_vector & model, bool & has_unknown, bool & has_false) = 0;
-public:
-    virtual void minimize_model(ptr_vector<expr> const & formulas, expr_ref_vector & model);
-};
 
-class th_rewriter_model_evaluator : public model_evaluator_base {
-    class expr_rewriter_cfg;
-    ast_manager& m;
-    th_rewriter  m_rewriter;
-    
-    void setup_assignment(expr_ref_vector const& model, obj_map<expr,expr*>& assignment);
-
-protected:
-    virtual void check_model(ptr_vector<expr> const & formulas, 
-                             expr_ref_vector & model, bool & has_unknown, 
-                             bool & has_false);
-public:
-    th_rewriter_model_evaluator(ast_manager& m) : m(m), m_rewriter(m) {}
-};
-
-class ternary_model_evaluator  : public model_evaluator_base {
+class model_evaluator {
     ast_manager& m;
     arith_util   m_arith;
     bv_util      m_bv;
-    obj_map<expr,rational> m_values;
+    obj_map<expr,rational> m_numbers;
+    expr_ref_vector        m_refs;
+    obj_map<expr, expr*>   m_values;
+    model_ref m_model;
 
     //00 -- non-visited
     //01 -- X
@@ -209,13 +190,18 @@ class ternary_model_evaluator  : public model_evaluator_base {
     unsigned m_level2;
     expr_mark m_visited;
 
-    void setup_model(expr_ref_vector const& model);
-    void add_model(expr* e);
-    void del_model(expr* e);
-    
+
+    void reset();
+    void setup_model(model_ref& model);
+    void assign_value(expr* e, expr* v);
     bool get_assignment(expr* e, expr*& var, expr*& val);
+    void collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect);
+    void process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect);
     void prune_by_cone_of_influence(ptr_vector<expr> const & formulas, expr_ref_vector& model);
-    void prune_by_probing(ptr_vector<expr> const & formulas, expr_ref_vector& model);
+    void eval_arith(app* e);
+    void eval_basic(app* e);
+    void eval_iff(app* e, expr* arg1, expr* arg2);
+    void inherit_value(expr* e, expr* v);
 
     //00 -- non-visited
     //01 -- X
@@ -231,31 +217,33 @@ class ternary_model_evaluator  : public model_evaluator_base {
     inline void set_false(expr* x) { SASSERT(is_unknown(x)); m1.mark(x); }
     inline void set_true(expr* x) { SASSERT(is_unknown(x)); m1.mark(x); m2.mark(x); }
     inline void set_bool(expr* x, bool v) { if (v) { set_true(x); } else { set_false(x); } }
-    inline rational const& get_value(expr* x) const { return m_values.find(x); }
-    inline void set_value(expr* x, rational const& v) { set_v(x); TRACE("pdr_verbose", tout << mk_pp(x,m) << " " << v << "\n";); m_values.insert(x,v); }
+    inline rational const& get_number(expr* x) const { return m_numbers.find(x); }
+    inline void set_number(expr* x, rational const& v) { set_v(x); TRACE("pdr_verbose", tout << mk_pp(x,m) << " " << v << "\n";); m_numbers.insert(x,v); }
+    inline expr* get_value(expr* x) { return m_values.find(x); }
+    inline void set_value(expr* x, expr* v) { set_v(x); m_refs.push_back(v); m_values.insert(x, v); }
 
-
+    
 protected:
+
     bool check_model(ptr_vector<expr> const & formulas);
-    virtual void check_model(ptr_vector<expr> const & formulas, expr_ref_vector & model, 
-        bool & has_unknown, bool & has_false) {
-            UNREACHABLE();
-    }
 
 public:
-    ternary_model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m) {}
-    virtual void minimize_model(ptr_vector<expr> const & formulas, expr_ref_vector & model);
+    model_evaluator(ast_manager& m) : m(m), m_arith(m), m_bv(m), m_refs(m) {}
+
+    virtual void minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl, expr_ref_vector& model);
+
+    /**
+       \brief extract literals from formulas that satisfy formulas.
+
+       \pre model satisfies formulas
+    */
+    expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, model_ref& mdl);
 
     // for_each_expr visitor.
     void operator()(expr* e) {} 
 };
 
 void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res);
-
-/**
-If the solver argument is non-zero, we will exclude its auxiliary symbols from the generated cube.
-*/
-void get_cube_from_model(const model_core & mdl, expr_ref_vector & res, pdr::prop_solver& solver);
 
 }
 
