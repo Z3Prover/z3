@@ -395,7 +395,6 @@ namespace pdr {
         lbool is_sat = m_solver.check_conjunction_as_assumptions(n.state());
         if (is_sat == l_true && core) {            
             core->reset();
-            model2cube(*model,*core);
             n.set_model(model);
         }
         return is_sat;
@@ -696,34 +695,6 @@ namespace pdr {
             m_solver.add_formula(e);
         }        
     }
-
-    void pred_transformer::model2cube(app* c, expr* val, expr_ref_vector& res) const {
-        if (m.is_bool(val)) {
-            res.push_back(m.is_true(val)?c:m.mk_not(c));
-        }
-        else {
-            res.push_back(m.mk_eq(c, val));
-        }
-    }
-
-    void pred_transformer::model2cube(const model_core& mdl, func_decl * d, expr_ref_vector& res) const {
-        expr_ref interp(m);
-        get_value_from_model(mdl, d, interp);   
-        app* c = m.mk_const(d);
-        model2cube(c, interp, res);
-    }
-
-    void pred_transformer::model2cube(const model_core & mdl, expr_ref_vector & res) const {
-        unsigned sz = mdl.get_num_constants();
-        for (unsigned i = 0; i < sz; i++) {
-            func_decl * d = mdl.get_constant(i);                        
-            SASSERT(d->get_arity()==0);
-            if (!m_solver.is_aux_symbol(d)) {
-                model2cube(mdl, d, res);
-            }
-        }   
-    }
-
 
     // ----------------
     // model_node
@@ -1103,11 +1074,9 @@ namespace pdr {
           m_inductive_lvl(0),
           m_cancel(false)
     {
-        m_use_model_generalizer = m_params.get_bool("use-model-generalizer", false);
     }
 
     context::~context() {
-        reset_model_generalizers();
         reset_core_generalizers();
         reset();
     }
@@ -1169,7 +1138,6 @@ namespace pdr {
 
     void context::update_rules(datalog::rule_set& rules) {
         decl2rel rels;
-        init_model_generalizers(rules);
         init_core_generalizers(rules);
         init_rules(rules, rels); 
         decl2rel::iterator it = rels.begin(), end = rels.end();
@@ -1293,18 +1261,6 @@ namespace pdr {
         }
     };
 
-
-    void context::reset_model_generalizers() {
-        std::for_each(m_model_generalizers.begin(), m_model_generalizers.end(), delete_proc<model_generalizer>());
-        m_model_generalizers.reset();
-    }
-
-    void context::init_model_generalizers(datalog::rule_set& rules) {
-        reset_model_generalizers();
-        if (m_use_model_generalizer) {
-            m_model_generalizers.push_back(alloc(model_evaluation_generalizer, *this, m));
-        }
-    }
 
     void context::reset_core_generalizers() {
         std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
@@ -1552,11 +1508,7 @@ namespace pdr {
                 }
                 else {
                     TRACE("pdr", tout << "node: " << &n << "\n";); 
-                    for (unsigned i = 0; i < m_model_generalizers.size(); ++i) {
-                        (*m_model_generalizers[i])(n, cube);
-                    }                    
-
-                    create_children(n, m_pm.mk_and(cube));
+                    create_children(n);
                 }
                 break;
             case l_false: {
@@ -1627,45 +1579,6 @@ namespace pdr {
         }
     }
 
-    // create children states from model cube.
-    void context::create_children(model_node& n, expr* model) {
-        if (!m_use_model_generalizer) {
-            create_children2(n);
-            return;
-        }
-        expr_ref_vector literals(m), sub_lits(m);
-        expr_ref o_cube(m), n_cube(m);
-        datalog::flatten_and(model, literals);
-        ptr_vector<func_decl> preds;
-        unsigned level = n.level();
-        SASSERT(level > 0);
-        n.pt().find_predecessors(n.model(), preds);
-        n.pt().remove_predecessors(literals);
-        TRACE("pdr", 
-              model_v2_pp(tout, n.model());
-              tout << "Model cube\n";
-              tout << mk_pp(model, m) << "\n";
-              tout << "Predecessors\n";
-              for (unsigned i = 0; i < preds.size(); ++i) {
-                  tout << preds[i]->get_name() << "\n";
-              }
-             );
-        
-        for (unsigned i = 0; i < preds.size(); ++i) {            
-            pred_transformer& pt = *m_rels.find(preds[i]);
-            SASSERT(pt.head() == preds[i]);
-            assign_ref_vector(sub_lits, literals);
-            m_pm.filter_o_atoms(sub_lits, i);            
-            o_cube = m_pm.mk_and(sub_lits);
-            m_pm.formula_o2n(o_cube, n_cube, i);
-            model_node* child = alloc(model_node, &n, n_cube, pt, level-1);
-            ++m_stats.m_num_nodes;
-            m_search.add_leaf(*child);            
-        }
-        check_pre_closed(n);
-        
-        TRACE("pdr", m_search.display(tout););
-    }
 
     /**
        \brief create children states from model cube.
@@ -1715,7 +1628,7 @@ namespace pdr {
        - Create sub-goals for L0 and L1.
 
     */
-    void context::create_children2(model_node& n) {        
+    void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
  
         pred_transformer& pt = n.pt();
@@ -1731,12 +1644,17 @@ namespace pdr {
                    verbose_stream() << "Phi:\n" << mk_pp(phi, m) << "\n";);
                       
         model_evaluator mev(m);
-        expr_ref_vector mdl(m), forms(m);
+        expr_ref_vector mdl(m), forms(m), Phi(m);
         forms.push_back(T);
         forms.push_back(phi);
         datalog::flatten_and(forms);        
         ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
-        expr_ref_vector Phi = mev.minimize_literals(forms1, M);
+        if (m_params.get_bool(":use-model-generalizer", false)) {
+            Phi.append(mev.minimize_model(forms1, M));
+        }
+        else {
+            Phi.append(mev.minimize_literals(forms1, M));
+        }
         ptr_vector<func_decl> preds;
         pt.find_predecessors(r, preds);
         pt.remove_predecessors(Phi);
@@ -1842,9 +1760,6 @@ namespace pdr {
         st.update("PDR max depth", m_stats.m_max_depth);
         m_pm.collect_statistics(st);
 
-        for (unsigned i = 0; i < m_model_generalizers.size(); ++i) {
-            m_model_generalizers[i]->collect_statistics(st);
-        }
         for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
             m_core_generalizers[i]->collect_statistics(st);
         }
