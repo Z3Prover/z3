@@ -1737,7 +1737,6 @@ namespace pdr {
         datalog::flatten_and(forms);        
         ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
         expr_ref_vector Phi = mev.minimize_literals(forms1, M);
-
         ptr_vector<func_decl> preds;
         pt.find_predecessors(r, preds);
         pt.remove_predecessors(Phi);

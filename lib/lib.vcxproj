@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="commercial|Win32">
@@ -443,6 +443,7 @@
     <ClCompile Include="api_numeral.cpp" />
     <ClCompile Include="api_params.cpp" />
     <ClCompile Include="api_parsers.cpp" />
+    <ClCompile Include="api_poly.cpp" />
     <ClCompile Include="api_quant.cpp" />
     <ClCompile Include="api_solver_old.cpp" />
     <ClCompile Include="api_solver.cpp" />

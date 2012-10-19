@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="commercial|Win32">
@@ -264,8 +264,8 @@
     <CodeAnalysisRuleSet Condition="'$(Configuration)|$(Platform)'=='trace|x64'">AllRules.ruleset</CodeAnalysisRuleSet>
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='trace|x64'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='trace|x64'" />
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">z3_dbg</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">z3_dbg</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">z3</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">z3</TargetName>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='external_64|x64'">z3</TargetName>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='external_64|Win32'">z3</TargetName>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='external|Win32'">z3</TargetName>
@@ -292,8 +292,8 @@
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)z3_dbg.dll</OutputFile>
-      <ModuleDefinitionFile>z3_dbg.def</ModuleDefinitionFile>
+      <OutputFile>$(OutDir)z3.dll</OutputFile>
+      <ModuleDefinitionFile>z3.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(TargetDir)z3_dll.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -319,8 +319,8 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <OutputFile>$(OutDir)z3_dbg.dll</OutputFile>
-      <ModuleDefinitionFile>z3_dbg.def</ModuleDefinitionFile>
+      <OutputFile>$(OutDir)z3.dll</OutputFile>
+      <ModuleDefinitionFile>z3.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(TargetDir)z3_dll.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -610,7 +610,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="z3.def" />
-    <None Include="z3_dbg.def" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />

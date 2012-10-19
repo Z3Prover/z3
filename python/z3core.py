@@ -1,4 +1,4 @@
-# Automatically generated file, generator: api.py
+# Automatically generated file, generator: update_api.py
 import sys, os
 import ctypes
 from z3types import *
@@ -39,20 +39,38 @@ def init(PATH):
   _lib.Z3_mk_context.argtypes = [Config]
   _lib.Z3_mk_context_rc.restype = ContextObj
   _lib.Z3_mk_context_rc.argtypes = [Config]
-  _lib.Z3_set_logic.argtypes = [ContextObj, ctypes.c_char_p]
   _lib.Z3_del_context.argtypes = [ContextObj]
   _lib.Z3_inc_ref.argtypes = [ContextObj, Ast]
   _lib.Z3_dec_ref.argtypes = [ContextObj, Ast]
-  _lib.Z3_toggle_warning_messages.argtypes = [ctypes.c_bool]
   _lib.Z3_update_param_value.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_char_p]
   _lib.Z3_get_param_value.restype = ctypes.c_bool
   _lib.Z3_get_param_value.argtypes = [ContextObj, ctypes.c_char_p, ctypes.POINTER(ctypes.c_char_p)]
+  _lib.Z3_interrupt.argtypes = [ContextObj]
+  _lib.Z3_mk_params.restype = Params
+  _lib.Z3_mk_params.argtypes = [ContextObj]
+  _lib.Z3_params_inc_ref.argtypes = [ContextObj, Params]
+  _lib.Z3_params_dec_ref.argtypes = [ContextObj, Params]
+  _lib.Z3_params_set_bool.argtypes = [ContextObj, Params, Symbol, ctypes.c_bool]
+  _lib.Z3_params_set_uint.argtypes = [ContextObj, Params, Symbol, ctypes.c_uint]
+  _lib.Z3_params_set_double.argtypes = [ContextObj, Params, Symbol, ctypes.c_double]
+  _lib.Z3_params_set_symbol.argtypes = [ContextObj, Params, Symbol, Symbol]
+  _lib.Z3_params_to_string.restype = ctypes.c_char_p
+  _lib.Z3_params_to_string.argtypes = [ContextObj, Params]
+  _lib.Z3_params_validate.argtypes = [ContextObj, Params, ParamDescrs]
+  _lib.Z3_param_descrs_inc_ref.argtypes = [ContextObj, ParamDescrs]
+  _lib.Z3_param_descrs_dec_ref.argtypes = [ContextObj, ParamDescrs]
+  _lib.Z3_param_descrs_get_kind.restype = ctypes.c_uint
+  _lib.Z3_param_descrs_get_kind.argtypes = [ContextObj, ParamDescrs, Symbol]
+  _lib.Z3_param_descrs_size.restype = ctypes.c_uint
+  _lib.Z3_param_descrs_size.argtypes = [ContextObj, ParamDescrs]
+  _lib.Z3_param_descrs_get_name.restype = Symbol
+  _lib.Z3_param_descrs_get_name.argtypes = [ContextObj, ParamDescrs, ctypes.c_uint]
+  _lib.Z3_param_descrs_to_string.restype = ctypes.c_char_p
+  _lib.Z3_param_descrs_to_string.argtypes = [ContextObj, ParamDescrs]
   _lib.Z3_mk_int_symbol.restype = Symbol
   _lib.Z3_mk_int_symbol.argtypes = [ContextObj, ctypes.c_int]
   _lib.Z3_mk_string_symbol.restype = Symbol
   _lib.Z3_mk_string_symbol.argtypes = [ContextObj, ctypes.c_char_p]
-  _lib.Z3_is_eq_sort.restype = ctypes.c_bool
-  _lib.Z3_is_eq_sort.argtypes = [ContextObj, Sort, Sort]
   _lib.Z3_mk_uninterpreted_sort.restype = Sort
   _lib.Z3_mk_uninterpreted_sort.argtypes = [ContextObj, Symbol]
   _lib.Z3_mk_bool_sort.restype = Sort
@@ -63,6 +81,8 @@ def init(PATH):
   _lib.Z3_mk_real_sort.argtypes = [ContextObj]
   _lib.Z3_mk_bv_sort.restype = Sort
   _lib.Z3_mk_bv_sort.argtypes = [ContextObj, ctypes.c_uint]
+  _lib.Z3_mk_finite_domain_sort.restype = Sort
+  _lib.Z3_mk_finite_domain_sort.argtypes = [ContextObj, Symbol, ctypes.c_ulonglong]
   _lib.Z3_mk_array_sort.restype = Sort
   _lib.Z3_mk_array_sort.argtypes = [ContextObj, Sort, Sort]
   _lib.Z3_mk_tuple_sort.restype = Sort
@@ -73,7 +93,6 @@ def init(PATH):
   _lib.Z3_mk_list_sort.argtypes = [ContextObj, Symbol, Sort, ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl)]
   _lib.Z3_mk_constructor.restype = Constructor
   _lib.Z3_mk_constructor.argtypes = [ContextObj, Symbol, Symbol, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.POINTER(ctypes.c_uint)]
-  _lib.Z3_query_constructor.argtypes = [ContextObj, Constructor, ctypes.c_uint, ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl)]
   _lib.Z3_del_constructor.argtypes = [ContextObj, Constructor]
   _lib.Z3_mk_datatype.restype = Sort
   _lib.Z3_mk_datatype.argtypes = [ContextObj, Symbol, ctypes.c_uint, ctypes.POINTER(Constructor)]
@@ -81,18 +100,13 @@ def init(PATH):
   _lib.Z3_mk_constructor_list.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Constructor)]
   _lib.Z3_del_constructor_list.argtypes = [ContextObj, ConstructorList]
   _lib.Z3_mk_datatypes.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.POINTER(ConstructorList)]
-  _lib.Z3_is_eq_ast.restype = ctypes.c_bool
-  _lib.Z3_is_eq_ast.argtypes = [ContextObj, Ast, Ast]
-  _lib.Z3_is_eq_func_decl.restype = ctypes.c_bool
-  _lib.Z3_is_eq_func_decl.argtypes = [ContextObj, FuncDecl, FuncDecl]
+  _lib.Z3_query_constructor.argtypes = [ContextObj, Constructor, ctypes.c_uint, ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl), ctypes.POINTER(FuncDecl)]
   _lib.Z3_mk_func_decl.restype = FuncDecl
   _lib.Z3_mk_func_decl.argtypes = [ContextObj, Symbol, ctypes.c_uint, ctypes.POINTER(Sort), Sort]
   _lib.Z3_mk_app.restype = Ast
   _lib.Z3_mk_app.argtypes = [ContextObj, FuncDecl, ctypes.c_uint, ctypes.POINTER(Ast)]
   _lib.Z3_mk_const.restype = Ast
   _lib.Z3_mk_const.argtypes = [ContextObj, Symbol, Sort]
-  _lib.Z3_mk_label.restype = Ast
-  _lib.Z3_mk_label.argtypes = [ContextObj, Symbol, ctypes.c_bool, Ast]
   _lib.Z3_mk_fresh_func_decl.restype = FuncDecl
   _lib.Z3_mk_fresh_func_decl.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Sort), Sort]
   _lib.Z3_mk_fresh_const.restype = Ast
@@ -135,12 +149,6 @@ def init(PATH):
   _lib.Z3_mk_rem.argtypes = [ContextObj, Ast, Ast]
   _lib.Z3_mk_power.restype = Ast
   _lib.Z3_mk_power.argtypes = [ContextObj, Ast, Ast]
-  _lib.Z3_is_algebraic_number.restype = ctypes.c_bool
-  _lib.Z3_is_algebraic_number.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_algebraic_number_lower.restype = Ast
-  _lib.Z3_get_algebraic_number_lower.argtypes = [ContextObj, Ast, ctypes.c_uint]
-  _lib.Z3_get_algebraic_number_upper.restype = Ast
-  _lib.Z3_get_algebraic_number_upper.argtypes = [ContextObj, Ast, ctypes.c_uint]
   _lib.Z3_mk_lt.restype = Ast
   _lib.Z3_mk_lt.argtypes = [ContextObj, Ast, Ast]
   _lib.Z3_mk_le.restype = Ast
@@ -315,24 +323,116 @@ def init(PATH):
   _lib.Z3_mk_quantifier_const.argtypes = [ContextObj, ctypes.c_bool, ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.c_uint, ctypes.POINTER(Pattern), Ast]
   _lib.Z3_mk_quantifier_const_ex.restype = Ast
   _lib.Z3_mk_quantifier_const_ex.argtypes = [ContextObj, ctypes.c_bool, ctypes.c_uint, Symbol, Symbol, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.c_uint, ctypes.POINTER(Pattern), ctypes.c_uint, ctypes.POINTER(Ast), Ast]
-  _lib.Z3_get_ast_id.restype = ctypes.c_uint
-  _lib.Z3_get_ast_id.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_func_decl_id.restype = ctypes.c_uint
-  _lib.Z3_get_func_decl_id.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_sort_id.restype = ctypes.c_uint
-  _lib.Z3_get_sort_id.argtypes = [ContextObj, Sort]
-  _lib.Z3_is_well_sorted.restype = ctypes.c_bool
-  _lib.Z3_is_well_sorted.argtypes = [ContextObj, Ast]
   _lib.Z3_get_symbol_kind.restype = ctypes.c_uint
   _lib.Z3_get_symbol_kind.argtypes = [ContextObj, Symbol]
   _lib.Z3_get_symbol_int.restype = ctypes.c_int
   _lib.Z3_get_symbol_int.argtypes = [ContextObj, Symbol]
   _lib.Z3_get_symbol_string.restype = ctypes.c_char_p
   _lib.Z3_get_symbol_string.argtypes = [ContextObj, Symbol]
-  _lib.Z3_get_ast_kind.restype = ctypes.c_uint
-  _lib.Z3_get_ast_kind.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_sort_name.restype = Symbol
+  _lib.Z3_get_sort_name.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_sort_id.restype = ctypes.c_uint
+  _lib.Z3_get_sort_id.argtypes = [ContextObj, Sort]
+  _lib.Z3_sort_to_ast.restype = Ast
+  _lib.Z3_sort_to_ast.argtypes = [ContextObj, Sort]
+  _lib.Z3_is_eq_sort.restype = ctypes.c_bool
+  _lib.Z3_is_eq_sort.argtypes = [ContextObj, Sort, Sort]
+  _lib.Z3_get_sort_kind.restype = ctypes.c_uint
+  _lib.Z3_get_sort_kind.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_bv_sort_size.restype = ctypes.c_uint
+  _lib.Z3_get_bv_sort_size.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_finite_domain_sort_size.restype = ctypes.c_bool
+  _lib.Z3_get_finite_domain_sort_size.argtypes = [ContextObj, Sort, ctypes.POINTER(ctypes.c_ulonglong)]
+  _lib.Z3_get_array_sort_domain.restype = Sort
+  _lib.Z3_get_array_sort_domain.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_array_sort_range.restype = Sort
+  _lib.Z3_get_array_sort_range.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_tuple_sort_mk_decl.restype = FuncDecl
+  _lib.Z3_get_tuple_sort_mk_decl.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_tuple_sort_num_fields.restype = ctypes.c_uint
+  _lib.Z3_get_tuple_sort_num_fields.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_tuple_sort_field_decl.restype = FuncDecl
+  _lib.Z3_get_tuple_sort_field_decl.argtypes = [ContextObj, Sort, ctypes.c_uint]
+  _lib.Z3_get_datatype_sort_num_constructors.restype = ctypes.c_uint
+  _lib.Z3_get_datatype_sort_num_constructors.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_datatype_sort_constructor.restype = FuncDecl
+  _lib.Z3_get_datatype_sort_constructor.argtypes = [ContextObj, Sort, ctypes.c_uint]
+  _lib.Z3_get_datatype_sort_recognizer.restype = FuncDecl
+  _lib.Z3_get_datatype_sort_recognizer.argtypes = [ContextObj, Sort, ctypes.c_uint]
+  _lib.Z3_get_datatype_sort_constructor_accessor.restype = FuncDecl
+  _lib.Z3_get_datatype_sort_constructor_accessor.argtypes = [ContextObj, Sort, ctypes.c_uint, ctypes.c_uint]
+  _lib.Z3_get_relation_arity.restype = ctypes.c_uint
+  _lib.Z3_get_relation_arity.argtypes = [ContextObj, Sort]
+  _lib.Z3_get_relation_column.restype = Sort
+  _lib.Z3_get_relation_column.argtypes = [ContextObj, Sort, ctypes.c_uint]
+  _lib.Z3_func_decl_to_ast.restype = Ast
+  _lib.Z3_func_decl_to_ast.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_is_eq_func_decl.restype = ctypes.c_bool
+  _lib.Z3_is_eq_func_decl.argtypes = [ContextObj, FuncDecl, FuncDecl]
+  _lib.Z3_get_func_decl_id.restype = ctypes.c_uint
+  _lib.Z3_get_func_decl_id.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_decl_name.restype = Symbol
+  _lib.Z3_get_decl_name.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_decl_kind.restype = ctypes.c_uint
+  _lib.Z3_get_decl_kind.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_domain_size.restype = ctypes.c_uint
+  _lib.Z3_get_domain_size.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_arity.restype = ctypes.c_uint
+  _lib.Z3_get_arity.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_domain.restype = Sort
+  _lib.Z3_get_domain.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_range.restype = Sort
+  _lib.Z3_get_range.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_decl_num_parameters.restype = ctypes.c_uint
+  _lib.Z3_get_decl_num_parameters.argtypes = [ContextObj, FuncDecl]
+  _lib.Z3_get_decl_parameter_kind.restype = ctypes.c_uint
+  _lib.Z3_get_decl_parameter_kind.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_int_parameter.restype = ctypes.c_int
+  _lib.Z3_get_decl_int_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_double_parameter.restype = ctypes.c_double
+  _lib.Z3_get_decl_double_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_symbol_parameter.restype = Symbol
+  _lib.Z3_get_decl_symbol_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_sort_parameter.restype = Sort
+  _lib.Z3_get_decl_sort_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_ast_parameter.restype = Ast
+  _lib.Z3_get_decl_ast_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_func_decl_parameter.restype = FuncDecl
+  _lib.Z3_get_decl_func_decl_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_get_decl_rational_parameter.restype = ctypes.c_char_p
+  _lib.Z3_get_decl_rational_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
+  _lib.Z3_app_to_ast.restype = Ast
+  _lib.Z3_app_to_ast.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_app_decl.restype = FuncDecl
+  _lib.Z3_get_app_decl.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_app_num_args.restype = ctypes.c_uint
+  _lib.Z3_get_app_num_args.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_app_arg.restype = Ast
+  _lib.Z3_get_app_arg.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_is_eq_ast.restype = ctypes.c_bool
+  _lib.Z3_is_eq_ast.argtypes = [ContextObj, Ast, Ast]
+  _lib.Z3_get_ast_id.restype = ctypes.c_uint
+  _lib.Z3_get_ast_id.argtypes = [ContextObj, Ast]
   _lib.Z3_get_ast_hash.restype = ctypes.c_uint
   _lib.Z3_get_ast_hash.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_sort.restype = Sort
+  _lib.Z3_get_sort.argtypes = [ContextObj, Ast]
+  _lib.Z3_is_well_sorted.restype = ctypes.c_bool
+  _lib.Z3_is_well_sorted.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_bool_value.restype = ctypes.c_uint
+  _lib.Z3_get_bool_value.argtypes = [ContextObj, Ast]
+  _lib.Z3_get_ast_kind.restype = ctypes.c_uint
+  _lib.Z3_get_ast_kind.argtypes = [ContextObj, Ast]
+  _lib.Z3_is_app.restype = ctypes.c_bool
+  _lib.Z3_is_app.argtypes = [ContextObj, Ast]
+  _lib.Z3_is_numeral_ast.restype = ctypes.c_bool
+  _lib.Z3_is_numeral_ast.argtypes = [ContextObj, Ast]
+  _lib.Z3_is_algebraic_number.restype = ctypes.c_bool
+  _lib.Z3_is_algebraic_number.argtypes = [ContextObj, Ast]
+  _lib.Z3_to_app.restype = Ast
+  _lib.Z3_to_app.argtypes = [ContextObj, Ast]
+  _lib.Z3_to_func_decl.restype = FuncDecl
+  _lib.Z3_to_func_decl.argtypes = [ContextObj, Ast]
   _lib.Z3_get_numeral_string.restype = ctypes.c_char_p
   _lib.Z3_get_numeral_string.argtypes = [ContextObj, Ast]
   _lib.Z3_get_numeral_decimal_string.restype = ctypes.c_char_p
@@ -353,14 +453,16 @@ def init(PATH):
   _lib.Z3_get_numeral_int64.argtypes = [ContextObj, Ast, ctypes.POINTER(ctypes.c_longlong)]
   _lib.Z3_get_numeral_rational_int64.restype = ctypes.c_bool
   _lib.Z3_get_numeral_rational_int64.argtypes = [ContextObj, Ast, ctypes.POINTER(ctypes.c_longlong), ctypes.POINTER(ctypes.c_longlong)]
-  _lib.Z3_get_bool_value.restype = ctypes.c_uint
-  _lib.Z3_get_bool_value.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_app_decl.restype = FuncDecl
-  _lib.Z3_get_app_decl.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_app_num_args.restype = ctypes.c_uint
-  _lib.Z3_get_app_num_args.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_app_arg.restype = Ast
-  _lib.Z3_get_app_arg.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_get_algebraic_number_lower.restype = Ast
+  _lib.Z3_get_algebraic_number_lower.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_get_algebraic_number_upper.restype = Ast
+  _lib.Z3_get_algebraic_number_upper.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_pattern_to_ast.restype = Ast
+  _lib.Z3_pattern_to_ast.argtypes = [ContextObj, Pattern]
+  _lib.Z3_get_pattern_num_terms.restype = ctypes.c_uint
+  _lib.Z3_get_pattern_num_terms.argtypes = [ContextObj, Pattern]
+  _lib.Z3_get_pattern.restype = Ast
+  _lib.Z3_get_pattern.argtypes = [ContextObj, Pattern, ctypes.c_uint]
   _lib.Z3_get_index_value.restype = ctypes.c_uint
   _lib.Z3_get_index_value.argtypes = [ContextObj, Ast]
   _lib.Z3_is_quantifier_forall.restype = ctypes.c_bool
@@ -375,80 +477,14 @@ def init(PATH):
   _lib.Z3_get_quantifier_num_no_patterns.argtypes = [ContextObj, Ast]
   _lib.Z3_get_quantifier_no_pattern_ast.restype = Ast
   _lib.Z3_get_quantifier_no_pattern_ast.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_get_quantifier_num_bound.restype = ctypes.c_uint
+  _lib.Z3_get_quantifier_num_bound.argtypes = [ContextObj, Ast]
   _lib.Z3_get_quantifier_bound_name.restype = Symbol
   _lib.Z3_get_quantifier_bound_name.argtypes = [ContextObj, Ast, ctypes.c_uint]
   _lib.Z3_get_quantifier_bound_sort.restype = Sort
   _lib.Z3_get_quantifier_bound_sort.argtypes = [ContextObj, Ast, ctypes.c_uint]
   _lib.Z3_get_quantifier_body.restype = Ast
   _lib.Z3_get_quantifier_body.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_quantifier_num_bound.restype = ctypes.c_uint
-  _lib.Z3_get_quantifier_num_bound.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_decl_name.restype = Symbol
-  _lib.Z3_get_decl_name.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_decl_num_parameters.restype = ctypes.c_uint
-  _lib.Z3_get_decl_num_parameters.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_decl_parameter_kind.restype = ctypes.c_uint
-  _lib.Z3_get_decl_parameter_kind.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_int_parameter.restype = ctypes.c_int
-  _lib.Z3_get_decl_int_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_double_parameter.restype = ctypes.c_double
-  _lib.Z3_get_decl_double_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_symbol_parameter.restype = Symbol
-  _lib.Z3_get_decl_symbol_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_sort_parameter.restype = Sort
-  _lib.Z3_get_decl_sort_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_ast_parameter.restype = Ast
-  _lib.Z3_get_decl_ast_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_func_decl_parameter.restype = FuncDecl
-  _lib.Z3_get_decl_func_decl_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_decl_rational_parameter.restype = ctypes.c_char_p
-  _lib.Z3_get_decl_rational_parameter.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_sort_name.restype = Symbol
-  _lib.Z3_get_sort_name.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_sort.restype = Sort
-  _lib.Z3_get_sort.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_domain_size.restype = ctypes.c_uint
-  _lib.Z3_get_domain_size.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_domain.restype = Sort
-  _lib.Z3_get_domain.argtypes = [ContextObj, FuncDecl, ctypes.c_uint]
-  _lib.Z3_get_range.restype = Sort
-  _lib.Z3_get_range.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_sort_kind.restype = ctypes.c_uint
-  _lib.Z3_get_sort_kind.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_bv_sort_size.restype = ctypes.c_uint
-  _lib.Z3_get_bv_sort_size.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_array_sort_domain.restype = Sort
-  _lib.Z3_get_array_sort_domain.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_array_sort_range.restype = Sort
-  _lib.Z3_get_array_sort_range.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_tuple_sort_mk_decl.restype = FuncDecl
-  _lib.Z3_get_tuple_sort_mk_decl.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_decl_kind.restype = ctypes.c_uint
-  _lib.Z3_get_decl_kind.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_get_tuple_sort_num_fields.restype = ctypes.c_uint
-  _lib.Z3_get_tuple_sort_num_fields.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_tuple_sort_field_decl.restype = FuncDecl
-  _lib.Z3_get_tuple_sort_field_decl.argtypes = [ContextObj, Sort, ctypes.c_uint]
-  _lib.Z3_get_datatype_sort_num_constructors.restype = ctypes.c_uint
-  _lib.Z3_get_datatype_sort_num_constructors.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_datatype_sort_constructor.restype = FuncDecl
-  _lib.Z3_get_datatype_sort_constructor.argtypes = [ContextObj, Sort, ctypes.c_uint]
-  _lib.Z3_get_datatype_sort_recognizer.restype = FuncDecl
-  _lib.Z3_get_datatype_sort_recognizer.argtypes = [ContextObj, Sort, ctypes.c_uint]
-  _lib.Z3_get_datatype_sort_constructor_accessor.restype = FuncDecl
-  _lib.Z3_get_datatype_sort_constructor_accessor.argtypes = [ContextObj, Sort, ctypes.c_uint, ctypes.c_uint]
-  _lib.Z3_get_relation_arity.restype = ctypes.c_uint
-  _lib.Z3_get_relation_arity.argtypes = [ContextObj, Sort]
-  _lib.Z3_get_relation_column.restype = Sort
-  _lib.Z3_get_relation_column.argtypes = [ContextObj, Sort, ctypes.c_uint]
-  _lib.Z3_get_finite_domain_sort_size.restype = ctypes.c_bool
-  _lib.Z3_get_finite_domain_sort_size.argtypes = [ContextObj, Sort, ctypes.POINTER(ctypes.c_ulonglong)]
-  _lib.Z3_mk_finite_domain_sort.restype = Sort
-  _lib.Z3_mk_finite_domain_sort.argtypes = [ContextObj, Symbol, ctypes.c_ulonglong]
-  _lib.Z3_get_pattern_num_terms.restype = ctypes.c_uint
-  _lib.Z3_get_pattern_num_terms.argtypes = [ContextObj, Pattern]
-  _lib.Z3_get_pattern.restype = Ast
-  _lib.Z3_get_pattern.argtypes = [ContextObj, Pattern, ctypes.c_uint]
   _lib.Z3_simplify.restype = Ast
   _lib.Z3_simplify.argtypes = [ContextObj, Ast]
   _lib.Z3_simplify_ex.restype = Ast
@@ -463,53 +499,12 @@ def init(PATH):
   _lib.Z3_substitute.argtypes = [ContextObj, Ast, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Ast)]
   _lib.Z3_substitute_vars.restype = Ast
   _lib.Z3_substitute_vars.argtypes = [ContextObj, Ast, ctypes.c_uint, ctypes.POINTER(Ast)]
-  _lib.Z3_sort_to_ast.restype = Ast
-  _lib.Z3_sort_to_ast.argtypes = [ContextObj, Sort]
-  _lib.Z3_func_decl_to_ast.restype = Ast
-  _lib.Z3_func_decl_to_ast.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_pattern_to_ast.restype = Ast
-  _lib.Z3_pattern_to_ast.argtypes = [ContextObj, Pattern]
-  _lib.Z3_app_to_ast.restype = Ast
-  _lib.Z3_app_to_ast.argtypes = [ContextObj, Ast]
-  _lib.Z3_to_app.restype = Ast
-  _lib.Z3_to_app.argtypes = [ContextObj, Ast]
-  _lib.Z3_to_func_decl.restype = FuncDecl
-  _lib.Z3_to_func_decl.argtypes = [ContextObj, Ast]
-  _lib.Z3_push.argtypes = [ContextObj]
-  _lib.Z3_pop.argtypes = [ContextObj, ctypes.c_uint]
-  _lib.Z3_get_num_scopes.restype = ctypes.c_uint
-  _lib.Z3_get_num_scopes.argtypes = [ContextObj]
-  _lib.Z3_persist_ast.argtypes = [ContextObj, Ast, ctypes.c_uint]
-  _lib.Z3_assert_cnstr.argtypes = [ContextObj, Ast]
-  _lib.Z3_check_and_get_model.restype = ctypes.c_int
-  _lib.Z3_check_and_get_model.argtypes = [ContextObj, ctypes.POINTER(Model)]
-  _lib.Z3_check.restype = ctypes.c_int
-  _lib.Z3_check.argtypes = [ContextObj]
-  _lib.Z3_check_assumptions.restype = ctypes.c_int
-  _lib.Z3_check_assumptions.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Model), ctypes.POINTER(Ast), ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(Ast)]
-  _lib.Z3_get_implied_equalities.restype = ctypes.c_uint
-  _lib.Z3_get_implied_equalities.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(ctypes.c_uint)]
-  _lib.Z3_del_model.argtypes = [ContextObj, Model]
-  _lib.Z3_soft_check_cancel.argtypes = [ContextObj]
-  _lib.Z3_get_search_failure.restype = ctypes.c_uint
-  _lib.Z3_get_search_failure.argtypes = [ContextObj]
-  _lib.Z3_get_relevant_labels.restype = Literals
-  _lib.Z3_get_relevant_labels.argtypes = [ContextObj]
-  _lib.Z3_get_relevant_literals.restype = Literals
-  _lib.Z3_get_relevant_literals.argtypes = [ContextObj]
-  _lib.Z3_get_guessed_literals.restype = Literals
-  _lib.Z3_get_guessed_literals.argtypes = [ContextObj]
-  _lib.Z3_del_literals.argtypes = [ContextObj, Literals]
-  _lib.Z3_get_num_literals.restype = ctypes.c_uint
-  _lib.Z3_get_num_literals.argtypes = [ContextObj, Literals]
-  _lib.Z3_get_label_symbol.restype = Symbol
-  _lib.Z3_get_label_symbol.argtypes = [ContextObj, Literals, ctypes.c_uint]
-  _lib.Z3_get_literal.restype = Ast
-  _lib.Z3_get_literal.argtypes = [ContextObj, Literals, ctypes.c_uint]
-  _lib.Z3_disable_literal.argtypes = [ContextObj, Literals, ctypes.c_uint]
-  _lib.Z3_block_literals.argtypes = [ContextObj, Literals]
+  _lib.Z3_translate.restype = Ast
+  _lib.Z3_translate.argtypes = [ContextObj, Ast, ContextObj]
   _lib.Z3_model_inc_ref.argtypes = [ContextObj, Model]
   _lib.Z3_model_dec_ref.argtypes = [ContextObj, Model]
+  _lib.Z3_model_eval.restype = ctypes.c_bool
+  _lib.Z3_model_eval.argtypes = [ContextObj, Model, Ast, ctypes.c_bool, ctypes.POINTER(Ast)]
   _lib.Z3_model_get_const_interp.restype = Ast
   _lib.Z3_model_get_const_interp.argtypes = [ContextObj, Model, FuncDecl]
   _lib.Z3_model_get_func_interp.restype = FuncInterpObj
@@ -522,8 +517,6 @@ def init(PATH):
   _lib.Z3_model_get_num_funcs.argtypes = [ContextObj, Model]
   _lib.Z3_model_get_func_decl.restype = FuncDecl
   _lib.Z3_model_get_func_decl.argtypes = [ContextObj, Model, ctypes.c_uint]
-  _lib.Z3_model_eval.restype = ctypes.c_bool
-  _lib.Z3_model_eval.argtypes = [ContextObj, Model, Ast, ctypes.c_bool, ctypes.POINTER(Ast)]
   _lib.Z3_model_get_num_sorts.restype = ctypes.c_uint
   _lib.Z3_model_get_num_sorts.argtypes = [ContextObj, Model]
   _lib.Z3_model_get_sort.restype = Sort
@@ -552,33 +545,11 @@ def init(PATH):
   _lib.Z3_func_entry_get_num_args.argtypes = [ContextObj, FuncEntryObj]
   _lib.Z3_func_entry_get_arg.restype = Ast
   _lib.Z3_func_entry_get_arg.argtypes = [ContextObj, FuncEntryObj, ctypes.c_uint]
-  _lib.Z3_get_model_num_constants.restype = ctypes.c_uint
-  _lib.Z3_get_model_num_constants.argtypes = [ContextObj, Model]
-  _lib.Z3_get_model_constant.restype = FuncDecl
-  _lib.Z3_get_model_constant.argtypes = [ContextObj, Model, ctypes.c_uint]
-  _lib.Z3_eval_func_decl.restype = ctypes.c_bool
-  _lib.Z3_eval_func_decl.argtypes = [ContextObj, Model, FuncDecl, ctypes.POINTER(Ast)]
-  _lib.Z3_is_array_value.restype = ctypes.c_bool
-  _lib.Z3_is_array_value.argtypes = [ContextObj, Model, Ast, ctypes.POINTER(ctypes.c_uint)]
-  _lib.Z3_get_array_value.argtypes = [ContextObj, Model, Ast, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Ast), ctypes.POINTER(Ast)]
-  _lib.Z3_get_model_num_funcs.restype = ctypes.c_uint
-  _lib.Z3_get_model_num_funcs.argtypes = [ContextObj, Model]
-  _lib.Z3_get_model_func_decl.restype = FuncDecl
-  _lib.Z3_get_model_func_decl.argtypes = [ContextObj, Model, ctypes.c_uint]
-  _lib.Z3_get_model_func_else.restype = Ast
-  _lib.Z3_get_model_func_else.argtypes = [ContextObj, Model, ctypes.c_uint]
-  _lib.Z3_get_model_func_num_entries.restype = ctypes.c_uint
-  _lib.Z3_get_model_func_num_entries.argtypes = [ContextObj, Model, ctypes.c_uint]
-  _lib.Z3_get_model_func_entry_num_args.restype = ctypes.c_uint
-  _lib.Z3_get_model_func_entry_num_args.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint]
-  _lib.Z3_get_model_func_entry_arg.restype = Ast
-  _lib.Z3_get_model_func_entry_arg.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
-  _lib.Z3_get_model_func_entry_value.restype = Ast
-  _lib.Z3_get_model_func_entry_value.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint]
-  _lib.Z3_eval.restype = ctypes.c_bool
-  _lib.Z3_eval.argtypes = [ContextObj, Model, Ast, ctypes.POINTER(Ast)]
-  _lib.Z3_eval_decl.restype = ctypes.c_bool
-  _lib.Z3_eval_decl.argtypes = [ContextObj, Model, FuncDecl, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Ast)]
+  _lib.Z3_open_log.restype = ctypes.c_int
+  _lib.Z3_open_log.argtypes = [ctypes.c_char_p]
+  _lib.Z3_append_log.argtypes = [ctypes.c_char_p]
+  _lib.Z3_close_log.argtypes = []
+  _lib.Z3_toggle_warning_messages.argtypes = [ctypes.c_bool]
   _lib.Z3_set_ast_print_mode.argtypes = [ContextObj, ctypes.c_uint]
   _lib.Z3_ast_to_string.restype = ctypes.c_char_p
   _lib.Z3_ast_to_string.argtypes = [ContextObj, Ast]
@@ -592,12 +563,10 @@ def init(PATH):
   _lib.Z3_model_to_string.argtypes = [ContextObj, Model]
   _lib.Z3_benchmark_to_smtlib_string.restype = ctypes.c_char_p
   _lib.Z3_benchmark_to_smtlib_string.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Ast), Ast]
-  _lib.Z3_context_to_string.restype = ctypes.c_char_p
-  _lib.Z3_context_to_string.argtypes = [ContextObj]
-  _lib.Z3_statistics_to_string.restype = ctypes.c_char_p
-  _lib.Z3_statistics_to_string.argtypes = [ContextObj]
-  _lib.Z3_get_context_assignment.restype = Ast
-  _lib.Z3_get_context_assignment.argtypes = [ContextObj]
+  _lib.Z3_parse_smtlib2_string.restype = Ast
+  _lib.Z3_parse_smtlib2_string.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
+  _lib.Z3_parse_smtlib2_file.restype = Ast
+  _lib.Z3_parse_smtlib2_file.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
   _lib.Z3_parse_smtlib_string.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
   _lib.Z3_parse_smtlib_file.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
   _lib.Z3_get_smtlib_num_formulas.restype = ctypes.c_uint
@@ -622,41 +591,30 @@ def init(PATH):
   _lib.Z3_parse_z3_string.argtypes = [ContextObj, ctypes.c_char_p]
   _lib.Z3_parse_z3_file.restype = Ast
   _lib.Z3_parse_z3_file.argtypes = [ContextObj, ctypes.c_char_p]
-  _lib.Z3_parse_smtlib2_string.restype = Ast
-  _lib.Z3_parse_smtlib2_string.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
-  _lib.Z3_parse_smtlib2_file.restype = Ast
-  _lib.Z3_parse_smtlib2_file.argtypes = [ContextObj, ctypes.c_char_p, ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(Sort), ctypes.c_uint, ctypes.POINTER(Symbol), ctypes.POINTER(FuncDecl)]
   _lib.Z3_get_error_code.restype = ctypes.c_uint
   _lib.Z3_get_error_code.argtypes = [ContextObj]
   _lib.Z3_set_error.argtypes = [ContextObj, ctypes.c_uint]
   _lib.Z3_get_error_msg.restype = ctypes.c_char_p
   _lib.Z3_get_error_msg.argtypes = [ctypes.c_uint]
+  _lib.Z3_get_error_msg_ex.restype = ctypes.c_char_p
+  _lib.Z3_get_error_msg_ex.argtypes = [ContextObj, ctypes.c_uint]
   _lib.Z3_get_version.argtypes = [ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
   _lib.Z3_reset_memory.argtypes = []
-  _lib.Z3_is_app.restype = ctypes.c_bool
-  _lib.Z3_is_app.argtypes = [ContextObj, Ast]
-  _lib.Z3_is_numeral_ast.restype = ctypes.c_bool
-  _lib.Z3_is_numeral_ast.argtypes = [ContextObj, Ast]
-  _lib.Z3_get_arity.restype = ctypes.c_uint
-  _lib.Z3_get_arity.argtypes = [ContextObj, FuncDecl]
-  _lib.Z3_mk_injective_function.restype = FuncDecl
-  _lib.Z3_mk_injective_function.argtypes = [ContextObj, Symbol, ctypes.c_uint, ctypes.POINTER(Sort), Sort]
   _lib.Z3_mk_fixedpoint.restype = FixedpointObj
   _lib.Z3_mk_fixedpoint.argtypes = [ContextObj]
   _lib.Z3_fixedpoint_inc_ref.argtypes = [ContextObj, FixedpointObj]
   _lib.Z3_fixedpoint_dec_ref.argtypes = [ContextObj, FixedpointObj]
-  _lib.Z3_fixedpoint_push.argtypes = [ContextObj, FixedpointObj]
-  _lib.Z3_fixedpoint_pop.argtypes = [ContextObj, FixedpointObj]
-  _lib.Z3_fixedpoint_register_relation.argtypes = [ContextObj, FixedpointObj, FuncDecl]
-  _lib.Z3_fixedpoint_assert.argtypes = [ContextObj, FixedpointObj, Ast]
   _lib.Z3_fixedpoint_add_rule.argtypes = [ContextObj, FixedpointObj, Ast, Symbol]
   _lib.Z3_fixedpoint_add_fact.argtypes = [ContextObj, FixedpointObj, FuncDecl, ctypes.c_uint, ctypes.POINTER(ctypes.c_uint)]
+  _lib.Z3_fixedpoint_assert.argtypes = [ContextObj, FixedpointObj, Ast]
   _lib.Z3_fixedpoint_query.restype = ctypes.c_int
   _lib.Z3_fixedpoint_query.argtypes = [ContextObj, FixedpointObj, Ast]
   _lib.Z3_fixedpoint_query_relations.restype = ctypes.c_int
   _lib.Z3_fixedpoint_query_relations.argtypes = [ContextObj, FixedpointObj, ctypes.c_uint, ctypes.POINTER(FuncDecl)]
   _lib.Z3_fixedpoint_get_answer.restype = Ast
   _lib.Z3_fixedpoint_get_answer.argtypes = [ContextObj, FixedpointObj]
+  _lib.Z3_fixedpoint_get_reason_unknown.restype = ctypes.c_char_p
+  _lib.Z3_fixedpoint_get_reason_unknown.argtypes = [ContextObj, FixedpointObj]
   _lib.Z3_fixedpoint_update_rule.argtypes = [ContextObj, FixedpointObj, Ast, Symbol]
   _lib.Z3_fixedpoint_get_num_levels.restype = ctypes.c_uint
   _lib.Z3_fixedpoint_get_num_levels.argtypes = [ContextObj, FixedpointObj, FuncDecl]
@@ -665,44 +623,51 @@ def init(PATH):
   _lib.Z3_fixedpoint_add_cover.argtypes = [ContextObj, FixedpointObj, ctypes.c_int, FuncDecl, Ast]
   _lib.Z3_fixedpoint_get_statistics.restype = StatsObj
   _lib.Z3_fixedpoint_get_statistics.argtypes = [ContextObj, FixedpointObj]
+  _lib.Z3_fixedpoint_register_relation.argtypes = [ContextObj, FixedpointObj, FuncDecl]
+  _lib.Z3_fixedpoint_set_predicate_representation.argtypes = [ContextObj, FixedpointObj, FuncDecl, ctypes.c_uint, ctypes.POINTER(Symbol)]
+  _lib.Z3_fixedpoint_simplify_rules.restype = AstVectorObj
+  _lib.Z3_fixedpoint_simplify_rules.argtypes = [ContextObj, FixedpointObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.c_uint, ctypes.POINTER(FuncDecl)]
+  _lib.Z3_fixedpoint_set_params.argtypes = [ContextObj, FixedpointObj, Params]
   _lib.Z3_fixedpoint_get_help.restype = ctypes.c_char_p
   _lib.Z3_fixedpoint_get_help.argtypes = [ContextObj, FixedpointObj]
   _lib.Z3_fixedpoint_get_param_descrs.restype = ParamDescrs
   _lib.Z3_fixedpoint_get_param_descrs.argtypes = [ContextObj, FixedpointObj]
-  _lib.Z3_fixedpoint_set_params.argtypes = [ContextObj, FixedpointObj, Params]
   _lib.Z3_fixedpoint_to_string.restype = ctypes.c_char_p
   _lib.Z3_fixedpoint_to_string.argtypes = [ContextObj, FixedpointObj, ctypes.c_uint, ctypes.POINTER(Ast)]
-  _lib.Z3_fixedpoint_get_reason_unknown.restype = ctypes.c_char_p
-  _lib.Z3_fixedpoint_get_reason_unknown.argtypes = [ContextObj, FixedpointObj]
-  _lib.Z3_fixedpoint_set_predicate_representation.argtypes = [ContextObj, FixedpointObj, FuncDecl, ctypes.c_uint, ctypes.POINTER(Symbol)]
-  _lib.Z3_fixedpoint_simplify_rules.restype = AstVectorObj
-  _lib.Z3_fixedpoint_simplify_rules.argtypes = [ContextObj, FixedpointObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.c_uint, ctypes.POINTER(FuncDecl)]
-  _lib.Z3_mk_params.restype = Params
-  _lib.Z3_mk_params.argtypes = [ContextObj]
-  _lib.Z3_params_inc_ref.argtypes = [ContextObj, Params]
-  _lib.Z3_params_dec_ref.argtypes = [ContextObj, Params]
-  _lib.Z3_params_set_bool.argtypes = [ContextObj, Params, Symbol, ctypes.c_bool]
-  _lib.Z3_params_set_uint.argtypes = [ContextObj, Params, Symbol, ctypes.c_uint]
-  _lib.Z3_params_set_double.argtypes = [ContextObj, Params, Symbol, ctypes.c_double]
-  _lib.Z3_params_set_symbol.argtypes = [ContextObj, Params, Symbol, Symbol]
-  _lib.Z3_params_to_string.restype = ctypes.c_char_p
-  _lib.Z3_params_to_string.argtypes = [ContextObj, Params]
-  _lib.Z3_params_validate.argtypes = [ContextObj, Params, ParamDescrs]
-  _lib.Z3_param_descrs_inc_ref.argtypes = [ContextObj, ParamDescrs]
-  _lib.Z3_param_descrs_dec_ref.argtypes = [ContextObj, ParamDescrs]
-  _lib.Z3_param_descrs_get_kind.restype = ctypes.c_uint
-  _lib.Z3_param_descrs_get_kind.argtypes = [ContextObj, ParamDescrs, Symbol]
-  _lib.Z3_param_descrs_size.restype = ctypes.c_uint
-  _lib.Z3_param_descrs_size.argtypes = [ContextObj, ParamDescrs]
-  _lib.Z3_param_descrs_get_name.restype = Symbol
-  _lib.Z3_param_descrs_get_name.argtypes = [ContextObj, ParamDescrs, ctypes.c_uint]
-  _lib.Z3_param_descrs_to_string.restype = ctypes.c_char_p
-  _lib.Z3_param_descrs_to_string.argtypes = [ContextObj, ParamDescrs]
-  _lib.Z3_interrupt.argtypes = [ContextObj]
-  _lib.Z3_get_error_msg_ex.restype = ctypes.c_char_p
-  _lib.Z3_get_error_msg_ex.argtypes = [ContextObj, ctypes.c_uint]
-  _lib.Z3_translate.restype = Ast
-  _lib.Z3_translate.argtypes = [ContextObj, Ast, ContextObj]
+  _lib.Z3_fixedpoint_push.argtypes = [ContextObj, FixedpointObj]
+  _lib.Z3_fixedpoint_pop.argtypes = [ContextObj, FixedpointObj]
+  _lib.Z3_mk_ast_vector.restype = AstVectorObj
+  _lib.Z3_mk_ast_vector.argtypes = [ContextObj]
+  _lib.Z3_ast_vector_inc_ref.argtypes = [ContextObj, AstVectorObj]
+  _lib.Z3_ast_vector_dec_ref.argtypes = [ContextObj, AstVectorObj]
+  _lib.Z3_ast_vector_size.restype = ctypes.c_uint
+  _lib.Z3_ast_vector_size.argtypes = [ContextObj, AstVectorObj]
+  _lib.Z3_ast_vector_get.restype = Ast
+  _lib.Z3_ast_vector_get.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint]
+  _lib.Z3_ast_vector_set.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint, Ast]
+  _lib.Z3_ast_vector_resize.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint]
+  _lib.Z3_ast_vector_push.argtypes = [ContextObj, AstVectorObj, Ast]
+  _lib.Z3_ast_vector_translate.restype = AstVectorObj
+  _lib.Z3_ast_vector_translate.argtypes = [ContextObj, AstVectorObj, ContextObj]
+  _lib.Z3_ast_vector_to_string.restype = ctypes.c_char_p
+  _lib.Z3_ast_vector_to_string.argtypes = [ContextObj, AstVectorObj]
+  _lib.Z3_mk_ast_map.restype = AstMapObj
+  _lib.Z3_mk_ast_map.argtypes = [ContextObj]
+  _lib.Z3_ast_map_inc_ref.argtypes = [ContextObj, AstMapObj]
+  _lib.Z3_ast_map_dec_ref.argtypes = [ContextObj, AstMapObj]
+  _lib.Z3_ast_map_contains.restype = ctypes.c_bool
+  _lib.Z3_ast_map_contains.argtypes = [ContextObj, AstMapObj, Ast]
+  _lib.Z3_ast_map_find.restype = Ast
+  _lib.Z3_ast_map_find.argtypes = [ContextObj, AstMapObj, Ast]
+  _lib.Z3_ast_map_insert.argtypes = [ContextObj, AstMapObj, Ast, Ast]
+  _lib.Z3_ast_map_erase.argtypes = [ContextObj, AstMapObj, Ast]
+  _lib.Z3_ast_map_reset.argtypes = [ContextObj, AstMapObj]
+  _lib.Z3_ast_map_size.restype = ctypes.c_uint
+  _lib.Z3_ast_map_size.argtypes = [ContextObj, AstMapObj]
+  _lib.Z3_ast_map_keys.restype = AstVectorObj
+  _lib.Z3_ast_map_keys.argtypes = [ContextObj, AstMapObj]
+  _lib.Z3_ast_map_to_string.restype = ctypes.c_char_p
+  _lib.Z3_ast_map_to_string.argtypes = [ContextObj, AstMapObj]
   _lib.Z3_mk_goal.restype = GoalObj
   _lib.Z3_mk_goal.argtypes = [ContextObj, ctypes.c_bool, ctypes.c_bool, ctypes.c_bool]
   _lib.Z3_goal_inc_ref.argtypes = [ContextObj, GoalObj]
@@ -731,10 +696,10 @@ def init(PATH):
   _lib.Z3_goal_to_string.argtypes = [ContextObj, GoalObj]
   _lib.Z3_mk_tactic.restype = TacticObj
   _lib.Z3_mk_tactic.argtypes = [ContextObj, ctypes.c_char_p]
-  _lib.Z3_mk_probe.restype = ProbeObj
-  _lib.Z3_mk_probe.argtypes = [ContextObj, ctypes.c_char_p]
   _lib.Z3_tactic_inc_ref.argtypes = [ContextObj, TacticObj]
   _lib.Z3_tactic_dec_ref.argtypes = [ContextObj, TacticObj]
+  _lib.Z3_mk_probe.restype = ProbeObj
+  _lib.Z3_mk_probe.argtypes = [ContextObj, ctypes.c_char_p]
   _lib.Z3_probe_inc_ref.argtypes = [ContextObj, ProbeObj]
   _lib.Z3_probe_dec_ref.argtypes = [ContextObj, ProbeObj]
   _lib.Z3_tactic_and_then.restype = TacticObj
@@ -767,10 +732,10 @@ def init(PATH):
   _lib.Z3_probe_const.argtypes = [ContextObj, ctypes.c_double]
   _lib.Z3_probe_lt.restype = ProbeObj
   _lib.Z3_probe_lt.argtypes = [ContextObj, ProbeObj, ProbeObj]
-  _lib.Z3_probe_le.restype = ProbeObj
-  _lib.Z3_probe_le.argtypes = [ContextObj, ProbeObj, ProbeObj]
   _lib.Z3_probe_gt.restype = ProbeObj
   _lib.Z3_probe_gt.argtypes = [ContextObj, ProbeObj, ProbeObj]
+  _lib.Z3_probe_le.restype = ProbeObj
+  _lib.Z3_probe_le.argtypes = [ContextObj, ProbeObj, ProbeObj]
   _lib.Z3_probe_ge.restype = ProbeObj
   _lib.Z3_probe_ge.argtypes = [ContextObj, ProbeObj, ProbeObj]
   _lib.Z3_probe_eq.restype = ProbeObj
@@ -868,42 +833,86 @@ def init(PATH):
   _lib.Z3_stats_get_uint_value.argtypes = [ContextObj, StatsObj, ctypes.c_uint]
   _lib.Z3_stats_get_double_value.restype = ctypes.c_double
   _lib.Z3_stats_get_double_value.argtypes = [ContextObj, StatsObj, ctypes.c_uint]
-  _lib.Z3_mk_ast_vector.restype = AstVectorObj
-  _lib.Z3_mk_ast_vector.argtypes = [ContextObj]
-  _lib.Z3_ast_vector_inc_ref.argtypes = [ContextObj, AstVectorObj]
-  _lib.Z3_ast_vector_dec_ref.argtypes = [ContextObj, AstVectorObj]
-  _lib.Z3_ast_vector_size.restype = ctypes.c_uint
-  _lib.Z3_ast_vector_size.argtypes = [ContextObj, AstVectorObj]
-  _lib.Z3_ast_vector_get.restype = Ast
-  _lib.Z3_ast_vector_get.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint]
-  _lib.Z3_ast_vector_set.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint, Ast]
-  _lib.Z3_ast_vector_resize.argtypes = [ContextObj, AstVectorObj, ctypes.c_uint]
-  _lib.Z3_ast_vector_push.argtypes = [ContextObj, AstVectorObj, Ast]
-  _lib.Z3_ast_vector_translate.restype = AstVectorObj
-  _lib.Z3_ast_vector_translate.argtypes = [ContextObj, AstVectorObj, ContextObj]
-  _lib.Z3_ast_vector_to_string.restype = ctypes.c_char_p
-  _lib.Z3_ast_vector_to_string.argtypes = [ContextObj, AstVectorObj]
-  _lib.Z3_mk_ast_map.restype = AstMapObj
-  _lib.Z3_mk_ast_map.argtypes = [ContextObj]
-  _lib.Z3_ast_map_inc_ref.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_ast_map_dec_ref.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_ast_map_contains.restype = ctypes.c_bool
-  _lib.Z3_ast_map_contains.argtypes = [ContextObj, AstMapObj, Ast]
-  _lib.Z3_ast_map_find.restype = Ast
-  _lib.Z3_ast_map_find.argtypes = [ContextObj, AstMapObj, Ast]
-  _lib.Z3_ast_map_insert.argtypes = [ContextObj, AstMapObj, Ast, Ast]
-  _lib.Z3_ast_map_erase.argtypes = [ContextObj, AstMapObj, Ast]
-  _lib.Z3_ast_map_size.restype = ctypes.c_uint
-  _lib.Z3_ast_map_size.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_ast_map_reset.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_ast_map_keys.restype = AstVectorObj
-  _lib.Z3_ast_map_keys.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_ast_map_to_string.restype = ctypes.c_char_p
-  _lib.Z3_ast_map_to_string.argtypes = [ContextObj, AstMapObj]
-  _lib.Z3_open_log.restype = ctypes.c_int
-  _lib.Z3_open_log.argtypes = [ctypes.c_char_p]
-  _lib.Z3_append_log.argtypes = [ctypes.c_char_p]
-  _lib.Z3_close_log.argtypes = []
+  _lib.Z3_mk_injective_function.restype = FuncDecl
+  _lib.Z3_mk_injective_function.argtypes = [ContextObj, Symbol, ctypes.c_uint, ctypes.POINTER(Sort), Sort]
+  _lib.Z3_set_logic.argtypes = [ContextObj, ctypes.c_char_p]
+  _lib.Z3_push.argtypes = [ContextObj]
+  _lib.Z3_pop.argtypes = [ContextObj, ctypes.c_uint]
+  _lib.Z3_get_num_scopes.restype = ctypes.c_uint
+  _lib.Z3_get_num_scopes.argtypes = [ContextObj]
+  _lib.Z3_persist_ast.argtypes = [ContextObj, Ast, ctypes.c_uint]
+  _lib.Z3_assert_cnstr.argtypes = [ContextObj, Ast]
+  _lib.Z3_check_and_get_model.restype = ctypes.c_int
+  _lib.Z3_check_and_get_model.argtypes = [ContextObj, ctypes.POINTER(Model)]
+  _lib.Z3_check.restype = ctypes.c_int
+  _lib.Z3_check.argtypes = [ContextObj]
+  _lib.Z3_check_assumptions.restype = ctypes.c_int
+  _lib.Z3_check_assumptions.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Model), ctypes.POINTER(Ast), ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(Ast)]
+  _lib.Z3_get_implied_equalities.restype = ctypes.c_uint
+  _lib.Z3_get_implied_equalities.argtypes = [ContextObj, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(ctypes.c_uint)]
+  _lib.Z3_del_model.argtypes = [ContextObj, Model]
+  _lib.Z3_soft_check_cancel.argtypes = [ContextObj]
+  _lib.Z3_get_search_failure.restype = ctypes.c_uint
+  _lib.Z3_get_search_failure.argtypes = [ContextObj]
+  _lib.Z3_mk_label.restype = Ast
+  _lib.Z3_mk_label.argtypes = [ContextObj, Symbol, ctypes.c_bool, Ast]
+  _lib.Z3_get_relevant_labels.restype = Literals
+  _lib.Z3_get_relevant_labels.argtypes = [ContextObj]
+  _lib.Z3_get_relevant_literals.restype = Literals
+  _lib.Z3_get_relevant_literals.argtypes = [ContextObj]
+  _lib.Z3_get_guessed_literals.restype = Literals
+  _lib.Z3_get_guessed_literals.argtypes = [ContextObj]
+  _lib.Z3_del_literals.argtypes = [ContextObj, Literals]
+  _lib.Z3_get_num_literals.restype = ctypes.c_uint
+  _lib.Z3_get_num_literals.argtypes = [ContextObj, Literals]
+  _lib.Z3_get_label_symbol.restype = Symbol
+  _lib.Z3_get_label_symbol.argtypes = [ContextObj, Literals, ctypes.c_uint]
+  _lib.Z3_get_literal.restype = Ast
+  _lib.Z3_get_literal.argtypes = [ContextObj, Literals, ctypes.c_uint]
+  _lib.Z3_disable_literal.argtypes = [ContextObj, Literals, ctypes.c_uint]
+  _lib.Z3_block_literals.argtypes = [ContextObj, Literals]
+  _lib.Z3_get_model_num_constants.restype = ctypes.c_uint
+  _lib.Z3_get_model_num_constants.argtypes = [ContextObj, Model]
+  _lib.Z3_get_model_constant.restype = FuncDecl
+  _lib.Z3_get_model_constant.argtypes = [ContextObj, Model, ctypes.c_uint]
+  _lib.Z3_get_model_num_funcs.restype = ctypes.c_uint
+  _lib.Z3_get_model_num_funcs.argtypes = [ContextObj, Model]
+  _lib.Z3_get_model_func_decl.restype = FuncDecl
+  _lib.Z3_get_model_func_decl.argtypes = [ContextObj, Model, ctypes.c_uint]
+  _lib.Z3_eval_func_decl.restype = ctypes.c_bool
+  _lib.Z3_eval_func_decl.argtypes = [ContextObj, Model, FuncDecl, ctypes.POINTER(Ast)]
+  _lib.Z3_is_array_value.restype = ctypes.c_bool
+  _lib.Z3_is_array_value.argtypes = [ContextObj, Model, Ast, ctypes.POINTER(ctypes.c_uint)]
+  _lib.Z3_get_array_value.argtypes = [ContextObj, Model, Ast, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Ast), ctypes.POINTER(Ast)]
+  _lib.Z3_get_model_func_else.restype = Ast
+  _lib.Z3_get_model_func_else.argtypes = [ContextObj, Model, ctypes.c_uint]
+  _lib.Z3_get_model_func_num_entries.restype = ctypes.c_uint
+  _lib.Z3_get_model_func_num_entries.argtypes = [ContextObj, Model, ctypes.c_uint]
+  _lib.Z3_get_model_func_entry_num_args.restype = ctypes.c_uint
+  _lib.Z3_get_model_func_entry_num_args.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint]
+  _lib.Z3_get_model_func_entry_arg.restype = Ast
+  _lib.Z3_get_model_func_entry_arg.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint, ctypes.c_uint]
+  _lib.Z3_get_model_func_entry_value.restype = Ast
+  _lib.Z3_get_model_func_entry_value.argtypes = [ContextObj, Model, ctypes.c_uint, ctypes.c_uint]
+  _lib.Z3_eval.restype = ctypes.c_bool
+  _lib.Z3_eval.argtypes = [ContextObj, Model, Ast, ctypes.POINTER(Ast)]
+  _lib.Z3_eval_decl.restype = ctypes.c_bool
+  _lib.Z3_eval_decl.argtypes = [ContextObj, Model, FuncDecl, ctypes.c_uint, ctypes.POINTER(Ast), ctypes.POINTER(Ast)]
+  _lib.Z3_context_to_string.restype = ctypes.c_char_p
+  _lib.Z3_context_to_string.argtypes = [ContextObj]
+  _lib.Z3_statistics_to_string.restype = ctypes.c_char_p
+  _lib.Z3_statistics_to_string.argtypes = [ContextObj]
+  _lib.Z3_get_context_assignment.restype = Ast
+  _lib.Z3_get_context_assignment.argtypes = [ContextObj]
+  _lib.Z3_mk_polynomial_manager.restype = PolynomialManagerObj
+  _lib.Z3_mk_polynomial_manager.argtypes = [ContextObj]
+  _lib.Z3_del_polynomial_manager.argtypes = [ContextObj, PolynomialManagerObj]
+  _lib.Z3_mk_zero_polynomial.restype = PolynomialObj
+  _lib.Z3_mk_zero_polynomial.argtypes = [ContextObj, PolynomialManagerObj]
+  _lib.Z3_polynomial_inc_ref.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
+  _lib.Z3_polynomial_dec_ref.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
+  _lib.Z3_polynomial_to_string.restype = ctypes.c_char_p
+  _lib.Z3_polynomial_to_string.argtypes = [ContextObj, PolynomialManagerObj, PolynomialObj]
 
 def Z3_mk_config():
   r = lib().Z3_mk_config()
@@ -923,12 +932,6 @@ def Z3_mk_context_rc(a0):
   r = lib().Z3_mk_context_rc(a0)
   return r
 
-def Z3_set_logic(a0, a1):
-  lib().Z3_set_logic(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
 def Z3_del_context(a0):
   lib().Z3_del_context(a0)
   err = lib().Z3_get_error_code(a0)
@@ -947,9 +950,6 @@ def Z3_dec_ref(a0, a1):
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_toggle_warning_messages(a0):
-  lib().Z3_toggle_warning_messages(a0)
-
 def Z3_update_param_value(a0, a1, a2):
   lib().Z3_update_param_value(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
@@ -958,6 +958,108 @@ def Z3_update_param_value(a0, a1, a2):
 
 def Z3_get_param_value(a0, a1, a2):
   r = lib().Z3_get_param_value(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_interrupt(a0):
+  lib().Z3_interrupt(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_mk_params(a0):
+  r = lib().Z3_mk_params(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_params_inc_ref(a0, a1):
+  lib().Z3_params_inc_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_dec_ref(a0, a1):
+  lib().Z3_params_dec_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_set_bool(a0, a1, a2, a3):
+  lib().Z3_params_set_bool(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_set_uint(a0, a1, a2, a3):
+  lib().Z3_params_set_uint(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_set_double(a0, a1, a2, a3):
+  lib().Z3_params_set_double(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_set_symbol(a0, a1, a2, a3):
+  lib().Z3_params_set_symbol(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_params_to_string(a0, a1):
+  r = lib().Z3_params_to_string(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_params_validate(a0, a1, a2):
+  lib().Z3_params_validate(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_param_descrs_inc_ref(a0, a1):
+  lib().Z3_param_descrs_inc_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_param_descrs_dec_ref(a0, a1):
+  lib().Z3_param_descrs_dec_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_param_descrs_get_kind(a0, a1, a2):
+  r = lib().Z3_param_descrs_get_kind(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_param_descrs_size(a0, a1):
+  r = lib().Z3_param_descrs_size(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_param_descrs_get_name(a0, a1, a2):
+  r = lib().Z3_param_descrs_get_name(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_param_descrs_to_string(a0, a1):
+  r = lib().Z3_param_descrs_to_string(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -972,13 +1074,6 @@ def Z3_mk_int_symbol(a0, a1):
 
 def Z3_mk_string_symbol(a0, a1):
   r = lib().Z3_mk_string_symbol(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_is_eq_sort(a0, a1, a2):
-  r = lib().Z3_is_eq_sort(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -1019,6 +1114,13 @@ def Z3_mk_bv_sort(a0, a1):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
+def Z3_mk_finite_domain_sort(a0, a1, a2):
+  r = lib().Z3_mk_finite_domain_sort(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
 def Z3_mk_array_sort(a0, a1, a2):
   r = lib().Z3_mk_array_sort(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
@@ -1054,12 +1156,6 @@ def Z3_mk_constructor(a0, a1, a2, a3, a4, a5, a6):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_query_constructor(a0, a1, a2, a3, a4, a5):
-  lib().Z3_query_constructor(a0, a1, a2, a3, a4, a5)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
 def Z3_del_constructor(a0, a1):
   lib().Z3_del_constructor(a0, a1)
   err = lib().Z3_get_error_code(a0)
@@ -1092,19 +1188,11 @@ def Z3_mk_datatypes(a0, a1, a2, a3, a4):
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_is_eq_ast(a0, a1, a2):
-  r = lib().Z3_is_eq_ast(a0, a1, a2)
+def Z3_query_constructor(a0, a1, a2, a3, a4, a5):
+  lib().Z3_query_constructor(a0, a1, a2, a3, a4, a5)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_is_eq_func_decl(a0, a1, a2):
-  r = lib().Z3_is_eq_func_decl(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
 
 def Z3_mk_func_decl(a0, a1, a2, a3, a4):
   r = lib().Z3_mk_func_decl(a0, a1, a2, a3, a4)
@@ -1122,13 +1210,6 @@ def Z3_mk_app(a0, a1, a2, a3):
 
 def Z3_mk_const(a0, a1, a2):
   r = lib().Z3_mk_const(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_mk_label(a0, a1, a2, a3):
-  r = lib().Z3_mk_label(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -1276,27 +1357,6 @@ def Z3_mk_rem(a0, a1, a2):
 
 def Z3_mk_power(a0, a1, a2):
   r = lib().Z3_mk_power(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_is_algebraic_number(a0, a1):
-  r = lib().Z3_is_algebraic_number(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_algebraic_number_lower(a0, a1, a2):
-  r = lib().Z3_get_algebraic_number_lower(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_algebraic_number_upper(a0, a1, a2):
-  r = lib().Z3_get_algebraic_number_upper(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -1911,34 +1971,6 @@ def Z3_mk_quantifier_const_ex(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_ast_id(a0, a1):
-  r = lib().Z3_get_ast_id(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_func_decl_id(a0, a1):
-  r = lib().Z3_get_func_decl_id(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_sort_id(a0, a1):
-  r = lib().Z3_get_sort_id(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_is_well_sorted(a0, a1):
-  r = lib().Z3_is_well_sorted(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
 def Z3_get_symbol_kind(a0, a1):
   r = lib().Z3_get_symbol_kind(a0, a1)
   err = lib().Z3_get_error_code(a0)
@@ -1960,8 +1992,295 @@ def Z3_get_symbol_string(a0, a1):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_ast_kind(a0, a1):
-  r = lib().Z3_get_ast_kind(a0, a1)
+def Z3_get_sort_name(a0, a1):
+  r = lib().Z3_get_sort_name(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_sort_id(a0, a1):
+  r = lib().Z3_get_sort_id(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_sort_to_ast(a0, a1):
+  r = lib().Z3_sort_to_ast(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_eq_sort(a0, a1, a2):
+  r = lib().Z3_is_eq_sort(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_sort_kind(a0, a1):
+  r = lib().Z3_get_sort_kind(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_bv_sort_size(a0, a1):
+  r = lib().Z3_get_bv_sort_size(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_finite_domain_sort_size(a0, a1, a2):
+  r = lib().Z3_get_finite_domain_sort_size(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_array_sort_domain(a0, a1):
+  r = lib().Z3_get_array_sort_domain(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_array_sort_range(a0, a1):
+  r = lib().Z3_get_array_sort_range(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_tuple_sort_mk_decl(a0, a1):
+  r = lib().Z3_get_tuple_sort_mk_decl(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_tuple_sort_num_fields(a0, a1):
+  r = lib().Z3_get_tuple_sort_num_fields(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_tuple_sort_field_decl(a0, a1, a2):
+  r = lib().Z3_get_tuple_sort_field_decl(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_datatype_sort_num_constructors(a0, a1):
+  r = lib().Z3_get_datatype_sort_num_constructors(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_datatype_sort_constructor(a0, a1, a2):
+  r = lib().Z3_get_datatype_sort_constructor(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_datatype_sort_recognizer(a0, a1, a2):
+  r = lib().Z3_get_datatype_sort_recognizer(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_datatype_sort_constructor_accessor(a0, a1, a2, a3):
+  r = lib().Z3_get_datatype_sort_constructor_accessor(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_relation_arity(a0, a1):
+  r = lib().Z3_get_relation_arity(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_relation_column(a0, a1, a2):
+  r = lib().Z3_get_relation_column(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_func_decl_to_ast(a0, a1):
+  r = lib().Z3_func_decl_to_ast(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_eq_func_decl(a0, a1, a2):
+  r = lib().Z3_is_eq_func_decl(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_func_decl_id(a0, a1):
+  r = lib().Z3_get_func_decl_id(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_name(a0, a1):
+  r = lib().Z3_get_decl_name(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_kind(a0, a1):
+  r = lib().Z3_get_decl_kind(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_domain_size(a0, a1):
+  r = lib().Z3_get_domain_size(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_arity(a0, a1):
+  r = lib().Z3_get_arity(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_domain(a0, a1, a2):
+  r = lib().Z3_get_domain(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_range(a0, a1):
+  r = lib().Z3_get_range(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_num_parameters(a0, a1):
+  r = lib().Z3_get_decl_num_parameters(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_parameter_kind(a0, a1, a2):
+  r = lib().Z3_get_decl_parameter_kind(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_int_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_int_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_double_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_double_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_symbol_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_symbol_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_sort_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_sort_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_ast_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_ast_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_func_decl_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_func_decl_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_decl_rational_parameter(a0, a1, a2):
+  r = lib().Z3_get_decl_rational_parameter(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_app_to_ast(a0, a1):
+  r = lib().Z3_app_to_ast(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_app_decl(a0, a1):
+  r = lib().Z3_get_app_decl(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_app_num_args(a0, a1):
+  r = lib().Z3_get_app_num_args(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_app_arg(a0, a1, a2):
+  r = lib().Z3_get_app_arg(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_eq_ast(a0, a1, a2):
+  r = lib().Z3_is_eq_ast(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_ast_id(a0, a1):
+  r = lib().Z3_get_ast_id(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -1969,6 +2288,69 @@ def Z3_get_ast_kind(a0, a1):
 
 def Z3_get_ast_hash(a0, a1):
   r = lib().Z3_get_ast_hash(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_sort(a0, a1):
+  r = lib().Z3_get_sort(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_well_sorted(a0, a1):
+  r = lib().Z3_is_well_sorted(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_bool_value(a0, a1):
+  r = lib().Z3_get_bool_value(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_ast_kind(a0, a1):
+  r = lib().Z3_get_ast_kind(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_app(a0, a1):
+  r = lib().Z3_is_app(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_numeral_ast(a0, a1):
+  r = lib().Z3_is_numeral_ast(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_algebraic_number(a0, a1):
+  r = lib().Z3_is_algebraic_number(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_to_app(a0, a1):
+  r = lib().Z3_to_app(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_to_func_decl(a0, a1):
+  r = lib().Z3_to_func_decl(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -2044,29 +2426,36 @@ def Z3_get_numeral_rational_int64(a0, a1, a2, a3):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_bool_value(a0, a1):
-  r = lib().Z3_get_bool_value(a0, a1)
+def Z3_get_algebraic_number_lower(a0, a1, a2):
+  r = lib().Z3_get_algebraic_number_lower(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_app_decl(a0, a1):
-  r = lib().Z3_get_app_decl(a0, a1)
+def Z3_get_algebraic_number_upper(a0, a1, a2):
+  r = lib().Z3_get_algebraic_number_upper(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_app_num_args(a0, a1):
-  r = lib().Z3_get_app_num_args(a0, a1)
+def Z3_pattern_to_ast(a0, a1):
+  r = lib().Z3_pattern_to_ast(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_app_arg(a0, a1, a2):
-  r = lib().Z3_get_app_arg(a0, a1, a2)
+def Z3_get_pattern_num_terms(a0, a1):
+  r = lib().Z3_get_pattern_num_terms(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_pattern(a0, a1, a2):
+  r = lib().Z3_get_pattern(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -2121,6 +2510,13 @@ def Z3_get_quantifier_no_pattern_ast(a0, a1, a2):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
+def Z3_get_quantifier_num_bound(a0, a1):
+  r = lib().Z3_get_quantifier_num_bound(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
 def Z3_get_quantifier_bound_name(a0, a1, a2):
   r = lib().Z3_get_quantifier_bound_name(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
@@ -2137,244 +2533,6 @@ def Z3_get_quantifier_bound_sort(a0, a1, a2):
 
 def Z3_get_quantifier_body(a0, a1):
   r = lib().Z3_get_quantifier_body(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_quantifier_num_bound(a0, a1):
-  r = lib().Z3_get_quantifier_num_bound(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_name(a0, a1):
-  r = lib().Z3_get_decl_name(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_num_parameters(a0, a1):
-  r = lib().Z3_get_decl_num_parameters(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_parameter_kind(a0, a1, a2):
-  r = lib().Z3_get_decl_parameter_kind(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_int_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_int_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_double_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_double_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_symbol_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_symbol_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_sort_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_sort_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_ast_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_ast_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_func_decl_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_func_decl_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_rational_parameter(a0, a1, a2):
-  r = lib().Z3_get_decl_rational_parameter(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_sort_name(a0, a1):
-  r = lib().Z3_get_sort_name(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_sort(a0, a1):
-  r = lib().Z3_get_sort(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_domain_size(a0, a1):
-  r = lib().Z3_get_domain_size(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_domain(a0, a1, a2):
-  r = lib().Z3_get_domain(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_range(a0, a1):
-  r = lib().Z3_get_range(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_sort_kind(a0, a1):
-  r = lib().Z3_get_sort_kind(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_bv_sort_size(a0, a1):
-  r = lib().Z3_get_bv_sort_size(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_array_sort_domain(a0, a1):
-  r = lib().Z3_get_array_sort_domain(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_array_sort_range(a0, a1):
-  r = lib().Z3_get_array_sort_range(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_tuple_sort_mk_decl(a0, a1):
-  r = lib().Z3_get_tuple_sort_mk_decl(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_decl_kind(a0, a1):
-  r = lib().Z3_get_decl_kind(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_tuple_sort_num_fields(a0, a1):
-  r = lib().Z3_get_tuple_sort_num_fields(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_tuple_sort_field_decl(a0, a1, a2):
-  r = lib().Z3_get_tuple_sort_field_decl(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_datatype_sort_num_constructors(a0, a1):
-  r = lib().Z3_get_datatype_sort_num_constructors(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_datatype_sort_constructor(a0, a1, a2):
-  r = lib().Z3_get_datatype_sort_constructor(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_datatype_sort_recognizer(a0, a1, a2):
-  r = lib().Z3_get_datatype_sort_recognizer(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_datatype_sort_constructor_accessor(a0, a1, a2, a3):
-  r = lib().Z3_get_datatype_sort_constructor_accessor(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_relation_arity(a0, a1):
-  r = lib().Z3_get_relation_arity(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_relation_column(a0, a1, a2):
-  r = lib().Z3_get_relation_column(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_finite_domain_sort_size(a0, a1, a2):
-  r = lib().Z3_get_finite_domain_sort_size(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_mk_finite_domain_sort(a0, a1, a2):
-  r = lib().Z3_mk_finite_domain_sort(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_pattern_num_terms(a0, a1):
-  r = lib().Z3_get_pattern_num_terms(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_pattern(a0, a1, a2):
-  r = lib().Z3_get_pattern(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -2429,185 +2587,12 @@ def Z3_substitute_vars(a0, a1, a2, a3):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_sort_to_ast(a0, a1):
-  r = lib().Z3_sort_to_ast(a0, a1)
+def Z3_translate(a0, a1, a2):
+  r = lib().Z3_translate(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
-
-def Z3_func_decl_to_ast(a0, a1):
-  r = lib().Z3_func_decl_to_ast(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_pattern_to_ast(a0, a1):
-  r = lib().Z3_pattern_to_ast(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_app_to_ast(a0, a1):
-  r = lib().Z3_app_to_ast(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_to_app(a0, a1):
-  r = lib().Z3_to_app(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_to_func_decl(a0, a1):
-  r = lib().Z3_to_func_decl(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_push(a0):
-  lib().Z3_push(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_pop(a0, a1):
-  lib().Z3_pop(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_get_num_scopes(a0):
-  r = lib().Z3_get_num_scopes(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_persist_ast(a0, a1, a2):
-  lib().Z3_persist_ast(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_assert_cnstr(a0, a1):
-  lib().Z3_assert_cnstr(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_check_and_get_model(a0, a1):
-  r = lib().Z3_check_and_get_model(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_check(a0):
-  r = lib().Z3_check(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_check_assumptions(a0, a1, a2, a3, a4, a5, a6):
-  r = lib().Z3_check_assumptions(a0, a1, a2, a3, a4, a5, a6)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_implied_equalities(a0, a1, a2, a3):
-  r = lib().Z3_get_implied_equalities(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_del_model(a0, a1):
-  lib().Z3_del_model(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_soft_check_cancel(a0):
-  lib().Z3_soft_check_cancel(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_get_search_failure(a0):
-  r = lib().Z3_get_search_failure(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_relevant_labels(a0):
-  r = lib().Z3_get_relevant_labels(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_relevant_literals(a0):
-  r = lib().Z3_get_relevant_literals(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_guessed_literals(a0):
-  r = lib().Z3_get_guessed_literals(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_del_literals(a0, a1):
-  lib().Z3_del_literals(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_get_num_literals(a0, a1):
-  r = lib().Z3_get_num_literals(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_label_symbol(a0, a1, a2):
-  r = lib().Z3_get_label_symbol(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_literal(a0, a1, a2):
-  r = lib().Z3_get_literal(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_disable_literal(a0, a1, a2):
-  lib().Z3_disable_literal(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_block_literals(a0, a1):
-  lib().Z3_block_literals(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
 def Z3_model_inc_ref(a0, a1):
   lib().Z3_model_inc_ref(a0, a1)
@@ -2620,6 +2605,13 @@ def Z3_model_dec_ref(a0, a1):
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_model_eval(a0, a1, a2, a3, a4):
+  r = lib().Z3_model_eval(a0, a1, a2, a3, a4)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
 
 def Z3_model_get_const_interp(a0, a1, a2):
   r = lib().Z3_model_get_const_interp(a0, a1, a2)
@@ -2658,13 +2650,6 @@ def Z3_model_get_num_funcs(a0, a1):
 
 def Z3_model_get_func_decl(a0, a1, a2):
   r = lib().Z3_model_get_func_decl(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_model_eval(a0, a1, a2, a3, a4):
-  r = lib().Z3_model_eval(a0, a1, a2, a3, a4)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -2778,102 +2763,18 @@ def Z3_func_entry_get_arg(a0, a1, a2):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_get_model_num_constants(a0, a1):
-  r = lib().Z3_get_model_num_constants(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+def Z3_open_log(a0):
+  r = lib().Z3_open_log(a0)
   return r
 
-def Z3_get_model_constant(a0, a1, a2):
-  r = lib().Z3_get_model_constant(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
+def Z3_append_log(a0):
+  lib().Z3_append_log(a0)
 
-def Z3_eval_func_decl(a0, a1, a2, a3):
-  r = lib().Z3_eval_func_decl(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
+def Z3_close_log():
+  lib().Z3_close_log()
 
-def Z3_is_array_value(a0, a1, a2, a3):
-  r = lib().Z3_is_array_value(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_array_value(a0, a1, a2, a3, a4, a5, a6):
-  lib().Z3_get_array_value(a0, a1, a2, a3, a4, a5, a6)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_get_model_num_funcs(a0, a1):
-  r = lib().Z3_get_model_num_funcs(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_decl(a0, a1, a2):
-  r = lib().Z3_get_model_func_decl(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_else(a0, a1, a2):
-  r = lib().Z3_get_model_func_else(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_num_entries(a0, a1, a2):
-  r = lib().Z3_get_model_func_num_entries(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_entry_num_args(a0, a1, a2, a3):
-  r = lib().Z3_get_model_func_entry_num_args(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_entry_arg(a0, a1, a2, a3, a4):
-  r = lib().Z3_get_model_func_entry_arg(a0, a1, a2, a3, a4)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_model_func_entry_value(a0, a1, a2, a3):
-  r = lib().Z3_get_model_func_entry_value(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_eval(a0, a1, a2, a3):
-  r = lib().Z3_eval(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_eval_decl(a0, a1, a2, a3, a4, a5):
-  r = lib().Z3_eval_decl(a0, a1, a2, a3, a4, a5)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
+def Z3_toggle_warning_messages(a0):
+  lib().Z3_toggle_warning_messages(a0)
 
 def Z3_set_ast_print_mode(a0, a1):
   lib().Z3_set_ast_print_mode(a0, a1)
@@ -2923,22 +2824,15 @@ def Z3_benchmark_to_smtlib_string(a0, a1, a2, a3, a4, a5, a6, a7):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_context_to_string(a0):
-  r = lib().Z3_context_to_string(a0)
+def Z3_parse_smtlib2_string(a0, a1, a2, a3, a4, a5, a6, a7):
+  r = lib().Z3_parse_smtlib2_string(a0, a1, a2, a3, a4, a5, a6, a7)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_statistics_to_string(a0):
-  r = lib().Z3_statistics_to_string(a0)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_context_assignment(a0):
-  r = lib().Z3_get_context_assignment(a0)
+def Z3_parse_smtlib2_file(a0, a1, a2, a3, a4, a5, a6, a7):
+  r = lib().Z3_parse_smtlib2_file(a0, a1, a2, a3, a4, a5, a6, a7)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -3033,20 +2927,6 @@ def Z3_parse_z3_file(a0, a1):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_parse_smtlib2_string(a0, a1, a2, a3, a4, a5, a6, a7):
-  r = lib().Z3_parse_smtlib2_string(a0, a1, a2, a3, a4, a5, a6, a7)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_parse_smtlib2_file(a0, a1, a2, a3, a4, a5, a6, a7):
-  r = lib().Z3_parse_smtlib2_file(a0, a1, a2, a3, a4, a5, a6, a7)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
 def Z3_get_error_code(a0):
   r = lib().Z3_get_error_code(a0)
   err = lib().Z3_get_error_code(a0)
@@ -3064,39 +2944,18 @@ def Z3_get_error_msg(a0):
   r = lib().Z3_get_error_msg(a0)
   return r
 
+def Z3_get_error_msg_ex(a0, a1):
+  r = lib().Z3_get_error_msg_ex(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
 def Z3_get_version(a0, a1, a2, a3):
   lib().Z3_get_version(a0, a1, a2, a3)
 
 def Z3_reset_memory():
   lib().Z3_reset_memory()
-
-def Z3_is_app(a0, a1):
-  r = lib().Z3_is_app(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_is_numeral_ast(a0, a1):
-  r = lib().Z3_is_numeral_ast(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_get_arity(a0, a1):
-  r = lib().Z3_get_arity(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_mk_injective_function(a0, a1, a2, a3, a4):
-  r = lib().Z3_mk_injective_function(a0, a1, a2, a3, a4)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
 
 def Z3_mk_fixedpoint(a0):
   r = lib().Z3_mk_fixedpoint(a0)
@@ -3117,30 +2976,6 @@ def Z3_fixedpoint_dec_ref(a0, a1):
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_fixedpoint_push(a0, a1):
-  lib().Z3_fixedpoint_push(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_fixedpoint_pop(a0, a1):
-  lib().Z3_fixedpoint_pop(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_fixedpoint_register_relation(a0, a1, a2):
-  lib().Z3_fixedpoint_register_relation(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_fixedpoint_assert(a0, a1, a2):
-  lib().Z3_fixedpoint_assert(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
 def Z3_fixedpoint_add_rule(a0, a1, a2, a3):
   lib().Z3_fixedpoint_add_rule(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
@@ -3149,6 +2984,12 @@ def Z3_fixedpoint_add_rule(a0, a1, a2, a3):
 
 def Z3_fixedpoint_add_fact(a0, a1, a2, a3, a4):
   lib().Z3_fixedpoint_add_fact(a0, a1, a2, a3, a4)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_fixedpoint_assert(a0, a1, a2):
+  lib().Z3_fixedpoint_assert(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -3169,6 +3010,13 @@ def Z3_fixedpoint_query_relations(a0, a1, a2, a3):
 
 def Z3_fixedpoint_get_answer(a0, a1):
   r = lib().Z3_fixedpoint_get_answer(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_fixedpoint_get_reason_unknown(a0, a1):
+  r = lib().Z3_fixedpoint_get_reason_unknown(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -3207,39 +3055,11 @@ def Z3_fixedpoint_get_statistics(a0, a1):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_fixedpoint_get_help(a0, a1):
-  r = lib().Z3_fixedpoint_get_help(a0, a1)
+def Z3_fixedpoint_register_relation(a0, a1, a2):
+  lib().Z3_fixedpoint_register_relation(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_fixedpoint_get_param_descrs(a0, a1):
-  r = lib().Z3_fixedpoint_get_param_descrs(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_fixedpoint_set_params(a0, a1, a2):
-  lib().Z3_fixedpoint_set_params(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_fixedpoint_to_string(a0, a1, a2, a3):
-  r = lib().Z3_fixedpoint_to_string(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_fixedpoint_get_reason_unknown(a0, a1):
-  r = lib().Z3_fixedpoint_get_reason_unknown(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
 
 def Z3_fixedpoint_set_predicate_representation(a0, a1, a2, a3, a4):
   lib().Z3_fixedpoint_set_predicate_representation(a0, a1, a2, a3, a4)
@@ -3254,117 +3074,177 @@ def Z3_fixedpoint_simplify_rules(a0, a1, a2, a3, a4, a5):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_mk_params(a0):
-  r = lib().Z3_mk_params(a0)
+def Z3_fixedpoint_set_params(a0, a1, a2):
+  lib().Z3_fixedpoint_set_params(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_fixedpoint_get_help(a0, a1):
+  r = lib().Z3_fixedpoint_get_help(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_params_inc_ref(a0, a1):
-  lib().Z3_params_inc_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_dec_ref(a0, a1):
-  lib().Z3_params_dec_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_set_bool(a0, a1, a2, a3):
-  lib().Z3_params_set_bool(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_set_uint(a0, a1, a2, a3):
-  lib().Z3_params_set_uint(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_set_double(a0, a1, a2, a3):
-  lib().Z3_params_set_double(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_set_symbol(a0, a1, a2, a3):
-  lib().Z3_params_set_symbol(a0, a1, a2, a3)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_params_to_string(a0, a1):
-  r = lib().Z3_params_to_string(a0, a1)
+def Z3_fixedpoint_get_param_descrs(a0, a1):
+  r = lib().Z3_fixedpoint_get_param_descrs(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_params_validate(a0, a1, a2):
-  lib().Z3_params_validate(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_param_descrs_inc_ref(a0, a1):
-  lib().Z3_param_descrs_inc_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_param_descrs_dec_ref(a0, a1):
-  lib().Z3_param_descrs_dec_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_param_descrs_get_kind(a0, a1, a2):
-  r = lib().Z3_param_descrs_get_kind(a0, a1, a2)
+def Z3_fixedpoint_to_string(a0, a1, a2, a3):
+  r = lib().Z3_fixedpoint_to_string(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_param_descrs_size(a0, a1):
-  r = lib().Z3_param_descrs_size(a0, a1)
+def Z3_fixedpoint_push(a0, a1):
+  lib().Z3_fixedpoint_push(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_fixedpoint_pop(a0, a1):
+  lib().Z3_fixedpoint_pop(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_mk_ast_vector(a0):
+  r = lib().Z3_mk_ast_vector(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_param_descrs_get_name(a0, a1, a2):
-  r = lib().Z3_param_descrs_get_name(a0, a1, a2)
+def Z3_ast_vector_inc_ref(a0, a1):
+  lib().Z3_ast_vector_inc_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_vector_dec_ref(a0, a1):
+  lib().Z3_ast_vector_dec_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_vector_size(a0, a1):
+  r = lib().Z3_ast_vector_size(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_param_descrs_to_string(a0, a1):
-  r = lib().Z3_param_descrs_to_string(a0, a1)
+def Z3_ast_vector_get(a0, a1, a2):
+  r = lib().Z3_ast_vector_get(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_interrupt(a0):
-  lib().Z3_interrupt(a0)
+def Z3_ast_vector_set(a0, a1, a2, a3):
+  lib().Z3_ast_vector_set(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_get_error_msg_ex(a0, a1):
-  r = lib().Z3_get_error_msg_ex(a0, a1)
+def Z3_ast_vector_resize(a0, a1, a2):
+  lib().Z3_ast_vector_resize(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_vector_push(a0, a1, a2):
+  lib().Z3_ast_vector_push(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_vector_translate(a0, a1, a2):
+  r = lib().Z3_ast_vector_translate(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_translate(a0, a1, a2):
-  r = lib().Z3_translate(a0, a1, a2)
+def Z3_ast_vector_to_string(a0, a1):
+  r = lib().Z3_ast_vector_to_string(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_mk_ast_map(a0):
+  r = lib().Z3_mk_ast_map(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_ast_map_inc_ref(a0, a1):
+  lib().Z3_ast_map_inc_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_map_dec_ref(a0, a1):
+  lib().Z3_ast_map_dec_ref(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_map_contains(a0, a1, a2):
+  r = lib().Z3_ast_map_contains(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_ast_map_find(a0, a1, a2):
+  r = lib().Z3_ast_map_find(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_ast_map_insert(a0, a1, a2, a3):
+  lib().Z3_ast_map_insert(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_map_erase(a0, a1, a2):
+  lib().Z3_ast_map_erase(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_map_reset(a0, a1):
+  lib().Z3_ast_map_reset(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_ast_map_size(a0, a1):
+  r = lib().Z3_ast_map_size(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_ast_map_keys(a0, a1):
+  r = lib().Z3_ast_map_keys(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_ast_map_to_string(a0, a1):
+  r = lib().Z3_ast_map_to_string(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -3478,13 +3358,6 @@ def Z3_mk_tactic(a0, a1):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_mk_probe(a0, a1):
-  r = lib().Z3_mk_probe(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
 def Z3_tactic_inc_ref(a0, a1):
   lib().Z3_tactic_inc_ref(a0, a1)
   err = lib().Z3_get_error_code(a0)
@@ -3496,6 +3369,13 @@ def Z3_tactic_dec_ref(a0, a1):
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_mk_probe(a0, a1):
+  r = lib().Z3_mk_probe(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
 
 def Z3_probe_inc_ref(a0, a1):
   lib().Z3_probe_inc_ref(a0, a1)
@@ -3614,15 +3494,15 @@ def Z3_probe_lt(a0, a1, a2):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_probe_le(a0, a1, a2):
-  r = lib().Z3_probe_le(a0, a1, a2)
+def Z3_probe_gt(a0, a1, a2):
+  r = lib().Z3_probe_gt(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_probe_gt(a0, a1, a2):
-  r = lib().Z3_probe_gt(a0, a1, a2)
+def Z3_probe_le(a0, a1, a2):
+  r = lib().Z3_probe_le(a0, a1, a2)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
@@ -3995,150 +3875,318 @@ def Z3_stats_get_double_value(a0, a1, a2):
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_mk_ast_vector(a0):
-  r = lib().Z3_mk_ast_vector(a0)
+def Z3_mk_injective_function(a0, a1, a2, a3, a4):
+  r = lib().Z3_mk_injective_function(a0, a1, a2, a3, a4)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_vector_inc_ref(a0, a1):
-  lib().Z3_ast_vector_inc_ref(a0, a1)
+def Z3_set_logic(a0, a1):
+  lib().Z3_set_logic(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_ast_vector_dec_ref(a0, a1):
-  lib().Z3_ast_vector_dec_ref(a0, a1)
+def Z3_push(a0):
+  lib().Z3_push(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_ast_vector_size(a0, a1):
-  r = lib().Z3_ast_vector_size(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_ast_vector_get(a0, a1, a2):
-  r = lib().Z3_ast_vector_get(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_ast_vector_set(a0, a1, a2, a3):
-  lib().Z3_ast_vector_set(a0, a1, a2, a3)
+def Z3_pop(a0, a1):
+  lib().Z3_pop(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_ast_vector_resize(a0, a1, a2):
-  lib().Z3_ast_vector_resize(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_ast_vector_push(a0, a1, a2):
-  lib().Z3_ast_vector_push(a0, a1, a2)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_ast_vector_translate(a0, a1, a2):
-  r = lib().Z3_ast_vector_translate(a0, a1, a2)
+def Z3_get_num_scopes(a0):
+  r = lib().Z3_get_num_scopes(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_vector_to_string(a0, a1):
-  r = lib().Z3_ast_vector_to_string(a0, a1)
+def Z3_persist_ast(a0, a1, a2):
+  lib().Z3_persist_ast(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_assert_cnstr(a0, a1):
+  lib().Z3_assert_cnstr(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_check_and_get_model(a0, a1):
+  r = lib().Z3_check_and_get_model(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_mk_ast_map(a0):
-  r = lib().Z3_mk_ast_map(a0)
+def Z3_check(a0):
+  r = lib().Z3_check(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_map_inc_ref(a0, a1):
-  lib().Z3_ast_map_inc_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_ast_map_dec_ref(a0, a1):
-  lib().Z3_ast_map_dec_ref(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_ast_map_contains(a0, a1, a2):
-  r = lib().Z3_ast_map_contains(a0, a1, a2)
+def Z3_check_assumptions(a0, a1, a2, a3, a4, a5, a6):
+  r = lib().Z3_check_assumptions(a0, a1, a2, a3, a4, a5, a6)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_map_find(a0, a1, a2):
-  r = lib().Z3_ast_map_find(a0, a1, a2)
+def Z3_get_implied_equalities(a0, a1, a2, a3):
+  r = lib().Z3_get_implied_equalities(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_map_insert(a0, a1, a2, a3):
-  lib().Z3_ast_map_insert(a0, a1, a2, a3)
+def Z3_del_model(a0, a1):
+  lib().Z3_del_model(a0, a1)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_ast_map_erase(a0, a1, a2):
-  lib().Z3_ast_map_erase(a0, a1, a2)
+def Z3_soft_check_cancel(a0):
+  lib().Z3_soft_check_cancel(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
 
-def Z3_ast_map_size(a0, a1):
-  r = lib().Z3_ast_map_size(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-  return r
-
-def Z3_ast_map_reset(a0, a1):
-  lib().Z3_ast_map_reset(a0, a1)
-  err = lib().Z3_get_error_code(a0)
-  if err != Z3_OK:
-    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
-
-def Z3_ast_map_keys(a0, a1):
-  r = lib().Z3_ast_map_keys(a0, a1)
+def Z3_get_search_failure(a0):
+  r = lib().Z3_get_search_failure(a0)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_ast_map_to_string(a0, a1):
-  r = lib().Z3_ast_map_to_string(a0, a1)
+def Z3_mk_label(a0, a1, a2, a3):
+  r = lib().Z3_mk_label(a0, a1, a2, a3)
   err = lib().Z3_get_error_code(a0)
   if err != Z3_OK:
     raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_open_log(a0):
-  r = lib().Z3_open_log(a0)
+def Z3_get_relevant_labels(a0):
+  r = lib().Z3_get_relevant_labels(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
   return r
 
-def Z3_append_log(a0):
-  lib().Z3_append_log(a0)
+def Z3_get_relevant_literals(a0):
+  r = lib().Z3_get_relevant_literals(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
 
-def Z3_close_log():
-  lib().Z3_close_log()
+def Z3_get_guessed_literals(a0):
+  r = lib().Z3_get_guessed_literals(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_del_literals(a0, a1):
+  lib().Z3_del_literals(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_get_num_literals(a0, a1):
+  r = lib().Z3_get_num_literals(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_label_symbol(a0, a1, a2):
+  r = lib().Z3_get_label_symbol(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_literal(a0, a1, a2):
+  r = lib().Z3_get_literal(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_disable_literal(a0, a1, a2):
+  lib().Z3_disable_literal(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_block_literals(a0, a1):
+  lib().Z3_block_literals(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_get_model_num_constants(a0, a1):
+  r = lib().Z3_get_model_num_constants(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_constant(a0, a1, a2):
+  r = lib().Z3_get_model_constant(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_num_funcs(a0, a1):
+  r = lib().Z3_get_model_num_funcs(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_func_decl(a0, a1, a2):
+  r = lib().Z3_get_model_func_decl(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_eval_func_decl(a0, a1, a2, a3):
+  r = lib().Z3_eval_func_decl(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_is_array_value(a0, a1, a2, a3):
+  r = lib().Z3_is_array_value(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_array_value(a0, a1, a2, a3, a4, a5, a6):
+  lib().Z3_get_array_value(a0, a1, a2, a3, a4, a5, a6)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_get_model_func_else(a0, a1, a2):
+  r = lib().Z3_get_model_func_else(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_func_num_entries(a0, a1, a2):
+  r = lib().Z3_get_model_func_num_entries(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_func_entry_num_args(a0, a1, a2, a3):
+  r = lib().Z3_get_model_func_entry_num_args(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_func_entry_arg(a0, a1, a2, a3, a4):
+  r = lib().Z3_get_model_func_entry_arg(a0, a1, a2, a3, a4)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_model_func_entry_value(a0, a1, a2, a3):
+  r = lib().Z3_get_model_func_entry_value(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_eval(a0, a1, a2, a3):
+  r = lib().Z3_eval(a0, a1, a2, a3)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_eval_decl(a0, a1, a2, a3, a4, a5):
+  r = lib().Z3_eval_decl(a0, a1, a2, a3, a4, a5)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_context_to_string(a0):
+  r = lib().Z3_context_to_string(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_statistics_to_string(a0):
+  r = lib().Z3_statistics_to_string(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_get_context_assignment(a0):
+  r = lib().Z3_get_context_assignment(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_mk_polynomial_manager(a0):
+  r = lib().Z3_mk_polynomial_manager(a0)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_del_polynomial_manager(a0, a1):
+  lib().Z3_del_polynomial_manager(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_mk_zero_polynomial(a0, a1):
+  r = lib().Z3_mk_zero_polynomial(a0, a1)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
+
+def Z3_polynomial_inc_ref(a0, a1, a2):
+  lib().Z3_polynomial_inc_ref(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_polynomial_dec_ref(a0, a1, a2):
+  lib().Z3_polynomial_dec_ref(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+
+def Z3_polynomial_to_string(a0, a1, a2):
+  r = lib().Z3_polynomial_to_string(a0, a1, a2)
+  err = lib().Z3_get_error_code(a0)
+  if err != Z3_OK:
+    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))
+  return r
 

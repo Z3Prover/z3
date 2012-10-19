@@ -239,6 +239,13 @@ public:
     */
     expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, model_ref& mdl);
 
+    /**
+       \brief extract literals from formulas that satisfy formulas.
+
+       \pre model satisfies formulas
+    */
+    expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, expr_ref_vector const & model);
+
     // for_each_expr visitor.
     void operator()(expr* e) {} 
 };

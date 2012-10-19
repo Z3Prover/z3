@@ -20,6 +20,7 @@ Revision History:
 
 #include"params.h"
 #include"lbool.h"
+#include"ast.h"
 
 #define Z3_TRY try {
 #define Z3_CATCH_CORE(CODE) } catch (z3_exception & ex) { mk_c(c)->handle_exception(ex); CODE }

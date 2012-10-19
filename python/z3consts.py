@@ -1,4 +1,4 @@
-# Automatically generated file, generator: mk_z3consts.py
+# Automatically generated file, generator: update_api.py
 
 # enum Z3_lbool
 Z3_L_TRUE = 1
