@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include"sat_solver.h"
-#include"strategy_exception.h"
 #include"sat_integrity_checker.h"
 #include"luby.h"
 #include"trace.h"

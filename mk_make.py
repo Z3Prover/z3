@@ -158,4 +158,5 @@ def add_lib(name, deps):
 
 add_lib('util', [])
 add_lib('polynomial', ['util'])
+add_lib('sat', ['util'])
 add_lib('ast', ['util', 'polynomial'])
