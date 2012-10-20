@@ -204,6 +204,7 @@ namespace pdr {
                     is_eq = false;
                 }
             }
+
             zero = a.mk_numeral(rational::zero(), a.is_int(res));
             if (is_eq) {
                 res = m.mk_eq(res, zero);
@@ -219,7 +220,27 @@ namespace pdr {
             proof_ref pr(m);
             expr_ref tmp(m);
             rw(res, tmp, pr);
+            fix_dl(tmp);
             res = tmp;
+        }
+
+        // patch: swap addends to make static 
+        // features recognize difference constraint.
+        void fix_dl(expr_ref& r) {
+            expr* e;
+            if (m.is_not(r, e)) {
+                r = e;
+                fix_dl(r);
+                r = m.mk_not(r);
+                return;
+            }
+            expr* e1, *e2, *e3, *e4;
+            if ((m.is_eq(r, e1, e2) || a.is_lt(r, e1, e2) || a.is_gt(r, e1, e2) || 
+                 a.is_le(r, e1, e2) || a.is_ge(r, e1, e2))) {
+                if (a.is_add(e1, e3, e4) && a.is_mul(e3)) {
+                    r = m.mk_app(to_app(r)->get_decl(), a.mk_add(e4,e3), e2);
+                }
+            }
         }
     };
     
@@ -366,6 +387,7 @@ namespace pdr {
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             g->assert_expr(lemmas[i].get()); 
         }
+        expr_ref tmp(m);
         model_converter_ref mc;
         proof_converter_ref pc;
         expr_dependency_ref core(m);

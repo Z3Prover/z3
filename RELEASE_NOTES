@@ -3,6 +3,8 @@ RELEASE NOTES
 Version 4.2
 ===========
 
+- Fixed compilation problems with clang/llvm. Many thanks to Xi Wang for finding the problem, and suggesting the fix. 
+
 - Now, Z3 automatically adds arithmetic coercions: to_real and to_int.
   Option (set-option :int-real-coercions false) disables this feature.
   If SMTLIB2_COMPLIANT=true in the command line, then :int-real-coercions is also set to false.

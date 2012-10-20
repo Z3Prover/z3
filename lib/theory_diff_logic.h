@@ -16,30 +16,6 @@ Author:
 
 Revision History:
 
-TODO:
-
-- check regressions with smt::solver.
-
-- what should be done properly (during internalization) for reflect()
-
-- fix theory propagation:
-  - x <= y + 2, then x <= y + 3
-  - x = y, then x <= y + 2
-  - x = y, x <= z <= y, then x = z
-
-- fix/add equality propagation
-
-- add relaxation (somewhat easy)
-
-- Currently stored explanation in edges is stored at creation time
-  (not at propagation time).
-  Is this flexible enough for processing equalities?
-  - eq_justification present in smt::context when calling new_eq_eh.
-    pass such to the edge?
-  
-- context::assume_eq is absent.
-- context::add_eq and context::push_eq are protected. Cannot propagate equalities back to core.
-- 
 
 --*/
 
@@ -76,13 +52,7 @@ namespace smt {
         unsigned   m_num_core2th_diseqs;
         unsigned   m_num_core2th_new_diseqs;
         void reset() {
-            m_num_conflicts          = 0;
-            m_num_assertions         = 0;
-            m_num_th2core_prop       = 0;
-            m_num_th2core_eqs        = 0;
-            m_num_core2th_eqs        = 0;
-            m_num_core2th_diseqs     = 0;
-            m_num_core2th_new_diseqs = 0;
+            memset(this, 0, sizeof(*this));
         }
         theory_diff_logic_statistics() {
             reset();
@@ -93,16 +63,11 @@ namespace smt {
     public:
         dl_conflict(region & r, unsigned nls, literal const * lits): simple_justification(r, nls, lits) { }
             
-        virtual proof * mk_proof(conflict_resolution & cr) { NOT_IMPLEMENTED_YET(); return 0; }
+        virtual proof * mk_proof(conflict_resolution & cr) { 
+            NOT_IMPLEMENTED_YET();
+            return 0;
+        }
     };
-
-    class dl_propagate : public simple_justification {
-    public:
-        dl_propagate(region & r, unsigned nls, literal const * lits): simple_justification(r, nls, lits) { }
-
-        virtual proof * mk_proof(conflict_resolution & cr) { NOT_IMPLEMENTED_YET(); return 0; }
-    };
-
 
 
     template<typename Ext>

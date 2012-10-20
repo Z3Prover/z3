@@ -40,10 +40,12 @@ namespace pdr {
 
     class pred_transformer;
     class model_node;
+    class context;
 
     typedef obj_map<datalog::rule const, qinst*> qinst_map;
     typedef obj_map<datalog::rule const, app_ref_vector*> rule2inst;
     typedef obj_map<func_decl, pred_transformer*> decl2rel;
+
 
     // 
     // Predicate transformer state.
@@ -64,6 +66,7 @@ namespace pdr {
 
         manager&                     pm;        // pdr-manager
         ast_manager&                 m;         // manager
+        context&                     ctx;
         
         func_decl_ref                m_head;    // predicate 
         func_decl_ref_vector         m_sig;     // signature
@@ -106,7 +109,7 @@ namespace pdr {
         void add_premises(decl2rel const& pts, unsigned lvl, datalog::rule& rule, expr_ref_vector& r);
 
     public:
-        pred_transformer(manager& pm, func_decl* head);
+        pred_transformer(context& ctx, manager& pm, func_decl* head);
         ~pred_transformer();
 
         void add_rule(datalog::rule* r) { m_rules.push_back(r); }
@@ -259,7 +262,6 @@ namespace pdr {
     struct model_exception { };
     struct inductive_exception {};
 
-    class context;
 
     // 'state' is unsatisfiable at 'level' with 'core'. 
     // Minimize or weaken core.
@@ -306,6 +308,7 @@ namespace pdr {
         volatile bool        m_cancel;
         model_converter_ref  m_mc;
         proof_converter_ref  m_pc;
+        bool                 m_is_dl;
         
         // Functions used by search.
         void solve_impl();
@@ -361,8 +364,10 @@ namespace pdr {
         decl2rel const&   get_pred_transformers() const { return m_rels; }
         pred_transformer& get_pred_transformer(func_decl* p) const { return *m_rels.find(p); }
         datalog::context& get_context() const { SASSERT(m_context); return *m_context; }
-
         expr_ref          get_answer();
+
+        bool              is_dl() const { return m_is_dl; }
+
 
         void collect_statistics(statistics& st) const;
 

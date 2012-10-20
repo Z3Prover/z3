@@ -55,8 +55,8 @@ namespace pdr {
     // ----------------
     // pred_tansformer
 
-    pred_transformer::pred_transformer(manager& pm, func_decl* head): 
-        pm(pm), m(pm.get_manager()), m_head(head, m), 
+    pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head): 
+        ctx(ctx), pm(pm), m(pm.get_manager()), m_head(head, m), 
         m_sig(m), m_solver(pm, head->get_name()),
         m_invariants(m), m_transition(m), m_initial_state(m), 
         m_reachable(pm, pm.get_params()) {}
@@ -464,6 +464,10 @@ namespace pdr {
         th_rewriter rw(m);
         rw(m_transition);
         rw(m_initial_state);
+        if (ctx.is_dl()) {
+            hoist_non_bool_if(m_transition);
+            hoist_non_bool_if(m_initial_state);
+        }
         m_solver.add_formula(m_transition);
         m_solver.add_level_formula(m_initial_state, 0);
         TRACE("pdr", 
@@ -1072,7 +1076,8 @@ namespace pdr {
           m_search(m_params.get_bool(":bfs-model-search", true)),
           m_last_result(l_undef),
           m_inductive_lvl(0),
-          m_cancel(false)
+          m_cancel(false),
+          m_is_dl(false)
     {
     }
 
@@ -1104,7 +1109,7 @@ namespace pdr {
             func_decl* pred = dit->m_key;
             TRACE("pdr", tout << mk_pp(pred, m) << "\n";);
             SASSERT(!rels.contains(pred));
-            e = rels.insert_if_not_there2(pred, alloc(pred_transformer, get_pdr_manager(), pred));            
+            e = rels.insert_if_not_there2(pred, alloc(pred_transformer, *this, get_pdr_manager(), pred));            
             datalog::rule_vector const& pred_rules = *dit->m_value;            
             for (unsigned i = 0; i < pred_rules.size(); ++i) {
                 e->get_data().m_value->add_rule(pred_rules[i]);
@@ -1120,7 +1125,7 @@ namespace pdr {
             for (; itf != endf; ++itf) {
                 TRACE("pdr", tout << mk_pp(pred, m) << " " << mk_pp(*itf, m) << "\n";);
                 if (!rels.find(*itf, pt_user)) {
-                    pt_user = alloc(pred_transformer, get_pdr_manager(), *itf);
+                    pt_user = alloc(pred_transformer, *this, get_pdr_manager(), *itf);
                     rels.insert(*itf, pt_user);
                 }
                 pt_user->add_use(pt);                
@@ -1179,7 +1184,7 @@ namespace pdr {
     void context::add_cover(int level, func_decl* p, expr* property) {
         pred_transformer* pt = 0;
         if (!m_rels.find(p, pt)) {
-            pt = alloc(pred_transformer, get_pdr_manager(), p);
+            pt = alloc(pred_transformer, *this, get_pdr_manager(), p);
             m_rels.insert(p, pt);
             IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);
         }
@@ -1192,9 +1197,11 @@ namespace pdr {
         arith_util a;
         bool m_is_bool;
         bool m_is_bool_arith;
+        bool m_has_arith;
+        bool m_is_dl;
     public:
         classifier_proc(ast_manager& m, datalog::rule_set& rules):
-            m(m), a(m), m_is_bool(true), m_is_bool_arith(true) {
+            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false) {
             classify(rules);
         }
         void operator()(expr* e) {
@@ -1213,6 +1220,9 @@ namespace pdr {
                     m_is_bool = false;
                 }
             }
+
+            m_has_arith = m_has_arith || a.is_int_real(e);
+
             if (m_is_bool_arith) {                
                 if (!m.is_bool(e) && !a.is_int_real(e)) {
                     m_is_bool_arith = false;
@@ -1235,6 +1245,8 @@ namespace pdr {
 
         bool is_bool_arith() const { return m_is_bool_arith; }
 
+        bool is_dl() const { return m_is_dl; }
+
 
     private:
 
@@ -1249,8 +1261,22 @@ namespace pdr {
                     classify_pred(mark, r.get_tail(i));                
                 }
                 for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
-                    quick_for_each_expr(*this, mark, r.get_tail(i));
+                    quick_for_each_expr(*this, mark, r.get_tail(i));                    
                 }
+            }
+            mark.reset();
+ 
+            m_is_dl = false;
+            if (m_has_arith) {
+                ptr_vector<expr> forms;
+                for (it = rules.begin(); it != end; ++it) {  
+                    datalog::rule& r = *(*it);
+                    unsigned utsz = r.get_uninterpreted_tail_size();
+                    for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
+                        forms.push_back(r.get_tail(i));
+                    }                                          
+                }
+                m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
             }
         }
 
@@ -1270,6 +1296,7 @@ namespace pdr {
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
+        m_is_dl = false;
         bool use_mc = m_params.get_bool(":use-multicore-generalizer", false);
         if (use_mc) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
@@ -1277,12 +1304,16 @@ namespace pdr {
         if (m_params.get_bool(":use-farkas", true) && !classify.is_bool()) {
             if (m_params.get_bool(":inline-proof-mode", true)) {
                 m.toggle_proof_mode(PGM_FINE);
-                m_fparams.m_proof_mode = PGM_FINE;
+                m_fparams.m_proof_mode = PGM_FINE;                
                 m_fparams.m_arith_bound_prop = BP_NONE;
                 m_fparams.m_arith_auto_config_simplex = true;
                 m_fparams.m_arith_propagate_eqs = false;
                 m_fparams.m_arith_eager_eq_axioms = false;
-                m_fparams.m_arith_eq_bounds = false;
+                if (classify.is_dl()) {
+                    m_fparams.m_arith_mode = AS_DIFF_LOGIC;
+                    m_fparams.m_arith_expand_eqs = true;
+                    m_is_dl = true;
+                }
             }
             else {
                 m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
@@ -1622,6 +1653,8 @@ namespace pdr {
     */
     void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
+        bool use_model_generalizer = m_params.get_bool(":use-model-generalizer", false);
+        // use_model_generalizer = use_model_generalizer || is_dl();
  
         pred_transformer& pt = n.pt();
         model_ref M = n.model_ptr();
@@ -1629,7 +1662,7 @@ namespace pdr {
         expr* T   = pt.get_transition(r);
         expr* phi = n.state();
 
-        IF_VERBOSE(2, verbose_stream() << "Model:\n";
+        IF_VERBOSE(3, verbose_stream() << "Model:\n";
                    model_smt2_pp(verbose_stream(), m, *M, 0);
                    verbose_stream() << "\n";
                    verbose_stream() << "Transition:\n" << mk_pp(T, m) << "\n";
@@ -1641,7 +1674,7 @@ namespace pdr {
         forms.push_back(phi);
         datalog::flatten_and(forms);        
         ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
-        if (m_params.get_bool(":use-model-generalizer", false)) {
+        if (use_model_generalizer) {
             Phi.append(mev.minimize_model(forms1, M));
         }
         else {
@@ -1663,6 +1696,9 @@ namespace pdr {
         qe_lite qe(m);
         expr_ref phi1 = m_pm.mk_and(Phi);
         qe(vars, phi1);
+        if (!use_model_generalizer) {
+            reduce_disequalities(*M, 3, phi1);
+        }
 
         IF_VERBOSE(2, 
                    verbose_stream() << "Vars:\n";

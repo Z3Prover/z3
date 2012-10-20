@@ -41,48 +41,51 @@ Notes:
 #include "pdr_prop_solver.h"
 #include "pdr_util.h"
 #include "arith_decl_plugin.h"
+#include "expr_replacer.h"
+#include "static_features.h"
+
 
 namespace pdr {
 
-unsigned ceil_log2(unsigned u)
-{
-    if (u==0) { return 0; }
-    unsigned pow2 = next_power_of_two(u);
-    return get_num_1bits(pow2-1);
-}
-
-
-std::string pp_cube(const ptr_vector<expr>& model, ast_manager& m) {
-    return pp_cube(model.size(), model.c_ptr(), m);
-}
-std::string pp_cube(const expr_ref_vector& model, ast_manager& m) {
-    return pp_cube(model.size(), model.c_ptr(), m);
-}
-std::string pp_cube(const app_ref_vector& model, ast_manager& m) {
-    return pp_cube(model.size(), model.c_ptr(), m);
-}
-
-std::string pp_cube(const app_vector& model, ast_manager& m) {
-    return pp_cube(model.size(), model.c_ptr(), m);
-}
-
-std::string pp_cube(unsigned sz, app * const * lits, ast_manager& m) {
-    return pp_cube(sz, reinterpret_cast<expr * const *>(lits), m);
-}
-
-std::string pp_cube(unsigned sz, expr * const * lits, ast_manager& m) {
-    std::stringstream res;
-    res << "(";
-    expr * const * end = lits+sz;
-    for (expr * const * it = lits; it!=end; it++) {
-        res << mk_pp(*it, m);
-        if (it+1!=end) {
-            res << ", ";
-        }
+    unsigned ceil_log2(unsigned u) {
+        if (u == 0) { return 0; }
+        unsigned pow2 = next_power_of_two(u);
+        return get_num_1bits(pow2-1);
     }
-    res << ")";
-    return res.str();
-}
+
+    std::string pp_cube(const ptr_vector<expr>& model, ast_manager& m) {
+        return pp_cube(model.size(), model.c_ptr(), m);
+    }
+
+    std::string pp_cube(const expr_ref_vector& model, ast_manager& m) {
+        return pp_cube(model.size(), model.c_ptr(), m);
+    }
+
+    std::string pp_cube(const app_ref_vector& model, ast_manager& m) {
+        return pp_cube(model.size(), model.c_ptr(), m);
+    }
+    
+    std::string pp_cube(const app_vector& model, ast_manager& m) {
+        return pp_cube(model.size(), model.c_ptr(), m);
+    }
+
+    std::string pp_cube(unsigned sz, app * const * lits, ast_manager& m) {
+        return pp_cube(sz, reinterpret_cast<expr * const *>(lits), m);
+    }
+
+    std::string pp_cube(unsigned sz, expr * const * lits, ast_manager& m) {
+        std::stringstream res;
+        res << "(";
+        expr * const * end = lits+sz;
+        for (expr * const * it = lits; it!=end; it++) {
+            res << mk_pp(*it, m);
+            if (it+1!=end) {
+                res << ", ";
+            }
+        }
+        res << ")";
+        return res.str();
+    }
 
 
 /////////////////////////
@@ -105,7 +108,7 @@ void model_evaluator::assign_value(expr* e, expr* val) {
         set_value(e, val);
     }
     else {
-        IF_VERBOSE(2, verbose_stream() << "Not evaluated " << mk_pp(e, m) << "\n";);
+        IF_VERBOSE(3, verbose_stream() << "Not evaluated " << mk_pp(e, m) << "\n";);
         TRACE("pdr", tout << "Variable is not tracked: " << mk_pp(e, m) << "\n";);
         set_x(e);
     }
@@ -673,8 +676,7 @@ void model_evaluator::eval_basic(app* e) {
 }
 
 bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
-    ptr_vector<expr> todo;
-    assign_vector_with_casting(todo, formulas);
+    ptr_vector<expr> todo(formulas);
 
     while (!todo.empty()) {
         expr * curr_e = todo.back();
@@ -735,69 +737,235 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
     return !has_x;
 }
 
-func_decl * mk_store(ast_manager& m, sort * arr_sort)
-{
-    family_id array_fid = m.get_family_id(symbol("array"));
-
-    unsigned num_params = arr_sort->get_num_parameters();
-
-    ptr_vector<sort> domain;
-    domain.push_back(arr_sort);
-
-    //we push params of the array as remaining arguments of the store. The first 
-    //num_params-1 parameters are indices and the last one is the range of the array
-    for (unsigned i=0; i<num_params; ++i) {
-        domain.push_back(to_sort(arr_sort->get_parameter(i).get_ast()));
+    func_decl * mk_store(ast_manager& m, sort * arr_sort)
+    {
+        family_id array_fid = m.get_family_id(symbol("array"));
+        
+        unsigned num_params = arr_sort->get_num_parameters();
+        
+        ptr_vector<sort> domain;
+        domain.push_back(arr_sort);
+        
+        //we push params of the array as remaining arguments of the store. The first 
+        //num_params-1 parameters are indices and the last one is the range of the array
+        for (unsigned i=0; i<num_params; ++i) {
+            domain.push_back(to_sort(arr_sort->get_parameter(i).get_ast()));
+        }
+        
+        return m.mk_func_decl(array_fid, OP_STORE, 
+                              arr_sort->get_num_parameters(), arr_sort->get_parameters(), 
+                              domain.size(), domain.c_ptr(), arr_sort);
     }
 
-    return m.mk_func_decl(array_fid, OP_STORE, 
-        arr_sort->get_num_parameters(), arr_sort->get_parameters(), 
-        domain.size(), domain.c_ptr(), arr_sort);
-}
+    void get_as_array_value(const model_core & mdl, expr * arr_e, expr_ref& res) {
+        ast_manager& m = mdl.get_manager();
+        array_util pl(m);
+        SASSERT(pl.is_as_array(arr_e));
+        
+        app * arr = to_app(arr_e);
+    
+        unsigned sz = 0;
+        func_decl_ref f(pl.get_as_array_func_decl(arr), m);
+        sort * arr_sort = arr->get_decl()->get_range();
+        func_interp* g = mdl.get_func_interp(f);
+        
+        res = pl.mk_const_array(arr_sort, g->get_else());
 
-void get_as_array_value(const model_core & mdl, expr * arr_e, expr_ref& res) {
-    ast_manager& m = mdl.get_manager();
-    array_util pl(m);
-    SASSERT(pl.is_as_array(arr_e));
-
-    app * arr = to_app(arr_e);
-
-    unsigned sz = 0;
-    func_decl_ref f(pl.get_as_array_func_decl(arr), m);
-    sort * arr_sort = arr->get_decl()->get_range();
-    func_interp* g = mdl.get_func_interp(f);
-
-    res = pl.mk_const_array(arr_sort, g->get_else());
-
-    unsigned arity = f->get_arity();
-
-    sz = g->num_entries();
-    if (sz) {
-        func_decl_ref store_fn(mk_store(m, arr_sort), m);
-        ptr_vector<expr> store_args;
-        for (unsigned i = 0; i < sz; ++i) {
-            const func_entry * fe = g->get_entry(i);
-            store_args.reset();
-            store_args.push_back(res);
-            store_args.append(arity, fe->get_args());
-            store_args.push_back(fe->get_result());
-            res = m.mk_app(store_fn, store_args.size(), store_args.c_ptr());
+        unsigned arity = f->get_arity();
+        
+        sz = g->num_entries();
+        if (sz) {
+            func_decl_ref store_fn(mk_store(m, arr_sort), m);
+            ptr_vector<expr> store_args;
+            for (unsigned i = 0; i < sz; ++i) {
+                const func_entry * fe = g->get_entry(i);
+                store_args.reset();
+                store_args.push_back(res);
+                store_args.append(arity, fe->get_args());
+                store_args.push_back(fe->get_result());
+                res = m.mk_app(store_fn, store_args.size(), store_args.c_ptr());
+            }
         }
     }
-}
 
-void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res) {
-    SASSERT(f->get_arity()==0);
-    ast_manager& m = mdl.get_manager();
-
-    res = mdl.get_const_interp(f);
-
-    array_util pl(m);
-
-    if (pl.is_as_array(res)) {
-        get_as_array_value(mdl, res, res);
+    void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res) {
+        SASSERT(f->get_arity()==0);
+        ast_manager& m = mdl.get_manager();
+        
+        res = mdl.get_const_interp(f);
+        
+        array_util pl(m);
+        
+        if (pl.is_as_array(res)) {
+            get_as_array_value(mdl, res, res);
+        }
     }
-}
+    
+    void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml) {
+        ast_manager& m = fml.get_manager();
+        expr_ref_vector conjs(m);
+        datalog::flatten_and(fml, conjs);
+        obj_map<expr, unsigned> diseqs;
+        expr* n, *lhs, *rhs;
+        for (unsigned i = 0; i < conjs.size(); ++i) {
+            if (m.is_not(conjs[i].get(), n) &&
+                m.is_eq(n, lhs, rhs)) {
+                if (!m.is_value(rhs)) {
+                    std::swap(lhs, rhs);
+                }
+                if (!m.is_value(rhs)) {
+                    continue;
+                }
+                diseqs.insert_if_not_there2(lhs, 0)->get_data().m_value++;
+            }
+        }
+        expr_substitution sub(m);
 
+        unsigned orig_size = conjs.size();
+        unsigned num_deleted = 0;
+        expr_ref val(m), tmp(m);
+        proof_ref pr(m);
+        pr = m.mk_asserted(m.mk_true());
+        obj_map<expr, unsigned>::iterator it  = diseqs.begin();
+        obj_map<expr, unsigned>::iterator end = diseqs.end();
+        for (; it != end; ++it) {
+            if (it->m_value >= threshold) {
+                model.eval(it->m_key, val);
+                sub.insert(it->m_key, val, pr);
+                conjs.push_back(m.mk_eq(it->m_key, val));
+                num_deleted += it->m_value;
+            }
+        }
+        if (orig_size < conjs.size()) {
+            scoped_ptr<expr_replacer> rep = mk_expr_simp_replacer(m);
+            rep->set_substitution(&sub);
+            for (unsigned i = 0; i < orig_size; ++i) {
+                tmp = conjs[i].get();
+                (*rep)(tmp);
+                if (m.is_true(tmp)) {
+                    conjs[i] = conjs.back();
+                    SASSERT(orig_size <= conjs.size());
+                    conjs.pop_back();
+                    SASSERT(orig_size <= 1 + conjs.size());
+                    if (i + 1 == orig_size) {
+                        // no-op.
+                    }
+                    else if (orig_size <= conjs.size()) {
+                        // no-op
+                    }
+                    else {
+                        SASSERT(orig_size == 1 + conjs.size());
+                        --orig_size;
+                        --i;
+                    }
+                }
+                else {
+                    conjs[i] = tmp;
+                }
+            }            
+            IF_VERBOSE(2, verbose_stream() << "Deleted " << num_deleted << " disequalities " << conjs.size() << " conjuncts\n";);
+        }
+        fml = m.mk_and(conjs.size(), conjs.c_ptr());        
+    }
+
+    class ite_hoister {
+        ast_manager& m;
+    public:
+        ite_hoister(ast_manager& m): m(m) {}
+
+        br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
+            for (unsigned i = 0; i < num_args; ++i) {
+                expr* c, *t, *e;
+                if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
+                    expr_ref e1(m), e2(m);
+                    ptr_vector<expr> args1(num_args, args);
+                    args1[i] = t;
+                    e1 = m.mk_app(f, num_args, args1.c_ptr());
+                    args1[i] = e;
+                    e2 = m.mk_app(f, num_args, args1.c_ptr());
+                    result = m.mk_ite(c, e1, e2);
+                    return BR_REWRITE3;
+                }
+            }
+            return BR_FAILED;
+        }
+    };
+
+    struct ite_hoister_cfg: public default_rewriter_cfg {
+        ite_hoister m_r;
+        bool rewrite_patterns() const { return false; }
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+            return m_r.mk_app_core(f, num, args, result);
+        }
+        ite_hoister_cfg(ast_manager & m, params_ref const & p):m_r(m) {}
+        
+    };
+
+    class ite_hoister_star : public rewriter_tpl<ite_hoister_cfg> {
+        ite_hoister_cfg m_cfg;
+    public:
+        ite_hoister_star(ast_manager & m, params_ref const & p):
+            rewriter_tpl<ite_hoister_cfg>(m, false, m_cfg),
+            m_cfg(m, p) {}
+    };
+
+    template class rewriter_tpl<ite_hoister_cfg>;
+
+
+    class scoped_no_proof {
+        ast_manager& m;
+        proof_gen_mode m_mode;
+    public:
+        scoped_no_proof(ast_manager& m): m(m) {
+            m_mode = m.proof_mode();
+            m.toggle_proof_mode(PGM_DISABLED);
+        }
+        ~scoped_no_proof() {
+            m.toggle_proof_mode(m_mode);            
+        }
+    };
+
+    void hoist_non_bool_if(expr_ref& fml) {
+        ast_manager& m = fml.get_manager();
+        scoped_no_proof _sp(m);
+        params_ref p;
+        ite_hoister_star ite_rw(m, p);
+        expr_ref tmp(m);
+        ite_rw(fml, tmp);
+        fml = tmp;
+    }
+
+    class test_diff_logic {
+        ast_manager& m;
+        arith_util a;
+        bool m_is_dl;
+    public:
+        test_diff_logic(ast_manager& m): m(m), a(m), m_is_dl(true) {}
+        
+        void operator()(expr* e) {
+            if (m_is_dl && a.is_arith_expr(e) && !a.is_numeral(e) && 
+                !a.is_add(e) && !a.is_mul(e) && !m.is_bool(e)) {
+                m_is_dl = false;
+            }
+        }
+
+        bool is_dl() const { return m_is_dl; }
+    };
+
+    bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
+        static_features st(m);
+        st.collect(num_fmls, fmls);
+        if (st.m_num_arith_eqs != st.m_num_diff_eqs ||
+            st.m_num_arith_terms != st.m_num_diff_terms ||
+            st.m_num_arith_ineqs != st.m_num_diff_ineqs) {     
+            return false;
+        }
+        test_diff_logic test(m);
+        expr_fast_mark1 mark;
+        for (unsigned i = 0; i < num_fmls; ++i) {
+            quick_for_each_expr(test, mark, fmls[i]);
+        } 
+        return test.is_dl();
+    }  
 
 }

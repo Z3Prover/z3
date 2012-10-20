@@ -130,20 +130,23 @@ bool static_features::is_diff_atom(expr const * e) const {
         return false;
     SASSERT(to_app(e)->get_num_args() == 2);
     expr * lhs = to_app(e)->get_arg(0);
-    SASSERT(is_numeral(to_app(e)->get_arg(1)));
+    expr * rhs = to_app(e)->get_arg(1);
+    if (!is_arith_expr(lhs) && !is_arith_expr(rhs)) 
+        return true;    
+    if (!is_numeral(rhs)) 
+        return false;    
     // lhs can be 'x' or '(+ x (* -1 y))'
     if (!is_arith_expr(lhs))
         return true;
-    SASSERT(is_app(lhs));
-    // lhs must be (+ x (* -1 y))
-    if (to_app(lhs)->get_decl_kind() != OP_ADD || to_app(lhs)->get_num_args() != 2)
-        return false;
+    expr* arg1, *arg2;
+    if (!m_autil.is_add(lhs, arg1, arg2)) 
+        return false;    
     // x
-    if (is_arith_expr(to_app(lhs)->get_arg(0)))
+    if (is_arith_expr(arg1))
         return false;
-    expr * arg2 = to_app(lhs)->get_arg(1);
     // arg2: (* -1 y)
-    return m_autil.is_mul(arg2) && to_app(arg2)->get_num_args() == 2 && is_minus_one(to_app(arg2)->get_arg(0)) && !is_arith_expr(to_app(arg2)->get_arg(1));
+    expr* m1, *m2;
+    return m_autil.is_mul(arg2, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2);
 }
 
 bool static_features::is_gate(expr const * e) const {

@@ -403,18 +403,23 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::is_negative(app* n, app*& m) { 
-    if (!m_util.is_mul(n) || n->get_num_args() != 2) {
+    expr* a0, *a1, *a2;
+    rational r;
+    if (!m_util.is_mul(n, a0, a1)) {
         return false;
     }
-    rational r;
-    expr* a0 = n->get_arg(0);
-    expr* a1 = n->get_arg(1);
+    if (m_util.is_numeral(a1)) {
+        std::swap(a0, a1);
+    }
     if (m_util.is_numeral(a0, r) && r.is_minus_one() && is_app(a1)) {
         m = to_app(a1);
         return true;
     }
-    if (m_util.is_numeral(a1, r) && r.is_minus_one() && is_app(a0)) {
-        m = to_app(a0);
+    if (m_util.is_uminus(a1)) {
+        std::swap(a0, a1);
+    }
+    if (m_util.is_uminus(a0, a2) && m_util.is_numeral(a2, r) && r.is_one() && is_app(a1)) {
+        m = to_app(a1);
         return true;
     }
     return false;
@@ -615,7 +620,12 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
 
     justification * js = 0;
     if (get_manager().proofs_enabled()) {
-        js = 0; // TBD?
+        vector<parameter> params;
+        params.push_back(parameter(symbol("farkas")));
+        params.resize(lits.size()+1, parameter(rational(1)));
+        js = new (ctx.get_region()) theory_lemma_justification(get_id(), ctx, 
+                   lits.size(), lits.c_ptr(), 
+                   params.size(), params.c_ptr());
     }
     clause_del_eh* del_eh = alloc(theory_diff_logic_del_eh, *this);
     clause* cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
@@ -675,7 +685,18 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
     }
 
-    ctx.set_conflict(ctx.mk_justification(dl_conflict(r, lits.size(), lits.c_ptr())));
+    vector<parameter> params;
+    if (get_manager().proofs_enabled()) {
+        params.push_back(parameter(symbol("farkas")));
+        params.resize(lits.size()+1, parameter(rational(1)));
+    } 
+   
+    ctx.set_conflict(
+        ctx.mk_justification(
+            ext_theory_conflict_justification(
+                get_id(), ctx.get_region(), 
+                lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));
+
 }
 
 template<typename Ext>

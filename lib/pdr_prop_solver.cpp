@@ -342,12 +342,23 @@ namespace pdr {
         fl.get_lemmas(pr, bs, lemmas);
         safe.elim_proxies(lemmas);
         fl.simplify_lemmas(lemmas); // redundant
+        if (m_fparams.m_arith_mode == AS_DIFF_LOGIC &&
+            !is_difference_logic(m, lemmas.size(), lemmas.c_ptr())) {
+                IF_VERBOSE(1, 
+                    verbose_stream() << "not diff\n";
+                    for (unsigned i = 0; i < lemmas.size(); ++i) {
+                        verbose_stream() << mk_pp(lemmas[i].get(), m) << "\n";
+                    });
+                extract_subset_core(safe);
+                return;
+        }
+        
 
         IF_VERBOSE(2, 
-            verbose_stream() << "Lemmas\n";            
-        for (unsigned i = 0; i < lemmas.size(); ++i) {
-            verbose_stream() << mk_pp(lemmas[i].get(), m) << "\n";
-        });
+                   verbose_stream() << "Lemmas\n";            
+                   for (unsigned i = 0; i < lemmas.size(); ++i) {
+                       verbose_stream() << mk_pp(lemmas[i].get(), m) << "\n";
+                   });
 
         m_core->reset();
         m_core->append(lemmas);
