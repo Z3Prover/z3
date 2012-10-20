@@ -20,7 +20,7 @@ Notes:
 #include"map.h"
 #include"str_hashtable.h"
 #include"buffer.h"
-#include"ast_smt2_pp.h"
+#include"smt2_util.h"
 #include<iomanip>
 
 void statistics::update(char const * key, unsigned inc) {

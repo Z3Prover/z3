@@ -21,8 +21,6 @@ Notes:
 
 #include"cmd_context_types.h"
 #include"vector.h"
-class ast;
-class ast_manager;
 
 typedef cmd_arg_kind param_kind;
 
@@ -56,14 +54,6 @@ public:
     rational get_rat(char const * k, rational const & _default) const;
     symbol get_sym(symbol const & k, symbol const & _default) const;
     symbol get_sym(char const * k, symbol const & _default) const;
-    expr * get_expr(symbol const & k, expr * _default) const;
-    expr * get_expr(char const * k, expr * _default) const;
-    func_decl * get_func_decl(symbol const & k, func_decl * _default) const;
-    func_decl * get_func_decl(char const * k, func_decl * _default) const;
-    sort * get_sort(symbol const & k, sort * _default) const;
-    sort * get_sort(char const * k, sort * _default) const;
-
-    void set_manager(ast_manager & m);
 
     bool empty() const;
     bool contains(symbol const & k) const;
@@ -85,12 +75,6 @@ public:
     void set_rat(char const * k, rational const & v); 
     void set_sym(symbol const & k, symbol const & v);
     void set_sym(char const * k, symbol const & v);
-    void set_expr(symbol const & k, expr * v);
-    void set_expr(char const * k, expr * v);
-    void set_func_decl(symbol const & k, func_decl * v);
-    void set_func_decl(char const * k, func_decl * v);
-    void set_sort(symbol const & k, sort * v);
-    void set_sort(char const * k, sort * v);
 
     void display(std::ostream & out) const;
 

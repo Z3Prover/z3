@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include"params.h"
-#include"ast.h"
 #include"rational.h"
 #include"symbol.h"
 #include"dictionary.h"
@@ -158,11 +157,9 @@ class params {
             char const *  m_str_value;
             char const *  m_sym_value;
             rational *    m_rat_value;
-            ast *         m_ast_value;
         };
     };
     typedef std::pair<symbol, value> entry;
-    ast_manager *  m_manager;
     svector<entry> m_entries;
     unsigned       m_ref_count;
     
@@ -170,15 +167,13 @@ class params {
     void del_values();
 
 public:
-    params():m_manager(0), m_ref_count(0) {}
+    params():m_ref_count(0) {}
     ~params() {
         reset();
     }
 
     void inc_ref() { m_ref_count++; }
     void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
-
-    void set_manager(ast_manager & m);
 
     bool empty() const { return m_entries.empty(); }
     bool contains(symbol const & k) const;
@@ -213,12 +208,6 @@ public:
     rational get_rat(char const * k, rational const & _default) const; 
     symbol get_sym(symbol const & k, symbol const & _default) const;
     symbol get_sym(char const * k, symbol const & _default) const;
-    expr * get_expr(symbol const & k, expr * _default) const;
-    expr * get_expr(char const * k, expr * _default) const;
-    func_decl * get_func_decl(symbol const & k, func_decl * _default) const;
-    func_decl * get_func_decl(char const * k, func_decl * _default) const;
-    sort * get_sort(symbol const & k, sort * _default) const;
-    sort * get_sort(char const * k, sort * _default) const;
 
     // setters
     void set_bool(symbol const & k, bool v);
@@ -233,12 +222,6 @@ public:
     void set_rat(char const * k, rational const & v); 
     void set_sym(symbol const & k, symbol const & v);
     void set_sym(char const * k, symbol const & v);
-    void set_expr(symbol const & k, expr * v);
-    void set_expr(char const * k, expr * v);
-    void set_func_decl(symbol const & k, func_decl * v);
-    void set_func_decl(char const * k, func_decl * v);
-    void set_sort(symbol const & k, sort * v);
-    void set_sort(char const * k, sort * v);
 
     void display(std::ostream & out) const {
         out << "(params";
@@ -264,11 +247,6 @@ public:
                 break;
             case CPK_STRING:
                 out << " " << it->second.m_str_value;
-                break;
-            case CPK_EXPR:
-            case CPK_FUNC_DECL:
-            case CPK_SORT:
-                out << " #" << it->second.m_ast_value->get_id();
                 break;
             default:
                 UNREACHABLE();
@@ -344,15 +322,6 @@ void params_ref::copy_core(params const * src) {
         case CPK_STRING:
             m_params->set_str(it->first, it->second.m_str_value);
             break;
-        case CPK_EXPR:
-            m_params->set_expr(it->first, static_cast<expr*>(it->second.m_ast_value));
-            break;
-        case CPK_FUNC_DECL:
-            m_params->set_func_decl(it->first, static_cast<func_decl*>(it->second.m_ast_value));
-            break;
-        case CPK_SORT:
-            m_params->set_sort(it->first, static_cast<sort*>(it->second.m_ast_value));
-            break;
         default:
             UNREACHABLE();
             break;
@@ -369,7 +338,6 @@ void params_ref::init() {
         params * old = m_params;
         m_params = alloc(params);
         m_params->inc_ref();
-        m_params->m_manager = old->m_manager;
         copy_core(old);
         old->dec_ref();
     }
@@ -385,12 +353,6 @@ double params_ref::get_double(symbol const & k, double _default) const { return 
 double params_ref::get_double(char const * k, double _default) const { return m_params ? m_params->get_double(k, _default) : _default; }
 char const * params_ref::get_str(symbol const & k, char const * _default) const { return m_params ? m_params->get_str(k, _default) : _default; }
 char const * params_ref::get_str(char const * k, char const * _default) const { return m_params ? m_params->get_str(k, _default) : _default; }
-expr * params_ref::get_expr(symbol const & k, expr * _default) const { return m_params ? m_params->get_expr(k, _default) : _default; }
-expr * params_ref::get_expr(char const * k, expr * _default) const { return m_params ? m_params->get_expr(k, _default) : _default; }
-func_decl * params_ref::get_func_decl(symbol const & k, func_decl * _default) const { return m_params ? m_params->get_func_decl(k, _default) : _default; }
-func_decl * params_ref::get_func_decl(char const * k, func_decl * _default) const { return m_params ? m_params->get_func_decl(k, _default) : _default; }
-sort * params_ref::get_sort(symbol const & k, sort * _default) const { return m_params ? m_params->get_sort(k, _default) : _default; }
-sort * params_ref::get_sort(char const * k, sort * _default) const { return m_params ? m_params->get_sort(k, _default) : _default; }
 
 rational params_ref::get_rat(symbol const & k, rational const & _default) const { 
     return m_params ? m_params->get_rat(k, _default) : _default; 
@@ -406,11 +368,6 @@ symbol params_ref::get_sym(symbol const & k, symbol const & _default) const {
 
 symbol params_ref::get_sym(char const * k, symbol const & _default) const { 
     return m_params ? m_params->get_sym(k, _default) : _default; 
-}
-
-void params_ref::set_manager(ast_manager & m) {
-    init();
-    m_params->set_manager(m);
 }
 
 bool params_ref::empty() const {
@@ -506,35 +463,6 @@ void params_ref::set_sym(char const * k, symbol const & v) {
     m_params->set_sym(k, v);
 }
 
-void params_ref::set_expr(symbol const & k, expr * v) {
-    init();
-    m_params->set_expr(k, v);
-}
-
-void params_ref::set_expr(char const * k, expr * v) {
-    init();
-    m_params->set_expr(k, v);
-}
-
-void params_ref::set_func_decl(symbol const & k, func_decl * v) {
-    init();
-    m_params->set_func_decl(k, v);
-}
-
-void params_ref::set_func_decl(char const * k, func_decl * v) {
-    init();
-    m_params->set_func_decl(k, v);
-}
-
-void params_ref::set_sort(symbol const & k, sort * v) {
-    init();
-    m_params->set_sort(k, v);
-}
-
-void params_ref::set_sort(char const * k, sort * v) {
-    init();
-    m_params->set_sort(k, v);
-}
 
 void params::del_value(entry & e) {
     switch (e.second.m_kind) {
@@ -542,19 +470,9 @@ void params::del_value(entry & e) {
         if (e.second.m_kind == CPK_NUMERAL)
             dealloc(e.second.m_rat_value);
         break;
-    case CPK_EXPR:
-    case CPK_SORT:
-    case CPK_FUNC_DECL:
-        SASSERT(m_manager);
-        m_manager->dec_ref(e.second.m_ast_value);
-        return;
     default:
         return;
     }
-}
-
-void params::set_manager(ast_manager & m) {
-    m_manager = &m;
 }
 
 #define TRAVERSE_ENTRIES(CODE) {                        \
@@ -696,30 +614,6 @@ symbol params::get_sym(char const * k, symbol const & _default) const {
     GET_VALUE(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
 }
 
-expr * params::get_expr(symbol const & k, expr * _default) const {
-    GET_VALUE(return static_cast<expr*>(it->second.m_ast_value);, CPK_EXPR);
-}
-
-expr * params::get_expr(char const * k, expr * _default) const {
-    GET_VALUE(return static_cast<expr*>(it->second.m_ast_value);, CPK_EXPR);
-}
-
-func_decl * params::get_func_decl(symbol const & k, func_decl * _default) const {
-    GET_VALUE(return static_cast<func_decl*>(it->second.m_ast_value);, CPK_FUNC_DECL);
-}
-
-func_decl * params::get_func_decl(char const * k, func_decl * _default) const {
-    GET_VALUE(return static_cast<func_decl*>(it->second.m_ast_value);, CPK_FUNC_DECL);
-}
-
-sort * params::get_sort(symbol const & k, sort * _default) const {
-    GET_VALUE(return static_cast<sort*>(it->second.m_ast_value);, CPK_SORT);
-}
-
-sort * params::get_sort(char const * k, sort * _default) const {
-    GET_VALUE(return static_cast<sort*>(it->second.m_ast_value);, CPK_SORT);
-}
-
 #define SET_VALUE(MATCH_CODE, ADD_CODE) {       \
     TRAVERSE_ENTRIES(if (it->first == k) {      \
         MATCH_CODE                              \
@@ -818,46 +712,5 @@ void params::set_sym(symbol const & k, symbol const & v) {
 
 void params::set_sym(char const * k, symbol const & v) {
     SET_SYM_VALUE();
-}
-
-#define SET_AST_VALUE(KIND) {                   \
-    SASSERT(m_manager);                         \
-    m_manager->inc_ref(v);                      \
-    SET_VALUE({                                 \
-        del_value(*it);                         \
-        it->second.m_kind      = KIND;          \
-        it->second.m_ast_value = v;             \
-    },                                          \
-    {                                           \
-        entry new_entry;                        \
-        new_entry.first  = symbol(k);           \
-        new_entry.second.m_kind = KIND;         \
-        new_entry.second.m_ast_value = v;       \
-        m_entries.push_back(new_entry);         \
-    })}
-
-
-void params::set_expr(symbol const & k, expr * v) {
-    SET_AST_VALUE(CPK_EXPR);
-}
- 
-void params::set_expr(char const * k, expr * v) {
-    SET_AST_VALUE(CPK_EXPR);
-}
-
-void params::set_func_decl(symbol const & k, func_decl * v) {
-    SET_AST_VALUE(CPK_FUNC_DECL);
-}
-
-void params::set_func_decl(char const * k, func_decl * v) {
-    SET_AST_VALUE(CPK_FUNC_DECL);
-}
-
-void params::set_sort(symbol const & k, sort * v) {
-    SET_AST_VALUE(CPK_SORT);
-}
-
-void params::set_sort(char const * k, sort * v) {
-    SET_AST_VALUE(CPK_SORT);
 }
 

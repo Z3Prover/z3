@@ -21,7 +21,6 @@ Revision History:
 
 #include"mpq.h"
 #include"hash.h"
-#include"params.h"
 
 typedef std::pair<mpq, mpq> mpq_inf;
 
@@ -32,12 +31,12 @@ class mpq_inf_manager {
 public:
     typedef mpq_inf numeral;
 
-    mpq_inf_manager(mpq_manager<SYNCH> & _m, params_ref const & p = params_ref()):m(_m) {
-        updt_params(p);
+    mpq_inf_manager(mpq_manager<SYNCH> & _m, double inf = 0.0001):m(_m) {
+        set_inf(inf);
     }
 
-    void updt_params(params_ref const & p) {
-        m_inf = p.get_double(":infinitesimal-as-double", 0.00001);
+    void set_inf(double inf) {
+        m_inf = inf;
     }
 
     enum inf_kind { NEG=-1, ZERO, POS };
