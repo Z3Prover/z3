@@ -16,14 +16,6 @@ Author:
 
 Revision History:
 
-TODO:
-
-- port diff_logic.*
-- port theory_diff_logic
-- fix theory propagation 
-- fix/add equality propagation
-- fix relaxation.
-
 --*/
 #include "theory_diff_logic.h"
 
