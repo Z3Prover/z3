@@ -25,7 +25,7 @@ Revision History:
 #include"nlsat_evaluator.h"
 #include"nlsat_explain.h"
 #include"algebraic_numbers.h"
-#include"tactic.h"
+#include"tactic_exception.h"
 #include"chashtable.h"
 #include"id_gen.h"
 #include"dependency.h"
