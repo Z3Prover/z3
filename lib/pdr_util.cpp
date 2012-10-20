@@ -42,7 +42,6 @@ Notes:
 #include "pdr_util.h"
 #include "arith_decl_plugin.h"
 #include "expr_replacer.h"
-#include "static_features.h"
 
 
 namespace pdr {
@@ -939,13 +938,101 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         ast_manager& m;
         arith_util a;
         bool m_is_dl;
+
+        // NB. ite terms are non-arihmetical but their then/else branches can be.
+        // this gets ignored (also in static_features)
+        
+        bool is_arith_expr(expr *e) const {
+            return is_app(e) && a.get_family_id() == to_app(e)->get_family_id();
+        }
+
+        bool is_minus_one(expr const * e) const { 
+            rational r; return a.is_numeral(e, r) && r.is_minus_one(); 
+        }
+
+        bool test_ineq(expr* e) const {
+            SASSERT(a.is_le(e) || a.is_ge(e));
+            SASSERT(to_app(e)->get_num_args() == 2);
+            expr * lhs = to_app(e)->get_arg(0);
+            expr * rhs = to_app(e)->get_arg(1);
+            if (!is_arith_expr(lhs) && !is_arith_expr(rhs)) 
+                return true;    
+            if (!a.is_numeral(rhs)) 
+                std::swap(lhs, rhs);
+            if (!a.is_numeral(rhs)) 
+                return false;    
+            // lhs can be 'x' or '(+ x (* -1 y))'
+            if (!is_arith_expr(lhs))
+                return true;
+            expr* arg1, *arg2;
+            if (!a.is_add(lhs, arg1, arg2)) 
+                return false;    
+            // x
+            if (is_arith_expr(arg1)) 
+                std::swap(arg1, arg2);
+            if (is_arith_expr(arg1))
+                return false;
+            // arg2: (* -1 y)
+            expr* m1, *m2;
+            if (!a.is_mul(arg2, m1, m2))
+                return false;
+            return is_minus_one(m1) && !is_arith_expr(m2);
+        }
+
+        bool test_eq(expr* e) const {
+            expr* lhs, *rhs;
+            VERIFY(m.is_eq(e, lhs, rhs));
+            if (!a.is_int_real(lhs)) {
+                return true;
+            }
+            return test_term(lhs) && test_term(rhs);
+        }
+
+        bool test_term(expr* e) const {
+            if (!is_arith_expr(e)) {
+                return true;
+            }
+            if (m.is_bool(e)) {
+                return true;
+            }
+            if (a.is_numeral(e)) {
+                return true;
+            }
+            expr* lhs, *rhs;
+            if (a.is_add(e, lhs, rhs)) {
+                if (!a.is_numeral(lhs)) {
+                    std::swap(lhs, rhs);
+                }
+                return a.is_numeral(lhs) && !is_arith_expr(rhs);
+            }
+            if (a.is_mul(e, lhs, rhs)) {
+                return is_minus_one(lhs) || is_minus_one(rhs);
+            }
+            return false;
+        }
+
     public:
         test_diff_logic(ast_manager& m): m(m), a(m), m_is_dl(true) {}
         
         void operator()(expr* e) {
-            if (m_is_dl && a.is_arith_expr(e) && !a.is_numeral(e) && 
-                !a.is_add(e) && !a.is_mul(e) && !m.is_bool(e)) {
-                m_is_dl = false;
+            if (!m_is_dl) {
+                return;
+            }
+            if (a.is_le(e) || a.is_ge(e)) {
+                m_is_dl = test_ineq(e);
+            }
+            else if (m.is_eq(e)) {
+                m_is_dl = test_eq(e);
+            }
+            else if (is_app(e)) {
+                app* a = to_app(e);
+                for (unsigned i = 0; m_is_dl && i < a->get_num_args(); ++i) {
+                    m_is_dl = test_term(a->get_arg(i));
+                }
+            }
+
+            if (!m_is_dl) {
+                IF_VERBOSE(1, verbose_stream() << "non-diff: " << mk_pp(e, m) << "\n";);
             }
         }
 
@@ -953,13 +1040,6 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
     };
 
     bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
-        static_features st(m);
-        st.collect(num_fmls, fmls);
-        if (st.m_num_arith_eqs != st.m_num_diff_eqs ||
-            st.m_num_arith_terms != st.m_num_diff_terms ||
-            st.m_num_arith_ineqs != st.m_num_diff_ineqs) {     
-            return false;
-        }
         test_diff_logic test(m);
         expr_fast_mark1 mark;
         for (unsigned i = 0; i < num_fmls; ++i) {

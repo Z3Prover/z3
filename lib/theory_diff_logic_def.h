@@ -193,12 +193,17 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
     SASSERT(m_util.is_le(n) || m_util.is_ge(n));
     SASSERT(!ctx.b_internalized(n));
 
+    bool is_ge = m_util.is_ge(n);
     bool_var bv;
     rational kr;
     app * x, *y, *z;
     theory_var source, target; // target - source <= k
     app * lhs = to_app(n->get_arg(0));
     app * rhs = to_app(n->get_arg(1));
+    if (!m_util.is_numeral(rhs)) {
+        std::swap(rhs, lhs);
+        is_ge = !is_ge;
+    }
     if (!m_util.is_numeral(rhs, kr)) {
         found_non_diff_logic_expr(n);
         return false;
@@ -224,7 +229,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         target = mk_var(lhs);
         source = get_zero(lhs);
     }
-    if (m_util.is_ge(n)) {
+    if (is_ge) {
         std::swap(target, source);
         k.neg();
     }
