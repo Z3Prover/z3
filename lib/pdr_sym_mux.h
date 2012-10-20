@@ -86,6 +86,8 @@ private:
     class hmg_checker;
     class nonmodel_sym_checker;
     class index_renamer_cfg;
+    class index_collector;
+    class variable_collector;
 
     std::string get_suffix(unsigned i) const;
     void ensure_tuple_size(func_decl * prim, unsigned sz) const;
@@ -184,6 +186,15 @@ public:
     */
     bool contains(expr * e, unsigned idx) const;
 
+    /**
+        Collect indices used in expression.
+    */
+    void collect_indices(expr* e, unsigned_vector& indices) const;
+
+    /**
+        Collect used variables of each index.
+    */
+    void collect_variables(expr* e, vector<ptr_vector<app> >& vars) const;
 
     /**
     Convert symbol sym which has to be of src_idx variant into variant tgt_idx.

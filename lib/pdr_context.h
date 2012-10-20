@@ -60,6 +60,7 @@ namespace pdr {
         };
 
         typedef obj_map<datalog::rule const, expr*> rule2expr;
+        typedef obj_map<datalog::rule const, ptr_vector<app> > rule2apps;
 
         manager&                     pm;        // pdr-manager
         ast_manager&                 m;         // manager
@@ -77,6 +78,7 @@ namespace pdr {
         qinst_map                    m_rule2qinst;      // map tag to quantifier instantiation.
         rule2inst                    m_rule2inst;       // map rules to instantiations of indices
         rule2expr                    m_rule2transition; // map rules to transition 
+        rule2apps                    m_rule2vars;       // map rule to auxiliary variables
         expr_ref                     m_transition;      // transition relation.
         expr_ref                     m_initial_state;   // initial state.
         reachable_cache              m_reachable; 
@@ -94,10 +96,7 @@ namespace pdr {
         void init_rule(decl2rel const& pts, datalog::rule const& rule, expr_ref& init,                                      
                        ptr_vector<datalog::rule const>& rules, expr_ref_vector& transition);
         void init_atom(decl2rel const& pts, app * atom, app_ref_vector& var_reprs, expr_ref_vector& conj, unsigned tail_idx);
-        void ground_free_vars(expr* e, app_ref_vector& vars);
-
-        void model2cube(const model_core& md, func_decl * d, expr_ref_vector& res) const;
-        void model2cube(app* c, expr* val, expr_ref_vector& res) const;
+        void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars);
 
         void simplify_formulas(tactic& tac, expr_ref_vector& fmls);
 
@@ -137,6 +136,7 @@ namespace pdr {
         void find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const;
         datalog::rule const& find_rule(model_core const& model) const;
         expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
+        void  get_aux_vars(datalog::rule const& r, ptr_vector<app>& vs) { m_rule2vars.find(&r, vs); }
 
         bool propagate_to_next_level(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
@@ -153,8 +153,6 @@ namespace pdr {
 
         manager& get_pdr_manager() const { return pm; }
         ast_manager& get_manager() const { return m; }
-
-        void model2cube(const model_core & mdl, expr_ref_vector & res) const;
 
         void add_premises(decl2rel const& pts, unsigned lvl, expr_ref_vector& r);
 
@@ -194,7 +192,8 @@ namespace pdr {
         ptr_vector<model_node> const& children() { return m_children; }
         pred_transformer& pt() const { return m_pt; }
         model_node* parent() const { return m_parent; }
-        model_core const& model() const { return *m_model; }
+        model* model_ptr() const { return m_model.get(); }
+        model const& model() const { return *m_model; }
         unsigned index() const;
 
         bool is_closed() const { return m_closed; }
@@ -262,18 +261,6 @@ namespace pdr {
 
     class context;
 
-    // 'state' is satisifiable with predecessor 'cube'. 
-    // Generalize predecessor still forcing satisfiability.
-    class model_generalizer {
-    protected:
-        context& m_ctx;
-    public:
-        model_generalizer(context& ctx): m_ctx(ctx) {}
-        virtual ~model_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& cube) = 0;
-        virtual void collect_statistics(statistics& st) {}
-    };
-
     // 'state' is unsatisfiable at 'level' with 'core'. 
     // Minimize or weaken core.
     class core_generalizer {
@@ -301,7 +288,6 @@ namespace pdr {
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
-
         
         front_end_params&    m_fparams;
         params_ref const&    m_params;
@@ -315,7 +301,6 @@ namespace pdr {
         model_search         m_search;
         lbool                m_last_result;
         unsigned             m_inductive_lvl;
-        ptr_vector<model_generalizer> m_model_generalizers;
         ptr_vector<core_generalizer>  m_core_generalizers;
         stats                m_stats;
         volatile bool        m_cancel;
@@ -332,8 +317,7 @@ namespace pdr {
         void check_pre_closed(model_node& n);
         void expand_node(model_node& n);
         lbool expand_state(model_node& n, expr_ref_vector& cube);
-        void create_children(model_node& n, expr* cube);
-        void create_children2(model_node& n, expr* cube);
+        void create_children(model_node& n);
         expr_ref mk_sat_answer() const;
         expr_ref mk_unsat_answer() const;
         
@@ -343,7 +327,6 @@ namespace pdr {
 
         // Initialization
         class classifier_proc;
-        void init_model_generalizers(datalog::rule_set& rules); 
         void init_core_generalizers(datalog::rule_set& rules);
 
         bool check_invariant(unsigned lvl);
@@ -355,7 +338,6 @@ namespace pdr {
 
         void simplify_formulas();
 
-        void reset_model_generalizers();
         void reset_core_generalizers();
 
     public:       

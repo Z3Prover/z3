@@ -28,66 +28,6 @@ Revision History:
 
 namespace pdr {
 
-    static void solve_for_next_vars(expr_ref& F, model_node& n, expr_substitution& sub) {
-        ast_manager& m = F.get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        const model_core & mdl = n.model();
-        unsigned sz = mdl.get_num_constants();
-        expr_ref_vector refs(m);
-
-        for (unsigned i = 0; i < sz; i++) {
-             func_decl * d = mdl.get_constant(i);    
-             expr_ref interp(m);
-             ptr_vector<app> cs;
-             if (m.is_bool(d->get_range())) {
-                get_value_from_model(mdl, d, interp);  
-                app* c = m.mk_const(d);
-                refs.push_back(c);
-                refs.push_back(interp);
-                sub.insert(c, interp);
-             }
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        (*rep)(F);
-        th_rewriter rw(m);
-        rw(F);
-        ptr_vector<expr> todo;
-        todo.push_back(F);
-        expr* e1, *e2;
-        while (!todo.empty()) {
-            expr* e = todo.back();
-            todo.pop_back();
-            if (m.is_and(e)) {
-                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            }
-            else if ((m.is_eq(e, e1, e2) && pm.is_n(e1) && pm.is_o_formula(e2)) ||
-                     (m.is_eq(e, e2, e1) && pm.is_n(e1) && pm.is_o_formula(e2))) {
-                sub.insert(e1, e2);
-                TRACE("pdr", tout << mk_pp(e1, m) << " |-> " << mk_pp(e2, m) << "\n";);
-            }
-        }
-    }
-
-    //
-    // eliminate conjuncts from cube as long as state is satisfied.
-    // 
-    void model_evaluation_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ptr_vector<expr> forms;
-        forms.push_back(n.state());
-        forms.push_back(n.pt().transition());
-        m_model_evaluator.minimize_model(forms, cube);
-    }
-
-    //
-    // eliminate conjuncts from cube as long as state is satisfied.
-    // 
-    void bool_model_evaluation_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ptr_vector<expr> forms;
-        forms.push_back(n.state());
-        forms.push_back(n.pt().transition());
-        m_model_evaluator.minimize_model(forms, cube);
-    }
 
     //
     // main propositional induction generalizer.
@@ -203,31 +143,6 @@ namespace pdr {
         m_farkas_learner.collect_statistics(st);
     }
 
-    void model_precond_generalizer::operator()(model_node& n, expr_ref_vector& cube) {
-        ast_manager& m  = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
-        expr_ref A(m), state(m);
-        expr_ref_vector states(m);
-        A = n.pt().get_formulas(n.level(), true);   
-
-        // extract substitution for next-state variables.
-        expr_substitution sub(m);        
-        solve_for_next_vars(A, n, sub);
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        A = m.mk_and(A, n.state());
-        (*rep)(A);                
-
-        datalog::flatten_and(A, states);
-
-        for (unsigned i = 0; i < states.size(); ++i) {
-            expr* s = states[i].get();
-            if (pm.is_o_formula(s) && pm.is_homogenous_formula(s)) {
-                cube.push_back(s);
-            }
-        }
-        TRACE("pdr", for (unsigned i = 0; i < cube.size(); ++i) tout << mk_pp(cube[i].get(), m) << "\n";);
-    }
 
     /**
               < F, phi, i + 1 >
