@@ -160,4 +160,8 @@ add_lib('util', [])
 add_lib('polynomial', ['util'])
 add_lib('sat', ['util', 'sat_core'])
 add_lib('nlsat', ['util', 'sat_core', 'polynomial'])
+add_lib('subpaving', ['util'])
 add_lib('ast', ['util', 'polynomial'])
+add_lib('rewriter', ['util', 'ast', 'polynomial'])
+add_lib('tactic', ['util', 'ast'])
+
