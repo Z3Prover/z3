@@ -51,9 +51,13 @@ add_lib('proof_checker', ['rewriter', 'spc'])
 add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'framework', 'assertion_set'])
 add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'framework', 
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
+add_lib('user_ext', ['smt'])
+add_lib('core_tactics', ['framework', 'normal_forms'])
+add_lib('arith_tactics', ['core_tactics', 'assertion_set'])
 add_lib('sat_tactic', ['framework', 'sat'])
 add_lib('sat_strategy', ['assertion_set', 'sat_tactic'])
 # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
 add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
+add_lib('aig', ['framework', 'assertion_set'])
 # TODO: delete SMT 1.0 frontend
 add_lib('smtparser', ['api_headers', 'smt', 'spc'])

@@ -44,7 +44,6 @@ Revision History:
 #include"dl_compiler.h"
 #include"dl_instruction.h"
 #include"dl_context.h"
-#include"dl_simplifier_plugin.h"
 #include"dl_smt_relation.h"
 #ifndef _EXTERNAL_RELEASE
 #include"dl_skip_table.h"
