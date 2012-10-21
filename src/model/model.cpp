@@ -20,7 +20,6 @@ Revision History:
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include"var_subst.h"
-#include"front_end_params.h"
 #include"array_decl_plugin.h"
 #include"well_sorted.h"
 #include"used_symbols.h"
