@@ -171,18 +171,31 @@ namespace datalog {
     */
     void display_fact(context & ctx, app * f, std::ostream & out);
 
-    class scoped_coarse_proof {
-        ast_manager& m;
+    class scoped_proof_mode {
+        ast_manager&   m;
         proof_gen_mode m_mode;
     public:
-        scoped_coarse_proof(ast_manager& m): m(m) {
+        scoped_proof_mode(ast_manager& m, proof_gen_mode mode): m(m) {
             m_mode = m.proof_mode();
-            m.toggle_proof_mode(PGM_COARSE);
+            m.toggle_proof_mode(mode);
         }
-        ~scoped_coarse_proof() {
+        ~scoped_proof_mode() {
             m.toggle_proof_mode(m_mode);            
         }
+
     };
+
+    class scoped_coarse_proof : public scoped_proof_mode {
+    public:
+        scoped_coarse_proof(ast_manager& m): scoped_proof_mode(m, PGM_COARSE) {}
+    };
+
+    class scoped_no_proof : public scoped_proof_mode {
+    public:
+        scoped_no_proof(ast_manager& m): scoped_proof_mode(m, PGM_DISABLED) {}
+    };
+
+    
 
     class variable_intersection
     {
