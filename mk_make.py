@@ -61,3 +61,5 @@ add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
 add_lib('aig', ['framework', 'assertion_set'])
 # TODO: delete SMT 1.0 frontend
 add_lib('smtparser', ['api_headers', 'smt', 'spc'])
+
+mk_vs_solution()

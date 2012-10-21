@@ -35,9 +35,15 @@ VS_COMMON_OPTIONS='WIN32'
 VS_DBG_OPTIONS='_DEBUG'
 VS_RELEASE_OPTIONS='NDEBUG'
 
+GUI = 0
+Name2GUI = {}
+
+def mk_gui_str(id):
+    return '4D2F40D8-E5F9-473B-B548-%012d' % id
+
 HEADERS = []
 LIBS = []
-LIB_DEPS = {}
+DEPS = {}
 
 class MKException(Exception):
     def __init__(self, value):
@@ -72,9 +78,6 @@ def vs_header(f):
 '<?xml version="1.0" encoding="utf-8"?>\n'
 '<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
 
-GUI = 0
-Name2GUI = {}
-
 def vs_project_configurations(f, name):
     global GUI, Name2GUI
     f.write('  <ItemGroup Label="ProjectConfigurations">\n')
@@ -87,7 +90,7 @@ def vs_project_configurations(f, name):
     f.write('  </ItemGroup>\n')
 
     f.write('   <PropertyGroup Label="Globals">\n')
-    f.write('    <ProjectGuid>{00000000-0000-0000-000--%s}</ProjectGuid>\n' % GUI)
+    f.write('    <ProjectGuid>{%s}</ProjectGuid>\n' % mk_gui_str(GUI))
     f.write('    <ProjectName>%s</ProjectName>\n' % name)
     f.write('    <Keyword>Win32Proj</Keyword>\n')
     f.write('  </PropertyGroup>\n')
@@ -198,7 +201,7 @@ def find_all_deps(name, deps):
         if dep in LIBS:
             if not (dep in new_deps):
                 new_deps.append(dep)
-            for dep_dep in LIB_DEPS[dep]:
+            for dep_dep in DEPS[dep]:
                 if not (dep_dep in new_deps):
                     new_deps.append(dep_dep)
         elif dep in HEADERS:
@@ -212,7 +215,7 @@ def add_lib(name, deps):
     check_new_component(name)
     LIBS.append(name)
     deps = find_all_deps(name, deps)
-    LIB_DEPS[name] = deps
+    DEPS[name] = deps
     print "Dependencies for '%s': %s" % (name, deps)
 
     module_dir = module_build_dir(name)
@@ -226,3 +229,42 @@ def add_lib(name, deps):
     add_vs_cpps(vs_proj, name)
     vs_footer(vs_proj)
 
+def is_lib(name):
+    # Add DLL dependency
+    return name in LIBS
+
+def mk_vs_solution():
+    sln = open('%s%sz3.sln' % (BUILD_DIR, os.sep), 'w')
+    sln.write('\n')
+    sln.write("Microsoft Visual Studio Solution File, Format Version 11.00\n")
+    sln.write("# Visual Studio 2010\n")
+    modules = LIBS
+    for module in modules:
+        gui = Name2GUI[module]
+        deps = DEPS[module]
+        sln.write('Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "%s", "%s%s%s.vcxproj", "{%s}"\n' %
+                  (module, module, os.sep, module, mk_gui_str(gui)))
+        if len(deps) > 0:
+            sln.write('    ProjectSection(ProjectDependencies) = postProject\n')
+            for dep in deps:
+                if is_lib(dep):
+                    i = Name2GUI[dep]
+                    sln.write('        {%s} = {%s}\n' % (mk_gui_str(i), mk_gui_str(i)))
+            sln.write('    EndProjectSection\n')
+        sln.write('EndProject\n')
+    sln.write('Global\n')
+    sln.write('GlobalSection(SolutionConfigurationPlatforms) = preSolution\n')
+    for mode in MODES:
+        for platform in PLATFORMS:
+            sln.write('   %s|%s = %s|%s\n' % (mode, platform, mode, platform))
+    sln.write('EndGlobalSection\n')
+    sln.write('GlobalSection(ProjectConfigurationPlatforms) = postSolution\n')
+    for module in modules:
+        gui = Name2GUI[module]
+        for mode in MODES:
+            for platform in PLATFORMS:
+                sln.write('    {%s}.%s|%s.ActiveCfg = %s|%s\n' % (mk_gui_str(gui), mode, platform, mode, platform))
+                sln.write('    {%s}.%s|%s.Build.0   = %s|%s\n' % (mk_gui_str(gui), mode, platform, mode, platform))
+    sln.write('EndGlobalSection\n')
+                
+    print "Visual Solution was generated."
