@@ -26,7 +26,7 @@ Revision History:
 #include"spc_prover.h"
 #include"model.h"
 #include"model_v2_pp.h"
-#include"expr2dot.h"
+// #include"expr2dot.h"
 #include"solver.h"
 #include"smt_strategic_solver.h"
 #include"cmd_context.h"

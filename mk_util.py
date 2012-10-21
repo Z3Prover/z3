@@ -35,6 +35,16 @@ VS_COMMON_OPTIONS='WIN32'
 VS_DBG_OPTIONS='_DEBUG'
 VS_RELEASE_OPTIONS='NDEBUG'
 
+HEADERS = []
+LIBS = []
+LIB_DEPS = {}
+
+class MKException(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 def set_vs_options(common, dbg, release):
     global VS_COMMON_OPTIONS, VS_DBG_OPTIONS, VS_RELEASE_OPTIONS
     VS_COMMON_OPTIONS = common
@@ -172,8 +182,39 @@ def vs_footer(f):
 '  <ImportGroup Label="ExtensionTargets">\n'
 '  </ImportGroup>\n'
 '</Project>\n')
-   
+
+def check_new_component(name):
+    if (name in HEADERS) or (name in LIBS):
+        raise MKException("Component '%s' was already defined" % name)
+
+# Add a directory containing only .h files
+def add_header(name):
+    check_new_component(name)
+    HEADERS.append(name)
+
+def find_all_deps(name, deps):
+    new_deps = []
+    for dep in deps:
+        if dep in LIBS:
+            if not (dep in new_deps):
+                new_deps.append(dep)
+            for dep_dep in LIB_DEPS[dep]:
+                if not (dep_dep in new_deps):
+                    new_deps.append(dep_dep)
+        elif dep in HEADERS:
+            if not (dep in new_deps):
+                new_deps.append(dep)
+        else:
+            raise MKException("Unknown component '%s' at '%s'." % (dep, name))
+    return new_deps
+
 def add_lib(name, deps):
+    check_new_component(name)
+    LIBS.append(name)
+    deps = find_all_deps(name, deps)
+    LIB_DEPS[name] = deps
+    print "Dependencies for '%s': %s" % (name, deps)
+
     module_dir = module_build_dir(name)
     mk_dir(module_dir)
 

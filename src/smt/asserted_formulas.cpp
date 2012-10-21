@@ -42,7 +42,7 @@ Revision History:
 #include"warning.h"
 #include"eager_bit_blaster.h"
 #include"bit2int.h"
-#include"qe.h"
+// #include"qe.h"
 #include"distribute_forall.h"
 #include"demodulator.h"
 #include"quasi_macros.h"
@@ -64,7 +64,6 @@ asserted_formulas::asserted_formulas(ast_manager & m, front_end_params & p):
     m_bv_sharing(m),
     m_user_rewriter(m),
     m_inconsistent(false),
-    m_quant_elim(m, p),
     m_cancel_flag(false) {
 
     m_bsimp = 0;
@@ -574,9 +573,8 @@ void asserted_formulas::display_ll(std::ostream & out, ast_mark & pp_visited) co
 }
 
 void asserted_formulas::collect_statistics(statistics & st) const {
-    m_quant_elim.collect_statistics(st);
+    // m_quant_elim.collect_statistics(st);
 }
-
 
 /**
    \brief Functor used to order solved equations x = t, in a way they can be solved
@@ -1107,7 +1105,7 @@ void asserted_formulas::reduce_and_solve() {
 void asserted_formulas::infer_patterns() {
     IF_IVERBOSE(10, verbose_stream() << "pattern inference...\n";);
     TRACE("before_pattern_inference", display(tout););
-    pattern_inference infer(m_manager, m_params);
+    pattern_inference infer(m_manager, m_params, m_database.get());
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);
     unsigned i  = m_asserted_qhead;
@@ -1433,8 +1431,13 @@ void asserted_formulas::apply_der() {
 
 MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap fourier-motzkin", true);
 
-MK_SIMPLIFIER(quant_elim, qe::expr_quant_elim_star1 &functor = m_quant_elim, 
-              "quantifiers", "quantifier elimination procedures", true);
+// MK_SIMPLIFIER(quant_elim, qe::expr_quant_elim_star1 &functor = m_quant_elim, 
+//              "quantifiers", "quantifier elimination procedures", true);
+
+bool asserted_formulas::quant_elim() {
+    throw default_exception("QUANT_ELIM option is deprecated, please consider using the 'qe' tactic.");
+    return false;
+}
 
 MK_SIMPLIFIER(apply_eager_bit_blaster, eager_bit_blaster functor(m_manager, m_params), "eager_bb", "eager bit blasting", false);
 

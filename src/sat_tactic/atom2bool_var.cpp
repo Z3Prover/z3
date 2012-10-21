@@ -19,7 +19,6 @@ Notes:
 #include"atom2bool_var.h"
 #include"ast_smt2_pp.h"
 #include"ref_util.h"
-#include"assertion_set.h" // TODO delete
 #include"goal.h"
 
 void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
@@ -105,10 +104,6 @@ template<typename T>
 void collect_boolean_interface_core(T const & s, obj_hashtable<expr> & r) {
     collect_boolean_interface_proc proc(s.m(), r);
     proc(s);
-}
-
-void collect_boolean_interface(assertion_set const & s, obj_hashtable<expr> & r) {
-    collect_boolean_interface_core(s, r);
 }
 
 void collect_boolean_interface(goal const & g, obj_hashtable<expr> & r) {

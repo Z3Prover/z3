@@ -35,10 +35,8 @@ public:
     bool interpreted_atoms() const { return expr2var::interpreted_vars(); }
 };
 
-class assertion_set; // TODO: delete
 class goal;
 
-void collect_boolean_interface(assertion_set const & s, obj_hashtable<expr> & r); // TODO delete
 void collect_boolean_interface(goal const & g, obj_hashtable<expr> & r);
 void collect_boolean_interface(ast_manager & m, unsigned num, expr * const * fs, obj_hashtable<expr> & r);
 

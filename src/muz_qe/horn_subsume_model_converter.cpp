@@ -24,6 +24,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "bool_rewriter.h"
 #include "th_rewriter.h"
+#include "for_each_expr.h"
 
 void horn_subsume_model_converter::insert(app* head, expr* body) {
     func_decl_ref pred(m);

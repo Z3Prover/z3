@@ -29,25 +29,27 @@ Revision History:
 #include"solver_plugin.h"
 #include"maximise_ac_sharing.h"
 #include"bit2int.h"
-#include"qe.h"
+// #include"qe.h"
 #include"statistics.h"
 #include"user_rewriter.h"
+#include"pattern_inference.h"
 
 class arith_simplifier_plugin;
 class bv_simplifier_plugin;
 
 class asserted_formulas {
-    ast_manager &               m_manager;
-    front_end_params &          m_params;
-    simplifier                  m_pre_simplifier;
-    subst_simplifier            m_simplifier;
-    basic_simplifier_plugin *   m_bsimp;
-    bv_simplifier_plugin *      m_bvsimp;
-    defined_names               m_defined_names;
-    static_features             m_static_features;
-    expr_ref_vector             m_asserted_formulas;     // formulas asserted by user
-    proof_ref_vector            m_asserted_formula_prs;  // proofs for the asserted formulas.
-    unsigned                    m_asserted_qhead;
+    ast_manager &                m_manager;
+    front_end_params &           m_params;
+    scoped_ptr<pattern_database> m_database;
+    simplifier                   m_pre_simplifier;
+    subst_simplifier             m_simplifier;
+    basic_simplifier_plugin *    m_bsimp;
+    bv_simplifier_plugin *       m_bvsimp;
+    defined_names                m_defined_names;
+    static_features              m_static_features;
+    expr_ref_vector              m_asserted_formulas;     // formulas asserted by user
+    proof_ref_vector             m_asserted_formula_prs;  // proofs for the asserted formulas.
+    unsigned                     m_asserted_qhead;
 
     expr_map                    m_subst;
     ptr_vector<app>             m_vars;  // domain of m_subst
@@ -69,7 +71,7 @@ class asserted_formulas {
     user_rewriter               m_user_rewriter;
 
     bool                        m_inconsistent;
-    qe::expr_quant_elim_star1   m_quant_elim;
+    // qe::expr_quant_elim_star1   m_quant_elim;
 
     struct scope {
         unsigned                m_asserted_formulas_lim;
@@ -166,6 +168,8 @@ public:
     void collect_statistics(statistics & st) const;
     // TODO: improve precision of the following method.
     bool has_quantifiers() const { return m_simplifier.visited_quantifier(); /* approximation */ }
+    
+    void set_pattern_database(pattern_database * db) { m_database = db; }
 
     // -----------------------------------
     //

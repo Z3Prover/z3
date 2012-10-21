@@ -45,9 +45,9 @@ Revision History:
 #include"well_sorted.h"
 #include "str_hashtable.h"
 #include "front_end_params.h"
-#include "z3_private.h"
+// #include "z3_private.h"
 #include "stopwatch.h"
-#include "dl_rule.h"
+// #include "dl_rule.h"
 // private method defined in z3.cpp:
 front_end_params& Z3_API Z3_get_parameters(__in Z3_context c);
 

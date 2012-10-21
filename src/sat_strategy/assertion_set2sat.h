@@ -35,6 +35,9 @@ Notes:
 #include"model_converter.h"
 #include"atom2bool_var.h"
 
+class assertion_set; // TODO: delete
+void collect_boolean_interface(assertion_set const & s, obj_hashtable<expr> & r);
+
 MK_ST_EXCEPTION(assertion_set2sat_exception);
 
 class assertion_set2sat {

@@ -715,3 +715,77 @@ void sat2assertion_set::set_cancel(bool f) {
             m_imp->set_cancel(f);
     }
 }
+
+// HACK introduced during code reorg.
+// NOTE: the whole file will be deleted.
+struct collect_boolean_interface_proc2 {
+    struct visitor {
+        obj_hashtable<expr> & m_r;
+        visitor(obj_hashtable<expr> & r):m_r(r) {}
+        void operator()(var * n)  {}
+        void operator()(app * n)  { if (is_uninterp_const(n)) m_r.insert(n); }       
+        void operator()(quantifier * n) {} 
+    };
+
+    ast_manager &    m;
+    expr_fast_mark2  fvisited;
+    expr_fast_mark1  tvisited;
+    ptr_vector<expr> todo;
+    visitor          proc;
+
+    collect_boolean_interface_proc2(ast_manager & _m, obj_hashtable<expr> & r):
+        m(_m),
+        proc(r) {
+    }
+
+    void process(expr * f) {
+        if (fvisited.is_marked(f))
+            return;
+        fvisited.mark(f);
+        todo.push_back(f);
+        while (!todo.empty()) {
+            expr * t = todo.back();
+            todo.pop_back();
+            if (is_uninterp_const(t))
+                continue;
+            if (is_app(t) && to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0) {
+                decl_kind k = to_app(t)->get_decl_kind();
+                if (k == OP_OR || k == OP_NOT || k == OP_IFF || ((k == OP_EQ || k == OP_ITE) && m.is_bool(to_app(t)->get_arg(1)))) {
+                    unsigned num = to_app(t)->get_num_args();
+                    for (unsigned i = 0; i < num; i++) {
+                        expr * arg = to_app(t)->get_arg(i);
+                        if (fvisited.is_marked(arg))
+                            continue;
+                        fvisited.mark(arg);
+                        todo.push_back(arg);
+                    }
+                }
+            }
+            else {
+                quick_for_each_expr(proc, tvisited, t);
+            }
+        }
+    }
+    
+    template<typename T>
+    void operator()(T const & g) {
+        unsigned sz = g.size();
+        for (unsigned i = 0; i < sz; i++)
+            process(g.form(i));
+    }
+    
+    void operator()(unsigned sz, expr * const * fs) {
+        for (unsigned i = 0; i < sz; i++)
+            process(fs[i]);
+    }
+};
+
+template<typename T>
+void collect_boolean_interface_core2(T const & s, obj_hashtable<expr> & r) {
+    collect_boolean_interface_proc2 proc(s.m(), r);
+    proc(s);
+}
+
+void collect_boolean_interface(assertion_set const & s, obj_hashtable<expr> & r) {
+    collect_boolean_interface_core2(s, r);
+}

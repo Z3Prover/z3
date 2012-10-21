@@ -23,8 +23,9 @@ Notes:
 #include"ast.h"
 #include"map.h"
 #include"front_end_params.h"
+#include"pattern_inference.h"
 
-class expr_pattern_match {
+class expr_pattern_match : public pattern_database {
 
     enum instr_kind {
         BACKTRACK,
@@ -132,8 +133,8 @@ class expr_pattern_match {
  public:
     expr_pattern_match(ast_manager & manager);
     ~expr_pattern_match();
-    bool match_quantifier(quantifier* qf, app_ref_vector& patterns, unsigned& weight);
-    void initialize(char const * database);
+    virtual bool match_quantifier(quantifier * qf, app_ref_vector & patterns, unsigned & weight);
+    virtual void initialize(char const * database);
     void display(std::ostream& out) const;
 
  private:

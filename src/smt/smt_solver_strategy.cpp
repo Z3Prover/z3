@@ -20,6 +20,8 @@ Notes:
 --*/
 #include"smt_solver_strategy.h"
 #include"smt_solver.h"
+#include"front_end_params.h"
+#include"params2front_end_params.h"
 
 class as_st_solver : public assertion_set_strategy {
     scoped_ptr<front_end_params> m_params;
