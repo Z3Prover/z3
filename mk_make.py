@@ -23,14 +23,14 @@ add_lib('nlsat', ['util', 'sat_core', 'polynomial'])
 add_lib('subpaving', ['util'])
 add_lib('ast', ['util', 'polynomial'])
 add_lib('rewriter', ['util', 'ast', 'polynomial'])
-# Simplifier module will be deleted in the future.
-# It has been replaced with rewriter module.
-add_lib('simplifier', ['util', 'ast', 'rewriter'])
-# Model module should not depend on simplifier module. 
-# We must replace all occurrences of simplifier with rewriter.
-add_lib('model', ['util', 'ast', 'rewriter', 'simplifier'])
 # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
 # However, it is still used by many old components.
-add_lib('old_params', ['util', 'ast', 'simplifier', 'model'])
+add_lib('old_params', ['util', 'ast', 'model'])
+# Simplifier module will be deleted in the future.
+# It has been replaced with rewriter module.
+add_lib('simplifier', ['util', 'ast', 'rewriter', 'old_params'])
+# Model module should not depend on simplifier module. 
+# We must replace all occurrences of simplifier with rewriter.
+add_lib('model', ['util', 'ast', 'rewriter', 'simplifier', 'old_params'])
 add_lib('framework', ['util', 'ast', 'model', 'old_params', 'simplifier', 'rewriter'])
 
