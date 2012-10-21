@@ -29,6 +29,7 @@ Revision History:
 #include "pdr_util.h"
 #include "pdr_farkas_learner.h"
 #include "th_rewriter.h"
+#include "smtparser.h"
 #include "pdr_interpolant_provider.h"
 #include "ast_ll_pp.h"
 #include "arith_bounds_tactic.h"
@@ -857,7 +858,6 @@ namespace pdr {
 
 
     void farkas_learner::test(char const* filename)  {
-#if 0
         if (!filename) {
             test();
             return;
@@ -886,7 +886,6 @@ namespace pdr {
         expr_ref_vector lemmas(m);
         bool res = fl.get_lemma_guesses(A, B, lemmas);        
         std::cout << "lemmas: " << pp_cube(lemmas, m) << "\n";
-#endif
     }
 };
 

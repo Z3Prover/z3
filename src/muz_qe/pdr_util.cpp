@@ -911,22 +911,9 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
     template class rewriter_tpl<ite_hoister_cfg>;
 
 
-    class scoped_no_proof {
-        ast_manager& m;
-        proof_gen_mode m_mode;
-    public:
-        scoped_no_proof(ast_manager& m): m(m) {
-            m_mode = m.proof_mode();
-            m.toggle_proof_mode(PGM_DISABLED);
-        }
-        ~scoped_no_proof() {
-            m.toggle_proof_mode(m_mode);            
-        }
-    };
-
     void hoist_non_bool_if(expr_ref& fml) {
         ast_manager& m = fml.get_manager();
-        scoped_no_proof _sp(m);
+        datalog::scoped_no_proof _sp(m);
         params_ref p;
         ite_hoister_star ite_rw(m, p);
         expr_ref tmp(m);
@@ -951,7 +938,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         }
 
         bool test_ineq(expr* e) const {
-            SASSERT(a.is_le(e) || a.is_ge(e));
+            SASSERT(a.is_le(e) || a.is_ge(e) || m.is_eq(e));
             SASSERT(to_app(e)->get_num_args() == 2);
             expr * lhs = to_app(e)->get_arg(0);
             expr * rhs = to_app(e)->get_arg(1);
@@ -984,6 +971,9 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             VERIFY(m.is_eq(e, lhs, rhs));
             if (!a.is_int_real(lhs)) {
                 return true;
+            }
+            if (a.is_numeral(lhs) || a.is_numeral(rhs)) {
+                return test_ineq(e);
             }
             return test_term(lhs) && test_term(rhs);
         }

@@ -22,7 +22,7 @@ if %STATIC% == true (
     set Z3DBGLIB=z3lib.lib
 ) else (
     set Z3LIB=z3.lib
-    set Z3DBGLIB=z3_dbg.lib
+    set Z3DBGLIB=z3.lib
 )
 
 REM ocaml 3.11 and later calls the linker through flexlink

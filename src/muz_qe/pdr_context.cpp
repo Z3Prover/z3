@@ -1618,23 +1618,15 @@ namespace pdr {
 
        - T(x0,x1,x)   for transition
        - phi(x)       for n.state()
-       - psi(x0,x1,x) for psi
        - M(x0,x1,x)   for n.model()
 
        Assumptions:
-         M => psi
-         psi => phi & T
-         psi & M  agree on which rules are taken.
+         M => phi & T
 
        In other words, 
-       1. psi is a weakening of M
-       2. phi & T is implied by psi
+       1. phi & T is implied by M
        
        Goal is to find phi0(x0), phi1(x1) such that:
-
-         phi(x) & phi0(x0) & phi1(x1) => psi(x0, x1, x)
-
-       or at least (ignoring psi alltogether):
 
          phi(x) & phi0(x0) & phi1(x1) => T(x0, x1, x)       
 
