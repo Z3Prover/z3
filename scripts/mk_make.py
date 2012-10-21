@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
-# Scripts for generate Makefiles and Visual 
+# Scripts for generating Makefiles and Visual 
 # Studio project files.
 #
 # Author: Leonardo de Moura (leonardo)
