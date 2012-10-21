@@ -53,7 +53,7 @@ add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'frame
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
 add_lib('user_plugin', ['smt'])
 add_lib('core_tactics', ['framework', 'normal_forms'])
-add_lib('arith_tactics', ['core_tactics', 'assertion_set'])
+add_lib('arith_tactics', ['core_tactics', 'assertion_set', 'sat'])
 add_lib('sat_tactic', ['framework', 'sat'])
 add_lib('sat_strategy', ['assertion_set', 'sat_tactic'])
 # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
