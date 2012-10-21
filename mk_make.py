@@ -51,7 +51,7 @@ add_lib('proof_checker', ['rewriter', 'spc'])
 add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'framework', 'assertion_set'])
 add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'framework', 
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
-add_lib('user_ext', ['smt'])
+add_lib('user_plugin', ['smt'])
 add_lib('core_tactics', ['framework', 'normal_forms'])
 add_lib('arith_tactics', ['core_tactics', 'assertion_set'])
 add_lib('sat_tactic', ['framework', 'sat'])
