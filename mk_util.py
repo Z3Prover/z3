@@ -9,6 +9,38 @@
 import os
 import glob
 
+BUILD_DIR='build'
+SRC_DIR='src'
+MODES=[]
+PLATFORMS=[]
+
+def set_build_dir(d):
+    global BUILD_DIR
+    BUILD_DIR = d
+    mk_dir(BUILD_DIR)
+
+def set_src_dir(d):
+    global SRC_DIR
+    SRC_DIR = d
+
+def set_modes(l):
+    global MODES
+    MODES=l
+
+def set_platforms(l):
+    global PLATFORMS
+    PLATFORMS=l
+
+VS_COMMON_OPTIONS='WIN32'
+VS_DBG_OPTIONS='_DEBUG'
+VS_RELEASE_OPTIONS='NDEBUG'
+
+def set_vs_options(common, dbg, release):
+    global VS_COMMON_OPTIONS, VS_DBG_OPTIONS, VS_RELEASE_OPTIONS
+    VS_COMMON_OPTIONS = common
+    VS_DBG_OPTIONS = dbg
+    VS_RELEASE_OPTIONS = release
+
 def is_debug(mode):
     return mode == 'Debug'
 

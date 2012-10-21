@@ -58,16 +58,19 @@ public:
         m_last = symbol::null; 
     }
     virtual void set_next_arg(cmd_context & ctx, sort * s) { 
-        m_params.set_sort(m_last, s); 
-        m_last = symbol::null; 
+        NOT_IMPLEMENTED_YET();
+        // m_params.set_sort(m_last, s); 
+        // m_last = symbol::null; 
     }
     virtual void set_next_arg(cmd_context & ctx, expr * t) { 
-        m_params.set_expr(m_last, t); 
-        m_last = symbol::null; 
+        NOT_IMPLEMENTED_YET();
+        // m_params.set_expr(m_last, t); 
+        // m_last = symbol::null; 
     }
     virtual void set_next_arg(cmd_context & ctx, func_decl * f) { 
-        m_params.set_func_decl(m_last, f); 
-        m_last = symbol::null; 
+        NOT_IMPLEMENTED_YET();
+        // m_params.set_func_decl(m_last, f); 
+        // m_last = symbol::null; 
     }
 };
 

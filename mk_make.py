@@ -8,16 +8,13 @@
 ############################################
 from mk_util import *
 
-BUILD_DIR='build-test'
-SRC_DIR='src'
-MODES=['Debug', 'Release']
-PLATFORMS=['Win32', 'x64']
-VS_COMMON_OPTIONS='WIN32;_WINDOWS;ASYNC_COMMANDS'
-VS_DBG_OPTIONS='Z3DEBUG;_TRACE;_DEBUG'
-VS_RELEASE_OPTIONS='NDEBUG;_EXTERNAL_RELEASE'
-
-# Initialization
-mk_dir(BUILD_DIR)
+set_build_dir('build-test')
+set_src_dir('src')
+set_modes(['Debug', 'Release'])
+set_platforms(['Win32', 'x64'])
+set_vs_options('WIN32;_WINDOWS;ASYNC_COMMANDS',
+               'Z3DEBUG;_TRACE;_DEBUG',
+               'NDEBUG;_EXTERNAL_RELEASE')
 
 add_lib('util', [])
 add_lib('polynomial', ['util'])
@@ -32,5 +29,8 @@ add_lib('simplifier', ['util', 'ast', 'rewriter'])
 # Model module should not depend on simplifier module. 
 # We must replace all occurrences of simplifier with rewriter.
 add_lib('model', ['util', 'ast', 'rewriter', 'simplifier'])
-add_lib('tactic', ['util', 'ast'])
+# Old (non-modular) parameter framework. It has been subsumed by util\params.h.
+# However, it is still used by many old components.
+add_lib('old_params', ['util', 'ast', 'simplifier', 'model'])
+add_lib('framework', ['util', 'ast', 'model', 'old_params', 'simplifier', 'rewriter'])
 

@@ -24,7 +24,6 @@ Notes:
 #include<sstream>
 #include"ast.h"
 #include"pdecl.h"
-#include"front_end_params.h"
 #include"dictionary.h"
 #include"solver.h"
 #include"datatype_decl_plugin.h"
@@ -36,6 +35,8 @@ Notes:
 #include"check_logic.h"
 #include"progress_callback.h"
 #include"scoped_ptr_vector.h"
+
+struct front_end_params;
 
 class func_decls {
     func_decl * m_decls;

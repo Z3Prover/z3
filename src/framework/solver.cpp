@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include"solver.h"
-#include"smt_solver.h"
+// #include"smt_solver.h"
 
 unsigned solver::get_num_assertions() const {
     NOT_IMPLEMENTED_YET();
@@ -33,6 +33,7 @@ void solver::display(std::ostream & out) const {
     out << "(solver)";
 }
 
+#if 0
 class default_solver : public solver {
     front_end_params * m_params;
     smt::solver *     m_context;
@@ -191,3 +192,4 @@ public:
 solver * mk_default_solver() {
     return alloc(default_solver);
 }
+#endif

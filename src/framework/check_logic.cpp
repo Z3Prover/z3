@@ -21,6 +21,7 @@ Revision History:
 #include"array_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"ast_pp.h"
+#include"for_each_expr.h"
 
 struct check_logic::imp {
     ast_manager & m;

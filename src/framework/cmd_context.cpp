@@ -16,6 +16,7 @@ Notes:
 
 --*/
 #include<signal.h>
+#include"front_end_params.h"
 #include"tptr.h"
 #include"cmd_context.h"
 #include"func_decl_dependencies.h"
@@ -36,6 +37,7 @@ Notes:
 #include"decl_collector.h"
 #include"well_sorted.h"
 #include"model_evaluator.h"
+#include"for_each_expr.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -321,7 +323,7 @@ cmd_context::cmd_context(front_end_params & params, bool main_ctx, ast_manager *
     SASSERT(m != 0 || !has_manager());
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
-    install_tactic_cmds(*this);
+    install_core_tactic_cmds(*this);
     SASSERT(m != 0 || !has_manager());
     if (m)
         init_external_manager();

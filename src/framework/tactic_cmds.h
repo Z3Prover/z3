@@ -45,7 +45,7 @@ public:
     tactic * mk(ast_manager & m);
 };
 
-void install_tactic_cmds(cmd_context & ctx);
+void install_core_tactic_cmds(cmd_context & ctx);
 tactic * sexpr2tactic(cmd_context & ctx, sexpr * n);
 
 class probe_info {

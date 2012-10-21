@@ -27,7 +27,6 @@ Notes:
 #include"cmd_util.h"
 #include"simplify_cmd.h"
 #include"eval_cmd.h"
-#include"qe_cmd.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -770,5 +769,4 @@ void install_ext_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(builtin_cmd, "reset", 0, "reset the shell (all declarations and assertions will be erased)"));
     install_simplify_cmd(ctx);
     install_eval_cmd(ctx);
-    install_qe_cmd(ctx);
 }

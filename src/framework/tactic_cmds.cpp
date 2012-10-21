@@ -20,7 +20,6 @@ Notes:
 #include"cmd_context.h"
 #include"cmd_util.h"
 #include"parametric_cmd.h"
-#include"install_tactics.h"
 #include"scoped_timer.h"
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
@@ -390,13 +389,12 @@ public:
 };
 
            
-void install_tactic_cmds(cmd_context & ctx) {
+void install_core_tactic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(declare_tactic_cmd));
     ctx.insert(alloc(get_user_tactics_cmd));
     ctx.insert(alloc(help_tactic_cmd));
     ctx.insert(alloc(check_sat_using_tactict_cmd));
     ctx.insert(alloc(apply_tactic_cmd));
-    install_tactics(ctx);
 }
 
 static tactic * mk_and_then(cmd_context & ctx, sexpr * n) {
