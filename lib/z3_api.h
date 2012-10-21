@@ -1159,7 +1159,7 @@ typedef enum
 
 #endif
 
-/*
+/**
   Definitions for update_api.py
   
   def_Type('CONFIG',           'Z3_config',           'Config')
@@ -3970,12 +3970,12 @@ END_MLAPI_EXCLUDE
     */
     Z3_ast_kind Z3_API Z3_get_ast_kind(__in Z3_context c, __in Z3_ast a);
 
-    /*
+    /**
       def_API('Z3_is_app', BOOL, (_in(CONTEXT), _in(AST)))      
     */
     Z3_bool Z3_API Z3_is_app(__in Z3_context c, __in Z3_ast a);
 
-    /*
+    /**
       def_API('Z3_is_numeral_ast', BOOL, (_in(CONTEXT), _in(AST)))
     */
     Z3_bool Z3_API Z3_is_numeral_ast(__in Z3_context c, __in Z3_ast a);
@@ -4757,17 +4757,17 @@ END_MLAPI_EXCLUDE
     */
     Z3_string Z3_API Z3_ast_to_string(__in Z3_context c, __in Z3_ast a);
 
-    /*
+    /**
       def_API('Z3_pattern_to_string', STRING, (_in(CONTEXT), _in(PATTERN)))
     */
     Z3_string Z3_API Z3_pattern_to_string(__in Z3_context c, __in Z3_pattern p);
 
-    /*
+    /**
       def_API('Z3_sort_to_string', STRING, (_in(CONTEXT), _in(SORT)))
     */
     Z3_string Z3_API Z3_sort_to_string(__in Z3_context c, __in Z3_sort s);
     
-    /*
+    /**
       def_API('Z3_func_decl_to_string', STRING, (_in(CONTEXT), _in(FUNC_DECL)))
     */
     Z3_string Z3_API Z3_func_decl_to_string(__in Z3_context c, __in Z3_func_decl d);
