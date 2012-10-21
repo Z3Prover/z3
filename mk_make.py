@@ -37,6 +37,8 @@ add_lib('framework', ['util', 'ast', 'model', 'old_params', 'simplifier', 'rewri
 # code to the new tactic framework.
 add_lib('assertion_set', ['util', 'ast', 'framework', 'model', 'rewriter', 'old_params'])
 add_lib('normal_forms', ['util', 'ast', 'old_params', 'simplifier', 'rewriter', 'assertion_set', 'framework', 'model'])
-add_lib('smt', ['util', 'ast', 'assertion_set'])
-add_lib('pattern', ['util', 'ast'])
 add_lib('spc', ['util', 'ast', 'simplifier', 'pattern', 'model', 'old_params', 'normal_forms', 'rewriter'])
+add_lib('parser_util', ['util', 'ast'])
+add_lib('smt2parser', ['util', 'ast', 'framework', 'model', 'old_params', 'rewriter', 'parser_util'])
+add_lib('pattern', ['util', 'ast', 'simplifier', 'old_params'])
+add_lib('smt', ['util', 'ast', 'assertion_set'])
