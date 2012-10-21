@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Add symmetry breaking predicates to assertion sets.
+    Add symmetry breaking predicates to goals.
 
 Author:
 
@@ -20,7 +20,6 @@ Notes:
 
 --*/
 #include"tactical.h"
-#include"assertion_set.h"
 #include"for_each_expr.h"
 #include"map.h"
 #include"expr_replacer.h"

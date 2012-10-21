@@ -167,9 +167,6 @@ as_test * check_as_size(unsigned l);
 as_test * check_decided();
 as_st * cond(as_test * c, as_st * t, as_st * e);
 
-as_st * mk_smt_solver_core(bool candidate_models = false);
-as_st * mk_smt_solver(bool auto_config = true, bool candidate_models = false);
-
 void exec(as_st * st, assertion_set & s, model_converter_ref & mc);
 lbool check_sat(as_st * st, assertion_set & s, model_ref & md, proof_ref & pr, std::string & reason_unknown);
 
@@ -206,8 +203,6 @@ public:                                                                         
 };
 
 #define MK_SIMPLE_ST_FACTORY(NAME, ST)  MK_ST_FACTORY(NAME, return ST;)
-
-MK_SIMPLE_ST_FACTORY(smt_solver_stf, mk_smt_solver());
 
 struct is_qfbv_test : public as_test {
     virtual bool operator()(assertion_set const & s) const {  return is_qfbv(s); }

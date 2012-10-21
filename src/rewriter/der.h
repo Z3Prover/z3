@@ -23,7 +23,6 @@ Revision History:
 
 #include"ast.h"
 #include"var_subst.h"
-#include"assertion_set_strategy.h"
 
 /*
   New DER: the class DER (above) eliminates variables one by one.
@@ -183,33 +182,6 @@ public:
 };
 
 typedef der_rewriter der_star; 
-
-// TODO: delete obsolete class
-class der_strategy : public assertion_set_strategy {
-    struct     imp;
-    imp *      m_imp;
-public:
-    der_strategy(ast_manager & m);
-    virtual ~der_strategy();
-
-    void operator()(assertion_set & s);
-    
-    virtual void operator()(assertion_set & s, model_converter_ref & mc) {
-        operator()(s);
-        mc = 0;
-    }
-
-    virtual void cleanup();
-    virtual void set_cancel(bool f);
-};
-
-inline as_st * mk_der(ast_manager & m) {
-    return alloc(der_strategy, m);
-}
-
-class tactic;
-
-tactic * mk_der_tactic(ast_manager & m);
 
 #endif /* _DER_H_ */
 

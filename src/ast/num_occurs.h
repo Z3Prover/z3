@@ -22,13 +22,11 @@ Revision History:
 #include"ast.h"
 #include"obj_hashtable.h"
 
-class assertion_set; // TODO delete
-class goal;
-
 /**
    \brief Functor for computing the number of occurrences of each sub-expression in a expression F.
 */
 class num_occurs { 
+protected:
     bool m_ignore_ref_count1;
     bool m_ignore_quantifiers;
     obj_map<expr, unsigned>        m_num_occurs;
@@ -44,8 +42,6 @@ public:
     
     void operator()(expr * t);
     void operator()(unsigned num, expr * const * ts);
-    void operator()(assertion_set const & s); // TODO delete
-    void operator()(goal const & s);
 
     unsigned get_num_occs(expr * n) const { 
         unsigned val;

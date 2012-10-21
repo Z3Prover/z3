@@ -18,8 +18,6 @@ Revision History:
 --*/
 
 #include"num_occurs.h"
-#include"assertion_set.h"
-#include"goal.h"
 
 void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
     ptr_buffer<expr, 128> stack;
@@ -74,19 +72,3 @@ void num_occurs::operator()(unsigned num, expr * const * ts) {
     }
 }
 
-// TODO delete
-void num_occurs::operator()(assertion_set const & s) {
-    expr_fast_mark1   visited;
-    unsigned sz = s.size();
-    for (unsigned i = 0; i < sz; i++) {
-        process(s.form(i), visited);
-    }
-}
-
-void num_occurs::operator()(goal const & g) {
-    expr_fast_mark1   visited;
-    unsigned sz = g.size();
-    for (unsigned i = 0; i < sz; i++) {
-        process(g.form(i), visited);
-    }
-}

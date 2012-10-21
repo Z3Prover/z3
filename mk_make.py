@@ -33,4 +33,10 @@ add_lib('simplifier', ['util', 'ast', 'rewriter', 'old_params'])
 # We must replace all occurrences of simplifier with rewriter.
 add_lib('model', ['util', 'ast', 'rewriter', 'simplifier', 'old_params'])
 add_lib('framework', ['util', 'ast', 'model', 'old_params', 'simplifier', 'rewriter'])
-
+# Assertion set is the old tactic framework used in Z3 3.x. It will be deleted as soon as we finish the porting old
+# code to the new tactic framework.
+add_lib('assertion_set', ['util', 'ast', 'framework', 'model', 'rewriter', 'old_params'])
+add_lib('normal_forms', ['util', 'ast', 'old_params', 'simplifier', 'rewriter', 'assertion_set', 'framework', 'model'])
+add_lib('smt', ['util', 'ast', 'assertion_set'])
+add_lib('pattern', ['util', 'ast'])
+add_lib('spc', ['util', 'ast', 'simplifier', 'pattern', 'model', 'old_params', 'normal_forms', 'rewriter'])
