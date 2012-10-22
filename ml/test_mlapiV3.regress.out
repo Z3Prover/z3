@@ -91,8 +91,11 @@ v = 1:int
 y = 1:int
 x = 0:int
 function interpretations:
-f = {(0:int, 1:int|->3:int), (2:int, 1:int|->3:int), (else|->3:int)}
-inv!0 = {(3:int|->1:int), (else|->1:int)}
+f = {(else|->(define f!52 Int Int Int)[(define k!50 Int Int)[#unknown], (define k!51 Int Int)[#unknown]])}
+#51 = {(2:int|->2:int), (1:int|->1:int), (15:int|->15:int), (11:int|->11:int), (0:int|->0:int), (19:int|->19:int), (else|->2:int)}
+f!52 = {(0:int, 1:int|->3:int), (2:int, 1:int|->3:int), (0:int, 0:int|->4:int), (2:int, 0:int|->5:int), (6:int, 2:int|->7:int), (2:int, 2:int|->8:int), (0:int, 2:int|->9:int), (6:int, 0:int|->10:int), (0:int, 11:int|->12:int), (2:int, 11:int|->13:int), (6:int, 11:int|->14:int), (0:int, 15:int|->16:int), (2:int, 15:int|->17:int), (6:int, 15:int|->18:int), (0:int, 19:int|->20:int), (6:int, 19:int|->21:int), (2:int, 19:int|->22:int), (else|->3:int)}
+inv!0 = {(3:int|->1:int), (4:int|->0:int), (5:int|->0:int), (7:int|->2:int), (8:int|->2:int), (9:int|->2:int), (10:int|->0:int), (12:int|->11:int), (13:int|->11:int), (14:int|->11:int), (16:int|->15:int), (17:int|->15:int), (18:int|->15:int), (20:int|->19:int), (21:int|->19:int), (22:int|->19:int), (else|->2:int)}
+#50 = {(2:int|->2:int), (6:int|->6:int), (0:int|->0:int), (else|->2:int)}
 reason for last failure: 7 (7 = quantifiers)
 
 array_example1
