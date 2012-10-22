@@ -1,1 +1,0 @@
-cl /I ..\lib /MDd /LD ..\test\par_dll.cpp /link ..\parallel_debug\z3lib.lib /lib ..\parallel_debug\msbig_rational.lib
