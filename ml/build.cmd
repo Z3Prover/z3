@@ -19,7 +19,7 @@ if ""%1 == "" (
 if %BITS% == 32 (
   set ARCH=x86
   set Z3BIN= ..\external
-  set Z3DBG= ..\debug
+  set Z3DBG= ..\Debug
 ) else (
   set ARCH=x64
   set Z3BIN= ..\x64\external_64
