@@ -231,31 +231,22 @@ namespace pdr {
         void erase_children(model_node& n);
         void erase_leaf(model_node& n);
         void remove_node(model_node& n);
+        void enqueue_leaf(model_node& n); // add leaf to priority queue.
     public:
         model_search(bool bfs): m_bfs(bfs), m_root(0) {}
-
         ~model_search();
 
         void reset();
-
         model_node* next();
-
         bool is_repeated(model_node& n) const;
-
         void add_leaf(model_node& n); // add fresh node.
-
         void set_leaf(model_node& n); // Set node as leaf, remove children.
 
         void set_root(model_node* n);
-
         model_node& get_root() const { return *m_root; }
-
         std::ostream& display(std::ostream& out) const; 
-
         expr_ref get_trace() const;
-
         proof_ref get_proof_trace(context const& ctx) const;
-
         void backtrack_level(bool uses_level, model_node& n);
     };
 
@@ -308,7 +299,6 @@ namespace pdr {
         volatile bool        m_cancel;
         model_converter_ref  m_mc;
         proof_converter_ref  m_pc;
-        bool                 m_is_dl;
         
         // Functions used by search.
         void solve_impl();
@@ -366,7 +356,7 @@ namespace pdr {
         datalog::context& get_context() const { SASSERT(m_context); return *m_context; }
         expr_ref          get_answer();
 
-        bool              is_dl() const { return m_is_dl; }
+        bool              is_dl() const { return m_fparams.m_arith_mode == AS_DIFF_LOGIC; }
 
 
         void collect_statistics(statistics& st) const;

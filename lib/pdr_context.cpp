@@ -278,7 +278,10 @@ namespace pdr {
                    if (is_infty_level(src_level)) {
                        verbose_stream() << "infty"; 
                    }
-                   else verbose_stream() << src_level;
+                   else {
+                       verbose_stream() << src_level;
+                   }
+                   verbose_stream() << "\n";
                    for (unsigned i = 0; i < src.size(); ++i) {
                        verbose_stream() << mk_pp(src[i].get(), m) << "\n";   
                    });
@@ -831,7 +834,11 @@ namespace pdr {
 
     void model_search::set_leaf(model_node& n) {
         erase_children(n);
-        SASSERT(n.is_open());        
+        SASSERT(n.is_open());      
+        enqueue_leaf(n);
+    }
+
+    void model_search::enqueue_leaf(model_node& n) {
         if (m_bfs) {
             m_leaves.push_front(&n);
         }
@@ -1047,7 +1054,7 @@ namespace pdr {
         if (uses_level && m_root->level() > n.level()) {
             IF_VERBOSE(2, verbose_stream() << "Increase level " << n.level() << "\n";);
             n.increase_level();
-            m_leaves.push_back(&n);
+            enqueue_leaf(n);
         }
         else {
             model_node* p = n.parent();
@@ -1076,8 +1083,7 @@ namespace pdr {
           m_search(m_params.get_bool(":bfs-model-search", true)),
           m_last_result(l_undef),
           m_inductive_lvl(0),
-          m_cancel(false),
-          m_is_dl(false)
+          m_cancel(false)
     {
     }
 
@@ -1296,7 +1302,6 @@ namespace pdr {
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
-        m_is_dl = false;
         bool use_mc = m_params.get_bool(":use-multicore-generalizer", false);
         if (use_mc) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
@@ -1312,7 +1317,6 @@ namespace pdr {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                     m_fparams.m_arith_expand_eqs = true;
-                    m_is_dl = true;
                 }
             }
             else {
@@ -1654,7 +1658,6 @@ namespace pdr {
     void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
         bool use_model_generalizer = m_params.get_bool(":use-model-generalizer", false);
-        // use_model_generalizer = use_model_generalizer || is_dl();
  
         pred_transformer& pt = n.pt();
         model_ref M = n.model_ptr();
@@ -1693,12 +1696,14 @@ namespace pdr {
         pt.get_aux_vars(r, aux_vars);
         vars.append(aux_vars.size(), aux_vars.c_ptr());
 
+        scoped_ptr<expr_replacer> rep;
         qe_lite qe(m);
         expr_ref phi1 = m_pm.mk_and(Phi);
         qe(vars, phi1);
         if (!use_model_generalizer) {
             reduce_disequalities(*M, 3, phi1);
         }
+        get_context().get_rewriter()(phi1);
 
         IF_VERBOSE(2, 
                    verbose_stream() << "Vars:\n";
@@ -1720,7 +1725,7 @@ namespace pdr {
                 M->eval(vars[i]->get_decl(), tmp);                
                 sub.insert(vars[i].get(), tmp, pr);
             }
-            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+            if (!rep) rep = mk_expr_simp_replacer(m);
             rep->set_substitution(&sub);
             (*rep)(phi1);
             IF_VERBOSE(2, verbose_stream() << "Projected:\n" << mk_pp(phi1, m) << "\n";);
@@ -1733,7 +1738,7 @@ namespace pdr {
         for (unsigned i = 0; i < Phi.size(); ++i) {            
             m_pm.collect_indices(Phi[i].get(), indices);    
             if (indices.size() == 0) {
-                IF_VERBOSE(2, verbose_stream() << "Skipping " << mk_pp(Phi[i].get(), m) << "\n";);
+                IF_VERBOSE(3, verbose_stream() << "Skipping " << mk_pp(Phi[i].get(), m) << "\n";);
             }
             else if (indices.size() == 1) {
                 child_states[indices.back()].push_back(Phi[i].get());
@@ -1755,11 +1760,12 @@ namespace pdr {
                     }
                 }
                 tmp = Phi[i].get();
-                scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+                if (!rep) rep = mk_expr_simp_replacer(m);
                 rep->set_substitution(&sub);
                 (*rep)(tmp);
                 child_states[indices[0]].push_back(tmp);
             }
+
         }
         
         expr_ref n_cube(m);
@@ -1774,8 +1780,6 @@ namespace pdr {
             IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
         }
         check_pre_closed(n);
-
-
         TRACE("pdr", m_search.display(tout););
     }
 

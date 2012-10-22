@@ -50,6 +50,7 @@ namespace datalog {
         PDR_ENGINE,
         QPDR_ENGINE,
         BMC_ENGINE,
+        QBMC_ENGINE,
         LAST_ENGINE
     };
 

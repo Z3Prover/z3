@@ -589,6 +589,7 @@ namespace datalog {
             ensure_pdr();
             return m_pdr->get_num_levels(pred);
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             throw default_exception("get_num_levels is unsupported for bmc");
         default:
             throw default_exception("unknown engine");
@@ -604,6 +605,7 @@ namespace datalog {
             ensure_pdr();
             return m_pdr->get_cover_delta(level, pred);
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             throw default_exception("operation is unsupported for BMC engine");
         default:
             throw default_exception("unknown engine");
@@ -620,6 +622,7 @@ namespace datalog {
             m_pdr->add_cover(level, pred, property);
             break;
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             throw default_exception("operation is unsupported for BMC engine");
         default:
             throw default_exception("unknown engine");
@@ -751,6 +754,7 @@ namespace datalog {
             check_positive_predicates(r);
             break;
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
             break;            
@@ -969,12 +973,14 @@ namespace datalog {
         PRIVATE_PARAMS(p.insert(":inline-linear-branch", CPK_BOOL, "try linear inlining method with potential expansion"););
 
         pdr::dl_interface::collect_params(p);
+        bmc::collect_params(p);
         insert_timeout(p);
     }
 
     void context::updt_params(params_ref const& p) {
         m_params.copy(p);
         if (m_pdr.get()) m_pdr->updt_params();
+        
     }
 
     void context::collect_predicates(decl_set & res) {
@@ -1109,11 +1115,13 @@ namespace datalog {
     void context::cancel() {
         m_cancel = true;
         if (m_pdr.get()) m_pdr->cancel();
+        if (m_bmc.get()) m_bmc->cancel();
     }
 
     void context::cleanup() {
         m_cancel = false;
         if (m_pdr.get()) m_pdr->cleanup();
+        if (m_bmc.get()) m_bmc->cleanup();
     }
 
     class context::engine_type_proc {
@@ -1157,6 +1165,9 @@ namespace datalog {
         else if (e == symbol("bmc")) {
             m_engine = BMC_ENGINE;
         }
+        else if (e == symbol("qbmc")) {
+            m_engine = QBMC_ENGINE;
+        }
 
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -1190,6 +1201,7 @@ namespace datalog {
         case QPDR_ENGINE:
             return pdr_query(query);
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             return bmc_query(query);
         default:
             UNREACHABLE();
@@ -1450,6 +1462,7 @@ namespace datalog {
             m_last_answer = m_pdr->get_answer();
             return m_last_answer.get();
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             ensure_bmc();
             m_last_answer = m_bmc->get_answer();
             return m_last_answer.get();
@@ -1471,6 +1484,7 @@ namespace datalog {
             m_pdr->display_certificate(out);
             return true;
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             m_bmc->display_certificate(out);
             return true;
         default: 
@@ -1490,6 +1504,7 @@ namespace datalog {
             m_pdr->collect_statistics(st);
             break;
         case BMC_ENGINE:
+        case QBMC_ENGINE:
             m_bmc->collect_statistics(st);
             break;
         default: 
