@@ -31,10 +31,11 @@ add_lib('simplifier', ['rewriter'])
 # Model module should not depend on simplifier module. 
 # We must replace all occurrences of simplifier with rewriter.
 add_lib('model', ['rewriter', 'simplifier'])
+add_lib('tactic', ['ast', 'model'])
 # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
 # However, it is still used by many old components.
 add_lib('old_params', ['model', 'simplifier'])
-add_lib('framework', ['rewriter', 'model', 'old_params', 'simplifier'])
+add_lib('framework', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
 # Assertion set is the old tactic framework used in Z3 3.x. It will be deleted as soon as we finish the porting old
 # code to the new tactic framework.
 add_lib('assertion_set', ['framework'])

@@ -17,6 +17,7 @@ Revision History:
 
 
 --*/
+#include<sstream>
 #include"model_smt2_pp.h"
 #include"ast_smt2_pp.h"
 #include"func_decl_dependencies.h"
@@ -47,53 +48,8 @@ static unsigned pp_symbol(std::ostream & out, symbol const & s) {
 
 #define TAB_SZ 2
 
-class model_smt2_pp_ctx {
-public:
-    virtual ast_manager & m() const = 0;
-    virtual void display(std::ostream & out, sort * s, unsigned indent = 0) = 0;
-    virtual void display(std::ostream & out, expr * n, unsigned indent = 0) = 0;
-    virtual void pp(sort * s, format_ns::format_ref & r) = 0;
-    virtual void pp(func_decl * f, format_ns::format_ref & r) = 0;
-    virtual void pp(expr * n, format_ns::format_ref & r) = 0;
-    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) = 0;
-};
-
-class model_smt2_pp_cmd_ctx : public model_smt2_pp_ctx {
-    cmd_context & m_ctx;
-public:
-    model_smt2_pp_cmd_ctx(cmd_context & ctx):m_ctx(ctx) {}
-    virtual ast_manager & m() const { return m_ctx.m(); }
-    virtual void display(std::ostream & out, sort * s, unsigned indent = 0) { m_ctx.display(out, s, indent); }
-    virtual void display(std::ostream & out, expr * n, unsigned indent = 0) { m_ctx.display(out, n, indent); }
-    virtual void pp(sort * s, format_ns::format_ref & r) { r = m_ctx.pp(s); }
-    virtual void pp(func_decl * f, format_ns::format_ref & r) { return m_ctx.pp(f, r); }
-    virtual void pp(expr * n, format_ns::format_ref & r) { return m_ctx.pp(n, r); }
-    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) {
-        return m_ctx.pp(n, num_vars, var_prefix, r, var_names);
-    }
-};
-
-class model_smt2_pp_simple_ctx : public model_smt2_pp_ctx {
-    ast_manager & m_manager;
-    smt2_pp_environment_dbg m_env;
-public:
-    model_smt2_pp_simple_ctx(ast_manager & m):m_manager(m), m_env(m) {}
-    virtual ast_manager & m() const { return m_manager; }
-    virtual void display(std::ostream & out, sort * s, unsigned indent = 0) { out << mk_ismt2_pp(s, m(), indent); }
-    virtual void display(std::ostream & out, expr * n, unsigned indent = 0) { out << mk_ismt2_pp(n, m(), indent); }
-    virtual void pp(sort * s, format_ns::format_ref & r) { mk_smt2_format(s, m_env, get_pp_default_params(), r); }
-    virtual void pp(func_decl * f, format_ns::format_ref & r) { mk_smt2_format(f, m_env, get_pp_default_params(), r); }
-    virtual void pp(expr * n, format_ns::format_ref & r) { 
-        sbuffer<symbol> buf;
-        mk_smt2_format(n, m_env, get_pp_default_params(), 0, 0, r, buf); 
-    }
-    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) {
-        mk_smt2_format(n, m_env, get_pp_default_params(), num_vars, var_prefix, r, var_names);
-    }
-};
-
-static void pp_uninterp_sorts(std::ostream & out, model_smt2_pp_ctx & ctx, model_core const & md, unsigned indent) {
-    ast_manager & m = ctx.m();
+static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
+    ast_manager & m = ctx.get_ast_manager();
     ptr_buffer<format> f_conds;
     unsigned num = md.get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < num; i++) {
@@ -179,7 +135,7 @@ static void pp_uninterp_sorts(std::ostream & out, model_smt2_pp_ctx & ctx, model
     }
 }
 
-static void pp_consts(std::ostream & out, model_smt2_pp_ctx & ctx, model_core const & md, unsigned indent) {
+static void pp_consts(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
     unsigned num = md.get_num_constants();
     for (unsigned i = 0; i < num; i++) {
         func_decl * c = md.get_constant(i);
@@ -233,8 +189,8 @@ void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl
     }
 }
 
-static void pp_funs(std::ostream & out, model_smt2_pp_ctx & ctx, model_core const & md, unsigned indent) {
-    ast_manager & m = ctx.m();
+static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
+    ast_manager & m = ctx.get_ast_manager();
     sbuffer<symbol>    var_names;
     ptr_buffer<format> f_var_names;
     ptr_buffer<format> f_arg_decls;
@@ -333,16 +289,16 @@ static void pp_funs(std::ostream & out, model_smt2_pp_ctx & ctx, model_core cons
     }
 }
 
-void model_smt2_pp(std::ostream & out, cmd_context & ctx, model_core const & m, unsigned indent) {
-    model_smt2_pp_cmd_ctx _ctx(ctx);
-    pp_uninterp_sorts(out, _ctx, m, indent);
-    pp_consts(out, _ctx, m, indent);
-    pp_funs(out, _ctx, m, indent);
+void model_smt2_pp(std::ostream & out, ast_printer_context & ctx, model_core const & m, unsigned indent) {
+    pp_uninterp_sorts(out, ctx, m, indent);
+    pp_consts(out, ctx, m, indent);
+    pp_funs(out, ctx, m, indent);
 }
 
 void model_smt2_pp(std::ostream & out, ast_manager & m, model_core const & md, unsigned indent) {
-    model_smt2_pp_simple_ctx _ctx(m);
-    pp_uninterp_sorts(out, _ctx, md, indent);
-    pp_consts(out, _ctx, md, indent);
-    pp_funs(out, _ctx, md, indent);
+    scoped_ptr<ast_printer_context> ctx;
+    ctx = mk_simple_ast_printer_context(m);
+    pp_uninterp_sorts(out, *(ctx.get()), md, indent);
+    pp_consts(out, *(ctx.get()), md, indent);
+    pp_funs(out, *(ctx.get()), md, indent);
 }

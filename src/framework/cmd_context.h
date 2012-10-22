@@ -280,6 +280,7 @@ public:
 
     bool has_manager() const { return m_manager != 0; }
     ast_manager & m() const { if (!m_manager) const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
+    virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
     front_end_params & params() const { return m_params; }
@@ -383,9 +384,10 @@ public:
     }
 
     format_ns::format * pp(sort * s) const;
-    void pp(func_decl * f, format_ns::format_ref & r) const;
-    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const;
-    void pp(expr * n, format_ns::format_ref & r) const;
+    virtual void pp(sort * s, format_ns::format_ref & r) const { r = pp(s); }
+    virtual void pp(func_decl * f, format_ns::format_ref & r) const;
+    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const;
+    virtual void pp(expr * n, format_ns::format_ref & r) const;
     virtual void display(std::ostream & out, sort * s, unsigned indent = 0) const;
     virtual void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const;
     virtual void display(std::ostream & out, expr * n, unsigned indent = 0) const;

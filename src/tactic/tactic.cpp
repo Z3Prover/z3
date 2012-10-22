@@ -21,7 +21,6 @@ Notes:
 #include"probe.h"
 #include"stopwatch.h"
 #include"model_v2_pp.h"
-#include"cmd_context.h"
 
 void tactic::cancel() {
     #pragma omp critical (tactic_cancel)
