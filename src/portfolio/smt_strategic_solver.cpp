@@ -35,6 +35,7 @@ Notes:
 #include"ufbv_strategy.h"
 #include"st2tactic.h"
 #include"qffpa_tactic.h"
+#include"default_solver.h"
 
 #define MK_ST2TACTIC_FACTORY(NAME, ST)                                                                  \
 class NAME : public tactic_factory {                                                                    \

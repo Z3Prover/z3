@@ -29,6 +29,7 @@ Revision History:
 #include"cancel_eh.h"
 #include"scoped_timer.h"
 #include"smt_strategic_solver.h"
+#include"default_solver.h"
 
 extern "C" {
 

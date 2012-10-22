@@ -58,6 +58,4 @@ public:
     virtual void display(std::ostream & out) const;
 };
 
-solver * mk_default_solver();
-
 #endif
