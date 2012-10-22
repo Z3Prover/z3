@@ -35,31 +35,31 @@ add_lib('tactic', ['ast', 'model'])
 # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
 # However, it is still used by many old components.
 add_lib('old_params', ['model', 'simplifier'])
-add_lib('framework', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
+add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
 # Assertion set is the old tactic framework used in Z3 3.x. It will be deleted as soon as we finish the porting old
 # code to the new tactic framework.
-add_lib('assertion_set', ['framework'])
+add_lib('assertion_set', ['cmd_context'])
 add_lib('substitution', ['ast'])
-add_lib('normal_forms', ['framework', 'assertion_set'])
+add_lib('normal_forms', ['tactic', 'assertion_set'])
 add_lib('pattern', ['normal_forms'])
 add_lib('spc', ['simplifier', 'substitution', 'old_params', 'pattern'])
 add_lib('parser_util', ['ast'])
-add_lib('smt2parser', ['framework', 'parser_util'])
+add_lib('smt2parser', ['cmd_context', 'parser_util'])
 add_lib('macros', ['simplifier', 'old_params'])
 add_lib('grobner', ['ast'])
 add_lib('euclid', ['util'])
 add_lib('proof_checker', ['rewriter', 'spc'])
-add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'framework', 'assertion_set'])
-add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'framework', 
+add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'tactic', 'assertion_set'])
+add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'cmd_context', 
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
 add_lib('user_plugin', ['smt'])
-add_lib('core_tactics', ['framework', 'normal_forms'])
+add_lib('core_tactics', ['tactic', 'normal_forms'])
 add_lib('arith_tactics', ['core_tactics', 'assertion_set', 'sat'])
-add_lib('sat_tactic', ['framework', 'sat'])
+add_lib('sat_tactic', ['tactic', 'sat'])
 add_lib('sat_strategy', ['assertion_set', 'sat_tactic'])
 # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
 add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
-add_lib('aig', ['framework', 'assertion_set'])
+add_lib('aig', ['cmd_context', 'assertion_set'])
 # TODO: delete SMT 1.0 frontend
 add_lib('smtparser', ['api_headers', 'smt', 'spc'])
 
