@@ -65,10 +65,14 @@ add_lib('fpa', ['core_tactics', 'bit_blaster', 'sat_tactic'])
 add_lib('smt_tactic', ['smt'])
 add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'])
 add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic'])
+# TODO: rewrite ufbv_strategy as a tactic and move to smtlogic_tactics.
+add_lib('ufbv_strategy', ['assertion_set', 'normal_forms', 'macros', 'smt_tactic', 'rewriter'])
 # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
 add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
 add_lib('aig', ['cmd_context', 'assertion_set'])
+add_lib('portfolio', ['smtlogic_tactics', 'ufbv_strategy', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'])
 # TODO: delete SMT 1.0 frontend
-add_lib('smtparser', ['api_headers', 'smt', 'spc'])
+add_lib('smtparser', ['api_headers', 'smt', 'spc', 'portfolio'])
+add_lib('api', ['portfolio', 'user_plugin', 'smtparser'])
 
 mk_vs_solution()

@@ -27,7 +27,7 @@ Notes:
 
 #include"bit_blaster_tactic.h"
 #include"bv1_blaster_tactic.h"
-#include"der.h"
+#include"der_tactic.h"
 #include"aig_tactic.h"
 #include"smt_tactic.h"
 #include"sat_tactic.h"

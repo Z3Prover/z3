@@ -17,8 +17,9 @@ Notes:
 
 --*/
 #include"assertion_set_rewriter.h"
+#include"smt_solver_strategy.h"
 #include"nnf.h"
-#include"der.h"
+#include"der_strategy.h"
 #include"distribute_forall.h"
 #include"macro_finder.h"
 #include"arith_simplifier_plugin.h"
