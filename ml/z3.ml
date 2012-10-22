@@ -198,6 +198,7 @@ and decl_kind =
   | OP_PR_SKOLEMIZE
   | OP_PR_MODUS_PONENS_OEQ
   | OP_PR_TH_LEMMA
+  | OP_PR_HYPER_RESOLVE
   | OP_RA_STORE
   | OP_RA_EMPTY
   | OP_RA_IS_EMPTY
@@ -341,6 +342,9 @@ external param_descrs_size : context -> param_descrs -> int
 
 external param_descrs_get_name : context -> param_descrs -> int -> symbol
 	= "camlidl_z3_Z3_param_descrs_get_name"
+
+external param_descrs_to_string : context -> param_descrs -> string
+	= "camlidl_z3_Z3_param_descrs_to_string"
 
 
 (**
@@ -2153,6 +2157,7 @@ and decl_kind =
   | OP_PR_SKOLEMIZE
   | OP_PR_MODUS_PONENS_OEQ
   | OP_PR_TH_LEMMA
+  | OP_PR_HYPER_RESOLVE
   | OP_RA_STORE
   | OP_RA_EMPTY
   | OP_RA_IS_EMPTY

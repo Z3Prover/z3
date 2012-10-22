@@ -416,7 +416,7 @@ value _v1;
   return _v1;
 }
 
-int camlidl_transl_table_z3_enum_6[151] = {
+int camlidl_transl_table_z3_enum_6[152] = {
   Z3_OP_TRUE,
   Z3_OP_FALSE,
   Z3_OP_EQ,
@@ -548,6 +548,7 @@ int camlidl_transl_table_z3_enum_6[151] = {
   Z3_OP_PR_SKOLEMIZE,
   Z3_OP_PR_MODUS_PONENS_OEQ,
   Z3_OP_PR_TH_LEMMA,
+  Z3_OP_PR_HYPER_RESOLVE,
   Z3_OP_RA_STORE,
   Z3_OP_RA_EMPTY,
   Z3_OP_RA_IS_EMPTY,
@@ -578,7 +579,7 @@ void camlidl_ml2c_z3_Z3_decl_kind(value _v1, Z3_decl_kind * _c2, camlidl_ctx _ct
 value camlidl_c2ml_z3_Z3_decl_kind(Z3_decl_kind * _c2, camlidl_ctx _ctx)
 {
 value _v1;
-  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3_enum_6, 151, "typedef Z3_decl_kind: bad enum  value");
+  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3_enum_6, 152, "typedef Z3_decl_kind: bad enum  value");
   return _v1;
 }
 
@@ -1056,6 +1057,28 @@ value camlidl_z3_Z3_param_descrs_get_name(
   i = Int_val(_v_i);
   _res = Z3_param_descrs_get_name(c, p, i);
   _vres = camlidl_c2ml_z3_Z3_symbol(&_res, _ctx);
+  camlidl_free(_ctx);
+  /* begin user-supplied deallocation sequence */
+check_error_code(c);
+  /* end user-supplied deallocation sequence */
+  return _vres;
+}
+
+value camlidl_z3_Z3_param_descrs_to_string(
+	value _v_c,
+	value _v_p)
+{
+  Z3_context c; /*in*/
+  Z3_param_descrs p; /*in*/
+  Z3_string _res;
+  value _vres;
+
+  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  camlidl_ctx _ctx = &_ctxs;
+  camlidl_ml2c_z3_Z3_context(_v_c, &c, _ctx);
+  camlidl_ml2c_z3_Z3_param_descrs(_v_p, &p, _ctx);
+  _res = Z3_param_descrs_to_string(c, p);
+  _vres = camlidl_c2ml_z3_Z3_string(&_res, _ctx);
   camlidl_free(_ctx);
   /* begin user-supplied deallocation sequence */
 check_error_code(c);
@@ -11344,7 +11367,7 @@ value _v1;
   return _v1;
 }
 
-int camlidl_transl_table_z3V3_enum_6[151] = {
+int camlidl_transl_table_z3V3_enum_6[152] = {
   Z3_OP_TRUE,
   Z3_OP_FALSE,
   Z3_OP_EQ,
@@ -11476,6 +11499,7 @@ int camlidl_transl_table_z3V3_enum_6[151] = {
   Z3_OP_PR_SKOLEMIZE,
   Z3_OP_PR_MODUS_PONENS_OEQ,
   Z3_OP_PR_TH_LEMMA,
+  Z3_OP_PR_HYPER_RESOLVE,
   Z3_OP_RA_STORE,
   Z3_OP_RA_EMPTY,
   Z3_OP_RA_IS_EMPTY,
@@ -11506,7 +11530,7 @@ void camlidl_ml2c_z3V3_Z3_decl_kind(value _v1, Z3_decl_kind * _c2, camlidl_ctx _
 value camlidl_c2ml_z3V3_Z3_decl_kind(Z3_decl_kind * _c2, camlidl_ctx _ctx)
 {
 value _v1;
-  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3V3_enum_6, 151, "typedef Z3_decl_kind: bad enum  value");
+  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3V3_enum_6, 152, "typedef Z3_decl_kind: bad enum  value");
   return _v1;
 }
 
