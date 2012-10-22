@@ -74,6 +74,8 @@ add_lib('ufbv_strategy', ['assertion_set', 'normal_forms', 'macros', 'smt_tactic
 add_lib('portfolio', ['smtlogic_tactics', 'ufbv_strategy', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'])
 # TODO: delete SMT 1.0 frontend
 add_lib('api', ['portfolio', 'user_plugin'])
+add_lib('array_property', ['ast', 'rewriter'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'])
+add_exe('test', ['api', 'fuzzing', 'array_property'])
 
 mk_vs_solution()
