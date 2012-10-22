@@ -39,7 +39,7 @@ AS_IF([test "$host_os" = "Darwin"], [
   SLIBFLAGS="-dynamiclib -fopenmp"
   COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
   STATIC_FLAGS=
-  CPPFLAGS+=" -mmacosx-version-min=10.4"
+  CPPFLAGS+=""
 ], [test "$host_os" = "Linux"], [
   PLATFORM=linux
   SO_EXT=so
