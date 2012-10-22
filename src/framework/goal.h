@@ -30,12 +30,11 @@ Revision History:
 
 #include"ast.h"
 #include"ast_translation.h"
+#include"ast_printer.h"
 #include"for_each_expr.h"
 #include"ref.h"
 #include"ref_vector.h"
 #include"ref_buffer.h"
-
-class cmd_context;
 
 class goal {
 public:
@@ -172,14 +171,14 @@ public:
     void elim_true();
     void elim_redundancies();
 
-    void display(cmd_context & ctx, std::ostream & out) const;
-    void display(cmd_context & ctx) const;
+    void display(ast_printer & prn, std::ostream & out) const;
+    void display(ast_printer_context & ctx) const;
     void display(std::ostream & out) const;
     void display_ll(std::ostream & out) const;
     void display_as_and(std::ostream & out) const;
     void display_dimacs(std::ostream & out) const;
-    void display_with_dependencies(cmd_context & ctx, std::ostream & out) const;
-    void display_with_dependencies(cmd_context & ctx) const;
+    void display_with_dependencies(ast_printer & prn, std::ostream & out) const;
+    void display_with_dependencies(ast_printer_context & ctx) const;
     void display_with_dependencies(std::ostream & out) const;
 
     bool sat_preserved() const { 
@@ -219,8 +218,6 @@ template<typename GoalCollection>
 inline bool is_decided_sat(GoalCollection const & c) { return c.size() == 1 && c[0]->is_decided_sat(); }
 template<typename GoalCollection>
 inline bool is_decided_unsat(GoalCollection const & c) { return c.size() == 1 && c[0]->is_decided_unsat(); }
-
-void assert_exprs_from(cmd_context const & ctx, goal & t);
 
 template<typename ForEachProc>
 void for_each_expr_at(ForEachProc& proc, goal const & s) {

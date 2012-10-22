@@ -30,6 +30,8 @@ Notes:
 #include"tactical.h"
 #include"probe.h"
 #include"check_sat_result.h"
+#include"cmd_context_to_goal.h"
+#include"echo_tactic.h"
 
 tactic_cmd::~tactic_cmd() {
     dealloc(m_factory);

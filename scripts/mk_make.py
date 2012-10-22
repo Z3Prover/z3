@@ -8,7 +8,7 @@
 ############################################
 from mk_util import *
 
-set_build_dir('build-test')
+set_build_dir('build')
 set_src_dir('src')
 set_modes(['Debug', 'Release'])
 set_platforms(['Win32', 'x64'])

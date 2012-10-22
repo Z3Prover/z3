@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include"goal.h"
-#include"cmd_context.h"
 #include"ast_ll_pp.h"
 #include"ast_smt2_pp.h"
 #include"for_each_expr.h"
@@ -235,17 +234,17 @@ void goal::reset() {
     m_inconsistent = false; 
 }
 
-void goal::display(cmd_context & ctx, std::ostream & out) const {
+void goal::display(ast_printer & prn, std::ostream & out) const {
     out << "(goal";
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         out << "\n  ";
-        ctx.display(out, form(i), 2);
+        prn.display(out, form(i), 2);
     }
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
 }
 
-void goal::display_with_dependencies(cmd_context & ctx, std::ostream & out) const {
+void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) const {
     ptr_vector<expr> deps;
     obj_hashtable<expr> to_pp;
     out << "(goal";
@@ -267,7 +266,7 @@ void goal::display_with_dependencies(cmd_context & ctx, std::ostream & out) cons
             }
         }
         out << "\n  ";
-        ctx.display(out, form(i), 2);
+        prn.display(out, form(i), 2);
     }
     if (!to_pp.empty()) {
         out << "\n  :dependencies-definitions (";
@@ -276,7 +275,7 @@ void goal::display_with_dependencies(cmd_context & ctx, std::ostream & out) cons
         for (; it != end; ++it) {
             expr * d = *it;
             out << "\n  (#" << d->get_id() << "\n  ";
-            ctx.display(out, d, 2);
+            prn.display(out, d, 2);
             out << ")";
         }
         out << ")";
@@ -308,11 +307,11 @@ void goal::display_with_dependencies(std::ostream & out) const {
     out << "\n  :precision " << prec() << " :depth " << depth() << ")" << std::endl;
 }
 
-void goal::display(cmd_context & ctx) const {
+void goal::display(ast_printer_context & ctx) const {
     display(ctx, ctx.regular_stream());
 }
 
-void goal::display_with_dependencies(cmd_context & ctx) const {
+void goal::display_with_dependencies(ast_printer_context & ctx) const {
     display_with_dependencies(ctx, ctx.regular_stream());
 }
 
@@ -544,32 +543,6 @@ bool goal::is_well_sorted() const {
             return false;
     }
     return true;
-}
-
-/**
-   \brief Assert expressions from ctx into t.
-*/
-void assert_exprs_from(cmd_context const & ctx, goal & t) {
-    if (ctx.produce_proofs() && ctx.produce_unsat_cores()) 
-        throw cmd_exception("Frontend does not support simultaneous generation of proofs and unsat cores");
-    ast_manager & m = t.m();
-    bool proofs_enabled = t.proofs_enabled();
-    ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-    ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-    for (; it != end; ++it) {
-        t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, 0);
-    }
-    if (ctx.produce_unsat_cores()) {
-        SASSERT(!ctx.produce_proofs());
-        it  = ctx.begin_assumptions();
-        end = ctx.end_assumptions();
-        for (; it != end; ++it) {
-            t.assert_expr(*it, 0, m.mk_leaf(*it));
-        }
-    }
-    else {
-        SASSERT(ctx.begin_assumptions() == ctx.end_assumptions());
-    }
 }
 
 /**

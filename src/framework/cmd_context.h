@@ -23,6 +23,7 @@ Notes:
 
 #include<sstream>
 #include"ast.h"
+#include"ast_printer.h"
 #include"pdecl.h"
 #include"dictionary.h"
 #include"solver.h"
@@ -111,7 +112,7 @@ struct builtin_decl {
     builtin_decl(family_id fid, decl_kind k, builtin_decl * n = 0):m_fid(fid), m_decl(k), m_next(n) {}
 };
 
-class cmd_context : public progress_callback, public tactic_manager {
+class cmd_context : public progress_callback, public tactic_manager, public ast_printer_context {
 public:
     enum status {
         UNSAT, SAT, UNKNOWN
@@ -329,8 +330,8 @@ public:
     void reset_user_tactics();
     void set_regular_stream(char const * name) { m_regular.set(name); }
     void set_diagnostic_stream(char const * name); 
-    std::ostream & regular_stream() { return *m_regular; }
-    std::ostream & diagnostic_stream() { return *m_diagnostic; }
+    virtual std::ostream & regular_stream() { return *m_regular; }
+    virtual std::ostream & diagnostic_stream() { return *m_diagnostic; }
     char const * get_regular_stream_name() const { return m_regular.name(); }
     char const * get_diagnostic_stream_name() const { return m_diagnostic.name(); }
     typedef dictionary<cmd*>::iterator cmd_iterator;
@@ -385,10 +386,10 @@ public:
     void pp(func_decl * f, format_ns::format_ref & r) const;
     void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const;
     void pp(expr * n, format_ns::format_ref & r) const;
-    void display(std::ostream & out, sort * s, unsigned indent = 0) const;
-    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const;
-    void display(std::ostream & out, expr * n, unsigned indent = 0) const;
-    void display(std::ostream & out, func_decl * f, unsigned indent = 0) const;
+    virtual void display(std::ostream & out, sort * s, unsigned indent = 0) const;
+    virtual void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const;
+    virtual void display(std::ostream & out, expr * n, unsigned indent = 0) const;
+    virtual void display(std::ostream & out, func_decl * f, unsigned indent = 0) const;
 
     // dump assertions in out using the pretty printer.
     void dump_assertions(std::ostream & out) const;
