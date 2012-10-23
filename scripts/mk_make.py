@@ -8,6 +8,8 @@
 ############################################
 from mk_util import *
 
+parse_options()
+
 # set_build_dir('build')
 # set_src_dir('src')
 # set_modes(['Debug', 'Release'])

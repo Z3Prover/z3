@@ -10,22 +10,63 @@ import os
 import glob
 import sets
 import re
+import getopt
+import sys
 from mk_exception import *
 
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
 IS_WINDOW=False
-CXX='g++'
-MAKE='make'
-if os.name == 'nt':
-    IS_WINDOW=True
-    CXX='cl'
-    MAKE='nmake'
+VERBOSE=False
+DEBUG_MODE=False
 SHOW_CPPS = True
+VS_X64 = False
 
 LIB_KIND = 0
 EXE_KIND = 1
+
+if os.name == 'nt':
+    IS_WINDOW=True
+
+def display_help():
+    print "mk_make.py: Z3 Makefile generator\n"
+    print "This script generates the Makefile for the Z3 theorem prover."
+    print "It must be executed from the Z3 root directory."
+    print "\nOptions:"
+    print "  -h, --help                    display this message"
+    print "  -v, --verbose                 be verbose"
+    print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
+    print "  -d, --debug                   compile Z3 in debug mode."
+    print "  -x, --x64                     create 64 binary when using Visual Studio."
+    exit(0)
+
+# Parse configuration option for mk_make script
+def parse_options():
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxh', ['build=', 
+                                                                    'debug',
+                                                                    'verbose',
+                                                                    'x64',
+                                                                    'help'
+                                                                    ])
+    for opt, arg in options:
+        if opt in ('-b', '--build'):
+            if arg == 'src':
+                raise MKException('The src directory should not be used to host the Makefile')
+            set_build_dir(arg)
+        elif opt in ('-v', '--verbose'):
+            VERBOSE = True
+        elif opt in ('-d', '--debug'):
+            DEBUG_MODE = True
+        elif opt in ('-x', '--x64'):
+            if not IS_WINDOW:
+                raise MKException('x64 compilation mode can only be specified when using Visual Studio')
+            VS_X64 = True
+        elif opt in ('-h', '--help'):
+            display_help()
+        else:
+            raise MKException("Invalid command line option '%s'" % opt)
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
@@ -261,6 +302,8 @@ def reg_component(name, c):
     _Components.append(c)
     _ComponentNames.add(name)
     _Name2Component[name] = c
+    if VERBOSE:
+        print "Processed '%s'" % name
 
 def add_lib(name, deps=[], path=None):
     c = LibComponent(name, path, deps)
@@ -272,13 +315,19 @@ def add_exe(name, deps=[], path=None, exe_name=None):
 
 def mk_makefile():
     mk_dir(BUILD_DIR)
+    if VERBOSE:
+        print "Writing %s/Makefile" % BUILD_DIR
     out = open('%s/Makefile' % BUILD_DIR, 'w')
     out.write('# Automatically generated file. Generator: scripts/mk_make.py\n')
     out.write('include config.mk\n')
     for c in _Components:
         c.mk_makefile(out)
+    if VERBOSE:
+        print "Makefile was successfully generated."
+        if DEBUG_MODE:
+            print "  compilation mode: Debug"
+        else:
+            print "  compilation mode: Release"
+        print "Type 'cd %s; make' to build Z3" % BUILD_DIR
+        
 
-# add_lib('util')
-# add_lib('polynomial', ['util'])
-# add_lib('ast', ['util', 'polynomial'])
-# mk_makefile()
