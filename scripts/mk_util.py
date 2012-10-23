@@ -298,7 +298,7 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = _Name2Component[dep]
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        out.write('\n')
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
     # All executables are included in the all: rule
@@ -326,8 +326,14 @@ def add_exe(name, deps=[], path=None, exe_name=None):
 # Copy configuration correct file to BUILD_DIR
 def cp_config_mk():
     if IS_WINDOW:
-        # TODO
-        return
+        if VS_X64:
+            # TODO
+            return
+        else:
+            if DEBUG_MODE:
+                shutil.copyfile('scripts/config-vs-debug.mk', '%s/config.mk' % BUILD_DIR)
+            else:
+                shutil.copyfile('scripts/config-vs-release.mk', '%s/config.mk' % BUILD_DIR)
     else:
         if DEBUG_MODE:
             shutil.copyfile('scripts/config-debug.mk', '%s/config.mk' % BUILD_DIR)
