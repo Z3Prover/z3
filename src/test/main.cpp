@@ -167,7 +167,6 @@ int main(int argc, char ** argv) {
     TST(interval_skip_list);
     TST(no_overflow);
     TST(memory);
-    TST(parallel);
     TST(get_implied_equalities);
     TST(arith_simplifier_plugin);
     TST(quant_elim);

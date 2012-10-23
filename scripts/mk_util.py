@@ -59,6 +59,9 @@ _ComponentNames = sets.Set()
 _Name2Component = {}
 _Processed_Headers = sets.Set()
 
+def get_cpp_files(path):
+    return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
+
 def find_all_deps(name, deps):
     new_deps = []
     for dep in deps:
@@ -154,8 +157,7 @@ class Component:
             out.write(' -I%s' % _Name2Component[dep].to_src_dir)
         out.write('\n')
         mk_dir('%s/%s' % (BUILD_DIR, self.build_dir))
-        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
-            cppfile = os.path.basename(cppfile)
+        for cppfile in get_cpp_files(self.src_dir):
             self.add_cpp_rules(out, include_defs, cppfile)
 
 class LibComponent(Component):
@@ -166,8 +168,7 @@ class LibComponent(Component):
         Component.mk_makefile(self, out)
         # generate rule for lib
         objs = []
-        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
-            cppfile = os.path.basename(cppfile)
+        for cppfile in get_cpp_files(self.src_dir):
             objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
             objs.append(objfile)
 
@@ -184,14 +185,13 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
+# Auxiliary function for sort_components
 def comp_components(c1, c2):
     id1 = _Name2Component[c1].id
     id2 = _Name2Component[c2].id
-    if id1 < id2: return -1
-    if id2 > id1: return 1
-    return 0
+    return id2 - id1
 
-# Sort components based on definition time
+# Sort components based on (reverse) definition time
 def sort_components(cnames):
     return sorted(cnames, cmp=comp_components)
 
@@ -210,17 +210,16 @@ class ExeComponent(Component):
         exefile = '%s$(EXE_EXT)' % self.exe_name
         out.write('%s:' % exefile)
         deps = sort_components(self.deps)
-        for dep in deps:
-            c_dep = _Name2Component[dep]
-            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         objs = []
-        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
-            cppfile = os.path.basename(cppfile)
+        for cppfile in get_cpp_files(self.src_dir):
             objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
             objs.append(objfile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
+        for dep in deps:
+            c_dep = _Name2Component[dep]
+            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
         for obj in objs:

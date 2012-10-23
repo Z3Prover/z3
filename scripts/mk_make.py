@@ -75,7 +75,7 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_strategy', 'fpa', 'aig', 'muz_qe
 add_lib('api', ['portfolio', 'user_plugin'])
 add_lib('array_property', ['ast', 'rewriter'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
-add_exe('test', ['api', 'fuzzing', 'array_property'])
+add_exe('test', ['api', 'fuzzing', 'array_property'], exe_name='test-z3')
 
 # mk_vs_solution()
 
