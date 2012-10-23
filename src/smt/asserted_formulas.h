@@ -29,7 +29,6 @@ Revision History:
 #include"solver_plugin.h"
 #include"maximise_ac_sharing.h"
 #include"bit2int.h"
-// #include"qe.h"
 #include"statistics.h"
 #include"user_rewriter.h"
 #include"pattern_inference.h"

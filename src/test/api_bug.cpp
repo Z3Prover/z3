@@ -1,5 +1,5 @@
-#include "z3.h"
-#include "stdio.h"
+#include<stdio.h>
+#include"z3.h"
 
 void tst_api_bug() {
     unsigned vmajor, vminor, vbuild, vrevision;

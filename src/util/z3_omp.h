@@ -20,7 +20,7 @@ Notes:
 #define _Z3_OMP_H
 
 #ifndef _NO_OMP_
-#include"omp.h"
+#include<omp.h>
 #else
 #define omp_in_parallel() false
 #define omp_set_num_threads(SZ) ((void)0)

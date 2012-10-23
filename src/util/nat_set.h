@@ -19,8 +19,8 @@ Revision History:
 #ifndef _NAT_SET_H_
 #define _NAT_SET_H_
 
+#include<limits.h>
 #include"vector.h"
-#include"limits.h"
 
 class nat_set {
     unsigned          m_curr_timestamp;

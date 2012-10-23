@@ -10,7 +10,7 @@
 #include "vector.h"
 #include "buffer.h"
 #undef ARRAYSIZE
-#include "windows.h"
+#include <windows.h>
 
 class thread_check {
 

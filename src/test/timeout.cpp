@@ -4,7 +4,7 @@
 
 #ifdef _WINDOWS
 
-#include "windows.h"
+#include <windows.h>
 
 void tst_timeout() {
 }

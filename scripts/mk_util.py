@@ -8,301 +8,242 @@
 ############################################
 import os
 import glob
+import sets
+from dependencies import *
+from mk_exception import *
 
 BUILD_DIR='build'
+REV_BUILD_DIR='..'
 SRC_DIR='src'
-MODES=[]
-PLATFORMS=[]
+IS_WINDOW=False
+CXX='g++'
+MAKE='make'
+if os.name == 'nt':
+    IS_WINDOW=True
+    CXX='cl'
+    MAKE='nmake'
 
-def set_build_dir(d):
-    global BUILD_DIR
-    BUILD_DIR = d
-    mk_dir(BUILD_DIR)
+LIB_KIND = 0
+EXE_KIND = 1
 
-def set_src_dir(d):
-    global SRC_DIR
-    SRC_DIR = d
-
-def set_modes(l):
-    global MODES
-    MODES=l
-
-def set_platforms(l):
-    global PLATFORMS
-    PLATFORMS=l
-
-VS_COMMON_OPTIONS='WIN32'
-VS_DBG_OPTIONS='_DEBUG'
-VS_RELEASE_OPTIONS='NDEBUG'
-
-GUI = 0
-Name2GUI = {}
-
-def mk_gui_str(id):
-    return '4D2F40D8-E5F9-473B-B548-%012d' % id
-
-MODULES = []
-HEADERS = []
-LIBS = []
-EXES = []
-DEPS = {}
-
-class MKException(Exception):
-    def __init__(self, value):
-        self.value = value
-    def __str__(self):
-        return repr(self.value)
-
-def set_vs_options(common, dbg, release):
-    global VS_COMMON_OPTIONS, VS_DBG_OPTIONS, VS_RELEASE_OPTIONS
-    VS_COMMON_OPTIONS = common
-    VS_DBG_OPTIONS = dbg
-    VS_RELEASE_OPTIONS = release
-
-def is_debug(mode):
-    return mode == 'Debug'
-
-def is_x64(platform):
-    return platform == 'x64'
+# Given a path dir1/subdir2/subdir3 returns ../../..
+def reverse_path(p):
+    l = p.split('/')
+    n = len(l)
+    r = '..'
+    for i in range(1, n):
+        r = '%s/%s' % (r, '..')
+    return r
 
 def mk_dir(d):
     if not os.path.exists(d):
         os.makedirs(d)
 
-def module_src_dir(name):
-    return '%s%s%s' % (SRC_DIR, os.sep, name)
+def set_build_dir(d):
+    global BUILD_DIR
+    BUILD_DIR = d
+    REV_BUILD_DIR = reverse_path(d)
 
-def module_build_dir(name):
-    return '%s%s%s' % (BUILD_DIR, os.sep, name)
+_UNIQ_ID = 0
 
-LIB_KIND = 0
-EXE_KIND = 1
+def mk_fresh_name(prefix):
+    global _UNIQ_ID
+    r = '%s_%s' % (prefix, _UNIQ_ID)
+    _UNIQ_ID = _UNIQ_ID + 1
+    return r
 
-def get_extension(kind):
-    if kind == LIB_KIND:
-        return 'lib'
-    elif kind == EXE_KIND:
-        return 'exe'
-    else:
-        raise MKException('unknown kind %s' % kind)
-
-def vs_header(f):
-    f.write(
-'<?xml version="1.0" encoding="utf-8"?>\n'
-'<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
-
-def vs_project_configurations(f, name):
-    global GUI, Name2GUI
-    f.write('  <ItemGroup Label="ProjectConfigurations">\n')
-    for mode in MODES:
-        for platform in PLATFORMS:
-            f.write('    <ProjectConfiguration Include="%s|%s">\n' % (mode, platform))
-            f.write('      <Configuration>%s</Configuration>\n' % mode)
-            f.write('      <Platform>%s</Platform>\n' % platform)
-            f.write('    </ProjectConfiguration>\n')
-    f.write('  </ItemGroup>\n')
-
-    f.write('   <PropertyGroup Label="Globals">\n')
-    f.write('    <ProjectGuid>{%s}</ProjectGuid>\n' % mk_gui_str(GUI))
-    f.write('    <ProjectName>%s</ProjectName>\n' % name)
-    f.write('    <Keyword>Win32Proj</Keyword>\n')
-    f.write('  </PropertyGroup>\n')
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
-    Name2GUI[name] = GUI
-    GUI = GUI + 1
-
-def vs_configurations(f, name, kind):
-    for mode in MODES:
-        for platform in PLATFORMS:
-            f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'" Label="Configuration">\n' % (mode, platform))
-            if kind == LIB_KIND:
-                f.write('    <ConfigurationType>StaticLibrary</ConfigurationType>\n')
-            elif kind == EXE_KIND:
-                f.write('    <ConfigurationType>Application</ConfigurationType>\n')
-            else:
-                raise MKException("unknown kind %s" % kind)
-            f.write('    <CharacterSet>Unicode</CharacterSet>\n')
-            f.write('    <UseOfMfc>false</UseOfMfc>\n')
-            f.write('  </PropertyGroup>\n')
-
-    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
-    f.write('  <ImportGroup Label="ExtensionSettings">\n')
-    f.write('   </ImportGroup>\n')
-    f.write('   <ImportGroup Label="PropertySheets">\n')
-    f.write('    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
-    f.write('  <PropertyGroup Label="UserMacros" />\n')
-
-    f.write('  <PropertyGroup>\n')
-    for mode in MODES:
-        for platform in PLATFORMS:
-            if is_x64(platform):
-                f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'">$(SolutionDir)$(Platform)\$(Configuration)\</OutDir>\n' % 
-                        (mode, platform))
-            else:
-                f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'">$(SolutionDir)$(Configuration)\</OutDir>\n' % (mode, platform))
-    for mode in MODES:
-        for platform in PLATFORMS:
-            f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'">%s</TargetName>\n' % (mode, platform, name))
-            f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'">.%s</TargetExt>\n' % (mode, platform, get_extension(kind)))
-    f.write('  </PropertyGroup>\n')
-
-def vs_compilation_options(f, name, deps, kind):
-    for mode in MODES:
-        for platform in PLATFORMS:
-            f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'%s|%s\'">\n' % (mode, platform))
-            if is_x64(platform):
-                f.write('    <Midl>\n')
-                f.write('      <TargetEnvironment>X64</TargetEnvironment>\n')
-                f.write('    </Midl>\n')
-            f.write('    <ClCompile>\n')
-            if is_debug(mode):
-                f.write('      <Optimization>Disabled</Optimization>\n')
-            else:
-                f.write('      <Optimization>Full</Optimization>\n')
-            options = VS_COMMON_OPTIONS
-            if is_debug(mode):
-                options = "%s;%s" % (options, VS_DBG_OPTIONS)
-            else:
-                options = "%s;%s" % (options, VS_RELEASE_OPTIONS)
-            if is_x64(platform):
-                options = "%s;_AMD64_" % options
-            f.write('      <PreprocessorDefinitions>%s;%%(PreprocessorDefinitions)</PreprocessorDefinitions>\n' % options)
-            if is_debug(mode):
-                f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
-                f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
-                f.write('      <WarningLevel>Level3</WarningLevel>\n')
-            f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
-            f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
-            f.write('      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n')
-            f.write('      <AdditionalIncludeDirectories>')
-            f.write('..\..\src\%s' % name)
-            for dep in deps:
-                f.write(';..\..\src\%s' % dep)
-            f.write('</AdditionalIncludeDirectories>\n')
-            f.write('    </ClCompile>\n')
-            f.write('    <Link>\n')
-            f.write('      <OutputFile>$(OutDir)%s.%s</OutputFile>\n' % (name, get_extension(kind)))
-            f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
-            if is_x64(platform):
-                f.write('      <TargetMachine>MachineX64</TargetMachine>\n')
-            else:
-                f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
-            if kind == EXE_KIND:
-                f.write('<AdditionalDependencies>kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib')
-                for dep in deps:
-                    f.write(';$(OutDir)%s.lib' % dep)
-                    # if is_x64(platform):
-                    #    f.write(';..\%s\%s\%s\%s.lib' % (dep, platform, mode, dep))
-                    # else:
-                    #    f.write(';..\%s\%s\%s.lib' % (dep, mode, dep))
-                f.write(';%(AdditionalDependencies)</AdditionalDependencies>\n')
-            f.write('    </Link>\n')
-            f.write('  </ItemDefinitionGroup>\n')
-
-def add_vs_cpps(f, name):
-    f.write('  <ItemGroup>\n')
-    srcs = module_src_dir(name)
-    for cppfile in glob.glob(os.path.join(srcs, '*.cpp')):
-       f.write('    <ClCompile Include="..%s..%s%s" />\n' % (os.sep, os.sep, cppfile))
-    f.write('  </ItemGroup>\n')
-
-def vs_footer(f):
-    f.write(
-'  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n'
-'  <ImportGroup Label="ExtensionTargets">\n'
-'  </ImportGroup>\n'
-'</Project>\n')
-
-def check_new_component(name):
-    if (name in HEADERS) or (name in LIBS) or (name in EXES):
-        raise MKException("Component '%s' was already defined" % name)
-
-# Add a directory containing only .h files
-def add_header(name):
-    check_new_component(name)
-    HEADERS.append(name)
+_Id = 0
+_Components = []
+_ComponentNames = sets.Set()
+_Name2Component = {}
+_Processed_Headers = sets.Set()
 
 def find_all_deps(name, deps):
     new_deps = []
     for dep in deps:
-        if dep in LIBS:
+        if dep in _ComponentNames:
             if not (dep in new_deps):
                 new_deps.append(dep)
-            for dep_dep in DEPS[dep]:
+            for dep_dep in _Name2Component[dep].deps:
                 if not (dep_dep in new_deps):
                     new_deps.append(dep_dep)
-        elif dep in HEADERS:
-            if not (dep in new_deps):
-                new_deps.append(dep)
         else:
             raise MKException("Unknown component '%s' at '%s'." % (dep, name))
     return new_deps
 
-def add_component(name, deps, kind):
-    check_new_component(name)
-    if kind == LIB_KIND:
-        LIBS.append(name)
-    elif kind == EXE_KIND:
-        EXES.append(name)
-    else:
-        raise MKException("unknown kind %s" % kind)
-    MODULES.append(name)
-    deps = find_all_deps(name, deps)
-    DEPS[name] = deps
-    print "Dependencies for '%s': %s" % (name, deps)
+class Component:
+    def __init__(self, name, kind, path, deps):
+        global BUILD_DIR, SRC_DIR, REV_BUILD_DIR
+        if name in _ComponentNames:
+            raise MKException("Component '%s' was already defined." % name)
+        if path == None:
+            path = name
+        self.kind = kind
+        self.name = name
+        self.path = path
+        self.deps = find_all_deps(name, deps)
+        self.build_dir = path
+        self.src_dir   = '%s/%s' % (SRC_DIR, path)
+        self.to_src_dir = '%s/%s' % (REV_BUILD_DIR, self.src_dir)
 
-    module_dir = module_build_dir(name)
-    mk_dir(module_dir)
+    # Find fname in the include paths for the given component.
+    # ownerfile is only used for creating error messages.
+    # That is, we were looking for fname when processing ownerfile
+    def find_file(self, fname, ownerfile):
+        global _Name2Component
+        full_fname = '%s/%s' % (self.src_dir, fname)
+        if os.path.exists(full_fname):
+            return self
+        for dep in self.deps:
+            c_dep = _Name2Component[dep]
+            full_fname = '%s/%s' % (c_dep.src_dir, fname)
+            if os.path.exists(full_fname):
+                return c_dep
+        raise MKException("Failed to find include file '%s' for '%s' when processing '%s'." % (fname, ownerfile, self.name))
 
-    vs_proj = open('%s%s%s.vcxproj' % (module_dir, os.sep, name), 'w')
-    vs_header(vs_proj)
-    vs_project_configurations(vs_proj, name)
-    vs_configurations(vs_proj, name, kind)
-    vs_compilation_options(vs_proj, name, deps, kind)
-    add_vs_cpps(vs_proj, name)
-    vs_footer(vs_proj)
+    # Display all dependencies of file basename located in the given component directory.
+    # The result is displayed at out
+    def add_cpp_h_deps(self, out, basename):
+        includes = extract_c_includes('%s/%s' % (self.src_dir, basename))
+        out.write('%s/%s' % (self.to_src_dir, basename))
+        for include in includes:
+            owner = self.find_file(include, basename)
+            out.write(' %s/%s.node' % (owner.build_dir, include))
 
-def add_lib(name, deps):
-    add_component(name, deps, LIB_KIND)
+    # Add a rule for each #include directive in the file basename located at the current component.
+    def add_rule_for_each_include(self, out, basename):
+        fullname = '%s/%s' % (self.src_dir, basename)
+        includes = extract_c_includes(fullname)
+        for include in includes:
+            owner = self.find_file(include, fullname)
+            owner.add_h_rule(out, include)
 
-def add_exe(name, deps):
-    add_component(name, deps, EXE_KIND)
+    # Display a Makefile rule for an include file located in the given component directory.
+    # 'include' is something of the form: ast.h, polynomial.h
+    # The rule displayed at out is of the form
+    #     ast/ast_pp.h.node : ../src/util/ast_pp.h util/util.h.node ast/ast.h.node
+    #       @echo "done" > ast/ast_pp.h.node
+    def add_h_rule(self, out, include):
+        include_src_path   = '%s/%s' % (self.to_src_dir, include)
+        if include_src_path in _Processed_Headers:
+            return
+        _Processed_Headers.add(include_src_path)
+        self.add_rule_for_each_include(out, include)
+        include_node = '%s/%s.node' % (self.build_dir, include)
+        out.write('%s: ' % include_node)
+        self.add_cpp_h_deps(out, include)              
+        out.write('\n')
+        out.write('  @echo done > %s\n' % include_node)
 
-def is_lib(name):
-    # Add DLL dependency
-    return name in LIBS
+    def add_cpp_rules(self, out, include_defs, cppfile):
+        self.add_rule_for_each_include(out, cppfile)
+        objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+        srcfile = '%s/%s' % (self.to_src_dir, cppfile)
+        out.write('%s: ' % objfile)
+        self.add_cpp_h_deps(out, cppfile)
+        out.write('\n')
+        flags = 'CXXFLAGS_OPT'
+        out.write('  @$(CXX) $(%s) $(%s) $(CXXOUTFLAG)%s %s\n' % (include_defs, flags, objfile, srcfile))
 
-def mk_vs_solution():
-    sln = open('%s%sz3.sln' % (BUILD_DIR, os.sep), 'w')
-    sln.write('\n')
-    sln.write("Microsoft Visual Studio Solution File, Format Version 11.00\n")
-    sln.write("# Visual Studio 2010\n")
-    for module in MODULES:
-        gui = Name2GUI[module]
-        deps = DEPS[module]
-        sln.write('Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "%s", "%s%s%s.vcxproj", "{%s}"\n' %
-                  (module, module, os.sep, module, mk_gui_str(gui)))
-        if len(deps) > 0:
-            sln.write('    ProjectSection(ProjectDependencies) = postProject\n')
-            for dep in deps:
-                if is_lib(dep):
-                    i = Name2GUI[dep]
-                    sln.write('        {%s} = {%s}\n' % (mk_gui_str(i), mk_gui_str(i)))
-            sln.write('    EndProjectSection\n')
-        sln.write('EndProject\n')
-    sln.write('Global\n')
-    sln.write('GlobalSection(SolutionConfigurationPlatforms) = preSolution\n')
-    for mode in MODES:
-        for platform in PLATFORMS:
-            sln.write('   %s|%s = %s|%s\n' % (mode, platform, mode, platform))
-    sln.write('EndGlobalSection\n')
-    sln.write('GlobalSection(ProjectConfigurationPlatforms) = postSolution\n')
-    for module in MODULES:
-        gui = Name2GUI[module]
-        for mode in MODES:
-            for platform in PLATFORMS:
-                sln.write('    {%s}.%s|%s.ActiveCfg = %s|%s\n' % (mk_gui_str(gui), mode, platform, mode, platform))
-                sln.write('    {%s}.%s|%s.Build.0   = %s|%s\n' % (mk_gui_str(gui), mode, platform, mode, platform))
-    sln.write('EndGlobalSection\n')
-                
-    print "Visual Solution was generated."
+    def mk_makefile(self, out):
+        include_defs = mk_fresh_name('includes')
+        out.write('%s =' % include_defs)
+        for dep in self.deps:
+            out.write(' -I%s' % _Name2Component[dep].to_src_dir)
+        out.write('\n')
+        mk_dir('%s/%s' % (BUILD_DIR, self.build_dir))
+        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
+            cppfile = os.path.basename(cppfile)
+            self.add_cpp_rules(out, include_defs, cppfile)
+
+class LibComponent(Component):
+    def __init__(self, name, path, deps):
+        Component.__init__(self, name, LIB_KIND, path, deps)
+
+    def mk_makefile(self, out):
+        Component.mk_makefile(self, out)
+        # generate rule for lib
+        objs = []
+        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
+            cppfile = os.path.basename(cppfile)
+            objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
+
+        libfile = '%s/%s.$(LIB)' % (self.build_dir, self.name)
+        out.write('%s:' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        out.write('  @$(MKLIB) $(MKLIB_OPT) $(MKLIBOUTFLAG)%s' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        out.write('%s: %s\n\n' % (self.name, libfile))
+
+class ExeComponent(Component):
+    def __init__(self, name, exe_name, path, deps):
+        Component.__init__(self, name, EXE_KIND, path, deps)
+        if exe_name == None:
+            exe_name = name
+        self.exe_name = exe_name
+
+    def mk_makefile(self, out):
+        global _Name2Component
+        Component.mk_makefile(self, out)
+        # generate rule for exe
+
+        exefile = '%s.$(EXE)' % self.exe_name
+        out.write('%s:' % exefile)
+        for dep in self.deps:
+            c_dep = _Name2Component[dep]
+            out.write(' %s/%s.lib' % (c_dep.build_dir, c_dep.name))
+        objs = []
+        for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
+            cppfile = os.path.basename(cppfile)
+            objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        out.write('  $(MKEXE) $(EXEOUTFLAG)%s $(EXEFLAGS_OPT)' % exefile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        for dep in self.deps:
+            c_dep = _Name2Component[dep]
+            out.write(' %s/%s.lib' % (c_dep.build_dir, c_dep.name))
+        out.write('\n')
+        out.write('%s: %s\n\n' % (self.name, exefile))
+            
+
+def reg_component(name, c):
+    global _Id, _Components, _ComponentNames, _Name2Component
+    c.id = _Id
+    _Id = _Id + 1
+    _Components.append(c)
+    _ComponentNames.add(name)
+    _Name2Component[name] = c
+
+def add_lib(name, deps=[], path=None):
+    c = LibComponent(name, path, deps)
+    reg_component(name, c)
+
+def add_exe(name, deps=[], path=None, exe_name=None):
+    c = ExeComponent(name, exe_name, path, deps)
+    reg_component(name, c)
+
+def mk_makefile():
+    mk_dir(BUILD_DIR)
+    out = open('%s/Makefile' % BUILD_DIR, 'w')
+    out.write('# Automatically generated file. Generator: scripts/mk_make.py\n')
+    out.write('include config.mk\n')
+    for c in _Components:
+        c.mk_makefile(out)
+
+# add_lib('util')
+# add_lib('polynomial', ['util'])
+# add_lib('ast', ['util', 'polynomial'])
+# mk_makefile()

@@ -160,7 +160,7 @@ void escaped::display(std::ostream & out) const {
 #ifdef ARRAYSIZE
 #undef ARRAYSIZE
 #endif
-#include "windows.h"
+#include <windows.h>
 #endif
 
 void z3_bound_num_procs() {

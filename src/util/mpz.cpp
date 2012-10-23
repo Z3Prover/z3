@@ -23,16 +23,7 @@ Revision History:
 #include"hash.h"
 #include"bit_util.h"
 
-#if defined(_MP_MSBIGNUM)
-#define COMPILER COMPILER_VC
-#ifndef NDEBUG
-#define NDEBUG
-#endif
-#ifdef ARRAYSIZE
-#undef ARRAYSIZE
-#endif
-#include "..\msbig_rational\msbignum.h"
-#elif defined(_MP_INTERNAL)
+#if defined(_MP_INTERNAL)
 #include"mpn.h"
 #elif defined(_MP_GMP)
 #include<gmp.h>

@@ -1,5 +1,5 @@
 #ifdef _WINDOWS
-#include "windows.h"
+#include <windows.h>
 #endif
 #include "instruction_count.h"
 

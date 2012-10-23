@@ -8,15 +8,14 @@
 ############################################
 from mk_util import *
 
-set_build_dir('build')
-set_src_dir('src')
-set_modes(['Debug', 'Release'])
-set_platforms(['Win32', 'x64'])
-set_vs_options('WIN32;_WINDOWS;ASYNC_COMMANDS',
-               'Z3DEBUG;_TRACE;_DEBUG',
-               'NDEBUG;_EXTERNAL_RELEASE')
+# set_build_dir('build')
+# set_src_dir('src')
+# set_modes(['Debug', 'Release'])
+# set_platforms(['Win32', 'x64'])
+# set_vs_options('WIN32;_WINDOWS;ASYNC_COMMANDS',
+#                'Z3DEBUG;_TRACE;_DEBUG',
+#                'NDEBUG;_EXTERNAL_RELEASE')
 
-add_header('api_headers')
 add_lib('util', [])
 add_lib('polynomial', ['util'])
 add_lib('sat', ['util'])
@@ -75,7 +74,9 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_strategy', 'fpa', 'aig', 'muz_qe
 # TODO: delete SMT 1.0 frontend
 add_lib('api', ['portfolio', 'user_plugin'])
 add_lib('array_property', ['ast', 'rewriter'])
-add_exe('shell', ['api', 'sat', 'extra_cmds'])
+add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
 add_exe('test', ['api', 'fuzzing', 'array_property'])
 
-mk_vs_solution()
+# mk_vs_solution()
+
+mk_makefile()

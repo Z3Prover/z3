@@ -42,7 +42,6 @@ Revision History:
 #include"warning.h"
 #include"eager_bit_blaster.h"
 #include"bit2int.h"
-// #include"qe.h"
 #include"distribute_forall.h"
 #include"demodulator.h"
 #include"quasi_macros.h"

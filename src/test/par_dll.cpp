@@ -1,5 +1,5 @@
 #include "z3.h"
-#include "windows.h"
+#include <windows.h>
 
 class thread_check {
 

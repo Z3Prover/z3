@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"memory.h"
+#include<memory.h>
 #include"sat_clause.h"
 #include"z3_exception.h"
 

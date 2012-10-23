@@ -24,7 +24,6 @@ Revision History:
 #include "ast_translation.h"
 #include "bv_decl_plugin.h"
 #include "smt_solver.h"
-#include "pdr_manager.h"
 #include "bool_rewriter.h"
 #include "pdr_util.h"
 #include "front_end_params.h"
