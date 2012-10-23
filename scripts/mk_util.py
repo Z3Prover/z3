@@ -12,6 +12,7 @@ import sets
 import re
 import getopt
 import sys
+import shutil
 from mk_exception import *
 
 BUILD_DIR='build'
@@ -28,6 +29,8 @@ EXE_KIND = 1
 
 if os.name == 'nt':
     IS_WINDOW=True
+    # Visual Studio already displays the files being compiled
+    SHOW_CPPS=False
 
 def display_help():
     print "mk_make.py: Z3 Makefile generator\n"
@@ -104,7 +107,7 @@ def mk_dir(d):
         os.makedirs(d)
 
 def set_build_dir(d):
-    global BUILD_DIR
+    global BUILD_DIR, REV_BUILD_DIR
     BUILD_DIR = d
     REV_BUILD_DIR = reverse_path(d)
 
@@ -210,7 +213,7 @@ class Component:
         self.add_cpp_h_deps(out, cppfile)
         out.write('\n')
         if SHOW_CPPS:
-            out.write('\t@echo %s\n' % cppfile)
+            out.write('\t@echo %s/%s\n' % (self.src_dir, cppfile))
         out.write('\t@$(CXX) $(CXXFLAGS) $(%s) $(CXX_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
@@ -222,6 +225,10 @@ class Component:
         mk_dir('%s/%s' % (BUILD_DIR, self.build_dir))
         for cppfile in get_cpp_files(self.src_dir):
             self.add_cpp_rules(out, include_defs, cppfile)
+
+    # Return true if the component should be included in the all: rule
+    def main_component(self):
+        return False
 
 class LibComponent(Component):
     def __init__(self, name, path, deps):
@@ -293,7 +300,10 @@ class ExeComponent(Component):
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
-            
+
+    # All executables are included in the all: rule
+    def main_component(self):
+        return True
 
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
@@ -313,15 +323,36 @@ def add_exe(name, deps=[], path=None, exe_name=None):
     c = ExeComponent(name, exe_name, path, deps)
     reg_component(name, c)
 
+# Copy configuration correct file to BUILD_DIR
+def cp_config_mk():
+    if IS_WINDOW:
+        # TODO
+        return
+    else:
+        if DEBUG_MODE:
+            shutil.copyfile('scripts/config-debug.mk', '%s/config.mk' % BUILD_DIR)
+        else:
+            shutil.copyfile('scripts/config-release.mk', '%s/config.mk' % BUILD_DIR)
+
+# Generate the Z3 makefile
 def mk_makefile():
     mk_dir(BUILD_DIR)
+    cp_config_mk()
     if VERBOSE:
         print "Writing %s/Makefile" % BUILD_DIR
     out = open('%s/Makefile' % BUILD_DIR, 'w')
     out.write('# Automatically generated file. Generator: scripts/mk_make.py\n')
     out.write('include config.mk\n')
+    # Generate :all rule
+    out.write('all:')
+    for c in _Components:
+        if c.main_component:
+            out.write(' %s' % c.name)
+    out.write('\n\n')
+    # Generate components
     for c in _Components:
         c.mk_makefile(out)
+    # Finalize
     if VERBOSE:
         print "Makefile was successfully generated."
         if DEBUG_MODE:
