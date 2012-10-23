@@ -196,7 +196,7 @@ namespace pdr {
         pred_transformer& pt() const { return m_pt; }
         model_node* parent() const { return m_parent; }
         model* model_ptr() const { return m_model.get(); }
-        model const& model() const { return *m_model; }
+        model const&  get_model() const { return *m_model; }
         unsigned index() const;
 
         bool is_closed() const { return m_closed; }

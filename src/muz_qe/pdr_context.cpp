@@ -712,14 +712,14 @@ namespace pdr {
         pred_transformer& p = pt();
         ast_manager& m = p.get_manager();
         manager& pm = p.get_pdr_manager();
-        TRACE("pdr", model_v2_pp(tout, model()););
+        TRACE("pdr", model_v2_pp(tout, get_model()););
         func_decl* f = p.head();
         unsigned arity = f->get_arity();
         expr_ref_vector args(m);
         func_decl_ref v(m);
         for (unsigned i = 0; i < arity; ++i) {
             v = pm.o2n(p.sig(i),0);  
-            expr* e = model().get_const_interp(v);
+            expr* e = get_model().get_const_interp(v);
             if (e) {
                 args.push_back(e);
             }

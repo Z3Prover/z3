@@ -22,6 +22,7 @@ if os.name == 'nt':
     IS_WINDOW=True
     CXX='cl'
     MAKE='nmake'
+SHOW_CPPS = True
 
 LIB_KIND = 0
 EXE_KIND = 1
@@ -133,17 +134,18 @@ class Component:
         out.write('%s: ' % include_node)
         self.add_cpp_h_deps(out, include)              
         out.write('\n')
-        out.write('  @echo done > %s\n' % include_node)
+        out.write('\t@echo done > %s\n' % include_node)
 
     def add_cpp_rules(self, out, include_defs, cppfile):
         self.add_rule_for_each_include(out, cppfile)
-        objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+        objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
         srcfile = '%s/%s' % (self.to_src_dir, cppfile)
         out.write('%s: ' % objfile)
         self.add_cpp_h_deps(out, cppfile)
         out.write('\n')
-        flags = 'CXXFLAGS_OPT'
-        out.write('  @$(CXX) $(%s) $(%s) $(CXXOUTFLAG)%s %s\n' % (include_defs, flags, objfile, srcfile))
+        if SHOW_CPPS:
+            out.write('\t@echo %s\n' % cppfile)
+        out.write('\t@$(CXX) $(CXXFLAGS) $(%s) $(CXX_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
         include_defs = mk_fresh_name('includes')
@@ -166,21 +168,32 @@ class LibComponent(Component):
         objs = []
         for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
             cppfile = os.path.basename(cppfile)
-            objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
             objs.append(objfile)
 
-        libfile = '%s/%s.$(LIB)' % (self.build_dir, self.name)
+        libfile = '%s/%s$(LIB_EXT)' % (self.build_dir, self.name)
         out.write('%s:' % libfile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
         out.write('\n')
-        out.write('  @$(MKLIB) $(MKLIB_OPT) $(MKLIBOUTFLAG)%s' % libfile)
+        out.write('\t@$(AR) $(AR_FLAGS) $(AR_OUTFLAG)%s' % libfile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
+
+def comp_components(c1, c2):
+    id1 = _Name2Component[c1].id
+    id2 = _Name2Component[c2].id
+    if id1 < id2: return -1
+    if id2 > id1: return 1
+    return 0
+
+# Sort components based on definition time
+def sort_components(cnames):
+    return sorted(cnames, cmp=comp_components)
 
 class ExeComponent(Component):
     def __init__(self, name, exe_name, path, deps):
@@ -194,27 +207,28 @@ class ExeComponent(Component):
         Component.mk_makefile(self, out)
         # generate rule for exe
 
-        exefile = '%s.$(EXE)' % self.exe_name
+        exefile = '%s$(EXE_EXT)' % self.exe_name
         out.write('%s:' % exefile)
-        for dep in self.deps:
+        deps = sort_components(self.deps)
+        for dep in deps:
             c_dep = _Name2Component[dep]
-            out.write(' %s/%s.lib' % (c_dep.build_dir, c_dep.name))
+            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         objs = []
         for cppfile in glob.glob(os.path.join(self.src_dir, '*.cpp')):
             cppfile = os.path.basename(cppfile)
-            objfile = '%s/%s.$(OBJ)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
             objs.append(objfile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
         out.write('\n')
-        out.write('  $(MKEXE) $(EXEOUTFLAG)%s $(EXEFLAGS_OPT)' % exefile)
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
-        for dep in self.deps:
+        for dep in deps:
             c_dep = _Name2Component[dep]
-            out.write(' %s/%s.lib' % (c_dep.build_dir, c_dep.name))
+            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
             

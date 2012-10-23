@@ -908,9 +908,6 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             m_cfg(m, p) {}
     };
 
-    template class rewriter_tpl<ite_hoister_cfg>;
-
-
     void hoist_non_bool_if(expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         datalog::scoped_no_proof _sp(m);
@@ -1039,3 +1036,8 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
     }  
 
 }
+
+template class rewriter_tpl<pdr::ite_hoister_cfg>;
+
+
+

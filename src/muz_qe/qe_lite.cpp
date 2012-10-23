@@ -498,7 +498,7 @@ public:
             unsigned j = 0;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 if (used.contains(vars.size()-i-1)) {
-                    vars[j] = vars[i];
+                    vars.set(j, vars.get(i));
                     ++j;
                 }
             }

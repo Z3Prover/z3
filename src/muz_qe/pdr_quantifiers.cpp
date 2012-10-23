@@ -418,10 +418,10 @@ namespace pdr {
         // nodes from leaves that are repeated 
         // inside the search tree don't have models.
         //
-        if (!(&node.model())) {
+        if (!(&node.get_model())) {
             return;
         }
-        m_current_rule = &pt.find_rule(node.model());   
+        m_current_rule = &pt.find_rule(node.get_model());   
         m_current_pt = &pt;
         m_current_node = &node;
         if (!m_current_rule) { 

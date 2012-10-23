@@ -29,11 +29,7 @@ Revision History:
 #include"array_decl_plugin.h"
 #include"float_decl_plugin.h"
 #include"dl_decl_plugin.h"
-
-bool is_smt2_simple_symbol_char(char c);
-bool is_smt2_quoted_symbol(char const * s);
-bool is_smt2_quoted_symbol(symbol const & s);
-std::string mk_smt2_quoted_symbol(symbol const & s);
+#include"smt2_util.h"
 
 class smt2_pp_environment {
 protected:

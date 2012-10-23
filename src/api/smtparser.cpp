@@ -46,7 +46,7 @@ Revision History:
 #include "str_hashtable.h"
 #include "front_end_params.h"
 #include "stopwatch.h"
-front_end_params& Z3_API Z3_get_parameters(__in Z3_context c);
+front_end_params& Z3_API Z3_get_parameters(Z3_context c);
 
 class id_param_info {
     symbol    m_string;
