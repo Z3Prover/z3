@@ -20,7 +20,6 @@ Revision History:
 #define _BIT_BLASTER_TPL_H_
 
 #include"rational.h"
-#include"strategy_exception.h"
 
 template<typename Cfg>
 class bit_blaster_tpl : public Cfg {

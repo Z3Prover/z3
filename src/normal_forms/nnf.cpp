@@ -29,10 +29,6 @@ Notes:
 
 #include"ast_smt2_pp.h"
 
-// Old strategy framework
-#include"assertion_set_strategy.h"
-
-// New framework
 #include"tactical.h"
 
 class skolemizer {
@@ -365,9 +361,9 @@ struct nnf::imp {
     void checkpoint() {
         cooperate("nnf");
         if (memory::get_allocation_size() > m_max_memory)
-            throw nnf_exception(STE_MAX_MEMORY_MSG);
+            throw nnf_exception(TACTIC_MAX_MEMORY_MSG);
         if (m_cancel)
-            throw nnf_exception(STE_CANCELED_MSG);
+            throw nnf_exception(TACTIC_CANCELED_MSG);
     }
 
     void set_new_child_flag() {
@@ -929,102 +925,5 @@ void nnf::reset() {
 
 void nnf::reset_cache() {
     m_imp->reset_cache();
-}
-
-// TODO: delete after conversion to new tactic framework is done.
-class nnf_strategy : public assertion_set_strategy {
-    params_ref    m_params;
-    nnf *         m_nnf;
-
-    struct set_nnf {
-        nnf_strategy & m_owner;
-        
-        set_nnf(nnf_strategy & owner, nnf & n):
-            m_owner(owner) {
-            #pragma omp critical (nnf_strategy)
-            {
-                m_owner.m_nnf = &n;
-            }
-        }
-        
-        ~set_nnf() {
-            #pragma omp critical (nnf_strategy)
-            {
-                m_owner.m_nnf = 0;
-            }
-        }
-    };
-public:
-    nnf_strategy(params_ref const & p):
-        m_params(p),
-        m_nnf(0) {
-        TRACE("nnf", tout << "nnf_strategy constructor: " << p << "\n";);
-    }
-
-    virtual ~nnf_strategy() {}
-
-    virtual void updt_params(params_ref const & p) { m_params = p; }
-    static void get_param_descrs(param_descrs & r) { nnf::get_param_descrs(r); }
-    virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
-
-    virtual void operator()(assertion_set & s, model_converter_ref & mc) {
-        TRACE("nnf", tout << "params: " << m_params << "\n"; s.display(tout););
-        SASSERT(is_well_sorted(s));
-        as_st_report report("nnf", s);
-        mc = 0;
-        if (s.inconsistent())
-            return;
-        ast_manager & m = s.m();
-        defined_names dnames(m);
-        nnf local_nnf(m, dnames, m_params);
-        set_nnf setter(*this, local_nnf);
-        
-        expr_ref_vector defs(m);
-        proof_ref_vector def_prs(m);
-        
-        expr_ref   new_curr(m);
-        proof_ref  new_pr(m);
-        
-        unsigned sz = s.size();
-        for (unsigned i = 0; i < sz; i++) {
-            expr * curr = s.form(i);
-            local_nnf(curr, defs, def_prs, new_curr, new_pr);
-            if (m.proofs_enabled()) {
-                proof * pr = s.pr(i);
-                new_pr     = m.mk_modus_ponens(pr, new_pr);
-            }
-            s.update(i, new_curr, new_pr);
-        }
-        
-        sz = defs.size();
-        for (unsigned i = 0; i < sz; i++) {
-            if (m.proofs_enabled())
-                s.assert_expr(defs.get(i), def_prs.get(i));
-            else
-                s.assert_expr(defs.get(i), 0);
-        }
-        TRACE("nnf", s.display(tout););
-        SASSERT(is_well_sorted(s));
-    }
-
-    virtual void cleanup() {}
-    virtual void set_cancel(bool f) {
-        #pragma omp critical (nnf_strategy)
-        {
-            if (m_nnf)
-                m_nnf->set_cancel(f);
-        }
-    }
-};
-
-as_st * mk_snf(params_ref const & p) {
-    return alloc(nnf_strategy, p);
-}
-
-as_st * mk_nnf(params_ref const & p) {
-    params_ref new_p(p);
-    new_p.set_sym(":nnf-mode", symbol("full"));
-    TRACE("nnf", tout << "mk_nnf: " << new_p << "\n";);
-    return using_params(mk_snf(), new_p);
 }
 

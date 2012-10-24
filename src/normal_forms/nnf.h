@@ -51,14 +51,6 @@ public:
     void reset_cache();
 };
 
-// Old strategy framework
-class assertion_set_strategy;
-// Skolem Normal Form
-assertion_set_strategy * mk_snf(params_ref const & p = params_ref());
-// Negation Normal Form
-assertion_set_strategy * mk_nnf(params_ref const & p = params_ref());
-
-// New strategy framework
 class tactic;
 // Skolem Normal Form
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref());

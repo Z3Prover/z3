@@ -43,7 +43,7 @@ add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier
 # code to the new tactic framework.
 add_lib('assertion_set', ['cmd_context'])
 add_lib('substitution', ['ast'], 'ast/substitution')
-add_lib('normal_forms', ['tactic', 'assertion_set'])
+add_lib('normal_forms', ['tactic', 'old_params'])
 add_lib('pattern', ['normal_forms'], 'ast/pattern')
 add_lib('spc', ['simplifier', 'substitution', 'old_params', 'pattern'])
 add_lib('parser_util', ['ast'])
@@ -52,7 +52,7 @@ add_lib('macros', ['simplifier', 'old_params'], 'ast/macros')
 add_lib('grobner', ['ast'], 'math/grobner')
 add_lib('euclid', ['util'], 'math/euclid')
 add_lib('proof_checker', ['rewriter', 'spc'], 'ast/proof_checker')
-add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'tactic', 'assertion_set'], 'tactic/bit_blaster')
+add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'tactic'], 'tactic/bit_blaster')
 add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'cmd_context', 
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
 add_lib('user_plugin', ['smt'], 'smt/user_plugin')

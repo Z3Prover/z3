@@ -20,13 +20,14 @@ Revision History:
 #include"rational.h"
 #include"ast_pp.h"
 #include"cooperate.h"
+#include"tactic_exception.h"
 
 template<typename Cfg>
 void bit_blaster_tpl<Cfg>::checkpoint() {
     if (memory::get_allocation_size() > m_max_memory)
-        throw strategy_exception(STE_MAX_MEMORY_MSG);
+        throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
     if (m_cancel)
-        throw strategy_exception(STE_CANCELED_MSG);
+        throw tactic_exception(TACTIC_CANCELED_MSG);
     cooperate("bit-blaster");
 }
 

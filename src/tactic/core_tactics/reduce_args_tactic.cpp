@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include"tactical.h"
-#include"reduce_args.h"
 #include"cooperate.h"
 #include"ast_smt2_pp.h"
 #include"map.h"

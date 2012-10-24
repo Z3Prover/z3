@@ -26,8 +26,6 @@ Notes:
 #include"model_pp.h"
 #include"model_evaluator.h"
 #include"solve_eqs_tactic.h"
-#include"assertion_set_rewriter.h"
-#include"shallow_context_simplifier.h"
 #include"elim_uncnstr_tactic.h"
 #include"bv_size_reduction_tactic.h"
 #include"max_bv_sharing_tactic.h"
