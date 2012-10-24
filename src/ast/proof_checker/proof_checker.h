@@ -29,7 +29,7 @@ class proof_checker {
     expr_ref_vector  m_pinned;
     obj_map<expr, expr*> m_hypotheses;
     family_id        m_hyp_fid;
-    family_id        m_spc_fid;
+    // family_id        m_spc_fid;
     app_ref          m_nil;
     bool             m_dump_lemmas;
     std::string      m_logic; 

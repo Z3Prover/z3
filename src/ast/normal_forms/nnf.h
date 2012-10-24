@@ -51,10 +51,4 @@ public:
     void reset_cache();
 };
 
-class tactic;
-// Skolem Normal Form
-tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref());
-// Negation Normal Form
-tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p = params_ref());
-
 #endif /* _NNF_H_ */

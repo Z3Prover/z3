@@ -1,7 +1,7 @@
 #include "proof_checker.h"
 #include "ast_ll_pp.h"
 #include "ast_pp.h"
-#include "spc_decl_plugin.h"
+// include "spc_decl_plugin.h"
 #include "ast_smt_pp.h"
 #include "arith_decl_plugin.h"
 #include "front_end_params.h"
@@ -86,7 +86,7 @@ proof_checker::proof_checker(ast_manager& m) : m_manager(m), m_todo(m), m_marked
         m.register_plugin(fam_name, alloc(hyp_decl_plugin));
     }
     m_hyp_fid = m.get_family_id(fam_name);
-    m_spc_fid = m.get_family_id("spc");
+    // m_spc_fid = m.get_family_id("spc");
     m_nil = m_manager.mk_const(m_hyp_fid, OP_NIL);
 }
 
@@ -117,13 +117,16 @@ bool proof_checker::check1(proof* p, expr_ref_vector& side_conditions) {
     if (p->get_family_id() == m_manager.get_basic_family_id()) {
         return check1_basic(p, side_conditions);
     }
+#if 0
     if (p->get_family_id() == m_spc_fid) {
         return check1_spc(p, side_conditions);
     }
+#endif
     return false;
 }
 
 bool proof_checker::check1_spc(proof* p, expr_ref_vector& side_conditions) {
+#if 0
     decl_kind k = p->get_decl_kind();
     bool is_univ = false;
     expr_ref fact(m_manager), fml(m_manager);
@@ -174,6 +177,9 @@ bool proof_checker::check1_spc(proof* p, expr_ref_vector& side_conditions) {
         UNREACHABLE();
     }
     return false;
+#else
+    return true;
+#endif
 }
 
 bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {

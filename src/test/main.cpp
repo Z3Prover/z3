@@ -151,8 +151,6 @@ int main(int argc, char ** argv) {
     TST(list);
     TST(small_object_allocator);
     TST(timeout);
-    TST(splay_tree);
-    TST(fvi);
     TST(proof_checker);
     TST(simplifier);
     TST(bv_simplifier_plugin);

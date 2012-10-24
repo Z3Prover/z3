@@ -23,7 +23,6 @@ Revision History:
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include"well_sorted.h"
-#include"spc_prover.h"
 #include"model.h"
 #include"model_v2_pp.h"
 #include"solver.h"

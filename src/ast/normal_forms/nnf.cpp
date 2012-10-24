@@ -29,8 +29,6 @@ Notes:
 
 #include"ast_smt2_pp.h"
 
-#include"tactical.h"
-
 class skolemizer {
     typedef act_cache cache;
 

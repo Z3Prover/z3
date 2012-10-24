@@ -37,9 +37,6 @@ Revision History:
 #include"error_codes.h"
 #include"pattern_validation.h"
 #include"unifier.h"
-#include"kbo.h"
-#include"lpo.h"
-#include"substitution_tree.h"
 #include"timeit.h"
 #include"var_subst.h"
 #include"well_sorted.h"
@@ -2261,23 +2258,6 @@ private:
         symbol datatypes("datatypes");
         symbol unify("unify");
         symbol unify_fail("unify-fail");
-#if    !defined(SMTCOMP) && !defined(_EXTERNAL_RELEASE)
-        symbol kbo_lt("kbo_lt");
-        symbol kbo_gt("kbo_gt");
-        symbol kbo_eq("kbo_eq");
-        symbol kbo_un("kbo_un");
-        symbol lpo_lt("lpo_lt");
-        symbol lpo_gt("lpo_gt");
-        symbol lpo_eq("lpo_eq");
-        symbol lpo_un("lpo_un");
-        symbol st_insert("st_insert");
-        symbol st_erase("st_erase");
-        symbol st_reset("st_reset");
-        symbol st_unify("st_unify");
-        symbol st_inst("st_inst");
-        symbol st_gen("st_gen");
-        symbol st_display("st_display");
-#endif
         symbol assumption("assumption");
         symbol assumption_core("assumption-core");
         symbol define_sorts_sym("define_sorts");
@@ -2427,46 +2407,6 @@ private:
                 ++proto_exprs;
                 continue;
             }
-#if    !defined(SMTCOMP) && !defined(_EXTERNAL_RELEASE)
-            if ((kbo_lt == e->string() || kbo_gt == e->string() || kbo_eq == e->string() || kbo_un == e->string()) && e1) {
-                if (!test_kbo(e1, e->string())) {
-                    return false;
-                }
-                ++proto_exprs;
-                continue;
-            }
-            if ((lpo_lt == e->string() || lpo_gt == e->string() || lpo_eq == e->string() || lpo_un == e->string()) && e1) {
-                if (!test_lpo(e1, e->string())) {
-                    return false;
-                }
-                ++proto_exprs;
-                continue;
-            }
-            if ((st_insert == e->string() || st_erase == e->string()) && e1) {
-                if (!test_st(e1, e->string())) {
-                    return false;
-                }
-                ++proto_exprs;
-                continue;
-            }
-            if ((st_unify == e->string() || st_inst == e->string() || st_gen == e->string()) && e1) {
-                if (!test_st_visit(e1, e->string())) {
-                    return false;
-                }
-                ++proto_exprs;
-                continue;
-            }
-            if (st_reset == e->string()) {
-                m_st.reset();
-                ++proto_exprs;
-                continue;
-            }
-            if (st_display == e->string()) {
-                m_st.display(std::cout);
-                ++proto_exprs;
-                continue;
-            }
-#endif
             if (m_notes == e->string() && e1) {
                 ++proto_exprs;
                 continue;
@@ -4606,120 +4546,6 @@ private:
                 std::cout << "VAR " << i << " -->\n" << mk_pp(t, m_manager) << "\n";
         }
     }
-
-#if    !defined(SMTCOMP) && !defined(_EXTERNAL_RELEASE)
-    bool test_order(proto_expr * e, order & ord, symbol expected) {
-        proto_expr* const * children = e->children();
-        if (!children || !children[0] || !children[1]) {
-            set_error("invalid unification problem", e);
-        }
-        
-        expr_ref f1(m_manager), f2(m_manager);
-        if (!make_expression(children[0], f1) || !make_expression(children[1], f2))
-            return false;
-        unsigned num_vars1 = 0;
-        unsigned num_vars2 = 0;
-        if (is_forall(f1)) {
-            num_vars1 = to_quantifier(f1)->get_num_decls();
-            f1 = to_quantifier(f1)->get_expr();
-        }
-        if (is_forall(f2)) {
-            num_vars2 = to_quantifier(f2)->get_num_decls();
-            f2 = to_quantifier(f2)->get_expr();
-        }
-        ord.reserve(1, std::max(num_vars1, num_vars2));
-        order::result r = ord.compare(f1.get(), f2.get());
-        if ((r == order::UNCOMPARABLE && expected != symbol("kbo_un") && expected != symbol("lpo_un")) ||
-            (r == order::LESSER && expected != symbol("kbo_lt") && expected != symbol("lpo_lt")) ||
-            (r == order::GREATER && expected != symbol("kbo_gt") && expected != symbol("lpo_gt")) ||            
-            (r == order::EQUAL && expected != symbol("kbo_eq") && expected != symbol("lpo_eq")) ||
-            r == order::UNKNOWN) {
-            get_err() << "WRONG ANSWER\n";
-            UNREACHABLE();
-        }
-        else 
-            std::cout << "order: succeeded\n";
-        return true;
-    }
-
-    bool test_kbo(proto_expr * e, symbol expected) {
-        precedence * p = alloc(arbitrary_precedence);
-        kbo k(m_manager, p);
-        return test_order(e, k, expected);
-    }
-
-    bool test_lpo(proto_expr * e, symbol expected) {
-        precedence * ps[2] = { alloc(arity_precedence), alloc(arbitrary_precedence) };
-        precedence * p  = alloc(lex_precedence, 2, ps);
-        lpo l(m_manager, p);
-        return test_order(e, l, expected);
-    }
-
-    bool test_st(proto_expr * e, symbol op) {
-        expr_ref f(m_manager);
-        if (!make_expression(e, f))
-            return false;
-        
-        if (is_forall(f))
-            f = to_quantifier(f)->get_expr();
-
-        if (!is_app(f))
-            set_error("invalid st operation", e);
-
-        if (op == symbol("st_insert"))
-            m_st.insert(to_app(f));
-        else
-            m_st.erase(to_app(f));
-
-        return true;
-    }
-
-  
-
-
-    class simple_st_visitor : public st_visitor {
-        unsigned m_delta;
-    public:
-        simple_st_visitor(substitution & s, unsigned d):st_visitor(s), m_delta(d) {}
-        virtual bool operator()(expr * e) { 
-            std::cout << "found:\n" << mk_pp(e, m_subst.get_manager()) << "\n";
-            unsigned deltas[2] = { 0, m_delta };
-            std::cout << "substitution:\n";
-            // m_subst.display(std::cout); std::cout << "\n";
-            m_subst.display(std::cout, 2, deltas);
-            std::cout << "\n";
-            return true;
-        }
-    };
-
-    bool test_st_visit(proto_expr * e, symbol op) {
-        expr_ref f(m_manager);
-        if (!make_expression(e, f))
-            return false;
-
-        unsigned num_vars = 0;
-        if (is_forall(f)) {
-            num_vars = to_quantifier(f)->get_num_decls();
-            f = to_quantifier(f)->get_expr();
-        }
-        if (!is_app(f))
-            set_error("invalid st operation", e);
-        substitution s(m_manager);
-        s.reserve(3, std::max(num_vars, m_st.get_approx_num_regs()));
-        
-        simple_st_visitor v(s, num_vars);
-        
-        std::cout << "searching for " << op << ":\n" << mk_pp(f, m_manager) << "\n\n";
-        if (op == symbol("st_unify"))
-            m_st.unify(to_app(f), v);
-        else if (op == symbol("st_inst"))
-            m_st.inst(to_app(f), v);
-        else 
-            m_st.gen(to_app(f), v);
-        std::cout << "done.\n";
-        return true;
-    }
-#endif
 
     bool declare_axioms(proto_expr * e) {
         proto_expr* const * children = e->children();
