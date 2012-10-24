@@ -557,7 +557,7 @@ namespace datalog {
     expr_ref bmc::eval_q(model_ref& model, func_decl* f, unsigned i) {
         func_decl_ref fn = mk_q_func_decl(f);
         expr_ref t(m), result(m);
-        t = m.mk_app(mk_q_func_decl(f), mk_q_num(i));
+        t = m.mk_app(mk_q_func_decl(f).get(), mk_q_num(i));
         model->eval(t, result);
         return result;
     }
