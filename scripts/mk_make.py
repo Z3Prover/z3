@@ -39,9 +39,6 @@ add_lib('tactic', ['ast', 'model'])
 # However, it is still used by many old components.
 add_lib('old_params', ['model', 'simplifier'])
 add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
-# Assertion set is the old tactic framework used in Z3 3.x. It will be deleted as soon as we finish the porting old
-# code to the new tactic framework.
-add_lib('assertion_set', ['cmd_context'])
 add_lib('substitution', ['ast'], 'ast/substitution')
 add_lib('normal_forms', ['tactic', 'old_params'])
 add_lib('pattern', ['normal_forms'], 'ast/pattern')
