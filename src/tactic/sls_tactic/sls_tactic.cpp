@@ -34,6 +34,7 @@ Notes:
 #include"expr2dot.h"
 #include"propagate_values_tactic.h"
 #include"sls_tactic.h"
+#include"nnf_tactic.h"
 
 class sls_tactic : public tactic {
     class stats {
