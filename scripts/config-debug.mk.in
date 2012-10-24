@@ -1,7 +1,7 @@
 
 
 CXX=@CXX@
-CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -g -Wall -fopenmp -msse -msse2 -mfpmath=sse -fPIC
+CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -DZ3DEBUG -D_TRACE -c -g -Wall -fopenmp -msse -msse2 -mfpmath=sse -fPIC
 CXX_OUT_FLAG=-o
 OBJ_EXT=.o
 LIB_EXT=.a
