@@ -6,6 +6,7 @@
 #include "bv_decl_plugin.h"
 #include "array_decl_plugin.h"
 #include "model_v2_pp.h"
+#include "reg_decl_plugins.h"
 
 void tst_model_retrieval()
 {          
@@ -15,7 +16,7 @@ void tst_model_retrieval()
 
 
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     family_id array_fid = m.get_family_id(symbol("array"));
     array_util au(m);

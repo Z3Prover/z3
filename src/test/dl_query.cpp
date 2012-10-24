@@ -3,7 +3,8 @@
 #include "dl_table_relation.h"
 #include "dl_context.h"
 #include "front_end_params.h"
-#include"stopwatch.h"
+#include "stopwatch.h"
+#include "reg_decl_plugins.h"
 
 using namespace datalog;
 
@@ -127,7 +128,7 @@ void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& para
 void dl_query_test_wpa(front_end_params & fparams, params_ref& params) {
     params.set_bool(":magic-sets-for-queries", true);
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     arith_util arith(m);
     const char * problem_dir = "C:\\tvm\\src\\z3_2\\debug\\test\\w0.datalog";
     dl_decl_util dl_util(m);

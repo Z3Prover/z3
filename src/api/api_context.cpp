@@ -26,6 +26,7 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_util.h"
 #include"install_tactics.h"
+#include"reg_decl_plugins.h"
 
 namespace api {
 
@@ -60,7 +61,7 @@ namespace api {
     }
         
     context::add_plugins::add_plugins(ast_manager & m) {
-        m.register_decl_plugins();
+        reg_decl_plugins(m);
     }
 
     // ------------------------

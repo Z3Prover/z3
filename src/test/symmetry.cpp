@@ -5,6 +5,7 @@
 #include "nat_set.h"
 #include "stream_buffer.h"
 #include "obj_hashtable.h"
+#include "reg_decl_plugins.h"
 
 class partition {
 public:
@@ -723,7 +724,7 @@ public:
     void parse_file(char const* file_path, char const* file_tmp) {
         
         smtlib::parser* parser = smtlib::parser::create(m_mgr);
-        m_mgr.register_decl_plugins();
+        reg_decl_plugins(m_mgr);
         parser->initialize_smtlib();
         
         if (!parser->parse_file(file_path)) {

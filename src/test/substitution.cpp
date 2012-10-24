@@ -5,7 +5,7 @@
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
-
+#include "reg_decl_plugins.h"
 
 void tst_substitution()
 {
@@ -16,7 +16,7 @@ void tst_substitution()
     enable_trace("subst_bug");
 
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     var_ref v1(m.mk_var(0, m.mk_bool_sort()), m);
     var_ref v2(m.mk_var(1, m.mk_bool_sort()), m);

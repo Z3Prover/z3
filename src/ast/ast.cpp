@@ -25,13 +25,6 @@ Revision History:
 #include"string_buffer.h"
 #include"ast_util.h"
 #include"ast_smt2_pp.h"
-#include"arith_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"dl_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"float_decl_plugin.h"
 
 // -----------------------------------
 //
@@ -1401,30 +1394,6 @@ void ast_manager::register_plugin(symbol const & s, decl_plugin * plugin) {
     family_id id = m_family_manager.get_family_id(s);
     SASSERT(is_format_manager() || s != symbol("format"));
     register_plugin(id, plugin);
-}
-
-void ast_manager::register_decl_plugins() {
-    if (!get_plugin(get_family_id(symbol("arith")))) {
-        register_plugin(symbol("arith"), alloc(arith_decl_plugin));
-    }
-    if (!get_plugin(get_family_id(symbol("bv")))) {
-        register_plugin(symbol("bv"), alloc(bv_decl_plugin));
-    }
-    if (!get_plugin(get_family_id(symbol("array")))) {
-        register_plugin(symbol("array"), alloc(array_decl_plugin));
-    }
-    if (!get_plugin(get_family_id(symbol("datatype")))) {
-        register_plugin(symbol("datatype"), alloc(datatype_decl_plugin));    
-    }
-    if (!get_plugin(get_family_id(symbol("datalog_relation")))) {
-        register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin));
-    }
-    if (!get_plugin(get_family_id(symbol("seq")))) {
-        register_plugin(symbol("seq"), alloc(seq_decl_plugin));
-    }
-    if (!get_plugin(get_family_id(symbol("float")))) {
-        register_plugin(symbol("float"), alloc(float_decl_plugin));
-    }
 }
 
 decl_plugin * ast_manager::get_plugin(family_id fid) const {

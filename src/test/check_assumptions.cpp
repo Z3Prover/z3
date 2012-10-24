@@ -4,13 +4,14 @@
 #include "arith_decl_plugin.h"
 #include "bv_decl_plugin.h"
 #include "smt_context.h"
+#include "reg_decl_plugins.h"
 
 void tst_check_assumptions()
 {
     memory::initialize(0);
     front_end_params params;
     ast_manager mgr;
-    mgr.register_decl_plugins();
+    reg_decl_plugins(mgr);
 
     sort_ref b(mgr.mk_bool_sort(), mgr);
     func_decl_ref pPred(mgr.mk_func_decl(symbol("p"), 0, static_cast<sort * const *>(0), b), mgr);

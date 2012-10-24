@@ -11,6 +11,7 @@
 #include "smtparser.h"
 #include "lbool.h"
 #include <sstream>
+#include "reg_decl_plugins.h"
 
 
 static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char const* option) {
@@ -52,7 +53,7 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
 
 static void test_formula(lbool expected_outcome, char const* fml) {
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);
     parser->initialize_smtlib();
 

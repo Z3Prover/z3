@@ -22,10 +22,11 @@ Revision History:
 #include"ast_pp.h"
 #include"well_sorted.h"
 #include"warning.h"
+#include"reg_decl_plugins.h"
 
 void tst_simple_parser() {
     ast_manager    m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     arith_util     m_util(m);
     cost_parser    p(m);
     var_ref_vector vs(m);

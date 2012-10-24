@@ -4,10 +4,11 @@
 #include "arith_decl_plugin.h"
 #include "bv_decl_plugin.h"
 #include "array_decl_plugin.h"
+#include "reg_decl_plugins.h"
 
 void tst_expr_pattern_match() {
     ast_manager manager;
-    manager.register_decl_plugins();
+    reg_decl_plugins(manager);
 
     expr_pattern_match apm(manager);
 

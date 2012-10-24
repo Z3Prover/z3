@@ -3,13 +3,14 @@
 #include "dl_context.h"
 #include "z3.h"
 #include "z3_private.h"
+#include "reg_decl_plugins.h"
 
 
 namespace datalog {
 
     void test_smt_relation_unit() {
         ast_manager m;
-        m.register_decl_plugins();
+        reg_decl_plugins(m);
         arith_util a(m);
         sort* int_sort = a.mk_int();
         sort* real_sort = a.mk_real();

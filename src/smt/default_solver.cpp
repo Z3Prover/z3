@@ -18,6 +18,7 @@ Notes:
 --*/
 #include"solver.h"
 #include"smt_solver.h"
+#include"reg_decl_plugins.h"
 
 class default_solver : public solver {
     front_end_params * m_params;
@@ -43,7 +44,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
         if (m_context == 0) {
             ast_manager m;
-            m.register_decl_plugins();
+            reg_decl_plugins(m);
             front_end_params p;
             smt::solver s(m, p);
             s.collect_param_descrs(r);

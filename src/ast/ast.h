@@ -1283,8 +1283,6 @@ enum proof_gen_mode {
 //
 // -----------------------------------
 
-class arith_decl_plugin;
-
 class ast_manager {
 protected:
 protected:
@@ -1411,8 +1409,6 @@ public:
     
     void register_plugin(family_id id, decl_plugin * plugin);
 
-    void register_decl_plugins();
-    
     decl_plugin * get_plugin(family_id fid) const;
     
     bool has_plugin(family_id fid) const { return get_plugin(fid) != 0; }

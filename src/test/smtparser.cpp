@@ -7,7 +7,7 @@
 #include "for_each_file.h"
 #include "array_decl_plugin.h"
 #include "bv_decl_plugin.h"
-
+#include "reg_decl_plugins.h"
 
 class for_each_file_smt : public for_each_file_proc {
 public:
@@ -19,7 +19,7 @@ public:
 
         ast_manager ast_manager;
         smtlib::parser* parser = smtlib::parser::create(ast_manager);
-        ast_manager.register_decl_plugins();
+        reg_decl_plugins(ast_manager);
 
         parser->initialize_smtlib();
 

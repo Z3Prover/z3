@@ -3,6 +3,7 @@
 #include "arith_decl_plugin.h"
 #include "dl_context.h"
 #include "front_end_params.h"
+#include "reg_decl_plugins.h"
 
 using namespace datalog;
 
@@ -10,7 +11,7 @@ using namespace datalog;
 static void dparse_string(char const* str) {
     ast_manager m;
     front_end_params params;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     context ctx(m, params);
     parser* p = parser::create(ctx,m);
@@ -37,7 +38,7 @@ static void dparse_string(char const* str) {
 static void dparse_file(char const* file) {
     ast_manager m;
     front_end_params params;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     context ctx(m, params);
     parser* p = parser::create(ctx,m);

@@ -1,6 +1,7 @@
 #include "expr_context_simplifier.h"
 #include "smtparser.h"
 #include "ast_pp.h"
+#include "reg_decl_plugins.h"
 
 static void simplify_formula(ast_manager& m, expr* e) {
     expr_ref result(m);
@@ -19,7 +20,7 @@ void tst_expr_context_simplifier() {
     ast_manager m;
     
     smtlib::parser* parser = smtlib::parser::create(m);
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     parser->initialize_smtlib();
 

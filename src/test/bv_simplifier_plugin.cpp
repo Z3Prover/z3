@@ -1,6 +1,7 @@
 #include "bv_simplifier_plugin.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
+#include "reg_decl_plugins.h"
 
 class tst_bv_simplifier_plugin_cls {
     ast_manager m_manager;
@@ -79,7 +80,7 @@ public:
         m_arith(m_manager),
         m_simp(m_manager, m_bsimp, m_bv_params), 
         m_fid(m_manager.get_family_id("bv")) {
-        m_manager.register_decl_plugins();
+        reg_decl_plugins(m_manager);
     }
 
     ~tst_bv_simplifier_plugin_cls() {}

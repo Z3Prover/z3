@@ -23,6 +23,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"array_decl_plugin.h"
 #include"for_each_expr.h"
+#include"reg_decl_plugins.h"
 
 namespace find_q {
     struct proc {
@@ -101,7 +102,7 @@ void tst_subst(ast_manager& m) {
 
 void tst_var_subst() {
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     tst_subst(m);
 
     scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);

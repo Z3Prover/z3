@@ -7,6 +7,7 @@
 #include <sstream>
 #include "expr_replacer.h"
 #include "smt_solver.h"
+#include "reg_decl_plugins.h"
 
 static void validate_quant_solution(ast_manager& m, app* x, expr* fml, expr* t, expr* new_fml) {
     // verify:
@@ -86,7 +87,7 @@ static void test_quant_solve1() {
     ast_manager m;
     arith_util ar(m);
 
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     sort* i = ar.mk_int();
     app_ref x(m.mk_const(symbol("x"),i), m);
     app_ref y(m.mk_const(symbol("y"),i), m);

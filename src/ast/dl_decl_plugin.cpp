@@ -23,6 +23,7 @@ Revision History:
 #include "datatype_decl_plugin.h"
 #include "dl_decl_plugin.h"
 #include "warning.h"
+#include "reg_decl_plugins.h"
 
 namespace datalog {
 
@@ -621,7 +622,7 @@ namespace datalog {
     dl_decl_util::ast_plugin_registrator::ast_plugin_registrator(ast_manager& m)
     {
         // ensure required plugins are installed into the ast_manager
-        m.register_decl_plugins();
+        reg_decl_plugins(m);
     }
 
     dl_decl_util::dl_decl_util(ast_manager& m):

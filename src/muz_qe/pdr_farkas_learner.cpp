@@ -33,6 +33,7 @@ Revision History:
 #include "ast_ll_pp.h"
 #include "arith_bounds_tactic.h"
 #include "proof_utils.h"
+#include "reg_decl_plugins.h"
 
 #define PROOF_MODE PGM_FINE
 //#define PROOF_MODE PGM_COARSE
@@ -249,7 +250,7 @@ namespace pdr {
           p2o(m_pr, outer_mgr),
           o2p(outer_mgr, m_pr)
     {
-        m_pr.register_decl_plugins();
+        reg_decl_plugins(m_pr);
         m_ctx = alloc(smt::solver, m_pr, m_proof_params);
     }
 
@@ -800,7 +801,7 @@ namespace pdr {
                
         bool res;
         ast_manager m;
-        m.register_decl_plugins();        
+        reg_decl_plugins(m);        
         arith_util a(m);
         pdr::farkas_learner fl(params, m);
         expr_ref_vector lemmas(m);
@@ -864,7 +865,7 @@ namespace pdr {
             return;
         }
         ast_manager m;
-        m.register_decl_plugins();  
+        reg_decl_plugins(m);  
         scoped_ptr<smtlib::parser> p = smtlib::parser::create(m);
         p->initialize_smtlib();
 

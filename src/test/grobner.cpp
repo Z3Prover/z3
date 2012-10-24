@@ -24,6 +24,7 @@ Revision History:
 #include"arith_simplifier_plugin.h"
 #include"front_end_params.h"
 #include"grobner.h"
+#include"reg_decl_plugins.h"
 
 void display_eqs(grobner & gb, v_dependency_manager & dep_m) {
     std::cerr << "RESULT:\n";
@@ -55,7 +56,7 @@ void tst_grobner(char ** argv, int argc, int & i) {
 
         ast_manager m;
         smtlib::parser* parser = smtlib::parser::create(m);
-        m.register_decl_plugins();
+        reg_decl_plugins(m);
         parser->initialize_smtlib();
 
         if (!parser->parse_file(file_path)) {

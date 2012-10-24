@@ -6,12 +6,13 @@
 #include "ast_smt_pp.h"
 #include <iostream>
 #include <sstream>
+#include "reg_decl_plugins.h"
 
 static unsigned rand_seed = 1;
 
 void tst_expr_arith(unsigned num_files) {
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     expr_rand er(m);    
     er.seed(rand_seed);

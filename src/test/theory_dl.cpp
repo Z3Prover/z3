@@ -2,6 +2,7 @@
 #include "dl_decl_plugin.h"
 #include "ast_pp.h"
 #include "model_v2_pp.h"
+#include "reg_decl_plugins.h"
 
 void tst_theory_dl() {
     ast_manager m;
@@ -9,7 +10,7 @@ void tst_theory_dl() {
     params.m_model = true;
     datalog::dl_decl_util u(m);
     smt::context ctx(m, params);
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     expr_ref a(m), b(m), c(m);
     sort_ref s(m);
     s = u.mk_sort(symbol("S"),111);

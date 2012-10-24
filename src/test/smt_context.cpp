@@ -1,11 +1,12 @@
 #include "smt_context.h"
+#include "reg_decl_plugins.h"
 
 void tst_smt_context()
 {
     front_end_params params;
 
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
 
     smt::context ctx(m, params);
 

@@ -1,10 +1,11 @@
 #include "nlarith_util.h"
 #include "arith_decl_plugin.h"
 #include "ast_pp.h"
+#include "reg_decl_plugins.h"
 
 void tst_nlarith_util() {
     ast_manager M;
-    M.register_decl_plugins();
+    reg_decl_plugins(M);
     arith_util A(M);
     sort_ref R(A.mk_real(), M);
     app_ref one(A.mk_numeral(rational(1), false), M);

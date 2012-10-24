@@ -2,10 +2,11 @@
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
 #include "model_smt2_pp.h"
+#include "reg_decl_plugins.h"
 
 void tst_model2expr() {
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     arith_util a(m);
 
     ptr_vector<sort> ints;

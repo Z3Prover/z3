@@ -2,6 +2,7 @@
 #include "qe.h"
 #include "ast_pp.h"
 #include "smtparser.h"
+#include "reg_decl_plugins.h"
 
 
 static void test_defs(ast_manager& m, expr* _fml) {
@@ -48,7 +49,7 @@ static void test_defs_all(ast_manager& m, expr* _fml) {
 
 static void test_defs(char const* str) {
     ast_manager m;
-    m.register_decl_plugins();    
+    reg_decl_plugins(m);    
     scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);
     parser->initialize_smtlib();
     std::ostringstream buffer;

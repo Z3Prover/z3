@@ -1,10 +1,11 @@
 #include "arith_rewriter.h"
 #include "bv_decl_plugin.h"
 #include "ast_pp.h"
+#include "reg_decl_plugins.h"
 
 void tst_arith_rewriter() {
     ast_manager m;
-    m.register_decl_plugins();
+    reg_decl_plugins(m);
     arith_rewriter ar(m);
     arith_util au(m);
     expr_ref t1(m), t2(m), result(m);
