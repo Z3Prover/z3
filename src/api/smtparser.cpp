@@ -1934,7 +1934,6 @@ class smtparser : public parser {
     family_id                m_rel_fid;
     datatype_decl_plugin *   m_dt_plugin;
     datatype_util            m_dt_util;
-    substitution_tree        m_st;
     func_decl *              m_sk_hack;
     std::ostream*            m_err;
     bool                     m_display_error_for_vs;
@@ -1975,7 +1974,6 @@ public:
         m_underscore("_"),
         m_dt_plugin(0),
         m_dt_util(m),
-        m_st(m),
         m_err(0),
         m_display_error_for_vs(false)
     {        
