@@ -62,5 +62,6 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe',
 add_lib('api', ['portfolio', 'user_plugin'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
 add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
+add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', dll_name='libz3')
 
 mk_makefile()

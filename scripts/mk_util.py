@@ -24,9 +24,6 @@ DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
 
-LIB_KIND = 0
-EXE_KIND = 1
-
 if os.name == 'nt':
     IS_WINDOW=True
     # Visual Studio already displays the files being compiled
@@ -142,13 +139,12 @@ def find_all_deps(name, deps):
     return new_deps
 
 class Component:
-    def __init__(self, name, kind, path, deps):
+    def __init__(self, name, path, deps):
         global BUILD_DIR, SRC_DIR, REV_BUILD_DIR
         if name in _ComponentNames:
             raise MKException("Component '%s' was already defined." % name)
         if path == None:
             path = name
-        self.kind = kind
         self.name = name
         self.path = path
         self.deps = find_all_deps(name, deps)
@@ -232,7 +228,7 @@ class Component:
 
 class LibComponent(Component):
     def __init__(self, name, path, deps):
-        Component.__init__(self, name, LIB_KIND, path, deps)
+        Component.__init__(self, name, path, deps)
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -267,7 +263,7 @@ def sort_components(cnames):
 
 class ExeComponent(Component):
     def __init__(self, name, exe_name, path, deps):
-        Component.__init__(self, name, EXE_KIND, path, deps)
+        Component.__init__(self, name, path, deps)
         if exe_name == None:
             exe_name = name
         self.exe_name = exe_name
@@ -305,6 +301,46 @@ class ExeComponent(Component):
     def main_component(self):
         return True
 
+class DLLComponent(Component):
+    def __init__(self, name, dll_name, path, deps):
+        Component.__init__(self, name, path, deps)
+        if dll_name == None:
+            dll_name = name
+        self.dll_name = dll_name
+
+    def mk_makefile(self, out):
+        global _Name2Component
+        Component.mk_makefile(self, out)
+        # generate rule for (SO_EXT)
+
+        dllfile = '%s$(SO_EXT)' % self.dll_name
+        out.write('%s:' % dllfile)
+        deps = sort_components(self.deps)
+        objs = []
+        for cppfile in get_cpp_files(self.src_dir):
+            objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        for dep in deps:
+            c_dep = _Name2Component[dep]
+            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
+        out.write('\n')
+        out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        for dep in deps:
+            c_dep = _Name2Component[dep]
+            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
+        out.write(' $(SLINK_EXTRA_FLAGS)\n')
+        out.write('%s: %s\n\n' % (self.name, dllfile))
+
+    # All DLLs are included in the all: rule
+    def main_component(self):
+        return True
+
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
     c.id = _Id
@@ -321,6 +357,10 @@ def add_lib(name, deps=[], path=None):
 
 def add_exe(name, deps=[], path=None, exe_name=None):
     c = ExeComponent(name, exe_name, path, deps)
+    reg_component(name, c)
+
+def add_dll(name, deps=[], path=None, dll_name=None):
+    c = DLLComponent(name, dll_name, path, deps)
     reg_component(name, c)
 
 # Copy configuration correct file to BUILD_DIR
@@ -352,7 +392,7 @@ def mk_makefile():
     # Generate :all rule
     out.write('all:')
     for c in _Components:
-        if c.main_component:
+        if c.main_component():
             out.write(' %s' % c.name)
     out.write('\n\n')
     # Generate components

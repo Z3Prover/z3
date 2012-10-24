@@ -103,21 +103,24 @@ host_os=`uname -s`
 
 AS_IF([test "$host_os" = "Darwin"], [
   PLATFORM=osx
-  SO_EXT=dylib
+  SO_EXT=.dylib
   SLIBFLAGS="-dynamiclib -fopenmp"
+  SLIBEXTRAFLAGS=""
   COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
   STATIC_FLAGS=
 ], [test "$host_os" = "Linux"], [
   PLATFORM=linux
-  SO_EXT=so
-  SLIBFLAGS="-shared -fopenmp"
+  SO_EXT=.so
+  SLIBFLAGS="-shared -fopenmp -Wl,--whole-archive"
+  SLIBEXTRAFLAGS="-Wl,--no-whole-archive"
   COMP_VERSIONS=
   STATIC_FLAGS=-static
 ], [test "${host_os:0:6}" = "CYGWIN"], [
    PLATFORM=win
-   SO_EXT=dll
+   SO_EXT=.dll
    LDFLAGS=
    SLIBFLAGS="-shared -fopenmp"
+   SLIBEXTRAFLAGS=""
    COMP_VERSIONS=
    STATIC_FLAGS=-static
    CXXFLAGS+=" -D_CYGWIN"
@@ -125,6 +128,9 @@ AS_IF([test "$host_os" = "Darwin"], [
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
 ])
+AC_SUBST(SLIBFLAGS)
+AC_SUBST(SLIBEXTRAFLAGS)
+AC_SUBST(SO_EXT)
 
 ###################
 #
