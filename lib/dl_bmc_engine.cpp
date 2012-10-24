@@ -601,7 +601,7 @@ namespace datalog {
             rule* r = 0;
             unsigned i = 0;
             for (; i < rls.size(); ++i) {       
-                rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level));         
+                rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level).get());         
                 TRACE("bmc", rls[i]->display(m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                 if (m.is_true(eval_q(md, rule_i, level))) {
                     r = rls[i];
