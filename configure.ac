@@ -42,9 +42,13 @@ else
   HAS_PYTHON="0"
   HAS_PYTHON_MSG="no"
 fi
-AC_SUBST(PYTHON_PACKAGE_DIR)
-AC_SUBST(HAS_PYTHON)
 rm -f tst_python.py
+
+if test "$HAS_PYTHON" = "0"; then 
+   AC_MSG_ERROR([You need Python 2.x to generate the Z3 Makefiles.\nPlease download python at http://python.org])
+fi
+
+AC_SUBST(PYTHON_PACKAGE_DIR)
 
 ###################
 #
@@ -167,45 +171,21 @@ AC_OUTPUT(scripts/config-debug.mk scripts/config-release.mk)
 #
 ###################
 
-if test "$HAS_PYTHON" = "0"; then 
-   if test -d build/Makefile; then
-      # Python is not installed, but Makefile was pre generated
-      # Just copy configuration and terminate
-      cp scripts/config-release.mk build/config.mk
+# Python is available, give user the option to generate the make files wherever they want
 cat <<EOF
 Z3 was configured with success.
 Host platform:  $PLATFORM
 Arithmetic:     $ARITH
-Python Support: $HAS_PYTHON_MSG
 Python:         $PYTHON 
 Prefix:         $prefix
 64-bit:         $IS_X64
 
-Type 'cd build; make' to compile Z3.
-Type 'sudo make install' to install Z3.
-Type 'sudo make install-z3py' to install Z3 Python (Z3Py) bindings.
+To build and install Z3, execute:
+   python scripts/mk_make.py
+   cd build
+   make
+   sudo make install
 EOF
-   else
-      AC_MSG_ERROR([Pre generated Makefiles were not detected. You need python to generate the Z3 Makefiles.\nPlease download python at http://python.org])
-   fi
-else
-   # Python is available, give user the option to generate the make files wherever they want
-cat <<EOF
-Z3 was configured with success.
-Host platform:  $PLATFORM
-Arithmetic:     $ARITH
-Python Support: $HAS_PYTHON_MSG
-Python:         $PYTHON 
-Prefix:         $prefix
-64-bit:         $IS_X64
-
-Type 'python scripts/mk_make.py' to generate Makefiles in the subdirectory 'build'.
-Type 'cd build; make' to make Z3.
-Type 'sudo make install' to install Z3.
-Type 'sudo make install-z3py' to install Z3 Python (Z3Py) bindings.
-EOF
-
-fi
 
 
 
