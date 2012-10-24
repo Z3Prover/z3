@@ -8,7 +8,7 @@ AR_FLAGS=/nologo
 AR_OUTFLAG=/OUT:
 EXE_EXT=.exe
 LINK=cl
-LINK_FLAGS=/nologo "$(VSINSTALLDIR)VC\Lib\libcpmt.lib" "$(WindowsSdkDir)Lib\uuid.lib" "$(VSINSTALLDIR)VC\Lib\libcmt.lib" "$(VSINSTALLDIR)VC\Lib\oldnames.lib" "$(VSINSTALLDIR)VC\Lib\VCOMP.lib" "$(WindowsSdkDir)Lib\kernel32.lib"
+LINK_FLAGS=/nologo "$(VSINSTALLDIR)VC\Lib\libcpmt.lib" "$(WINDOWSSDKDIR)Lib\uuid.lib" "$(VSINSTALLDIR)VC\Lib\libcmt.lib" "$(VSINSTALLDIR)VC\Lib\oldnames.lib" "$(VSINSTALLDIR)VC\Lib\VCOMP.lib" "$(WINDOWSSDKDIR)Lib\kernel32.lib"
 LINK_EXTRA_FLAGS=/link /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:"8388608" /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT
 LINK_OUT_FLAG=/Fe
 
