@@ -185,7 +185,6 @@ int main(int argc, char ** argv) {
     TST(dl_product_relation);
     TST(dl_relation);
     TST(imdd);
-    TST(array_property_expander);
     TST(parray);
     TST(stack);
     TST(escaped);

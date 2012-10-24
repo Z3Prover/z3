@@ -17,8 +17,6 @@ add_lib('nlsat', ['polynomial', 'sat'])
 add_lib('subpaving', ['util'], 'math/subpaving')
 add_lib('ast', ['util', 'polynomial'])
 add_lib('rewriter', ['ast', 'polynomial'], 'ast/rewriter')
-# array_property is only used in test exe
-add_lib('array_property', ['ast', 'rewriter'], 'ast/array_property')
 # Simplifier module will be deleted in the future.
 # It has been replaced with rewriter module.
 add_lib('simplifier', ['rewriter'], 'ast/simplifier')
@@ -63,6 +61,6 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe',
 # TODO: delete SMT 1.0 frontend
 add_lib('api', ['portfolio', 'user_plugin'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
-add_exe('test', ['api', 'fuzzing', 'array_property'], exe_name='test-z3')
+add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
 
 mk_makefile()
