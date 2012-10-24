@@ -1,54 +1,39 @@
 Z3 is a theorem prover from Microsoft Research.
 Z3 is licensed under MSR-LA (Microsoft Research License Agreement). 
 See http://z3.codeplex.com/license for more information about this license.
-Z3 can be built using Visual Studio Command Prompt, Visual Studio and make/gcc.
+Z3 can be built using Visual Studio Command Prompt and make/g++.
 
 1) Building Z3 on Windows using Visual Studio Command Prompt
 
-- Open a Visual Studio Command Prompt, then execute one of the following commands to build the desired component.
+   a) If you a source distribution that comes with pre-generated 'build' directory,
+      then go to step c)
+   b) Execute
+           python scripts/mk_make.py
+   c) Execute
+           cd build
+           nmake
 
-- For building all components, execute
-    msbuild z3-prover.sln /p:configuration=external 
-  All components will be located at \external
+2) Building Z3 using make/g++ and Python
+Execute:
 
-- For building all components (64-bit), execute
-    msbuild z3-prover.sln /p:configuration=external /p:platform=x64
-  All components will be located at \x64\external
-
-- For building all components (in debug mode), execute
-    msbuild z3-prover.sln 
-  All components will be located at \Debug
-
-2) Building Z3 using g++/make
-Your machine must also have the following commands to be able to build Z3:
-autoconf, sed, awk, dos2unix commands
-
-  autoconf
-  ./configure
-  make
-  sudo make install
+   autconf
+   ./configure
+   python scripts/mk_make.py
+   cd build
+   make
+   sudo make install
 
 It will install z3 executable at /usr/local/bin, libraries at /usr/local/lib, and include files at /usr/local/include.
 Use the following commands to install in a different prefix (e.g., /usr).
 
   autoconf
   ./configure --prefix=/usr
+  python scripts/mk_make.py
+  cd build
   make
   sudo make install
 
 To uninstall Z3, use
 
   sudo make uninstall
-
-To install Z3 Python bindings, use
-
-  sudo make install-python
-
-To uninstall Z3 Python bindings, use
-
-  sudo make uninstall-python
-  
-
-Remark: the Z3 makefile imports the source file list from Visual Studio project files.
-To add new source files to the Z3 core, you must include them at: lib/lib.vcxproj
 

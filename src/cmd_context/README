@@ -1,0 +1,2 @@
+Command context provides the infrastructure for executing commands in front-ends such as SMT-LIB 2.0.
+It is also provides the solver abstraction to plugin solvers in this kind of front-end.
