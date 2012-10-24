@@ -23,7 +23,7 @@ Notes:
 #include"macro_finder.h"
 #include"arith_simplifier_plugin.h"
 #include"bv_simplifier_plugin.h"
-#include"demodulator.h"
+#include"ufbv_rewriter.h"
 #include"quasi_macros.h"
 #include"reduce_args.h"
 #include"ufbv_strategy.h"
@@ -206,17 +206,17 @@ as_st * mk_macro_finder(ast_manager & m, params_ref const & p, bool elim_and=fal
 }
 
 
-// --- DEMODULATOR STRATEGY
+// --- UFBV-Rewriter (demodulator) STRATEGY
 
-class demodulator_st : public assertion_set_strategy {
+class ufbv_rewriter_st : public assertion_set_strategy {
     ast_manager & m;
     params_ref    m_params;
     bool          m_produce_models;
     bool          m_cancel;
 
 public:
-    demodulator_st(ast_manager & m, params_ref const & p = params_ref()) : m(m),m_params(p),m_produce_models(false),m_cancel(false) { }
-    virtual ~demodulator_st() {}
+    ufbv_rewriter_st(ast_manager & m, params_ref const & p = params_ref()) : m(m),m_params(p),m_produce_models(false),m_cancel(false) { }
+    virtual ~ufbv_rewriter_st() {}
 
     virtual void updt_params(params_ref const & p) {
         m_produce_models = p.get_bool(":produce-models", false);
@@ -229,10 +229,10 @@ public:
     virtual void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
     
     virtual void operator()(assertion_set & s, model_converter_ref & mc) {
-        as_st_report report("demodulator", s);
+        as_st_report report("ufbv-rewriter", s);
         basic_simplifier_plugin bsimp(m);
         bsimp.set_eliminate_and(true);
-        demodulator dem(m, bsimp);
+        ufbv_rewriter dem(m, bsimp);
             
         expr_ref_vector forms(m), new_forms(m);
         proof_ref_vector proofs(m), new_proofs(m);
@@ -257,8 +257,8 @@ protected:
     virtual void set_cancel(bool f) { m_cancel = f; }
 };
 
-as_st * mk_demodulator(ast_manager & m, params_ref const & p) {
-    return alloc(demodulator_st, m, p);
+as_st * mk_ufbv_rewriter(ast_manager & m, params_ref const & p) {
+    return alloc(ufbv_rewriter_st, m, p);
 }
 
 
@@ -465,7 +465,7 @@ as_st * mk_preprocessor(ast_manager & m, params_ref const & p) {
                       ),
             and_then( and_then(mk_reduce_args(m, p), mk_simplifier(m, p)),
                       and_then(mk_macro_finder(m, p, true), mk_simplifier(m, p)),
-                      and_then(mk_demodulator(m, p), mk_simplifier(m, p)),
+                      and_then(mk_ufbv_rewriter(m, p), mk_simplifier(m, p)),
                       and_then(mk_quasi_macros(m, p), mk_simplifier(m, p)),
                       and_then(mk_der_fp(m, p), mk_simplifier(m, p)),
                       mk_simplifier(m, p)),

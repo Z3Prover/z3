@@ -44,7 +44,7 @@ Revision History:
 #include"bit2int.h"
 #include"qe.h"
 #include"distribute_forall.h"
-#include"demodulator.h"
+#include"ufbv_rewriter.h"
 #include"quasi_macros.h"
 
 asserted_formulas::asserted_formulas(ast_manager & m, front_end_params & p):
@@ -955,7 +955,7 @@ void asserted_formulas::apply_demodulators() {
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);
     unsigned sz = m_asserted_formulas.size();
-    demodulator   proc(m_manager, *m_bsimp);
+    ufbv_rewriter proc(m_manager, *m_bsimp);
     proc(sz - m_asserted_qhead, 
          m_asserted_formulas.c_ptr() + m_asserted_qhead, 
          m_asserted_formula_prs.c_ptr() + m_asserted_qhead,

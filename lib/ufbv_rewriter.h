@@ -15,9 +15,11 @@ Author:
 
 Revision History:
 
+    Christoph M. Wintersteiger (cwinter) 2012-10-24: Moved from demodulator.h to ufbv_rewriter.h
+
 --*/
-#ifndef _DEMODULATOR_H_
-#define _DEMODULATOR_H_
+#ifndef _UFBV_REWRITER_H_
+#define _UFBV_REWRITER_H_
 
 #include"ast.h"
 #include"substitution.h"
@@ -90,7 +92,7 @@ The code in spc_rewriter.* does something like that. We cannot reuse this code d
 for the superposion engine in Z3, but we can adapt it for our needs in the preprocessor.
    
 */
-class demodulator {
+class ufbv_rewriter {
     class rewrite_proc;
     class add_back_idx_proc;
     class remove_back_idx_proc;
@@ -192,8 +194,8 @@ protected:
     virtual int is_subset(expr * e1, expr * e2) const; 
 
 public:
-    demodulator(ast_manager & m, basic_simplifier_plugin & p);
-    virtual ~demodulator();
+    ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p);
+    virtual ~ufbv_rewriter();
     
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 
@@ -261,5 +263,5 @@ public:
     */    
 };
 
-#endif /* _DEMODULATOR_H_ */
+#endif /* _UFBV_REWRITER_H_ */
 

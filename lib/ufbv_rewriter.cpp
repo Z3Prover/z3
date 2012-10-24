@@ -15,17 +15,18 @@ Author:
 
 Revision History:
 
-    Christoph Wintersteiger 2010-04-21: Implementation
+    Christoph M. Wintersteiger (cwinter) 2010-04-21: Implementation
+    Christoph M. Wintersteiger (cwinter) 2012-10-24: Moved from demodulator.h to ufbv_rewriter.h
 
 --*/
 
 #include"ast_pp.h"
-#include"demodulator.h"
+#include"ufbv_rewriter.h"
 #include"for_each_expr.h"
 #include"var_subst.h"
 #include"uint_set.h"
 
-demodulator::demodulator(ast_manager & m, basic_simplifier_plugin & p):
+ufbv_rewriter::ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p):
     m_manager(m),
     m_match_subst(m),
     m_bsimp(p),
@@ -35,7 +36,7 @@ demodulator::demodulator(ast_manager & m, basic_simplifier_plugin & p):
     m_new_exprs(m) {
 }
 
-demodulator::~demodulator() {
+ufbv_rewriter::~ufbv_rewriter() {
     reset_dealloc_values(m_fwd_idx);
     reset_dealloc_values(m_back_idx);
     for (demodulator2lhs_rhs::iterator it = m_demodulator2lhs_rhs.begin(); it != m_demodulator2lhs_rhs.end(); it++) {
@@ -45,7 +46,7 @@ demodulator::~demodulator() {
     }
 }
 
-bool demodulator::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
+bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
     if (e->get_kind() == AST_QUANTIFIER) {
         quantifier * q = to_quantifier(e);
         if (q->is_forall()) {            
@@ -121,7 +122,7 @@ public:
     void operator()(app * n) {}    
 };
 
-int demodulator::is_subset(expr * e1, expr * e2) const {
+int ufbv_rewriter::is_subset(expr * e1, expr * e2) const {
     uint_set ev1, ev2;
 
     if (m_manager.is_value(e1))
@@ -138,7 +139,7 @@ int demodulator::is_subset(expr * e1, expr * e2) const {
                                    0 ;
 }
 
-int demodulator::is_smaller(expr * e1, expr * e2) const {
+int ufbv_rewriter::is_smaller(expr * e1, expr * e2) const {
     unsigned sz1 = 0, sz2 = 0;
 
     // values are always smaller!
@@ -202,14 +203,14 @@ public:
     unsigned get_max(void) { return m_max_var_id; }
 };
 
-unsigned demodulator::max_var_id(expr * e)
+unsigned ufbv_rewriter::max_var_id(expr * e)
 {
     max_var_id_proc proc;
     for_each_expr(proc, e);    
     return proc.get_max();
 }
 
-void demodulator::insert_fwd_idx(expr * large, expr * small, quantifier * demodulator) {
+void ufbv_rewriter::insert_fwd_idx(expr * large, expr * small, quantifier * demodulator) {
     SASSERT(large->get_kind() == AST_APP);
     SASSERT(demodulator);
     SASSERT(large && small);
@@ -233,7 +234,7 @@ void demodulator::insert_fwd_idx(expr * large, expr * small, quantifier * demodu
     m_demodulator2lhs_rhs.insert(demodulator, expr_pair(large, small));
 }
 
-void demodulator::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
+void ufbv_rewriter::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
     TRACE("demodulator_fwd", tout << "REMOVE: " << std::hex << (size_t)demodulator << std::endl; );
 
     fwd_idx_map::iterator it = m_fwd_idx.find_iterator(f);
@@ -249,7 +250,7 @@ void demodulator::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
     }
 }
 
-bool demodulator::check_fwd_idx_consistency(void) {
+bool ufbv_rewriter::check_fwd_idx_consistency(void) {
     for (fwd_idx_map::iterator it = m_fwd_idx.begin(); it != m_fwd_idx.end() ; it++ ) {
         quantifier_set * set = it->m_value;
         SASSERT(set);
@@ -262,7 +263,7 @@ bool demodulator::check_fwd_idx_consistency(void) {
     return true;
 }
 
-void demodulator::show_fwd_idx(std::ostream & out) {
+void ufbv_rewriter::show_fwd_idx(std::ostream & out) {
     for (fwd_idx_map::iterator it = m_fwd_idx.begin(); it != m_fwd_idx.end() ; it++ ) {
         quantifier_set * set = it->m_value;
         SASSERT(!set);
@@ -280,7 +281,7 @@ void demodulator::show_fwd_idx(std::ostream & out) {
     }
 }
 
-bool demodulator::rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_ref & np) {        
+bool ufbv_rewriter::rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_ref & np) {        
     fwd_idx_map::iterator it = m_fwd_idx.find_iterator(f);
     if (it != m_fwd_idx.end()) {
         TRACE("demodulator_bug", tout << "trying to rewrite: " << f->get_name() << " args:\n";
@@ -312,7 +313,7 @@ bool demodulator::rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_re
     return false;
 }
 
-bool demodulator::rewrite_visit_children(app * a) {
+bool ufbv_rewriter::rewrite_visit_children(app * a) {
     bool res=true;
     unsigned j = a->get_num_args();
     while (j > 0) {
@@ -325,11 +326,11 @@ bool demodulator::rewrite_visit_children(app * a) {
     return res;
 }
 
-void demodulator::rewrite_cache(expr * e, expr * new_e, bool done) {
+void ufbv_rewriter::rewrite_cache(expr * e, expr * new_e, bool done) {
     m_rewrite_cache.insert(e, expr_bool_pair(new_e, done));
 }
 
-expr * demodulator::rewrite(expr * n) {
+expr * ufbv_rewriter::rewrite(expr * n) {
     if (m_fwd_idx.empty()) 
         return n;
 
@@ -440,7 +441,7 @@ expr * demodulator::rewrite(expr * n) {
     return r;
 }
 
-class demodulator::add_back_idx_proc {
+class ufbv_rewriter::add_back_idx_proc {
     ast_manager &  m_manager;
     back_idx_map & m_back_idx;
     expr *         m_expr;
@@ -467,7 +468,7 @@ public:
     }    
 };
 
-class demodulator::remove_back_idx_proc {
+class ufbv_rewriter::remove_back_idx_proc {
     ast_manager &  m_manager;
     back_idx_map & m_back_idx;
     expr *         m_expr;
@@ -489,7 +490,7 @@ public:
     }
 };
 
-void demodulator::reschedule_processed(func_decl * f) {
+void ufbv_rewriter::reschedule_processed(func_decl * f) {
     //use m_back_idx to find all formulas p in m_processed that contains f {    
     back_idx_map::iterator it = m_back_idx.find_iterator(f);
     if (it != m_back_idx.end()) {
@@ -518,7 +519,7 @@ void demodulator::reschedule_processed(func_decl * f) {
     }
 }
 
-bool demodulator::can_rewrite(expr * n, expr * lhs) {
+bool ufbv_rewriter::can_rewrite(expr * n, expr * lhs) {
     // this is a quick check, we just traverse d and check if there is an expression in d that is an instance of lhs of n'.
     // we cannot use the trick used for m_processed, since the main loop would not terminate.
 
@@ -575,7 +576,7 @@ bool demodulator::can_rewrite(expr * n, expr * lhs) {
     return false;
 }
 
-void demodulator::reschedule_demodulators(func_decl * f, expr * lhs) {
+void ufbv_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
     // use m_back_idx to find all demodulators d in m_fwd_idx that contains f {
 
     //ptr_vector<expr> to_remove;
@@ -634,7 +635,7 @@ void demodulator::reschedule_demodulators(func_decl * f, expr * lhs) {
     //}
 }
     
-void demodulator::operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
+void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs) {
     if (m_manager.proofs_enabled()) {
         // Let us not waste time with proof production
         warning_msg("PRE_DEMODULATOR=true is not supported when proofs are enabled.");
@@ -734,7 +735,7 @@ void demodulator::operator()(unsigned n, expr * const * exprs, proof * const * p
 }
 
 
-demodulator::match_subst::match_subst(ast_manager & m):
+ufbv_rewriter::match_subst::match_subst(ast_manager & m):
     m_manager(m),
     m_subst(m) {
 }
@@ -764,7 +765,7 @@ struct match_args_aux_proc {
     void operator()(app * n) {}
 };
 
-bool demodulator::match_subst::match_args(app * lhs, expr * const * args) {
+bool ufbv_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
     m_cache.reset();
     m_todo.reset();
     
@@ -880,7 +881,7 @@ bool demodulator::match_subst::match_args(app * lhs, expr * const * args) {
 }
 
 
-bool demodulator::match_subst::operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs) {
+bool ufbv_rewriter::match_subst::operator()(app * lhs, expr * rhs, expr * const * args, expr_ref & new_rhs) {
     if (match_args(lhs, args)) {
         if (m_all_args_eq) {
             // quick success...
@@ -894,7 +895,7 @@ bool demodulator::match_subst::operator()(app * lhs, expr * rhs, expr * const * 
     return false;
 }
 
-bool demodulator::match_subst::operator()(expr * t, expr * i) {
+bool ufbv_rewriter::match_subst::operator()(expr * t, expr * i) {
     m_cache.reset();
     m_todo.reset();
     if (is_var(t))
