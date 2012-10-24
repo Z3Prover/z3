@@ -28,8 +28,8 @@ Notes:
 #include"macro_manager.h"
 #include"macro_finder.h"
 #include"quasi_macros.h"
-#include"elim_var_model_converter.h"
 #include"ufbv_rewriter.h"
+#include"extension_model_converter.h"
 #include"distribute_forall_tactic.h"
 #include"der_tactic.h"
 #include"reduce_args_tactic.h"
@@ -97,7 +97,7 @@ class macro_finder_tactic : public tactic {
             for (; i < new_forms.size(); i++)
                 g->assert_expr(new_forms.get(i), new_proofs.get(i), 0);
 
-            elim_var_model_converter * evmc = alloc(elim_var_model_converter, mm.get_manager());
+            extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());
@@ -377,7 +377,7 @@ class quasi_macros_tactic : public tactic {
             for (; i < new_forms.size(); i++)
                 g->assert_expr(new_forms.get(i), new_proofs.get(i), 0);
 
-            elim_var_model_converter * evmc = alloc(elim_var_model_converter, mm.get_manager());
+            extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();
             for (unsigned i = 0; i < num; i++) {
                 expr_ref f_interp(mm.get_manager());

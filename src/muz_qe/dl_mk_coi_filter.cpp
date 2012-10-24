@@ -22,7 +22,7 @@ Revision History:
 #include <sstream>
 #include"ast_pp.h"
 #include"dl_mk_coi_filter.h"
-#include"elim_var_model_converter.h"
+#include"extension_model_converter.h"
 
 namespace datalog {
   
@@ -93,7 +93,7 @@ namespace datalog {
         if (res && mc) {
             decl_set::iterator end = pruned_preds.end();
             decl_set::iterator it = pruned_preds.begin();
-            elim_var_model_converter* mc0 = alloc(elim_var_model_converter, m);
+            extension_model_converter* mc0 = alloc(extension_model_converter, m);
             for (; it != end; ++it) {
                 mc0->insert(*it, m.mk_true());
             }   

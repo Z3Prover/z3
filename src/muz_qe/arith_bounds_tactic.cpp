@@ -1,7 +1,6 @@
 
 
 #include"arith_bounds_tactic.h"
-#include"assertion_set_util.h"
 #include"arith_decl_plugin.h"
 
 struct arith_bounds_tactic : public tactic {

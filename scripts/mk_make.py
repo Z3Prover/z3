@@ -53,7 +53,7 @@ add_lib('grobner', ['ast'], 'math/grobner')
 add_lib('euclid', ['util'], 'math/euclid')
 add_lib('proof_checker', ['rewriter', 'spc'], 'ast/proof_checker')
 add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params', 'tactic'], 'tactic/bit_blaster')
-add_lib('smt', ['assertion_set', 'bit_blaster', 'macros', 'normal_forms', 'cmd_context', 
+add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 
                 'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
 add_lib('user_plugin', ['smt'], 'smt/user_plugin')
 add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core_tactics')
