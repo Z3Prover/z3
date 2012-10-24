@@ -19,7 +19,6 @@ Notes:
 #include"tactical.h"
 #include"simplify_tactic.h"
 #include"propagate_values_tactic.h"
-#include"nnf.h"
 #include"solve_eqs_tactic.h"
 #include"simplifier.h"
 #include"basic_simplifier_plugin.h"
@@ -35,6 +34,7 @@ Notes:
 #include"reduce_args_tactic.h"
 #include"smt_tactic.h"
 #include"ufbv_tactic.h"
+#include"nnf_tactic.h"
 
 class macro_finder_tactic : public tactic {    
 
