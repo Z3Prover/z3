@@ -919,7 +919,6 @@
     <ClCompile Include="trace.cpp" />
     <ClCompile Include="tseitin_cnf_tactic.cpp" />
     <ClCompile Include="ufbv_rewriter.cpp" />
-    <ClCompile Include="ufbv_strategy.cpp" />
     <ClCompile Include="ufbv_tactic.cpp" />
     <ClCompile Include="unifier.cpp" />
     <ClCompile Include="unit_subsumption_tactic.cpp" />

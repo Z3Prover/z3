@@ -32,18 +32,8 @@ Notes:
 #include"qfufbv_tactic.h"
 #include"qfidl_tactic.h"
 #include"default_tactic.h"
-#include"ufbv_strategy.h"
-#include"st2tactic.h"
+#include"ufbv_tactic.h"
 #include"qffpa_tactic.h"
-
-#define MK_ST2TACTIC_FACTORY(NAME, ST)                                                                  \
-class NAME : public tactic_factory {                                                                    \
-public:                                                                                                 \
-    virtual ~NAME() {}                                                                                  \
-    virtual tactic * operator()(ast_manager & m, params_ref const & p) { return st2tactic(ST); }        \
-};
-
-MK_ST2TACTIC_FACTORY(ufbv_fct, mk_ufbv_strategy(m, p));
 
 MK_SIMPLE_TACTIC_FACTORY(qfuf_fct, mk_qfuf_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfidl_fct, mk_qfidl_tactic(m, p));
@@ -63,6 +53,7 @@ MK_SIMPLE_TACTIC_FACTORY(qfufbv_fct, mk_qfufbv_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfnia_fct, mk_qfnia_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfnra_fct, mk_qfnra_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qffpa_fct, mk_qffpa_tactic(m, p));
+MK_SIMPLE_TACTIC_FACTORY(ufbv_fct, mk_ufbv_tactic(m, p));
 
 static void init(strategic_solver * s) {
     s->set_default_tactic(alloc(default_fct));
