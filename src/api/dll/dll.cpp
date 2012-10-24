@@ -1,6 +1,6 @@
+#ifdef _WINDOWS
 
-#include "windows.h"
-
+#include<windows.h>
 
 #ifdef _MANAGED
 #pragma managed(push, off)
@@ -24,4 +24,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 
 #ifdef _MANAGED
 #pragma managed(pop)
+#endif
+
 #endif
