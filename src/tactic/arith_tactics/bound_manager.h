@@ -20,7 +20,6 @@ Notes:
 #define _BOUND_MANAGER_H_
 
 #include"ast.h"
-#include"assertion_set.h"
 #include"arith_decl_plugin.h"
 
 class goal;
@@ -48,7 +47,6 @@ public:
     
     ast_manager & m() const { return m_util.get_manager(); }
     
-    void operator()(assertion_set const & s); // TODO: delete
     void operator()(goal const & g);
     void operator()(expr * n, expr_dependency * d = 0);
     

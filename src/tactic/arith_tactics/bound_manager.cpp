@@ -199,13 +199,6 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
     return true;
 }
 
-void bound_manager::operator()(assertion_set const & s) {
-    unsigned sz = s.size();
-    for (unsigned i = 0; i < sz; i++) {
-        operator()(s.form(i), 0);
-    }
-}
-
 void bound_manager::operator()(goal const & g) {
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; i++) {

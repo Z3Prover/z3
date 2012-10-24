@@ -22,7 +22,7 @@ Notes:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"smt_tactic.h"
-#include"mip_tactic.h"
+// include"mip_tactic.h"
 #include"recover_01_tactic.h"
 #include"ctx_simplify_tactic.h"
 #include"probe_arith.h"
@@ -47,6 +47,8 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     params_ref elim_to_real_p;
     elim_to_real_p.set_bool(":elim-to-real", true);
     
+
+#if 0
     tactic * mip =
         and_then(fail_if(mk_produce_proofs_probe()),
                  fail_if(mk_produce_unsat_cores_probe()),
@@ -64,8 +66,11 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
                  fail_if(mk_not(mk_is_mip_probe())),
                  try_for(mk_mip_tactic(m), 30000),
                  mk_fail_if_undecided_tactic());
+#endif
 
-    return using_params(or_else(mip,
-                                using_params(mk_smt_tactic(), pivot_p)),
-                        p);
+    //    return using_params(or_else(mip,
+    //                            using_params(mk_smt_tactic(), pivot_p)),
+    //                    p);
+
+    return using_params(using_params(mk_smt_tactic(), pivot_p), p);
 }

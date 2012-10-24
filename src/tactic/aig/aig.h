@@ -22,7 +22,6 @@ Notes:
 #include"ast.h"
 #include"tactic_exception.h"
 
-class assertion_set;
 class goal;
 class aig_lit;
 class aig_manager;
@@ -62,7 +61,6 @@ public:
     ~aig_manager();
     void set_max_memory(unsigned long long max);
     aig_ref mk_aig(expr * n);
-    aig_ref mk_aig(assertion_set const & s); // TODO delete
     aig_ref mk_aig(goal const & g); 
     aig_ref mk_not(aig_ref const & r);
     aig_ref mk_and(aig_ref const & r1, aig_ref const & r2);
@@ -70,7 +68,6 @@ public:
     aig_ref mk_iff(aig_ref const & r1, aig_ref const & r2);
     aig_ref mk_ite(aig_ref const & r1, aig_ref const & r2, aig_ref const & r3);
     void max_sharing(aig_ref & r);
-    void to_formula(aig_ref const & r, assertion_set & s); // TODO delete
     void to_formula(aig_ref const & r, expr_ref & result);
     void to_formula(aig_ref const & r, goal & result);
     void to_cnf(aig_ref const & r, goal & result);

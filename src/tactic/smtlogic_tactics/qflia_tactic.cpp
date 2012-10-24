@@ -24,7 +24,7 @@ Notes:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"smt_tactic.h"
-#include"mip_tactic.h"
+// include"mip_tactic.h"
 #include"add_bounds_tactic.h"
 #include"pb2bv_tactic.h"
 #include"lia2pb_tactic.h"
@@ -109,7 +109,7 @@ static tactic * mk_pb_tactic(ast_manager & m) {
                     fail_if(mk_produce_unsat_cores_probe()),
                     or_else(and_then(fail_if(mk_ge(mk_num_exprs_probe(), mk_const_probe(SMALL_SIZE))),
                                      fail_if_not(mk_is_ilp_probe()),
-                                     try_for(mk_mip_tactic(m), 8000),
+                                     // try_for(mk_mip_tactic(m), 8000),
                                      mk_fail_if_undecided_tactic()),
                             and_then(using_params(mk_pb2bv_tactic(m), pb2bv_p),
                                      fail_if_not(mk_is_qfbv_probe()),
@@ -147,14 +147,15 @@ static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
                     fail_if(mk_produce_proofs_probe()),
                     fail_if(mk_produce_unsat_cores_probe()),
                     mk_propagate_ineqs_tactic(m),
-                    or_else(try_for(mk_mip_tactic(m), 5000),
+                    or_else(// try_for(mk_mip_tactic(m), 5000),
                             try_for(mk_no_cut_smt_tactic(100), 2000),
                             and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p1),
                                      try_for(mk_lia2sat_tactic(m), 5000)),
                             try_for(mk_no_cut_smt_tactic(200), 5000),
                             and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p2),
-                                     try_for(mk_lia2sat_tactic(m), 10000)),
-                            mk_mip_tactic(m)),
+                                     try_for(mk_lia2sat_tactic(m), 10000))
+                            // , mk_mip_tactic(m)
+                            ),
                     mk_fail_if_undecided_tactic());
 }
 

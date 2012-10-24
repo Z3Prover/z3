@@ -239,18 +239,8 @@ UNARY_CMD(sexpr_cmd, "dbg-sexpr", "<sexpr>", "display an s-expr", CPK_SEXPR, sex
     ctx.regular_stream() << std::endl;
 });
 
-static void tst_bound_manager(cmd_context & ctx) {
-    ast_manager & m = ctx.m();
-    assertion_set s(m);
-    assert_exprs_from(ctx, s);
-    bound_manager bc(m);
-    bc(s);
-    bc.display(ctx.regular_stream());
-}
 
 #define GUARDED_CODE(CODE) try { CODE } catch (z3_error & ex) { throw ex; } catch (z3_exception & ex) { ctx.regular_stream() << "(error \"" << escaped(ex.msg()) << "\")" << std::endl; }
-
-ATOMIC_CMD(bounds_cmd, "dbg-bounds", "test bound manager", GUARDED_CODE(tst_bound_manager(ctx);));
 
 UNARY_CMD(set_next_id, "dbg-set-next-id", "<unsigned>", "set the next expression id to be at least the given value", CPK_UINT, unsigned, {
     ctx.m().set_next_expr_id(arg);
@@ -373,7 +363,6 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(params_cmd));
     ctx.insert(alloc(translator_cmd));
     ctx.insert(alloc(sexpr_cmd));
-    ctx.insert(alloc(bounds_cmd));
     ctx.insert(alloc(used_vars_cmd));
     ctx.insert(alloc(elim_unused_vars_cmd));
     ctx.insert(alloc(instantiate_cmd));

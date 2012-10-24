@@ -59,7 +59,7 @@ Notes:
 #include"bv_size_reduction_tactic.h"
 #include"propagate_ineqs_tactic.h"
 #include"cofactor_term_ite_tactic.h"
-#include"mip_tactic.h"
+// include"mip_tactic.h"
 #include"vsubst_tactic.h"
 #include"sls_tactic.h"
 #include"probe_arith.h"
@@ -121,7 +121,6 @@ MK_SIMPLE_TACTIC_FACTORY(reduce_args_fct,        mk_reduce_args_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(bv_size_reduction_fct,  mk_bv_size_reduction_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(propagate_ineqs_fct,    mk_propagate_ineqs_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(cofactor_term_ite_fct,  mk_cofactor_term_ite_tactic(m, p));
-MK_SIMPLE_TACTIC_FACTORY(mip_fct,                mk_mip_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(nla2bv_fct,             mk_nla2bv_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(vsubst_fct,             mk_vsubst_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfbv_sls_fct,           mk_qfbv_sls_tactic(m, p));
@@ -188,7 +187,6 @@ void install_tactics(tactic_manager & ctx) {
     ADD_TACTIC_CMD("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", bv_size_reduction_fct);
     ADD_TACTIC_CMD("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", propagate_ineqs_fct);
     ADD_TACTIC_CMD("cofactor-term-ite", "eliminate term if-the-else using cofactors.", cofactor_term_ite_fct);
-    ADD_TACTIC_CMD("mip", "solver for mixed integer programming problems.", mip_fct);
     ADD_TACTIC_CMD("nla2bv", "convert a nonlinear arithmetic problem into a bit-vector problem, in most cases the resultant goal is an under approximation and is useul for finding models.", nla2bv_fct);
     ADD_TACTIC_CMD("vsubst", "checks satsifiability of quantifier-free non-linear constraints using virtual substitution.", vsubst_fct);
     ADD_TACTIC_CMD("qfbv-sls", "(try to) solve using stochastic local search for QF_BV.", qfbv_sls_fct);
@@ -223,7 +221,6 @@ void install_tactics(tactic_manager & ctx) {
     ADD_PROBE("is-qflra", "true if the goal is in QF_LRA.", mk_is_qflra_probe());
     ADD_PROBE("is-qflira", "true if the goal is in QF_LIRA.", mk_is_qflira_probe());
     ADD_PROBE("is-ilp", "true if the goal is ILP.", mk_is_ilp_probe());
-    ADD_PROBE("is-mip", "true if the goal is MIP.", mk_is_mip_probe());
     ADD_PROBE("is-unbounded", "true if the goal contains integer/real constants that do not have lower/upper bounds.", mk_is_unbounded_probe());
     ADD_PROBE("is-pb", "true if the goal is a pseudo-boolean problem.", mk_is_pb_probe());
     ADD_PROBE("arith-max-deg", "max polynomial total degree of an arithmetic atom.", mk_arith_max_degree_probe());

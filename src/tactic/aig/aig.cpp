@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include"aig.h"
-#include"assertion_set.h" // TODO delete
 #include"goal.h"
 #include"ast_smt2_pp.h"
 #include"cooperate.h"
@@ -1006,39 +1005,6 @@ struct aig_manager::imp {
                 r = invert(r);
         }
 
-
-        void operator()(aig_lit const & l, assertion_set & s) {
-#if 1
-            s.reset();
-            sbuffer<aig_lit> roots;
-            roots.push_back(l);
-            while (!roots.empty()) {
-                aig_lit n = roots.back();
-                roots.pop_back();
-                if (n.is_inverted()) {
-                    s.assert_expr(invert(process_root(n.ptr())));
-                    continue;
-                }
-                aig * p = n.ptr();
-                if (m.is_ite(p)) {
-                    s.assert_expr(process_root(p));
-                    continue;
-                }
-                if (is_var(p)) {
-                    s.assert_expr(m.var2expr(p));
-                    continue;
-                }
-                roots.push_back(left(p));
-                roots.push_back(right(p));
-            }
-#else
-            s.reset();
-            expr_ref r(ast_mng);
-            naive(l, r);
-            s.assert_expr(r);
-#endif
-        }
-
         void operator()(aig_lit const & l, expr_ref & r) {
             naive(l, r);
         }
@@ -1574,11 +1540,6 @@ public:
         return r;
     }
 
-    void to_formula(aig_lit const & r, assertion_set & s) {
-        aig2expr proc(*this);
-        proc(r, s);
-    }
-
     void to_formula(aig_lit const & r, goal & g) {
         aig2expr proc(*this);
         proc(r, g);
@@ -1745,10 +1706,6 @@ aig_ref aig_manager::mk_aig(expr * n) {
     return aig_ref(*this, m_imp->mk_aig(n));
 }
 
-aig_ref aig_manager::mk_aig(assertion_set const & s) {
-    return aig_ref(*this, m_imp->mk_aig(s));
-}
-
 aig_ref aig_manager::mk_aig(goal const & s) {
     return aig_ref(*this, m_imp->mk_aig(s));
 }
@@ -1777,10 +1734,6 @@ aig_ref aig_manager::mk_ite(aig_ref const & r1, aig_ref const & r2, aig_ref cons
 
 void aig_manager::max_sharing(aig_ref & r) {
     r = aig_ref(*this, m_imp->max_sharing(aig_lit(r)));
-}
-
-void aig_manager::to_formula(aig_ref const & r, assertion_set & s) {
-    return m_imp->to_formula(aig_lit(r), s);
 }
 
 void aig_manager::to_formula(aig_ref const & r, goal & g) {
