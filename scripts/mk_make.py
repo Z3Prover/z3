@@ -10,14 +10,6 @@ from mk_util import *
 
 parse_options()
 
-# set_build_dir('build')
-# set_src_dir('src')
-# set_modes(['Debug', 'Release'])
-# set_platforms(['Win32', 'x64'])
-# set_vs_options('WIN32;_WINDOWS;ASYNC_COMMANDS',
-#                'Z3DEBUG;_TRACE;_DEBUG',
-#                'NDEBUG;_EXTERNAL_RELEASE')
-
 add_lib('util', [])
 add_lib('polynomial', ['util'], 'math/polynomial')
 add_lib('sat', ['util'])
@@ -57,14 +49,14 @@ add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core_tactics')
 add_lib('sat_tactic', ['tactic', 'sat'], 'tactic/sat_tactic')
 add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith_tactics')
 add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'tactic/nlsat_tactic')
-add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
+add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'tactic/subpaving_tactic')
 add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv_tactics')
 add_lib('fuzzing', ['ast'], 'test/fuzzing')
 add_lib('fpa', ['core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
-add_lib('smt_tactic', ['smt'], 'smt/tactic')
+add_lib('smt_tactic', ['smt'], 'tactic/smt_tactic')
 add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
 add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls_tactic')
-add_lib('aig', ['cmd_context'], 'tactic/aig')
+add_lib('aig', ['tactic'], 'tactic/aig')
 # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
 add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
 add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic', 'aig', 'muz_qe'], 'tactic/smtlogic_tactics')
@@ -75,7 +67,5 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe',
 add_lib('api', ['portfolio', 'user_plugin'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
 add_exe('test', ['api', 'fuzzing', 'array_property'], exe_name='test-z3')
-
-# mk_vs_solution()
 
 mk_makefile()
