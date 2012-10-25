@@ -1660,7 +1660,7 @@ namespace pdr {
         bool use_model_generalizer = m_params.get_bool(":use-model-generalizer", false);
  
         pred_transformer& pt = n.pt();
-        model_ref M = n.model_ptr();
+        model_ref M = n.get_model_ptr();
         datalog::rule const& r = pt.find_rule(*M);
         expr* T   = pt.get_transition(r);
         expr* phi = n.state();

@@ -195,7 +195,7 @@ namespace pdr {
         ptr_vector<model_node> const& children() { return m_children; }
         pred_transformer& pt() const { return m_pt; }
         model_node* parent() const { return m_parent; }
-        model* model_ptr() const { return m_model.get(); }
+        model* get_model_ptr() const { return m_model.get(); }
         model const&  get_model() const { return *m_model; }
         unsigned index() const;
 
