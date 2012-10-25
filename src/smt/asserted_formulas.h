@@ -39,7 +39,6 @@ class bv_simplifier_plugin;
 class asserted_formulas {
     ast_manager &                m_manager;
     front_end_params &           m_params;
-    scoped_ptr<pattern_database> m_database;
     simplifier                   m_pre_simplifier;
     subst_simplifier             m_simplifier;
     basic_simplifier_plugin *    m_bsimp;
@@ -168,8 +167,6 @@ public:
     // TODO: improve precision of the following method.
     bool has_quantifiers() const { return m_simplifier.visited_quantifier(); /* approximation */ }
     
-    void set_pattern_database(pattern_database * db) { m_database = db; }
-
     // -----------------------------------
     //
     // Macros

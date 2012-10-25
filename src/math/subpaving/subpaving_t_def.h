@@ -20,7 +20,8 @@ Revision History:
 #include"interval_def.h"
 #include"buffer.h"
 #include"cooperate.h"
-#include"tactic_exception.h"
+#include"z3_exception.h"
+#include"common_msgs.h"
 
 namespace subpaving {
 
@@ -461,7 +462,7 @@ void context_t<C>::checkpoint() {
     if (m_cancel)
         throw default_exception("canceled");
     if (memory::get_allocation_size() > m_max_memory)
-        throw default_exception(TACTIC_MAX_MEMORY_MSG);
+        throw default_exception(Z3_MAX_MEMORY_MSG);
     cooperate("subpaving");
 }
 

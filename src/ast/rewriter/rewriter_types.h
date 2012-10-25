@@ -19,7 +19,8 @@ Notes:
 #ifndef _REWRITER_TYPES_H_
 #define _REWRITER_TYPES_H_
 
-#include"tactic_exception.h"
+#include"z3_exception.h"
+#include"common_msgs.h"
 
 /**
    \brief Builtin rewrite result status
@@ -43,9 +44,9 @@ inline br_status unsigned2br_status(unsigned u) {
     return r;
 }
 
-class rewriter_exception : public tactic_exception {
+class rewriter_exception : public default_exception {
 public:                                                
-    rewriter_exception(char const * msg):tactic_exception(msg) {}
+    rewriter_exception(char const * msg):default_exception(msg) {}
 };
 
 #endif

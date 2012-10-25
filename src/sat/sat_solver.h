@@ -218,8 +218,8 @@ namespace sat {
         lbool status(clause const & c) const;
         clause_offset get_offset(clause const & c) const { return m_cls_allocator.get_offset(&c); }
         void checkpoint() {
-            if (m_cancel) throw solver_exception(TACTIC_CANCELED_MSG);
-            if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(TACTIC_MAX_MEMORY_MSG);
+            if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
+            if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }

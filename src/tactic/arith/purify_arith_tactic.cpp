@@ -870,22 +870,27 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
-        tactic_report report("purify-arith", *g);
-        bool produce_proofs = g->proofs_enabled();
-        bool produce_models = g->models_enabled();
-        bool elim_root_objs = m_params.get_bool(":elim-root-objects", true);
-        bool elim_inverses  = m_params.get_bool(":elim-inverses", true);
-        bool complete       = m_params.get_bool(":complete", true);
-        purify_arith_proc proc(m_util, m_aux_decls, produce_proofs, elim_root_objs, elim_inverses, complete);
-        
-        proc(*(g.get()), mc, produce_models);
-        
-        g->inc_depth();
-        result.push_back(g.get());
-        TRACE("purify_arith", g->display(tout););
-        SASSERT(g->is_well_sorted());
+        try {
+            SASSERT(g->is_well_sorted());
+            mc = 0; pc = 0; core = 0;
+            tactic_report report("purify-arith", *g);
+            bool produce_proofs = g->proofs_enabled();
+            bool produce_models = g->models_enabled();
+            bool elim_root_objs = m_params.get_bool(":elim-root-objects", true);
+            bool elim_inverses  = m_params.get_bool(":elim-inverses", true);
+            bool complete       = m_params.get_bool(":complete", true);
+            purify_arith_proc proc(m_util, m_aux_decls, produce_proofs, elim_root_objs, elim_inverses, complete);
+            
+            proc(*(g.get()), mc, produce_models);
+            
+            g->inc_depth();
+            result.push_back(g.get());
+            TRACE("purify_arith", g->display(tout););
+            SASSERT(g->is_well_sorted());
+        }
+        catch (rewriter_exception & ex) {
+            throw tactic_exception(ex.msg());
+        }
     }
     
     virtual void cleanup() {

@@ -246,17 +246,17 @@ protected:
     // check maximum number of scopes
     void check_max_scopes() const { 
         if (m_cfg.max_scopes_exceeded(this->m_scopes.size()))
-            throw rewriter_exception(TACTIC_MAX_SCOPES_MSG);
+            throw rewriter_exception(Z3_MAX_SCOPES_MSG);
     }
     // check maximum size of the frame stack
     void check_max_frames() const { 
         if (m_cfg.max_frames_exceeded(frame_stack().size()))
-            throw rewriter_exception(TACTIC_MAX_FRAMES_MSG);
+            throw rewriter_exception(Z3_MAX_FRAMES_MSG);
     }
     // check maximum number of rewriting steps
     void check_max_steps() const { 
         if (m_cfg.max_steps_exceeded(m_num_steps))
-            throw rewriter_exception(TACTIC_MAX_STEPS_MSG);
+            throw rewriter_exception(Z3_MAX_STEPS_MSG);
     }
 
     // If pre_visit returns false, then t children are not visited/rewritten.

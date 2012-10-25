@@ -87,7 +87,7 @@ bool smaller_pattern::operator()(unsigned num_bindings, expr * p1, expr * p2) {
     return process(p1, p2);
 }
 
-pattern_inference::pattern_inference(ast_manager & m, pattern_inference_params & params, pattern_database * db):
+pattern_inference::pattern_inference(ast_manager & m, pattern_inference_params & params):
     simplifier(m),
     m_params(params),
     m_bfid(m.get_basic_family_id()),
@@ -99,7 +99,7 @@ pattern_inference::pattern_inference(ast_manager & m, pattern_inference_params &
     m_pattern_weight_lt(m_candidates_info),
     m_collect(m, *this),
     m_contains_subpattern(*this),
-    m_database(db) {
+    m_database(m) {
     if (params.m_pi_arith == AP_NO)
         register_forbidden_family(m_afid);
     enable_ac_support(false);
@@ -574,6 +574,8 @@ void pattern_inference::mk_patterns(unsigned num_bindings,
     m_candidates.reset();
 }
 
+#include"database.h" // defines g_pattern_database
+
 void pattern_inference::reduce1_quantifier(quantifier * q) {
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m_manager) << "\n";);
     if (!q->is_forall()) {
@@ -582,11 +584,12 @@ void pattern_inference::reduce1_quantifier(quantifier * q) {
     }
 
     int weight = q->get_weight();
-    
-    if (m_database) { 
+
+    if (m_params.m_pi_use_database) {
+        m_database.initialize(g_pattern_database);
         app_ref_vector new_patterns(m_manager);
         unsigned new_weight;
-        if (m_database->match_quantifier(q, new_patterns, new_weight)) {
+        if (m_database.match_quantifier(q, new_patterns, new_weight)) {
 #ifdef Z3DEBUG
             for (unsigned i = 0; i < new_patterns.size(); i++) { SASSERT(is_well_sorted(m_manager, new_patterns.get(i))); }
 #endif

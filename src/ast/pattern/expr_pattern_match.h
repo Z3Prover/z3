@@ -23,9 +23,8 @@ Notes:
 #include"ast.h"
 #include"map.h"
 #include"front_end_params.h"
-#include"pattern_inference.h"
 
-class expr_pattern_match : public pattern_database {
+class expr_pattern_match {
 
     enum instr_kind {
         BACKTRACK,

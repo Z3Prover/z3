@@ -193,7 +193,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool max_steps_exceeded(unsigned num_steps) const { 
         cooperate("model evaluator");
         if (memory::get_allocation_size() > m_max_memory)
-            throw rewriter_exception(TACTIC_MAX_MEMORY_MSG);
+            throw rewriter_exception(Z3_MAX_MEMORY_MSG);
         return num_steps > m_max_steps;
     }
 

@@ -335,7 +335,12 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+        try {
+            (*m_imp)(in, result, mc, pc, core);
+        }
+        catch (rewriter_exception & ex) {
+            throw tactic_exception(ex.msg());
+        }
     }
     
     virtual void cleanup() {

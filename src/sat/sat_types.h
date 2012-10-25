@@ -22,7 +22,8 @@ Revision History:
 #include"debug.h"
 #include"approx_set.h"
 #include"lbool.h"
-#include"tactic_exception.h"
+#include"z3_exception.h"
+#include"common_msgs.h"
 #include"vector.h"
 #include<iomanip>
 
@@ -125,9 +126,9 @@ namespace sat {
     class integrity_checker;
     typedef ptr_vector<clause> clause_vector;
 
-    class solver_exception : public tactic_exception {
+    class solver_exception : public default_exception {
     public:                                                
-        solver_exception(char const * msg):tactic_exception(msg) {}
+        solver_exception(char const * msg):default_exception(msg) {}
     };
 
     typedef default_exception sat_param_exception;

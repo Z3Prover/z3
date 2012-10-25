@@ -28,13 +28,7 @@ Revision History:
 #include"obj_hashtable.h"
 #include"obj_pair_hashtable.h"
 #include"map.h"
-
-class pattern_database {
-public:
-    virtual ~pattern_database() {}
-    virtual void initialize(char const * smt_patterns) = 0;
-    virtual bool match_quantifier(quantifier * qf, app_ref_vector & patterns, unsigned & weight) = 0;
-};
+#include"expr_pattern_match.h"
 
 /**
    \brief A pattern p_1 is smaller than a pattern p_2 iff 
@@ -195,7 +189,7 @@ class pattern_inference : public simplifier {
     };
 
     ptr_vector<pre_pattern>      m_pre_patterns;
-    pattern_database *           m_database;
+    expr_pattern_match           m_database;
 
     void candidates2unary_patterns(ptr_vector<app> const & candidate_patterns,
                                    ptr_vector<app> & remaining_candidate_patterns,
@@ -223,7 +217,7 @@ class pattern_inference : public simplifier {
     virtual void reduce1_quantifier(quantifier * q);
 
 public:
-    pattern_inference(ast_manager & m, pattern_inference_params & params, pattern_database * db);
+    pattern_inference(ast_manager & m, pattern_inference_params & params);
     
     void register_forbidden_family(family_id fid) {
         SASSERT(fid != m_bfid);

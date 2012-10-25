@@ -359,9 +359,9 @@ struct nnf::imp {
     void checkpoint() {
         cooperate("nnf");
         if (memory::get_allocation_size() > m_max_memory)
-            throw nnf_exception(TACTIC_MAX_MEMORY_MSG);
+            throw nnf_exception(Z3_MAX_MEMORY_MSG);
         if (m_cancel)
-            throw nnf_exception(TACTIC_CANCELED_MSG);
+            throw nnf_exception(Z3_CANCELED_MSG);
     }
 
     void set_new_child_flag() {

@@ -97,10 +97,15 @@ void simplify_tactic::operator()(goal_ref const & in,
                                  model_converter_ref & mc, 
                                  proof_converter_ref & pc,
                                  expr_dependency_ref & core) {
-    (*m_imp)(*(in.get()));
-    in->inc_depth();
-    result.push_back(in.get());
-    mc = 0; pc = 0; core = 0;
+    try {
+        (*m_imp)(*(in.get()));
+        in->inc_depth();
+        result.push_back(in.get());
+        mc = 0; pc = 0; core = 0;
+    }
+    catch (rewriter_exception & ex) {
+        throw tactic_exception(ex.msg());
+    }
 }
 
 void simplify_tactic::set_cancel(bool f) {

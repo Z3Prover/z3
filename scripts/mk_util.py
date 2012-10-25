@@ -414,4 +414,17 @@ def mk_makefile():
         else:
             print "Type 'cd %s; make' to build Z3" % BUILD_DIR
         
+# Generate automatically generated source code
+def mk_auto_src():
+    mk_pat_db()
 
+# TODO: delete after src/ast/pattern/expr_pattern_match
+# database.smt ==> database.h
+def mk_pat_db():
+    c = _Name2Component['pattern']
+    fin  = open('%s/database.smt2' % c.src_dir, 'r')
+    fout = open('%s/database.h'  % c.src_dir, 'w')
+    fout.write('char const * g_pattern_database =\n')
+    for line in fin:
+        fout.write('"%s\\n"\n' % line.strip('\n'))
+    fout.write(';\n')    

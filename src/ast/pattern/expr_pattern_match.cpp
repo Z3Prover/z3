@@ -31,10 +31,12 @@ Notes:
 
 #include"ast.h"
 #include"expr_pattern_match.h"
-#include"smtparser.h"
 #include"for_each_ast.h"
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
+#include"cmd_context.h"
+#include"smt2parser.h"
+#include"front_end_params.h"
 
 expr_pattern_match::expr_pattern_match(ast_manager & manager):
     m_manager(manager), m_precompiled(manager) {        
@@ -398,21 +400,18 @@ expr_pattern_match::initialize(char const * spec_string) {
     if (!m_instrs.empty()) {
         return;
     }
-
     m_instrs.push_back(instr(BACKTRACK));
 
-    smtlib::parser* parser = smtlib::parser::create(m_manager);
-    parser->initialize_smtlib();
-    if (!parser->parse_string(spec_string)) {
-        UNREACHABLE();
-    }
-    smtlib::benchmark* bench  = parser->get_benchmark();
-    smtlib::theory::expr_iterator it  = bench->begin_formulas();
-    smtlib::theory::expr_iterator end = bench->end_formulas();
+    std::istringstream is(spec_string);
+    front_end_params p;
+    cmd_context      ctx(p, true, &m_manager);
+    VERIFY(parse_smt2_commands(ctx, is));
+
+    ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+    ptr_vector<expr>::const_iterator end = ctx.end_assertions();
     for (; it != end; ++it) {
         compile(*it);
     }
-    dealloc(parser);
     TRACE("expr_pattern_match", display(tout); );
 }
 

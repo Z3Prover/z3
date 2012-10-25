@@ -250,31 +250,36 @@ namespace qe {
             proof_converter_ref & pc, 
             expr_dependency_ref& core) 
         {
-            checkpoint();
-            reset();            
-            ptr_vector<expr> fmls;
-            goal->get_formulas(fmls);
-            m_fml = m.mk_and(fmls.size(), fmls.c_ptr());
-            TRACE("qe", tout << "input: " << mk_pp(m_fml,m) << "\n";);
-            simplify_rewriter_star rw(m);
-            expr_ref tmp(m);
-            rw(m_fml, tmp);
-            m_fml = tmp;
-            TRACE("qe", tout << "reduced: " << mk_pp(m_fml,m) << "\n";);
-            skolemize_existential_prefix();
-            extract_alt_form(m_fml);
-            model_ref model;
-            expr_ref res = qt(0, m.mk_true(), model);
-            goal->inc_depth();
-            if (m.is_false(res)) {
-                goal->assert_expr(res);
+            try {
+                checkpoint();
+                reset();            
+                ptr_vector<expr> fmls;
+                goal->get_formulas(fmls);
+                m_fml = m.mk_and(fmls.size(), fmls.c_ptr());
+                TRACE("qe", tout << "input: " << mk_pp(m_fml,m) << "\n";);
+                simplify_rewriter_star rw(m);
+                expr_ref tmp(m);
+                rw(m_fml, tmp);
+                m_fml = tmp;
+                TRACE("qe", tout << "reduced: " << mk_pp(m_fml,m) << "\n";);
+                skolemize_existential_prefix();
+                extract_alt_form(m_fml);
+                model_ref model;
+                expr_ref res = qt(0, m.mk_true(), model);
+                goal->inc_depth();
+                if (m.is_false(res)) {
+                    goal->assert_expr(res);
+                }
+                else {
+                    goal->reset();
+                    // equi-satisfiable. What to do with model?
+                    mc = model2model_converter(&*model);
+                }
+                result.push_back(goal.get());
             }
-            else {
-                goal->reset();
-                // equi-satisfiable. What to do with model?
-                mc = model2model_converter(&*model);
+            catch (rewriter_exception & ex) {
+                throw tactic_exception(ex.msg());
             }
-            result.push_back(goal.get());
         }
 
         virtual void collect_statistics(statistics & st) const {

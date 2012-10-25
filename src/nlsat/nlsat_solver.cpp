@@ -25,7 +25,7 @@ Revision History:
 #include"nlsat_evaluator.h"
 #include"nlsat_explain.h"
 #include"algebraic_numbers.h"
-#include"tactic_exception.h"
+#include"z3_exception.h"
 #include"chashtable.h"
 #include"id_gen.h"
 #include"dependency.h"
@@ -220,8 +220,8 @@ namespace nlsat {
         }
 
         void checkpoint() {
-            if (m_cancel) throw solver_exception(TACTIC_CANCELED_MSG);
-            if (memory::get_allocation_size() > m_max_memory) throw solver_exception(TACTIC_MAX_MEMORY_MSG);
+            if (m_cancel) throw solver_exception(Z3_CANCELED_MSG);
+            if (memory::get_allocation_size() > m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
         }
 
         // -----------------------

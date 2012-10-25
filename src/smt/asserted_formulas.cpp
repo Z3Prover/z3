@@ -1105,7 +1105,7 @@ void asserted_formulas::reduce_and_solve() {
 void asserted_formulas::infer_patterns() {
     IF_IVERBOSE(10, verbose_stream() << "pattern inference...\n";);
     TRACE("before_pattern_inference", display(tout););
-    pattern_inference infer(m_manager, m_params, m_database.get());
+    pattern_inference infer(m_manager, m_params);
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);
     unsigned i  = m_asserted_qhead;
