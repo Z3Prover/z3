@@ -49,8 +49,8 @@ def parse_options():
                                                                     'debug',
                                                                     'verbose',
                                                                     'x64',
-                                                                    'help'
-                                                                     'makefiles'
+                                                                    'help',
+                                                                    'makefiles'
                                                                      ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
