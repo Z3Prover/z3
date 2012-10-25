@@ -69,4 +69,4 @@ add_dot_net_dll('dotnetV3', ['api_dll'], 'bindings/dotnet/Microsoft.Z3V3', dll_n
 mk_auto_src()
 update_version(4, 2, 0, 0)
 
-# mk_makefile()
+mk_makefile()
