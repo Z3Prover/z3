@@ -123,11 +123,10 @@ AS_IF([test "$host_os" = "Darwin"], [
    PLATFORM=win
    SO_EXT=.dll
    LDFLAGS=
-   SLIBFLAGS="-shared -fopenmp"
-   SLIBEXTRAFLAGS=""
+   SLIBFLAGS="-shared -fopenmp -Wl,--whole-archive"
+   SLIBEXTRAFLAGS="-Wl,--no-whole-archive"
    COMP_VERSIONS=
-   STATIC_FLAGS=-static
-   CXXFLAGS+=" -D_CYGWIN"
+   CXXFLAGS+=" -D_CYGWIN -fno-strict-aliasing"
 ],
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
@@ -145,16 +144,14 @@ AC_CHECK_SIZEOF(int *)
 
 if test $ac_cv_sizeof_int_p -eq 8; then
    dnl In 64-bit systems we have to compile using -fPIC
-   CXXFLAGS="-fPIC"
-   CPPFLAGS="$CPPFLAGS -D_AMD64_"
+   CXXFLAGS+=" -fPIC"
+   CPPFLAGS+=" -D_AMD64_"
    dnl Only enable use of thread local storage for 64-bit Linux. It is disabled for OSX and 32-bit Linux
    if test $PLATFORM = "linux"; then
-      CPPFLAGS="$CPPFLAGS -D_USE_THREAD_LOCAL" 
+      CPPFLAGS+=" -D_USE_THREAD_LOCAL" 
    fi
-   EXTRA_LIBS=""
    IS_X64="yes"
 else
-   CXXFLAGS=""
    IS_X64="no"
 fi
 

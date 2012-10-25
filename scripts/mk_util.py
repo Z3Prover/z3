@@ -8,7 +8,6 @@
 ############################################
 import os
 import glob
-import sets
 import re
 import getopt
 import sys
@@ -118,9 +117,9 @@ def mk_fresh_name(prefix):
 
 _Id = 0
 _Components = []
-_ComponentNames = sets.Set()
+_ComponentNames = set()
 _Name2Component = {}
-_Processed_Headers = sets.Set()
+_Processed_Headers = set()
 
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
@@ -315,7 +314,7 @@ class DLLComponent(Component):
         if IS_WINDOW:
             dllfile = '%s$(SO_EXT)' % self.dll_name
         else:
-            dllfile = '%libs$(SO_EXT)' % self.dll_name
+            dllfile = 'lib%s$(SO_EXT)' % self.dll_name
         out.write('%s:' % dllfile)
         deps = sort_components(self.deps)
         objs = []
