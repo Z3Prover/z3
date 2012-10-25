@@ -41,7 +41,6 @@ failed: 'sort mismatch'
 from z3core import *
 from z3types import *
 from z3consts import *
-from z3tactics import *
 from z3printer import *
 import io
 

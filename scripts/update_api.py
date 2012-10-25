@@ -196,25 +196,6 @@ def mk_z3tactics_py():
             z3tactics.write('  ctx = z3._get_ctx(ctx)\n')
             z3tactics.write('  return z3.Probe(z3core.Z3_mk_probe(ctx.ref(), \'%s\'), ctx)\n\n' % probe)
 
-# Create .def files for DLL generation
-def mk_dll_defs():
-    pat1 = re.compile(".*Z3_API.*")
-    z3def = open('dll%sz3.def' % os.sep, 'w')
-    z3def.write('LIBRARY "Z3"\nEXPORTS\n')
-    num = 1
-    for api_file in API_FILES:
-        api = open(api_file, 'r')
-        for line in api:
-            m = pat1.match(line)
-            if m:
-                words = re.split('\W+', line)
-                i = 0
-                for w in words:
-                    if w == 'Z3_API':
-                        f = words[i+1]
-                        z3def.write('\t%s @%s\n' % (f, num))
-                    i = i + 1
-                num = num + 1
 
 #
 # Generate logging support and bindings
@@ -861,7 +842,6 @@ def def_APIs():
 mk_z3consts_donet()
 mk_z3consts_py()
 mk_z3tactics_py()
-mk_dll_defs()
 def_Types()
 def_APIs()
 mk_bindings()
