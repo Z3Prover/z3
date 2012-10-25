@@ -234,6 +234,10 @@ class Component:
     def has_assembly_info(self):
         return False
 
+    # Return true if the component needs builder to generate an install_tactics.cpp file
+    def require_install_tactics(self):
+        return False
+
 class LibComponent(Component):
     def __init__(self, name, path, deps):
         Component.__init__(self, name, path, deps)
@@ -305,6 +309,9 @@ class ExeComponent(Component):
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
+    def require_install_tactics(self):
+        return ('tactic' in self.deps) and ('cmd_context' in self.deps)
+
     # All executables are included in the all: rule
     def main_component(self):
         return True
@@ -354,6 +361,9 @@ class DLLComponent(Component):
     def main_component(self):
         return True
 
+    def require_install_tactics(self):
+        return ('tactic' in self.deps) and ('cmd_context' in self.deps)
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
@@ -367,6 +377,7 @@ class DotNetDLLComponent(Component):
     def mk_makefile(self, out):
         if IS_WINDOW:
             # TODO
+            out.write('%s: \n\n' % self.name)
             return
     
     def main_component(self):
@@ -531,11 +542,69 @@ def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is
             num_updates = num_updates + 1
         else:
             fout.write(line)
-    if VERBOSE:
-        print "%s version numbers updated at '%s'" % (num_updates, assemblyinfo)
+    # if VERBOSE:
+    #    print "%s version numbers updated at '%s'" % (num_updates, assemblyinfo)
     assert num_updates == 2, "unexpected number of version number updates"
     fin.close()
     fout.close()
     shutil.move(tmp, assemblyinfo)
     if VERBOSE:
         print "Updated %s" % assemblyinfo
+
+ADD_TACTIC_DATA=[]
+
+def ADD_TACTIC(name, descr, cmd):
+    global ADD_TACTIC_DATA
+    ADD_TACTIC_DATA.append((name, descr, cmd))
+
+# Generate an install_tactics.cpp at path.
+# This file implements the procedure
+#    void install_tactics(tactic_manager & ctx)
+# It installs all tactics in the given component (name) list cnames
+# The procedure looks for ADD_TACTIC commands in the .h files of these components.
+def mk_install_tactic_cpp(cnames, path):
+    global ADD_TACTIC_DATA
+    ADD_TACTIC_DATA = []
+    fullname = '%s/install_tactic.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"tactic.h"\n')
+    fout.write('#include"tactic_cmds.h"\n')
+    fout.write('#include"cmd_context.h"\n')
+    pat   = re.compile('[ \t]*ADD_TACTIC(.*)')
+    for cname in cnames:
+        c = _Name2Component[cname]
+        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                if pat.match(line):
+                    fout.write('#include"%s"\n' % h_file)
+                    exec line.strip('\n ') in globals()
+    # First pass will just generate the tactic factories
+    idx = 0
+    for data in ADD_TACTIC_DATA:
+        fout.write('MK_SIMPLE_TACTIC_FACTORY(__Z3_local_factory_%s, %s);\n' % (idx, data[2]))
+        idx = idx + 1
+    fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, FACTORY) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, alloc(FACTORY)))\n')
+    fout.write('#define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))\n')
+    fout.write('void install_tactics(tactic_manager & ctx) {\n')
+    idx = 0
+    for data in ADD_TACTIC_DATA:
+        fout.write('  ADD_TACTIC_CMD("%s", "%s", __Z3_local_factory_%s);\n' % (data[0], data[1], idx))
+        idx = idx + 1
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_install_tactic_cpps():
+    if not ONLY_MAKEFILES:
+        for c in _Components:
+            if c.require_install_tactics():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_install_tactic_cpp(cnames, c.src_dir)
+
+def get_component(name):
+    return _Name2Component[name]

@@ -66,7 +66,12 @@ add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', dll_name='z3')
 add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet/Microsoft.Z3', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
 add_dot_net_dll('dotnetV3', ['api_dll'], 'bindings/dotnet/Microsoft.Z3V3', dll_name='Microsoft.Z3V3')
 
+
 mk_auto_src()
 update_version(4, 2, 0, 0)
 
+mk_all_install_tactic_cpps()
+
+#
 mk_makefile()
+

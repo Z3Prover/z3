@@ -27,4 +27,9 @@ tactic * mk_sat_tactic(ast_manager & m, params_ref const & p = params_ref());
 
 tactic * mk_sat_preprocessor_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC('sat', '(try to) solve goal using a SAT solver.', 'mk_sat_tactic(m, p)')
+  ADD_TACTIC('sat-preprocess', 'Apply SAT solver preprocessing procedures (bounded resolution, Boolean constant propagation, 2-SAT, subsumption, subsumption resolution).', 'mk_sat_preprocessor_tactic(m, p)')
+*/
+
 #endif

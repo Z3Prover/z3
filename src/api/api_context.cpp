@@ -25,8 +25,10 @@ Revision History:
 #include"ast_ll_pp.h"
 #include"api_log_macros.h"
 #include"api_util.h"
-#include"install_tactics.h"
 #include"reg_decl_plugins.h"
+
+// The install_tactics procedure is automatically generated
+void install_tactics(tactic_manager & ctx);
 
 namespace api {
 
