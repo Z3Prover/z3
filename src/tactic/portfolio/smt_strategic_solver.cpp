@@ -77,7 +77,7 @@ static void init(strategic_solver * s) {
     s->set_tactic_for(symbol("LRA"),       alloc(lra_fct));
     s->set_tactic_for(symbol("UFBV"),      alloc(ufbv_fct));
     s->set_tactic_for(symbol("BV"),        alloc(ufbv_fct));        
-	s->set_tactic_for(symbol("QF_FPA"),    alloc(qffpa_fct));
+    s->set_tactic_for(symbol("QF_FPA"),    alloc(qffpa_fct));
 }
 
 solver * mk_smt_strategic_solver(cmd_context & ctx) {
