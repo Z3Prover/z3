@@ -29,6 +29,8 @@ namespace qe {
     tactic * mk_sat_tactic(ast_manager& m, params_ref const& p);
     
 };
-
+/*
+  ADD_TACTIC("qe-sat", "check satisfiability of quantified formulas using quantifier elimination.", "qe::mk_sat_tactic(m, p)")
+*/
 
 #endif

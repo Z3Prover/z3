@@ -31,5 +31,7 @@ class tactic;
 
 tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p = params_ref());
 probe * mk_is_qfbv_eq_probe();
-
+/*
+  ADD_TACTIC("bv1-blast", "reduce bit-vector expressions into bit-vectors of size 1 (notes: only equality, extract and concat are supported).", "mk_bv1_blaster_tactic(m, p)")
+*/
 #endif

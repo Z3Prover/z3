@@ -24,5 +24,8 @@ class ast_manager;
 class tactic;
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("qfnra", "builtin strategy for solving QF_NRA problems.", "mk_qfnra_tactic(m, p)")
+*/
 
 #endif

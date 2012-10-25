@@ -24,6 +24,9 @@ class ast_manager;
 class tactic;
 
 tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("pb2bv", "convert pseudo-boolean constraints to bit-vectors.", "mk_pb2bv_tactic(m, p)")
+*/
 
 probe * mk_is_pb_probe();
 

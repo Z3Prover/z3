@@ -38,5 +38,8 @@ class ast_manager;
 class tactic;
 
 tactic * mk_propagate_ineqs_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", "mk_propagate_ineqs_tactic(m, p)")
+*/
 
 #endif

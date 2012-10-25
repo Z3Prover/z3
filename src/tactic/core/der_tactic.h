@@ -22,4 +22,8 @@ class tactic;
 
 tactic * mk_der_tactic(ast_manager & m);
 
+/*
+  ADD_TACTIC_CMD("der", "destructive equality resolution.", "mk_der_tactic(m)")
+*/
+
 #endif /* _DER_TACTIC_H_ */

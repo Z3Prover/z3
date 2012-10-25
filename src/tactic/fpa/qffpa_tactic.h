@@ -25,5 +25,8 @@ class ast_manager;
 class tactic;
 
 tactic * mk_qffpa_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("qffpa", "(try to) solve goal using the tactic for QF_FPA.", "mk_qffpa_tactic(m, p)")
+*/
 
 #endif

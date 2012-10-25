@@ -139,57 +139,9 @@ MK_SIMPLE_TACTIC_FACTORY(ufbv_fct,               mk_ufbv_tactic(m, p));
 void install_tactics(tactic_manager & ctx) {
 
 
-
-
-
-    ADD_TACTIC_CMD("bv1-blast", "reduce bit-vector expressions into bit-vectors of size 1 (notes: only equality, extract and concat are supported).", bv1blaster_fct);
-
-    ADD_TACTIC_CMD("ctx-simplify", "apply contextual simplification rules.", ctx_simplify_fct);
     ADD_TACTIC_CMD("ctx-solver-simplify", "apply solver-based contextual simplification rules.", ctx_solver_simplify_fct);
-    ADD_TACTIC_CMD("der", "destructive equality resolution.", der_fct);
     ADD_TACTIC_CMD("unit-subsume-simplify", "unit subsumption simplification.", unit_subsume_fct);
-    ADD_TACTIC_CMD("qe", "apply quantifier elimination.", qe_fct);
-    ADD_TACTIC_CMD("qe-sat", "check satisfiability of quantified formulas using quantifier elimination.", qe_sat_fct);
 
-
-    ADD_TACTIC_CMD("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", max_bv_sharing_fct);
-
-    ADD_TACTIC_CMD("fix-dl-var", "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.",
-                   fix_dl_var_fct);
-    ADD_TACTIC_CMD("tseitin-cnf", "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored).", tseitin_cnf_fct);
-    ADD_TACTIC_CMD("tseitin-cnf-core", "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored). This tactic does not apply required simplifications to the input goal like the tseitin-cnf tactic.", tseitin_cnf_core_fct);
-    ADD_TACTIC_CMD("degree-shift", "try to reduce degree of polynomials (remark: :mul2power simplification is automatically applied).", degree_shift_fct);
-    ADD_TACTIC_CMD("purify-arith", "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.", purify_arith_fct);
-    ADD_TACTIC_CMD("nlsat", "(try to) solve goal using a nonlinear arithmetic solver.", nlsat_fct);
-    ADD_TACTIC_CMD("factor", "polynomial factorization.", factor_fct);
-    ADD_TACTIC_CMD("fm", "eliminate variables using fourier-motzkin elimination.", fm_fct);
-    ADD_TACTIC_CMD("fail-if-undecided", "fail if goal is undecided.", fail_if_undecided_fct);
-    ADD_TACTIC_CMD("diff-neq", "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numberal, and all constants are bounded.", diff_neq_fct);
-    ADD_TACTIC_CMD("lia2pb", "convert bounded integer variables into a sequence of 0-1 variables.", lia2pb_fct);
-    ADD_TACTIC_CMD("fpa2bv", "convert floating point numbers to bit-vectors.", fpa2bv_fct);
-    ADD_TACTIC_CMD("qffpa", "(try to) solve goal using the tactic for QF_FPA.", qffpa_fct);
-    ADD_TACTIC_CMD("pb2bv", "convert pseudo-boolean constraints to bit-vectors.", pb2bv_fct);
-    ADD_TACTIC_CMD("recover-01", "recover 0-1 variables hidden as Boolean variables.", recover_01_fct);
-    ADD_TACTIC_CMD("distribute-forall", "distribute forall over conjunctions.", distribute_forall_fct);
-    ADD_TACTIC_CMD("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.",
-                   reduce_args_fct);
-    ADD_TACTIC_CMD("reduce-bv-size", "try to reduce bit-vector sizes using inequalities.", bv_size_reduction_fct);
-    ADD_TACTIC_CMD("propagate-ineqs", "propagate ineqs/bounds, remove subsumed inequalities.", propagate_ineqs_fct);
-    ADD_TACTIC_CMD("cofactor-term-ite", "eliminate term if-the-else using cofactors.", cofactor_term_ite_fct);
-    ADD_TACTIC_CMD("nla2bv", "convert a nonlinear arithmetic problem into a bit-vector problem, in most cases the resultant goal is an under approximation and is useul for finding models.", nla2bv_fct);
-    ADD_TACTIC_CMD("vsubst", "checks satsifiability of quantifier-free non-linear constraints using virtual substitution.", vsubst_fct);
-    ADD_TACTIC_CMD("qfbv-sls", "(try to) solve using stochastic local search for QF_BV.", qfbv_sls_fct);
-    ADD_TACTIC_CMD("qflia", "builtin strategy for solving QF_LIA problems.", qflia_fct);
-    ADD_TACTIC_CMD("qflra", "builtin strategy for solving QF_LRA problems.", qflra_fct);
-    ADD_TACTIC_CMD("qfnia", "builtin strategy for solving QF_NIA problems.", qfnia_fct);
-    ADD_TACTIC_CMD("qfnra", "builtin strategy for solving QF_NRA problems.", qfnra_fct);
-    ADD_TACTIC_CMD("qfnra-nlsat", "builtin strategy for solving QF_NRA problems using only nlsat.", qfnra_nlsat_fct);
-    ADD_TACTIC_CMD("qfbv",  "builtin strategy for solving QF_BV problems.", qfbv_fct);
-    ADD_TACTIC_CMD("ufbv",  "builtin strategy for solving UFBV problems (with quantifiers).", ufbv_fct);
-    ADD_TACTIC_CMD("bv",  "builtin strategy for solving BV problems (with quantifiers).", ufbv_fct);
-#ifndef _EXTERNAL_RELEASE
-    ADD_TACTIC_CMD("subpaving", "tactic for testing subpaving module.", subpaving_fct);
-#endif
 
     ADD_PROBE("memory", "ammount of used memory in megabytes.", mk_memory_probe());
     ADD_PROBE("depth", "depth of the input goal.", mk_depth_probe());

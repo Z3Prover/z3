@@ -24,5 +24,7 @@ class ast_manager;
 class tactic;
 
 tactic * mk_factor_tactic(ast_manager & m, params_ref const & p = params_ref());
-
+/*
+  ADD_TACTIC("factor", "polynomial factorization.", "mk_factor_tactic(m, p)")
+*/
 #endif

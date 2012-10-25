@@ -139,7 +139,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     bool max_steps_exceeded(unsigned num_steps) const { 
         cooperate("bit blaster");
         if (memory::get_allocation_size() > m_max_memory)
-            throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+            throw rewriter_exception(Z3_MAX_MEMORY_MSG);
         return num_steps > m_max_steps;
     }
 
@@ -307,7 +307,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     }
 
     void throw_unsupported() {
-        throw tactic_exception("operator is not supported, you must simplify the goal before applying bit-blasting");
+        throw rewriter_exception("operator is not supported, you must simplify the goal before applying bit-blasting");
     }
 
     void blast_bv_term(expr * t, expr_ref & result, proof_ref & result_pr) {

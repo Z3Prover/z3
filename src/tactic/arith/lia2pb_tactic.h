@@ -24,5 +24,8 @@ class ast_manager;
 class tactic;
 
 tactic * mk_lia2pb_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("lia2pb", "convert bounded integer variables into a sequence of 0-1 variables.", "mk_lia2pb_tactic(m, p)")
+*/
 
 #endif

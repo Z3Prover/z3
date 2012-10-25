@@ -27,6 +27,9 @@ class ast_manager;
 class tactic;
 
 tactic * mk_max_bv_sharing_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", "mk_max_bv_sharing_tactic(m, p)")
+*/
 
 #endif
 

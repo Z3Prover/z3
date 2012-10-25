@@ -30,4 +30,8 @@ class tactic;
 
 tactic * mk_fix_dl_var_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("fix-dl-var", "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.", "mk_fix_dl_var_tactic(m, p)")
+*/
+
 #endif

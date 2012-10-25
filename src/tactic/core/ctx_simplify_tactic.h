@@ -53,4 +53,8 @@ inline tactic * mk_ctx_simplify_tactic(ast_manager & m, params_ref const & p = p
     return clean(alloc(ctx_simplify_tactic, m, p));
 }
 
+/*
+  ADD_TACTIC("ctx-simplify", "apply contextual simplification rules.", "mk_ctx_simplify_tactic(m, p)")
+*/
+
 #endif

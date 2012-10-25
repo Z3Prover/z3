@@ -28,4 +28,8 @@ class tactic;
 
 tactic * mk_degree_shift_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("degree-shift", "try to reduce degree of polynomials (remark: :mul2power simplification is automatically applied).", "mk_degree_shift_tactic(m, p)")
+*/
+
 #endif

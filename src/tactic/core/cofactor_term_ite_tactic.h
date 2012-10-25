@@ -25,5 +25,8 @@ class ast_manager;
 class tactic;
 
 tactic * mk_cofactor_term_ite_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("cofactor-term-ite", "eliminate term if-the-else using cofactors.", "mk_cofactor_term_ite_tactic(m, p)")
+*/
 
 #endif
