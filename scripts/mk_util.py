@@ -237,6 +237,10 @@ class Component:
     # Return true if the component needs builder to generate an install_tactics.cpp file
     def require_install_tactics(self):
         return False
+    
+    # Return true if the component needs a def file
+    def require_def_file(self):
+        return False
 
 class LibComponent(Component):
     def __init__(self, name, path, deps):
@@ -317,11 +321,12 @@ class ExeComponent(Component):
         return True
 
 class DLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps):
+    def __init__(self, name, dll_name, path, deps, export_files):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
         self.dll_name = dll_name
+        self.export_files = export_files
 
     def mk_makefile(self, out):
         global _Name2Component
@@ -364,6 +369,9 @@ class DLLComponent(Component):
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
 
+    def require_def_file(self):
+        return IS_WINDOW and self.export_files
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
@@ -405,8 +413,8 @@ def add_exe(name, deps=[], path=None, exe_name=None):
     c = ExeComponent(name, exe_name, path, deps)
     reg_component(name, c)
 
-def add_dll(name, deps=[], path=None, dll_name=None):
-    c = DLLComponent(name, dll_name, path, deps)
+def add_dll(name, deps=[], path=None, dll_name=None, export_files=[]):
+    c = DLLComponent(name, dll_name, path, deps, export_files)
     reg_component(name, c)
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
@@ -484,6 +492,7 @@ def update_version(major, minor, build, revision):
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
         update_all_assembly_infos(major, minor, build, revision)
+        mk_def_files()
         
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
@@ -571,6 +580,7 @@ def ADD_PROBE(name, descr, cmd):
 def mk_install_tactic_cpp(cnames, path):
     global ADD_TACTIC_DATA, ADD_PROBE_DATA
     ADD_TACTIC_DATA = []
+    ADD_PROBE_DATA = []
     fullname = '%s/install_tactic.cpp' % path
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
@@ -629,5 +639,35 @@ def mk_all_install_tactic_cpps():
                 cnames.append(c.name)
                 mk_install_tactic_cpp(cnames, c.src_dir)
 
+# Generate a .def based on the files at c.export_files slot.
+def mk_def_file(c):
+    pat1 = re.compile(".*Z3_API.*")
+    defname = '%s/%s.def' % (c.src_dir, c.name)
+    fout = open(defname, 'w')
+    fout.write('LIBRARY "%s"\nEXPORTS\n' % c.dll_name)
+    num = 1
+    for dot_h in c.export_files:
+        dot_h_c = c.find_file(dot_h, c.name)
+        api = open('%s/%s' % (dot_h_c.src_dir, dot_h), 'r')
+        for line in api:
+            m = pat1.match(line)
+            if m:
+                words = re.split('\W+', line)
+                i = 0
+                for w in words:
+                    if w == 'Z3_API':
+                        f = words[i+1]
+                        fout.write('\t%s @%s\n' % (f, num))
+                    i = i + 1
+                num = num + 1
+    if VERBOSE:
+        print "Generated '%s'" % defname
+
+def mk_def_files():
+    if not ONLY_MAKEFILES:
+        for c in _Components:
+            if c.require_def_file():
+                mk_def_file(c)
+                
 def get_component(name):
     return _Name2Component[name]
