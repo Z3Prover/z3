@@ -20,7 +20,7 @@ Revision History:
 #include"str_hashtable.h"
 
 static void tst1() {
-  map<char *, int, str_hash_proc, str_eq_proc> str2int;
+  map<char const *, int, str_hash_proc, str_eq_proc> str2int;
   str2int.insert("foo", 35);
   SASSERT(str2int.contains("foo"));
   SASSERT(str2int.find_iterator("foo") != str2int.end());

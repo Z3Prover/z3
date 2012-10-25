@@ -119,6 +119,7 @@ AS_IF([test "$host_os" = "Darwin"], [
   SLIBEXTRAFLAGS="-Wl,--no-whole-archive"
   COMP_VERSIONS=
   STATIC_FLAGS=-static
+  CXXFLAGS+=" -fno-strict-aliasing"
 ], [test "${host_os:0:6}" = "CYGWIN"], [
    PLATFORM=win
    SO_EXT=.dll

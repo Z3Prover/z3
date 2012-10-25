@@ -46,4 +46,4 @@ public:
     void operator()(expr_ref& fml, proof_ref& pr);
 };
 
-#endif __QE_LITE_H__
+#endif 

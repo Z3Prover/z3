@@ -219,7 +219,7 @@ namespace datalog {
         Z3_fixedpoint_add_rule(ctx, dl, Z3_mk_implies(ctx, Z3_mk_and(ctx, 2, body4), pxy), 0);
 
         Z3_lbool r = Z3_fixedpoint_query(ctx, dl, pxy);
-        if (r != l_undef) {
+        if (r != Z3_L_UNDEF) {
             std::cout << Z3_ast_to_string(ctx, Z3_fixedpoint_get_answer(ctx, dl)) << "\n";
         }
 
