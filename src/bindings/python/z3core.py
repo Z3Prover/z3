@@ -6,7 +6,7 @@ from z3consts import *
 
 def _find_lib():
   _dir = os.path.dirname(os.path.abspath(__file__))
-  libs = ['z3.dll', 'libz3.so', 'libz3.dylib']
+  libs = ['z3.dll', 'libz3.so', 'libz3.dylib', 'libz3.dll']
   if sys.maxsize > 2**32:
     locs = [_dir, '%s%s..%sx64%sexternal' % (_dir, os.sep, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
   else:

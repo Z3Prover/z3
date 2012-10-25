@@ -312,8 +312,10 @@ class DLLComponent(Component):
         global _Name2Component
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
-
-        dllfile = '%s$(SO_EXT)' % self.dll_name
+        if IS_WINDOW:
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+        else:
+            dllfile = '%libs$(SO_EXT)' % self.dll_name
         out.write('%s:' % dllfile)
         deps = sort_components(self.deps)
         objs = []
@@ -334,7 +336,10 @@ class DLLComponent(Component):
         for dep in deps:
             c_dep = _Name2Component[dep]
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        out.write(' $(SLINK_EXTRA_FLAGS)\n')
+        out.write(' $(SLINK_EXTRA_FLAGS)')
+        if IS_WINDOW:
+            out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
+        out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
 
     # All DLLs are included in the all: rule
@@ -405,6 +410,9 @@ def mk_makefile():
             print "  compilation mode: Debug"
         else:
             print "  compilation mode: Release"
-        print "Type 'cd %s; make' to build Z3" % BUILD_DIR
+        if IS_WINDOW:
+            print "Type 'cd %s && nmake to build Z3" % BUILD_DIR
+        else:
+            print "Type 'cd %s; make' to build Z3" % BUILD_DIR
         
 
