@@ -60,6 +60,7 @@ static void test_formula(lbool expected_outcome, char const* fml) {
     std::ostringstream buffer;
     buffer << "(benchmark presburger :status unknown :logic AUFLIA :extrapreds ((p1) (p2) (p3)) "
            << ":extrafuns ((a Int) (b Int))\n"
+           << ":extrapreds ((p) (q) (r))\n"
            << ":datatypes ((list (nil) (cons (hd Int) (tl list))))\n"
            << ":datatypes ((cell (cnil) (ccons (car cell) (cdr cell))))\n"
            << ":extrasorts (U)\n"
@@ -75,6 +76,17 @@ static void test_formula(lbool expected_outcome, char const* fml) {
 }
 
 void tst_quant_elim() {
+
+    test_formula(l_undef, "(exists ((p1 Bool) (q1 Bool) (r1 Bool))\
+                                    (and (or (not p1) (not q1) r1)\
+                                         (or (and (not p) (not q) (not p1) q1)\
+                                             (and (not p) q p1 (not q1))\
+                                             (and p (not q) p1 q1)\
+                                             (and p q p1 q1))\
+                                         (or (and (not r) (not r1))\
+                                             (and (= p p1) (= q q1) r r1)\
+                                             (and (not (and (= p p1) (= q q1))) (not (= r r1))))))");
+
 
     test_formula(l_false,"(forall (x Int) (y Int) (or (= x 0) (< (* 5 y) (* 6 x)) (> (* 5 y) (* 6 x))))");
 
@@ -97,6 +109,8 @@ void tst_quant_elim() {
 
 
     test_formula(l_undef, "(exists (a Bool) (b Bool) (or (and p1 a) (and p2 (not b))))");
+
+
 
 
     test_formula(l_false, 
