@@ -230,6 +230,10 @@ class Component:
     def main_component(self):
         return False
 
+    # Return true if the component contains an AssemblyInfo.cs file that needs to be updated.
+    def has_assembly_info(self):
+        return False
+
 class LibComponent(Component):
     def __init__(self, name, path, deps):
         Component.__init__(self, name, path, deps)
@@ -350,6 +354,28 @@ class DLLComponent(Component):
     def main_component(self):
         return True
 
+class DotNetDLLComponent(Component):
+    def __init__(self, name, dll_name, path, deps, assembly_info_dir):
+        Component.__init__(self, name, path, deps)
+        if dll_name == None:
+            dll_name = name
+        if assembly_info_dir == None:
+            assembly_info_dir = "."
+        self.dll_name          = dll_name
+        self.assembly_info_dir = assembly_info_dir 
+
+    def mk_makefile(self, out):
+        if IS_WINDOW:
+            # TODO
+            return
+    
+    def main_component(self):
+        return IS_WINDOW
+
+    def has_assembly_info(self):
+        return True
+    
+
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
     c.id = _Id
@@ -370,6 +396,10 @@ def add_exe(name, deps=[], path=None, exe_name=None):
 
 def add_dll(name, deps=[], path=None, dll_name=None):
     c = DLLComponent(name, dll_name, path, deps)
+    reg_component(name, c)
+
+def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
+    c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
     reg_component(name, c)
 
 # Copy configuration correct file to BUILD_DIR
@@ -441,7 +471,8 @@ def mk_pat_db():
 def update_version(major, minor, build, revision):
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
-
+        update_all_assembly_infos(major, minor, build, revision)
+        
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = _Name2Component['util']
@@ -453,4 +484,58 @@ def mk_version_dot_h(major, minor, build, revision):
     fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
     if VERBOSE:
         print "Generated '%s/version.h'" % c.src_dir
-    
+
+# Update version number in AssemblyInfo.cs files
+def update_all_assembly_infos(major, minor, build, revision):
+    for c in _Components:
+        if c.has_assembly_info():
+            assembly = '%s/%s/AssemblyInfo.cs' % (c.src_dir, c.assembly_info_dir)
+            if os.path.exists(assembly):
+                # It is a CS file
+                update_assembly_info_version(assembly,
+                                             major, minor, build, revision, False)
+            else:
+                assembly = '%s/%s/AssemblyInfo.cpp' % (c.src_dir, c.assembly_info_dir)
+                if os.path.exists(assembly):
+                    # It is a cpp file
+                    update_assembly_info_version(assembly,
+                                                 major, minor, build, revision, True)
+                else:
+                    raise MKException("Failed to find assembly info file at '%s/%s'" % (c.src_dir, c.assembly_info_dir))
+                    
+                
+# Update version number in the given AssemblyInfo.cs files
+def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is_cpp=False):
+    if is_cpp:
+        ver_pat   = re.compile('[assembly:AssemblyVersionAttribute\("[\.\d]*"\) *')
+        fver_pat  = re.compile('[assembly:AssemblyFileVersionAttribute\("[\.\d]*"\) *')
+    else:
+        ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
+        fver_pat  = re.compile('[assembly: AssemblyFileVersion\("[\.\d]*"\) *')
+    fin  = open(assemblyinfo, 'r')
+    tmp  = '%s.new' % assemblyinfo
+    fout = open(tmp, 'w')
+    num_updates = 0
+    for line in fin:
+        if ver_pat.match(line):
+            if is_cpp:
+                fout.write('[assembly:AssemblyVersionAttribute("%s.%s.%s.%s")];\n' % (major, minor, build, revision))
+            else:
+                fout.write('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
+            num_updates = num_updates + 1
+        elif fver_pat.match(line):
+            if is_cpp:
+                fout.write('[assembly:AssemblyFileVersionAttribute("%s.%s.%s.%s")];\n' % (major, minor, build, revision))
+            else:
+                fout.write('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
+            num_updates = num_updates + 1
+        else:
+            fout.write(line)
+    if VERBOSE:
+        print "%s version numbers updated at '%s'" % (num_updates, assemblyinfo)
+    assert num_updates == 2, "unexpected number of version number updates"
+    fin.close()
+    fout.close()
+    shutil.move(tmp, assemblyinfo)
+    if VERBOSE:
+        print "Updated %s" % assemblyinfo
