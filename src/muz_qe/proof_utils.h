@@ -38,4 +38,4 @@ public:
 
 };
 
-#endif _PROOF_UTILS_H_
+#endif
