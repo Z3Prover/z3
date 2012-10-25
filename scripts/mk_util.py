@@ -395,7 +395,7 @@ def reg_component(name, c):
     _ComponentNames.add(name)
     _Name2Component[name] = c
     if VERBOSE:
-        print "Processed '%s'" % name
+        print "New component: '%s'" % name
 
 def add_lib(name, deps=[], path=None):
     c = LibComponent(name, path, deps)
@@ -464,6 +464,7 @@ def mk_makefile():
 def mk_auto_src():
     if not ONLY_MAKEFILES:
         mk_pat_db()
+        mk_all_install_tactic_cpps()
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -552,10 +553,15 @@ def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is
         print "Updated %s" % assemblyinfo
 
 ADD_TACTIC_DATA=[]
+ADD_PROBE_DATA=[]
 
 def ADD_TACTIC(name, descr, cmd):
     global ADD_TACTIC_DATA
     ADD_TACTIC_DATA.append((name, descr, cmd))
+
+def ADD_PROBE(name, descr, cmd):
+    global ADD_PROBE_DATA
+    ADD_PROBE_DATA.append((name, descr, cmd))
 
 # Generate an install_tactics.cpp at path.
 # This file implements the procedure
@@ -563,7 +569,7 @@ def ADD_TACTIC(name, descr, cmd):
 # It installs all tactics in the given component (name) list cnames
 # The procedure looks for ADD_TACTIC commands in the .h files of these components.
 def mk_install_tactic_cpp(cnames, path):
-    global ADD_TACTIC_DATA
+    global ADD_TACTIC_DATA, ADD_PROBE_DATA
     ADD_TACTIC_DATA = []
     fullname = '%s/install_tactic.cpp' % path
     fout  = open(fullname, 'w')
@@ -571,19 +577,31 @@ def mk_install_tactic_cpp(cnames, path):
     fout.write('#include"tactic.h"\n')
     fout.write('#include"tactic_cmds.h"\n')
     fout.write('#include"cmd_context.h"\n')
-    pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
+    tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
+    probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for cname in cnames:
         c = _Name2Component[cname]
         h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
         for h_file in h_files:
+            added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
             for line in fin:
-                if pat.match(line):
-                    fout.write('#include"%s"\n' % h_file)
+                if tactic_pat.match(line):
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
                     try: 
                         exec line.strip('\n ') in globals()
                     except:
                         raise MKException("Failed processing ADD_TACTIC command at '%s'\n%s" % (fullname, line))
+                if probe_pat.match(line):
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    try: 
+                        exec line.strip('\n ') in globals()
+                    except:
+                        raise MKException("Failed processing ADD_PROBE command at '%s'\n%s" % (fullname, line))
     # First pass will just generate the tactic factories
     idx = 0
     for data in ADD_TACTIC_DATA:
@@ -596,6 +614,8 @@ def mk_install_tactic_cpp(cnames, path):
     for data in ADD_TACTIC_DATA:
         fout.write('  ADD_TACTIC_CMD("%s", "%s", __Z3_local_factory_%s);\n' % (data[0], data[1], idx))
         idx = idx + 1
+    for data in ADD_PROBE_DATA:
+        fout.write('  ADD_PROBE("%s", "%s", %s);\n' % data)
     fout.write('}\n')
     if VERBOSE:
         print "Generated '%s'" % fullname

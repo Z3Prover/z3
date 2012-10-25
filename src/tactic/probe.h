@@ -55,19 +55,43 @@ public:
 
 typedef ref<probe> probe_ref;
 
+probe * mk_const_probe(double val);
+
 probe * mk_memory_probe();
 probe * mk_depth_probe();
 probe * mk_size_probe();
+
+/*
+  ADD_PROBE("memory", "ammount of used memory in megabytes.", "mk_memory_probe()")
+  ADD_PROBE("depth", "depth of the input goal.", "mk_depth_probe()")
+  ADD_PROBE("size", "number of assertions in the given goal.", "mk_size_probe()")
+*/
+
 probe * mk_num_exprs_probe();
-probe * mk_const_probe(double val);
 probe * mk_num_consts_probe();
 probe * mk_num_bool_consts_probe();
 probe * mk_num_arith_consts_probe();
 probe * mk_num_bv_consts_probe();
+
+/*
+  ADD_PROBE("num-exprs", "number of expressions/terms in the given goal.", "mk_num_exprs_probe()")
+  ADD_PROBE("num-consts", "number of non Boolean constants in the given goal.", "mk_num_consts_probe()")
+  ADD_PROBE("num-bool-consts", "number of Boolean constants in the given goal.", "mk_num_bool_consts_probe()")
+  ADD_PROBE("num-arith-consts", "number of arithmetic constants in the given goal.", "mk_num_arith_consts_probe()")
+  ADD_PROBE("num-bv-consts", "number of bit-vector constants in the given goal.", "mk_num_bv_consts_probe()")
+*/
+
 probe * mk_produce_proofs_probe();
 probe * mk_produce_models_probe();
 probe * mk_produce_unsat_cores_probe();
 probe * mk_has_pattern_probe();
+
+/*
+  ADD_PROBE("produce-proofs", "true if proof generation is enabled for the given goal.", "mk_produce_proofs_probe()")
+  ADD_PROBE("produce-model", "true if model generation is enabled for the given goal.", "mk_produce_models_probe()")
+  ADD_PROBE("produce-unsat-cores", "true if unsat-core generation is enabled for the given goal.", "mk_produce_unsat_cores_probe()")
+  ADD_PROBE("has-patterns", "true if the goal contains quantifiers with patterns.", "mk_has_pattern_probe()")
+*/
 
 // Some basic combinators for probes
 probe * mk_not(probe * p1);
@@ -87,5 +111,10 @@ probe * mk_div(probe * p1, probe * p2);
 
 probe * mk_is_propositional_probe();
 probe * mk_is_qfbv_probe();
+
+/*
+  ADD_PROBE("is-propositional", "true if the goal is in propositional logic.", "mk_is_propositional_probe()")
+  ADD_PROBE("is-qfbv", "true if the goal is in QF_BV.", "mk_is_qfbv_probe()")
+*/
 
 #endif

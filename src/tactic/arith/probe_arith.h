@@ -25,15 +25,35 @@ probe * mk_arith_max_bw_probe();
 probe * mk_arith_avg_degree_probe();
 probe * mk_arith_max_degree_probe();
 
+/*
+  ADD_PROBE("arith-max-deg", "max polynomial total degree of an arithmetic atom.", "mk_arith_max_degree_probe()")
+  ADD_PROBE("arith-avg-deg", "avg polynomial total degree of an arithmetic atom.", "mk_arith_avg_degree_probe()")
+  ADD_PROBE("arith-max-bw", "max coefficient bit width.", "mk_arith_max_bw_probe()")
+  ADD_PROBE("arith-avg-bw", "avg coefficient bit width.", "mk_arith_avg_bw_probe()")
+*/
+
 probe * mk_is_qflia_probe();
 probe * mk_is_qflra_probe();
 probe * mk_is_qflira_probe();
 probe * mk_is_ilp_probe();
 probe * mk_is_mip_probe();
 
+/*
+  ADD_PROBE("is-qflia", "true if the goal is in QF_LIA.", "mk_is_qflia_probe()")
+  ADD_PROBE("is-qflra", "true if the goal is in QF_LRA.", "mk_is_qflra_probe()")
+  ADD_PROBE("is-qflira", "true if the goal is in QF_LIRA.", "mk_is_qflira_probe()")
+  ADD_PROBE("is-ilp", "true if the goal is ILP.", "mk_is_ilp_probe()")
+*/
+
 probe * mk_is_qfnia_probe();
 probe * mk_is_qfnra_probe();
 probe * mk_is_nia_probe();
 probe * mk_is_nra_probe();
 
+/*
+  ADD_PROBE("is-qfnia", "true if the goal is in QF_NIA (quantifier-free nonlinear integer arithmetic).", "mk_is_qfnia_probe()")
+  ADD_PROBE("is-qfnra", "true if the goal is in QF_NRA (quantifier-free nonlinear real arithmetic).", "mk_is_qfnra_probe()")
+  ADD_PROBE("is-nia", "true if the goal is in NIA (nonlinear integer arithmetic, formula may have quantifiers).", "mk_is_nia_probe()")
+  ADD_PROBE("is-nra", "true if the goal is in NRA (nonlinear real arithmetic, formula may have quantifiers).", "mk_is_nra_probe()")
+*/
 #endif
