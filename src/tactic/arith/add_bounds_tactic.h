@@ -31,4 +31,8 @@ probe * mk_is_unbounded_probe();
 
 tactic * mk_add_bounds_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+    ADD_TACTIC("add-bounds", "add bounds to unbounded variables (under approximation).", "mk_add_bounds_tactic(m, p)")
+*/
+
 #endif

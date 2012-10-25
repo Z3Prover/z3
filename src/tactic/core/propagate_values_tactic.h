@@ -26,4 +26,8 @@ class tactic;
 
 tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+    ADD_TACTIC_CMD("propagate-values", "propagate constants.", "mk_propagate_values_tactic(m, p)")
+*/
+
 #endif

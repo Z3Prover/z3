@@ -26,4 +26,8 @@ class tactic;
 
 tactic * mk_elim_term_ite_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+    ADD_TACTIC("elim-term-ite", "eliminate term if-then-else by adding fresh auxiliary declarations.", "mk_elim_term_ite_tactic(m, p)")
+*/
+
 #endif

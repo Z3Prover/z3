@@ -26,5 +26,10 @@ class tactic;
 tactic * mk_snf_tactic(ast_manager & m, params_ref const & p = params_ref());
 tactic * mk_nnf_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("snf", "put goal in skolem normal form.", "mk_snf_tactic(m, p)")
+  ADD_TACTIC("nnf", "put goal in negation normal form.", "mk_nnf_tactic(m, p)")
+*/
+
 #endif
 

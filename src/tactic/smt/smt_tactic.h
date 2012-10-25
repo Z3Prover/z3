@@ -27,4 +27,8 @@ tactic * mk_smt_tactic(params_ref const & p = params_ref());
 // syntax sugar for using_params(mk_smt_tactic(), p) where p = (:auto_config, auto_config)
 tactic * mk_smt_tactic_using(bool auto_config = true, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("smt", "apply a SAT based SMT solver.", "mk_smt_tactic(p)") 
+*/
+
 #endif

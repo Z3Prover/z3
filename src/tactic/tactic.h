@@ -128,6 +128,11 @@ tactic * mk_skip_tactic();
 tactic * mk_fail_tactic();
 tactic * mk_fail_if_undecided_tactic();
 
+/*
+  ADD_TACTIC("skip", "do nothing tactic.", "mk_skip_tactic()")
+  ADD_TACTIC("fail", "always fail tactic.", "mk_fail_tactic()")
+*/
+
 tactic * mk_report_verbose_tactic(char const * msg, unsigned lvl);
 tactic * mk_trace_tactic(char const * tag);
 

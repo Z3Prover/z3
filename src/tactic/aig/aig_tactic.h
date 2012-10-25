@@ -23,5 +23,7 @@ Notes:
 class tactic;
 
 tactic * mk_aig_tactic(params_ref const & p = params_ref());
-
+/*
+  ADD_TACTIC("aig", "simplify Boolean structure using AIGs.", "mk_aig_tactic")
+*/
 #endif

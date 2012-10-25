@@ -30,5 +30,9 @@ class tactic;
 
 tactic * mk_occf_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("occf", "put goal in one constraint per clause normal form (notes: fails if proof generation is enabled; only clauses are considered).", "mk_occf_tactic(m, p)")
+*/
+
 #endif
 

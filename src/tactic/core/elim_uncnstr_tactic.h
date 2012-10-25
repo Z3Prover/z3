@@ -26,5 +26,8 @@ class ast_manager;
 
 tactic * mk_elim_uncnstr_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("elim-uncnstr", "eliminate application containing unconstrained variables.", "mk_elim_uncnstr_tactic(m, p)")
+*/
 #endif
 

@@ -571,7 +571,7 @@ def mk_install_tactic_cpp(cnames, path):
     fout.write('#include"tactic.h"\n')
     fout.write('#include"tactic_cmds.h"\n')
     fout.write('#include"cmd_context.h"\n')
-    pat   = re.compile('[ \t]*ADD_TACTIC(.*)')
+    pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     for cname in cnames:
         c = _Name2Component[cname]
         h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
@@ -580,7 +580,10 @@ def mk_install_tactic_cpp(cnames, path):
             for line in fin:
                 if pat.match(line):
                     fout.write('#include"%s"\n' % h_file)
-                    exec line.strip('\n ') in globals()
+                    try: 
+                        exec line.strip('\n ') in globals()
+                    except:
+                        raise MKException("Failed processing ADD_TACTIC command at '%s'\n%s" % (fullname, line))
     # First pass will just generate the tactic factories
     idx = 0
     for data in ADD_TACTIC_DATA:

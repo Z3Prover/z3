@@ -137,33 +137,23 @@ MK_SIMPLE_TACTIC_FACTORY(ufbv_fct,               mk_ufbv_tactic(m, p));
 #define ADD_PROBE(NAME, DESCR, PROBE) ctx.insert(alloc(probe_info, symbol(NAME), DESCR, PROBE))
 
 void install_tactics(tactic_manager & ctx) {
-    ADD_TACTIC_CMD("simplify", "apply simplification rules.", simplifier_fct);
-    ADD_TACTIC_CMD("split-clause", "split a clause in many subgoals.", split_clause_fct);
-    ADD_TACTIC_CMD("normalize-bounds", "replace a variable x with lower bound k <= x with x' = x - k.", normalize_bounds_fct);
-    ADD_TACTIC_CMD("elim-uncnstr", "eliminate application containing unconstrained variables.", elim_uncnstr_fct);
-    ADD_TACTIC_CMD("elim-and", "convert (and a b) into (not (or (not a) (not b))).", elim_and_fct);
-    ADD_TACTIC_CMD("add-bounds", "add bounds to unbounded variables (under approximation).", add_bounds_fct);
-    ADD_TACTIC_CMD("aig", "simplify Boolean structure using AIGs.", aig_fct);
-    ADD_TACTIC_CMD("skip", "do nothing tactic.", skip_fct);
-    ADD_TACTIC_CMD("fail", "always fail tactic.", fail_fct);
-    ADD_TACTIC_CMD("smt", "apply a SAT based SMT solver.", smt_fct);
-    ADD_TACTIC_CMD("bit-blast", "reduce bit-vector expressions into SAT.", bitblaster_fct);
+
+
+
+
+
     ADD_TACTIC_CMD("bv1-blast", "reduce bit-vector expressions into bit-vectors of size 1 (notes: only equality, extract and concat are supported).", bv1blaster_fct);
-    ADD_TACTIC_CMD("sat", "(try to) solve goal using a SAT solver.", sat_fct);
-    ADD_TACTIC_CMD("sat-preprocess", "Apply SAT solver preprocessing procedures (bounded resolution, Boolean constant propagation, 2-SAT, subsumption, subsumption resolution).", sat_preprocess_fct);
+
     ADD_TACTIC_CMD("ctx-simplify", "apply contextual simplification rules.", ctx_simplify_fct);
     ADD_TACTIC_CMD("ctx-solver-simplify", "apply solver-based contextual simplification rules.", ctx_solver_simplify_fct);
     ADD_TACTIC_CMD("der", "destructive equality resolution.", der_fct);
     ADD_TACTIC_CMD("unit-subsume-simplify", "unit subsumption simplification.", unit_subsume_fct);
-    ADD_TACTIC_CMD("occf", "put goal in one constraint per clause normal form (notes: fails if proof generation is enabled; only clauses are considered).", occf_fct);
     ADD_TACTIC_CMD("qe", "apply quantifier elimination.", qe_fct);
     ADD_TACTIC_CMD("qe-sat", "check satisfiability of quantified formulas using quantifier elimination.", qe_sat_fct);
-    ADD_TACTIC_CMD("propagate-values", "propagate constants.", propagate_values_fct);
-    ADD_TACTIC_CMD("snf", "put goal in skolem normal form.", snf_fct);
-    ADD_TACTIC_CMD("nnf", "put goal in negation normal form.", nnf_fct);
-    ADD_TACTIC_CMD("solve-eqs", "eliminate variables by solving equations.", solve_eqs_fct);
+
+
     ADD_TACTIC_CMD("max-bv-sharing", "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.", max_bv_sharing_fct);
-    ADD_TACTIC_CMD("elim-term-ite", "eliminate term if-then-else by adding fresh auxiliary declarations.", elim_term_ite_fct);
+
     ADD_TACTIC_CMD("fix-dl-var", "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.",
                    fix_dl_var_fct);
     ADD_TACTIC_CMD("tseitin-cnf", "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored).", tseitin_cnf_fct);
@@ -180,7 +170,6 @@ void install_tactics(tactic_manager & ctx) {
     ADD_TACTIC_CMD("qffpa", "(try to) solve goal using the tactic for QF_FPA.", qffpa_fct);
     ADD_TACTIC_CMD("pb2bv", "convert pseudo-boolean constraints to bit-vectors.", pb2bv_fct);
     ADD_TACTIC_CMD("recover-01", "recover 0-1 variables hidden as Boolean variables.", recover_01_fct);
-    ADD_TACTIC_CMD("symmetry-reduce", "apply symmetry reduction.", symmetry_reduce_fct);
     ADD_TACTIC_CMD("distribute-forall", "distribute forall over conjunctions.", distribute_forall_fct);
     ADD_TACTIC_CMD("reduce-args", "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.",
                    reduce_args_fct);

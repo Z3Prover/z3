@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_split_clause_tactic(params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("split-clause", "split a clause in many subgoals.", "mk_split_clause_tactic(p)")
+*/
+
 #endif

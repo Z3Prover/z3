@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_symmetry_reduce_tactic(ast_manager & m, params_ref const & p);
 
+/*
+  ADD_TACTIC("symmetry-reduce", "apply symmetry reduction.", "mk_symmetry_reduce_tactic(m, p)")
+*/
+
 #endif
