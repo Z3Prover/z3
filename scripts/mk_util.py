@@ -22,6 +22,7 @@ VERBOSE=False
 DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
+ONLY_MAKEFILES = False
 
 if os.name == 'nt':
     IS_WINDOW=True
@@ -33,22 +34,24 @@ def display_help():
     print "This script generates the Makefile for the Z3 theorem prover."
     print "It must be executed from the Z3 root directory."
     print "\nOptions:"
-    print "  -h, --help                    display this message"
-    print "  -v, --verbose                 be verbose"
+    print "  -h, --help                    display this message."
+    print "  -v, --verbose                 be verbose."
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
     print "  -x, --x64                     create 64 binary when using Visual Studio."
+    print "  -m, --makefiles               generate only makefiles."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxh', ['build=', 
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxhm', ['build=', 
                                                                     'debug',
                                                                     'verbose',
                                                                     'x64',
                                                                     'help'
-                                                                    ])
+                                                                     'makefiles'
+                                                                     ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -64,6 +67,8 @@ def parse_options():
             VS_X64 = True
         elif opt in ('-h', '--help'):
             display_help()
+        elif opt in ('-m', '--onlymakefiles'):
+            ONLY_MAKEFILES = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
 
@@ -416,7 +421,8 @@ def mk_makefile():
         
 # Generate automatically generated source code
 def mk_auto_src():
-    mk_pat_db()
+    if not ONLY_MAKEFILES:
+        mk_pat_db()
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -428,3 +434,23 @@ def mk_pat_db():
     for line in fin:
         fout.write('"%s\\n"\n' % line.strip('\n'))
     fout.write(';\n')    
+    if VERBOSE:
+        print "Generated '%s/database.h'" % c.src_dir
+
+# Update version numbers
+def update_version(major, minor, build, revision):
+    if not ONLY_MAKEFILES:
+        mk_version_dot_h(major, minor, build, revision)
+
+# Update files with the version number
+def mk_version_dot_h(major, minor, build, revision):
+    c = _Name2Component['util']
+    fout = open('%s/version.h' % c.src_dir, 'w')
+    fout.write('// automatically generated file.\n')
+    fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
+    fout.write('#define Z3_MINOR_VERSION   %s\n' % minor)
+    fout.write('#define Z3_BUILD_NUMBER    %s\n' % build)
+    fout.write('#define Z3_REVISION_NUMBER %s\n' % revision)
+    if VERBOSE:
+        print "Generated '%s/version.h'" % c.src_dir
+    

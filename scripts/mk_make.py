@@ -65,4 +65,6 @@ add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
 add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', dll_name='z3')
 
 mk_auto_src()
+update_version(4, 2, 0, 0)
+
 mk_makefile()
