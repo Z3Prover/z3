@@ -1,7 +1,7 @@
 
 
 CXX=@CXX@
-CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -O3 -fomit-frame-pointer -Wall -fopenmp -msse -msse2 -mfpmath=sse
+CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -O3 -fomit-frame-pointer -fopenmp -msse -msse2 -mfpmath=sse
 CXX_OUT_FLAG=-o
 OBJ_EXT=.o
 LIB_EXT=.a
