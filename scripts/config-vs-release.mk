@@ -1,5 +1,5 @@
 CXX=cl
-CXXFLAGS=/nologo /c /W3 /WX- /O2 /Oy- /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Gd /analyze- /arch:SSE2
+CXXFLAGS=/nologo /c /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /openmp /Gd /analyze- /arch:SSE2
 CXX_OUT_FLAG=/Fo
 OBJ_EXT=.obj
 LIB_EXT=.lib
