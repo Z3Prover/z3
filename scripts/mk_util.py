@@ -41,17 +41,19 @@ def display_help():
     print "  -d, --debug                   compile Z3 in debug mode."
     print "  -x, --x64                     create 64 binary when using Visual Studio."
     print "  -m, --makefiles               generate only makefiles."
+    print "  -c, --showcpp                 display file .cpp file names before invoking compiler."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxhm', ['build=', 
-                                                                    'debug',
-                                                                    'verbose',
-                                                                    'x64',
-                                                                    'help',
-                                                                    'makefiles'
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxhmc', ['build=', 
+                                                                      'debug',
+                                                                      'verbose',
+                                                                      'x64',
+                                                                      'help',
+                                                                      'makefiles',
+                                                                      'showcpp'
                                                                      ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -70,6 +72,8 @@ def parse_options():
             display_help()
         elif opt in ('-m', '--onlymakefiles'):
             ONLY_MAKEFILES = True
+        elif opt in ('-c', '--showcpp'):
+            SHOW_CPPS = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
 
@@ -435,8 +439,10 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
 def cp_config_mk():
     if IS_WINDOW:
         if VS_X64:
-            # TODO
-            return
+            if DEBUG_MODE:
+                shutil.copyfile('scripts/config-vs-debug-x64.mk', '%s/config.mk' % BUILD_DIR)
+            else:
+                shutil.copyfile('scripts/config-vs-release-x64.mk', '%s/config.mk' % BUILD_DIR)
         else:
             if DEBUG_MODE:
                 shutil.copyfile('scripts/config-vs-debug.mk', '%s/config.mk' % BUILD_DIR)
@@ -474,6 +480,10 @@ def mk_makefile():
         else:
             print "  compilation mode: Release"
         if IS_WINDOW:
+            if VS_X64:
+                print "  platform: x64"
+            else:
+                print "  platform: x86"
             print "Type 'cd %s && nmake to build Z3" % BUILD_DIR
         else:
             print "Type 'cd %s; make' to build Z3" % BUILD_DIR
