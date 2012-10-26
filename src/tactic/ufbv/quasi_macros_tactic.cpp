@@ -91,12 +91,9 @@ class quasi_macros_tactic : public tactic {
                 proofs.swap(new_proofs);            
             }
 
-            unsigned i = 0;
-            for (; i < g->size(); i++)
-                g->update(i, new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
-
-            for (; i < new_forms.size(); i++)
-                g->assert_expr(new_forms.get(i), new_proofs.get(i), 0);
+            g->reset();
+            for (unsigned i = 0; i < new_forms.size(); i++)
+                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
 
             extension_model_converter * evmc = alloc(extension_model_converter, mm.get_manager());
             unsigned num = mm.get_num_macros();

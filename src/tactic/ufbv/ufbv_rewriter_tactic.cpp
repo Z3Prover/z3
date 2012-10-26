@@ -66,12 +66,9 @@ class ufbv_rewriter_tactic : public tactic {
 
             dem(forms.size(), forms.c_ptr(), proofs.c_ptr(), new_forms, new_proofs);
         
-            unsigned i = 0;
-            for (; i < g->size(); i++)
-                g->update(i, new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, g->dep(i));
-
-            for (; i < new_forms.size(); i++)
-                g->assert_expr(new_forms.get(i), new_proofs.get(i), 0);
+            g->reset();
+            for (unsigned i = 0; i < new_forms.size(); i++)
+                g->assert_expr(new_forms.get(i), produce_proofs ? new_proofs.get(i) : 0, 0);
 
             mc = 0; // CMW: Remark: The demodulator could potentially remove all references to a variable. 
 
