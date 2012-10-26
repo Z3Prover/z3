@@ -186,30 +186,29 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         TRACE("dl_mc", tout << "eval: " << h->get_name() << "\n" << mk_pp(body, m) << "\n";);
         expr_ref tmp(body);
         mr->eval(tmp, body);
-        m_rewrite(body);
         
         TRACE("dl_mc", tout << "to:\n" << mk_pp(body, m) << "\n";);
                 
         if (arity == 0) {
             expr* e = mr->get_const_interp(h);
             if (e) {
-                mr->register_decl(h, m.mk_or(e, body));
+                body = m.mk_or(e, body);
             }
-            else {
-                mr->register_decl(h, body);
-            }
+            m_rewrite(body);
+            mr->register_decl(h, m.mk_or(e, body));
         }
         else {
             func_interp* f = mr->get_func_interp(h);
             if (f) {
                 expr* e = f->get_else();
-                f->set_else(m.mk_or(e, body.get()));
+                body = m.mk_or(e, body);
             }
             else {
                 f = alloc(func_interp, m, arity);
-                f->set_else(body);
                 mr->register_decl(h, f);
             }
+            m_rewrite(body);
+            f->set_else(body);
         }
     }
 }
