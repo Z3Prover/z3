@@ -23,6 +23,7 @@ DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
 ONLY_MAKEFILES = False
+PYTHON_DIR=None
 
 if os.name == 'nt':
     IS_WINDOW=True
@@ -111,6 +112,15 @@ def set_build_dir(d):
     global BUILD_DIR, REV_BUILD_DIR
     BUILD_DIR = d
     REV_BUILD_DIR = reverse_path(d)
+
+def set_python_dir(p):
+    global SRC_DIR, PYTHON_DIR
+    full = '%s/%s' % (SRC_DIR, p)
+    if not os.path.exists(full):
+        raise MKException("Python bindings directory '%s' does not exist" % full)
+    PYTHON_DIR = full
+    if VERBOSE:
+        print "Python bindinds directory was detected."
 
 _UNIQ_ID = 0
 
@@ -668,6 +678,87 @@ def mk_def_files():
         for c in _Components:
             if c.require_def_file():
                 mk_def_file(c)
+
+def mk_bindings(api_files):
+    mk_z3consts_py(api_files)
+
+# Extract enumeration types from API files, and add python definitions.
+def mk_z3consts_py(api_files):
+    if PYTHON_DIR == None:
+        raise MKException("You must invoke set_python_dir(path):")
+
+    blank_pat      = re.compile("^ *$")
+    comment_pat    = re.compile("^ *//.*$")
+    typedef_pat    = re.compile("typedef enum *")
+    typedef2_pat   = re.compile("typedef enum { *")
+    openbrace_pat  = re.compile("{ *")
+    closebrace_pat = re.compile("}.*;")
+
+    z3consts  = open('%s/z3consts.py' % PYTHON_DIR, 'w')
+    z3consts.write('# Automatically generated file\n\n')
+
+    api_dll = _Name2Component['api_dll']
+
+    for api_file in api_files:
+        api_file_c = api_dll.find_file(api_file, api_dll.name)
+        api_file   = '%s/%s' % (api_file_c.src_dir, api_file)
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1 
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    z3consts.write('# enum %s\n' % name)
+                    for k, i in decls.iteritems():
+                        z3consts.write('%s = %s\n' % (k, i))
+                    z3consts.write('\n')
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+    if VERBOSE:
+        print "Generated '%s'" % ('%s/z3consts.py' % PYTHON_DIR)
                 
+
 def get_component(name):
     return _Name2Component[name]

@@ -62,12 +62,15 @@ add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe',
 add_lib('api', ['portfolio', 'user_plugin'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
 add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
-add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', dll_name='z3', export_files=['z3_api.h', 'z3_poly.h'])
+API_files = ['z3_api.h', 'z3_poly.h']
+add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', dll_name='z3', export_files=API_files)
 add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet/Microsoft.Z3', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
 add_dot_net_dll('dotnetV3', ['api_dll'], 'bindings/dotnet/Microsoft.Z3V3', dll_name='Microsoft.Z3V3')
+set_python_dir('bindings/python')
 
-mk_auto_src()
 update_version(4, 2, 0, 0)
+mk_auto_src()
+mk_bindings(API_files)
 
 mk_makefile()
 

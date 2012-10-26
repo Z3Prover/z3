@@ -8,7 +8,6 @@
 import re
 import sys
 import os
-from sets import Set
 
 API_FILES = []
 
@@ -95,106 +94,6 @@ def mk_z3consts_donet():
                     idx = idx + 1
             linenum = linenum + 1
     z3consts.write('}\n');
-
-
-# Extract enumeration types from z3_api.h, and add python definitions.
-def mk_z3consts_py():
-    blank_pat      = re.compile("^ *$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
-    z3consts  = open('python%sz3consts.py' % (os.sep), 'w')
-    z3consts.write('# Automatically generated file, generator: update_api.py\n\n')
-
-    for api_file in API_FILES:
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1 
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    z3consts.write('# enum %s\n' % name)
-                    for k, i in decls.iteritems():
-                        z3consts.write('%s = %s\n' % (k, i))
-                    z3consts.write('\n')
-                    mode = SEARCHING
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-
-# Extract tactic and probe definitions from lib\install_tactics.cpp, and
-# Add python function definitions for them.
-def mk_z3tactics_py():
-    tactic_pat  = re.compile("^[ \t]*ADD_TACTIC_CMD")
-    probe_pat   = re.compile("^[ \t]*ADD_PROBE")
-
-    cppfile = open('lib%sinstall_tactics.cpp' % os.sep, 'r')
-    z3tactics  = open('python%sz3tactics.py' % os.sep, 'w')
-
-    z3tactics.write('# Automatically generated file, generator: update_api.py\n')
-    z3tactics.write('import z3core\n')
-    z3tactics.write('import z3\n\n')
-
-    for line in cppfile:
-        m1 = tactic_pat.match(line)
-        m2 = probe_pat.match(line)
-        if m1:
-            words     = re.split('[^\-a-zA-Z0-9_]+', line)
-            tactic    = words[2]
-            py_tactic = tactic.replace('-', '_')
-            z3tactics.write('def %s_tactic(ctx=None):\n' % py_tactic)
-            z3tactics.write('  ctx = z3._get_ctx(ctx)\n')
-            z3tactics.write('  return z3.Tactic(z3core.Z3_mk_tactic(ctx.ref(), \'%s\'), ctx)\n\n' % tactic)
-        elif m2:
-            words = re.split('[^\-a-zA-Z0-9_]+', line)
-            probe     = words[2]
-            py_probe  = probe.replace('-', '_')
-            z3tactics.write('def %s_probe(ctx=None):\n' % py_probe)
-            z3tactics.write('  ctx = z3._get_ctx(ctx)\n')
-            z3tactics.write('  return z3.Probe(z3core.Z3_mk_probe(ctx.ref(), \'%s\'), ctx)\n\n' % probe)
 
 
 #
