@@ -25,6 +25,7 @@ Revision History:
 #include "bool_rewriter.h"
 #include "th_rewriter.h"
 #include "for_each_expr.h"
+#include "well_sorted.h"
 
 void horn_subsume_model_converter::insert(app* head, expr* body) {
     func_decl_ref pred(m);
@@ -41,7 +42,7 @@ void horn_subsume_model_converter::insert(app* head, unsigned sz, expr* const* b
 
 
 bool horn_subsume_model_converter::mk_horn(
-    app* head, expr* body, func_decl_ref& pred, expr_ref& body_res) const {
+    app* head, expr* body, func_decl_ref& pred, expr_ref& body_res) {
 
     expr_ref_vector conjs(m), subst(m);
     ptr_vector<sort> sorts, sorts2;
@@ -75,7 +76,7 @@ bool horn_subsume_model_converter::mk_horn(
     for (unsigned i = 0; i < arity; ++i) {
         expr* arg = head->get_arg(i);
         var_ref v(m);
-        v = m.mk_var(sorts.size()+i,m.get_sort(arg));
+        v = m.mk_var(sorts.size()+i, m.get_sort(arg));
         
         if (is_var(arg)) {
             unsigned w = to_var(arg)->get_idx();
@@ -102,44 +103,14 @@ bool horn_subsume_model_converter::mk_horn(
         vs(tmp, subst.size(), subst.c_ptr(), body_expr);
     }    
 
-
-    // remove bound variables that are redundant.
-    get_free_vars(body_expr, sorts2);
-    subst.reset();
-
-    unsigned num_bound_vars = sorts.size();
-    unsigned new_num_bound_vars = 0;
-
-    for (unsigned i = 0, j = 0; i < sorts2.size(); ++i) {
-        if (sorts2[i]) {
-            subst.push_back(m.mk_var(j++, sorts2[i]));
-            if (i < num_bound_vars) {
-                ++new_num_bound_vars;
-            }
-        }
-        else {
-            subst.push_back(0);
-        }
-    }
-    if (new_num_bound_vars < num_bound_vars) {
-        expr_ref tmp(body_expr);
-        vs(tmp, subst.size(), subst.c_ptr(), body_expr);        
-        sorts.reset();
-        names.reset();
-        for (unsigned i = 0; i < num_bound_vars; ++i) {
-            if (sorts2[i]) {
-                sorts.push_back(sorts2[i]);
-                names.push_back(symbol(sorts.size()));
-            }
-        }
-        sorts.reverse();
-        names.reverse();
-    }
     if (sorts.empty()) {
+        SASSERT(subst.empty());
         body_res = body_expr;
     }   
     else {
         body_res  = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), body_expr.get()); 
+        m_rewrite(body_res);
+        
     }
     TRACE("dl",
           tout << mk_pp(head, m) << " :- " << mk_pp(body, m) << "\n";
@@ -150,7 +121,7 @@ bool horn_subsume_model_converter::mk_horn(
 
 
 bool horn_subsume_model_converter::mk_horn(
-    expr* clause, func_decl_ref& pred, expr_ref& body) const {
+    expr* clause, func_decl_ref& pred, expr_ref& body) {
     ptr_vector<sort> sorts;
 
     // formula is closed.
@@ -210,12 +181,12 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         expr_ref body(m_bodies[i].get(), m);
         unsigned arity = h->get_arity();
         add_default_false_interpretation(body, mr);
+        SASSERT(m.is_bool(body));
                 
         TRACE("dl_mc", tout << "eval: " << h->get_name() << "\n" << mk_pp(body, m) << "\n";);
         expr_ref tmp(body);
         mr->eval(tmp, body);
-        th_rewriter rw(m);
-        rw(body);
+        m_rewrite(body);
         
         TRACE("dl_mc", tout << "to:\n" << mk_pp(body, m) << "\n";);
                 
@@ -231,7 +202,8 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         else {
             func_interp* f = mr->get_func_interp(h);
             if (f) {
-                f->set_else(m.mk_or(f->get_else(), body.get()));
+                expr* e = f->get_else();
+                f->set_else(m.mk_or(e, body.get()));
             }
             else {
                 f = alloc(func_interp, m, arity);
