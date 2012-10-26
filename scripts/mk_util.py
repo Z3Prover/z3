@@ -24,6 +24,7 @@ SHOW_CPPS = True
 VS_X64 = False
 ONLY_MAKEFILES = False
 PYTHON_DIR=None
+VS_PROJ = False
 
 if os.name == 'nt':
     IS_WINDOW=True
@@ -42,18 +43,20 @@ def display_help():
     print "  -x, --x64                     create 64 binary when using Visual Studio."
     print "  -m, --makefiles               generate only makefiles."
     print "  -c, --showcpp                 display file .cpp file names before invoking compiler."
+    print "  -v, --vsproj                  generate Visual Studio Project Files."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmc', ['build=', 
-                                                                      'debug',
-                                                                      'silent',
-                                                                      'x64',
-                                                                      'help',
-                                                                      'makefiles',
-                                                                      'showcpp'
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcv', ['build=', 
+                                                                       'debug',
+                                                                       'silent',
+                                                                       'x64',
+                                                                       'help',
+                                                                       'makefiles',
+                                                                       'showcpp',
+                                                                       'vsproj'
                                                                      ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -74,6 +77,8 @@ def parse_options():
             ONLY_MAKEFILES = True
         elif opt in ('-c', '--showcpp'):
             SHOW_CPPS = True
+        elif opt in ('-v', '--vsproj'):
+            VS_PROJ = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
 
@@ -140,6 +145,18 @@ _ComponentNames = set()
 _Name2Component = {}
 _Processed_Headers = set()
 
+# Return the Component object named name
+def get_component(name):
+    return _Name2Component[name]
+
+# Return the directory where the python bindings are located.
+def get_python_dir():
+    return PYTHON_DIR
+
+# Return true if in verbose mode
+def is_verbose():
+    return VERBOSE
+
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
 
@@ -149,7 +166,7 @@ def find_all_deps(name, deps):
         if dep in _ComponentNames:
             if not (dep in new_deps):
                 new_deps.append(dep)
-            for dep_dep in _Name2Component[dep].deps:
+            for dep_dep in get_component(dep).deps:
                 if not (dep_dep in new_deps):
                     new_deps.append(dep_dep)
         else:
@@ -174,12 +191,11 @@ class Component:
     # ownerfile is only used for creating error messages.
     # That is, we were looking for fname when processing ownerfile
     def find_file(self, fname, ownerfile):
-        global _Name2Component
         full_fname = '%s/%s' % (self.src_dir, fname)
         if os.path.exists(full_fname):
             return self
         for dep in self.deps:
-            c_dep = _Name2Component[dep]
+            c_dep = get_component(dep)
             full_fname = '%s/%s' % (c_dep.src_dir, fname)
             if os.path.exists(full_fname):
                 return c_dep
@@ -234,7 +250,7 @@ class Component:
         include_defs = mk_fresh_name('includes')
         out.write('%s =' % include_defs)
         for dep in self.deps:
-            out.write(' -I%s' % _Name2Component[dep].to_src_dir)
+            out.write(' -I%s' % get_component(dep).to_src_dir)
         out.write('\n')
         mk_dir('%s/%s' % (BUILD_DIR, self.build_dir))
         for cppfile in get_cpp_files(self.src_dir):
@@ -283,8 +299,8 @@ class LibComponent(Component):
 
 # Auxiliary function for sort_components
 def comp_components(c1, c2):
-    id1 = _Name2Component[c1].id
-    id2 = _Name2Component[c2].id
+    id1 = get_component(c1).id
+    id2 = get_component(c2).id
     return id2 - id1
 
 # Sort components based on (reverse) definition time
@@ -299,7 +315,6 @@ class ExeComponent(Component):
         self.exe_name = exe_name
 
     def mk_makefile(self, out):
-        global _Name2Component
         Component.mk_makefile(self, out)
         # generate rule for exe
 
@@ -314,7 +329,7 @@ class ExeComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            c_dep = _Name2Component[dep]
+            c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
@@ -322,7 +337,7 @@ class ExeComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            c_dep = _Name2Component[dep]
+            c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
@@ -344,7 +359,6 @@ class DLLComponent(Component):
         self.reexports = reexports
 
     def mk_makefile(self, out):
-        global _Name2Component
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
         dllfile = '%s$(SO_EXT)' % self.dll_name
@@ -365,7 +379,7 @@ class DLLComponent(Component):
             out.write(obj)
         for dep in deps:
             if not dep in self.reexports:
-                c_dep = _Name2Component[dep]
+                c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
@@ -374,7 +388,7 @@ class DLLComponent(Component):
             out.write(obj)
         for dep in deps:
             if not dep in self.reexports:
-                c_dep = _Name2Component[dep]
+                c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOW:
@@ -506,7 +520,7 @@ def mk_auto_src():
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
 def mk_pat_db():
-    c = _Name2Component['pattern']
+    c = get_component('pattern')
     fin  = open('%s/database.smt2' % c.src_dir, 'r')
     fout = open('%s/database.h'  % c.src_dir, 'w')
     fout.write('char const * g_pattern_database =\n')
@@ -525,7 +539,7 @@ def update_version(major, minor, build, revision):
         
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
-    c = _Name2Component['util']
+    c = get_component('util')
     fout = open('%s/version.h' % c.src_dir, 'w')
     fout.write('// automatically generated file.\n')
     fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
@@ -619,7 +633,7 @@ def mk_install_tactic_cpp(cnames, path):
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for cname in cnames:
-        c = _Name2Component[cname]
+        c = get_component(cname)
         h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
@@ -726,7 +740,7 @@ def mk_z3consts_py(api_files):
     z3consts  = open('%s/z3consts.py' % PYTHON_DIR, 'w')
     z3consts.write('# Automatically generated file\n\n')
 
-    api_dll = _Name2Component['api_dll']
+    api_dll = get_component('api_dll')
 
     for api_file in api_files:
         api_file_c = api_dll.find_file(api_file, api_dll.name)
@@ -798,7 +812,7 @@ def mk_z3consts_donet(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    dotnet = _Name2Component['dotnet']
+    dotnet = get_component('dotnet')
 
     DeprecatedEnums = { 'Z3_search_failure' }
     z3consts  = open('%s/Enumerations.cs' % dotnet.src_dir, 'w')
@@ -873,14 +887,89 @@ def mk_z3consts_donet(api_files):
     if VERBOSE:
         print "Generated '%s'" % ('%s/Enumerations.cs' % dotnet.src_dir)
 
-# Return the Component object named name
-def get_component(name):
-    return _Name2Component[name]
+def mk_gui_str(id):
+    return '4D2F40D8-E5F9-473B-B548-%012d' % id
 
-# Return the directory where the python bindings are located.
-def get_python_dir():
-    return PYTHON_DIR
-
-# Return true if in verbose mode
-def is_verbose():
-    return VERBOSE
+def mk_vs_proj(name, components):
+    if not VS_PROJ:
+        return
+    proj_name = '%s.vcxproj' % name
+    modes=['Debug', 'Release']
+    PLATFORMS=['Win32']
+    f = open(proj_name, 'w')
+    f.write('<?xml version="1.0" encoding="utf-8"?>\n')
+    f.write('<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">\n')
+    f.write('  <ItemGroup Label="ProjectConfigurations">\n')
+    f.write('    <ProjectConfiguration Include="Debug|Win32">\n')
+    f.write('      <Configuration>Debug</Configuration>\n')
+    f.write('      <Platform>Win32</Platform>\n')
+    f.write('    </ProjectConfiguration>\n')
+    f.write('  </ItemGroup>\n')
+    f.write('   <PropertyGroup Label="Globals">\n')
+    f.write('    <ProjectGuid>{%s}</ProjectGuid>\n' % mk_gui_str(0))
+    f.write('    <ProjectName>%s</ProjectName>\n' % name)
+    f.write('    <Keyword>Win32Proj</Keyword>\n')
+    f.write('  </PropertyGroup>\n')
+    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />\n')
+    f.write('  <PropertyGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'" Label="Configuration">\n')
+    f.write('    <ConfigurationType>Application</ConfigurationType>\n')
+    f.write('    <CharacterSet>Unicode</CharacterSet>\n')
+    f.write('    <UseOfMfc>false</UseOfMfc>\n')
+    f.write('  </PropertyGroup>\n')
+    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />\n')
+    f.write('  <ImportGroup Label="ExtensionSettings">\n')
+    f.write('   </ImportGroup>\n')
+    f.write('   <ImportGroup Label="PropertySheets">\n')
+    f.write('    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists(\'$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props\')" Label="LocalAppDataPlatform" />  </ImportGroup>\n')
+    f.write('  <PropertyGroup Label="UserMacros" />\n')
+    f.write('  <PropertyGroup>\n')
+    f.write('    <OutDir Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">$(SolutionDir)$(Configuration)\</OutDir>\n')
+    f.write('    <TargetName Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">%s</TargetName>\n' % name)
+    f.write('    <TargetExt Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">.exe</TargetExt>\n')
+    f.write('  </PropertyGroup>\n')
+    f.write('  <ItemDefinitionGroup Condition="\'$(Configuration)|$(Platform)\'==\'Debug|Win32\'">\n')
+    f.write('    <ClCompile>\n')
+    f.write('      <Optimization>Disabled</Optimization>\n')
+    f.write('      <PreprocessorDefinitions>WIN32;_DEBUG;Z3DEBUG;_TRACE;_MP_INTERNAL;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>\n')
+    f.write('      <MinimalRebuild>true</MinimalRebuild>\n')
+    f.write('      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>\n')
+    f.write('      <WarningLevel>Level3</WarningLevel>\n')
+    f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
+    f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
+    f.write('      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n')
+    f.write('      <AdditionalIncludeDirectories>')
+    deps = find_all_deps(name, components)
+    first = True
+    for dep in deps:
+        if first:
+            first = False
+        else:
+            f.write(';')
+        f.write('%s' % get_component(dep).src_dir)
+    f.write('</AdditionalIncludeDirectories>\n')
+    f.write('    </ClCompile>\n')
+    f.write('    <Link>\n')
+    f.write('      <OutputFile>$(OutDir)%s.exe</OutputFile>\n' % name)
+    f.write('      <GenerateDebugInformation>true</GenerateDebugInformation>\n')
+    f.write('      <SubSystem>Console</SubSystem>\n')
+    f.write('      <StackReserveSize>8388608</StackReserveSize>\n')
+    f.write('      <RandomizedBaseAddress>false</RandomizedBaseAddress>\n')
+    f.write('      <DataExecutionPrevention>\n')
+    f.write('      </DataExecutionPrevention>\n')
+    f.write('      <TargetMachine>MachineX86</TargetMachine>\n')
+    f.write('      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>\n')
+    f.write('<AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>\n')
+    f.write('    </Link>\n')
+    f.write('  </ItemDefinitionGroup>\n')
+    f.write('  <ItemGroup>\n')
+    for dep in deps:
+        dep = get_component(dep)
+        for cpp in filter(lambda f: f.endswith('.cpp'), os.listdir(dep.src_dir)):
+            f.write('    <ClCompile Include="%s/%s" />\n' % (dep.src_dir, cpp))
+    f.write('  </ItemGroup>\n')
+    f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
+    f.write('  <ImportGroup Label="ExtensionTargets">\n')
+    f.write('  </ImportGroup>\n')
+    f.write('</Project>\n')
+    if is_verbose():
+        print "Generated '%s'" % proj_name

@@ -27,7 +27,7 @@ Notes:
 struct aig;
 
 class aig_lit {
-    friend class aig_ref;
+	friend class aig_ref;
     aig * m_ref;
 public:
     aig_lit(aig * n = 0):m_ref(n) {}

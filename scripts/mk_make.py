@@ -71,6 +71,7 @@ set_python_dir('bindings/python')
 update_version(4, 2, 0, 0)
 mk_auto_src()
 mk_bindings(API_files)
-
+mk_vs_proj('z3', ['shell'])
 mk_makefile()
+
 
