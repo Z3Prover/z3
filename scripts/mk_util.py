@@ -335,12 +335,17 @@ class ExeComponent(Component):
         return True
 
 class DLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps, export_files):
+    def __init__(self, name, dll_name, path, deps, export_files, reexports):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
         self.dll_name = dll_name
         self.export_files = export_files
+        new_deps = find_all_deps(name, reexports)
+        for new_dep in new_deps:
+            if not new_dep in reexports:
+                self.deps.append(new_dep)
+        self.reexports = reexports
 
     def mk_makefile(self, out):
         global _Name2Component
@@ -356,6 +361,12 @@ class DLLComponent(Component):
         for cppfile in get_cpp_files(self.src_dir):
             objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
             objs.append(objfile)
+        # Explicitly include obj files of reexport. This fixes problems with exported symbols on Linux and OSX.
+        for reexport in self.reexports:
+            reexport = get_component(reexport)
+            for cppfile in get_cpp_files(reexport.src_dir):
+                objfile = '%s/%s$(OBJ_EXT)' % (reexport.build_dir, os.path.splitext(cppfile)[0])
+                objs.append(objfile)
         for obj in objs:
             out.write(' ')
             out.write(obj)
@@ -427,8 +438,8 @@ def add_exe(name, deps=[], path=None, exe_name=None):
     c = ExeComponent(name, exe_name, path, deps)
     reg_component(name, c)
 
-def add_dll(name, deps=[], path=None, dll_name=None, export_files=[]):
-    c = DLLComponent(name, dll_name, path, deps, export_files)
+def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[]):
+    c = DLLComponent(name, dll_name, path, deps, export_files, reexports)
     reg_component(name, c)
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
