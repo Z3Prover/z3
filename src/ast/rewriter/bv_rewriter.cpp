@@ -1410,6 +1410,51 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
             }
         }
     }
+   
+    // XOR is a mask
+    // All arguments but one is a numeral.
+    // 
+    // Apply a transformation of the form:
+    //
+    //   (bvxor a 0011) -->  (concat ((_ extract 3 2) a) ((_ extract 1 0) (bvnot a)))
+    // 
+    if (!v1.is_zero() && num_coeffs == num - 1) {
+        // find argument that is not a numeral
+        expr * t = 0;
+        for (unsigned i = 0; i < num; i++) {
+            t = args[i];
+            if (!is_numeral(t))
+                break;
+        }
+        SASSERT(t != 0);
+        numeral two(2);
+        expr_ref_buffer exs(m());
+        expr_ref not_t(m());
+        not_t = m_util.mk_bv_not(t);
+        unsigned low = 0;
+        unsigned i = 0;
+        while (i < sz) {
+            while (i < sz && mod(v1, two).is_one()) {
+                i++;
+                div(v1, two, v1);
+            }
+            if (i != low) {
+                exs.push_back(m_mk_extract(i-1, low, not_t));
+                low = i;
+            }
+            while (i < sz && mod(v1, two).is_zero()) {
+                i++;
+                div(v1, two, v1);
+            }
+            if (i != low) {
+                exs.push_back(m_mk_extract(i-1, low, t));
+                low = i;
+            }
+        }
+        std::reverse(exs.c_ptr(), exs.c_ptr() + exs.size());
+        result = m_util.mk_concat(exs.size(), exs.c_ptr());
+        return BR_REWRITE3;
+    } 
 
     if (!merged && !flattened && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero() && v1 != (m_util.power_of_two(sz) - numeral(1)))))
         return BR_FAILED;
