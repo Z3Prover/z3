@@ -347,10 +347,7 @@ class DLLComponent(Component):
         global _Name2Component
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
-        if IS_WINDOW:
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-        else:
-            dllfile = 'lib%s$(SO_EXT)' % self.dll_name
+        dllfile = '%s$(SO_EXT)' % self.dll_name
         out.write('%s:' % dllfile)
         deps = sort_components(self.deps)
         objs = []
