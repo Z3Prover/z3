@@ -36,11 +36,13 @@ Subsumption transformation (remove Horn clause):
 #define _HORN_SUBSUME_MODEL_CONVERTER_H_
 
 #include "model_converter.h"
+#include "th_rewriter.h"
 
 class horn_subsume_model_converter : public model_converter {
     ast_manager&    m;
     func_decl_ref_vector m_funcs;
     expr_ref_vector      m_bodies;
+    th_rewriter          m_rewrite;
 
     void add_default_false_interpretation(expr* e, model_ref& md);
 
@@ -54,11 +56,11 @@ class horn_subsume_model_converter : public model_converter {
 
 public:
 
-    horn_subsume_model_converter(ast_manager& m): m(m), m_funcs(m), m_bodies(m) {}
+    horn_subsume_model_converter(ast_manager& m): m(m), m_funcs(m), m_bodies(m), m_rewrite(m) {}
 
-    bool mk_horn(expr* clause, func_decl_ref& pred, expr_ref& body) const;
+    bool mk_horn(expr* clause, func_decl_ref& pred, expr_ref& body);
 
-    bool mk_horn(app* head, expr* body, func_decl_ref& pred, expr_ref& body_res) const;
+    bool mk_horn(app* head, expr* body, func_decl_ref& pred, expr_ref& body_res);
 
     void insert(app* head, expr* body);
 
