@@ -18,7 +18,7 @@ BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
 IS_WINDOW=False
-VERBOSE=False
+VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
@@ -36,7 +36,7 @@ def display_help():
     print "It must be executed from the Z3 root directory."
     print "\nOptions:"
     print "  -h, --help                    display this message."
-    print "  -v, --verbose                 be verbose."
+    print "  -s, --silent                  do not print verbose messages."
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
     print "  -x, --x64                     create 64 binary when using Visual Studio."
@@ -47,9 +47,9 @@ def display_help():
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dvxhmc', ['build=', 
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:svxhmc', ['build=', 
                                                                       'debug',
-                                                                      'verbose',
+                                                                      'silent',
                                                                       'x64',
                                                                       'help',
                                                                       'makefiles',
@@ -60,8 +60,8 @@ def parse_options():
             if arg == 'src':
                 raise MKException('The src directory should not be used to host the Makefile')
             set_build_dir(arg)
-        elif opt in ('-v', '--verbose'):
-            VERBOSE = True
+        elif opt in ('-s', '--silent'):
+            VERBOSE = False
         elif opt in ('-d', '--debug'):
             DEBUG_MODE = True
         elif opt in ('-x', '--x64'):
@@ -481,10 +481,13 @@ def mk_makefile():
             print "  compilation mode: Release"
         if IS_WINDOW:
             if VS_X64:
-                print "  platform: x64"
+                print "  platform: x64\n"
+                print "To build Z3, open a ***Visual Studio x64 Command Prompt***, then"
             else:
                 print "  platform: x86"
-            print "Type 'cd %s && nmake to build Z3" % BUILD_DIR
+                print "To build Z3, open a ***Visual Studio Command Prompt***, then"
+            print "type 'cd %s/%s && nmake'\n" % (os.getcwd(), BUILD_DIR)
+            print 'Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools >"'
         else:
             print "Type 'cd %s; make' to build Z3" % BUILD_DIR
         
