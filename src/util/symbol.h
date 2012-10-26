@@ -56,7 +56,9 @@ public:
     explicit symbol(char const * d);
     explicit symbol(unsigned idx):
         m_data(BOXTAGINT(char const *, idx, 1)) {
+#ifndef _AMD64_
         SASSERT(idx < (SIZE_MAX >> PTR_ALIGNMENT));
+#endif
     }
     static symbol dummy() { return m_dummy; }
     static const symbol null;
