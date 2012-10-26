@@ -41,7 +41,6 @@ log_c.write('#include\"z3_logger.h\"\n')
 ##
 exe_c.write('// Automatically generated file\n')
 exe_c.write('#include\"z3.h\"\n')
-exe_c.write('#include\"z3_internal.h\"\n')
 exe_c.write('#include\"z3_replayer.h\"\n')
 ##
 log_h.write('extern std::ostream * g_z3_log;\n')

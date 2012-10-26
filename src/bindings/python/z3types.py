@@ -106,14 +106,3 @@ class FuncEntryObj(ctypes.c_void_p):
   def __init__(self, e): self._as_parameter_ = e
   def from_param(obj): return obj
 
-class PolynomialManagerObj(ctypes.c_void_p):
-  def __init__(self, e): self._as_parameter_ = e
-  def from_param(obj): return obj
-
-class PolynomialObj(ctypes.c_void_p):
-  def __init__(self, e): self._as_parameter_ = e
-  def from_param(obj): return obj
-
-class MonomialObj(ctypes.c_void_p):
-  def __init__(self, e): self._as_parameter_ = e
-  def from_param(obj): return obj
