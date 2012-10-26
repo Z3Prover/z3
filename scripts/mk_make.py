@@ -72,5 +72,5 @@ update_version(4, 2, 0, 0)
 mk_auto_src()
 mk_bindings(API_files)
 
-mk_makefile()
+# mk_makefile()
 
