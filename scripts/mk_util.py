@@ -569,7 +569,7 @@ def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is
     fout.close()
     shutil.move(tmp, assemblyinfo)
     if VERBOSE:
-        print "Updated %s" % assemblyinfo
+        print "Updated '%s'" % assemblyinfo
 
 ADD_TACTIC_DATA=[]
 ADD_PROBE_DATA=[]
@@ -680,8 +680,17 @@ def mk_def_files():
                 mk_def_file(c)
 
 def mk_bindings(api_files):
-    mk_z3consts_py(api_files)
-    mk_z3consts_donet(api_files)
+    if not ONLY_MAKEFILES:
+        mk_z3consts_py(api_files)
+        mk_z3consts_donet(api_files)
+        new_api_files = []
+        api = get_component('api')
+        for api_file in api_files:
+            api_file_path = api.find_file(api_file, api.name)
+            new_api_files.append('%s/%s' % (api_file_path.src_dir, api_file))
+        g = {}
+        g["API_FILES"] = new_api_files
+        execfile('scripts/update_api.py', g) # HACK
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -845,6 +854,14 @@ def mk_z3consts_donet(api_files):
     if VERBOSE:
         print "Generated '%s'" % ('%s/Enumerations.cs' % dotnet.src_dir)
 
-
+# Return the Component object named name
 def get_component(name):
     return _Name2Component[name]
+
+# Return the directory where the python bindings are located.
+def get_python_dir():
+    return PYTHON_DIR
+
+# Return true if in verbose mode
+def is_verbose():
+    return VERBOSE

@@ -1,44 +1,45 @@
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
-# Scripts for generate API bindings and definitions
+# Scripts for generating Makefiles and Visual 
+# Studio project files.
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
-import re
-import sys
-import os
+from mk_util import *
+from mk_exception import *
 
-API_FILES = []
-
-def add_api_file(dir, file):
-    API_FILES.append("%s%s%s" % (dir, os.sep, file))
-
-add_api_file('lib', 'z3_api.h')
-add_api_file('lib', 'z3_internal_types.h')
-add_api_file('lib', 'z3_poly.h')
-
+##########################################################
+# TODO: rewrite this file without using global variables.
+# This file is a big HACK.
+# It started as small simple script.
+# Now, it is too big, and is invoked from mk_make.py
+# The communication uses 
+#
+##########################################################
 
 #
 # Generate logging support and bindings
 #
+api_dir     = get_component('api').src_dir
+dotnet_dir  = get_component('dotnet').src_dir
 
-log_h   = open('lib%sapi_log_macros.h' % os.sep, 'w')
-log_c   = open('lib%sapi_log_macros.cpp' % os.sep, 'w')
-exe_c   = open('lib%sapi_commands.cpp' % os.sep, 'w')
-core_py = open('python%sz3core.py' % os.sep, 'w')
-dotnet_fileout = 'Microsoft.Z3%sNative.cs' % os.sep
+log_h   = open('%s/api_log_macros.h' % api_dir, 'w')
+log_c   = open('%s/api_log_macros.cpp' % api_dir, 'w')
+exe_c   = open('%s/api_commands.cpp' % api_dir, 'w')
+core_py = open('%s/z3core.py' % get_python_dir(), 'w')
+dotnet_fileout = '%s/Native.cs' % dotnet_dir
 ##
-log_h.write('// Automatically generated file, generator: update_api.py\n')
+log_h.write('// Automatically generated file\n')
 log_h.write('#include\"z3.h\"\n')
 ##
-log_c.write('// Automatically generated file, generator: update_api.py\n')
+log_c.write('// Automatically generated file\n')
 log_c.write('#include<iostream>\n')
 log_c.write('#include\"z3.h\"\n')
 log_c.write('#include\"api_log_macros.h\"\n')
 log_c.write('#include\"z3_logger.h\"\n')
 ##
-exe_c.write('// Automatically generated file, generator: update_api.py\n')
+exe_c.write('// Automatically generated file\n')
 exe_c.write('#include\"z3.h\"\n')
 exe_c.write('#include\"z3_internal.h\"\n')
 exe_c.write('#include\"z3_replayer.h\"\n')
@@ -52,7 +53,7 @@ log_h.write('void _Z3_append_log(char const * msg);\n')
 ##
 exe_c.write('void Z3_replacer_error_handler(Z3_context ctx, Z3_error_code c) { printf("[REPLAYER ERROR HANDLER]: %s\\n", Z3_get_error_msg_ex(ctx, c)); }\n')
 ##
-core_py.write('# Automatically generated file, generator: update_api.py\n')
+core_py.write('# Automatically generated file\n')
 core_py.write('import sys, os\n')
 core_py.write('import ctypes\n')
 core_py.write('from z3types import *\n')
@@ -146,7 +147,6 @@ def def_Types():
         for line in api:
             m = pat1.match(line)
             if m:
-                print line.strip()
                 eval(line)
     for k, v in Type2Str.iteritems():
         if is_obj(k):
@@ -249,7 +249,6 @@ def mk_py_binding(name, result, params):
     core_py.write("]\n")
 
 def extra_API(name, result, params):
-    print 'extra_API(%s)' % name
     mk_py_binding(name, result, params)
     reg_dotnet(name, result, params)
 
@@ -294,7 +293,7 @@ def mk_dotnet():
     global Type2Str
     global dotnet_fileout
     dotnet = open(dotnet_fileout, 'w')
-    dotnet.write('// Automatically generated file, generator: api.py\n')
+    dotnet.write('// Automatically generated file\n')
     dotnet.write('using System;\n')
     dotnet.write('using System.Collections.Generic;\n')
     dotnet.write('using System.Text;\n')
@@ -429,7 +428,7 @@ def mk_log_macro(file, name, params):
         file.write("_ARG%s" % i)
         i = i + 1
     file.write(") z3_log_ctx _LOG_CTX; ")
-    auxs = Set([])
+    auxs = set()
     i = 0
     for p in params:
         if log_param(p):
@@ -453,7 +452,7 @@ def mk_log_macro(file, name, params):
         file.write("_ARG%s" %i)
         i = i + 1
     file.write("); ")
-    auxs = Set([])
+    auxs = set()
     i = 0
     for p in params:
         if log_param(p):
@@ -512,8 +511,6 @@ API2Id = {}
 def def_API(name, result, params):
     global API2Id, next_id
     global log_h, log_c
-    print 'def_API(%s)' % name
-    # print "generating ", name
     mk_py_binding(name, result, params)
     reg_dotnet(name, result, params)
     API2Id[next_id] = name
@@ -654,16 +651,16 @@ def def_APIs():
     for api_file in API_FILES:
         api = open(api_file, 'r')
         for line in api:
-            m = pat1.match(line)
-            if m:
-                eval(line)
-            m = pat2.match(line)
-            if m:
-                eval(line)
-
-mk_z3consts_donet()
-mk_z3consts_py()
-mk_z3tactics_py()
+            try:
+                m = pat1.match(line)
+                if m:
+                    eval(line)
+                m = pat2.match(line)
+                if m:
+                    eval(line)
+            except Exception as ex:
+                print ex
+                raise MKException("Failed to process API definition: %s" % line)
 def_Types()
 def_APIs()
 mk_bindings()
@@ -671,3 +668,9 @@ mk_py_wrappers()
 mk_dotnet()
 mk_dotnet_wrappers()
 
+if is_verbose():
+    print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)
+    print "Generated '%s'" % ('%s/api_log_macros.cpp' % api_dir)
+    print "Generated '%s'" % ('%s/api_commands.cpp' % api_dir)
+    print "Generated '%s'" % ('%s/z3core.py' % get_python_dir())
+    print "Generated '%s'" % ('%s/Native.cs' % dotnet_dir)
