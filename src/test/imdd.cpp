@@ -18,6 +18,8 @@ Revision History:
 --*/
 #include"imdd.h"
 
+#ifndef _AMD64_
+
 static void tst0() {
     std::cout << "--------------------------------\n";    
     imdd_manager m;
@@ -607,3 +609,9 @@ void tst_imdd() {
 
 }
 
+#else
+
+void tst_imdd() {
+}
+
+#endif
