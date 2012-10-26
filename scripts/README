@@ -1,0 +1,9 @@
+Instructions for updating external Z3 API
+-----------------------------------------
+
+The python "macros": def_Type() and def_API() are used to add new types and function definitions to the Z3 API.
+The .h files provided to `mk_bindings(API_files)` contain these definitions.
+See src\api\z3_api.h for many examples.
+
+The bindings for .Net and Python are generated when mk_make.py is invoked.
+
