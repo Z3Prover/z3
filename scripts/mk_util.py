@@ -47,7 +47,7 @@ def display_help():
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:svxhmc', ['build=', 
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmc', ['build=', 
                                                                       'debug',
                                                                       'silent',
                                                                       'x64',
@@ -376,8 +376,9 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            c_dep = _Name2Component[dep]
-            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
+            if not dep in self.reexports:
+                c_dep = _Name2Component[dep]
+                out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOW:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
