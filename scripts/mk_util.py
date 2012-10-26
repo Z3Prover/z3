@@ -444,6 +444,7 @@ class DotNetDLLComponent(Component):
             # HACK
             win_to_src_dir = self.to_src_dir.replace('/', '\\')
             out.write('  move %s\%s\n' % (win_to_src_dir, dllfile))
+            out.write('  move %s\%s.pdb\n' % (win_to_src_dir, self.dll_name))
             out.write('%s: %s\n\n' % (self.name, dllfile))
             return
     
