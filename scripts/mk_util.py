@@ -341,10 +341,6 @@ class DLLComponent(Component):
             dll_name = name
         self.dll_name = dll_name
         self.export_files = export_files
-        new_deps = find_all_deps(name, reexports)
-        for new_dep in new_deps:
-            if not new_dep in reexports:
-                self.deps.append(new_dep)
         self.reexports = reexports
 
     def mk_makefile(self, out):
@@ -371,8 +367,9 @@ class DLLComponent(Component):
             out.write(' ')
             out.write(obj)
         for dep in deps:
-            c_dep = _Name2Component[dep]
-            out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
+            if not dep in self.reexports:
+                c_dep = _Name2Component[dep]
+                out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         out.write('\n')
         out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
         for obj in objs:
