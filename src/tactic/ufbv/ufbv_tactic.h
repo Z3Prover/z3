@@ -23,9 +23,10 @@ Notes:
 class ast_manager;
 class tactic;
 
-tactic * mk_macro_finder_tactic(ast_manager & m, params_ref const & p);
+tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p = params_ref());
 
-tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p);
+tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p = params_ref());
+
 /*
   ADD_TACTIC("bv",  "builtin strategy for solving BV problems (with quantifiers).", "mk_ufbv_tactic(m, p)")
   ADD_TACTIC("ufbv",  "builtin strategy for solving UFBV problems (with quantifiers).", "mk_ufbv_tactic(m, p)")

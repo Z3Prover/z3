@@ -1,0 +1,28 @@
+/*++
+Copyright (c) 2012 Microsoft Corporation
+
+Module Name:
+
+    quasi_macros_tactic.h
+
+Abstract:
+
+    Quasi-Macros
+
+Author:
+
+    Christoph (cwinter) 2012-10-26
+
+Notes:
+
+--*/
+#ifndef _QUASI_MACROS_TACTIC_H_
+#define _QUASI_MACROS_TACTIC_H_
+
+#include"params.h"
+class ast_manager;
+class tactic;
+
+tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p = params_ref());
+
+#endif
