@@ -160,6 +160,9 @@ def is_verbose():
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
 
+def get_cs_files(path):
+    return filter(lambda f: f.endswith('.cs'), os.listdir(path))
+
 def find_all_deps(name, deps):
     new_deps = []
     for dep in deps:
@@ -418,8 +421,30 @@ class DotNetDLLComponent(Component):
 
     def mk_makefile(self, out):
         if IS_WINDOW:
-            # TODO
-            out.write('%s: \n\n' % self.name)
+            cs_fp_files = []
+            cs_files    = []
+            for cs_file in get_cs_files(self.src_dir):
+                cs_fp_files.append('%s/%s' % (self.to_src_dir, cs_file))
+                cs_files.append(cs_file)
+            if self.assembly_info_dir != '.':
+                for cs_file in get_cs_files('%s/%s' % (self.src_dir, self.assembly_info_dir)):
+                    cs_fp_files.append('%s/%s/%s' % (self.to_src_dir, self.assembly_info_dir, cs_file))
+                    cs_files.append('%s\%s' % (self.assembly_info_dir, cs_file))
+            dllfile = '%s.dll' % self.dll_name
+            out.write('%s:' % dllfile)
+            for cs_file in cs_fp_files:
+                out.write(' ')
+                out.write(cs_file)
+            out.write('\n')
+            out.write('  cd %s && csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /out:%s.dll /target:library' % (self.to_src_dir, self.dll_name))
+            for cs_file in cs_files:
+                out.write(' ')
+                out.write(cs_file)
+            out.write('\n')
+            # HACK
+            win_to_src_dir = self.to_src_dir.replace('/', '\\')
+            out.write('  move %s\%s\n' % (win_to_src_dir, dllfile))
+            out.write('%s: %s\n\n' % (self.name, dllfile))
             return
     
     def main_component(self):
