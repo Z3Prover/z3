@@ -13,6 +13,7 @@ import getopt
 import sys
 import shutil
 from mk_exception import *
+from fnmatch import fnmatch
 
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
@@ -25,6 +26,48 @@ VS_X64 = False
 ONLY_MAKEFILES = False
 PYTHON_DIR=None
 VS_PROJ = False
+
+def is_cr_lf(fname):
+    # Check whether text files use cr/lf
+    f = open(fname, 'r')
+    line = f.readline()
+    sz = len(line)
+    return sz >= 2 and line[sz-2] == '\r' and line[sz-1] == '\n'
+
+# dos2unix in python
+#    cr/lf --> lf
+def dos2unix(fname):
+    if is_cr_lf(fname):
+        fin  = open(fname, 'r')
+        fname_new = '%s.new' % fname
+        fout = open(fname_new, 'w')
+        for line in fin:
+            line = line.rstrip('\r\n')
+            fout.write(line)
+            fout.write('\n')
+        fin.close()
+        fout.close()
+        shutil.move(fname_new, fname)
+        if is_verbose():
+            print "dos2unix '%s'" % fname
+
+def dos2unix_tree_core(pattern, dir, files):
+    for filename in files:
+        if fnmatch(filename, pattern):
+            fname = os.path.join(dir, filename)
+            if not os.path.isdir(fname):
+                dos2unix(fname)
+
+def dos2unix_tree():
+    os.path.walk('src', dos2unix_tree_core, '*')
+
+def check_eol():
+    if not IS_WINDOW:
+        # Linux/OSX/BSD check if the end-of-line is cr/lf
+        if is_cr_lf('LICENSE.txt'):
+            if is_verbose():
+                print "Fixing end of line..."
+            dos2unix_tree()
 
 if os.name == 'nt':
     IS_WINDOW=True
@@ -81,7 +124,7 @@ def parse_options():
             VS_PROJ = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
-
+        
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):

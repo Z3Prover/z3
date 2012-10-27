@@ -9,6 +9,7 @@
 from mk_util import *
 
 parse_options()
+check_eol()
 
 add_lib('util', [])
 add_lib('polynomial', ['util'], 'math/polynomial')
