@@ -42,8 +42,6 @@ namespace smtlib {
         virtual bool parse_file(char const * path) = 0;
         virtual bool parse_string(char const * string) = 0;
 
-        virtual bool parse_commands(Z3_context ctx, std::istream& is, std::ostream& os) = 0;
-
         virtual benchmark * get_benchmark() = 0;
     };
 };
