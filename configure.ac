@@ -1,4 +1,6 @@
 AC_INIT([z3], [4.2])
+AC_CONFIG_SRCDIR(src/util/util.cpp)
+AC_PREFIX_DEFAULT(/usr)
 
 ###################
 #
@@ -80,7 +82,12 @@ fi
 #
 ###################
 # Sets CXX
-AC_PROG_CXX(g++)
+AC_LANG([C++])
+AC_PROG_CXX(g++ false)
+AC_PROG_CC
+if test $CXX = "false"; then
+   AC_MSG_ERROR([C++ compiler was not found])
+fi
 
 AC_PROG_MAKE_SET
 
