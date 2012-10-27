@@ -2853,30 +2853,6 @@ namespace Microsoft.Z3
         }
         #endregion
 
-        #region Native Parser
-        /// <summary>
-        /// Parse the given string using the Z3 native parser.            
-        /// </summary>    
-        /// <returns>A conjunction of asserts made in <paramref name="str"/>.</returns>
-        public Expr ParseZ3String(string str)
-        {
-            Contract.Ensures(Contract.Result<Expr>() != null);
-
-            return Expr.Create(this, Native.Z3_parse_z3_string(nCtx, str));
-        }
-
-        /// <summary>
-        /// Parse the given file using the Z3 native parser.            
-        /// </summary>    
-        /// <returns>A conjunction of asserts made in the file.</returns>
-        public Expr ParseZ3File(string fileName)
-        {
-            Contract.Ensures(Contract.Result<Expr>() != null);
-
-            return Expr.Create(this, Native.Z3_parse_z3_file(nCtx, fileName));
-        }
-        #endregion
-
         #region Goals
         /// <summary>
         /// Creates a new Goal.

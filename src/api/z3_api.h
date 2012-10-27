@@ -4977,23 +4977,6 @@ BEGIN_MLAPI_EXCLUDE
     Z3_string Z3_API Z3_get_smtlib_error(__in Z3_context c);
 END_MLAPI_EXCLUDE
 
-    /**
-       \brief \mlh parse_z3_string c str \endmlh
-       Parse the given string using the Z3 native parser.
-       
-       Return the conjunction of asserts made in the input.
-
-       def_API('Z3_parse_z3_string', AST, (_in(CONTEXT), _in(STRING)))
-     */
-    Z3_ast Z3_API Z3_parse_z3_string(__in Z3_context c, __in Z3_string str);
-    
-    /**
-       \brief Similar to #Z3_parse_z3_string, but reads the benchmark from a file.
-
-       def_API('Z3_parse_z3_file', AST, (_in(CONTEXT), _in(STRING)))
-    */
-    Z3_ast Z3_API Z3_parse_z3_file(__in Z3_context c, __in Z3_string file_name);
-
     /*@}*/
 
 #ifdef CorML4

@@ -23,7 +23,6 @@ Revision History:
 #include"cmd_context.h"
 #include"smt2parser.h"
 #include"smtparser.h"
-#include"z3_solver.h"
 
 extern "C" {
 
@@ -247,40 +246,6 @@ extern "C" {
         RESET_ERROR_CODE(); 
         return mk_c(c)->m_smtlib_error_buffer.c_str();
         Z3_CATCH_RETURN("");
-    }
-    
-    Z3_ast parse_z3_stream(Z3_context c, std::istream& is) {
-        z3_solver parser(c, is, verbose_stream(), mk_c(c)->fparams(), false);
-        if (!parser.parse()) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return of_ast(mk_c(c)->m().mk_true());
-        }
-        expr_ref_vector assumptions(mk_c(c)->m());
-        parser.get_assumptions(assumptions);
-        return of_ast(mk_c(c)->mk_and(assumptions.size(), assumptions.c_ptr()));
-    }
-
-    Z3_ast Z3_API Z3_parse_z3_string(Z3_context c, Z3_string str) { 
-        Z3_TRY;
-        LOG_Z3_parse_z3_string(c, str);
-        std::string s(str);
-        std::istringstream is(s);
-        Z3_ast r = parse_z3_stream(c, is);
-        RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_parse_z3_file(Z3_context c, Z3_string file_name) {
-        Z3_TRY;
-        LOG_Z3_parse_z3_file(c, file_name);
-        std::ifstream is(file_name);
-        if (!is) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return 0;
-        }
-        Z3_ast r = parse_z3_stream(c, is);
-        RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
     }
 
     // ---------------

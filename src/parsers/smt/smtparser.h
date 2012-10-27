@@ -19,11 +19,10 @@ Revision History:
 #ifndef _SMT_PARSER_H_
 #define _SMT_PARSER_H_
 
-#include "ast.h"
-#include "vector.h"
-#include "smtlib.h"
-#include "z3.h"
-#include <iostream>
+#include<iostream>
+#include"ast.h"
+#include"vector.h"
+#include"smtlib.h"
 
 namespace smtlib {
     class parser {
@@ -41,8 +40,6 @@ namespace smtlib {
 
         virtual bool parse_file(char const * path) = 0;
         virtual bool parse_string(char const * string) = 0;
-
-        virtual bool parse_commands(Z3_context ctx, std::istream& is, std::ostream& os) = 0;
 
         virtual benchmark * get_benchmark() = 0;
     };
