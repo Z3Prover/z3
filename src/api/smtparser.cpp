@@ -34,13 +34,11 @@ Revision History:
 #include"warning.h"
 #include"error_codes.h"
 #include"pattern_validation.h"
-#include"timeit.h"
 #include"var_subst.h"
 #include"well_sorted.h"
 #include"str_hashtable.h"
 #include"front_end_params.h"
 #include"stopwatch.h"
-front_end_params& Z3_API Z3_get_parameters(Z3_context c);
 
 class id_param_info {
     symbol    m_string;
@@ -60,7 +58,7 @@ public:
 
 class proto_region {
     ptr_vector<rational>            m_rationals;
-    ptr_vector< id_param_info >     m_id_infos;
+    ptr_vector<id_param_info>       m_id_infos;
     region                          m_region;
 public:
     proto_region() { }
@@ -562,7 +560,6 @@ class smtparser : public parser {
     bool                     m_ignore_user_patterns;
     unsigned                 m_binding_level;     // scope level for bound vars
     benchmark                m_benchmark; // currently parsed benchmark
-    sort_ref_vector          m_pinned_sorts;
 
     typedef map<symbol, builtin_op, symbol_hash_proc, symbol_eq_proc> op_map;
     op_map                   m_builtin_ops;
@@ -580,11 +577,8 @@ class smtparser : public parser {
     symbol                   m_sorts;
     symbol                   m_funs;
     symbol                   m_preds;
-    symbol                   m_definition;
     symbol                   m_axioms;
     symbol                   m_notes;
-    symbol                   m_theory;
-    symbol                   m_language;
     symbol                   m_array;
     symbol                   m_bang;
     symbol                   m_underscore;
@@ -610,7 +604,6 @@ public:
         m_ignore_user_patterns(ignore_user_patterns), 
         m_binding_level(0),
         m_benchmark(m_manager, symbol("")),
-        m_pinned_sorts(m),
         m_let("let"),
         m_flet("flet"),
         m_forall("forall"),
@@ -623,11 +616,8 @@ public:
         m_sorts("sorts"),
         m_funs("funs"),
         m_preds("preds"),
-        m_definition("definition"),
         m_axioms("axioms"),
         m_notes("notes"),
-        m_theory("theory"),
-        m_language("language"),
         m_array("array"),
         m_bang("!"),
         m_underscore("_"),
@@ -661,7 +651,6 @@ public:
     }
 
     bool parse_file(char const * filename) {
-        timeit tt(get_verbosity_level() >= 100, "parsing file");
         if (filename != 0) {
             std::ifstream stream(filename);
             if (!stream) {
