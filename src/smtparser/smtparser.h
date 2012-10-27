@@ -23,7 +23,6 @@ Revision History:
 #include"ast.h"
 #include"vector.h"
 #include"smtlib.h"
-#include"z3.h"
 
 namespace smtlib {
     class parser {

@@ -59,7 +59,8 @@ add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt
 add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
 add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
 # TODO: delete SMT 1.0 frontend
-add_lib('api', ['portfolio', 'user_plugin'])
+add_lib('smtparser', ['portfolio'])
+add_lib('api', ['portfolio', 'user_plugin', 'smtparser'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
 add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
 API_files = ['z3_api.h']
