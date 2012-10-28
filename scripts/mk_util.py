@@ -184,20 +184,10 @@ def set_build_dir(d):
 
 def set_z3py_dir(p):
     global SRC_DIR, Z3PY_SRC_DIR
-    mk_dir(BUILD_DIR)
     full = '%s/%s' % (SRC_DIR, p)
     if not os.path.exists(full):
         raise MKException("Python bindings directory '%s' does not exist" % full)
     Z3PY_SRC_DIR = full
-    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
-        try:
-            os.remove('%s/%s' % (BUILD_DIR, pyc))
-        except:
-            pass
-        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
-        if is_verbose():
-            print "Generated '%s'" % pyc
     if VERBOSE:
         print "Python bindinds directory was detected."
 
@@ -1008,6 +998,18 @@ def mk_def_files():
             if c.require_def_file():
                 mk_def_file(c)
 
+def cp_z3pyc_to_build():
+    mk_dir(BUILD_DIR)
+    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
+        try:
+            os.remove('%s/%s' % (BUILD_DIR, pyc))
+        except:
+            pass
+        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
+        if is_verbose():
+            print "Generated '%s'" % pyc
+
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
         mk_z3consts_py(api_files)
@@ -1020,7 +1022,8 @@ def mk_bindings(api_files):
         g = {}
         g["API_FILES"] = new_api_files
         execfile('scripts/update_api.py', g) # HACK
-
+        cp_z3pyc_to_build()
+                          
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
     if Z3PY_SRC_DIR == None:
