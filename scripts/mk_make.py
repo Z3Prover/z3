@@ -71,7 +71,10 @@ add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll',
         dll_name='libz3', 
         export_files=API_files)
 add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
+add_hlib('cpp', 'bindings/c++', includes2install=['z3++.h'])
 set_z3py_dir('bindings/python')
+# Examples
+add_cpp_example('cpp_example', 'c++') 
 
 update_version(4, 2, 0, 0)
 mk_auto_src()

@@ -21,6 +21,15 @@ PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
+EXAMPLE_DIR='examples'
+# Required Components 
+Z3_DLL_COMPONENT='api_dll'
+PATTERN_COMPONENT='pattern'
+UTIL_COMPONENT='util'
+API_COMPONENT='api'
+DOTNET_COMPONENT='dotnet'
+CPP_COMPONENT='cpp'
+#####################
 IS_WINDOW=False
 VERBOSE=True
 DEBUG_MODE=False
@@ -339,6 +348,9 @@ class Component:
     def mk_uninstall(self, out):
         return
 
+    def is_example(self):
+        return False
+
 class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
@@ -372,6 +384,14 @@ class LibComponent(Component):
     def mk_uninstall(self, out):
         for include in self.includes2install:
             out.write('\t@rm -f $(PREFIX)/include/%s\n' % include)
+
+# "Library" containing only .h files. This is just a placeholder for includes files to be installed.
+class HLibComponent(LibComponent):
+    def __init__(self, name, path, includes2install):
+        LibComponent.__init__(self, name, path, [], includes2install)
+
+    def mk_makefile(self, out):
+        return
 
 # Auxiliary function for sort_components
 def comp_components(c1, c2):
@@ -551,7 +571,41 @@ class DotNetDLLComponent(Component):
 
     def has_assembly_info(self):
         return True
-    
+
+class ExampleComponent(Component):
+    def __init__(self, name, path):
+        Component.__init__(self, name, path, [])
+        self.ex_dir   = '%s/%s' % (EXAMPLE_DIR, path)
+        self.to_ex_dir = '%s/%s' % (REV_BUILD_DIR, self.ex_dir)
+
+    def is_example(self):
+        return True
+
+class CppExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def mk_makefile(self, out):
+        dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+        dll = '%s$(SO_EXT)' % dll_name
+        exefile = '%s$(EXE_EXT)' % self.name
+        out.write('%s: %s' % (exefile, dll))
+        for cppfile in get_cpp_files(self.ex_dir):
+            out.write(' ')
+            out.write('%s/%s' % (self.to_ex_dir, cppfile))
+        out.write('\n')
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
+        # Add include dir components
+        out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
+        out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
+        for cppfile in get_cpp_files(self.ex_dir):
+            out.write(' ')
+            out.write('%s/%s' % (self.to_ex_dir, cppfile))
+        out.write(' ')
+        out.write(dll)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        if exefile.strip(' ') != self.name:
+            out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
@@ -567,6 +621,10 @@ def add_lib(name, deps=[], path=None, includes2install=[]):
     c = LibComponent(name, path, deps, includes2install)
     reg_component(name, c)
 
+def add_hlib(name, path=None, includes2install=[]):
+    c = HLibComponent(name, path, includes2install)
+    reg_component(name, c)
+
 def add_exe(name, deps=[], path=None, exe_name=None, install=True):
     c = ExeComponent(name, exe_name, path, deps, install)
     reg_component(name, c)
@@ -577,6 +635,10 @@ def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
+    reg_component(name, c)
+
+def add_cpp_example(name, path=None):
+    c = CppExampleComponent(name, path)
     reg_component(name, c)
 
 # Copy configuration correct file to BUILD_DIR
@@ -639,6 +701,12 @@ def mk_makefile():
     out.write('\n\t@echo Z3 was successfully built.\n')
     out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
     out.write('\t@echo "    sudo make install"\n')
+    # Generate :examples rule
+    out.write('examples:')
+    for c in _Components:
+        if c.is_example():
+            out.write(' _ex_%s' % c.name)
+    out.write('\n\t@echo Z3 examples were successfully built.\n')
     # Generate components
     for c in _Components:
         c.mk_makefile(out)
@@ -676,7 +744,7 @@ def mk_auto_src():
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
 def mk_pat_db():
-    c = get_component('pattern')
+    c = get_component(PATTERN_COMPONENT)
     fin  = open('%s/database.smt2' % c.src_dir, 'r')
     fout = open('%s/database.h'  % c.src_dir, 'w')
     fout.write('char const * g_pattern_database =\n')
@@ -695,7 +763,7 @@ def update_version(major, minor, build, revision):
         
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
-    c = get_component('util')
+    c = get_component(UTIL_COMPONENT)
     fout = open('%s/version.h' % c.src_dir, 'w')
     fout.write('// automatically generated file.\n')
     fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
@@ -873,7 +941,7 @@ def mk_bindings(api_files):
         mk_z3consts_py(api_files)
         mk_z3consts_donet(api_files)
         new_api_files = []
-        api = get_component('api')
+        api = get_component(API_COMPONENT)
         for api_file in api_files:
             api_file_path = api.find_file(api_file, api.name)
             new_api_files.append('%s/%s' % (api_file_path.src_dir, api_file))
@@ -896,7 +964,7 @@ def mk_z3consts_py(api_files):
     z3consts  = open('%s/z3consts.py' % Z3PY_SRC_DIR, 'w')
     z3consts.write('# Automatically generated file\n\n')
 
-    api_dll = get_component('api_dll')
+    api_dll = get_component(Z3_DLL_COMPONENT)
 
     for api_file in api_files:
         api_file_c = api_dll.find_file(api_file, api_dll.name)
@@ -968,7 +1036,7 @@ def mk_z3consts_donet(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    dotnet = get_component('dotnet')
+    dotnet = get_component(DOTNET_COMPONENT)
 
     DeprecatedEnums = { 'Z3_search_failure' }
     z3consts  = open('%s/Enumerations.cs' % dotnet.src_dir, 'w')
