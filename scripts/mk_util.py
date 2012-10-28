@@ -200,6 +200,13 @@ def set_z3py_dir(p):
     if VERBOSE:
         print "Python bindinds directory was detected."
 
+def add_z3py_example(p):
+    full = '%s/%s' % (EXAMPLE_DIR, p)
+    for py in filter(lambda f: f.endswith('.py'), os.listdir(full)):
+        shutil.copyfile('%s/%s' % (full, py), '%s/%s' % (BUILD_DIR, py))
+        if is_verbose():
+            print "Copied Z3Py example '%s' to '%s'" % (py, BUILD_DIR)
+
 _UNIQ_ID = 0
 
 def mk_fresh_name(prefix):

@@ -78,6 +78,7 @@ add_cpp_example('cpp_example', 'c++')
 add_c_example('c_example', 'c')
 add_c_example('maxsat')
 add_dotnet_example('dotnet_example', 'dotnet')
+add_z3py_example('python')
 
 update_version(4, 2, 0, 0)
 mk_auto_src()
