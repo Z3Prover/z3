@@ -1,0 +1,12 @@
+Small example using the c++ bindings.
+To build the example execute
+   make examples
+in the build directory.
+
+This command will create the executable maxsat.
+On Windows, you can just execute it.
+On OSX and Linux, you must install z3 first using 
+   sudo make install
+OR update LD_LIBRARY_PATH (Linux) or DYLD_LIBRARY_PATH (OSX) with the build directory. You need that to be able to find the Z3 shared library.
+
+This directory contains a test file (ex.smt) that can be use as input for the maxsat test application.

@@ -229,6 +229,9 @@ def is_verbose():
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
 
+def get_c_files(path):
+    return filter(lambda f: f.endswith('.c'), os.listdir(path))
+
 def get_cs_files(path):
     return filter(lambda f: f.endswith('.cs'), os.listdir(path))
 
@@ -584,7 +587,7 @@ class DotNetDLLComponent(Component):
 class ExampleComponent(Component):
     def __init__(self, name, path):
         Component.__init__(self, name, path, [])
-        self.ex_dir   = '%s/%s' % (EXAMPLE_DIR, path)
+        self.ex_dir   = '%s/%s' % (EXAMPLE_DIR, self.path)
         self.to_ex_dir = '%s/%s' % (REV_BUILD_DIR, self.ex_dir)
 
     def is_example(self):
@@ -594,20 +597,26 @@ class CppExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
 
+    def compiler(self):
+        return "$(CXX)"
+
+    def src_files(self):
+        return get_cpp_files(self.ex_dir)
+
     def mk_makefile(self, out):
         dll_name = get_component(Z3_DLL_COMPONENT).dll_name
         dll = '%s$(SO_EXT)' % dll_name
         exefile = '%s$(EXE_EXT)' % self.name
         out.write('%s: %s' % (exefile, dll))
-        for cppfile in get_cpp_files(self.ex_dir):
+        for cppfile in self.src_files():
             out.write(' ')
             out.write('%s/%s' % (self.to_ex_dir, cppfile))
         out.write('\n')
-        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
+        out.write('\t%s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
         # Add include dir components
         out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
         out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
-        for cppfile in get_cpp_files(self.ex_dir):
+        for cppfile in self.src_files():
             out.write(' ')
             out.write('%s/%s' % (self.to_ex_dir, cppfile))
         out.write(' ')
@@ -618,6 +627,16 @@ class CppExampleComponent(ExampleComponent):
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
+class CExampleComponent(CppExampleComponent):
+    def __init__(self, name, path):
+        CppExampleComponent.__init__(self, name, path)
+
+    def compiler(self):
+        return "$(CC)"
+
+    def src_files(self):
+        return get_c_files(self.ex_dir)
+    
 class DotNetExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -680,6 +699,10 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
 
 def add_cpp_example(name, path=None):
     c = CppExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_c_example(name, path=None):
+    c = CExampleComponent(name, path)
     reg_component(name, c)
 
 def add_dotnet_example(name, path=None):
