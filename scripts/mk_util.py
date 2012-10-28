@@ -188,6 +188,15 @@ def set_z3py_dir(p):
     if not os.path.exists(full):
         raise MKException("Python bindings directory '%s' does not exist" % full)
     Z3PY_SRC_DIR = full
+    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
+        try:
+            os.remove('%s/%s' % (BUILD_DIR, pyc))
+        except:
+            pass
+        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
+        if is_verbose():
+            print "Generated '%s'" % pyc
     if VERBOSE:
         print "Python bindinds directory was detected."
 
@@ -703,11 +712,6 @@ def mk_install(out):
     out.write('\t@mkdir -p $(PREFIX)/lib\n')
     for c in _Components:
         c.mk_install(out)
-    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
-        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
-        if is_verbose():
-            print "Generated '%s'" % pyc
     out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully installed.\n')
     out.write('\n')    
