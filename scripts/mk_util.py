@@ -638,7 +638,7 @@ def mk_makefile():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
     out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
-    out.write('\t@echo "\\tsudo make install"\n')
+    out.write('\t@echo "    sudo make install"\n')
     # Generate components
     for c in _Components:
         c.mk_makefile(out)

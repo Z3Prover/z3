@@ -156,7 +156,7 @@ protected:
        \brief Return true if the given key \c k is in the entry \c e. That is,
        k \in [e.begin_key(), e.end_key()].
     */
-    bool contains(entry const & e, key const & k) const { return leq(e.begin_key(), k) && leq(k, e.end_key()); }
+    bool contains(entry const & e, key const & k) const { return this->leq(e.begin_key(), k) && this->leq(k, e.end_key()); }
     
     /**
        \brief Return true if the given key \c k is in the entry \c e. That is,
@@ -193,7 +193,7 @@ protected:
         for (;;) {
             int mid = low + ((high - low) / 2);
             entry const & mid_entry = bt->get(mid);
-            if (gt(k, mid_entry.end_key())) {
+            if (this->gt(k, mid_entry.end_key())) {
                 low = mid + 1;
                 if (low > high) {
                     idx = static_cast<unsigned>(mid) + 1;
@@ -1273,7 +1273,7 @@ public:
             --i;
             for (;;) {
                 next = curr->get_next(i);
-                if (next != 0 && leq(first_key(next), k)) {
+                if (next != 0 && this->leq(first_key(next), k)) {
                     TRACE("interval_skip_list", tout << "next_bucket(" << k << "), i: " << i << " skipping #" << get_bucket_idx(curr); 
                           tout << ", moving to: #" << get_bucket_idx(next) << "\n"; this->display(tout, next););
                     curr = next;
@@ -1427,11 +1427,11 @@ public:
         for (; it1 != end1 && it2 != end2; it1++, it2++) {
             entry const & e1 = *it1;
             entry const & e2 = *it2;
-            if (!eq(e1.begin_key(), e2.begin_key()))
+            if (!this->eq(e1.begin_key(), e2.begin_key()))
                 return false;
-            if (!eq(e1.end_key(), e2.end_key()))
+            if (!this->eq(e1.end_key(), e2.end_key()))
                 return false;
-            if (!val_eq(e1.val(), e2.val()))
+            if (!this->val_eq(e1.val(), e2.val()))
                 return false;
         }
         return true;
@@ -1459,8 +1459,8 @@ public:
                 entry & curr = const_cast<entry&>(*it);
                 value const & old_val = curr.val();
                 value new_val   = f(old_val);
-                inc_ref(m, new_val);
-                dec_ref(m, old_val);
+                this->inc_ref(m, new_val);
+                this->dec_ref(m, old_val);
                 curr.set_val(new_val);
             }
             SASSERT(check_invariant());
@@ -1599,7 +1599,7 @@ private:
     */
     void move_js(join_state & js, key const & k) const {
         SASSERT(!js.done());
-        if (leq(k, js.tail())) {
+        if (this->leq(k, js.tail())) {
             // We can't skip the current entry, because k in inside it.
             // So, we just update the head.
             js.m_head = k;
