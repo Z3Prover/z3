@@ -192,6 +192,7 @@ def set_z3py_dir(p):
         print "Python bindinds directory was detected."
 
 def add_z3py_example(p):
+    mk_dir(BUILD_DIR)
     full = '%s/%s' % (EXAMPLE_DIR, p)
     for py in filter(lambda f: f.endswith('.py'), os.listdir(full)):
         shutil.copyfile('%s/%s' % (full, py), '%s/%s' % (BUILD_DIR, py))
