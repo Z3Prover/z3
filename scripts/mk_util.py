@@ -602,9 +602,41 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write('%s/%s' % (self.to_ex_dir, cppfile))
         out.write(' ')
-        out.write(dll)
+        if IS_WINDOW:
+            out.write('%s.lib' % dll_name)
+        else:
+            out.write(dll)
         out.write(' $(LINK_EXTRA_FLAGS)\n')
-        if exefile.strip(' ') != self.name:
+        out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+
+class DotNetExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def is_example(self):
+        return IS_WINDOW
+
+    def mk_makefile(self, out):
+        if IS_WINDOW:
+            dll_name = get_component(DOTNET_COMPONENT).dll_name
+            dll = '%s.dll' % dll_name
+            exefile = '%s.exe' % self.name
+            out.write('%s: %s' % (exefile, dll))
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                out.write('%s/%s' % (self.to_ex_dir, csfile))
+            out.write('\n')
+            out.write('\tcsc /out:%s /reference:%s /debug:full /reference:System.Numerics.dll' % (exefile, dll))
+            if VS_X64:
+                out.write(' /platform:x64')
+            else:
+                out.write(' /platform:x86')
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                # HACK
+                win_ex_dir = self.to_ex_dir.replace('/', '\\')
+                out.write('%s\\%s' % (win_ex_dir, csfile))
+            out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 def reg_component(name, c):
@@ -639,6 +671,10 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
 
 def add_cpp_example(name, path=None):
     c = CppExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_dotnet_example(name, path=None):
+    c = DotNetExampleComponent(name, path)
     reg_component(name, c)
 
 # Copy configuration correct file to BUILD_DIR
@@ -699,8 +735,9 @@ def mk_makefile():
         if c.main_component():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
-    out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
-    out.write('\t@echo "    sudo make install"\n')
+    if not IS_WINDOW:
+        out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
+        out.write('\t@echo "    sudo make install"\n')
     # Generate :examples rule
     out.write('examples:')
     for c in _Components:
@@ -726,12 +763,12 @@ def mk_makefile():
         if IS_WINDOW:
             if VS_X64:
                 print "  platform: x64\n"
-                print "To build Z3, open a ***Visual Studio x64 Command Prompt***, then"
+                print "To build Z3, open a [Visual Studio x64 Command Prompt], then"
             else:
                 print "  platform: x86"
-                print "To build Z3, open a ***Visual Studio Command Prompt***, then"
+                print "To build Z3, open a [Visual Studio Command Prompt], then"
             print "type 'cd %s/%s && nmake'\n" % (os.getcwd(), BUILD_DIR)
-            print 'Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools >"'
+            print 'Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools"'
         else:
             print "Type 'cd %s; make' to build Z3" % BUILD_DIR
         

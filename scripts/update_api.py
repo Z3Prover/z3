@@ -311,7 +311,7 @@ def mk_dotnet():
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('           '
-                 '            const string Z3_DLL_NAME = \"z3.dll\";\n'
+                 '            const string Z3_DLL_NAME = \"libz3.dll\";\n'
                  '            \n');
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')

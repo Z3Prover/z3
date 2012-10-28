@@ -75,6 +75,7 @@ add_hlib('cpp', 'bindings/c++', includes2install=['z3++.h'])
 set_z3py_dir('bindings/python')
 # Examples
 add_cpp_example('cpp_example', 'c++') 
+add_dotnet_example('dotnet_example', 'dotnet')
 
 update_version(4, 2, 0, 0)
 mk_auto_src()
