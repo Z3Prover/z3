@@ -318,7 +318,7 @@ protected:
        \brief Return true if the two entries (that satisfy lt(e1, e2)) can be merged.
     */
     bool can_be_merged(entry const & e1, entry const & e2) const {
-        return val_eq(e1.val(), e2.val()) && eq(succ(e1.end_key()), e2.begin_key());
+        return this->val_eq(e1.val(), e2.val()) && this->eq(this->succ(e1.end_key()), e2.begin_key());
     }
     
     /**
@@ -334,9 +334,9 @@ protected:
             entry & next_entry = next_bucket->get(0);
             if (can_be_merged(curr_entry, next_entry)) {
                 curr_entry.set_end_key(next_entry.end_key());
-                del_entry(m, next_bucket, 0); // del_entry invokes dec_ref_eh
+                this->del_entry(m, next_bucket, 0); // del_entry invokes dec_ref_eh
                 if (next_bucket->empty())
-                    del_bucket(m, next_bucket, pred_vect);
+                    this->del_bucket(m, next_bucket, pred_vect);
             }
         }
     }
@@ -355,7 +355,7 @@ protected:
             entry & next_entry = bt->get(idx+1);
             if (can_be_merged(curr_entry, next_entry)) {
                 curr_entry.set_end_key(next_entry.end_key());
-                del_entry(m, bt, idx+1); // del_entry invokes dec_ref_eh
+                this->del_entry(m, bt, idx+1); // del_entry invokes dec_ref_eh
             }
         }
     }
@@ -371,7 +371,7 @@ protected:
         entry & prev_entry = bt->get(idx-1);
         if (can_be_merged(prev_entry, curr_entry)) {
             prev_entry.set_end_key(curr_entry.end_key());
-            del_entry(m, bt, idx); // del_entry invokes dec_ref_eh
+            this->del_entry(m, bt, idx); // del_entry invokes dec_ref_eh
         }
     }
 
@@ -439,7 +439,7 @@ protected:
             int mid = low + ((high - low) / 2);
             SASSERT(mid < static_cast<int>(bt->size())); 
             entry & mid_entry = bt->get(mid);
-            if (gt(k, mid_entry.end_key())) {
+            if (this->gt(k, mid_entry.end_key())) {
                 low = mid + 1;
                 if (low > high) {
                     // mid entry must be deleted since k > mid_entry.end_key().
@@ -461,7 +461,7 @@ protected:
                 SASSERT(contains(mid_entry, k));
                 if (lt(k, mid_entry.end_key())) {
                     TRACE("del_entries_upto_bug", tout << "exit 3) mid: " << mid << "\n"; this->display(tout, mid_entry); tout << "\n";);
-                    mid_entry.set_begin_key(succ(k));
+                    mid_entry.set_begin_key(this->succ(k));
                     SASSERT(mid < static_cast<int>(bt->size())); // Reason: loop invariant
                     return del_entries<RECYCLE_ENTRY>(m, bt, s_idx, mid);
                 }
@@ -486,14 +486,14 @@ protected:
                 del_last_entries_upto<false>(m, bt, 0, k);
                 return;
             }
-            else if (eq(k, bt_last_key)) {
-                del_bucket(m, bt, pred_vect);
+            else if (this->eq(k, bt_last_key)) {
+                this->del_bucket(m, bt, pred_vect);
                 return;
             }
             else {
-                SASSERT(gt(k, bt_last_key));
+                SASSERT(this->gt(k, bt_last_key));
                 bucket * next = bt->get_next(0);
-                del_bucket(m, bt, pred_vect);
+                this->del_bucket(m, bt, pred_vect);
                 bt = next;
                 // continue deleting...
             }
@@ -524,7 +524,7 @@ protected:
         
         key const & bt_last_key = last_key(bt);
         TRACE("del_entries_upto_bug", tout << "bt_last_key: " << bt_last_key << "\n";);
-        if (lt(k, bt_last_key)) {
+        if (this->lt(k, bt_last_key)) {
             return del_last_entries_upto<INSERT>(m, bt, 0, k);
         }
         else {
@@ -533,10 +533,10 @@ protected:
                 this->dec_ref(m, bt);
                 // REMARK: the slot 0 will be reused, but the element there is gone.
                 bt->set_size(1);
-                if (gt(k, bt_last_key)) {
+                if (this->gt(k, bt_last_key)) {
                     bucket * next = bt->get_next(0);
                     if (next != 0) {
-                        update_predecessor_vector(pred_vect, bt, next_pred_vect);
+                        this->update_predecessor_vector(pred_vect, bt, next_pred_vect);
                         del_entries_upto_loop(m, next, k, next_pred_vect);
                     }
                 }
@@ -544,7 +544,7 @@ protected:
             }
             else {
                 bucket * next = bt->get_next(0);
-                del_bucket(m, bt, pred_vect); // it will invoke dec_ref_eh for all values in bt.
+                this->del_bucket(m, bt, pred_vect); // it will invoke dec_ref_eh for all values in bt.
                 // pred_vect does not need to be updated since it contains the predecessors of
                 // bt, since bt was deleted they are now the predecessors of its successor.
                 if (next != 0) {
@@ -592,7 +592,7 @@ protected:
             return del_last_entries_upto<INSERT>(m, bt, s_idx, k);
         }
         else {
-            if (gt(k, bt_last_key)) {
+            if (this->gt(k, bt_last_key)) {
                 del_entries_upto_loop(m, bt->get_next(0), k, pred_vect);
             }
             if (Traits::ref_count) {
@@ -639,14 +639,14 @@ protected:
                 merge_next_if_possible(m, bt, 0, next_pred_vect);
             }
             else {
-                update_predecessor_vector(pred_vect, bt);
+	        this->update_predecessor_vector(pred_vect, bt);
                 merge_next_if_possible(m, bt, 0, pred_vect);
             }
             return;
         }
         // check if can merge with first entry in the bucket.
         entry & fe = bt->first_entry();
-        if (val_eq(fe.val(), v) && eq(fe.begin_key(), succ(e))) {
+        if (this->val_eq(fe.val(), v) && this->eq(fe.begin_key(), this->succ(e))) {
             // can merge
             fe.set_begin_key(b);
             // A new reference to v was not created. So, we must invoke dec_ref_eh since we increased the counter above.
@@ -657,15 +657,15 @@ protected:
         if (bt->size() == bt->capacity()) {
             if (bt->capacity() < Traits::max_capacity) {
                 SASSERT(this->first_bucket() == bt && this->first_bucket()->get_next(0) == 0);
-                expand_first_bucket(m);
+                this->expand_first_bucket(m);
                 bt = this->first_bucket();
             }
             else {
                 // there is no space
-                splice(m, bt, pred_vect);
+                this->splice(m, bt, pred_vect);
             }
         }
-        open_space(bt, 0);
+        this->open_space(bt, 0);
         set_entry(bt, 0, b, e, v); // Reference to v was stored, and inc_ref_eh was invoked above.
         SASSERT(!can_be_merged(bt->get(0), bt->get(1)));
     }
@@ -697,17 +697,17 @@ protected:
             // there is no space
             if (bt->capacity() < Traits::max_capacity) {
                 SASSERT(this->first_bucket() == bt && this->first_bucket()->get_next(0) == 0);
-                expand_first_bucket(m);
+                this->expand_first_bucket(m);
                 bt = this->first_bucket();
                 // there is no need to update pred_vect, since the list contains only one bucket.
             }
             else {
-                splice(m, bt, pred_vect);
+                this->splice(m, bt, pred_vect);
                 bucket * new_next = bt->get_next(0);
                 SASSERT(bt->size() == bt->capacity()/2);
                 if (idx == bt->capacity()/2) {
                     entry & bt_last_entry = bt->last_entry();
-                    if (val_eq(bt_last_entry.val(), v) && eq(bt_last_entry.end_key(), pred(b))) {
+                    if (this->val_eq(bt_last_entry.val(), v) && this->eq(bt_last_entry.end_key(), this->pred(b))) {
                         // merged with the last key of bt
                         bt_last_entry.set_end_key(e);
                         // A new reference to v was not created. So, we must invoke dec_ref_eh since we increased the counter above.
@@ -715,7 +715,7 @@ protected:
                         return;
                     }
                     entry & new_next_first_entry = new_next->first_entry();
-                    if (val_eq(new_next_first_entry.val(), v) && eq(new_next_first_entry.begin_key(), succ(e))) {
+                    if (this->val_eq(new_next_first_entry.val(), v) && this->eq(new_next_first_entry.begin_key(), this->succ(e))) {
                         // merged with the first key of new_next
                         new_next_first_entry.set_begin_key(b);
                         // A new reference to v was not created. So, we must invoke dec_ref_eh since we increased the counter above.
@@ -731,12 +731,12 @@ protected:
                     idx -= bt->capacity()/2;
                     SASSERT(idx > 0);
                     bt   = new_next;
-                    update_predecessor_vector(pred_vect, bt);
+                    this->update_predecessor_vector(pred_vect, bt);
                 }
             }
         }
         SASSERT(idx > 0);
-        open_space(bt, idx);
+        this->open_space(bt, idx);
         set_entry(bt, idx, b, e, v); // Reference to v was stored, and inc_ref_eh was invoked above.
         merge_next_if_possible(m, bt, idx, pred_vect);
         merge_prev_if_possible(m, bt, idx);
@@ -759,7 +759,7 @@ protected:
         for (;;) {
             int mid = low + ((high - low) / 2);
             entry & mid_entry = bt->get(mid);
-            if (gt(b, mid_entry.end_key())) {
+            if (this->gt(b, mid_entry.end_key())) {
                 low = mid + 1;
                 if (low > high) {
                     // insert after mid_entry since b > mid_entry.end_key().
@@ -779,8 +779,8 @@ protected:
             else {
                 SASSERT(contains(mid_entry, b));
                 TRACE("insert_inside_bug", tout << "insert_inside:\n"; this->display(tout, bt););
-                if (val_eq(mid_entry.val(), v)) {
-                    if (gt(e, mid_entry.end_key())) {
+                if (this->val_eq(mid_entry.val(), v)) {
+                    if (this->gt(e, mid_entry.end_key())) {
                         // No need to create space.
                         // We did not create a new reference to v.
                         mid_entry.set_end_key(e);
@@ -790,8 +790,8 @@ protected:
                     }
                 }
                 else {
-                    if (gt(b, mid_entry.begin_key())) {
-                        if (lt(e, mid_entry.end_key())) {
+                    if (this->gt(b, mid_entry.begin_key())) {
+                        if (this->lt(e, mid_entry.end_key())) {
                             // New interval is the middle of existing interval
 
                             // We must INVOKE add_ref_eh for mid_entry.val() and v.
@@ -802,11 +802,11 @@ protected:
                             if (bt->size() >= bt->capacity() - 1) { 
                                 if (bt->capacity() < Traits::max_capacity) {
                                     SASSERT(this->first_bucket() == bt && this->first_bucket()->get_next(0) == 0);
-                                    expand_first_bucket(m);
+                                    this->expand_first_bucket(m);
                                     bt = this->first_bucket();
                                 }
                                 else {
-                                    splice(m, bt, pred_vect);
+                                    this->splice(m, bt, pred_vect);
                                     int new_sz = bt->size();
                                     bucket * new_next = bt->get_next(0);
                                     if (mid >= new_sz) {
@@ -816,19 +816,19 @@ protected:
                                     }
                                 }
                             }
-                            open_2spaces(bt, mid);
+                            this->open_2spaces(bt, mid);
                             entry & mid1_entry = bt->get(mid);
                             entry & new_entry  = bt->get(mid+1);
                             entry & mid2_entry = bt->get(mid+2);
                             mid2_entry             = mid1_entry;
-                            mid1_entry.set_end_key(pred(b));
+                            mid1_entry.set_end_key(this->pred(b));
                             new_entry.set_begin_key(b);
                             new_entry.set_end_key(e);
                             new_entry.set_val(v);
-                            mid2_entry.set_begin_key(succ(e));
+                            mid2_entry.set_begin_key(this->succ(e));
                         }
                         else {
-                            mid_entry.set_end_key(pred(b));
+                            mid_entry.set_end_key(this->pred(b));
                             insert_at(m, bt, mid+1, b, e, v, pred_vect);
                         }
                     }
@@ -864,7 +864,7 @@ protected:
         for (;;) {
             int mid = low + ((high - low) / 2);
             entry & mid_entry = bt->get(mid);
-            if (gt(b, mid_entry.end_key())) {
+            if (this->gt(b, mid_entry.end_key())) {
                 low = mid + 1;
                 if (low > high) {
                     // insert after mid_entry since b > mid_entry.end_key().
@@ -872,7 +872,7 @@ protected:
                     return;
                 }
             }
-            else if (lt(b, mid_entry.begin_key())) {
+            else if (this->lt(b, mid_entry.begin_key())) {
                 high = mid - 1;
                 if (low > high) {
                     // insert before mid_entry since b < mid_entry.begin_key().
@@ -883,8 +883,8 @@ protected:
             }
             else {
                 SASSERT(contains(mid_entry, b));
-                if (gt(b, mid_entry.begin_key())) {
-                    if (lt(e, mid_entry.end_key())) {
+                if (this->gt(b, mid_entry.begin_key())) {
+                    if (this->lt(e, mid_entry.end_key())) {
                         // The removed interval is inside of an existing interval.
 
                         // mid_entry will be split in two. So, we must invoke add_ref_eh for mid_entry.val()
@@ -894,12 +894,12 @@ protected:
                         if (bt->size() == bt->capacity()) {
                             if (bt->capacity() < Traits::max_capacity) {
                                 SASSERT(this->first_bucket() == bt && this->first_bucket()->get_next(0) == 0);
-                                expand_first_bucket(m);
+                                this->expand_first_bucket(m);
                                 bt = this->first_bucket();
                                 SASSERT(bt->size() < bt->capacity());
                             }
                             else {
-                                splice(m, bt, pred_vect);
+                                this->splice(m, bt, pred_vect);
                                 if (mid >= static_cast<int>(bt->size())) {
                                     // mid_entry moved to new (successor) bucket
                                     mid -= bt->size();
@@ -907,14 +907,14 @@ protected:
                                 }
                             }
                         }
-                        open_space(bt, mid);
+                        this->open_space(bt, mid);
                         entry & mid1_entry = bt->get(mid);
                         entry & mid2_entry = bt->get(mid+1);
-                        mid1_entry.set_end_key(pred(b));
-                        mid2_entry.set_begin_key(succ(e));
+                        mid1_entry.set_end_key(this->pred(b));
+                        mid2_entry.set_begin_key(this->succ(e));
                     }
                     else {
-                        mid_entry.set_end_key(pred(b));
+                        mid_entry.set_end_key(this->pred(b));
                         del_entries_upto<false>(m, bt, mid+1, e, pred_vect);
                     }
                 }
@@ -1052,7 +1052,7 @@ public:
             SASSERT(this->first_bucket() == next);
             insert_begin(m, next, b, e, v, pred_vect);
         }
-        else if (next == 0 || gt(first_key(next), b)) {
+        else if (next == 0 || this->gt(first_key(next), b)) {
             insert_inside(m, curr, b, e, v, pred_vect);
         }
         else {
@@ -1065,7 +1065,7 @@ public:
             
             // check if we can merge with last entry of curr
             entry & curr_last_entry = curr->last_entry();
-            if (val_eq(curr_last_entry.val(), v) && eq(curr_last_entry.end_key(), pred(b))) {
+            if (this->val_eq(curr_last_entry.val(), v) && this->eq(curr_last_entry.end_key(), this->pred(b))) {
                 // No new reference to v was create, we don't need to invok inc_ref_eh
                 curr_last_entry.set_end_key(e);
                 del_entries_upto<false>(m, next, e, pred_vect, 0);
@@ -1202,7 +1202,7 @@ public:
             SASSERT(next != 0);
             remove_begin(m, next, b, e, pred_vect);
         }
-        else if (next == 0 || gt(first_key(next), b)) {
+        else if (next == 0 || this->gt(first_key(next), b)) {
             remove_inside(m, curr, b, e, pred_vect);
         }
         else {
