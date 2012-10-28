@@ -1,3 +1,4 @@
+CC=cl
 CXX=cl
 CXXFLAGS=/c /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP 
 CXX_OUT_FLAG=/Fo
