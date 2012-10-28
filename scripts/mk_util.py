@@ -184,6 +184,7 @@ def set_build_dir(d):
 
 def set_z3py_dir(p):
     global SRC_DIR, Z3PY_SRC_DIR
+    mk_dir(BUILD_DIR)
     full = '%s/%s' % (SRC_DIR, p)
     if not os.path.exists(full):
         raise MKException("Python bindings directory '%s' does not exist" % full)
