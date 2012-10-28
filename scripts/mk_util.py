@@ -1049,7 +1049,7 @@ def mk_gui_str(id):
 def mk_vs_proj(name, components):
     if not VS_PROJ:
         return
-    proj_name = '%s.vcxproj' % name
+    proj_name = '%s/%s.vcxproj' % (BUILD_DIR, name)
     modes=['Debug', 'Release']
     PLATFORMS=['Win32']
     f = open(proj_name, 'w')
@@ -1101,7 +1101,7 @@ def mk_vs_proj(name, components):
             first = False
         else:
             f.write(';')
-        f.write('%s' % get_component(dep).src_dir)
+        f.write(get_component(dep).to_src_dir)
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
     f.write('    <Link>\n')
@@ -1121,7 +1121,7 @@ def mk_vs_proj(name, components):
     for dep in deps:
         dep = get_component(dep)
         for cpp in filter(lambda f: f.endswith('.cpp'), os.listdir(dep.src_dir)):
-            f.write('    <ClCompile Include="%s/%s" />\n' % (dep.src_dir, cpp))
+            f.write('    <ClCompile Include="%s/%s" />\n' % (dep.to_src_dir, cpp))
     f.write('  </ItemGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')
