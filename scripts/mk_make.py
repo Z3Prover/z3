@@ -61,13 +61,17 @@ add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 
 add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
 # TODO: delete SMT 1.0 frontend
 add_lib('smtparser', ['portfolio'], 'parsers/smt')
-add_lib('api', ['portfolio', 'user_plugin', 'smtparser'])
+add_lib('api', ['portfolio', 'user_plugin', 'smtparser'],
+        includes2install=['z3.h', 'z3_api.h', 'z3_v1.h', 'z3_macros.h'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
-add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
+add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)
 API_files = ['z3_api.h']
-add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', reexports=['api'], dll_name='libz3', export_files=API_files)
+add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', 
+        reexports=['api'], 
+        dll_name='libz3', 
+        export_files=API_files)
 add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
-set_python_dir('bindings/python')
+set_z3py_dir('bindings/python')
 
 update_version(4, 2, 0, 0)
 mk_auto_src()

@@ -1,5 +1,5 @@
 
-
+PREFIX=@prefix@
 CXX=@CXX@
 CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -O3 -fomit-frame-pointer -fopenmp -msse -msse2 -mfpmath=sse
 CXX_OUT_FLAG=-o 

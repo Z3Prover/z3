@@ -27,7 +27,7 @@ dotnet_dir  = get_component('dotnet').src_dir
 log_h   = open('%s/api_log_macros.h' % api_dir, 'w')
 log_c   = open('%s/api_log_macros.cpp' % api_dir, 'w')
 exe_c   = open('%s/api_commands.cpp' % api_dir, 'w')
-core_py = open('%s/z3core.py' % get_python_dir(), 'w')
+core_py = open('%s/z3core.py' % get_z3py_dir(), 'w')
 dotnet_fileout = '%s/Native.cs' % dotnet_dir
 ##
 log_h.write('// Automatically generated file\n')
@@ -671,5 +671,5 @@ if is_verbose():
     print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)
     print "Generated '%s'" % ('%s/api_log_macros.cpp' % api_dir)
     print "Generated '%s'" % ('%s/api_commands.cpp' % api_dir)
-    print "Generated '%s'" % ('%s/z3core.py' % get_python_dir())
+    print "Generated '%s'" % ('%s/z3core.py' % get_z3py_dir())
     print "Generated '%s'" % ('%s/Native.cs' % dotnet_dir)
