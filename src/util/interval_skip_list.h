@@ -277,7 +277,7 @@ protected:
 
         // the search_key must be in the current bucket, or in the first entry of the next bucket (if the next bucket is not 0).
         SASSERT(curr->empty() || lt(first_key(curr), k));
-        SASSERT(next == 0 || geq(first_key(next), k));
+        SASSERT(next == 0 || this->geq(first_key(next), k));
         DEBUG_CODE({
             if (UpdatePredVect && next != 0)
                 for (unsigned i = 0; i < next->level(); i++) 
@@ -327,7 +327,7 @@ protected:
        \remark pred_vect contains the predecessors of the successor of bt.
     */
     void merge_first_of_succ_if_possible(manager & m, bucket * bt, bucket * pred_vect[]) {
-        SASSERT(check_pred_vect(bt->get_next(0), pred_vect));
+        SASSERT(this->check_pred_vect(bt->get_next(0), pred_vect));
         bucket * next_bucket = bt->get_next(0);
         if (next_bucket != 0) {
             entry & curr_entry = bt->last_entry();
@@ -479,7 +479,7 @@ protected:
        \brief Keep deleting keys <= k in bt and its successors.
     */
     void del_entries_upto_loop(manager & m, bucket * bt, key const & k, bucket * pred_vect []) {
-        SASSERT(check_pred_vect(bt, pred_vect));
+      SASSERT(this->check_pred_vect(bt, pred_vect));
         while (bt != 0) {
             key const & bt_last_key = last_key(bt);
             if (lt(k, bt_last_key)) {
@@ -516,7 +516,7 @@ protected:
     */
     template<bool INSERT>
     bool del_entries_upto(manager & m, bucket * bt, key const & k, bucket * pred_vect[], bucket * next_pred_vect[]) {
-        SASSERT(check_pred_vect(bt, pred_vect)); // pred_vect contains the predecessors of bt.
+        SASSERT(this->check_pred_vect(bt, pred_vect)); // pred_vect contains the predecessors of bt.
         if (lt(k, first_key(bt))) {
             // nothing to be done...
             return false; // didn't manage to recycle entry.
@@ -566,7 +566,7 @@ protected:
     */
     template<bool INSERT>
     bool del_entries_upto(manager & m, bucket * bt, unsigned s_idx, key const & k, bucket * pred_vect[]) {
-        SASSERT(check_pred_vect(bt->get_next(0), pred_vect)); // pred_vect contains the predecessors of the successor of bt.
+        SASSERT(this->check_pred_vect(bt->get_next(0), pred_vect)); // pred_vect contains the predecessors of the successor of bt.
         SASSERT(s_idx > 0);
         TRACE("del_entries_upto_bug",
               tout << "INSERT: " << INSERT << "\n";
@@ -619,10 +619,10 @@ protected:
     */
     void insert_begin(manager & m, bucket * bt, key const & b, key const & e, value const & v, bucket * pred_vect[]) {
         TRACE("interval_skip_list_bug", tout << "insert_begin: [" << b << ", " << e << "] -> " << v << "\n"; this->display(tout, bt););
-        SASSERT(check_pred_vect(bt, pred_vect));
+        SASSERT(this->check_pred_vect(bt, pred_vect));
         SASSERT(!bt->empty());
         SASSERT(bt->size() <= bt->capacity());
-        SASSERT(leq(b, first_key(bt)));
+        SASSERT(this->leq(b, first_key(bt)));
         bucket * next_pred_vect[Traits::max_level];
         next_pred_vect[0] = 0; 
 
@@ -675,7 +675,7 @@ protected:
     */
     void insert_at(manager & m, bucket * bt, unsigned idx, key const & b, key const & e, value const & v, bucket * pred_vect[]) {
         SASSERT(idx > 0);
-        SASSERT(check_pred_vect(bt->get_next(0), pred_vect));
+        SASSERT(this->check_pred_vect(bt->get_next(0), pred_vect));
 
         this->inc_ref(m, v);
         TRACE("insert_at_bug", tout << "before del_entries_upto:\n"; this->display_physical(tout););
@@ -750,7 +750,7 @@ protected:
     */
     void insert_inside(manager & m, bucket * bt, key const & b, key const & e, value const & v, bucket * pred_vect[]) {
         TRACE("interval_skip_list_bug", tout << "insert_inside: [" << b << ", " << e << "] -> " << v << "\n";);
-        SASSERT(check_pred_vect(bt->get_next(0), pred_vect));
+        SASSERT(this->check_pred_vect(bt->get_next(0), pred_vect));
         SASSERT(!bt->empty());
         SASSERT(bt->size() <= bt->capacity());
         // perform binary search to find position to insert [b, e]->v
@@ -833,7 +833,7 @@ protected:
                         }
                     }
                     else {
-                        SASSERT(eq(b, mid_entry.begin_key()));
+                        SASSERT(this->eq(b, mid_entry.begin_key()));
                         SASSERT(mid > 0); // Reason: insert_begin would have been called instead.
                         insert_at(m, bt, mid, b, e, v, pred_vect);
                     }
@@ -919,7 +919,7 @@ protected:
                     }
                 }
                 else {
-                    SASSERT(eq(b, mid_entry.begin_key()));
+                    SASSERT(this->eq(b, mid_entry.begin_key()));
                     SASSERT(mid > 0); // Reason: remove_begin would have been called instead.
                     del_entries_upto<false>(m, bt, mid, e, pred_vect);
                 }
@@ -1022,7 +1022,7 @@ private:
                     SASSERT(pred_vect[i]->get_next(i) == next);
         });
         SASSERT(curr == this->m_header || lt(first_key(curr), k));
-        SASSERT(next == 0 || leq(k, first_key(next)));
+        SASSERT(next == 0 || this->leq(k, first_key(next)));
     }
 
 public:
@@ -1031,7 +1031,7 @@ public:
        \brief Insert the entries [i -> v] for every i \in [b, e].
     */
     void insert(manager & m, key const & b, key const & e, value const & v) {
-        SASSERT(leq(b, e));
+        SASSERT(this->leq(b, e));
         if (this->empty()) {
             insert_first_entry(m, b, e, v);
             return;
@@ -1059,7 +1059,7 @@ public:
             SASSERT(!curr->empty());
             SASSERT(!next->empty());
             SASSERT(next != 0);
-            SASSERT(eq(first_key(next), b));
+            SASSERT(this->eq(first_key(next), b));
             // Bucket curr is the predecessor of next.
             SASSERT(curr->get_next(0) == next); 
             
@@ -1190,7 +1190,7 @@ public:
        \brief For each i \in [b, e] remove any entry [i->v] if it is in the list.
     */
     void remove(manager & m, key const & b, key const & e) {
-        SASSERT(leq(b, e));
+        SASSERT(this->leq(b, e));
         if (this->empty())
             return;
         bucket * pred_vect[Traits::max_level]; 
@@ -1207,7 +1207,7 @@ public:
         }
         else {
             SASSERT(next != 0);
-            SASSERT(eq(first_key(next), b));
+            SASSERT(this->eq(first_key(next), b));
             remove_begin(m, next, b, e, pred_vect);
         }
     }
@@ -1274,8 +1274,8 @@ public:
             for (;;) {
                 next = curr->get_next(i);
                 if (next != 0 && this->leq(first_key(next), k)) {
-                    TRACE("interval_skip_list", tout << "next_bucket(" << k << "), i: " << i << " skipping #" << get_bucket_idx(curr); 
-                          tout << ", moving to: #" << get_bucket_idx(next) << "\n"; this->display(tout, next););
+                    TRACE("interval_skip_list", tout << "next_bucket(" << k << "), i: " << i << " skipping #" << this->get_bucket_idx(curr); 
+                          tout << ", moving to: #" << this->get_bucket_idx(next) << "\n"; this->display(tout, next););
                     curr = next;
                     if (curr->level() > max) {
                         max = curr->level();
@@ -1666,7 +1666,7 @@ public:
 #ifdef Z3DEBUG
 private:
     bool check_invariant(entry const & e) const {
-        SASSERT(leq(e.begin_key(), e.end_key()));
+        SASSERT(this->leq(e.begin_key(), e.end_key()));
         return true;
     }
 
@@ -1705,7 +1705,7 @@ public:
                 bucket const * next = curr->get_next(i);
                 if (next != 0) {
                     SASSERT(next->level() >= i);
-                    SASSERT(i == 0 || is_reachable_at_i(curr, next, i-1));
+                    SASSERT(i == 0 || this->is_reachable_at_i(curr, next, i-1));
                     SASSERT(!next->empty());
                     entry const & last_of_curr  = curr->last_entry();
                     entry const & first_of_next = next->first_entry();
