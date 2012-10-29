@@ -20,8 +20,6 @@ Revision History:
 #include"util.h"
 #include"vector.h"
 
-using namespace std;
-
 void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * p, unsigned * target) {
     for (unsigned i = 0; i < sz; i++) {
         target[i] = src[p[i]];
@@ -29,6 +27,7 @@ void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * 
 }
 
 static void tst1(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
+#if 0
     unsigned_vector data;
     unsigned_vector p;
     unsigned_vector new_data;
@@ -51,6 +50,7 @@ static void tst1(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
         for (unsigned i = 0; i < 0; i++)
             SASSERT(data[i] == new_data[i]);
     }
+#endif
 }
 
 void tst_permutation() {

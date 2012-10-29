@@ -9,6 +9,7 @@
 from mk_util import *
 
 parse_options()
+check_eol()
 
 add_lib('util', [])
 add_lib('polynomial', ['util'], 'math/polynomial')
@@ -30,8 +31,8 @@ add_lib('old_params', ['model', 'simplifier'])
 add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
 add_lib('substitution', ['ast'], 'ast/substitution')
 add_lib('normal_forms', ['rewriter', 'old_params'], 'ast/normal_forms')
-add_lib('parser_util', ['ast'])
-add_lib('smt2parser', ['cmd_context', 'parser_util'])
+add_lib('parser_util', ['ast'], 'parsers/util')
+add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
 add_lib('pattern', ['normal_forms', 'smt2parser'], 'ast/pattern')
 add_lib('macros', ['simplifier', 'old_params'], 'ast/macros')
 add_lib('grobner', ['ast'], 'math/grobner')
@@ -59,14 +60,25 @@ add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt
 add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
 add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
 # TODO: delete SMT 1.0 frontend
-add_lib('api', ['portfolio', 'user_plugin'])
+add_lib('smtparser', ['portfolio'], 'parsers/smt')
+add_lib('api', ['portfolio', 'user_plugin', 'smtparser'],
+        includes2install=['z3.h', 'z3_api.h', 'z3_v1.h', 'z3_macros.h'])
 add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
-add_exe('test', ['api', 'fuzzing'], exe_name='test-z3')
+add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)
 API_files = ['z3_api.h']
-add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', reexports=['api'], dll_name='libz3', export_files=API_files)
-add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet/Microsoft.Z3', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
-add_dot_net_dll('dotnetV3', ['api_dll'], 'bindings/dotnet/Microsoft.Z3V3', dll_name='Microsoft.Z3V3')
-set_python_dir('bindings/python')
+add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', 
+        reexports=['api'], 
+        dll_name='libz3', 
+        export_files=API_files)
+add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
+add_hlib('cpp', 'bindings/c++', includes2install=['z3++.h'])
+set_z3py_dir('bindings/python')
+# Examples
+add_cpp_example('cpp_example', 'c++') 
+add_c_example('c_example', 'c')
+add_c_example('maxsat')
+add_dotnet_example('dotnet_example', 'dotnet')
+add_z3py_example('python')
 
 update_version(4, 2, 0, 0)
 mk_auto_src()

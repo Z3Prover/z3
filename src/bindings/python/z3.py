@@ -24,7 +24,7 @@ Small example:
 >>> s.check()
 sat
 >>> s.model()
-[x = 1, y = 2]
+[y = 2, x = 1]
 
 Z3 exceptions:
 
@@ -1698,9 +1698,9 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     >>> q
     Exists([x, y], f(x, y) >= x)
     >>> Tactic('nnf')(q)
-    [[f(x!foo!2, y!foo!1) >= x!foo!2]]
+    [[f(x!foo!1, y!foo!0) >= x!foo!1]]
     >>> Tactic('nnf')(q).as_expr()
-    f(x!foo!4, y!foo!3) >= x!foo!4
+    f(x!foo!3, y!foo!2) >= x!foo!3
     """
     return _mk_quantifier(False, vs, body, weight, qid, skid, patterns, no_patterns)
 
@@ -6908,7 +6908,7 @@ def solve(*args, **keywords):
     
     >>> a, b = Ints('a b')
     >>> solve(a + b == 3, Or(a == 0, a == 1), a != 0)
-    [a = 1, b = 2]
+    [b = 2, a = 1]
     """
     s = Solver()
     s.set(**keywords)

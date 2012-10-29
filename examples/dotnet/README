@@ -1,0 +1,7 @@
+Small example using the .Net bindings.
+This example is only built if you have Visual Studio.
+To build the example execute
+   make examples
+in the build directory.
+
+It will create the executable dotnet_example.exe

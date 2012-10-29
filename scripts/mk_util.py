@@ -13,18 +13,74 @@ import getopt
 import sys
 import shutil
 from mk_exception import *
+from fnmatch import fnmatch
+import distutils.sysconfig
+import compileall
 
+PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
+EXAMPLE_DIR='examples'
+# Required Components 
+Z3_DLL_COMPONENT='api_dll'
+PATTERN_COMPONENT='pattern'
+UTIL_COMPONENT='util'
+API_COMPONENT='api'
+DOTNET_COMPONENT='dotnet'
+CPP_COMPONENT='cpp'
+#####################
 IS_WINDOW=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
 VS_X64 = False
 ONLY_MAKEFILES = False
-PYTHON_DIR=None
+Z3PY_SRC_DIR=None
 VS_PROJ = False
+TRACE = False
+
+def is_cr_lf(fname):
+    # Check whether text files use cr/lf
+    f = open(fname, 'r')
+    line = f.readline()
+    sz = len(line)
+    return sz >= 2 and line[sz-2] == '\r' and line[sz-1] == '\n'
+
+# dos2unix in python
+#    cr/lf --> lf
+def dos2unix(fname):
+    if is_cr_lf(fname):
+        fin  = open(fname, 'r')
+        fname_new = '%s.new' % fname
+        fout = open(fname_new, 'w')
+        for line in fin:
+            line = line.rstrip('\r\n')
+            fout.write(line)
+            fout.write('\n')
+        fin.close()
+        fout.close()
+        shutil.move(fname_new, fname)
+        if is_verbose():
+            print "dos2unix '%s'" % fname
+
+def dos2unix_tree_core(pattern, dir, files):
+    for filename in files:
+        if fnmatch(filename, pattern):
+            fname = os.path.join(dir, filename)
+            if not os.path.isdir(fname):
+                dos2unix(fname)
+
+def dos2unix_tree():
+    os.path.walk('src', dos2unix_tree_core, '*')
+
+def check_eol():
+    if not IS_WINDOW:
+        # Linux/OSX/BSD check if the end-of-line is cr/lf
+        if is_cr_lf('LICENSE.txt'):
+            if is_verbose():
+                print "Fixing end of line..."
+            dos2unix_tree()
 
 if os.name == 'nt':
     IS_WINDOW=True
@@ -44,20 +100,22 @@ def display_help():
     print "  -m, --makefiles               generate only makefiles."
     print "  -c, --showcpp                 display file .cpp file names before invoking compiler."
     print "  -v, --vsproj                  generate Visual Studio Project Files."
+    print "  -t, --trace                   enable tracing in release mode."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcv', ['build=', 
-                                                                       'debug',
-                                                                       'silent',
-                                                                       'x64',
-                                                                       'help',
-                                                                       'makefiles',
-                                                                       'showcpp',
-                                                                       'vsproj'
-                                                                     ])
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvt', ['build=', 
+                                                                        'debug',
+                                                                        'silent',
+                                                                        'x64',
+                                                                        'help',
+                                                                        'makefiles',
+                                                                        'showcpp',
+                                                                        'vsproj',
+                                                                        'trace'
+                                                                        ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -79,9 +137,11 @@ def parse_options():
             SHOW_CPPS = True
         elif opt in ('-v', '--vsproj'):
             VS_PROJ = True
+        elif opt in ('-t', '--trace'):
+            TRACE = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
-
+        
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):
@@ -122,14 +182,22 @@ def set_build_dir(d):
     BUILD_DIR = d
     REV_BUILD_DIR = reverse_path(d)
 
-def set_python_dir(p):
-    global SRC_DIR, PYTHON_DIR
+def set_z3py_dir(p):
+    global SRC_DIR, Z3PY_SRC_DIR
     full = '%s/%s' % (SRC_DIR, p)
     if not os.path.exists(full):
         raise MKException("Python bindings directory '%s' does not exist" % full)
-    PYTHON_DIR = full
+    Z3PY_SRC_DIR = full
     if VERBOSE:
         print "Python bindinds directory was detected."
+
+def add_z3py_example(p):
+    mk_dir(BUILD_DIR)
+    full = '%s/%s' % (EXAMPLE_DIR, p)
+    for py in filter(lambda f: f.endswith('.py'), os.listdir(full)):
+        shutil.copyfile('%s/%s' % (full, py), '%s/%s' % (BUILD_DIR, py))
+        if is_verbose():
+            print "Copied Z3Py example '%s' to '%s'" % (py, BUILD_DIR)
 
 _UNIQ_ID = 0
 
@@ -150,8 +218,8 @@ def get_component(name):
     return _Name2Component[name]
 
 # Return the directory where the python bindings are located.
-def get_python_dir():
-    return PYTHON_DIR
+def get_z3py_dir():
+    return Z3PY_SRC_DIR
 
 # Return true if in verbose mode
 def is_verbose():
@@ -159,6 +227,12 @@ def is_verbose():
 
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
+
+def get_c_files(path):
+    return filter(lambda f: f.endswith('.c'), os.listdir(path))
+
+def get_cs_files(path):
+    return filter(lambda f: f.endswith('.cs'), os.listdir(path))
 
 def find_all_deps(name, deps):
     new_deps = []
@@ -244,7 +318,14 @@ class Component:
         out.write('\n')
         if SHOW_CPPS:
             out.write('\t@echo %s/%s\n' % (self.src_dir, cppfile))
-        out.write('\t@$(CXX) $(CXXFLAGS) $(%s) $(CXX_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
+        # TRACE is enabled in debug mode by default
+        trace_opt = ''
+        if TRACE and not DEBUG_MODE:
+            if IS_WINDOW:
+                trace_opt = '/D _TRACE'
+            else:
+                trace_opt = '-D _TRACE'
+        out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (trace_opt, include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
         include_defs = mk_fresh_name('includes')
@@ -272,9 +353,19 @@ class Component:
     def require_def_file(self):
         return False
 
+    def mk_install(self, out):
+        return
+
+    def mk_uninstall(self, out):
+        return
+
+    def is_example(self):
+        return False
+
 class LibComponent(Component):
-    def __init__(self, name, path, deps):
+    def __init__(self, name, path, deps, includes2install):
         Component.__init__(self, name, path, deps)
+        self.includes2install = includes2install
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -297,6 +388,22 @@ class LibComponent(Component):
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, libfile))
 
+    def mk_install(self, out):
+        for include in self.includes2install:
+            out.write('\t@cp %s/%s $(PREFIX)/include/%s\n' % (self.to_src_dir, include, include))
+    
+    def mk_uninstall(self, out):
+        for include in self.includes2install:
+            out.write('\t@rm -f $(PREFIX)/include/%s\n' % include)
+
+# "Library" containing only .h files. This is just a placeholder for includes files to be installed.
+class HLibComponent(LibComponent):
+    def __init__(self, name, path, includes2install):
+        LibComponent.__init__(self, name, path, [], includes2install)
+
+    def mk_makefile(self, out):
+        return
+
 # Auxiliary function for sort_components
 def comp_components(c1, c2):
     id1 = get_component(c1).id
@@ -308,11 +415,12 @@ def sort_components(cnames):
     return sorted(cnames, cmp=comp_components)
 
 class ExeComponent(Component):
-    def __init__(self, name, exe_name, path, deps):
+    def __init__(self, name, exe_name, path, deps, install):
         Component.__init__(self, name, path, deps)
         if exe_name == None:
             exe_name = name
         self.exe_name = exe_name
+        self.install = install
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -349,14 +457,26 @@ class ExeComponent(Component):
     def main_component(self):
         return True
 
+    def mk_install(self, out):
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            out.write('\t@cp %s $(PREFIX)/bin/%s\n' % (exefile, exefile))
+    
+    def mk_uninstall(self, out):
+        if self.install:
+            exefile = '%s$(EXE_EXT)' % self.exe_name
+            out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
+
+
 class DLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps, export_files, reexports):
+    def __init__(self, name, dll_name, path, deps, export_files, reexports, install):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
         self.dll_name = dll_name
         self.export_files = export_files
         self.reexports = reexports
+        self.install = install
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -406,6 +526,18 @@ class DLLComponent(Component):
     def require_def_file(self):
         return IS_WINDOW and self.export_files
 
+    def mk_install(self, out):
+        if self.install:
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+            out.write('\t@cp %s $(PREFIX)/lib/%s\n' % (dllfile, dllfile))
+            out.write('\t@cp %s %s/%s\n' % (dllfile, PYTHON_PACKAGE_DIR, dllfile))
+
+    def mk_uninstall(self, out):
+        if self.install:
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+            out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
+            out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
@@ -418,8 +550,31 @@ class DotNetDLLComponent(Component):
 
     def mk_makefile(self, out):
         if IS_WINDOW:
-            # TODO
-            out.write('%s: \n\n' % self.name)
+            cs_fp_files = []
+            cs_files    = []
+            for cs_file in get_cs_files(self.src_dir):
+                cs_fp_files.append('%s/%s' % (self.to_src_dir, cs_file))
+                cs_files.append(cs_file)
+            if self.assembly_info_dir != '.':
+                for cs_file in get_cs_files('%s/%s' % (self.src_dir, self.assembly_info_dir)):
+                    cs_fp_files.append('%s/%s/%s' % (self.to_src_dir, self.assembly_info_dir, cs_file))
+                    cs_files.append('%s\%s' % (self.assembly_info_dir, cs_file))
+            dllfile = '%s.dll' % self.dll_name
+            out.write('%s:' % dllfile)
+            for cs_file in cs_fp_files:
+                out.write(' ')
+                out.write(cs_file)
+            out.write('\n')
+            out.write('  cd %s && csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /out:%s.dll /target:library' % (self.to_src_dir, self.dll_name))
+            for cs_file in cs_files:
+                out.write(' ')
+                out.write(cs_file)
+            out.write('\n')
+            # HACK
+            win_to_src_dir = self.to_src_dir.replace('/', '\\')
+            out.write('  move %s\%s\n' % (win_to_src_dir, dllfile))
+            out.write('  move %s\%s.pdb\n' % (win_to_src_dir, self.dll_name))
+            out.write('%s: %s\n\n' % (self.name, dllfile))
             return
     
     def main_component(self):
@@ -427,7 +582,89 @@ class DotNetDLLComponent(Component):
 
     def has_assembly_info(self):
         return True
+
+class ExampleComponent(Component):
+    def __init__(self, name, path):
+        Component.__init__(self, name, path, [])
+        self.ex_dir   = '%s/%s' % (EXAMPLE_DIR, self.path)
+        self.to_ex_dir = '%s/%s' % (REV_BUILD_DIR, self.ex_dir)
+
+    def is_example(self):
+        return True
+
+class CppExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def compiler(self):
+        return "$(CXX)"
+
+    def src_files(self):
+        return get_cpp_files(self.ex_dir)
+
+    def mk_makefile(self, out):
+        dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+        dll = '%s$(SO_EXT)' % dll_name
+        exefile = '%s$(EXE_EXT)' % self.name
+        out.write('%s: %s' % (exefile, dll))
+        for cppfile in self.src_files():
+            out.write(' ')
+            out.write('%s/%s' % (self.to_ex_dir, cppfile))
+        out.write('\n')
+        out.write('\t%s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
+        # Add include dir components
+        out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
+        out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
+        for cppfile in self.src_files():
+            out.write(' ')
+            out.write('%s/%s' % (self.to_ex_dir, cppfile))
+        out.write(' ')
+        if IS_WINDOW:
+            out.write('%s.lib' % dll_name)
+        else:
+            out.write(dll)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+
+class CExampleComponent(CppExampleComponent):
+    def __init__(self, name, path):
+        CppExampleComponent.__init__(self, name, path)
+
+    def compiler(self):
+        return "$(CC)"
+
+    def src_files(self):
+        return get_c_files(self.ex_dir)
     
+class DotNetExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def is_example(self):
+        return IS_WINDOW
+
+    def mk_makefile(self, out):
+        if IS_WINDOW:
+            dll_name = get_component(DOTNET_COMPONENT).dll_name
+            dll = '%s.dll' % dll_name
+            exefile = '%s.exe' % self.name
+            out.write('%s: %s' % (exefile, dll))
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                out.write('%s/%s' % (self.to_ex_dir, csfile))
+            out.write('\n')
+            out.write('\tcsc /out:%s /reference:%s /debug:full /reference:System.Numerics.dll' % (exefile, dll))
+            if VS_X64:
+                out.write(' /platform:x64')
+            else:
+                out.write(' /platform:x86')
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                # HACK
+                win_ex_dir = self.to_ex_dir.replace('/', '\\')
+                out.write('%s\\%s' % (win_ex_dir, csfile))
+            out.write('\n')
+            out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
@@ -439,20 +676,36 @@ def reg_component(name, c):
     if VERBOSE:
         print "New component: '%s'" % name
 
-def add_lib(name, deps=[], path=None):
-    c = LibComponent(name, path, deps)
+def add_lib(name, deps=[], path=None, includes2install=[]):
+    c = LibComponent(name, path, deps, includes2install)
     reg_component(name, c)
 
-def add_exe(name, deps=[], path=None, exe_name=None):
-    c = ExeComponent(name, exe_name, path, deps)
+def add_hlib(name, path=None, includes2install=[]):
+    c = HLibComponent(name, path, includes2install)
     reg_component(name, c)
 
-def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[]):
-    c = DLLComponent(name, dll_name, path, deps, export_files, reexports)
+def add_exe(name, deps=[], path=None, exe_name=None, install=True):
+    c = ExeComponent(name, exe_name, path, deps, install)
+    reg_component(name, c)
+
+def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True):
+    c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install)
     reg_component(name, c)
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
+    reg_component(name, c)
+
+def add_cpp_example(name, path=None):
+    c = CppExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_c_example(name, path=None):
+    c = CExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_dotnet_example(name, path=None):
+    c = DotNetExampleComponent(name, path)
     reg_component(name, c)
 
 # Copy configuration correct file to BUILD_DIR
@@ -474,6 +727,25 @@ def cp_config_mk():
         else:
             shutil.copyfile('scripts/config-release.mk', '%s/config.mk' % BUILD_DIR)
 
+def mk_install(out):
+    out.write('install:\n')
+    out.write('\t@mkdir -p $(PREFIX)/bin\n')
+    out.write('\t@mkdir -p $(PREFIX)/include\n')
+    out.write('\t@mkdir -p $(PREFIX)/lib\n')
+    for c in _Components:
+        c.mk_install(out)
+    out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
+    out.write('\t@echo Z3 was successfully installed.\n')
+    out.write('\n')    
+
+def mk_uninstall(out):
+    out.write('uninstall:\n')
+    for c in _Components:
+        c.mk_uninstall(out)
+    out.write('\t@rm -f %s/z3*.pyc\n' % PYTHON_PACKAGE_DIR)
+    out.write('\t@echo Z3 was successfully uninstalled.\n')
+    out.write('\n')    
+
 # Generate the Z3 makefile
 def mk_makefile():
     mk_dir(BUILD_DIR)
@@ -488,13 +760,28 @@ def mk_makefile():
     for c in _Components:
         if c.main_component():
             out.write(' %s' % c.name)
-    out.write('\n\n')
+    out.write('\n\t@echo Z3 was successfully built.\n')
+    if not IS_WINDOW:
+        out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
+        out.write('\t@echo "    sudo make install"\n')
+    # Generate :examples rule
+    out.write('examples:')
+    for c in _Components:
+        if c.is_example():
+            out.write(' _ex_%s' % c.name)
+    out.write('\n\t@echo Z3 examples were successfully built.\n')
     # Generate components
     for c in _Components:
         c.mk_makefile(out)
+    # Generate install/uninstall rules if not WINDOWS
+    if not IS_WINDOW:
+        mk_install(out)
+        mk_uninstall(out)
     # Finalize
     if VERBOSE:
         print "Makefile was successfully generated."
+        if not IS_WINDOW:
+            print "  python packages dir:", PYTHON_PACKAGE_DIR
         if DEBUG_MODE:
             print "  compilation mode: Debug"
         else:
@@ -502,12 +789,12 @@ def mk_makefile():
         if IS_WINDOW:
             if VS_X64:
                 print "  platform: x64\n"
-                print "To build Z3, open a ***Visual Studio x64 Command Prompt***, then"
+                print "To build Z3, open a [Visual Studio x64 Command Prompt], then"
             else:
                 print "  platform: x86"
-                print "To build Z3, open a ***Visual Studio Command Prompt***, then"
+                print "To build Z3, open a [Visual Studio Command Prompt], then"
             print "type 'cd %s/%s && nmake'\n" % (os.getcwd(), BUILD_DIR)
-            print 'Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools >"'
+            print 'Remark: to open a Visual Studio Command Prompt, go to: "Start > All Programs > Visual Studio > Visual Studio Tools"'
         else:
             print "Type 'cd %s; make' to build Z3" % BUILD_DIR
         
@@ -520,7 +807,7 @@ def mk_auto_src():
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
 def mk_pat_db():
-    c = get_component('pattern')
+    c = get_component(PATTERN_COMPONENT)
     fin  = open('%s/database.smt2' % c.src_dir, 'r')
     fout = open('%s/database.h'  % c.src_dir, 'w')
     fout.write('char const * g_pattern_database =\n')
@@ -539,7 +826,7 @@ def update_version(major, minor, build, revision):
         
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
-    c = get_component('util')
+    c = get_component(UTIL_COMPONENT)
     fout = open('%s/version.h' % c.src_dir, 'w')
     fout.write('// automatically generated file.\n')
     fout.write('#define Z3_MAJOR_VERSION   %s\n' % major)
@@ -712,23 +999,36 @@ def mk_def_files():
             if c.require_def_file():
                 mk_def_file(c)
 
+def cp_z3pyc_to_build():
+    mk_dir(BUILD_DIR)
+    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
+        try:
+            os.remove('%s/%s' % (BUILD_DIR, pyc))
+        except:
+            pass
+        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
+        if is_verbose():
+            print "Generated '%s'" % pyc
+
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
         mk_z3consts_py(api_files)
         mk_z3consts_donet(api_files)
         new_api_files = []
-        api = get_component('api')
+        api = get_component(API_COMPONENT)
         for api_file in api_files:
             api_file_path = api.find_file(api_file, api.name)
             new_api_files.append('%s/%s' % (api_file_path.src_dir, api_file))
         g = {}
         g["API_FILES"] = new_api_files
         execfile('scripts/update_api.py', g) # HACK
-
+        cp_z3pyc_to_build()
+                          
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
-    if PYTHON_DIR == None:
-        raise MKException("You must invoke set_python_dir(path):")
+    if Z3PY_SRC_DIR == None:
+        raise MKException("You must invoke set_z3py_dir(path):")
 
     blank_pat      = re.compile("^ *$")
     comment_pat    = re.compile("^ *//.*$")
@@ -737,10 +1037,10 @@ def mk_z3consts_py(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    z3consts  = open('%s/z3consts.py' % PYTHON_DIR, 'w')
+    z3consts  = open('%s/z3consts.py' % Z3PY_SRC_DIR, 'w')
     z3consts.write('# Automatically generated file\n\n')
 
-    api_dll = get_component('api_dll')
+    api_dll = get_component(Z3_DLL_COMPONENT)
 
     for api_file in api_files:
         api_file_c = api_dll.find_file(api_file, api_dll.name)
@@ -800,7 +1100,7 @@ def mk_z3consts_py(api_files):
                     idx = idx + 1
             linenum = linenum + 1
     if VERBOSE:
-        print "Generated '%s'" % ('%s/z3consts.py' % PYTHON_DIR)
+        print "Generated '%s'" % ('%s/z3consts.py' % Z3PY_SRC_DIR)
                 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
@@ -812,9 +1112,9 @@ def mk_z3consts_donet(api_files):
     openbrace_pat  = re.compile("{ *")
     closebrace_pat = re.compile("}.*;")
 
-    dotnet = get_component('dotnet')
+    dotnet = get_component(DOTNET_COMPONENT)
 
-    DeprecatedEnums = { 'Z3_search_failure' }
+    DeprecatedEnums = [ 'Z3_search_failure' ]
     z3consts  = open('%s/Enumerations.cs' % dotnet.src_dir, 'w')
     z3consts.write('// Automatically generated file\n\n')
     z3consts.write('using System;\n\n'
@@ -893,7 +1193,7 @@ def mk_gui_str(id):
 def mk_vs_proj(name, components):
     if not VS_PROJ:
         return
-    proj_name = '%s.vcxproj' % name
+    proj_name = '%s/%s.vcxproj' % (BUILD_DIR, name)
     modes=['Debug', 'Release']
     PLATFORMS=['Win32']
     f = open(proj_name, 'w')
@@ -945,7 +1245,7 @@ def mk_vs_proj(name, components):
             first = False
         else:
             f.write(';')
-        f.write('%s' % get_component(dep).src_dir)
+        f.write(get_component(dep).to_src_dir)
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
     f.write('    <Link>\n')
@@ -965,7 +1265,7 @@ def mk_vs_proj(name, components):
     for dep in deps:
         dep = get_component(dep)
         for cpp in filter(lambda f: f.endswith('.cpp'), os.listdir(dep.src_dir)):
-            f.write('    <ClCompile Include="%s/%s" />\n' % (dep.src_dir, cpp))
+            f.write('    <ClCompile Include="%s/%s" />\n' % (dep.to_src_dir, cpp))
     f.write('  </ItemGroup>\n')
     f.write('  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />\n')
     f.write('  <ImportGroup Label="ExtensionTargets">\n')

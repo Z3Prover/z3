@@ -27,7 +27,7 @@ dotnet_dir  = get_component('dotnet').src_dir
 log_h   = open('%s/api_log_macros.h' % api_dir, 'w')
 log_c   = open('%s/api_log_macros.cpp' % api_dir, 'w')
 exe_c   = open('%s/api_commands.cpp' % api_dir, 'w')
-core_py = open('%s/z3core.py' % get_python_dir(), 'w')
+core_py = open('%s/z3core.py' % get_z3py_dir(), 'w')
 dotnet_fileout = '%s/Native.cs' % dotnet_dir
 ##
 log_h.write('// Automatically generated file\n')
@@ -311,7 +311,7 @@ def mk_dotnet():
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('           '
-                 '            const string Z3_DLL_NAME = \"z3.dll\";\n'
+                 '            const string Z3_DLL_NAME = \"libz3.dll\";\n'
                  '            \n');
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
@@ -335,7 +335,7 @@ def mk_dotnet():
     dotnet.write('        }\n')
 
 
-DotnetUnwrapped = { 'Z3_del_context' }
+DotnetUnwrapped = [ 'Z3_del_context' ]
 
 def mk_dotnet_wrappers():
     global Type2Str
@@ -671,5 +671,5 @@ if is_verbose():
     print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)
     print "Generated '%s'" % ('%s/api_log_macros.cpp' % api_dir)
     print "Generated '%s'" % ('%s/api_commands.cpp' % api_dir)
-    print "Generated '%s'" % ('%s/z3core.py' % get_python_dir())
+    print "Generated '%s'" % ('%s/z3core.py' % get_z3py_dir())
     print "Generated '%s'" % ('%s/Native.cs' % dotnet_dir)

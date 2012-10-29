@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include"var_subst.h"
-#include"smtparser.h"
 #include"ast_pp.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
@@ -104,22 +103,4 @@ void tst_var_subst() {
     ast_manager m;
     reg_decl_plugins(m);
     tst_subst(m);
-
-    scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);
-    parser->initialize_smtlib();
-    
-    parser->parse_string(
-        "(benchmark samples :logic AUFLIA\n"
-        " :extrafuns ((f Int Int) (g Int Int Int) (a Int) (b Int))\n"
-        " :formula (forall (x Int) (or (= (f x) x) (forall (y Int) (z Int) (= (g x y) (f z)))))\n"
-        " :formula (forall (x Int) (w Int) (or (= (f x) x) (forall (y Int) (z Int) (or (= (g x y) (g w z)) (forall (x1 Int) (= (f x1) (g x y)))))))\n"
-        ")"
-        );
-    
-    smtlib::benchmark* b = parser->get_benchmark();
-
-    smtlib::theory::expr_iterator it  = b->begin_formulas();
-    smtlib::theory::expr_iterator end = b->end_formulas();
-    for (; it != end; ++it)
-        tst_instantiate(m, *it);
 }

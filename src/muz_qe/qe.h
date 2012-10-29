@@ -226,8 +226,10 @@ namespace qe {
     class def_vector {
         func_decl_ref_vector m_vars;
         expr_ref_vector      m_defs;
+        def_vector& operator=(def_vector const& other);
     public:
         def_vector(ast_manager& m): m_vars(m), m_defs(m) {}
+        def_vector(def_vector const& other): m_vars(other.m_vars), m_defs(other.m_defs) {}
         void push_back(func_decl* v, expr* e) {
             m_vars.push_back(v);
             m_defs.push_back(e);
@@ -240,6 +242,33 @@ namespace qe {
         func_decl* var(unsigned i) const { return m_vars[i]; }
         expr*  def(unsigned i) const { return m_defs[i]; }
         expr_ref_vector::element_ref  def_ref(unsigned i) { return m_defs[i]; }
+        void normalize();
+        void project(unsigned num_vars, app* const* vars);
+    };
+
+    /**
+       \brief Guarded definitions.
+
+       A realizer to a an existential quantified formula is a disjunction
+       together with a substitution from the existentially quantified variables
+       to terms such that:
+       1. The original formula (exists (vars) fml) is equivalent to the disjunction of guards.
+       2. Each guard is equivalent to fml where 'vars' are replaced by the substitution associated
+          with the guard.       
+    */
+
+    class guarded_defs {
+        expr_ref_vector    m_guards;
+        vector<def_vector> m_defs;
+        bool inv();
+    public:
+        guarded_defs(ast_manager& m): m_guards(m) { SASSERT(inv()); }
+        void add(expr* guard, def_vector const& defs);
+        unsigned size() const { return m_guards.size(); }
+        def_vector const& defs(unsigned i) const { return m_defs[i]; }
+        expr* guard(unsigned i) const { return m_guards[i]; }
+        std::ostream& display(std::ostream& out) const;
+        void project(unsigned num_vars, app* const* vars);
     };
 
     class quant_elim; 
@@ -277,10 +306,12 @@ namespace qe {
            \brief solve for (exists (var) fml).
            Return false if operation failed.
            Return true  and list of pairs (t_i, fml_i) in <terms, fmls>
-                          such that fml[t_1] \/ ... \/ fml[t_n] == (exists (var) fml)
-                          and       fml_i == fml[t_1]
+                          such that fml_1 \/ ... \/ fml_n == (exists (var) fml)
+                          and       fml_i => fml[t_i]
          */
-        bool solve_for_var(app* var, expr* fml, expr_ref_vector& terms, expr_ref_vector& fmls);
+        bool solve_for_var(app* var, expr* fml, guarded_defs& defs);
+
+        bool solve_for_vars(unsigned num_vars, app* const* vars, expr* fml, guarded_defs& defs);
 
 
         void set_cancel(bool f);

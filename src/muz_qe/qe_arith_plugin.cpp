@@ -367,16 +367,6 @@ namespace qe {
             simplify(result);
         }
 
-        expr_ref mk_idiv(expr* a, numeral const & k) {            
-            if (k.is_one()) {
-                return expr_ref(a, m);
-            }
-            expr_ref result(m);
-            result = m_arith.mk_idiv(a, m_arith.mk_numeral(k, true));
-            simplify(result);
-            return result;
-        }
-    
         expr* mk_numeral(numeral const& k, bool is_int = true) { return m_arith.mk_numeral(k, is_int); }
 
         expr* mk_numeral(int k, bool is_int) { return mk_numeral(numeral(k),is_int); }
@@ -1699,6 +1689,40 @@ public:
 
     private:
 
+        /**
+           \brief Compute least upper/greatest lower bounds for x.
+
+           Assume:
+           (not (= k 0))
+           (<= 0 (mod m k)) 
+           (< (mod m k) (abs k))
+           (= m (+ (* k (div m k)) (mod m k)))
+           i.e. 
+             k * (e div k) + (e mod k) = e
+
+           
+           When k is positive, least upper bound 
+           for x such that: k*x <= e is e div k
+
+           When k is negative, greatest lower bound 
+           for x such that k*x <= e is e div k
+
+           k * (e div k) + (e mod k) = e                   
+         */
+        expr_ref mk_idiv(expr* e, numeral k) {            
+            SASSERT(!k.is_zero());
+            arith_util& a = m_util.m_arith; 
+            if (k.is_one()) {
+                return expr_ref(e, m);
+            }
+            if (k.is_minus_one()) {
+                return expr_ref(a.mk_uminus(e), m);
+            }
+            SASSERT(a.is_int(e));
+            return expr_ref(a.mk_idiv(e, a.mk_numeral(k, true)), m);
+        }
+    
+
         void get_def(contains_app& contains_x, unsigned v, expr* fml, expr_ref& def) {
             app* x = contains_x.x();
             x_subst x_t(m_util);
@@ -1730,35 +1754,30 @@ public:
                     // a*x + term <= 0
                     expr_ref term(bounds.exprs(is_strict, !is_lower)[i], m);
                     rational a = bounds.coeffs(is_strict, !is_lower)[i];
+
                     if (x_t.get_term()) {
-                        // a*(c*x' + s) + term <= 0
-                        // term <- a*s + term
-                        // a <- a*c
-                        term = m_util.mk_add(m_util.mk_mul(a,x_t.get_term()), term);
-                        a = a * x_t.get_coeff();
+                        // x := coeff * x' + s                        
+                        // solve instead for
+                        // a*coeff*x' + term + a*s <= 0
+                        TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                              << mk_pp(x_t.get_term(), m) << "\n";);
+                        SASSERT(x_t.get_coeff().is_pos());
+                        term = m_util.mk_add(term, m_util.mk_mul(a, x_t.get_term()));
+                        a    = a * x_t.get_coeff();
                     }
+
+                    TRACE("qe", tout << a << "* " << mk_pp(x,m) << " + " << mk_pp(term, m) << " <= 0\n";);
                     SASSERT(a.is_int());
-                    if (is_lower) {
-                        //    a*x + t <= 0
-                        // <=
-                        //   x <= -t div a
-                        SASSERT(a.is_pos());
-                        term = m_util.mk_idiv(m_util.mk_uminus(term), a);
-                    }
-                    else {
-                        //   -a*x + t <= 0
-                        // <=>
-                        //    t <= a*x
-                        // <=
-                        //   ((div t a) + 1) <= x
-                        term = m_util.mk_idiv(term, abs(a));
-                        if (!(abs(a).is_one())) {
-                            term = m_util.mk_add(term, m_util.mk_one(x));
-                        }
-                    }
-                    terms.push_back(term);
                     SASSERT(is_lower == a.is_pos());                    
-                    TRACE("qe", tout << is_lower << " " << a << " " << mk_pp(term, m) << "\n";);
+
+                    //    a*x + t <= 0
+                    // <=
+                    //   x <= -t div a + 1
+                    
+                    term = m_util.mk_uminus(term);
+                    term = mk_idiv(term, a);
+                    terms.push_back(term);
+                    TRACE("qe", tout << "a: " << a << " term: " << mk_pp(term, m) << "\n";);
                 }
                 is_strict = true;
                 sz = bounds.size(is_strict, !is_lower);
@@ -1788,14 +1807,11 @@ public:
                 }
                 
                 if (x_t.get_term()) {
-                    //
-                    //    x = x_t.get_coeff()*x' + x_t.get_term()
-                    // =>
-                    //    x' = (x - x_t.get_term()) div x_t.get_coeff()
-                    // 
-                    def = m_util.mk_idiv(m_util.mk_sub(def, x_t.get_term()), x_t.get_coeff());
+                    // x := coeff * x + s
+                    TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                          << mk_pp(x_t.get_term(), m) << "\n";);
+                    def = m_util.mk_add(m_util.mk_mul(x_t.get_coeff(), def), x_t.get_term());
                 }
-
                 m_util.simplify(def);
                 return;
             }
@@ -1822,25 +1838,39 @@ public:
             // assert v => (x <= t_i) 
             //
             SASSERT(v < bounds.size(is_strict, is_lower));
-            expr_ref t(bounds.exprs(is_strict, is_lower)[v], m);
+            def = bounds.exprs(is_strict, is_lower)[v];
             rational a = bounds.coeffs(is_strict, is_lower)[v];
-            
-            t = x_t.mk_term(a, t);
-            a = x_t.mk_coeff(a);
 
-            def = t;
-            if (a.is_pos()) {
-                def = m_util.mk_uminus(def);
-            }
             if (x_t.get_term()) {
-                def = m_util.mk_idiv(m_util.mk_sub(def, x_t.get_term()), x_t.get_coeff());
+                // x := coeff * x' + s                        
+                // solve instead for
+                // a*coeff*x' + term + a*s <= 0
+                TRACE("qe", tout << x_t.get_coeff() << "* " << mk_pp(x,m) << " + " 
+                      << mk_pp(x_t.get_term(), m) << "\n";);
+                SASSERT(x_t.get_coeff().is_pos());
+                def = m_util.mk_add(def, m_util.mk_mul(a, x_t.get_term()));
+                a    = a * x_t.get_coeff();
             }
-            if (!a.is_one()) {
-                def = m_util.mk_idiv(def, a);
+
+            SASSERT(a.is_int());
+            SASSERT(is_lower != a.is_pos());                    
+
+            //    a*x + t <= 0
+            // <=
+            //   x <= -t div a 
+            
+            def = m_util.mk_uminus(def);
+            def = mk_idiv(def, a);
+
+            if (x_t.get_term()) {
+                // x := coeff * x + s
+                def = m_util.mk_add(m_util.mk_mul(x_t.get_coeff(), def), x_t.get_term());
             }
+
             m_util.simplify(def);
 
-            TRACE("qe", tout << "TBD: " << a << " " << mk_pp(t, m) << "\n";);
+
+            TRACE("qe", tout << "TBD: " << a << " " << mk_pp(def, m) << "\n";);
         }
 
         expr_ref mk_not(expr* e) {

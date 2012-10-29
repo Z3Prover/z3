@@ -467,10 +467,10 @@ namespace qe {
             SASSERT(m_datatype_util.is_datatype(s));
             TRACE("quant_elim", tout << mk_pp(x.x(), m) << " " << vl << "\n";);
             if (m_datatype_util.is_recursive(s)) {
-                subst_rec(x, vl, fml);
+                subst_rec(x, vl, fml, def);
             }
             else {
-                subst_nonrec(x, vl, fml);
+                subst_nonrec(x, vl, fml, def);
             }
             if (def) {
                 *def = 0; // TBD
@@ -501,14 +501,21 @@ namespace qe {
         
     private:
 
+        void add_def(expr* term, expr_ref* def) {
+            if (def) {
+                *def = term;
+            }
+        }
+
         //
         // replace x by C(y1,..,yn) where y1,..,yn are fresh variables.
         //
-        void subst_constructor(contains_app& x, func_decl* c, expr_ref& fml) {
+        void subst_constructor(contains_app& x, func_decl* c, expr_ref& fml, expr_ref* def) {
             subst_clos* sub = 0;
             
             if (m_subst_cache.find(x.x(), c, sub)) {
                 m_replace->apply_substitution(x.x(), sub->first, 0, fml);
+                add_def(sub->first, def);
                 for (unsigned i = 0; i < sub->second.size(); ++i) {
                     m_ctx.add_var(sub->second[i]);
                 }
@@ -529,6 +536,7 @@ namespace qe {
             m_trail.push_back(c);
             m_trail.push_back(t);
 
+            add_def(t, def);
             m_replace->apply_substitution(x.x(), t, 0, fml);
             sub->first = t;
             m_subst_cache.insert(x.x(), c, sub);
@@ -643,7 +651,7 @@ namespace qe {
             }
         }
 
-        void subst_rec(contains_app& contains_x, rational const& vl, expr_ref& fml) {
+        void subst_rec(contains_app& contains_x, rational const& vl, expr_ref& fml, expr_ref* def) {
             app* x = contains_x.x();
             sort* s = x->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
@@ -661,6 +669,7 @@ namespace qe {
                 app_ref fresh_x(m.mk_fresh_const("x", s), m);
                 m_ctx.add_var(fresh_x);
                 m_replace->apply_substitution(x, fresh_x, 0, fml);
+                add_def(fresh_x, def);
                 TRACE("quant_elim", tout << "Add recognizer " << mk_pp(is_c, m) << "\n";);
                 return;
             }
@@ -668,7 +677,7 @@ namespace qe {
 
             if (has_selector(contains_x, fml, c)) {
                 TRACE("quant_elim", tout << "Eliminate selector " << mk_ll_pp(c, m) << "\n";);
-                subst_constructor(contains_x, c, fml); 
+                subst_constructor(contains_x, c, fml, def); 
                 return;
             }
 
@@ -697,6 +706,7 @@ namespace qe {
             if (idx < eqs.num_eqs()) {
                 expr* t = eqs.eq(idx);
                 expr* c = eqs.eq_cond(idx);
+                add_def(t, def);
                 m_replace->apply_substitution(x, t, fml);
                 if (!m.is_true(c)) {
                     fml = m.mk_and(c, fml);
@@ -709,6 +719,10 @@ namespace qe {
 
                 for (unsigned i = 0; i < eqs.num_neqs(); ++i) {
                     m_replace->apply_substitution(eqs.neq_atom(i), m.mk_true(), fml);
+                }
+                if (def) {
+                    NOT_IMPLEMENTED_YET();
+                    // you need to create a diagonal term
                 }
             }
             TRACE("quant_elim", tout << "reduced " << mk_pp(fml.get(), m) << "\n";);
@@ -753,7 +767,7 @@ namespace qe {
             m_ctx.add_constraint(true, is_c);
         }
 
-        virtual void subst_nonrec(contains_app& x, rational const& vl, expr_ref& fml) {
+        virtual void subst_nonrec(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             SASSERT(!m_datatype_util.is_recursive(s));
@@ -767,7 +781,7 @@ namespace qe {
                 SASSERT(vl.get_unsigned() < sz);
                 c = (*m_datatype_util.get_datatype_constructors(s))[vl.get_unsigned()];
             }
-            subst_constructor(x, c, fml);                
+            subst_constructor(x, c, fml, def);                
         }
 
 

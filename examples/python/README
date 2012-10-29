@@ -1,0 +1,4 @@
+The example is copied to the build directory during configuration.
+You can execute it using
+    python example.py
+in the build directory after you build Z3.
