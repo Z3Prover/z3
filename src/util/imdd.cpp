@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#ifndef _EXTERNAL_RELEASE
 
 #include"imdd.h"
 #include"map.h"
@@ -3686,5 +3685,4 @@ void imdd_manager::mk_filter_disequal(imdd * d, imdd_ref & r, unsigned var, unsi
     STRACE("imdd_trace", tout << "mk_filter_disequal(0x" << d << ", 0x" << r.get() << ", " << var << ", " << value << ", " << memoize_res << ");\n";);
 }
 
-#endif
 
