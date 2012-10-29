@@ -422,10 +422,7 @@ namespace datalog {
     bool mk_rule_inliner::transform_rule(rule * r0, rule_set& tgt) {
         bool modified = false;
         rule_ref_vector todo(m_rm);
-
         todo.push_back(r0);
-
-
 
         while (!todo.empty()) {
             rule_ref r(todo.back(), m_rm);
@@ -458,6 +455,10 @@ namespace datalog {
                 }
             }
         }
+        if (modified) {
+            datalog::del_rule(m_mc, *r0);
+        }
+
         return modified;
     }
 
@@ -475,6 +476,14 @@ namespace datalog {
             // so we don't add its rules to the result
 
             something_done |= !inlining_allowed(pred) && transform_rule(r, tgt);
+        }
+
+        if (something_done && m_mc) {
+            for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {
+                if (inlining_allowed((*rit)->get_decl())) {
+                    datalog::del_rule(m_mc, **rit);
+                }
+            }
         }
         
         return something_done;
@@ -847,9 +856,9 @@ namespace datalog {
         m_mc = hsmc.get();
         m_pc = hpc.get();
 
-        plan_inlining(source);
-
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
+
+        plan_inlining(source);
 
         something_done = transform_rules(source, *res);
 
@@ -861,7 +870,7 @@ namespace datalog {
         }
 
         params_ref const& params = m_context.get_params();
-            if (params.get_bool(":inline-linear", true) && inline_linear(res)) {
+        if (params.get_bool(":inline-linear", true) && inline_linear(res)) {
             something_done = true;
         }
 

@@ -375,6 +375,8 @@ namespace pdr {
 
         void set_query(func_decl* q) { m_query_pred = q; }
 
+        void set_unsat() { m_last_result = l_false; }
+
         void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
 
         void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }

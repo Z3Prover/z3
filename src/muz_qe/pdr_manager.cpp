@@ -111,6 +111,7 @@ namespace pdr {
                 md->register_decl(pred, fi);
             }
         }
+        TRACE("pdr", model_smt2_pp(tout, m, *md, 0););
         apply(const_cast<model_converter_ref&>(m_mc), md, 0);
     }
 
