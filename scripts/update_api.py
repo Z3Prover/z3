@@ -335,7 +335,7 @@ def mk_dotnet():
     dotnet.write('        }\n')
 
 
-DotnetUnwrapped = { 'Z3_del_context' }
+DotnetUnwrapped = [ 'Z3_del_context' ]
 
 def mk_dotnet_wrappers():
     global Type2Str

@@ -1114,7 +1114,7 @@ def mk_z3consts_donet(api_files):
 
     dotnet = get_component(DOTNET_COMPONENT)
 
-    DeprecatedEnums = { 'Z3_search_failure' }
+    DeprecatedEnums = [ 'Z3_search_failure' ]
     z3consts  = open('%s/Enumerations.cs' % dotnet.src_dir, 'w')
     z3consts.write('// Automatically generated file\n\n')
     z3consts.write('using System;\n\n'
