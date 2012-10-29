@@ -45,6 +45,7 @@ Revision History:
 #include "cooperate.h"
 #include "tactical.h"
 #include "model_v2_pp.h"
+#include "obj_hashtable.h"
 
 
 namespace qe {
@@ -724,6 +725,85 @@ namespace qe {
     };
 
     // ----------------------------
+    // def_vector
+
+    void def_vector::normalize() {
+        // apply nested definitions into place.
+        ast_manager& m = m_vars.get_manager();
+        expr_substitution sub(m);
+        scoped_ptr<expr_replacer> rep = mk_expr_simp_replacer(m);
+        if (size() <= 1) {
+            return;
+        }
+        for (unsigned i = size(); i > 0; ) {
+            --i;
+            expr_ref e(m);
+            e = def(i);
+            rep->set_substitution(&sub);
+            (*rep)(e);
+            sub.insert(m.mk_const(var(i)), e);
+            def_ref(i) = e;
+        }
+    }        
+
+    void def_vector::project(unsigned num_vars, app* const* vars) {
+        obj_hashtable<func_decl> fns;
+        for (unsigned i = 0; i < num_vars; ++i) {
+            fns.insert(vars[i]->get_decl());
+        }
+        for (unsigned i = 0; i < size(); ++i) {
+            if (fns.contains(m_vars[i].get())) {
+                // 
+                // retain only first occurrence of eliminated variable.
+                // later occurrences are just recycling the name.
+                // 
+                fns.remove(m_vars[i].get());
+            }
+            else {
+                for (unsigned j = i+1; j < size(); ++j) {
+                    m_vars.set(j-1, m_vars.get(j));
+                    m_defs.set(j-1, m_defs.get(j));
+                }
+                m_vars.pop_back();
+                m_defs.pop_back();
+                --i;
+            }
+        }
+    }
+
+    // ----------------------------
+    // guarded_defs
+
+    std::ostream& guarded_defs::display(std::ostream& out) const {
+        ast_manager& m = m_guards.get_manager();
+        for (unsigned i = 0; i < size(); ++i) {            
+            for (unsigned j = 0; j < defs(i).size(); ++j) {
+                out << defs(i).var(j)->get_name() << " := " << mk_pp(defs(i).def(j), m) << "\n";
+            }
+            out << "if " << mk_pp(guard(i), m) << "\n";
+        }       
+        return out;
+    }
+
+    bool guarded_defs::inv() {
+        return m_defs.size() == m_guards.size();
+    }
+
+    void guarded_defs::add(expr* guard, def_vector const& defs) {
+        SASSERT(inv());
+        m_defs.push_back(defs);
+        m_guards.push_back(guard);
+        m_defs.back().normalize();
+        SASSERT(inv());
+    }
+
+    void guarded_defs::project(unsigned num_vars, app* const* vars) {
+        for (unsigned i = 0; i < size(); ++i) {
+            m_defs[i].project(num_vars, vars);
+        }
+    }
+
+    // ----------------------------
     // Obtain atoms in NNF formula.
     
     class nnf_collect_atoms {
@@ -810,7 +890,7 @@ namespace qe {
     
         virtual lbool eliminate_exists(
             unsigned num_vars, app* const* vars, 
-            expr_ref& fml, app_ref_vector& free_vars, bool get_first, def_vector* defs) = 0;
+            expr_ref& fml, app_ref_vector& free_vars, bool get_first, guarded_defs* defs) = 0;
 
         virtual void set_assumption(expr* fml) = 0;
 
@@ -918,40 +998,25 @@ namespace qe {
             }
         }
 
-        bool get_leaf_rec(expr_ref& fml, def_vector& defs) {
+        void get_leaves_rec(def_vector& defs, guarded_defs& gdefs) {
             expr* f = this->fml();
+            unsigned sz = defs.size();
+            defs.append(def());
             if (m_children.empty() && f && !m.is_false(f) &&
                 m_vars.empty() && !has_var()) {
-                fml = f;
-                return true;
+                gdefs.add(f, defs); 
             }
-            unsigned sz = defs.size();
-            for (unsigned i = 0; i < m_children.size(); ++i) {
-                search_tree* st = m_children[i];
-                defs.append(st->def());
-                if (st->get_leaf_rec(fml, defs)) {
-                    return true;
+            else {
+                for (unsigned i = 0; i < m_children.size(); ++i) {
+                    m_children[i]->get_leaves_rec(defs, gdefs);
                 }
-                defs.shrink(sz);
             }
-            return false;
+            defs.shrink(sz);
         }
 
-        void get_leaf(expr_ref& fml, def_vector& defs) {
-            get_leaf_rec(fml, defs);
-
-            // apply nested definitions into place.
-            expr_substitution sub(m);
-            scoped_ptr<expr_replacer> rep = mk_expr_simp_replacer(m);
-            for (unsigned i = defs.size(); i > 0; ) {
-                --i;
-                expr_ref e(m);
-                e = defs.def(i);
-                rep->set_substitution(&sub);
-                (*rep)(e);
-                sub.insert(m.mk_const(defs.var(i)), e);
-                defs.def_ref(i) = e;
-            }            
+        void get_leaves(guarded_defs& gdefs) {
+            def_vector defs(m);
+            get_leaves_rec(defs, gdefs);
         }
 
         void reset() {
@@ -1248,7 +1313,7 @@ namespace qe {
 
         app_ref_vector               m_new_vars;     // variables added by solvers
         bool                         m_get_first;    // get first satisfying branch.
-        def_vector*                  m_defs;
+        guarded_defs*                m_defs;
         nnf_normalizer               m_nnf;          // nnf conversion
 
     
@@ -1311,7 +1376,7 @@ namespace qe {
 
         void check(unsigned num_vars, app* const* vars, 
                    expr* assumption, expr_ref& fml, bool get_first,
-                   app_ref_vector& free_vars, def_vector* defs) {
+                   app_ref_vector& free_vars, guarded_defs* defs) {
 
             reset();
             m_solver.push();
@@ -1366,9 +1431,11 @@ namespace qe {
                 expr_ref_vector result(m);
                 m_root.get_leaves(result);
                 m_bool_rewriter.mk_or(result.size(), result.c_ptr(), fml);
-            }
-            else if (defs) {
-                m_root.get_leaf(fml, *defs);
+            }            
+
+            if (defs) {
+                m_root.get_leaves(*defs);
+                defs->project(num_vars, vars);
             }
             
             TRACE("qe", 
@@ -1401,7 +1468,7 @@ namespace qe {
     private:
 
         void final_check(model_evaluator& model_eval) {
-            TRACE("qe", tout << (m_fml?"fml":"null") << "\n";);
+            TRACE("qe", tout << "\n";);
             while (can_propagate_assignment(model_eval)) {
                 propagate_assignment(model_eval);
             }
@@ -1480,7 +1547,7 @@ namespace qe {
             m_qe.eliminate_exists(1, &var, fml, m_free_vars, false, 0);
         }
 
-        lbool eliminate_exists(unsigned num_vars, app* const* vars, expr_ref& fml, bool get_first, def_vector* defs) {
+        lbool eliminate_exists(unsigned num_vars, app* const* vars, expr_ref& fml, bool get_first, guarded_defs* defs) {
             return m_qe.eliminate_exists(num_vars, vars, fml, m_free_vars, get_first, defs);
         }
     
@@ -1700,7 +1767,7 @@ namespace qe {
 
         void propagate_assignment(model_evaluator& model_eval) {
             if (m_fml) {
-                update_current(model_eval, true);
+                update_status st = update_current(model_eval, true);
             }
         }
 
@@ -1982,7 +2049,7 @@ namespace qe {
 
         virtual lbool eliminate_exists(
             unsigned num_vars, app* const* vars, expr_ref& fml, 
-            app_ref_vector& free_vars, bool get_first, def_vector* defs) {
+            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) {
             if (get_first) {
                 return eliminate_block(num_vars, vars, fml, free_vars, get_first, defs);
             }
@@ -2008,7 +2075,7 @@ namespace qe {
 
         lbool eliminate_block(
             unsigned num_vars, app* const* vars, expr_ref& fml, 
-            app_ref_vector& free_vars, bool get_first, def_vector* defs) {
+            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) {
               
             checkpoint();
             
@@ -2093,54 +2160,6 @@ namespace qe {
         }
 
     };
-
-
-
-#if 0
-    //
-    // Instantiation based quantifier elimination procedure.
-    // try a few loops of checking satisfiability.
-    // substitute in model values for bound variables.
-    // 
-    class quant_elim_inst : public quant_elim {
-        ast_manager& 
-    public:
-        quant_elim_inst(ast_manager& m): m(m) {}
-
-        virtual lbool eliminate_exists(
-            unsigned num_vars, app* const* vars, 
-            expr_ref& fml, app_ref_vector& free_vars, bool get_first, def_vector* defs) {
-            
-        }
-
-        virtual void set_assumption(expr* fml) {}
-
-        virtual void collect_statistics(statistics & st) const {
-            m_solver.collect_statistics(st);
-        }
-
-        virtual void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) {
-            if (is_forall) {
-                fml = m.mk_not(fml);
-                r = eliminate_exists(num_vars, vars, fml, free_vars, false, defs);
-                fml = m.mk_not(fml);
-            }
-            else {
-                r = eliminate_exists(num_vars, vars, fml, free_vars, false, defs);
-            }
-        }
-
-        virtual void set_cancel(bool f) {
-            m_solver.set_cancel(f);
-        }
-
-        virtual void updt_params(params_ref const& p) {
-            m_solver.updt_params(p);
-        }
-
-    };
-#endif
-
 
     // ------------------------------------------------
     // expr_quant_elim
@@ -2310,40 +2329,28 @@ namespace qe {
     lbool expr_quant_elim::first_elim(unsigned num_vars, app* const* vars, expr_ref& fml, def_vector& defs) {
         app_ref_vector fvs(m);
         init_qe();
-        return m_qe->eliminate_exists(num_vars, vars, fml, fvs, true, &defs);
-    }
-
-    bool expr_quant_elim::solve_for_var(app* var, expr* _fml, expr_ref_vector& terms, expr_ref_vector& fmls) {
-        expr_ref assms(m.mk_true(), m);
-        func_decl* v = var->get_decl();
-        init_qe();  
-        while (true) {
-            def_vector defs(m);
-            app_ref_vector fvs(m);
-            m_qe->set_assumption(assms);
-            expr_ref fml(_fml, m);
-            lbool is_sat = m_qe->eliminate_exists(1, &var, fml, fvs, true, &defs);
-            switch (is_sat) {
-            case l_false: return true;
-            case l_undef: return false;
-            default: break;                
-            }
-            bool found = false;
-            for (unsigned i = 0; !found && i < defs.size(); ++i) {
-                if (defs.var(i) == v) {
-                    terms.push_back(defs.def(i));
-                    fmls.push_back(fml);
-                    found = true;
-                }
-            }
-            if (!found) {
-                NOT_IMPLEMENTED_YET();
-            }
-            assms = m.mk_and(assms, m.mk_not(fml));
+        guarded_defs gdefs(m);
+        lbool res = m_qe->eliminate_exists(num_vars, vars, fml, fvs, true, &gdefs);
+        if (gdefs.size() > 0) {
+            defs.reset();
+            defs.append(gdefs.defs(0));
+            fml = gdefs.guard(0);
         }
-        return true;
+        return res;
     }
 
+    bool expr_quant_elim::solve_for_var(app* var, expr* fml, guarded_defs& defs) {
+        return solve_for_vars(1,&var, fml, defs);
+    }
+
+    bool expr_quant_elim::solve_for_vars(unsigned num_vars, app* const* vars, expr* _fml, guarded_defs& defs) {
+        app_ref_vector fvs(m);
+        expr_ref fml(_fml, m);
+        TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+        init_qe();  
+        lbool is_sat = m_qe->eliminate_exists(num_vars, vars, fml, fvs, false, &defs);
+        return is_sat != l_undef;
+    }
 
     void expr_quant_elim::set_cancel(bool f) {
         if (m_qe) {
