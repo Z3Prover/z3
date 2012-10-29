@@ -968,7 +968,7 @@ namespace datalog {
         
         p.insert(":fix-unbound-vars", CPK_BOOL, "fix unbound variables in tail");
         p.insert(":default-table-checker", CPK_SYMBOL, "see :default-table-checked");
-        PRIVATE_PARAMS(p.insert(":inline-linear", CPK_BOOL, "try linear inlining method"););
+        p.insert(":inline-linear", CPK_BOOL, "try linear inlining method");
         PRIVATE_PARAMS(p.insert(":inline-linear-branch", CPK_BOOL, "try linear inlining method with potential expansion"););
 
         pdr::dl_interface::collect_params(p);
