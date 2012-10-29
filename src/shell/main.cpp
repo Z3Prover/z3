@@ -56,11 +56,13 @@ void error(const char * msg) {
 }
 
 void display_usage() {
+    std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << " - ";
 #ifdef _AMD64_
-    std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << " - 64 bit]. (C) Copyright 2006 Microsoft Corp.\n";
+    std::cout << "64";
 #else
-    std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << " - 32 bit]. (C) Copyright 2006 Microsoft Corp.\n";
+    std::cout << "32";
 #endif
+    std::cout << " bit]. (C) Copyright 2006 Microsoft Corp.\n";
     std::cout << "Usage: z3 [options] [" << OPT << "file:]file\n";
     std::cout << "\nInput format:\n";
     std::cout << "  " << OPT << "smt        use parser for SMT input format.\n";
