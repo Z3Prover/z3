@@ -8,9 +8,10 @@
 #include "expr_replacer.h"
 #include "smt_solver.h"
 #include "reg_decl_plugins.h"
-#include "smtparser.h"
 #include "expr_abstract.h"
 #include "model_smt2_pp.h"
+#include "smt2parser.h"
+#include "var_subst.h"
 
 static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::def_vector const& defs) {
     // verify:
@@ -73,23 +74,6 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
     }
 }
 
-static void test_quant_solver(ast_manager& m, app* x, expr* fml) {
-    front_end_params params;
-    qe::expr_quant_elim qe(m, params);
-    qe::guarded_defs defs(m);
-    bool success = qe.solve_for_var(x, fml, defs);
-    std::cout << "------------------------\n";
-    std::cout << mk_pp(fml, m) << "\n";
-    if (success) {        
-        defs.display(std::cout);
-        for (unsigned i = 0; i < defs.size(); ++i) {     
-            validate_quant_solution(m, fml, defs.guard(i), defs.defs(i));
-        }
-    }
-    else {
-        std::cout << "failed\n";
-    }
-}
 
 
 static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* fml) {
@@ -110,28 +94,54 @@ static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* 
     }
 }
 
-
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
-    reg_decl_plugins(m);    
-    scoped_ptr<smtlib::parser> parser = smtlib::parser::create(m);
-    parser->initialize_smtlib();
+    front_end_params fp;
+    cmd_context ctx(fp, false, &m);
+    ctx.set_ignore_check(true);
     std::ostringstream buffer;
-    buffer << "(benchmark presburger :status unknown :logic AUFLIA "
-           << ":extrafuns ((x Int) (y Int) (z Int) (a Int) (b Int))\n"
-           << ":formula " << str << ")";
-    parser->parse_string(buffer.str().c_str());
-    smtlib::benchmark* b = parser->get_benchmark();
-    smtlib::theory::expr_iterator it  = b->begin_formulas();
-    smtlib::theory::expr_iterator end = b->end_formulas();
-    SASSERT(it != b->end_formulas());
-    result = *it;
+    buffer << "(declare-const x Int)\n"
+           << "(declare-const y Int)\n"
+           << "(declare-const z Int)\n"
+           << "(declare-const a Int)\n"
+           << "(declare-const b Int)\n"
+           << "(declare-datatypes () ((IList (nil) (cons (car Int) (cdr IList)))))\n"
+           << "(declare-const l1 IList)\n"
+           << "(declare-const l2 IList)\n"
+           << "(declare-datatypes () ((Cell (null) (cell (car Cell) (cdr Cell)))))\n"
+           << "(declare-const c1 Cell)\n"
+           << "(declare-const c2 Cell)\n"
+           << "(declare-const c3 Cell)\n"
+           << "(declare-datatypes () ((Tuple (tuple (first Int) (second Bool) (third Real)))))\n"
+           << "(declare-const t1 Tuple)\n"
+           << "(declare-const t2 Tuple)\n"
+           << "(declare-const t3 Tuple)\n"
+           << "(assert " << str << ")\n";
+    std::istringstream is(buffer.str());
+    VERIFY(parse_smt2_commands(ctx, is));
+    SASSERT(ctx.begin_assertions() != ctx.end_assertions());
+    result = *ctx.begin_assertions();
     return result;
+}
+
+
+static void parse_fml(char const* str, app_ref_vector& vars, expr_ref& fml) {
+    ast_manager& m = fml.get_manager();
+    fml = parse_fml(m, str);
+    if (is_exists(fml)) {
+        quantifier* q = to_quantifier(fml);
+        for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+            vars.push_back(m.mk_const(q->get_decl_name(i), q->get_decl_sort(i)));
+        }
+        fml = q->get_expr();
+        var_subst vs(m, true);
+        vs(fml, vars.size(), (expr*const*)vars.c_ptr(), fml);
+    }
 }
 
 static void test_quant_solver(ast_manager& m, app* x, char const* str) {
     expr_ref fml = parse_fml(m, str);
-    test_quant_solver(m, x, fml);
+    test_quant_solver(m, 1, &x, fml);
 }
 
 static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, char const* str) {
@@ -139,6 +149,12 @@ static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, char c
     test_quant_solver(m, sz, xs, fml);
 }
 
+static void test_quant_solver(ast_manager& m, char const* str) {
+    expr_ref fml(m);
+    app_ref_vector vars(m);
+    parse_fml(str, vars, fml);
+    test_quant_solver(m, vars.size(), vars.c_ptr(), fml);
+}
 
 
 static void test_quant_solve1() {
@@ -159,34 +175,26 @@ static void test_quant_solve1() {
     test_quant_solver(m, x, "(and (>= (* 2 x) y) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (<= (* 2 x) y) (>= x z) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (<= (* 2 x) y) (>= (* 3 x) z) (= (mod x 2) 0))");
-
     test_quant_solver(m, x, "(>= (* 2 x) a)");
-
     test_quant_solver(m, x, "(<= (* 2 x) a)");
     test_quant_solver(m, x, "(< (* 2 x) a)");
     test_quant_solver(m, x, "(= (* 2 x) a)");
     test_quant_solver(m, x, "(< (* 2 x) a)");
     test_quant_solver(m, x, "(> (* 2 x) a)");
-
-
     test_quant_solver(m, x, "(and (<= a x) (<= (* 2 x) b))");
-
     test_quant_solver(m, x, "(and (<= a x) (<= x b))");
     test_quant_solver(m, x, "(and (<= (* 2 a) x) (<= x b))");
     test_quant_solver(m, x, "(and (<= (* 2 a) x) (<= (* 2 x) b))");
     test_quant_solver(m, x, "(and (<= a x) (<= (* 3 x) b))");
     test_quant_solver(m, x, "(and (<= (* 3 a) x) (<= x b))");
     test_quant_solver(m, x, "(and (<= (* 3 a) x) (<= (* 3 x) b))");
-
     test_quant_solver(m, x, "(and (< a (* 3 x)) (< (* 3 x) b))");    
-
     test_quant_solver(m, x, "(< (* 3 x) a)");
     test_quant_solver(m, x, "(= (* 3 x) a)");
     test_quant_solver(m, x, "(< (* 3 x) a)");
     test_quant_solver(m, x, "(> (* 3 x) a)");
     test_quant_solver(m, x, "(<= (* 3 x) a)");
     test_quant_solver(m, x, "(>= (* 3 x) a)");
-
     test_quant_solver(m, x, "(<= (* 2 x) a)");
     test_quant_solver(m, x, "(or (= (* 2 x) y) (= (+ (* 2 x) 1) y))");
     test_quant_solver(m, x, "(= x a)");
@@ -209,9 +217,13 @@ static void test_quant_solve1() {
     test_quant_solver(m, x, "(and (>= x y) (>= x z))");
     test_quant_solver(m, x, "(< x y)");
     test_quant_solver(m, x, "(> x y)");
-
     test_quant_solver(m, 2, xy, "(and (<= (- (* 2 y) b) (+ (* 3 x) a)) (<= (- (* 2 x) a) (+ (* 4 y) b)))");
 
+    test_quant_solver(m, "(exists ((c Cell)) (= c null))");
+    test_quant_solver(m, "(exists ((c Cell)) (= c (cell null c1)))");
+    //TBD:
+    //test_quant_solver(m, "(exists ((c Cell)) (= (cell c c) c1))");
+    //test_quant_solver(m, "(exists ((c Cell)) (not (= c null)))");
 }
 
 
