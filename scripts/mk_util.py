@@ -40,6 +40,21 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 
+VER_MAJOR=None
+VER_MINOR=None
+VER_BUILD=None
+VER_REVISION=None
+
+def set_version(major, minor, build, revision):
+    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION
+    VER_MAJOR = major
+    VER_MINOR = minor
+    VER_BUILD = build
+    VER_REVISION = revision
+
+def get_version():
+    return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+
 def is_cr_lf(fname):
     # Check whether text files use cr/lf
     f = open(fname, 'r')
@@ -191,14 +206,6 @@ def set_z3py_dir(p):
     if VERBOSE:
         print "Python bindinds directory was detected."
 
-def add_z3py_example(p):
-    mk_dir(BUILD_DIR)
-    full = '%s/%s' % (EXAMPLE_DIR, p)
-    for py in filter(lambda f: f.endswith('.py'), os.listdir(full)):
-        shutil.copyfile('%s/%s' % (full, py), '%s/%s' % (BUILD_DIR, py))
-        if is_verbose():
-            print "Copied Z3Py example '%s' to '%s'" % (py, BUILD_DIR)
-
 _UNIQ_ID = 0
 
 def mk_fresh_name(prefix):
@@ -216,6 +223,9 @@ _Processed_Headers = set()
 # Return the Component object named name
 def get_component(name):
     return _Name2Component[name]
+
+def get_components():
+    return _Components
 
 # Return the directory where the python bindings are located.
 def get_z3py_dir():
@@ -361,6 +371,12 @@ class Component:
 
     def is_example(self):
         return False
+    
+    # Invoked when creating a (windows) distribution package using components at build_path, and
+    # storing them at dist_path
+    def mk_win_dist(self, build_path, dist_path):
+        return
+
 
 class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
@@ -395,6 +411,12 @@ class LibComponent(Component):
     def mk_uninstall(self, out):
         for include in self.includes2install:
             out.write('\t@rm -f $(PREFIX)/include/%s\n' % include)
+
+    def mk_win_dist(self, build_path, dist_path):
+        mk_dir('%s/include' % dist_path)
+        for include in self.includes2install:
+            shutil.copy('%s/%s' % (self.src_dir, include),
+                        '%s/include/%s' % (dist_path, include))        
 
 # "Library" containing only .h files. This is just a placeholder for includes files to be installed.
 class HLibComponent(LibComponent):
@@ -467,6 +489,12 @@ class ExeComponent(Component):
             exefile = '%s$(EXE_EXT)' % self.exe_name
             out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
 
+    def mk_win_dist(self, build_path, dist_path):
+        if self.install:
+            mk_dir('%s/bin' % dist_path)
+            shutil.copy('%s/%s.exe' % (build_path, self.exe_name),
+                        '%s/bin/%s.exe' % (dist_path, self.exe_name))
+
 
 class DLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, export_files, reexports, install):
@@ -538,6 +566,12 @@ class DLLComponent(Component):
             out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
             out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
 
+    def mk_win_dist(self, build_path, dist_path):
+        if self.install:
+            mk_dir('%s/lib' % dist_path)
+            shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
+                        '%s/lib/%s.dll' % (dist_path, self.dll_name))
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
@@ -583,6 +617,12 @@ class DotNetDLLComponent(Component):
     def has_assembly_info(self):
         return True
 
+    def mk_win_dist(self, build_path, dist_path):
+        # Assuming all DotNET dll should be in the distribution
+        mk_dir('%s/lib' % dist_path)
+        shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
+                    '%s/lib/%s.dll' % (dist_path, self.dll_name))
+
 class ExampleComponent(Component):
     def __init__(self, name, path):
         Component.__init__(self, name, path, [])
@@ -591,6 +631,7 @@ class ExampleComponent(Component):
 
     def is_example(self):
         return True
+
 
 class CppExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -666,6 +707,21 @@ class DotNetExampleComponent(ExampleComponent):
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
+class PythonExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    # Python examples are just placeholders, we just copy the *.py files when mk_makefile is invoked.
+    # We don't need to include them in the :examples rule
+    def mk_makefile(self, out):
+        full = '%s/%s' % (EXAMPLE_DIR, self.path)
+        for py in filter(lambda f: f.endswith('.py'), os.listdir(full)):
+            shutil.copyfile('%s/%s' % (full, py), '%s/%s' % (BUILD_DIR, py))
+            if is_verbose():
+                print "Copied Z3Py example '%s' to '%s'" % (py, BUILD_DIR)
+        out.write('_ex_%s: \n\n' % self.name)
+
+
 def reg_component(name, c):
     global _Id, _Components, _ComponentNames, _Name2Component
     c.id = _Id
@@ -708,6 +764,10 @@ def add_dotnet_example(name, path=None):
     c = DotNetExampleComponent(name, path)
     reg_component(name, c)
 
+def add_z3py_example(name, path=None):
+    c = PythonExampleComponent(name, path)
+    reg_component(name, c)
+
 # Copy configuration correct file to BUILD_DIR
 def cp_config_mk():
     if IS_WINDOW:
@@ -732,7 +792,7 @@ def mk_install(out):
     out.write('\t@mkdir -p $(PREFIX)/bin\n')
     out.write('\t@mkdir -p $(PREFIX)/include\n')
     out.write('\t@mkdir -p $(PREFIX)/lib\n')
-    for c in _Components:
+    for c in get_components():
         c.mk_install(out)
     out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully installed.\n')
@@ -740,7 +800,7 @@ def mk_install(out):
 
 def mk_uninstall(out):
     out.write('uninstall:\n')
-    for c in _Components:
+    for c in get_components():
         c.mk_uninstall(out)
     out.write('\t@rm -f %s/z3*.pyc\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully uninstalled.\n')
@@ -757,7 +817,7 @@ def mk_makefile():
     out.write('include config.mk\n')
     # Generate :all rule
     out.write('all:')
-    for c in _Components:
+    for c in get_components():
         if c.main_component():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
@@ -766,12 +826,12 @@ def mk_makefile():
         out.write('\t@echo "    sudo make install"\n')
     # Generate :examples rule
     out.write('examples:')
-    for c in _Components:
+    for c in get_components():
         if c.is_example():
             out.write(' _ex_%s' % c.name)
     out.write('\n\t@echo Z3 examples were successfully built.\n')
     # Generate components
-    for c in _Components:
+    for c in get_components():
         c.mk_makefile(out)
     # Generate install/uninstall rules if not WINDOWS
     if not IS_WINDOW:
@@ -818,7 +878,13 @@ def mk_pat_db():
         print "Generated '%s/database.h'" % c.src_dir
 
 # Update version numbers
-def update_version(major, minor, build, revision):
+def update_version():
+    major = VER_MAJOR
+    minor = VER_MINOR
+    build = VER_BUILD
+    revision = VER_REVISION
+    if major == None or minor == None or build == None or revision == None:
+        raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
         update_all_assembly_infos(major, minor, build, revision)
@@ -838,7 +904,7 @@ def mk_version_dot_h(major, minor, build, revision):
 
 # Update version number in AssemblyInfo.cs files
 def update_all_assembly_infos(major, minor, build, revision):
-    for c in _Components:
+    for c in get_components():
         if c.has_assembly_info():
             assembly = '%s/%s/AssemblyInfo.cs' % (c.src_dir, c.assembly_info_dir)
             if os.path.exists(assembly):
@@ -962,7 +1028,7 @@ def mk_install_tactic_cpp(cnames, path):
 
 def mk_all_install_tactic_cpps():
     if not ONLY_MAKEFILES:
-        for c in _Components:
+        for c in get_components():
             if c.require_install_tactics():
                 cnames = []
                 cnames.extend(c.deps)
@@ -995,7 +1061,7 @@ def mk_def_file(c):
 
 def mk_def_files():
     if not ONLY_MAKEFILES:
-        for c in _Components:
+        for c in get_components():
             if c.require_def_file():
                 mk_def_file(c)
 
@@ -1273,3 +1339,11 @@ def mk_vs_proj(name, components):
     f.write('</Project>\n')
     if is_verbose():
         print "Generated '%s'" % proj_name
+
+def mk_win_dist(build_path, dist_path):
+    for c in get_components():
+        c.mk_win_dist(build_path, dist_path)
+    # Add Z3Py to lib directory
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+        shutil.copy('%s/%s' % (build_path, pyc),
+                    '%s/lib/%s' % (dist_path, pyc))

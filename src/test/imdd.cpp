@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include"imdd.h"
 
-#ifndef _AMD64_
+#if !defined(_AMD64_) && defined(Z3DEBUG)
 
 static void tst0() {
     std::cout << "--------------------------------\n";    
