@@ -761,8 +761,8 @@ namespace qe {
             }
             else {
                 for (unsigned j = i+1; j < size(); ++j) {
-                    m_vars[j-1] = m_vars[j];
-                    m_defs[j-1] = m_defs[j];
+                    m_vars.set(j-1, m_vars.get(j));
+                    m_defs.set(j-1, m_defs.get(j));
                 }
                 m_vars.pop_back();
                 m_defs.pop_back();
