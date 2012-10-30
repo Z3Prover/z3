@@ -16,8 +16,6 @@ Revision History:
 
 --*/
 #include"func_interp.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
 #include"var_subst.h"
 #include"obj_hashtable.h"
 #include"ast_pp.h"
@@ -179,71 +177,6 @@ bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
     var_subst s(m_manager, false);
     SASSERT(!s.std_order()); // (VAR 0) <- args[0], (VAR 1) <- args[1], ...
     s(m_else, m_arity, args, result);
-    return true;
-}
-
-/**
-   \brief Store in r the result of applying args to this function.
-   Return true in case of success.
-   The function may fail if m_else == 0.
-*/
-bool func_interp::eval(simplifier & s, expr * const * args, expr_ref & result) {
-    bool actuals_are_values = true;
-    
-    if (!m_entries.empty()) {
-        for (unsigned i = 0; actuals_are_values && i < m_arity; i++) {
-            actuals_are_values = m_manager.is_value(args[i]);
-        }
-    }
-
-    func_entry * entry = get_entry(args);
-    if (entry != 0) {
-        result = entry->get_result();
-        TRACE("func_interp", tout << "found entry for: "; 
-              for(unsigned i = 0; i < m_arity; i++) 
-                 tout << mk_pp(args[i], m_manager) << " "; 
-              tout << "\nresult: " << mk_pp(result, m_manager) << "\n";);
-        return true;
-    }
-    
-    TRACE("func_interp", tout << "failed to find entry for: "; 
-          for(unsigned i = 0; i < m_arity; i++) 
-             tout << mk_pp(args[i], m_manager) << " "; 
-          tout << "\nis partial: " << is_partial() << "\n";);
-    
-    if (!eval_else(args, result)) {
-        TRACE("func_interp", tout << "function is partial, failed to evaluate\n";);
-        return false;
-    }
-    
-    if (actuals_are_values && m_args_are_values) {
-        // cheap case... we are done
-        return true;
-    }
-
-
-    // build symbolic result... the actuals may be equal to the args of one of the entries.
-    basic_simplifier_plugin * bs = static_cast<basic_simplifier_plugin*>(s.get_plugin(m_manager.get_basic_family_id()));
-    ptr_vector<func_entry>::iterator it  = m_entries.begin();
-    ptr_vector<func_entry>::iterator end = m_entries.end();
-    for (; it != end; ++it) {
-        func_entry * curr = *it;
-        SASSERT(!curr->eq_args(m_arity, args));
-        if (!actuals_are_values || !curr->args_are_values()) {
-            expr_ref_buffer eqs(m_manager);
-            unsigned i = m_arity;
-            while (i > 0) {
-                --i;
-                expr_ref new_eq(m_manager);
-                bs->mk_eq(curr->get_arg(i), args[i], new_eq);
-                eqs.push_back(new_eq);
-            }
-            SASSERT(eqs.size() == m_arity);
-            expr_ref new_cond(m_manager);
-            bs->mk_and(eqs.size(), eqs.c_ptr(), new_cond);
-            bs->mk_ite(new_cond, curr->get_result(), result, result);
-        }
-    }
     return true;
 }
 

@@ -22,12 +22,12 @@ def init_project_def():
     add_lib('simplifier', ['rewriter'], 'ast/simplifier')
     # Model module should not depend on simplifier module. 
     # We must replace all occurrences of simplifier with rewriter.
-    add_lib('model', ['rewriter', 'simplifier'])
+    add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
     # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
     # However, it is still used by many old components.
-    add_lib('old_params', ['model', 'simplifier'])
-    add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params', 'simplifier'])
+    add_lib('old_params', ['simplifier'])
+    add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params'])
     add_lib('substitution', ['ast'], 'ast/substitution')
     add_lib('normal_forms', ['rewriter', 'old_params'], 'ast/normal_forms')
     add_lib('parser_util', ['ast'], 'parsers/util')
@@ -38,7 +38,8 @@ def init_project_def():
     add_lib('euclid', ['util'], 'math/euclid')
     add_lib('proof_checker', ['rewriter', 'old_params'], 'ast/proof_checker')
     add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params'], 'ast/rewriter/bit_blaster')
-    add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 
+    add_lib('proto_model', ['model', 'simplifier', 'old_params'], 'smt/proto_model')
+    add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')

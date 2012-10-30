@@ -34,7 +34,6 @@ Revision History:
 #include"ast_translation.h"
 
 class func_interp;
-class simplifier;
 
 class func_entry {
     bool   m_args_are_values; //!< true if is_value(m_args[i]) is true for all i in [0, arity)
@@ -50,10 +49,10 @@ class func_entry {
     friend class func_interp;
     
     void set_result(ast_manager & m, expr * r);
-    bool args_are_values() const { return m_args_are_values; }
     
 public:
     static func_entry * mk(ast_manager & m, unsigned arity, expr * const * args, expr * result);
+    bool args_are_values() const { return m_args_are_values; }
     void deallocate(ast_manager & m, unsigned arity);
     expr * get_result() const { return m_result; }
     expr * get_arg(unsigned idx) const { return m_args[idx]; }
@@ -81,6 +80,8 @@ public:
     func_interp(ast_manager & m, unsigned arity);
     ~func_interp();
 
+    ast_manager & m () const { return m_manager; }
+
     func_interp * copy() const;
     
     unsigned get_arity() const { return m_arity; }
@@ -88,8 +89,9 @@ public:
     bool is_partial() const { return m_else == 0; }
     // A function interpretation is said to be simple if m_else is ground.
     bool is_simple() const { return is_partial() || is_ground(m_else); }
-
     bool is_constant() const;
+    // Return true if all arguments of the function graph are values.
+    bool args_are_values() const { return m_args_are_values; }
 
     expr * get_else() const { return m_else; }
     void set_else(expr * e);
@@ -98,7 +100,6 @@ public:
     void insert_new_entry(expr * const * args, expr * r);
     func_entry * get_entry(expr * const * args) const;
     bool eval_else(expr * const * args, expr_ref & result) const;
-    bool eval(simplifier & s, expr * const * args, expr_ref & result);
     unsigned num_entries() const { return m_entries.size(); }
     func_entry const * const * get_entries() const { return m_entries.c_ptr(); }
     func_entry const * get_entry(unsigned idx) const { return m_entries[idx]; }

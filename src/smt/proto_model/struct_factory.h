@@ -48,8 +48,6 @@ public:
     virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
 
     virtual void register_value(expr * array_value);
-    
-    proto_model & get_model() { return m_model; }
 };
 
 #endif /* _STRUCT_FACTORY_H_ */

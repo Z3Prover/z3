@@ -24,6 +24,7 @@ Revision History:
 #include"well_sorted.h"
 #include"used_symbols.h"
 #include"model_v2_pp.h"
+#include"basic_simplifier_plugin.h"
 
 proto_model::proto_model(ast_manager & m, simplifier & s, model_params const & p):
     model_core(m),
@@ -113,6 +114,62 @@ expr * proto_model::mk_some_interp_for(func_decl * d) {
         register_decl(d, new_fi);
     }
     return r;
+}
+
+// Auxiliary function for computing fi(args[0], ..., args[fi.get_arity() - 1]).
+// The result is stored in result.
+// Return true if succeeded, and false otherwise.
+// It uses the simplifier s during the computation.
+bool eval(func_interp & fi, simplifier & s, expr * const * args, expr_ref & result) {
+    bool actuals_are_values = true;
+    
+    if (fi.num_entries() != 0) {
+        for (unsigned i = 0; actuals_are_values && i < fi.get_arity(); i++) {
+            actuals_are_values = fi.m().is_value(args[i]);
+        }
+    }
+
+    func_entry * entry = fi.get_entry(args);
+    if (entry != 0) {
+        result = entry->get_result();
+        return true;
+    }
+    
+    TRACE("func_interp", tout << "failed to find entry for: "; 
+          for(unsigned i = 0; i < fi.get_arity(); i++) 
+             tout << mk_pp(args[i], fi.m()) << " "; 
+          tout << "\nis partial: " << fi.is_partial() << "\n";);
+    
+    if (!fi.eval_else(args, result)) {
+        return false;
+    }
+    
+    if (actuals_are_values && fi.args_are_values()) {
+        // cheap case... we are done
+        return true;
+    }
+
+    // build symbolic result... the actuals may be equal to the args of one of the entries.
+    basic_simplifier_plugin * bs = static_cast<basic_simplifier_plugin*>(s.get_plugin(fi.m().get_basic_family_id()));
+    for (unsigned k = 0; k < fi.num_entries(); k++) {
+        func_entry const * curr = fi.get_entry(k);
+        SASSERT(!curr->eq_args(fi.get_arity(), args));
+        if (!actuals_are_values || !curr->args_are_values()) {
+            expr_ref_buffer eqs(fi.m());
+            unsigned i = fi.get_arity();
+            while (i > 0) {
+                --i;
+                expr_ref new_eq(fi.m());
+                bs->mk_eq(curr->get_arg(i), args[i], new_eq);
+                eqs.push_back(new_eq);
+            }
+            SASSERT(eqs.size() == fi.get_arity());
+            expr_ref new_cond(fi.m());
+            bs->mk_and(eqs.size(), eqs.c_ptr(), new_cond);
+            bs->mk_ite(new_cond, curr->get_result(), result, result);
+        }
+    }
+    return true;
 }
 
 /**
@@ -223,7 +280,7 @@ bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
                         SASSERT(fi->get_arity() == num_args);
                         expr_ref r1(m_manager);
                         // fi may be partial...
-                        if (!fi->eval(m_simplifier, args.c_ptr(), r1)) {
+                        if (!::eval(*fi, m_simplifier, args.c_ptr(), r1)) {
                             SASSERT(fi->is_partial()); // fi->eval only fails when fi is partial.
                             if (model_completion) {
                                 expr * r = get_some_value(f->get_range()); 
