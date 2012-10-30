@@ -235,6 +235,10 @@ def cp_vs_runtime():
     cp_vs_runtime_core(True)
     cp_vs_runtime_core(False)
 
+def cp_license():
+    shutil.copy("LICENSE.txt", "%s/%s" % (DIST_DIR, get_dist_path(True)))
+    shutil.copy("LICENSE.txt", "%s/%s" % (DIST_DIR, get_dist_path(False)))
+
 # Entry point
 def main():
     if os.name != 'nt':
@@ -245,6 +249,7 @@ def main():
     mk_z3()
     init_project_def()
     mk_dist_dir()
+    cp_license()
     cp_vs_runtime()
     mk_zip()
 
