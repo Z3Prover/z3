@@ -1,7 +1,22 @@
 RELEASE NOTES
 
-Version 4.2
-===========
+Version 4.3.0
+=============
+
+- Remark: We skipped version 4.2 due to a mistake when releasing 4.1.2. Version 4.1.2 was accidentally tagged as 4.2. 
+  Thanks to Claude Marche for reporting this issue.
+  From now on, we are also officially moving to a 3 number naming convention for version numbers. 
+  The idea is to have more frequent releases containing bug fixes. 
+
+- The Z3 codebase was reorganized, we also have a new build system.
+  In all platforms, we need Python 2.7.x installed.
+  On Windows, you can build using Visual Studio Command Prompt.
+  On Linux, OSX, Cygwin, you can build using g++. See README
+  for compilation instructions.
+
+- Removed tactic mip. It was based on code that was deleted during the code reorganization. 
+     
+- Remark: We skipped version 4.2 due to a mistake when releasing 4.1.2. It accidentatly 
 
 - Fixed compilation problems with clang/llvm. Many thanks to Xi Wang for finding the problem, and suggesting the fix. 
 
