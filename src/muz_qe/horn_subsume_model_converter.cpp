@@ -174,7 +174,7 @@ void horn_subsume_model_converter::add_default_false_interpretation(expr* e, mod
 
 
 void horn_subsume_model_converter::operator()(model_ref& mr) {
-    TRACE("dl_mc", model_smt2_pp(tout, m, *mr, 0););
+    TRACE("dl_mc", tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
     for (unsigned i = m_funcs.size(); i > 0; ) {
         --i;
         func_decl* h = m_funcs[i].get();

@@ -139,9 +139,6 @@ lbool dl_interface::query(expr * query) {
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
 
-    if (m_pdr_rules.get_rules().empty()) {
-        return l_false;
-    }
 
     m_context->set_proof_converter(pc);
     m_context->set_model_converter(mc);
@@ -149,6 +146,10 @@ lbool dl_interface::query(expr * query) {
     m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_pdr_rules);
     
+    if (m_pdr_rules.get_rules().empty()) {
+        m_context->set_unsat();
+        return l_false;
+    }
         
     while (true) {
         try {

@@ -1844,7 +1844,7 @@ namespace pdr {
             break;
         }
         case l_true: {
-            strm << mk_pp(mk_sat_answer(), m);
+            strm << mk_ismt2_pp(mk_sat_answer(), m);
             break;
         }
         case l_undef: {
