@@ -66,11 +66,8 @@ tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p) {
     main_p.set_bool(":elim-and", true);
     main_p.set_bool(":solver", true);
 
-    params_ref smt_p(p);
-    smt_p.set_bool(":auto-config", false);
-
     tactic * t = and_then(repeat(mk_ufbv_preprocessor_tactic(m, main_p), 2),
-                          using_params(mk_smt_tactic(smt_p), main_p));
+                          mk_smt_tactic_using(false, main_p));
     
     t->updt_params(p);
 
