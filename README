@@ -4,14 +4,10 @@ See http://z3.codeplex.com/license for more information about this license.
 Z3 can be built using Visual Studio Command Prompt and make/g++.
 
 1) Building Z3 on Windows using Visual Studio Command Prompt
-
-   a) If you a source distribution that comes with pre-generated 'build' directory,
-      then go to step c)
-   b) Execute
-           python scripts/mk_make.py
-   c) Execute
-           cd build
-           nmake
+   
+   python scripts/mk_make.py
+   cd build
+   nmake
 
 2) Building Z3 using make/g++ and Python
 Execute:
@@ -23,11 +19,13 @@ Execute:
    make
    sudo make install
 
-It will install z3 executable at /usr/local/bin, libraries at /usr/local/lib, and include files at /usr/local/include.
-Use the following commands to install in a different prefix (e.g., /usr).
+It will install z3 executable at /usr/bin, libraries at /usr/lib, and include files at /usr/include.
+You can change the installation p
+
+Use the following commands to install in a different prefix (e.g., /home/leo).
 
   autoconf
-  ./configure --prefix=/usr
+  ./configure --prefix=/home
   python scripts/mk_make.py
   cd build
   make
