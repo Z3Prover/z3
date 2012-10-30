@@ -638,7 +638,16 @@ namespace datalog {
 
         TRACE("dl", 
               tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
-              tout << premises[1]->get_id() << " " << mk_pp(premises[1].get(), m) << "\n";); 
+              for (unsigned i = 0; i < s1.size(); ++i) {
+                  tout << mk_pp(s1[i], m) << " ";
+              }
+              tout << "\n";
+              tout << premises[1]->get_id() << " " << mk_pp(premises[1].get(), m) << "\n";
+              for (unsigned i = 0; i < s2.size(); ++i) {
+                  tout << mk_pp(s2[i], m) << " ";
+              }
+              tout << "\n";
+              ); 
 
         pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml3, positions, substs);
         pc->insert(pr);

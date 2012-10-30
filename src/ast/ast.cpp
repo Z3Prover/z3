@@ -2883,9 +2883,9 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
     ptr_vector<expr> fmls;
     SASSERT(positions.size() + 1 == substs.size());
     for (unsigned i = 0; i < num_premises; ++i) {
-        TRACE("dl", tout << mk_pp(premises[i], *this) << "\n";);
+        TRACE("hyper_res", tout << mk_pp(premises[i], *this) << "\n";);
         fmls.push_back(get_fact(premises[i]));
-    }
+    }    
     SASSERT(is_bool(concl));
     vector<parameter> params;
     for (unsigned i = 0; i < substs.size(); ++i) {
@@ -2898,6 +2898,10 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
             params.push_back(parameter(positions[i].second));
         }
     }
+    TRACE("hyper_res", 
+          for (unsigned i = 0; i < params.size(); ++i) {
+              params[i].display(tout); tout << "\n";
+          });
     ptr_vector<sort> sorts;
     ptr_vector<expr> args;
     for (unsigned i = 0; i < num_premises; ++i) {

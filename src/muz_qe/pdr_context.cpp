@@ -42,6 +42,7 @@ Notes:
 #include "dl_mk_rule_inliner.h"
 #include "ast_smt2_pp.h"
 #include "qe_lite.h"
+#include "ast_ll_pp.h"
 
 namespace pdr {
 
@@ -398,6 +399,9 @@ namespace pdr {
         lbool is_sat = m_solver.check_conjunction_as_assumptions(n.state());
         if (is_sat == l_true && core) {            
             core->reset();
+            TRACE("pdr", tout << "updating model\n"; 
+                  model_smt2_pp(tout, m, *model, 0);
+                  tout << mk_pp(n.state(), m) << "\n";);
             n.set_model(model);
         }
         return is_sat;
@@ -758,7 +762,7 @@ namespace pdr {
         }
         r0 = const_cast<datalog::rule*>(&pt().find_rule(*m_model.get()));
         app_ref_vector& inst = pt().get_inst(r0);
-        TRACE("pdr", tout << mk_pp(state(), m) << "\n";);
+        TRACE("pdr", tout << mk_pp(state(), m) << " instance: " << inst.size() << "\n";);
         for (unsigned i = 0; i < inst.size(); ++i) {
             expr* v;
             if (model.find(inst[i].get(), v)) {
@@ -1421,6 +1425,7 @@ namespace pdr {
         proof_ref proof(m);
         SASSERT(m_last_result == l_true);
         proof = m_search.get_proof_trace(*this);
+        TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
         apply(m, m_pc.get(), proof);
         return proof;
     }
@@ -1844,7 +1849,7 @@ namespace pdr {
             break;
         }
         case l_true: {
-            strm << mk_ismt2_pp(mk_sat_answer(), m);
+            strm << mk_pp(mk_sat_answer(), m);
             break;
         }
         case l_undef: {
