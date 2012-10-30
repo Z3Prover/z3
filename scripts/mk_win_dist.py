@@ -22,6 +22,7 @@ BUILD_X64_DIR='build-dist/x64'
 BUILD_X86_DIR='build-dist/x86'
 VERBOSE=True
 DIST_DIR='dist'
+FORCE_MK=False
 
 def set_verbose(flag):
     global VERBOSE
@@ -50,15 +51,18 @@ def display_help():
     print "  -h, --help                    display this message."
     print "  -s, --silent                  do not print verbose messages."
     print "  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist)."
+    print "  -f, --force                   force script to regenerate Makefiles."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
+    global FORCE_MK
     path = BUILD_DIR
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hs', ['build=', 
-                                                                  'help',
-                                                                  'silent',
-                                                                  ])
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
+                                                                   'help',
+                                                                   'silent',
+                                                                   'force'
+                                                                   ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -68,6 +72,8 @@ def parse_options():
             set_verbose(False)
         elif opt in ('-h', '--help'):
             display_help()
+        elif opt in ('-f', '--force'):
+            FORCE_MK = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -78,7 +84,7 @@ def check_build_dir(path):
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
-    if not check_build_dir(path):
+    if not check_build_dir(path) or FORCE_MK:
         opts = ["python", "scripts/mk_make.py", "-b", path]
         if x64:
             opts.append('-x')
@@ -93,7 +99,8 @@ def mk_build_dirs():
 # Check if on Visual Studio command prompt
 def check_vc_cmd_prompt():
     try:
-        subprocess.call(['cl'], stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        DEVNULL = open(os.devnull, 'wb')
+        subprocess.call(['cl'], stdin=DEVNULL, stderr=DEVNULL)
     except:
         raise MKException("You must execute the mk_win_dist.py script on a Visual Studio Command Prompt")
 
@@ -159,14 +166,17 @@ def mk_zip_visitor(pattern, dir, files):
             if not os.path.isdir(fname):
                 ZIPOUT.write(fname)
 
-def mk_zip_core(x64):
-    global ZIPOUT
+def get_dist_path(x64):
     major, minor, build, revision = get_version()
     if x64:
         platform = "x64"
     else:
         platform = "x86"
-    dist_path = 'z3-%s.%s.%s-%s' % (major, minor, build, platform)
+    return 'z3-%s.%s.%s-%s' % (major, minor, build, platform)
+
+def mk_zip_core(x64):
+    global ZIPOUT
+    dist_path = get_dist_path(x64)
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
@@ -185,6 +195,46 @@ def mk_zip():
     mk_zip_core(False)
     mk_zip_core(True)
 
+
+VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
+                   re.compile('msvcp.*\.dll'),
+                   re.compile('msvcr.*\.dll')]
+
+VS_RUNTIME_FILES = []
+                              
+def cp_vs_runtime_visitor(pattern, dir, files):
+    global VS_RUNTIME_FILES
+    for filename in files:
+        for pat in VS_RUNTIME_PATS:
+            if pat.match(filename):
+                if fnmatch(filename, pattern):
+                    fname = os.path.join(dir, filename)
+                    if not os.path.isdir(fname):
+                        VS_RUNTIME_FILES.append(fname)
+                break
+
+# Copy Visual Studio Runtime libraries
+def cp_vs_runtime_core(x64):
+    global VS_RUNTIME_FILES
+    if x64:
+        platform = "x64"
+        
+    else:
+        platform = "x86"
+    vcdir = subprocess.check_output(['echo', '%VCINSTALLDIR%'], shell=True).rstrip('\r\n')
+    path  = '%sredist\\%s' % (vcdir, platform)
+    VS_RUNTIME_FILES = []
+    os.path.walk(path, cp_vs_runtime_visitor, '*.dll')
+    bin_dist_path = '%s/%s/bin' % (DIST_DIR, get_dist_path(x64))
+    for f in VS_RUNTIME_FILES:
+        shutil.copy(f, bin_dist_path)
+        if is_verbose():
+            print "Copied '%s' to '%s'" % (f, bin_dist_path)
+
+def cp_vs_runtime():
+    cp_vs_runtime_core(True)
+    cp_vs_runtime_core(False)
+
 # Entry point
 def main():
     if os.name != 'nt':
@@ -195,6 +245,7 @@ def main():
     mk_z3()
     init_project_def()
     mk_dist_dir()
+    cp_vs_runtime()
     mk_zip()
 
 main()

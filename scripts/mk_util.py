@@ -568,9 +568,9 @@ class DLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
-            mk_dir('%s/lib' % dist_path)
+            mk_dir('%s/bin' % dist_path)
             shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
-                        '%s/lib/%s.dll' % (dist_path, self.dll_name))
+                        '%s/bin/%s.dll' % (dist_path, self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -619,9 +619,9 @@ class DotNetDLLComponent(Component):
 
     def mk_win_dist(self, build_path, dist_path):
         # Assuming all DotNET dll should be in the distribution
-        mk_dir('%s/lib' % dist_path)
+        mk_dir('%s/bin' % dist_path)
         shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
-                    '%s/lib/%s.dll' % (dist_path, self.dll_name))
+                    '%s/bin/%s.dll' % (dist_path, self.dll_name))
 
 class ExampleComponent(Component):
     def __init__(self, name, path):
@@ -1346,4 +1346,4 @@ def mk_win_dist(build_path, dist_path):
     # Add Z3Py to lib directory
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
         shutil.copy('%s/%s' % (build_path, pyc),
-                    '%s/lib/%s' % (dist_path, pyc))
+                    '%s/bin/%s' % (dist_path, pyc))
