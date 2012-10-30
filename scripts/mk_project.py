@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 2, 0, 0)
+    set_version(4, 3, 0, 0)
     add_lib('util', [])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
@@ -17,49 +17,46 @@ def init_project_def():
     add_lib('subpaving', ['util'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
     add_lib('rewriter', ['ast', 'polynomial'], 'ast/rewriter')
-    # Simplifier module will be deleted in the future.
-    # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter'], 'ast/simplifier')
-    # Model module should not depend on simplifier module. 
-    # We must replace all occurrences of simplifier with rewriter.
     add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
+    add_lib('substitution', ['ast'], 'ast/substitution')
+    add_lib('parser_util', ['ast'], 'parsers/util')
+    add_lib('grobner', ['ast'], 'math/grobner')
+    add_lib('euclid', ['util'], 'math/euclid')
     # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
     # However, it is still used by many old components.
-    add_lib('old_params', ['simplifier'])
+    add_lib('old_params', ['ast'])
+    # Simplifier module will be deleted in the future.
+    # It has been replaced with rewriter module.
+    add_lib('simplifier', ['rewriter', 'old_params'], 'ast/simplifier')
+    add_lib('normal_forms', ['rewriter', 'simplifier'], 'ast/normal_forms')
+    add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
+    add_lib('sat_tactic', ['tactic', 'sat'], 'tactic/sat')
+    add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
+    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'tactic/nlsat')
+    add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'tactic/subpaving')
+    add_lib('aig_tactic', ['tactic'], 'tactic/aig')
     add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params'])
-    add_lib('substitution', ['ast'], 'ast/substitution')
-    add_lib('normal_forms', ['rewriter', 'old_params'], 'ast/normal_forms')
-    add_lib('parser_util', ['ast'], 'parsers/util')
+    add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser'], 'ast/pattern')
     add_lib('macros', ['simplifier', 'old_params'], 'ast/macros')
-    add_lib('grobner', ['ast'], 'math/grobner')
-    add_lib('euclid', ['util'], 'math/euclid')
     add_lib('proof_checker', ['rewriter', 'old_params'], 'ast/proof_checker')
     add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params'], 'ast/rewriter/bit_blaster')
     add_lib('proto_model', ['model', 'simplifier', 'old_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
-    add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
-    add_lib('sat_tactic', ['tactic', 'sat'], 'tactic/sat')
-    add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
-    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'tactic/nlsat')
-    add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'tactic/subpaving')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('fpa', ['core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
     add_lib('smt_tactic', ['smt'], 'tactic/smt')
-    add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
-    add_lib('aig', ['tactic'], 'tactic/aig')
     # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
     add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
-    add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic', 'aig', 'muz_qe'], 'tactic/smtlogics')
+    add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic', 'aig_tactic', 'muz_qe'], 'tactic/smtlogics')
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
-    add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
-    # TODO: delete SMT 1.0 frontend
+    add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser'],
             includes2install=['z3.h', 'z3_api.h', 'z3_v1.h', 'z3_macros.h'])
