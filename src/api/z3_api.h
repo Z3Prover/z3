@@ -5057,12 +5057,24 @@ END_MLAPI_EXCLUDE
 
        def_API('Z3_get_version', VOID, (_out(UINT), _out(UINT), _out(UINT), _out(UINT)))
     */
-    void Z3_API Z3_get_version(__out unsigned * major, 
-                               __out unsigned * minor, 
-                               __out unsigned * build_number, 
-                               __out unsigned * revision_number);
+    void Z3_API Z3_get_version(__out unsigned * major, __out unsigned * minor, __out unsigned * build_number, __out unsigned * revision_number);
+ 
+    /**
+       \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise
 
+       def_API('Z3_enable_trace', VOID, (_in(STRING),))
+    */
+    void Z3_API Z3_enable_trace(__in Z3_string tag);
 
+    /**
+       \brief Disable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
+       It is a NOOP otherwise
+
+       def_API('Z3_disable_trace', VOID, (_in(STRING),))
+    */
+    void Z3_API Z3_disable_trace(__in Z3_string tag);
+ 
 #ifdef CorML3
     /**
        \brief Reset all allocated resources. 

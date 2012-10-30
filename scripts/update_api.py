@@ -650,6 +650,7 @@ def def_APIs():
     for api_file in API_FILES:
         api = open(api_file, 'r')
         for line in api:
+            line = line.strip('\r\n\t ')
             try:
                 m = pat1.match(line)
                 if m:

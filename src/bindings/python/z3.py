@@ -37,12 +37,17 @@ Z3 exceptions:
 ...   print "failed:", ex
 failed: 'sort mismatch'
 """
-
 from z3core import *
 from z3types import *
 from z3consts import *
 from z3printer import *
 import io
+
+def enable_trace(msg):
+    Z3_enable_trace(msg)
+
+def disable_trace(msg):
+    Z3_disable_trace(msg)
 
 # We use _z3_assert instead of the assert command because we want to
 # produce nice error messages in Z3Py at rise4fun.com

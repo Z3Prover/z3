@@ -491,6 +491,16 @@ extern "C" {
         *revision_number = Z3_REVISION_NUMBER;
     }
 
+    void Z3_API Z3_enable_trace(Z3_string tag) {
+        LOG_Z3_enable_trace(tag);
+        enable_trace(tag);
+    }
+
+    void Z3_API Z3_disable_trace(Z3_string tag) {
+        LOG_Z3_disable_trace(tag);
+        disable_trace(tag);
+    }
+
     void Z3_API Z3_reset_memory(void) {
         LOG_Z3_reset_memory();
         memory::finalize();
