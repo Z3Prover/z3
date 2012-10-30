@@ -58,28 +58,24 @@ core_py.write('import ctypes\n')
 core_py.write('from z3types import *\n')
 core_py.write('from z3consts import *\n')
 core_py.write("""
-def _find_lib():
-  _dir = os.path.dirname(os.path.abspath(__file__))
-  libs = ['libz3.dll', 'libz3.so', 'libz3.dylib']
-  if sys.maxsize > 2**32:
-    locs = [_dir, '%s%s..%sx64%sexternal' % (_dir, os.sep, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
-  else:
-    locs = [_dir, '%s%s..%sexternal' % (_dir, os.sep, os.sep), '%s%s..%sbin%sexternal' % (_dir, os.sep, os.sep, os.sep)]
-  for loc in locs:
-    for lib in libs:
-      f = '%s%s%s' % (loc, os.sep, lib)
-      if os.path.exists(f):
-        return f
-  return None
-
 _lib = None
 def lib():
+  global _lib
   if _lib == None:
-    l = _find_lib()
-    if l == None:
-      raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
-    init(l)
-    assert _lib != None
+    _dir = os.path.dirname(os.path.abspath(__file__))
+    for ext in ['dll', 'so', 'dylib']:
+      try:
+        init('libz3.%s' % ext)
+        break
+      except:
+        pass
+      try:
+        init('%s%slibz3.%s' % (_dir, ext))
+        break
+      except:
+        pass
+    if _lib == None:
+        raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
 def init(PATH):
