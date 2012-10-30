@@ -1893,6 +1893,8 @@ namespace smt2 {
             if (!curr_is_rparen()) {
                 check_int("invalid push command, integer expected");
                 rational n = curr_numeral();
+                if (n.is_neg())
+                    throw parser_exception("invalid push command, value is negative.");
                 if (!n.is_unsigned())
                     throw parser_exception("invalid push command, value is too big to fit in an unsigned machine integer");
                 num = n.get_unsigned();

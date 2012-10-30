@@ -1452,7 +1452,10 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
             }
         }
         std::reverse(exs.c_ptr(), exs.c_ptr() + exs.size());
-        result = m_util.mk_concat(exs.size(), exs.c_ptr());
+        if (exs.size() == 1) 
+            result = exs[0];
+        else
+            result = m_util.mk_concat(exs.size(), exs.c_ptr());
         return BR_REWRITE3;
     } 
 
