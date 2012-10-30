@@ -126,9 +126,6 @@ void model_evaluator::setup_model(model_ref& model) {
         m_refs.push_back(e);
         assign_value(e, val);
     }
-
-    m_level1 = m1.get_level();
-    m_level2 = m2.get_level();
 }
 
 void model_evaluator::reset() {
@@ -170,11 +167,11 @@ expr_ref_vector model_evaluator::minimize_literals(ptr_vector<expr> const& formu
         tout << "formulas:\n";
         for (unsigned i = 0; i < formulas.size(); ++i) tout << mk_pp(formulas[i], m) << "\n"; 
     );
-    
-    setup_model(mdl);
+
     expr_ref_vector result(m);
     ptr_vector<expr> tocollect;
-
+    
+    setup_model(mdl);
     collect(formulas, tocollect);
     for (unsigned i = 0; i < tocollect.size(); ++i) {
         expr* e = tocollect[i];
@@ -301,8 +298,6 @@ void model_evaluator::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>
     ptr_vector<expr> todo;
     todo.append(formulas);
     m_visited.reset();
-    m1.set_level(m_level1);
-    m2.set_level(m_level2);
     
     VERIFY(check_model(formulas));
     
@@ -923,11 +918,30 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         arith_util a;
         bool m_is_dl;
 
-        // NB. ite terms are non-arihmetical but their then/else branches can be.
-        // this gets ignored (also in static_features)
+        bool is_numeric(expr* e) const {
+            if (a.is_numeral(e)) {
+                return true;
+            }
+            expr* cond, *th, *el;
+            if (m.is_ite(e, cond, th, el)) {
+                return is_numeric(th) && is_numeric(el);
+            }
+            return false;
+        }
         
         bool is_arith_expr(expr *e) const {
             return is_app(e) && a.get_family_id() == to_app(e)->get_family_id();
+        }
+
+        bool is_var_or_numeric(expr* e) const {
+            if (a.is_numeral(e)) {
+                return true;
+            }
+            expr* cond, *th, *el;
+            if (m.is_ite(e, cond, th, el)) {
+                return is_var_or_numeric(th) && is_var_or_numeric(el);
+            }
+            return !is_arith_expr(e);
         }
 
         bool is_minus_one(expr const * e) const { 
@@ -939,14 +953,14 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             SASSERT(to_app(e)->get_num_args() == 2);
             expr * lhs = to_app(e)->get_arg(0);
             expr * rhs = to_app(e)->get_arg(1);
-            if (!is_arith_expr(lhs) && !is_arith_expr(rhs)) 
+            if (is_var_or_numeric(lhs) && is_var_or_numeric(rhs)) 
                 return true;    
-            if (!a.is_numeral(rhs)) 
+            if (!is_numeric(rhs)) 
                 std::swap(lhs, rhs);
-            if (!a.is_numeral(rhs)) 
+            if (!is_numeric(rhs)) 
                 return false;    
             // lhs can be 'x' or '(+ x (* -1 y))'
-            if (!is_arith_expr(lhs))
+            if (is_var_or_numeric(lhs))
                 return true;
             expr* arg1, *arg2;
             if (!a.is_add(lhs, arg1, arg2)) 
@@ -960,7 +974,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             expr* m1, *m2;
             if (!a.is_mul(arg2, m1, m2))
                 return false;
-            return is_minus_one(m1) && !is_arith_expr(m2);
+            return is_minus_one(m1) && is_var_or_numeric(m2);
         }
 
         bool test_eq(expr* e) const {
@@ -976,13 +990,13 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         }
 
         bool test_term(expr* e) const {
-            if (!is_arith_expr(e)) {
-                return true;
-            }
             if (m.is_bool(e)) {
                 return true;
             }
             if (a.is_numeral(e)) {
+                return true;
+            }
+            if (is_var_or_numeric(e)) {
                 return true;
             }
             expr* lhs, *rhs;
@@ -990,12 +1004,23 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
                 if (!a.is_numeral(lhs)) {
                     std::swap(lhs, rhs);
                 }
-                return a.is_numeral(lhs) && !is_arith_expr(rhs);
+                return a.is_numeral(lhs) && is_var_or_numeric(rhs);
             }
             if (a.is_mul(e, lhs, rhs)) {
                 return is_minus_one(lhs) || is_minus_one(rhs);
             }
             return false;
+        }
+
+        bool is_non_arith_or_basic(expr* e) {
+            if (!is_app(e)) {
+                return false;
+            }
+            family_id fid = to_app(e)->get_family_id();
+            return 
+                fid != m.get_basic_family_id() &&
+                fid != null_family_id &&
+                fid != a.get_family_id();
         }
 
     public:
@@ -1011,8 +1036,11 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             else if (m.is_eq(e)) {
                 m_is_dl = test_eq(e);
             }
+            else if (is_non_arith_or_basic(e)) {
+                m_is_dl = false;
+            }
             else if (is_app(e)) {
-                app* a = to_app(e);
+                app* a = to_app(e);                
                 for (unsigned i = 0; m_is_dl && i < a->get_num_args(); ++i) {
                     m_is_dl = test_term(a->get_arg(i));
                 }

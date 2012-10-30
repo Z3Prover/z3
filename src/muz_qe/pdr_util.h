@@ -65,10 +65,8 @@ namespace pdr {
         //01 -- X
         //10 -- false
         //11 -- true
-        ast_fast_mark1 m1;
-        ast_fast_mark2 m2;
-        unsigned       m_level1;
-        unsigned       m_level2;
+        expr_mark      m1;
+        expr_mark      m2;
         expr_mark      m_visited;
         
 
@@ -84,7 +82,7 @@ namespace pdr {
         void inherit_value(expr* e, expr* v);
         
         inline bool is_unknown(expr* x)  { return !m1.is_marked(x) && !m2.is_marked(x); }
-        inline void set_unknown(expr* x)  { m1.reset_mark(x); m2.reset_mark(x); }
+        inline void set_unknown(expr* x)  { m1.mark(x, false); m2.mark(x, false); }
         inline bool is_x(expr* x)  { return !m1.is_marked(x) && m2.is_marked(x); }
         inline bool is_false(expr* x)  { return m1.is_marked(x) && !m2.is_marked(x); }
         inline bool is_true(expr* x)  { return m1.is_marked(x) && m2.is_marked(x); }

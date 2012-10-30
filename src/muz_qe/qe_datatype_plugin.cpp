@@ -107,6 +107,7 @@ namespace qe {
         ast_manager&     m;
         app_ref_vector   m_recognizers;
         expr_ref_vector  m_eqs;
+        expr_ref_vector  m_neqs;
         app_ref_vector   m_eq_atoms;
         app_ref_vector   m_neq_atoms;
         app_ref_vector   m_unsat_atoms;
@@ -117,7 +118,8 @@ namespace qe {
         datatype_atoms(ast_manager& m) :
             m(m), 
             m_recognizers(m),
-            m_eqs(m), 
+            m_eqs(m),
+            m_neqs(m),
             m_eq_atoms(m), m_neq_atoms(m), m_unsat_atoms(m), m_eq_conds(m),
             m_util(m) {}
         
@@ -291,6 +293,7 @@ namespace qe {
                 }
                 app* a = to_app(a0);
                 if (a == x) {
+                    m_neqs.push_back(b);
                     return true;
                 }
                 if (!m_util.is_constructor(a)) {
