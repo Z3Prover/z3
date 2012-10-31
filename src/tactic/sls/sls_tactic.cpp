@@ -31,7 +31,6 @@ Notes:
 #include"max_bv_sharing_tactic.h"
 #include"simplify_tactic.h"
 #include"stopwatch.h"
-#include"expr2dot.h"
 #include"propagate_values_tactic.h"
 #include"sls_tactic.h"
 #include"nnf_tactic.h"
@@ -1727,17 +1726,6 @@ class sls_tactic : public tactic {
         }    
 
         void operator()(goal_ref const & g, model_converter_ref & mc) {
-            //#ifdef _DEBUG
-            //ptr_vector<expr> es;
-            //for (unsigned i = 0; i < g->size(); i++)
-            //    es.push_back(g->form(i));
-            //expr_ref a(m_manager);
-            //a = m_manager.mk_and(g->size(), es.c_ptr());
-            //std::ofstream dot_out("top.dot", std::ios::out);
-            //expr2dot(dot_out, a, m_manager);
-            //dot_out.close();
-            //#endif
-
             if (g->inconsistent()) {
                 mc = 0;
                 return;
