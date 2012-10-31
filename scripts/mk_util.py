@@ -39,6 +39,7 @@ ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
+DOTNET_ENABLED=False
 
 VER_MAJOR=None
 VER_MINOR=None
@@ -101,6 +102,8 @@ if os.name == 'nt':
     IS_WINDOW=True
     # Visual Studio already displays the files being compiled
     SHOW_CPPS=False
+    # Enable .Net bindings by default on windows
+    DOTNET_ENABLED=True
 
 def display_help():
     print "mk_make.py: Z3 Makefile generator\n"
@@ -116,21 +119,23 @@ def display_help():
     print "  -c, --showcpp                 display file .cpp file names before invoking compiler."
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
+    print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvt', ['build=', 
-                                                                        'debug',
-                                                                        'silent',
-                                                                        'x64',
-                                                                        'help',
-                                                                        'makefiles',
-                                                                        'showcpp',
-                                                                        'vsproj',
-                                                                        'trace'
-                                                                        ])
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
+                                                                         'debug',
+                                                                         'silent',
+                                                                         'x64',
+                                                                         'help',
+                                                                         'makefiles',
+                                                                         'showcpp',
+                                                                         'vsproj',
+                                                                         'trace',
+                                                                         'nodotnet'
+                                                                         ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -154,6 +159,8 @@ def parse_options():
             VS_PROJ = True
         elif opt in ('-t', '--trace'):
             TRACE = True
+        elif opt in ('-n', '--nodotnet'):
+            DOTNET_ENABLED = False
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -583,7 +590,7 @@ class DotNetDLLComponent(Component):
         self.assembly_info_dir = assembly_info_dir 
 
     def mk_makefile(self, out):
-        if IS_WINDOW:
+        if DOTNET_ENABLED:
             cs_fp_files = []
             cs_files    = []
             for cs_file in get_cs_files(self.src_dir):
@@ -612,16 +619,17 @@ class DotNetDLLComponent(Component):
             return
     
     def main_component(self):
-        return IS_WINDOW
+        return DOTNET_ENABLED
 
     def has_assembly_info(self):
         return True
 
     def mk_win_dist(self, build_path, dist_path):
-        # Assuming all DotNET dll should be in the distribution
-        mk_dir('%s/bin' % dist_path)
-        shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
-                    '%s/bin/%s.dll' % (dist_path, self.dll_name))
+        if DOTNET_ENABLED:
+            # Assuming all DotNET dll should be in the distribution
+            mk_dir('%s/bin' % dist_path)
+            shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
+                        '%s/bin/%s.dll' % (dist_path, self.dll_name))
 
 class ExampleComponent(Component):
     def __init__(self, name, path):
@@ -685,7 +693,7 @@ class DotNetExampleComponent(ExampleComponent):
         return IS_WINDOW
 
     def mk_makefile(self, out):
-        if IS_WINDOW:
+        if DOTNET_ENABLED:
             dll_name = get_component(DOTNET_COMPONENT).dll_name
             dll = '%s.dll' % dll_name
             exefile = '%s.exe' % self.name
