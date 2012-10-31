@@ -145,12 +145,7 @@ namespace smt {
             unsigned          m_size;      // the real size, m_entries contains dead row_entries.
             int               m_base_var;
             int               m_first_free_idx; // first available position.
-            row():
-                m_size(0),
-                m_base_var(null_theory_var),
-                m_first_free_idx(-1) {
-            }
-
+            row();
             unsigned size() const { return m_size; }
             unsigned num_entries() const { return m_entries.size(); }
             void reset();
@@ -231,64 +226,20 @@ namespace smt {
                 return m_eq_coeffs.empty() && m_lit_coeffs.empty(); 
             }
 
-            void init() {
-                if (!m_init && !empty()) {
-                    m_params.push_back(parameter(symbol("unknown-arith")));
-                    for (unsigned i = 0; i < m_lits.size(); i++) {
-                        m_params.push_back(parameter(m_lit_coeffs[i].to_rational()));
-                    }
-                    for (unsigned i = 0; i < m_eqs.size(); i++) {
-                        m_params.push_back(parameter(m_eq_coeffs[i].to_rational()));
-                    }
-                    m_init = true;
-                }                
-            }
+            void init();
+
         public:
             antecedents(): m_init(false) {}
-                
-            void reset() { 
-                m_init = false; 
-                m_eq_coeffs.reset();
-                m_lit_coeffs.reset();
-                m_eqs.reset(); 
-                m_lits.reset(); 
-                m_params.reset(); 
-            }
-
+            void reset();
             literal_vector& lits() { return m_lits; }
-
             eq_vector& eqs() { return m_eqs; }
-            
-            void push_lit(literal l, numeral const& r) { 
-                m_lits.push_back(l);
-                if (proofs_enabled) {
-                    m_lit_coeffs.push_back(r); 
-                }
-            }
-
-            void push_eq(enode_pair const& p, numeral const& r) { 
-                m_eqs.push_back(p);
-                if (proofs_enabled) {
-                    m_eq_coeffs.push_back(r); 
-                }
-            }
-
-            
-            unsigned num_params() const { 
-                return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1;
-            }
-            
+            void push_lit(literal l, numeral const& r);
+            void push_eq(enode_pair const& p, numeral const& r);
+            unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
             numeral const* lit_coeffs() const { return m_lit_coeffs.c_ptr(); }
             numeral const* eq_coeffs() const { return m_eq_coeffs.c_ptr(); }
-            
-            parameter* params(char const* name) {
-                if (empty()) return 0;
-                init();
-                m_params[0] = parameter(symbol(name));
-                return m_params.c_ptr();
-            }
+            parameter* params(char const* name);
         };
-
 
         class bound { 
         protected:
@@ -567,15 +518,7 @@ namespace smt {
         bool above_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) > u->get_value(); }
         bool below_upper(theory_var v) const { bound * u = upper(v); return u == 0 || get_value(v) < u->get_value(); }
         bool above_lower(theory_var v) const { bound * l = lower(v); return l == 0 || get_value(v) > l->get_value(); }
-
-        bool at_bound(theory_var v) const {
-            bound * l = lower(v);
-            if (l != 0 && get_value(v) == l->get_value())
-                return true;
-            bound * u = upper(v);
-            return u != 0 && get_value(v) == u->get_value();
-        }
-
+        bool at_bound(theory_var v) const;
         bool at_lower(theory_var v) const { bound * l = lower(v); return l != 0 && get_value(v) == l->get_value(); }
         bool at_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) == u->get_value(); }
         bool is_free(theory_var v) const { return lower(v) == 0 && upper(v) == 0; }
@@ -585,33 +528,12 @@ namespace smt {
             SASSERT(get_context().e_internalized(n) && get_context().get_enode(n)->get_th_var(get_id()) != null_theory_var);
             return is_free(get_context().get_enode(n)->get_th_var(get_id())); 
         }
-
-        bool is_fixed(theory_var v) const {
-            bound * l = lower(v);
-            if (l == 0)
-                return false;
-            bound * u = upper(v);
-            if (u == 0) 
-                return false;
-            return l->get_value() == u->get_value();
-        }
-
+        bool is_fixed(theory_var v) const;
         void set_bound_core(theory_var v, bound * new_bound, bool upper) { m_bounds[static_cast<unsigned>(upper)][v] = new_bound; }
         void restore_bound(theory_var v, bound * new_bound, bool upper) { set_bound_core(v, new_bound, upper); }
         void restore_nl_propagated_flag(unsigned old_trail_size);
-        
-        void set_bound(bound * new_bound, bool upper) {
-            SASSERT(new_bound);
-            SASSERT(!upper || new_bound->get_bound_kind() == B_UPPER);
-            SASSERT(upper  || new_bound->get_bound_kind() == B_LOWER);
-            theory_var v = new_bound->get_var();
-            set_bound_core(v, new_bound, upper);
-            if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v))
-                fixed_var_eh(v);
-        }
-
+        void set_bound(bound * new_bound, bool upper);
         inf_numeral const & get_epsilon(theory_var v) const { return is_real(v) ? this->m_real_epsilon : this->m_int_epsilon; }
-        
         bool enable_cgc_for(app * n) const;
         enode * mk_enode(app * n);
         void mk_enode_if_reflect(app * n);
@@ -1171,7 +1093,7 @@ namespace smt {
         static const bool proofs_enabled = false;
         i_ext() : m_int_epsilon(1), m_real_epsilon(1) {}
     };
-    
+
     class si_ext {
     public:
         typedef s_integer  numeral;
@@ -1213,8 +1135,8 @@ namespace smt {
     typedef theory_arith<mi_ext> theory_mi_arith;
     typedef theory_arith<mi_ext_with_proofs> theory_mi_arith_w_proofs;
     typedef theory_arith<i_ext> theory_i_arith;
-    typedef theory_arith<si_ext> theory_si_arith;
-    typedef theory_arith<smi_ext> theory_smi_arith;
+    // typedef theory_arith<si_ext> theory_si_arith;
+    // typedef theory_arith<smi_ext> theory_smi_arith;
     
 };
 

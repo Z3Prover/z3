@@ -28,6 +28,13 @@ namespace smt {
     // Rows
     //
     // -----------------------------------
+
+    template<typename Ext>
+    theory_arith<Ext>::row::row():
+        m_size(0),
+        m_base_var(null_theory_var),
+        m_first_free_idx(-1) {
+    }
     
     template<typename Ext>
     void theory_arith<Ext>::row::reset() {
@@ -300,6 +307,60 @@ namespace smt {
 
     // -----------------------------------
     //
+    // Antecedents
+    //
+    // -----------------------------------
+
+    template<typename Ext>
+    void theory_arith<Ext>::antecedents::init() {
+        if (!m_init && !empty()) {
+            m_params.push_back(parameter(symbol("unknown-arith")));
+            for (unsigned i = 0; i < m_lits.size(); i++) {
+                m_params.push_back(parameter(m_lit_coeffs[i].to_rational()));
+            }
+            for (unsigned i = 0; i < m_eqs.size(); i++) {
+                m_params.push_back(parameter(m_eq_coeffs[i].to_rational()));
+            }
+            m_init = true;
+        }                
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::antecedents::reset() { 
+        m_init = false; 
+        m_eq_coeffs.reset();
+        m_lit_coeffs.reset();
+        m_eqs.reset(); 
+        m_lits.reset(); 
+        m_params.reset(); 
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::antecedents::push_lit(literal l, numeral const& r) { 
+        m_lits.push_back(l);
+        if (proofs_enabled) {
+            m_lit_coeffs.push_back(r); 
+        }
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::antecedents::push_eq(enode_pair const& p, numeral const& r) { 
+        m_eqs.push_back(p);
+        if (proofs_enabled) {
+            m_eq_coeffs.push_back(r); 
+        }
+    }
+
+    template<typename Ext>
+    parameter * theory_arith<Ext>::antecedents::params(char const* name) {
+        if (empty()) return 0;
+        init();
+        m_params[0] = parameter(symbol(name));
+        return m_params.c_ptr();
+    }
+
+    // -----------------------------------
+    //
     // Atoms
     //
     // -----------------------------------
@@ -341,6 +402,39 @@ namespace smt {
     // Auxiliary methods
     //
     // -----------------------------------
+
+    template<typename Ext>
+    bool theory_arith<Ext>::at_bound(theory_var v) const {
+        bound * l = lower(v);
+        if (l != 0 && get_value(v) == l->get_value())
+            return true;
+        bound * u = upper(v);
+        return u != 0 && get_value(v) == u->get_value();
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::is_fixed(theory_var v) const {
+        bound * l = lower(v);
+        if (l == 0)
+            return false;
+        bound * u = upper(v);
+        if (u == 0) 
+            return false;
+        return l->get_value() == u->get_value();
+    }
+
+    template<typename Ext>
+    void theory_arith<Ext>::set_bound(bound * new_bound, bool upper) {
+        SASSERT(new_bound);
+        SASSERT(!upper || new_bound->get_bound_kind() == B_UPPER);
+        SASSERT(upper  || new_bound->get_bound_kind() == B_LOWER);
+        theory_var v = new_bound->get_var();
+        set_bound_core(v, new_bound, upper);
+        if ((propagate_eqs() || propagate_diseqs()) && is_fixed(v))
+            fixed_var_eh(v);
+    }
+    
+
 
     /**
        \brief Return the col_entry that points to a base row that contains the given variable.

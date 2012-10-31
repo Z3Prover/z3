@@ -282,14 +282,14 @@ namespace smt {
         }
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants) {
-                if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8)) {
-                    TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
-                    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
-                }
-                else {
-                    TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
-                    m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-                }
+                // if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8)) {
+                //   TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
+                //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
+                // }
+                // else {
+                TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+                // }
             }
             else {
                 m_params.m_arith_bound_prop           = BP_NONE;
@@ -362,14 +362,14 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_dense_i, m_manager, m_params));
         }
         else {
-            if (st.m_arith_k_sum < rational(INT_MAX / 8)) {
-                TRACE("setup", tout << "using small integer simplex...\n";);
-                m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
-            }
-            else {
-                TRACE("setup", tout << "using big integer simplex...\n";);
-                m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
-            }
+            // if (st.m_arith_k_sum < rational(INT_MAX / 8)) {
+            //    TRACE("setup", tout << "using small integer simplex...\n";);
+            //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
+            // }
+            // else {
+            TRACE("setup", tout << "using big integer simplex...\n";);
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            // }
         }
     }
 
@@ -421,8 +421,8 @@ namespace smt {
         if (m_params.m_proof_mode != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
-        else if (st.m_arith_k_sum < rational(INT_MAX / 8))
-            m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
+        // else if (st.m_arith_k_sum < rational(INT_MAX / 8))
+        //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
         else
             m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
     }
@@ -758,12 +758,12 @@ namespace smt {
             if (m_params.m_proof_mode != PGM_DISABLED) {
                 m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
             }
-            else if (m_params.m_arith_fixnum) {
-                if (m_params.m_arith_int_only)
-                    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
-                else
-                    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
-            }
+            // else if (m_params.m_arith_fixnum) {
+            //    if (m_params.m_arith_int_only)
+            //        m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
+            //    else
+            //        m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
+            // }
             else {
                 if (m_params.m_arith_int_only)
                     m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
