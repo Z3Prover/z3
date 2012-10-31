@@ -32,10 +32,10 @@ def init_project_def():
     add_lib('simplifier', ['rewriter', 'old_params'], 'ast/simplifier')
     add_lib('normal_forms', ['rewriter', 'simplifier'], 'ast/normal_forms')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
-    add_lib('sat_tactic', ['tactic', 'sat'], 'tactic/sat')
+    add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
-    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'tactic/nlsat')
-    add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'tactic/subpaving')
+    add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
+    add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
     add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
@@ -68,9 +68,9 @@ def init_project_def():
             reexports=['api'], 
             dll_name='libz3', 
             export_files=API_files)
-    add_dot_net_dll('dotnet', ['api_dll'], 'bindings/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
-    add_hlib('cpp', 'bindings/c++', includes2install=['z3++.h'])
-    set_z3py_dir('bindings/python')
+    add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
+    add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
+    set_z3py_dir('api/python')
     # Examples
     add_cpp_example('cpp_example', 'c++') 
     add_c_example('c_example', 'c')
