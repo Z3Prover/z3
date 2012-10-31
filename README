@@ -25,7 +25,7 @@ You can change the installation p
 Use the following commands to install in a different prefix (e.g., /home/leo).
 
   autoconf
-  ./configure --prefix=/home
+  ./configure --prefix=/home/leo
   python scripts/mk_make.py
   cd build
   make
