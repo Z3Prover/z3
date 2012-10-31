@@ -110,11 +110,10 @@ namespace qe {
             m_minus_one_i(m_arith.mk_numeral(numeral(-1), true), m),
             m_zero_r(m_arith.mk_numeral(numeral(0), false), m),
             m_one_r(m_arith.mk_numeral(numeral(1), false), m),
+            m_tmp(m), 
             m_replace(mk_default_expr_replacer(m)),
             m_bool_rewriter(m),
-            m_arith_rewriter(m),
-            m_tmp(m)
-        {
+            m_arith_rewriter(m) {
         }
 
         ast_manager& get_manager() { return m; }
@@ -1817,7 +1816,6 @@ public:
             }
             --v;
             is_strict = e_size <= v;
-            bool is_eq = false;
             
             SASSERT(v < t_size + e_size);
             if (is_strict) {
@@ -1826,7 +1824,6 @@ public:
             }
             else if (m_util.is_real(x)) {
                 SASSERT(0 == (e_size & 0x1));
-                is_eq = (0 == (v & 0x1));
                 v  /= 2;
                 e_size /= 2;
             }
@@ -1896,7 +1893,6 @@ public:
             bounds_proc& bounds = get_bounds(x.x(), fml);
             bool is_lower   = bounds.le_size() + bounds.lt_size() < bounds.ge_size() + bounds.gt_size();
             unsigned e_size = bounds.e_size(is_lower);
-            unsigned t_size = bounds.t_size(is_lower);
             numeral bound1, bound2, vl, x_val;
             unsigned idx1, idx2;
             bool found1 = find_min_max(is_lower, false, bounds, model_eval, bound1, idx1);

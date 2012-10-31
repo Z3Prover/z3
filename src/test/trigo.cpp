@@ -116,6 +116,7 @@ static void tst_float_sine(std::ostream & out, unsigned N, unsigned k) {
    }
 }
 
+#if 0
 static void tst_mpf_bug() {
     mpf_manager fm;
     scoped_mpf a(fm), b(fm), c(fm);
@@ -126,6 +127,7 @@ static void tst_mpf_bug() {
     fm.mul(MPF_ROUND_TOWARD_NEGATIVE, a, b, c);
     std::cout << "c: " << fm.to_double(c) << "\n";
 }
+#endif
 
 static void tst_e(std::ostream & out) {
     unsynch_mpq_manager                 nm;     

@@ -48,7 +48,6 @@ void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& para
         bool use_magic_sets) {
 
     dl_decl_util decl_util(m);
-    relation_manager & rel_mgr_b = ctx_b.get_rmanager();
 
     context ctx_q(m, fparams);
     params.set_bool(":magic-sets-for-queries", use_magic_sets);

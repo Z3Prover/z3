@@ -23,12 +23,12 @@ static void tst1() {
     SASSERT(v1.empty());
     for (unsigned i = 0; i < 1000; i++) {
         v1.push_back(i + 3);
-        SASSERT(v1[i] == i + 3);
+        SASSERT(static_cast<unsigned>(v1[i]) == i + 3);
         SASSERT(v1.capacity() >= v1.size());
         SASSERT(!v1.empty());
     }
     for (unsigned i = 0; i < 1000; i++) {
-        SASSERT(v1[i] == i + 3);
+        SASSERT(static_cast<unsigned>(v1[i]) == i + 3);
     }
     vector<int>::iterator it = v1.begin();
     vector<int>::iterator end = v1.end();
@@ -36,7 +36,7 @@ static void tst1() {
         SASSERT(*it == i + 3);
     }
     for (unsigned i = 0; i < 1000; i++) {
-        SASSERT(v1.back() == 1000 - i - 1 + 3);
+        SASSERT(static_cast<unsigned>(v1.back()) == 1000 - i - 1 + 3);
         SASSERT(v1.size() == 1000 - i);
         v1.pop_back();
     }

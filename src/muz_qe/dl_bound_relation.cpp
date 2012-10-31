@@ -395,12 +395,10 @@ namespace datalog {
         uint_set::iterator it = t.lt.begin(), end = t.lt.end();
         unsigned_vector ltv, lev;
         for (; it != end; ++it) {
-            unsigned elem = *it;
             ltv.push_back(renaming[*it]);
         }
         it = t.le.begin(), end = t.le.end();
         for (; it != end; ++it) {
-            unsigned elem = *it;
             lev.push_back(renaming[*it]);
         }
         TRACE("dl", 

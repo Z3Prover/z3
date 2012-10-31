@@ -567,10 +567,10 @@ namespace datalog {
     public:
         eq_iterator(const equivalence_table& eq, bool end):
             m_eq(eq), 
-            m_row_obj(*this),
             m_last(eq.m_uf.get_num_vars()),
             m_current(end?m_last:0),
-            m_next(0)
+            m_next(0),
+            m_row_obj(*this)
         { 
             while (m_current < m_last && !m_eq.is_valid(m_current)) {
                 m_current++;

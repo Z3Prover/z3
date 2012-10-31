@@ -26,8 +26,8 @@ Revision History:
 namespace pdr {
 
     smt_context::smt_context(smt_context_manager& p, ast_manager& m, app* pred):
-        m_parent(p),
         m_pred(pred, m),
+        m_parent(p),
         m_in_delay_scope(false),
         m_pushed(false)
     {}
@@ -94,8 +94,12 @@ namespace pdr {
     }
 
     smt_context_manager::smt_context_manager(front_end_params& fp, params_ref const& p, ast_manager& m):
-        m_fparams(fp), m_max_num_contexts(p.get_uint(":max-num-contexts", 500)), 
-        m(m), m_num_contexts(0), m_predicate_list(m) {}
+        m_fparams(fp), 
+        m(m), 
+        m_max_num_contexts(p.get_uint(":max-num-contexts", 500)), 
+        m_num_contexts(0), 
+        m_predicate_list(m) {
+    }
     
     
     smt_context_manager::~smt_context_manager() {

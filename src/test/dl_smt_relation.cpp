@@ -179,8 +179,8 @@ namespace datalog {
         Z3_ast ffx = Z3_mk_app(ctx, cons_decl, 2, zero_fx);
         Z3_ast xy[2] = { x, y };
         Z3_ast zy[2] = { z, y };
-        Z3_ast ffxy[2] = { ffx, y };
-        Z3_ast fxy[2] = { fx, y };
+        // Z3_ast ffxy[2] = { ffx, y };
+        // Z3_ast fxy[2] = { fx, y };
         Z3_ast zero_nil[2] = { zero, Z3_mk_app(ctx, nil_decl, 0, 0) };
         Z3_ast f0 = Z3_mk_app(ctx, cons_decl, 2, zero_nil);
         Z3_ast zero_f0[2] = { zero, f0 };

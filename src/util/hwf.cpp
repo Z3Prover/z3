@@ -24,7 +24,9 @@ Revision History:
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
 #else
+#ifdef _WINDOWS
 #pragma STDC FENV_ACCESS ON
+#endif
 #include <math.h>
 #include <fenv.h>
 #endif

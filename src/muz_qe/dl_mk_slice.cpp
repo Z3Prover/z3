@@ -205,8 +205,8 @@ namespace datalog {
             expr* fact0   = m.get_fact(p0);
             TRACE("dl", tout << "fact0: " << mk_pp(fact0, m) << "\n";);
             rule* orig0    = m_sliceform2rule.find(fact0);
-            rule* slice0   = m_rule2slice.find(orig0);
-            unsigned_vector const& renaming0 = m_renaming.find(orig0);
+            /* rule* slice0   = */ m_rule2slice.find(orig0);
+            /* unsigned_vector const& renaming0 = */ m_renaming.find(orig0);
             premises.push_back(p0_new);
             rule_ref r1(rm), r2(rm), r3(rm);
             r1 = orig0;
@@ -217,8 +217,8 @@ namespace datalog {
                 expr* fact1   = m.get_fact(p1);
                 TRACE("dl", tout << "fact1: " << mk_pp(fact1, m) << "\n";);
                 rule* orig1     = m_sliceform2rule.find(fact1);
-                rule* slice1    = m_rule2slice.find(orig1);
-                unsigned_vector const& renaming1 = m_renaming.find(orig1); //TBD
+                /* rule* slice1    = */ m_rule2slice.find(orig1);
+                /* unsigned_vector const& renaming1 = */ m_renaming.find(orig1); //TBD
                 premises.push_back(p1_new);
 
                 // TODO: work with substitutions.

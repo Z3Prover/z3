@@ -82,7 +82,7 @@ namespace smtlib {
             // Hack: it seems SMT-LIB allow benchmarks without any :formula
             benchmark.add_formula(m_ast_manager.mk_true());
         }
-        m_ctx = alloc(cmd_context, m_params, true, &m_ast_manager, benchmark.get_logic());
+        m_ctx = alloc(cmd_context, &m_params, true, &m_ast_manager, benchmark.get_logic());
         m_ctx->set_solver(mk_smt_strategic_solver(*m_ctx));
         theory::expr_iterator fit  = benchmark.begin_formulas();
         theory::expr_iterator fend = benchmark.end_formulas();

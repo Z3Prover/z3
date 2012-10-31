@@ -97,7 +97,7 @@ unsigned read_smtlib2_commands(char const* file_name, front_end_params& front_en
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
-    cmd_context ctx(front_end_params);
+    cmd_context ctx(&front_end_params);
 
     // temporary hack until strategic_solver is ported to new tactic framework
     if (front_end_params.m_nlsat) {

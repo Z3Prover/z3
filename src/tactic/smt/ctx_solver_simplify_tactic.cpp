@@ -84,11 +84,9 @@ protected:
 
     void reduce(goal& g) {
         SASSERT(g.is_well_sorted());
-        bool proofs_enabled = g.proofs_enabled();
         m_num_steps = 0;
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
-        unsigned sz = g.size();
         if (g.inconsistent())
             return;
         ptr_vector<expr> fmls;

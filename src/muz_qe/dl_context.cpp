@@ -457,19 +457,18 @@ namespace datalog {
                 /*}*/
             }
             SASSERT(!rel_kinds.empty());
-            relation_plugin * rel_plugin; //the aggregate kind of non-table plugins
-            relation_signature rel_sig;
+            // relation_plugin * rel_plugin; //the aggregate kind of non-table plugins
             family_id rel_kind; //the aggregate kind of non-table plugins
             if (rel_kinds.size()==1) {
                 rel_kind = rel_kinds[0];
-                rel_plugin = rel_plugins[0];
+                // rel_plugin = rel_plugins[0];
             }
             else {
                 relation_signature rel_sig;
                 //rmgr.from_predicate(pred, rel_sig);
                 product_relation_plugin & prod_plugin = product_relation_plugin::get_plugin(rmgr);
                 rel_kind = prod_plugin.get_relation_kind(rel_sig, rel_kinds);
-                rel_plugin = &prod_plugin;
+                // rel_plugin = &prod_plugin;
             }
             if (tr_plugin==0) {
                 target_kind = rel_kind;
@@ -532,7 +531,6 @@ namespace datalog {
         rule_ref r(rules[0].get(), rm);
         get_rmanager().reset_saturated_marks();
         rule_ref_vector const& rls = m_rule_set.get_rules();
-        bool found = false;
         rule* old_rule = 0;
         for (unsigned i = 0; i < rls.size(); ++i) {
             if (rls[i]->name() == name) {
@@ -757,6 +755,9 @@ namespace datalog {
             check_existential_tail(r);
             check_positive_predicates(r);
             break;            
+        default:
+            UNREACHABLE();
+            break;
         }
     }
 
@@ -1550,6 +1551,8 @@ namespace datalog {
         }
     }
     
+#if 0
+    // [Leo] dead code?
     static func_decl* get_head_relation(ast_manager& m, expr* fml) {
         while (is_quantifier(fml)) {
             fml = to_quantifier(fml)->get_expr();            
@@ -1563,6 +1566,7 @@ namespace datalog {
             return 0;
         }
     }
+#endif
 
     void context::display_smt2(
         unsigned num_queries, 
@@ -1694,7 +1698,7 @@ namespace datalog {
                 max_vars.insert(s, max_var);
 
                 // index into fresh variable array.
-                unsigned fresh_var_idx = 0;
+                // unsigned fresh_var_idx = 0;
                 obj_map<sort, unsigned_vector>::obj_map_entry* e = var_idxs.insert_if_not_there2(s, unsigned_vector());
                 unsigned_vector& vars = e->get_data().m_value;
                 if (max_var >= vars.size()) {

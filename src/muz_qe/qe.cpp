@@ -856,8 +856,8 @@ namespace qe {
     public:
         nnf_normalizer(ast_manager& m, i_expr_pred& is_relevant, i_nnf_atom& mk_atom):
             m_nnf_core(m, is_relevant),
-            m_normalize_literals(m, is_relevant, mk_atom),
-            m_collect_atoms(m, is_relevant)
+            m_collect_atoms(m, is_relevant),
+            m_normalize_literals(m, is_relevant, mk_atom)
         {}
 
         void operator()(expr_ref& fml, atom_set& pos, atom_set& neg) {
@@ -1767,7 +1767,7 @@ namespace qe {
 
         void propagate_assignment(model_evaluator& model_eval) {
             if (m_fml) {
-                update_status st = update_current(model_eval, true);
+                /* update_status st = */ update_current(model_eval, true);
             }
         }
 
@@ -2551,7 +2551,7 @@ namespace qe {
             ) 
         {
             
-            bool is_forall = old_q->is_forall();
+            // bool is_forall = old_q->is_forall();
             app_ref_vector vars(m);
             TRACE("qe", tout << "simplifying" << mk_pp(new_body, m) << "\n";);
             result = new_body;

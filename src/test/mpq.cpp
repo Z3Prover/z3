@@ -55,6 +55,7 @@ static void tst1() {
     m.del(v3);
 }
 
+#if 0
 static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
     unsigned div_pos;
     unsigned sz = (rand() % (buffer_sz-2)) + 1;
@@ -80,6 +81,7 @@ static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
     }
     buffer[sz-1] = 0;
 }
+#endif
 
 static void bug1() {
     synch_mpq_manager m;

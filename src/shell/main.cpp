@@ -107,6 +107,8 @@ public:
         m_statistics(g_display_statistics) {
     }
 
+    virtual ~extra_params() {}
+
     virtual void register_params(ini_params & p) {
         datalog_params::register_params(p);
         p.register_bool_param("STATISTICS", m_statistics, "display statistics");

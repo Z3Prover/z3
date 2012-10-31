@@ -910,12 +910,13 @@ class sls_tactic : public tactic {
 
             void randomize_local(goal_ref const & g) {
                 ptr_vector<func_decl> & unsat_constants = get_unsat_constants(g);
-                bool did_something = false;
+                // bool did_something = false;
                 for (unsigned i = 0; i < unsat_constants.size(); i++) {
                     func_decl * fd = unsat_constants[i];
                     mpz temp = get_random(fd->get_range());
-                    if (m_mpz_manager.neq(temp, get_value(fd)))
-                        did_something = true;
+                    if (m_mpz_manager.neq(temp, get_value(fd))) {
+                        // did_something = true;
+                    }
                     update(fd, temp);
                     m_mpz_manager.del(temp);
                 }

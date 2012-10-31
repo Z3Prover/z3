@@ -113,7 +113,7 @@ static void tst7() {
     m.display_smt2(std::cout, a); std::cout << "\n";
 }
 
-//  if (!qm.le(qa, qt)) { TRACE("mpff_bug", tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); } \
+//  if (!qm.le(qa, qt)) { TRACE("mpff_bug", tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); }
 
 
 #define MK_BIN_OP(OP)                                                   \
@@ -533,10 +533,12 @@ static void tst_limits(unsigned prec) {
     SASSERT(!m.is_minus_epsilon(a));
 }
 
+#if 0
 static void tst_add_corner(unsigned prec) {
     mpff_manager m(prec);
     scoped_mpff a(m), b(m);
 }
+#endif
 
 static void tst_decimal(int64 n, uint64 d, bool to_plus_inf, unsigned prec, char const * expected, unsigned decimal_places = UINT_MAX) {
     mpff_manager m(prec);

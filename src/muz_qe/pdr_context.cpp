@@ -57,7 +57,8 @@ namespace pdr {
     // pred_tansformer
 
     pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head): 
-        ctx(ctx), pm(pm), m(pm.get_manager()), m_head(head, m), 
+        pm(pm), m(pm.get_manager()),
+        ctx(ctx), m_head(head, m), 
         m_sig(m), m_solver(pm, head->get_name()),
         m_invariants(m), m_transition(m), m_initial_state(m), 
         m_reachable(pm, pm.get_params()) {}
@@ -196,7 +197,6 @@ namespace pdr {
         tactic_ref us = mk_unit_subsumption_tactic(m);
         simplify_formulas(*us, m_invariants);
         for (unsigned i = 0; i < m_levels.size(); ++i) {
-            expr_ref_vector& v = m_levels[i];
             simplify_formulas(*us, m_levels[i]);
         }             
     }

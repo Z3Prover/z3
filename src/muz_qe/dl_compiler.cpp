@@ -168,7 +168,6 @@ namespace datalog {
         
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
             IF_VERBOSE(3, { 
-                    relation_manager& rm = m_context.get_rmanager(); 
                     expr_ref e(m_context.get_manager()); 
                     compiled_rule->to_formula(e); 
                     verbose_stream() << "Compiling unsafe rule column " << col_idx << "\n" 

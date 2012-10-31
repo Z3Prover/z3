@@ -39,6 +39,6 @@ void tst_check_assumptions()
 
     expr * assumpt[] = { nq.get(), nr.get() };
     //here it should crash
-    lbool res2 = ctx.check(2, assumpt);
+    ctx.check(2, assumpt);
 }
 

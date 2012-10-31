@@ -91,6 +91,8 @@ void disable_error_msg_prefix() {
     g_show_error_msg_prefix = false;
 }
 
+#if 0
+// [Leo]: Do we need this?
 static void string2ostream(std::ostream& out, char const* msg) {
     svector<char>  buff;
     buff.resize(10);
@@ -104,6 +106,7 @@ static void string2ostream(std::ostream& out, char const* msg) {
     END_ERR_HANDLER();
     out << buff.c_ptr();
 }
+#endif
 
 void format2ostream(std::ostream & out, char const* msg, va_list args) {
     svector<char>  buff;
@@ -147,14 +150,14 @@ void format2ostream(std::ostream & out, char const* msg, va_list args) {
 
 void print_msg(std::ostream * out, const char* prefix, const char* msg, va_list args) {
     if (out) {
-        string2ostream(*out, prefix);
+        *out << prefix;
         format2ostream(*out, msg, args);
-        string2ostream(*out, "\n");
+        *out << "\n";
         out->flush();
     }
     else {
         FILE * f = g_use_std_stdout ? stdout : stderr;
-        fprintf(f, prefix);
+        fprintf(f, "%s", prefix);
         vfprintf(f, msg, args);
         fprintf(f, "\n");
         fflush(f);

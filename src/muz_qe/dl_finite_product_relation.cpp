@@ -1001,6 +1001,9 @@ namespace datalog {
             }
         };
 
+        // [Leo]: gcc complained about the following class.
+        // It does not have a constructor and uses a reference
+#if 0
         class inner_relation_copier : public table_row_mutator_fn {
             finite_product_relation & m_tgt;
             const finite_product_relation & m_src;
@@ -1023,6 +1026,7 @@ namespace datalog {
                 return true;
             }
         };
+#endif
 
         scoped_ptr<table_union_fn> m_t_union_fun;
         offset_row_mapper * m_offset_mapper_obj; //initialized together with m_offset_mapper_fun, and deallocated by it

@@ -172,6 +172,7 @@ int random_polynomial[20][2][11] = {
     }
 };
 
+#if 0
 static void tst_square_free_finite_1() {
     polynomial::numeral_manager nm;
     polynomial::manager pm(nm);
@@ -247,7 +248,7 @@ static void tst_factor_finite_1() {
         
         // factor it
         upolynomial::zp_factors factors(upm);        
-        bool factorized = upolynomial::zp_factor(upm, K_u, factors);
+        /* bool factorized = */ upolynomial::zp_factor(upm, K_u, factors);
     
         // check the result
         unsigned distinct = factors.distinct_factors();
@@ -383,8 +384,8 @@ static void tst_factor_finite_3() {
             cout << "Got " << factors << endl;
             cout << "Thats " << distinct << " distinct factors, " << total << " total" << endl;
 
-            SASSERT(random_polynomial[random_i][0][prime_i] == distinct);
-            SASSERT(random_polynomial[random_i][1][prime_i] == total);
+            // SASSERT(random_polynomial[random_i][0][prime_i] == distinct);
+            // SASSERT(random_polynomial[random_i][1][prime_i] == total);
             
             upolynomial::numeral_vector multiplied;
             factors.multiply(multiplied);
@@ -548,7 +549,7 @@ static void tst_factor_square_free_univariate_1(unsigned max_length) {
             cout << "factoring "; upm.display(cout, f_u); cout << endl;
             cout << "expecting " << length << " factors ";
             upolynomial::factors factors(upm);
-            bool ok = upolynomial::factor_square_free(upm, f_u, factors);        
+            /* bool ok = */ upolynomial::factor_square_free(upm, f_u, factors); 
             cout << "got " << factors << endl;
             
             SASSERT(factors.distinct_factors() == length);
@@ -616,6 +617,7 @@ static void tst_factor_square_free_univariate_3() {
         
     upm.reset(deg70_u);
 }
+#endif
 
 void tst_factor_swinnerton_dyer_big(unsigned max) {
     polynomial::numeral_manager nm;

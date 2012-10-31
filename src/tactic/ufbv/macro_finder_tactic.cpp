@@ -33,7 +33,10 @@ class macro_finder_tactic : public tactic {
         bool m_cancel;
         bool m_elim_and;
 
-        imp(ast_manager & m, params_ref const & p) : m_manager(m),m_elim_and(false),m_cancel(false) {
+        imp(ast_manager & m, params_ref const & p) : 
+            m_manager(m),
+            m_cancel(false),
+            m_elim_and(false) {
             updt_params(p);
         }
         
@@ -54,7 +57,6 @@ class macro_finder_tactic : public tactic {
             fail_if_unsat_core_generation("macro-finder", g);
 
             bool produce_proofs = g->proofs_enabled();
-            bool produce_models = g->models_enabled();
 
             simplifier simp(m_manager);
             basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m_manager);

@@ -92,16 +92,16 @@ static void bug_to_rational() {
     m.to_rational(a, r);
     ad = m.to_double(a);
     rd = mq.get_double(r);
-    double diff = (ad-rd);
 #ifdef _WINDOWS    
     // CMW: This one depends on the rounding mode,
     // which is implicit in both hwf::set and in mpq::to_double.
+    double diff = (ad-rd);
     SASSERT(diff >= -DBL_EPSILON && diff <= DBL_EPSILON);
 #endif
 }
 
 static void bug_is_int() {
-    unsigned raw_val[2] = { 2147483648, 1077720461 };
+    unsigned raw_val[2] = { 2147483648u, 1077720461u };
     double   val = *(double*)(raw_val);
     std::cout << val << "\n";
     hwf_manager m;

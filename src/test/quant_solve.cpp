@@ -44,6 +44,7 @@ static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::
 }
 
 
+#if 0
 static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards) {
     return;
     // quant_elim option got removed...
@@ -73,7 +74,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
         fatal_error(0);
     }
 }
-
+#endif
 
 
 static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* fml) {
@@ -97,7 +98,7 @@ static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
     front_end_params fp;
-    cmd_context ctx(fp, false, &m);
+    cmd_context ctx(&fp, false, &m);
     ctx.set_ignore_check(true);
     std::ostringstream buffer;
     buffer << "(declare-const x Int)\n"

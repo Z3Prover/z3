@@ -300,12 +300,13 @@ public:
     }
 };
 
-cmd_context::cmd_context(front_end_params & params, bool main_ctx, ast_manager * m, symbol const & l):
+cmd_context::cmd_context(front_end_params * params, bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
-    m_params(params),
+    m_params(params == 0 ? alloc(front_end_params) : params),
+    m_params_owner(params == 0),
     m_logic(l),
     m_interactive_mode(false),
-    m_global_decls(!params.m_smtlib2_compliant), // SMTLIB 2.0 uses scoped decls.
+    m_global_decls(!this->params().m_smtlib2_compliant), // SMTLIB 2.0 uses scoped decls.
     m_print_success(false), // params.m_smtlib2_compliant), 
     m_random_seed(0),
     m_produce_unsat_cores(false),
@@ -340,6 +341,11 @@ cmd_context::~cmd_context() {
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
+    m_solver = 0;
+    m_check_sat_result = 0;
+    if (m_params_owner) {
+        dealloc(m_params);
+    }
 }
 
 cmd_context::check_sat_state cmd_context::cs_state() const {
@@ -531,10 +537,10 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, m_params.m_proof_mode, m_params.m_trace_stream);
+    m_manager  = alloc(ast_manager, params().m_proof_mode, params().m_trace_stream);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
-    if (m_params.m_smtlib2_compliant)
+    if (params().m_smtlib2_compliant)
         m_manager->enable_int_real_coercions(false);
 }
 
@@ -1240,7 +1246,7 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         init_manager();
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
-        m_solver->set_front_end_params(m_params);
+        m_solver->set_front_end_params(params());
         m_solver->set_progress_callback(this);
         m_solver->set_produce_proofs(produce_proofs());
         m_solver->set_produce_models(produce_models());
@@ -1390,7 +1396,7 @@ void cmd_context::validate_model() {
 void cmd_context::set_solver(solver * s) {
     m_check_sat_result = 0;
     m_solver = s;
-    m_solver->set_front_end_params(m_params);
+    m_solver->set_front_end_params(params());
     if (has_manager() && s != 0) {
         m_solver->init(m(), m_logic);
         // assert formulas and create scopes in the new solver.
