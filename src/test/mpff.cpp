@@ -533,10 +533,12 @@ static void tst_limits(unsigned prec) {
     SASSERT(!m.is_minus_epsilon(a));
 }
 
+#if 0
 static void tst_add_corner(unsigned prec) {
     mpff_manager m(prec);
     scoped_mpff a(m), b(m);
 }
+#endif
 
 static void tst_decimal(int64 n, uint64 d, bool to_plus_inf, unsigned prec, char const * expected, unsigned decimal_places = UINT_MAX) {
     mpff_manager m(prec);

@@ -726,6 +726,7 @@ static void tst_sturm2() {
     um.display(std::cout, seq2);
 }
 
+#if 0
 static void tst_isolate_roots2() {
     polynomial::numeral_manager nm;
     polynomial::manager m(nm);
@@ -793,6 +794,7 @@ static void tst_gcd2() {
     }
     um.display(std::cout, _p_sqf.size(), _p_sqf.c_ptr()); std::cout << "\n";
 }
+#endif 
 
 static void tst_isolate_roots5() {
     polynomial::numeral_manager nm;

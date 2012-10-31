@@ -44,6 +44,7 @@ static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::
 }
 
 
+#if 0
 static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards) {
     return;
     // quant_elim option got removed...
@@ -73,7 +74,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
         fatal_error(0);
     }
 }
-
+#endif
 
 
 static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* fml) {

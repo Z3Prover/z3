@@ -1551,6 +1551,8 @@ namespace datalog {
         }
     }
     
+#if 0
+    // [Leo] dead code?
     static func_decl* get_head_relation(ast_manager& m, expr* fml) {
         while (is_quantifier(fml)) {
             fml = to_quantifier(fml)->get_expr();            
@@ -1564,6 +1566,7 @@ namespace datalog {
             return 0;
         }
     }
+#endif
 
     void context::display_smt2(
         unsigned num_queries, 

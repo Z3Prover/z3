@@ -91,6 +91,7 @@ static void assert_conj(std::ostream & out, unsynch_mpq_manager & m, char const 
     out << "))\n";
 }
 
+#if 0
 static bool mk_interval(im_default_config & cfg, interval & a, bool l_inf, bool l_open, int l_val, bool u_inf, bool u_open, int u_val) {
     if (!l_inf && !u_inf) {
         if (l_val > u_val)
@@ -121,6 +122,7 @@ static bool mk_interval(im_default_config & cfg, interval & a, bool l_inf, bool 
     
     return true;
 }
+#endif
 
 static void mk_random_interval(im_default_config & cfg, interval & a, unsigned magnitude) {
     switch (rand()%3) {
@@ -381,6 +383,7 @@ static void tst_div(unsigned N, unsigned magnitude) {
 
 #include"im_float_config.h"
 
+#if 0
 static void tst_float() {
     unsynch_mpq_manager   qm;
     mpf_manager           fm;
@@ -414,6 +417,7 @@ static void tst_float() {
 
     del_f_interval(ifc, a); del_f_interval(ifc, b); del_f_interval(ifc, c);
 }
+#endif
 
 void tst_pi() {
     unsynch_mpq_manager                 nm;     
@@ -429,6 +433,7 @@ void tst_pi() {
     del_interval(imc, r);
 }
 
+#if 0
 static void tst_pi_float() {
     std::cout << "pi float...\n";
     unsynch_mpq_manager   qm;
@@ -446,6 +451,7 @@ static void tst_pi_float() {
     }
     del_f_interval(ifc, r);
 }
+#endif 
 
 #define NUM_TESTS 1000
 #define SMALL_MAG 3

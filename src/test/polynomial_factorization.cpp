@@ -172,6 +172,7 @@ int random_polynomial[20][2][11] = {
     }
 };
 
+#if 0
 static void tst_square_free_finite_1() {
     polynomial::numeral_manager nm;
     polynomial::manager pm(nm);
@@ -616,6 +617,7 @@ static void tst_factor_square_free_univariate_3() {
         
     upm.reset(deg70_u);
 }
+#endif
 
 void tst_factor_swinnerton_dyer_big(unsigned max) {
     polynomial::numeral_manager nm;

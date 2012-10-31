@@ -77,6 +77,7 @@ static void tst2b() {
     m.del(v3);
 }
 
+#if 0
 static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
     unsigned sz = (rand() % (buffer_sz-2)) + 1;
     SASSERT(sz < buffer_sz);
@@ -87,6 +88,7 @@ static void mk_random_num_str(unsigned buffer_sz, char * buffer) {
         buffer[0] = '-';
     buffer[sz-1] = 0;
 }
+#endif
 
 static void bug1() {
     synch_mpz_manager m;

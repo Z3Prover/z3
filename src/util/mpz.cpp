@@ -1713,18 +1713,6 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
 #endif    
 }
 
-#ifndef _MP_GMP
-static void display_bits(std::ostream & out, digit_t a) {
-    for (unsigned i = 0; i < sizeof(digit_t) * 8; i++) {
-        if (a % 2 == 0)
-            out << "0";
-        else
-            out << "1";
-        a /= 2;
-    }
-}
-#endif
-
 template<bool SYNCH>
 void mpz_manager<SYNCH>::mul2k(mpz & a, unsigned k) {
     if (k == 0 || is_zero(a))

@@ -704,6 +704,7 @@ static void tst_psc(polynomial_ref const & p, polynomial_ref const & q, polynomi
     }
 }
 
+#if 0
 static void tst_psc_perf(polynomial_ref const & p, polynomial_ref const & q, polynomial::var x) {
     polynomial::manager & m = p.m();
     polynomial_ref_vector S(m);
@@ -716,6 +717,7 @@ static void tst_psc_perf(polynomial_ref const & p, polynomial_ref const & q, pol
         std::cout << "S_" << i << ": " << m.size(S.get(i)) << std::endl; // polynomial_ref(S.get(i), m) << std::endl;
     }
 }
+#endif
 
 static void tst_psc() {
     polynomial::numeral_manager nm;
@@ -1258,6 +1260,7 @@ static void tst_translate() {
                   );
 }
 
+#if 0
 static void tst_p25() {
     unsynch_mpq_manager qm;
     polynomial::manager m(qm);
@@ -1279,6 +1282,7 @@ static void tst_p25() {
     p = (x0 + x1 + x2 + x3 + x4 + x5 + x6)^25;
     std::cout << "size(p): " << size(p) << "\n";
 }
+#endif
 
 static void tst_mm() {
     unsynch_mpq_manager qm;
@@ -1571,6 +1575,7 @@ static void tst_gcd2() {
     tst_gcd(p, p_prime, x1^4);
 }
 
+#if 0
 static void tst_gcd3() {
     enable_trace("polynomial_gcd");
     enable_trace("polynomial_gcd_detail");
@@ -1620,6 +1625,7 @@ static void tst_gcd4() {
         (1000000*x + 1)*(333333333*x + 1)*(77777777*x + 1)*(11111111*x + 1)*(x + 128384747)*(x + 82837437)*(x + 22848481);
     tst_gcd(p, derivative(p, 0), (x + 3)^9);
 }
+#endif 
 
 static void tst_newton_interpolation() {
     // enable_trace("newton");
