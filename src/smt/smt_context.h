@@ -1359,10 +1359,6 @@ namespace smt {
         
         lbool setup_and_check(bool reset_cancel = true);
         
-        lbool get_implied_equalities(
-            unsigned num_terms, expr* const* terms, unsigned* class_ids,            
-            unsigned num_assumptions = 0, expr * const * assumptions = 0);
-
         // return 'true' if assertions are inconsistent.
         bool reduce_assertions(); 
 
