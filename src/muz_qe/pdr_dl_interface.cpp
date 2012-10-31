@@ -206,6 +206,7 @@ void dl_interface::collect_params(param_descrs& p) {
     p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples by extending candidate trace within search area");
     p.insert(":unfold-rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
     p.insert(":use-model-generalizer", CPK_BOOL, "PDR: (default false) use model for backwards propagation (instead of symbolic simulation)");
+    p.insert(":validate-result", CPK_BOOL, "PDR (default false) validate result (by proof checking or model checking)");
     PRIVATE_PARAMS(p.insert(":use-multicore-generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););
     PRIVATE_PARAMS(p.insert(":use-inductive-generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening"););
     PRIVATE_PARAMS(p.insert(":use-interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation"););
