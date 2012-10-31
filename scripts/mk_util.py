@@ -503,6 +503,13 @@ class ExeComponent(Component):
                         '%s/bin/%s.exe' % (dist_path, self.exe_name))
 
 
+class ExtraExeComponent(ExeComponent):
+    def __init__(self, name, exe_name, path, deps, install):
+        ExeComponent.__init__(self, name, exe_name, path, deps, install)
+
+    def main_component(self):
+        return False
+
 class DLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, export_files, reexports, install):
         Component.__init__(self, name, path, deps)
@@ -750,6 +757,10 @@ def add_hlib(name, path=None, includes2install=[]):
 
 def add_exe(name, deps=[], path=None, exe_name=None, install=True):
     c = ExeComponent(name, exe_name, path, deps, install)
+    reg_component(name, c)
+
+def add_extra_exe(name, deps=[], path=None, exe_name=None, install=True):
+    c = ExtraExeComponent(name, exe_name, path, deps, install)
     reg_component(name, c)
 
 def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True):
