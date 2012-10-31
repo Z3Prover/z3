@@ -34,12 +34,12 @@ namespace datalog {
     bmc::bmc(context& ctx): 
         m_ctx(ctx), 
         m(ctx.get_manager()), 
-        m_cancel(false), 
         m_solver(m, m_fparams),
         m_pinned(m),
         m_rules(ctx),
         m_query_pred(m),
         m_answer(m),
+        m_cancel(false), 
         m_path_sort(m),
         m_bv(m) {
         }
@@ -794,7 +794,7 @@ namespace datalog {
             sort* pred_sort = m_pred2sort.find(p);
             path_var  = m.mk_var(0, m_path_sort);
             trace_var = m.mk_var(1, pred_sort);            
-            sort* sorts[2] = { pred_sort, m_path_sort };
+            // sort* sorts[2] = { pred_sort, m_path_sort };
             ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(pred_sort);
             ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
             SASSERT(cnstrs.size() == rls.size());
@@ -966,10 +966,10 @@ namespace datalog {
         datalog::rule_vector const& rules = m_rules.get_predicate_rules(p);
         ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(trace_sort);
         ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
-        bool found = false;
+        // bool found = false;
         for (unsigned i = 0; i < cnstrs.size(); ++i) {
             if (trace->get_decl() == cnstrs[i]) {
-                found = true;
+                // found = true;
                 svector<std::pair<unsigned, unsigned> > positions;
                 scoped_coarse_proof _sc(m);
                 proof_ref_vector prs(m);

@@ -113,7 +113,7 @@ static void tst7() {
     m.display_smt2(std::cout, a); std::cout << "\n";
 }
 
-//  if (!qm.le(qa, qt)) { TRACE("mpff_bug", tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); } \
+//  if (!qm.le(qa, qt)) { TRACE("mpff_bug", tout << fa << "\n" << qa << "\n" << qt << "\n";); UNREACHABLE(); }
 
 
 #define MK_BIN_OP(OP)                                                   \

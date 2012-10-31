@@ -20,9 +20,7 @@ void tst_model_retrieval()
 
     family_id array_fid = m.get_family_id(symbol("array"));
     array_util au(m);
-    array_decl_plugin& ad = *static_cast<array_decl_plugin *>(m.get_plugin(array_fid));
-
-
+    
     // arr_s and select_fn creation copy-pasted from z3.cpp
 
     parameter sparams[2]  = { parameter(to_sort(m.mk_bool_sort())), parameter(to_sort(m.mk_bool_sort())) };

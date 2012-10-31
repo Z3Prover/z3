@@ -92,10 +92,10 @@ static void bug_to_rational() {
     m.to_rational(a, r);
     ad = m.to_double(a);
     rd = mq.get_double(r);
-    double diff = (ad-rd);
 #ifdef _WINDOWS    
     // CMW: This one depends on the rounding mode,
     // which is implicit in both hwf::set and in mpq::to_double.
+    double diff = (ad-rd);
     SASSERT(diff >= -DBL_EPSILON && diff <= DBL_EPSILON);
 #endif
 }

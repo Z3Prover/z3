@@ -675,7 +675,7 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     inc_conflicts();
     literal_vector const& lits = m_nc_functor.get_lits();
     context & ctx = get_context();
-    region& r = ctx.get_region();
+    // region& r = ctx.get_region();
     TRACE("arith_conflict", 
           //display(tout);
           tout << "conflict: ";

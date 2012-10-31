@@ -1562,7 +1562,7 @@ void fpa2bv_converter::mk_leading_zeros(expr * e, unsigned max_bits, expr_ref & 
         L = m_bv_util.mk_extract(bv_sz/2-1, 0, e);
 
         unsigned H_size = m_bv_util.get_bv_size(H);
-        unsigned L_size = m_bv_util.get_bv_size(L);
+        // unsigned L_size = m_bv_util.get_bv_size(L);
 
         expr_ref lzH(m), lzL(m);
         mk_leading_zeros(H, max_bits, lzH); /* recursive! */

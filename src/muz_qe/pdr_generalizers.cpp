@@ -38,7 +38,7 @@ namespace pdr {
             return;
         }
         ast_manager& m = core.get_manager();
-        TRACE("pdr", for (unsigned i = 0; i < core.size(); ++i) { tout << mk_pp(core[i].get(), m) << "\n"; } "\n";);
+        TRACE("pdr", for (unsigned i = 0; i < core.size(); ++i) { tout << mk_pp(core[i].get(), m) << "\n"; });
         unsigned num_failures = 0, i = 0, old_core_size = core.size();
         ptr_vector<expr> processed;
 
@@ -109,7 +109,6 @@ namespace pdr {
     {}
     
     void core_farkas_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        front_end_params& p = m_ctx.get_fparams();
         ast_manager& m  = n.pt().get_manager();
         manager& pm = n.pt().get_pdr_manager();
         if (core.empty()) return;

@@ -31,7 +31,7 @@ static void dl_context_simple_query_test(params_ref & params) {
     context ctx(m, fparams);
     ctx.updt_params(params);
 
-    lbool status = dl_context_eval_unary_predicate(m, ctx, "Z 64\n\nP(x:Z)\nP(\"a\").", "P");
+    /* lbool status = */ dl_context_eval_unary_predicate(m, ctx, "Z 64\n\nP(x:Z)\nP(\"a\").", "P");
 
 #if 0
     // TBD:

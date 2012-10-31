@@ -268,7 +268,6 @@ static void tst4() {
 static void tst5() {
     params_ref      ps;
     nlsat::solver s(ps);
-    unsynch_mpq_manager & qm = s.qm();
     anum_manager & am = s.am();
     nlsat::pmanager & pm = s.pm();
     nlsat::assignment           as(am);

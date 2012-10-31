@@ -1382,12 +1382,12 @@ private:
             uint64_set & sort_content = *sit->m_value;
             //the +1 is for a zero element which happens to appear in the problem files
             uint64 domain_size = sort_content.size()+1;
-            sort * s;
+            // sort * s;
             if(!m_use_map_names) {
-                s = register_finite_sort(sort_name, domain_size, context::SK_UINT64);
+                /* s = */ register_finite_sort(sort_name, domain_size, context::SK_UINT64);
             }
             else {
-                s = register_finite_sort(sort_name, domain_size, context::SK_SYMBOL);
+                /* s = */ register_finite_sort(sort_name, domain_size, context::SK_SYMBOL);
             }
 
             /*

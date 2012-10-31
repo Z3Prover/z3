@@ -209,7 +209,6 @@ namespace datalog {
 
         void mk_project(vector_relation const& r, unsigned col_cnt, unsigned const* removed_cols) {
             SASSERT(is_full());
-            unsigned j = 0, k = 0;
             unsigned_vector classRep, repNode;
             unsigned result_size = get_signature().size();
             unsigned input_size = r.get_signature().size();

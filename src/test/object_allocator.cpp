@@ -55,7 +55,7 @@ static void tst1() {
     cell_allocator m;
     
     cell * c1 = m.allocate<true>();
-    cell * c2 = m.allocate<true>();
+    /* cell * c2 = */ m.allocate<true>();
 
     c1->m_coeff = rational(10);
     m.recycle(c1);

@@ -20,7 +20,9 @@ Revision History:
 --*/
 
 //disables the warning on deprecation of fgets function -- didn't really find by what it should be replaced
+#ifdef _WINDOWS
 #pragma warning(disable: 4995)
+#endif
 
 #include <sstream>
 #include "ast_smt_pp.h"

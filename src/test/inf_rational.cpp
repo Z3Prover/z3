@@ -167,8 +167,6 @@ tst_inf_rational()
     SASSERT(ceil(inf_rational(rational(1))) == rational(1));
     SASSERT(ceil(inf_rational(rational(1),true)) == rational(2));
 
-    unsigned h = r9.hash();
-
     inf_rational x(rational(1,2),true);
     inf_rational y(1,2);
     x.swap(y);

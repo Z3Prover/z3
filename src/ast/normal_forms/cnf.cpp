@@ -273,13 +273,10 @@ void cnf::reduce1_or(app * n, bool in_q) {
         if (m_params.m_cnf_mode != CNF_OPPORTUNISTIC || result_size < m_params.m_cnf_factor) {
             expr_ref_buffer  cheap_args(m_manager);
             proof_ref_buffer cheap_args_pr(m_manager);
-            bool named_args;
             if (is_too_expensive(result_size, f_args)) {
-                named_args = true;
                 name_args(f_args, cheap_args, cheap_args_pr);
             }
             else {
-                named_args = false;
                 cheap_args.append(f_args.size(), f_args.c_ptr());
             }
             

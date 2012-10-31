@@ -49,7 +49,6 @@ class ufbv_rewriter_tactic : public tactic {
             fail_if_unsat_core_generation("ufbv-rewriter", g);
 
             bool produce_proofs = g->proofs_enabled();
-            bool produce_models = g->models_enabled();
             
             basic_simplifier_plugin bsimp(m_manager);
             bsimp.set_eliminate_and(true);

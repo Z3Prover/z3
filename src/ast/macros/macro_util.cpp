@@ -225,7 +225,6 @@ bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app * & hea
    \remark n is a "polynomial".
 */
 bool macro_util::poly_contains_head(expr * n, func_decl * f, expr * exception) const {
-    expr * curr = n;
     unsigned num_args;
     expr * const * args;
     if (is_add(n)) {
@@ -734,7 +733,6 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
 
 void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args) {
     args.reset();
-    bool stop = false;
     unsigned num_args;
     expr * const * _args;
     if (is_add(n)) {
@@ -762,7 +760,6 @@ void macro_util::add_arith_macro_candidate(app * head, unsigned num_decls, expr 
 void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * atom, unsigned num_decls, bool is_ineq, macro_candidates & r) {
     if (!is_add(lhs) && m_manager.is_eq(atom)) // this case is a simple macro.
         return;
-    bool stop = false;
     ptr_buffer<expr> args;
     unsigned lhs_num_args;
     expr * const * lhs_args;

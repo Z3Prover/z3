@@ -213,12 +213,12 @@ namespace qe {
             m_projection_mode_param(true),
             m_strong_context_simplify_param(true),
             m_ctx_simplify_local_param(false),
+            m_solver(m, m_fparams),
             m_fml(m),
             m_Ms(m),
             m_assignments(m),
             m_rewriter(m),
-            m_ctx_rewriter(m_fparams, m),
-            m_solver(m, m_fparams) {            
+            m_ctx_rewriter(m_fparams, m) {            
             m_fparams.m_model = true;
         }
 

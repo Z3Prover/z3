@@ -68,7 +68,11 @@ bool is_debug_enabled(const char * tag);
 #define MAKE_NAME2(LINE) zofty_ ## LINE 
 #define MAKE_NAME(LINE) MAKE_NAME2(LINE)
 #define DBG_UNIQUE_NAME MAKE_NAME(__LINE__)
+#ifdef __GNUC__
+#define COMPILE_TIME_ASSERT(expr) extern __attribute__((unused)) char DBG_UNIQUE_NAME[expr]
+#else
 #define COMPILE_TIME_ASSERT(expr) extern char DBG_UNIQUE_NAME[expr]
+#endif
 
 template<class T>
 class class_invariant 

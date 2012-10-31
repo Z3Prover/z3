@@ -54,7 +54,6 @@ class quasi_macros_tactic : public tactic {
             fail_if_unsat_core_generation("quasi-macros", g);
 
             bool produce_proofs = g->proofs_enabled();
-            bool produce_models = g->models_enabled();
             
             simplifier simp(m_manager);
             basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m_manager);

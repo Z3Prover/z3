@@ -75,10 +75,10 @@ class tst_bv_simplifier_plugin_cls {
 public:
 
     tst_bv_simplifier_plugin_cls() : 
-        m_bv_util(m_manager), 
         m_bsimp(m_manager),
         m_arith(m_manager),
         m_simp(m_manager, m_bsimp, m_bv_params), 
+        m_bv_util(m_manager), 
         m_fid(m_manager.get_family_id("bv")) {
         reg_decl_plugins(m_manager);
     }
@@ -88,7 +88,6 @@ public:
     void test_num(unsigned a) {
         expr_ref e(m_manager), e1(m_manager);
         app_ref ar(m_manager);
-        int sa = static_cast<int>(a);
         uint64 a64 = static_cast<uint64>(a);
 
         e1 = m_bv_util.mk_numeral(rational(a), 32);

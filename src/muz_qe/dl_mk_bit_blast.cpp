@@ -130,7 +130,7 @@ namespace datalog {
 
     class mk_bit_blast::impl {
 
-        context &	         m_context;
+        context &	     m_context;
         ast_manager &        m;
         params_ref           m_params;
         rule_ref_vector      m_rules;
@@ -161,8 +161,8 @@ namespace datalog {
         impl(context& ctx):
             m_context(ctx),
             m(ctx.get_manager()),
-            m_rules(ctx.get_rule_manager()),
             m_params(ctx.get_params()),
+            m_rules(ctx.get_rule_manager()),
             m_blaster(ctx.get_manager(), m_params),
             m_rewriter(ctx.get_manager(), ctx, m_rules) {
             m_params.set_bool(":blast-full", true);

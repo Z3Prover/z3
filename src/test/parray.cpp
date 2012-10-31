@@ -112,10 +112,10 @@ static void tst2() {
           m.display_info(tout, a1); tout << "\n";
           m.display_info(tout, a2); tout << "\n";);
     for (unsigned i = 0; i < m.size(a1); i++) {
-        SASSERT(m.get(a1, i) == i);
+        SASSERT(static_cast<unsigned>(m.get(a1, i)) == i);
     }
     for (unsigned i = 0; i < m.size(a2); i++) {
-        SASSERT(m.get(a2, i) == i);
+        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i);
     }
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
@@ -161,7 +161,7 @@ static void tst3() {
     m.push_back(a4, 30);
     
     for (unsigned i = 0; i < 20; i++) {
-        SASSERT(m.get(a2, i) == i+1);
+        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i+1);
     }
     TRACE("parray", 
           m.display_info(tout, a1); tout << "\n";
@@ -182,11 +182,11 @@ static void tst3() {
     SASSERT(m.size(a3) == 19);
     SASSERT(m.size(a4) == 19);
     for (unsigned i = 0; i < 20; i++) {
-        SASSERT(m.get(a1, i) == i);
-        SASSERT(m.get(a2, i) == i+1);
-        SASSERT(i >= 18 || m.get(a4, i) == i+1);
-        SASSERT(i >= 6 || m.get(a3, i) == i+1);
-        SASSERT(!(6 <= i && i <= 17) || m.get(a3, i) == i);
+        SASSERT(static_cast<unsigned>(m.get(a1, i)) == i);
+        SASSERT(static_cast<unsigned>(m.get(a2, i)) == i+1);
+        SASSERT(i >= 18 || static_cast<unsigned>(m.get(a4, i)) == i+1);
+        SASSERT(i >= 6 ||  static_cast<unsigned>(m.get(a3, i)) == i+1);
+        SASSERT(!(6 <= i && i <= 17) || static_cast<unsigned>(m.get(a3, i)) == i);
     }
     SASSERT(m.get(a4, 18) == 30);
     SASSERT(m.get(a3, 18) == 40);

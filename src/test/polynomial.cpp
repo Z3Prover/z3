@@ -747,9 +747,6 @@ static void tst_psc() {
     polynomial_ref & d = x3;
     polynomial_ref & e = x4;
     polynomial_ref & f = x5;
-    polynomial_ref & g = x6;
-    polynomial_ref & h = x7;
-    polynomial_ref & i = x8;
     polynomial_ref & x = x9;
     tst_psc((x^4) + a*(x^2) + b*x + c, 4*(x^3) + 2*a*x + b, 9,
             16*(a^4)*c - 4*(a^3)*(b^2) - 128*(a^2)*(c^2) + 144*a*(b^2)*c - 27*(b^4) + 256*(c^3), 8*(a^3) - 32*a*c + 36*(b^2));
