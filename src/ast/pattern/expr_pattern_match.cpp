@@ -404,7 +404,7 @@ expr_pattern_match::initialize(char const * spec_string) {
 
     std::istringstream is(spec_string);
     front_end_params p;
-    cmd_context      ctx(p, true, &m_manager);
+    cmd_context      ctx(&p, true, &m_manager);
     VERIFY(parse_smt2_commands(ctx, is));
 
     ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();

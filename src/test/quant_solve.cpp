@@ -98,7 +98,7 @@ static void test_quant_solver(ast_manager& m, unsigned sz, app*const* xs, expr* 
 static expr_ref parse_fml(ast_manager& m, char const* str) {
     expr_ref result(m);
     front_end_params fp;
-    cmd_context ctx(fp, false, &m);
+    cmd_context ctx(&fp, false, &m);
     ctx.set_ignore_check(true);
     std::ostringstream buffer;
     buffer << "(declare-const x Int)\n"
