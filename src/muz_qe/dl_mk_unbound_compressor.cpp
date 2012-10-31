@@ -229,7 +229,7 @@ namespace datalog {
 
         res = m_context.get_rule_manager().mk( r->get_head(), tails.size(), tails.c_ptr(), tails_negated.c_ptr());
         res->set_accounting_parent_object(m_context, r);
-        m_context.get_rule_manager().fix_unbound_vars(res, true);
+        m_context.get_rule_manager().fix_unbound_vars(res, true);        
     }
 
     void mk_unbound_compressor::add_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index) {

@@ -43,6 +43,7 @@ Notes:
 #include "ast_smt2_pp.h"
 #include "qe_lite.h"
 #include "ast_ll_pp.h"
+#include "proof_checker.h"
 
 namespace pdr {
 
@@ -1297,6 +1298,45 @@ namespace pdr {
         }
     };
 
+    void context::validate() {
+        if (!m_params.get_bool(":validate-result", false)) {
+            return;
+        }
+        switch(m_last_result) {
+        case l_true: {
+            proof_ref pr = get_proof();
+            proof_checker checker(m);
+            expr_ref_vector side_conditions(m);
+            bool ok = checker.check(pr, side_conditions);
+            if (!ok) {
+                IF_VERBOSE(0, verbose_stream() << "proof validation failed\n";);
+            }
+            break;
+        }            
+        case l_false: {
+            expr_ref_vector refs(m);
+            model_ref model;
+            vector<relation_info> rs;
+            get_level_property(m_inductive_lvl, refs, rs);    
+            inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
+            ex.to_model(model);
+            decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
+            var_subst vs(m, false);
+            for (; it != end; ++it) {
+                ptr_vector<datalog::rule> const& rules = it->m_value->rules();
+                for (unsigned i = 0; i < rules.size(); ++i) {
+                    datalog::rule* rule = rules[i];
+                    // vs(rule->get_head(), 
+                    // apply interpretation of predicates to rule.
+                    // create formula and check for unsat.
+                }
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    }
 
     void context::reset_core_generalizers() {
         std::for_each(m_core_generalizers.begin(), m_core_generalizers.end(), delete_proc<core_generalizer>());
@@ -1371,6 +1411,7 @@ namespace pdr {
             check_quantifiers();
             IF_VERBOSE(1, verbose_stream() << "\n"; m_search.display(verbose_stream()););  
             m_last_result = l_true;
+            validate();
             return l_true;
         }
         catch (inductive_exception) {
@@ -1378,6 +1419,7 @@ namespace pdr {
             m_last_result = l_false;
             TRACE("pdr",  display_certificate(tout););      
             IF_VERBOSE(1, display_certificate(verbose_stream()););
+            validate();
             return l_false;
         }
         catch (unknown_exception) {

@@ -333,6 +333,8 @@ namespace pdr {
 
         void reset_core_generalizers();
 
+        void validate();
+
     public:       
         
         /**

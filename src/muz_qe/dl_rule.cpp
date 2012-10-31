@@ -11,9 +11,13 @@ Abstract:
 
 Author:
 
-    Leonardo de Moura (leonardo) 2010-05-17.
+    Krystof Hoder (t-khoder) 2011-10-19.
 
 Revision History:
+
+    Nikolaj Bjorner (nbjorner) 2012-10-31.
+      Check for enabledness of fix_unbound_vars inside call.
+      This function gets called from many rule tansformers.
 
 --*/
 
@@ -36,6 +40,7 @@ Revision History:
 #include"used_symbols.h"
 #include"quant_hoist.h"
 #include"expr_replacer.h"
+#include"bool_rewriter.h"
 
 namespace datalog {
 
@@ -59,7 +64,7 @@ namespace datalog {
         if (r) {
             SASSERT(r->m_ref_cnt>0);
             r->m_ref_cnt--;
-            if(r->m_ref_cnt==0) {
+            if (r->m_ref_cnt==0) {
                 r->deallocate(m);
             }
         }
@@ -202,10 +207,10 @@ namespace datalog {
         
         if (m_ctx.fix_unbound_vars()) {
             unsigned rule_cnt = rules.size();
-            for(unsigned i=0; i<rule_cnt; ++i) {
+            for (unsigned i=0; i<rule_cnt; ++i) {
                 rule_ref r(rules[i].get(), *this);
                 fix_unbound_vars(r, true);
-                if(r.get()!=rules[i].get()) {
+                if (r.get()!=rules[i].get()) {
                     rules[i] = r;
                 }
             }
@@ -252,7 +257,7 @@ namespace datalog {
         body.push_back(to_app(q));
         flatten_body(body);
         func_decl* body_pred = 0;
-        for(unsigned i = 0; i < body.size(); i++) {
+        for (unsigned i = 0; i < body.size(); i++) {
             if (is_uninterp(body[i].get())) {
                 body_pred = body[i]->get_decl();
                 break;
@@ -269,7 +274,7 @@ namespace datalog {
         qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
 
         expr_ref_vector qhead_args(m);
-        for(unsigned i = 0; i < vars.size(); i++) {
+        for (unsigned i = 0; i < vars.size(); i++) {
             qhead_args.push_back(m.mk_var(vars.size()-i-1, vars[i]));
         }
         app_ref qhead(m.mk_app(qpred, qhead_args.c_ptr()), m);
@@ -539,15 +544,15 @@ namespace datalog {
             bool  is_neg = (is_negated != 0 && is_negated[i]); 
             app * curr = tail[i];
 
-            if(is_neg && !is_predicate(curr)) {
+            if (is_neg && !is_predicate(curr)) {
                 curr = m.mk_not(curr);
                 is_neg = false;
             }
-            if(is_neg) {
+            if (is_neg) {
                 has_neg = true;
             }
             app * tail_entry = TAG(app *, curr, is_neg);
-            if(is_predicate(curr)) {
+            if (is_predicate(curr)) {
                 *uninterp_tail=tail_entry;
                 uninterp_tail++;
             }
@@ -561,13 +566,13 @@ namespace datalog {
 
         r->m_uninterp_cnt = static_cast<unsigned>(uninterp_tail - r->m_tail);
 
-        if(has_neg) {
+        if (has_neg) {
             //put negative predicates between positive and interpreted
             app * * it = r->m_tail;
             app * * end = r->m_tail + r->m_uninterp_cnt;
             while(it!=end) {
                 bool  is_neg = GET_TAG(*it)!=0;
-                if(is_neg) {
+                if (is_neg) {
                     --end;
                     std::swap(*it, *end);
                 }
@@ -610,7 +615,11 @@ namespace datalog {
 
     void rule_manager::fix_unbound_vars(rule_ref& r, bool try_quantifier_elimination) {
 
-        if(r->get_uninterpreted_tail_size()==r->get_tail_size()) {
+        if (!m_ctx.fix_unbound_vars()) {
+            return;
+        }
+
+        if (r->get_uninterpreted_tail_size() == r->get_tail_size()) {
             //no interpreted tail to fix
             return;
         }
@@ -640,17 +649,13 @@ namespace datalog {
         unsigned t_len = r->get_tail_size();
         for (unsigned i = ut_len; i < t_len; i++) {
             app * t = r->get_tail(i);
-
             interp_vars.reset();
-
             ::get_free_vars(t, interp_vars);
-            //collect_vars(m, t, interp_vars);
-
             bool has_unbound = false;
             unsigned iv_size = interp_vars.size();
-            for(unsigned i=0; i<iv_size; i++) {
-                if(!interp_vars[i]) { continue; }
-                if(vctr.get(i)==0) {
+            for (unsigned i=0; i<iv_size; i++) {
+                if (!interp_vars[i]) { continue; }
+                if (vctr.get(i)==0) {
                     has_unbound = true;
                     unbound_vars.insert(i);
                 }
@@ -670,13 +675,7 @@ namespace datalog {
             return;
         }
         expr_ref unbound_tail(m);
-        switch(tails_with_unbound.size()) {
-        case 0: unbound_tail = m.mk_true(); break;
-        case 1: unbound_tail = tails_with_unbound[0].get(); break;
-        default: 
-            unbound_tail = m.mk_and(tails_with_unbound.size(), tails_with_unbound.c_ptr());
-            break;
-        }
+        bool_rewriter(m).mk_and(tails_with_unbound.size(), tails_with_unbound.c_ptr(), unbound_tail);
 
         unsigned q_var_cnt = unbound_vars.num_elems();
         unsigned max_var = m_var_counter.get_max_var(*r);
@@ -687,15 +686,15 @@ namespace datalog {
         qsorts.resize(q_var_cnt);
 
         unsigned q_idx = 0;
-        for(unsigned v = 0; v <= max_var; ++v) {
+        for (unsigned v = 0; v <= max_var; ++v) {
             sort * v_sort = free_rule_vars[v];
-            if(!v_sort) {
+            if (!v_sort) {
                 //this variable index is not used
                 continue;
             }
 
             unsigned new_idx;
-            if(unbound_vars.contains(v)) {
+            if (unbound_vars.contains(v)) {
                 new_idx = q_idx++;
                 qsorts.push_back(v_sort);
             }
@@ -704,27 +703,24 @@ namespace datalog {
             }
             subst.push_back(m.mk_var(new_idx, v_sort));
         }
-        SASSERT(q_idx==q_var_cnt);
+        SASSERT(q_idx == q_var_cnt);
 
         svector<symbol> qnames;
-        for(unsigned i=0; i<q_var_cnt; i++) {
+        for (unsigned i = 0; i < q_var_cnt; i++) {
             qnames.push_back(symbol(i));
         }
         //quantifiers take this reversed
         qsorts.reverse();
         qnames.reverse();
 
-        expr_ref unbound_tail_pre_quant(m);
+        expr_ref unbound_tail_pre_quant(m), fixed_tail(m), quant_tail(m);
 
         var_subst vs(m, false);
         vs(unbound_tail, subst.size(), subst.c_ptr(), unbound_tail_pre_quant);
 
-        expr_ref quant_tail(m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(),
-            unbound_tail_pre_quant), m);
+        quant_tail = m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(), unbound_tail_pre_quant);
 
-        expr_ref fixed_tail(m);
-
-        if(try_quantifier_elimination) {
+        if (try_quantifier_elimination) {
             TRACE("dl_rule_unbound_fix_pre_qe", 
                 tout<<"rule: ";
                 r->display(m_ctx, tout);
@@ -748,12 +744,12 @@ namespace datalog {
             tout<<"fixed tail: "<<mk_pp(fixed_tail, m)<<"\n";
         );
 
-        if(is_var(fixed_tail) || ::is_quantifier(fixed_tail)) {
+        if (is_var(fixed_tail) || ::is_quantifier(fixed_tail)) {
             fixed_tail = m.mk_eq(fixed_tail, m.mk_true());
         }
         SASSERT(is_app(fixed_tail));
 
-        if(!m.is_true(fixed_tail.get())) {
+        if (!m.is_true(fixed_tail.get())) {
             tail.push_back(to_app(fixed_tail.get()));
             tail_neg.push_back(false);
         }
@@ -829,7 +825,7 @@ namespace datalog {
     bool rule::is_in_tail(const func_decl * p, bool only_positive) const {
         unsigned len = only_positive ? get_positive_tail_size() : get_uninterpreted_tail_size();
         for (unsigned i = 0; i < len; i++) {
-            if(get_tail(i)->get_decl()==p) {
+            if (get_tail(i)->get_decl()==p) {
                 return true;
             }
         }
@@ -843,7 +839,7 @@ namespace datalog {
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
-            if(is_uninterp(n)) {
+            if (is_uninterp(n)) {
                 m_found = true;
                 m_func = n->get_decl();
             }
@@ -860,7 +856,7 @@ namespace datalog {
         unsigned sz = get_tail_size();
         uninterpreted_function_finder_proc proc;
         expr_mark visited;
-        for(unsigned i = get_uninterpreted_tail_size(); i < sz && !proc.found(f); ++i) {
+        for (unsigned i = get_uninterpreted_tail_size(); i < sz && !proc.found(f); ++i) {
             for_each_expr(proc, visited, get_tail(i));
         }
         return proc.found(f);
@@ -872,7 +868,7 @@ namespace datalog {
         quantifier_finder_proc() : m_exist(false), m_univ(false) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) {
-            if(n->is_forall()) {
+            if (n->is_forall()) {
                 m_univ = true;
             }
             else {
@@ -891,7 +887,7 @@ namespace datalog {
         unsigned sz = get_tail_size();
         quantifier_finder_proc proc;
         expr_mark visited;
-        for(unsigned i = get_uninterpreted_tail_size(); i < sz; ++i) {
+        for (unsigned i = get_uninterpreted_tail_size(); i < sz; ++i) {
             for_each_expr(proc, visited, get_tail(i));
         }
         existential = proc.m_exist;
@@ -934,9 +930,9 @@ namespace datalog {
 
         unsigned next_fresh_var = 0;
         expr_ref_vector subst_vals(m);
-        for(unsigned i=0; i<first_unsused; ++i) {
+        for (unsigned i=0; i<first_unsused; ++i) {
             sort* var_srt = used.contains(i);
-            if(var_srt) {
+            if (var_srt) {
                 subst_vals.push_back(m.mk_var(next_fresh_var++, var_srt));
             }
             else {
@@ -980,7 +976,7 @@ namespace datalog {
             if (is_neg_tail(i))
                 out << "not ";
             app * t = get_tail(i);
-            if(ctx.get_rule_manager().is_predicate(t)) {
+            if (ctx.get_rule_manager().is_predicate(t)) {
                 output_predicate(ctx, t, out);
             }
             else {
@@ -988,7 +984,7 @@ namespace datalog {
             }
         }
         out << '.';
-        if(ctx.output_profile()) {
+        if (ctx.output_profile()) {
             out << " {";
             output_profile(ctx, out);
             out << '}';
@@ -1050,16 +1046,16 @@ namespace datalog {
     }
 
     bool rule_eq_proc::operator()(const rule * r1, const rule * r2) const {
-        if(r1->get_head()!=r2->get_head()) { return false; }
+        if (r1->get_head()!=r2->get_head()) { return false; }
         unsigned tail_len = r1->get_tail_size();
-        if(r2->get_tail_size()!=tail_len) {
+        if (r2->get_tail_size()!=tail_len) {
             return false;
         }
-        for(unsigned i=0; i<tail_len; ++i) {
-            if(r1->get_tail(i)!=r2->get_tail(i)) {
+        for (unsigned i=0; i<tail_len; ++i) {
+            if (r1->get_tail(i)!=r2->get_tail(i)) {
                 return false;
             }
-            if(r1->is_neg_tail(i)!=r2->is_neg_tail(i)) {
+            if (r1->is_neg_tail(i)!=r2->is_neg_tail(i)) {
                 return false;
             }
         }
@@ -1069,7 +1065,7 @@ namespace datalog {
     unsigned rule::hash() const {
         unsigned res = get_head()->hash();
         unsigned tail_len = get_tail_size();
-        for(unsigned i=0; i<tail_len; ++i) {
+        for (unsigned i=0; i<tail_len; ++i) {
             res = combine_hash(res, combine_hash(get_tail(i)->hash(), is_neg_tail(i)));
         }
         return res;

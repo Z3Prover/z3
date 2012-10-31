@@ -166,6 +166,7 @@ namespace datalog {
         res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
         res->set_accounting_parent_object(m_context, r);
         m_context.get_rule_manager().fix_unbound_vars(res, true);
+        
         return true;
     }
 

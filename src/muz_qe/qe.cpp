@@ -1767,7 +1767,7 @@ namespace qe {
 
         void propagate_assignment(model_evaluator& model_eval) {
             if (m_fml) {
-                /* update_status st = */ update_current(model_eval, true);
+                update_current(model_eval, true);
             }
         }
 

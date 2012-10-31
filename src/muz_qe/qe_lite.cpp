@@ -474,6 +474,9 @@ public:
     impl(ast_manager& m): m(m), m_der(m) {}
     
     void operator()(app_ref_vector& vars, expr_ref& fml) {
+        if (vars.empty()) {
+            return;
+        }
         expr_ref tmp(fml);
         quantifier_ref q(m);
         proof_ref pr(m);     
