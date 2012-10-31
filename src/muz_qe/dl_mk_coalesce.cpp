@@ -179,9 +179,7 @@ namespace datalog {
         }
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
-        // bool change = false;
         for (; it != end; ++it) {
-            // func_decl* p = it->m_key;
             rule_ref_vector d_rules(rm);
             d_rules.append(it->m_value->size(), it->m_value->c_ptr());
             for (unsigned i = 0; i < d_rules.size(); ++i) {
@@ -191,7 +189,6 @@ namespace datalog {
                         merge_rules(r1, *d_rules[j].get());
                         d_rules[j] = d_rules.back();
                         d_rules.pop_back();
-                        // change = true;
                         --j;
                     }
                 }

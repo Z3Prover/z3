@@ -1041,7 +1041,6 @@ private:
         for (unsigned i = 0; i < edges.size(); ++i) {
             
             potential0 += m_edges[edges[i]].get_weight();
-            // numeral potential1 = potentials[i];
             if (potential0 != potentials[i] || 
                 nodes[i] != m_edges[edges[i]].get_source()) {
                 TRACE("diff_logic_traverse", tout << "checking index " << i << " ";

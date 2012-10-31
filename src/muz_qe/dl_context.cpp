@@ -969,7 +969,8 @@ namespace datalog {
         
         p.insert(":fix-unbound-vars", CPK_BOOL, "fix unbound variables in tail");
         p.insert(":default-table-checker", CPK_SYMBOL, "see :default-table-checked");
-        p.insert(":inline-linear", CPK_BOOL, "try linear inlining method");
+        p.insert(":inline-linear", CPK_BOOL, "(default true) try linear inlining method");
+        p.insert(":inline-eager", CPK_BOOL, "(default true) try eager inlining of rules");
         PRIVATE_PARAMS(p.insert(":inline-linear-branch", CPK_BOOL, "try linear inlining method with potential expansion"););
 
         pdr::dl_interface::collect_params(p);
@@ -1551,23 +1552,6 @@ namespace datalog {
         }
     }
     
-#if 0
-    // [Leo] dead code?
-    static func_decl* get_head_relation(ast_manager& m, expr* fml) {
-        while (is_quantifier(fml)) {
-            fml = to_quantifier(fml)->get_expr();            
-        }
-        expr* f1;
-        while (m.is_implies(fml, f1, fml)) {};
-        if (is_app(fml)) {
-            return to_app(fml)->get_decl();
-        }
-        else {
-            return 0;
-        }
-    }
-#endif
-
     void context::display_smt2(
         unsigned num_queries, 
         expr* const* queries, 

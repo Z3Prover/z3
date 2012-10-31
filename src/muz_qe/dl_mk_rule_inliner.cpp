@@ -17,6 +17,7 @@ Revision History:
 
     Added linear_inline 2012-9-10 (nbjorner)
 
+    Disable inliner for quantified rules 2012-10-31 (nbjorner)
     
 Notes:
 
@@ -118,9 +119,7 @@ namespace datalog {
         res = m_rm.mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
         res->set_accounting_parent_object(m_context, const_cast<rule*>(&tgt));
         res->norm_vars(m_rm);
-        if (m_context.fix_unbound_vars()) {
-            m_rm.fix_unbound_vars(res, true);
-        }
+        m_rm.fix_unbound_vars(res, true);        
         if (m_interp_simplifier.transform_rule(res.get(), simpl_rule)) {
             res = simpl_rule;
             return true;
@@ -164,9 +163,7 @@ namespace datalog {
 
         tgt.norm_vars(m_context.get_rule_manager());
 
-        if (has_quantifier(src)) {
-            return false;
-        }
+        SASSERT(!has_quantifier(src));
 
         if (!m_unifier.unify_rules(tgt, tail_index, src)) {
             return false;
@@ -433,9 +430,7 @@ namespace datalog {
 
             for  (; i < pt_len && !inlining_allowed(r->get_decl(i)); ++i) {};
 
-            if (has_quantifier(*r.get())) {
-                continue;
-            }
+            SASSERT(!has_quantifier(*r.get()));
 
             if (i == pt_len) {
                 //there's nothing we can inline in this rule
@@ -842,10 +837,19 @@ namespace datalog {
         bool something_done = false;
         ref<horn_subsume_model_converter> hsmc;        
         ref<replace_proof_converter> hpc;
+        params_ref const& params = m_context.get_params();
 
         if (source.get_num_rules() == 0) {
             return 0;
         }
+
+        rule_set::iterator end = source.end();
+        for (rule_set::iterator it = source.begin(); it != end; ++ it) {
+            if (has_quantifier(**it)) {
+                return 0;
+            }
+        }
+        
 
         if (mc) {
             hsmc = alloc(horn_subsume_model_converter, m);
@@ -858,18 +862,18 @@ namespace datalog {
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
 
-        plan_inlining(source);
-
-        something_done = transform_rules(source, *res);
-
-        VERIFY(res->close()); //this transformation doesn't break the negation stratification
-
-        // try eager inlining
-        if (do_eager_inlining(res)) {
-            something_done = true;
+        if (params.get_bool(":inline-eager", true)) {
+            TRACE("dl", source.display(tout << "before eager inlining\n"););
+            plan_inlining(source);            
+            something_done = transform_rules(source, *res);            
+            VERIFY(res->close()); //this transformation doesn't break the negation stratification
+            // try eager inlining
+            if (do_eager_inlining(res)) {
+                something_done = true;
+            }
+            TRACE("dl", res->display(tout << "after eager inlining\n"););
         }
 
-        params_ref const& params = m_context.get_params();
         if (params.get_bool(":inline-linear", true) && inline_linear(res)) {
             something_done = true;
         }

@@ -307,7 +307,7 @@ lbool interpolant_provider_impl::get_interpolant(expr * f1, expr * f2, expr_ref&
     }
 
     front_end_params dummy_params;
-    cmd_context cctx(dummy_params, false, &m);
+    cmd_context cctx(&dummy_params, false, &m);
     for_each_expr(used_symbol_inserter(cctx), f1);
 
     parse_smt2_commands(cctx, std::istringstream(res_text), false);

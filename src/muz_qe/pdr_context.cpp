@@ -43,6 +43,7 @@ Notes:
 #include "ast_smt2_pp.h"
 #include "qe_lite.h"
 #include "ast_ll_pp.h"
+#include "proof_checker.h"
 
 namespace pdr {
 
@@ -1306,7 +1307,7 @@ namespace pdr {
             proof_ref pr = get_proof();
             proof_checker checker(m);
             expr_ref_vector side_conditions(m);
-            bool ok = check(pr, side_conditions);
+            bool ok = checker.check(pr, side_conditions);
             if (!ok) {
                 IF_VERBOSE(0, verbose_stream() << "proof validation failed\n";);
             }
