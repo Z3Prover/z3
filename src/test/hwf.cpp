@@ -101,7 +101,7 @@ static void bug_to_rational() {
 }
 
 static void bug_is_int() {
-    unsigned raw_val[2] = { 2147483648, 1077720461 };
+    unsigned raw_val[2] = { 2147483648u, 1077720461u };
     double   val = *(double*)(raw_val);
     std::cout << val << "\n";
     hwf_manager m;
