@@ -43,8 +43,8 @@ public:
     void reset_cancel() { set_cancel(false); }
     virtual void set_cancel(bool f) = 0;
     virtual unsigned get_num_steps() const { return 0; }
-
-
+    virtual void reset() = 0;
+    
     void apply_substitution(expr * s, expr * def, proof * def_pr, expr_ref & t);
     void apply_substitution(expr * s, expr * def, expr_ref & t);
 };

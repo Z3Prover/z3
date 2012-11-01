@@ -114,6 +114,10 @@ public:
     virtual unsigned get_num_steps() const {
         return m_replacer.get_num_steps();
     }
+
+    virtual void reset() {
+        m_replacer.reset();
+    }
 };
 
 expr_replacer * mk_default_expr_replacer(ast_manager & m) {
@@ -149,6 +153,11 @@ public:
     virtual unsigned get_num_steps() const { 
         return m_r.get_num_steps();
     }
+
+    virtual void reset() {
+        m_r.reset();
+    }
+
 };
 
 expr_replacer * mk_expr_simp_replacer(ast_manager & m, params_ref const & p) {
