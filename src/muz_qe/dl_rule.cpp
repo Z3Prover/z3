@@ -41,6 +41,7 @@ Revision History:
 #include"quant_hoist.h"
 #include"expr_replacer.h"
 #include"bool_rewriter.h"
+#include"qe_lite.h"
 
 namespace datalog {
 
@@ -613,14 +614,67 @@ namespace datalog {
         return r;
     }
 
+    void rule_manager::reduce_unbound_vars(rule_ref& r) {
+        unsigned ut_len = r->get_uninterpreted_tail_size();
+        unsigned t_len = r->get_tail_size();
+        ptr_vector<sort> vars;
+        uint_set index_set;
+        qe_lite qe(m);
+        expr_ref_vector conjs(m);
+
+        if (ut_len == t_len) {
+            return;
+        }
+
+        get_free_vars(r->get_head(), vars);
+        for (unsigned i = 0; i < ut_len; ++i) {
+            get_free_vars(r->get_tail(i), vars);
+        }
+        for (unsigned i = ut_len; i < t_len; ++i) {
+            conjs.push_back(r->get_tail(i));
+        }
+
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            if (vars[i]) {
+                index_set.insert(i);
+            }
+        }
+        qe(index_set, false, conjs);
+        bool change = conjs.size() != t_len - ut_len;
+        for (unsigned i = 0; !change && i < conjs.size(); ++i) {
+            change = r->get_tail(ut_len+i) != conjs[i].get();
+        }
+        if (change) {
+            app_ref_vector tail(m);
+            svector<bool> tail_neg;
+            for (unsigned i = 0; i < ut_len; ++i) {
+                tail.push_back(r->get_tail(i));
+                tail_neg.push_back(r->is_neg_tail(i));
+            }
+            for (unsigned i = 0; i < conjs.size(); ++i) {
+                tail.push_back(ensure_app(conjs[i].get()));
+            }
+            tail_neg.resize(tail.size(), false);
+            IF_VERBOSE(1, r->display(m_ctx, verbose_stream() << "reducing rule\n"););
+            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+            IF_VERBOSE(1, r->display(m_ctx, verbose_stream() << "reduced rule\n"););
+            TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
+        }
+    }
+
     void rule_manager::fix_unbound_vars(rule_ref& r, bool try_quantifier_elimination) {
+
+        reduce_unbound_vars(r);
 
         if (!m_ctx.fix_unbound_vars()) {
             return;
         }
 
-        if (r->get_uninterpreted_tail_size() == r->get_tail_size()) {
-            //no interpreted tail to fix
+        unsigned ut_len = r->get_uninterpreted_tail_size();
+        unsigned t_len = r->get_tail_size();
+
+        if (ut_len == t_len) {
+            // no interpreted tail to fix
             return;
         }
 
@@ -633,7 +687,7 @@ namespace datalog {
         get_free_vars(r, free_rule_vars);
         vctr.count_vars(m, head);
 
-        unsigned ut_len = r->get_uninterpreted_tail_size();
+
         for (unsigned i = 0; i < ut_len; i++) {
             app * t = r->get_tail(i);
             vctr.count_vars(m, t);
@@ -642,11 +696,9 @@ namespace datalog {
         }
 
         ptr_vector<sort> interp_vars;
-        //var_idx_set interp_vars;
         var_idx_set unbound_vars;
         expr_ref_vector tails_with_unbound(m);
 
-        unsigned t_len = r->get_tail_size();
         for (unsigned i = ut_len; i < t_len; i++) {
             app * t = r->get_tail(i);
             interp_vars.reset();

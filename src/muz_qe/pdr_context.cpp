@@ -1825,6 +1825,7 @@ namespace pdr {
             ++m_stats.m_num_nodes;
             m_search.add_leaf(*child); 
             IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+            m_stats.m_max_depth = std::max(m_stats.m_max_depth, child->depth());
         }
         check_pre_closed(n);
         TRACE("pdr", m_search.display(tout););
