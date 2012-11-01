@@ -348,6 +348,18 @@ cmd_context::~cmd_context() {
     }
 }
 
+bool cmd_context::is_smtlib2_compliant() const { 
+    return params().m_smtlib2_compliant; 
+}
+
+bool cmd_context::produce_models() const { 
+    return params().m_model; 
+}
+
+bool cmd_context::produce_proofs() const { 
+    return params().m_proof_mode != PGM_DISABLED; 
+}
+
 cmd_context::check_sat_state cmd_context::cs_state() const {
     if (m_check_sat_result.get() == 0)
         return css_clear;

@@ -25,7 +25,28 @@ Notes:
 class progress_callback;
 struct front_end_params;
 
-class strategic_solver : public solver {
+/**
+   \brief Implementation of the solver API that supports:
+       - a different tactic for each logic 
+       - a general purpose tactic
+       - a default incremental solver
+
+   The strategic solver has two modes:
+       - non-incremental
+       - incremental
+   In non-incremental mode, tactics are used.
+   In incremental model, the incremental (general purpose) solver is used.
+   
+   A timeout for the incremental solver can be specified.
+   If the timeout is reached, then the strategic_solver tries to solve the problem using tactics.
+
+   The strategic_solver switches to incremental when:
+       - push is used
+       - assertions are peformed after a check_sat
+   It goes back to non_incremental mode when:
+       - reset is invoked.
+*/
+class strategic_solver_core : public solver {
 public:
     // Behavior when the incremental solver returns unknown.
     enum inc_unknown_behavior {
@@ -76,8 +97,8 @@ private:
     bool use_tactic_when_undef() const;
 
 public:
-    strategic_solver();
-    ~strategic_solver();
+    strategic_solver_core();
+    ~strategic_solver_core();
 
     ast_manager & m() const { SASSERT(m_manager); return *m_manager; }
 
@@ -119,17 +140,10 @@ public:
     virtual void set_progress_callback(progress_callback * callback);
 };
 
-// Specialization for the SMT 2.0 command language frontend
-class strategic_solver_cmd : public strategic_solver {
-    cmd_context &        m_ctx;
-public:
-    strategic_solver_cmd(cmd_context & ctx);
-    virtual unsigned get_num_assertions() const;
-    virtual expr * get_assertion(unsigned idx) const;
-};
-
-// Specialization for Z3 API
-class strategic_solver_api : public strategic_solver {
+/**
+   \brief Default implementation of strategic_solver_core
+*/
+class strategic_solver : public strategic_solver_core {
     struct ctx {
         expr_ref_vector              m_assertions;
         unsigned_vector              m_scopes;
@@ -137,7 +151,7 @@ class strategic_solver_api : public strategic_solver {
     };
     scoped_ptr<ctx>            m_ctx;
 public:
-    strategic_solver_api() {}
+    strategic_solver() {}
 
     virtual void init(ast_manager & m, symbol const & logic);
 

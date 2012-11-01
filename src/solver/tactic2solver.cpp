@@ -23,26 +23,26 @@ Notes:
 #include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 
-tactic2solver::ctx::ctx(ast_manager & m, symbol const & logic):
+tactic2solver_core::ctx::ctx(ast_manager & m, symbol const & logic):
     m_logic(logic),
     m_assertions(m) {
 }
 
-tactic2solver::~tactic2solver() {
+tactic2solver_core::~tactic2solver_core() {
 }
 
-void tactic2solver::init(ast_manager & m, symbol const & logic) {
+void tactic2solver_core::init(ast_manager & m, symbol const & logic) {
     m_ctx = alloc(ctx, m, logic);
 }
 
-void tactic2solver::updt_params(params_ref const & p) {
+void tactic2solver_core::updt_params(params_ref const & p) {
     m_params = p;
 }
 
-void tactic2solver::collect_param_descrs(param_descrs & r) {
+void tactic2solver_core::collect_param_descrs(param_descrs & r) {
     if (m_ctx) {
         if (!m_ctx->m_tactic) {
-            #pragma omp critical (tactic2solver)
+            #pragma omp critical (tactic2solver_core)
             {
                 m_ctx->m_tactic = get_tactic(m_ctx->m(), m_params);
             }
@@ -51,7 +51,7 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
                 m_ctx->m_tactic->collect_param_descrs(r);
             }
 
-            #pragma omp critical (tactic2solver)
+            #pragma omp critical (tactic2solver_core)
             {
                 m_ctx->m_tactic = 0;
             }
@@ -62,26 +62,26 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
     }
 }
 
-void tactic2solver::reset() {
+void tactic2solver_core::reset() {
     SASSERT(m_ctx);
     m_ctx->m_assertions.reset();
     m_ctx->m_scopes.reset();
     m_ctx->m_result = 0;
 }
 
-void tactic2solver::assert_expr(expr * t) {
+void tactic2solver_core::assert_expr(expr * t) {
     SASSERT(m_ctx);
     m_ctx->m_assertions.push_back(t);
     m_ctx->m_result = 0;
 }
 
-void tactic2solver::push() {
+void tactic2solver_core::push() {
     SASSERT(m_ctx);
     m_ctx->m_scopes.push_back(m_ctx->m_assertions.size());
     m_ctx->m_result = 0;
 }
 
-void tactic2solver::pop(unsigned n) {
+void tactic2solver_core::pop(unsigned n) {
     SASSERT(m_ctx);
     unsigned new_lvl = m_ctx->m_scopes.size() - n;
     unsigned old_sz  = m_ctx->m_scopes[new_lvl];
@@ -90,18 +90,18 @@ void tactic2solver::pop(unsigned n) {
     m_ctx->m_result = 0;
 }
 
-unsigned tactic2solver::get_scope_level() const {
+unsigned tactic2solver_core::get_scope_level() const {
     SASSERT(m_ctx);
     return m_ctx->m_scopes.size();
 }
 
-lbool tactic2solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver_core::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     SASSERT(m_ctx);
     ast_manager & m = m_ctx->m();
     params_ref p = m_params;
     if (m_fparams)
         front_end_params2params(*m_fparams, p);
-    #pragma omp critical (tactic2solver)
+    #pragma omp critical (tactic2solver_core)
     {
         m_ctx->m_tactic = get_tactic(m, p);
         if (m_ctx->m_tactic) {
@@ -147,7 +147,7 @@ lbool tactic2solver::check_sat(unsigned num_assumptions, expr * const * assumpti
         throw ex;
     }
     catch (z3_exception & ex) {
-        TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
+        TRACE("tactic2solver_core", tout << "exception: " << ex.msg() << "\n";);
         result.set_status(l_undef);
         result.m_unknown = ex.msg();
     }
@@ -160,63 +160,63 @@ lbool tactic2solver::check_sat(unsigned num_assumptions, expr * const * assumpti
         result.m_core.append(core_elems.size(), core_elems.c_ptr());
     }
     
-    #pragma omp critical (tactic2solver)
+    #pragma omp critical (tactic2solver_core)
     {
         m_ctx->m_tactic = 0;
     }
     return result.status();
 }
 
-void tactic2solver::set_cancel(bool f) {
-    #pragma omp critical (tactic2solver)
+void tactic2solver_core::set_cancel(bool f) {
+    #pragma omp critical (tactic2solver_core)
     {
         if (m_ctx && m_ctx->m_tactic)
             m_ctx->m_tactic->set_cancel(f);
     }
 }
 
-void tactic2solver::collect_statistics(statistics & st) const {
+void tactic2solver_core::collect_statistics(statistics & st) const {
     if (m_ctx->m_result.get())
         m_ctx->m_result->collect_statistics(st);
 }
 
-void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
+void tactic2solver_core::get_unsat_core(ptr_vector<expr> & r) {
     if (m_ctx->m_result.get())
         m_ctx->m_result->get_unsat_core(r);
 }
 
-void tactic2solver::get_model(model_ref & m) {
+void tactic2solver_core::get_model(model_ref & m) {
     if (m_ctx->m_result.get())
         m_ctx->m_result->get_model(m);
 }
 
-proof * tactic2solver::get_proof() {
+proof * tactic2solver_core::get_proof() {
     if (m_ctx->m_result.get())
         return m_ctx->m_result->get_proof();
     else
         return 0;
 }
 
-std::string tactic2solver::reason_unknown() const {
+std::string tactic2solver_core::reason_unknown() const {
     if (m_ctx->m_result.get())
         return m_ctx->m_result->reason_unknown();
     else
         return std::string("unknown");
 }
 
-unsigned tactic2solver::get_num_assertions() const {
+unsigned tactic2solver_core::get_num_assertions() const {
     if (m_ctx) 
         return m_ctx->m_assertions.size();
     else
         return 0;
 }
 
-expr * tactic2solver::get_assertion(unsigned idx) const {
+expr * tactic2solver_core::get_assertion(unsigned idx) const {
     SASSERT(m_ctx);
     return m_ctx->m_assertions.get(idx);
 }
 
-void tactic2solver::display(std::ostream & out) const {
+void tactic2solver_core::display(std::ostream & out) const {
     if (m_ctx) {
         ast_manager & m = m_ctx->m_assertions.m();
         unsigned num = m_ctx->m_assertions.size();
@@ -231,19 +231,28 @@ void tactic2solver::display(std::ostream & out) const {
     }
 }
 
-void tactic2solver_cmd::set_tactic(tactic_factory * f) {
-    m_tactic_factory = f;
+tactic2solver::tactic2solver(tactic * t):
+    m_tactic(t) {
 }
 
-tactic * tactic2solver_cmd::get_tactic(ast_manager & m, params_ref const & p) {
-    if (m_tactic_factory == 0)
-        return 0;
-    return (*m_tactic_factory)(m, p);
+tactic2solver::~tactic2solver() {
 }
 
-tactic * tactic2solver_api::get_tactic(ast_manager & m, params_ref const & p) {
+tactic * tactic2solver::get_tactic(ast_manager & m, params_ref const & p) {
     m_tactic->cleanup();
     m_tactic->updt_params(p);
     return m_tactic.get();
 }
 
+tactic_factory2solver::~tactic_factory2solver() {
+}
+
+void tactic_factory2solver::set_tactic(tactic_factory * f) {
+    m_tactic_factory = f;
+}
+
+tactic * tactic_factory2solver::get_tactic(ast_manager & m, params_ref const & p) {
+    if (m_tactic_factory == 0)
+        return 0;
+    return (*m_tactic_factory)(m, p);
+}

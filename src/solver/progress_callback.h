@@ -23,11 +23,11 @@ class progress_callback {
 public:
     virtual ~progress_callback() {}
     
-    // Called approx. every m_progress_sampling_freq miliseconds
-    virtual void slow_progress_sample() { }
-    
-    // Called on every check for reqsource limit exceeded (mach more frequent).
-    virtual void fast_progress_sample() { }
+    // Called on every check for resource limit exceeded (much more frequent).
+    virtual void fast_progress_sample() {}
+
+    // Less frequent invoked.
+    virtual void slow_progress_sample() {}
 };
 
 #endif

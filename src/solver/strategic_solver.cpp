@@ -17,15 +17,15 @@ Notes:
 
 --*/
 #include"strategic_solver.h"
-#include"cmd_context.h"
 #include"scoped_timer.h"
+#include"front_end_params.h"
 #include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 
 // minimum verbosity level for portfolio verbose messages
 #define PS_VB_LVL 15
 
-strategic_solver::strategic_solver():
+strategic_solver_core::strategic_solver_core():
     m_manager(0),
     m_fparams(0),
     m_force_tactic(false),
@@ -45,7 +45,7 @@ strategic_solver::strategic_solver():
     m_produce_unsat_cores = false;
 }
 
-strategic_solver::~strategic_solver() {
+strategic_solver_core::~strategic_solver_core() {
     SASSERT(!m_curr_tactic);
     dictionary<tactic_factory*>::iterator it  = m_logic2fct.begin();
     dictionary<tactic_factory*>::iterator end = m_logic2fct.end();
@@ -56,7 +56,7 @@ strategic_solver::~strategic_solver() {
         m().dec_ref(m_proof);
 }
 
-bool strategic_solver::has_quantifiers() const {
+bool strategic_solver_core::has_quantifiers() const {
     unsigned sz = get_num_assertions();
     for (unsigned i = 0; i < sz; i++) {
         if (::has_quantifiers(get_assertion(i)))
@@ -68,7 +68,7 @@ bool strategic_solver::has_quantifiers() const {
 /**
    \brief Return true if a tactic should be used when the incremental solver returns unknown.
 */
-bool strategic_solver::use_tactic_when_undef() const {
+bool strategic_solver_core::use_tactic_when_undef() const {
     switch (m_inc_unknown_behavior) {
     case IUB_RETURN_UNDEF: return false;
     case IUB_USE_TACTIC_IF_QF: return !has_quantifiers();
@@ -79,7 +79,7 @@ bool strategic_solver::use_tactic_when_undef() const {
     }
 }
 
-void strategic_solver::set_inc_solver(solver * s) {
+void strategic_solver_core::set_inc_solver(solver * s) {
     SASSERT(m_inc_solver == 0);
     SASSERT(m_num_scopes == 0);
     m_inc_solver = s;
@@ -87,7 +87,7 @@ void strategic_solver::set_inc_solver(solver * s) {
         m_inc_solver->set_progress_callback(m_callback);
 }
 
-void strategic_solver::updt_params(params_ref const & p) {
+void strategic_solver_core::updt_params(params_ref const & p) {
     if (m_inc_solver)
         m_inc_solver->updt_params(p);
     if (m_fparams)
@@ -95,7 +95,7 @@ void strategic_solver::updt_params(params_ref const & p) {
 }
 
 
-void strategic_solver::collect_param_descrs(param_descrs & r) {
+void strategic_solver_core::collect_param_descrs(param_descrs & r) {
     if (m_inc_solver)
         m_inc_solver->collect_param_descrs(r);
 }
@@ -105,7 +105,7 @@ void strategic_solver::collect_param_descrs(param_descrs & r) {
    timeout == UINT_MAX means infinite
    After the timeout a strategy is used.
 */
-void strategic_solver::set_inc_solver_timeout(unsigned timeout) {
+void strategic_solver_core::set_inc_solver_timeout(unsigned timeout) {
     m_inc_solver_timeout = timeout;
 }
 
@@ -113,14 +113,14 @@ void strategic_solver::set_inc_solver_timeout(unsigned timeout) {
    \brief Set the default tactic factory.
    It is used if there is no tactic for a given logic.
 */
-void strategic_solver::set_default_tactic(tactic_factory * fct) {
+void strategic_solver_core::set_default_tactic(tactic_factory * fct) {
     m_default_fct = fct;
 }
 
 /**
    \brief Set a tactic factory for a given logic.
 */
-void strategic_solver::set_tactic_for(symbol const & logic, tactic_factory * fct) {
+void strategic_solver_core::set_tactic_for(symbol const & logic, tactic_factory * fct) {
     tactic_factory * old_fct;
     if (m_logic2fct.find(logic, old_fct)) {
         dealloc(old_fct);
@@ -128,7 +128,7 @@ void strategic_solver::set_tactic_for(symbol const & logic, tactic_factory * fct
     m_logic2fct.insert(logic, fct);
 }
 
-void strategic_solver::init(ast_manager & m, symbol const & logic) {
+void strategic_solver_core::init(ast_manager & m, symbol const & logic) {
     m_manager = &m;
     m_logic   = logic;
     if (m_inc_mode) {
@@ -138,7 +138,7 @@ void strategic_solver::init(ast_manager & m, symbol const & logic) {
 }
 
 // delayed inc solver initialization
-void strategic_solver::init_inc_solver() {
+void strategic_solver_core::init_inc_solver() {
     if (m_inc_mode) 
         return; // solver was already initialized
     if (!m_inc_solver)
@@ -152,7 +152,7 @@ void strategic_solver::init_inc_solver() {
     }
 }
 
-void strategic_solver::collect_statistics(statistics & st) const {
+void strategic_solver_core::collect_statistics(statistics & st) const {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         m_inc_solver->collect_statistics(st);
@@ -165,7 +165,7 @@ void strategic_solver::collect_statistics(statistics & st) const {
     }
 }
 
-void strategic_solver::reset() {
+void strategic_solver_core::reset() {
     m_logic    = symbol::null;
     m_inc_mode = false;
     m_check_sat_executed = false;
@@ -176,7 +176,7 @@ void strategic_solver::reset() {
     reset_results();
 }
 
-void strategic_solver::reset_results() {
+void strategic_solver_core::reset_results() {
     m_use_inc_solver_results = false;
     m_model = 0;
     if (m_proof) {
@@ -187,7 +187,7 @@ void strategic_solver::reset_results() {
     m_stats.reset();
 }
 
-void strategic_solver::assert_expr(expr * t) {
+void strategic_solver_core::assert_expr(expr * t) {
     if (m_check_sat_executed && !m_inc_mode) {
         // a check sat was already executed --> switch to incremental mode
         init_inc_solver();
@@ -199,14 +199,14 @@ void strategic_solver::assert_expr(expr * t) {
     }
 }
 
-void strategic_solver::push() {
+void strategic_solver_core::push() {
     DEBUG_CODE(m_num_scopes++;);
     init_inc_solver();
     if (m_inc_solver)
         m_inc_solver->push();
 }
 
-void strategic_solver::pop(unsigned n) {
+void strategic_solver_core::pop(unsigned n) {
     DEBUG_CODE({
             SASSERT(n <= m_num_scopes);
             m_num_scopes -= n;
@@ -216,7 +216,7 @@ void strategic_solver::pop(unsigned n) {
         m_inc_solver->pop(n);
 }
 
-unsigned strategic_solver::get_scope_level() const {
+unsigned strategic_solver_core::get_scope_level() const {
     if (m_inc_solver)
         return m_inc_solver->get_scope_level();
     else
@@ -233,10 +233,10 @@ struct aux_timeout_eh : public event_handler {
     }
 };
 
-struct strategic_solver::mk_tactic {
-    strategic_solver *  m_solver;
+struct strategic_solver_core::mk_tactic {
+    strategic_solver_core *  m_solver;
 
-    mk_tactic(strategic_solver * s, tactic_factory * f):m_solver(s) {
+    mk_tactic(strategic_solver_core * s, tactic_factory * f):m_solver(s) {
         ast_manager & m = s->m();
         params_ref p;
         front_end_params2params(*s->m_fparams, p);
@@ -259,14 +259,14 @@ struct strategic_solver::mk_tactic {
     }
 };
 
-tactic_factory * strategic_solver::get_tactic_factory() const {
+tactic_factory * strategic_solver_core::get_tactic_factory() const {
     tactic_factory * f = 0;
     if (m_logic2fct.find(m_logic, f))
         return f;
     return m_default_fct.get();
 }
 
-lbool strategic_solver::check_sat_with_assumptions(unsigned num_assumptions, expr * const * assumptions) {
+lbool strategic_solver_core::check_sat_with_assumptions(unsigned num_assumptions, expr * const * assumptions) {
     if (!m_inc_solver) {
         IF_VERBOSE(PS_VB_LVL, verbose_stream() << "incremental solver was not installed, returning unknown...\n";);
         m_use_inc_solver_results = false;
@@ -278,7 +278,7 @@ lbool strategic_solver::check_sat_with_assumptions(unsigned num_assumptions, exp
     return m_inc_solver->check_sat(num_assumptions, assumptions);
 }
 
-lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+lbool strategic_solver_core::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     reset_results();
     m_check_sat_executed = true;
     if (num_assumptions > 0 || // assumptions were provided
@@ -351,7 +351,7 @@ lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assum
     return r;
 }
 
-void strategic_solver::set_cancel(bool f) {
+void strategic_solver_core::set_cancel(bool f) {
     if (m_inc_solver)
         m_inc_solver->set_cancel(f);
     #pragma omp critical (strategic_solver)
@@ -361,14 +361,14 @@ void strategic_solver::set_cancel(bool f) {
     }
 }
 
-void strategic_solver::get_unsat_core(ptr_vector<expr> & r) {
+void strategic_solver_core::get_unsat_core(ptr_vector<expr> & r) {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         m_inc_solver->get_unsat_core(r); 
     }
 }
 
-void strategic_solver::get_model(model_ref & m) {
+void strategic_solver_core::get_model(model_ref & m) {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         m_inc_solver->get_model(m);
@@ -378,7 +378,7 @@ void strategic_solver::get_model(model_ref & m) {
     }
 }
 
-proof * strategic_solver::get_proof() {
+proof * strategic_solver_core::get_proof() {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         return m_inc_solver->get_proof();
@@ -388,7 +388,7 @@ proof * strategic_solver::get_proof() {
     }
 }
 
-std::string strategic_solver::reason_unknown() const {
+std::string strategic_solver_core::reason_unknown() const {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         return m_inc_solver->reason_unknown();
@@ -396,20 +396,20 @@ std::string strategic_solver::reason_unknown() const {
     return m_reason_unknown;
 }
 
-void strategic_solver::get_labels(svector<symbol> & r) {
+void strategic_solver_core::get_labels(svector<symbol> & r) {
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         m_inc_solver->get_labels(r);
     }
 }
 
-void strategic_solver::set_progress_callback(progress_callback * callback) { 
+void strategic_solver_core::set_progress_callback(progress_callback * callback) { 
     m_callback = callback; 
     if (m_inc_solver)
         m_inc_solver->set_progress_callback(callback);
 }
 
-void strategic_solver::display(std::ostream & out) const {
+void strategic_solver_core::display(std::ostream & out) const {
     if (m_manager) {
         unsigned num = get_num_assertions();
         out << "(solver";
@@ -423,62 +423,50 @@ void strategic_solver::display(std::ostream & out) const {
     }
 }
 
-strategic_solver_cmd::strategic_solver_cmd(cmd_context & ctx):
-    m_ctx(ctx) {
+
+strategic_solver::ctx::ctx(ast_manager & m):m_assertions(m) {
 }
 
-unsigned strategic_solver_cmd::get_num_assertions() const {
-    return static_cast<unsigned>(m_ctx.end_assertions() - m_ctx.begin_assertions());
-}
-
-expr * strategic_solver_cmd::get_assertion(unsigned idx) const {
-    SASSERT(idx < get_num_assertions());
-    return m_ctx.begin_assertions()[idx];
-}
-
-strategic_solver_api::ctx::ctx(ast_manager & m):m_assertions(m) {
-}
-
-void strategic_solver_api::init(ast_manager & m, symbol const & logic) {
-    strategic_solver::init(m, logic);
+void strategic_solver::init(ast_manager & m, symbol const & logic) {
+    strategic_solver_core::init(m, logic);
     m_ctx = alloc(ctx, m);
 }
 
-unsigned strategic_solver_api::get_num_assertions() const {
+unsigned strategic_solver::get_num_assertions() const {
     if (m_ctx == 0)
         return 0;
     return m_ctx->m_assertions.size();
 }
 
-expr * strategic_solver_api::get_assertion(unsigned idx) const {
+expr * strategic_solver::get_assertion(unsigned idx) const {
     SASSERT(m_ctx);
     return m_ctx->m_assertions.get(idx);
 }
 
-void strategic_solver_api::assert_expr(expr * t) {
+void strategic_solver::assert_expr(expr * t) {
     SASSERT(m_ctx);
-    strategic_solver::assert_expr(t);
+    strategic_solver_core::assert_expr(t);
     m_ctx->m_assertions.push_back(t);
 }
 
-void strategic_solver_api::push() {
+void strategic_solver::push() {
     SASSERT(m_ctx);
-    strategic_solver::push();
+    strategic_solver_core::push();
     m_ctx->m_scopes.push_back(m_ctx->m_assertions.size());
 }
 
-void strategic_solver_api::pop(unsigned n) {
+void strategic_solver::pop(unsigned n) {
     SASSERT(m_ctx);
     unsigned new_lvl = m_ctx->m_scopes.size() - n;
     unsigned old_sz  = m_ctx->m_scopes[new_lvl];
     m_ctx->m_assertions.shrink(old_sz);
     m_ctx->m_scopes.shrink(new_lvl);
-    strategic_solver::pop(n);
+    strategic_solver_core::pop(n);
 }
 
-void strategic_solver_api::reset() {
+void strategic_solver::reset() {
     m_ctx = 0;
-    strategic_solver::reset();
+    strategic_solver_core::reset();
 }
 
 

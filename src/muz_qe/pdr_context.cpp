@@ -1325,7 +1325,7 @@ namespace pdr {
             for (; it != end; ++it) {
                 ptr_vector<datalog::rule> const& rules = it->m_value->rules();
                 for (unsigned i = 0; i < rules.size(); ++i) {
-                    datalog::rule* rule = rules[i];
+                    // datalog::rule* rule = rules[i];
                     // vs(rule->get_head(), 
                     // apply interpretation of predicates to rule.
                     // create formula and check for unsat.

@@ -80,7 +80,7 @@ extern "C" {
         LOG_Z3_mk_solver_from_tactic(c, t);
         RESET_ERROR_CODE();
         Z3_solver_ref * s = alloc(Z3_solver_ref);
-        s->m_solver       = alloc(tactic2solver_api, to_tactic_ref(t));
+        s->m_solver       = alloc(tactic2solver, to_tactic_ref(t));
         s->m_solver->set_front_end_params(mk_c(c)->fparams());
         s->m_solver->init(mk_c(c)->m(), symbol::null);
         mk_c(c)->save_object(s);

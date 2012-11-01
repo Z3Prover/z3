@@ -25,7 +25,14 @@ Notes:
 #include"solver.h"
 #include"tactic.h"
 
-class tactic2solver : public solver {
+/**
+   \brief Simulates the incremental solver interface using a tactic.
+
+   Every query will be solved from scratch.  So, this is not a good
+   option for applications trying to solve many easy queries that a
+   similar to each other.
+*/
+class tactic2solver_core : public solver {
     struct ctx {
         symbol                       m_logic;
         expr_ref_vector              m_assertions;
@@ -42,8 +49,8 @@ class tactic2solver : public solver {
     bool                       m_produce_proofs;
     bool                       m_produce_unsat_cores;
 public:
-    tactic2solver():m_ctx(0), m_fparams(0), m_produce_models(false), m_produce_proofs(false), m_produce_unsat_cores(false) {}
-    virtual ~tactic2solver();
+    tactic2solver_core():m_ctx(0), m_fparams(0), m_produce_models(false), m_produce_proofs(false), m_produce_unsat_cores(false) {}
+    virtual ~tactic2solver_core();
 
     virtual tactic * get_tactic(ast_manager & m, params_ref const & p) = 0;
     
@@ -81,28 +88,23 @@ public:
     virtual void display(std::ostream & out) const;
 };
 
-/**
-   \brief Specialization for cmd_context
-*/
-class tactic2solver_cmd : public tactic2solver {
+class tactic2solver : public tactic2solver_core {
+    tactic_ref m_tactic;
+public:
+    tactic2solver(tactic * t);
+    virtual ~tactic2solver();
+    virtual tactic * get_tactic(ast_manager & m, params_ref const & p);
+};
+
+
+class tactic_factory2solver : public tactic2solver_core {
     scoped_ptr<tactic_factory> m_tactic_factory;
 public:
-    virtual ~tactic2solver_cmd() {}
+    virtual ~tactic_factory2solver();
     /**
        \brief Set tactic that will be used to process the satisfiability queries.
     */
     void set_tactic(tactic_factory * f); 
-    virtual tactic * get_tactic(ast_manager & m, params_ref const & p);
-};
-
-/**
-   \brief Specialization for API
-*/
-class tactic2solver_api : public tactic2solver {
-    tactic_ref m_tactic;
-public:
-    tactic2solver_api(tactic * t):m_tactic(t) {}
-    virtual ~tactic2solver_api() {}
     virtual tactic * get_tactic(ast_manager & m, params_ref const & p);
 };
 

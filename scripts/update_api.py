@@ -670,6 +670,11 @@ mk_py_wrappers()
 mk_dotnet()
 mk_dotnet_wrappers()
 
+log_h.close()
+log_c.close()
+exe_c.close()
+core_py.close()
+
 if is_verbose():
     print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)
     print "Generated '%s'" % ('%s/api_log_macros.cpp' % api_dir)

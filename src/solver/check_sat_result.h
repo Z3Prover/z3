@@ -23,6 +23,18 @@ Notes:
 #include"lbool.h"
 #include"statistics.h"
 
+/**
+   \brief Abstract interface for the result of a (check-sat) like command.
+   It encapsulates information such as:
+      - the actual result: l_true (satisfiable), l_false (unsatisfiable), l_undef (unknown)
+      - statistics
+      - model (if the result is satisfiable)
+      - proof (if the result is unsatisfiable)
+      - unsat-core (if the result is unsatisfiable)
+      - reason-unknown (if the result is unknown, i.e., the solver failed to solve the problem)
+      - label (if the result is satisfiable) this is legacy for Boogie
+      
+*/
 class check_sat_result {
 protected:
     unsigned    m_ref_count;
@@ -42,6 +54,9 @@ public:
     virtual void get_labels(svector<symbol> & r) = 0;
 };
 
+/**
+   \brief Very simple implementation of the check_sat_result object.
+*/
 struct simple_check_sat_result : public check_sat_result {
     statistics      m_stats;
     model_ref       m_model;
@@ -49,21 +64,14 @@ struct simple_check_sat_result : public check_sat_result {
     proof_ref       m_proof;
     std::string     m_unknown;
 
-    simple_check_sat_result(ast_manager & m):
-        m_core(m),
-        m_proof(m) {
-    }
-    virtual ~simple_check_sat_result() {}
-    virtual void collect_statistics(statistics & st) const { st.copy(m_stats); }
-    virtual void get_unsat_core(ptr_vector<expr> & r) { if (m_status == l_false) r.append(m_core.size(), m_core.c_ptr()); }
-    virtual void get_model(model_ref & m) { 
-        if (m_status != l_false) m = m_model; else m = 0; 
-    }
-    virtual proof * get_proof() { return m_status == l_false ? m_proof.get() : 0; }
-    virtual std::string reason_unknown() const { 
-        return m_unknown; 
-    }
-    virtual void get_labels(svector<symbol> & r) {}
+    simple_check_sat_result(ast_manager & m);
+    virtual ~simple_check_sat_result();
+    virtual void collect_statistics(statistics & st) const;
+    virtual void get_unsat_core(ptr_vector<expr> & r);
+    virtual void get_model(model_ref & m);
+    virtual proof * get_proof();
+    virtual std::string reason_unknown() const;
+    virtual void get_labels(svector<symbol> & r);
 };
 
 #endif
