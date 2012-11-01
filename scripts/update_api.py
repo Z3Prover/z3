@@ -76,7 +76,7 @@ def lib():
       except:
         pass
       try:
-        init('%s%slibz3.%s' % (_dir, ext))
+        init(os.path.join(_dir, 'libz3.%s' % ext))
         break
       except:
         pass
