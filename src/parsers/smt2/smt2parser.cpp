@@ -28,6 +28,7 @@ Revision History:
 #include"rewriter.h"
 #include"has_free_vars.h"
 #include"ast_smt2_pp.h"
+#include"front_end_params.h"
 
 namespace smt2 {
     typedef cmd_exception parser_exception;

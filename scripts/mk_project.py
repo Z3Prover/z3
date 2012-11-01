@@ -24,12 +24,12 @@ def init_project_def():
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast'], 'math/grobner')
     add_lib('euclid', ['util'], 'math/euclid')
-    # Old (non-modular) parameter framework. It has been subsumed by util\params.h.
-    # However, it is still used by many old components.
-    add_lib('old_params', ['ast'])
+    # Front-end-params module still contain a lot of parameters for smt solver component.
+    # This should be fixed
+    add_lib('front_end_params', ['ast'])
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter', 'old_params'], 'ast/simplifier')
+    add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
     add_lib('normal_forms', ['rewriter', 'simplifier'], 'ast/normal_forms')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
@@ -37,21 +37,22 @@ def init_project_def():
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
-    add_lib('cmd_context', ['tactic', 'rewriter', 'model', 'old_params'])
+    add_lib('solver', ['model', 'tactic', 'front_end_params'])
+    add_lib('cmd_context', ['solver', 'rewriter'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('pattern', ['normal_forms', 'smt2parser'], 'ast/pattern')
-    add_lib('macros', ['simplifier', 'old_params'], 'ast/macros')
-    add_lib('proof_checker', ['rewriter', 'old_params'], 'ast/proof_checker')
-    add_lib('bit_blaster', ['rewriter', 'simplifier', 'old_params'], 'ast/rewriter/bit_blaster')
-    add_lib('proto_model', ['model', 'simplifier', 'old_params'], 'smt/proto_model')
+    add_lib('macros', ['simplifier', 'front_end_params'], 'ast/macros')
+    add_lib('proof_checker', ['rewriter', 'front_end_params'], 'ast/proof_checker')
+    add_lib('bit_blaster', ['rewriter', 'simplifier', 'front_end_params'], 'ast/rewriter/bit_blaster')
+    add_lib('proto_model', ['model', 'simplifier', 'front_end_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')
     add_lib('bv_tactics', ['tactic', 'bit_blaster'], 'tactic/bv')
     add_lib('fuzzing', ['ast'], 'test/fuzzing')
     add_lib('fpa', ['core_tactics', 'bv_tactics', 'sat_tactic'], 'tactic/fpa')
-    add_lib('smt_tactic', ['smt'], 'tactic/smt')
+    add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
     add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])

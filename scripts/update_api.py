@@ -76,7 +76,7 @@ def lib():
       except:
         pass
       try:
-        init('%s%slibz3.%s' % (_dir, ext))
+        init(os.path.join(_dir, 'libz3.%s' % ext))
         break
       except:
         pass
@@ -669,6 +669,11 @@ mk_bindings()
 mk_py_wrappers()
 mk_dotnet()
 mk_dotnet_wrappers()
+
+log_h.close()
+log_c.close()
+exe_c.close()
+core_py.close()
 
 if is_verbose():
     print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)

@@ -27,6 +27,7 @@ Notes:
 #include"cmd_util.h"
 #include"simplify_cmd.h"
 #include"eval_cmd.h"
+#include"front_end_params.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;

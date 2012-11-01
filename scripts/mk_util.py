@@ -1086,7 +1086,8 @@ def mk_def_files():
 
 def cp_z3pyc_to_build():
     mk_dir(BUILD_DIR)
-    compileall.compile_dir(Z3PY_SRC_DIR, force=1)
+    if compileall.compile_dir(Z3PY_SRC_DIR, force=1) != 1:
+        raise MKException("failed to compile Z3Py sources")
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
         try:
             os.remove('%s/%s' % (BUILD_DIR, pyc))

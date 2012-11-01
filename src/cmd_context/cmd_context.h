@@ -249,7 +249,7 @@ protected:
 public:
     cmd_context(front_end_params * params = 0, bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
-    bool is_smtlib2_compliant() const { return params().m_smtlib2_compliant; }
+    bool is_smtlib2_compliant() const;
     void set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }
@@ -269,8 +269,8 @@ public:
     void set_global_decls(bool flag) { SASSERT(!has_manager()); m_global_decls = flag; }
     unsigned random_seed() const { return m_random_seed; }
     void set_random_seed(unsigned s) { m_random_seed = s; }
-    bool produce_models() const { return params().m_model; }
-    bool produce_proofs() const { return params().m_proof_mode != PGM_DISABLED; }
+    bool produce_models() const;
+    bool produce_proofs() const;
     bool produce_unsat_cores() const { return m_produce_unsat_cores; }
     void set_produce_unsat_cores(bool flag) { m_produce_unsat_cores = flag; }
     bool produce_assignments() const { return m_produce_assignments; }

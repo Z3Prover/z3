@@ -101,7 +101,7 @@ unsigned read_smtlib2_commands(char const* file_name, front_end_params& front_en
 
     // temporary hack until strategic_solver is ported to new tactic framework
     if (front_end_params.m_nlsat) {
-        tactic2solver_cmd * s = alloc(tactic2solver_cmd);
+        tactic_factory2solver * s = alloc(tactic_factory2solver);
         s->set_tactic(alloc(qfnra_nlsat_fct));
         ctx.set_solver(s);
     }

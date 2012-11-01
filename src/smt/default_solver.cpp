@@ -19,6 +19,7 @@ Notes:
 #include"solver.h"
 #include"smt_solver.h"
 #include"reg_decl_plugins.h"
+#include"front_end_params.h"
 
 class default_solver : public solver {
     front_end_params * m_params;
