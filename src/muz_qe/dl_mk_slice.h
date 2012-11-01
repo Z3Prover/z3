@@ -89,6 +89,8 @@ namespace datalog {
 
         void update_predicate(app* p, app_ref& q);
 
+        void solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars);
+
     public:
         /**
            \brief Create slice rule transformer for \c goal predicate. When applying the transformer,

@@ -916,6 +916,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
     class test_diff_logic {
         ast_manager& m;
         arith_util a;
+        bv_util    bv;
         bool m_is_dl;
 
         bool is_numeric(expr* e) const {
@@ -1017,14 +1018,21 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
                 return false;
             }
             family_id fid = to_app(e)->get_family_id();
+
+            if (fid == null_family_id && 
+                !m.is_bool(e) && 
+                to_app(e)->get_num_args() > 0) {
+                return true;
+            }
             return 
                 fid != m.get_basic_family_id() &&
                 fid != null_family_id &&
-                fid != a.get_family_id();
+                fid != a.get_family_id() &&
+                fid != bv.get_family_id();
         }
 
     public:
-        test_diff_logic(ast_manager& m): m(m), a(m), m_is_dl(true) {}
+        test_diff_logic(ast_manager& m): m(m), a(m), bv(m), m_is_dl(true) {}
         
         void operator()(expr* e) {
             if (!m_is_dl) {

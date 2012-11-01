@@ -429,6 +429,33 @@ namespace datalog {
         }
     }
 
+    void mk_slice::solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars) {
+        expr_ref_vector conjs = get_tail_conjs(r);
+        for (unsigned j = 0; j < conjs.size(); ++j) {
+            expr* e = conjs[j].get();
+            expr_ref r(m);
+            unsigned v;
+            if (is_eq(e, v, r) && is_output(v) && m_var_is_sliceable[v]) {
+                TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
+                add_var(v);
+                if (!m_solved_vars[v].get()) { 
+                    add_free_vars(parameter_vars, r);
+                    m_solved_vars[v] = r;
+                }
+                else {
+                    // variables can only be solved once.
+                    add_free_vars(used_vars, e);
+                    add_free_vars(used_vars, m_solved_vars[v].get());
+                    used_vars.insert(v);
+                }
+            }
+            else {
+                add_free_vars(used_vars, e);
+            }
+        }
+    }
+
+
     bool mk_slice::prune_rule(rule& r) {
         TRACE("dl", r.display(m_ctx, tout << "prune:\n"); );
         bool change = false;
@@ -452,30 +479,8 @@ namespace datalog {
         // Collect the set of variables that are solved.
         // Collect the occurrence count of the variables per conjunct.
         // 
-        expr_ref_vector conjs = get_tail_conjs(r);
         uint_set used_vars, parameter_vars;
-        for (unsigned j = 0; j < conjs.size(); ++j) {
-            expr* e = conjs[j].get();
-            expr_ref r(m);
-            unsigned v;
-            if (is_eq(e, v, r) && is_output(v) && m_var_is_sliceable[v]) {
-                TRACE("dl", tout << "is_eq: " << mk_pp(e, m) << " " << (m_solved_vars[v].get()?"solved":"new") << "\n";);
-                add_var(v);
-                if (!m_solved_vars[v].get()) { 
-                    add_free_vars(parameter_vars, r);
-                    m_solved_vars[v] = r;
-                }
-                else {
-                    // variables can only be solved once.
-                    add_free_vars(used_vars, e);
-                    add_free_vars(used_vars, m_solved_vars[v].get());
-                    used_vars.insert(v);
-                }
-            }
-            else {
-                add_free_vars(used_vars, e);
-            }
-        }
+        solve_vars(r, used_vars, parameter_vars);
         uint_set::iterator it = used_vars.begin(), end = used_vars.end();
         for (; it != end; ++it) {     
             if (*it < m_var_is_sliceable.size()) {
@@ -725,9 +730,11 @@ namespace datalog {
         }
     }
 
+
     void mk_slice::update_rule(rule& r, rule_set& dst) {
         rule* new_rule;
         if (rule_updated(r)) {
+            init_vars(r);
             app_ref_vector tail(m);
             app_ref head(m);
             ptr_vector<sort> sorts;
@@ -742,10 +749,12 @@ namespace datalog {
             expr_ref_vector conjs = get_tail_conjs(r);
             
             m_solved_vars.reset();
+
+#if 0
             uint_set used_vars;
-            unsigned v;
             expr_ref b(m);
 
+        TBD: buggy code:
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* e = conjs[i].get();
                 if (is_eq(e, v, b)) {
@@ -772,15 +781,17 @@ namespace datalog {
                     add_free_vars(used_vars, e);
                 }
             }
+#endif
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* e = conjs[i].get();
-                if (is_eq(e, v, b) && m_solved_vars[v].get() && !used_vars.contains(v)) {
+#if 0
+                if (false && is_eq(e, v, b) && m_solved_vars[v].get() && !used_vars.contains(v)) {
                     TRACE("dl", tout << "removing conjunct: " << mk_pp(e, m) << "\n";);
                     // skip conjunct
                 }
-                else {
-                    tail.push_back(to_app(e));
-                }
+#endif
+                tail.push_back(to_app(e));
+                
             }
             
             new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0);        

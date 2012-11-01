@@ -195,7 +195,7 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
                 body = m.mk_or(e, body);
             }
             m_rewrite(body);
-            mr->register_decl(h, m.mk_or(e, body));
+            mr->register_decl(h, body);
         }
         else {
             func_interp* f = mr->get_func_interp(h);
