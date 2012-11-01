@@ -22,6 +22,13 @@ Revision History:
 #include"for_each_expr.h"
 #include"well_sorted.h"
 
+goal::precision goal::mk_union(precision p1, precision p2) { 
+    if (p1 == PRECISE) return p2;
+    if (p2 == PRECISE) return p1;
+    if (p1 != p2) return UNDER_OVER;
+    return p1;
+}
+
 std::ostream & operator<<(std::ostream & out, goal::precision p) {
     switch (p) {
     case goal::PRECISE: out << "precise"; break;
@@ -30,6 +37,58 @@ std::ostream & operator<<(std::ostream & out, goal::precision p) {
     case goal::UNDER_OVER: out << "under-over"; break;
     }
     return out;
+}
+
+goal::goal(ast_manager & m, bool models_enabled, bool core_enabled):
+    m_manager(m), 
+    m_ref_count(0),
+    m_depth(0), 
+    m_models_enabled(models_enabled),
+    m_proofs_enabled(m.proofs_enabled()), 
+    m_core_enabled(core_enabled), 
+    m_inconsistent(false), 
+    m_precision(PRECISE) {
+    }
+    
+goal::goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_enabled):
+    m_manager(m), 
+    m_ref_count(0),
+    m_depth(0), 
+    m_models_enabled(models_enabled),
+    m_proofs_enabled(proofs_enabled), 
+    m_core_enabled(core_enabled), 
+    m_inconsistent(false), 
+    m_precision(PRECISE) {
+    SASSERT(!proofs_enabled || m.proofs_enabled());
+    }
+
+goal::goal(goal const & src):
+    m_manager(src.m()),
+    m_ref_count(0),
+    m_depth(0), 
+    m_models_enabled(src.models_enabled()),
+    m_proofs_enabled(src.proofs_enabled()), 
+    m_core_enabled(src.unsat_core_enabled()), 
+    m_inconsistent(false), 
+    m_precision(PRECISE) {
+    copy_from(src);
+    }
+
+// Copy configuration: depth, models/proofs/cores flags, and precision from src.
+// The assertions are not copied
+goal::goal(goal const & src, bool):
+    m_manager(src.m()),
+    m_ref_count(0),
+    m_depth(src.m_depth), 
+    m_models_enabled(src.models_enabled()),
+    m_proofs_enabled(src.proofs_enabled()), 
+    m_core_enabled(src.unsat_core_enabled()), 
+    m_inconsistent(false), 
+    m_precision(src.m_precision) {
+}
+    
+goal::~goal() { 
+    reset_core(); 
 }
 
 void goal::copy_to(goal & target) const {
@@ -568,6 +627,27 @@ goal * goal::translate(ast_translation & translator) const {
     res->m_precision    = m_precision;
 
     return res;
+}
+
+
+bool goal::sat_preserved() const { 
+    return prec() == PRECISE || prec() == UNDER; 
+}
+
+bool goal::unsat_preserved() const {
+    return prec() == PRECISE || prec() == OVER;
+}
+
+bool goal::is_decided_sat() const { 
+    return size() == 0 && sat_preserved();
+}
+
+bool goal::is_decided_unsat() const {
+    return inconsistent() && unsat_preserved();
+}
+
+bool goal::is_decided() const { 
+    return is_decided_sat() || is_decided_unsat();
 }
 
 bool is_equal(goal const & s1, goal const & s2) {

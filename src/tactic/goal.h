@@ -45,12 +45,7 @@ public:
         UNDER_OVER // goal is garbage: the produce of combined under and over approximation steps.
     };
 
-    static precision mk_union(precision p1, precision p2) { 
-        if (p1 == PRECISE) return p2;
-        if (p2 == PRECISE) return p1;
-        if (p1 != p2) return UNDER_OVER;
-        return p1;
-    }
+    static precision mk_union(precision p1, precision p2);
     
 protected:
     ast_manager &         m_manager;
@@ -78,55 +73,13 @@ protected:
     void reset_core();
     
 public:
-    goal(ast_manager & m, bool models_enabled = true, bool core_enabled = false):
-        m_manager(m), 
-        m_ref_count(0),
-        m_depth(0), 
-        m_models_enabled(models_enabled),
-        m_proofs_enabled(m.proofs_enabled()), 
-        m_core_enabled(core_enabled), 
-        m_inconsistent(false), 
-        m_precision(PRECISE) {
-    }
-    
-    goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_enabled):
-        m_manager(m), 
-        m_ref_count(0),
-        m_depth(0), 
-        m_models_enabled(models_enabled),
-        m_proofs_enabled(proofs_enabled), 
-        m_core_enabled(core_enabled), 
-        m_inconsistent(false), 
-        m_precision(PRECISE) {
-        SASSERT(!proofs_enabled || m.proofs_enabled());
-    }
-
-    goal(goal const & src):
-        m_manager(src.m()),
-        m_ref_count(0),
-        m_depth(0), 
-        m_models_enabled(src.models_enabled()),
-        m_proofs_enabled(src.proofs_enabled()), 
-        m_core_enabled(src.unsat_core_enabled()), 
-        m_inconsistent(false), 
-        m_precision(PRECISE) {
-        copy_from(src);
-    }
-
+    goal(ast_manager & m, bool models_enabled = true, bool core_enabled = false);
+    goal(ast_manager & m, bool proofs_enabled, bool models_enabled, bool core_enabled);
+    goal(goal const & src);
     // Copy configuration: depth, models/proofs/cores flags, and precision from src.
     // The assertions are not copied
-    goal(goal const & src, bool):
-        m_manager(src.m()),
-        m_ref_count(0),
-        m_depth(src.m_depth), 
-        m_models_enabled(src.models_enabled()),
-        m_proofs_enabled(src.proofs_enabled()), 
-        m_core_enabled(src.unsat_core_enabled()), 
-        m_inconsistent(false), 
-        m_precision(src.m_precision) {
-    }
-    
-    ~goal() { reset_core(); }
+    goal(goal const & src, bool);
+    ~goal();
 
     void inc_ref() { ++m_ref_count; }
     void dec_ref() { --m_ref_count; if (m_ref_count == 0) dealloc(this); }
@@ -181,26 +134,11 @@ public:
     void display_with_dependencies(ast_printer_context & ctx) const;
     void display_with_dependencies(std::ostream & out) const;
 
-    bool sat_preserved() const { 
-        return prec() == PRECISE || prec() == UNDER; 
-    }
-
-    bool unsat_preserved() const {
-        return prec() == PRECISE || prec() == OVER;
-    }
-
-    bool is_decided_sat() const { 
-        return size() == 0 && sat_preserved();
-    }
-
-    bool is_decided_unsat() const {
-        return inconsistent() && unsat_preserved();
-    }
-
-    bool is_decided() const { 
-        return is_decided_sat() || is_decided_unsat();
-    }
-
+    bool sat_preserved() const;
+    bool unsat_preserved() const;
+    bool is_decided_sat() const;
+    bool is_decided_unsat() const;
+    bool is_decided() const;
     bool is_well_sorted() const;
 
     goal * translate(ast_translation & translator) const;
