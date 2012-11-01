@@ -60,7 +60,6 @@ asserted_formulas::asserted_formulas(ast_manager & m, front_end_params & p):
     m_macro_manager(m, m_simplifier),
     m_bit2int(m),
     m_bv_sharing(m),
-    m_user_rewriter(m),
     m_inconsistent(false),
     m_cancel_flag(false) {
 
@@ -282,7 +281,6 @@ void asserted_formulas::reset() {
 }
 
 void asserted_formulas::set_cancel_flag(bool f) {
-    m_user_rewriter.set_cancel(f);
     m_cancel_flag = f; 
 }
 
@@ -341,7 +339,6 @@ void asserted_formulas::reduce() {
     TRACE("qbv_bug", tout << "after demod:\n"; display(tout););    
     INVOKE(m_params.m_quasi_macros && has_quantifiers(), apply_quasi_macros());    
     INVOKE(m_params.m_simplify_bit2int, apply_bit2int());
-    INVOKE(m_user_rewriter.enabled(), apply_user_rewriter());
     INVOKE(m_params.m_eliminate_bounds && has_quantifiers(), cheap_quant_fourier_motzkin());
     INVOKE(!m_params.m_bb_eager && has_quantifiers() && m_params.m_ematching, infer_patterns());
     INVOKE(m_params.m_max_bv_sharing && has_bv(), max_bv_sharing());
@@ -1413,8 +1410,6 @@ void asserted_formulas::refine_inj_axiom() {
 }
 
 MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate bit-vector over integers", true);
-
-MK_SIMPLIFIER(apply_user_rewriter, user_rewriter& functor = m_user_rewriter, "user_rewriter", "apply user supplied rewriting", true);
 
 MK_SIMPLIFIER(apply_der_core, der_star functor(m_manager), "der", "destructive equality resolution", true);
 

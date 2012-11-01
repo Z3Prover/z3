@@ -523,12 +523,6 @@ namespace smt {
         friend class set_var_theory_trail;
         void set_var_theory(bool_var v, theory_id tid);
 
-        /**
-            \brief set user-supplied rewriter.
-         */
-
-        void set_user_rewriter(void* ctx, user_rewriter::fn* rw) { m_asserted_formulas.set_user_rewriter(ctx, rw); }
-
         // -----------------------------------
         //
         // Backtracking support
