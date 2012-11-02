@@ -18,7 +18,6 @@ Notes:
 
 --*/
 #include"cmd_context.h"
-#include"ni_solver.h"
 #include"strategic_solver_cmd.h"
 #include"qfbv_tactic.h"
 #include"qflia_tactic.h"
@@ -78,13 +77,6 @@ static void init(strategic_solver_core * s) {
     s->set_tactic_for(symbol("UFBV"),      alloc(ufbv_fct));
     s->set_tactic_for(symbol("BV"),        alloc(ufbv_fct));        
     s->set_tactic_for(symbol("QF_FPA"),    alloc(qffpa_fct));
-}
-
-solver * mk_smt_strategic_solver(cmd_context & ctx) {
-    strategic_solver_cmd * s = alloc(strategic_solver_cmd, ctx);
-    s->set_inc_solver(mk_quasi_incremental_smt_solver(ctx));
-    init(s);
-    return s;
 }
 
 solver * mk_smt_strategic_solver(bool force_tactic) {

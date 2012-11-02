@@ -20,6 +20,7 @@ Notes:
 
 --*/
 #include"solver_na2as.h"
+#include"ast_smt2_pp.h"
 
 solver_na2as::solver_na2as() {
     m_manager = 0;
@@ -31,6 +32,9 @@ solver_na2as::~solver_na2as() {
 
 void solver_na2as::assert_expr(expr * t, expr * a) {
     SASSERT(m_manager != 0);
+    SASSERT(is_uninterp_const(a));
+    SASSERT(m_manager->is_bool(a));
+    TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, *m_manager) << "\n" << mk_ismt2_pp(a, *m_manager) << "\n";);
     m_manager->inc_ref(a);
     m_assumptions.push_back(a);
     expr_ref new_t(*m_manager);

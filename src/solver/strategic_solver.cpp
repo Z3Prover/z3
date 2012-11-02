@@ -268,10 +268,15 @@ lbool strategic_solver_core::check_sat_with_assumptions(unsigned num_assumptions
     }
     init_inc_solver();
     m_use_inc_solver_results = true;
+    TRACE("solver_na2as", tout << "invoking inc_solver with " << num_assumptions << " assumptions\n";);
     return m_inc_solver->check_sat(num_assumptions, assumptions);
 }
 
 lbool strategic_solver_core::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    TRACE("solver_na2as", tout << "assumptions at strategic_solver_core:\n";
+          for (unsigned i = 0; i < num_assumptions; i++) {
+              tout << mk_ismt2_pp(assumptions[i], m()) << "\n";
+          });
     reset_results();
     m_check_sat_executed = true;
     if (num_assumptions > 0 || // assumptions were provided
@@ -355,6 +360,7 @@ void strategic_solver_core::set_cancel(bool f) {
 }
 
 void strategic_solver_core::get_unsat_core(ptr_vector<expr> & r) {
+    TRACE("solver_na2as", tout << "get_unsat_core, m_use_inc_solver_results: " << m_use_inc_solver_results << "\n";);
     if (m_use_inc_solver_results) {
         SASSERT(m_inc_solver);
         m_inc_solver->get_unsat_core(r); 

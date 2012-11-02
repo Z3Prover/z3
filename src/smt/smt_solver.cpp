@@ -24,10 +24,11 @@ Notes:
 namespace smt {
 
     class solver : public solver_na2as {
-        front_end_params * m_params;
-        smt::kernel *     m_context;
+        front_end_params *  m_params;
+        smt::kernel *       m_context;
+        progress_callback * m_callback;
     public:
-        solver():m_params(0), m_context(0) {}
+        solver():m_params(0), m_context(0), m_callback(0) {}
 
         virtual ~solver() {
             if (m_context != 0)
@@ -63,6 +64,8 @@ namespace smt {
 #pragma omp critical (solver)
             {
                 m_context = alloc(smt::kernel, m, *m_params);
+                if (m_callback)
+                    m_context->set_progress_callback(m_callback);
             }
             if (logic != symbol::null)
                 m_context->set_logic(logic);
@@ -145,8 +148,9 @@ namespace smt {
         }
 
         virtual void set_progress_callback(progress_callback * callback) {
-            SASSERT(m_context);
-            m_context->set_progress_callback(callback);
+            m_callback = callback;
+            if (m_context)
+                m_context->set_progress_callback(callback);
         }
 
         virtual unsigned get_num_assertions() const {

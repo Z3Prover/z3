@@ -20,9 +20,7 @@ Notes:
 #ifndef _SMT_STRATEGIC_SOLVER_H_
 #define _SMT_STRATEGIC_SOLVER_H_
 
-class cmd_context;
-// Create a strategic solver for the SMT 2.0 frontend.
-solver * mk_smt_strategic_solver(cmd_context & ctx);
+class solver;
 // Create a strategic solver for the Z3 API
 solver * mk_smt_strategic_solver(bool force_tactic=false);
 

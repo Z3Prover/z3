@@ -27,20 +27,22 @@ void assert_exprs_from(cmd_context const & ctx, goal & t) {
         throw cmd_exception("Frontend does not support simultaneous generation of proofs and unsat cores");
     ast_manager & m = t.m();
     bool proofs_enabled = t.proofs_enabled();
-    ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-    ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-    for (; it != end; ++it) {
-        t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, 0);
-    }
     if (ctx.produce_unsat_cores()) {
-        SASSERT(!ctx.produce_proofs());
-        it  = ctx.begin_assumptions();
-        end = ctx.end_assumptions();
-        for (; it != end; ++it) {
-            t.assert_expr(*it, 0, m.mk_leaf(*it));
+        ptr_vector<expr>::const_iterator it   = ctx.begin_assertions();
+        ptr_vector<expr>::const_iterator end  = ctx.end_assertions();
+        ptr_vector<expr>::const_iterator it2  = ctx.begin_assertion_names();
+        ptr_vector<expr>::const_iterator end2 = ctx.end_assertion_names();
+        SASSERT(end - it == end2 - it2);
+        for (; it != end; ++it, ++it2) {
+            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, m.mk_leaf(*it2));
         }
     }
     else {
-        SASSERT(ctx.begin_assumptions() == ctx.end_assumptions());
+        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        for (; it != end; ++it) {
+            t.assert_expr(*it, proofs_enabled ? m.mk_asserted(*it) : 0, 0);
+        }
+        SASSERT(ctx.begin_assertion_names() == ctx.end_assertion_names());
     }
 }
