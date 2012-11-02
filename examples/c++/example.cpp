@@ -633,6 +633,32 @@ void tactic_example9() {
     std::cout << t(g) << "\n";
 }
 
+void tactic_qe() {
+    std::cout << "tactic example using quantifier elimination\n";
+    context c;
+    
+    // Create a solver using "qe" and "smt" tactics
+    solver s = 
+        (tactic(c, "qe") &
+         tactic(c, "smt")).mk_solver();
+    
+    expr a = c.int_const("a");
+    expr b = c.int_const("b");
+    expr x = c.int_const("x");
+    expr f = implies(x <= a, x < b);
+    
+    // We have to use the C API directly for creating quantified formulas.
+    Z3_app vars[] = {(Z3_app) x};
+    expr qf = to_expr(c, Z3_mk_forall_const(c, 0, 1, vars,
+                                            0, 0, // no pattern
+                                            f));
+    std::cout << qf << "\n";
+    
+    s.add(qf);
+    std::cout << s.check() << "\n";
+    std::cout << s.get_model() << "\n";
+}
+
 void visit(expr const & e) {
     if (e.is_app()) {
         unsigned num = e.num_args();
@@ -691,6 +717,7 @@ int main() {
         tactic_example7(); std::cout << "\n";
         tactic_example8(); std::cout << "\n";
         tactic_example9(); std::cout << "\n";
+        tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
         std::cout << "done\n";
     }
