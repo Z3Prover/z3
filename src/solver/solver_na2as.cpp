@@ -26,15 +26,15 @@ solver_na2as::solver_na2as() {
 }
 
 solver_na2as::~solver_na2as() {
-    if (m_manager)
-        restore_assumptions(0);
+    restore_assumptions(0);
 }
 
 void solver_na2as::assert_expr(expr * t, expr * a) {
     SASSERT(m_manager != 0);
-    expr * new_t = m_manager->mk_implies(a, t);
     m_manager->inc_ref(a);
     m_assumptions.push_back(a);
+    expr_ref new_t(*m_manager);
+    new_t = m_manager->mk_implies(a, t);
     assert_expr(new_t);
 }
     
@@ -62,7 +62,7 @@ struct append_assumptions {
 
 lbool solver_na2as::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     append_assumptions app(m_assumptions, num_assumptions, assumptions);
-    return check_sat_core(num_assumptions, assumptions);
+    return check_sat_core(m_assumptions.size(), m_assumptions.c_ptr());
 }
 
 void solver_na2as::push() {
@@ -80,7 +80,7 @@ void solver_na2as::pop(unsigned n) {
 }
 
 void solver_na2as::restore_assumptions(unsigned old_sz) {
-    SASSERT(m_manager);
+    SASSERT(old_sz == 0 || m_manager != 0);
     for (unsigned i = old_sz; i < m_assumptions.size(); i++) {
         m_manager->dec_ref(m_assumptions[i]);
     }
@@ -93,6 +93,5 @@ unsigned solver_na2as::get_scope_level() const {
 
 void solver_na2as::reset() {
     reset_core();
-    if (m_manager)
-        restore_assumptions(0);
+    restore_assumptions(0);
 }

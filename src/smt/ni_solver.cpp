@@ -77,7 +77,7 @@ public:
     }
 
     void init_solver() {
-        reset();
+        reset_core();
         #pragma omp critical (ni_solver)
         {
             m_context = alloc(smt::kernel, m_cmd_ctx.m(), m_cmd_ctx.params());
