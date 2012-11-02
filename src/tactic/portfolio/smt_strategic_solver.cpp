@@ -18,7 +18,7 @@ Notes:
 
 --*/
 #include"cmd_context.h"
-#include"strategic_solver_cmd.h"
+#include"strategic_solver.h"
 #include"qfbv_tactic.h"
 #include"qflia_tactic.h"
 #include"qfnia_tactic.h"
