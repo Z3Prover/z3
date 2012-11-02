@@ -26,7 +26,8 @@ solver_na2as::solver_na2as() {
 }
 
 solver_na2as::~solver_na2as() {
-    reset();
+    if (m_manager)
+        restore_assumptions(0);
 }
 
 void solver_na2as::assert_expr(expr * t, expr * a) {
@@ -91,6 +92,7 @@ unsigned solver_na2as::get_scope_level() const {
 }
 
 void solver_na2as::reset() {
+    reset_core();
     if (m_manager)
         restore_assumptions(0);
 }
