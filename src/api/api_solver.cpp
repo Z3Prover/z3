@@ -29,7 +29,7 @@ Revision History:
 #include"cancel_eh.h"
 #include"scoped_timer.h"
 #include"smt_strategic_solver.h"
-#include"default_solver.h"
+#include"smt_solver.h"
 
 extern "C" {
 
@@ -38,7 +38,7 @@ extern "C" {
         LOG_Z3_mk_simple_solver(c);
         RESET_ERROR_CODE();
         Z3_solver_ref * s = alloc(Z3_solver_ref);
-        s->m_solver       = mk_default_solver();
+        s->m_solver       = mk_smt_solver();
         s->m_solver->set_front_end_params(mk_c(c)->fparams());
         s->m_solver->init(mk_c(c)->m(), symbol::null);
         mk_c(c)->save_object(s);

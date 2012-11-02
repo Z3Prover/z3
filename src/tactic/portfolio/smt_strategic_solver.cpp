@@ -34,7 +34,7 @@ Notes:
 #include"default_tactic.h"
 #include"ufbv_tactic.h"
 #include"qffpa_tactic.h"
-#include"default_solver.h"
+#include"smt_solver.h"
 
 MK_SIMPLE_TACTIC_FACTORY(qfuf_fct, mk_qfuf_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfidl_fct, mk_qfidl_tactic(m, p));
@@ -90,7 +90,7 @@ solver * mk_smt_strategic_solver(cmd_context & ctx) {
 solver * mk_smt_strategic_solver(bool force_tactic) {
     strategic_solver * s = alloc(strategic_solver);
     s->force_tactic(force_tactic);
-    s->set_inc_solver(mk_default_solver());
+    s->set_inc_solver(mk_smt_solver());
     init(s);
     return s;
 }
