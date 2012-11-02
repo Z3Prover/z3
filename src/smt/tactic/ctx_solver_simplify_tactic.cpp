@@ -20,7 +20,7 @@ Notes:
 #include"ctx_solver_simplify_tactic.h"
 #include"arith_decl_plugin.h"
 #include"front_end_params.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"ast_pp.h"
 #include"mk_simplified_app.h"
 
@@ -29,7 +29,7 @@ class ctx_solver_simplify_tactic : public tactic {
     ast_manager&          m;
     params_ref            m_params;
     front_end_params      m_front_p;
-    smt::solver           m_solver;
+    smt::kernel           m_solver;
     arith_util            m_arith;
     mk_simplified_app     m_mk_app;
     func_decl_ref         m_fn;

@@ -23,7 +23,7 @@ Revision History:
 #include "qe_sat_tactic.h"
 #include "quant_hoist.h"
 #include "ast_pp.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "qe.h"
 #include "cooperate.h"
 #include "model_v2_pp.h"
@@ -66,8 +66,8 @@ namespace qe {
         bool                    m_strong_context_simplify_param;
         bool                    m_ctx_simplify_local_param;
         vector<app_ref_vector>  m_vars;
-        ptr_vector<smt::solver> m_solvers;
-        smt::solver             m_solver;
+        ptr_vector<smt::kernel> m_solvers;
+        smt::kernel             m_solver;
         expr_ref                m_fml;
         expr_ref_vector         m_Ms;
         expr_ref_vector         m_assignments;
@@ -80,7 +80,7 @@ namespace qe {
  
             ast_manager&   m;
             sat_tactic&    m_super;
-            smt::solver&   m_solver;
+            smt::kernel&   m_solver;
             atom_set       m_pos;
             atom_set       m_neg;
             app_ref_vector m_vars;
@@ -322,10 +322,10 @@ namespace qe {
         void init_Ms() {
             for (unsigned i = 0; i < num_alternations(); ++i) {
                 m_Ms.push_back(m.mk_true());
-                m_solvers.push_back(alloc(smt::solver, m, m_fparams, m_params));
+                m_solvers.push_back(alloc(smt::kernel, m, m_fparams, m_params));
             }
             m_Ms.push_back(m_fml);
-            m_solvers.push_back(alloc(smt::solver, m, m_fparams, m_params));   
+            m_solvers.push_back(alloc(smt::kernel, m, m_fparams, m_params));   
             m_solvers.back()->assert_expr(m_fml);
         }
 
@@ -333,7 +333,7 @@ namespace qe {
 
         app_ref_vector const& vars(unsigned i) { return m_vars[i]; }
 
-        smt::solver& solver(unsigned i) { return *m_solvers[i]; }
+        smt::kernel& solver(unsigned i) { return *m_solvers[i]; }
 
         void reset() {
             m_fml = 0;
@@ -468,7 +468,7 @@ namespace qe {
             remove_duplicates(pos, neg);
 
             // Assumption: B is already asserted in solver[i].
-            smt::solver& solver = *m_solvers[i];
+            smt::kernel& solver = *m_solvers[i];
             solver.push();
             solver.assert_expr(A);
             nnf_strengthen(solver, pos, m.mk_false(), sub);
@@ -506,7 +506,7 @@ namespace qe {
             return Bnnf;
         }
       
-        void nnf_strengthen(smt::solver& solver, atom_set& atoms, expr* value, expr_substitution& sub) {
+        void nnf_strengthen(smt::kernel& solver, atom_set& atoms, expr* value, expr_substitution& sub) {
             atom_set::iterator it = atoms.begin(), end = atoms.end();
             for (; it != end; ++it) {
                 solver.push();
@@ -565,7 +565,7 @@ namespace qe {
             return Bnnf;
         }
 
-        void nnf_weaken(smt::solver& solver, expr_ref& B, atom_set& atoms, expr* value, expr_substitution& sub) {
+        void nnf_weaken(smt::kernel& solver, expr_ref& B, atom_set& atoms, expr* value, expr_substitution& sub) {
             atom_set::iterator it = atoms.begin(), end = atoms.end();
             for (; it != end; ++it) {
                 solver.push();
@@ -678,7 +678,7 @@ namespace qe {
         }
 
         bool is_sat(unsigned i, expr* ctx, model_ref& model) {
-            smt::solver& solver = *m_solvers[i];
+            smt::kernel& solver = *m_solvers[i];
             solver.push();
             solver.assert_expr(ctx);
             lbool r = solver.check();

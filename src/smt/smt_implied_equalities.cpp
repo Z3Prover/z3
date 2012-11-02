@@ -36,7 +36,7 @@ namespace smt {
     class get_implied_equalities_impl {
         
         ast_manager&                       m;
-        smt::solver&                       m_solver;
+        smt::kernel&                       m_solver;
         union_find_default_ctx             m_df;
         union_find<union_find_default_ctx> m_uf;
         array_util                         m_array_util;
@@ -357,7 +357,7 @@ namespace smt {
 
     public:
         
-        get_implied_equalities_impl(smt::solver& s) : m(s.m()), m_solver(s), m_uf(m_df), m_array_util(m), m_stats_calls(0) {}
+        get_implied_equalities_impl(smt::kernel& s) : m(s.m()), m_solver(s), m_uf(m_df), m_array_util(m), m_stats_calls(0) {}
         
         lbool operator()(unsigned num_terms, expr* const* terms, unsigned* class_ids) {
             params_ref p;
@@ -410,7 +410,7 @@ namespace smt {
     stopwatch get_implied_equalities_impl::s_timer;
     stopwatch get_implied_equalities_impl::s_stats_val_eq_timer;
 
-    lbool implied_equalities(smt::solver& solver, unsigned num_terms, expr* const* terms, unsigned* class_ids) {        
+    lbool implied_equalities(smt::kernel& solver, unsigned num_terms, expr* const* terms, unsigned* class_ids) {        
         get_implied_equalities_impl gi(solver);
         return gi(num_terms, terms, class_ids);
     }

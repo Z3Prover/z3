@@ -38,7 +38,7 @@ namespace smt {
         quantifier_manager(context & ctx, front_end_params & fp, params_ref const & p);
         ~quantifier_manager();
         
-        context & kernel() const;
+        context & get_context() const;
 
         void set_plugin(quantifier_manager_plugin * plugin);
 

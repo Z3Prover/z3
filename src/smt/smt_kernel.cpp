@@ -3,11 +3,11 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    smt_solver.h
+    smt_kernel.cpp
 
 Abstract:
 
-    New frontend for the incremental solver.
+    New frontend for smt::context.
     
 Author:
 
@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"smt_context.h" 
 #include"ast_smt2_pp.h"
 #include"params2front_end_params.h"
 
 namespace smt {
 
-    struct solver::imp {
+    struct kernel::imp {
         smt::context m_kernel;
         params_ref   m_params;
         
@@ -53,7 +53,7 @@ namespace smt {
         }
         
         void assert_expr(expr * e) {
-            TRACE("smt_solver", tout << "assert:\n" << mk_ismt2_pp(e, m()) << "\n";);
+            TRACE("smt_kernel", tout << "assert:\n" << mk_ismt2_pp(e, m()) << "\n";);
             m_kernel.assert_expr(e);
         }
         
@@ -74,12 +74,12 @@ namespace smt {
         }
         
         void push() {
-            TRACE("smt_solver", tout << "push()\n";);
+            TRACE("smt_kernel", tout << "push()\n";);
             m_kernel.push();
         }
 
         void pop(unsigned num_scopes) {
-            TRACE("smt_solver", tout << "pop()\n";);
+            TRACE("smt_kernel", tout << "pop()\n";);
             m_kernel.pop(num_scopes);
         }
         
@@ -148,7 +148,7 @@ namespace smt {
             // TODO: it will be replaced with assertion_stack.display
             unsigned num = m_kernel.get_num_asserted_formulas();
             expr * const * fms = m_kernel.get_asserted_formulas();
-            out << "(solver";
+            out << "(kernel";
             for (unsigned i = 0; i < num; i++) {
                 out << "\n  " << mk_ismt2_pp(fms[i], m(), 2);
             }
@@ -183,170 +183,170 @@ namespace smt {
         }
     };
 
-    solver::solver(ast_manager & m, front_end_params & fp, params_ref const & p) {
+    kernel::kernel(ast_manager & m, front_end_params & fp, params_ref const & p) {
         m_imp = alloc(imp, m, fp, p);
     }
 
-    solver::~solver() {
+    kernel::~kernel() {
         dealloc(m_imp);
     }
 
-    ast_manager & solver::m() const {
+    ast_manager & kernel::m() const {
         return m_imp->m();
     }
 
-    bool solver::set_logic(symbol logic) {
+    bool kernel::set_logic(symbol logic) {
         return m_imp->set_logic(logic);
     }
 
-    void solver::set_progress_callback(progress_callback * callback) {
+    void kernel::set_progress_callback(progress_callback * callback) {
         m_imp->set_progress_callback(callback);
     }
 
-    void solver::assert_expr(expr * e) {
+    void kernel::assert_expr(expr * e) {
         m_imp->assert_expr(e);
     }
 
-    void solver::assert_expr(expr * e, proof * pr) {
+    void kernel::assert_expr(expr * e, proof * pr) {
         m_imp->assert_expr(e, pr);
     }
 
-    unsigned solver::size() const {
+    unsigned kernel::size() const {
         return m_imp->size();
     }
     
-    expr * const * solver::get_formulas() const {
+    expr * const * kernel::get_formulas() const {
         return m_imp->get_formulas();
     }
 
-    bool solver::reduce() {
+    bool kernel::reduce() {
         return m_imp->reduce();
     }
 
-    void solver::push() {
+    void kernel::push() {
         m_imp->push();
     }
 
-    void solver::pop(unsigned num_scopes) {
+    void kernel::pop(unsigned num_scopes) {
         m_imp->pop(num_scopes);
     }
 
-    unsigned solver::get_scope_level() const {
+    unsigned kernel::get_scope_level() const {
         return m_imp->get_scope_level();
     }
 
-    void solver::reset() {
+    void kernel::reset() {
         ast_manager & _m       = m();
         front_end_params & fps = m_imp->fparams();
         params_ref ps          = m_imp->params();
-        #pragma omp critical (smt_solver)
+        #pragma omp critical (smt_kernel)
         {
             dealloc(m_imp);
             m_imp = alloc(imp, _m, fps, ps);
         }
     }
 
-    bool solver::inconsistent() {
+    bool kernel::inconsistent() {
         return m_imp->inconsistent();
     }
 
-    lbool solver::setup_and_check() {
+    lbool kernel::setup_and_check() {
         set_cancel(false);
         return m_imp->setup_and_check();
     }
 
-    lbool solver::check(unsigned num_assumptions, expr * const * assumptions) {
+    lbool kernel::check(unsigned num_assumptions, expr * const * assumptions) {
         set_cancel(false);
         lbool r = m_imp->check(num_assumptions, assumptions);
-        TRACE("smt_solver", tout << "check result: " << r << "\n";);
+        TRACE("smt_kernel", tout << "check result: " << r << "\n";);
         return r;
     }
 
-    void solver::get_model(model_ref & m) const {
+    void kernel::get_model(model_ref & m) const {
         m_imp->get_model(m);
     }
 
-    proof * solver::get_proof() {
+    proof * kernel::get_proof() {
         return m_imp->get_proof();
     }
 
-    unsigned solver::get_unsat_core_size() const {
+    unsigned kernel::get_unsat_core_size() const {
         return m_imp->get_unsat_core_size();
     }
         
-    expr * solver::get_unsat_core_expr(unsigned idx) const {
+    expr * kernel::get_unsat_core_expr(unsigned idx) const {
         return m_imp->get_unsat_core_expr(idx);
     }
 
-    failure solver::last_failure() const {
+    failure kernel::last_failure() const {
         return m_imp->last_failure();
     }
 
-    std::string solver::last_failure_as_string() const {
+    std::string kernel::last_failure_as_string() const {
         return m_imp->last_failure_as_string();
     }
 
-    void solver::get_assignments(expr_ref_vector & result) {
+    void kernel::get_assignments(expr_ref_vector & result) {
         m_imp->get_assignments(result);
     }
         
-    void solver::get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
+    void kernel::get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
         m_imp->get_relevant_labels(cnstr, result);
     }
     
-    void solver::get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
+    void kernel::get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
         m_imp->get_relevant_labeled_literals(at_lbls, result);
     }
 
-    void solver::get_relevant_literals(expr_ref_vector & result) {
+    void kernel::get_relevant_literals(expr_ref_vector & result) {
         m_imp->get_relevant_literals(result);
     }
 
-    void solver::get_guessed_literals(expr_ref_vector & result) {
+    void kernel::get_guessed_literals(expr_ref_vector & result) {
         m_imp->get_guessed_literals(result);
     }
 
-    void solver::display(std::ostream & out) const {
+    void kernel::display(std::ostream & out) const {
         m_imp->display(out);
     }
 
-    void solver::collect_statistics(::statistics & st) const {
+    void kernel::collect_statistics(::statistics & st) const {
         m_imp->collect_statistics(st);
     }
         
-    void solver::reset_statistics() {
+    void kernel::reset_statistics() {
         m_imp->reset_statistics();
     }
 
-    void solver::display_statistics(std::ostream & out) const {
+    void kernel::display_statistics(std::ostream & out) const {
         m_imp->display_statistics(out);
     }
 
-    void solver::display_istatistics(std::ostream & out) const {
+    void kernel::display_istatistics(std::ostream & out) const {
         m_imp->display_istatistics(out);
     }
 
-    void solver::set_cancel(bool f) {
-        #pragma omp critical (smt_solver)
+    void kernel::set_cancel(bool f) {
+        #pragma omp critical (smt_kernel)
         {
             if (m_imp)
                 m_imp->set_cancel(f);
         }
     }
 
-    bool solver::canceled() const {
+    bool kernel::canceled() const {
         return m_imp->canceled();
     }
 
-    void solver::updt_params(params_ref const & p) {
+    void kernel::updt_params(params_ref const & p) {
         return m_imp->updt_params(p);
     }
 
-    void solver::collect_param_descrs(param_descrs & d) {
+    void kernel::collect_param_descrs(param_descrs & d) {
         solver_front_end_params_descrs(d);
     }
 
-    context & solver::kernel() {
+    context & kernel::get_context() {
         return m_imp->m_kernel;
     }
 

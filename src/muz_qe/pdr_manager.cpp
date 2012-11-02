@@ -329,7 +329,7 @@ namespace pdr {
     
     
     bool manager::implication_surely_holds(expr * lhs, expr * rhs, expr * bg) {
-        smt::solver sctx(m, get_fparams());
+        smt::kernel sctx(m, get_fparams());
         if(bg) {
             sctx.assert_expr(bg);
         }

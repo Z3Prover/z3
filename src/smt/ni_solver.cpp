@@ -6,7 +6,7 @@ Module Name:
     ni_solver.cpp
 
 Abstract:
-    Wrappers for smt::solver that are non-incremental & (quasi-incremental).
+    Wrappers for smt::kernel that are non-incremental & (quasi-incremental).
 
 Author:
 
@@ -16,13 +16,13 @@ Notes:
 
 --*/
 #include"ni_solver.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"cmd_context.h"
 
 class ni_smt_solver : public solver {
 protected:
     cmd_context &       m_cmd_ctx;
-    smt::solver *       m_context;
+    smt::kernel *       m_context;
     progress_callback * m_callback;
 public:
     ni_smt_solver(cmd_context & ctx):m_cmd_ctx(ctx), m_context(0), m_callback(0) {}
@@ -83,7 +83,7 @@ public:
         reset();
         #pragma omp critical (ni_solver)
         {
-            m_context = alloc(smt::solver, m_cmd_ctx.m(), m_cmd_ctx.params());
+            m_context = alloc(smt::kernel, m_cmd_ctx.m(), m_cmd_ctx.params());
         }
         if (m_cmd_ctx.has_logic())
             m_context->set_logic(m_cmd_ctx.get_logic());
@@ -149,7 +149,7 @@ public:
 
 
     virtual void collect_param_descrs(param_descrs & r) {
-        smt::solver::collect_param_descrs(r);
+        smt::kernel::collect_param_descrs(r);
     }
 
 };

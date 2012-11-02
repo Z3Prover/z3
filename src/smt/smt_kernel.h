@@ -3,11 +3,13 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    smt_solver.h
+    smt_kernel.h
 
 Abstract:
 
-    New frontend for the incremental solver.
+    New frontend for smt::context.
+    The "kernel" tries to hide details of the smt::context object.
+    From now on, clients (code outside of the smt module) should be use smt::kernel instead of smt::context.
     
 Author:
 
@@ -15,9 +17,15 @@ Author:
 
 Revision History:
 
+    I initially called it smt::solver. This was confusing to others since we have the abstract solver API,
+    and smt::kernel is not a subclass of ::solver.
+    To increase the confusion I had a class default_solver that implemented the solver API on top of smt::context.
+    To avoid this problem I renamed them in the following way:
+        smt::solver     ---> smt::kernel
+        default_solver  ---> smt::solver
 --*/
-#ifndef _SMT_SOLVER_H_
-#define _SMT_SOLVER_H_
+#ifndef _SMT_KERNEL_H_
+#define _SMT_KERNEL_H_
 
 #include"ast.h"
 #include"params.h"
@@ -34,13 +42,13 @@ namespace smt {
     class enode;
     class context;
     
-    class solver {
+    class kernel {
         struct imp;
         imp *  m_imp;
     public:
-        solver(ast_manager & m, front_end_params & fp, params_ref const & p = params_ref());
+        kernel(ast_manager & m, front_end_params & fp, params_ref const & p = params_ref());
 
-        ~solver();
+        ~kernel();
 
         ast_manager & m() const;
         
@@ -51,7 +59,7 @@ namespace smt {
         bool set_logic(symbol logic);
 
         /**
-           brief Set progress meter. Solver will invoke the callback from time to time.
+           brief Set progress meter. Kernel will invoke the callback from time to time.
         */
         void set_progress_callback(progress_callback * callback);
 
@@ -67,7 +75,7 @@ namespace smt {
         void assert_expr(expr * e, proof * pr);
 
         /**
-           \brief Return the number of asserted formulas in the solver.
+           \brief Return the number of asserted formulas in the kernel.
         */
         unsigned size() const;
         
@@ -101,7 +109,7 @@ namespace smt {
         unsigned get_scope_level() const;
 
         /**
-           \brief Reset the solver.
+           \brief Reset the kernel.
            All assertions are erased.
         */
         void reset();
@@ -155,7 +163,7 @@ namespace smt {
         std::string last_failure_as_string() const;
 
         /**
-           \brief Return the set of formulas assigned by the solver.
+           \brief Return the set of formulas assigned by the kernel.
         */
         void get_assignments(expr_ref_vector & result);
         
@@ -180,7 +188,7 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result);
 
         /**
-           \brief (For debubbing purposes) Prints the state of the solver
+           \brief (For debubbing purposes) Prints the state of the kernel
         */
         void display(std::ostream & out) const;
 
@@ -190,7 +198,7 @@ namespace smt {
         void collect_statistics(::statistics & st) const;
         
         /**
-           \brief Reset solver statistics.
+           \brief Reset kernel statistics.
         */
         void reset_statistics();
 
@@ -205,7 +213,7 @@ namespace smt {
         void display_istatistics(std::ostream & out) const;
         
         /**
-           \brief Interrupt the solver. 
+           \brief Interrupt the kernel. 
         */
         void set_cancel(bool f = true);
         void cancel() { set_cancel(true); }
@@ -216,7 +224,7 @@ namespace smt {
         void reset_cancel() { set_cancel(false); }
         
         /**
-           \brief Return true if the solver was interrupted.
+           \brief Return true if the kernel was interrupted.
         */
         bool canceled() const;
         
@@ -231,7 +239,7 @@ namespace smt {
         static void collect_param_descrs(param_descrs & d);
 
         /**
-           \brief Return a reference to the kernel.
+           \brief Return a reference to smt::context.
            This is a temporary hack to support user theories.
            TODO: remove this hack.
            We need to revamp user theories too.
@@ -240,7 +248,7 @@ namespace smt {
 
            \warning We should not use this method
         */
-        context & kernel();
+        context & get_context();
     };
 };
 

@@ -23,7 +23,7 @@ Revision History:
 #include "obj_hashtable.h"
 #include "basic_simplifier_plugin.h"
 #include "front_end_params.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "arith_decl_plugin.h"
 
 class expr_context_simplifier {
@@ -61,7 +61,7 @@ class expr_strong_context_simplifier {
     arith_util    m_arith;
     unsigned      m_id;
     func_decl_ref m_fn;
-    smt::solver   m_solver;
+    smt::kernel   m_solver;
     
     void simplify(expr* e, expr_ref& result) { simplify_model_based(e, result); }
     void simplify_basic(expr* fml, expr_ref& result);

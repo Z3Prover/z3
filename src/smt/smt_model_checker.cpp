@@ -56,7 +56,7 @@ namespace smt {
         SASSERT(m_qm == 0); 
         SASSERT(m_context == 0); 
         m_qm = &qm;
-        m_context = &(m_qm->kernel());
+        m_context = &(m_qm->get_context());
     }
 
     /**

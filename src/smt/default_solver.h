@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Wrapps smt::solver as a solver for cmd_context
+    Wrapps smt::kernel as a solver for cmd_context and external API
 
 Author:
 

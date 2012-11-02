@@ -20,7 +20,7 @@ Revision History:
 #ifndef _PDR_SMT_CONTEXT_MANAGER_H_
 #define _PDR_SMT_CONTEXT_MANAGER_H_
 
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "sat_solver.h"
 #include "func_decl_dependencies.h"
 
@@ -56,9 +56,9 @@ namespace pdr {
     };
 
     class _smt_context : public smt_context {
-        smt::solver & m_context;
+        smt::kernel & m_context;
     public:
-        _smt_context(smt::solver & ctx, smt_context_manager& p, app* pred); 
+        _smt_context(smt::kernel & ctx, smt_context_manager& p, app* pred); 
         virtual ~_smt_context() {}
         virtual void assert_expr(expr* e);
         virtual lbool check(expr_ref_vector& assumptions);
@@ -74,7 +74,7 @@ namespace pdr {
     class sat_context : public smt_context {
         sat::solver m_solver;
     public:
-        sat_context(smt::solver & ctx, smt_context_manager& p, app* pred); 
+        sat_context(smt::kernel & ctx, smt_context_manager& p, app* pred); 
         virtual ~sat_context() {}
         virtual void assert_expr(expr* e);
         virtual lbool check(expr_ref_vector& assumptions);
@@ -91,7 +91,7 @@ namespace pdr {
         front_end_params&        m_fparams;
         ast_manager&             m;
         unsigned                 m_max_num_contexts;
-        ptr_vector<smt::solver>  m_contexts;
+        ptr_vector<smt::kernel>  m_contexts;
         unsigned                 m_num_contexts;
         app_ref_vector           m_predicate_list;
         func_decl_set            m_predicate_set;        

@@ -38,7 +38,7 @@ Revision History:
 #include "bool_rewriter.h"
 #include "dl_util.h"
 #include "th_rewriter.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "model_evaluator.h"
 #include "has_free_vars.h"
 #include "rewriter_def.h"
@@ -1288,7 +1288,7 @@ namespace qe {
         ast_manager&                m;
         quant_elim&                 m_qe;
         th_rewriter                 m_rewriter;
-        smt::solver                 m_solver;
+        smt::kernel                 m_solver;
         bv_util                     m_bv;
         expr_ref_vector             m_literals;
 

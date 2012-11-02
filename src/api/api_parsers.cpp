@@ -253,7 +253,7 @@ extern "C" {
 
     class z3_context_solver : public solver {
         api::context & m_ctx;
-        smt::solver & ctx() const { return m_ctx.get_solver(); }
+        smt::kernel & ctx() const { return m_ctx.get_smt_kernel(); }
     public:
         virtual ~z3_context_solver() {}
         z3_context_solver(api::context& c) : m_ctx(c) {}

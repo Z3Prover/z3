@@ -24,7 +24,7 @@ Revision History:
 #include"front_end_params.h"
 #include"dl_external_relation.h"
 #include"dl_decl_plugin.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"api_util.h"
 #include"dl_context.h"
 

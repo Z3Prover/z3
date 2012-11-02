@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Wrapps smt::solver as a solver for cmd_context
+    Wrapps smt::kernel as a solver for cmd_context
 
 Author:
 
@@ -17,13 +17,13 @@ Notes:
 
 --*/
 #include"solver.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"reg_decl_plugins.h"
 #include"front_end_params.h"
 
 class default_solver : public solver {
     front_end_params * m_params;
-    smt::solver *     m_context;
+    smt::kernel *     m_context;
 public:
     default_solver():m_params(0), m_context(0) {}
 
@@ -47,7 +47,7 @@ public:
             ast_manager m;
             reg_decl_plugins(m);
             front_end_params p;
-            smt::solver s(m, p);
+            smt::kernel s(m, p);
             s.collect_param_descrs(r);
         }
         else {
@@ -60,7 +60,7 @@ public:
         reset();
         #pragma omp critical (solver)
         {
-            m_context = alloc(smt::solver, m, *m_params);
+            m_context = alloc(smt::kernel, m, *m_params);
         }
         if (logic != symbol::null)
             m_context->set_logic(logic);

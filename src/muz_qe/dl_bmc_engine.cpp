@@ -21,7 +21,7 @@ Revision History:
 #include "dl_rule_transformer.h"
 #include "dl_bmc_engine.h"
 #include "dl_mk_slice.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "datatype_decl_plugin.h"
 #include "dl_mk_rule_inliner.h"
 #include "dl_decl_plugin.h"

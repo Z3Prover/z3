@@ -18,7 +18,7 @@ Notes:
 --*/
 #include"tactic.h"
 #include"tactical.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"front_end_params.h"
 #include"params2front_end_params.h"
 #include"rewriter_types.h"
@@ -28,7 +28,7 @@ class smt_tactic : public tactic {
     params_ref                   m_params_ref;
     statistics                   m_stats;
     std::string                  m_failure;
-    smt::solver *                m_ctx;
+    smt::kernel *                m_ctx;
     symbol                       m_logic;
     progress_callback *          m_callback;
     bool                         m_candidate_models;
@@ -117,7 +117,7 @@ public:
         smt_tactic & m_owner;
 
         scoped_init_ctx(smt_tactic & o, ast_manager & m):m_owner(o) {
-            smt::solver * new_ctx = alloc(smt::solver, m, o.fparams());
+            smt::kernel * new_ctx = alloc(smt::kernel, m, o.fparams());
             TRACE("smt_tactic", tout << "logic: " << o.m_logic << "\n";);
             new_ctx->set_logic(o.m_logic);
             if (o.m_callback) {
@@ -130,7 +130,7 @@ public:
         }
 
         ~scoped_init_ctx() {
-            smt::solver * d = m_owner.m_ctx;
+            smt::kernel * d = m_owner.m_ctx;
             #pragma omp critical (as_st_cancel)
             {
                 m_owner.m_ctx = 0;

@@ -35,11 +35,11 @@ extern "C" {
     Z3_theory Z3_mk_theory(Z3_context c, Z3_string th_name, void * ext_data) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        if (mk_c(c)->get_solver().get_scope_level() > 0) {
+        if (mk_c(c)->get_smt_kernel().get_scope_level() > 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE);
             return 0;
         }
-        return reinterpret_cast<Z3_theory>(mk_user_theory(mk_c(c)->get_solver(), c, ext_data, th_name));
+        return reinterpret_cast<Z3_theory>(mk_user_theory(mk_c(c)->get_smt_kernel(), c, ext_data, th_name));
         Z3_CATCH_RETURN(0);
     }
 

@@ -52,7 +52,7 @@ namespace pdr {
     }
 
 
-    _smt_context::_smt_context(smt::solver & ctx, smt_context_manager& p, app* pred):
+    _smt_context::_smt_context(smt::kernel & ctx, smt_context_manager& p, app* pred):
         smt_context(p, ctx.m(), pred),
         m_context(ctx)
     {}
@@ -104,21 +104,21 @@ namespace pdr {
     
     smt_context_manager::~smt_context_manager() {
         TRACE("pdr",tout << "\n";);
-        std::for_each(m_contexts.begin(), m_contexts.end(), delete_proc<smt::solver>());
+        std::for_each(m_contexts.begin(), m_contexts.end(), delete_proc<smt::kernel>());
     }
 
     smt_context* smt_context_manager::mk_fresh() {        
         ++m_num_contexts;
         app_ref pred(m);
-        smt::solver * ctx = 0;
+        smt::kernel * ctx = 0;
         if (m_max_num_contexts == 0) {
-            m_contexts.push_back(alloc(smt::solver, m, m_fparams));
+            m_contexts.push_back(alloc(smt::kernel, m, m_fparams));
             pred = m.mk_true();
             ctx = m_contexts[m_num_contexts-1];
         }
         else {
             if (m_contexts.size() < m_max_num_contexts) {
-                m_contexts.push_back(alloc(smt::solver, m, m_fparams));
+                m_contexts.push_back(alloc(smt::kernel, m, m_fparams));
             }
             std::stringstream name;
             name << "#context" << m_num_contexts;

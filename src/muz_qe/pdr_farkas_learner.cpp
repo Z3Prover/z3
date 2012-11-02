@@ -251,7 +251,7 @@ namespace pdr {
           o2p(outer_mgr, m_pr)
     {
         reg_decl_plugins(m_pr);
-        m_ctx = alloc(smt::solver, m_pr, m_proof_params);
+        m_ctx = alloc(smt::kernel, m_pr, m_proof_params);
     }
 
     front_end_params farkas_learner::get_proof_params(front_end_params& orig_params) {
@@ -325,7 +325,7 @@ namespace pdr {
 
 
         if (!m_ctx) {
-            m_ctx = alloc(smt::solver, m_pr, m_proof_params);
+            m_ctx = alloc(smt::kernel, m_pr, m_proof_params);
         }
 
         m_ctx->push();

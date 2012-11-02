@@ -23,13 +23,13 @@ Revision History:
 #ifndef __SMT_IMPLIED_EQUALITIES_H__
 #define __SMT_IMPLIED_EQUALITIES_H__
 
-#include"smt_solver.h"
+#include"smt_kernel.h"
 
 
 namespace smt {
         
     lbool implied_equalities(
-        solver& solver,
+        kernel & solver,
         unsigned num_terms, expr* const* terms, 
         unsigned* class_ids);            
 
