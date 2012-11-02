@@ -24,7 +24,10 @@ Revision History:
 struct Z3_solver_ref : public api::object {
     solver *   m_solver;
     params_ref m_params;
-    Z3_solver_ref():m_solver(0) {}
+    bool       m_initialized;
+    symbol     m_logic;
+    Z3_solver_ref():m_solver(0), m_initialized(false), m_logic(symbol::null) {}
+    Z3_solver_ref(symbol const & logic):m_solver(0), m_initialized(false), m_logic(logic) {}
     virtual ~Z3_solver_ref() { dealloc(m_solver); }
 };
 

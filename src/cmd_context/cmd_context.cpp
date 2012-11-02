@@ -348,6 +348,24 @@ cmd_context::~cmd_context() {
     }
 }
 
+void cmd_context::set_produce_models(bool f) {
+    params().m_model = f;
+    if (m_solver)
+        m_solver->set_produce_models(f);
+}
+
+void cmd_context::set_produce_unsat_cores(bool f) {
+    // can only be set before initialization
+    SASSERT(!has_manager());
+    m_produce_unsat_cores = f;
+}
+
+void cmd_context::set_produce_proofs(bool f) {
+    // can only be set before initialization
+    SASSERT(!has_manager());
+    params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
+}
+
 bool cmd_context::is_smtlib2_compliant() const { 
     return params().m_smtlib2_compliant; 
 }
@@ -540,8 +558,12 @@ void cmd_context::init_manager_core(bool new_manager) {
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
     }
-    if (m_solver)
+    if (m_solver) {
+        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
+        m_solver->set_produce_models(params().m_model);
+        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
         m_solver->init(m(), m_logic);
+    }
     m_check_logic.set_logic(m(), m_logic);
 }
 
@@ -1258,9 +1280,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_front_end_params(params());
         m_solver->set_progress_callback(this);
-        m_solver->set_produce_proofs(produce_proofs());
-        m_solver->set_produce_models(produce_models());
-        m_solver->set_produce_unsat_cores(produce_unsat_cores());
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
@@ -1405,6 +1424,9 @@ void cmd_context::set_solver(solver * s) {
     m_solver = s;
     m_solver->set_front_end_params(params());
     if (has_manager() && s != 0) {
+        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
+        m_solver->set_produce_models(params().m_model);
+        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
         m_solver->init(m(), m_logic);
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;

@@ -64,19 +64,20 @@ public:
     /**
        \brief Enable/Disable proof production for this solver object.
     
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic).
     */
     virtual void set_produce_proofs(bool f) {}
     /**
        \brief Enable/Disable model generation for this solver object.
 
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic). 
+       The user may optionally invoke it after init(m, logic).
     */
     virtual void set_produce_models(bool f) {}
     /**
        \brief Enable/Disable unsat core generation for this solver object.
 
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic).
     */
     virtual void set_produce_unsat_cores(bool f) {}
     

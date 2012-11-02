@@ -359,14 +359,14 @@ class set_option_cmd : public set_get_option_cmd {
         }
         else if (m_option == m_produce_proofs) {
             check_not_initialized(ctx, m_produce_proofs);
-            ctx.params().m_proof_mode = to_bool(value) ? PGM_FINE : PGM_DISABLED;
+            ctx.set_produce_proofs(to_bool(value));
         }
         else if (m_option == m_produce_unsat_cores) {
             check_not_initialized(ctx, m_produce_unsat_cores);
             ctx.set_produce_unsat_cores(to_bool(value));
         }
         else if (m_option == m_produce_models) {
-            ctx.params().m_model = to_bool(value);
+            ctx.set_produce_models(to_bool(value));
         }
         else if (m_option == m_produce_assignments) {
             ctx.set_produce_assignments(to_bool(value));

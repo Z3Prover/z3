@@ -55,7 +55,7 @@ MK_SIMPLE_TACTIC_FACTORY(qfnra_fct, mk_qfnra_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qffpa_fct, mk_qffpa_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(ufbv_fct, mk_ufbv_tactic(m, p));
 
-static void init(strategic_solver_core * s) {
+static void init(strategic_solver * s) {
     s->set_default_tactic(alloc(default_fct));
     s->set_tactic_for(symbol("QF_UF"),     alloc(qfuf_fct));
     s->set_tactic_for(symbol("QF_BV"),     alloc(qfbv_fct));

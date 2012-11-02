@@ -270,7 +270,9 @@ public:
     bool produce_models() const;
     bool produce_proofs() const;
     bool produce_unsat_cores() const { return m_produce_unsat_cores; }
-    void set_produce_unsat_cores(bool flag) { m_produce_unsat_cores = flag; }
+    void set_produce_models(bool flag);
+    void set_produce_unsat_cores(bool flag);
+    void set_produce_proofs(bool flag);
     bool produce_assignments() const { return m_produce_assignments; }
     void set_produce_assignments(bool flag) { m_produce_assignments = flag; }
     void set_status(status st) { m_status = st; }
