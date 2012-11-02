@@ -46,7 +46,7 @@ struct front_end_params;
    It goes back to non_incremental mode when:
        - reset is invoked.
 */
-class strategic_solver_core : public solver {
+class strategic_solver : public solver {
 public:
     // Behavior when the incremental solver returns unknown.
     enum inc_unknown_behavior {
@@ -73,8 +73,17 @@ private:
     bool                 m_use_inc_solver_results;
     model_ref            m_model;
     proof *              m_proof;
+    expr_dependency *    m_core;
     std::string          m_reason_unknown;
     statistics           m_stats;
+
+    struct ctx {
+        expr_ref_vector         m_assertions;
+        expr_ref_vector         m_assertion_names;
+        unsigned_vector         m_scopes;
+        ctx(ast_manager & m);
+    };
+    scoped_ptr<ctx>             m_ctx;
 
 #ifdef Z3DEBUG
     unsigned             m_num_scopes;
@@ -97,8 +106,8 @@ private:
     bool use_tactic_when_undef() const;
 
 public:
-    strategic_solver_core();
-    ~strategic_solver_core();
+    strategic_solver();
+    ~strategic_solver();
 
     ast_manager & m() const { SASSERT(m_manager); return *m_manager; }
 
@@ -114,19 +123,21 @@ public:
     virtual void updt_params(params_ref const & p);
     virtual void collect_param_descrs(param_descrs & r);
 
-    virtual void set_produce_proofs(bool f) { m_produce_proofs = f; }
-    virtual void set_produce_models(bool f) { m_produce_models = f; }
-    virtual void set_produce_unsat_cores(bool f) { m_produce_unsat_cores = f; }
+    virtual void set_produce_proofs(bool f);
+    virtual void set_produce_models(bool f);
+    virtual void set_produce_unsat_cores(bool f);
 
-    virtual unsigned get_num_assertions() const = 0;
-    virtual expr * get_assertion(unsigned idx) const = 0;
-    
+    unsigned get_num_assertions() const;
+    expr * get_assertion(unsigned idx) const;
+    expr * get_assertion_name(unsigned idx) const;
+
     virtual void display(std::ostream & out) const;
     
     virtual void init(ast_manager & m, symbol const & logic);
     virtual void collect_statistics(statistics & st) const;
     virtual void reset();
     virtual void assert_expr(expr * t);
+    virtual void assert_expr(expr * t, expr * a);
     virtual void push();
     virtual void pop(unsigned n);
     virtual unsigned get_scope_level() const;
@@ -139,31 +150,5 @@ public:
     virtual void set_cancel(bool f);
     virtual void set_progress_callback(progress_callback * callback);
 };
-
-/**
-   \brief Default implementation of strategic_solver_core
-*/
-class strategic_solver : public strategic_solver_core {
-    struct ctx {
-        expr_ref_vector              m_assertions;
-        unsigned_vector              m_scopes;
-        ctx(ast_manager & m);
-    };
-    scoped_ptr<ctx>            m_ctx;
-public:
-    strategic_solver() {}
-
-    virtual void init(ast_manager & m, symbol const & logic);
-
-    virtual void assert_expr(expr * t);
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual void reset();
-
-    virtual unsigned get_num_assertions() const;
-    virtual expr * get_assertion(unsigned idx) const;
-};
-
-
 
 #endif

@@ -64,19 +64,20 @@ public:
     /**
        \brief Enable/Disable proof production for this solver object.
     
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic).
     */
     virtual void set_produce_proofs(bool f) {}
     /**
        \brief Enable/Disable model generation for this solver object.
 
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic). 
+       The user may optionally invoke it after init(m, logic).
     */
     virtual void set_produce_models(bool f) {}
     /**
        \brief Enable/Disable unsat core generation for this solver object.
 
-       It is invoked after init(m, logic).
+       It is invoked before init(m, logic).
     */
     virtual void set_produce_unsat_cores(bool f) {}
     
@@ -94,6 +95,13 @@ public:
        \brief Add a new formula to the assertion stack.
     */
     virtual void assert_expr(expr * t) = 0;
+
+    /**
+       \brief Add a new formula \c t to the assertion stack, and "tag" it with \c a.
+       The propositional varialbe \c a is used to track the use of \c t in a proof
+       of unsatisfiability.
+    */
+    virtual void assert_expr(expr * t, expr * a) = 0;
 
     /**
        \brief Create a backtracking point.

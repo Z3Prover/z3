@@ -233,6 +233,10 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
         quick_process(false, f, d);
 }
 
+void goal::assert_expr(expr * f, expr_dependency * d) {
+    assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : 0, d);
+}
+
 void goal::get_formulas(ptr_vector<expr> & result) {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {

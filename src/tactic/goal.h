@@ -105,9 +105,9 @@ public:
     void copy_from(goal const & src) { src.copy_to(*this); }
     
     void assert_expr(expr * f, proof * pr, expr_dependency * d);
-    void assert_expr(expr * f) {
-        assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : 0, 0);
-    }
+    void assert_expr(expr * f, expr_dependency * d);
+    void assert_expr(expr * f, expr * d) { assert_expr(f, m().mk_leaf(d)); }
+    void assert_expr(expr * f) { assert_expr(f, static_cast<expr_dependency*>(0)); }
     
     unsigned size() const { return m().size(m_forms); }
 

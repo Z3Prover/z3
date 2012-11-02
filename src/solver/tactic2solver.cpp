@@ -31,7 +31,7 @@ tactic2solver_core::ctx::ctx(ast_manager & m, symbol const & logic):
 tactic2solver_core::~tactic2solver_core() {
 }
 
-void tactic2solver_core::init(ast_manager & m, symbol const & logic) {
+void tactic2solver_core::init_core(ast_manager & m, symbol const & logic) {
     m_ctx = alloc(ctx, m, logic);
 }
 
@@ -62,7 +62,7 @@ void tactic2solver_core::collect_param_descrs(param_descrs & r) {
     }
 }
 
-void tactic2solver_core::reset() {
+void tactic2solver_core::reset_core() {
     SASSERT(m_ctx);
     m_ctx->m_assertions.reset();
     m_ctx->m_scopes.reset();
@@ -75,13 +75,13 @@ void tactic2solver_core::assert_expr(expr * t) {
     m_ctx->m_result = 0;
 }
 
-void tactic2solver_core::push() {
+void tactic2solver_core::push_core() {
     SASSERT(m_ctx);
     m_ctx->m_scopes.push_back(m_ctx->m_assertions.size());
     m_ctx->m_result = 0;
 }
 
-void tactic2solver_core::pop(unsigned n) {
+void tactic2solver_core::pop_core(unsigned n) {
     SASSERT(m_ctx);
     unsigned new_lvl = m_ctx->m_scopes.size() - n;
     unsigned old_sz  = m_ctx->m_scopes[new_lvl];
@@ -90,12 +90,7 @@ void tactic2solver_core::pop(unsigned n) {
     m_ctx->m_result = 0;
 }
 
-unsigned tactic2solver_core::get_scope_level() const {
-    SASSERT(m_ctx);
-    return m_ctx->m_scopes.size();
-}
-
-lbool tactic2solver_core::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     SASSERT(m_ctx);
     ast_manager & m = m_ctx->m();
     params_ref p = m_params;
