@@ -128,7 +128,7 @@ void strategic_solver_core::set_tactic_for(symbol const & logic, tactic_factory 
     m_logic2fct.insert(logic, fct);
 }
 
-void strategic_solver_core::init(ast_manager & m, symbol const & logic) {
+void strategic_solver_core::init_core(ast_manager & m, symbol const & logic) {
     m_manager = &m;
     m_logic   = logic;
     if (m_inc_mode) {
@@ -165,7 +165,7 @@ void strategic_solver_core::collect_statistics(statistics & st) const {
     }
 }
 
-void strategic_solver_core::reset() {
+void strategic_solver_core::reset_core() {
     m_logic    = symbol::null;
     m_inc_mode = false;
     m_check_sat_executed = false;
@@ -199,14 +199,14 @@ void strategic_solver_core::assert_expr(expr * t) {
     }
 }
 
-void strategic_solver_core::push() {
+void strategic_solver_core::push_core() {
     DEBUG_CODE(m_num_scopes++;);
     init_inc_solver();
     if (m_inc_solver)
         m_inc_solver->push();
 }
 
-void strategic_solver_core::pop(unsigned n) {
+void strategic_solver_core::pop_core(unsigned n) {
     DEBUG_CODE({
             SASSERT(n <= m_num_scopes);
             m_num_scopes -= n;
@@ -214,13 +214,6 @@ void strategic_solver_core::pop(unsigned n) {
     init_inc_solver();
     if (m_inc_solver)
         m_inc_solver->pop(n);
-}
-
-unsigned strategic_solver_core::get_scope_level() const {
-    if (m_inc_solver)
-        return m_inc_solver->get_scope_level();
-    else
-        return 0;
 }
 
 struct aux_timeout_eh : public event_handler {
@@ -278,7 +271,7 @@ lbool strategic_solver_core::check_sat_with_assumptions(unsigned num_assumptions
     return m_inc_solver->check_sat(num_assumptions, assumptions);
 }
 
-lbool strategic_solver_core::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+lbool strategic_solver_core::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     reset_results();
     m_check_sat_executed = true;
     if (num_assumptions > 0 || // assumptions were provided
@@ -427,8 +420,8 @@ void strategic_solver_core::display(std::ostream & out) const {
 strategic_solver::ctx::ctx(ast_manager & m):m_assertions(m) {
 }
 
-void strategic_solver::init(ast_manager & m, symbol const & logic) {
-    strategic_solver_core::init(m, logic);
+void strategic_solver::init_core(ast_manager & m, symbol const & logic) {
+    strategic_solver_core::init_core(m, logic);
     m_ctx = alloc(ctx, m);
 }
 
@@ -449,24 +442,24 @@ void strategic_solver::assert_expr(expr * t) {
     m_ctx->m_assertions.push_back(t);
 }
 
-void strategic_solver::push() {
+void strategic_solver::push_core() {
     SASSERT(m_ctx);
-    strategic_solver_core::push();
+    strategic_solver_core::push_core();
     m_ctx->m_scopes.push_back(m_ctx->m_assertions.size());
 }
 
-void strategic_solver::pop(unsigned n) {
+void strategic_solver::pop_core(unsigned n) {
     SASSERT(m_ctx);
     unsigned new_lvl = m_ctx->m_scopes.size() - n;
     unsigned old_sz  = m_ctx->m_scopes[new_lvl];
     m_ctx->m_assertions.shrink(old_sz);
     m_ctx->m_scopes.shrink(new_lvl);
-    strategic_solver_core::pop(n);
+    strategic_solver_core::pop_core(n);
 }
 
-void strategic_solver::reset() {
+void strategic_solver::reset_core() {
     m_ctx = 0;
-    strategic_solver_core::reset();
+    strategic_solver_core::reset_core();
 }
 
 

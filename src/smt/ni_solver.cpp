@@ -18,8 +18,9 @@ Notes:
 #include"ni_solver.h"
 #include"smt_kernel.h"
 #include"cmd_context.h"
+#include"solver_na2as.h"
 
-class ni_smt_solver : public solver {
+class ni_smt_solver : public solver_na2as {
 protected:
     cmd_context &       m_cmd_ctx;
     smt::kernel *       m_context;
@@ -32,7 +33,7 @@ public:
             dealloc(m_context);
     }
 
-    virtual void init(ast_manager & m, symbol const & logic) {
+    virtual void init_core(ast_manager & m, symbol const & logic) {
         // do nothing
     }
 
@@ -45,7 +46,7 @@ public:
         }
     }
 
-    virtual void reset() {
+    virtual void reset_core() {
         if (m_context != 0) {
             #pragma omp critical (ni_solver) 
             {
@@ -59,16 +60,12 @@ public:
         // do nothing
     }
 
-    virtual void push() {
+    virtual void push_core() {
         // do nothing
     }
 
-    virtual void pop(unsigned n) {
+    virtual void pop_core(unsigned n) {
         // do nothing
-    }
-
-    virtual unsigned get_scope_level() const {
-        return m_cmd_ctx.num_scopes();
     }
 
     void assert_exprs() {
@@ -92,7 +89,7 @@ public:
         assert_exprs();
     }
 
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         // erase current solver, and create a new one.
         init_solver();
 
@@ -165,15 +162,15 @@ public:
     
     virtual ~qi_smt_solver() {}
 
-    virtual void init(ast_manager & m, symbol const & logic) {
+    virtual void init_core(ast_manager & m, symbol const & logic) {
         if (m_inc_mode) {
             init_solver();
             m_inc_mode = true;
         }
     }
 
-    virtual void reset() {
-        ni_smt_solver::reset();
+    virtual void reset_core() {
+        ni_smt_solver::reset_core();
         m_inc_mode = false;
     }
 
@@ -196,31 +193,23 @@ public:
         }
     }
 
-    virtual void push() {
+    virtual void push_core() {
         switch_to_inc();
         SASSERT(m_context);
         m_context->push();
         SASSERT(m_inc_mode);
     }
 
-    virtual void pop(unsigned n) {
+    virtual void pop_core(unsigned n) {
         switch_to_inc();
         SASSERT(m_context);
         m_context->pop(n);
         SASSERT(m_inc_mode);
     }
 
-    virtual unsigned get_scope_level() const {
-        if (!m_inc_mode)
-            return 0;
-        else
-            return m_context->get_scope_level();
-    }
-
-
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         if (!m_inc_mode) {
-            lbool r = ni_smt_solver::check_sat(num_assumptions, assumptions);
+            lbool r = ni_smt_solver::check_sat_core(num_assumptions, assumptions);
             SASSERT(!m_inc_mode);
             return r;
         }

@@ -19,7 +19,7 @@ Notes:
 #ifndef _STRATEGIC_SOLVER_H_
 #define _STRATEGIC_SOLVER_H_
 
-#include"solver.h"
+#include"solver_na2as.h"
 #include"tactic.h"
 
 class progress_callback;
@@ -46,7 +46,7 @@ struct front_end_params;
    It goes back to non_incremental mode when:
        - reset is invoked.
 */
-class strategic_solver_core : public solver {
+class strategic_solver_core : public solver_na2as {
 public:
     // Behavior when the incremental solver returns unknown.
     enum inc_unknown_behavior {
@@ -123,14 +123,13 @@ public:
     
     virtual void display(std::ostream & out) const;
     
-    virtual void init(ast_manager & m, symbol const & logic);
+    virtual void init_core(ast_manager & m, symbol const & logic);
     virtual void collect_statistics(statistics & st) const;
-    virtual void reset();
+    virtual void reset_core();
     virtual void assert_expr(expr * t);
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual unsigned get_scope_level() const;
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
+    virtual void push_core();
+    virtual void pop_core(unsigned n);
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
     virtual void get_unsat_core(ptr_vector<expr> & r);
     virtual void get_model(model_ref & m);
     virtual proof * get_proof();
@@ -153,12 +152,12 @@ class strategic_solver : public strategic_solver_core {
 public:
     strategic_solver() {}
 
-    virtual void init(ast_manager & m, symbol const & logic);
+    virtual void init_core(ast_manager & m, symbol const & logic);
 
     virtual void assert_expr(expr * t);
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual void reset();
+    virtual void push_core();
+    virtual void pop_core(unsigned n);
+    virtual void reset_core();
 
     virtual unsigned get_num_assertions() const;
     virtual expr * get_assertion(unsigned idx) const;

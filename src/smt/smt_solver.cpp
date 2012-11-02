@@ -16,14 +16,14 @@ Author:
 Notes:
 
 --*/
-#include"solver.h"
+#include"solver_na2as.h"
 #include"smt_kernel.h"
 #include"reg_decl_plugins.h"
 #include"front_end_params.h"
 
 namespace smt {
 
-    class solver : public ::solver {
+    class solver : public solver_na2as {
         front_end_params * m_params;
         smt::kernel *     m_context;
     public:
@@ -57,7 +57,7 @@ namespace smt {
             }
         }
 
-        virtual void init(ast_manager & m, symbol const & logic) {
+        virtual void init_core(ast_manager & m, symbol const & logic) {
             SASSERT(m_params);
             reset();
 #pragma omp critical (solver)
@@ -77,7 +77,7 @@ namespace smt {
             }
         }
 
-        virtual void reset() {
+        virtual void reset_core() {
             if (m_context != 0) {
 #pragma omp critical (solver)
                 {
@@ -92,24 +92,17 @@ namespace smt {
             m_context->assert_expr(t);
         }
 
-        virtual void push() {
+        virtual void push_core() {
             SASSERT(m_context);
             m_context->push();
         }
 
-        virtual void pop(unsigned n) {
+        virtual void pop_core(unsigned n) {
             SASSERT(m_context);
             m_context->pop(n);
         }
 
-        virtual unsigned get_scope_level() const {
-            if (m_context)
-                return m_context->get_scope_level();
-            else
-                return 0;
-        }
-
-        virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
             SASSERT(m_context);
             return m_context->check(num_assumptions, assumptions);
         }
