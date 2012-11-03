@@ -181,6 +181,7 @@ class paccessor_decl : public pdecl {
     ptype const & get_type() const { return m_type; }
     virtual ~paccessor_decl() {}
 public:
+    virtual void display(std::ostream & out) const { pdecl::display(out); }
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 
@@ -201,6 +202,7 @@ class pconstructor_decl : public pdecl {
     constructor_decl * instantiate_decl(pdecl_manager & m, sort * const * s);
     virtual ~pconstructor_decl() {}
 public:
+    virtual void display(std::ostream & out) const { pdecl::display(out); }
     void display(std::ostream & out, pdatatype_decl const * const * dts) const;
 };
 

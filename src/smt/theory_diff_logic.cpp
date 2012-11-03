@@ -22,9 +22,11 @@ Revision History:
 #include"rational.h"
 #include"theory_diff_logic_def.h"
 
+namespace smt {
 
 template class theory_diff_logic<idl_ext>;
 template class theory_diff_logic<sidl_ext>;
 template class theory_diff_logic<rdl_ext>;
 template class theory_diff_logic<srdl_ext>;
 
+};
