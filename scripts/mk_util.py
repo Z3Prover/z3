@@ -1093,7 +1093,8 @@ def cp_z3pyc_to_build():
             os.remove('%s/%s' % (BUILD_DIR, pyc))
         except:
             pass
-        os.rename('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
+        shutil.copyfile('%s/%s' % (Z3PY_SRC_DIR, pyc), '%s/%s' % (BUILD_DIR, pyc))
+        os.remove('%s/%s' % (Z3PY_SRC_DIR, pyc))
         if is_verbose():
             print "Generated '%s'" % pyc
 
