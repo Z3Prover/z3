@@ -468,7 +468,10 @@ void model_evaluator::eval_arith(app* e) {
 void model_evaluator::inherit_value(expr* e, expr* v) {
     SASSERT(!is_unknown(v));
     SASSERT(m.get_sort(e) == m.get_sort(v));
-    if (m.is_bool(e)) {
+    if (is_x(v)) {
+        set_x(e);
+    }
+    else if (m.is_bool(e)) {
         SASSERT(m.is_bool(v));
         if (is_true(v)) set_true(e);
         else if (is_false(v)) set_false(e);
@@ -862,12 +865,19 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         fml = m.mk_and(conjs.size(), conjs.c_ptr());        
     }
 
+    // 
+    // (f (if c1 (if c2 e1 e2) e3) b c) -> 
+    // (if c1 (if c2 (f e1 b c)
+
     class ite_hoister {
         ast_manager& m;
     public:
         ite_hoister(ast_manager& m): m(m) {}
 
         br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
+            if (m.is_ite(f)) {
+                return BR_FAILED;
+            }
             for (unsigned i = 0; i < num_args; ++i) {
                 expr* c, *t, *e;
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
@@ -875,8 +885,13 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
                     ptr_vector<expr> args1(num_args, args);
                     args1[i] = t;
                     e1 = m.mk_app(f, num_args, args1.c_ptr());
+                    if (t == e) {
+                        result = e1;
+                        return BR_REWRITE1;
+                    }
                     args1[i] = e;
                     e2 = m.mk_app(f, num_args, args1.c_ptr());
+                    result = m.mk_app(f, num_args, args);
                     result = m.mk_ite(c, e1, e2);
                     return BR_REWRITE3;
                 }
@@ -910,7 +925,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
         ite_hoister_star ite_rw(m, p);
         expr_ref tmp(m);
         ite_rw(fml, tmp);
-        fml = tmp;
+        fml = tmp;        
     }
 
     class test_diff_logic {
@@ -934,13 +949,23 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             return is_app(e) && a.get_family_id() == to_app(e)->get_family_id();
         }
 
-        bool is_var_or_numeric(expr* e) const {
+        bool is_offset(expr* e) const {
             if (a.is_numeral(e)) {
                 return true;
             }
-            expr* cond, *th, *el;
+            expr* cond, *th, *el, *e1, *e2;
             if (m.is_ite(e, cond, th, el)) {
-                return is_var_or_numeric(th) && is_var_or_numeric(el);
+                return is_offset(th) && is_offset(el);
+            }
+            // recognize offsets.
+            if (a.is_add(e, e1, e2)) {
+                if (is_numeric(e1)) {
+                    return is_offset(e2);
+                }
+                if (is_numeric(e2)) {
+                    return is_offset(e1);
+                }
+                return false;
             }
             return !is_arith_expr(e);
         }
@@ -954,14 +979,14 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             SASSERT(to_app(e)->get_num_args() == 2);
             expr * lhs = to_app(e)->get_arg(0);
             expr * rhs = to_app(e)->get_arg(1);
-            if (is_var_or_numeric(lhs) && is_var_or_numeric(rhs)) 
+            if (is_offset(lhs) && is_offset(rhs)) 
                 return true;    
             if (!is_numeric(rhs)) 
                 std::swap(lhs, rhs);
             if (!is_numeric(rhs)) 
                 return false;    
             // lhs can be 'x' or '(+ x (* -1 y))'
-            if (is_var_or_numeric(lhs))
+            if (is_offset(lhs))
                 return true;
             expr* arg1, *arg2;
             if (!a.is_add(lhs, arg1, arg2)) 
@@ -975,7 +1000,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             expr* m1, *m2;
             if (!a.is_mul(arg2, m1, m2))
                 return false;
-            return is_minus_one(m1) && is_var_or_numeric(m2);
+            return is_minus_one(m1) && is_offset(m2);
         }
 
         bool test_eq(expr* e) const {
@@ -997,7 +1022,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
             if (a.is_numeral(e)) {
                 return true;
             }
-            if (is_var_or_numeric(e)) {
+            if (is_offset(e)) {
                 return true;
             }
             expr* lhs, *rhs;
@@ -1005,7 +1030,7 @@ bool model_evaluator::check_model(ptr_vector<expr> const& formulas) {
                 if (!a.is_numeral(lhs)) {
                     std::swap(lhs, rhs);
                 }
-                return a.is_numeral(lhs) && is_var_or_numeric(rhs);
+                return a.is_numeral(lhs) && is_offset(rhs);
             }
             if (a.is_mul(e, lhs, rhs)) {
                 return is_minus_one(lhs) || is_minus_one(rhs);

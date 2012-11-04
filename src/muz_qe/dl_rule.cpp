@@ -655,9 +655,7 @@ namespace datalog {
                 tail.push_back(ensure_app(conjs[i].get()));
             }
             tail_neg.resize(tail.size(), false);
-            IF_VERBOSE(1, r->display(m_ctx, verbose_stream() << "reducing rule\n"););
             r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr());
-            IF_VERBOSE(1, r->display(m_ctx, verbose_stream() << "reduced rule\n"););
             TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
         }
     }
