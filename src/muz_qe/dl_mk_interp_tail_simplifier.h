@@ -24,6 +24,7 @@ Revision History:
 #include "dl_rule_transformer.h"
 #include "unifier.h"
 #include "substitution.h"
+#include "arith_decl_plugin.h"
 
 namespace datalog {
 
@@ -60,11 +61,10 @@ namespace datalog {
             }
         };
 
-
-        ast_manager & m;
-        context & m_context;
-        th_rewriter & m_simp;
-
+        ast_manager &     m;
+        context &         m_context;
+        th_rewriter &     m_simp;
+        arith_util        a;
         rule_substitution m_rule_subst;
 
         class normalizer_cfg;
@@ -82,6 +82,7 @@ namespace datalog {
             m(ctx.get_manager()),
             m_context(ctx),
             m_simp(ctx.get_rewriter()),
+            a(m),
             m_rule_subst(ctx) {}
 
         /**If rule should be retained, assign transformed version to res and return true;

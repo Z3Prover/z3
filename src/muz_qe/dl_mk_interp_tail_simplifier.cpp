@@ -371,18 +371,21 @@ namespace datalog {
     bool mk_interp_tail_simplifier::propagate_variable_equivalences(rule * r, rule_ref& res) {
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();
-        if (u_len==len) {
+        if (u_len == len) {
             return false;
         }
 
         ptr_vector<expr> todo;
-        for (unsigned i=u_len; i<len; i++) {
+        for (unsigned i = u_len; i < len; i++) {
             todo.push_back(r->get_tail(i));
             SASSERT(!r->is_neg_tail(i));
         }
 
         m_rule_subst.reset(r);
 
+        obj_hashtable<expr> leqs;
+        expr_ref_vector trail(m);
+        expr_ref tmp1(m), tmp2(m);
         bool found_something = false;
 
 #define TRY_UNIFY(_x,_y) if (m_rule_subst.unify(_x,_y)) { found_something = true; }
@@ -422,6 +425,17 @@ namespace datalog {
                 }
                 else if (is_var(arg1) && neg && m.is_false(arg2)) {
                     TRY_UNIFY(arg1, m.mk_true());
+                }
+            }
+            else if (!neg && (a.is_le(t, arg1, arg2) || a.is_ge(t, arg2, arg1))) {
+                tmp1 = a.mk_sub(arg1, arg2);
+                tmp2 = a.mk_sub(arg2, arg1);
+                if (false && leqs.contains(tmp2) && IS_FLEX(arg1) && IS_FLEX(arg2)) {
+                    TRY_UNIFY(arg1, arg2);
+                }
+                else {
+                    trail.push_back(tmp1);
+                    leqs.insert(tmp1);
                 }
             }
         }

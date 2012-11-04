@@ -83,6 +83,11 @@ namespace datalog {
 
         unsigned hoist_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
 
+        /**
+           \brief Perform cheap quantifier elimination to reduce the number of variables in the interpreted tail.
+         */
+        void reduce_unbound_vars(rule_ref& r);
+
     public:
 
         ast_manager& get_manager() const { return m; }
@@ -125,6 +130,7 @@ namespace datalog {
 
         /** make sure there are not non-quantified variables that occur only in interpreted predicates */
         void fix_unbound_vars(rule_ref& r, bool try_quantifier_elimination);
+
 
 
         /**

@@ -201,8 +201,10 @@ void dl_interface::collect_params(param_descrs& p) {
     p.insert(":bfs-model-search", CPK_BOOL, "PDR: (default true) use BFS strategy for expanding model search");
     p.insert(":use-farkas", CPK_BOOL, "PDR: (default true) use lemma generator based on Farkas (for linear real arithmetic)");
     p.insert(":generate-proof-trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
-    p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
-    p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples by extending candidate trace within search area");
+    p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract "
+             "Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
+    p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples "
+             "by extending candidate trace within search area");
     p.insert(":unfold-rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
     p.insert(":use-model-generalizer", CPK_BOOL, "PDR: (default false) use model for backwards propagation (instead of symbolic simulation)");
     p.insert(":validate-result", CPK_BOOL, "PDR (default false) validate result (by proof checking or model checking)");
@@ -219,5 +221,5 @@ void dl_interface::collect_params(param_descrs& p) {
     PRIVATE_PARAMS(p.insert(":simplify-formulas-pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation"););
     PRIVATE_PARAMS(p.insert(":simplify-formulas-post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation"););
     p.insert(":slice", CPK_BOOL, "PDR: (default true) simplify clause set using slicing");
-    p.insert(":coalesce-rules", CPK_BOOL, "PDR: (default false) coalesce rules");
+    p.insert(":coalesce-rules", CPK_BOOL, "BMC: (default false) coalesce rules");
 }

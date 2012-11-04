@@ -1712,7 +1712,8 @@ namespace qe {
                         m_solver.get_model(model);
                         SASSERT(is_sat == l_true);
                         model_evaluator model_eval2(*model);
-                        model_eval2(x,val);
+                        model_eval2.set_model_completion(true);
+                        model_eval2(x, val);
                     }
                     TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(val, m) << "\n";);
                     m_current->add_def(x, val);

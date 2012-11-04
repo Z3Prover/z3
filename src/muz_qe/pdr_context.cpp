@@ -472,10 +472,7 @@ namespace pdr {
         th_rewriter rw(m);
         rw(m_transition);
         rw(m_initial_state);
-        if (ctx.is_dl()) {
-            hoist_non_bool_if(m_transition);
-            hoist_non_bool_if(m_initial_state);
-        }
+        
         m_solver.add_formula(m_transition);
         m_solver.add_level_formula(m_initial_state, 0);
         TRACE("pdr", 
@@ -578,6 +575,9 @@ namespace pdr {
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);
         rw(fml);
+        if (ctx.is_dl()) {
+            hoist_non_bool_if(fml);
+        }
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
         SASSERT(is_ground(fml));
         if (m.is_false(fml)) {
@@ -1825,6 +1825,7 @@ namespace pdr {
             ++m_stats.m_num_nodes;
             m_search.add_leaf(*child); 
             IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+            m_stats.m_max_depth = std::max(m_stats.m_max_depth, child->depth());
         }
         check_pre_closed(n);
         TRACE("pdr", m_search.display(tout););
