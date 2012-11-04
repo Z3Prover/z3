@@ -732,7 +732,7 @@ namespace datalog {
 
 
     void mk_slice::update_rule(rule& r, rule_set& dst) {
-        rule* new_rule;
+        rule_ref new_rule(rm);
         if (rule_updated(r)) {
             init_vars(r);
             app_ref_vector tail(m);
@@ -794,16 +794,20 @@ namespace datalog {
                 
             }
             
+            
             new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0);        
+
+            rm.fix_unbound_vars(new_rule, false);
+
             TRACE("dl", r.display(m_ctx, tout << "replacing:\n"); new_rule->display(m_ctx, tout << "by:\n"););
         }
         else {
             new_rule = &r;
         }
-        dst.add_rule(new_rule);
+        dst.add_rule(new_rule.get());
 
         if (m_pc) {
-            m_pc->insert(&r, new_rule, 0, 0);
+            m_pc->insert(&r, new_rule.get(), 0, 0);
         }
     }
 
