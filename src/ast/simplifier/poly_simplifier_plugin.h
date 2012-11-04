@@ -134,6 +134,10 @@ public:
     virtual bool reduce_distinct(unsigned num_args, expr * const * args, expr_ref & result);
 
     virtual bool reduce(func_decl * f, unsigned num_args, rational const * mults, expr * const * args, expr_ref & result);
+    virtual bool reduce(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+        return simplifier_plugin::reduce(f, num_args, args, result);
+    }
+
 
     expr * get_monomial_body(expr * m);
     int get_monomial_body_order(expr * m);

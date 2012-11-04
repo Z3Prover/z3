@@ -333,28 +333,28 @@ namespace api {
     //
     // ------------------------
 
-    smt::solver & context::get_solver() {
+    smt::kernel & context::get_smt_kernel() {
         if (!m_solver) {
-            m_solver = alloc(smt::solver, m_manager, m_params);
+            m_solver = alloc(smt::kernel, m_manager, m_params);
         }
         return *m_solver;
     }
         
     void context::assert_cnstr(expr * a) {
-        get_solver().assert_expr(a);
+        get_smt_kernel().assert_expr(a);
     }
     
     lbool context::check(model_ref & m) {
         flet<bool> searching(m_searching, true);
         lbool r;
-        r = get_solver().check();
+        r = get_smt_kernel().check();
         if (r != l_false)
-            get_solver().get_model(m);
+            get_smt_kernel().get_model(m);
         return r;
     }
     
     void context::push() {
-        get_solver().push();
+        get_smt_kernel().push();
         if (!m_user_ref_count) {
             m_ast_lim.push_back(m_ast_trail.size());
             m_replay_stack.push_back(0);
@@ -373,7 +373,7 @@ namespace api {
                 }
             }
         }
-        get_solver().pop(num_scopes);
+        get_smt_kernel().pop(num_scopes);
     }
 
     // ------------------------
@@ -476,7 +476,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_set_logic(c, logic);
         RESET_ERROR_CODE();
-        return mk_c(c)->get_solver().set_logic(symbol(logic));
+        return mk_c(c)->get_smt_kernel().set_logic(symbol(logic));
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 

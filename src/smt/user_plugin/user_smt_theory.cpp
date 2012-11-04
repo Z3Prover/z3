@@ -642,8 +642,8 @@ namespace smt {
         out << "Theory " << get_name() << ":\n";
     }
     
-    user_theory * mk_user_theory(solver & _s, void * ext_context, void * ext_data, char const * name) {
-        context & ctx               = _s.kernel(); // HACK
+    user_theory * mk_user_theory(kernel & _s, void * ext_context, void * ext_data, char const * name) {
+        context & ctx               = _s.get_context(); // HACK
         symbol _name(name);
         ast_manager & m             = ctx.get_manager();
         family_id fid               = m.get_family_id(_name);

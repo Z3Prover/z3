@@ -139,6 +139,10 @@ bool expr_substitution::find(expr * c, expr * & def, proof * & def_pr, expr_depe
     return false;
 }
 
+bool expr_substitution::contains(expr * s) {
+    return m_subst.contains(s);
+}
+
 void expr_substitution::reset() {
     dec_ref_map_key_values(m_manager, m_subst);
     if (proofs_enabled())

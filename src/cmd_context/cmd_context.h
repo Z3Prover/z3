@@ -175,16 +175,15 @@ protected:
     ptr_vector<pdecl>            m_aux_pdecls;
     ptr_vector<expr>             m_assertions;
     vector<std::string>          m_assertion_strings;
-    ptr_vector<expr>             m_assumptions; // for unsat-core extraction
+    ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
 
     struct scope {
         unsigned m_func_decls_stack_lim;
         unsigned m_psort_decls_stack_lim;
         unsigned m_macros_stack_lim;
         unsigned m_aux_pdecls_lim;
-        // only m_assertions_lim and m_assumptions_lim are relevant when m_global_decls = true
+        // only m_assertions_lim is relevant when m_global_decls = true
         unsigned m_assertions_lim;
-        unsigned m_assumptions_lim;
     };
 
     svector<scope>               m_scopes;
@@ -225,7 +224,6 @@ protected:
     void restore_macros(unsigned old_sz);
     void restore_aux_pdecls(unsigned old_sz);
     void restore_assertions(unsigned old_sz);
-    void restore_assumptions(unsigned old_sz);
 
     void erase_func_decl_core(symbol const & s, func_decl * f);
     void erase_psort_decl_core(symbol const & s);
@@ -272,7 +270,9 @@ public:
     bool produce_models() const;
     bool produce_proofs() const;
     bool produce_unsat_cores() const { return m_produce_unsat_cores; }
-    void set_produce_unsat_cores(bool flag) { m_produce_unsat_cores = flag; }
+    void set_produce_models(bool flag);
+    void set_produce_unsat_cores(bool flag);
+    void set_produce_proofs(bool flag);
     bool produce_assignments() const { return m_produce_assignments; }
     void set_produce_assignments(bool flag) { m_produce_assignments = flag; }
     void set_status(status st) { m_status = st; }
@@ -369,8 +369,8 @@ public:
     ptr_vector<expr>::const_iterator begin_assertions() const { return m_assertions.begin(); }
     ptr_vector<expr>::const_iterator end_assertions() const { return m_assertions.end(); }
 
-    ptr_vector<expr>::const_iterator begin_assumptions() const { return m_assumptions.begin(); }
-    ptr_vector<expr>::const_iterator end_assumptions() const { return m_assumptions.end(); }
+    ptr_vector<expr>::const_iterator begin_assertion_names() const { return m_assertion_names.begin(); }
+    ptr_vector<expr>::const_iterator end_assertion_names() const { return m_assertion_names.end(); }
 
     /**
        \brief Hack: consume assertions if there are no scopes.
@@ -380,7 +380,6 @@ public:
         if (num_scopes() > 0)
             return false;
         restore_assertions(0);
-        restore_assumptions(0);
         return true;
     }
 

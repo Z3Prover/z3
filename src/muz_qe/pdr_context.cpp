@@ -1867,7 +1867,7 @@ namespace pdr {
     }
 
     bool context::check_invariant(unsigned lvl, func_decl* fn) {
-        smt::solver ctx(m, m_fparams);
+        smt::kernel ctx(m, m_fparams);
         pred_transformer& pt = *m_rels.find(fn);
         expr_ref_vector conj(m);
         expr_ref inv = pt.get_formulas(next_level(lvl), false);

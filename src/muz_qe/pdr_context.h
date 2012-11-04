@@ -274,7 +274,7 @@ namespace pdr {
                 (*this)(n, new_cores.back().first, new_cores.back().second);
             }
         }
-        virtual void collect_statistics(statistics& st) {}
+        virtual void collect_statistics(statistics& st) const {}
     };
 
     class context {

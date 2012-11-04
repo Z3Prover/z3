@@ -28,7 +28,7 @@ Revision History:
 #include "expr_substitution.h"
 #include "map.h"
 #include "ref_vector.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "pdr_util.h"
 #include "pdr_sym_mux.h"
 #include "pdr_farkas_learner.h"

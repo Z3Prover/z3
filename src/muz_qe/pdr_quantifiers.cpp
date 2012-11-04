@@ -152,7 +152,7 @@ namespace pdr {
         bool found_instance = false;
         expr_ref C(m);
         front_end_params fparams;
-        smt::solver solver(m, fparams);
+        smt::kernel solver(m, fparams);
         solver.assert_expr(m_A);
         for (unsigned i = 0; i < m_Bs.size(); ++i) {
             expr_ref_vector fresh_vars(m);
@@ -344,7 +344,7 @@ namespace pdr {
               for (unsigned i = 0; i < fmls.size(); ++i) {
                   tout << mk_pp(fmls[i].get(), mp) << "\n";
               });
-        smt::solver solver(mp, fparams);
+        smt::kernel solver(mp, fparams);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             solver.assert_expr(fmls[i].get());
         }

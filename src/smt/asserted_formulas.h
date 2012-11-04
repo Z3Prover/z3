@@ -30,7 +30,6 @@ Revision History:
 #include"maximise_ac_sharing.h"
 #include"bit2int.h"
 #include"statistics.h"
-#include"user_rewriter.h"
 #include"pattern_inference.h"
 
 class arith_simplifier_plugin;
@@ -66,8 +65,6 @@ class asserted_formulas {
 
     maximise_bv_sharing         m_bv_sharing;
 
-    user_rewriter               m_user_rewriter;
-
     bool                        m_inconsistent;
     // qe::expr_quant_elim_star1   m_quant_elim;
 
@@ -98,7 +95,6 @@ class asserted_formulas {
     void apply_quasi_macros();
     void nnf_cnf();
     bool apply_eager_bit_blaster();
-    bool apply_user_rewriter();
     void infer_patterns();
     void eliminate_term_ite();
     void reduce_and_solve();
@@ -157,7 +153,6 @@ public:
     void init(unsigned num_formulas, expr * const * formulas, proof * const * prs);
     void register_simplifier_plugin(simplifier_plugin * p) { m_simplifier.register_plugin(p); }
     simplifier & get_simplifier() { return m_simplifier; }
-    void set_user_rewriter(void* ctx, user_rewriter::fn* rw) { m_user_rewriter.set_rewriter(ctx, rw); }
     void get_assertions(ptr_vector<expr> & result);
     bool empty() const { return m_asserted_formulas.empty(); }
     void collect_static_features();

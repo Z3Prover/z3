@@ -27,7 +27,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 #include"front_end_params.h"
 #include"event_handler.h"
 #include"tactic_manager.h"
@@ -62,7 +62,7 @@ namespace api {
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
 
-        smt::solver *              m_solver;     // General purpose solver for backward compatibility
+        smt::kernel *              m_solver;     // General purpose solver for backward compatibility
         
         ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
         ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
@@ -175,7 +175,7 @@ namespace api {
         // ------------------------
         
         bool has_solver() const { return m_solver != 0; }
-        smt::solver & get_solver();
+        smt::kernel & get_smt_kernel();
         void assert_cnstr(expr * a);
         lbool check(model_ref & m);
         void push();

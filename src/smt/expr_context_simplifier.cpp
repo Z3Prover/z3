@@ -20,7 +20,7 @@ Revision History:
 #include "expr_context_simplifier.h"
 #include "ast_pp.h"
 #include "obj_hashtable.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "for_each_expr.h"
 
 // table lookup before/after simplification.

@@ -106,7 +106,7 @@ unsigned read_smtlib2_commands(char const* file_name, front_end_params& front_en
         ctx.set_solver(s);
     }
     else {
-        solver * s = mk_smt_strategic_solver(ctx);
+        solver * s = mk_smt_strategic_solver(false);
         ctx.set_solver(s);
     }
     install_dl_cmds(ctx);

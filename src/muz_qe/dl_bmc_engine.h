@@ -22,7 +22,7 @@ Revision History:
 
 #include "params.h"
 #include "statistics.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "bv_decl_plugin.h"
 
 
@@ -33,7 +33,7 @@ namespace datalog {
         context&         m_ctx;
         ast_manager&     m;
         front_end_params m_fparams;
-        smt::solver      m_solver;
+        smt::kernel      m_solver;
         obj_map<func_decl, sort*> m_pred2sort;
         obj_map<sort, func_decl*> m_sort2pred;
         obj_map<func_decl, func_decl*> m_pred2newpred;

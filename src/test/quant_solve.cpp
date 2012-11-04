@@ -6,7 +6,7 @@
 #include "lbool.h"
 #include <sstream>
 #include "expr_replacer.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "reg_decl_plugins.h"
 #include "expr_abstract.h"
 #include "model_smt2_pp.h"
@@ -29,7 +29,7 @@ static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::
     expr_ref tmp(m);
     tmp = m.mk_not(m.mk_implies(guard, fml1));
     front_end_params fp;
-    smt::solver solver(m, fp);
+    smt::kernel solver(m, fp);
     solver.assert_expr(tmp);
     lbool res = solver.check();
     //SASSERT(res == l_false);
@@ -64,7 +64,7 @@ static void validate_quant_solutions(app* x, expr* fml, expr_ref_vector& guards)
     tmp = m.mk_not(m.mk_iff(fml2, tmp));
     std::cout << mk_pp(tmp, m) << "\n";
     front_end_params fp;
-    smt::solver solver(m, fp);
+    smt::kernel solver(m, fp);
     solver.assert_expr(tmp);
     lbool res = solver.check();
     std::cout << "checked\n";

@@ -3,351 +3,181 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    smt_solver.h
+    smt_solver.cpp
 
 Abstract:
 
-    New frontend for the incremental solver.
-    
+    Wraps smt::kernel as a solver for the external API and cmd_context.
+
 Author:
 
-    Leonardo de Moura (leonardo) 2012-02-09.
+    Leonardo (leonardo) 2012-10-21
 
-Revision History:
+Notes:
 
 --*/
-#include"smt_solver.h"
-#include"smt_context.h" 
-#include"ast_smt2_pp.h"
-#include"params2front_end_params.h"
+#include"solver_na2as.h"
+#include"smt_kernel.h"
+#include"reg_decl_plugins.h"
+#include"front_end_params.h"
 
 namespace smt {
 
-    struct solver::imp {
-        smt::context m_kernel;
-        params_ref   m_params;
-        
-        imp(ast_manager & m, front_end_params & fp, params_ref const & p):
-            m_kernel(m, fp, p),
-            m_params(p) {
+    class solver : public solver_na2as {
+        front_end_params *  m_params;
+        smt::kernel *       m_context;
+        progress_callback * m_callback;
+    public:
+        solver():m_params(0), m_context(0), m_callback(0) {}
+
+        virtual ~solver() {
+            if (m_context != 0)
+                dealloc(m_context);
         }
 
-        front_end_params & fparams() {
-            return m_kernel.get_fparams();
+        virtual void set_front_end_params(front_end_params & p) {
+            m_params = &p;
         }
 
-        params_ref const & params() {
-            return m_params;
-        }
-     
-        ast_manager & m() const {
-            return m_kernel.get_manager();
+        virtual void updt_params(params_ref const & p) {
+            if (m_context == 0)
+                return;
+            m_context->updt_params(p);
         }
 
-        bool set_logic(symbol logic) {
-            return m_kernel.set_logic(logic);
-        }
-        
-        void set_progress_callback(progress_callback * callback) {
-            return m_kernel.set_progress_callback(callback);
-        }
-        
-        void assert_expr(expr * e) {
-            TRACE("smt_solver", tout << "assert:\n" << mk_ismt2_pp(e, m()) << "\n";);
-            m_kernel.assert_expr(e);
-        }
-        
-        void assert_expr(expr * e, proof * pr) {
-            m_kernel.assert_expr(e, pr);
-        }
-
-        unsigned size() const {
-            return m_kernel.get_num_asserted_formulas();
-        }
-        
-        expr * const * get_formulas() const {
-            return m_kernel.get_asserted_formulas();
-        }
-        
-        bool reduce() {
-            return m_kernel.reduce_assertions();
-        }
-        
-        void push() {
-            TRACE("smt_solver", tout << "push()\n";);
-            m_kernel.push();
-        }
-
-        void pop(unsigned num_scopes) {
-            TRACE("smt_solver", tout << "pop()\n";);
-            m_kernel.pop(num_scopes);
-        }
-        
-        unsigned get_scope_level() const {
-            return m_kernel.get_scope_level();
-        }
-
-        lbool setup_and_check() {
-            return m_kernel.setup_and_check();
-        }
-
-        bool inconsistent() {
-            return m_kernel.inconsistent();
-        }
-        
-        lbool check(unsigned num_assumptions, expr * const * assumptions) {
-            return m_kernel.check(num_assumptions, assumptions);
-        }
-        
-        void get_model(model_ref & m) const {
-            m_kernel.get_model(m);
-        }
-
-        proof * get_proof() {
-            return m_kernel.get_proof();
-        }
-
-        unsigned get_unsat_core_size() const {
-            return m_kernel.get_unsat_core_size();
-        }
-        
-        expr * get_unsat_core_expr(unsigned idx) const {
-            return m_kernel.get_unsat_core_expr(idx);
-        }
-        
-        failure last_failure() const {
-            return m_kernel.get_last_search_failure();
-        }
-        
-        std::string last_failure_as_string() const {
-            return m_kernel.last_failure_as_string();
-        }
-
-        void get_assignments(expr_ref_vector & result) {
-            m_kernel.get_assignments(result);
-        }
-        
-        void get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
-            m_kernel.get_relevant_labels(cnstr, result);
-        }
-        
-        void get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
-            m_kernel.get_relevant_labeled_literals(at_lbls, result);
-        }
-
-        void get_relevant_literals(expr_ref_vector & result) {
-            m_kernel.get_relevant_literals(result);
-        }
-        
-        void get_guessed_literals(expr_ref_vector & result) {
-            m_kernel.get_guessed_literals(result);
-        }
-
-        void display(std::ostream & out) const {
-            // m_kernel.display(out); <<< for external users it is just junk
-            // TODO: it will be replaced with assertion_stack.display
-            unsigned num = m_kernel.get_num_asserted_formulas();
-            expr * const * fms = m_kernel.get_asserted_formulas();
-            out << "(solver";
-            for (unsigned i = 0; i < num; i++) {
-                out << "\n  " << mk_ismt2_pp(fms[i], m(), 2);
+        virtual void collect_param_descrs(param_descrs & r) {
+            if (m_context == 0) {
+                ast_manager m;
+                reg_decl_plugins(m);
+                front_end_params p;
+                smt::kernel s(m, p);
+                s.collect_param_descrs(r);
             }
-            out << ")";
-        }
-        
-        void collect_statistics(::statistics & st) const {
-            m_kernel.collect_statistics(st);
-        }
-        
-        void reset_statistics() {
+            else {
+                m_context->collect_param_descrs(r);
+            }
         }
 
-        void display_statistics(std::ostream & out) const {
-            m_kernel.display_statistics(out);
-        }
-        
-        void display_istatistics(std::ostream & out) const {
-            m_kernel.display_istatistics(out);
-        }
-
-        void set_cancel(bool f) {
-            m_kernel.set_cancel_flag(f);
-        }
-        
-        bool canceled() {
-            return m_kernel.get_cancel_flag();
+        virtual void init_core(ast_manager & m, symbol const & logic) {
+            SASSERT(m_params);
+            reset();
+#pragma omp critical (solver)
+            {
+                m_context = alloc(smt::kernel, m, *m_params);
+                if (m_callback)
+                    m_context->set_progress_callback(m_callback);
+            }
+            if (logic != symbol::null)
+                m_context->set_logic(logic);
         }
 
-        void updt_params(params_ref const & p) {
-            params2front_end_params(p, fparams());
+        virtual void collect_statistics(statistics & st) const {
+            if (m_context == 0) {
+                return;
+            }
+            else {
+                m_context->collect_statistics(st);
+            }
         }
+
+        virtual void reset_core() {
+            if (m_context != 0) {
+#pragma omp critical (solver)
+                {
+                    dealloc(m_context);
+                    m_context = 0;
+                }
+            }
+        }
+
+        virtual void assert_expr(expr * t) {
+            SASSERT(m_context);
+            m_context->assert_expr(t);
+        }
+
+        virtual void push_core() {
+            SASSERT(m_context);
+            m_context->push();
+        }
+
+        virtual void pop_core(unsigned n) {
+            SASSERT(m_context);
+            m_context->pop(n);
+        }
+
+        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+            SASSERT(m_context);
+            TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
+            return m_context->check(num_assumptions, assumptions);
+        }
+
+        virtual void get_unsat_core(ptr_vector<expr> & r) {
+            SASSERT(m_context);
+            unsigned sz = m_context->get_unsat_core_size();
+            for (unsigned i = 0; i < sz; i++)
+                r.push_back(m_context->get_unsat_core_expr(i));
+        }
+
+        virtual void get_model(model_ref & m) {
+            SASSERT(m_context);
+            m_context->get_model(m);
+        }
+
+        virtual proof * get_proof() {
+            SASSERT(m_context);
+            return m_context->get_proof();
+        }
+
+        virtual std::string reason_unknown() const {
+            SASSERT(m_context);
+            return m_context->last_failure_as_string();
+        }
+
+        virtual void get_labels(svector<symbol> & r) {
+            SASSERT(m_context);
+            buffer<symbol> tmp;
+            m_context->get_relevant_labels(0, tmp);
+            r.append(tmp.size(), tmp.c_ptr());
+        }
+
+        virtual void set_cancel(bool f) {
+#pragma omp critical (solver)
+            {
+                if (m_context) 
+                    m_context->set_cancel(f);
+            }
+        }
+
+        virtual void set_progress_callback(progress_callback * callback) {
+            m_callback = callback;
+            if (m_context)
+                m_context->set_progress_callback(callback);
+        }
+
+        virtual unsigned get_num_assertions() const {
+            if (m_context)
+                return m_context->size();
+            else
+                return 0;
+        }
+    
+        virtual expr * get_assertion(unsigned idx) const {
+            SASSERT(m_context);
+            SASSERT(idx < get_num_assertions());
+            return m_context->get_formulas()[idx];
+        }
+
+        virtual void display(std::ostream & out) const {
+            if (m_context)
+                m_context->display(out);
+            else
+                out << "(solver)";
+        }
+   
     };
 
-    solver::solver(ast_manager & m, front_end_params & fp, params_ref const & p) {
-        m_imp = alloc(imp, m, fp, p);
-    }
-
-    solver::~solver() {
-        dealloc(m_imp);
-    }
-
-    ast_manager & solver::m() const {
-        return m_imp->m();
-    }
-
-    bool solver::set_logic(symbol logic) {
-        return m_imp->set_logic(logic);
-    }
-
-    void solver::set_progress_callback(progress_callback * callback) {
-        m_imp->set_progress_callback(callback);
-    }
-
-    void solver::assert_expr(expr * e) {
-        m_imp->assert_expr(e);
-    }
-
-    void solver::assert_expr(expr * e, proof * pr) {
-        m_imp->assert_expr(e, pr);
-    }
-
-    unsigned solver::size() const {
-        return m_imp->size();
-    }
-    
-    expr * const * solver::get_formulas() const {
-        return m_imp->get_formulas();
-    }
-
-    bool solver::reduce() {
-        return m_imp->reduce();
-    }
-
-    void solver::push() {
-        m_imp->push();
-    }
-
-    void solver::pop(unsigned num_scopes) {
-        m_imp->pop(num_scopes);
-    }
-
-    unsigned solver::get_scope_level() const {
-        return m_imp->get_scope_level();
-    }
-
-    void solver::reset() {
-        ast_manager & _m       = m();
-        front_end_params & fps = m_imp->fparams();
-        params_ref ps          = m_imp->params();
-        #pragma omp critical (smt_solver)
-        {
-            dealloc(m_imp);
-            m_imp = alloc(imp, _m, fps, ps);
-        }
-    }
-
-    bool solver::inconsistent() {
-        return m_imp->inconsistent();
-    }
-
-    lbool solver::setup_and_check() {
-        set_cancel(false);
-        return m_imp->setup_and_check();
-    }
-
-    lbool solver::check(unsigned num_assumptions, expr * const * assumptions) {
-        set_cancel(false);
-        lbool r = m_imp->check(num_assumptions, assumptions);
-        TRACE("smt_solver", tout << "check result: " << r << "\n";);
-        return r;
-    }
-
-    void solver::get_model(model_ref & m) const {
-        m_imp->get_model(m);
-    }
-
-    proof * solver::get_proof() {
-        return m_imp->get_proof();
-    }
-
-    unsigned solver::get_unsat_core_size() const {
-        return m_imp->get_unsat_core_size();
-    }
-        
-    expr * solver::get_unsat_core_expr(unsigned idx) const {
-        return m_imp->get_unsat_core_expr(idx);
-    }
-
-    failure solver::last_failure() const {
-        return m_imp->last_failure();
-    }
-
-    std::string solver::last_failure_as_string() const {
-        return m_imp->last_failure_as_string();
-    }
-
-    void solver::get_assignments(expr_ref_vector & result) {
-        m_imp->get_assignments(result);
-    }
-        
-    void solver::get_relevant_labels(expr * cnstr, buffer<symbol> & result) {
-        m_imp->get_relevant_labels(cnstr, result);
-    }
-    
-    void solver::get_relevant_labeled_literals(bool at_lbls, expr_ref_vector & result) {
-        m_imp->get_relevant_labeled_literals(at_lbls, result);
-    }
-
-    void solver::get_relevant_literals(expr_ref_vector & result) {
-        m_imp->get_relevant_literals(result);
-    }
-
-    void solver::get_guessed_literals(expr_ref_vector & result) {
-        m_imp->get_guessed_literals(result);
-    }
-
-    void solver::display(std::ostream & out) const {
-        m_imp->display(out);
-    }
-
-    void solver::collect_statistics(::statistics & st) const {
-        m_imp->collect_statistics(st);
-    }
-        
-    void solver::reset_statistics() {
-        m_imp->reset_statistics();
-    }
-
-    void solver::display_statistics(std::ostream & out) const {
-        m_imp->display_statistics(out);
-    }
-
-    void solver::display_istatistics(std::ostream & out) const {
-        m_imp->display_istatistics(out);
-    }
-
-    void solver::set_cancel(bool f) {
-        #pragma omp critical (smt_solver)
-        {
-            if (m_imp)
-                m_imp->set_cancel(f);
-        }
-    }
-
-    bool solver::canceled() const {
-        return m_imp->canceled();
-    }
-
-    void solver::updt_params(params_ref const & p) {
-        return m_imp->updt_params(p);
-    }
-
-    void solver::collect_param_descrs(param_descrs & d) {
-        solver_front_end_params_descrs(d);
-    }
-
-    context & solver::kernel() {
-        return m_imp->m_kernel;
-    }
-
 };
+
+solver * mk_smt_solver() {
+    return alloc(smt::solver);
+}

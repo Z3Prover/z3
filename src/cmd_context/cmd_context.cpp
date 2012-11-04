@@ -348,6 +348,24 @@ cmd_context::~cmd_context() {
     }
 }
 
+void cmd_context::set_produce_models(bool f) {
+    params().m_model = f;
+    if (m_solver)
+        m_solver->set_produce_models(f);
+}
+
+void cmd_context::set_produce_unsat_cores(bool f) {
+    // can only be set before initialization
+    SASSERT(!has_manager());
+    m_produce_unsat_cores = f;
+}
+
+void cmd_context::set_produce_proofs(bool f) {
+    // can only be set before initialization
+    SASSERT(!has_manager());
+    params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
+}
+
 bool cmd_context::is_smtlib2_compliant() const { 
     return params().m_smtlib2_compliant; 
 }
@@ -540,8 +558,12 @@ void cmd_context::init_manager_core(bool new_manager) {
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
     }
-    if (m_solver)
+    if (m_solver) {
+        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
+        m_solver->set_produce_models(params().m_model);
+        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
         m_solver->init(m(), m_logic);
+    }
     m_check_logic.set_logic(m(), m_logic);
 }
 
@@ -1076,7 +1098,6 @@ void cmd_context::reset(bool finalize) {
     reset_macros();
     reset_func_decls();
     restore_assertions(0);
-    restore_assumptions(0);
     if (m_solver)
         m_solver->reset();
     m_pp_env = 0;
@@ -1108,6 +1129,8 @@ void cmd_context::assert_expr(expr * t) {
     m_check_sat_result = 0;
     m().inc_ref(t);
     m_assertions.push_back(t);
+    if (m_produce_unsat_cores)
+        m_assertion_names.push_back(0);
     if (m_solver)
         m_solver->assert_expr(t);
 }
@@ -1119,11 +1142,14 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
         assert_expr(t);
         return;
     }
-    app * proxy  = m().mk_const(name, m().mk_bool_sort());
-    expr * new_t = m().mk_implies(proxy, t);
-    m().inc_ref(proxy);
-    m_assumptions.push_back(proxy);
-    assert_expr(new_t);
+    m_check_sat_result = 0;
+    m().inc_ref(t);
+    m_assertions.push_back(t);
+    expr * ans  = m().mk_const(name, m().mk_bool_sort());
+    m().inc_ref(ans);
+    m_assertion_names.push_back(ans);
+    if (m_solver)
+        m_solver->assert_expr(t, ans);
 }
 
 void cmd_context::push() {
@@ -1137,7 +1163,6 @@ void cmd_context::push() {
     s.m_macros_stack_lim       = m_macros_stack.size();
     s.m_aux_pdecls_lim         = m_aux_pdecls.size();
     s.m_assertions_lim         = m_assertions.size();
-    s.m_assumptions_lim        = m_assumptions.size();
     if (m_solver) 
         m_solver->push();
 }
@@ -1200,27 +1225,23 @@ void cmd_context::restore_aux_pdecls(unsigned old_sz) {
     m_aux_pdecls.shrink(old_sz);
 }
 
+static void restore(ast_manager & m, ptr_vector<expr> & c, unsigned old_sz) {
+    ptr_vector<expr>::iterator it  = c.begin() + old_sz;
+    ptr_vector<expr>::iterator end = c.end();
+    for (; it != end; ++it) {
+        m.dec_ref(*it);
+    }
+    c.shrink(old_sz);
+}
+
 void cmd_context::restore_assertions(unsigned old_sz) {
     SASSERT(old_sz <= m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
-    ptr_vector<expr>::iterator it  = m_assertions.begin() + old_sz;
-    ptr_vector<expr>::iterator end = m_assertions.end();
-    for (; it != end; ++it) {
-        m().dec_ref(*it);
-    }
-    m_assertions.shrink(old_sz);
+    restore(m(), m_assertions, old_sz);
+    if (m_produce_unsat_cores)
+        restore(m(), m_assertion_names, old_sz);
     if (m_interactive_mode)
         m_assertion_strings.shrink(old_sz);
-}
-
-void cmd_context::restore_assumptions(unsigned old_sz) {
-    SASSERT(old_sz <= m_assumptions.size());
-    ptr_vector<expr>::iterator it  = m_assumptions.begin() + old_sz;
-    ptr_vector<expr>::iterator end = m_assumptions.end();
-    for (; it != end; ++it) {
-        m().dec_ref(*it);
-    }
-    m_assumptions.shrink(old_sz);
 }
 
 void cmd_context::pop(unsigned n) {
@@ -1240,7 +1261,6 @@ void cmd_context::pop(unsigned n) {
     restore_macros(s.m_macros_stack_lim);
     restore_aux_pdecls(s.m_aux_pdecls_lim);
     restore_assertions(s.m_assertions_lim);
-    restore_assumptions(s.m_assumptions_lim);
     m_scopes.shrink(new_lvl);
 }
 
@@ -1260,17 +1280,12 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_front_end_params(params());
         m_solver->set_progress_callback(this);
-        m_solver->set_produce_proofs(produce_proofs());
-        m_solver->set_produce_models(produce_models());
-        m_solver->set_produce_unsat_cores(produce_unsat_cores());
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
-        unsigned old_sz = m_assumptions.size();
-        m_assumptions.append(num_assumptions, assumptions);
         lbool r;
         try {
-            r = m_solver->check_sat(m_assumptions.size(), m_assumptions.c_ptr());
+            r = m_solver->check_sat(num_assumptions, assumptions);
         }
         catch (z3_error & ex) {
             throw ex;
@@ -1278,7 +1293,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         catch (z3_exception & ex) {
             throw cmd_exception(ex.msg());
         }
-        m_assumptions.shrink(old_sz);
         m_solver->set_status(r);
         display_sat_result(r);
         validate_check_sat_result(r);
@@ -1410,6 +1424,9 @@ void cmd_context::set_solver(solver * s) {
     m_solver = s;
     m_solver->set_front_end_params(params());
     if (has_manager() && s != 0) {
+        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
+        m_solver->set_produce_models(params().m_model);
+        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
         m_solver->init(m(), m_logic);
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;

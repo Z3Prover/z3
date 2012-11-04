@@ -23,7 +23,7 @@ Revision History:
 #include "dl_context.h"
 #include "dl_smt_relation.h"
 #include "expr_abstract.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "th_rewriter.h"
 #include "qe.h"
 #include "datatype_decl_plugin.h"
@@ -131,7 +131,7 @@ namespace datalog {
 
         front_end_params& params = get_plugin().get_fparams();
         flet<bool> flet2(params.m_der, true);
-        smt::solver ctx(m, params);
+        smt::kernel ctx(m, params);
         expr_ref tmp(m); 
         instantiate(r, tmp);
         ctx.assert_expr(tmp);
@@ -184,7 +184,7 @@ namespace datalog {
         flet<bool> flet0(params.m_quant_elim, true);
         flet<bool> flet1(params.m_nnf_cnf, false);
         flet<bool> flet2(params.m_der, true);
-        smt::solver ctx(m, params);
+        smt::kernel ctx(m, params);
         ctx.assert_expr(fml_inst);
         lbool result = ctx.check();
         TRACE("smt_relation",
@@ -242,7 +242,7 @@ namespace datalog {
         eqs.resize(num_vars);
         instantiate(r, tmp);
         flet<bool> flet4(params.m_model, true);
-        smt::solver ctx(m, params);
+        smt::kernel ctx(m, params);
         ctx.assert_expr(tmp);
         
         while (true) {

@@ -463,7 +463,7 @@ namespace pdr {
         imp imp(m_ctx);
         ast_manager& m = core.get_manager();
         expr_ref goal = imp.mk_induction_goal(p->pt(), p->level(), depth);
-        smt::solver ctx(m, m_ctx.get_fparams(), m_ctx.get_params());
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params());
         ctx.assert_expr(goal);
         lbool r = ctx.check();
         TRACE("pdr", tout << r << "\n";

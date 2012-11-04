@@ -41,7 +41,7 @@ extern "C" {
         LOG_Z3_pop(c, num_scopes);
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
-        if (num_scopes > mk_c(c)->get_solver().get_scope_level()) {
+        if (num_scopes > mk_c(c)->get_smt_kernel().get_scope_level()) {
             SET_ERROR_CODE(Z3_IOB);
             return;
         }
@@ -73,7 +73,7 @@ extern "C" {
         LOG_Z3_check_and_get_model(c, m);
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
-        cancel_eh<smt::solver> eh(mk_c(c)->get_solver());
+        cancel_eh<smt::kernel> eh(mk_c(c)->get_smt_kernel());
         api::context::set_interruptable(*(mk_c(c)), eh);
         flet<bool> _model(mk_c(c)->fparams().m_model, true);
         lbool result;
@@ -120,7 +120,7 @@ extern "C" {
         LOG_Z3_get_implied_equalities(c, num_terms, terms, class_ids);
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
-        lbool result = smt::implied_equalities(mk_c(c)->get_solver(), num_terms, to_exprs(terms), class_ids);
+        lbool result = smt::implied_equalities(mk_c(c)->get_smt_kernel(), num_terms, to_exprs(terms), class_ids);
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
@@ -136,13 +136,13 @@ extern "C" {
         CHECK_SEARCHING(c);
         expr * const* _assumptions = to_exprs(assumptions);
         flet<bool> _model(mk_c(c)->fparams().m_model, true);
-        cancel_eh<smt::solver> eh(mk_c(c)->get_solver());
+        cancel_eh<smt::kernel> eh(mk_c(c)->get_smt_kernel());
         api::context::set_interruptable(*(mk_c(c)), eh);
         lbool result;
-        result = mk_c(c)->get_solver().check(num_assumptions, _assumptions);
+        result = mk_c(c)->get_smt_kernel().check(num_assumptions, _assumptions);
         if (result != l_false && m) {
             model_ref _m;
-            mk_c(c)->get_solver().get_model(_m);
+            mk_c(c)->get_smt_kernel().get_model(_m);
             if (_m) {
                 Z3_model_ref * m_ref = alloc(Z3_model_ref); 
                 m_ref->m_model = _m;
@@ -156,19 +156,19 @@ extern "C" {
             }
         }
         if (result == l_false && core_size) {
-            *core_size = mk_c(c)->get_solver().get_unsat_core_size();
+            *core_size = mk_c(c)->get_smt_kernel().get_unsat_core_size();
             if (*core_size > num_assumptions) {
                 SET_ERROR_CODE(Z3_INVALID_ARG);
             }
             for (unsigned i = 0; i < *core_size; ++i) {
-                core[i] = of_ast(mk_c(c)->get_solver().get_unsat_core_expr(i));
+                core[i] = of_ast(mk_c(c)->get_smt_kernel().get_unsat_core_expr(i));
             }
         }
         else if (core_size) {
             *core_size = 0;
         }
         if (result == l_false && proof) {
-            *proof = of_ast(mk_c(c)->get_solver().get_proof());
+            *proof = of_ast(mk_c(c)->get_smt_kernel().get_proof());
         }
         else if (proof) {
             *proof = 0; // breaks abstraction.
@@ -182,7 +182,7 @@ extern "C" {
         LOG_Z3_get_search_failure(c);
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
-        smt::failure f = mk_c(c)->get_solver().last_failure();
+        smt::failure f = mk_c(c)->get_smt_kernel().last_failure();
         return api::mk_Z3_search_failure(f);
         Z3_CATCH_RETURN(Z3_UNKNOWN);
     }
@@ -209,8 +209,8 @@ extern "C" {
         buffer<symbol> labl_syms;
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
-        mk_c(c)->get_solver().get_relevant_labels(0, labl_syms);
-        mk_c(c)->get_solver().get_relevant_labeled_literals(mk_c(c)->fparams().m_at_labels_cex, lits);        
+        mk_c(c)->get_smt_kernel().get_relevant_labels(0, labl_syms);
+        mk_c(c)->get_smt_kernel().get_relevant_labeled_literals(mk_c(c)->fparams().m_at_labels_cex, lits);        
         labels* lbls = alloc(labels);
         SASSERT(labl_syms.size() == lits.size());
         for (unsigned i = 0; i < lits.size(); ++i) {
@@ -226,7 +226,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
-        mk_c(c)->get_solver().get_relevant_literals(lits);        
+        mk_c(c)->get_smt_kernel().get_relevant_literals(lits);        
         labels* lbls = alloc(labels);
         for (unsigned i = 0; i < lits.size(); ++i) {
             lbls->push_back(labeled_literal(m,lits[i].get()));
@@ -241,7 +241,7 @@ extern "C" {
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
         expr_ref_vector lits(m);
-        mk_c(c)->get_solver().get_guessed_literals(lits);        
+        mk_c(c)->get_smt_kernel().get_guessed_literals(lits);        
         labels* lbls = alloc(labels);
         for (unsigned i = 0; i < lits.size(); ++i) {
             lbls->push_back(labeled_literal(m,lits[i].get()));
@@ -316,7 +316,7 @@ extern "C" {
         LOG_Z3_context_to_string(c);
         RESET_ERROR_CODE();
         std::ostringstream buffer;
-        mk_c(c)->get_solver().display(buffer);
+        mk_c(c)->get_smt_kernel().display(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN(0);
     }
@@ -328,7 +328,7 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         expr_ref result(m);
         expr_ref_vector assignment(m);
-        mk_c(c)->get_solver().get_assignments(assignment);
+        mk_c(c)->get_smt_kernel().get_assignments(assignment);
         result = mk_c(c)->mk_and(assignment.size(), assignment.c_ptr());
         RETURN_Z3(of_ast(result.get()));
         Z3_CATCH_RETURN(0);
@@ -339,7 +339,7 @@ extern "C" {
         LOG_Z3_statistics_to_string(c);
         RESET_ERROR_CODE();
         std::ostringstream buffer;
-        mk_c(c)->get_solver().display_statistics(buffer);
+        mk_c(c)->get_smt_kernel().display_statistics(buffer);
         memory::display_max_usage(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN(0);
@@ -356,10 +356,10 @@ extern "C" {
 };
 
 void Z3_display_statistics(Z3_context c, std::ostream& s) {
-    mk_c(c)->get_solver().display_statistics(s);
+    mk_c(c)->get_smt_kernel().display_statistics(s);
 }
 
 void Z3_display_istatistics(Z3_context c, std::ostream& s) {
-    mk_c(c)->get_solver().display_istatistics(s);
+    mk_c(c)->get_smt_kernel().display_istatistics(s);
 }
     

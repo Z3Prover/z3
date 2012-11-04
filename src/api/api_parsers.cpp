@@ -23,6 +23,7 @@ Revision History:
 #include"cmd_context.h"
 #include"smt2parser.h"
 #include"smtparser.h"
+#include"solver_na2as.h"
 
 extern "C" {
 
@@ -251,20 +252,19 @@ extern "C" {
     // ---------------
     // Support for SMTLIB2
 
-    class z3_context_solver : public solver {
+    class z3_context_solver : public solver_na2as {
         api::context & m_ctx;
-        smt::solver & ctx() const { return m_ctx.get_solver(); }
+        smt::kernel & ctx() const { return m_ctx.get_smt_kernel(); }
     public:
         virtual ~z3_context_solver() {}
         z3_context_solver(api::context& c) : m_ctx(c) {}
-        virtual void init(ast_manager & m, symbol const & logic) {}
+        virtual void init_core(ast_manager & m, symbol const & logic) {}
         virtual void collect_statistics(statistics & st) const {}
-        virtual void reset() { ctx().reset(); }
+        virtual void reset_core() { ctx().reset(); }
         virtual void assert_expr(expr * t) { ctx().assert_expr(t); }
-        virtual void push() { ctx().push(); }
-        virtual void pop(unsigned n) { ctx().pop(n); }
-        virtual unsigned get_scope_level() const { return ctx().get_scope_level(); }
-        virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) {
+        virtual void push_core() { ctx().push(); }
+        virtual void pop_core(unsigned n) { ctx().pop(n); }
+        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
             return ctx().check(num_assumptions, assumptions);
         }
         virtual void get_unsat_core(ptr_vector<expr> & r) {

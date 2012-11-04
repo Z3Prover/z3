@@ -248,7 +248,7 @@ namespace smt {
         dealloc(m_imp);
     }
         
-    context & quantifier_manager::kernel() const {
+    context & quantifier_manager::get_context() const {
         return m_imp->m_context;
     }
 
@@ -414,7 +414,7 @@ namespace smt {
         virtual void set_manager(quantifier_manager & qm) {
             SASSERT(m_qm == 0);
             m_qm            = &qm;
-            m_context       = &(qm.kernel());
+            m_context       = &(qm.get_context());
             m_fparams       = &(m_context->get_fparams());
             ast_manager & m = m_context->get_manager();
 

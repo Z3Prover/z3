@@ -25,7 +25,7 @@ Revision History:
 #include <utility>
 #include "ast.h"
 #include "obj_hashtable.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "util.h"
 #include "vector.h"
 #include "pdr_manager.h"

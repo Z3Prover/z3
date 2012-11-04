@@ -18,8 +18,7 @@ Notes:
 
 --*/
 #include"cmd_context.h"
-#include"ni_solver.h"
-#include"strategic_solver_cmd.h"
+#include"strategic_solver.h"
 #include"qfbv_tactic.h"
 #include"qflia_tactic.h"
 #include"qfnia_tactic.h"
@@ -34,7 +33,7 @@ Notes:
 #include"default_tactic.h"
 #include"ufbv_tactic.h"
 #include"qffpa_tactic.h"
-#include"default_solver.h"
+#include"smt_solver.h"
 
 MK_SIMPLE_TACTIC_FACTORY(qfuf_fct, mk_qfuf_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfidl_fct, mk_qfidl_tactic(m, p));
@@ -56,7 +55,7 @@ MK_SIMPLE_TACTIC_FACTORY(qfnra_fct, mk_qfnra_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qffpa_fct, mk_qffpa_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(ufbv_fct, mk_ufbv_tactic(m, p));
 
-static void init(strategic_solver_core * s) {
+static void init(strategic_solver * s) {
     s->set_default_tactic(alloc(default_fct));
     s->set_tactic_for(symbol("QF_UF"),     alloc(qfuf_fct));
     s->set_tactic_for(symbol("QF_BV"),     alloc(qfbv_fct));
@@ -80,17 +79,10 @@ static void init(strategic_solver_core * s) {
     s->set_tactic_for(symbol("QF_FPA"),    alloc(qffpa_fct));
 }
 
-solver * mk_smt_strategic_solver(cmd_context & ctx) {
-    strategic_solver_cmd * s = alloc(strategic_solver_cmd, ctx);
-    s->set_inc_solver(mk_quasi_incremental_smt_solver(ctx));
-    init(s);
-    return s;
-}
-
 solver * mk_smt_strategic_solver(bool force_tactic) {
     strategic_solver * s = alloc(strategic_solver);
     s->force_tactic(force_tactic);
-    s->set_inc_solver(mk_default_solver());
+    s->set_inc_solver(mk_smt_solver());
     init(s);
     return s;
 }

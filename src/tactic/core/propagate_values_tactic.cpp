@@ -209,6 +209,7 @@ class propagate_values_tactic : public tactic {
             result.push_back(m_goal);
             SASSERT(m_goal->is_well_sorted());
             TRACE("propagate_values", m_goal->display(tout););
+            TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
             m_goal = 0;
         }
     };

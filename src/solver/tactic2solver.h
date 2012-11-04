@@ -22,7 +22,7 @@ Notes:
 #ifndef _TACTIC2SOLVER_H_
 #define _TACTIC2SOLVER_H_
 
-#include"solver.h"
+#include"solver_na2as.h"
 #include"tactic.h"
 
 /**
@@ -32,7 +32,7 @@ Notes:
    option for applications trying to solve many easy queries that a
    similar to each other.
 */
-class tactic2solver_core : public solver {
+class tactic2solver_core : public solver_na2as {
     struct ctx {
         symbol                       m_logic;
         expr_ref_vector              m_assertions;
@@ -63,13 +63,13 @@ public:
     virtual void set_produce_models(bool f) { m_produce_models = f; }
     virtual void set_produce_unsat_cores(bool f) { m_produce_unsat_cores = f; }
 
-    virtual void init(ast_manager & m, symbol const & logic);
-    virtual void reset();
     virtual void assert_expr(expr * t);
-    virtual void push();
-    virtual void pop(unsigned n);
-    virtual unsigned get_scope_level() const;
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
+
+    virtual void init_core(ast_manager & m, symbol const & logic);
+    virtual void reset_core();
+    virtual void push_core();
+    virtual void pop_core(unsigned n);
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
 
     virtual void set_cancel(bool f);
 

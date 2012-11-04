@@ -23,7 +23,7 @@ Revision History:
 #include "arith_decl_plugin.h"
 #include "ast_translation.h"
 #include "bv_decl_plugin.h"
-#include "smt_solver.h"
+#include "smt_kernel.h"
 #include "bool_rewriter.h"
 #include "pdr_util.h"
 #include "front_end_params.h"
@@ -41,7 +41,7 @@ class farkas_learner {
 
     front_end_params         m_proof_params;
     ast_manager              m_pr;
-    scoped_ptr<smt::solver>  m_ctx;
+    scoped_ptr<smt::kernel>  m_ctx;
 
 
     static front_end_params get_proof_params(front_end_params& orig_params);

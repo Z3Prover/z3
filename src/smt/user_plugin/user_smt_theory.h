@@ -23,7 +23,7 @@ Revision History:
 #include"user_simplifier_plugin.h"
 #include"smt_theory.h"
 #include"union_find.h"
-#include"smt_solver.h"
+#include"smt_kernel.h"
 
 namespace smt {
 
@@ -316,7 +316,7 @@ namespace smt {
         virtual void display(std::ostream & out) const;
     };
 
-    user_theory * mk_user_theory(solver & s, void * ext_context, void * ext_data, char const * name);
+    user_theory * mk_user_theory(kernel & s, void * ext_context, void * ext_data, char const * name);
 };
 
 
