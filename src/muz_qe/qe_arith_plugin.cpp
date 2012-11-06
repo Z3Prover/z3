@@ -1863,11 +1863,18 @@ public:
                 // x := coeff * x + s
                 def = m_util.mk_add(m_util.mk_mul(x_t.get_coeff(), def), x_t.get_term());
             }
+            if (is_strict) {
+                SASSERT(m_util.m_arith.is_real(x));
+                // We actually want a supremum, such that dual inequalities are satisfied.
+                // i.e. for every dual inequality , if the dual bound is feasible, make sure to
+                // choose a value in the feasible range.
+                def = m_util.mk_sub(def, m_util.mk_one(x));
+            }
 
             m_util.simplify(def);
 
 
-            TRACE("qe", tout << "TBD: " << a << " " << mk_pp(def, m) << "\n";);
+            TRACE("qe", tout << "TBD (for Real): " << a << " " << mk_pp(def, m) << "\n";);
         }
 
         expr_ref mk_not(expr* e) {
