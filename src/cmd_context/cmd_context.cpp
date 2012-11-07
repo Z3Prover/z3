@@ -1235,6 +1235,12 @@ static void restore(ast_manager & m, ptr_vector<expr> & c, unsigned old_sz) {
 }
 
 void cmd_context::restore_assertions(unsigned old_sz) {
+    if (!has_manager()) {
+        // restore_assertions invokes m(), so if cmd_context does not have a manager, it will try to create one.
+        SASSERT(old_sz == m_assertions.size());
+        SASSERT(m_assertions.empty());
+        return;
+    }
     SASSERT(old_sz <= m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
     restore(m(), m_assertions, old_sz);
