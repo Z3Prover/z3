@@ -2219,6 +2219,13 @@ app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) 
 //
 // -----------------------------------
 
+expr_dependency * ast_manager::mk_leaf(expr * t) {
+    if (t == 0)
+        return 0;
+    else
+        return m_expr_dependency_manager.mk_leaf(t); 
+}
+
 expr_dependency * ast_manager::mk_join(unsigned n, expr * const * ts) {
     expr_dependency * d = 0;
     for (unsigned i = 0; i < n; i++)

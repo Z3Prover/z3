@@ -1777,7 +1777,7 @@ public:
 // -----------------------------------
 public:
     expr_dependency * mk_empty_dependencies() { return m_expr_dependency_manager.mk_empty(); }
-    expr_dependency * mk_leaf(expr * t) { return m_expr_dependency_manager.mk_leaf(t); }
+    expr_dependency * mk_leaf(expr * t);
     expr_dependency * mk_join(unsigned n, expr * const * ts);
     expr_dependency * mk_join(expr_dependency * d1, expr_dependency * d2) { return m_expr_dependency_manager.mk_join(d1, d2); }
     void inc_ref(expr_dependency * d) { if (d) m_expr_dependency_manager.inc_ref(d); }
