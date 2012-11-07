@@ -3,6 +3,8 @@ RELEASE NOTES
 Version 4.3.0
 =============
 
+- Fixed bug during model construction reported by Heizmann (http://z3.codeplex.com/workitem/5)
+
 - Remark: We skipped version 4.2 due to a mistake when releasing 4.1.2. Version 4.1.2 was accidentally tagged as 4.2. 
   Thanks to Claude Marche for reporting this issue.
   From now on, we are also officially moving to a 3 number naming convention for version numbers. 

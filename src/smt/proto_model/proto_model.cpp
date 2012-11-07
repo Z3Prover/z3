@@ -623,10 +623,11 @@ void proto_model::complete_partial_funcs() {
     if (m_params.m_model_partial)
         return;
 
-    ptr_vector<func_decl>::iterator it  = m_func_decls.begin();
-    ptr_vector<func_decl>::iterator end = m_func_decls.end();
-    for (; it != end; ++it)
-        complete_partial_func(*it);
+    // m_func_decls may be "expanded" when we invoke get_some_value.
+    // So, we must not use iterators to traverse it.
+    for (unsigned i = 0; i < m_func_decls.size(); i++) {
+        complete_partial_func(m_func_decls[i]);
+    }
 }
 
 model * proto_model::mk_model() {
