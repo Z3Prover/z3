@@ -660,8 +660,7 @@ def def_APIs():
                 m = pat2.match(line)
                 if m:
                     eval(line)
-            except Exception as ex:
-                print ex
+            except Exception:
                 raise MKException("Failed to process API definition: %s" % line)
 def_Types()
 def_APIs()
