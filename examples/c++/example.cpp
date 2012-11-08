@@ -1,3 +1,4 @@
+#include<vector>
 #include"z3++.h"
 using namespace z3;
 
@@ -338,9 +339,15 @@ void ite_example() {
 /**
    \brief Unsat core example
 */
-void unsat_core_example() {
-    std::cout << "unsat core example\n";
+void unsat_core_example1() {
+    std::cout << "unsat core example1\n";
     context c;
+    // We use answer literals to track assertions.
+    // An answer literal is essentially a fresh Boolean marker
+    // that is used to track an assertion.
+    // For example, if we want to track assertion F, we 
+    // create a fresh Boolean variable p and assert (p => F)
+    // Then we provide p as an argument for the check method.
     expr p1 = c.bool_const("p1");
     expr p2 = c.bool_const("p2");
     expr p3 = c.bool_const("p3");
@@ -362,6 +369,63 @@ void unsat_core_example() {
     // Trying again without p2
     expr assumptions2[2] = { p1, p3 };
     std::cout << s.check(2, assumptions2) << "\n";
+}
+
+/**
+   \brief Unsat core example 2
+*/
+void unsat_core_example2() {
+    std::cout << "unsat core example 2\n";
+    context c;
+    // The answer literal mechanism, described in the previous example,
+    // tracks assertions instead of clauses. An assertion can be a complicated
+    // formula containing many clauses. 
+    expr p1 = c.bool_const("p1");
+    expr p2 = c.bool_const("p2");
+    expr p3 = c.bool_const("p3");
+    expr x  = c.int_const("x");
+    expr y  = c.int_const("y");
+    solver s(c);
+    expr F  = x > 10 && y > x && y < 5 && y > 0;
+    s.add(implies(p1, F));
+    expr assumptions[1] = { p1 };
+    std::cout << s.check(1, assumptions) << "\n";
+    expr_vector core = s.unsat_core();
+    std::cout << core << "\n";
+    std::cout << "size: " << core.size() << "\n";
+    for (unsigned i = 0; i < core.size(); i++) {
+        std::cout << core[i] << "\n";
+    }
+    // The core is not very informative, since p1 is tracking the formula F
+    // that is a conjunction of clauses.
+    // Now, we use the following piece of code to break this conjunction
+    // into individual clauses. First, we flat the conjunctions by
+    // using the method simplify.
+    std::vector<expr> qs; // auxiliary vector used to store new answer literals.
+    assert(F.is_app()); // I'm assuming F is an application.
+    if (F.decl().decl_kind() == Z3_OP_AND) {
+        // F is a conjunction
+        std::cout << "F num. args (before simplify): " << F.num_args() << "\n";
+        F = F.simplify();
+        std::cout << "F num. args (after simplify):  " << F.num_args() << "\n";
+        for (unsigned i = 0; i < F.num_args(); i++) {
+            std::cout << "Creating answer literal q" << i << " for " << F.arg(i) << "\n";
+            std::stringstream qname; qname << "q" << i;
+            expr qi = c.bool_const(qname.str().c_str()); // create a new answer literal
+            s.add(implies(qi, F.arg(i)));
+            qs.push_back(qi);
+        }
+    }
+    // The solver s already contains p1 => F
+    // To disable F, we add (not p1) as an additional assumption
+    qs.push_back(!p1);
+    std::cout << s.check(qs.size(), &qs[0]) << "\n";
+    expr_vector core2 = s.unsat_core();
+    std::cout << core2 << "\n";
+    std::cout << "size: " << core2.size() << "\n";
+    for (unsigned i = 0; i < core2.size(); i++) {
+        std::cout << core2[i] << "\n";
+    }
 }
 
 void tactic_example1() {
@@ -707,7 +771,8 @@ int main() {
         error_example(); std::cout << "\n";
         numeral_example(); std::cout << "\n";
         ite_example(); std::cout << "\n";
-        unsat_core_example(); std::cout << "\n";
+        unsat_core_example1(); std::cout << "\n";
+        unsat_core_example2(); std::cout << "\n";
         tactic_example1(); std::cout << "\n";
         tactic_example2(); std::cout << "\n";
         tactic_example3(); std::cout << "\n";
