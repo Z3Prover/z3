@@ -378,11 +378,9 @@ void unsat_core_example2() {
     std::cout << "unsat core example 2\n";
     context c;
     // The answer literal mechanism, described in the previous example,
-    // tracks assertions instead of clauses. An assertion can be a complicated
-    // formula containing many clauses. 
+    // tracks assertions. An assertion can be a complicated
+    // formula containing containing the conjunction of many subformulas.
     expr p1 = c.bool_const("p1");
-    expr p2 = c.bool_const("p2");
-    expr p3 = c.bool_const("p3");
     expr x  = c.int_const("x");
     expr y  = c.int_const("y");
     solver s(c);
@@ -397,9 +395,9 @@ void unsat_core_example2() {
         std::cout << core[i] << "\n";
     }
     // The core is not very informative, since p1 is tracking the formula F
-    // that is a conjunction of clauses.
+    // that is a conjunction of subformulas.
     // Now, we use the following piece of code to break this conjunction
-    // into individual clauses. First, we flat the conjunctions by
+    // into individual subformulas. First, we flat the conjunctions by
     // using the method simplify.
     std::vector<expr> qs; // auxiliary vector used to store new answer literals.
     assert(F.is_app()); // I'm assuming F is an application.
