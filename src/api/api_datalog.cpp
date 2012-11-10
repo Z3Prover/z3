@@ -130,7 +130,6 @@ namespace api {
         ast_manager& m = m_context.get_manager();
         
         datalog::context ctx(m, m_context.get_fparams());
-        // datalog::rule_manager& rm = ctx.get_rule_manager();
         for (unsigned i = 0; i < num_rules; ++i) {
             expr* rule = rules[i], *body, *head;
             while (true) {

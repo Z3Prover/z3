@@ -1283,9 +1283,10 @@ namespace pdr {
                 for (it = rules.begin(); it != end; ++it) {  
                     datalog::rule& r = *(*it);
                     unsigned utsz = r.get_uninterpreted_tail_size();
+                    forms.push_back(r.get_head());
                     for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
                         forms.push_back(r.get_tail(i));
-                    }                                          
+                    }         
                 }
                 m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
             }
