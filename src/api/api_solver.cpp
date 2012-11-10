@@ -203,6 +203,17 @@ extern "C" {
         to_solver_ref(s)->assert_expr(to_expr(a));
         Z3_CATCH;
     }
+
+    void Z3_API Z3_solver_assert_and_track(Z3_context c, Z3_solver s, Z3_ast a, Z3_ast p) {
+        Z3_TRY;
+        LOG_Z3_solver_assert_and_track(c, s, a, p);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        CHECK_FORMULA(a,);
+        CHECK_FORMULA(p,);
+        to_solver_ref(s)->assert_expr(to_expr(a), to_expr(p));
+        Z3_CATCH;
+    }
     
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s) {
         Z3_TRY;

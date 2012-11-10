@@ -6609,6 +6609,22 @@ END_MLAPI_EXCLUDE
        def_API('Z3_solver_assert', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST)))
     */
     void Z3_API Z3_solver_assert(__in Z3_context c, __in Z3_solver s, __in Z3_ast a);
+
+    /**
+       \brief Assert a constraint \c a into the solver, and track it (in the unsat) core using
+       the Boolean constant \c p. 
+       
+       This API is an alternative to #Z3_solver_check_assumptions for extracting unsat cores.
+       Both APIs can be used in the same solver. The unsat core will contain a combination
+       of the Boolean variables provided using Z3_solver_assert_and_track and the Boolean literals
+       provided using #Z3_solver_check_assumptions.
+
+       \pre \c a must be a Boolean expression
+       \pre \c p must be a Boolean constant (aka variable).
+       
+       def_API('Z3_solver_assert_and_track', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(AST)))
+    */
+    void Z3_API Z3_solver_assert_and_track(__in Z3_context c, __in Z3_solver s, __in Z3_ast a, __in Z3_ast p);
     
     /**
        \brief Return the set of asserted formulas as a goal object.
@@ -6645,7 +6661,7 @@ END_MLAPI_EXCLUDE
     */
     Z3_lbool Z3_API Z3_solver_check_assumptions(__in Z3_context c, __in Z3_solver s, 
                                                 __in unsigned num_assumptions, __in_ecount(num_assumptions) Z3_ast const assumptions[]);
-    
+
     /**
        \brief Retrieve the model for the last #Z3_solver_check or #Z3_solver_check_assumptions
 

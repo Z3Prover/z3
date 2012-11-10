@@ -337,6 +337,35 @@ void ite_example() {
 }
 
 /**
+   \brief Small example using quantifiers.
+*/
+void quantifier_example() {
+    std::cout << "quantifier example\n";
+    context c;
+    
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    sort I = c.int_sort();
+    func_decl f = function("f", I, I, I);
+    
+    solver s(c);
+    
+    // making sure model based quantifier instantiation is enabled.
+    params p(c);
+    p.set(":mbqi", true);
+    s.set(p);
+
+    s.add(forall(x, y, f(x, y) >= 0));
+    expr a = c.int_const("a");
+    s.add(f(a, a) < a);
+    std::cout << s << "\n";
+    std::cout << s.check() << "\n";
+    std::cout << s.get_model() << "\n";
+    s.add(a < 0);
+    std::cout << s.check() << "\n";
+}
+
+/**
    \brief Unsat core example
 */
 void unsat_core_example1() {
@@ -424,6 +453,37 @@ void unsat_core_example2() {
     for (unsigned i = 0; i < core2.size(); i++) {
         std::cout << core2[i] << "\n";
     }
+}
+
+/**
+   \brief Unsat core example 3
+*/
+void unsat_core_example3() {
+    // Extract unsat core using tracked assertions
+    std::cout << "unsat core example 3\n";
+    context c;
+    expr x  = c.int_const("x");
+    expr y  = c.int_const("y");
+    solver s(c);
+
+    // enabling unsat core tracking
+    params p(c);
+    p.set(":unsat-core", true);
+    s.set(p);
+
+    // The following assertion will not be tracked.
+    s.add(x > 0);
+
+    // The following assertion will be tracked using Boolean variable p1.
+    // The C++ wrapper will automatically create the Boolean variable.
+    s.add(y > 0, "p1");
+
+    // Asserting other tracked assertions.
+    s.add(x < 10, "p2");
+    s.add(y < 0,  "p3");
+
+    std::cout << s.check() << "\n";
+    std::cout << s.unsat_core() << "\n";
 }
 
 void tactic_example1() {
@@ -709,11 +769,8 @@ void tactic_qe() {
     expr x = c.int_const("x");
     expr f = implies(x <= a, x < b);
     
-    // We have to use the C API directly for creating quantified formulas.
-    Z3_app vars[] = {(Z3_app) x};
-    expr qf = to_expr(c, Z3_mk_forall_const(c, 0, 1, vars,
-                                            0, 0, // no pattern
-                                            f));
+    expr qf = forall(x, f);
+
     std::cout << qf << "\n";
     
     s.add(qf);
@@ -769,8 +826,10 @@ int main() {
         error_example(); std::cout << "\n";
         numeral_example(); std::cout << "\n";
         ite_example(); std::cout << "\n";
+        quantifier_example(); std::cout << "\n";
         unsat_core_example1(); std::cout << "\n";
         unsat_core_example2(); std::cout << "\n";
+        unsat_core_example3(); std::cout << "\n";
         tactic_example1(); std::cout << "\n";
         tactic_example2(); std::cout << "\n";
         tactic_example3(); std::cout << "\n";

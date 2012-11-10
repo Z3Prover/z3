@@ -5743,7 +5743,30 @@ class Solver(Z3PPObject):
         [x > 0, x < 2]
         """
         self.assert_exprs(*args)
+
+    def assert_and_track(self, a, p):
+        """Assert constraint `a` and track it in the unsat core using the Boolean constant `p`.
         
+        If `p` is a string, it will be automatically converted into a Boolean constant.
+        
+        >>> x = Int('x')
+        >>> p3 = Bool('p3')
+        >>> s = Solver()
+        >>> s.set(unsat_core=True)
+        >>> s.assert_and_track(x > 0,  'p1')
+        >>> s.assert_and_track(x != 1, 'p2')
+        >>> s.assert_and_track(x < 0,  p3)
+        >>> print s.check()
+        unsat
+        >>> print s.unsat_core()
+        [p3, p1]
+        """
+        if isinstance(p, str):
+            p = Bool(p, self.ctx)
+        _z3_assert(isinstance(a, BoolRef), "Boolean expression expected")
+        _z3_assert(isinstance(p, BoolRef) and is_const(p), "Boolean expression expected")
+        Z3_solver_assert_and_track(self.ctx.ref(), self.solver, a.as_ast(), p.as_ast())
+
     def check(self, *assumptions):
         """Check whether the assertions in the given solver plus the optional assumptions are consistent or not.
         
