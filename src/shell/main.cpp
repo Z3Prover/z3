@@ -214,16 +214,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 exit(0);
             }
             if (strcmp(opt_name, "version") == 0) {
-#ifdef _EXTERNAL_RELEASE
-                std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "\n";
-#else
-                std::cout
-                    << "Z3 version (major minor build revision): " 
-                    << Z3_MAJOR_VERSION << " " 
-                    << Z3_MINOR_VERSION << " "
-                    << Z3_BUILD_NUMBER << " "
-                    << Z3_REVISION_NUMBER << "\n";
-#endif
+                std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\n";
                 exit(0);
             }
             else if (strcmp(opt_name, "smt") == 0) {
