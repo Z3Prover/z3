@@ -130,7 +130,7 @@ AS_IF([test "$host_os" = "Darwin"], [
   STATIC_FLAGS=-static
   CXXFLAGS+=" -fno-strict-aliasing"
   if test "$CXX" = "clang++"; then
-     CXXFLAGS+=" -Wno-unknown-pragmas -Wno-overloaded-virtual"
+     CXXFLAGS+=" -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value"
      SLIBEXTRAFLAGS+=" -lrt"
   fi
 ], [test "${host_os:0:6}" = "CYGWIN"], [
