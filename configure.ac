@@ -129,6 +129,10 @@ AS_IF([test "$host_os" = "Darwin"], [
   COMP_VERSIONS=
   STATIC_FLAGS=-static
   CXXFLAGS+=" -fno-strict-aliasing"
+  if test "$CXX" = "clang++"; then
+     CXXFLAGS+=" -Wno-unknown-pragmas -Wno-overloaded-virtual"
+     SLIBEXTRAFLAGS+=" -lrt"
+  fi
 ], [test "${host_os:0:6}" = "CYGWIN"], [
    PLATFORM=win
    SO_EXT=.dll
@@ -185,6 +189,11 @@ AC_OUTPUT(scripts/config-debug.mk scripts/config-release.mk)
 #
 ###################
 
+MKMAKE_OPT=
+if test "$CXX" = "clang++"; then
+   MKMAKE_OPT="--noomp"
+fi
+
 # Python is available, give user the option to generate the make files wherever they want
 cat <<EOF
 Z3 was configured with success.
@@ -195,7 +204,7 @@ Prefix:         $prefix
 64-bit:         $IS_X64
 
 To build and install Z3, execute:
-   python scripts/mk_make.py
+   python scripts/mk_make.py $MKMAKE_OPT
    cd build
    make
    sudo make install
