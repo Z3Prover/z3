@@ -30,7 +30,7 @@ API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
 CPP_COMPONENT='cpp'
 #####################
-IS_WINDOW=False
+IS_WINDOWS=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -92,7 +92,7 @@ def dos2unix_tree():
     os.path.walk('src', dos2unix_tree_core, '*')
 
 def check_eol():
-    if not IS_WINDOW:
+    if not IS_WINDOWS:
         # Linux/OSX/BSD check if the end-of-line is cr/lf
         if is_cr_lf('LICENSE.txt'):
             if is_verbose():
@@ -100,7 +100,7 @@ def check_eol():
             dos2unix_tree()
 
 if os.name == 'nt':
-    IS_WINDOW=True
+    IS_WINDOWS=True
     # Visual Studio already displays the files being compiled
     SHOW_CPPS=False
     # Enable .Net bindings by default on windows
@@ -126,7 +126,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, OMP
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, OMP
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
                                                                          'debug',
                                                                          'silent',
@@ -149,7 +149,7 @@ def parse_options():
         elif opt in ('-d', '--debug'):
             DEBUG_MODE = True
         elif opt in ('-x', '--x64'):
-            if not IS_WINDOW:
+            if not IS_WINDOWS:
                 raise MKException('x64 compilation mode can only be specified when using Visual Studio')
             VS_X64 = True
         elif opt in ('-h', '--help'):
@@ -343,17 +343,17 @@ class Component:
         # TRACE is enabled in debug mode by default
         extra_opt = ''
         if TRACE and not DEBUG_MODE:
-            if IS_WINDOW:
+            if IS_WINDOWS:
                 extra_opt = '/D _TRACE'
             else:
                 extra_opt = '-D _TRACE'
         if not OMP:
-            if IS_WINDOW:
+            if IS_WINDOWS:
                 extra_opt = '%s /D _NO_OMP_' % extra_opt
             else:
                 extra_opt = '%s -D _NO_OMP_' % extra_opt
         else:
-            if IS_WINDOW:
+            if IS_WINDOWS:
                 extra_opt = '%s /openmp' % extra_opt
             else:
                 extra_opt = '%s -fopenmp' % extra_opt
@@ -493,7 +493,7 @@ class ExeComponent(Component):
             c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         extra_flags = ''
-        if OMP and not WINDOWS:
+        if OMP and not IS_WINDOWS:
             extra_flags = '-fopenmp'
         out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
         out.write('%s: %s\n\n' % (self.name, exefile))
@@ -572,10 +572,10 @@ class DLLComponent(Component):
                 c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
         extra_flags= ''
-        if OMP and not WINDOWS:
+        if OMP and not IS_WINDOWS:
             extra_flags = '-fopenmp'
         out.write(' $(SLINK_EXTRA_FLAGS) %s' % extra_flags)
-        if IS_WINDOW:
+        if IS_WINDOWS:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
         out.write('\n')
         out.write('%s: %s\n\n' % (self.name, dllfile))
@@ -588,7 +588,7 @@ class DLLComponent(Component):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
 
     def require_def_file(self):
-        return IS_WINDOW and self.export_files
+        return IS_WINDOWS and self.export_files
 
     def mk_install(self, out):
         if self.install:
@@ -697,12 +697,12 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write('%s/%s' % (self.to_ex_dir, cppfile))
         out.write(' ')
-        if IS_WINDOW:
+        if IS_WINDOWS:
             out.write('%s.lib' % dll_name)
         else:
             out.write(dll)
         extra_flags = ''
-        if OMP and not WINDOWS:
+        if OMP and not IS_WINDOWS:
             extra_flags = '-fopenmp'
         out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
@@ -722,7 +722,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return IS_WINDOW
+        return IS_WINDOWS
 
     def mk_makefile(self, out):
         if DOTNET_ENABLED:
@@ -814,7 +814,7 @@ def add_z3py_example(name, path=None):
 
 # Copy configuration correct file to BUILD_DIR
 def cp_config_mk():
-    if IS_WINDOW:
+    if IS_WINDOWS:
         if VS_X64:
             if DEBUG_MODE:
                 shutil.copyfile('scripts/config-vs-debug-x64.mk', '%s/config.mk' % BUILD_DIR)
@@ -865,7 +865,7 @@ def mk_makefile():
         if c.main_component():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
-    if not IS_WINDOW:
+    if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
         out.write('\t@echo "    sudo make install"\n')
     # Generate :examples rule
@@ -878,19 +878,19 @@ def mk_makefile():
     for c in get_components():
         c.mk_makefile(out)
     # Generate install/uninstall rules if not WINDOWS
-    if not IS_WINDOW:
+    if not IS_WINDOWS:
         mk_install(out)
         mk_uninstall(out)
     # Finalize
     if VERBOSE:
         print "Makefile was successfully generated."
-        if not IS_WINDOW:
+        if not IS_WINDOWS:
             print "  python packages dir:", PYTHON_PACKAGE_DIR
         if DEBUG_MODE:
             print "  compilation mode: Debug"
         else:
             print "  compilation mode: Release"
-        if IS_WINDOW:
+        if IS_WINDOWS:
             if VS_X64:
                 print "  platform: x64\n"
                 print "To build Z3, open a [Visual Studio x64 Command Prompt], then"
