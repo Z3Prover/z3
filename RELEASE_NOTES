@@ -3,7 +3,7 @@ RELEASE NOTES
 Version 4.3.1
 =============
 
-- Added support for compiling Z3 using clang++ on OSX
+- Added support for compiling Z3 using clang++ on Linux and OSX
 
 Version 4.3.0
 =============
