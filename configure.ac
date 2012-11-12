@@ -116,7 +116,7 @@ AS_IF([test "$host_os" = "Darwin"], [
   PLATFORM=osx
   SO_EXT=.dylib
   LDFLAGS=
-  SLIBFLAGS="-dynamiclib -fopenmp"
+  SLIBFLAGS="-dynamiclib"
   SLIBEXTRAFLAGS=""
   COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
   STATIC_FLAGS=
@@ -124,7 +124,7 @@ AS_IF([test "$host_os" = "Darwin"], [
   PLATFORM=linux
   SO_EXT=.so
   LDFLAGS=-lrt
-  SLIBFLAGS="-shared -fopenmp"
+  SLIBFLAGS="-shared"
   SLIBEXTRAFLAGS=
   COMP_VERSIONS=
   STATIC_FLAGS=-static
@@ -133,7 +133,7 @@ AS_IF([test "$host_os" = "Darwin"], [
    PLATFORM=win
    SO_EXT=.dll
    LDFLAGS=
-   SLIBFLAGS="-shared -fopenmp"
+   SLIBFLAGS="-shared"
    SLIBEXTRAFLAGS=
    COMP_VERSIONS=
    CXXFLAGS+=" -D_CYGWIN -fno-strict-aliasing"
@@ -141,6 +141,12 @@ AS_IF([test "$host_os" = "Darwin"], [
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
 ])
+
+# Only add -mfpmath=sse if g++
+if test "$CXX" = "g++"; then
+   CXXFLAGS+=" -mfpmath=sse"
+fi
+
 AC_SUBST(SLIBFLAGS)
 AC_SUBST(LDFLAGS)
 AC_SUBST(SLIBEXTRAFLAGS)

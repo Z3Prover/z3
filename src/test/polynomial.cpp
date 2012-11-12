@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#if !defined(__clang__)
 #include"polynomial.h"
 #include"polynomial_factorization.h"
 #include"polynomial_var2value.h"
@@ -1851,3 +1852,8 @@ void tst_polynomial() {
     tst1();
     tst4();
 }
+#else
+void tst_polynomial() {
+  // it takes forever to compiler these regressions using clang++
+}
+#endif

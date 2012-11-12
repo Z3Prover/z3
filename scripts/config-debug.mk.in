@@ -1,7 +1,7 @@
 CC=@CC@
 PREFIX=@prefix@
 CXX=@CXX@
-CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -DZ3DEBUG -D_TRACE -c -g -Wall -fopenmp -msse -msse2 -mfpmath=sse
+CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -DZ3DEBUG -D_TRACE -c -g -Wall -msse -msse2 
 CXX_OUT_FLAG=-o 
 OBJ_EXT=.o
 LIB_EXT=.a
@@ -12,7 +12,7 @@ EXE_EXT=
 LINK=@CXX@
 LINK_FLAGS=
 LINK_OUT_FLAG=-o 
-LINK_EXTRA_FLAGS=-lpthread -fopenmp @LDFLAGS@
+LINK_EXTRA_FLAGS=-lpthread @LDFLAGS@
 SO_EXT=@SO_EXT@
 SLINK=@CXX@
 SLINK_FLAGS=@SLIBFLAGS@

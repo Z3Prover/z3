@@ -140,7 +140,7 @@ class object_allocator : public ResetProc {
             free_list.pop_back();
             return r;
         }
-        return m_regions[idx]->allocate<construct>();
+        return m_regions[idx]->template allocate<construct>();
     }
 
     void recycle_core(unsigned idx, T * ptr) {

@@ -35,3 +35,14 @@ To uninstall Z3, use
 
   sudo make uninstall
 
+3) Building Z3 using clang++ on OSX
+Remark: clang does not support OpenMP yet.   
+
+   autoconf
+   ./configure CXX=clang++
+   python scripts/mk_make.py --noomp
+   cd build
+   make
+
+
+

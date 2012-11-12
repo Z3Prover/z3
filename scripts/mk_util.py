@@ -40,6 +40,7 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
+OMP = True
 
 VER_MAJOR=None
 VER_MINOR=None
@@ -120,11 +121,12 @@ def display_help():
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
     print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
+    print "  --noomp                       disable support for openmp."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED
+    global VERBOSE, DEBUG_MODE, IS_WINDOW, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, OMP
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
                                                                          'debug',
                                                                          'silent',
@@ -134,7 +136,8 @@ def parse_options():
                                                                          'showcpp',
                                                                          'vsproj',
                                                                          'trace',
-                                                                         'nodotnet'
+                                                                         'nodotnet',
+                                                                         'noomp'
                                                                          ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -161,6 +164,8 @@ def parse_options():
             TRACE = True
         elif opt in ('-n', '--nodotnet'):
             DOTNET_ENABLED = False
+        elif opt in ('--noomp'):
+            OMP = False
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -336,13 +341,24 @@ class Component:
         if SHOW_CPPS:
             out.write('\t@echo %s/%s\n' % (self.src_dir, cppfile))
         # TRACE is enabled in debug mode by default
-        trace_opt = ''
+        extra_opt = ''
         if TRACE and not DEBUG_MODE:
             if IS_WINDOW:
-                trace_opt = '/D _TRACE'
+                extra_opt = '/D _TRACE'
             else:
-                trace_opt = '-D _TRACE'
-        out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (trace_opt, include_defs, objfile, srcfile))
+                extra_opt = '-D _TRACE'
+        if not OMP:
+            if IS_WINDOW:
+                extra_opt = '%s /D _NO_OMP_' % extra_opt
+            else:
+                extra_opt = '%s -D _NO_OMP_' % extra_opt
+        else:
+            if IS_WINDOW:
+                extra_opt = '%s /openmp' % extra_opt
+            else:
+                extra_opt = '%s -fopenmp' % extra_opt
+            
+        out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (extra_opt, include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
         include_defs = mk_fresh_name('includes')
@@ -476,7 +492,10 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        extra_flags = ''
+        if OMP and not WINDOWS:
+            extra_flags = '-fopenmp'
+        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
         out.write('%s: %s\n\n' % (self.name, exefile))
 
     def require_install_tactics(self):
@@ -552,7 +571,10 @@ class DLLComponent(Component):
             if not dep in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        out.write(' $(SLINK_EXTRA_FLAGS)')
+        extra_flags= ''
+        if OMP and not WINDOWS:
+            extra_flags = '-fopenmp'
+        out.write(' $(SLINK_EXTRA_FLAGS) %s' % extra_flags)
         if IS_WINDOW:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
         out.write('\n')
@@ -679,7 +701,10 @@ class CppExampleComponent(ExampleComponent):
             out.write('%s.lib' % dll_name)
         else:
             out.write(dll)
-        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        extra_flags = ''
+        if OMP and not WINDOWS:
+            extra_flags = '-fopenmp'
+        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class CExampleComponent(CppExampleComponent):
