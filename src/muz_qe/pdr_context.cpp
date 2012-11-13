@@ -20,6 +20,9 @@ Revision History:
 
 Notes:
 
+   TODO:
+   - fix the slicing with covers.
+   - 
    
 --*/
 
@@ -350,7 +353,7 @@ namespace pdr {
         }
     }
 
-    expr_ref pred_transformer::get_cover_delta(int level) {
+    expr_ref pred_transformer::get_cover_delta(func_decl* p_orig, int level) {
         expr_ref result(m.mk_true(), m), v(m), c(m);
         if (level == -1) {
             result = pm.mk_and(m_invariants);                       
@@ -368,6 +371,25 @@ namespace pdr {
         scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
         rep->set_substitution(&sub);
         (*rep)(result);
+
+        // adjust result according to model converter.
+        unsigned arity = m_head->get_arity();
+        model_ref md = alloc(model, m);
+        if (arity == 0) {
+            md->register_decl(m_head, result);
+        }
+        else {
+            func_interp* fi = alloc(func_interp, m, arity);
+            fi->set_else(result);
+            md->register_decl(m_head, fi);
+        }
+        apply(ctx.get_model_converter(), md, 0);
+        if (p_orig->get_arity() == 0) {
+            result = md->get_const_interp(p_orig);
+        }
+        else {
+            result = md->get_func_interp(p_orig)->get_interp();
+        }
         return result;        
     }
 
@@ -1181,10 +1203,10 @@ namespace pdr {
         }
     }
 
-    expr_ref context::get_cover_delta(int level, func_decl* p) {
+    expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p) {
         pred_transformer* pt = 0;
         if (m_rels.find(p, pt)) {
-            return pt->get_cover_delta(level);
+            return pt->get_cover_delta(p_orig, level);
         }
         else {
             IF_VERBOSE(10, verbose_stream() << "did not find predicate " << p->get_name() << "\n";);

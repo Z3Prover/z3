@@ -126,7 +126,7 @@ namespace pdr {
         qinst* get_quantifiers(datalog::rule const* r) const { qinst* q = 0; m_rule2qinst.find(r, q); return q; }
         expr*  rule2tag(datalog::rule const* r) { return m_rule2tag.find(r); }
         unsigned get_num_levels() { return m_levels.size(); }
-        expr_ref get_cover_delta(int level);
+        expr_ref get_cover_delta(func_decl* p_orig, int level);
         void     add_cover(unsigned level, expr* property);
 
         std::ostream& display(std::ostream& strm) const;
@@ -385,6 +385,8 @@ namespace pdr {
 
         void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
 
+        model_converter_ref get_model_converter() { return m_mc; }
+
         void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
 
         void update_rules(datalog::rule_set& rules);
@@ -395,7 +397,7 @@ namespace pdr {
 
         unsigned get_num_levels(func_decl* p);
 
-        expr_ref get_cover_delta(int level, func_decl* p);
+        expr_ref get_cover_delta(int level, func_decl* p_orig, func_decl* p);
 
         void add_cover(int level, func_decl* pred, expr* property);
 

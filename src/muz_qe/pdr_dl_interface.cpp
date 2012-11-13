@@ -39,7 +39,8 @@ dl_interface::dl_interface(datalog::context& ctx) :
     m_ctx(ctx), 
     m_pdr_rules(ctx), 
     m_old_rules(ctx),
-    m_context(0) {
+    m_context(0),
+    m_refs(ctx.get_manager()) {
     m_context = alloc(pdr::context, ctx.get_fparams(), ctx.get_params(), ctx.get_manager());
 }
 
@@ -78,6 +79,8 @@ lbool dl_interface::query(expr * query) {
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
     m_pdr_rules.reset();
+    m_refs.reset();
+    m_pred2slice.reset();
     m_ctx.get_rmanager().reset_relations();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
@@ -116,10 +119,20 @@ lbool dl_interface::query(expr * query) {
         m_ctx.transform_rules(transformer, mc, pc);        
         query_pred = slice->get_predicate(query_pred.get());
         m_ctx.set_output_predicate(query_pred);
+        
+        // track sliced predicates.
+        obj_map<func_decl, func_decl*> const& preds = slice->get_predicates();
+        obj_map<func_decl, func_decl*>::iterator it  = preds.begin();
+        obj_map<func_decl, func_decl*>::iterator end = preds.end();
+        for (; it != end; ++it) {
+            m_pred2slice.insert(it->m_key, it->m_value);
+            m_refs.push_back(it->m_key);
+            m_refs.push_back(it->m_value);
+        }
     }
 
     if (m_ctx.get_params().get_uint(":unfold-rules",0) > 0) {
-        unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules",0);
+        unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules", 0);
         datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
         if (m_ctx.get_params().get_uint(":coalesce-rules", false)) {
             transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
@@ -160,15 +173,23 @@ lbool dl_interface::query(expr * query) {
     }
 }
 
-expr_ref dl_interface::get_cover_delta(int level, func_decl* pred) {
-    return m_context->get_cover_delta(level, pred);
+expr_ref dl_interface::get_cover_delta(int level, func_decl* pred_orig) {
+    func_decl* pred = pred_orig;
+    m_pred2slice.find(pred_orig, pred);
+    SASSERT(pred);
+    return m_context->get_cover_delta(level, pred_orig, pred);
 }
 
 void dl_interface::add_cover(int level, func_decl* pred, expr* property) {
+    if (m_ctx.get_params().get_bool(":slice", true)) {
+        throw default_exception("Covers are incompatible with slicing. Disable slicing before using covers");
+    }
     m_context->add_cover(level, pred, property);
 }
 
 unsigned dl_interface::get_num_levels(func_decl* pred) {
+    m_pred2slice.find(pred, pred);
+    SASSERT(pred);
     return m_context->get_num_levels(pred);
 }
 
