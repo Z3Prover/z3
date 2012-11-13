@@ -1,7 +1,7 @@
 CC=@CC@
 PREFIX=@prefix@
 CXX=@CXX@
-CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -O3 -fomit-frame-pointer -msse -msse2 
+CXXFLAGS=@CPPFLAGS@ @CXXFLAGS@ -c -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer -msse -msse2 
 CXX_OUT_FLAG=-o 
 OBJ_EXT=.o
 LIB_EXT=.a
