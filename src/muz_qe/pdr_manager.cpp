@@ -58,24 +58,20 @@ namespace pdr {
     expr_ref inductive_property::fixup_clause(expr* fml) const {        
         expr_ref_vector disjs(m);
         datalog::flatten_or(fml, disjs);
-        switch(disjs.size()) {
-        case 0: return expr_ref(m.mk_false(), m);
-        case 1: return expr_ref(disjs[0].get(), m);
-        default: return expr_ref(m.mk_or(disjs.size(), disjs.c_ptr()), m);
-        }
+        expr_ref result(m);
+        bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), result);
+        return result;
     }
 
     expr_ref inductive_property::fixup_clauses(expr* fml) const {
         expr_ref_vector conjs(m);
+        expr_ref result(m);
         datalog::flatten_and(fml, conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             conjs[i] = fixup_clause(conjs[i].get());
         }
-        switch(conjs.size()) {
-        case 0: return expr_ref(m.mk_true(), m);
-        case 1: return expr_ref(conjs[0].get(), m);
-        default: return expr_ref(m.mk_and(conjs.size(), conjs.c_ptr()), m);
-        }
+        bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), result);
+        return result;
     }
 
     std::string inductive_property::to_string() const {

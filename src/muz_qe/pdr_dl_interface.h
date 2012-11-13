@@ -37,7 +37,9 @@ namespace pdr {
         datalog::context& m_ctx;
         datalog::rule_set m_pdr_rules;
         datalog::rule_set m_old_rules;
-        context* m_context;
+        context*          m_context;
+        obj_map<func_decl, func_decl*> m_pred2slice;
+        ast_ref_vector    m_refs;
 
         void check_reset();
 

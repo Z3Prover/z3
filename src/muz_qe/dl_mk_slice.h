@@ -97,10 +97,14 @@ namespace datalog {
            the \c goal must be present in the \c rule_set that is being transformed.
          */
         mk_slice(context & ctx);
+
+        virtual ~mk_slice() { }
         
         rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
 
         func_decl* get_predicate(func_decl* p) { func_decl* q = p; m_predicates.find(p, q); return q; }
+
+        obj_map<func_decl, func_decl*> const& get_predicates() { return m_predicates; }
     };
 
 };
