@@ -545,8 +545,13 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc, 
                             expr_dependency_ref & core) {
-
-        if (omp_in_parallel()) {
+        bool use_seq;
+#ifdef _NO_OMP_
+        use_seq = true;
+#else
+        use_seq = omp_in_parallel();
+#endif
+        if (use_seq) {
             // execute tasks sequentially
             or_else_tactical::operator()(in, result, mc, pc, core);
             return;
@@ -668,7 +673,13 @@ public:
                             model_converter_ref & mc, 
                             proof_converter_ref & pc, 
                             expr_dependency_ref & core) {
-        if (omp_in_parallel()) {
+        bool use_seq;
+#ifdef _NO_OMP_
+        use_seq = true;
+#else
+        use_seq = omp_in_parallel();
+#endif
+        if (use_seq) {
             // execute tasks sequentially
             and_then_tactical::operator()(in, result, mc, pc, core);
             return;
