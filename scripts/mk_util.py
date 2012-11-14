@@ -40,6 +40,7 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
+STATIC_LIB=False
 
 VER_MAJOR=None
 VER_MINOR=None
@@ -55,6 +56,9 @@ def set_version(major, minor, build, revision):
 
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+
+def build_static_lib():
+    return STATIC_LIB
 
 def is_cr_lf(fname):
     # Check whether text files use cr/lf
@@ -120,11 +124,12 @@ def display_help():
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
     print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
+    print "  --staticlib                   build Z3 static library."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, STATIC_LIB
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
                                                                          'debug',
                                                                          'silent',
@@ -134,7 +139,8 @@ def parse_options():
                                                                          'showcpp',
                                                                          'vsproj',
                                                                          'trace',
-                                                                         'nodotnet'
+                                                                         'nodotnet',
+                                                                         'staticlib'
                                                                          ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -161,6 +167,8 @@ def parse_options():
             TRACE = True
         elif opt in ('-n', '--nodotnet'):
             DOTNET_ENABLED = False
+        elif opt in ('--staticlib'):
+            STATIC_LIB = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -492,9 +500,8 @@ class ExeComponent(Component):
             out.write('\t@cp %s $(PREFIX)/bin/%s\n' % (exefile, exefile))
     
     def mk_uninstall(self, out):
-        if self.install:
-            exefile = '%s$(EXE_EXT)' % self.exe_name
-            out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
+        exefile = '%s$(EXE_EXT)' % self.exe_name
+        out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -511,7 +518,7 @@ class ExtraExeComponent(ExeComponent):
         return False
 
 class DLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps, export_files, reexports, install):
+    def __init__(self, name, dll_name, path, deps, export_files, reexports, install, static):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
@@ -519,6 +526,7 @@ class DLLComponent(Component):
         self.export_files = export_files
         self.reexports = reexports
         self.install = install
+        self.static = static
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -556,11 +564,39 @@ class DLLComponent(Component):
         if IS_WINDOWS:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
         out.write('\n')
-        out.write('%s: %s\n\n' % (self.name, dllfile))
+        if self.static:
+            self.mk_static(out)
+            libfile = '%s$(LIB_EXT)' % self.dll_name
+            out.write('%s: %s %s\n\n' % (self.name, dllfile, libfile))
+        else:
+            out.write('%s: %s\n\n' % (self.name, dllfile))
 
-    # All DLLs are included in the all: rule
+    def mk_static(self, out):
+        # generate rule for lib
+        objs = []
+        for cppfile in get_cpp_files(self.src_dir):
+            objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
+        # we have to "reexport" all object files
+        for dep in self.deps:
+            dep = get_component(dep)
+            for cppfile in get_cpp_files(dep.src_dir):
+                objfile = '%s/%s$(OBJ_EXT)' % (dep.build_dir, os.path.splitext(cppfile)[0])
+                objs.append(objfile)
+        libfile = '%s$(LIB_EXT)' % self.dll_name
+        out.write('%s:' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        out.write('\t@$(AR) $(AR_FLAGS) $(AR_OUTFLAG)%s' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        
     def main_component(self):
-        return True
+        return self.install
 
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
@@ -573,18 +609,27 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('\t@cp %s $(PREFIX)/lib/%s\n' % (dllfile, dllfile))
             out.write('\t@cp %s %s/%s\n' % (dllfile, PYTHON_PACKAGE_DIR, dllfile))
+            if self.static:
+                libfile = '%s$(LIB_EXT)' % self.dll_name
+                out.write('\t@cp %s $(PREFIX)/lib/%s\n' % (libfile, libfile))
+            
 
     def mk_uninstall(self, out):
-        if self.install:
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
-            out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
+        dllfile = '%s$(SO_EXT)' % self.dll_name
+        out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
+        out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
+        libfile = '%s$(LIB_EXT)' % self.dll_name
+        out.write('\t@rm -f $(PREFIX)/lib/%s\n' % libfile)
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
             mk_dir('%s/bin' % dist_path)
             shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
                         '%s/bin/%s.dll' % (dist_path, self.dll_name))
+            if self.static:
+                mk_dir('%s/bin' % dist_path)
+                shutil.copy('%s/%s.lib' % (build_path, self.dll_name),
+                            '%s/bin/%s.lib' % (dist_path, self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -763,8 +808,8 @@ def add_extra_exe(name, deps=[], path=None, exe_name=None, install=True):
     c = ExtraExeComponent(name, exe_name, path, deps, install)
     reg_component(name, c)
 
-def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True):
-    c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install)
+def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True, static=False):
+    c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install, static)
     reg_component(name, c)
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
