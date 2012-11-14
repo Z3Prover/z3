@@ -40,7 +40,6 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
-OMP = True
 
 VER_MAJOR=None
 VER_MINOR=None
@@ -121,12 +120,11 @@ def display_help():
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
     print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
-    print "  --noomp                       disable support for openmp."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, OMP
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
                                                                          'debug',
                                                                          'silent',
@@ -136,8 +134,7 @@ def parse_options():
                                                                          'showcpp',
                                                                          'vsproj',
                                                                          'trace',
-                                                                         'nodotnet',
-                                                                         'noomp'
+                                                                         'nodotnet'
                                                                          ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -164,8 +161,6 @@ def parse_options():
             TRACE = True
         elif opt in ('-n', '--nodotnet'):
             DOTNET_ENABLED = False
-        elif opt in ('--noomp'):
-            OMP = False
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -347,17 +342,6 @@ class Component:
                 extra_opt = '/D _TRACE'
             else:
                 extra_opt = '-D _TRACE'
-        if not OMP:
-            if IS_WINDOWS:
-                extra_opt = '%s /D _NO_OMP_' % extra_opt
-            else:
-                extra_opt = '%s -D _NO_OMP_' % extra_opt
-        else:
-            if IS_WINDOWS:
-                extra_opt = '%s /openmp' % extra_opt
-            else:
-                extra_opt = '%s -fopenmp' % extra_opt
-            
         out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (extra_opt, include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
@@ -492,10 +476,7 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        extra_flags = ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
     def require_install_tactics(self):
@@ -571,10 +552,7 @@ class DLLComponent(Component):
             if not dep in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        extra_flags= ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(SLINK_EXTRA_FLAGS) %s' % extra_flags)
+        out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
         out.write('\n')
@@ -701,10 +679,7 @@ class CppExampleComponent(ExampleComponent):
             out.write('%s.lib' % dll_name)
         else:
             out.write(dll)
-        extra_flags = ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class CExampleComponent(CppExampleComponent):

@@ -83,7 +83,7 @@ fi
 ###################
 # Sets CXX
 AC_LANG([C++])
-AC_PROG_CXX(g++ false)
+AC_PROG_CXX(g++ clang++ false)
 AC_PROG_CC
 if test $CXX = "false"; then
    AC_MSG_ERROR([C++ compiler was not found])
@@ -99,8 +99,21 @@ AC_PROG_GREP
 # Sets SED
 AC_PROG_SED
 
-# Sets OPENMP_CFLAGS
-m4_ifdef([AC_OPENMP], [AC_OPENMP])
+AS_IF([test "$CXX" = "g++"], [
+   # Enable OpenMP
+   CXXFLAGS+=" -fopenmp"  
+   LDFLAGS+=" -fopenmp"
+   SLIBEXTRAFLAGS+=" -fopenmp"
+   # Use -mfpmath=sse
+   CXXFLAGS+=" -mfpmath=sse"
+],
+      [test "$CXX" = "clang++"], [
+   # OpenMP is not supported in clang++
+   CXXFLAGS+=" -D _NO_OMP_"  
+],
+[
+  AC_MSG_ERROR([Unsupported compiler: $CXX])
+])
 
 AR=ar
 AC_SUBST(AR)
@@ -115,41 +128,31 @@ host_os=`uname -s`
 AS_IF([test "$host_os" = "Darwin"], [
   PLATFORM=osx
   SO_EXT=.dylib
-  LDFLAGS=
-  SLIBFLAGS="-dynamiclib"
-  SLIBEXTRAFLAGS=""
+  SLIBFLAGS+="-dynamiclib"
   COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
   STATIC_FLAGS=
 ], [test "$host_os" = "Linux"], [
   PLATFORM=linux
   SO_EXT=.so
-  LDFLAGS=-lrt
-  SLIBFLAGS="-shared"
-  SLIBEXTRAFLAGS=
+  SLIBFLAGS+="-shared"
   COMP_VERSIONS=
   STATIC_FLAGS=-static
   CXXFLAGS+=" -fno-strict-aliasing"
   if test "$CXX" = "clang++"; then
+     # More flags for clang++ for Linux
      CXXFLAGS+=" -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value"
-     SLIBEXTRAFLAGS+=" -lrt"
   fi
+  SLIBEXTRAFLAGS+=" -lrt"
 ], [test "${host_os:0:6}" = "CYGWIN"], [
    PLATFORM=win
    SO_EXT=.dll
-   LDFLAGS=
-   SLIBFLAGS="-shared"
-   SLIBEXTRAFLAGS=
+   SLIBFLAGS+="-shared"
    COMP_VERSIONS=
    CXXFLAGS+=" -D_CYGWIN -fno-strict-aliasing"
 ],
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
 ])
-
-# Only add -mfpmath=sse if g++
-if test "$CXX" = "g++"; then
-   CXXFLAGS+=" -mfpmath=sse"
-fi
 
 AC_SUBST(SLIBFLAGS)
 AC_SUBST(LDFLAGS)
@@ -189,22 +192,18 @@ AC_OUTPUT(scripts/config-debug.mk scripts/config-release.mk)
 #
 ###################
 
-MKMAKE_OPT=
-if test "$CXX" = "clang++"; then
-   MKMAKE_OPT="--noomp"
-fi
-
 # Python is available, give user the option to generate the make files wherever they want
 cat <<EOF
 Z3 was configured with success.
 Host platform:  $PLATFORM
+Compiler:       $CXX
 Arithmetic:     $ARITH
 Python:         $PYTHON 
 Prefix:         $prefix
 64-bit:         $IS_X64
 
 To build and install Z3, execute:
-   python scripts/mk_make.py $MKMAKE_OPT
+   python scripts/mk_make.py
    cd build
    make
    sudo make install
