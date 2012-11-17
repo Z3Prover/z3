@@ -35,7 +35,10 @@ public:
     static void initialize();
 
     static void finalize();
-
+    /*
+      ADD_INITIALIZER('rational::initialize();')
+      ADD_FINALIZER('rational::finalize();')
+    */
     rational() {}
     
     rational(rational const & r) { m().set(m_val, r.m_val); }

@@ -40,6 +40,9 @@ bool is_trace_enabled(const char * tag);
 void close_trace();
 void open_trace();
 void finalize_trace();
+/*
+  ADD_FINALIZER('finalize_trace();')
+*/
 
 #define TRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { tout << "-------- [" << TAG << "] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE tout << "------------------------------------------------\n"; tout.flush(); })
 

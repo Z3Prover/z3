@@ -378,6 +378,10 @@ class Component:
     def require_def_file(self):
         return False
 
+    # Return true if the component needs builder to generate a mem_initializer.cpp file with mem_initialize() and mem_finalize() functions.
+    def require_mem_initializer(self):
+        return False
+
     def mk_install(self, out):
         return
 
@@ -490,6 +494,9 @@ class ExeComponent(Component):
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
 
+    def require_mem_initializer(self):
+        return True
+
     # All executables are included in the all: rule
     def main_component(self):
         return True
@@ -600,6 +607,9 @@ class DLLComponent(Component):
 
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
+
+    def require_mem_initializer(self):
+        return True
 
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
@@ -927,6 +937,7 @@ def mk_auto_src():
     if not ONLY_MAKEFILES:
         mk_pat_db()
         mk_all_install_tactic_cpps()
+        mk_all_mem_initializer_cpps()
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1098,6 +1109,60 @@ def mk_all_install_tactic_cpps():
                 cnames.extend(c.deps)
                 cnames.append(c.name)
                 mk_install_tactic_cpp(cnames, c.src_dir)
+
+# Generate an mem_initializer.cpp at path.
+# This file implements the procedures
+#    void mem_initialize()
+#    void mem_finalize()
+# This procedures are invoked by the Z3 memory_manager
+def mk_mem_initializer_cpp(cnames, path):
+    initializer_cmds = []
+    finalizer_cmds   = []
+    fullname = '%s/mem_initializer.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    initializer_pat   = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    finalizer_pat     = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    for cname in cnames:
+        c = get_component(cname)
+        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                m = initializer_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    initializer_cmds.append(m.group(1))
+                m = finalizer_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    finalizer_cmds.append(m.group(1))
+    fout.write('void mem_initialize() {\n')
+    for cmd in initializer_cmds:
+        fout.write(cmd)
+        fout.write('\n')
+    fout.write('}\n')
+    fout.write('void mem_finalize() {\n')
+    for cmd in finalizer_cmds:
+        fout.write(cmd)
+        fout.write('\n')
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_mem_initializer_cpps():
+    if not ONLY_MAKEFILES:
+        for c in get_components():
+            if c.require_mem_initializer():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_mem_initializer_cpp(cnames, c.src_dir)
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):
