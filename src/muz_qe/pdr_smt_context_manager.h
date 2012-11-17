@@ -100,6 +100,7 @@ namespace pdr {
         ~smt_context_manager();
         smt_context* mk_fresh();                
         void collect_statistics(statistics& st) const;
+        void reset_statistics();
         bool is_aux_predicate(func_decl* p) const { return m_predicate_set.contains(p); }
     };
 

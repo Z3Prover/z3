@@ -127,6 +127,8 @@ namespace datalog {
 
         void collect_statistics(statistics& st) const;
 
+        void reset_statistics(); 
+
         expr_ref get_answer();
 
         static void collect_params(param_descrs& p);

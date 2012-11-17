@@ -49,11 +49,14 @@ Revision History:
 #include"dl_skip_table.h"
 #endif
 #include"for_each_expr.h"
+#include"ast_smt_pp.h"
 #include"ast_smt2_pp.h"
 #include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
 #include"datatype_decl_plugin.h"
+#include"expr_abstract.h"
+
 
 namespace datalog {
 
@@ -331,8 +334,39 @@ namespace datalog {
         m_vars.push_back(m.mk_const(var));
     }
 
+    expr_ref context::bind_variables(expr* fml, bool is_forall) {
+        expr_ref result(m);
+        app_ref_vector const& vars = m_vars;
+        if (vars.empty()) {
+            result = fml;
+        }
+        else {
+            ptr_vector<sort> sorts;
+            expr_abstract(m, 0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
+            get_free_vars(result, sorts);
+            if (sorts.empty()) {
+                result = fml;
+            }
+            else {
+                svector<symbol> names;
+                for (unsigned i = 0; i < sorts.size(); ++i) {
+                    if (!sorts[i]) {
+                        sorts[i] = m.mk_bool_sort();
+                    }
+                    names.push_back(symbol(i));
+                }
+                quantifier_ref q(m);
+                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
+                elim_unused_vars(m, q, result);
+            }
+        }
+        return result;
+    }
+
     void context::register_predicate(func_decl * decl, bool named) {
-        SASSERT(!m_preds.contains(decl));
+        if (m_preds.contains(decl)) {
+            return;
+        }
         m_pinned.push_back(decl);
         m_preds.insert(decl);
         if (named) {
@@ -429,57 +463,35 @@ namespace datalog {
     }
 
     void context::set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
-            symbol * const relation_names) {
+            symbol const * relation_names) {
         relation_manager & rmgr = get_rmanager();
 
         family_id target_kind = null_family_id;
-        if (relation_name_cnt==1) {
+        switch (relation_name_cnt) {
+        case 0: 
+            return;
+        case 1:
             target_kind = get_ordinary_relation_plugin(relation_names[0]).get_kind();
-        } else {
-            relation_plugin * tr_plugin = 0; //table plugin, if there is such
-            ptr_vector<relation_plugin> rel_plugins; //plugins that are not table plugins
-            svector<family_id> rel_kinds; //kinds of plugins that are not table plugins
-            for (unsigned i=0; i<relation_name_cnt; i++) {
+            break;
+        default: {
+            svector<family_id> rel_kinds; // kinds of plugins that are not table plugins
+            family_id rel_kind;           // the aggregate kind of non-table plugins
+            for (unsigned i = 0; i < relation_name_cnt; i++) {
                 relation_plugin & p = get_ordinary_relation_plugin(relation_names[i]);
-                //commented out, because support combining relations with tables using fpr is not yet implemented
-                /*if (p.from_table()) {
-                    if (tr_plugin) {
-                        //it does not give any extra benefit to have an intersection of two tables.
-                        //Maybe when we can specify which columns belong to which plugin,
-                        //it might be of use.
-                        throw default_exception("two table plugins cannot be specified as relation type");
-                    }
-                    tr_plugin = &p;
-                }
-                else {*/
-                    rel_plugins.push_back(&p);
-                    rel_kinds.push_back(p.get_kind());
-                /*}*/
+                rel_kinds.push_back(p.get_kind());                
             }
-            SASSERT(!rel_kinds.empty());
-            // relation_plugin * rel_plugin; //the aggregate kind of non-table plugins
-            family_id rel_kind; //the aggregate kind of non-table plugins
-            if (rel_kinds.size()==1) {
+            if (rel_kinds.size() == 1) {
                 rel_kind = rel_kinds[0];
-                // rel_plugin = rel_plugins[0];
             }
             else {
                 relation_signature rel_sig;
                 //rmgr.from_predicate(pred, rel_sig);
                 product_relation_plugin & prod_plugin = product_relation_plugin::get_plugin(rmgr);
                 rel_kind = prod_plugin.get_relation_kind(rel_sig, rel_kinds);
-                // rel_plugin = &prod_plugin;
             }
-            if (tr_plugin==0) {
-                target_kind = rel_kind;
-            }
-            else {
-                NOT_IMPLEMENTED_YET();
-#if 0
-                finite_product_relation_plugin & fprp = finite_product_relation_plugin::get_plugin(rmgr, *rel_plugin);
-                finite_product_relation_plugin::rel_spec spec;
-#endif           
-            }
+            target_kind = rel_kind;
+            break;
+        }       
         }
 
         SASSERT(target_kind != null_family_id);
@@ -958,7 +970,8 @@ namespace datalog {
         p.insert(":output-profile", CPK_BOOL, "determines whether profile informations should be output when outputting Datalog rules or instructions");
         p.insert(":output-tuples", CPK_BOOL, "determines whether tuples for output predicates should be output");
         p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
-                       
+                      
+        p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
         PRIVATE_PARAMS(
             p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
                               "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
@@ -1198,7 +1211,6 @@ namespace datalog {
         case DATALOG_ENGINE:
             return dl_query(query);
         case PDR_ENGINE:
-            return pdr_query(query);
         case QPDR_ENGINE:
             return pdr_query(query);
         case BMC_ENGINE:
@@ -1217,6 +1229,28 @@ namespace datalog {
         }
         m_last_status = OK;
         m_last_answer = get_manager().mk_true();
+    }
+
+    model_ref context::get_model() {
+        switch(get_engine()) {
+        case PDR_ENGINE:
+        case QPDR_ENGINE:
+            ensure_pdr();
+            return m_pdr->get_model();
+        default:
+            return model_ref(alloc(model, m));
+        }        
+    }
+
+    proof_ref context::get_proof() {
+        switch(get_engine()) {
+        case PDR_ENGINE:
+        case QPDR_ENGINE:
+            ensure_pdr();
+            return m_pdr->get_proof();
+        default:
+            return proof_ref(m.mk_asserted(m.mk_true()), m);
+        }                
     }
 
     void context::ensure_pdr() {
@@ -1479,13 +1513,12 @@ namespace datalog {
         case DATALOG_ENGINE:            
             return false;
         case PDR_ENGINE: 
-            m_pdr->display_certificate(out);
-            return true;
-        case QPDR_ENGINE:
+            ensure_pdr();
             m_pdr->display_certificate(out);
             return true;
         case BMC_ENGINE:
         case QBMC_ENGINE:
+            ensure_bmc();
             m_bmc->display_certificate(out);
             return true;
         default: 
@@ -1493,20 +1526,31 @@ namespace datalog {
         }        
     }
 
+    void context::reset_statistics() {
+        if (m_pdr) {
+            m_pdr->reset_statistics();
+        }
+        if (m_bmc) {
+            m_bmc->reset_statistics();
+        }
+    }
 
-    void context::collect_statistics(statistics& st) {
-        switch(get_engine()) {
+    void context::collect_statistics(statistics& st) const {
+
+        switch(m_engine) {
         case DATALOG_ENGINE: 
             break;
         case PDR_ENGINE: 
-            m_pdr->collect_statistics(st);
-            break;
         case QPDR_ENGINE:
-            m_pdr->collect_statistics(st);
+            if (m_pdr) {
+                m_pdr->collect_statistics(st);
+            }
             break;
         case BMC_ENGINE:
         case QBMC_ENGINE:
-            m_bmc->collect_statistics(st);
+            if (m_bmc) {
+                m_bmc->collect_statistics(st);
+            }
             break;
         default: 
             break;
@@ -1564,6 +1608,7 @@ namespace datalog {
         expr* const* axioms = m_background.c_ptr();
         expr_ref fml(m);
         expr_ref_vector rules(m);
+        bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
         {
             rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
             for (; it != end; ++it) {
@@ -1586,12 +1631,16 @@ namespace datalog {
             if (f->get_family_id() != null_family_id) {
                 // 
             }
-            else if (is_predicate(f)) {
+            else if (is_predicate(f) && use_fixedpoint_extensions) {
                 rels.insert(f);
             }
             else {
                 funcs.insert(f);
             }
+        }
+
+        if (!use_fixedpoint_extensions) {
+            out << "(set-logic HORN)\n";
         }
         
         it = funcs.begin(), end = funcs.end();
@@ -1619,23 +1668,44 @@ namespace datalog {
             out << "))\n";
         }
 
-        declare_vars(rules, fresh_names, out);
-
+        if (use_fixedpoint_extensions) {
+            declare_vars(rules, fresh_names, out);
+        }
 
         for (unsigned i = 0; i < num_axioms; ++i) {
+            SASSERT(use_fixedpoint_extensions);
             out << "(assert ";
             ast_smt2_pp(out, axioms[i], env, params);
             out << ")\n";
         }
-        for (unsigned i = 0; i < rules.size(); ++i) {
-            out << "(rule ";
-            ast_smt2_pp(out, rules[i].get(), env, params);
+        for (unsigned i = 0; i < rules.size(); ++i) {            
+            out << (use_fixedpoint_extensions?"(rule ":"(assert ");
+            if (use_fixedpoint_extensions) {
+                ast_smt2_pp(out, rules[i].get(), env, params);
+            }
+            else {
+                out << mk_smt_pp(rules[i].get(), m);
+            }
             out << ")\n";
         }
-        for (unsigned i = 0; i < num_queries; ++i) {
-            out << "(query ";
-            ast_smt2_pp(out, queries[i], env, params);
-            out << ")\n";
+        if (use_fixedpoint_extensions) {
+            for (unsigned i = 0; i < num_queries; ++i) {
+                out << "(query ";
+                ast_smt2_pp(out, queries[i], env, params);
+                out << ")\n";
+            }
+        }
+        else {
+            for (unsigned i = 0; i < num_queries; ++i) {
+                if (num_queries > 1) out << "(push)\n";
+                out << "(assert ";
+                expr_ref q(m);
+                q = m.mk_not(queries[i]);
+                ast_smt2_pp(out, q, env, params);
+                out << ")\n";
+                out << "(check-sat)\n";
+                if (num_queries > 1) out << "(pop)\n";
+            }
         }
     }
 

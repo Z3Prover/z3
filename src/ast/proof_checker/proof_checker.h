@@ -23,7 +23,7 @@ Revision History:
 #include "map.h"
 
 class proof_checker {
-    ast_manager&     m_manager;
+    ast_manager&     m;
     proof_ref_vector m_todo;
     expr_mark        m_marked;
     expr_ref_vector  m_pinned;
@@ -111,6 +111,8 @@ private:
     expr* mk_hyp(unsigned num_hyps, expr * const * hyps);
     void dump_proof(proof * pr);
     void dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent);
+
+    void set_false(expr_ref& e, unsigned idx, expr_ref& lit);
 };
 
 #endif

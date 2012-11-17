@@ -6,8 +6,9 @@
 #include "arith_decl_plugin.h"
 #include "front_end_params.h"
 #include "th_rewriter.h"
+#include "var_subst.h"
 
-#define IS_EQUIV(_e_) (m_manager.is_eq(_e_) || m_manager.is_iff(_e_))
+#define IS_EQUIV(_e_) (m.is_eq(_e_) || m.is_iff(_e_))
 
 #define SAME_OP(_d1_, _d2_) ((_d1_ == _d2_) || (IS_EQUIV(_d1_) && IS_EQUIV(_d2_)))
 
@@ -79,7 +80,7 @@ void proof_checker::hyp_decl_plugin::get_sort_names(svector<builtin_name> & sort
     }
 }
 
-proof_checker::proof_checker(ast_manager& m) : m_manager(m), m_todo(m), m_marked(), m_pinned(m), m_nil(m), 
+proof_checker::proof_checker(ast_manager& m) : m(m), m_todo(m), m_marked(), m_pinned(m), m_nil(m), 
                                                m_dump_lemmas(false), m_logic("AUFLIA"), m_proof_lemma_id(0) {
     symbol fam_name("proof_hypothesis");
     if (!m.has_plugin(fam_name)) {
@@ -87,11 +88,11 @@ proof_checker::proof_checker(ast_manager& m) : m_manager(m), m_todo(m), m_marked
     }
     m_hyp_fid = m.get_family_id(fam_name);
     // m_spc_fid = m.get_family_id("spc");
-    m_nil = m_manager.mk_const(m_hyp_fid, OP_NIL);
+    m_nil = m.mk_const(m_hyp_fid, OP_NIL);
 }
 
 bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
-    proof_ref curr(m_manager);
+    proof_ref curr(m);
     m_todo.push_back(p);
     
     bool result = true;
@@ -100,7 +101,7 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
         m_todo.pop_back();
         result = check1(curr.get(), side_conditions);
         if (!result) {
-            IF_VERBOSE(0, ast_ll_pp(verbose_stream() << "Proof check failed\n", m_manager, curr.get()););            
+            IF_VERBOSE(0, ast_ll_pp(verbose_stream() << "Proof check failed\n", m, curr.get()););            
             UNREACHABLE();
         }        
     }
@@ -114,7 +115,7 @@ bool proof_checker::check(proof* p, expr_ref_vector& side_conditions) {
 }
 
 bool proof_checker::check1(proof* p, expr_ref_vector& side_conditions) {
-    if (p->get_family_id() == m_manager.get_basic_family_id()) {
+    if (p->get_family_id() == m.get_basic_family_id()) {
         return check1_basic(p, side_conditions);
     }
 #if 0
@@ -129,11 +130,11 @@ bool proof_checker::check1_spc(proof* p, expr_ref_vector& side_conditions) {
 #if 0
     decl_kind k = p->get_decl_kind();
     bool is_univ = false;
-    expr_ref fact(m_manager), fml(m_manager);
-    expr_ref body(m_manager), fml1(m_manager), fml2(m_manager);
-    sort_ref_vector sorts(m_manager);
-    proof_ref p1(m_manager), p2(m_manager);
-    proof_ref_vector proofs(m_manager);
+    expr_ref fact(m), fml(m);
+    expr_ref body(m), fml1(m), fml2(m);
+    sort_ref_vector sorts(m);
+    proof_ref p1(m), p2(m);
+    proof_ref_vector proofs(m);
 
     if (match_proof(p, proofs)) {
         for (unsigned i = 0; i < proofs.size(); ++i) {
@@ -159,15 +160,15 @@ bool proof_checker::check1_spc(proof* p, expr_ref_vector& side_conditions) {
     case PR_FACTORING:
     case PR_SPC_DER: {
         if (match_fact(p, fact)) {
-            expr_ref_vector rewrite_eq(m_manager);
+            expr_ref_vector rewrite_eq(m);
             rewrite_eq.push_back(fact.get());
             for (unsigned i = 0; i < proofs.size(); ++i) {
                 if (match_fact(proofs[i].get(), fml)) {
-                    rewrite_eq.push_back(m_manager.mk_not(fml.get()));
+                    rewrite_eq.push_back(m.mk_not(fml.get()));
                 }
             }
-            expr_ref rewrite_cond(m_manager);
-            rewrite_cond = m_manager.mk_or(rewrite_eq.size(), rewrite_eq.c_ptr());
+            expr_ref rewrite_cond(m);
+            rewrite_cond = m.mk_or(rewrite_eq.size(), rewrite_eq.c_ptr());
             side_conditions.push_back(rewrite_cond.get());
             return true;
         }
@@ -184,18 +185,18 @@ bool proof_checker::check1_spc(proof* p, expr_ref_vector& side_conditions) {
 
 bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     decl_kind k = p->get_decl_kind();
-    expr_ref fml0(m_manager), fml1(m_manager), fml2(m_manager), fml(m_manager);
-    expr_ref t1(m_manager), t2(m_manager);
-    expr_ref s1(m_manager), s2(m_manager);
-    expr_ref u1(m_manager), u2(m_manager);
-    expr_ref fact(m_manager), body1(m_manager), body2(m_manager);
-    expr_ref l1(m_manager), l2(m_manager), r1(m_manager), r2(m_manager);
-    func_decl_ref d1(m_manager), d2(m_manager), d3(m_manager);
-    proof_ref p0(m_manager), p1(m_manager), p2(m_manager);
-    proof_ref_vector proofs(m_manager);
-    func_decl_ref f1(m_manager), f2(m_manager);
-    expr_ref_vector terms1(m_manager), terms2(m_manager), terms(m_manager);
-    sort_ref_vector decls1(m_manager), decls2(m_manager);
+    expr_ref fml0(m), fml1(m), fml2(m), fml(m);
+    expr_ref t1(m), t2(m);
+    expr_ref s1(m), s2(m);
+    expr_ref u1(m), u2(m);
+    expr_ref fact(m), body1(m), body2(m);
+    expr_ref l1(m), l2(m), r1(m), r2(m);
+    func_decl_ref d1(m), d2(m), d3(m);
+    proof_ref p0(m), p1(m), p2(m);
+    proof_ref_vector proofs(m);
+    func_decl_ref f1(m), f2(m);
+    expr_ref_vector terms1(m), terms2(m), terms(m);
+    sort_ref_vector decls1(m), decls2(m);
     
     if (match_proof(p, proofs)) {
         for (unsigned i = 0; i < proofs.size(); ++i) {
@@ -296,7 +297,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }        
     case PR_MONOTONICITY: {
-        TRACE("proof_checker", tout << mk_bounded_pp(p, m_manager, 3) << "\n";);
+        TRACE("proof_checker", tout << mk_bounded_pp(p, m, 3) << "\n";);
         if (match_fact(p, fact) &&
             match_binary(fact.get(), d1, t1, t2) &&
             match_app(t1.get(), f1, terms1) &&
@@ -334,7 +335,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_fact(p1.get(), fml) &&
             (match_iff(fact.get(), t1, t2) || match_oeq(fact.get(), t1, t2)) &&
             (match_iff(fml.get(), s1, s2) || match_oeq(fml.get(), s1, s2)) &&
-            m_manager.is_oeq(fact.get()) == m_manager.is_oeq(fml.get()) &&
+            m.is_oeq(fact.get()) == m.is_oeq(fml.get()) &&
             is_quantifier(t1.get()) &&
             is_quantifier(t2.get()) &&
             to_quantifier(t1.get())->get_expr() == s1.get() &&
@@ -366,7 +367,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_AND_ELIM: {
-        expr_ref_vector terms(m_manager);
+        expr_ref_vector terms(m);
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1.get(), fml) &&
@@ -381,7 +382,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         return false;
     }
     case PR_NOT_OR_ELIM: {
-        expr_ref_vector terms(m_manager);
+        expr_ref_vector terms(m);
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1.get(), fml) &&
@@ -403,25 +404,25 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             side_conditions.push_back(fact.get());
             return true;
         }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m_manager);); 
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m);); 
         return false;
     }
     case PR_REWRITE_STAR: {
         if (match_fact(p, fact) &&
             match_equiv(fact.get(), t1, t2)) {
-            expr_ref_vector rewrite_eq(m_manager);
+            expr_ref_vector rewrite_eq(m);
             rewrite_eq.push_back(fact.get());
             for (unsigned i = 0; i < proofs.size(); ++i) {
                 if (match_fact(proofs[i].get(), fml)) {
-                    rewrite_eq.push_back(m_manager.mk_not(fml.get()));
+                    rewrite_eq.push_back(m.mk_not(fml.get()));
                 }
             }
-            expr_ref rewrite_cond(m_manager);
-            rewrite_cond = m_manager.mk_or(rewrite_eq.size(), rewrite_eq.c_ptr());
+            expr_ref rewrite_cond(m);
+            rewrite_cond = m.mk_or(rewrite_eq.size(), rewrite_eq.c_ptr());
             side_conditions.push_back(rewrite_cond.get());
             return true;
         }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m_manager);); 
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equality:\n" << mk_bounded_pp(p, m);); 
         return false;        
     }
     case PR_PULL_QUANT: {
@@ -432,7 +433,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // TBD: check the enchilada.
             return true;
         }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence with a quantifier:\n" << mk_bounded_pp(p, m_manager);); 
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence with a quantifier:\n" << mk_bounded_pp(p, m);); 
         return false;
     }
     case PR_PULL_QUANT_STAR: {
@@ -442,7 +443,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             // TBD: check the enchilada.
             return true;
         }
-        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence:\n" << mk_bounded_pp(p, m_manager);); 
+        IF_VERBOSE(0, verbose_stream() << "Expected proof of equivalence:\n" << mk_bounded_pp(p, m);); 
         return false;
     }
     case PR_PUSH_QUANT: {
@@ -509,9 +510,9 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         if (match_proof(p, p1) &&
             match_fact(p, fact) &&
             match_fact(p1.get(), fml) &&
-            m_manager.is_false(fml.get())) {
-            expr_ref_vector hypotheses(m_manager);
-            expr_ref_vector ors(m_manager);
+            m.is_false(fml.get())) {
+            expr_ref_vector hypotheses(m);
+            expr_ref_vector ors(m);
             get_hypotheses(p1.get(), hypotheses);
             if (hypotheses.size() == 1 && match_negated(hypotheses.get(0), fact)) {
                 // Suppose fact is (or a b c) and hypothesis is (not (or a b c))
@@ -531,18 +532,18 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                           tout << "i: " << i << "\n";
                           tout << "ORs:\n";
                           for (unsigned i = 0; i < ors.size(); i++) {
-                              tout << mk_pp(ors.get(i), m_manager) << "\n";
+                              tout << mk_pp(ors.get(i), m) << "\n";
                           }
                           tout << "HYPOTHESIS:\n";
                           for (unsigned i = 0; i < hypotheses.size(); i++) {
-                              tout << mk_pp(hypotheses.get(i), m_manager) << "\n";
+                              tout << mk_pp(hypotheses.get(i), m) << "\n";
                           });
                     UNREACHABLE();
                     return false;
                 }                    
                 TRACE("proof_checker", tout << "Matched:\n";
-                      ast_ll_pp(tout, m_manager, hypotheses[i].get());
-                      ast_ll_pp(tout, m_manager, ors[j-1].get()););
+                      ast_ll_pp(tout, m, hypotheses[i].get());
+                      ast_ll_pp(tout, m, ors[j-1].get()););
             }
             return true;
         }
@@ -555,7 +556,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_fact(proofs[0].get(), fml1) &&
             match_fact(proofs[1].get(), fml2) &&
             match_negated(fml1.get(), fml2.get()) &&
-            m_manager.is_false(fact.get())) {
+            m.is_false(fact.get())) {
             return true;
         }
         if (match_fact(p, fact) &&
@@ -580,15 +581,15 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                     TRACE("pr_unit_bug", 
                           tout << "Parents:\n";
                           for (unsigned i = 0; i < proofs.size(); i++) {
-                              expr_ref p(m_manager);
+                              expr_ref p(m);
                               match_fact(proofs.get(i), p);
-                              tout << mk_pp(p, m_manager) << "\n";
+                              tout << mk_pp(p, m) << "\n";
                           }
                           tout << "Fact:\n";
-                          tout << mk_pp(fact, m_manager) << "\n";
+                          tout << mk_pp(fact, m) << "\n";
                           tout << "Clause:\n";
-                          tout << mk_pp(fml, m_manager) << "\n";
-                          tout << "Could not find premise " << mk_pp(fml2, m_manager) << "\n";
+                          tout << mk_pp(fml, m) << "\n";
+                          tout << "Could not find premise " << mk_pp(fml2, m) << "\n";
                           );
 
                     UNREACHABLE();
@@ -597,7 +598,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             }
             switch(terms1.size()) {
             case 0: 
-                return m_manager.is_false(fact.get());
+                return m.is_false(fact.get());
             case 1: 
                 return fact.get() == terms1[0].get();
             default: {
@@ -609,15 +610,15 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
                             found = term1 == terms2[j].get();
                         }
                         if (!found) {
-                            IF_VERBOSE(0, verbose_stream() << "Premise not found:" << mk_pp(term1, m_manager) << "\n";);
+                            IF_VERBOSE(0, verbose_stream() << "Premise not found:" << mk_pp(term1, m) << "\n";);
                             return false;
                         }
                     }
                     return true;
                 }
                 IF_VERBOSE(0, verbose_stream() << "Conclusion is not a disjunction:\n";
-                           verbose_stream() << mk_pp(fml.get(), m_manager) << "\n";
-                           verbose_stream() << mk_pp(fact.get(), m_manager) << "\n";);
+                           verbose_stream() << mk_pp(fml.get(), m) << "\n";
+                           verbose_stream() << mk_pp(fact.get(), m) << "\n";);
 
                 return false;
             }
@@ -634,7 +635,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_fact(p1.get(), fml1) &&
             match_iff(fact.get(), l1, r1) &&
             fml1.get() == l1.get() &&
-            r1.get() == m_manager.mk_true()) {
+            r1.get() == m.mk_true()) {
             return true;
         }
         UNREACHABLE();
@@ -648,7 +649,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
             match_iff(fact.get(), l1, r1) &&
             match_not(fml1.get(), t1) &&
             t1.get() == l1.get() &&
-            r1.get() == m_manager.mk_false()) {
+            r1.get() == m.mk_false()) {
             return true;
         }
         UNREACHABLE();
@@ -674,7 +675,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // axiom(?fml)
         if (match_fact(p, fact) &&
             match_proof(p) &&
-            m_manager.is_bool(fact.get())) {
+            m.is_bool(fact.get())) {
             return true;
         }
         UNREACHABLE();
@@ -689,7 +690,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // 
         if (match_fact(p, fact) &&
             match_proof(p) &&
-            m_manager.is_bool(fact.get())) {
+            m.is_bool(fact.get())) {
             return true;
         }
         UNREACHABLE();
@@ -790,16 +791,138 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
         // TODO
         return true;
     }
+    case PR_HYPER_RESOLVE: {
+        proof_ref_vector premises(m);
+        expr_ref_vector fmls(m);
+        expr_ref conclusion(m), premise(m), premise0(m), premise1(m);
+        svector<std::pair<unsigned, unsigned> > positions;
+        vector<expr_ref_vector> substs;
+        VERIFY(m.is_hyper_resolve(p, premises, conclusion, positions, substs));
+        var_subst vs(m, false);
+        for (unsigned i = 0; i < premises.size(); ++i) {
+            expr_ref_vector const& sub = substs[i];
+            premise = m.get_fact(premises[i].get());
+            if (!sub.empty()) {
+                if (is_forall(premise)) {
+                    // SASSERT(to_quantifier(premise)->get_num_decls() == sub.size());
+                    premise = to_quantifier(premise)->get_expr();
+                }
+                vs(premise, sub.size(), sub.c_ptr(), premise);
+            }
+            fmls.push_back(premise.get());
+            TRACE("proof_checker",                   
+                  tout << mk_pp(premise.get(), m) << "\n";
+                  for (unsigned j = 0; j < sub.size(); ++j) {
+                      tout << mk_pp(sub[j], m) << " ";
+                  }
+                  tout << "\n";);
+        }
+        premise0 = fmls[0].get();
+        for (unsigned i = 1; i < fmls.size(); ++i) {
+            expr_ref lit1(m), lit2(m);
+            expr* lit3 = 0;
+            std::pair<unsigned, unsigned> pos = positions[i-1];
+            premise1 = fmls[i].get();
+            set_false(premise0, pos.first, lit1);
+            set_false(premise1, pos.second, lit2);
+            if (m.is_not(lit1, lit3) && lit3 == lit2) {
+                // ok
+            }
+            else if (m.is_not(lit2, lit3) && lit3 == lit1) {
+                // ok
+            }
+            else {
+                IF_VERBOSE(0, verbose_stream() << "Could not establish complementarity for:\n" << 
+                           mk_pp(lit1, m) << "\n" << mk_pp(lit2, m) << "\n";);
+            }
+            fmls[i] = premise1;
+        }
+        fmls[0] = premise0;
+        premise0 = m.mk_or(fmls.size(), fmls.c_ptr());
+        if (is_forall(conclusion)) {
+            quantifier* q = to_quantifier(conclusion);
+            premise0 = m.mk_iff(premise0, q->get_expr());
+            premise0 = m.mk_forall(q->get_num_decls(), q->get_decl_sorts(), q->get_decl_names(), premise0);
+        }
+        else {
+            premise0 = m.mk_iff(premise0, conclusion);
+        }
+        side_conditions.push_back(premise0);        
+        return true;
+    }
     default:
         UNREACHABLE();
         return false;
     }
 }
 
+/**
+   \brief Premises of the rules are of the form
+      (or l0 l1 l2 .. ln)
+   or
+      (=> (and ln+1 ln+2 .. ln+m) l0)
+   or in the most general (ground) form:
+      (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1))
+   In other words we use the following (Prolog style) convention for Horn 
+   implications:
+   The head of a Horn implication is position 0,
+   the first conjunct in the body of an implication is position 1
+   the second conjunct in the body of an implication is position 2
+
+   Set the position provided in the argument to 'false'.
+*/
+void proof_checker::set_false(expr_ref& e, unsigned position, expr_ref& lit) {
+    app* a = to_app(e);
+    expr* head, *body;
+    expr_ref_vector args(m);
+    if (m.is_or(e)) {        
+        SASSERT(position < a->get_num_args());
+        args.append(a->get_num_args(), a->get_args());
+        lit = args[position].get();
+        args[position] = m.mk_false();
+        e = m.mk_or(args.size(), args.c_ptr());
+    }
+    else if (m.is_implies(e, body, head)) {
+        expr* const* heads = &head;
+        unsigned num_heads = 1;
+        if (m.is_or(head)) {
+            num_heads = to_app(head)->get_num_args();
+            heads = to_app(head)->get_args();            
+        }
+        expr*const* bodies = &body;
+        unsigned num_bodies = 1;
+        if (m.is_and(body)) {
+            num_bodies = to_app(body)->get_num_args();
+            bodies = to_app(body)->get_args();            
+        }
+        if (position < num_heads) {
+            args.append(num_heads, heads);
+            lit = args[position].get();
+            args[position] = m.mk_false();
+            e = m.mk_implies(body, m.mk_or(args.size(), args.c_ptr()));
+        }
+        else {
+            position -= num_heads;
+            args.append(num_bodies, bodies);
+            lit = m.mk_not(args[position].get());
+            args[position] = m.mk_true();
+            e = m.mk_implies(m.mk_and(args.size(), args.c_ptr()), head);            
+        }
+    }
+    else if (position == 0) {
+        lit = e;
+        e = m.mk_false();
+    }
+    else {
+        IF_VERBOSE(0, verbose_stream() << position << "\n" << mk_pp(e, m) << "\n";);
+        UNREACHABLE();
+    }
+}
+
 bool proof_checker::match_fact(proof* p, expr_ref& fact) {
-    if (m_manager.is_proof(p) &&
-        m_manager.has_fact(p)) {
-        fact = m_manager.get_fact(p);
+    if (m.is_proof(p) &&
+        m.has_fact(p)) {
+        fact = m.get_fact(p);
         return true;
     }
     return false;
@@ -814,33 +937,33 @@ void proof_checker::add_premise(proof* p) {
 
 bool proof_checker::match_proof(proof* p) {
     return 
-        m_manager.is_proof(p) &&
-        m_manager.get_num_parents(p) == 0;
+        m.is_proof(p) &&
+        m.get_num_parents(p) == 0;
 }
 
 bool proof_checker::match_proof(proof* p, proof_ref& p0) {
-    if (m_manager.is_proof(p) &&
-        m_manager.get_num_parents(p) == 1) {
-        p0 = m_manager.get_parent(p, 0);
+    if (m.is_proof(p) &&
+        m.get_num_parents(p) == 1) {
+        p0 = m.get_parent(p, 0);
         return true;
     }
     return false;
 }
  
 bool proof_checker::match_proof(proof* p, proof_ref& p0, proof_ref& p1) {
-    if (m_manager.is_proof(p) &&
-        m_manager.get_num_parents(p) == 2) {
-        p0 = m_manager.get_parent(p, 0);
-        p1 = m_manager.get_parent(p, 1);
+    if (m.is_proof(p) &&
+        m.get_num_parents(p) == 2) {
+        p0 = m.get_parent(p, 0);
+        p1 = m.get_parent(p, 1);
         return true;
     }
     return false;
 }
 
 bool proof_checker::match_proof(proof* p, proof_ref_vector& parents) {
-    if (m_manager.is_proof(p)) {
-        for (unsigned i = 0; i < m_manager.get_num_parents(p); ++i) {
-            parents.push_back(m_manager.get_parent(p, i));
+    if (m.is_proof(p)) {
+        for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
+            parents.push_back(m.get_parent(p, i));
         }
         return true;
     }
@@ -886,7 +1009,7 @@ bool proof_checker::match_quantifier(expr* e, bool& is_univ, sort_ref_vector& so
 
 bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t1, expr_ref& t2) {
     if (e->get_kind() == AST_APP &&
-        to_app(e)->get_family_id() == m_manager.get_basic_family_id() &&
+        to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k &&
         to_app(e)->get_num_args() == 2) {
         t1 = to_app(e)->get_arg(0);
@@ -898,7 +1021,7 @@ bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t1, expr_ref& t2) {
 
 bool proof_checker::match_op(expr* e, decl_kind k, expr_ref_vector& terms) {
     if (e->get_kind() == AST_APP &&
-        to_app(e)->get_family_id() == m_manager.get_basic_family_id() &&
+        to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k) {
         for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
             terms.push_back(to_app(e)->get_arg(i));
@@ -911,7 +1034,7 @@ bool proof_checker::match_op(expr* e, decl_kind k, expr_ref_vector& terms) {
 
 bool proof_checker::match_op(expr* e, decl_kind k, expr_ref& t) {
     if (e->get_kind() == AST_APP &&
-        to_app(e)->get_family_id() == m_manager.get_basic_family_id() &&
+        to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k &&
         to_app(e)->get_num_args() == 1) {
         t = to_app(e)->get_arg(0);
@@ -953,7 +1076,7 @@ bool proof_checker::match_oeq(expr* e, expr_ref& t1, expr_ref& t2) {
 }
 
 bool proof_checker::match_negated(expr* a, expr* b) {
-    expr_ref t(m_manager);
+    expr_ref t(m);
     return 
         (match_not(a, t) && t.get() == b) ||
         (match_not(b, t) && t.get() == a);
@@ -961,7 +1084,7 @@ bool proof_checker::match_negated(expr* a, expr* b) {
 
 void proof_checker::get_ors(expr* e, expr_ref_vector& ors) {
     ptr_buffer<expr> buffer;
-    if (m_manager.is_or(e)) {
+    if (m.is_or(e)) {
         app* a = to_app(e);
         ors.append(a->get_num_args(), a->get_args());
     }
@@ -974,12 +1097,12 @@ void proof_checker::get_ors(expr* e, expr_ref_vector& ors) {
 void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
     ptr_vector<proof> stack;
     expr* h = 0;
-    expr_ref hyp(m_manager);
+    expr_ref hyp(m);
 
     stack.push_back(p);
     while (!stack.empty()) {
         p = stack.back();
-        SASSERT(m_manager.is_proof(p));
+        SASSERT(m.is_proof(p));
         if (m_hypotheses.contains(p)) {
             stack.pop_back();            
             continue;
@@ -992,15 +1115,15 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
             continue;
         }
         // in this system all hypotheses get bound by lemmas.
-        if (m_manager.is_lemma(p)) {
+        if (m.is_lemma(p)) {
             m_hypotheses.insert(p, mk_nil());
             stack.pop_back();
             continue;
         }
         bool all_found = true;
         ptr_vector<expr> hyps;
-        for (unsigned i = 0; i < m_manager.get_num_parents(p); ++i) {
-            proof* p_i = m_manager.get_parent(p, i);
+        for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
+            proof* p_i = m.get_parent(p, i);
             if (m_hypotheses.find(p_i, h)) {
                 hyps.push_back(h);
             }
@@ -1028,7 +1151,7 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
     ptr_buffer<expr> todo;
     expr_mark mark;
     todo.push_back(h);
-    expr_ref a(m_manager), b(m_manager);
+    expr_ref a(m), b(m);
     
     while (!todo.empty()) {
         h = todo.back();
@@ -1051,10 +1174,10 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
     }
     TRACE("proof_checker",
           {
-              ast_ll_pp(tout << "Getting hypotheses from: ", m_manager, p);
+              ast_ll_pp(tout << "Getting hypotheses from: ", m, p);
               tout << "Found hypotheses:\n";
               for (unsigned i = 0; i < ante.size(); ++i) {
-                  ast_ll_pp(tout, m_manager, ante[i].get()); 
+                  ast_ll_pp(tout, m, ante[i].get()); 
               }
           });
 
@@ -1090,11 +1213,11 @@ bool proof_checker::match_atom(expr* e, expr_ref& a) const {
 }
 
 expr* proof_checker::mk_atom(expr* e) {
-    return m_manager.mk_app(m_hyp_fid, OP_ATOM, e);
+    return m.mk_app(m_hyp_fid, OP_ATOM, e);
 }
 
 expr* proof_checker::mk_cons(expr* a, expr* b) {
-    return m_manager.mk_app(m_hyp_fid, OP_CONS, a, b);
+    return m.mk_app(m_hyp_fid, OP_CONS, a, b);
 }
 
 expr* proof_checker::mk_nil() {
@@ -1103,7 +1226,7 @@ expr* proof_checker::mk_nil() {
 
 bool proof_checker::is_hypothesis(proof* p) const {
     return 
-        m_manager.is_proof(p) &&
+        m.is_proof(p) &&
         p->get_decl_kind() == PR_HYPOTHESIS;
 }
 
@@ -1130,14 +1253,14 @@ expr* proof_checker::mk_hyp(unsigned num_hyps, expr * const * hyps) {
 void proof_checker::dump_proof(proof * pr) {
     if (!m_dump_lemmas)
         return;
-    SASSERT(m_manager.has_fact(pr));
-    expr * consequent = m_manager.get_fact(pr);
-    unsigned num      = m_manager.get_num_parents(pr);
+    SASSERT(m.has_fact(pr));
+    expr * consequent = m.get_fact(pr);
+    unsigned num      = m.get_num_parents(pr);
     ptr_buffer<expr> antecedents;
     for (unsigned i = 0; i < num; i++) {
-        proof * a = m_manager.get_parent(pr, i);
-        SASSERT(m_manager.has_fact(a));
-        antecedents.push_back(m_manager.get_fact(a));
+        proof * a = m.get_parent(pr, i);
+        SASSERT(m.has_fact(a));
+        antecedents.push_back(m.get_fact(a));
     }
     dump_proof(antecedents.size(), antecedents.c_ptr(), consequent);
 }
@@ -1150,21 +1273,20 @@ void proof_checker::dump_proof(unsigned num_antecedents, expr * const * antecede
     sprintf(buffer, "proof_lemma_%d.smt", m_proof_lemma_id);
 #endif
     std::ofstream out(buffer);
-    ast_smt_pp pp(m_manager);
+    ast_smt_pp pp(m);
     pp.set_benchmark_name("lemma");
     pp.set_status("unsat");
     pp.set_logic(m_logic.c_str());
     for (unsigned i = 0; i < num_antecedents; i++)
         pp.add_assumption(antecedents[i]);
-    expr_ref n(m_manager);
-    n = m_manager.mk_not(consequent);
+    expr_ref n(m);
+    n = m.mk_not(consequent);
     pp.display(out, n);
     out.close();
     m_proof_lemma_id++;
 }
 
 bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& coeff, expr_ref& sum, bool& is_strict) {
-    ast_manager& m = m_manager;
     arith_util a(m);
     app* lit = lit0;
     
@@ -1173,7 +1295,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         is_pos = !is_pos;
     }
     if (!a.is_le(lit) && !a.is_lt(lit) && !a.is_ge(lit) && !a.is_gt(lit) && !m.is_eq(lit)) {
-        std::cout << mk_pp(lit, m) << "\n";
+        IF_VERBOSE(0, verbose_stream() << mk_pp(lit, m) << "\n";);
         return false;
     }
     SASSERT(lit->get_num_args() == 2);
@@ -1237,7 +1359,7 @@ bool proof_checker::check_arith_literal(bool is_pos, app* lit0, rational const& 
         rw(sum);
     }
 
-    std::cout << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";
+    IF_VERBOSE(0, verbose_stream() << coeff << "\n" << mk_pp(lit0, m) << "\n" << mk_pp(sum, m) << "\n";);
 #endif
 
     return true;
@@ -1247,7 +1369,6 @@ bool proof_checker::check_arith_proof(proof* p) {
     func_decl* d = p->get_decl();
     SASSERT(PR_TH_LEMMA == p->get_decl_kind());
     SASSERT(d->get_parameter(0).get_symbol() == "arith");
-    ast_manager& m = m_manager;
     unsigned num_params = d->get_num_parameters();
     arith_util autil(m);
 
@@ -1257,7 +1378,7 @@ bool proof_checker::check_arith_proof(proof* p) {
         return true;
     }
     expr_ref fact(m);
-    proof_ref_vector proofs(m_manager);
+    proof_ref_vector proofs(m);
     
     if (!match_fact(p, fact)) {
         UNREACHABLE();
@@ -1331,7 +1452,7 @@ bool proof_checker::check_arith_proof(proof* p) {
     rw(sum);
 
     if (!m.is_false(sum)) {
-        std::cout << "Arithmetic proof check failed: " << mk_pp(sum, m) << "\n";
+        IF_VERBOSE(0, verbose_stream() << "Arithmetic proof check failed: " << mk_pp(sum, m) << "\n";);
         m_dump_lemmas = true;
         dump_proof(p);
         return false;

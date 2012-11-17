@@ -116,16 +116,20 @@ namespace datalog {
         apply(src, false, UINT_MAX,   tail, tail_neg);
         mk_rule_inliner::remove_duplicate_tails(tail, tail_neg);
         SASSERT(tail.size()==tail_neg.size());
-        res = m_rm.mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+        res = m_rm.mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), tgt.name(), m_normalize);
         res->set_accounting_parent_object(m_context, const_cast<rule*>(&tgt));
-        res->norm_vars(m_rm);
-        m_rm.fix_unbound_vars(res, true);        
-        if (m_interp_simplifier.transform_rule(res.get(), simpl_rule)) {
-            res = simpl_rule;
-            return true;
+        if (m_normalize) {
+            m_rm.fix_unbound_vars(res, true);        
+            if (m_interp_simplifier.transform_rule(res.get(), simpl_rule)) {
+                res = simpl_rule;
+                return true;
+            }
+            else {
+                return false;
+            }
         }
         else {
-            return false;
+            return true;
         }
     }
 

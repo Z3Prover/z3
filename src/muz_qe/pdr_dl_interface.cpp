@@ -197,6 +197,10 @@ void dl_interface::collect_statistics(statistics& st) const {
     m_context->collect_statistics(st);
 }
 
+void dl_interface::reset_statistics() {
+    m_context->reset_statistics();
+}
+
 void dl_interface::display_certificate(std::ostream& out) const {
     m_context->display_certificate(out);
 }
@@ -216,6 +220,14 @@ void dl_interface::cleanup() {
 void dl_interface::updt_params() {
     dealloc(m_context);
     m_context = alloc(pdr::context, m_ctx.get_fparams(), m_ctx.get_params(), m_ctx.get_manager());
+}
+
+model_ref dl_interface::get_model() {
+    return m_context->get_model();
+}
+
+proof_ref dl_interface::get_proof() {
+    return m_context->get_proof();
 }
 
 void dl_interface::collect_params(param_descrs& p) {

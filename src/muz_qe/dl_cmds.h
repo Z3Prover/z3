@@ -10,7 +10,7 @@ Abstract:
 
 Author:
 
-    Leonardo (leonardo) 2011-03-28
+    Nikolaj Bjorner (nbjorner) 2012-11-17
 
 Notes:
 
@@ -18,30 +18,20 @@ Notes:
 #ifndef _DL_CMDS_H_
 #define _DL_CMDS_H_
 
-class cmd;
+#include "ast.h"
+
 class cmd_context;
 
+struct dl_collected_cmds {
+    expr_ref_vector m_rules;
+    svector<symbol> m_names;
+    expr_ref_vector m_queries;
+    func_decl_ref_vector m_rels;
+    dl_collected_cmds(ast_manager& m) : m_rules(m), m_queries(m), m_rels(m) {}    
+};
+
 void install_dl_cmds(cmd_context & ctx);
+void install_dl_collect_cmds(dl_collected_cmds& collected_cmds, cmd_context& ctx);
 
-namespace datalog {
-
-    class context;
-
-    /**
-    Create a command for declaring relations which is connected to 
-    a particular datalog context.
-
-    Caller must ensure the returned object is deallocated (e.g. by passing it to a cmd_context).
-    */
-    cmd * mk_declare_rel_cmd(context& dctx);
-
-    /**
-       Declare a constant as a universal/existential variable.
-       It is implicitly existentially or universally quantified
-       by the rules.
-    */
-    cmd * mk_declare_var_cmd(context& dctx);
-
-}
 
 #endif

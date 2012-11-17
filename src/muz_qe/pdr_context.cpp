@@ -20,9 +20,6 @@ Revision History:
 
 Notes:
 
-   TODO:
-   - fix the slicing with covers.
-   - 
    
 --*/
 
@@ -100,6 +97,13 @@ namespace pdr {
             np += m_levels[i].size();
         } 
         st.update("PDR num properties", np); 
+        std::cout << m_stats.m_num_propagations << " " << np << "\n";
+    }
+
+    void pred_transformer::reset_statistics() {
+        m_solver.reset_statistics();
+        m_reachable.reset_statistics();
+        m_stats.reset();
     }
     
     void pred_transformer::init_sig() {
@@ -971,6 +975,7 @@ namespace pdr {
         proof_ref_vector trail(m);
         datalog::rule_ref_vector rules_trail(rm);
         proof* pr = 0;
+        unifier.set_normalize(false);
         todo.push_back(m_root);
         while (!todo.empty()) {
             model_node* n = todo.back();
@@ -1022,6 +1027,7 @@ namespace pdr {
                 binding_is_id = is_var(v) && to_var(v)->get_idx() == i;
             }
             if (rls.size() > 1 || !binding_is_id) {
+                expr_ref tmp(m);
                 vector<expr_ref_vector> substs;
                 svector<std::pair<unsigned,unsigned> > positions;
                 substs.push_back(binding); // TODO base substitution.
@@ -1029,9 +1035,10 @@ namespace pdr {
                     datalog::rule& src = *rls[i];
                     bool unified = unifier.unify_rules(*reduced_rule, 0, src);
                     if (!unified) {
-                        std::cout << "Could not unify rules: ";
-                        reduced_rule->display(dctx, std::cout);
-                        src.display(dctx, std::cout);
+                        IF_VERBOSE(0,
+                                   verbose_stream() << "Could not unify rules: ";
+                                   reduced_rule->display(dctx, verbose_stream());
+                                   src.display(dctx, verbose_stream()););
                     }
                     expr_ref_vector sub1 = unifier.get_rule_subst(*reduced_rule, true);
                     TRACE("pdr",
@@ -1040,8 +1047,15 @@ namespace pdr {
                           }
                           tout << "\n";
                           );
+
                     for (unsigned j = 0; j < substs.size(); ++j) {
-                        // TODO. apply sub1 to subst.
+                        for (unsigned k = 0; k < substs[j].size(); ++k) {
+                            var_subst(m, false)(substs[j][k].get(), sub1.size(), sub1.c_ptr(), tmp);
+                            substs[j][k] = tmp;
+                        }
+                        while (substs[j].size() < sub1.size()) {
+                            substs[j].push_back(sub1[substs[j].size()].get());
+                        }
                     }
 
                     positions.push_back(std::make_pair(i,0));
@@ -1049,9 +1063,11 @@ namespace pdr {
                     VERIFY(unifier.apply(*reduced_rule.get(), 0, src, r3));
                     reduced_rule = r3;
                 }
+
                 expr_ref fml_concl(m);
                 reduced_rule->to_formula(fml_concl);                    
                 p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
+
             }
             cache.insert(n->state(), p1);
             rules.insert(n->state(), reduced_rule);
@@ -1334,24 +1350,68 @@ namespace pdr {
             if (!ok) {
                 IF_VERBOSE(0, verbose_stream() << "proof validation failed\n";);
             }
+            for (unsigned i = 0; i < side_conditions.size(); ++i) {
+                expr* cond = side_conditions[i].get();
+                expr_ref tmp(m);
+                tmp = m.mk_not(cond);
+                IF_VERBOSE(2, verbose_stream() << "checking side-condition:\n" << mk_pp(cond, m) << "\n";);
+                smt::kernel solver(m, get_fparams());
+                solver.assert_expr(tmp);
+                lbool res = solver.check();
+                if (res != l_false) {
+                    IF_VERBOSE(0, verbose_stream() << "rule validation failed\n";
+                               verbose_stream() << mk_pp(cond, m) << "\n";
+                               );
+                }                                
+            }
             break;
         }            
         case l_false: {
-            expr_ref_vector refs(m);
+            expr_ref_vector refs(m), fmls(m);
+            expr_ref tmp(m);
             model_ref model;
             vector<relation_info> rs;
+            model_converter_ref mc;
             get_level_property(m_inductive_lvl, refs, rs);    
-            inductive_property ex(m, const_cast<model_converter_ref&>(m_mc), rs);
+            inductive_property ex(m, mc, rs);
             ex.to_model(model);
             decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
-            var_subst vs(m, false);
+            var_subst vs(m, false);   
             for (; it != end; ++it) {
                 ptr_vector<datalog::rule> const& rules = it->m_value->rules();
                 for (unsigned i = 0; i < rules.size(); ++i) {
-                    // datalog::rule* rule = rules[i];
-                    // vs(rule->get_head(), 
-                    // apply interpretation of predicates to rule.
-                    // create formula and check for unsat.
+                    datalog::rule& r = *rules[i];
+                    model->eval(r.get_head(), tmp);
+                    fmls.push_back(m.mk_not(tmp));
+                    unsigned utsz = r.get_uninterpreted_tail_size();
+                    unsigned tsz  = r.get_tail_size();
+                    for (unsigned j = 0; j < utsz; ++j) {
+                        model->eval(r.get_tail(j), tmp);
+                        fmls.push_back(tmp);
+                    }
+                    for (unsigned j = utsz; j < tsz; ++j) {
+                        fmls.push_back(r.get_tail(j));
+                    }
+                    tmp = m.mk_and(fmls.size(), fmls.c_ptr()); 
+                    ptr_vector<sort> sorts;
+                    svector<symbol> names;
+                    get_free_vars(tmp, sorts);
+                    for (unsigned i = 0; i < sorts.size(); ++i) {
+                        if (!sorts[i]) {
+                            sorts[i] = m.mk_bool_sort();
+                        }
+                        names.push_back(symbol(i));
+                    }
+                    sorts.reverse();
+                    tmp = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
+                    smt::kernel solver(m, get_fparams());
+                    solver.assert_expr(tmp);
+                    lbool res = solver.check();
+                    if (res != l_false) {
+                        IF_VERBOSE(0, verbose_stream() << "rule validation failed\n";
+                                   verbose_stream() << mk_pp(tmp, m) << "\n";
+                                   );
+                    }
                 }
             }
             break;
@@ -1476,13 +1536,15 @@ namespace pdr {
         }
     }
 
-    void context::get_model(model_ref& md) {
+    model_ref context::get_model() {
         SASSERT(m_last_result == l_false);        
         expr_ref_vector refs(m);
         vector<relation_info> rs;
+        model_ref md;
         get_level_property(m_inductive_lvl, refs, rs);            
         inductive_property ex(m, m_mc, rs);
         ex.to_model(md);
+        return md;
     }
     
     proof_ref context::get_proof() const {
@@ -1868,6 +1930,20 @@ namespace pdr {
         for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
             m_core_generalizers[i]->collect_statistics(st);
         }
+    }
+
+    void context::reset_statistics() {
+        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
+        for (it = m_rels.begin(); it != end; ++it) {
+            it->m_value->reset_statistics();
+        }
+        m_stats.reset();
+        m_pm.reset_statistics();
+
+        for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
+            m_core_generalizers[i]->reset_statistics();
+        }
+
     }
 
 
