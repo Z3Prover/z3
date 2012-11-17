@@ -1608,12 +1608,14 @@ namespace datalog {
         expr* const* axioms = m_background.c_ptr();
         expr_ref fml(m);
         expr_ref_vector rules(m);
+        svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
         {
             rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
             for (; it != end; ++it) {
                 (*it)->to_formula(fml);
                 rules.push_back(fml);
+                names.push_back((*it)->name());
             }
         }
 
@@ -1680,11 +1682,18 @@ namespace datalog {
         }
         for (unsigned i = 0; i < rules.size(); ++i) {            
             out << (use_fixedpoint_extensions?"(rule ":"(assert ");
+            expr* r = rules[i].get();
+            if (symbol::null != names[i]) {
+                out << "(! ";
+            }
             if (use_fixedpoint_extensions) {
-                ast_smt2_pp(out, rules[i].get(), env, params);
+                ast_smt2_pp(out, r, env, params);
             }
             else {
-                out << mk_smt_pp(rules[i].get(), m);
+                out << mk_smt_pp(r, m);
+            }
+            if (symbol::null != names[i]) {
+                out << " :named " << names[i] << ")";
             }
             out << ")\n";
         }

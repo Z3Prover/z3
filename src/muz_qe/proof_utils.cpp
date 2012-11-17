@@ -223,7 +223,7 @@ public:
                     found_false = true;
                     break;
                 }
-                SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
+                // SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
                 parents.push_back(tmp);          
                 if (is_closed(tmp) && !m_units.contains(m.get_fact(tmp))) {
                     m_units.insert(m.get_fact(tmp), tmp);
@@ -283,7 +283,7 @@ public:
                     found_false = true;
                     break;
                 }
-                SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
+                // SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
                 change = change || (tmp != m.get_parent(p, i));
                 args.push_back(tmp);
             }
