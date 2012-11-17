@@ -324,13 +324,12 @@ expr_ref_vector model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> con
     unsigned sz = m_model->get_num_constants();
     expr_ref e(m), eq(m);
     expr_ref_vector model(m);
-    bool_rewriter rw(m);
     for (unsigned i = 0; i < sz; i++) {
         func_decl * d = m_model->get_constant(i); 
         expr* val = m_model->get_const_interp(d);
         e = m.mk_const(d);
         if (m_visited.is_marked(e)) {
-            rw.mk_eq(e, val, eq);
+            eq = m.mk_eq(e, val);
             model.push_back(eq);
         }
     }

@@ -97,7 +97,6 @@ namespace pdr {
             np += m_levels[i].size();
         } 
         st.update("PDR num properties", np); 
-        std::cout << m_stats.m_num_propagations << " " << np << "\n";
     }
 
     void pred_transformer::reset_statistics() {
@@ -1501,7 +1500,14 @@ namespace pdr {
             simplify_formulas();
             m_last_result = l_false;
             TRACE("pdr",  display_certificate(tout););      
-            IF_VERBOSE(1, display_certificate(verbose_stream()););
+            IF_VERBOSE(1, {
+                    expr_ref_vector refs(m);
+                    vector<relation_info> rs;
+                    get_level_property(m_inductive_lvl, refs, rs);    
+                    model_converter_ref mc;
+                    inductive_property ex(m, mc, rs);
+                    verbose_stream() << ex.to_string();
+                });
             validate();
             return l_false;
         }
