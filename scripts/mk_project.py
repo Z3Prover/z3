@@ -30,7 +30,7 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
-    add_lib('normal_forms', ['rewriter', 'simplifier'], 'ast/normal_forms')
+    add_lib('normal_forms', ['rewriter', 'front_end_params'], 'ast/normal_forms')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
@@ -41,7 +41,7 @@ def init_project_def():
     add_lib('cmd_context', ['solver', 'rewriter'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
-    add_lib('pattern', ['normal_forms', 'smt2parser'], 'ast/pattern')
+    add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('macros', ['simplifier', 'front_end_params'], 'ast/macros')
     add_lib('proof_checker', ['rewriter', 'front_end_params'], 'ast/proof_checker')
     add_lib('bit_blaster', ['rewriter', 'simplifier', 'front_end_params'], 'ast/rewriter/bit_blaster')
