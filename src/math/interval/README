@@ -1,0 +1,2 @@
+Template for interval arithmetic. The template can be instantiated using different numeral (integers/mpz, rationals/mpq, floating-point/mpf, etc) packages.
+The class im_default_config defines a default configuration for the template that uses rationals. It also shows what is the expected signature used by the template.

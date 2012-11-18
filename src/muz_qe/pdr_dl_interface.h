@@ -57,6 +57,8 @@ namespace pdr {
 
         void collect_statistics(statistics& st) const;
 
+        void reset_statistics();
+
         expr_ref get_answer();
 
         unsigned get_num_levels(func_decl* pred);
@@ -66,8 +68,12 @@ namespace pdr {
         void add_cover(int level, func_decl* pred, expr* property);
 
         static void collect_params(param_descrs& p);
-
+               
         void updt_params();
+
+        model_ref get_model();
+
+        proof_ref get_proof();
         
     };
 }

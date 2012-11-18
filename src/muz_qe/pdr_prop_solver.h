@@ -122,6 +122,8 @@ namespace pdr {
             expr * form);
         
         void collect_statistics(statistics& st) const;
+
+        void reset_statistics();
         
     };
 }

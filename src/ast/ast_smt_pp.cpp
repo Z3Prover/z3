@@ -317,8 +317,8 @@ class smt_printer {
     }
 
     void visit_sort(sort* s, bool bool2int = false) {
-        symbol sym; 
-        if (bool2int && is_bool(s)) {
+        symbol sym;  
+        if (bool2int && is_bool(s) && !m_is_smt2) {
             sym = symbol("Int");
         } else if (s->is_sort_of(m_bv_fid, BV_SORT)) {
             sym = symbol("BitVec");

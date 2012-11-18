@@ -132,6 +132,7 @@ namespace pdr {
         std::ostream& display(std::ostream& strm) const;
 
         void collect_statistics(statistics& st) const;
+        void reset_statistics();
 
         bool is_reachable(expr* state);
         void remove_predecessors(expr_ref_vector& literals);
@@ -275,6 +276,7 @@ namespace pdr {
             }
         }
         virtual void collect_statistics(statistics& st) const {}
+        virtual void reset_statistics() {}
     };
 
     class context {
@@ -366,6 +368,7 @@ namespace pdr {
 
 
         void collect_statistics(statistics& st) const;
+        void reset_statistics();
 
         std::ostream& display(std::ostream& strm) const;        
 
@@ -401,7 +404,7 @@ namespace pdr {
 
         void add_cover(int level, func_decl* pred, expr* property);
 
-        void get_model(model_ref& md);
+        model_ref get_model();
 
         proof_ref get_proof() const;
 

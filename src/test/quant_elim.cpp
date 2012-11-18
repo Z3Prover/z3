@@ -42,11 +42,11 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
     qe(m.mk_true(), fml, result);
     std::cout << " -> " << mk_pp(result, m) << " " << expected_outcome << "\n";
     if (expected_outcome == l_true && !m.is_true(result)) {
-        std::cout << "ERROR: expected true, instead got " << ast_pp(result, m).c_str() << "\n";
+        std::cout << "ERROR: expected true, instead got " << mk_pp(result, m) << "\n";
         //exit(-1);
     }
     if (expected_outcome == l_false && !m.is_false(result)) {
-        std::cout << "ERROR: expected false, instead got " << ast_pp(result, m).c_str() << "\n";
+        std::cout << "ERROR: expected false, instead got " << mk_pp(result, m) << "\n";
         //exit(-1);
     }
 }

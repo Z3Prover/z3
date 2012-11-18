@@ -549,7 +549,7 @@ public:
 #ifdef _NO_OMP_
         use_seq = true;
 #else
-        use_seq = omp_in_parallel();
+        use_seq = 0 != omp_in_parallel();
 #endif
         if (use_seq) {
             // execute tasks sequentially
@@ -677,7 +677,7 @@ public:
 #ifdef _NO_OMP_
         use_seq = true;
 #else
-        use_seq = omp_in_parallel();
+        use_seq = 0 != omp_in_parallel();
 #endif
         if (use_seq) {
             // execute tasks sequentially

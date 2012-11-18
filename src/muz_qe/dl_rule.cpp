@@ -33,7 +33,6 @@ Revision History:
 #include"for_each_expr.h"
 #include"used_vars.h"
 #include"var_subst.h"
-#include"expr_abstract.h"
 #include"rewriter_def.h"
 #include"th_rewriter.h"
 #include"ast_smt2_pp.h"
@@ -291,30 +290,7 @@ namespace datalog {
     }
 
     void rule_manager::bind_variables(expr* fml, bool is_forall, expr_ref& result) {
-        app_ref_vector const& vars = m_ctx.get_variables();
-        if (vars.empty()) {
-            result = fml;
-        }
-        else {
-            ptr_vector<sort> sorts;
-            expr_abstract(m, 0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
-            get_free_vars(result, sorts);
-            if (sorts.empty()) {
-                result = fml;
-            }
-            else {
-                svector<symbol> names;
-                for (unsigned i = 0; i < sorts.size(); ++i) {
-                    if (!sorts[i]) {
-                        sorts[i] = m.mk_bool_sort();
-                    }
-                    names.push_back(symbol(i));
-                }
-                quantifier_ref q(m);
-                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
-                elim_unused_vars(m, q, result);
-            }
-        }
+        result = m_ctx.bind_variables(fml, is_forall);
     }
 
     void rule_manager::flatten_body(app_ref_vector& body) {
@@ -526,7 +502,7 @@ namespace datalog {
         }
     }
 
-    rule * rule_manager::mk(app * head, unsigned n, app * const * tail, bool const * is_negated, symbol const& name) {
+    rule * rule_manager::mk(app * head, unsigned n, app * const * tail, bool const * is_negated, symbol const& name, bool normalize) {
         DEBUG_CODE(check_valid_rule(head, n, tail););
         unsigned sz     = rule::get_obj_size(n);
         void * mem      = m.get_allocator().allocate(sz);
@@ -588,7 +564,9 @@ namespace datalog {
             r->m_positive_cnt = r->m_uninterp_cnt;
         }
 
-        r->norm_vars(*this);
+        if (normalize) {
+            r->norm_vars(*this);
+        }
         return r;
     }
 
@@ -823,7 +801,7 @@ namespace datalog {
             new_tail.push_back(to_app(tmp));
             tail_neg.push_back(r->is_neg_tail(i));
         }
-        r = mk(new_head.get(), new_tail.size(), new_tail.c_ptr(), tail_neg.c_ptr(), r->name());
+        r = mk(new_head.get(), new_tail.size(), new_tail.c_ptr(), tail_neg.c_ptr(), r->name(), false);
 
         // keep old variable indices around so we can compose with substitutions. 
         // r->norm_vars(*this);
@@ -1068,24 +1046,25 @@ namespace datalog {
         us(fml);
         sorts.reverse();
         
-        for (unsigned i = 0; i < sorts.size(); ) {
+        for (unsigned i = 0; i < sorts.size(); ++i) {
             if (!sorts[i]) {
                 sorts[i] = m.mk_bool_sort();
             }
-            for (unsigned j = 0; i < sorts.size(); ++j) {
-                for (char c = 'A'; i < sorts.size() && c <= 'Z'; ++c) {
-                    func_decl_ref f(m);
-                    std::stringstream _name;
-                    _name << c;
-                    if (j > 0) _name << j;
-                    symbol name(_name.str().c_str());
-                    if (!us.contains(name)) {
-                        names.push_back(name);
-                        ++i;
-                    }
+        }
+
+        for (unsigned j = 0, i = 0; i < sorts.size(); ++j) {
+            for (char c = 'A'; i < sorts.size() && c <= 'Z'; ++c) {
+                func_decl_ref f(m);
+                std::stringstream _name;
+                _name << c;
+                if (j > 0) _name << j;
+                symbol name(_name.str().c_str());
+                if (!us.contains(name)) {
+                    names.push_back(name);
+                    ++i;
                 }
             }
-        }
+        }        
         fml = m.mk_forall(sorts.size(), sorts.c_ptr(), names.c_ptr(), fml); 
     }
 

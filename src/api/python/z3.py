@@ -49,6 +49,22 @@ def enable_trace(msg):
 def disable_trace(msg):
     Z3_disable_trace(msg)
 
+def get_version_string():
+  major = ctypes.c_uint(0)
+  minor = ctypes.c_uint(0)
+  build = ctypes.c_uint(0)
+  rev = ctypes.c_uint(0)
+  Z3_get_version(major, minor, build, rev)
+  return "%s.%s.%s" % (major.value, minor.value, build.value)
+
+def get_version():
+  major = ctypes.c_uint(0)
+  minor = ctypes.c_uint(0)
+  build = ctypes.c_uint(0)
+  rev = ctypes.c_uint(0)
+  Z3_get_version(major, minor, build, rev)
+  return (major.value, minor.value, build.value, rev.value)
+
 # We use _z3_assert instead of the assert command because we want to
 # produce nice error messages in Z3Py at rise4fun.com
 def _z3_assert(cond, msg):
@@ -6102,7 +6118,6 @@ class Fixedpoint(Z3PPObject):
         """Add property to predicate for the level'th unfolding. -1 is treated as infinity (infinity)"""
         Z3_fixedpoint_add_cover(self.ctx.ref(), self.fixedpoint, level, predicate.ast, property.ast)
 
-
     def register_relation(self, *relations):
 	"""Register relation as recursive"""
 	relations = _get_args(relations)
@@ -6119,16 +6134,35 @@ class Fixedpoint(Z3PPObject):
 	    args[i] = representations[i]
 	Z3_fixedpoint_set_predicate_representation(self.ctx.ref(), self.fixedpoint, f.ast, sz, args)
 
+    def parse_string(self, s):
+	"""Parse rules and queries from a string"""
+	return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
+	
+    def parse_file(self, f):
+	"""Parse rules and queries from a file"""
+	return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
+
+    def get_rules(self):
+	"""retrieve rules that have been added to fixedpoint context"""
+	return AstVector(Z3_fixedpoint_get_rules(self.ctx.ref(), self.fixedpoint), self.ctx)
+    
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
 	return self.sexpr()
 
     def sexpr(self):
-        """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.
-        
+        """Return a formatted string (in Lisp-like format) with all added constraints. We say the string is in s-expression format.        
         """
-        return Z3_fixedpoint_to_string(self.ctx.ref(), self.fixedpoint, 0, (Ast * 0)())    
+        return Z3_fixedpoint_to_string(self.ctx.ref(), self.fixedpoint, 0, (Ast * 0)())
 
+    def to_string(self, queries):
+	"""Return a formatted string (in Lisp-like format) with all added constraints.
+           We say the string is in s-expression format.
+	   Include also queries.
+        """
+	args, len = _to_ast_array(queries)
+        return Z3_fixedpoint_to_string(self.ctx.ref(), self.fixedpoint, len, args)
+    
     def statistics(self):
         """Return statistics for the last `query()`.
 	"""

@@ -261,6 +261,23 @@ namespace Microsoft.Z3
                              AST.ArrayLength(queries), AST.ArrayToNative(queries));
         }
 
+        /// <summary>
+        /// Retrieve set of rules added to fixedpoint context.
+        /// </summary>                
+        public BoolExpr[] Rules {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector v = new ASTVector(Context, Native.Z3_fixedpoint_get_rules(Context.nCtx, NativeObject));
+                uint n = v.Size;
+                BoolExpr[] res = new BoolExpr[n];
+                for (uint i = 0; i < n; i++)
+                    res[i] = new BoolExpr(Context, v[i].NativeObject);
+                return res;
+            }
+        }
+
 
         #region Internal
         internal Fixedpoint(Context ctx, IntPtr obj)

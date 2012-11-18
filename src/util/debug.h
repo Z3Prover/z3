@@ -98,6 +98,9 @@ private:
 };
 
 void finalize_debug();
+/*
+  ADD_FINALIZER('finalize_debug();')
+*/
 
 #endif /* _DEBUG_H_ */
 

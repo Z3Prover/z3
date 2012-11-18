@@ -1096,6 +1096,10 @@ namespace datalog {
         m_solver.collect_statistics(st);
     }
 
+    void bmc::reset_statistics() {
+        m_solver.reset_statistics();
+    }
+
     void bmc::collect_params(param_descrs& p) {
     }
 

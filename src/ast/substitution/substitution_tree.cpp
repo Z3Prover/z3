@@ -610,7 +610,7 @@ void substitution_tree::display(std::ostream & out, node * n, unsigned delta) co
         pp_params p;
         p.m_pp_single_line = true;
         out << "  ==> ";
-        ast_pp(out, n->m_expr, m_manager, p);
+        out << mk_pp(n->m_expr, m_manager, p);
         out << "\n";
     }
     else {

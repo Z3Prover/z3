@@ -28,20 +28,25 @@ Notes:
 #include"cancel_eh.h"
 #include"scoped_ctrl_c.h"
 #include"scoped_timer.h"
+#include"trail.h"
 #include<iomanip>
 
 
 class dl_context {
     cmd_context &                 m_cmd;
+    dl_collected_cmds*            m_collected_cmds;
     unsigned                      m_ref_count;
     datalog::dl_decl_plugin*      m_decl_plugin;
-    scoped_ptr<datalog::context>  m_context;    
+    scoped_ptr<datalog::context>  m_context; 
+    trail_stack<dl_context>       m_trail;
 
 public:
-    dl_context(cmd_context & ctx):
+    dl_context(cmd_context & ctx, dl_collected_cmds* collected_cmds):
         m_cmd(ctx),
+        m_collected_cmds(collected_cmds),
         m_ref_count(0),
-        m_decl_plugin(0) {}
+        m_decl_plugin(0),
+        m_trail(*this) {}
     
     void inc_ref() {
         ++m_ref_count;
@@ -74,14 +79,53 @@ public:
     void reset() {
         m_context = 0;
     }
+
+    void register_predicate(func_decl* pred, unsigned num_kinds, symbol const* kinds) {
+        if (m_collected_cmds) {
+            m_collected_cmds->m_rels.push_back(pred);
+            m_trail.push(push_back_vector<dl_context, func_decl_ref_vector>(m_collected_cmds->m_rels));
+        }
+        dlctx().register_predicate(pred, false);
+        dlctx().set_predicate_representation(pred, num_kinds, kinds);        
+    }
     
     void add_rule(expr * rule, symbol const& name) {
         init();
-        std::string error_msg;
-        m_context->add_rule(rule, name);
+        if (m_collected_cmds) {
+            expr_ref rl = m_context->bind_variables(rule, true);
+            m_collected_cmds->m_rules.push_back(rl);
+            m_collected_cmds->m_names.push_back(name);
+            m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_rules));
+            m_trail.push(push_back_vector<dl_context, svector<symbol> >(m_collected_cmds->m_names));
+        }
+        else {
+            m_context->add_rule(rule, name);
+        }
     }    
+
+    bool collect_query(expr* q) {
+        if (m_collected_cmds) {
+            expr_ref qr = m_context->bind_variables(q, false);
+            m_collected_cmds->m_queries.push_back(qr);
+            m_trail.push(push_back_vector<dl_context, expr_ref_vector>(m_collected_cmds->m_queries));
+            return true;
+        }        
+        else {
+            return false;
+        }
+    }
+
+    void push() {
+        m_trail.push_scope();
+        dlctx().push();
+    }
+
+    void pop() {
+        m_trail.pop_scope(1);
+        dlctx().pop();
+    }
     
-    datalog::context & get_dl_context() {
+    datalog::context & dlctx() {
         init();
         return *m_context;
     }
@@ -160,7 +204,10 @@ public:
         if (m_target == 0) {
             throw cmd_exception("invalid query command, argument expected");
         }
-        datalog::context& dlctx = m_dl_ctx->get_dl_context();
+        if (m_dl_ctx->collect_query(m_target)) {
+            return;
+        }
+        datalog::context& dlctx = m_dl_ctx->dlctx();
         set_background(ctx);        
         dlctx.updt_params(m_params);
         unsigned timeout   = m_params.get_uint(":timeout", UINT_MAX);
@@ -217,7 +264,7 @@ public:
     }
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
-        m_dl_ctx->get_dl_context().collect_params(p);
+        m_dl_ctx->dlctx().collect_params(p);
         insert_timeout(p);
         p.insert(":print-answer", CPK_BOOL, "(default: false) print answer instance(s) to query.");
         p.insert(":print-certificate", CPK_BOOL, "(default: false) print certificate for reachability or non-reachability.");
@@ -227,7 +274,7 @@ public:
 
 private:
     void set_background(cmd_context& ctx) {
-        datalog::context& dlctx = m_dl_ctx->get_dl_context();
+        datalog::context& dlctx = m_dl_ctx->dlctx();
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
@@ -237,7 +284,7 @@ private:
 
     void print_answer(cmd_context& ctx) {
         if (m_params.get_bool(":print-answer", false)) {
-            datalog::context& dlctx = m_dl_ctx->get_dl_context();
+            datalog::context& dlctx = m_dl_ctx->dlctx();
             ast_manager& m = ctx.m();
             expr_ref query_result(dlctx.get_answer_as_formula(), m);
             sbuffer<symbol> var_names;
@@ -253,7 +300,7 @@ private:
     void print_statistics(cmd_context& ctx) {
         if (m_params.get_bool(":print-statistics", false)) {
             statistics st;
-            datalog::context& dlctx = m_dl_ctx->get_dl_context();
+            datalog::context& dlctx = m_dl_ctx->dlctx();
             unsigned long long max_mem = memory::get_max_used_memory();
             unsigned long long mem = memory::get_allocation_size();
             dlctx.collect_statistics(st);
@@ -266,7 +313,7 @@ private:
 
     void print_certificate(cmd_context& ctx) {
         if (m_params.get_bool(":print-certificate", false)) {
-            datalog::context& dlctx = m_dl_ctx->get_dl_context();
+            datalog::context& dlctx = m_dl_ctx->dlctx();
             if (!dlctx.display_certificate(ctx.regular_stream())) {
                 throw cmd_exception("certificates are not supported for selected DL_ENGINE");
             }
@@ -286,6 +333,7 @@ class dl_declare_rel_cmd : public cmd {
     void ensure_domain(cmd_context& ctx) {
         if (!m_domain) m_domain = alloc(sort_ref_vector, ctx.m());
     }
+
 public:
     dl_declare_rel_cmd(dl_context * dl_ctx):
         cmd("declare-rel"),
@@ -334,11 +382,7 @@ public:
         func_decl_ref pred(
             m.mk_func_decl(m_rel_name, m_domain->size(), m_domain->c_ptr(), m.mk_bool_sort()), m);
         ctx.insert(pred);
-        datalog::context& dctx = m_dl_ctx->get_dl_context();
-        dctx.register_predicate(pred, false);
-        if(!m_kinds.empty()) {
-            dctx.set_predicate_representation(pred, m_kinds.size(), m_kinds.c_ptr());
-        }
+        m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.c_ptr());
         m_domain = 0;
     }
 
@@ -385,7 +429,7 @@ public:
         ast_manager& m = ctx.m();
         func_decl_ref var(m.mk_func_decl(m_var_name, 0, static_cast<sort*const*>(0), m_var_sort), m);
         ctx.insert(var);
-        m_dl_ctx->get_dl_context().register_variable(var);
+        m_dl_ctx->dlctx().register_variable(var);
     }
 
 };
@@ -402,7 +446,7 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "push context on the fixedpoint engine"; }
         
     virtual void execute(cmd_context& ctx) {
-        m_ctx->get_dl_context().push();
+        m_ctx->push();
     }
 };
 
@@ -418,19 +462,24 @@ public:
     virtual char const * get_descr(cmd_context & ctx) const { return "pop context on the fixedpoint engine"; }
         
     virtual void execute(cmd_context& ctx) {
-        m_ctx->get_dl_context().pop();
+        m_ctx->pop();
     }
 };
 
-
-
-void install_dl_cmds(cmd_context & ctx) {
-    dl_context * dl_ctx = alloc(dl_context, ctx);
+static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_cmds) {
+    dl_context * dl_ctx = alloc(dl_context, ctx, collected_cmds);
     ctx.insert(alloc(dl_rule_cmd, dl_ctx));
     ctx.insert(alloc(dl_query_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_rel_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_var_cmd, dl_ctx));
     PRIVATE_PARAMS(ctx.insert(alloc(dl_push_cmd, dl_ctx));); // not exposed to keep command-extensions simple.
-    PRIVATE_PARAMS(ctx.insert(alloc(dl_pop_cmd, dl_ctx)););
+    PRIVATE_PARAMS(ctx.insert(alloc(dl_pop_cmd, dl_ctx)););    
 }
 
+void install_dl_cmds(cmd_context & ctx) {
+    install_dl_cmds_aux(ctx, 0);
+}
+
+void install_dl_collect_cmds(dl_collected_cmds& collected_cmds, cmd_context & ctx) {
+    install_dl_cmds_aux(ctx, &collected_cmds);
+}

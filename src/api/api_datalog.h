@@ -62,9 +62,6 @@ namespace api {
         void collect_param_descrs(param_descrs & p) { m_context.collect_params(p); }
         void updt_params(params_ref const& p) { m_context.updt_params(p); }
 
-        void simplify_rules(
-            unsigned num_rules, expr* const* rules, 
-            unsigned num_outputs,  func_decl* const* outputs, expr_ref_vector& result);
     };
 };
 

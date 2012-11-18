@@ -141,6 +141,10 @@ struct symbol_eq_proc {
 
 void initialize_symbols();
 void finalize_symbols();
+/*
+  ADD_INITIALIZER('initialize_symbols();')
+  ADD_FINALIZER('finalize_symbols();')
+*/
 
 // total order on symbols... I did not overloaded '<' to avoid misunderstandings.
 // numerical symbols are smaller than non numerical symbols.

@@ -9,7 +9,7 @@ from mk_util import *
 
 # Z3 Project definition
 def init_project_def():
-    set_version(4, 3, 1, 0)
+    set_version(4, 3, 2, 0)
     add_lib('util', [])
     add_lib('polynomial', ['util'], 'math/polynomial')
     add_lib('sat', ['util'])
@@ -30,7 +30,7 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
-    add_lib('normal_forms', ['rewriter', 'simplifier'], 'ast/normal_forms')
+    add_lib('normal_forms', ['rewriter', 'front_end_params'], 'ast/normal_forms')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
@@ -41,7 +41,7 @@ def init_project_def():
     add_lib('cmd_context', ['solver', 'rewriter'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
-    add_lib('pattern', ['normal_forms', 'smt2parser'], 'ast/pattern')
+    add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('macros', ['simplifier', 'front_end_params'], 'ast/macros')
     add_lib('proof_checker', ['rewriter', 'front_end_params'], 'ast/proof_checker')
     add_lib('bit_blaster', ['rewriter', 'simplifier', 'front_end_params'], 'ast/rewriter/bit_blaster')
@@ -68,6 +68,7 @@ def init_project_def():
     add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', 
             reexports=['api'], 
             dll_name='libz3', 
+            static=build_static_lib(),
             export_files=API_files)
     add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])

@@ -48,6 +48,9 @@ public:
     prime_iterator(prime_generator * g = 0);
     uint64 next();
     static void finalize();
+    /*
+      ADD_FINALIZER('prime_iterator::finalize();')
+    */
 };
 
 #endif
