@@ -184,7 +184,7 @@ namespace datalog {
 
         void register_variable(func_decl* var);
 
-        app_ref_vector const& get_variables() const { return m_vars; }
+        expr_ref bind_variables(expr* fml, bool is_forall);
 
         /**
            Register datalog relation.
@@ -242,7 +242,7 @@ namespace datalog {
         symbol get_argument_name(const func_decl * pred, unsigned arg_index);
 
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
-            symbol * const relation_names);
+            symbol const *  relation_names);
 
         void set_output_predicate(func_decl * pred);
         bool is_output_predicate(func_decl * pred) { return m_output_preds.contains(pred); }
@@ -384,6 +384,21 @@ namespace datalog {
         lbool query(expr* q);
 
         /**
+           \brief retrieve model from inductive invariant that shows query is unsat.
+           
+           \pre engine == 'pdr' - this option is only supported for PDR mode.
+         */
+        model_ref get_model();
+
+        /**
+           \brief retrieve proof from derivation of the query.
+           
+           \pre engine == 'pdr' - this option is only supported for PDR mode.
+         */
+        proof_ref get_proof();
+
+
+        /**
            Query multiple output relations.
         */
         lbool dl_query(unsigned num_rels, func_decl * const* rels);
@@ -411,7 +426,9 @@ namespace datalog {
         expr* get_answer_as_formula();
 
 
-        void collect_statistics(statistics& st);
+        void collect_statistics(statistics& st) const;
+
+        void reset_statistics();
 
         /**
            \brief Display a certificate for reachability and/or unreachability.

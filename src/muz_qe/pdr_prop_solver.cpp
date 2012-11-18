@@ -364,8 +364,7 @@ namespace pdr {
         m_core->append(lemmas);
     }
 
-    lbool prop_solver::check_assumptions(const expr_ref_vector & atoms)
-    {
+    lbool prop_solver::check_assumptions(const expr_ref_vector & atoms) {
         return check_assumptions_and_formula(atoms, m.mk_true());
     }
 
@@ -392,6 +391,11 @@ namespace pdr {
 
     void prop_solver::collect_statistics(statistics& st) const {
     }
+
+    void prop_solver::reset_statistics() {
+    }
+
+    
 
 
 }

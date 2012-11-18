@@ -324,13 +324,12 @@ expr_ref_vector model_evaluator::prune_by_cone_of_influence(ptr_vector<expr> con
     unsigned sz = m_model->get_num_constants();
     expr_ref e(m), eq(m);
     expr_ref_vector model(m);
-    bool_rewriter rw(m);
     for (unsigned i = 0; i < sz; i++) {
         func_decl * d = m_model->get_constant(i); 
         expr* val = m_model->get_const_interp(d);
         e = m.mk_const(d);
         if (m_visited.is_marked(e)) {
-            rw.mk_eq(e, val, eq);
+            eq = m.mk_eq(e, val);
             model.push_back(eq);
         }
     }
@@ -466,6 +465,7 @@ void model_evaluator::eval_arith(app* e) {
 }
 
 void model_evaluator::inherit_value(expr* e, expr* v) {
+    expr* w;
     SASSERT(!is_unknown(v));
     SASSERT(m.get_sort(e) == m.get_sort(v));
     if (is_x(v)) {
@@ -475,7 +475,10 @@ void model_evaluator::inherit_value(expr* e, expr* v) {
         SASSERT(m.is_bool(v));
         if (is_true(v)) set_true(e);
         else if (is_false(v)) set_false(e);
-        else set_x(e);
+        else {
+            TRACE("pdr", tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
+            set_x(e);
+        }
     }
     else if (m_arith.is_int_real(e)) {
         set_number(e, get_number(v));
@@ -483,7 +486,11 @@ void model_evaluator::inherit_value(expr* e, expr* v) {
     else if (m.is_value(v)) {
         set_value(e, v);
     }
+    else if (m_values.find(v, w)) {
+        set_value(e, w);
+    }
     else {
+        TRACE("pdr", tout << "not inherited:\n" << mk_pp(e, m) << "\n" << mk_pp(v, m) << "\n";);
         set_x(e);
     }
 }
@@ -642,6 +649,7 @@ void model_evaluator::eval_basic(app* e) {
                 set_bool(e, e1 == e2);
             }
             else {
+                TRACE("pdr", tout << "not value equal:\n" << mk_pp(e1, m) << "\n" << mk_pp(e2, m) << "\n";);
                 set_x(e);
             }
         }

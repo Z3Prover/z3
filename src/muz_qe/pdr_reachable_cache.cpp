@@ -27,9 +27,6 @@ namespace pdr {
           m_ctx(0),
           m_ref_holder(m), 
           m_disj_connector(m),
-          m_cache_hits(0),
-          m_cache_miss(0),
-          m_cache_inserts(0),
           m_cache_mode((datalog::PDR_CACHE_MODE)params.get_uint(":cache-mode",0)) {
         if (m_cache_mode == datalog::CONSTRAINT_CACHE) {
             m_ctx = pm.mk_fresh();
@@ -63,13 +60,13 @@ namespace pdr {
             break;
             
         case datalog::HASH_CACHE: 
-            m_cache_inserts++;
+            m_stats.m_inserts++;
             m_cache.insert(cube);
             m_ref_holder.push_back(cube);
             break;
             
         case datalog::CONSTRAINT_CACHE: 
-            m_cache_inserts++;
+            m_stats.m_inserts++;
             TRACE("pdr", tout << mk_pp(cube, m) << "\n";);
             add_disjuncted_formula(cube);
             break;
@@ -112,14 +109,18 @@ namespace pdr {
             UNREACHABLE();
             break;
         }
-        if (found) m_cache_hits++; m_cache_miss++;
+        if (found) m_stats.m_hits++; m_stats.m_miss++;
         return found;
     }
 
     void reachable_cache::collect_statistics(statistics& st) const {
-        st.update("cache inserts", m_cache_inserts);
-        st.update("cache miss", m_cache_miss);
-        st.update("cache hits", m_cache_hits);
+        st.update("cache inserts", m_stats.m_inserts);
+        st.update("cache miss", m_stats.m_miss);
+        st.update("cache hits", m_stats.m_hits);
+    }
+
+    void reachable_cache::reset_statistics() {
+        m_stats.reset();
     }
 
 

@@ -197,6 +197,10 @@ void dl_interface::collect_statistics(statistics& st) const {
     m_context->collect_statistics(st);
 }
 
+void dl_interface::reset_statistics() {
+    m_context->reset_statistics();
+}
+
 void dl_interface::display_certificate(std::ostream& out) const {
     m_context->display_certificate(out);
 }
@@ -216,6 +220,14 @@ void dl_interface::cleanup() {
 void dl_interface::updt_params() {
     dealloc(m_context);
     m_context = alloc(pdr::context, m_ctx.get_fparams(), m_ctx.get_params(), m_ctx.get_manager());
+}
+
+model_ref dl_interface::get_model() {
+    return m_context->get_model();
+}
+
+proof_ref dl_interface::get_proof() {
+    return m_context->get_proof();
 }
 
 void dl_interface::collect_params(param_descrs& p) {
@@ -239,8 +251,8 @@ void dl_interface::collect_params(param_descrs& p) {
                             "checking for reachability (not only during cube weakening)"););
     PRIVATE_PARAMS(p.insert(":max-num-contexts", CPK_UINT, "PDR: (default 500) maximal number of contexts to create"););
     PRIVATE_PARAMS(p.insert(":try-minimize-core", CPK_BOOL, "PDR: (default false) try to reduce core size (before inductive minimization)");); 
-    PRIVATE_PARAMS(p.insert(":simplify-formulas-pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation"););
-    PRIVATE_PARAMS(p.insert(":simplify-formulas-post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation"););
+    p.insert(":simplify-formulas-pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation");
+    p.insert(":simplify-formulas-post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation");
     p.insert(":slice", CPK_BOOL, "PDR: (default true) simplify clause set using slicing");
     p.insert(":coalesce-rules", CPK_BOOL, "BMC: (default false) coalesce rules");
 }

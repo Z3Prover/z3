@@ -5688,19 +5688,13 @@ END_MLAPI_EXCLUDE
         __in_ecount(num_relations) Z3_symbol const relation_kinds[]);
                 
     /**
-        \brief Simplify rules into a set of new rules that are returned.
-        The simplification routines apply inlining, quantifier elimination, and other
-        algebraic simplifications.
+       \brief Retrieve set of rules from fixedpoint context.
 
-        def_API('Z3_fixedpoint_simplify_rules', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2,AST), _in(UINT), _in_array(4,FUNC_DECL)))
-    */
-    Z3_ast_vector Z3_API Z3_fixedpoint_simplify_rules(
+       def_API('Z3_fixedpoint_get_rules', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
+     */
+    Z3_ast_vector Z3_API Z3_fixedpoint_get_rules(
         __in Z3_context c,
-        __in Z3_fixedpoint f,
-        __in unsigned num_rules,
-        __in_ecount(num_rules) Z3_ast rules[],
-        __in unsigned num_outputs,
-        __in_ecount(num_outputs) Z3_func_decl outputs[]);
+        __in Z3_fixedpoint f);
 
     /**
        \brief Set parameters on fixedpoint context.       
@@ -5737,6 +5731,38 @@ END_MLAPI_EXCLUDE
         __in Z3_fixedpoint f,
         __in unsigned num_queries,
         __in_ecount(num_queries) Z3_ast queries[]);
+
+    /**
+       \brief Parse an SMT-LIB2 string with fixedpoint rules. 
+       Add the rules to the current fixedpoint context. 
+       Return the set of queries in the file.
+
+       \param c - context.
+       \param f - fixedpoint context.
+       \param s - string containing SMT2 specification.       
+
+       def_API('Z3_fixedpoint_from_string', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
+    */
+    Z3_ast_vector Z3_API Z3_fixedpoint_from_string(
+        __in Z3_context c, 
+        __in Z3_fixedpoint f,
+        __in Z3_string s);
+
+    /**
+       \brief Parse an SMT-LIB2 file with fixedpoint rules. 
+       Add the rules to the current fixedpoint context. 
+       Return the set of queries in the file.
+
+       \param c - context.
+       \param f - fixedpoint context.
+       \param s - string containing SMT2 specification.       
+
+       def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
+    */
+    Z3_ast_vector Z3_API Z3_fixedpoint_from_file(
+        __in Z3_context c, 
+        __in Z3_fixedpoint f,
+        __in Z3_string s);
 
     /**
        \brief Create a backtracking point.

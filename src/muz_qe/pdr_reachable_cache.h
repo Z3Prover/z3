@@ -28,15 +28,21 @@ Revision History:
 
 namespace pdr {
     class reachable_cache {
+        struct stats {
+            unsigned             m_hits;
+            unsigned             m_miss;
+            unsigned             m_inserts;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
         ast_manager &        m;
         manager &            m_pm;
         scoped_ptr<smt_context>    m_ctx;
         ast_ref_vector       m_ref_holder;
         app_ref              m_disj_connector;
         obj_hashtable<expr>  m_cache;
-        unsigned             m_cache_hits;
-        unsigned             m_cache_miss;
-        unsigned             m_cache_inserts;
+        stats                m_stats;
         datalog::PDR_CACHE_MODE m_cache_mode;
         
         void add_disjuncted_formula(expr * f);
@@ -53,6 +59,8 @@ namespace pdr {
         bool is_reachable(expr * cube);
         
         void collect_statistics(statistics& st) const;
+
+        void reset_statistics();
     };
 }
 

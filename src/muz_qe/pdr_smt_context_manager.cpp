@@ -136,6 +136,12 @@ namespace pdr {
         }
     }
 
+    void smt_context_manager::reset_statistics() {
+        for (unsigned i = 0; i < m_contexts.size(); ++i) {
+            m_contexts[i]->reset_statistics();
+        }
+    }
+
 
 };
 

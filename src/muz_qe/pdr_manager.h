@@ -313,6 +313,8 @@ namespace pdr {
         pdr::smt_context* mk_fresh() {  return m_contexts.mk_fresh();   }
         
         void collect_statistics(statistics& st) const { m_contexts.collect_statistics(st); }
+
+        void reset_statistics() { m_contexts.reset_statistics(); }
     };
 }
 
