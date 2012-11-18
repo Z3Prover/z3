@@ -126,7 +126,7 @@ struct scoped_timer::imp {
             throw default_exception("failed to destroy pthread condition variable");
         return st;
     }
-#elif defined(_LINUX_)
+#elif defined(_LINUX_) || defined(_FREEBSD_)
     static void sig_handler(int) {
        static_cast<imp*>(g_timer)->m_eh->operator()();
     }
