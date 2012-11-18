@@ -40,7 +40,7 @@ Remark: clang does not support OpenMP yet.
 
    autoconf
    ./configure CXX=clang++
-   python scripts/mk_make.py --noomp
+   python scripts/mk_make.py
    cd build
    make
 

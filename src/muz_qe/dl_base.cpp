@@ -47,7 +47,7 @@ namespace datalog {
         out<<"(";
         for(unsigned i=0; i<sz; i++) {
             if(i) { out<<","; }
-            out<<ast_pp((*this)[i], m);
+            out << mk_pp((*this)[i], m);
         }
         out<<")";
     }

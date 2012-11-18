@@ -386,7 +386,8 @@ namespace pdr {
             fi->set_else(result);
             md->register_decl(m_head, fi);
         }
-        apply(ctx.get_model_converter(), md, 0);
+        model_converter_ref mc = ctx.get_model_converter();
+        apply(mc, md, 0);
         if (p_orig->get_arity() == 0) {
             result = md->get_const_interp(p_orig);
         }

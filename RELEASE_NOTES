@@ -1,9 +1,16 @@
 RELEASE NOTES
 
+Version 4.3.2
+=============
+
+- Added get_version() and get_version_string() to Z3Py
+
 Version 4.3.1
 =============
 
 - Added support for compiling Z3 using clang++ on Linux and OSX
+
+- Added missing compilation option (-D _EXTERNAL_RELEASE) in release mode.
 
 Version 4.3.0
 =============

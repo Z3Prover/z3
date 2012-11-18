@@ -40,7 +40,7 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
-OMP = True
+STATIC_LIB=False
 
 VER_MAJOR=None
 VER_MINOR=None
@@ -56,6 +56,9 @@ def set_version(major, minor, build, revision):
 
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+
+def build_static_lib():
+    return STATIC_LIB
 
 def is_cr_lf(fname):
     # Check whether text files use cr/lf
@@ -121,12 +124,12 @@ def display_help():
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
     print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
-    print "  --noomp                       disable support for openmp."
+    print "  --staticlib                   build Z3 static library."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, OMP
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, STATIC_LIB
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
                                                                          'debug',
                                                                          'silent',
@@ -137,7 +140,7 @@ def parse_options():
                                                                          'vsproj',
                                                                          'trace',
                                                                          'nodotnet',
-                                                                         'noomp'
+                                                                         'staticlib'
                                                                          ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -164,8 +167,8 @@ def parse_options():
             TRACE = True
         elif opt in ('-n', '--nodotnet'):
             DOTNET_ENABLED = False
-        elif opt in ('--noomp'):
-            OMP = False
+        elif opt in ('--staticlib'):
+            STATIC_LIB = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -347,17 +350,6 @@ class Component:
                 extra_opt = '/D _TRACE'
             else:
                 extra_opt = '-D _TRACE'
-        if not OMP:
-            if IS_WINDOWS:
-                extra_opt = '%s /D _NO_OMP_' % extra_opt
-            else:
-                extra_opt = '%s -D _NO_OMP_' % extra_opt
-        else:
-            if IS_WINDOWS:
-                extra_opt = '%s /openmp' % extra_opt
-            else:
-                extra_opt = '%s -fopenmp' % extra_opt
-            
         out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (extra_opt, include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
@@ -384,6 +376,10 @@ class Component:
     
     # Return true if the component needs a def file
     def require_def_file(self):
+        return False
+
+    # Return true if the component needs builder to generate a mem_initializer.cpp file with mem_initialize() and mem_finalize() functions.
+    def require_mem_initializer(self):
         return False
 
     def mk_install(self, out):
@@ -492,14 +488,14 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        extra_flags = ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
+
+    def require_mem_initializer(self):
+        return True
 
     # All executables are included in the all: rule
     def main_component(self):
@@ -511,9 +507,8 @@ class ExeComponent(Component):
             out.write('\t@cp %s $(PREFIX)/bin/%s\n' % (exefile, exefile))
     
     def mk_uninstall(self, out):
-        if self.install:
-            exefile = '%s$(EXE_EXT)' % self.exe_name
-            out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
+        exefile = '%s$(EXE_EXT)' % self.exe_name
+        out.write('\t@rm -f $(PREFIX)/bin/%s\n' % exefile)
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
@@ -530,7 +525,7 @@ class ExtraExeComponent(ExeComponent):
         return False
 
 class DLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps, export_files, reexports, install):
+    def __init__(self, name, dll_name, path, deps, export_files, reexports, install, static):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
@@ -538,6 +533,7 @@ class DLLComponent(Component):
         self.export_files = export_files
         self.reexports = reexports
         self.install = install
+        self.static = static
 
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
@@ -571,21 +567,49 @@ class DLLComponent(Component):
             if not dep in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' %s/%s$(LIB_EXT)' % (c_dep.build_dir, c_dep.name))
-        extra_flags= ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(SLINK_EXTRA_FLAGS) %s' % extra_flags)
+        out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s/%s.def' % (self.to_src_dir, self.name))
         out.write('\n')
-        out.write('%s: %s\n\n' % (self.name, dllfile))
+        if self.static:
+            self.mk_static(out)
+            libfile = '%s$(LIB_EXT)' % self.dll_name
+            out.write('%s: %s %s\n\n' % (self.name, dllfile, libfile))
+        else:
+            out.write('%s: %s\n\n' % (self.name, dllfile))
 
-    # All DLLs are included in the all: rule
+    def mk_static(self, out):
+        # generate rule for lib
+        objs = []
+        for cppfile in get_cpp_files(self.src_dir):
+            objfile = '%s/%s$(OBJ_EXT)' % (self.build_dir, os.path.splitext(cppfile)[0])
+            objs.append(objfile)
+        # we have to "reexport" all object files
+        for dep in self.deps:
+            dep = get_component(dep)
+            for cppfile in get_cpp_files(dep.src_dir):
+                objfile = '%s/%s$(OBJ_EXT)' % (dep.build_dir, os.path.splitext(cppfile)[0])
+                objs.append(objfile)
+        libfile = '%s$(LIB_EXT)' % self.dll_name
+        out.write('%s:' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        out.write('\t@$(AR) $(AR_FLAGS) $(AR_OUTFLAG)%s' % libfile)
+        for obj in objs:
+            out.write(' ')
+            out.write(obj)
+        out.write('\n')
+        
     def main_component(self):
-        return True
+        return self.install
 
     def require_install_tactics(self):
         return ('tactic' in self.deps) and ('cmd_context' in self.deps)
+
+    def require_mem_initializer(self):
+        return True
 
     def require_def_file(self):
         return IS_WINDOWS and self.export_files
@@ -595,18 +619,27 @@ class DLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('\t@cp %s $(PREFIX)/lib/%s\n' % (dllfile, dllfile))
             out.write('\t@cp %s %s/%s\n' % (dllfile, PYTHON_PACKAGE_DIR, dllfile))
+            if self.static:
+                libfile = '%s$(LIB_EXT)' % self.dll_name
+                out.write('\t@cp %s $(PREFIX)/lib/%s\n' % (libfile, libfile))
+            
 
     def mk_uninstall(self, out):
-        if self.install:
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
-            out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
+        dllfile = '%s$(SO_EXT)' % self.dll_name
+        out.write('\t@rm -f $(PREFIX)/lib/%s\n' % dllfile)
+        out.write('\t@rm -f %s/%s\n' % (PYTHON_PACKAGE_DIR, dllfile))
+        libfile = '%s$(LIB_EXT)' % self.dll_name
+        out.write('\t@rm -f $(PREFIX)/lib/%s\n' % libfile)
 
     def mk_win_dist(self, build_path, dist_path):
         if self.install:
             mk_dir('%s/bin' % dist_path)
             shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
                         '%s/bin/%s.dll' % (dist_path, self.dll_name))
+            if self.static:
+                mk_dir('%s/bin' % dist_path)
+                shutil.copy('%s/%s.lib' % (build_path, self.dll_name),
+                            '%s/bin/%s.lib' % (dist_path, self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -701,10 +734,7 @@ class CppExampleComponent(ExampleComponent):
             out.write('%s.lib' % dll_name)
         else:
             out.write(dll)
-        extra_flags = ''
-        if OMP and not IS_WINDOWS:
-            extra_flags = '-fopenmp'
-        out.write(' $(LINK_EXTRA_FLAGS) %s\n' % extra_flags)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class CExampleComponent(CppExampleComponent):
@@ -788,8 +818,8 @@ def add_extra_exe(name, deps=[], path=None, exe_name=None, install=True):
     c = ExtraExeComponent(name, exe_name, path, deps, install)
     reg_component(name, c)
 
-def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True):
-    c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install)
+def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=[], install=True, static=False):
+    c = DLLComponent(name, dll_name, path, deps, export_files, reexports, install, static)
     reg_component(name, c)
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
@@ -907,6 +937,7 @@ def mk_auto_src():
     if not ONLY_MAKEFILES:
         mk_pat_db()
         mk_all_install_tactic_cpps()
+        mk_all_mem_initializer_cpps()
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1078,6 +1109,60 @@ def mk_all_install_tactic_cpps():
                 cnames.extend(c.deps)
                 cnames.append(c.name)
                 mk_install_tactic_cpp(cnames, c.src_dir)
+
+# Generate an mem_initializer.cpp at path.
+# This file implements the procedures
+#    void mem_initialize()
+#    void mem_finalize()
+# This procedures are invoked by the Z3 memory_manager
+def mk_mem_initializer_cpp(cnames, path):
+    initializer_cmds = []
+    finalizer_cmds   = []
+    fullname = '%s/mem_initializer.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    initializer_pat   = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    finalizer_pat     = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    for cname in cnames:
+        c = get_component(cname)
+        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                m = initializer_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    initializer_cmds.append(m.group(1))
+                m = finalizer_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    finalizer_cmds.append(m.group(1))
+    fout.write('void mem_initialize() {\n')
+    for cmd in initializer_cmds:
+        fout.write(cmd)
+        fout.write('\n')
+    fout.write('}\n')
+    fout.write('void mem_finalize() {\n')
+    for cmd in finalizer_cmds:
+        fout.write(cmd)
+        fout.write('\n')
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_mem_initializer_cpps():
+    if not ONLY_MAKEFILES:
+        for c in get_components():
+            if c.require_mem_initializer():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_mem_initializer_cpp(cnames, c.src_dir)
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):

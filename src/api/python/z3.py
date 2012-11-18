@@ -49,6 +49,22 @@ def enable_trace(msg):
 def disable_trace(msg):
     Z3_disable_trace(msg)
 
+def get_version_string():
+  major = ctypes.c_uint(0)
+  minor = ctypes.c_uint(0)
+  build = ctypes.c_uint(0)
+  rev = ctypes.c_uint(0)
+  Z3_get_version(major, minor, build, rev)
+  return "%s.%s.%s" % (major.value, minor.value, build.value)
+
+def get_version():
+  major = ctypes.c_uint(0)
+  minor = ctypes.c_uint(0)
+  build = ctypes.c_uint(0)
+  rev = ctypes.c_uint(0)
+  Z3_get_version(major, minor, build, rev)
+  return (major.value, minor.value, build.value, rev.value)
+
 # We use _z3_assert instead of the assert command because we want to
 # produce nice error messages in Z3Py at rise4fun.com
 def _z3_assert(cond, msg):
