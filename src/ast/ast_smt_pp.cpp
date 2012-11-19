@@ -29,6 +29,7 @@ Revision History:
 #include"vector.h"
 #include"for_each_ast.h"
 #include"decl_collector.h"
+#include"smt2_util.h"
 
 // ---------------------------------------
 // smt_renaming
@@ -67,32 +68,10 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         return symbol(buffer.str().c_str());            
     }
     
-    buffer << "|";
-    if (*data == '|') {
-        while (*data) {
-            if (*data == '|') {
-                if (!data[1]) {
-                    break;
-                }
-                buffer << "\\";
-            }
-            buffer << *data;
-            ++data;
-        }                      
-    }
-    else {
-        while (*data) {
-            if (*data == '|') {
-                buffer << "\\";
-            }
-            buffer << *data;
-            ++data;
-        }
-    }
+    buffer << mk_smt2_quoted_symbol(s);
     if (k > 0) {
         buffer << k;
     }
-    buffer << "|";
     
     return symbol(buffer.str().c_str());
 }
