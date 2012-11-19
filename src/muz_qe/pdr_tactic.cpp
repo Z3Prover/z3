@@ -174,6 +174,7 @@ class pdr_tactic : public tactic {
 
             if (queries.size() != 1) {
                 q = m.mk_fresh_const("query", m.mk_bool_sort());
+                register_predicate(q);
                 for (unsigned i = 0; i < queries.size(); ++i) {
                     f = mk_rule(queries[i].get(), q);
                     m_ctx.add_rule(f, symbol::null);
