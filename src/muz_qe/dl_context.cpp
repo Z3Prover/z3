@@ -1697,8 +1697,9 @@ namespace datalog {
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
                     s << nm << "!";
-                    nm = symbol(s.str().c_str());
+                    nm = symbol(s.str().c_str());                    
                 }
+                fresh_names.add(nm);
                 out << " :named " << nm << ")";
             }
             out << ")\n";
