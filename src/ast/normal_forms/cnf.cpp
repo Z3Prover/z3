@@ -16,8 +16,9 @@ Author:
 Revision History:
 
 --*/
-
 #include"cnf.h"
+#include"var_subst.h"
+#include"ast_util.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 

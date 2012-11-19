@@ -33,15 +33,22 @@ Revision History:
 #include<sys/time.h>
 #include<sys/errno.h>
 #include<pthread.h>
-#else
+#elif defined(_LINUX_) || defined(_FREEBSD_)
 // Linux
 #include<csignal>
 #include<ctime>
 #include<memory.h>
 #include"warning.h"
-#define CLOCKID CLOCK_PROCESS_CPUTIME_ID
+   #ifdef _LINUX_
+   #define CLOCKID CLOCK_PROCESS_CPUTIME_ID
+   #else
+   // FreeBSD does not support CLOCK_PROCESS_CPUTIME_ID 
+   #define CLOCKID CLOCK_PROF
+   #endif
 #define SIG     SIGRTMIN
 // ---------
+#else
+// Other platforms
 #endif 
 
 #include"scoped_timer.h"
@@ -63,12 +70,14 @@ struct scoped_timer::imp {
     pthread_attr_t   m_attributes;
     unsigned         m_interval;    
     pthread_cond_t   m_condition_var;
-#else
-    // Linux
+#elif defined(_LINUX_) || defined(_FREEBSD_)
+    // Linux & FreeBSD
     static void *   g_timer;
     void            (*m_old_handler)(int);
     void *          m_old_timer;
     timer_t         m_timerid;
+#else
+    // Other
 #endif
 
 #if defined(_WINDOWS) || defined(_CYGWIN)
@@ -117,10 +126,12 @@ struct scoped_timer::imp {
             throw default_exception("failed to destroy pthread condition variable");
         return st;
     }
-#else
+#elif defined(_LINUX_) || defined(_FREEBSD_)
     static void sig_handler(int) {
        static_cast<imp*>(g_timer)->m_eh->operator()();
     }
+#else
+    // Other
 #endif
 
 
@@ -142,8 +153,8 @@ struct scoped_timer::imp {
             throw default_exception("failed to initialize timer thread attributes");
         if (pthread_create(&m_thread_id, &m_attributes, &thread_func, this) != 0)
             throw default_exception("failed to start timer thread");
-#else
-	// Linux version
+#elif defined(_LINUX_) || defined(_FREEBSD_)
+	// Linux & FreeBSD
         if (omp_in_parallel()) {
             // It doesn't work in with more than one thread.
             // SIGEV_SIGNAL: the event is handled by the process not by the thread that installed the handler.
@@ -172,6 +183,8 @@ struct scoped_timer::imp {
 	its.it_interval.tv_nsec = 0;
 	if (timer_settime(m_timerid, 0, &its, NULL) == -1)
 	    throw default_exception("failed to set timer");
+#else
+	// Other platforms
 #endif
     }
 
@@ -187,14 +200,16 @@ struct scoped_timer::imp {
             throw default_exception("failed to join thread");
         if (pthread_attr_destroy(&m_attributes) != 0)
             throw default_exception("failed to destroy pthread attributes object");
-#else
-	// Linux version
+#elif defined(_LINUX_) || defined(_FREEBSD_)
+	// Linux & FreeBSD
         if (omp_in_parallel())
             return; // see comments in the constructor.
 	timer_delete(m_timerid);
 	if (m_old_handler != SIG_ERR)
 	    signal(SIG, m_old_handler);
 	g_timer = m_old_timer;
+#else
+	// Other Platforms
 #endif
     }
 
@@ -203,9 +218,11 @@ struct scoped_timer::imp {
 #if defined(_WINDOWS) || defined(_CYGWIN)
 #elif defined(__APPLE__) && defined(__MACH__)
 // Mac OS X
-#else
-// Linux
+#elif defined(_LINUX_) || defined(_FREEBSD_)
+// Linux & FreeBSD
 void * scoped_timer::imp::g_timer = 0;
+#else
+// Other platforms
 #endif
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
