@@ -43,6 +43,3 @@ Remark: clang does not support OpenMP yet.
    python scripts/mk_make.py
    cd build
    make
-
-
-
