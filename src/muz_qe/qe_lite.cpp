@@ -342,17 +342,22 @@ class der2 {
 
     void apply_substitution(quantifier * q, expr_ref & r) {
         expr * e = q->get_expr();
-        unsigned num_args = to_app(e)->get_num_args(); 
+        unsigned num_args = 1;
+        expr* const* args = &e;
+        if ((q->is_forall() && m.is_or(e)) ||
+            (q->is_exists() && m.is_and(e))) {
+            num_args = to_app(e)->get_num_args();
+            args     = to_app(e)->get_args();
+        }
         bool_rewriter rw(m);
         
         // get a new expression
         m_new_args.reset();
         for(unsigned i = 0; i < num_args; i++) {
             int x = m_pos2var[i];
-            if (x != -1 && m_map[x] != 0) 
-                continue; // this is a disequality/equality with definition (vanishes)
-            
-            m_new_args.push_back(to_app(e)->get_arg(i));
+            if (x == -1 || m_map[x] == 0) {
+                m_new_args.push_back(args[i]);
+            }
         }
         
         expr_ref t(m);
