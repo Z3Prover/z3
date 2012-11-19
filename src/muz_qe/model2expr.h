@@ -36,6 +36,7 @@ public:
     mk_fresh_name(): m_char('A'), m_num(0) {}
     void add(ast* a);
     symbol next();
+    bool contains(symbol const& s) const { return m_symbols.contains(s); }
 };
 
 
