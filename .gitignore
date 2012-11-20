@@ -6,6 +6,7 @@
 *.cma
 *.cmi
 *.cmxa
+ocamlz3
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
@@ -23,7 +24,7 @@ src/HTML/*
 src/cscope.in.out
 src/cscope.out
 src/cscope.po.out
-ncsope.out
+ncscope.out
 # CEDET files
 .cproject
 .project
