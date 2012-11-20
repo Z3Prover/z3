@@ -8708,7 +8708,7 @@ value camlidl_z3_Z3_fixedpoint_simplify_rules(
     camlidl_ml2c_z3_Z3_func_decl(_v6, &outputs[_c5], _ctx);
   }
   num_outputs = _c4;
-  _res = Z3_fixedpoint_simplify_rules(c, f, num_rules, rules, num_outputs, outputs);
+  // _res = Z3_fixedpoint_simplify_rules(c, f, num_rules, rules, num_outputs, outputs);
   _vres = camlidl_c2ml_z3_Z3_ast_vector(&_res, _ctx);
   camlidl_free(_ctx);
   /* begin user-supplied deallocation sequence */
