@@ -7,3 +7,5 @@ To generate the API documentation for the C, .NET and Python APIs, we must execu
 
 We must have doxygen installed in our system.
 
+The documentation will be stored in the subdirectory './html'.
+The main file is './html/index.html'
