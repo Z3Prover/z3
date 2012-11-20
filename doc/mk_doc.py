@@ -25,8 +25,10 @@ try:
     cleanup_API('../src/api/z3_api.h', 'z3_api.h')
     print "Removed annotations from z3_api.h."
     DEVNULL = open(os.devnull, 'wb')
-    if subprocess.call(['doxygen', 'z3.dox'], stdout=DEVNULL, stderr=DEVNULL) != 0:
-        print "ERROR: failed to execute doxygen z3.dox"
+    try:
+        subprocess.call(['doxygen', 'z3.dox'], stdout=DEVNULL, stderr=DEVNULL)
+    except:
+        print "ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system."
         exit(1)
     print "Generated C and .NET API documentation."
     os.remove('z3_api.h')
