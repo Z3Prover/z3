@@ -96,6 +96,8 @@ namespace datalog {
         pred2syms          m_argument_var_names;
         decl_set           m_output_preds;
         rule_set           m_rule_set;
+        expr_ref_vector    m_rule_fmls;
+        svector<symbol>    m_rule_names;
         expr_ref_vector    m_background;
 
         scoped_ptr<pdr::dl_interface>   m_pdr;
@@ -453,6 +455,8 @@ namespace datalog {
         lbool dl_saturate();
 
     private:
+
+        void flush_add_rules();
 
         void ensure_pdr();
 
