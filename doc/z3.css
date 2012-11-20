@@ -1,0 +1,934 @@
+
+/* Section Start for new text handling */
+.PSubText 
+{
+	FONT-SIZE: 8pt; 
+	COLOR: #555555;
+}
+.LeftJustifyBullet 
+{
+	FONT-SIZE: 10pt; 
+	margin-left:-24px;
+}
+/* Section End for new text handling */
+
+/* Section Start for text handling based on Rob Gruen's layout for the Download Details page */
+A:hover 
+{
+	TEXT-DECORATION: underline
+}
+A 
+{
+	TEXT-DECORATION: none; 
+	COLOR: #333399;
+}
+LI 
+{
+	FONT-SIZE: 10pt; 
+	COLOR: #555555;
+	margin-bottom:10px;
+	margin-left: -3px;
+}
+LI LI
+{
+	FONT-SIZE: 10pt; 
+	COLOR: #555555;
+	margin-bottom:10px;
+	margin-left: -3px;
+}
+BODY 
+{
+	margin-right: 20px;
+	margin-left: 20px;
+	COLOR: #555555;
+	FONT-FAMILY: Verdana, Arial, Helvetica, sans-serif;
+        FONT-SIZE: 10pt;
+} 
+P 
+{
+	FONT-SIZE: 10pt; 
+	COLOR: #555555;
+}
+.Z3Title 
+{
+	FONT-SIZE: 18pt;
+	COLOR: #1A41A8;
+	margin-bottom:-10px;
+}
+.PageTitle 
+{
+	FONT-SIZE: 12pt;
+	COLOR: #333333;
+	margin-bottom:-10px;
+}
+.BlobTitle 
+{
+	FONT-SIZE: 12pt;
+	COLOR: #333333;
+	LINE-HEIGHT: 100%;
+	margin-bottom:-10px;
+}
+.Heading1 
+{
+	FONT-SIZE: 10pt;
+	COLOR: #2A51B8;
+	margin-bottom:-10px;
+	
+}
+.Heading2 
+{
+	FONT-WEIGHT: bold;
+	FONT-SIZE: 10pt;
+	COLOR: #555555;
+	margin-bottom:-10px;
+}
+.Heading3 
+{
+	FONT-SIZE: 10pt;
+	COLOR: #2A51B8;
+	margin-bottom:-10px;
+}
+.title
+{
+    font-size: 18pt;
+    color: #1A41A8;
+    margin-bottom:-10px;
+    line-height: 35pt
+}
+.quote
+{
+	FONT-FAMILY: Georgia, Times, Times New Roman, serif;
+	FONT-STYLE: italic; 
+	FONT-SIZE: 20pt; 
+	COLOR: #2A51B8; 
+}
+.attribution
+{
+	FONT-SIZE: 8pt; 
+	COLOR: #555555; 
+}
+.quickinfo
+{
+	FONT-WEIGHT: bold; 
+	FONT-SIZE: 13pt; 
+	MARGIN-LEFT: 12px; 
+	COLOR: #2A51B8;
+}
+.quickinfo_header
+{
+	font-weight: bold; 
+	color: #555555; 
+	margin-left: 25px;
+}
+hr
+{
+	width: 100%; 
+	margin-top: 10px; 
+	margin-bottom: 10px;
+	color: #cccccc;
+}
+
+.RHPSectionHeader
+{
+	font-size: 10pt; 
+	margin-left: 20px; 
+	color: #2A51B8;
+	display: block;
+}
+.RHPNav 
+{
+	FONT-SIZE: 10pt;
+	MARGIN-TOP: 6px; 
+	COLOR: #333333;
+}
+.author 
+{
+	FONT-SIZE: 8pt; 
+	COLOR: #555555;
+}
+.lastupdated 
+{
+	FONT-SIZE: 8pt; 
+	COLOR: #555555;
+}
+/* Section End for text handling based on Rob Gruen's layout for the Download Details page */
+
+/* Section Start for text handling based on rmcstyle.css */
+.title_2ndLvl
+{
+	font-family: tahoma;
+	font-size: 120%;
+	color: #FFFFFF;
+	padding-left: 5px;
+}
+.VR
+{
+	background-color: #cccccc;
+	width: 1px;
+	margin-top: -24;
+}
+.link1
+{
+	font-size:70%;
+	font-family: verdana;
+}
+.link2
+{
+	font-size: 70%;
+	font-family:Verdana;
+	font-style:italic;
+}
+.link3
+{
+	font-style: italic;
+	font-family: Verdana;
+	color: #000000;
+	font-weight: bold;
+}
+.link4
+{
+	font: italic 70% Verdana;
+	color: #000000;
+	text-decoration: none;
+}
+.link5
+{
+	font: 70% Verdana;
+	color: #003399;
+	text-decoration: none;
+}
+.link6
+{
+	font: 70% verdana;
+	color: #003399;
+}
+.ReadMore
+{
+	text-decoration:none;	
+}
+/* .text1
+{
+	font: 70% Verdana;
+} */
+.text2
+{
+	padding-bottom: 10px;
+	font: 70% Verdana;
+}
+.text3
+{
+	font-size: 120%;
+	font-family:Verdana;
+	color: #000000;
+}
+.text3_w_padding
+{
+	font: 120% Verdana;
+	color: #000000;
+	padding-left:20px;
+}
+.text4
+{
+	font-weight: bold;
+	font-size: 70%;
+	font-family: Verdana;
+	color: #000000;
+}
+.text5
+{
+	padding-left: 5px;
+	font-weight: bold;
+	font-size: 70%;
+	font-family: Verdana;
+	color: #ffffff;
+}
+.text6
+{
+	font: 70%;
+	font-family: verdana;
+}
+.newsTitle
+{
+	font-family: tahoma;
+	font-size: 120%;
+	color: #CCCCCC;
+}
+.areaTitle
+{
+	font-family: tahoma;
+	font-size: 120%;
+	color: #FFFFFF;
+}
+.newsContentTitle
+{
+	font-family: tahoma;
+	font-size: 120%;
+	color: #FFFFFF;
+}
+.areaContentTitle
+{
+	font-family: verdana;
+	font-size: 140%;
+	color: #000000;
+}
+.areaContentTitle_w_pad
+{
+	font-family: verdana;
+	font-size: 140%;
+	color: #000000;
+	padding-left: 20px;
+	padding-top: 20px;
+}
+.newsArchiveTitle
+{
+	font-family: verdana;
+	font-size: 150%;
+	color: #000000;
+}
+.FeatureStoryTitle
+{
+	font-family: verdana;
+	font-size: 18 pt;
+	COLOR: #2A51B8;
+	margin-bottom:-15px;
+}
+.FeatureStoryDate
+{
+	font-family: Verdana;
+	font-size: 8 pt;
+	color: #555555;
+	
+}
+.FeatureStoryByLine
+{
+	font-family: verdana;
+	font-size: 10 pt;
+	color: #555555;
+	margin-bottom:-15px;
+	font-weight: bold;
+}
+.SideBarLink
+{
+	font-family: verdana;
+	font-size: 80%;
+	color: #000000;
+}
+.newsArchiveSubTitle
+{
+	font-family: verdana;
+	font-size: 118%;
+	color: #666666;
+}
+.newsArchiveYear
+{
+	font: bold 80% Verdana;
+	color: #000000;
+	border-bottom: #cccccc 1px solid;
+	border-top: #cccccc 1px solid;
+}
+.newsHeadlineTitle
+{
+	font-family: verdana;
+	font-size: 140%;
+	color: #000000;
+}
+.newsPublicationDate
+{
+	font-family: Verdana;
+	font-size: 60%;
+	color: #000000;
+	font-weight: bold;
+}
+.newsPublicationSource
+{
+	font-family: Verdana;
+	font-size: 60%;
+	color: #000000;
+	font-weight: bold;
+}
+
+
+h1 {font-size: 16pt; color: #2A51B8; margin: 30px 0px; font-weight: normal;}
+
+.anchor { color: #2A51B8; }
+
+h2 {font-size: 14pt; color: #2A51B8; margin: 10px 0px; font-weight: normal;}
+
+h3 {font-size: 12pt; color: #2A51B8; margin: 10px 0px; font-weight: normal;}
+
+h4
+{
+	color: #808080;
+	font-family: Tahoma;
+	font-size: 90%;
+	margin-bottom: -10px
+}
+
+.TitleHeader {font-family: tahoma; font-weight: bold; font-size: 110%; color: #000000;}
+
+P P
+{
+	font-size: 100%;
+}
+.groupheading
+{
+	padding-left: 20px;
+	padding-top: 40px;
+	padding-bottom: 10px;
+	font-size: 1.4em;
+	color: #0065CF;
+	font-family:verdana;
+}
+.GroupTitle
+{
+	padding-left: 20px;
+	padding-top: 20px;
+	padding-bottom: 10px;
+	font-size: 1.4em;
+	color: #0065CF;
+}
+LI LI
+{
+	font-size: 100%;
+}
+LI A
+{
+	font-size: 100%;
+}
+/* Section End for text handling based on rmcstyle.css */
+
+/* Section Start for text handling based on new_style.css */
+.O
+{
+	color:white;
+	font-size:149%;
+}
+ul
+{
+	color: #808080;
+	list-style-type:square
+}
+
+
+/* Section End for text handling based on new_style.css */
+
+/* Section Start for page layout based on Rob Gruen's downloads Page */
+.bodymargin
+{
+	margin-left: 20px;
+	position: relative;
+}
+/* Section Start for page layout based on Rob Gruen's downloads Page  */
+
+/* Section Start for page layout based on Rob Gruen's downloads Page */
+.quickinfo_tbl
+{
+	color: #555555;
+	BORDER-RIGHT: black 1px solid; 
+	BORDER-TOP: black 1px solid; 
+	BORDER-LEFT: black 1px solid; 
+	WIDTH: 560px; 
+	BORDER-BOTTOM: black 1px solid; 
+	HEIGHT: 164px;
+}
+/* Section Start for page layout based on Rob Gruen's downloads Page  */
+
+/* Section Start for page layout based on rmcstyle.css */
+.linkbox
+{
+	margin-left: 20px;
+	margin-right: 30px;
+	margin-bottom: 20px;
+	padding-bottom: 10px;
+	width: 175px;
+	float: right;
+	background: #ffffff;
+	border-bottom: #CCCCCC 1px solid;
+}
+.outlineDivTitle
+{
+	border-top: #CCCCCC 1px solid;
+	background-color: #FFFFFF;
+	color: #CCCCCC;
+	padding-left: 15px;
+	padding-bottom: 12px;
+	padding-top: 12px;
+	font: bold 70% Verdana;
+	color: #2A51B8;
+}
+.outlineDiv
+{
+	padding-left: 20px;
+	background-image: URL(/images/orangesquare.gif);
+	background-repeat: no-repeat;
+	background-position: 6 8;
+	font: 70% verdana;
+	color: #555555;
+	line-height: 200%;
+}
+/* Section End for page layout based on rmcstyle.css */
+
+/* Section Start for page layout based on new_style.css */
+.QL_border
+{
+	border-right: #555555 1px solid;
+	background: #ffffff;
+	border-left: #555555 1px solid;
+	border-bottom: #555555 1px solid;
+}
+
+/* Section End for page layout based on new_style.css */
+
+
+/* Begin Versal-specific styles */
+
+
+.imageAlignLeft
+{
+  background-color: #ffffff;
+  margin: 0px 10px 10px 10px;
+  color: #666666;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 70%;
+  font-weight:normal;
+  text-align: left;
+}
+.imageAlignRight
+{
+  background-color: #ffffff;
+  margin: 0px 10px 10px 10px;
+  color: #666666;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 70%;
+  font-weight:normal;
+  text-align: left;
+}
+.imageFloatLeft
+{
+  float: left;
+  background-color: #ffffff;
+  margin: 0px 10px 10px 0px;
+  color: #666666;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 70%;
+  font-weight:normal;
+  text-align: left;
+}
+.imageFloatRight
+{
+  float: right;
+  background-color: #ffffff;
+  margin: 0px 10px 10px 10px;
+  color: #666666;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  font-size: 70%;
+  font-weight:normal;
+  text-align: left;
+}
+.imageCaptionText
+{
+  color:#666666;
+  font-family:Verdana, Arial, Helvetica, sans-serif;
+  font-size:xx-small;
+  font-weight:normal;
+}
+.tableBorder
+{
+	border-top: solid 1px #C0C0C0;
+	border-left: solid 1px #C0C0C0;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	margin-top: 1em;
+}
+.tableNoBorder
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	margin-top: 1em;
+}
+.tableBorderLabel	
+{
+	border-top: solid 1px #C0C0C0;
+	border-left: solid 1px #C0C0C0;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+	background: #999999;
+	color: #FFFFFF;
+}
+.tableNoBorderLabel	
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+	background: #999999;
+	color: #FFFFFF;
+}
+.tableBorderHeader	
+{
+	background: #CCCCCC;
+	color: #000000;
+}
+.tableBorderHeader td	
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+	border-top: solid 1px #CCCCCC;
+	border-left: solid 1px #CCCCCC;
+}
+.tableNoBorderHeader	
+{
+	background: #CCCCCC;
+	color: #000000;
+}
+.tableNoBorderHeader td	
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+}
+.tableBorderSection
+{
+	background: #DDDDDD;
+}
+.tableBorderSection td	
+{
+	border-top: solid 1px #CCCCCC;
+	border-left: solid 1px #CCCCCC;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+}
+.tableNoBorderSection
+{
+	background: #DDDDDD;
+}
+.tableNoBorderSection td	
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 100%;
+	font-weight: bold;
+}
+.tableBorderRecord td	
+{
+	border-bottom: solid 1px #CCCCCC;
+	border-right: solid 1px #CCCCCC;
+}
+.tableBorderRecord td td 
+{
+	border-width: 0px;
+}
+.tableNoBorderRecord td	
+{
+}
+.tableNoBorderRecord td td 
+{
+}
+.tableFootnotes	
+{
+	margin-top: 7px;
+	margin-left: 5px;
+}
+.dataTableBottomMargin
+{
+	height: 1px;
+	overflow: hidden;
+	margin-bottom: 18px;
+}
+
+.footnote	
+{
+	font: 70% Arial;
+	position: relative;
+	top: -0.2em;
+}
+
+.footnoteText	
+{
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 65%;
+}
+
+.footnotes	
+{
+	margin-top: 11px;
+	margin-bottom: 36px;
+}
+
+pre.codeSample
+{
+	background: #DDDDDD;
+	font-family: Lucida Console, Courier New;
+	font-size: 70%;
+	padding: 10px 15px 10px 25px;
+	margin-bottom: 1em;
+}
+
+span.codeSample
+{
+	font-family: Lucida Console, Courier New;
+}
+
+/* End Versal-specific styles */
+
+/* Section Start for MNP styles */
+
+.mnpSearchButton {width:22px;}
+
+
+table.centered-small { 
+  background-color: #eef3f5;
+  border: 1px solid;
+  border-color: #dedeee;
+  width: 100%; 
+  border-style: solid; border-width: thin;
+  font-size: 10pt; text-decoration: none; 
+}
+table.centered-small a:link { text-decoration: none; }
+table.centered-small a:visited { text-decoration: none; }
+table.centered-small a:active { text-decoration: none; }
+
+address { font-size: 10pt; font-family: Verdana, Arial, Helvetica, sans-serif; }
+
+.fragment {
+       font-family: monospace, fixed;
+       font-size: 10ptr;
+}
+PRE.fragment {
+	border: 1px solid #CCCCCC;
+	background-color: #f5f5f5;
+	margin-top: 4px;
+	margin-bottom: 4px;
+	margin-left: 2px;
+	margin-right: 8px;
+	padding-left: 6px;
+	padding-right: 6px;
+	padding-top: 4px;
+	padding-bottom: 4px;
+}
+
+
+/* Style for detailed member documentation */
+.memtemplate {
+  font-size: 80%;
+  color: #606060;
+  font-weight: normal;
+} 
+.memnav { 
+  background-color: #e8eef2;
+  border: 1px solid #84b0c7;
+  text-align: center;
+  margin: 2px;
+  margin-right: 15px;
+  padding: 2px;
+}
+.memitem {
+  padding: 4px;
+  background-color: #eef3f5;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #dedeee;
+  -moz-border-radius: 8px 8px 8px 8px;
+}
+.memname {
+  white-space: nowrap;
+  font-weight: normal;
+  font-size: 10pt;
+}
+.memdoc{
+  padding-left: 10px;
+}
+.memproto {
+  background-color: #d5e1e8;
+  width: 100%;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #84b0c7;
+  font-weight: bold;
+  -moz-border-radius: 8px 8px 8px 8px;
+}
+.paramkey {
+  text-align: right;
+}
+.paramtype {
+  white-space: nowrap;
+}
+.paramname {
+  color: #602020;
+  font-style: italic;
+  white-space: nowrap;
+}
+DIV.ah { background-color: black; font-weight: bold; color: #ffffff; margin-bottom: 3px; margin-top: 3px }
+
+DIV.groupHeader {
+       margin-left: 16px;
+       margin-top: 12px;
+       margin-bottom: 6px;
+       font-weight: bold;
+}
+DIV.groupText { margin-left: 16px; font-style: italic; font-size: 90% }
+TD.indexkey {
+	background-color: #e8eef2;
+	font-weight: bold;
+	padding-right  : 10px;
+	padding-top    : 2px;
+	padding-left   : 10px;
+	padding-bottom : 2px;
+	margin-left    : 0px;
+	margin-right   : 0px;
+	margin-top     : 2px;
+	margin-bottom  : 2px;
+	border: 1px solid #CCCCCC;
+}
+TD.indexvalue {
+	background-color: #e8eef2;
+	font-style: italic;
+	padding-right  : 10px;
+	padding-top    : 2px;
+	padding-left   : 10px;
+	padding-bottom : 2px;
+	margin-left    : 0px;
+	margin-right   : 0px;
+	margin-top     : 2px;
+	margin-bottom  : 2px;
+	border: 1px solid #CCCCCC;
+}
+TR.memlist {
+   background-color: #f0f0f0; 
+}
+P.formulaDsp { text-align: center; }
+IMG.formulaDsp { }
+IMG.formulaInl { vertical-align: middle; }
+SPAN.keyword       { color: #008000 }
+SPAN.keywordtype   { color: #604020 }
+SPAN.keywordflow   { color: #e08000 }
+SPAN.comment       { color: #800000 }
+SPAN.preprocessor  { color: #806020 }
+SPAN.stringliteral { color: #002080 }
+SPAN.charliteral   { color: #008080 }
+
+
+.mdescLeft {
+       padding: 0px 8px 4px 8px;
+	font-size: 80%;
+	font-style: italic;
+	background-color: #FAFAFA;
+	border-top: 1px none #E0E0E0;
+	border-right: 1px none #E0E0E0;
+	border-bottom: 1px none #E0E0E0;
+	border-left: 1px none #E0E0E0;
+	margin: 0px;
+}
+.mdescRight {
+       padding: 0px 8px 4px 8px;
+	font-size: 80%;
+	font-style: italic;
+	background-color: #FAFAFA;
+	border-top: 1px none #E0E0E0;
+	border-right: 1px none #E0E0E0;
+	border-bottom: 1px none #E0E0E0;
+	border-left: 1px none #E0E0E0;
+	margin: 0px;
+}
+.memItemLeft {
+	padding: 1px 0px 0px 8px;
+	margin: 4px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-color: #E0E0E0;
+	border-right-color: #E0E0E0;
+	border-bottom-color: #E0E0E0;
+	border-left-color: #E0E0E0;
+	border-top-style: solid;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	background-color: #FAFAFA;
+	font-size: 80%;
+}
+.memItemRight {
+	padding: 1px 8px 0px 8px;
+	margin: 4px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-color: #E0E0E0;
+	border-right-color: #E0E0E0;
+	border-bottom-color: #E0E0E0;
+	border-left-color: #E0E0E0;
+	border-top-style: solid;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	background-color: #FAFAFA;
+	font-size: 80%;
+}
+.memTemplItemLeft {
+	padding: 1px 0px 0px 8px;
+	margin: 4px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-color: #E0E0E0;
+	border-right-color: #E0E0E0;
+	border-bottom-color: #E0E0E0;
+	border-left-color: #E0E0E0;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	background-color: #FAFAFA;
+	font-size: 80%;
+}
+.memTemplItemRight {
+	padding: 1px 8px 0px 8px;
+	margin: 4px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-color: #E0E0E0;
+	border-right-color: #E0E0E0;
+	border-bottom-color: #E0E0E0;
+	border-left-color: #E0E0E0;
+	border-top-style: none;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+	background-color: #FAFAFA;
+	font-size: 80%;
+}
+.memTemplParams {
+	padding: 1px 0px 0px 8px;
+	margin: 4px;
+	border-top-width: 1px;
+	border-right-width: 1px;
+	border-bottom-width: 1px;
+	border-left-width: 1px;
+	border-top-color: #E0E0E0;
+	border-right-color: #E0E0E0;
+	border-bottom-color: #E0E0E0;
+	border-left-color: #E0E0E0;
+	border-top-style: solid;
+	border-right-style: none;
+	border-bottom-style: none;
+	border-left-style: none;
+       color: #606060;
+	background-color: #FAFAFA;
+	font-size: 80%;
+}
+
+dl { font-size: 10pt; }
+td { font-size: 10pt; }
+th { font-weight: normal; }
+
+#nav {font-family: Verdana, Arial, sans-serif; margin:0 0 0 10px;border-bottom:3px solid #DDE4EC; height:35px; min-width:500px;}
+#nav ul { list-style: none; margin-top:15px; padding: 0; font-size:150%; float:left; }
+#nav ul li, div.sitemenu ul li a, div.sitemenu ul li a:visited {color: #4E688E;display: block;padding: 0 5px;text-decoration: none;white-space: nowrap;float:left;}
+#nav ul li a:hover {color: #000;text-decoration: none;}
+#nav ul li a:active {color: #cfdbe6;text-decoration: none;}

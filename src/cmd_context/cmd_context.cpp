@@ -306,7 +306,7 @@ cmd_context::cmd_context(front_end_params * params, bool main_ctx, ast_manager *
     m_params_owner(params == 0),
     m_logic(l),
     m_interactive_mode(false),
-    m_global_decls(!this->params().m_smtlib2_compliant), // SMTLIB 2.0 uses scoped decls.
+    m_global_decls(false),  // :global-decls is false by default.
     m_print_success(false), // params.m_smtlib2_compliant), 
     m_random_seed(0),
     m_produce_unsat_cores(false),
