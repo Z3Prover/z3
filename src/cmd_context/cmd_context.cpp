@@ -477,7 +477,8 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_UFBV" ||
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
-        s == "QF_BVRE";
+        s == "QF_BVRE" ||
+        s == "HORN";
 }
 
 bool cmd_context::logic_has_horn(symbol const& s) const {
@@ -518,7 +519,8 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
         s == "AUFBV" || 
         s == "ABV" || 
         s == "QF_ABV" ||
-        s == "QF_AUFBV";
+        s == "QF_AUFBV" ||
+        s == "HORN";
 }
 
 bool cmd_context::logic_has_array() const {
