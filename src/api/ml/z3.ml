@@ -1219,13 +1219,13 @@ external get_smtlib_sort : context -> int -> sort
 
 external get_smtlib_error : context -> string
 	= "camlidl_z3_Z3_get_smtlib_error"
-
+(*
 external parse_z3_string : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3_string"
 
 external parse_z3_file : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3_file"
-
+*)
 external set_error : context -> error_code -> unit
 	= "camlidl_z3_Z3_set_error"
 
@@ -2930,13 +2930,13 @@ external get_smtlib_sort : context -> int -> sort
 
 external get_smtlib_error : context -> string
 	= "camlidl_z3V3_Z3_get_smtlib_error"
-
+(*
 external parse_z3_string : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3V3_string"
 
 external parse_z3_file : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3V3_file"
-
+*)
 external get_version : unit -> int * int * int * int
 	= "camlidl_z3V3_Z3_get_version"
 

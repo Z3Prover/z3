@@ -3,7 +3,7 @@
 # Script to compile the Z3 OCaml API
 # Expects to find ../lib/libz3{,_dbg}.{a,so,dylib}
 
-CFLAGS="-ccopt -Wno-discard-qual -ccopt -I../include"
+CFLAGS="-ccopt -Wno-discard-qual"
 XCDBG="-g -ccopt -g $CFLAGS"
 XCOPT="-ccopt -O3 -ccopt -fomit-frame-pointer $CFLAGS"
 
@@ -26,6 +26,6 @@ ocamlopt -a $XCDBG -cclib -L$PWD/../lib -cclib -lz3_dbg -cclib -lcamlidl -cclib 
 
 ocamlopt -a $XCOPT -cclib -L$PWD/../lib -cclib -lz3 -cclib -lcamlidl -cclib -lz3stubs z3.cmx -o z3.cmxa
 
-ocamlmktop -o ocamlz3 z3.cma -cclib -L.
+ocamlmktop -o ocamlz3 z3.cma -ccopt -L. -cclib -lz3 -cclib -lcamlidl
 
 rm z3.cm{o,x} *.o

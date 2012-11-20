@@ -4787,7 +4787,6 @@ external get_smtlib_sort : context -> int -> sort
 external get_smtlib_error : context -> string
 	= "camlidl_z3_Z3_get_smtlib_error"
 
-*)
 (**
        Summary: \[ [ parse_z3_string c str ] \]
        Parse the given string using the Z3 native parser.
@@ -4806,7 +4805,7 @@ external parse_z3_string : context -> string -> ast
 *)
 external parse_z3_file : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3_file"
-
+*)
 (**
        {2 {L Error Handling}}
 *)
@@ -10198,7 +10197,7 @@ external get_smtlib_sort : context -> int -> sort
 *)
 external get_smtlib_error : context -> string
 	= "camlidl_z3V3_Z3_get_smtlib_error"
-
+(*
 (**
        Summary: \[ [ parse_z3_string c str ] \]
        Parse the given string using the Z3 native parser.
@@ -10217,7 +10216,7 @@ external parse_z3_string : context -> string -> ast
 *)
 external parse_z3_file : context -> string -> ast
 	= "camlidl_z3_Z3_parse_z3V3_file"
-
+*)
 (**
        {2 {L Miscellaneous}}
 *)

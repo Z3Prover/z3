@@ -8169,13 +8169,13 @@ check_error_code(c);
   /* end user-supplied deallocation sequence */
   return _vres;
 }
-
+/*
 value camlidl_z3_Z3_parse_z3_string(
 	value _v_c,
 	value _v_str)
 {
-  Z3_context c; /*in*/
-  Z3_string str; /*in*/
+  Z3_context c; /*in
+  Z3_string str; /*in
   Z3_ast _res;
   value _vres;
 
@@ -8186,9 +8186,9 @@ value camlidl_z3_Z3_parse_z3_string(
   _res = Z3_parse_z3_string(c, str);
   _vres = camlidl_c2ml_z3_Z3_ast(&_res, _ctx);
   camlidl_free(_ctx);
-  /* begin user-supplied deallocation sequence */
+  /* begin user-supplied deallocation sequence 
 check_error_code(c);
-  /* end user-supplied deallocation sequence */
+  /* end user-supplied deallocation sequence 
   return _vres;
 }
 
@@ -8196,8 +8196,8 @@ value camlidl_z3_Z3_parse_z3_file(
 	value _v_c,
 	value _v_file_name)
 {
-  Z3_context c; /*in*/
-  Z3_string file_name; /*in*/
+  Z3_context c; /*in
+  Z3_string file_name; /*in
   Z3_ast _res;
   value _vres;
 
@@ -8208,12 +8208,12 @@ value camlidl_z3_Z3_parse_z3_file(
   _res = Z3_parse_z3_file(c, file_name);
   _vres = camlidl_c2ml_z3_Z3_ast(&_res, _ctx);
   camlidl_free(_ctx);
-  /* begin user-supplied deallocation sequence */
+  /* begin user-supplied deallocation sequence 
 check_error_code(c);
-  /* end user-supplied deallocation sequence */
+  /* end user-supplied deallocation sequence 
   return _vres;
 }
-
+*/
 value camlidl_z3_Z3_set_error(
 	value _v_c,
 	value _v_e)
@@ -17569,13 +17569,13 @@ value camlidl_z3V3_Z3_get_smtlib_error(
   camlidl_free(_ctx);
   return _vres;
 }
-
+/*
 value camlidl_z3_Z3_parse_z3V3_string(
 	value _v_c,
 	value _v_str)
 {
-  Z3_context c; /*in*/
-  Z3_string str; /*in*/
+  Z3_context c; /*in
+  Z3_string str; /*in
   Z3_ast _res;
   value _vres;
 
@@ -17593,8 +17593,8 @@ value camlidl_z3_Z3_parse_z3V3_file(
 	value _v_c,
 	value _v_file_name)
 {
-  Z3_context c; /*in*/
-  Z3_string file_name; /*in*/
+  Z3_context c; /*in
+  Z3_string file_name; /*in
   Z3_ast _res;
   value _vres;
 
@@ -17607,7 +17607,7 @@ value camlidl_z3_Z3_parse_z3V3_file(
   camlidl_free(_ctx);
   return _vres;
 }
-
+*/
 value camlidl_z3V3_Z3_get_version(value _unit)
 {
   unsigned int *major; /*out*/
