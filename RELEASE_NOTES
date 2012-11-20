@@ -12,6 +12,8 @@ Version 4.3.2
 
 - Added `doc` directory and scripts for automatically generating the API documentation.
 
+- Removed 'autoconf' dependency. We do not need to execute 'autoconf' and './configure' anymore to build Z3.
+
 Version 4.3.1
 =============
 
