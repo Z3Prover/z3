@@ -1101,7 +1101,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
-        config.write('CXX_OUT_FLAG=-o\n')
+        config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')
         config.write('AR=ar\n')
@@ -1110,13 +1110,13 @@ def mk_config():
         config.write('EXE_EXT=\n')
         config.write('LINK=%s\n' % CXX)
         config.write('LINK_FLAGS=\n')
-        config.write('LINK_OUT_FLAG=-o\n')
+        config.write('LINK_OUT_FLAG=-o \n')
         config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
         config.write('SLINK=%s\n' % CXX)
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
         config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
-        config.write('SLINK_OUT_FLAG=-o\n')
+        config.write('SLINK_OUT_FLAG=-o \n')
         if is_verbose():
             print 'Host platform:  %s' % sysname
             print 'C++ Compiler:   %s' % CXX
