@@ -156,12 +156,11 @@ def test_gmp(cc):
 def is64():
     return sys.maxsize >= 2**32
 
-def find_ar():
+def check_ar():
     if is_verbose():
         print "Testing ar..."
-    if exec_cmd(['ar', '--version']) != 0:
+    if which('ar')== None:
         raise MKException('ar (archive tool) was not found')
-    return "ar"
 
 def find_cxx_compiler():
     global CXX, CXX_COMPILERS
@@ -1041,7 +1040,7 @@ def mk_config():
     else:
         global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
         ARITH = "internal"
-        find_ar()
+        check_ar()
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
         if GMP:
