@@ -340,15 +340,23 @@ class der2 {
         }
     }
 
-    void apply_substitution(quantifier * q, expr_ref & r) {
+    void flatten_args(quantifier* q, unsigned& num_args, expr*const*& args) {
         expr * e = q->get_expr();
-        unsigned num_args = 1;
-        expr* const* args = &e;
+         num_args = 1;
+        args = &e;
         if ((q->is_forall() && m.is_or(e)) ||
             (q->is_exists() && m.is_and(e))) {
             num_args = to_app(e)->get_num_args();
             args     = to_app(e)->get_args();
         }
+    }
+
+    void apply_substitution(quantifier * q, expr_ref & r) {
+        
+        expr * e = q->get_expr();
+        unsigned num_args = 1;
+        expr* const* args = &e;
+        flatten_args(q, num_args, args);
         bool_rewriter rw(m);
         
         // get a new expression
@@ -395,11 +403,7 @@ class der2 {
         set_is_variable_proc(is_v);
         unsigned num_args = 1;
         expr* const* args = &e;
-        if ((q->is_forall() && m.is_or(e)) ||
-            (q->is_exists() && m.is_and(e))) {
-            num_args = to_app(e)->get_num_args();
-            args     = to_app(e)->get_args();
-        }
+        flatten_args(q, num_args, args);
         
         unsigned def_count = 0;
         unsigned largest_vinx = 0;

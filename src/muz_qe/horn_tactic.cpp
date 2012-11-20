@@ -90,6 +90,24 @@ class horn_tactic : public tactic {
             m_ctx.register_predicate(to_app(a)->get_decl(), true);
         }
 
+        void check_predicate(expr* a) {
+            expr* a1 = 0;
+            while (true) {
+                if (is_quantifier(a)) {
+                    a = to_quantifier(a)->get_expr();
+                    continue;
+                }
+                if (m.is_not(a, a1)) {
+                    a = a1;
+                    continue;
+                }
+                if (is_predicate(a)) {
+                    register_predicate(a);
+                }
+                break;
+            }
+        }
+
         enum formula_kind { IS_RULE, IS_QUERY, IS_NONE };
 
         formula_kind get_formula_kind(expr_ref& f) {
@@ -99,13 +117,12 @@ class horn_tactic : public tactic {
             expr* a = 0, *a1 = 0;
             datalog::flatten_or(f, args);
             for (unsigned i = 0; i < args.size(); ++i) {
-                a = args[i].get();                
+                a = args[i].get();    
+                check_predicate(a);
                 if (m.is_not(a, a1) && is_predicate(a1)) {
-                    register_predicate(a1);
                     body.push_back(a1);
                 }
                 else if (is_predicate(a)) {
-                    register_predicate(a);
                     if (head) {
                         return IS_NONE;
                     }

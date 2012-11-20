@@ -6,10 +6,12 @@
    
    <b>The Z3 website moved to <a class="el" href="http://z3.codeplex.com">z3.codeplex.com</a>.</b>
 
+   The old Z3 website can be found <a class="el" href="http://research.microsoft.com/en-us/um/redmond/projects/z3/old/index.html">here</a>.
+
    This website hosts the automatically generated documentation for the Z3 APIs.
 
    - \ref capi 
    - <a class="el" href="class_microsoft_1_1_z3_1_1_context.html">.NET API</a>
    - <a class="el" href="z3.html">Python API</a>
-   - Try Z3 online at <a href="http://rise4fun.com/z3py">RiSE4Fun</a>.
+   - Try Z3 online at <a href="http://rise4fun.com/z3py">RiSE4Fun</a> using <a href="http://rise4fun.com/z3py">Python</a> or <a href="http://rise4fun.com/z3">SMT 2.0</a>.
 */
