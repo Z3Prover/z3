@@ -12,8 +12,6 @@ Z3 can be built using Visual Studio Command Prompt and make/g++.
 2) Building Z3 using make/g++ and Python
 Execute:
 
-   autoconf
-   ./configure
    python scripts/mk_make.py
    cd build
    make
@@ -24,9 +22,7 @@ You can change the installation p
 
 Use the following commands to install in a different prefix (e.g., /home/leo).
 
-  autoconf
-  ./configure --prefix=/home/leo
-  python scripts/mk_make.py
+  python scripts/mk_make.py --prefix=/home/leo
   cd build
   make
   sudo make install
@@ -35,14 +31,10 @@ To uninstall Z3, use
 
   sudo make uninstall
 
-3) Building Z3 using clang++ on Linux/OSX
+3) Building Z3 using clang and clang++ on Linux/OSX
 Remark: clang does not support OpenMP yet.   
 
-   autoconf
-   ./configure CXX=clang++
-   python scripts/mk_make.py
+   CXX=clang++ CC=clang python scripts/mk_make.py
    cd build
    make
-
-
 
