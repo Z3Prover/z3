@@ -1,0 +1,37 @@
+*~
+*.pyc
+.z3-trace
+# Emacs temp files
+\#*\#
+# Directories with generated code and documentation
+build/*
+build-dist/*
+dist/*
+doc/html/*
+# GTAGS generated files
+src/GPATH
+src/GRTAGS
+src/GSYMS
+src/GTAGS
+src/HTML/*
+# Commonly used directories for code
+bld_dbg/*
+bld_rel/*
+# Auto generated files.
+config.log
+config.status
+configure
+install_tactic.cpp
+mem_initializer.cpp
+scripts/config-debug.mk
+scripts/config-release.mk
+src/api/api_commands.cpp
+src/api/api_log_macros.h
+src/api/api_log_macros.cpp
+src/api/dll/api_dll.def
+src/api/dotnet/Enumerations.cs
+src/api/dotnet/Native.cs
+src/api/python/z3consts.py
+src/api/python/z3core.py
+src/ast/pattern/database.h
+src/util/version.h
