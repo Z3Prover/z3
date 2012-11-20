@@ -3,11 +3,11 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    pdr_tactic.h
+    horn_tactic.h
 
 Abstract:
 
-    PDR as a tactic to solve Horn clauses.
+    HORN as a tactic to solve Horn clauses.
 
 Author:
 
@@ -19,10 +19,10 @@ Revision History:
 #include"tactical.h"
 #include"model_converter.h"
 #include"proof_converter.h"
-#include"pdr_tactic.h"
+#include"horn_tactic.h"
 #include"dl_context.h"
 
-class pdr_tactic : public tactic {
+class horn_tactic : public tactic {
     struct imp {
         ast_manager&             m;
         datalog::context         m_ctx;
@@ -139,7 +139,7 @@ class pdr_tactic : public tactic {
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
-            tactic_report report("pdr", *g);
+            tactic_report report("horn", *g);
             bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
@@ -174,6 +174,7 @@ class pdr_tactic : public tactic {
 
             if (queries.size() != 1) {
                 q = m.mk_fresh_const("query", m.mk_bool_sort());
+                register_predicate(q);
                 for (unsigned i = 0; i < queries.size(); ++i) {
                     f = mk_rule(queries[i].get(), q);
                     m_ctx.add_rule(f, symbol::null);
@@ -209,7 +210,7 @@ class pdr_tactic : public tactic {
                 // subgoal is unchanged.
                 break;    
             }
-            TRACE("pdr", g->display(tout););
+            TRACE("horn", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
     };
@@ -217,16 +218,16 @@ class pdr_tactic : public tactic {
     params_ref m_params;
     imp *      m_imp;
 public:
-    pdr_tactic(ast_manager & m, params_ref const & p):
+    horn_tactic(ast_manager & m, params_ref const & p):
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(pdr_tactic, m, m_params);
+        return alloc(horn_tactic, m, m_params);
     }
         
-    virtual ~pdr_tactic() {
+    virtual ~horn_tactic() {
         dealloc(m_imp);
     }
 
@@ -280,7 +281,7 @@ protected:
     }
 };
 
-tactic * mk_pdr_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(pdr_tactic, m, p));
+tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(horn_tactic, m, p));
 }
 

@@ -1683,7 +1683,8 @@ namespace datalog {
         for (unsigned i = 0; i < rules.size(); ++i) {            
             out << (use_fixedpoint_extensions?"(rule ":"(assert ");
             expr* r = rules[i].get();
-            if (symbol::null != names[i]) {
+            symbol nm = names[i];
+            if (symbol::null != nm) {
                 out << "(! ";
             }
             if (use_fixedpoint_extensions) {
@@ -1692,8 +1693,14 @@ namespace datalog {
             else {
                 out << mk_smt_pp(r, m);
             }
-            if (symbol::null != names[i]) {
-                out << " :named " << names[i] << ")";
+            if (symbol::null != nm) {
+                while (fresh_names.contains(nm)) {
+                    std::ostringstream s;
+                    s << nm << "!";
+                    nm = symbol(s.str().c_str());                    
+                }
+                fresh_names.add(nm);
+                out << " :named " << nm << ")";
             }
             out << ")\n";
         }

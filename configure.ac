@@ -101,15 +101,15 @@ AC_PROG_SED
 
 AS_IF([test "$CXX" = "g++"], [
    # Enable OpenMP
-   CXXFLAGS+=" -fopenmp"  
-   LDFLAGS+=" -fopenmp"
-   SLIBEXTRAFLAGS+=" -fopenmp"
+   CXXFLAGS="$CXXFLAGS -fopenmp"  
+   LDFLAGS="$LDFLAGS -fopenmp"
+   SLIBEXTRAFLAGS="$SLIBEXTRAFLAGS -fopenmp"
    # Use -mfpmath=sse
-   CXXFLAGS+=" -mfpmath=sse"
+   CXXFLAGS="$CXXFLAGS -mfpmath=sse"
 ],
       [test "$CXX" = "clang++"], [
    # OpenMP is not supported in clang++
-   CXXFLAGS+=" -D _NO_OMP_"  
+   CXXFLAGS="$CXXFLAGS -D _NO_OMP_"  
 ],
 [
   AC_MSG_ERROR([Unsupported compiler: $CXX])
@@ -128,28 +128,38 @@ host_os=`uname -s`
 AS_IF([test "$host_os" = "Darwin"], [
   PLATFORM=osx
   SO_EXT=.dylib
-  SLIBFLAGS+="-dynamiclib"
+  SLIBFLAGS="$SLIBFLAGS -dynamiclib"
   COMP_VERSIONS="-compatibility_version \$(Z3_VERSION) -current_version \$(Z3_VERSION)"
   STATIC_FLAGS=
 ], [test "$host_os" = "Linux"], [
+  CXXFLAGS=$CXXFLAGS -D _LINUX_
   PLATFORM=linux
   SO_EXT=.so
-  LDFLAGS+=" -lrt"
-  SLIBFLAGS+=" -shared"
+  LDFLAGS="$LDFLAGS -lrt"
+  SLIBFLAGS="$SLIBFLAGS -shared"
   COMP_VERSIONS=
   STATIC_FLAGS=-static
-  CXXFLAGS+=" -fno-strict-aliasing"
+  CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
   if test "$CXX" = "clang++"; then
      # More flags for clang++ for Linux
-     CXXFLAGS+=" -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value"
+     CXXFLAGS="$CXXFLAGS -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value"
   fi
-  SLIBEXTRAFLAGS+=" -lrt"
+  SLIBEXTRAFLAGS="$SLIBEXTRAFLAGS -lrt"
+], [test "$host_os" = "FreeBSD"], [
+   CXXFLAGS="$CXXFLAGS -D _FREEBSD_"
+   PLATFORM=bsd
+   SO_EXT=.so
+   LDFLAGS="$LDFLAGS -lrt"
+   SLIBFLAGS="$SLIBFLAGS -shared"
+   COMP_VERSIONS=
+   STATIC_FLAGS=-static
+   SLIBEXTRAFLAGS="$SLIBEXTRAFLAGS -lrt"
 ], [test "${host_os:0:6}" = "CYGWIN"], [
    PLATFORM=win
    SO_EXT=.dll
-   SLIBFLAGS+="-shared"
+   SLIBFLAGS="$SLIBFLAGS -shared"
    COMP_VERSIONS=
-   CXXFLAGS+=" -D_CYGWIN -fno-strict-aliasing"
+   CXXFLAGS="$CXXFLAGS -D_CYGWIN -fno-strict-aliasing"
 ],
 [
   AC_MSG_ERROR([Unknown host platform: $host_os])
@@ -169,11 +179,11 @@ AC_CHECK_SIZEOF(int *)
 
 if test $ac_cv_sizeof_int_p -eq 8; then
    dnl In 64-bit systems we have to compile using -fPIC
-   CXXFLAGS+=" -fPIC"
-   CPPFLAGS+=" -D_AMD64_"
+   CXXFLAGS="$CXXFLAGS -fPIC"
+   CPPFLAGS="$CPPFLAGS -D_AMD64_"
    dnl Only enable use of thread local storage for 64-bit Linux. It is disabled for OSX and 32-bit Linux
    if test $PLATFORM = "linux"; then
-      CPPFLAGS+=" -D_USE_THREAD_LOCAL" 
+      CPPFLAGS="$CPPFLAGS -D_USE_THREAD_LOCAL" 
    fi
    IS_X64="yes"
 else
