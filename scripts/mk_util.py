@@ -6,17 +6,36 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+import sys
+
+if sys.version >= "3":
+    print "ERROR: python 2.x required."
+    exit(1)
+
 import os
 import glob
 import re
 import getopt
-import sys
 import shutil
 from mk_exception import *
 from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
+import subprocess
 
+def getenv(name, default):
+    try:
+        return os.environ[name]
+    except:
+        return default
+
+CXX=getenv("CXX", None)
+CC=getenv("CC", None)
+CPPFLAGS=getenv("CPPFLAGS", "")
+CXXFLAGS=getenv("CXXFLAGS", "")
+LDFLAGS=getenv("LDFLAGS", "")
+CXX_COMPILERS=['g++', 'clang++']
+C_COMPILERS=['gcc', 'clang']
 PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
@@ -41,11 +60,130 @@ VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
 STATIC_LIB=False
-
 VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
 VER_REVISION=None
+PREFIX='/usr'
+GMP=False
+
+def which(program):
+    import os
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in getenv("PATH", "").split(os.pathsep):
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+class TempFile:
+    def __init__(self, name):
+        try:
+            self.name  = name
+            self.fname = open(name, 'w')
+        except:
+            raise MKException("Failed to create temporary file '%s'" % self.name)
+
+    def add(self, s):
+        self.fname.write(s)
+
+    def commit(self):
+        self.fname.close()
+
+    def __del__(self):
+        self.fname.close()
+        try:
+            os.remove(self.name)
+        except:
+            raise MKException("Failed to eliminate temporary file '%s'" % self.name)
+
+def exec_cmd(cmd):
+    if isinstance(cmd, str):
+        cmd = cmd.split(' ')
+    new_cmd = []
+    for e in cmd:
+        e  = e.strip(' ')
+        if e != "":
+            se = e.split(' ')
+            if len(se) > 1:
+                new_cmd.extend(se)
+            else:
+                new_cmd.append(e)
+    cmd = new_cmd
+    null = open(os.devnull, 'wb')
+    try:
+        return subprocess.call(cmd, stdout=null, stderr=null)
+    except:
+        # Failed to create process
+        return 1
+
+def exec_compiler_cmd(cmd):
+    r = exec_cmd(cmd)
+    if os.path.exists('a.out'):
+        os.remove('a.out')
+    return r
+
+def test_cxx_compiler(cc):
+    if is_verbose():
+        print "Testing %s..." % cc
+    t = TempFile('tst.cpp')
+    t.add('#include<iostream>\nint main() { return 0; }\n')
+    t.commit()
+    return exec_compiler_cmd([cc, CPPFLAGS, CXXFLAGS, 'tst.cpp', LDFLAGS]) == 0
+
+def test_c_compiler(cc):
+    if is_verbose():
+        print "Testing %s..." % cc
+    t = TempFile('tst.c')
+    t.add('#include<stdio.h>\nint main() { return 0; }\n')
+    t.commit()
+    return exec_compiler_cmd([cc, CPPFLAGS, 'tst.c', LDFLAGS]) == 0
+
+def test_gmp(cc):
+    if is_verbose():
+        print "Testing GMP..."
+    t = TempFile('tst.cpp')
+    t.add('#include<gmp.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
+    t.commit()
+    return exec_cmd([cc, CPPFLAGS, CXXFLAGS, 'tst.cpp', LDFLAGS, '-lgmp']) == 0
+
+def is64():
+    return sys.maxsize >= 2**32
+
+def find_ar():
+    if is_verbose():
+        print "Testing ar..."
+    if exec_cmd(['ar', '--version']) != 0:
+        raise MKException('ar (archive tool) was not found')
+    return "ar"
+
+def find_cxx_compiler():
+    global CXX, CXX_COMPILERS
+    if CXX != None:
+        if test_cxx_compiler(CXX):
+            return CXX
+    for cxx in CXX_COMPILERS:
+        if test_cxx_compiler(cxx):
+            CXX = cxx
+            return CXX
+    raise MKException('C++ compiler was not found. Try to set the environment variable CXX with the C++ compiler available in your system.')    
+
+def find_c_compiler():
+    global CC, C_COMPILERS
+    if CC != None:
+        if test_c_compiler(CC):
+            return CC
+    for c in C_COMPILERS:
+        if test_c_compiler(c):
+            CC = c
+            return CC
+    raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')    
 
 def set_version(major, minor, build, revision):
     global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION
@@ -115,6 +253,9 @@ def display_help():
     print "It must be executed from the Z3 root directory."
     print "\nOptions:"
     print "  -h, --help                    display this message."
+    if not IS_WINDOWS:
+        print "  -p, --prefix                  installation prefix (default: %s)." % PREFIX
+        print "  -g, --gmp                     use GMP."
     print "  -s, --silent                  do not print verbose messages."
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
@@ -129,19 +270,21 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, STATIC_LIB
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtn', ['build=', 
-                                                                         'debug',
-                                                                         'silent',
-                                                                         'x64',
-                                                                         'help',
-                                                                         'makefiles',
-                                                                         'showcpp',
-                                                                         'vsproj',
-                                                                         'trace',
-                                                                         'nodotnet',
-                                                                         'staticlib'
-                                                                         ])
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, STATIC_LIB, PREFIX, GMP
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtnp:g', ['build=', 
+                                                                            'debug',
+                                                                            'silent',
+                                                                            'x64',
+                                                                            'help',
+                                                                            'makefiles',
+                                                                            'showcpp',
+                                                                            'vsproj',
+                                                                            'trace',
+                                                                            'nodotnet',
+                                                                            'staticlib',
+                                                                            'prefix=',
+                                                                            'gmp'
+                                                                            ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -169,6 +312,10 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt in ('--staticlib'):
             STATIC_LIB = True
+        elif opt in ('-p', '--prefix'):
+            PREFIX = arg
+        elif opt in ('-g', '--gmp'):
+            GMP = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -343,14 +490,7 @@ class Component:
         out.write('\n')
         if SHOW_CPPS:
             out.write('\t@echo %s/%s\n' % (self.src_dir, cppfile))
-        # TRACE is enabled in debug mode by default
-        extra_opt = ''
-        if TRACE and not DEBUG_MODE:
-            if IS_WINDOWS:
-                extra_opt = '/D _TRACE'
-            else:
-                extra_opt = '-D _TRACE'
-        out.write('\t@$(CXX) $(CXXFLAGS) %s $(%s) $(CXX_OUT_FLAG)%s %s\n' % (extra_opt, include_defs, objfile, srcfile))
+        out.write('\t@$(CXX) $(CXXFLAGS) $(%s) $(CXX_OUT_FLAG)%s %s\n' % (include_defs, objfile, srcfile))
 
     def mk_makefile(self, out):
         include_defs = mk_fresh_name('includes')
@@ -842,24 +982,149 @@ def add_z3py_example(name, path=None):
     c = PythonExampleComponent(name, path)
     reg_component(name, c)
 
-# Copy configuration correct file to BUILD_DIR
-def cp_config_mk():
+def mk_config():
+    if ONLY_MAKEFILES:
+        return
+    config = open('%s/config.mk' % BUILD_DIR, 'w')
     if IS_WINDOWS:
-        if VS_X64:
-            if DEBUG_MODE:
-                shutil.copyfile('scripts/config-vs-debug-x64.mk', '%s/config.mk' % BUILD_DIR)
-            else:
-                shutil.copyfile('scripts/config-vs-release-x64.mk', '%s/config.mk' % BUILD_DIR)
-        else:
-            if DEBUG_MODE:
-                shutil.copyfile('scripts/config-vs-debug.mk', '%s/config.mk' % BUILD_DIR)
-            else:
-                shutil.copyfile('scripts/config-vs-release.mk', '%s/config.mk' % BUILD_DIR)
-    else:
+        config.write(
+            'CC=cl\n'
+            'CXX=cl\n'
+            'CXX_OUT_FLAG=/Fo\n'
+            'OBJ_EXT=.obj\n'
+            'LIB_EXT=.lib\n'
+            'AR=lib\n'
+            'AR_FLAGS=/nologo\n'
+            'AR_OUTFLAG=/OUT:\n'
+            'EXE_EXT=.exe\n'
+            'LINK=cl\n'
+            'LINK_OUT_FLAG=/Fe\n'
+            'SO_EXT=.dll\n'
+            'SLINK=cl\n'
+            'SLINK_OUT_FLAG=/Fe\n')
         if DEBUG_MODE:
-            shutil.copyfile('scripts/config-debug.mk', '%s/config.mk' % BUILD_DIR)
+            config.write(
+                'LINK_FLAGS=/nologo /MDd\n'
+                'SLINK_FLAGS=/nologo /LDd\n')
+            if not VS_X64:
+                config.write(
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n'
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+            else:
+                config.write(
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n'
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
-            shutil.copyfile('scripts/config-release.mk', '%s/config.mk' % BUILD_DIR)
+            # Windows Release mode
+            config.write(
+                'LINK_FLAGS=/nologo /MD\n'
+                'SLINK_FLAGS=/nologo /LD\n')
+            extra_opt = ''
+            if TRACE:
+                extra_opt = '/D _TRACE'
+            if not VS_X64:
+                config.write(
+                    'CXXFLAGS=/nologo /c /Zi /openmp /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                config.write(
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+            else:
+                config.write(
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP\n' % extra_opt)
+                config.write(
+                    'LINK_EXTRA_FLAGS=/link /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
+                    'SLINK_EXTRA_FLAGS=/link /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n')
+
+        # End of Windows VS config.mk
+    else:
+        global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
+        ARITH = "internal"
+        find_ar()
+        CXX = find_cxx_compiler()
+        CC  = find_c_compiler()
+        if GMP:
+            test_gmp(CXX)
+            ARITH = "gmp"
+            CPPFLAGS = '%s -D_MP_GMP' % CPPFLAGS
+            LDFLAGS  = '%s -lgmp' % LDFLAGS
+        else:
+            CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
+        CXXFLAGS = '%s -c' % CXXFLAGS
+        if CXX == 'g++':
+            CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
+            LDFLAGS  = '%s -fopenmp' % LDFLAGS
+            SLIBEXTRAFLAGS = '-fopenmp'
+        else:
+            # CLang does not support OMP
+            CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
+            SLIBEXTRAFLAGS = ''
+        sysname = os.uname()[0]
+        if sysname == 'Darwin':
+            SO_EXT    = '.dylib'
+            SLIBFLAGS = '-dynamiclib'
+        elif sysname == 'Linux':
+            CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+            if CXX == 'clang++':
+                CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
+            SO_EXT         = '.so'
+            LDFLAGS        = '%s -lrt' % LDFLAGS
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'FreeBSD':
+            CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+            SO_EXT         = '.so'
+            LDFLAGS        = '%s -lrt' % LDFLAGS
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname[:6] ==  'CYGWIN':
+            CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+            SO_EXT      = '.dll'
+            SLIBFLAGS   = '-shared'
+        else:
+            raise MKException('Unsupported platform: %s' % sysname)
+        if is64():
+            CXXFLAGS     = '%s -fPIC' % CXXFLAGS
+            CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
+            if sysname == 'Linux':
+                CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
+        if DEBUG_MODE:
+            CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
+        if TRACE or DEBUG_MODE:
+            CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
+        if DEBUG_MODE:
+            CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
+        else:
+            CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
+        CXXFLAGS         = '%s -msse -msse2' % CXXFLAGS
+        config.write('PREFIX=%s\n' % PREFIX)
+        config.write('CC=%s\n' % CC)
+        config.write('CXX=%s\n' % CXX)
+        config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('CXX_OUT_FLAG=-o\n')
+        config.write('OBJ_EXT=.o\n')
+        config.write('LIB_EXT=.a\n')
+        config.write('AR=ar\n')
+        config.write('AR_FLAGS=rcs\n')
+        config.write('AR_OUTFLAG=\n')
+        config.write('EXE_EXT=\n')
+        config.write('LINK=%s\n' % CXX)
+        config.write('LINK_FLAGS=\n')
+        config.write('LINK_OUT_FLAG=-o\n')
+        config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
+        config.write('SO_EXT=%s\n' % SO_EXT)
+        config.write('SLINK=%s\n' % CXX)
+        config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
+        config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
+        config.write('SLINK_OUT_FLAG=-o\n')
+        if is_verbose():
+            print 'Host platform:  %s' % sysname
+            print 'C++ Compiler:   %s' % CXX
+            print 'C Compiler  :   %s' % CC
+            print 'Arithmetic:     %s' % ARITH
+            print 'Prefix:         %s' % PREFIX
+            print '64-bit:         %s' % is64()
 
 def mk_install(out):
     out.write('install:\n')
@@ -883,7 +1148,7 @@ def mk_uninstall(out):
 # Generate the Z3 makefile
 def mk_makefile():
     mk_dir(BUILD_DIR)
-    cp_config_mk()
+    mk_config()
     if VERBOSE:
         print "Writing %s/Makefile" % BUILD_DIR
     out = open('%s/Makefile' % BUILD_DIR, 'w')
