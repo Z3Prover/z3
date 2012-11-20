@@ -1,6 +1,11 @@
 *~
 *.pyc
 .z3-trace
+# OCaml generated files
+*.a
+*.cma
+*.cmi
+*.cmxa
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
@@ -14,6 +19,14 @@ src/GRTAGS
 src/GSYMS
 src/GTAGS
 src/HTML/*
+# CSCOPE files
+src/cscope.in.out
+src/cscope.out
+src/cscope.po.out
+ncsope.out
+# CEDET files
+.cproject
+.project
 # Commonly used directories for code
 bld_dbg/*
 bld_rel/*
