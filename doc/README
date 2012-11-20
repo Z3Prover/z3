@@ -1,0 +1,9 @@
+API documentation
+-----------------
+
+To generate the API documentation for the C, .NET and Python APIs, we must execute
+
+   python mk-doc.py
+
+We must have doxygen installed in our system.
+
