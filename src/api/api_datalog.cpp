@@ -449,6 +449,23 @@ extern "C" {
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);
     }
+
+    Z3_ast_vector Z3_API Z3_fixedpoint_get_assertions(
+        Z3_context c,
+        Z3_fixedpoint d)
+    {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_get_assertions(c, d);
+        ast_manager& m = mk_c(c)->m();
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
+        mk_c(c)->save_object(v);
+        unsigned num_asserts = to_fixedpoint_ref(d)->ctx().get_num_assertions();
+        for (unsigned i = 0; i < num_asserts; ++i) {
+            v->m_ast_vector.push_back(to_fixedpoint_ref(d)->ctx().get_assertion(i));
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(0);
+    }
     
     void Z3_API Z3_fixedpoint_set_reduce_assign_callback(
         Z3_context c, Z3_fixedpoint d, Z3_fixedpoint_reduce_assign_callback_fptr f) {

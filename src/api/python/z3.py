@@ -6145,7 +6145,11 @@ class Fixedpoint(Z3PPObject):
     def get_rules(self):
 	"""retrieve rules that have been added to fixedpoint context"""
 	return AstVector(Z3_fixedpoint_get_rules(self.ctx.ref(), self.fixedpoint), self.ctx)
-    
+
+    def get_assertions(self):
+	"""retrieve assertions that have been added to fixedpoint context"""
+	return AstVector(Z3_fixedpoint_get_assertions(self.ctx.ref(), self.fixedpoint), self.ctx)
+
     def __repr__(self):
         """Return a formatted string with all added rules and constraints."""
 	return self.sexpr()

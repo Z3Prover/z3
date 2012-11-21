@@ -5697,6 +5697,15 @@ END_MLAPI_EXCLUDE
         __in Z3_fixedpoint f);
 
     /**
+       \brief Retrieve set of background assertions from fixedpoint context.
+
+       def_API('Z3_fixedpoint_get_assertions', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
+     */
+    Z3_ast_vector Z3_API Z3_fixedpoint_get_assertions(
+        __in Z3_context c,
+        __in Z3_fixedpoint f);
+
+    /**
        \brief Set parameters on fixedpoint context.       
 
        def_API('Z3_fixedpoint_set_params', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(PARAMS)))
