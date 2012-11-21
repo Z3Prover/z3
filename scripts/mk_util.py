@@ -34,6 +34,10 @@ CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
 LDFLAGS=getenv("LDFLAGS", "")
+JAVA=getenv("JAVA", "java")
+JAVAC=getenv("JAVAC", "javac")
+JAVAH=getenv("JAVAH", "javah")
+
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
 PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
@@ -124,10 +128,14 @@ def exec_cmd(cmd):
         # Failed to create process
         return 1
 
+# rm -f fname
+def rmf(fname):
+    if os.path.exists(fname):
+        os.remove(fname)
+
 def exec_compiler_cmd(cmd):
     r = exec_cmd(cmd)
-    if os.path.exists('a.out'):
-        os.remove('a.out')
+    rmf('a.out')
     return r
 
 def test_cxx_compiler(cc):
@@ -152,7 +160,40 @@ def test_gmp(cc):
     t = TempFile('tst.cpp')
     t.add('#include<gmp.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
     t.commit()
-    return exec_cmd([cc, CPPFLAGS, CXXFLAGS, 'tst.cpp', LDFLAGS, '-lgmp']) == 0
+    return exec_compiler_cmd([cc, CPPFLAGS, CXXFLAGS, 'tst.cpp', LDFLAGS, '-lgmp']) == 0
+
+def check_java():
+    t = TempFile('Hello.java')
+    t.add('public class Hello { public static void main(String[] args) { System.out.println("Hello, World"); }}\n')
+    t.commit()
+    if is_verbose():
+        print "Testing %s..." % JAVAC
+    r = exec_cmd([JAVAC, 'Hello.java'])
+    if r != 0:
+        raise MKException('Failed testing Java compiler. Set environment variable JAVAC with the path to the Java compiler')
+    if is_verbose():
+        print "Testing %s..." % JAVA
+    r = exec_cmd([JAVA, 'Hello'])
+    rmf('Hello.class')
+    if r != 0:
+        raise MKException('Failed testing Java program. Set environment variable JAVA with the path to the Java virtual machine')
+    t2 = TempFile('Z3Native.java')
+    t2.add('public final class Z3Native { public static native long mkConfig(); }\n')
+    t2.commit()
+    if is_verbose():
+        print "Testing %s (for JNI)..." % JAVAC
+    r = exec_cmd([JAVAC, 'Z3Native.java'])
+    if r != 0:
+        raise MKException('Failed testing Java compiler (for source containing JNI bindings). Set environment variable JAVAC with the path to the Java compiler')
+    if is_verbose():
+        print "Testing %s..." % JAVAH
+    r = exec_cmd([JAVAH, 'Z3Native'])
+    if not os.path.exists('Z3Native.h'):
+        r = 1
+    rmf('Z3Native.h')
+    rmf('Z3Native.class')
+    if r != 0:
+        raise MKException('Failed testing Java JNI Header file generator. Set environment variable JAVAH with the path to the Java JNI header file generator')
 
 def is64():
     return sys.maxsize >= 2**32
@@ -247,83 +288,91 @@ if os.name == 'nt':
     # Enable .Net bindings by default on windows
     DOTNET_ENABLED=True
 
-def display_help():
+def display_help(exit_code):
     print "mk_make.py: Z3 Makefile generator\n"
     print "This script generates the Makefile for the Z3 theorem prover."
     print "It must be executed from the Z3 root directory."
     print "\nOptions:"
     print "  -h, --help                    display this message."
-    if not IS_WINDOWS:
-        print "  -p, --prefix                  installation prefix (default: %s)." % PREFIX
-        print "  -g, --gmp                     use GMP."
     print "  -s, --silent                  do not print verbose messages."
+    if not IS_WINDOWS:
+        print "  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
-    print "  -x, --x64                     create 64 binary when using Visual Studio."
-    print "  -m, --makefiles               generate only makefiles."
-    print "  -c, --showcpp                 display file .cpp file names before invoking compiler."
-    print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
-    print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
+    if IS_WINDOWS:
+        print "  -x, --x64                     create 64 binary when using Visual Studio."
+    print "  -m, --makefiles               generate only makefiles."
+    if IS_WINDOWS:
+        print "  -v, --vsproj                  generate Visual Studio Project Files."
+    if IS_WINDOWS:
+        print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
     print "  -j, --java                    generate Java bindinds."
     print "  --staticlib                   build Z3 static library."
-    exit(0)
+    if not IS_WINDOWS:
+        print "  -g, --gmp                     use GMP."
+    if not IS_WINDOWS:
+        print ""
+        print "Some influential environment variables:"
+        print "  CXX        C++ compiler"
+        print "  CC         C compiler (only used for compiling examples)"
+        print "  LDFLAGS    Linker flags, e.g., -L<lib dir> if you have libraries in a non-standard directory"
+        print "  CPPFLAGS   Preprocessor flags, e.g., -I<include dir> if you have header files in a non-standard directory"
+        print "  CXXFLAGS   C++ compiler flags"
+        print "  JAVA       Java virtual machine (only relevant if -j or --java option is provided)"
+        print "  JAVAC      Java compiler (only relevant if -j or --java option is provided)"
+        print "  JAVAH      Java H file generator for JNI bindinds (only relevant if -j or --java option is provided)"
+    exit(exit_code)
 
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
     global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtnp:gj', ['build=', 
-                                                                             'debug',
-                                                                             'silent',
-                                                                             'x64',
-                                                                             'help',
-                                                                             'makefiles',
-                                                                             'showcpp',
-                                                                             'vsproj',
-                                                                             'trace',
-                                                                             'nodotnet',
-                                                                             'staticlib',
-                                                                             'prefix=',
-                                                                             'gmp',
-                                                                             'java'
-                                                                             ])
-    for opt, arg in options:
-        if opt in ('-b', '--build'):
-            if arg == 'src':
-                raise MKException('The src directory should not be used to host the Makefile')
-            set_build_dir(arg)
-        elif opt in ('-s', '--silent'):
-            VERBOSE = False
-        elif opt in ('-d', '--debug'):
-            DEBUG_MODE = True
-        elif opt in ('-x', '--x64'):
-            if not IS_WINDOWS:
-                raise MKException('x64 compilation mode can only be specified when using Visual Studio')
-            VS_X64 = True
-        elif opt in ('-h', '--help'):
-            display_help()
-        elif opt in ('-m', '--onlymakefiles'):
-            ONLY_MAKEFILES = True
-        elif opt in ('-c', '--showcpp'):
-            SHOW_CPPS = True
-        elif opt in ('-v', '--vsproj'):
-            VS_PROJ = True
-        elif opt in ('-t', '--trace'):
-            TRACE = True
-        elif opt in ('-n', '--nodotnet'):
-            DOTNET_ENABLED = False
-        elif opt in ('--staticlib'):
-            STATIC_LIB = True
-        elif opt in ('-p', '--prefix'):
-            PREFIX = arg
-        elif opt in ('-g', '--gmp'):
-            GMP = True
-        elif opt in ('-j', '--java'):
-            JAVA_ENABLED = True
-        else:
-            raise MKException("Invalid command line option '%s'" % opt)
-        
+    try:
+        options, remainder = getopt.gnu_getopt(sys.argv[1:], 
+                                               'b:dsxhmcvtnp:gj', 
+                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java'])
+        for opt, arg in options:
+            if opt in ('-b', '--build'):
+                if arg == 'src':
+                    raise MKException('The src directory should not be used to host the Makefile')
+                set_build_dir(arg)
+            elif opt in ('-s', '--silent'):
+                VERBOSE = False
+            elif opt in ('-d', '--debug'):
+                DEBUG_MODE = True
+            elif opt in ('-x', '--x64'):
+                if not IS_WINDOWS:
+                    raise MKException('x64 compilation mode can only be specified when using Visual Studio')
+                VS_X64 = True
+            elif opt in ('-h', '--help'):
+                display_help(0)
+            elif opt in ('-m', '--onlymakefiles'):
+                ONLY_MAKEFILES = True
+            elif opt in ('-c', '--showcpp'):
+                SHOW_CPPS = True
+            elif opt in ('-v', '--vsproj'):
+                VS_PROJ = True
+            elif opt in ('-t', '--trace'):
+                TRACE = True
+            elif opt in ('-n', '--nodotnet'):
+                DOTNET_ENABLED = False
+            elif opt in ('--staticlib'):
+                STATIC_LIB = True
+            elif opt in ('-p', '--prefix'):
+                PREFIX = arg
+            elif opt in ('-g', '--gmp'):
+                GMP = True
+            elif opt in ('-j', '--java'):
+                JAVA_ENABLED = True
+            else:
+                print "ERROR: Invalid command line option '%s'" % opt
+                display_help(1)
+    except:
+        print "ERROR: Invalid command line option"
+        display_help(1)
+
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):
@@ -1152,6 +1201,10 @@ def mk_config():
             print 'Arithmetic:     %s' % ARITH
             print 'Prefix:         %s' % PREFIX
             print '64-bit:         %s' % is64()
+            if is_java_enabled():
+                print 'Java Compiler:  %s' % JAVAC
+                print 'Java VM:        %s' % JAVA
+                print 'Java H gen.:    %s' % JAVAH
 
 def mk_install(out):
     out.write('install:\n')
@@ -1511,6 +1564,8 @@ def mk_bindings(api_files):
             new_api_files.append('%s/%s' % (api_file_path.src_dir, api_file))
         g = {}
         g["API_FILES"] = new_api_files
+        if is_java_enabled():
+            check_java()
         execfile('scripts/update_api.py', g) # HACK
         cp_z3pyc_to_build()
                           
