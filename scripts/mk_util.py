@@ -59,6 +59,7 @@ Z3PY_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 DOTNET_ENABLED=False
+JAVA_ENABLED=False
 STATIC_LIB=False
 VER_MAJOR=None
 VER_MINOR=None
@@ -264,26 +265,29 @@ def display_help():
     print "  -v, --vsproj                  generate Visual Studio Project Files."
     print "  -t, --trace                   enable tracing in release mode."
     print "  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules."
+    print "  -j, --java                    generate Java bindinds."
     print "  --staticlib                   build Z3 static library."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, DOTNET_ENABLED, STATIC_LIB, PREFIX, GMP
-    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtnp:g', ['build=', 
-                                                                            'debug',
-                                                                            'silent',
-                                                                            'x64',
-                                                                            'help',
-                                                                            'makefiles',
-                                                                            'showcpp',
-                                                                            'vsproj',
-                                                                            'trace',
-                                                                            'nodotnet',
-                                                                            'staticlib',
-                                                                            'prefix=',
-                                                                            'gmp'
-                                                                            ])
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP
+    options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:dsxhmcvtnp:gj', ['build=', 
+                                                                             'debug',
+                                                                             'silent',
+                                                                             'x64',
+                                                                             'help',
+                                                                             'makefiles',
+                                                                             'showcpp',
+                                                                             'vsproj',
+                                                                             'trace',
+                                                                             'nodotnet',
+                                                                             'staticlib',
+                                                                             'prefix=',
+                                                                             'gmp',
+                                                                             'java'
+                                                                             ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':
@@ -315,6 +319,8 @@ def parse_options():
             PREFIX = arg
         elif opt in ('-g', '--gmp'):
             GMP = True
+        elif opt in ('-j', '--java'):
+            JAVA_ENABLED = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
         
@@ -395,6 +401,9 @@ def get_z3py_dir():
 # Return true if in verbose mode
 def is_verbose():
     return VERBOSE
+
+def is_java_enabled():
+    return JAVA_ENABLED
 
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
@@ -832,6 +841,21 @@ class DotNetDLLComponent(Component):
             shutil.copy('%s/%s.dll' % (build_path, self.dll_name),
                         '%s/bin/%s.dll' % (dist_path, self.dll_name))
 
+
+class JavaDLLComponent(Component):
+    def __init__(self, name, dll_name, path, deps):
+        Component.__init__(self, name, path, deps)
+        if dll_name == None:
+            dll_name = name
+        self.dll_name          = dll_name
+
+    def mk_makefile(self, out):
+        return
+    
+    def main_component(self):
+        return JAVA_ENABLED
+
+
 class ExampleComponent(Component):
     def __init__(self, name, path):
         Component.__init__(self, name, path, [])
@@ -963,6 +987,10 @@ def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=
 
 def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None):
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
+    reg_component(name, c)
+
+def add_java_dll(name, deps=[], path=None, dll_name=None):
+    c = JavaDLLComponent(name, dll_name, path, deps)
     reg_component(name, c)
 
 def add_cpp_example(name, path=None):

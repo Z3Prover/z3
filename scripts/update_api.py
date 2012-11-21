@@ -132,6 +132,11 @@ Type2Dotnet = { VOID : 'void', VOID_PTR : 'IntPtr', INT : 'int', UINT : 'uint', 
                 STRING : 'string', STRING_PTR : 'byte**', BOOL : 'int', SYMBOL : 'IntPtr',
                 PRINT_MODE : 'uint', ERROR_CODE : 'uint' }
 
+# Mapping to Java types
+Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
+              STRING : 'String', STRING_PTR : 'StringPtr', 
+              BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int' }
+
 next_type_id = FIRST_OBJ_ID
 
 def def_Type(var, c_type, py_type):
@@ -164,6 +169,13 @@ def type2pystr(ty):
 def type2dotnet(ty):
     global Type2Dotnet
     return Type2Dotnet[ty]
+
+def type2java(ty):
+    global Type2Java
+    if (ty >= FIRST_OBJ_ID):
+        return 'long'
+    else:
+        return Type2Java[ty]
 
 def _in(ty):
     return (IN, ty);
@@ -223,6 +235,20 @@ def param2dotnet(p):
         return "[Out] %s[]" % type2dotnet(param_type(p))
     else:
         return type2dotnet(param_type(p))
+
+def param2java(p):
+    k = param_kind(p)
+    if k == OUT:
+        if param_type(p) == INT or param_type(p) == UINT:
+            return "IntPtr"
+        elif param_type(p) == INT64 or param_type(p) == UINT64:
+            return "LongPtr"
+        else:
+            return "long" # ? 
+    if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+        return "%s[]" % type2java(param_type(p))
+    else:
+        return type2java(param_type(p))
 
 def param2pystr(p):
     if param_kind(p) == IN_ARRAY or param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT:
@@ -398,6 +424,48 @@ def mk_dotnet_wrappers():
         dotnet.write("        }\n\n")
     dotnet.write("    }\n\n")
     dotnet.write("}\n\n")
+
+def java_method_name(name):
+    result = ''
+    name = name[3:] # Remove Z3_
+    n = len(name)
+    i = 0
+    while i < n:
+        if name[i] == '_':
+            i = i + 1
+            if i < n:
+                result += name[i].upper()
+        else:
+            result += name[i]
+        i = i + 1
+    return result
+
+def mk_java():
+    if not is_java_enabled():
+        return
+    java_dir      = get_component('java').src_dir
+    java_nativef  = '%s/Z3Native.java' % java_dir
+    java_wrapperf = '%s/Z3Native.c' % java_dir 
+    java_native   = open(java_nativef, 'w')
+    java_native.write('public final class Z3Native {\n')
+    java_native.write('public static class IntPtr { public int value; }\n')
+    java_native.write('public static class LongPtr { public long value; }\n')
+    java_native.write('public static class StringPtr { public String value; }\n')
+    for name, result, params in _dotnet_decls:
+        java_native.write('        public static native %s %s(' % (type2java(result), java_method_name(name)))
+        first = True
+        i = 0;
+        for param in params:
+            if first:
+                first = False
+            else:
+                java_native.write(', ')
+            java_native.write('%s a%d' % (param2java(param), i))
+            i = i + 1
+        java_native.write(');\n')
+    java_native.write('}\n');
+    if is_verbose():
+        print "Generated '%s'" % java_nativef
 
 def mk_log_header(file, name, params):
     file.write("void log_%s(" % name)
@@ -668,6 +736,7 @@ mk_bindings()
 mk_py_wrappers()
 mk_dotnet()
 mk_dotnet_wrappers()
+mk_java()
 
 log_h.close()
 log_c.close()
