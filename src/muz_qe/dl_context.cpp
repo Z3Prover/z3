@@ -1523,7 +1523,7 @@ namespace datalog {
         switch(get_engine()) {
         case DATALOG_ENGINE:            
             return false;
-        case PDR_ENGINE: 
+        case QPDR_ENGINE: 
             ensure_pdr();
             m_pdr->display_certificate(out);
             return true;

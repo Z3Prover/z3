@@ -194,6 +194,7 @@ namespace datalog {
         }
     }
 
+    // TBD: replace by r.has_quantifiers() and test
     bool mk_rule_inliner::has_quantifier(rule const& r) const {
         unsigned utsz = r.get_uninterpreted_tail_size();
         for (unsigned i = utsz; i < r.get_tail_size(); ++i) {
