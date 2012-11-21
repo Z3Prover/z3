@@ -5535,7 +5535,7 @@ END_MLAPI_EXCLUDE
        of sorts in the domain of \c r. Each sort in the domain should be an integral
       (bit-vector, Boolean or or finite domain sort).
 
-       The call has the same effect as adding a rule where \r is applied to the arguments.
+       The call has the same effect as adding a rule where \c r is applied to the arguments.
 
        def_API('Z3_fixedpoint_add_fact', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(UINT), _in_array(3, UINT)))
     */
@@ -5693,6 +5693,15 @@ END_MLAPI_EXCLUDE
        def_API('Z3_fixedpoint_get_rules', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
      */
     Z3_ast_vector Z3_API Z3_fixedpoint_get_rules(
+        __in Z3_context c,
+        __in Z3_fixedpoint f);
+
+    /**
+       \brief Retrieve set of background assertions from fixedpoint context.
+
+       def_API('Z3_fixedpoint_get_assertions', AST_VECTOR, (_in(CONTEXT),_in(FIXEDPOINT)))
+     */
+    Z3_ast_vector Z3_API Z3_fixedpoint_get_assertions(
         __in Z3_context c,
         __in Z3_fixedpoint f);
 

@@ -306,7 +306,7 @@ cmd_context::cmd_context(front_end_params * params, bool main_ctx, ast_manager *
     m_params_owner(params == 0),
     m_logic(l),
     m_interactive_mode(false),
-    m_global_decls(!this->params().m_smtlib2_compliant), // SMTLIB 2.0 uses scoped decls.
+    m_global_decls(false),  // :global-decls is false by default.
     m_print_success(false), // params.m_smtlib2_compliant), 
     m_random_seed(0),
     m_produce_unsat_cores(false),
@@ -477,7 +477,8 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_UFBV" ||
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
-        s == "QF_BVRE";
+        s == "QF_BVRE" ||
+        s == "HORN";
 }
 
 bool cmd_context::logic_has_horn(symbol const& s) const {
@@ -518,7 +519,8 @@ bool cmd_context::logic_has_array_core(symbol const & s) const {
         s == "AUFBV" || 
         s == "ABV" || 
         s == "QF_ABV" ||
-        s == "QF_AUFBV";
+        s == "QF_AUFBV" ||
+        s == "HORN";
 }
 
 bool cmd_context::logic_has_array() const {

@@ -5,6 +5,15 @@ Version 4.3.2
 
 - Added get_version() and get_version_string() to Z3Py
 
+- Added support for FreeBSD. Z3 can be compiled on FreeBSD using g++. 
+
+- Reverted to `(set-option :global-decls false)` as the default. In Z3 4.3.0 and Z3 4.3.1, this option was set to true.
+  Thanks to Julien Henry for reporting this problem.
+
+- Added `doc` directory and scripts for automatically generating the API documentation.
+
+- Removed 'autoconf' dependency. We do not need to execute 'autoconf' and './configure' anymore to build Z3.
+
 Version 4.3.1
 =============
 

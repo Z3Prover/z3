@@ -238,6 +238,7 @@ namespace datalog {
         m_pinned(m),
         m_vars(m),
         m_rule_set(*this),
+        m_rule_fmls(m),
         m_background(m),
         m_closed(false),
         m_saturation_was_run(false),
@@ -521,10 +522,19 @@ namespace datalog {
     }
 
     void context::add_rule(expr* rl, symbol const& name) {
+        m_rule_fmls.push_back(rl);
+        m_rule_names.push_back(name);
+    }
+
+    void context::flush_add_rules() {
         datalog::rule_manager& rm = get_rule_manager();
         datalog::rule_ref_vector rules(rm);
-        rm.mk_rule(rl, rules, name);
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            rm.mk_rule(m_rule_fmls[i].get(), rules, m_rule_names[i]);
+        }
         add_rules(rules);
+        m_rule_fmls.reset();
+        m_rule_names.reset();
     }
 
     //
@@ -1223,6 +1233,7 @@ namespace datalog {
     }
 
     void context::new_query() {
+        flush_add_rules();
         if (m_last_result_relation) {
             m_last_result_relation->deallocate();
             m_last_result_relation = 0;
@@ -1512,7 +1523,7 @@ namespace datalog {
         switch(get_engine()) {
         case DATALOG_ENGINE:            
             return false;
-        case PDR_ENGINE: 
+        case QPDR_ENGINE: 
             ensure_pdr();
             m_pdr->display_certificate(out);
             return true;
@@ -1618,6 +1629,10 @@ namespace datalog {
                 names.push_back((*it)->name());
             }
         }
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            rules.push_back(m_rule_fmls[i].get());
+            names.push_back(m_rule_names[i]);
+        }
 
         smt2_pp_environment_dbg env(m);
         pp_params params;
@@ -1674,8 +1689,11 @@ namespace datalog {
             declare_vars(rules, fresh_names, out);
         }
 
+        if (num_axioms > 0 && !use_fixedpoint_extensions) {
+            throw default_exception("Background axioms cannot be used with SMT-LIB2 HORN format");
+        }
+
         for (unsigned i = 0; i < num_axioms; ++i) {
-            SASSERT(use_fixedpoint_extensions);
             out << "(assert ";
             ast_smt2_pp(out, axioms[i], env, params);
             out << ")\n";
@@ -1683,7 +1701,8 @@ namespace datalog {
         for (unsigned i = 0; i < rules.size(); ++i) {            
             out << (use_fixedpoint_extensions?"(rule ":"(assert ");
             expr* r = rules[i].get();
-            if (symbol::null != names[i]) {
+            symbol nm = names[i];
+            if (symbol::null != nm) {
                 out << "(! ";
             }
             if (use_fixedpoint_extensions) {
@@ -1692,8 +1711,14 @@ namespace datalog {
             else {
                 out << mk_smt_pp(r, m);
             }
-            if (symbol::null != names[i]) {
-                out << " :named " << names[i] << ")";
+            if (symbol::null != nm) {
+                while (fresh_names.contains(nm)) {
+                    std::ostringstream s;
+                    s << nm << "!";
+                    nm = symbol(s.str().c_str());                    
+                }
+                fresh_names.add(nm);
+                out << " :named " << nm << ")";
             }
             out << ")\n";
         }

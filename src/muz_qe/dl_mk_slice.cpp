@@ -818,6 +818,11 @@ namespace datalog {
     }
 
     rule_set * mk_slice::operator()(rule_set const & src, model_converter_ref& mc, proof_converter_ref& pc) {        
+        for (unsigned i = 0; i < src.get_num_rules(); ++i) {
+            if (src.get_rule(i)->has_quantifiers()) {
+                return 0;
+            }
+        }
         ref<slice_proof_converter> spc;
         ref<slice_model_converter> smc;
         if (pc) {

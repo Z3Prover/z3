@@ -315,7 +315,7 @@ private:
         if (m_params.get_bool(":print-certificate", false)) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             if (!dlctx.display_certificate(ctx.regular_stream())) {
-                throw cmd_exception("certificates are not supported for selected DL_ENGINE");
+                throw cmd_exception("certificates are not supported for the selected engine");
             }
             ctx.regular_stream() << "\n";
         }

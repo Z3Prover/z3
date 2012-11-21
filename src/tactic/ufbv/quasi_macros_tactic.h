@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_quasi_macros_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("quasi-macros",  "Identifies and applies quasi-macros.", "mk_quasi_macros_tactic(m, p)")
+*/
+
 #endif

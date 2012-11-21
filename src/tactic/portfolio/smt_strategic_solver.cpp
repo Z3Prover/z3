@@ -33,7 +33,7 @@ Notes:
 #include"default_tactic.h"
 #include"ufbv_tactic.h"
 #include"qffpa_tactic.h"
-#include"pdr_tactic.h"
+#include"horn_tactic.h"
 #include"smt_solver.h"
 
 MK_SIMPLE_TACTIC_FACTORY(qfuf_fct, mk_qfuf_tactic(m, p));
@@ -55,7 +55,7 @@ MK_SIMPLE_TACTIC_FACTORY(qfnia_fct, mk_qfnia_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qfnra_fct, mk_qfnra_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(qffpa_fct, mk_qffpa_tactic(m, p));
 MK_SIMPLE_TACTIC_FACTORY(ufbv_fct, mk_ufbv_tactic(m, p));
-MK_SIMPLE_TACTIC_FACTORY(horn_fct, mk_pdr_tactic(m, p));
+MK_SIMPLE_TACTIC_FACTORY(horn_fct, mk_horn_tactic(m, p));
 
 static void init(strategic_solver * s) {
     s->set_default_tactic(alloc(default_fct));

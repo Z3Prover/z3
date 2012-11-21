@@ -3,7 +3,7 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    pdr_tactic.h
+    horn_tactic.h
 
 Abstract:
 
@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#ifndef _PDR_TACTIC_H_
-#define _PDR_TACTIC_H_
+#ifndef _HORN_TACTIC_H_
+#define _HORN_TACTIC_H_
 
 #include"params.h"
 class ast_manager;
 class tactic;
 
-tactic * mk_pdr_tactic(ast_manager & m, params_ref const & p = params_ref());
+tactic * mk_horn_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
-  ADD_TACTIC("pdr", "apply pdr for horn clauses.", "mk_pdr_tactic(m, p)")
+  ADD_TACTIC("horn", "apply tactic for horn clauses.", "mk_horn_tactic(m, p)")
 */
 #endif
