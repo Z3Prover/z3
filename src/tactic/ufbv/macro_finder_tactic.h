@@ -25,4 +25,8 @@ class tactic;
 
 tactic * mk_macro_finder_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+/*
+  ADD_TACTIC("macro-finder",  "Identifies and applies macros.", "mk_macro_finder_tactic(m, p)")
+*/
+
 #endif
