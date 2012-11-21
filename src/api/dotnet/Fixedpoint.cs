@@ -278,6 +278,23 @@ namespace Microsoft.Z3
             }
         }
 
+        /// <summary>
+        /// Retrieve set of assertions added to fixedpoint context.
+        /// </summary>                
+        public BoolExpr[] Assertions {
+            get
+            {
+                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
+
+                ASTVector v = new ASTVector(Context, Native.Z3_fixedpoint_get_assertions(Context.nCtx, NativeObject));
+                uint n = v.Size;
+                BoolExpr[] res = new BoolExpr[n];
+                for (uint i = 0; i < n; i++)
+                    res[i] = new BoolExpr(Context, v[i].NativeObject);
+                return res;
+            }
+        }
+
 
         #region Internal
         internal Fixedpoint(Context ctx, IntPtr obj)

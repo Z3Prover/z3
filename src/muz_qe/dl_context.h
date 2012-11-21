@@ -261,6 +261,8 @@ namespace datalog {
         
         void assert_expr(expr* e);
         expr_ref get_background_assertion();
+        unsigned get_num_assertions() { return m_background.size(); }
+        expr*    get_assertion(unsigned i) const { return m_background[i]; }
 
         /**
            Method exposed from API for adding rules.
