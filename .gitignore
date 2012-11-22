@@ -49,3 +49,5 @@ src/api/python/z3consts.py
 src/api/python/z3core.py
 src/ast/pattern/database.h
 src/util/version.h
+src/api/java/Z3Native.c
+src/api/java/Z3Native.java
