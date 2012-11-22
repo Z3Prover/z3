@@ -73,6 +73,9 @@ PREFIX='/usr'
 GMP=False
 JAVA_HOME=None
 
+def unix_path2dos(path):
+    return string.join(path.split('/'), '\\')
+
 def which(program):
     import os
     def is_exe(fpath):
@@ -331,16 +334,16 @@ def display_help(exit_code):
     print "  --staticlib                   build Z3 static library."
     if not IS_WINDOWS:
         print "  -g, --gmp                     use GMP."
+    print ""
+    print "Some influential environment variables:"
     if not IS_WINDOWS:
-        print ""
-        print "Some influential environment variables:"
         print "  CXX        C++ compiler"
         print "  CC         C compiler"
         print "  LDFLAGS    Linker flags, e.g., -L<lib dir> if you have libraries in a non-standard directory"
         print "  CPPFLAGS   Preprocessor flags, e.g., -I<include dir> if you have header files in a non-standard directory"
         print "  CXXFLAGS   C++ compiler flags"
-        print "  JAVA       Java virtual machine (only relevant if -j or --java option is provided)"
-        print "  JAVAC      Java compiler (only relevant if -j or --java option is provided)"
+    print "  JAVA       Java virtual machine (only relevant if -j or --java option is provided)"
+    print "  JAVAC      Java compiler (only relevant if -j or --java option is provided)"
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -922,8 +925,11 @@ class JavaDLLComponent(Component):
             dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('%s: %s/Z3Native.java %s$(SO_EXT)\n' % (dllfile, self.to_src_dir, get_component('api_dll').dll_name))
             out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
-            out.write('\tmv %s/*.class .\n' % self.to_src_dir)
-            out.write('\t$(CC) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I%s/include -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
+            if IS_WINDOWS:
+                out.write('\tmove %s\\*.class .\n' % unix_path2dos(self.to_src_dir))
+            else:
+                out.write('\tmv %s/*.class .\n' % self.to_src_dir)
+            out.write('\t$(CC) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
             out.write('\t$(CC) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
             out.write('%s: %s\n\n' % (self.name, dllfile))
     
