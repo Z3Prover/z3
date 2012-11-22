@@ -352,11 +352,12 @@ namespace datalog {
                 svector<symbol> names;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
                     if (!sorts[i]) {
-                        sorts[i] = m.mk_bool_sort();
+                        sorts[i] = vars[i]->get_decl()->get_range();
                     }
-                    names.push_back(symbol(i));
+                    names.push_back(vars[i]->get_decl()->get_name());
                 }
                 quantifier_ref q(m);
+                sorts.reverse();
                 q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
                 elim_unused_vars(m, q, result);
             }
@@ -1602,11 +1603,27 @@ namespace datalog {
         for (unsigned i = 0; i < sz; ++i) {
             expr* e = exprs[i];
             for_each_expr(v, visited, e);
-            while (is_quantifier(e)) e = to_quantifier(e)->get_expr();
+            while (is_quantifier(e)) {
+                e = to_quantifier(e)->get_expr();
+            }
             fresh_names.add(e);
         }
     }
-    
+   
+    void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
+        expr_ref fml(m);
+        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
+        for (; it != end; ++it) {
+            (*it)->to_formula(fml);
+            rules.push_back(fml);
+            names.push_back((*it)->name());
+        }
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            rules.push_back(m_rule_fmls[i].get());
+            names.push_back(m_rule_names[i]);
+        }
+    }
+ 
     void context::display_smt2(
         unsigned num_queries, 
         expr* const* queries, 
@@ -1621,18 +1638,8 @@ namespace datalog {
         expr_ref_vector rules(m);
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
-        {
-            rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-            for (; it != end; ++it) {
-                (*it)->to_formula(fml);
-                rules.push_back(fml);
-                names.push_back((*it)->name());
-            }
-        }
-        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-            rules.push_back(m_rule_fmls[i].get());
-            names.push_back(m_rule_names[i]);
-        }
+
+        get_rules_as_formulas(rules, names);
 
         smt2_pp_environment_dbg env(m);
         pp_params params;

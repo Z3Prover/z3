@@ -363,6 +363,12 @@ extern "C" {
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
         }
+        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
+        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
+        for (; it != end; ++it) {
+            to_fixedpoint_ref(d)->ctx().assert_expr(*it);
+        }
+
         return of_ast_vector(v);
     }
 
@@ -439,12 +445,12 @@ extern "C" {
         ast_manager& m = mk_c(c)->m();
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, m);
         mk_c(c)->save_object(v);
-        datalog::rule_set const& rules = to_fixedpoint_ref(d)->ctx().get_rules();
-        datalog::rule_set::iterator it = rules.begin(), end = rules.end();
-        for (; it != end; ++it) {
-            expr_ref fml(m);
-            (*it)->to_formula(fml);
-            v->m_ast_vector.push_back(fml);
+        expr_ref_vector rules(m);
+        svector<symbol> names;
+        
+        to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, names);
+        for (unsigned i = 0; i < rules.size(); ++i) {
+            v->m_ast_vector.push_back(rules[i].get());
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(0);

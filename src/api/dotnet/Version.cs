@@ -22,77 +22,77 @@ using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
-  /// <summary>
-  /// Version information.
-  /// </summary>
-  /// <remarks>Note that this class is static.</remarks>
+    /// <summary>
+    /// Version information.
+    /// </summary>
+    /// <remarks>Note that this class is static.</remarks>
     [ContractVerification(true)]
     public static class Version
-  {
-    static Version() { }
-
-    /// <summary>
-    /// The major version
-    /// </summary>
-    public static uint Major
     {
-      get
-      {
-        uint major = 0, minor = 0, build = 0, revision = 0;
-        Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
-        return major;
-      }
-    }
+        static Version() { }
 
-    /// <summary>
-    /// The minor version
-    /// </summary>
-    public static uint Minor
-    {
-      get
-      {
-        uint major = 0, minor = 0, build = 0, revision = 0;
-        Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
-        return minor;
-      }
-    }
+        /// <summary>
+        /// The major version
+        /// </summary>
+        public static uint Major
+        {
+            get
+            {
+                uint major = 0, minor = 0, build = 0, revision = 0;
+                Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
+                return major;
+            }
+        }
 
-    /// <summary>
-    /// The build version
-    /// </summary>
-    public static uint Build
-    {
-      get
-      {
-        uint major = 0, minor = 0, build = 0, revision = 0;
-        Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
-        return build;
-      }
-    }
+        /// <summary>
+        /// The minor version
+        /// </summary>
+        public static uint Minor
+        {
+            get
+            {
+                uint major = 0, minor = 0, build = 0, revision = 0;
+                Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
+                return minor;
+            }
+        }
 
-    /// <summary>
-    /// The revision
-    /// </summary>
-    public static uint Revision
-    {
-      get
-      {
-        uint major = 0, minor = 0, build = 0, revision = 0;
-        Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
-        return revision;
-      }
-    }
+        /// <summary>
+        /// The build version
+        /// </summary>
+        public static uint Build
+        {
+            get
+            {
+                uint major = 0, minor = 0, build = 0, revision = 0;
+                Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
+                return build;
+            }
+        }
 
-    /// <summary>
-    /// A string representation of the version information.
-    /// </summary>
-    new public static string ToString()
-    {
-        Contract.Ensures(Contract.Result<string>() != null);
+        /// <summary>
+        /// The revision
+        /// </summary>
+        public static uint Revision
+        {
+            get
+            {
+                uint major = 0, minor = 0, build = 0, revision = 0;
+                Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
+                return revision;
+            }
+        }
 
-      uint major = 0, minor = 0, build = 0, revision = 0;
-      Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
-      return major.ToString() + "." + minor.ToString() + "." + build.ToString() + "." + revision.ToString();
+        /// <summary>
+        /// A string representation of the version information.
+        /// </summary>
+        new public static string ToString()
+        {
+            Contract.Ensures(Contract.Result<string>() != null);
+
+            uint major = 0, minor = 0, build = 0, revision = 0;
+            Native.Z3_get_version(ref major, ref minor, ref build, ref revision);
+            return major.ToString() + "." + minor.ToString() + "." + build.ToString() + "." + revision.ToString();
+        }
     }
-  }
 }
