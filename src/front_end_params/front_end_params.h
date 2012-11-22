@@ -41,7 +41,6 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
                            {
     ref<param_vector>   m_param_vector;
     engine              m_engine;
-    unsigned            m_max_num_cex; // maximum number of counterexamples
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
     bool                m_default_qid;
@@ -76,7 +75,6 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
     front_end_params():
         m_param_vector(alloc(param_vector, this)),
         m_engine(ENG_SMT),
-        m_max_num_cex(1),
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_default_qid(false),
