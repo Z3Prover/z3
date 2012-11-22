@@ -22,16 +22,13 @@ Revision History:
 #include"ini_file.h"
 
 struct bit_blaster_params {
-    bool  m_bb_eager;
     bool  m_bb_ext_gates;
     bool  m_bb_quantifiers;
     bit_blaster_params():
-        m_bb_eager(false),
         m_bb_ext_gates(false),
         m_bb_quantifiers(false) {
     }
     void register_params(ini_params & p) {
-        p.register_bool_param("BB_EAGER", m_bb_eager, "eager bit blasting");
         p.register_bool_param("BB_EXT_GATES", m_bb_ext_gates, "use extended gates during bit-blasting");
         p.register_bool_param("BB_QUANTIFIERS", m_bb_quantifiers, "convert bit-vectors to Booleans in quantifiers");
     }
