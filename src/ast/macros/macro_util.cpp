@@ -489,7 +489,6 @@ void macro_util::normalize_expr(app * head, expr * t, expr_ref & norm_t) const {
                   tout << "#" << i << " -> " << mk_pp(var_mapping[i], m_manager) << "\n";
               });
         subst(t, var_mapping.size(), var_mapping.c_ptr(), norm_t);
-        SASSERT(is_well_sorted(m_manager, norm_t));
     }
     else {
         norm_t = t;
