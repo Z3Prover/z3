@@ -531,6 +531,9 @@ def mk_java():
     java_wrapper.write('#include<jni.h>\n')
     java_wrapper.write('#include<stdlib.h>\n')
     java_wrapper.write('#include"z3.h"\n')
+    java_wrapper.write('#ifdef __cplusplus\n')
+    java_wrapper.write('extern "C" {\n')
+    java_wrapper.write('#endif\n')
     for name, result, params in _dotnet_decls:
         java_wrapper.write('JNIEXPORT %s JNICALL Java_Z3Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), java_method_name(name)))
         i = 0;
@@ -619,6 +622,9 @@ def mk_java():
         elif result != VOID:
             java_wrapper.write('  return (%s) result;\n' % type2javaw(result))
         java_wrapper.write('}\n')
+    java_wrapper.write('#ifdef __cplusplus\n')
+    java_wrapper.write('}\n')
+    java_wrapper.write('#endif\n')
     if is_verbose():
         print "Generated '%s'" % java_nativef
 
