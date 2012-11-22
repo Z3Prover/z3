@@ -26,7 +26,7 @@ import string
 
 def getenv(name, default):
     try:
-        return os.environ[name]
+        return os.environ[name].strip(' "\'')
     except:
         return default
 
@@ -37,6 +37,7 @@ CXXFLAGS=getenv("CXXFLAGS", "")
 LDFLAGS=getenv("LDFLAGS", "")
 JAVA=getenv("JAVA", "java")
 JAVAC=getenv("JAVAC", "javac")
+JAVA_HOME=getenv("JAVA_HOME", None)
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -71,7 +72,9 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX='/usr'
 GMP=False
-JAVA_HOME=None
+
+def is_windows():
+   return IS_WINDOWS
 
 def unix_path2dos(path):
     return string.join(path.split('/'), '\\')
@@ -110,20 +113,25 @@ class TempFile:
         try:
             os.remove(self.name)
         except:
-            raise MKException("Failed to eliminate temporary file '%s'" % self.name)
+            pass
 
 def exec_cmd(cmd):
     if isinstance(cmd, str):
         cmd = cmd.split(' ')
     new_cmd = []
+    first = True
     for e in cmd:
-        e  = e.strip(' ')
-        if e != "":
-            se = e.split(' ')
-            if len(se) > 1:
-                new_cmd.extend(se)
-            else:
-                new_cmd.append(e)
+        if first:
+            # Allow spaces in the executable name
+	    first = False
+            new_cmd.append(e)
+        else:
+            if e != "":
+                se = e.split(' ')
+                if len(se) > 1:
+                    new_cmd.extend(se)
+                else:
+                    new_cmd.append(e)
     cmd = new_cmd
     null = open(os.devnull, 'wb')
     try:
@@ -181,18 +189,15 @@ def check_java():
     rmf('Hello.class')
     if r != 0:
         raise MKException('Failed testing Java program. Set environment variable JAVA with the path to the Java virtual machine')
-    t2 = TempFile('Z3Native.java')
-    t2.add('public final class Z3Native { public static native long mkConfig(); }\n')
-    t2.commit()
-    if is_verbose():
-        print "Testing %s (for JNI)..." % JAVAC
-    r = exec_cmd([JAVAC, 'Z3Native.java'])
-    if r != 0:
-        raise MKException('Failed testing Java compiler (for source containing JNI bindings). Set environment variable JAVAC with the path to the Java compiler')
     find_java_home()
 
 def find_java_home():
     global JAVA_HOME
+    if JAVA_HOME != None:
+        if is_verbose():
+            print "Checking jni.h..."
+        if os.path.exists('%s%sinclude%sjni.h' % (JAVA_HOME, os.sep, os.sep)):
+            return
     if is_verbose():
         print "Finding JAVA_HOME..."
     t = TempFile('output')
@@ -208,12 +213,13 @@ def find_java_home():
         m = open_pat.match(line)
         if m:
             # Remove last 3 directives from m.group(1)
+	    print m.group(1)
             tmp  = m.group(1).split(os.sep)
             path = string.join(tmp[:len(tmp) - 3], os.sep)
             if is_verbose():
                 print "Checking jni.h..."
-            if not os.path.exists('%s/include/jni.h' % path):
-                raise MKException("Failed to detect jni.h at '%s/include'" % path)
+            if not os.path.exists('%s%sinclude%sjni.h' % (path, os.sep, os.sep)):
+                raise MKException("Failed to detect jni.h at '%s%sinclude'" % (path, os.sep))
             JAVA_HOME = path
             return
     raise MKException('Failed to find JAVA_HOME')
@@ -344,6 +350,7 @@ def display_help(exit_code):
         print "  CXXFLAGS   C++ compiler flags"
     print "  JAVA       Java virtual machine (only relevant if -j or --java option is provided)"
     print "  JAVAC      Java compiler (only relevant if -j or --java option is provided)"
+    print "  JAVA_HOME  JDK installation directory (only relevant if -j or --java option is provided)"
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -716,9 +723,9 @@ class ExeComponent(Component):
     def require_mem_initializer(self):
         return True
 
-    # All executables are included in the all: rule
+    # All executables (to be installed) are included in the all: rule
     def main_component(self):
-        return True
+        return self.install
 
     def mk_install(self, out):
         if self.install:
@@ -924,13 +931,16 @@ class JavaDLLComponent(Component):
         if is_java_enabled():
             dllfile = '%s$(SO_EXT)' % self.dll_name
             out.write('%s: %s/Z3Native.java %s$(SO_EXT)\n' % (dllfile, self.to_src_dir, get_component('api_dll').dll_name))
-            out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
             if IS_WINDOWS:
+                out.write('\tcd %s && %s Z3Native.java\n' % (unix_path2dos(self.to_src_dir), JAVAC))
                 out.write('\tmove %s\\*.class .\n' % unix_path2dos(self.to_src_dir))
+                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Z3Native.c\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) Z3Native$(OBJ_EXT) libz3.lib\n' % dllfile)
             else:
+                out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
                 out.write('\tmv %s/*.class .\n' % self.to_src_dir)
-            out.write('\t$(CC) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-            out.write('\t$(CC) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
+                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
             out.write('%s: %s\n\n' % (self.name, dllfile))
     
     def main_component(self):
@@ -1146,6 +1156,12 @@ def mk_config():
                     'SLINK_EXTRA_FLAGS=/link /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n')
 
         # End of Windows VS config.mk
+        if is_verbose():
+            print '64-bit:         %s' % is64()
+            if is_java_enabled():
+                print 'Java Home:      %s' % JAVA_HOME
+                print 'Java Compiler:  %s' % JAVAC
+                print 'Java VM:        %s' % JAVA
     else:
         global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
         ARITH = "internal"
