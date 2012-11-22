@@ -25,6 +25,7 @@ Revision History:
 #include "dl_mk_rule_inliner.h"
 #include "dl_rule.h"
 #include "dl_rule_transformer.h"
+#include "dl_mk_extract_quantifiers.h"
 #include "smt2parser.h"
 #include "pdr_context.h"
 #include "pdr_dl_interface.h"
@@ -32,6 +33,7 @@ Revision History:
 #include "dl_mk_slice.h"
 #include "dl_mk_unfold.h"
 #include "dl_mk_coalesce.h"
+#include "pdr_quantifiers.h"
 
 using namespace pdr;
 
@@ -144,6 +146,12 @@ lbool dl_interface::query(expr * query) {
             --num_unfolds;
         }
     }
+    // remove universal quantifiers from body.
+    datalog::mk_extract_quantifiers* extract_quantifiers = alloc(datalog::mk_extract_quantifiers, m_ctx);
+    datalog::rule_transformer extract_q_tr(m_ctx);
+    extract_q_tr.register_plugin(extract_quantifiers);
+    m_ctx.transform_rules(extract_q_tr, mc, pc);
+    
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
     m_pdr_rules.add_rules(m_ctx.get_rules());
@@ -151,6 +159,7 @@ lbool dl_interface::query(expr * query) {
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
 
+    quantifier_model_checker quantifier_mc(*m_context, m, extract_quantifiers->quantifiers(), m_pdr_rules);
 
     m_context->set_proof_converter(pc);
     m_context->set_model_converter(mc);
@@ -163,14 +172,20 @@ lbool dl_interface::query(expr * query) {
         return l_false;
     }
         
+    lbool result;
     while (true) {
-        try {
-            return m_context->solve();
+        result = m_context->solve();
+        if (result == l_true && extract_quantifiers->has_quantifiers()) {
+            if (quantifier_mc.check()) {
+                return l_true;
+            }
+            // else continue
         }
-        catch (pdr::qi& q) {
-            m_context->refine(q, m_pdr_rules);
+        else {
+            return result;
         }
     }
+
 }
 
 expr_ref dl_interface::get_cover_delta(int level, func_decl* pred_orig) {

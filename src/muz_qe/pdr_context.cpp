@@ -65,10 +65,6 @@ namespace pdr {
         m_reachable(pm, pm.get_params()) {}
 
     pred_transformer::~pred_transformer() {
-        qinst_map::iterator it = m_rule2qinst.begin(), end = m_rule2qinst.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
-        }
         rule2inst::iterator it2 = m_rule2inst.begin(), end2 = m_rule2inst.end();
         for (; it2 != end2; ++it2) {
             dealloc(it2->m_value);
@@ -556,7 +552,6 @@ namespace pdr {
         // positions the variables occur are made equivalent with these.
         expr_ref_vector conj(m);
         app_ref_vector& var_reprs = *(alloc(app_ref_vector, m));
-        qinst* qi = 0;
         ptr_vector<app> aux_vars;
                 
         unsigned ut_size = rule.get_uninterpreted_tail_size();
@@ -581,19 +576,6 @@ namespace pdr {
         for (unsigned i = 0; i < tail.size(); ++i) {
             expr_ref tmp(m);
             var_subst(m, false)(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
-            quantifier* q;
-            if (datalog::rule_manager::is_forall(m, tmp, q)) {
-
-                if (!qi) {
-                    qi = alloc(qinst, m);                                      
-                }
-                //
-                // The contract is to instantiate q with 
-                // sufficient witnesses to validate body.
-                //
-                qi->quantifiers.push_back(q);
-                tmp = m.mk_true();
-            }
             conj.push_back(tmp);
             TRACE("pdr", tout << mk_pp(tail[i].get(), m) << "\n" << mk_pp(tmp, m) << "\n";);
             SASSERT(is_ground(tmp));
@@ -607,21 +589,16 @@ namespace pdr {
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
         SASSERT(is_ground(fml));
         if (m.is_false(fml)) {
-            dealloc(qi);
-            qi = 0;
             // no-op.
         }
         else {
-            if (ut_size == 0 && !qi) {
+            if (ut_size == 0) {
                 init = m.mk_or(init, fml);
             }
             transitions.push_back(fml);            
             m.inc_ref(fml);
             m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
-        }
-        if (qi) {
-            m_rule2qinst.insert(&rule, qi);            
         }
         m_rule2inst.insert(&rule,&var_reprs);
         m_rule2vars.insert(&rule, aux_vars);
@@ -1119,7 +1096,6 @@ namespace pdr {
           m_params(params),
           m(m),
           m_context(0),
-          m_quantifier_inst(*this, m),
           m_pm(m_fparams, m_params, m),
           m_query_pred(m),
           m_query(0),
@@ -1491,7 +1467,6 @@ namespace pdr {
             UNREACHABLE();
         }
         catch (model_exception) {        
-            check_quantifiers();
             IF_VERBOSE(1, verbose_stream() << "\n"; m_search.display(verbose_stream()););  
             m_last_result = l_true;
             validate();
@@ -1605,24 +1580,6 @@ namespace pdr {
         }
     }
 
-    //
-    // Check that quantifiers are satisfied in the produced model.
-    // 
-    void context::check_quantifiers() {
-        if (has_quantifiers()) {
-            m_quantifier_inst.model_check(m_search.get_root());
-        }
-    }
-
-    bool context::has_quantifiers() const {
-        decl2rel const& dr = get_pred_transformers();
-        decl2rel::iterator it = dr.begin(), end = dr.end();
-        for (; it != end; ++it) {
-            pred_transformer* pt = it->m_value;
-            if (pt->has_quantifiers()) return true;
-        }
-        return false;
-    }
 
     //
     // Pick a potential counter example state.
@@ -1832,8 +1789,7 @@ namespace pdr {
         for (unsigned i = 0; i < sig_size; ++i) {
             vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
         }
-        ptr_vector<app> aux_vars;
-        pt.get_aux_vars(r, aux_vars);
+        ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
         vars.append(aux_vars.size(), aux_vars.c_ptr());
 
         scoped_ptr<expr_replacer> rep;

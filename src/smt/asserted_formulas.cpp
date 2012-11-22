@@ -40,7 +40,6 @@ Revision History:
 #include"der.h"
 #include"elim_bounds.h"
 #include"warning.h"
-#include"eager_bit_blaster.h"
 #include"bit2int.h"
 #include"distribute_forall.h"
 #include"quasi_macros.h"
@@ -340,13 +339,9 @@ void asserted_formulas::reduce() {
     INVOKE(m_params.m_quasi_macros && has_quantifiers(), apply_quasi_macros());    
     INVOKE(m_params.m_simplify_bit2int, apply_bit2int());
     INVOKE(m_params.m_eliminate_bounds && has_quantifiers(), cheap_quant_fourier_motzkin());
-    INVOKE(!m_params.m_bb_eager && has_quantifiers() && m_params.m_ematching, infer_patterns());
     INVOKE(m_params.m_max_bv_sharing && has_bv(), max_bv_sharing());
     INVOKE(m_params.m_bb_quantifiers, elim_bvs_from_quantifiers());
-    INVOKE(m_params.m_bb_eager, apply_eager_bit_blaster());                     
-    INVOKE(m_params.m_bb_eager && m_params.m_nnf_cnf, nnf_cnf());   // bit-blaster destroys CNF
     INVOKE(m_params.m_bb_quantifiers && m_params.m_der && has_quantifiers(), apply_der()); // bit-vector elimination + bit-blasting creates new opportunities for der.
-    INVOKE(m_params.m_bb_eager && has_quantifiers() && m_params.m_ematching, infer_patterns());
     // temporary HACK: make sure that arith & bv are list-assoc 
     // this may destroy some simplification steps such as max_bv_sharing
     reduce_asserted_formulas(); 
@@ -1433,8 +1428,6 @@ bool asserted_formulas::quant_elim() {
     throw default_exception("QUANT_ELIM option is deprecated, please consider using the 'qe' tactic.");
     return false;
 }
-
-MK_SIMPLIFIER(apply_eager_bit_blaster, eager_bit_blaster functor(m_manager, m_params), "eager_bb", "eager bit blasting", false);
 
 MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate bit-vectors from quantifiers", true);
 

@@ -21,12 +21,9 @@ Revision History:
 void front_end_params::register_params(ini_params & p) {
     p.register_param_vector(m_param_vector.get());
     preprocessor_params::register_params(p);
-    spc_params::register_params(p);
     smt_params::register_params(p);
     parser_params::register_params(p);
     arith_simplifier_params::register_params(p);
-    p.register_int_param("ENGINE", 0, 2, reinterpret_cast<int&>(m_engine), "0: SMT solver, 1: Superposition prover, 2: EPR solver, true");
-    z3_solver_params::register_params(p);
     model_params::register_params(p);
     p.register_bool_param("AT_LABELS_CEX", m_at_labels_cex, 
                           "only use labels that contain '@' when building multiple counterexamples");
@@ -43,7 +40,6 @@ void front_end_params::register_params(ini_params & p) {
     p.register_int_param("PROOF_MODE", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
     p.register_bool_param("TRACE", m_trace, "enable tracing for the Axiom Profiler tool");
     p.register_string_param("TRACE_FILE_NAME", m_trace_file_name, "tracing file name");
-    p.register_bool_param("IGNORE_SETPARAMETER", m_ignore_setparameter, "ignore (SETPARAMETER ...) commands in Simplify format input");
     p.register_bool_param("ASYNC_COMMANDS", m_async_commands, "enable/disable support for asynchronous commands in the Simplify front-end.");
     p.register_bool_param("DISPLAY_CONFIG", m_display_config, "display configuration used by Z3");
 

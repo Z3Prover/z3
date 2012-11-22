@@ -1860,7 +1860,7 @@ BEGIN_MLAPI_EXCLUDE
        \param c logical context.
        \param num_sorts number of datatype sorts.
        \param sort_names names of datatype sorts.
-       \param sorts array of datattype sorts.
+       \param sorts array of datatype sorts.
        \param constructor_lists list of constructors, one list per sort.
 
        def_API('Z3_mk_datatypes', VOID, (_in(CONTEXT), _in(UINT), _in_array(1, SYMBOL), _out_array(1, SORT), _inout_array(1, CONSTRUCTOR_LIST)))

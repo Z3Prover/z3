@@ -280,12 +280,6 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_TRY;
         LOG_Z3_mk_bvsub(c, n1, n2);
         RESET_ERROR_CODE();
-        // TODO: Do we really need this pre_simplifier hack?
-        if (mk_c(c)->fparams().m_pre_simplify_expr) {
-            Z3_ast m1 = Z3_mk_int(c, -1, Z3_get_sort(c, n2));
-            Z3_ast r = Z3_mk_bvadd(c, n1, Z3_mk_bvmul(c, m1, n2));
-            RETURN_Z3(r);
-        }
         MK_BINARY_BODY(Z3_mk_bvsub, mk_c(c)->get_bv_fid(), OP_BSUB, SKIP);
         Z3_CATCH_RETURN(0);
     }
@@ -294,12 +288,6 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_TRY;
         LOG_Z3_mk_bvneg(c, n);
         RESET_ERROR_CODE();
-        // TODO: Do we really need this pre_simplifier hack? 
-        if (mk_c(c)->fparams().m_pre_simplify_expr) {
-            Z3_ast m1 = Z3_mk_int(c, -1, Z3_get_sort(c, n));
-            Z3_ast r  = Z3_mk_bvmul(c, m1, n);
-            RETURN_Z3(r);
-        }
         MK_UNARY_BODY(Z3_mk_bvneg, mk_c(c)->get_bv_fid(), OP_BNEG, SKIP);
         Z3_CATCH_RETURN(0);
     }

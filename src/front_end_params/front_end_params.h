@@ -22,25 +22,16 @@ Revision History:
 #include"ini_file.h"
 #include"ast.h"
 #include"preprocessor_params.h"
-#include"spc_params.h"
 #include"smt_params.h"
 #include"pp_params.h"
 #include"parser_params.h"
 #include"arith_simplifier_params.h"
-#include"z3_solver_params.h"
 #include"model_params.h"
 
-enum engine {
-    ENG_SMT,
-    ENG_SPC,
-    ENG_EPR
-};
-
-struct front_end_params : public preprocessor_params, public spc_params, public smt_params, public parser_params, 
-                          public arith_simplifier_params, public z3_solver_params, public model_params
+struct front_end_params : public preprocessor_params, public smt_params, public parser_params, 
+                          public arith_simplifier_params, public model_params
                            {
     ref<param_vector>   m_param_vector;
-    engine              m_engine;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
     bool                m_default_qid;
@@ -65,7 +56,6 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
     bool                m_trace;
     std::string         m_trace_file_name;
     std::fstream*       m_trace_stream;
-    bool                m_ignore_setparameter;
     bool                m_async_commands;
     bool                m_display_config;
     bool                m_user_theory_preprocess_axioms;
@@ -74,7 +64,6 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
 
     front_end_params():
         m_param_vector(alloc(param_vector, this)),
-        m_engine(ENG_SMT),
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_default_qid(false),
@@ -107,7 +96,6 @@ struct front_end_params : public preprocessor_params, public spc_params, public 
         m_trace(false),
         m_trace_file_name("z3.log"),
         m_trace_stream(NULL),
-        m_ignore_setparameter(false),
         m_async_commands(true),
         m_display_config(false),
         m_user_theory_preprocess_axioms(false),
