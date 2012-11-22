@@ -77,7 +77,6 @@ namespace datalog {
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
         typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
-
         ast_manager &      m;
         front_end_params&  m_fparams;
         params_ref         m_params;

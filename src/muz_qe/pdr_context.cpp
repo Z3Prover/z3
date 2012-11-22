@@ -1140,6 +1140,19 @@ namespace pdr {
                 e->get_data().m_value->add_rule(pred_rules[i]);
             }
         }
+        datalog::rule_set::iterator rit = rules.begin(), rend = rules.end();
+        for (; rit != rend; ++rit) {
+            datalog::rule* r = *rit;
+            pred_transformer* pt;
+            unsigned utz = r->get_uninterpreted_tail_size();
+            for (unsigned i = 0; i < utz; ++i) {
+                func_decl* pred = r->get_decl(i);
+                if (!rels.find(pred, pt)) {
+                    pt = alloc(pred_transformer, *this, get_pdr_manager(), pred);
+                    rels.insert(pred, pt);                
+                }
+            }
+        }
         // Initialize use list dependencies
         decl2rel::iterator it = rels.begin(), end = rels.end();        
         for (; it != end; ++it) {
@@ -1149,10 +1162,7 @@ namespace pdr {
             obj_hashtable<func_decl>::iterator itf = deps.begin(), endf = deps.end();
             for (; itf != endf; ++itf) {
                 TRACE("pdr", tout << mk_pp(pred, m) << " " << mk_pp(*itf, m) << "\n";);
-                if (!rels.find(*itf, pt_user)) {
-                    pt_user = alloc(pred_transformer, *this, get_pdr_manager(), *itf);
-                    rels.insert(*itf, pt_user);
-                }
+                VERIFY (rels.find(*itf, pt_user));
                 pt_user->add_use(pt);                
             }
         }      

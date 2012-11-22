@@ -954,7 +954,6 @@ namespace datalog {
         p.insert(":default-relation", CPK_SYMBOL, "default relation implementation: 'external_relation', 'pentagon'");
 
         p.insert(":generate-explanations", CPK_BOOL, "if true, signature of relations will be extended to contain explanations for facts");
-
         p.insert(":explanations-on-relation-level", CPK_BOOL, "if true, explanations are generated as history of each relation, "
                  "rather than per fact (:generate-explanations must be set to true for this option to have any effect)");
 
@@ -983,6 +982,7 @@ namespace datalog {
         p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
                       
         p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
+        
         PRIVATE_PARAMS(
             p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
                               "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
