@@ -94,7 +94,6 @@ class asserted_formulas {
     void apply_demodulators();
     void apply_quasi_macros();
     void nnf_cnf();
-    bool apply_eager_bit_blaster();
     void infer_patterns();
     void eliminate_term_ite();
     void reduce_and_solve();

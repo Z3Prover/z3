@@ -51,7 +51,7 @@ namespace Microsoft.Z3
             }
             set
             {
-                Contract.Requires(value!= null);
+                Contract.Requires(value != null);
 
                 Native.Z3_ast_vector_set(Context.nCtx, NativeObject, i, value.NativeObject);
             }

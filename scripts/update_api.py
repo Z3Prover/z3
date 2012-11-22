@@ -252,11 +252,11 @@ def param2java(p):
     k = param_kind(p)
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT:
-            return "IntPtr"
+            return "Integer"
         elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
-            return "LongPtr"
+            return "Long"
         elif param_type(p) == STRING:
-            return "StringPtr"
+            return "String"
         else:
             print "ERROR: unreachable code"
             assert(False)
@@ -496,14 +496,17 @@ def mk_java():
     if not is_java_enabled():
         return
     java_dir      = get_component('java').src_dir
-    java_nativef  = '%s/Z3Native.java' % java_dir
-    java_wrapperf = '%s/Z3Native.c' % java_dir 
+    try:
+        os.mkdir('%s/com/Microsoft/Z3/' % java_dir)
+    except:
+        pass # OK if it exists already.
+    java_nativef  = '%s/com/Microsoft/Z3/Native.java' % java_dir
+    java_wrapperf = '%s/com/Microsoft/Z3/Native.c' % java_dir 
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
-    java_native.write('public final class Z3Native {\n')
-    java_native.write('  public static class IntPtr { public int value; }\n')
-    java_native.write('  public static class LongPtr { public long value; }\n')
-    java_native.write('  public static class StringPtr { public String value; }\n')
+    java_native.write('package com.Microsoft.Z3;\n')
+    java_native.write('public final class Native {\n')
+
     if is_windows():
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java'))
     else:
@@ -521,9 +524,9 @@ def mk_java():
             i = i + 1
         java_native.write(');\n')
     java_native.write('  public static void main(String[] args) {\n')
-    java_native.write('     IntPtr major = new IntPtr(), minor = new IntPtr(), build = new IntPtr(), revision = new IntPtr();\n')
+    java_native.write('     Integer major = 0, minor = 0, build = 0, revision = 0;\n')
     java_native.write('     getVersion(major, minor, build, revision);\n')
-    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major.value, minor.value, build.value);\n')
+    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major, minor, build);\n')
     java_native.write('  }\n')
     java_native.write('}\n');
     java_wrapper = open(java_wrapperf, 'w')

@@ -101,27 +101,14 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
-        if (mk_c(c)->fparams().m_pre_simplify_expr) {
-            // Do not use logging here... the function is implemented using API primitives
-            Z3_ast m1 = Z3_mk_int(c, -1, Z3_get_sort(c, args[0]));
-            Z3_ast args1[2] = { args[0], 0 };
-            for (unsigned i = 1; i < num_args; ++i) {
-                Z3_ast args2[3] = { m1, args[i] };
-                args1[1] = Z3_mk_mul(c, 2, args2);
-                args1[0] = Z3_mk_add(c, 2, args1);
-            }
-            RETURN_Z3(args1[0]);
+        expr* r = to_expr(args[0]);
+        for (unsigned i = 1; i < num_args; ++i) {
+            expr* args1[2] = { r, to_expr(args[i]) };
+            r = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), OP_SUB, 0, 0, 2, args1);
+            check_sorts(c, r);
         }
-        else {
-            expr* r = to_expr(args[0]);
-            for (unsigned i = 1; i < num_args; ++i) {
-                expr* args1[2] = { r, to_expr(args[i]) };
-                r = mk_c(c)->m().mk_app(mk_c(c)->get_arith_fid(), OP_SUB, 0, 0, 2, args1);
-                check_sorts(c, r);
-            }
-            mk_c(c)->save_ast_trail(r);
-            RETURN_Z3(of_expr(r));
-        }
+        mk_c(c)->save_ast_trail(r);
+        RETURN_Z3(of_expr(r));
         Z3_CATCH_RETURN(0);
     }
 
@@ -129,12 +116,6 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_unary_minus(c, n);
         RESET_ERROR_CODE();
-        if (mk_c(c)->fparams().m_pre_simplify_expr) {
-            Z3_ast m1 = Z3_mk_int(c, -1, Z3_get_sort(c, n));
-            Z3_ast args[2] = { m1, n };
-            Z3_ast r = Z3_mk_mul(c, 2, args);
-            RETURN_Z3(r);
-        }
         MK_UNARY_BODY(Z3_mk_unary_minus, mk_c(c)->get_arith_fid(), OP_UMINUS, SKIP);
         Z3_CATCH_RETURN(0);
     }
