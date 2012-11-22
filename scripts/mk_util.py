@@ -22,6 +22,7 @@ from fnmatch import fnmatch
 import distutils.sysconfig
 import compileall
 import subprocess
+import string
 
 def getenv(name, default):
     try:
@@ -36,7 +37,6 @@ CXXFLAGS=getenv("CXXFLAGS", "")
 LDFLAGS=getenv("LDFLAGS", "")
 JAVA=getenv("JAVA", "java")
 JAVAC=getenv("JAVAC", "javac")
-JAVAH=getenv("JAVAH", "javah")
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -71,6 +71,7 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX='/usr'
 GMP=False
+JAVA_HOME=None
 
 def which(program):
     import os
@@ -185,15 +186,34 @@ def check_java():
     r = exec_cmd([JAVAC, 'Z3Native.java'])
     if r != 0:
         raise MKException('Failed testing Java compiler (for source containing JNI bindings). Set environment variable JAVAC with the path to the Java compiler')
+    find_java_home()
+
+def find_java_home():
+    global JAVA_HOME
     if is_verbose():
-        print "Testing %s..." % JAVAH
-    r = exec_cmd([JAVAH, 'Z3Native'])
-    if not os.path.exists('Z3Native.h'):
-        r = 1
-    rmf('Z3Native.h')
-    rmf('Z3Native.class')
-    if r != 0:
-        raise MKException('Failed testing Java JNI Header file generator. Set environment variable JAVAH with the path to the Java JNI header file generator')
+        print "Finding JAVA_HOME..."
+    t = TempFile('output')
+    null = open(os.devnull, 'wb')
+    try: 
+        subprocess.call([JAVA, '-verbose'], stdout=t.fname, stderr=null)
+        t.commit()
+    except:
+        raise MKException('Failed to find JAVA_HOME')
+    open_pat     = re.compile("\[Opened (.*)\]")
+    t = open('output', 'r')
+    for line in t:
+        m = open_pat.match(line)
+        if m:
+            # Remove last 3 directives from m.group(1)
+            tmp  = m.group(1).split(os.sep)
+            path = string.join(tmp[:len(tmp) - 3], os.sep)
+            if is_verbose():
+                print "Checking jni.h..."
+            if not os.path.exists('%s/include/jni.h' % path):
+                raise MKException("Failed to detect jni.h at '%s/include'" % path)
+            JAVA_HOME = path
+            return
+    raise MKException('Failed to find JAVA_HOME')
 
 def is64():
     return sys.maxsize >= 2**32
@@ -315,13 +335,12 @@ def display_help(exit_code):
         print ""
         print "Some influential environment variables:"
         print "  CXX        C++ compiler"
-        print "  CC         C compiler (only used for compiling examples)"
+        print "  CC         C compiler"
         print "  LDFLAGS    Linker flags, e.g., -L<lib dir> if you have libraries in a non-standard directory"
         print "  CPPFLAGS   Preprocessor flags, e.g., -I<include dir> if you have header files in a non-standard directory"
         print "  CXXFLAGS   C++ compiler flags"
         print "  JAVA       Java virtual machine (only relevant if -j or --java option is provided)"
         print "  JAVAC      Java compiler (only relevant if -j or --java option is provided)"
-        print "  JAVAH      Java H file generator for JNI bindinds (only relevant if -j or --java option is provided)"
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -892,17 +911,24 @@ class DotNetDLLComponent(Component):
 
 
 class JavaDLLComponent(Component):
-    def __init__(self, name, dll_name, path, deps):
-        Component.__init__(self, name, path, deps)
+    def __init__(self, name, dll_name, path):
+        Component.__init__(self, name, path, [])
         if dll_name == None:
             dll_name = name
         self.dll_name          = dll_name
 
     def mk_makefile(self, out):
-        return
+        if is_java_enabled():
+            dllfile = '%s$(SO_EXT)' % self.dll_name
+            out.write('%s: %s/Z3Native.java %s$(SO_EXT)\n' % (dllfile, self.to_src_dir, get_component('api_dll').dll_name))
+            out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
+            out.write('\tmv %s/*.class .\n' % self.to_src_dir)
+            out.write('\t$(CC) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I%s/include -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
+            out.write('\t$(CC) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
+            out.write('%s: %s\n\n' % (self.name, dllfile))
     
     def main_component(self):
-        return JAVA_ENABLED
+        return is_java_enabled()
 
 
 class ExampleComponent(Component):
@@ -1038,8 +1064,8 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
     reg_component(name, c)
 
-def add_java_dll(name, deps=[], path=None, dll_name=None):
-    c = JavaDLLComponent(name, dll_name, path, deps)
+def add_java_dll(name, path=None, dll_name=None):
+    c = JavaDLLComponent(name, dll_name, path)
     reg_component(name, c)
 
 def add_cpp_example(name, path=None):
@@ -1202,9 +1228,9 @@ def mk_config():
             print 'Prefix:         %s' % PREFIX
             print '64-bit:         %s' % is64()
             if is_java_enabled():
+                print 'Java Home:      %s' % JAVA_HOME
                 print 'Java Compiler:  %s' % JAVAC
                 print 'Java VM:        %s' % JAVA
-                print 'Java H gen.:    %s' % JAVAH
 
 def mk_install(out):
     out.write('install:\n')

@@ -137,6 +137,11 @@ Type2Java = { VOID : 'void', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64
               STRING : 'String', STRING_PTR : 'StringPtr', 
               BOOL : 'boolean', SYMBOL : 'long', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
+Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', INT64 : 'jlong', UINT64 : 'jlong', DOUBLE : 'jdouble',
+               STRING : 'jstring', STRING_PTR : 'jobject',
+               BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint' }
+
+
 next_type_id = FIRST_OBJ_ID
 
 def def_Type(var, c_type, py_type):
@@ -176,6 +181,13 @@ def type2java(ty):
         return 'long'
     else:
         return Type2Java[ty]
+
+def type2javaw(ty):
+    global Type2JavaW
+    if (ty >= FIRST_OBJ_ID):
+        return 'jlong'
+    else:
+        return Type2JavaW[ty]
 
 def _in(ty):
     return (IN, ty);
@@ -241,14 +253,30 @@ def param2java(p):
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT:
             return "IntPtr"
-        elif param_type(p) == INT64 or param_type(p) == UINT64:
+        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
             return "LongPtr"
+        elif param_type(p) == STRING:
+            return "StringPtr"
         else:
-            return "long" # ? 
+            print "ERROR: unreachable code"
+            assert(False)
+            exit(1)
     if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s[]" % type2java(param_type(p))
     else:
         return type2java(param_type(p))
+
+def param2javaw(p):
+    k = param_kind(p)
+    if k == OUT:
+        return "jobject"
+    if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+        if param_type(p) == INT or param_type(p) == UINT:
+            return "jintArray"
+        else:
+            return "jlongArray"
+    else:
+        return type2javaw(param_type(p))
 
 def param2pystr(p):
     if param_kind(p) == IN_ARRAY or param_kind(p) == OUT_ARRAY or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT:
@@ -440,6 +468,30 @@ def java_method_name(name):
         i = i + 1
     return result
 
+# Return the Java method name used to retrieve the elements of the given parameter
+def java_get_array_elements(p):
+    if param_type(p) == INT or param_type(p) == UINT:
+        return 'GetIntArrayElements'
+    else:
+        return 'GetLongArrayElements'
+# Return the Java method name used to release the elements of the given parameter
+def java_release_array_elements(p):
+    if param_type(p) == INT or param_type(p) == UINT:
+        return 'ReleaseIntArrayElements'
+    else:
+        return 'ReleaseLongArrayElements'
+# Return the type of the java array elements
+def java_array_element_type(p):
+    if param_type(p) == INT or param_type(p) == UINT:
+        return 'jint'
+    else:
+        return 'jlong'
+def java_set_array_region(p):
+    if param_type(p) == INT or param_type(p) == UINT:
+        return 'SetIntArrayRegion'
+    else:
+        return 'SetLongArrayRegion'
+
 def mk_java():
     if not is_java_enabled():
         return
@@ -447,12 +499,14 @@ def mk_java():
     java_nativef  = '%s/Z3Native.java' % java_dir
     java_wrapperf = '%s/Z3Native.c' % java_dir 
     java_native   = open(java_nativef, 'w')
+    java_native.write('// Automatically generated file\n')
     java_native.write('public final class Z3Native {\n')
-    java_native.write('public static class IntPtr { public int value; }\n')
-    java_native.write('public static class LongPtr { public long value; }\n')
-    java_native.write('public static class StringPtr { public String value; }\n')
+    java_native.write('  public static class IntPtr { public int value; }\n')
+    java_native.write('  public static class LongPtr { public long value; }\n')
+    java_native.write('  public static class StringPtr { public String value; }\n')
+    java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
     for name, result, params in _dotnet_decls:
-        java_native.write('        public static native %s %s(' % (type2java(result), java_method_name(name)))
+        java_native.write('  public static native %s %s(' % (type2java(result), java_method_name(name)))
         first = True
         i = 0;
         for param in params:
@@ -463,7 +517,105 @@ def mk_java():
             java_native.write('%s a%d' % (param2java(param), i))
             i = i + 1
         java_native.write(');\n')
+    java_native.write('  public static void main(String[] args) {\n')
+    java_native.write('     IntPtr major = new IntPtr(), minor = new IntPtr(), build = new IntPtr(), revision = new IntPtr();\n')
+    java_native.write('     getVersion(major, minor, build, revision);\n')
+    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major.value, minor.value, build.value);\n')
+    java_native.write('  }\n')
     java_native.write('}\n');
+    java_wrapper = open(java_wrapperf, 'w')
+    java_wrapper.write('// Automatically generated file\n')
+    java_wrapper.write('#include<jni.h>\n')
+    java_wrapper.write('#include<stdlib.h>\n')
+    java_wrapper.write('#include"z3.h"\n')
+    for name, result, params in _dotnet_decls:
+        java_wrapper.write('JNIEXPORT %s JNICALL Java_Z3Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), java_method_name(name)))
+        i = 0;
+        for param in params:
+            java_wrapper.write(', ')
+            java_wrapper.write('%s a%d' % (param2javaw(param), i))
+            i = i + 1
+        java_wrapper.write(') {\n')
+        # preprocess arrays, strings, in/out arguments
+        i = 0
+        for param in params:
+            k = param_kind(param)
+            if k == OUT or k == INOUT:
+                java_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
+            elif k == IN_ARRAY or k == INOUT_ARRAY:
+                java_wrapper.write('  %s * _a%s = (%s *) (*jenv)->%s(jenv, a%s, NULL);\n' % (type2str(param_type(param)),
+                                                                                             i,
+                                                                                             type2str(param_type(param)),
+                                                                                             java_get_array_elements(param),
+                                                                                             i))
+            elif k == OUT_ARRAY:
+                java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)), 
+                                                                                                     i, 
+                                                                                                     type2str(param_type(param)), 
+                                                                                                     param_array_capacity_pos(param), 
+                                                                                                     type2str(param_type(param))))
+            elif k == IN and param_type(param) == STRING:
+                java_wrapper.write('  Z3_string _a%s = (Z3_string) (*jenv)->GetStringUTFChars(jenv, a%s, NULL);\n' % (i, i))
+            i = i + 1
+        # invoke procedure
+        java_wrapper.write('  ')
+        if result != VOID:
+            java_wrapper.write('%s result = ' % type2str(result))
+        java_wrapper.write('%s(' % name)
+        i = 0
+        first = True
+        for param in params:
+            if first:
+                first = False
+            else:
+                java_wrapper.write(', ')
+            k = param_kind(param)
+            if k == OUT or k == INOUT:
+                java_wrapper.write('&_a%s' % i)
+            elif k == OUT_ARRAY or k == IN_ARRAY or k == INOUT_ARRAY:
+                java_wrapper.write('_a%s' % i)
+            elif k == IN and param_type(param) == STRING:
+                java_wrapper.write('_a%s' % i)
+            else:
+                java_wrapper.write('(%s)a%i' % (param2str(param), i))
+            i = i + 1
+        java_wrapper.write(');\n')
+        # cleanup 
+        i = 0
+        for param in params:
+            k = param_kind(param)
+            if k == OUT_ARRAY:
+                java_wrapper.write('  (*jenv)->%s(jenv, a%s, 0, (jsize)a%s, (%s *) _a%s);\n' % (java_set_array_region(param),
+                                                                                                i,
+                                                                                                param_array_capacity_pos(param),
+                                                                                                java_array_element_type(param),
+                                                                                                i))
+                java_wrapper.write('  free(_a%s);\n' % i)
+            elif k == IN_ARRAY or k == OUT_ARRAY:
+                java_wrapper.write('  (*jenv)->%s(jenv, a%s, (%s *) _a%s, JNI_ABORT);\n' % (java_release_array_elements(param), 
+                                                                                            i, 
+                                                                                            java_array_element_type(param),
+                                                                                            i))
+            elif k == OUT or k == INOUT:
+                if param_type(param) == INT or param_type(param) == UINT:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = (*jenv)->GetObjectClass(jenv, a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = (*jenv)->GetFieldID(jenv, mc, "value", "I");\n')
+                    java_wrapper.write('     (*jenv)->SetIntField(jenv, a%s, fid, (jint) _a%s);\n' % (i, i))
+                    java_wrapper.write('  }\n')
+                else:
+                    java_wrapper.write('  {\n')
+                    java_wrapper.write('     jclass mc    = (*jenv)->GetObjectClass(jenv, a%s);\n' % i)
+                    java_wrapper.write('     jfieldID fid = (*jenv)->GetFieldID(jenv, mc, "value", "J");\n')
+                    java_wrapper.write('     (*jenv)->SetLongField(jenv, a%s, fid, (jlong) _a%s);\n' % (i, i))
+                    java_wrapper.write('  }\n')
+            i = i + 1
+        # return
+        if result == STRING:
+            java_wrapper.write('  return (*jenv)->NewStringUTF(jenv, result);\n')
+        elif result != VOID:
+            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))
+        java_wrapper.write('}\n')
     if is_verbose():
         print "Generated '%s'" % java_nativef
 
