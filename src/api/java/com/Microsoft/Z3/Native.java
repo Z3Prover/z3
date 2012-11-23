@@ -1,7 +1,10 @@
 // Automatically generated file
 package com.Microsoft.Z3;
 public final class Native {
-  static { System.loadLibrary("<mk_util.JavaDLLComponent instance at 0x0240DCD8>"); }
+  public static class IntPtr { public int value; }
+  public static class LongPtr { public long value; }
+  public static class StringPtr { public String value; }
+  static { System.loadLibrary("<mk_util.JavaDLLComponent instance at 0x0251B738>"); }
   public static native long mkConfig();
   public static native void delConfig(long a0);
   public static native void setParamValue(long a0, String a1, String a2);
@@ -487,8 +490,8 @@ public final class Native {
   public static native String statisticsToString(long a0);
   public static native long getContextAssignment(long a0);
   public static void main(String[] args) {
-     Integer major = 0, minor = 0, build = 0, revision = 0;
+     IntPtr major = new IntPtr(), minor = new IntPtr(), build = new IntPtr(), revision = new IntPtr();
      getVersion(major, minor, build, revision);
-     System.out.format("Z3 (for Java) %d.%d.%d%n", major, minor, build);
+     System.out.format("Z3 (for Java) %d.%d.%d%n", major.value, minor.value, build.value);
   }
 }

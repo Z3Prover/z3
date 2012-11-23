@@ -17,7 +17,7 @@ package com.Microsoft.Z3;
         /**
          * The number of terms in the pattern.
          **/
-        public Integer NumTerms()  { return Native.getPatternNumTerms(Context.nCtx, NativeObject); }
+        public long NumTerms()  { return Native.getPatternNumTerms(Context.nCtx, NativeObject); }
 
         /**
          * The terms in the pattern.
@@ -26,12 +26,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumTerms;
+                long n = NumTerms;
                 Expr[] res = new Expr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Expr.Create(Context, Native.getPattern(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * A string representation of the pattern.

@@ -22,7 +22,7 @@ package com.Microsoft.Z3;
                 
 
                 return Native.tacticGetHelp(Context.nCtx, NativeObject);
-        }
+            }
 
 
         /**
@@ -52,13 +52,13 @@ package com.Microsoft.Z3;
         /**
          * Apply the tactic to a goal.
          **/
-        public ApplyResult this[Goal g]() 
+        public ApplyResult get(Goal g) 
             {
                 
                 
 
                 return Apply(g);
-        }
+            }
 
         /**
          * Creates a solver that is implemented using the given tactic.
@@ -69,7 +69,7 @@ package com.Microsoft.Z3;
                 
 
                 return Context.MkSolver(this);
-        }
+            }
 
         Tactic(Context ctx, IntPtr obj)
             { super(ctx, obj);
@@ -95,13 +95,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.TacticDRQ.IncAndClear(Context, o);
+            Context.Tactic_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.TacticDRQ.Add(o);
+            Context.Tactic_DRQ.Add(o);
             super.DecRef(o);
         }
     }

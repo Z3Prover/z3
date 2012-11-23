@@ -24,11 +24,12 @@ package com.Microsoft.Z3;
             public Expr Value()  {
                     
                     return Expr.Create(Context, Native.funcEntryGetValue(Context.nCtx, NativeObject)); }
+            }
 
             /**
              * The number of arguments of the entry.
              **/
-            public Integer NumArgs()  { return Native.funcEntryGetNumArgs(Context.nCtx, NativeObject); }
+            public long NumArgs()  { return Native.funcEntryGetNumArgs(Context.nCtx, NativeObject); }
 
             /**
              * The arguments of the function entry.
@@ -38,22 +39,22 @@ package com.Microsoft.Z3;
                     
                     
 
-                    Integer n = NumArgs;
+                    long n = NumArgs;
                     Expr[] res = new Expr[n];
-                    for (Integer i = 0; i < n; i++)
+                    for (long i = 0; i < n; i++)
                         res[i] = Expr.Create(Context, Native.funcEntryGetArg(Context.nCtx, NativeObject, i));
                     return res;
-            }
+                }
 
             /**
              * A string representation of the function entry.
              **/
             public String toString()
             {
-                Integer n = NumArgs;
+                long n = NumArgs;
                 String res = "[";
                 Expr[] args = Args;
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res += args[i] + ", ";
                 return res + Value + "]";
             }
@@ -75,13 +76,13 @@ package com.Microsoft.Z3;
 
             void IncRef(IntPtr o)
             {
-                Context.FuncEntryDRQ.IncAndClear(Context, o);
+                Context.FuncEntry_DRQ.IncAndClear(Context, o);
                 super.IncRef(o);
             }
 
             void DecRef(IntPtr o)
             {
-                Context.FuncEntryDRQ.Add(o);
+                Context.FuncEntry_DRQ.Add(o);
                 super.DecRef(o);
             }
         };
@@ -89,7 +90,7 @@ package com.Microsoft.Z3;
         /**
          * The number of entries in the function interpretation.
          **/
-        public Integer NumEntries()  { return Native.funcInterpGetNumEntries(Context.nCtx, NativeObject); }
+        public long NumEntries()  { return Native.funcInterpGetNumEntries(Context.nCtx, NativeObject); }
 
         /**
          * The entries in the function interpretation
@@ -100,12 +101,12 @@ package com.Microsoft.Z3;
                 Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, 
                     j => Contract.Result<Entry[]>()[j] != null));
 
-                Integer n = NumEntries;
+                long n = NumEntries;
                 Entry[] res = new Entry[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new Entry(Context, Native.funcInterpGetEntry(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The (symbolic) `else' value of the function interpretation.
@@ -114,11 +115,12 @@ package com.Microsoft.Z3;
                 
 
                 return Expr.Create(Context, Native.funcInterpGetElse(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * The arity of the function interpretation
          **/
-        public Integer Arity()  { return Native.funcInterpGetArity(Context.nCtx, NativeObject); }
+        public long Arity()  { return Native.funcInterpGetArity(Context.nCtx, NativeObject); }
 
         /**
          * A string representation of the function interpretation.
@@ -129,10 +131,10 @@ package com.Microsoft.Z3;
             res += "[";
             for (Entry.Iterator e = Entries.iterator(); e.hasNext(); )
             {
-                Integer n = e.NumArgs;                
+                long n = e.NumArgs;                
                 if (n > 1) res += "[";
                 Expr[] args = e.Args;
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                 {
                     if (i != 0) res += ", ";
                     res += args[i];
@@ -165,13 +167,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.FuncInterpDRQ.IncAndClear(Context, o);
+            Context.FuncInterp_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.FuncInterpDRQ.Add(o);
+            Context.FuncInterp_DRQ.Add(o);
             super.DecRef(o);
         }
     }

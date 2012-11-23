@@ -21,26 +21,26 @@ package com.Microsoft.Z3;
          * An over approximation is applied when the objective is to find a proof for a given goal.
          * </remarks>
          **/
-        public Z3_goal_prec Precision()  { return (Z3GoalPrec)Native.goalPrecision(Context.nCtx, NativeObject); }
+        public Z3_goal_prec Precision()  { return (Z3_goal_prec)Native.goalPrecision(Context.nCtx, NativeObject); }
 
         /**
          * Indicates whether the goal is precise.
          **/
-        public boolean IsPrecise()  { return Precision == Z3GoalPrec.Z3GOALPRECISE; }
+        public boolean IsPrecise()  { return Precision == Z3_goal_prec.Z3_GOAL_PRECISE; }
         /**
          * Indicates whether the goal is an under-approximation.
          **/
-        public boolean IsUnderApproximation()  { return Precision == Z3GoalPrec.Z3GOALUNDER; }
+        public boolean IsUnderApproximation()  { return Precision == Z3_goal_prec.Z3_GOAL_UNDER; }
 
         /**
          * Indicates whether the goal is an over-approximation.
          **/
-        public boolean IsOverApproximation()  { return Precision == Z3GoalPrec.Z3GOALOVER; }
+        public boolean IsOverApproximation()  { return Precision == Z3_goal_prec.Z3_GOAL_OVER; }
 
         /**
          * Indicates whether the goal is garbage (i.e., the product of over- and under-approximations).
          **/
-        public boolean IsGarbage()  { return Precision == Z3GoalPrec.Z3GOALUNDEROVER; }
+        public boolean IsGarbage()  { return Precision == Z3_goal_prec.Z3_GOAL_UNDER_OVER; }
 
         /**
          * Adds the <paramref name="constraints"/> to the given goal. 
@@ -69,7 +69,7 @@ package com.Microsoft.Z3;
          * This tracks how many transformations were applied to it.
          * </remarks>
          **/
-        public Integer Depth()  { return Native.goalDepth(Context.nCtx, NativeObject); }
+        public long Depth()  { return Native.goalDepth(Context.nCtx, NativeObject); }
 
         /**
          * Erases all formulas from the given goal.
@@ -82,7 +82,7 @@ package com.Microsoft.Z3;
         /**
          * The number of formulas in the goal.
          **/
-        public Integer Size()  { return Native.goalSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.goalSize(Context.nCtx, NativeObject); }
 
         /**
          * The formulas in the goal.
@@ -91,17 +91,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = Size;
+                long n = Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new BoolExpr(Context, Native.goalFormula(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The number of formulas, subformulas and terms in the goal.
          **/
-        public Integer NumExprs()  { return Native.goalNumExprs(Context.nCtx, NativeObject); }
+        public long NumExprs()  { return Native.goalNumExprs(Context.nCtx, NativeObject); }
 
         /**
          * Indicates whether the goal is empty, and it is precise or the product of an under approximation.
@@ -169,13 +169,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.GoalDRQ.IncAndClear(Context, o);
+            Context.Goal_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.GoalDRQ.Add(o);
+            Context.Goal_DRQ.Add(o);
             super.DecRef(o);
         }
 

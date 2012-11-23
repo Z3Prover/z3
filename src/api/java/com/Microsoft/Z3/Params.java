@@ -24,11 +24,11 @@ package com.Microsoft.Z3;
         /**
          * Adds a parameter setting.
          **/
-        public void Add(Symbol name, Integer value)
+        public void Add(Symbol name, long value)
         {
             
 
-            Native.paramsSetInteger(Context.nCtx, NativeObject, name.NativeObject, value);
+            Native.paramsSetLong(Context.nCtx, NativeObject, name.NativeObject, value);
         }
 
         /**
@@ -63,9 +63,9 @@ package com.Microsoft.Z3;
         /**
          * Adds a parameter setting.
          **/
-        public void Add(String name, Integer value)
+        public void Add(String name, long value)
         {
-            Native.paramsSetInteger(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
+            Native.paramsSetLong(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
         }
 
         /**
@@ -114,13 +114,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ParamsDRQ.IncAndClear(Context, o);
+            Context.Params_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ParamsDRQ.Add(o);
+            Context.Params_DRQ.Add(o);
             super.DecRef(o);
         }
     }

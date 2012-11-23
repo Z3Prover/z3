@@ -506,6 +506,9 @@ def mk_java():
     java_native.write('// Automatically generated file\n')
     java_native.write('package com.Microsoft.Z3;\n')
     java_native.write('public final class Native {\n')
+    java_native.write('  public static class IntPtr { public int value; }\n')
+    java_native.write('  public static class LongPtr { public long value; }\n')
+    java_native.write('  public static class StringPtr { public String value; }\n')
 
     if is_windows():
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java'))
@@ -524,9 +527,9 @@ def mk_java():
             i = i + 1
         java_native.write(');\n')
     java_native.write('  public static void main(String[] args) {\n')
-    java_native.write('     Integer major = 0, minor = 0, build = 0, revision = 0;\n')
+    java_native.write('     IntPtr major = new IntPtr(), minor = new IntPtr(), build = new IntPtr(), revision = new IntPtr();\n')
     java_native.write('     getVersion(major, minor, build, revision);\n')
-    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major, minor, build);\n')
+    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major.value, minor.value, build.value);\n')
     java_native.write('  }\n')
     java_native.write('}\n');
     java_wrapper = open(java_wrapperf, 'w')

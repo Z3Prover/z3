@@ -24,12 +24,12 @@ package com.Microsoft.Z3;
         /**
          * The weight of the quantifier.
          **/
-        public Integer Weight()  { return Native.getQuantifierWeight(Context.nCtx, NativeObject); }
+        public long Weight()  { return Native.getQuantifierWeight(Context.nCtx, NativeObject); }
 
         /**
          * The number of patterns.
          **/
-        public Integer NumPatterns()  { return Native.getQuantifierNumPatterns(Context.nCtx, NativeObject); }
+        public long NumPatterns()  { return Native.getQuantifierNumPatterns(Context.nCtx, NativeObject); }
 
         /**
          * The patterns.
@@ -38,17 +38,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumPatterns;
+                long n = NumPatterns;
                 Pattern[] res = new Pattern[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new Pattern(Context, Native.getQuantifierPatternAst(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The number of no-patterns.
          **/
-        public Integer NumNoPatterns()  { return Native.getQuantifierNumNoPatterns(Context.nCtx, NativeObject); }
+        public long NumNoPatterns()  { return Native.getQuantifierNumNoPatterns(Context.nCtx, NativeObject); }
 
         /**
          * The no-patterns.
@@ -57,17 +57,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumNoPatterns;
+                long n = NumNoPatterns;
                 Pattern[] res = new Pattern[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new Pattern(Context, Native.getQuantifierNoPatternAst(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The number of bound variables.
          **/
-        public Integer NumBound()  { return Native.getQuantifierNumBound(Context.nCtx, NativeObject); }
+        public long NumBound()  { return Native.getQuantifierNumBound(Context.nCtx, NativeObject); }
 
         /**
          * The symbols for the bound variables.
@@ -76,12 +76,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumBound;
+                long n = NumBound;
                 Symbol[] res = new Symbol[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Symbol.Create(Context, Native.getQuantifierBoundName(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The sorts of the bound variables.
@@ -90,12 +90,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumBound;
+                long n = NumBound;
                 Sort[] res = new Sort[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Sort.Create(Context, Native.getQuantifierBoundSort(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The body of the quantifier.
@@ -104,9 +104,10 @@ package com.Microsoft.Z3;
                 
                 
                 return new BoolExpr(Context, Native.getQuantifierBody(Context.nCtx, NativeObject)); }
+        }
 
         Quantifier(Context ctx, boolean isForall, Sort[] sorts, Symbol[] names, Expr body,
-                            Integer weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
+                            long weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
                             Symbol quantifierID = null, Symbol skolemID = null
                             )
             { super(ctx);
@@ -129,7 +130,7 @@ package com.Microsoft.Z3;
             if (sorts.Length != names.Length)
                 throw new Z3Exception("Number of sorts does not match number of names");
 
-            IntPtr[] Patterns = AST.ArrayToNative(patterns);
+            IntPtr[] _patterns = AST.ArrayToNative(patterns);
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
@@ -138,7 +139,6 @@ package com.Microsoft.Z3;
                                            AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                            Symbol.ArrayToNative(names),
                                            body.NativeObject);
-            }
             else
             {
                 NativeObject = Native.mkQuantifierEx(ctx.nCtx, (isForall) ? 1 : 0, weight,
@@ -152,7 +152,7 @@ package com.Microsoft.Z3;
         }
 
         Quantifier(Context ctx, boolean isForall, Expr[] bound, Expr body,
-                            Integer weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
+                            long weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
                             Symbol quantifierID = null, Symbol skolemID = null
             )
             { super(ctx);
@@ -191,7 +191,7 @@ package com.Microsoft.Z3;
 
         void CheckNativeObject(IntPtr obj)
         {
-            if ((Z3AstKind)Native.getAstKind(Context.nCtx, obj) != Z3AstKind.Z3QUANTIFIERAST)
+            if ((Z3_ast_kind)Native.getAstKind(Context.nCtx, obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a quantifier");
             super.CheckNativeObject(obj);
         }

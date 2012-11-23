@@ -14,28 +14,41 @@ package com.Microsoft.Z3;
         /**
          * The number of fields of the constructor.
          **/
-        public Integer NumFields()  { init();  return n; }
+        public long NumFields() 
+            {
+                init();
+                return n;
+            }
 
         /**
          * The function declaration of the constructor.
          **/
-        public FuncDecl ConstructorDecl()  {
+        public FuncDecl ConstructorDecl() 
+            {
                 
-                init();  return mConstructorDecl; }
+                init();
+                return m_constructorDecl;
+            }
 
         /**
          * The function declaration of the tester.
          **/
-        public FuncDecl TesterDecl()  {
+        public FuncDecl TesterDecl() 
+            {
                 
-                init();  return mTesterDecl; }
+                init();
+                return m_testerDecl;
+            }
 
         /**
          * The function declarations of the accessors
          **/
-        public FuncDecl[] AccessorDecls()  {
+        public FuncDecl[] AccessorDecls() 
+            {
                 
-                init();  return mAccessorDecls; }
+                init(); 
+                return m_accessorDecls;
+            }
 
         /**
          * Destructor.
@@ -51,15 +64,15 @@ package com.Microsoft.Z3;
             
             
         }
-        
 
-        private Integer n = 0;
-        private FuncDecl mTesterDecl = null;
-        private FuncDecl mConstructorDecl = null;
-        private FuncDecl[] mAccessorDecls = null;
+
+        private long n = 0;
+        private FuncDecl m_testerDecl = null;
+        private FuncDecl m_constructorDecl = null;
+        private FuncDecl[] m_accessorDecls = null;
 
         Constructor(Context ctx, Symbol name, Symbol recognizer, Symbol[] fieldNames,
-                             Sort[] sorts, Integer[] sortRefs)
+                             Sort[] sorts, long[] sortRefs)
             { super(ctx);
             
             
@@ -71,8 +84,8 @@ package com.Microsoft.Z3;
                 throw new Z3Exception("Number of field names does not match number of sorts");
             if (sortRefs != null && sortRefs.Length != n)
                 throw new Z3Exception("Number of field names does not match number of sort refs");
-            
-            if (sortRefs == null) sortRefs = new Integer[n];
+
+            if (sortRefs == null) sortRefs = new long[n];
 
             NativeObject = Native.mkConstructor(ctx.nCtx, name.NativeObject, recognizer.NativeObject,
                                                     n,
@@ -82,22 +95,22 @@ package com.Microsoft.Z3;
 
         }
 
-        private void init() 
+        private void init()
         {
             
             
             
 
-            if (mTesterDecl != null) return;
+            if (m_testerDecl != null) return;
             IntPtr constructor = IntPtr.Zero;
             IntPtr tester = IntPtr.Zero;
             IntPtr[] accessors = new IntPtr[n];
             Native.queryConstructor(Context.nCtx, NativeObject, n, constructor, tester, accessors);
-            mConstructorDecl = new FuncDecl(Context, constructor);
-            mTesterDecl = new FuncDecl(Context, tester);
-            mAccessorDecls = new FuncDecl[n];
-            for (Integer i = 0; i < n; i++)
-                mAccessorDecls[i] = new FuncDecl(Context, accessors[i]);
+            m_constructorDecl = new FuncDecl(Context, constructor);
+            m_testerDecl = new FuncDecl(Context, tester);
+            m_accessorDecls = new FuncDecl[n];
+            for (long i = 0; i < n; i++)
+                m_accessorDecls[i] = new FuncDecl(Context, accessors[i]);
         }
 
     }
@@ -111,7 +124,7 @@ package com.Microsoft.Z3;
          * Destructor.
          **/
         protected void finalize()
-        {         
+        {
             Native.delConstructorList(Context.nCtx, NativeObject);
         }
 
@@ -125,6 +138,6 @@ package com.Microsoft.Z3;
             
             
 
-            NativeObject = Native.mkConstructorList(Context.nCtx, (Integer)constructors.Length, Constructor.ArrayToNative(constructors));
-        }        
+            NativeObject = Native.mkConstructorList(Context.nCtx, (long)constructors.Length, Constructor.ArrayToNative(constructors));
+        }
     }

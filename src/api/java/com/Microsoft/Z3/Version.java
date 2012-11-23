@@ -17,42 +17,42 @@ package com.Microsoft.Z3;
         /**
          * The major version
          **/
-        public  Integer Major() 
+        public  long Major() 
             {
-                Integer major = 0, minor = 0, build = 0, revision = 0;
+                long major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return major;
-        }
+            }
 
         /**
          * The minor version
          **/
-        public  Integer Minor() 
+        public  long Minor() 
             {
-                Integer major = 0, minor = 0, build = 0, revision = 0;
+                long major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return minor;
-        }
+            }
 
         /**
          * The build version
          **/
-        public  Integer Build() 
+        public  long Build() 
             {
-                Integer major = 0, minor = 0, build = 0, revision = 0;
+                long major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return build;
-        }
+            }
 
         /**
          * The revision
          **/
-        public  Integer Revision() 
+        public  long Revision() 
             {
-                Integer major = 0, minor = 0, build = 0, revision = 0;
+                long major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return revision;
-        }
+            }
 
         /**
          * A string representation of the version information.
@@ -61,7 +61,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Integer major = 0, minor = 0, build = 0, revision = 0;
+            long major = 0, minor = 0, build = 0, revision = 0;
             Native.getVersion(major, minor, build, revision);
             return major.toString() + "." + minor.toString() + "." + build.toString() + "." + revision.toString();
         }

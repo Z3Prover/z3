@@ -53,12 +53,12 @@ package com.Microsoft.Z3;
         /**
          * Returns a unique identifier for the sort.
          **/
-        new public Integer Id()  { return Native.getSortId(Context.nCtx, NativeObject); }
+            public long Id()  { return Native.getSortId(Context.nCtx, NativeObject); }
 
         /**
          * The kind of the sort.
          **/
-        public Z3_sort_kind SortKind()  { return (Z3SortKind)Native.getSortKind(Context.nCtx, NativeObject); }
+        public Z3_sort_kind SortKind()  { return (Z3_sort_kind)Native.getSortKind(Context.nCtx, NativeObject); }
 
         /**
          * The name of the sort
@@ -66,6 +66,7 @@ package com.Microsoft.Z3;
         public Symbol Name()  {
                 
                 return Symbol.Create(Context, Native.getSortName(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * A string representation of the sort.
@@ -73,7 +74,6 @@ package com.Microsoft.Z3;
         public String toString()
         {
             return Native.sorttoString(Context.nCtx, NativeObject);
-        }
 
         /**
          * Sort constructor
@@ -83,27 +83,27 @@ package com.Microsoft.Z3;
 
         void CheckNativeObject(IntPtr obj)
         {
-            if (Native.getAstKind(Context.nCtx, obj) != (Integer)Z3AstKind.Z3SORTAST)
+            if (Native.getAstKind(Context.nCtx, obj) != (long)Z3_ast_kind.Z3_SORT_AST)
                 throw new Z3Exception("Underlying object is not a sort");
             super.CheckNativeObject(obj);
         }
 
-        new static Sort Create(Context ctx, IntPtr obj)
+        static Sort Create(Context ctx, IntPtr obj)
         {
             
             
 
-            switch ((Z3SortKind)Native.getSortKind(ctx.nCtx, obj))
+            switch ((Z3_sort_kind)Native.getSortKind(ctx.nCtx, obj))
             {
-                case Z3SortKind.Z3ARRAYSORT: return new ArraySort(ctx, obj);
-                case Z3SortKind.Z3BOOLSORT: return new BoolSort(ctx, obj);
-                case Z3SortKind.Z3BVSORT: return new BitVecSort(ctx, obj);
-                case Z3SortKind.Z3DATATYPESORT: return new DatatypeSort(ctx, obj);
-                case Z3SortKind.Z3INTSORT: return new IntSort(ctx, obj);
-                case Z3SortKind.Z3REALSORT: return new RealSort(ctx, obj);
-                case Z3SortKind.Z3UNINTERPRETEDSORT: return new UninterpretedSort(ctx, obj);
-                case Z3SortKind.Z3FINITEDOMAINSORT: return new FiniteDomainSort(ctx, obj);
-                case Z3SortKind.Z3RELATIONSORT: return new RelationSort(ctx, obj);
+                case Z3_sort_kind.Z3_ARRAY_SORT: return new ArraySort(ctx, obj);
+                case Z3_sort_kind.Z3_BOOL_SORT: return new BoolSort(ctx, obj);
+                case Z3_sort_kind.Z3_BV_SORT: return new BitVecSort(ctx, obj);
+                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeSort(ctx, obj);
+                case Z3_sort_kind.Z3_INT_SORT: return new IntSort(ctx, obj);
+                case Z3_sort_kind.Z3_REAL_SORT: return new RealSort(ctx, obj);
+                case Z3_sort_kind.Z3_UNINTERPRETED_SORT: return new UninterpretedSort(ctx, obj);
+                case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainSort(ctx, obj);
+                case Z3_sort_kind.Z3_RELATION_SORT: return new RelationSort(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown sort kind");
             }
@@ -165,10 +165,10 @@ package com.Microsoft.Z3;
         /**
          * The size of the bit-vector sort.
          **/
-        public Integer Size()  { return Native.getBvSortSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.getBvSortSize(Context.nCtx, NativeObject); }
 
         BitVecSort(Context ctx, IntPtr obj) { super(ctx, obj);  }
-        BitVecSort(Context ctx, Integer size) { super(ctx, Native.mkBvSort(ctx.nCtx, size));  }
+        BitVecSort(Context ctx, long size) { super(ctx, Native.mkBvSort(ctx.nCtx, size));  }
     };
 
     /**
@@ -183,6 +183,7 @@ package com.Microsoft.Z3;
                 
 
                 return Sort.Create(Context, Native.getArraySortDomain(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * The range of the array sort.
@@ -191,6 +192,7 @@ package com.Microsoft.Z3;
                 
 
                 return Sort.Create(Context, Native.getArraySortRange(Context.nCtx, NativeObject)); }
+        }
 
         ArraySort(Context ctx, IntPtr obj) { super(ctx, obj);  }
         ArraySort(Context ctx, Sort domain, Sort range)
@@ -198,7 +200,6 @@ package com.Microsoft.Z3;
             
             
             
-        }
     };
 
     /**
@@ -209,7 +210,7 @@ package com.Microsoft.Z3;
         /**
          * The number of constructors of the datatype sort.
          **/
-        public Integer NumConstructors()  { return Native.getDatatypeSortNumConstructors(Context.nCtx, NativeObject); }
+        public long NumConstructors()  { return Native.getDatatypeSortNumConstructors(Context.nCtx, NativeObject); }
 
         /**
          * The constructors.
@@ -218,12 +219,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumConstructors;
+                long n = NumConstructors;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.getDatatypeSortConstructor(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The recognizers.
@@ -232,12 +233,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumConstructors;
+                long n = NumConstructors;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.getDatatypeSortRecognizer(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The constructor accessors.
@@ -246,24 +247,24 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumConstructors;
+                long n = NumConstructors;
                 FuncDecl[][] res = new FuncDecl[n][];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                 {
                     FuncDecl fd = new FuncDecl(Context, Native.getDatatypeSortConstructor(Context.nCtx, NativeObject, i));
-                    Integer ds = fd.DomainSize;
+                    long ds = fd.DomainSize;
                     FuncDecl[] tmp = new FuncDecl[ds];
-                    for (Integer j = 0; j < ds; j++)
+                    for (long j = 0; j < ds; j++)
                         tmp[j] = new FuncDecl(Context, Native.getDatatypeSortConstructorAccessor(Context.nCtx, NativeObject, i, j));
                     res[i] = tmp;
+                }
                 return res;
-            }
         }
 
         DatatypeSort(Context ctx, IntPtr obj) { super(ctx, obj);  }
 
         DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
-            { super(ctx, Native.mkDatatype(ctx.nCtx, name.NativeObject, (Integer)constructors.Length, ArrayToNative(constructors)));
+            { super(ctx, Native.mkDatatype(ctx.nCtx, name.NativeObject, (long)constructors.Length, ArrayToNative(constructors)));
             
             
             
@@ -298,11 +299,12 @@ package com.Microsoft.Z3;
                 
 
                 return new FuncDecl(Context, Native.getTupleSortMkDecl(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * The number of fields in the tuple.
          **/
-        public Integer NumFields()  { return Native.getTupleSortNumFields(Context.nCtx, NativeObject); }
+        public long NumFields()  { return Native.getTupleSortNumFields(Context.nCtx, NativeObject); }
 
         /**
          * The field declarations.
@@ -311,14 +313,14 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumFields;
+                long n = NumFields;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.getTupleSortFieldDecl(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
-        TupleSort(Context ctx, Symbol name, Integer numFields, Symbol[] fieldNames, Sort[] fieldSorts)
+        TupleSort(Context ctx, Symbol name, long numFields, Symbol[] fieldNames, Sort[] fieldSorts)
             { super(ctx);
             
             
@@ -341,7 +343,8 @@ package com.Microsoft.Z3;
         public FuncDecl[] ConstDecls()  {
                 
 
-                return Constdecls; }
+                return _constdecls; }
+        }
 
         /**
          * The constants in the enumeration.
@@ -349,7 +352,8 @@ package com.Microsoft.Z3;
         public Expr[] Consts()  {
                 
 
-                return Consts; }
+                return _consts; }
+        }
 
         /**
          * The test predicates for the constants in the enumeration.
@@ -357,8 +361,8 @@ package com.Microsoft.Z3;
         public FuncDecl[] TesterDecls()  {
                 
                 
-                return Testerdecls;
-        }
+                return _testerdecls;
+            }
 
 
         private void ObjectInvariant()
@@ -370,8 +374,8 @@ package com.Microsoft.Z3;
 
         
 
-        private FuncDecl[] Constdecls = null, Testerdecls = null;
-        private Expr[] Consts = null;
+        private FuncDecl[] _constdecls = null, _testerdecls = null;
+        private Expr[] _consts = null;
 
         EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
             { super(ctx);
@@ -380,19 +384,19 @@ package com.Microsoft.Z3;
             
 
             int n = enumNames.Length;
-            IntPtr[] nConstdecls = new IntPtr[n];
-            IntPtr[] nTesters = new IntPtr[n];
-            NativeObject = Native.mkEnumerationSort(ctx.nCtx, name.NativeObject, (Integer)n,
-                                                         Symbol.ArrayToNative(enumNames), nConstdecls, nTesters);
-            Constdecls = new FuncDecl[n];            
-            for (Integer i = 0; i < n; i++)            
-                Constdecls[i] = new FuncDecl(ctx, nConstdecls[i]);
-            Testerdecls = new FuncDecl[n];
-            for (Integer i = 0; i < n; i++)
-                Testerdecls[i] = new FuncDecl(ctx, nTesters[i]);
-            Consts = new Expr[n];
-            for (Integer i = 0; i < n; i++)
-                Consts[i] = ctx.MkApp(Constdecls[i]);
+            IntPtr[] n_constdecls = new IntPtr[n];
+            IntPtr[] n_testers = new IntPtr[n];
+            NativeObject = Native.mkEnumerationSort(ctx.nCtx, name.NativeObject, (long)n,
+                                                         Symbol.ArrayToNative(enumNames), n_constdecls, n_testers);
+            _constdecls = new FuncDecl[n];            
+            for (long i = 0; i < n; i++)            
+                _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
+            _testerdecls = new FuncDecl[n];
+            for (long i = 0; i < n; i++)
+                _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
+            _consts = new Expr[n];
+            for (long i = 0; i < n; i++)
+                _consts[i] = ctx.MkApp(_constdecls[i]);
         }
     };
 
@@ -415,7 +419,7 @@ package com.Microsoft.Z3;
             {
                 
                 return nilConst;
-        }
+            }
 
         /**
          * The declaration of the isNil function of this list sort.
@@ -424,7 +428,7 @@ package com.Microsoft.Z3;
             {
                 
                 return isNilDecl;
-        }
+            }
 
         /**
          * The declaration of the cons function of this list sort.
@@ -433,7 +437,7 @@ package com.Microsoft.Z3;
             {
                 
                 return consDecl;
-        }
+            }
 
         /**
          * The declaration of the isCons function of this list sort.
@@ -443,7 +447,7 @@ package com.Microsoft.Z3;
             {
                 
                 return isConsDecl;
-        }
+            }
 
         /**
          * The declaration of the head function of this list sort.
@@ -452,7 +456,7 @@ package com.Microsoft.Z3;
             {
                 
                 return headDecl;
-        }
+            }
 
         /**
          * The declaration of the tail function of this list sort.
@@ -461,7 +465,7 @@ package com.Microsoft.Z3;
             {
                 
                 return tailDecl;
-        }
+            }
 
 
         private void ObjectInvariant()
@@ -513,7 +517,7 @@ package com.Microsoft.Z3;
         /**
          * The arity of the relation sort.
          **/
-        public Integer Arity()  { return Native.getRelationArity(Context.nCtx, NativeObject); }
+        public long Arity()  { return Native.getRelationArity(Context.nCtx, NativeObject); }
 
         /**
          * The sorts of the columns of the relation sort.
@@ -522,17 +526,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                if (mColumnSorts != null)
-                    return mColumnSorts;
+                if (m_columnSorts != null)
+                    return m_columnSorts;
 
-                Integer n = Arity;
+                long n = Arity;
                 Sort[] res = new Sort[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Sort.Create(Context, Native.getRelationColumn(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
-        private Sort[] mColumnSorts = null;
+        private Sort[] m_columnSorts = null;
 
         RelationSort(Context ctx, IntPtr obj)
             { super(ctx, obj);
