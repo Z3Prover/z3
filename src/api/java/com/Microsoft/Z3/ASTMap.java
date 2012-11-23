@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -20,7 +24,7 @@ package com.Microsoft.Z3;
         {
             
 
-            return Native.astMapContains(Context.nCtx, NativeObject, k.NativeObject) != 0;
+            return Native.astMapContains(Context().nCtx(), NativeObject(), k.NativeObject) != 0;
         }
 
         /**
@@ -35,7 +39,7 @@ package com.Microsoft.Z3;
             
             
 
-            return new AST(Context, Native.astMapFind(Context.nCtx, NativeObject, k.NativeObject));
+            return new AST(Context, Native.astMapFind(Context().nCtx(), NativeObject(), k.NativeObject));
         }
 
         /**
@@ -48,7 +52,7 @@ package com.Microsoft.Z3;
             
             
 
-            Native.astMapInsert(Context.nCtx, NativeObject, k.NativeObject, v.NativeObject);
+            Native.astMapInsert(Context().nCtx(), NativeObject(), k.NativeObject, v.NativeObject);
         }
 
         /**
@@ -59,7 +63,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.astMapErase(Context.nCtx, NativeObject, k.NativeObject);
+            Native.astMapErase(Context().nCtx(), NativeObject(), k.NativeObject);
         }
 
         /**
@@ -67,20 +71,20 @@ package com.Microsoft.Z3;
          **/
         public void Reset()
         {
-            Native.astMapReset(Context.nCtx, NativeObject);
+            Native.astMapReset(Context().nCtx(), NativeObject());
         }
 
         /**
          * The size of the map
          **/
-        public long Size()  { return Native.astMapSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.astMapSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The keys stored in the map.
          **/
         public ASTVector Keys() 
             {
-                return new ASTVector(Context, Native.astMapKeys(Context.nCtx, NativeObject));
+                return new ASTVector(Context, Native.astMapKeys(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -88,38 +92,38 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.astMaptoString(Context.nCtx, NativeObject);
+            return Native.astMapToString(Context().nCtx(), NativeObject());
         }
 
-        ASTMap(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        ASTMap(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
         ASTMap(Context ctx)
-            { super(ctx, Native.mkAstMap(ctx.nCtx));
+        { super(ctx, Native.mkAstMap(ctx.nCtx()));
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.astMapIncRef(ctx.nCtx, obj);
+                Native.astMapIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.astMapDecRef(ctx.nCtx, obj);
+                Native.astMapDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.ASTMap_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.ASTMap_DRQ.Add(o);
             super.DecRef(o);

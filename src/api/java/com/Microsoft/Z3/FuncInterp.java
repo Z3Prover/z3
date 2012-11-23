@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -21,15 +25,16 @@ package com.Microsoft.Z3;
             /**
              * Return the (symbolic) value of this entry.
              **/
-            public Expr Value()  {
+            public Expr Value() 
+                {
                     
-                    return Expr.Create(Context, Native.funcEntryGetValue(Context.nCtx, NativeObject)); }
-            }
+                    return Expr.Create(Context, Native.funcEntryGetValue(Context().nCtx(), NativeObject()));
+                }
 
             /**
              * The number of arguments of the entry.
              **/
-            public long NumArgs()  { return Native.funcEntryGetNumArgs(Context.nCtx, NativeObject); }
+            public long NumArgs()  { return Native.funcEntryGetNumArgs(Context().nCtx(), NativeObject()); }
 
             /**
              * The arguments of the function entry.
@@ -41,8 +46,8 @@ package com.Microsoft.Z3;
 
                     long n = NumArgs;
                     Expr[] res = new Expr[n];
-                    for (long i = 0; i < n; i++)
-                        res[i] = Expr.Create(Context, Native.funcEntryGetArg(Context.nCtx, NativeObject, i));
+                    for (long i; i < n; i++)
+                        res[i] = Expr.Create(Context, Native.funcEntryGetArg(Context().nCtx(), NativeObject(), i));
                     return res;
                 }
 
@@ -54,33 +59,33 @@ package com.Microsoft.Z3;
                 long n = NumArgs;
                 String res = "[";
                 Expr[] args = Args;
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res += args[i] + ", ";
                 return res + Value + "]";
             }
 
-            Entry(Context ctx, IntPtr obj) { super(ctx, obj);  }
+        Entry(Context ctx, long obj) { super(ctx, obj); {  }}
 
-            class DecRefQueue extends Z3.DecRefQueue
+            class DecRefQueue extends IDecRefQueue
             {
-                public void IncRef(Context ctx, IntPtr obj)
+                public void IncRef(Context ctx, long obj)
                 {
-                    Native.funcEntryIncRef(ctx.nCtx, obj);
+                    Native.funcEntryIncRef(ctx.nCtx(), obj);
                 }
 
-                public void DecRef(Context ctx, IntPtr obj)
+                public void DecRef(Context ctx, long obj)
                 {
-                    Native.funcEntryDecRef(ctx.nCtx, obj);
+                    Native.funcEntryDecRef(ctx.nCtx(), obj);
                 }
             };
 
-            void IncRef(IntPtr o)
+            void IncRef(long o)
             {
                 Context.FuncEntry_DRQ.IncAndClear(Context, o);
                 super.IncRef(o);
             }
 
-            void DecRef(IntPtr o)
+            void DecRef(long o)
             {
                 Context.FuncEntry_DRQ.Add(o);
                 super.DecRef(o);
@@ -90,7 +95,7 @@ package com.Microsoft.Z3;
         /**
          * The number of entries in the function interpretation.
          **/
-        public long NumEntries()  { return Native.funcInterpGetNumEntries(Context.nCtx, NativeObject); }
+        public long NumEntries()  { return Native.funcInterpGetNumEntries(Context().nCtx(), NativeObject()); }
 
         /**
          * The entries in the function interpretation
@@ -98,29 +103,29 @@ package com.Microsoft.Z3;
         public Entry[] Entries() 
             {
                 
-                Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, 
-                    j => Contract.Result<Entry[]>()[j] != null));
+                
 
                 long n = NumEntries;
                 Entry[] res = new Entry[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = new Entry(Context, Native.funcInterpGetEntry(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = new Entry(Context, Native.funcInterpGetEntry(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The (symbolic) `else' value of the function interpretation.
          **/
-        public Expr Else()  {
+        public Expr Else() 
+            {
                 
 
-                return Expr.Create(Context, Native.funcInterpGetElse(Context.nCtx, NativeObject)); }
-        }
+                return Expr.Create(Context, Native.funcInterpGetElse(Context().nCtx(), NativeObject()));
+            }
 
         /**
          * The arity of the function interpretation
          **/
-        public long Arity()  { return Native.funcInterpGetArity(Context.nCtx, NativeObject); }
+        public long Arity()  { return Native.funcInterpGetArity(Context().nCtx(), NativeObject()); }
 
         /**
          * A string representation of the function interpretation.
@@ -129,12 +134,12 @@ package com.Microsoft.Z3;
         {
             String res = "";
             res += "[";
-            for (Entry.Iterator e = Entries.iterator(); e.hasNext(); )
+            for (Iterator e = Entries.iterator(); e.hasNext(); )
             {
-                long n = e.NumArgs;                
+                long n = e.NumArgs;
                 if (n > 1) res += "[";
                 Expr[] args = e.Args;
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                 {
                     if (i != 0) res += ", ";
                     res += args[i];
@@ -147,31 +152,31 @@ package com.Microsoft.Z3;
             return res;
         }
 
-        FuncInterp(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        FuncInterp(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.funcInterpIncRef(ctx.nCtx, obj);
+                Native.funcInterpIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.funcInterpDecRef(ctx.nCtx, obj);
+                Native.funcInterpDecRef(ctx.nCtx(), obj);
             }
-        };        
+        };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.FuncInterp_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.FuncInterp_DRQ.Add(o);
             super.DecRef(o);

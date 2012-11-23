@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -14,7 +18,7 @@ package com.Microsoft.Z3;
         /**
          * The size of the vector
          **/
-        public long Size()  { return Native.astVectorSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.astVectorSize(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves the i-th object in the vector.
@@ -26,13 +30,13 @@ package com.Microsoft.Z3;
             {
                 
 
-                return new AST(Context, Native.astVectorGet(Context.nCtx, NativeObject, i));
+                return new AST(Context, Native.astVectorGet(Context().nCtx(), NativeObject(), i));
             }
         public void set(long i, AST value) 
             {
                 
 
-                Native.astVectorSet(Context.nCtx, NativeObject, i, value.NativeObject);
+                Native.astVectorSet(Context().nCtx(), NativeObject(), i, value.NativeObject);
             }
 
         /**
@@ -41,7 +45,7 @@ package com.Microsoft.Z3;
          **/
         public void Resize(long newSize)
         {
-            Native.astVectorResize(Context.nCtx, NativeObject, newSize);
+            Native.astVectorResize(Context().nCtx(), NativeObject(), newSize);
         }
 
         /**
@@ -53,7 +57,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.astVectorPush(Context.nCtx, NativeObject, a.NativeObject);
+            Native.astVectorPush(Context().nCtx(), NativeObject(), a.NativeObject);
         }
 
         /**
@@ -66,7 +70,7 @@ package com.Microsoft.Z3;
             
             
 
-            return new ASTVector(Context, Native.astVectorTranslate(Context.nCtx, NativeObject, ctx.nCtx));
+            return new ASTVector(Context, Native.astVectorTranslate(Context().nCtx(), NativeObject(), ctx.nCtx()));
         }
 
         /**
@@ -74,32 +78,32 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.astVectortoString(Context.nCtx, NativeObject);
+            return Native.astVectorToString(Context().nCtx(), NativeObject());
         }
 
-        ASTVector(Context ctx, IntPtr obj) { super(ctx, obj);  }
-        ASTVector(Context ctx) { super(ctx, Native.mkAstVector(ctx.nCtx));  }
+    ASTVector(Context ctx, long obj) { super(ctx, obj); {  }}
+    ASTVector(Context ctx) { super(ctx, Native.mkAstVector(ctx.nCtx())); {  }}
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.astVectorIncRef(ctx.nCtx, obj);
+                Native.astVectorIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.astVectorDecRef(ctx.nCtx, obj);
+                Native.astVectorDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.ASTVector_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.ASTVector_DRQ.Add(o);
             super.DecRef(o);

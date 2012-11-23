@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -45,9 +49,9 @@ package com.Microsoft.Z3;
                     
 
                     if (IsUInt)
-                        return m_long.toString();
+                        return m_long.ToString();
                     else if (IsDouble)
-                        return m_double.toString();
+                        return m_double.ToString();
                     else
                         throw new Z3Exception("Unknown statistical entry type");
                 }
@@ -64,8 +68,18 @@ package com.Microsoft.Z3;
             private boolean m_is_double = false;
             private long m_long = 0;
             private double m_double = 0.0;
-            Entry(String k, long v) { Key = k; m_is_long = true; m_long = v; }
-            Entry(String k, double v) { Key = k; m_is_double = true; m_double = v; }
+            Entry(String k, long v)
+            {
+                Key = k;
+                m_is_long = true;
+                m_long = v;
+            }
+            Entry(String k, double v)
+            {
+                Key = k;
+                m_is_double = true;
+                m_double = v;
+            }
         }
 
         /**
@@ -73,13 +87,13 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.statstoString(Context.nCtx, NativeObject);
+            return Native.statsToString(Context().nCtx(), NativeObject());
         }
 
         /**
          * The number of statistical data.
          **/
-        public long Size()  { return Native.statsSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.statsSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The data entries.
@@ -92,14 +106,14 @@ package com.Microsoft.Z3;
 
                 long n = Size;
                 Entry[] res = new Entry[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                 {
                     Entry e;
-                    String k = Native.statsGetKey(Context.nCtx, NativeObject, i);
-                    if (Native.statsIsLong(Context.nCtx, NativeObject, i) != 0)
-                        e = new Entry(k, Native.statsGetLongValue(Context.nCtx, NativeObject, i));
-                    else if (Native.statsIsDouble(Context.nCtx, NativeObject, i) != 0)
-                        e = new Entry(k, Native.statsGetDoubleValue(Context.nCtx, NativeObject, i));
+                    String k = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
+                    if (Native.statsIsLong(Context().nCtx(), NativeObject(), i) != 0)
+                        e = new Entry(k, Native.statsGetLongValue(Context().nCtx(), NativeObject(), i));
+                    else if (Native.statsIsDouble(Context().nCtx(), NativeObject(), i) != 0)
+                        e = new Entry(k, Native.statsGetDoubleValue(Context().nCtx(), NativeObject(), i));
                     else
                         throw new Z3Exception("Unknown data entry value");
                     res[i] = e;
@@ -116,8 +130,8 @@ package com.Microsoft.Z3;
 
                 long n = Size;
                 String[] res = new String[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = Native.statsGetKey(Context.nCtx, NativeObject, i);
+                for (long i; i < n; i++)
+                    res[i] = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
                 return res;
             }
 
@@ -129,37 +143,37 @@ package com.Microsoft.Z3;
             {
                 long n = Size;
                 Entry[] es = Entries;
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     if (es[i].Key == key)
                         return es[i];
                 return null;
             }
 
-        Statistics(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Statistics(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.statsIncRef(ctx.nCtx, obj);
+                Native.statsIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.statsDecRef(ctx.nCtx, obj);
+                Native.statsDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Statistics_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Statistics_DRQ.Add(o);
             super.DecRef(o);

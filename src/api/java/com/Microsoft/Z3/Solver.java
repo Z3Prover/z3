@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -18,7 +22,7 @@ package com.Microsoft.Z3;
             {
                 
 
-                return Native.solverGetHelp(Context.nCtx, NativeObject);
+                return Native.solverGetHelp(Context().nCtx(), NativeObject());
             }
 
         /**
@@ -29,13 +33,13 @@ package com.Microsoft.Z3;
                 
 
                 Context.CheckContextMatch(value);
-                Native.solverSetParams(Context.nCtx, NativeObject, value.NativeObject);
+                Native.solverSetParams(Context().nCtx(), NativeObject(), value.NativeObject);
             }
 
         /**
          * Retrieves parameter descriptions for solver.
          **/
-        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.solverGetParamDescrs(Context.nCtx, NativeObject)); }
+        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.solverGetParamDescrs(Context().nCtx(), NativeObject())); }
 
 
         /**
@@ -43,7 +47,7 @@ package com.Microsoft.Z3;
          * <seealso cref="Pop"/>
          * <seealso cref="Push"/>
          **/
-        public long NumScopes()  { return Native.solverGetNumScopes(Context.nCtx, NativeObject); }
+        public long NumScopes()  { return Native.solverGetNumScopes(Context().nCtx(), NativeObject()); }
 
         /**
          * Creates a backtracking point.
@@ -51,7 +55,7 @@ package com.Microsoft.Z3;
          **/
         public void Push()
         {
-            Native.solverPush(Context.nCtx, NativeObject);
+            Native.solverPush(Context().nCtx(), NativeObject());
         }
 
         /**
@@ -61,7 +65,7 @@ package com.Microsoft.Z3;
          **/
         public void Pop(long n)
         {
-            Native.solverPop(Context.nCtx, NativeObject, n);
+            Native.solverPop(Context().nCtx(), NativeObject(), n);
         }
 
         /**
@@ -70,7 +74,7 @@ package com.Microsoft.Z3;
          **/
         public void Reset()
         {
-            Native.solverReset(Context.nCtx, NativeObject);
+            Native.solverReset(Context().nCtx(), NativeObject());
         }
 
         /**
@@ -82,9 +86,9 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(constraints);
-            for (BoolExpr.Iterator a = constraints.iterator(); a.hasNext(); )
+            for (Iterator a = constraints.iterator(); a.hasNext(); )
             {
-                Native.solverAssert(Context.nCtx, NativeObject, a.NativeObject);
+                Native.solverAssert(Context().nCtx(), NativeObject(), a.NativeObject);
             }
         }
 
@@ -93,7 +97,7 @@ package com.Microsoft.Z3;
          **/
         public long NumAssertions() 
             {
-                ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context.nCtx, NativeObject));
+                ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context().nCtx(), NativeObject()));
                 return ass.Size;
             }
 
@@ -104,10 +108,10 @@ package com.Microsoft.Z3;
             {
                 
 
-                ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context.nCtx, NativeObject));
+                ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context().nCtx(), NativeObject()));
                 long n = ass.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = new BoolExpr(Context, ass[i].NativeObject);
                 return res;
             }
@@ -122,15 +126,15 @@ package com.Microsoft.Z3;
          **/
         public Status Check(Expr[] assumptions)
         {
-            Z3_lboolean r;
+            Z3_lbool r;
             if (assumptions == null)
-                r = (Z3_lboolean)Native.solverCheck(Context.nCtx, NativeObject);
+                r = (Z3_lbool)Native.solverCheck(Context().nCtx(), NativeObject());
             else
-                r = (Z3_lboolean)Native.solverCheckAssumptions(Context.nCtx, NativeObject, (long)assumptions.Length, AST.ArrayToNative(assumptions));
+                r = (Z3_lbool)Native.solverCheckAssumptions(Context().nCtx(), NativeObject(), (long)assumptions.Length, AST.ArrayToNative(assumptions));
             switch (r)
             {
-                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
-                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
+                case Z3_lbool.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lbool.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -144,8 +148,8 @@ package com.Microsoft.Z3;
          **/
         public Model Model() 
             {
-                IntPtr x = Native.solverGetModel(Context.nCtx, NativeObject);
-                if (x == IntPtr.Zero)
+                long x = Native.solverGetModel(Context().nCtx(), NativeObject());
+                if (x == 0)
                     return null;
                 else
                     return new Model(Context, x);
@@ -160,8 +164,8 @@ package com.Microsoft.Z3;
          **/
         public Expr Proof() 
             {
-                IntPtr x = Native.solverGetProof(Context.nCtx, NativeObject);
-                if (x == IntPtr.Zero)
+                long x = Native.solverGetProof(Context().nCtx(), NativeObject());
+                if (x == 0)
                     return null;
                 else
                     return Expr.Create(Context, x);
@@ -179,10 +183,10 @@ package com.Microsoft.Z3;
             {
                 
 
-                ASTVector core = new ASTVector(Context, Native.solverGetUnsatCore(Context.nCtx, NativeObject));
+                ASTVector core = new ASTVector(Context, Native.solverGetUnsatCore(Context().nCtx(), NativeObject()));
                 long n = core.Size;
                 Expr[] res = new Expr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = Expr.Create(Context, core[i].NativeObject);
                 return res;
             }
@@ -194,7 +198,7 @@ package com.Microsoft.Z3;
             {
                 
 
-                return Native.solverGetReasonUnknown(Context.nCtx, NativeObject);
+                return Native.solverGetReasonUnknown(Context().nCtx(), NativeObject());
             }
 
         /**
@@ -204,7 +208,7 @@ package com.Microsoft.Z3;
             {
                 
 
-                return new Statistics(Context, Native.solverGetStatistics(Context.nCtx, NativeObject));
+                return new Statistics(Context, Native.solverGetStatistics(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -212,34 +216,34 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.solvertoString(Context.nCtx, NativeObject);
+            return Native.solverToString(Context().nCtx(), NativeObject());
         }
 
-        Solver(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Solver(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.solverIncRef(ctx.nCtx, obj);
+                Native.solverIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.solverDecRef(ctx.nCtx, obj);
+                Native.solverDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Solver_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Solver_DRQ.Add(o);
             super.DecRef(o);

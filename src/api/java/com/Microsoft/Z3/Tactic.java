@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -21,14 +25,14 @@ package com.Microsoft.Z3;
             {
                 
 
-                return Native.tacticGetHelp(Context.nCtx, NativeObject);
+                return Native.tacticGetHelp(Context().nCtx(), NativeObject());
             }
 
 
         /**
          * Retrieves parameter descriptions for Tactics.
          **/
-        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.tacticGetParamDescrs(Context.nCtx, NativeObject)); }
+        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.tacticGetParamDescrs(Context().nCtx(), NativeObject())); }
 
 
         /**
@@ -41,11 +45,11 @@ package com.Microsoft.Z3;
 
             Context.CheckContextMatch(g);
             if (p == null)
-                return new ApplyResult(Context, Native.tacticApply(Context.nCtx, NativeObject, g.NativeObject));
+                return new ApplyResult(Context, Native.tacticApply(Context().nCtx(), NativeObject(), g.NativeObject));
             else
             {
                 Context.CheckContextMatch(p);
-                return new ApplyResult(Context, Native.tacticApplyEx(Context.nCtx, NativeObject, g.NativeObject, p.NativeObject));
+                return new ApplyResult(Context, Native.tacticApplyEx(Context().nCtx(), NativeObject(), g.NativeObject, p.NativeObject));
             }
         }
 
@@ -71,35 +75,35 @@ package com.Microsoft.Z3;
                 return Context.MkSolver(this);
             }
 
-        Tactic(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Tactic(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
         Tactic(Context ctx, String name)
-            { super(ctx, Native.mkTactic(ctx.nCtx, name));
+        { super(ctx, Native.mkTactic(ctx.nCtx(), name));
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.tacticIncRef(ctx.nCtx, obj);
+                Native.tacticIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.tacticDecRef(ctx.nCtx, obj);
+                Native.tacticDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Tactic_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Tactic_DRQ.Add(o);
             super.DecRef(o);

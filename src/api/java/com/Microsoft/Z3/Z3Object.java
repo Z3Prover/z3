@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -25,21 +29,21 @@ package com.Microsoft.Z3;
          **/
         public void Dispose()
         {
-            if (m_n_obj != IntPtr.Zero)
+            if (m_n_obj != 0)
             {
                 DecRef(m_n_obj);
-                m_n_obj = IntPtr.Zero;                
+                m_n_obj = 0;                
             }
 
             if (m_ctx != null)
             {
                 m_ctx.refCount--;
                 if (m_ctx.refCount == 0)
-                    GC.ReRegisterForFinalize(m_ctx);
+                    
                 m_ctx = null;
             }
 
-            GC.SuppressFinalize(this);
+            
         }
 
         
@@ -50,7 +54,7 @@ package com.Microsoft.Z3;
 
 
         private Context m_ctx = null;
-        private IntPtr m_n_obj = IntPtr.Zero;
+        private long m_n_obj = 0;
 
         Z3Object(Context ctx)
         {
@@ -60,7 +64,7 @@ package com.Microsoft.Z3;
             m_ctx = ctx;
         }
 
-        Z3Object(Context ctx, IntPtr obj)
+        Z3Object(Context ctx, long obj)
         {
             
 
@@ -70,46 +74,40 @@ package com.Microsoft.Z3;
             m_n_obj = obj;
         }
 
-        void IncRef(IntPtr o) { }
-        void DecRef(IntPtr o) { }
+        void IncRef(long o) { }
+        void DecRef(long o) { }
 
-        void CheckNativeObject(IntPtr obj) { }
+        void CheckNativeObject(long obj) { }
 
-        IntPtr NativeObject
-        {
-            get { return m_n_obj; }
-            set
+                         long NativeObject()  { return m_n_obj; }
+                         void setNativeObject(long value) 
             {
-                if (value != IntPtr.Zero) { CheckNativeObject(value); IncRef(value); }
-                if (m_n_obj != IntPtr.Zero) { DecRef(m_n_obj); }
+                if (value != 0) { CheckNativeObject(value); IncRef(value); }
+                if (m_n_obj != 0) { DecRef(m_n_obj); }
                 m_n_obj = value;
             }
+
+        static long GetNativeObject(Z3Object s)
+        {
+            if (s == null) return 0;
+            return s.NativeObject();
         }
 
-        static IntPtr GetNativeObject(Z3Object s)
-        {
-            if (s == null) return new IntPtr();
-            return s.NativeObject;
-        }
-
-        Context Context
-        {
-            get 
+                 Context Context() 
             {
                 
                 return m_ctx; 
             }            
-        }
 
-        static IntPtr[] ArrayToNative(Z3Object[] a)
+        static long[] ArrayToNative(Z3Object[] a)
         {
             
             
 
             if (a == null) return null;
-            IntPtr[] an = new IntPtr[a.Length];
-            for (long i = 0; i < a.Length; i++)
-                if (a[i] != null) an[i] = a[i].NativeObject;
+            long[] an = new long[a.Length];
+            for (long i; i < a.Length; i++)
+                if (a[i] != null) an[i] = a[i].NativeObject();
             return an;
         }
 

@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -26,7 +30,7 @@ package com.Microsoft.Z3;
         /**
          * Object comparison.
          **/
-        public boolean Equals(object o)
+        public boolean Equals(Object o)
         {
             FuncDecl casted = (FuncDecl) o;
             if (casted == null) return false;
@@ -46,24 +50,24 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.funcDecltoString(Context.nCtx, NativeObject);
+            return Native.funcDeclToString(Context().nCtx(), NativeObject());
         }
 
         /**
          * Returns a unique identifier for the function declaration.
          **/
-            public long Id()  { return Native.getFuncDeclId(Context.nCtx, NativeObject); }
+            public long Id()  { return Native.getFuncDeclId(Context().nCtx(), NativeObject()); }
 
         /**
          * The arity of the function declaration
          **/
-        public long Arity()  { return Native.getArity(Context.nCtx, NativeObject); }
+        public long Arity()  { return Native.getArity(Context().nCtx(), NativeObject()); }
 
         /**
          * The size of the domain of the function declaration
          * <seealso cref="Arity"/>
          **/
-        public long DomainSize()  { return Native.getDomainSize(Context.nCtx, NativeObject); }
+        public long DomainSize()  { return Native.getDomainSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The domain of the function declaration
@@ -75,8 +79,8 @@ package com.Microsoft.Z3;
                 var n = DomainSize;
 
                 Sort[] res = new Sort[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = Sort.Create(Context, Native.getDomain(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = Sort.Create(Context, Native.getDomain(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -86,13 +90,13 @@ package com.Microsoft.Z3;
         public Sort Range() 
             {
                 
-                return Sort.Create(Context, Native.getRange(Context.nCtx, NativeObject));
+                return Sort.Create(Context, Native.getRange(Context().nCtx(), NativeObject()));
             }
 
         /**
          * The kind of the function declaration.
          **/
-        public Z3_decl_kind DeclKind()  { return (Z3_decl_kind)Native.getDeclKind(Context.nCtx, NativeObject); }
+        public Z3_decl_kind DeclKind()  { return (Z3_decl_kind)Native.getDeclKind(Context().nCtx(), NativeObject()); }
 
         /**
          * The name of the function declaration
@@ -100,13 +104,13 @@ package com.Microsoft.Z3;
         public Symbol Name() 
             {
                 
-                return Symbol.Create(Context, Native.getDeclName(Context.nCtx, NativeObject));
+                return Symbol.Create(Context, Native.getDeclName(Context().nCtx(), NativeObject()));
             }
 
         /**
          * The number of parameters of the function declaration
          **/
-        public long NumParameters()  { return Native.getDeclNumParameters(Context.nCtx, NativeObject); }
+        public long NumParameters()  { return Native.getDeclNumParameters(Context().nCtx(), NativeObject()); }
 
         /**
          * The parameters of the function declaration
@@ -117,31 +121,31 @@ package com.Microsoft.Z3;
 
                 long num = NumParameters;
                 Parameter[] res = new Parameter[num];
-                for (long i = 0; i < num; i++)
+                for (long i; i < num; i++)
                 {
-                    Z3_parameter_kind k = (Z3_parameter_kind)Native.getDeclParameterKind(Context.nCtx, NativeObject, i);
+                    Z3_parameter_kind k = (Z3_parameter_kind)Native.getDeclParameterKind(Context().nCtx(), NativeObject(), i);
                     switch (k)
                     {
                         case Z3_parameter_kind.Z3_PARAMETER_INT:
-                            res[i] = new Parameter(k, Native.getDeclIntParameter(Context.nCtx, NativeObject, i));
+                            res[i] = new Parameter(k, Native.getDeclIntParameter(Context().nCtx(), NativeObject(), i));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_DOUBLE:
-                            res[i] = new Parameter(k, Native.getDeclDoubleParameter(Context.nCtx, NativeObject, i));
+                            res[i] = new Parameter(k, Native.getDeclDoubleParameter(Context().nCtx(), NativeObject(), i));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_SYMBOL:
-                            res[i] = new Parameter(k, Symbol.Create(Context, Native.getDeclSymbolParameter(Context.nCtx, NativeObject, i)));
+                            res[i] = new Parameter(k, Symbol.Create(Context, Native.getDeclSymbolParameter(Context().nCtx(), NativeObject(), i)));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_SORT:
-                            res[i] = new Parameter(k, Sort.Create(Context, Native.getDeclSortParameter(Context.nCtx, NativeObject, i)));
+                            res[i] = new Parameter(k, Sort.Create(Context, Native.getDeclSortParameter(Context().nCtx(), NativeObject(), i)));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_AST:
-                            res[i] = new Parameter(k, new AST(Context, Native.getDeclAstParameter(Context.nCtx, NativeObject, i)));
+                            res[i] = new Parameter(k, new AST(Context, Native.getDeclAstParameter(Context().nCtx(), NativeObject(), i)));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL:
-                            res[i] = new Parameter(k, new FuncDecl(Context, Native.getDeclFuncDeclParameter(Context.nCtx, NativeObject, i)));
+                            res[i] = new Parameter(k, new FuncDecl(Context, Native.getDeclFuncDeclParameter(Context().nCtx(), NativeObject(), i)));
                             break;
                         case Z3_parameter_kind.Z3_PARAMETER_RATIONAL:
-                            res[i] = new Parameter(k, Native.getDeclRationalParameter(Context.nCtx, NativeObject, i));
+                            res[i] = new Parameter(k, Native.getDeclRationalParameter(Context().nCtx(), NativeObject(), i));
                             break;
                         default:
                             throw new Z3Exception("Unknown function declaration parameter kind encountered");
@@ -195,7 +199,8 @@ package com.Microsoft.Z3;
             {
                 this.kind = k;
                 this.i = i;
-	    }
+            }
+
             Parameter(Z3_parameter_kind k, double d)
             {
                 this.kind = k;
@@ -233,31 +238,27 @@ package com.Microsoft.Z3;
             }
         }
 
-        FuncDecl(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        FuncDecl(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
         FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
-            : base(ctx, Native.mkFuncDecl(ctx.nCtx, name.NativeObject,
-                                             AST.ArrayLength(domain), AST.ArrayToNative(domain),
-                                             range.NativeObject))
+        { super(ctx, Native.mkFuncDecl(ctx.nCtx(), name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject));
             
             
             
         }
 
         FuncDecl(Context ctx, String prefix, Sort[] domain, Sort range)
-            : base(ctx, Native.mkFreshFuncDecl(ctx.nCtx, prefix,
-                                             AST.ArrayLength(domain), AST.ArrayToNative(domain),
-                                             range.NativeObject))
+        { super(ctx, Native.mkFreshFuncDecl(ctx.nCtx(), prefix, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject));
             
             
         }
 
-        void CheckNativeObject(IntPtr obj)
+        void CheckNativeObject(long obj)
         {
-            if (Native.getAstKind(Context.nCtx, obj) != (long)Z3_ast_kind.Z3_FUNC_DECL_AST)
+            if (Native.getAstKind(Context().nCtx(), obj) != (long)Z3_ast_kind.Z3_FUNC_DECL_AST)
                 throw new Z3Exception("Underlying object is not a function declaration");
             super.CheckNativeObject(obj);
         }
@@ -267,15 +268,8 @@ package com.Microsoft.Z3;
          * <param name="args"></param>
          * @return 
          **/
-        public Expr this[params() lic Expr this[params Expr[] args
-        {
-        public Expr this[params() 
-            {
-                
-
-                return Apply(args);
-            }
-
+        /* operator this[] not translated */
+ 
         /**
          * Create expression that applies function to arguments.
          * <param name="args"></param>

@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 /* using System.Runtime.InteropServices; */
 
@@ -26,45 +30,48 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(g);
-            return Native.probeApply(Context.nCtx, NativeObject, g.NativeObject);
+            return Native.probeApply(Context().nCtx(), NativeObject(), g.NativeObject);
         }
 
         /**
          * Apply the probe to a goal.
          **/
-        public double this[Goal() 
-            
+        public double get(Goal g) 
+            {
+                
 
-            return Apply(g); } }
+                return Apply(g);
+            }
 
-        Probe(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Probe(Context ctx, long obj)
+        { super(ctx, obj);
             
+        }
         Probe(Context ctx, String name)
-            { super(ctx, Native.mkProbe(ctx.nCtx, name));
+        { super(ctx, Native.mkProbe(ctx.nCtx(), name));
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.probeIncRef(ctx.nCtx, obj);
+                Native.probeIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.probeDecRef(ctx.nCtx, obj);
+                Native.probeDecRef(ctx.nCtx(), obj);
             }
-        };        
+        };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Probe_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Probe_DRQ.Add(o);
             super.DecRef(o);

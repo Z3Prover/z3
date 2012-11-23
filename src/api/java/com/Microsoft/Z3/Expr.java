@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -21,9 +25,9 @@ package com.Microsoft.Z3;
             
 
             if (p == null)
-                return Expr.Create(Context, Native.simplify(Context.nCtx, NativeObject));
+                return Expr.Create(Context, Native.simplify(Context().nCtx(), NativeObject()));
             else
-                return Expr.Create(Context, Native.simplifyEx(Context.nCtx, NativeObject, p.NativeObject));
+                return Expr.Create(Context, Native.simplifyEx(Context().nCtx(), NativeObject(), p.NativeObject));
         }
 
         /**
@@ -32,19 +36,19 @@ package com.Microsoft.Z3;
         public FuncDecl FuncDecl() 
             {
                 
-                return new FuncDecl(Context, Native.getAppDecl(Context.nCtx, NativeObject));
+                return new FuncDecl(Context, Native.getAppDecl(Context().nCtx(), NativeObject()));
             }
 
         /**
          * Indicates whether the expression is the true or false expression
          * or something else (Z3_L_UNDEF).
          **/
-        public Z3_lboolean BoolValue()  { return (Z3_lboolean)Native.getBooleanValue(Context.nCtx, NativeObject); }
+        public Z3_lbool BoolValue()  { return (Z3_lbool)Native.getBoolValue(Context().nCtx(), NativeObject()); }
 
         /**
          * The number of arguments of the expression.
          **/
-        public long NumArgs()  { return Native.getAppNumArgs(Context.nCtx, NativeObject); }
+        public long NumArgs()  { return Native.getAppNumArgs(Context().nCtx(), NativeObject()); }
 
         /**
          * The arguments of the expression.
@@ -55,8 +59,8 @@ package com.Microsoft.Z3;
 
                 long n = NumArgs;
                 Expr[] res = new Expr[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = Expr.Create(Context, Native.getAppArg(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = Expr.Create(Context, Native.getAppArg(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -72,7 +76,7 @@ package com.Microsoft.Z3;
             Context.CheckContextMatch(args);
             if (args.Length != NumArgs)
                 throw new Z3Exception("Number of arguments does not match");
-            NativeObject = Native.updateTerm(Context.nCtx, NativeObject, (long)args.Length, Expr.ArrayToNative(args));
+            setNativeObject(Native.updateTerm(Context().nCtx(), NativeObject(), (long)args.Length, Expr.ArrayToNative(args)));
         }
 
         /**
@@ -95,7 +99,7 @@ package com.Microsoft.Z3;
             Context.CheckContextMatch(to);
             if (from.Length != to.Length)
                 throw new Z3Exception("Argument sizes do not match");
-            return Expr.Create(Context, Native.substitute(Context.nCtx, NativeObject, (long)from.Length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
+            return Expr.Create(Context, Native.substitute(Context().nCtx(), NativeObject(), (long)from.Length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
         }
 
         /**
@@ -124,7 +128,7 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(to);
-            return Expr.Create(Context, Native.substituteVars(Context.nCtx, NativeObject, (long)to.Length, Expr.ArrayToNative(to)));
+            return Expr.Create(Context, Native.substituteVars(Context().nCtx(), NativeObject(), (long)to.Length, Expr.ArrayToNative(to)));
         }
 
         /**
@@ -140,7 +144,7 @@ package com.Microsoft.Z3;
             if (ReferenceEquals(Context, ctx))
                 return this;
             else
-                return Expr.Create(ctx, Native.translate(Context.nCtx, NativeObject, ctx.nCtx));
+                return Expr.Create(ctx, Native.translate(Context().nCtx(), NativeObject(), ctx.nCtx()));
         }
 
         /**
@@ -148,19 +152,19 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return super.toString();
+            return super.ToString();
         }
 
         /**
          * Indicates whether the term is a numeral
          **/
-        public boolean IsNumeral()  { return Native.isNumeralAst(Context.nCtx, NativeObject) != 0; }
+        public boolean IsNumeral()  { return Native.isNumeralAst(Context().nCtx(), NativeObject()) != 0; }
 
         /**
          * Indicates whether the term is well-sorted.
          * @return True if the term is well-sorted, false otherwise.
          **/
-        public boolean IsWellSorted()  { return Native.isWellSorted(Context.nCtx, NativeObject) != 0; }
+        public boolean IsWellSorted()  { return Native.isWellSorted(Context().nCtx(), NativeObject()) != 0; }
 
         /**
          * The Sort of the term.
@@ -168,7 +172,7 @@ package com.Microsoft.Z3;
         public Sort Sort() 
             {
                 
-                return Sort.Create(Context, Native.getSort(Context.nCtx, NativeObject));
+                return Sort.Create(Context, Native.getSort(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -189,7 +193,7 @@ package com.Microsoft.Z3;
         /**
          * Indicates whether the term is an algebraic number
          **/
-        public boolean IsAlgebraicNumber()  { return Native.isAlgebraicNumber(Context.nCtx, NativeObject) != 0; }
+        public boolean IsAlgebraicNumber()  { return Native.isAlgebraicNumber(Context().nCtx(), NativeObject()) != 0; }
 
 
         /**
@@ -198,9 +202,9 @@ package com.Microsoft.Z3;
         public boolean IsBool() 
             {
                 return (IsExpr &&
-                        Native.isEqSort(Context.nCtx,
-                                              Native.mkBooleanSort(Context.nCtx),
-                                              Native.getSort(Context.nCtx, NativeObject)) != 0);
+                        Native.isEqSort(Context().nCtx(),
+                                              Native.mkBoolSort(Context().nCtx()),
+                                              Native.getSort(Context().nCtx(), NativeObject())) != 0);
             }
 
         /**
@@ -263,14 +267,14 @@ package com.Microsoft.Z3;
          **/
         public boolean IsInt() 
             {
-                return (Native.isNumeralAst(Context.nCtx, NativeObject) != 0 &&
-                        Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == (long)Z3_sort_kind.Z3_INT_SORT);
+                return (Native.isNumeralAst(Context().nCtx(), NativeObject()) != 0 &&
+                        Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_INT_SORT);
             }
 
         /**
          * Indicates whether the term is of sort real.
          **/
-        public boolean IsReal()  { return Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == (long)Z3_sort_kind.Z3_REAL_SORT; }
+        public boolean IsReal()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_REAL_SORT; }
 
         /**
          * Indicates whether the term is an arithmetic numeral.
@@ -357,8 +361,8 @@ package com.Microsoft.Z3;
          **/
         public boolean IsArray() 
             {
-                return (Native.isApp(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_ARRAY_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
+                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT);
             }
 
         /**
@@ -426,7 +430,7 @@ package com.Microsoft.Z3;
         /**
          *  Indicates whether the terms is of bit-vector sort.
          **/
-        public boolean IsBV()  { return Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == (long)Z3_sort_kind.Z3_BV_SORT; }
+        public boolean IsBV()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_BV_SORT; }
 
         /**
          * Indicates whether the term is a bit-vector numeral
@@ -1216,8 +1220,8 @@ package com.Microsoft.Z3;
          **/
         public boolean IsRelation() 
             {
-                return (Native.isApp(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_RELATION_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
+                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_RELATION_SORT);
             }
 
         /**
@@ -1332,8 +1336,8 @@ package com.Microsoft.Z3;
          **/
         public boolean IsFiniteDomain() 
             {
-                return (Native.isApp(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context.nCtx, Native.getSort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
+                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
             }
 
         /**
@@ -1367,23 +1371,23 @@ package com.Microsoft.Z3;
 
                 
 
-                return Native.getIndexValue(Context.nCtx, NativeObject);
+                return Native.getIndexValue(Context().nCtx(), NativeObject());
             }
 
         /** 
          * Constructor for Expr 
          **/
-        protected Expr(Context ctx) { super(ctx);  }
+    protected Expr(Context ctx) { super(ctx); {  }}
         /** 
          * Constructor for Expr 
          **/
-        protected Expr(Context ctx, IntPtr obj) { super(ctx, obj);  }
+    protected Expr(Context ctx, long obj) { super(ctx, obj); {  }}
 
-        void CheckNativeObject(IntPtr obj)
+        void CheckNativeObject(long obj)
         {
-            if (Native.isApp(Context.nCtx, obj) == 0 &&
-                (Z3_ast_kind)Native.getAstKind(Context.nCtx, obj) != Z3_ast_kind.Z3_VAR_AST &&
-                (Z3_ast_kind)Native.getAstKind(Context.nCtx, obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
+            if (Native.isApp(Context().nCtx(), obj) == 0 &&
+                (Z3_ast_kind)Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST &&
+                (Z3_ast_kind)Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a term");
             super.CheckNativeObject(obj);
         }
@@ -1394,27 +1398,27 @@ package com.Microsoft.Z3;
             
             
 
-            IntPtr obj = Native.mkApp(ctx.nCtx, f.NativeObject,
+            long obj = Native.mkApp(ctx.nCtx(), f.NativeObject,
                                           AST.ArrayLength(arguments),
                                           AST.ArrayToNative(arguments));
             return Create(ctx, obj);
         }
 
-        static Expr Create(Context ctx, IntPtr obj)
+        static Expr Create(Context ctx, long obj)
         {
             
             
 
-            Z3_ast_kind k = (Z3_ast_kind)Native.getAstKind(ctx.nCtx, obj);
+            Z3_ast_kind k = (Z3_ast_kind)Native.getAstKind(ctx.nCtx(), obj);
             if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
                 return new Quantifier(ctx, obj);
-            IntPtr s = Native.getSort(ctx.nCtx, obj);
-            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(ctx.nCtx, s);
+            long s = Native.getSort(ctx.nCtx(), obj);
+            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(ctx.nCtx(), s);
 
-            if (Native.isAlgebraicNumber(ctx.nCtx, obj) != 0) // is this a numeral ast?
+            if (Native.isAlgebraicNumber(ctx.nCtx(), obj) != 0) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
-            if (Native.isNumeralAst(ctx.nCtx, obj) != 0)
+            if (Native.isNumeralAst(ctx.nCtx(), obj) != 0)
             {
                 switch (sk)
                 {
@@ -1435,120 +1439,5 @@ package com.Microsoft.Z3;
             }
 
             return new Expr(ctx, obj);
-        }
-    }
-
-    /**
-     * Boolean expressions
-     **/
-    public class BoolExpr extends Expr
-    {
-        /** Constructor for BoolExpr </summary>
-     **/
-        protected BoolExpr(Context ctx) { super(ctx);  }
-        /** Constructor for BoolExpr </summary>
-     **/
-        BoolExpr(Context ctx, IntPtr obj) { super(ctx, obj);  }
-    }
-
-    /**
-     * Arithmetic expressions (int/real)
-     **/
-    public class ArithExpr extends Expr
-    {
-        /** Constructor for ArithExpr </summary>
-     **/
-        protected ArithExpr(Context ctx)
-            { super(ctx);
-            
-        }
-        ArithExpr(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
-        }
-    }
-
-    /**
-     * Int expressions
-     **/
-    public class IntExpr extends ArithExpr
-    {
-        /** Constructor for IntExpr </summary>
-     **/
-        protected IntExpr(Context ctx)
-            { super(ctx);
-            
-        }
-        IntExpr(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
-        }
-    }
-
-    /**
-     * Real expressions
-     **/
-    public class RealExpr extends ArithExpr
-    {
-        /** Constructor for RealExpr </summary>
-     **/
-        protected RealExpr(Context ctx)
-            { super(ctx);
-            
-        }
-        RealExpr(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
-        }
-    }
-
-    /**
-     * Bit-vector expressions
-     **/
-    public class BitVecExpr extends Expr
-    {
-
-        /**
-         * The size of the sort of a bit-vector term.
-         **/
-        public long SortSize()  { return ((BitVecSort)Sort).Size; }
-
-        /** Constructor for BitVecExpr </summary>
-         **/
-        protected BitVecExpr(Context ctx) { super(ctx);  }
-        BitVecExpr(Context ctx, IntPtr obj) { super(ctx, obj);  }
-    }
-
-    /**
-     * Array expressions
-     **/
-    public class ArrayExpr extends Expr
-    {
-        /** Constructor for ArrayExpr </summary>
-     **/
-        protected ArrayExpr(Context ctx)
-            { super(ctx);
-            
-        }
-        ArrayExpr(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
-        }
-    }
-
-    /**
-     * Datatype expressions
-     **/
-    public class DatatypeExpr extends Expr
-    {
-        /** Constructor for DatatypeExpr </summary>
-     **/
-        protected DatatypeExpr(Context ctx)
-            { super(ctx);
-            
-        }
-        DatatypeExpr(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
         }
     }

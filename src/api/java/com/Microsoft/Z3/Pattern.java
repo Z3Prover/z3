@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 /* using System.Runtime.InteropServices; */
 
@@ -17,7 +21,7 @@ package com.Microsoft.Z3;
         /**
          * The number of terms in the pattern.
          **/
-        public long NumTerms()  { return Native.getPatternNumTerms(Context.nCtx, NativeObject); }
+        public long NumTerms()  { return Native.getPatternNumTerms(Context().nCtx(), NativeObject()); }
 
         /**
          * The terms in the pattern.
@@ -28,8 +32,8 @@ package com.Microsoft.Z3;
 
                 long n = NumTerms;
                 Expr[] res = new Expr[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = Expr.Create(Context, Native.getPattern(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = Expr.Create(Context, Native.getPattern(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -38,11 +42,11 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.patterntoString(Context.nCtx, NativeObject);
+            return Native.patternToString(Context().nCtx(), NativeObject());
         }
 
-        Pattern(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Pattern(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
     }

@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 /* using System.Collections; */
 /* using System.Collections.Generic; */
@@ -34,7 +38,7 @@ package com.Microsoft.Z3;
         /**
          * Object comparison.
          **/
-        public boolean Equals(object o)
+        public boolean Equals(Object o)
         {
             AST casted = (AST) o;
             if (casted == null) return false;
@@ -46,7 +50,7 @@ package com.Microsoft.Z3;
          * <param name="other">Another AST</param>
          * @return Negative if the object should be sorted before <paramref name="other"/>, positive if after else zero.
          **/
-        public int CompareTo(object other)
+        public int CompareTo(Object other)
         {
             if (other == null) return 1;
             AST oAST = (AST) other;
@@ -69,13 +73,13 @@ package com.Microsoft.Z3;
          **/
         public int GetHashCode()
         {
-            return (int)Native.getAstHash(Context.nCtx, NativeObject);
+            return (int)Native.getAstHash(Context().nCtx(), NativeObject());
         }
 
         /**
          * A unique identifier for the AST (unique among all ASTs).
          **/
-        public long Id()  { return Native.getAstId(Context.nCtx, NativeObject); }
+        public long Id()  { return Native.getAstId(Context().nCtx(), NativeObject()); }
 
         /**
          * Translates (copies) the AST to the Context <paramref name="ctx"/>.
@@ -90,20 +94,20 @@ package com.Microsoft.Z3;
             if (ReferenceEquals(Context, ctx))
                 return this;
             else
-                return new AST(ctx, Native.translate(Context.nCtx, NativeObject, ctx.nCtx));
+                return new AST(ctx, Native.translate(Context().nCtx(), NativeObject(), ctx.nCtx()));
         }
 
         /**
          * The kind of the AST.
          **/
-        public Z3_ast_kind ASTKind()  { return (Z3_ast_kind)Native.getAstKind(Context.nCtx, NativeObject); }
+        public Z3_ast_kind ASTKind()  { return (Z3_ast_kind)Native.getAstKind(Context().nCtx(), NativeObject()); }
 
         /**
          * Indicates whether the AST is an Expr
          **/
         public boolean IsExpr() 
             {
-                switch (ASTKind)
+                switch (ASTKind())
                 {
                     case Z3_ast_kind.Z3_APP_AST:
                     case Z3_ast_kind.Z3_NUMERAL_AST:
@@ -116,29 +120,29 @@ package com.Microsoft.Z3;
         /**
          * Indicates whether the AST is a BoundVariable
          **/
-        public boolean IsVar()  { return this.ASTKind == Z3_ast_kind.Z3_VAR_AST; }
+        public boolean IsVar()  { return this.ASTKind() == Z3_ast_kind.Z3_VAR_AST; }
 
         /**
          * Indicates whether the AST is a Quantifier
          **/
-        public boolean IsQuantifier()  { return this.ASTKind == Z3_ast_kind.Z3_QUANTIFIER_AST; }
+        public boolean IsQuantifier()  { return this.ASTKind() == Z3_ast_kind.Z3_QUANTIFIER_AST; }
 
         /**
          * Indicates whether the AST is a Sort
          **/
-        public boolean IsSort()  { return this.ASTKind == Z3_ast_kind.Z3_SORT_AST; }
+        public boolean IsSort()  { return this.ASTKind() == Z3_ast_kind.Z3_SORT_AST; }
 
         /**
          * Indicates whether the AST is a FunctionDeclaration
          **/
-        public boolean IsFuncDecl()  { return this.ASTKind == Z3_ast_kind.Z3_FUNC_DECL_AST; }
+        public boolean IsFuncDecl()  { return this.ASTKind() == Z3_ast_kind.Z3_FUNC_DECL_AST; }
 
         /**
          * A string representation of the AST.
          **/
         public String toString()
         {
-            return Native.asttoString(Context.nCtx, NativeObject);
+            return Native.astToString(Context().nCtx(), NativeObject());
         }
 
         /**
@@ -148,53 +152,53 @@ package com.Microsoft.Z3;
         {
             
 
-            return Native.asttoString(Context.nCtx, NativeObject);
+            return Native.astToString(Context().nCtx(), NativeObject());
         }
 
-        AST(Context ctx) { super(ctx);  }
-        AST(Context ctx, IntPtr obj) { super(ctx, obj);  }
+    AST(Context ctx) { super(ctx); {  }}
+    AST(Context ctx, long obj) { super(ctx, obj); {  }}
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.incRef(ctx.nCtx, obj);
+                Native.incRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.decRef(ctx.nCtx, obj);
+                Native.decRef(ctx.nCtx(), obj);
             }
         };        
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {            
             // Console.WriteLine("AST IncRef()");
             if (Context == null)
                 throw new Z3Exception("inc() called on null context");
-            if (o == IntPtr.Zero)
+            if (o == 0)
                 throw new Z3Exception("inc() called on null AST");
             Context.AST_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             // Console.WriteLine("AST DecRef()");
             if (Context == null)
                 throw new Z3Exception("dec() called on null context");
-            if (o == IntPtr.Zero)
+            if (o == 0)
                 throw new Z3Exception("dec() called on null AST");
             Context.AST_DRQ.Add(o);
             super.DecRef(o);
         }
 
-        static AST Create(Context ctx, IntPtr obj)
+        static AST Create(Context ctx, long obj)
         {
             
             
 
-            switch ((Z3_ast_kind)Native.getAstKind(ctx.nCtx, obj))
+            switch ((Z3_ast_kind)Native.getAstKind(ctx.nCtx(), obj))
             {
                 case Z3_ast_kind.Z3_FUNC_DECL_AST: return new FuncDecl(ctx, obj);
                 case Z3_ast_kind.Z3_QUANTIFIER_AST: return new Quantifier(ctx, obj);

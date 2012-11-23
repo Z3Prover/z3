@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -18,7 +22,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.paramsSetBoolean(Context.nCtx, NativeObject, name.NativeObject, (value) ? 1 : 0);
+            Native.paramsSetBool(Context().nCtx(), NativeObject(), name.NativeObject, (value) ? 1 : 0);
         }
 
         /**
@@ -28,7 +32,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.paramsSetLong(Context.nCtx, NativeObject, name.NativeObject, value);
+            Native.paramsSetLong(Context().nCtx(), NativeObject(), name.NativeObject, value);
         }
 
         /**
@@ -38,7 +42,7 @@ package com.Microsoft.Z3;
         {
             
             
-            Native.paramsSetDouble(Context.nCtx, NativeObject, name.NativeObject, value);
+            Native.paramsSetDouble(Context().nCtx(), NativeObject(), name.NativeObject, value);
         }
 
         /**
@@ -49,7 +53,7 @@ package com.Microsoft.Z3;
             
             
 
-            Native.paramsSetSymbol(Context.nCtx, NativeObject, name.NativeObject, value.NativeObject);
+            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), name.NativeObject, value.NativeObject);
         }
 
         /**
@@ -57,7 +61,7 @@ package com.Microsoft.Z3;
          **/
         public void Add(String name, boolean value)
         {
-            Native.paramsSetBoolean(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
+            Native.paramsSetBool(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
         }
 
         /**
@@ -65,7 +69,7 @@ package com.Microsoft.Z3;
          **/
         public void Add(String name, long value)
         {
-            Native.paramsSetLong(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
+            Native.paramsSetLong(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value);
         }
 
         /**
@@ -73,7 +77,7 @@ package com.Microsoft.Z3;
          **/
         public void Add(String name, double value)
         {
-            Native.paramsSetDouble(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
+            Native.paramsSetDouble(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value);
         }
 
         /**
@@ -83,7 +87,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.paramsSetSymbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value.NativeObject);
+            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value.NativeObject);
         }
 
         /**
@@ -91,34 +95,34 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.paramstoString(Context.nCtx, NativeObject);
+            return Native.paramsToString(Context().nCtx(), NativeObject());
         }
 
         Params(Context ctx)
-            { super(ctx, Native.mkParams(ctx.nCtx));
+        { super(ctx, Native.mkParams(ctx.nCtx()));
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.paramsIncRef(ctx.nCtx, obj);
+                Native.paramsIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.paramsDecRef(ctx.nCtx, obj);
+                Native.paramsDecRef(ctx.nCtx(), obj);
             }
         };        
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Params_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Params_DRQ.Add(o);
             super.DecRef(o);

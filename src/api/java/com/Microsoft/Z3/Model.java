@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -35,11 +39,11 @@ package com.Microsoft.Z3;
 
             Context.CheckContextMatch(f);
             if (f.Arity != 0 ||
-                Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject)) == (long)Z3_sort_kind.Z3_ARRAY_SORT)
+                Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject)) == (long)Z3_sort_kind.Z3_ARRAY_SORT)
                 throw new Z3Exception("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
 
-            IntPtr n = Native.modelGetConstInterp(Context.nCtx, NativeObject, f.NativeObject);
-            if (n == IntPtr.Zero)
+            long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject);
+            if (n == 0)
                 return null;
             else
                 return Expr.Create(Context, n);
@@ -56,21 +60,21 @@ package com.Microsoft.Z3;
 
             Context.CheckContextMatch(f);
 
-            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject));
+            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject));
 
             if (f.Arity == 0)
             {
-                IntPtr n = Native.modelGetConstInterp(Context.nCtx, NativeObject, f.NativeObject);
+                long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject);
 
                 if (sk == Z3_sort_kind.Z3_ARRAY_SORT)
                 {
-                    if (n == IntPtr.Zero)
+                    if (n == 0)
                         return null;
                     else
                     {
-                        if (Native.isAsArray(Context.nCtx, n) == 0)
+                        if (Native.isAsArray(Context().nCtx(), n) == 0)
                             throw new Z3Exception("Argument was not an array constant");
-                        IntPtr fd = Native.getAsArrayFuncDecl(Context.nCtx, n);
+                        long fd = Native.getAsArrayFuncDecl(Context().nCtx(), n);
                         return FuncInterp(new FuncDecl(Context, fd));
                     }
                 }
@@ -81,8 +85,8 @@ package com.Microsoft.Z3;
             }
             else
             {
-                IntPtr n = Native.modelGetFuncInterp(Context.nCtx, NativeObject, f.NativeObject);
-                if (n == IntPtr.Zero)
+                long n = Native.modelGetFuncInterp(Context().nCtx(), NativeObject(), f.NativeObject);
+                if (n == 0)
                     return null;
                 else
                     return new FuncInterp(Context, n);
@@ -92,7 +96,7 @@ package com.Microsoft.Z3;
         /**
          * The number of constants that have an interpretation in the model.
          **/
-        public long NumConsts()  { return Native.modelGetNumConsts(Context.nCtx, NativeObject); }
+        public long NumConsts()  { return Native.modelGetNumConsts(Context().nCtx(), NativeObject()); }
 
         /**
          * The function declarations of the constants in the model.
@@ -103,15 +107,15 @@ package com.Microsoft.Z3;
 
                 long n = NumConsts;
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The number of function interpretations in the model.
          **/
-        public long NumFuncs()  { return Native.modelGetNumFuncs(Context.nCtx, NativeObject); }
+        public long NumFuncs()  { return Native.modelGetNumFuncs(Context().nCtx(), NativeObject()); }
 
         /**
          * The function declarations of the function interpretations in the model.
@@ -122,8 +126,8 @@ package com.Microsoft.Z3;
 
                 long n = NumFuncs;
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -138,10 +142,10 @@ package com.Microsoft.Z3;
                 var nConsts = NumConsts;
                 long n = nFuncs + nConsts;
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i = 0; i < nConsts; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context.nCtx, NativeObject, i));
-                for (long i = 0; i < nFuncs; i++)
-                    res[nConsts + i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context.nCtx, NativeObject, i));                
+                for (long i; i < nConsts; i++)
+                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
+                for (long i; i < nFuncs; i++)
+                    res[nConsts + i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));                
                 return res;
             }
 
@@ -153,7 +157,7 @@ package com.Microsoft.Z3;
             /**
              * An exception that is thrown when model evaluation fails.
              **/
-            public ModelEvaluationFailedException() { super(); }
+        public ModelEvaluationFailedException() { super(); { }}
         }
 
         /**
@@ -175,8 +179,8 @@ package com.Microsoft.Z3;
             
             
 
-            IntPtr v = IntPtr.Zero;
-            if (Native.modelEval(Context.nCtx, NativeObject, t.NativeObject, (completion) ? 1 : 0, v) == 0)
+            long v = 0;
+            if (Native.modelEval(Context().nCtx(), NativeObject(), t.NativeObject, (completion) ? 1 : 0, v) == 0)
                 throw new ModelEvaluationFailedException();
             else
                 return Expr.Create(Context, v);
@@ -196,7 +200,7 @@ package com.Microsoft.Z3;
         /**
          * The number of uninterpreted sorts that the model has an interpretation for.
          **/
-        public long NumSorts () { return Native.modelGetNumSorts(Context.nCtx, NativeObject); }
+        public long NumSorts () { return Native.modelGetNumSorts(Context().nCtx(), NativeObject()); }
 
         /**
          * The uninterpreted sorts that the model has an interpretation for. 
@@ -214,8 +218,8 @@ package com.Microsoft.Z3;
 
                 long n = NumSorts;
                 Sort[] res = new Sort[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = Sort.Create(Context, Native.modelGetSort(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = Sort.Create(Context, Native.modelGetSort(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -230,10 +234,10 @@ package com.Microsoft.Z3;
             
             
 
-            ASTVector nUniv = new ASTVector(Context, Native.modelGetSortUniverse(Context.nCtx, NativeObject, s.NativeObject));
+            ASTVector nUniv = new ASTVector(Context, Native.modelGetSortUniverse(Context().nCtx(), NativeObject(), s.NativeObject));
             long n = nUniv.Size;
             Expr[] res = new Expr[n];
-            for (long i = 0; i < n; i++)
+            for (long i; i < n; i++)
                 res[i] = Expr.Create(Context, nUniv[i].NativeObject);
             return res;
         }
@@ -244,34 +248,34 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.modeltoString(Context.nCtx, NativeObject);
+            return Native.modelToString(Context().nCtx(), NativeObject());
         }
 
-        Model(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Model(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.modelIncRef(ctx.nCtx, obj);
+                Native.modelIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.modelDecRef(ctx.nCtx, obj);
+                Native.modelDecRef(ctx.nCtx(), obj);
             }
         };        
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Model_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Model_DRQ.Add(o);
             super.DecRef(o);

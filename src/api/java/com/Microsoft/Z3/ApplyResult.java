@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -15,20 +19,20 @@ package com.Microsoft.Z3;
         /**
          * The number of Subgoals.
          **/
-        public long NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context.nCtx, NativeObject); }
+        public long NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves the subgoals from the ApplyResult.
          **/
         public Goal[] Subgoals() 
             {
-              
-              
+                
+                
 
                 long n = NumSubgoals;
                 Goal[] res = new Goal[n];
-                for (long i = 0; i < n; i++)
-                    res[i] = new Goal(Context, Native.applyResultGetSubgoal(Context.nCtx, NativeObject, i));
+                for (long i; i < n; i++)
+                    res[i] = new Goal(Context, Native.applyResultGetSubgoal(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -42,7 +46,7 @@ package com.Microsoft.Z3;
             
             
 
-            return new Model(Context, Native.applyResultConvertModel(Context.nCtx, NativeObject, i, m.NativeObject));
+            return new Model(Context, Native.applyResultConvertModel(Context().nCtx(), NativeObject(), i, m.NativeObject));
         }
 
         /**
@@ -50,33 +54,34 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.applyResulttoString(Context.nCtx, NativeObject);
+            return Native.applyResultToString(Context().nCtx(), NativeObject());
         }
 
-        ApplyResult(Context ctx, IntPtr obj) { super(ctx, obj); 
+        ApplyResult(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.applyResultIncRef(ctx.nCtx, obj);
+                Native.applyResultIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.applyResultDecRef(ctx.nCtx, obj);
+                Native.applyResultDecRef(ctx.nCtx(), obj);
             }
-        };        
+        };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.ApplyResult_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.ApplyResult_DRQ.Add(o);
             super.DecRef(o);

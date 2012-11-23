@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -55,7 +59,7 @@ package com.Microsoft.Z3;
          **/
         protected void finalize()
         {
-            Native.delConstructor(Context.nCtx, NativeObject);
+            Native.delConstructor(Context().nCtx(), NativeObject());
         }
 
 
@@ -73,7 +77,7 @@ package com.Microsoft.Z3;
 
         Constructor(Context ctx, Symbol name, Symbol recognizer, Symbol[] fieldNames,
                              Sort[] sorts, long[] sortRefs)
-            { super(ctx);
+        { super(ctx);
             
             
             
@@ -87,7 +91,7 @@ package com.Microsoft.Z3;
 
             if (sortRefs == null) sortRefs = new long[n];
 
-            NativeObject = Native.mkConstructor(ctx.nCtx, name.NativeObject, recognizer.NativeObject,
+            NativeObject() = Native.mkConstructor(ctx.nCtx(), name.NativeObject, recognizer.NativeObject,
                                                     n,
                                                     Symbol.ArrayToNative(fieldNames),
                                                     Sort.ArrayToNative(sorts),
@@ -102,42 +106,15 @@ package com.Microsoft.Z3;
             
 
             if (m_testerDecl != null) return;
-            IntPtr constructor = IntPtr.Zero;
-            IntPtr tester = IntPtr.Zero;
-            IntPtr[] accessors = new IntPtr[n];
-            Native.queryConstructor(Context.nCtx, NativeObject, n, constructor, tester, accessors);
+            long constructor = 0;
+            long tester = 0;
+            long[] accessors = new long[n];
+            Native.queryConstructor(Context().nCtx(), NativeObject(), n, constructor, tester, accessors);
             m_constructorDecl = new FuncDecl(Context, constructor);
             m_testerDecl = new FuncDecl(Context, tester);
             m_accessorDecls = new FuncDecl[n];
-            for (long i = 0; i < n; i++)
+            for (long i; i < n; i++)
                 m_accessorDecls[i] = new FuncDecl(Context, accessors[i]);
         }
 
-    }
-
-    /**
-     * Lists of constructors
-     **/
-    public class ConstructorList extends Z3Object
-    {
-        /**
-         * Destructor.
-         **/
-        protected void finalize()
-        {
-            Native.delConstructorList(Context.nCtx, NativeObject);
-        }
-
-        ConstructorList(Context ctx, IntPtr obj)
-            { super(ctx, obj);
-            
-        }
-
-        ConstructorList(Context ctx, Constructor[] constructors)
-            { super(ctx);
-            
-            
-
-            NativeObject = Native.mkConstructorList(Context.nCtx, (long)constructors.Length, Constructor.ArrayToNative(constructors));
-        }
     }

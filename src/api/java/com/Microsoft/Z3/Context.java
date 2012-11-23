@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 /* using System.Collections.Generic; */
 /* using System.Runtime.InteropServices; */
@@ -17,20 +21,20 @@ package com.Microsoft.Z3;
          * Constructor.
          **/
         public Context()
-            { super();
-            m_ctx = Native.mkContextRc(IntPtr.Zero);
+        { super();
+            m_ctx = Native.mkContextRc(0);
             InitContext();
         }
 
         /**
          * Constructor.
          **/
-        public Context(Dictionary<String, String> settings)
-            { super();
+        public Context(Map<String, String> settings)
+        { super();
             
 
-            IntPtr cfg = Native.mkConfig();
-            for (KeyValuePair<String, String>.Iterator kv = settings.iterator(); kv.hasNext(); )
+            long cfg = Native.mkConfig();
+            for (Iterator kv = settings.iterator(); kv.hasNext(); )
                 Native.setParamValue(cfg, kv.Key, kv.Value);
             m_ctx = Native.mkContextRc(cfg);
             Native.delConfig(cfg);
@@ -73,11 +77,11 @@ package com.Microsoft.Z3;
 
             if (names == null) return null;
             Symbol[] result = new Symbol[names.Length];
-            for (int i = 0; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
+            for (int i; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
             return result;
         }
 
-        private BoolSort m_booleanSort = null;
+        private BoolSort m_boolSort = null;
         private IntSort m_intSort = null;
         private RealSort m_realSort = null;
 
@@ -88,7 +92,7 @@ package com.Microsoft.Z3;
             {
                 
 
-                if (m_booleanSort == null) m_booleanSort = new BoolSort(this); return m_booleanSort;
+                if (m_boolSort == null) m_boolSort = new BoolSort(this); return m_boolSort;
             }
 
         /**
@@ -253,7 +257,7 @@ package com.Microsoft.Z3;
         /**
          * Create a new finite domain sort.
          **/
-        public FiniteDomainSort MkFiniteDomainSort(Symbol name, ulong size)
+        public FiniteDomainSort MkFiniteDomainSort(Symbol name, long size)
         {
             
             
@@ -265,7 +269,7 @@ package com.Microsoft.Z3;
         /**
          * Create a new finite domain sort.
          **/
-        public FiniteDomainSort MkFiniteDomainSort(String name, ulong size)
+        public FiniteDomainSort MkFiniteDomainSort(String name, long size)
         {
             
 
@@ -354,19 +358,19 @@ package com.Microsoft.Z3;
             CheckContextMatch(names);
             long n = (long)names.Length;
             ConstructorList[] cla = new ConstructorList[n];
-            IntPtr[] n_constr = new IntPtr[n];
-            for (long i = 0; i < n; i++)
+            long[] n_constr = new long[n];
+            for (long i; i < n; i++)
             {
                 var constructor = c[i];
                 
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
-                n_constr[i] = cla[i].NativeObject;
+                n_constr[i] = cla[i].NativeObject();
             }
-            IntPtr[] n_res = new IntPtr[n];
+            long[] n_res = new long[n];
             Native.mkDatatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
             DatatypeSort[] res = new DatatypeSort[n];
-            for (long i = 0; i < n; i++)
+            for (long i; i < n; i++)
                 res[i] = new DatatypeSort(this, n_res[i]);
             return res;
         }
@@ -534,7 +538,7 @@ package com.Microsoft.Z3;
 
             
 
-            IntPtr[] termsNative = AST.ArrayToNative(terms);
+            long[] termsNative = AST.ArrayToNative(terms);
             return new Pattern(this, Native.mkPattern(nCtx, (long)terms.Length, termsNative));
         }
 
@@ -2239,7 +2243,7 @@ package com.Microsoft.Z3;
          * <param name="ty">Sort of the numeral</param>
          * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
          **/
-        public Expr MkNumeral(ulong v, Sort ty)
+        public Expr MkNumeral(long v, Sort ty)
         {
             
             
@@ -2319,7 +2323,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Real
          **/
-        public RatNum MkReal(ulong v)
+        public RatNum MkReal(long v)
         {
             
 
@@ -2378,7 +2382,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Integer
          **/
-        public IntNum MkInt(ulong v)
+        public IntNum MkInt(long v)
         {
             
 
@@ -2438,7 +2442,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(ulong v, long size)
+        public BitVecNum MkBV(long v, long size)
         {
             
 
@@ -2668,7 +2672,7 @@ package com.Microsoft.Z3;
 
                 long n = NumSMTLIBFormulas;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibFormula(nCtx, i));
                 return res;
             }
@@ -2687,7 +2691,7 @@ package com.Microsoft.Z3;
 
                 long n = NumSMTLIBAssumptions;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibAssumption(nCtx, i));
                 return res;
             }
@@ -2706,7 +2710,7 @@ package com.Microsoft.Z3;
 
                 long n = NumSMTLIBDecls;
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx, i));
                 return res;
             }
@@ -2725,7 +2729,7 @@ package com.Microsoft.Z3;
 
                 long n = NumSMTLIBSorts;
                 Sort[] res = new Sort[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = Sort.Create(this, Native.getSmtlibSort(nCtx, i));
                 return res;
             }
@@ -2810,7 +2814,7 @@ package com.Microsoft.Z3;
 
                 long n = NumTactics;
                 String[] res = new String[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = Native.getTacticName(nCtx, i);
                 return res;
             }
@@ -2851,14 +2855,14 @@ package com.Microsoft.Z3;
             CheckContextMatch(t2);
             CheckContextMatch(ts);
 
-            IntPtr last = IntPtr.Zero;
+            long last = 0;
             if (ts != null && ts.Length > 0)
             {
-                last = ts[ts.Length - 1].NativeObject;
+                last = ts[ts.Length - 1].NativeObject();
                 for (int i = ts.Length - 2; i >= 0; i--)
                     last = Native.tacticAndThen(nCtx, ts[i].NativeObject, last);
             }
-            if (last != IntPtr.Zero)
+            if (last != 0)
             {
                 last = Native.tacticAndThen(nCtx, t2.NativeObject, last);
                 return new Tactic(this, Native.tacticAndThen(nCtx, t1.NativeObject, last));
@@ -3082,7 +3086,7 @@ package com.Microsoft.Z3;
 
                 long n = NumProbes;
                 String[] res = new String[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = Native.getProbeName(nCtx, i);
                 return res;
             }
@@ -3310,7 +3314,7 @@ package com.Microsoft.Z3;
          * <seealso cref="UnwrapAST"/>
          * <param name="nativeObject">The native pointer to wrap.</param>
          **/
-        public AST WrapAST(IntPtr nativeObject)
+        public AST WrapAST(long nativeObject)
         {
             
             return AST.Create(this, nativeObject);
@@ -3327,9 +3331,9 @@ package com.Microsoft.Z3;
          * <seealso cref="WrapAST"/>
          * <param name="a">The AST to unwrap.</param>
          **/
-        public IntPtr UnwrapAST(AST a)
+        public long UnwrapAST(AST a)
         {
-            return a.NativeObject;
+            return a.NativeObject();
         }
 
         /**
@@ -3395,20 +3399,20 @@ package com.Microsoft.Z3;
          **/
         public String GetParamValue(String id)
         {
-            Native.IntPtr res = new Native.IntPtr();
+            long res = 0;
             int r = Native.getParamValue(nCtx, id, res);
-            if (r == (int)Z3_lboolean.Z3_L_FALSE)
+            if (r == (int)Z3_lbool.Z3_L_FALSE)
                 return null;
             else
-                return Marshal.PtrtoStringAnsi(res);
+                return Marshal.PtrToStringAnsi(res);
         }
 
 
-        IntPtr m_ctx = IntPtr.Zero;
+        long m_ctx = 0;
         Native.errorHandler mNErrHandler = null;
-        IntPtr nCtx () { return m_ctx; }
+        long nCtx () { return m_ctx; }
 
-        void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
+        void NativeErrorHandler(long ctx, Z3_error_code errorCode)
         {
             // Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
         }
@@ -3418,7 +3422,7 @@ package com.Microsoft.Z3;
             PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
             m_n_err_handler = new Native.errorHandler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.setErrorHandler(m_ctx, m_n_err_handler);
-            GC.SuppressFinalize(this);
+            
         }
 
         void CheckContextMatch(Z3Object other)
@@ -3435,7 +3439,7 @@ package com.Microsoft.Z3;
 
             if (arr != null)
             {
-                for (Z3Object.Iterator a = arr.iterator(); a.hasNext(); )
+                for (Iterator a = arr.iterator(); a.hasNext(); )
                 {
                      // It was an assume, now we added the precondition, and we made it into an assert
                     CheckContextMatch(a);
@@ -3509,7 +3513,7 @@ package com.Microsoft.Z3;
             {
                 m_n_err_handler = null;
                 Native.delContext(m_ctx);
-                m_ctx = IntPtr.Zero;
+                m_ctx = 0;
             }
             else
                 GC.ReRegisterForFinalize(this);
@@ -3536,7 +3540,7 @@ package com.Microsoft.Z3;
             Tactic_DRQ.Clear(this);
             Fixedpoint_DRQ.Clear(this);
 
-            m_booleanSort = null;
+            m_boolSort = null;
             m_intSort = null;
             m_realSort = null;
         }

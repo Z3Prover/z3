@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -17,7 +21,7 @@ package com.Microsoft.Z3;
         public void Validate(Params p)
         {
             
-            Native.paramsValidate(Context.nCtx, p.NativeObject, NativeObject);
+            Native.paramsValidate(Context().nCtx(), p.NativeObject, NativeObject());
         }
 
         /**
@@ -26,7 +30,7 @@ package com.Microsoft.Z3;
         public Z3_param_kind GetKind(Symbol name)
         {
             
-            return (Z3_param_kind)Native.paramDescrsGetKind(Context.nCtx, NativeObject, name.NativeObject);
+            return (Z3_param_kind)Native.paramDescrsGetKind(Context().nCtx(), NativeObject(), name.NativeObject);
         }
 
         /**
@@ -34,10 +38,10 @@ package com.Microsoft.Z3;
          **/
         public Symbol[] Names() 
             {
-                  long sz = Native.paramDescrsSize(Context.nCtx, NativeObject);
+                  long sz = Native.paramDescrsSize(Context().nCtx(), NativeObject());
                   Symbol[] names = new Symbol[sz];
-                  for (long i = 0; i < sz; ++i) {
-                      names[i] = Symbol.Create(Context, Native.paramDescrsGetName(Context.nCtx, NativeObject, i));
+                  for (long i; i < sz; ++i) {
+                      names[i] = Symbol.Create(Context, Native.paramDescrsGetName(Context().nCtx(), NativeObject(), i));
                   }
                   return names;
         }
@@ -45,41 +49,41 @@ package com.Microsoft.Z3;
         /**
          * The size of the ParamDescrs.
          **/
-        public long Size()  { return Native.paramDescrsSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.paramDescrsSize(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves a string representation of the ParamDescrs. 
          **/
         public String toString()
         {
-            return Native.paramDescrstoString(Context.nCtx, NativeObject); 
+            return Native.paramDescrsToString(Context().nCtx(), NativeObject()); 
         }
 
-        ParamDescrs(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        ParamDescrs(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.paramDescrsIncRef(ctx.nCtx, obj);
+                Native.paramDescrsIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.paramDescrsDecRef(ctx.nCtx, obj);
+                Native.paramDescrsDecRef(ctx.nCtx(), obj);
             }
         };        
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.ParamDescrs_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.ParamDescrs_DRQ.Add(o);
             super.DecRef(o);

@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -18,7 +22,7 @@ package com.Microsoft.Z3;
         public String Help() 
             {
                 
-                return Native.fixedpointGetHelp(Context.nCtx, NativeObject);
+                return Native.fixedpointGetHelp(Context().nCtx(), NativeObject());
             }
 
         /**
@@ -28,13 +32,13 @@ package com.Microsoft.Z3;
             {
                 
                 Context.CheckContextMatch(value);
-                Native.fixedpointSetParams(Context.nCtx, NativeObject, value.NativeObject);
+                Native.fixedpointSetParams(Context().nCtx(), NativeObject(), value.NativeObject);
             }
 
         /**
          * Retrieves parameter descriptions for Fixedpoint solver.
          **/
-        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.fixedpointGetParamDescrs(Context.nCtx, NativeObject)); }
+        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.fixedpointGetParamDescrs(Context().nCtx(), NativeObject())); }
 
 
         /**
@@ -46,9 +50,9 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(constraints);
-            for (BoolExpr.Iterator a = constraints.iterator(); a.hasNext(); )
+            for (Iterator a = constraints.iterator(); a.hasNext(); )
             {
-                Native.fixedpointAssert(Context.nCtx, NativeObject, a.NativeObject);
+                Native.fixedpointAssert(Context().nCtx(), NativeObject(), a.NativeObject);
             }
         }
 
@@ -60,7 +64,7 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(f);
-            Native.fixedpointRegisterRelation(Context.nCtx, NativeObject, f.NativeObject);
+            Native.fixedpointRegisterRelation(Context().nCtx(), NativeObject(), f.NativeObject);
         }
 
         /**
@@ -71,7 +75,7 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(rule);
-            Native.fixedpointAddRule(Context.nCtx, NativeObject, rule.NativeObject, AST.GetNativeObject(name));
+            Native.fixedpointAddRule(Context().nCtx(), NativeObject(), rule.NativeObject, AST.GetNativeObject(name));
         }
 
         /**
@@ -83,7 +87,7 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(pred);
-            Native.fixedpointAddFact(Context.nCtx, NativeObject, pred.NativeObject, (long)args.Length, args);
+            Native.fixedpointAddFact(Context().nCtx(), NativeObject(), pred.NativeObject, (long)args.Length, args);
         }
 
         /**
@@ -97,11 +101,11 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(query);
-            Z3_lboolean r = (Z3_lboolean)Native.fixedpointQuery(Context.nCtx, NativeObject, query.NativeObject);
+            Z3_lbool r = (Z3_lbool)Native.fixedpointQuery(Context().nCtx(), NativeObject(), query.NativeObject);
             switch (r)
             {
-                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
-                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
+                case Z3_lbool.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lbool.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -118,12 +122,12 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(relations);
-            Z3_lboolean r = (Z3_lboolean)Native.fixedpointQueryRelations(Context.nCtx, NativeObject,
+            Z3_lbool r = (Z3_lbool)Native.fixedpointQueryRelations(Context().nCtx(), NativeObject(),
                                    AST.ArrayLength(relations), AST.ArrayToNative(relations));
             switch (r)
             {
-                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
-                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
+                case Z3_lbool.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lbool.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -134,7 +138,7 @@ package com.Microsoft.Z3;
          **/
         public void Push()
         {
-            Native.fixedpointPush(Context.nCtx, NativeObject);
+            Native.fixedpointPush(Context().nCtx(), NativeObject());
         }
 
         /**
@@ -144,7 +148,7 @@ package com.Microsoft.Z3;
          **/
         public void Pop()
         {
-            Native.fixedpointPop(Context.nCtx, NativeObject);
+            Native.fixedpointPop(Context().nCtx(), NativeObject());
         }
 
 
@@ -156,7 +160,7 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(rule);
-            Native.fixedpointUpdateRule(Context.nCtx, NativeObject, rule.NativeObject, AST.GetNativeObject(name));
+            Native.fixedpointUpdateRule(Context().nCtx(), NativeObject(), rule.NativeObject, AST.GetNativeObject(name));
         }
 
         /**
@@ -165,8 +169,8 @@ package com.Microsoft.Z3;
          **/
         public Expr GetAnswer()
         {
-            IntPtr ans = Native.fixedpointGetAnswer(Context.nCtx, NativeObject);
-            return (ans == IntPtr.Zero) ? null : Expr.Create(Context, ans);
+            long ans = Native.fixedpointGetAnswer(Context().nCtx(), NativeObject());
+            return (ans == 0) ? null : Expr.Create(Context, ans);
         }
 
         /**
@@ -176,7 +180,7 @@ package com.Microsoft.Z3;
         {
             
 
-            return Native.fixedpointGetReasonUnknown(Context.nCtx, NativeObject);
+            return Native.fixedpointGetReasonUnknown(Context().nCtx(), NativeObject());
         }
 
         /**
@@ -184,7 +188,7 @@ package com.Microsoft.Z3;
          **/
         public long GetNumLevels(FuncDecl predicate)
         {
-            return Native.fixedpointGetNumLevels(Context.nCtx, NativeObject, predicate.NativeObject);
+            return Native.fixedpointGetNumLevels(Context().nCtx(), NativeObject(), predicate.NativeObject);
         }
 
         /**
@@ -192,8 +196,8 @@ package com.Microsoft.Z3;
          **/
         public Expr GetCoverDelta(int level, FuncDecl predicate)
         {
-            IntPtr res = Native.fixedpointGetCoverDelta(Context.nCtx, NativeObject, level, predicate.NativeObject);
-            return (res == IntPtr.Zero) ? null : Expr.Create(Context, res);
+            long res = Native.fixedpointGetCoverDelta(Context().nCtx(), NativeObject(), level, predicate.NativeObject);
+            return (res == 0) ? null : Expr.Create(Context, res);
         }
 
         /**
@@ -202,7 +206,7 @@ package com.Microsoft.Z3;
          **/
         public void AddCover(int level, FuncDecl predicate, Expr property)
         {
-            Native.fixedpointAddCover(Context.nCtx, NativeObject, level, predicate.NativeObject, property.NativeObject);
+            Native.fixedpointAddCover(Context().nCtx(), NativeObject(), level, predicate.NativeObject, property.NativeObject);
         }
 
         /**
@@ -210,7 +214,7 @@ package com.Microsoft.Z3;
          **/
         public String toString()
         {
-            return Native.fixedpointtoString(Context.nCtx, NativeObject, 0, null);
+            return Native.fixedpointToString(Context().nCtx(), NativeObject(), 0, null);
         }
 
         /**
@@ -220,7 +224,7 @@ package com.Microsoft.Z3;
         {
             
 
-            Native.fixedpointSetPredicateRepresentation(Context.nCtx, NativeObject,
+            Native.fixedpointSetPredicateRepresentation(Context().nCtx(), NativeObject(),
                                f.NativeObject, AST.ArrayLength(kinds), Symbol.ArrayToNative(kinds));
 
         }
@@ -231,7 +235,7 @@ package com.Microsoft.Z3;
         public String toString(BoolExpr[] queries)
         {
 
-            return Native.fixedpointtoString(Context.nCtx, NativeObject,
+            return Native.fixedpointToString(Context().nCtx(), NativeObject(),
                              AST.ArrayLength(queries), AST.ArrayToNative(queries));
         }
 
@@ -242,10 +246,10 @@ package com.Microsoft.Z3;
             {
                 
 
-                ASTVector v = new ASTVector(Context, Native.fixedpointGetRules(Context.nCtx, NativeObject));
+                ASTVector v = new ASTVector(Context, Native.fixedpointGetRules(Context().nCtx(), NativeObject()));
                 long n = v.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = new BoolExpr(Context, v[i].NativeObject);
                 return res;
             }
@@ -257,44 +261,44 @@ package com.Microsoft.Z3;
             {
                 
 
-                ASTVector v = new ASTVector(Context, Native.fixedpointGetAssertions(Context.nCtx, NativeObject));
+                ASTVector v = new ASTVector(Context, Native.fixedpointGetAssertions(Context().nCtx(), NativeObject()));
                 long n = v.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i = 0; i < n; i++)
+                for (long i; i < n; i++)
                     res[i] = new BoolExpr(Context, v[i].NativeObject);
                 return res;
             }
 
 
-        Fixedpoint(Context ctx, IntPtr obj)
-            { super(ctx, obj);
+        Fixedpoint(Context ctx, long obj)
+        { super(ctx, obj);
             
         }
         Fixedpoint(Context ctx)
-            { super(ctx, Native.mkFixedpoint(ctx.nCtx));
+        { super(ctx, Native.mkFixedpoint(ctx.nCtx()));
             
         }
 
-        class DecRefQueue extends Z3.DecRefQueue
+        class DecRefQueue extends IDecRefQueue
         {
-            public void IncRef(Context ctx, IntPtr obj)
+            public void IncRef(Context ctx, long obj)
             {
-                Native.fixedpointIncRef(ctx.nCtx, obj);
+                Native.fixedpointIncRef(ctx.nCtx(), obj);
             }
 
-            public void DecRef(Context ctx, IntPtr obj)
+            public void DecRef(Context ctx, long obj)
             {
-                Native.fixedpointDecRef(ctx.nCtx, obj);
+                Native.fixedpointDecRef(ctx.nCtx(), obj);
             }
         };
 
-        void IncRef(IntPtr o)
+        void IncRef(long o)
         {
             Context.Fixedpoint_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
-        void DecRef(IntPtr o)
+        void DecRef(long o)
         {
             Context.Fixedpoint_DRQ.Add(o);
             super.DecRef(o);

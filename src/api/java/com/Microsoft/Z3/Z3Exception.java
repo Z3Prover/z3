@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
   /**
@@ -14,15 +18,15 @@ package com.Microsoft.Z3;
     /**
      * Constructor.
      **/
-    public Z3Exception() { super(); }
+public Z3Exception() { super(); { }}
 
     /**
      * Constructor.
      **/
-    public Z3Exception(String message) { super(message); }
+public Z3Exception(String message) { super(message); { }}
 
     /**
      * Constructor.
      **/
-    public Z3Exception(String message, System.Exception inner) { super(message, inner); }
+public Z3Exception(String message, Exception inner) { super(message, inner); { }}
   }

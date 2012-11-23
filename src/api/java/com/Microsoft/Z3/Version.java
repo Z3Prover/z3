@@ -4,6 +4,10 @@
 
 package com.Microsoft.Z3;
 
+import java.math.BigInteger;
+import java.util.*;
+import java.lang.Exception;
+
 /* using System; */
 
     /**
@@ -63,6 +67,6 @@ package com.Microsoft.Z3;
 
             long major = 0, minor = 0, build = 0, revision = 0;
             Native.getVersion(major, minor, build, revision);
-            return major.toString() + "." + minor.toString() + "." + build.toString() + "." + revision.toString();
+            return major.ToString() + "." + minor.ToString() + "." + build.ToString() + "." + revision.ToString();
         }
     }
