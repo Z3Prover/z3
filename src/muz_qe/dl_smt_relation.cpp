@@ -130,7 +130,9 @@ namespace datalog {
         IF_VERBOSE(10, verbose_stream() << "Checking emptiness...\n"; );
 
         front_end_params& params = get_plugin().get_fparams();
-        flet<bool> flet2(params.m_der, true);
+        // [Leo]: asserted_formulas do not have support for der.
+        //        We should use the tactics der.
+        // flet<bool> flet2(params.m_der, true);
         smt::kernel ctx(m, params);
         expr_ref tmp(m); 
         instantiate(r, tmp);
@@ -181,9 +183,13 @@ namespace datalog {
         fml_free = m.mk_and(facts, m.mk_not(get_relation()));
         instantiate(fml_free, fml_inst);
         front_end_params& params = get_plugin().get_fparams();
-        flet<bool> flet0(params.m_quant_elim, true);
+        // [Leo]: asserted_formulas do not have support for qe nor der.
+        //        We should use the tactics qe and der.
+        //        BTW, qe at asserted_formulas was disabled when we moved to codeplex, but the field m_quant_elim was not deleted.
+        // 
+        // flet<bool> flet0(params.m_quant_elim, true);
         flet<bool> flet1(params.m_nnf_cnf, false);
-        flet<bool> flet2(params.m_der, true);
+        // flet<bool> flet2(params.m_der, true);
         smt::kernel ctx(m, params);
         ctx.assert_expr(fml_inst);
         lbool result = ctx.check();

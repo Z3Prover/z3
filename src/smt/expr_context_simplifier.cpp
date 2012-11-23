@@ -329,7 +329,6 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
         result = fml;
         return;
     }                                                
-    flet<bool> fl1(m_params.m_strong_context_simplifier, false);
 
     ptr_vector<expr> todo;
     ptr_vector<expr> names;
@@ -480,7 +479,6 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
         result = fml;
         return;
     }                                                
-    flet<bool> fl1(m_params.m_strong_context_simplifier, false);
 
     ptr_vector<expr> todo;
     ptr_vector<expr> names;

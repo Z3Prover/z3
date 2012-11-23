@@ -34,7 +34,7 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
 
     simplifier simp(m);
     front_end_params params;
-    params.m_quant_elim = true;
+    // params.m_quant_elim = true;
 
     std::cout << mk_pp(fml, m) << "\n";
     qe::expr_quant_elim qe(m, params);

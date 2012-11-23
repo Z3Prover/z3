@@ -1431,19 +1431,6 @@ namespace smt {
         func_decl * get_macro_interpretation(unsigned i, expr_ref & interp) const { return m_asserted_formulas.get_macro_interpretation(i, interp); }
         quantifier * get_macro_quantifier(func_decl * f) const { return m_asserted_formulas.get_macro_quantifier(f); }
         void insert_macro(func_decl * f, quantifier * m, proof * pr) { m_asserted_formulas.insert_macro(f, m, pr); }
-
-        // -----------------------------------
-        //
-        // Eliminated vars
-        //
-        // -----------------------------------
-    public:
-        ptr_vector<app>::const_iterator begin_subst_vars() const  { return m_asserted_formulas.begin_subst_vars(); }
-        ptr_vector<app>::const_iterator end_subst_vars() const    { return m_asserted_formulas.end_subst_vars(); }
-        ptr_vector<app>::const_iterator begin_subst_vars_last_level() const  { return m_asserted_formulas.begin_subst_vars_last_level(); }
-        expr * get_subst(app * var) { return m_asserted_formulas.get_subst(var); }
-        bool is_subst(app * var) const { return m_asserted_formulas.is_subst(var); }
-        void get_ordered_subst_vars(ptr_vector<app> & ordered_vars) { return m_asserted_formulas.get_ordered_subst_vars(ordered_vars); }
     };
 
 };

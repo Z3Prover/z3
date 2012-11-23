@@ -27,7 +27,6 @@ Revision History:
    the new strategy framework.
 */
 void params2front_end_params(params_ref const & s, front_end_params & t) {
-    t.m_quant_elim = s.get_bool(":elim-quant", t.m_quant_elim);
     t.m_relevancy_lvl = s.get_uint(":relevancy", t.m_relevancy_lvl);
     TRACE("qi_cost", s.display(tout); tout << "\n";);
     t.m_qi_cost = s.get_str(":qi-cost", t.m_qi_cost.c_str());
@@ -40,7 +39,6 @@ void params2front_end_params(params_ref const & s, front_end_params & t) {
     t.m_well_sorted_check = s.get_bool(":check-sorts", t.m_well_sorted_check);
     t.m_qi_eager_threshold = s.get_double(":qi-eager-threshold", t.m_qi_eager_threshold);
     t.m_qi_lazy_threshold =  s.get_double(":qi-lazy-threshold", t.m_qi_lazy_threshold);
-    t.m_solver = s.get_bool(":solver", t.m_solver);
     t.m_preprocess = s.get_bool(":preprocess", t.m_preprocess);
     t.m_hi_div0 = s.get_bool(":hi-div0", t.m_hi_div0);
     t.m_auto_config = s.get_bool(":auto-config", t.m_auto_config);

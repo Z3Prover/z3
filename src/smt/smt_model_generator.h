@@ -193,8 +193,6 @@ namespace smt {
         void display(std::ostream & out);
         void register_existing_model_values();
         void register_macros();
-        void register_indirect_elim_decls();
-        void register_subst_vars();
 
         bool visit_children(source const & src, ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
                             source2color & colors, obj_hashtable<sort> & already_traversed, svector<source> & todo);
@@ -226,4 +224,5 @@ namespace smt {
 };
 
 #endif /* _SMT_MODEL_GENERATOR_H_ */
+
 
