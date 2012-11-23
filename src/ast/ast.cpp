@@ -1814,6 +1814,11 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
         }
     }
     else {
+        if (decl->get_arity() != num_args) {
+            // Invalid input: unexpected number of arguments for non-associative operator.
+            // So, there is no point in coercing the input arguments.
+            return false; 
+        }
         for (unsigned i = 0; i < num_args; i++) {
             sort * d = decl->get_domain(i);
             if (d->get_family_id() == m_arith_family_id && d != get_sort(args[i]))
