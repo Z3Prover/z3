@@ -44,8 +44,8 @@ namespace Microsoft.Z3
         {
             get
             {
-              Contract.Ensures(Contract.Result<Goal[]>() != null);
-              Contract.Ensures(Contract.Result<Goal[]>().Length == this.NumSubgoals);
+                Contract.Ensures(Contract.Result<Goal[]>() != null);
+                Contract.Ensures(Contract.Result<Goal[]>().Length == this.NumSubgoals);
 
                 uint n = NumSubgoals;
                 Goal[] res = new Goal[n];
@@ -77,12 +77,13 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal ApplyResult(Context ctx, IntPtr obj) : base(ctx, obj) 
+        internal ApplyResult(Context ctx, IntPtr obj)
+            : base(ctx, obj)
         {
             Contract.Requires(ctx != null);
         }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {
@@ -93,7 +94,7 @@ namespace Microsoft.Z3
             {
                 Native.Z3_apply_result_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
         {

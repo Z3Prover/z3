@@ -149,18 +149,17 @@ namespace Microsoft.Z3
         /// </summary>
         public BoolExpr Body
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<BoolExpr>() != null);
-                
-                return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject)); }
+
+                return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
+            }
         }
 
         #region Internal
         [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
-        internal Quantifier(Context ctx, bool isForall, Sort[] sorts, Symbol[] names, Expr body,
-                            uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
-                            Symbol quantifierID = null, Symbol skolemID = null
-                            )
+        internal Quantifier(Context ctx, bool isForall, Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
             : base(ctx)
         {
             Contract.Requires(ctx != null);
@@ -187,7 +186,7 @@ namespace Microsoft.Z3
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
                 NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (isForall) ? 1 : 0, weight,
-                                           AST.ArrayLength(patterns),  AST.ArrayToNative(patterns),
+                                           AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                            AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                            Symbol.ArrayToNative(names),
                                            body.NativeObject);
@@ -205,16 +204,13 @@ namespace Microsoft.Z3
         }
 
         [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
-        internal Quantifier(Context ctx, bool isForall, Expr[] bound, Expr body,
-                            uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null,
-                            Symbol quantifierID = null, Symbol skolemID = null
-            )
+        internal Quantifier(Context ctx, bool isForall, Expr[] bound, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
             : base(ctx)
         {
             Contract.Requires(ctx != null);
             Contract.Requires(body != null);
 
-            Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));       
+            Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
             Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
             Contract.Requires(bound == null || Contract.ForAll(bound, n => n != null));
 
@@ -222,7 +218,7 @@ namespace Microsoft.Z3
             Context.CheckContextMatch(patterns);
             //Context.CheckContextMatch(bound);
             Context.CheckContextMatch(body);
-            
+
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
                 NativeObject = Native.Z3_mk_quantifier_const(ctx.nCtx, (isForall) ? 1 : 0, weight,
@@ -244,14 +240,14 @@ namespace Microsoft.Z3
 
         internal Quantifier(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
-        #if DEBUG
+#if DEBUG
         internal override void CheckNativeObject(IntPtr obj)
         {
             if ((Z3_ast_kind)Native.Z3_get_ast_kind(Context.nCtx, obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a quantifier");
             base.CheckNativeObject(obj);
         }
-        #endif
+#endif
         #endregion
     }
 }

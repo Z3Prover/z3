@@ -203,7 +203,7 @@ namespace Microsoft.Z3
         internal AST(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
         internal AST(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {

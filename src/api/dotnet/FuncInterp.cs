@@ -40,9 +40,11 @@ namespace Microsoft.Z3
             /// </summary>
             public Expr Value
             {
-                get {
+                get
+                {
                     Contract.Ensures(Contract.Result<Expr>() != null);
-                    return Expr.Create(Context, Native.Z3_func_entry_get_value(Context.nCtx, NativeObject)); }
+                    return Expr.Create(Context, Native.Z3_func_entry_get_value(Context.nCtx, NativeObject));
+                }
             }
 
             /// <summary>
@@ -87,7 +89,7 @@ namespace Microsoft.Z3
             #region Internal
             internal Entry(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
-            internal class DecRefQueue : Z3.DecRefQueue
+            internal class DecRefQueue : IDecRefQueue
             {
                 public override void IncRef(Context ctx, IntPtr obj)
                 {
@@ -130,8 +132,7 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<Entry[]>() != null);
-                Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, 
-                    j => Contract.Result<Entry[]>()[j] != null));
+                Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, j => Contract.Result<Entry[]>()[j] != null));
 
                 uint n = NumEntries;
                 Entry[] res = new Entry[n];
@@ -146,10 +147,12 @@ namespace Microsoft.Z3
         /// </summary>
         public Expr Else
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<Expr>() != null);
 
-                return Expr.Create(Context, Native.Z3_func_interp_get_else(Context.nCtx, NativeObject)); }
+                return Expr.Create(Context, Native.Z3_func_interp_get_else(Context.nCtx, NativeObject));
+            }
         }
 
         /// <summary>
@@ -169,7 +172,7 @@ namespace Microsoft.Z3
             res += "[";
             foreach (Entry e in Entries)
             {
-                uint n = e.NumArgs;                
+                uint n = e.NumArgs;
                 if (n > 1) res += "[";
                 Expr[] args = e.Args;
                 for (uint i = 0; i < n; i++)
@@ -192,7 +195,7 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {
@@ -203,7 +206,7 @@ namespace Microsoft.Z3
             {
                 Native.Z3_func_interp_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
         {
