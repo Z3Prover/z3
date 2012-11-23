@@ -526,8 +526,6 @@ namespace smt {
             func_decl * d  = n->get_decl();
             if (m_model.has_interpretation(d))
                 return; // declaration already has an interpretation.
-            if (n->get_num_args() == 0 && m_context.is_subst(n) != 0)
-                return; // an interpretation will be generated for this variable using the evaluator.
             if (n->get_num_args() == 0) {
                 sort * r = d->get_range();
                 expr * v = m_model.get_some_value(r);
@@ -544,61 +542,6 @@ namespace smt {
         
     };
 
-    /**
-       \brief Generate an interpretation for variables that were eliminated indirectly.
-       When a variable is eliminated by substitution and it does not occur anywhere, then
-       its definition may contain declarations that do not occur anywhere else. 
-       This method will assign an arbitrary interpretation for these declarations.
-       
-       Example: consider the formula
-       
-       (= x (f y))
-
-       This formula is satisfiable. If the solver is used during preprocessing step,
-       this formula is reduced to "true", and the substitution set contains the entry (x -> (f y)).
-       The declarations f and y will not have an interpretation. This method will traverse the
-       definition of each eliminated variable, and generate an arbitrary interpretations for
-       declarations that do not have one yet.
-    */
-    void model_generator::register_indirect_elim_decls() {
-        expr_mark visited;
-        mk_interp_proc proc(*m_context, *m_model);
-        ptr_vector<app>::const_iterator it  = m_context->begin_subst_vars();
-        ptr_vector<app>::const_iterator end = m_context->end_subst_vars();
-        for (; it != end; ++it) {
-            app * var    = *it;
-            if (var->get_num_args() > 0)
-                continue;
-            expr * subst = m_context->get_subst(var);
-            for_each_expr(proc, visited, subst);
-        }
-    }
-
-    void model_generator::register_subst_vars() {
-        ptr_vector<app> ordered_subst_vars;
-        m_context->get_ordered_subst_vars(ordered_subst_vars);
-        ptr_vector<app>::const_iterator it  = ordered_subst_vars.begin();
-        ptr_vector<app>::const_iterator end = ordered_subst_vars.end();
-        for (; it != end; ++it) {
-            app * var    = *it;
-            TRACE("model_subst_vars", tout << "processing: " << mk_pp(var, m_manager) << "\n";);
-            if (var->get_num_args() > 0) {
-                TRACE("model_subst_vars", tout << "not a constant...\n";);
-                continue;
-            }
-            expr * subst = m_context->get_subst(var);
-            if (subst == 0) {
-                TRACE("model_subst_vars", tout << "no definition...\n";);
-                continue;
-            }
-            TRACE("model_subst_vars", tout << "definition: " << mk_pp(subst, m_manager) << "\n";);
-            expr_ref r(m_manager);
-            m_model->eval(subst, r);
-            TRACE("model_subst_vars", tout << "result: " << mk_pp(r, m_manager) << "\n";);
-            m_model->register_decl(var->get_decl(), r);
-        }
-    }
-
     proto_model * model_generator::mk_model() {
         SASSERT(!m_model);
         TRACE("func_interp_bug", m_context->display(tout););
@@ -609,22 +552,6 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
-        TRACE("model_subst_vars",
-              tout << "substitution vars:\n";
-              ptr_vector<app>::const_iterator it  = m_context->begin_subst_vars();
-              ptr_vector<app>::const_iterator end = m_context->end_subst_vars();
-              for (; it != end; ++it) {
-                  app * var    = *it;
-                  tout << mk_pp(var, m_manager) << "\n";
-                  if (var->get_num_args() > 0)
-                      continue;
-                  expr * subst = m_context->get_subst(var);
-                  if (subst == 0)
-                      continue;
-                  tout << "-> " << mk_bounded_pp(subst, m_manager, 10) << "\n";
-              });
-        register_indirect_elim_decls();
-        register_subst_vars();
         return m_model;
     }
     

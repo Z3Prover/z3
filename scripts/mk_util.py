@@ -52,6 +52,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
+JAVA_COMPONENT='java'
 CPP_COMPONENT='cpp'
 #####################
 IS_WINDOWS=False
@@ -921,11 +922,12 @@ class DotNetDLLComponent(Component):
 
 
 class JavaDLLComponent(Component):
-    def __init__(self, name, dll_name, path):
-        Component.__init__(self, name, path, [])
+    def __init__(self, name, dll_name, package_name, path, deps):
+        Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
-        self.dll_name          = dll_name
+        self.dll_name     = dll_name
+        self.package_name = package_name
 
     def mk_makefile(self, out):
         if is_java_enabled():
@@ -942,6 +944,7 @@ class JavaDLLComponent(Component):
                 out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
             out.write('%s: %s\n\n' % (self.name, dllfile))
+            # TODO: Compile and package all the .class files.
     
     def main_component(self):
         return is_java_enabled()
@@ -1080,8 +1083,8 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
     reg_component(name, c)
 
-def add_java_dll(name, path=None, dll_name=None):
-    c = JavaDLLComponent(name, dll_name, path)
+def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None):
+    c = JavaDLLComponent(name, dll_name, package_name, path, deps)
     reg_component(name, c)
 
 def add_cpp_example(name, path=None):
@@ -1604,7 +1607,7 @@ def cp_z3pyc_to_build():
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
         mk_z3consts_py(api_files)
-        mk_z3consts_donet(api_files)
+        mk_z3consts_dotnet(api_files)
         new_api_files = []
         api = get_component(API_COMPONENT)
         for api_file in api_files:
@@ -1614,6 +1617,7 @@ def mk_bindings(api_files):
         g["API_FILES"] = new_api_files
         if is_java_enabled():
             check_java()
+            mk_z3consts_java(api_files)
         execfile('scripts/update_api.py', g) # HACK
         cp_z3pyc_to_build()
                           
@@ -1696,7 +1700,7 @@ def mk_z3consts_py(api_files):
                 
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
-def mk_z3consts_donet(api_files):
+def mk_z3consts_dotnet(api_files):
     blank_pat      = re.compile("^ *$")
     comment_pat    = re.compile("^ *//.*$")
     typedef_pat    = re.compile("typedef enum *")
@@ -1778,6 +1782,94 @@ def mk_z3consts_donet(api_files):
     z3consts.write('}\n');
     if VERBOSE:
         print "Generated '%s'" % ('%s/Enumerations.cs' % dotnet.src_dir)
+
+
+# Extract enumeration types from z3_api.h, and add Java definitions
+def mk_z3consts_java(api_files):
+    blank_pat      = re.compile("^ *$")
+    comment_pat    = re.compile("^ *//.*$")
+    typedef_pat    = re.compile("typedef enum *")
+    typedef2_pat   = re.compile("typedef enum { *")
+    openbrace_pat  = re.compile("{ *")
+    closebrace_pat = re.compile("}.*;")
+
+    java = get_component(JAVA_COMPONENT)
+
+    DeprecatedEnums = [ 'Z3_search_failure' ]
+    gendir = java.src_dir + "/" + java.package_name.replace(".", "/") + "/Enumerations"
+    if not os.path.exists(gendir):
+        os.mkdir(gendir)
+
+    for api_file in api_files:
+        api_file_c = java.find_file(api_file, java.name)
+        api_file   = '%s/%s' % (api_file_c.src_dir, api_file)
+
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1 
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    if name not in DeprecatedEnums:
+                        efile  = open('%s/%s.java' % (gendir, name), 'w')
+                        efile.write('/**\n *  Automatically generated file\n **/\n\n')
+                        efile.write('package %s;\n\n' % java.package_name);
+
+                        efile.write('/**\n')
+                        efile.write(' * %s\n' % name)
+                        efile.write(' **/\n')
+                        efile.write('public enum %s {\n' % name)
+                        efile.write
+                        for k, i in decls.iteritems():
+                            efile.write('%s (%s),\n' % (k, i))
+                        efile.write('}\n\n')
+                        efile.close()
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+    if VERBOSE:
+        print "Generated '%s'" % ('%s' % gendir)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id

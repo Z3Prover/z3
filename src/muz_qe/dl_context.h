@@ -77,7 +77,6 @@ namespace datalog {
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
         typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
-
         ast_manager &      m;
         front_end_params&  m_fparams;
         params_ref         m_params;
@@ -250,7 +249,9 @@ namespace datalog {
         bool is_output_predicate(func_decl * pred) { return m_output_preds.contains(pred); }
         const decl_set & get_output_predicates() const { return m_output_preds; }
 
-        rule_set const & get_rules() { return m_rule_set; }
+        rule_set const & get_rules() { flush_add_rules(); return m_rule_set; }
+
+        void get_rules_as_formulas(expr_ref_vector& fmls, svector<symbol>& names);
 
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);

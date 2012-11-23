@@ -28,6 +28,20 @@ Notes:
 #include<z3.h>
 #include<limits.h>
 
+/**
+   \defgroup cppapi C++ API
+
+*/
+/*@{*/
+
+/**
+   @name C++ API classes and functions
+*/
+/*@{*/
+
+/**
+   \brief Z3 C++ namespace
+*/
 namespace z3 {
 
     class exception;
@@ -49,7 +63,7 @@ namespace z3 {
     class statistics;
     class apply_result;
     class fixedpoint;
-    
+
     /**
        \brief Exception used to sign API usage errors.
     */
@@ -73,10 +87,16 @@ namespace z3 {
         ~config() { Z3_del_config(m_cfg); }
         operator Z3_config() const { return m_cfg; }
         /**
-           \brief Add a global configuration.
+           \brief Set global parameter \c param with string \c value.
         */
         void set(char const * param, char const * value) { Z3_set_param_value(m_cfg, param, value); }
+        /**
+           \brief Set global parameter \c param with Boolean \c value.
+        */
         void set(char const * param, bool value) { Z3_set_param_value(m_cfg, param, value ? "true" : "false"); }
+        /**
+           \brief Set global parameter \c param with integer \c value.
+        */
         void set(char const * param, int value) { 
             std::ostringstream oss;
             oss << value;
@@ -112,23 +132,58 @@ namespace z3 {
                 throw exception(Z3_get_error_msg_ex(m_ctx, e));
         }
 
+        /**
+           \brief Update global parameter \c param with string \c value.
+        */
         void set(char const * param, char const * value) { Z3_update_param_value(m_ctx, param, value); }
+        /**
+           \brief Update global parameter \c param with Boolean \c value.
+        */
         void set(char const * param, bool value) { Z3_update_param_value(m_ctx, param, value ? "true" : "false"); }
+        /**
+           \brief Update global parameter \c param with Integer \c value.
+        */
         void set(char const * param, int value) { 
             std::ostringstream oss;
             oss << value;
             Z3_update_param_value(m_ctx, param, oss.str().c_str());
         }
 
+        /**
+           \brief Interrupt the current procedure being executed by any object managed by this context.
+           This is a soft interruption: there is no guarantee the object will actualy stop.
+        */
         void interrupt() { Z3_interrupt(m_ctx); }
 
+        /**
+           \brief Create a Z3 symbol based on the given string.
+        */
         symbol str_symbol(char const * s);
+        /**
+           \brief Create a Z3 symbol based on the given integer.
+        */
         symbol int_symbol(int n);
-
+        /**
+           \brief Return the Boolean sort.
+        */
         sort bool_sort();
+        /**
+           \brief Return the integer sort.
+        */
         sort int_sort();
+        /**
+           \brief Return the Real sort.
+        */
         sort real_sort();
+        /**
+           \brief Return the Bit-vector sort of size \c sz. That is, the sort for bit-vectors of size \c sz.
+        */
         sort bv_sort(unsigned sz);
+        /**
+           \brief Return an array sort for arrays from \c d to \c r.
+
+           Example: Given a context \c c, <tt>c.array_sort(c.int_sort(), c.bool_sort())</tt> is an array sort from integer to Boolean.
+        */
         sort array_sort(sort d, sort r);
 
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
@@ -258,31 +313,86 @@ namespace z3 {
         friend bool eq(ast const & a, ast const & b) { return Z3_is_eq_ast(a.ctx(), a, b) != 0; }
     };
 
+    /**
+       \brief A Z3 sort (aka type). Every expression (i.e., formula or term) in Z3 has a sort.
+    */
     class sort : public ast {
     public:
         sort(context & c):ast(c) {}
         sort(context & c, Z3_sort s):ast(c, reinterpret_cast<Z3_ast>(s)) {}
         sort(sort const & s):ast(s) {}
         operator Z3_sort() const { return reinterpret_cast<Z3_sort>(m_ast); }
+        /**
+           \brief Return true if this sort and \c s are equal.
+        */
         sort & operator=(sort const & s) { return static_cast<sort&>(ast::operator=(s)); }
+        /**
+           \brief Return the internal sort kind.
+        */
         Z3_sort_kind sort_kind() const { return Z3_get_sort_kind(*m_ctx, *this); }
 
+        /** 
+            \brief Return true if this sort is the Boolean sort.
+        */
         bool is_bool() const { return sort_kind() == Z3_BOOL_SORT; }
+        /** 
+            \brief Return true if this sort is the Integer sort.
+        */
         bool is_int() const { return sort_kind() == Z3_INT_SORT; }
+        /** 
+            \brief Return true if this sort is the Real sort.
+        */
         bool is_real() const { return sort_kind() == Z3_REAL_SORT; }
+        /** 
+            \brief Return true if this sort is the Integer or Real sort.
+        */
         bool is_arith() const { return is_int() || is_real(); }
+        /** 
+            \brief Return true if this sort is a Bit-vector sort.
+        */
         bool is_bv() const { return sort_kind() == Z3_BV_SORT; }
+        /** 
+            \brief Return true if this sort is a Array sort.
+        */
         bool is_array() const { return sort_kind() == Z3_ARRAY_SORT; }
+        /** 
+            \brief Return true if this sort is a Datatype sort.
+        */
         bool is_datatype() const { return sort_kind() == Z3_DATATYPE_SORT; }
+        /** 
+            \brief Return true if this sort is a Relation sort.
+        */
         bool is_relation() const { return sort_kind() == Z3_RELATION_SORT; }
+        /** 
+            \brief Return true if this sort is a Finite domain sort.
+        */
         bool is_finite_domain() const { return sort_kind() == Z3_FINITE_DOMAIN_SORT; }
 
+        /** 
+            \brief Return the size of this Bit-vector sort.
+
+            \pre is_bv()
+        */
         unsigned bv_size() const { assert(is_bv()); unsigned r = Z3_get_bv_sort_size(ctx(), *this); check_error(); return r; }
 
+        /** 
+            \brief Return the domain of this Array sort.
+
+            \pre is_array()
+        */
         sort array_domain() const { assert(is_array()); Z3_sort s = Z3_get_array_sort_domain(ctx(), *this); check_error(); return sort(ctx(), s); }
+        /** 
+            \brief Return the range of this Array sort.
+
+            \pre is_array()
+        */
         sort array_range() const { assert(is_array()); Z3_sort s = Z3_get_array_sort_range(ctx(), *this); check_error(); return sort(ctx(), s); }
     };
 
+    /**
+       \brief Function declaration (aka function definition). It is the signature of interpreted and uninterpreted functions in Z3.
+       The basic building block in Z3 is the function application.
+    */
     class func_decl : public ast {
     public:
         func_decl(context & c):ast(c) {}
@@ -310,6 +420,10 @@ namespace z3 {
         expr operator()(expr const & a1, expr const & a2, expr const & a3, expr const & a4, expr const & a5) const;
     };
 
+    /**
+       \brief A Z3 expression is used to represent formulas and terms. For Z3, a formula is any expression of sort Boolean.
+       Every expression has a sort.
+    */
     class expr : public ast {
     public:
         expr(context & c):ast(c) {}
@@ -317,33 +431,116 @@ namespace z3 {
         expr(expr const & n):ast(n) {}
         expr & operator=(expr const & n) { return static_cast<expr&>(ast::operator=(n)); }
 
+        /**
+           \brief Return the sort of this expression.
+        */
         sort get_sort() const { Z3_sort s = Z3_get_sort(*m_ctx, m_ast); check_error(); return sort(*m_ctx, s); }
-
+        
+        /**
+           \brief Return true if this is a Boolean expression.
+        */
         bool is_bool() const { return get_sort().is_bool(); }
+        /**
+           \brief Return true if this is an integer expression.
+        */
         bool is_int() const { return get_sort().is_int(); }
+        /**
+           \brief Return true if this is a real expression.
+        */
         bool is_real() const { return get_sort().is_real(); }
+        /**
+           \brief Return true if this is an integer or real expression.
+        */
         bool is_arith() const { return get_sort().is_arith(); }
+        /**
+           \brief Return true if this is a Bit-vector expression.
+        */
         bool is_bv() const { return get_sort().is_bv(); }
+        /**
+           \brief Return true if this is a Array expression.
+        */
         bool is_array() const { return get_sort().is_array(); }
+        /**
+           \brief Return true if this is a Datatype expression.
+        */
         bool is_datatype() const { return get_sort().is_datatype(); }
+        /**
+           \brief Return true if this is a Relation expression.
+        */
         bool is_relation() const { return get_sort().is_relation(); }
+        /**
+           \brief Return true if this is a Finite-domain expression.
+           
+           \remark Finite-domain is special kind of interpreted sort:
+           is_bool(), is_bv() and is_finite_domain() are mutually
+           exclusive.
+           
+        */
         bool is_finite_domain() const { return get_sort().is_finite_domain(); }
 
+        /**
+           \brief Return true if this expression is a numeral.
+        */
         bool is_numeral() const { return kind() == Z3_NUMERAL_AST; }
+        /**
+           \brief Return true if this expression is an application.
+        */
         bool is_app() const { return kind() == Z3_APP_AST || kind() == Z3_NUMERAL_AST; }
+        /**
+           \brief Return true if this expression is a constant (i.e., an application with 0 arguments).
+        */
         bool is_const() const { return is_app() && num_args() == 0; }
+        /**
+           \brief Return true if this expression is a quantifier.
+        */
         bool is_quantifier() const { return kind() == Z3_QUANTIFIER_AST; }
+        /**
+           \brief Return true if this expression is a variable.
+        */
         bool is_var() const { return kind() == Z3_VAR_AST; }
 
+        /**
+           \brief Return true if this expression is well sorted (aka type correct).
+        */
         bool is_well_sorted() const { bool r = Z3_is_well_sorted(ctx(), m_ast) != 0; check_error(); return r; }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
+
+        /**
+           \brief Return the declaration associated with this application.
+           This method assumes the expression is an application.
+
+           \pre is_app()
+        */
         func_decl decl() const { Z3_func_decl f = Z3_get_app_decl(ctx(), *this); check_error(); return func_decl(ctx(), f); }
+        /**
+           \brief Return the number of arguments in this application.
+           This method assumes the expression is an application.
+
+           \pre is_app()
+        */
         unsigned num_args() const { unsigned r = Z3_get_app_num_args(ctx(), *this); check_error(); return r; }
+        /**
+           \brief Return the i-th argument of this application.
+           This method assumes the expression is an application.
+
+           \pre is_app()
+           \pre i < num_args()
+        */
         expr arg(unsigned i) const { Z3_ast r = Z3_get_app_arg(ctx(), *this, i); check_error(); return expr(ctx(), r); }
 
+        /**
+           \brief Return the 'body' of this quantifier.
+
+           \pre is_quantifier()
+        */
         expr body() const { assert(is_quantifier()); Z3_ast r = Z3_get_quantifier_body(ctx(), *this); check_error(); return expr(ctx(), r); }
 
+        /**
+           \brief Return an expression representing <tt>not(a)</tt>.
+
+           \pre a.is_bool()
+        */
         friend expr operator!(expr const & a) {
             assert(a.is_bool());
             Z3_ast r = Z3_mk_not(a.ctx(), a);
@@ -351,6 +548,12 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
 
+        /**
+           \brief Return an expression representing <tt>a and b</tt>.
+
+           \pre a.is_bool()
+           \pre b.is_bool()
+        */
         friend expr operator&&(expr const & a, expr const & b) {
             check_context(a, b);
             assert(a.is_bool() && b.is_bool());
@@ -359,9 +562,28 @@ namespace z3 {
             a.check_error();
             return expr(a.ctx(), r);
         }
+
+        /**
+           \brief Return an expression representing <tt>a and b</tt>.
+           The C++ Boolean value \c b is automatically converted into a Z3 Boolean constant.
+
+           \pre a.is_bool()
+        */
         friend expr operator&&(expr const & a, bool b) { return a && a.ctx().bool_val(b); }
+        /**
+           \brief Return an expression representing <tt>a and b</tt>.
+           The C++ Boolean value \c a is automatically converted into a Z3 Boolean constant.
+
+           \pre b.is_bool()
+        */
         friend expr operator&&(bool a, expr const & b) { return b.ctx().bool_val(a) && b; }
 
+        /**
+           \brief Return an expression representing <tt>a or b</tt>.
+
+           \pre a.is_bool()
+           \pre b.is_bool()
+        */
         friend expr operator||(expr const & a, expr const & b) {
             check_context(a, b);
             assert(a.is_bool() && b.is_bool());
@@ -370,7 +592,19 @@ namespace z3 {
             a.check_error();
             return expr(a.ctx(), r);
         }
+        /**
+           \brief Return an expression representing <tt>a or b</tt>.
+           The C++ Boolean value \c b is automatically converted into a Z3 Boolean constant.
+
+           \pre a.is_bool()
+        */
         friend expr operator||(expr const & a, bool b) { return a || a.ctx().bool_val(b); }
+        /**
+           \brief Return an expression representing <tt>a or b</tt>.
+           The C++ Boolean value \c a is automatically converted into a Z3 Boolean constant.
+
+           \pre b.is_bool()
+        */
         friend expr operator||(bool a, expr const & b) { return b.ctx().bool_val(a) || b; }
         
         friend expr implies(expr const & a, expr const & b) {
@@ -598,7 +832,13 @@ namespace z3 {
 
         friend expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
 
+        /**
+           \brief Return a simplified version of this expression.
+        */
         expr simplify() const { Z3_ast r = Z3_simplify(ctx(), m_ast); check_error(); return expr(ctx(), r); }
+        /**
+           \brief Return a simplified version of this expression. The parameter \c p is a set of parameters for the Z3 simplifier.
+        */
         expr simplify(params const & p) const { Z3_ast r = Z3_simplify_ex(ctx(), m_ast, p); check_error(); return expr(ctx(), r); }
     };
     
@@ -1390,6 +1630,9 @@ template class z3::ast_vector_tpl<z3::ast>;
 template class z3::ast_vector_tpl<z3::expr>;
 template class z3::ast_vector_tpl<z3::sort>;
 template class z3::ast_vector_tpl<z3::func_decl>;
+
+/*@}*/
+/*@}*/
 
 #endif
 

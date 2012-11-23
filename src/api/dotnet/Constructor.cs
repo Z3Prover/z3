@@ -33,7 +33,11 @@ namespace Microsoft.Z3
         /// </summary>
         public uint NumFields
         {
-            get { init();  return n; }
+            get
+            {
+                init();
+                return n;
+            }
         }
 
         /// <summary>
@@ -41,9 +45,12 @@ namespace Microsoft.Z3
         /// </summary>
         public FuncDecl ConstructorDecl
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<FuncDecl>() != null);
-                init();  return m_constructorDecl; }
+                init();
+                return m_constructorDecl;
+            }
         }
 
         /// <summary>
@@ -51,9 +58,12 @@ namespace Microsoft.Z3
         /// </summary>
         public FuncDecl TesterDecl
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<FuncDecl>() != null);
-                init();  return m_testerDecl; }
+                init();
+                return m_testerDecl;
+            }
         }
 
         /// <summary>
@@ -61,10 +71,13 @@ namespace Microsoft.Z3
         /// </summary>
         public FuncDecl[] AccessorDecls
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
-                init();  return m_accessorDecls; }
-        }        
+                init(); 
+                return m_accessorDecls;
+            }
+        }
 
         /// <summary>
         /// Destructor.
@@ -79,10 +92,10 @@ namespace Microsoft.Z3
         [ContractInvariantMethod]
         private void ObjectInvariant()
         {
-            Contract.Invariant(m_testerDecl  == null || m_constructorDecl != null);
+            Contract.Invariant(m_testerDecl == null || m_constructorDecl != null);
             Contract.Invariant(m_testerDecl == null || m_accessorDecls != null);
         }
-        
+
         #endregion
 
         #region Internal
@@ -105,7 +118,7 @@ namespace Microsoft.Z3
                 throw new Z3Exception("Number of field names does not match number of sorts");
             if (sortRefs != null && sortRefs.Length != n)
                 throw new Z3Exception("Number of field names does not match number of sort refs");
-            
+
             if (sortRefs == null) sortRefs = new uint[n];
 
             NativeObject = Native.Z3_mk_constructor(ctx.nCtx, name.NativeObject, recognizer.NativeObject,
@@ -116,7 +129,7 @@ namespace Microsoft.Z3
 
         }
 
-        private void init() 
+        private void init()
         {
             Contract.Ensures(m_constructorDecl != null);
             Contract.Ensures(m_testerDecl != null);
@@ -146,7 +159,7 @@ namespace Microsoft.Z3
         /// Destructor.
         /// </summary>
         ~ConstructorList()
-        {         
+        {
             Native.Z3_del_constructor_list(Context.nCtx, NativeObject);
         }
 
@@ -164,7 +177,7 @@ namespace Microsoft.Z3
             Contract.Requires(constructors != null);
 
             NativeObject = Native.Z3_mk_constructor_list(Context.nCtx, (uint)constructors.Length, Constructor.ArrayToNative(constructors));
-        }        
+        }
         #endregion
     }
 }

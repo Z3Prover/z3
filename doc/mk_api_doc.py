@@ -4,6 +4,7 @@ import re
 import pydoc
 import sys
 import subprocess
+import shutil
 
 def mk_dir(d):
     if not os.path.exists(d):
@@ -22,21 +23,28 @@ def cleanup_API(inf, outf):
 
 try:
     mk_dir('api/html')
-    cleanup_API('../src/api/z3_api.h', 'z3_api.h')
+    mk_dir('tmp')
+    shutil.copyfile('website.dox', 'tmp/website.dox')
+    shutil.copyfile('../src/api/python/z3.py', 'tmp/z3py.py')
+    cleanup_API('../src/api/z3_api.h', 'tmp/z3_api.h')
+    
     print "Removed annotations from z3_api.h."
-    DEVNULL = open(os.devnull, 'wb')
     try:
-        subprocess.call(['doxygen', 'z3.dox'], stdout=DEVNULL, stderr=DEVNULL)
+        if subprocess.call(['doxygen', 'z3api.dox']) != 0:
+            print "ERROR: doxygen returned nonzero return code"
+            exit(1)
     except:
         print "ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system."
         exit(1)
     print "Generated C and .NET API documentation."
-    os.remove('z3_api.h')
+    os.remove('tmp/z3_api.h')
     print "Removed temporary file z3_api.h."
-    shutil.copy('z3.css', 'api/html/z3.css')
-    print "Copied z3.css."
-    shutil.copy('z3.png', 'api/html/z3.png')
-    print "Copied z3.png."
+    os.remove('tmp/website.dox')	
+    print "Removed temporary file website.dox"
+    os.remove('tmp/z3py.py')	
+    print "Removed temporary file z3py.py"
+    os.removedirs('tmp')
+    print "Removed temporary directory tmp."
     sys.path.append('../src/api/python')
     pydoc.writedoc('z3')
     shutil.move('z3.html', 'api/html/z3.html')

@@ -342,8 +342,6 @@ class der2 {
 
     void flatten_args(quantifier* q, unsigned& num_args, expr*const*& args) {
         expr * e = q->get_expr();
-         num_args = 1;
-        args = &e;
         if ((q->is_forall() && m.is_or(e)) ||
             (q->is_exists() && m.is_and(e))) {
             num_args = to_app(e)->get_num_args();
