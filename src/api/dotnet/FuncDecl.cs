@@ -291,9 +291,7 @@ namespace Microsoft.Z3
         }
 
         internal FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
-            : base(ctx, Native.Z3_mk_func_decl(ctx.nCtx, name.NativeObject,
-                                             AST.ArrayLength(domain), AST.ArrayToNative(domain),
-                                             range.NativeObject))
+            : base(ctx, Native.Z3_mk_func_decl(ctx.nCtx, name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
         {
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);
@@ -301,9 +299,7 @@ namespace Microsoft.Z3
         }
 
         internal FuncDecl(Context ctx, string prefix, Sort[] domain, Sort range)
-            : base(ctx, Native.Z3_mk_fresh_func_decl(ctx.nCtx, prefix,
-                                             AST.ArrayLength(domain), AST.ArrayToNative(domain),
-                                             range.NativeObject))
+            : base(ctx, Native.Z3_mk_fresh_func_decl(ctx.nCtx, prefix, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
         {
             Contract.Requires(ctx != null);
             Contract.Requires(range != null);

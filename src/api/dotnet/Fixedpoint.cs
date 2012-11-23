@@ -310,7 +310,7 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {

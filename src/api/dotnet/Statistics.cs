@@ -86,8 +86,18 @@ namespace Microsoft.Z3
             readonly private bool m_is_double = false;
             readonly private uint m_uint = 0;
             readonly private double m_double = 0.0;
-            internal Entry(string k, uint v) { Key = k; m_is_uint = true; m_uint = v; }
-            internal Entry(string k, double v) { Key = k; m_is_double = true; m_double = v; }
+            internal Entry(string k, uint v)
+            {
+                Key = k;
+                m_is_uint = true;
+                m_uint = v;
+            }
+            internal Entry(string k, double v)
+            {
+                Key = k;
+                m_is_double = true;
+                m_double = v;
+            }
             #endregion
         }
 
@@ -177,7 +187,7 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {

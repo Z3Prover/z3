@@ -26,7 +26,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {    
     [ContractClass(typeof(DecRefQueueContracts))]
-    internal abstract class DecRefQueue
+    internal abstract class IDecRefQueue
     {
         #region Object invariant
 
@@ -76,8 +76,8 @@ namespace Microsoft.Z3
         }
     }
 
-    [ContractClassFor(typeof(DecRefQueue))]
-    abstract class DecRefQueueContracts : DecRefQueue
+    [ContractClassFor(typeof(IDecRefQueue))]
+    abstract class DecRefQueueContracts : IDecRefQueue
     {
         public override void IncRef(Context ctx, IntPtr obj)
         {
