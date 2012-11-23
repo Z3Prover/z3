@@ -39,6 +39,9 @@ Notes:
 */
 /*@{*/
 
+/**
+   \brief Z3 C++ namespace
+*/
 namespace z3 {
 
     class exception;

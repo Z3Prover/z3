@@ -25,6 +25,7 @@ try:
     mk_dir('api/html')
     mk_dir('tmp')
     shutil.copyfile('website.dox', 'tmp/website.dox')
+    shutil.copyfile('../src/api/python/z3.py', 'tmp/z3py.py')
     cleanup_API('../src/api/z3_api.h', 'tmp/z3_api.h')
     
     print "Removed annotations from z3_api.h."
@@ -40,6 +41,8 @@ try:
     print "Removed temporary file z3_api.h."
     os.remove('tmp/website.dox')	
     print "Removed temporary file website.dox"
+    os.remove('tmp/z3py.py')	
+    print "Removed temporary file z3py.py"
     os.removedirs('tmp')
     print "Removed temporary directory tmp."
     sys.path.append('../src/api/python')

@@ -709,6 +709,7 @@ INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = website.dox \
                          z3_api.h \
                          z3++.h \
+                         z3py.py \
                          ApplyResult.cs \
                          AST.cs \
                          ASTMap.cs \
