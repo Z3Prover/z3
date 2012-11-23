@@ -26,17 +26,15 @@ try:
     print "Removed annotations from z3_api.h."
     DEVNULL = open(os.devnull, 'wb')
     try:
-        subprocess.call(['doxygen', 'z3.dox'], stdout=DEVNULL, stderr=DEVNULL)
+        if subprocess.call(['doxygen', 'z3api.dox'], stdout=DEVNULL, stderr=DEVNULL) != 0:
+            print "ERROR: doxygen returned nonzero return code"
+            exit(1)
     except:
         print "ERROR: failed to execute 'doxygen', make sure doxygen (http://www.doxygen.org) is available in your system."
         exit(1)
     print "Generated C and .NET API documentation."
     os.remove('z3_api.h')
     print "Removed temporary file z3_api.h."
-    shutil.copy('z3.css', 'api/html/z3.css')
-    print "Copied z3.css."
-    shutil.copy('z3.png', 'api/html/z3.png')
-    print "Copied z3.png."
     sys.path.append('../src/api/python')
     pydoc.writedoc('z3')
     shutil.move('z3.html', 'api/html/z3.html')

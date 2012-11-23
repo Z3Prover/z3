@@ -34,6 +34,11 @@ Notes:
 */
 /*@{*/
 
+/**
+   @name C++ API classes and functions
+*/
+/*@{*/
+
 namespace z3 {
 
     class exception;
@@ -55,7 +60,7 @@ namespace z3 {
     class statistics;
     class apply_result;
     class fixedpoint;
-    
+
     /**
        \brief Exception used to sign API usage errors.
     */
@@ -1623,6 +1628,7 @@ template class z3::ast_vector_tpl<z3::expr>;
 template class z3::ast_vector_tpl<z3::sort>;
 template class z3::ast_vector_tpl<z3::func_decl>;
 
+/*@}*/
 /*@}*/
 
 #endif
