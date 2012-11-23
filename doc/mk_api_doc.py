@@ -21,7 +21,7 @@ def cleanup_API(inf, outf):
             _outf.write(line)
 
 try:
-    mk_dir('html')
+    mk_dir('api/html')
     cleanup_API('../src/api/z3_api.h', 'z3_api.h')
     print "Removed annotations from z3_api.h."
     DEVNULL = open(os.devnull, 'wb')
@@ -33,15 +33,15 @@ try:
     print "Generated C and .NET API documentation."
     os.remove('z3_api.h')
     print "Removed temporary file z3_api.h."
-    shutil.copy('z3.css', 'html/z3.css')
+    shutil.copy('z3.css', 'api/html/z3.css')
     print "Copied z3.css."
-    shutil.copy('z3.png', 'html/z3.png')
+    shutil.copy('z3.png', 'api/html/z3.png')
     print "Copied z3.png."
     sys.path.append('../src/api/python')
     pydoc.writedoc('z3')
-    shutil.move('z3.html', 'html/z3.html')
+    shutil.move('z3.html', 'api/html/z3.html')
     print "Generated Python documentation."
-    print "Documentation was successfully generated at subdirectory './html'."
+    print "Documentation was successfully generated at subdirectory './api/html'."
 except:
     print "ERROR: failed to generate documentation"
     exit(1)

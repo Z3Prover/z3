@@ -825,7 +825,7 @@ class ExprRef(AstRef):
         if is_app(self):
             return [self.arg(i) for i in range(self.num_args())]
         else:
-            return [] 
+            return []
 
 def _to_expr_ref(a, ctx):
     if isinstance(a, Pattern):

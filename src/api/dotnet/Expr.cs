@@ -48,9 +48,11 @@ namespace Microsoft.Z3
         /// </summary>
         public FuncDecl FuncDecl
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<FuncDecl>() != null);
-                return new FuncDecl(Context, Native.Z3_get_app_decl(Context.nCtx, NativeObject)); }
+                return new FuncDecl(Context, Native.Z3_get_app_decl(Context.nCtx, NativeObject));
+            }
         }
 
         /// <summary>
@@ -74,7 +76,7 @@ namespace Microsoft.Z3
         /// The arguments of the expression.
         /// </summary>        
         public Expr[] Args
-        {            
+        {
             get
             {
                 Contract.Ensures(Contract.Result<Expr[]>() != null);
@@ -176,7 +178,7 @@ namespace Microsoft.Z3
         public override string ToString()
         {
             return base.ToString();
-        }        
+        }
 
         /// <summary>
         /// Indicates whether the term is a numeral
@@ -200,9 +202,11 @@ namespace Microsoft.Z3
         /// </summary>
         public Sort Sort
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<Sort>() != null);
-                return Sort.Create(Context, Native.Z3_get_sort(Context.nCtx, NativeObject)); }
+                return Sort.Create(Context, Native.Z3_get_sort(Context.nCtx, NativeObject));
+            }
         }
 
         #region Constants
@@ -243,7 +247,7 @@ namespace Microsoft.Z3
         {
             get { return Native.Z3_is_algebraic_number(Context.nCtx, NativeObject) != 0; }
         }
-        #endregion        
+        #endregion
 
         #region Term Kind Tests
 
@@ -1471,12 +1475,16 @@ namespace Microsoft.Z3
         #endregion
 
         #region Internal
-        /// <summary> Constructor for Expr </summary>
+        /// <summary> 
+        /// Constructor for Expr 
+        /// </summary>
         internal protected Expr(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
-        /// <summary> Constructor for Expr </summary>
+        /// <summary> 
+        /// Constructor for Expr 
+        /// </summary>
         internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
 
-        #if DEBUG
+#if DEBUG
         [Pure]
         internal override void CheckNativeObject(IntPtr obj)
         {
@@ -1486,7 +1494,7 @@ namespace Microsoft.Z3
                 throw new Z3Exception("Underlying object is not a term");
             base.CheckNativeObject(obj);
         }
-        #endif
+#endif
 
         [Pure]
         internal static Expr Create(Context ctx, FuncDecl f, params Expr[] arguments)
@@ -1495,11 +1503,11 @@ namespace Microsoft.Z3
             Contract.Requires(f != null);
             Contract.Ensures(Contract.Result<Expr>() != null);
 
-            IntPtr obj = Native.Z3_mk_app(ctx.nCtx, f.NativeObject, 
-                                          AST.ArrayLength(arguments), 
+            IntPtr obj = Native.Z3_mk_app(ctx.nCtx, f.NativeObject,
+                                          AST.ArrayLength(arguments),
                                           AST.ArrayToNative(arguments));
             return Create(ctx, obj);
-        }        
+        }
 
         [Pure]
         new internal static Expr Create(Context ctx, IntPtr obj)

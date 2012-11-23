@@ -124,9 +124,11 @@ namespace Microsoft.Z3
         /// </summary>
         public Sort Range
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<Sort>() != null);
-                return Sort.Create(Context, Native.Z3_get_range(Context.nCtx, NativeObject)); }
+                return Sort.Create(Context, Native.Z3_get_range(Context.nCtx, NativeObject));
+            }
         }
 
         /// <summary>
@@ -142,9 +144,11 @@ namespace Microsoft.Z3
         /// </summary>
         public Symbol Name
         {
-            get {
+            get
+            {
                 Contract.Ensures(Contract.Result<Symbol>() != null);
-                return Symbol.Create(Context, Native.Z3_get_decl_name(Context.nCtx, NativeObject)); }
+                return Symbol.Create(Context, Native.Z3_get_decl_name(Context.nCtx, NativeObject));
+            }
         }
 
         /// <summary>
@@ -280,9 +284,10 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        internal FuncDecl(Context ctx, IntPtr obj) : base(ctx, obj) 
-        { 
-            Contract.Requires(ctx != null); 
+        internal FuncDecl(Context ctx, IntPtr obj)
+            : base(ctx, obj)
+        {
+            Contract.Requires(ctx != null);
         }
 
         internal FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
@@ -293,7 +298,7 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
             Contract.Requires(name != null);
             Contract.Requires(range != null);
-        }        
+        }
 
         internal FuncDecl(Context ctx, string prefix, Sort[] domain, Sort range)
             : base(ctx, Native.Z3_mk_fresh_func_decl(ctx.nCtx, prefix,
@@ -304,14 +309,14 @@ namespace Microsoft.Z3
             Contract.Requires(range != null);
         }
 
-        #if DEBUG
+#if DEBUG
         internal override void CheckNativeObject(IntPtr obj)
         {
             if (Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_FUNC_DECL_AST)
                 throw new Z3Exception("Underlying object is not a function declaration");
             base.CheckNativeObject(obj);
         }
-        #endif
+#endif
         #endregion
 
         /// <summary>
@@ -319,12 +324,14 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="args"></param>
         /// <returns></returns>
-        public Expr this[params Expr[] args] { 
-            get {
+        public Expr this[params Expr[] args]
+        {
+            get
+            {
                 Contract.Requires(args == null || Contract.ForAll(args, a => a != null));
 
-                return Apply(args); 
-            } 
+                return Apply(args);
+            }
         }
 
         /// <summary>

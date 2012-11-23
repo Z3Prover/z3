@@ -74,29 +74,6 @@ bool is_debug_enabled(const char * tag);
 #define COMPILE_TIME_ASSERT(expr) extern char DBG_UNIQUE_NAME[expr]
 #endif
 
-template<class T>
-class class_invariant 
-{
-    T* m_class;
-    char const* m_module;
-public:
-    class_invariant(T* cls) : m_class(cls), m_module(0) {
-        SASSERT(cls->invariant());
-    }
-    class_invariant(T* cls, char const* module) : m_class(cls), m_module(module) {
-        CASSERT(module, cls->invariant());
-    }
-    ~class_invariant() {
-        if (m_module) {
-            CASSERT(m_module, m_class->invariant());
-        }
-        else {
-            SASSERT(m_class->invariant());
-        }
-    }
-private:
-};
-
 void finalize_debug();
 /*
   ADD_FINALIZER('finalize_debug();')

@@ -25,8 +25,6 @@ void front_end_params::register_params(ini_params & p) {
     parser_params::register_params(p);
     arith_simplifier_params::register_params(p);
     model_params::register_params(p);
-    p.register_unsigned_param("MAX_COUNTEREXAMPLES", m_max_num_cex, 
-                              "set the maximum number of counterexamples when using Simplify front end");
     p.register_bool_param("AT_LABELS_CEX", m_at_labels_cex, 
                           "only use labels that contain '@' when building multiple counterexamples");
     p.register_bool_param("CHECK_AT_LABELS", m_check_at_labels, 

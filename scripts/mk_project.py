@@ -71,7 +71,7 @@ def init_project_def():
             static=build_static_lib(),
             export_files=API_files)
     add_dot_net_dll('dotnet', ['api_dll'], 'api/dotnet', dll_name='Microsoft.Z3', assembly_info_dir='Properties')
-    add_java_dll('java', 'api/java', dll_name='libz3java')
+    add_java_dll('java', ['api_dll'], 'api/java', dll_name='libz3java', package_name="com.Microsoft.Z3")
     add_hlib('cpp', 'api/c++', includes2install=['z3++.h'])
     set_z3py_dir('api/python')
     # Examples

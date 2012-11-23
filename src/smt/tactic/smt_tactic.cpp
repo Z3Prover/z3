@@ -151,7 +151,7 @@ public:
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " " 
-                  << " PREPROCESS: " << fparams().m_preprocess << ", SOLVER:" << fparams().m_solver << "\n";
+                  << " PREPROCESS: " << fparams().m_preprocess << "\n";
                   tout << "fail-if-inconclusive: " << m_fail_if_inconclusive << "\n";
                   tout << "params_ref: " << m_params_ref << "\n";);
             TRACE("smt_tactic_detail", in->display(tout););
