@@ -17,6 +17,8 @@ To generate documentation for the Z3 code, we must execute
 
    doxygen z3code.dox
 
+We must also have dot installed in our system.
+
 The documentation will be store in the subdirectory './code/html'.
 The main file is './code/html/index.html'
 

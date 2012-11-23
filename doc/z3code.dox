@@ -19,7 +19,7 @@ DOXYFILE_ENCODING      = UTF-8
 # The PROJECT_NAME tag is a single word (or a sequence of words surrounded
 # by quotes) that should identify the project.
 
-PROJECT_NAME           = Z3_CODE
+PROJECT_NAME           = Z3
 PROJECT_NUMBER         =
 OUTPUT_DIRECTORY       = code
 CREATE_SUBDIRS         = NO
