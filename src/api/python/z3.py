@@ -827,7 +827,6 @@ class ExprRef(AstRef):
         else:
             return []
 
-
 def _to_expr_ref(a, ctx):
     if isinstance(a, Pattern):
         return PatternRef(a, ctx)

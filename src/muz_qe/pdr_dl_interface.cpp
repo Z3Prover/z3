@@ -246,7 +246,7 @@ proof_ref dl_interface::get_proof() {
 }
 
 void dl_interface::collect_params(param_descrs& p) {
-    p.insert(":bfs-model-search", CPK_BOOL, "PDR: (default true) use BFS strategy for expanding model search");
+    p.insert(":bfs-model-search", CPK_BOOL, "PDR: (default true) use BFS strategy for expanding model search");    
     p.insert(":use-farkas", CPK_BOOL, "PDR: (default true) use lemma generator based on Farkas (for linear real arithmetic)");
     p.insert(":generate-proof-trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
     p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract "
