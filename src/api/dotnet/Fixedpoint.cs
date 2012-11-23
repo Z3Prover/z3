@@ -264,7 +264,8 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve set of rules added to fixedpoint context.
         /// </summary>                
-        public BoolExpr[] Rules {
+        public BoolExpr[] Rules
+        {
             get
             {
                 Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
@@ -281,7 +282,8 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve set of assertions added to fixedpoint context.
         /// </summary>                
-        public BoolExpr[] Assertions {
+        public BoolExpr[] Assertions
+        {
             get
             {
                 Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
