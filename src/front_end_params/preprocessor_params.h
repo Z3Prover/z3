@@ -39,7 +39,6 @@ struct preprocessor_params : public nnf_params, public cnf_params, public patter
     bool            m_pull_nested_quantifiers;
     bool            m_eliminate_term_ite;
     bool            m_eliminate_and; // represent (and a b) as (not (or (not a) (not b)))
-    bool            m_reverse_implies; // translate (implies a b) into (or b (not a))
     bool            m_macro_finder;
     bool            m_propagate_values;
     bool            m_propagate_booleans;

@@ -21,7 +21,7 @@ Revision History:
 void pattern_inference_params::register_params(ini_params & p) {
     p.register_unsigned_param("PI_MAX_MULTI_PATTERNS", m_pi_max_multi_patterns, 
                               "when patterns are not provided, the prover uses a heuristic to infer them. This option sets the threshold on the number of extra multi-patterns that can be created. By default, the prover creates at most one multi-pattern when there is no unary pattern");
-    p.register_bool_param("PI_BLOCK_LOOOP_PATTERNS", m_pi_block_loop_patterns,
+    p.register_bool_param("PI_BLOCK_LOOP_PATTERNS", m_pi_block_loop_patterns,
                           "block looping patterns during pattern inference");
     p.register_int_param("PI_ARITH", 0, 2, reinterpret_cast<int&>(m_pi_arith), 
                          "0 - do not infer patterns with arithmetic terms, 1 - use patterns with arithmetic terms if there is no other pattern, 2 - always use patterns with arithmetic terms.");
