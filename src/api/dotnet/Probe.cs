@@ -49,10 +49,15 @@ namespace Microsoft.Z3
         /// <summary>
         /// Apply the probe to a goal.
         /// </summary>
-        public double this[Goal g] { get {
-            Contract.Requires(g != null);
+        public double this[Goal g]
+        {
+            get
+            {
+                Contract.Requires(g != null);
 
-            return Apply(g); } }
+                return Apply(g);
+            }
+        }
 
         #region Internal
         internal Probe(Context ctx, IntPtr obj)
@@ -66,7 +71,7 @@ namespace Microsoft.Z3
             Contract.Requires(ctx != null);
         }
 
-        internal class DecRefQueue : Z3.DecRefQueue
+        internal class DecRefQueue : IDecRefQueue
         {
             public override void IncRef(Context ctx, IntPtr obj)
             {
@@ -77,7 +82,7 @@ namespace Microsoft.Z3
             {
                 Native.Z3_probe_dec_ref(ctx.nCtx, obj);
             }
-        };        
+        };
 
         internal override void IncRef(IntPtr o)
         {
