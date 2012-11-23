@@ -30,14 +30,22 @@ def subst_getters(s, getters):
 
 def type_replace(s):
     s = s.replace("bool", "boolean")
-    s = s.replace("uint", "Integer")
+    s = s.replace("uint", "long")
     s = s.replace("string", "String")
     return s
 
 def rename_native(s):
-    a = re.sub("Native.Z3_(?P<id>\w+)", "Native.\g<id>", s)
-    lc_callback = lambda pat: pat.group("id").upper()
-    return re.sub("_(?P<id>\w)", lc_callback, a)
+    while s.find("Native.Z3") != -1:
+        i0 = s.find("Native.Z3")
+        i1 = s.find("(", i0)
+        c0 = s[:i0]
+        c1 = s[i0:i1]
+        c1 = c1.replace("Native.Z3_", "Native.")
+        c2 = s[i1:]
+        lc_callback = lambda pat: pat.group("id").upper()
+        c1 = re.sub("_(?P<id>\w)", lc_callback, c1)
+        s = c0 + c1 + c2
+    return s
 
 
 def translate(filename):
@@ -54,6 +62,9 @@ def translate(filename):
     in_getter_type = ""
     in_unsupported = 0
     getters = []
+    in_bracket_op = 0
+    in_getter_get = 0
+    in_getter_set = 0
     for line in fileinput.input(os.path.join(CS, filename)):
         s = string.rstrip(string.lstrip(line))
         if in_javadoc:
@@ -97,19 +108,19 @@ def translate(filename):
                     tgt.write("/* " + s + " */\n")
             elif s.startswith("namespace"):
                 pass
-            elif s.startswith("public") and s.find("operator") and (s.find("==") != -1 or s.find("!=") != -1):
+            elif s.startswith("public") and s.find("operator") != -1 and (s.find("==") != -1 or s.find("!=") != -1):
                 t = ""
                 for i in range(0, line.find(s)+1):
                     t += " "                    
                 tgt.write(t + "/* Overloaded operators are not translated. */\n")
                 in_unsupported = 1;
-            elif s.startswith("public class") or s.startswith("internal class"):
+            elif s.startswith("public class") or s.startswith("internal class") or s.startswith("internal abstract class"):
                 a = line.replace(":", "extends").replace("internal ", "")
                 a = a.replace(", IComparable", "")
                 tgt.write(a)
                 in_class = 1
                 in_static_class = 0
-            elif s.startswith("public static class"):
+            elif s.startswith("public static class") or s.startswith("abstract class"):
                 tgt.write(line.replace(":", "extends").replace("static", "final"))
                 in_class = 1
                 in_static_class = 1
@@ -119,8 +130,9 @@ def translate(filename):
             elif skip_brace and s == "{":
                 skip_brace = 0
             elif s.find("public") != -1 and s.find("class") == -1 and s.find("event") == -1 and s.find("(") == -1:
+                if (s.startswith("new")):
+                    s = s[3:]
                 tokens = s.split(" ")
-                print "# TOKENS: " + str(len(tokens))
                 if len(tokens) == 3:
                     in_getter = tokens[2]
                     in_getter_type = type_replace((tokens[0] + " " + tokens[1]))
@@ -129,8 +141,14 @@ def translate(filename):
                     lastindent = line.find(s)
                     skip_brace = 1
                 elif len(tokens) == 4:
-                    in_getter = tokens[3]
-                    in_getter_type = type_replace(tokens[0] + " " + tokens[1] + " " + tokens[2])
+                    if tokens[2].startswith("this["):
+                        in_bracket_op = 1
+                        in_getter = type_replace(tokens[2]).replace("this[", "get(")
+                        in_getter += " " + tokens[3].replace("]", ")")
+                        in_getter_type = type_replace(tokens[0] + " " + tokens[1])
+                    else:
+                        in_getter = tokens[3]
+                        in_getter_type = type_replace(tokens[0] + " " + tokens[1] + " " + tokens[2])
                     if in_static_class:
                         in_getter_type = in_getter_type.replace("static", "")
                     lastindent = line.find(s)
@@ -156,9 +174,13 @@ def translate(filename):
                 d = line[0:line.find("{ get")]
                 rest = line[line.find("{ get")+5:]
                 rest = rest.replace("} }", "}")
+                rest = re.sub("Contract.\w+\([\s\S]*\);", "", rest)
                 subst_getters(rest, getters)
                 rest = rename_native(rest)
-                tgt.write(d + "()" + rest)
+                if  in_bracket_op:
+                    tgt.write(d + rest)
+                else:
+                    tgt.write(d + "()" + rest)
                 print "ACC: " + s + " --> " + in_getter
             elif in_getter != "" and s.startswith("get"):
                 t = ""
@@ -169,7 +191,12 @@ def translate(filename):
                 subst_getters(rest, getters)
                 rest = type_replace(rest)
                 rest = rename_native(rest)
-                tgt.write(t + in_getter_type + " " + in_getter + "() " + rest + "\n")
+                if  in_bracket_op:
+                    tgt.write(t + in_getter_type + " " + in_getter + " " + rest + "\n")
+                else:
+                    tgt.write(t + in_getter_type + " " + in_getter + "() " + rest + "\n")
+                if rest.find("}") == -1:
+                    in_getter_get = 1
             elif in_getter != "" and s.startswith("set"):
                 t = ""
                 for i in range(0, lastindent):
@@ -182,10 +209,23 @@ def translate(filename):
                 rest = rename_native(rest)
                 ac_acc = in_getter_type[:in_getter_type.find(' ')]
                 ac_type = in_getter_type[in_getter_type.find(' ')+1:]
-                tgt.write(t + ac_acc + " void set" + in_getter + "(" + ac_type + " value) " + rest + "\n")
-            elif in_getter != "" and s == "}":
+                if  in_bracket_op:
+                    in_getter = in_getter.replace("get", "set").replace(")", "")
+                    tgt.write(t + ac_acc + " void " + in_getter + ", " + ac_type + " value) " + rest + "\n")
+                else:
+                    tgt.write(t + ac_acc + " void set" + in_getter + "(" + ac_type + " value) " + rest + "\n")
+                if rest.find("}") == -1:
+                    in_getter_set = 1
+            elif in_getter != "" and in_getter_get and s == "}":
+                tgt.write(line)
+                in_getter_get = 0
+            elif in_getter != "" and in_getter_set and s == "}":
+                tgt.write(line)
+                in_getter_set = 0
+            elif in_getter != "" and not in_getter_get and not in_getter_set and s == "}":
                 in_getter = ""
                 in_getter_type == ""
+                in_bracket_op = 0
                 skip_brace = 0
             elif s.startswith("uint ") and s.find("=") == -1:
                 line = line.replace("uint", "Integer", line)
@@ -203,25 +243,31 @@ def translate(filename):
                     if line.find("; {") != -1:
                         line = line.replace("; {", ";")
                     else:
-                        skip_brace = 1                        
+                        skip_brace = 1                     
                 if s.startswith("public"):
                     line = re.sub(" = [\w.]+(?P<d>[,;\)])", "\g<d>", line)
-                    line = re.sub("(?P<d>[\(, ])params ", "\g<d>", line)
-                line = line.replace("base.", "super.")
                 a = type_replace(line)
+                a = re.sub("(?P<d>[\(, ])params ", "\g<d>", a)
+                a = a.replace("base.", "super.")
                 a = re.sub("Contract.\w+\([\s\S]*\);", "", a)
                 a = rename_native(a)
                 a = re.sub("~\w+\(\)", "protected void finalize()", a)
                 a = re.sub("foreach\s*\((?P<t>[\w <>,]+)\s+(?P<i>\w+)\s+in\s+(?P<w>\w+)\)",
                            "for (\g<t>.Iterator \g<i> = \g<w>.iterator(); \g<i>.hasNext(); )", a)
-                a = a.replace("readonly private", "private")
-                a = a.replace("new public", "public")
+                a = a.replace("readonly ", "")
+                a = a.replace("const ", "final ")
                 a = a.replace("ToString", "toString")
                 a = a.replace("internal ", "")
+                a = a.replace("new static", "static")
+                a = a.replace("new public", "public")
                 a = a.replace("override ", "")
                 a = a.replace("virtual ", "")
                 a = a.replace("o as AST", "(AST) o")
                 a = a.replace("other as AST", "(AST) other")
+                a = a.replace("o as FuncDecl", "(FuncDecl) o")
+                a = a.replace("IntPtr res = IntPtr.Zero;", "Native.IntPtr res = new Native.IntPtr();")
+                a = a.replace("out res", "res")
+                a = a.replace("lock (", "synchronized (")
                 if in_static_class:
                     a = a.replace("static", "")
                 a = re.sub("ref (?P<id>\w+)", "\g<id>", a)

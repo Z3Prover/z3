@@ -10,41 +10,61 @@ package com.Microsoft.Z3;
 /* using System.Threading; */
 
     abstract class DecRefQueue
+    {
 
         private void ObjectInvariant()
+        {
             
+        }
         
 
-        readonly protected Object mLock = new Object();
-        readonly protected List<IntPtr> mQueue = new List<IntPtr>();
-        const Integer mMoveLimit = 1024;
+        protected Object m_lock = new Object();
+        protected List<IntPtr> m_queue = new List<IntPtr>();
+        final long m_move_limit = 1024;
 
         public abstract void IncRef(Context ctx, IntPtr obj);
         public abstract void DecRef(Context ctx, IntPtr obj);
 
         public void IncAndClear(Context ctx, IntPtr o)
+        {
             
 
             IncRef(ctx, o);
-            if (mQueue.Count >= mMoveLimit) Clear(ctx);
+            if (m_queue.Count >= m_move_limit) Clear(ctx);
+        }
 
         public void Add(IntPtr o)
+        {
             if (o == IntPtr.Zero) return;
 
-            lock (mLock)
-                mQueue.Add(o);
+            synchronized (m_lock)
+            {
+                m_queue.Add(o);
+            }
+        }
 
         public void Clear(Context ctx)
+        {
             
 
-            lock (mLock)
-                for (IntPtr.Iterator o = mQueue.iterator(); o.hasNext(); )
+            synchronized (m_lock)
+            {
+                for (IntPtr.Iterator o = m_queue.iterator(); o.hasNext(); )
                     DecRef(ctx, o);
-                mQueue.Clear();
+                m_queue.Clear();
+            }
+        }
+    }
 
-    abstract class DecRefQueueContracts : DecRefQueue
+    abstract class DecRefQueueContracts extends DecRefQueue
+    {
         public void IncRef(Context ctx, IntPtr obj)
+        {
             
+        }
 
         public void DecRef(Context ctx, IntPtr obj)
+        {
             
+        }
+    }

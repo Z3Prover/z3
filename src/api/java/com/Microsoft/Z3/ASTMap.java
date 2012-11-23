@@ -73,7 +73,7 @@ package com.Microsoft.Z3;
         /**
          * The size of the map
          **/
-        public Integer Size()  { return Native.astMapSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.astMapSize(Context.nCtx, NativeObject); }
 
         /**
          * The keys stored in the map.
@@ -81,7 +81,7 @@ package com.Microsoft.Z3;
         public ASTVector Keys() 
             {
                 return new ASTVector(Context, Native.astMapKeys(Context.nCtx, NativeObject));
-        }
+            }
 
         /**
          * Retrieves a string representation of the map. 
@@ -115,13 +115,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ASTMapDRQ.IncAndClear(Context, o);
+            Context.ASTMap_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ASTMapDRQ.Add(o);
+            Context.ASTMap_DRQ.Add(o);
             super.DecRef(o);
         }
     }

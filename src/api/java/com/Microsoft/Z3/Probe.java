@@ -60,13 +60,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ProbeDRQ.IncAndClear(Context, o);
+            Context.Probe_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ProbeDRQ.Add(o);
+            Context.Probe_DRQ.Add(o);
             super.DecRef(o);
         }
     }

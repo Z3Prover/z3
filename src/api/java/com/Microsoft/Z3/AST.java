@@ -75,7 +75,7 @@ package com.Microsoft.Z3;
         /**
          * A unique identifier for the AST (unique among all ASTs).
          **/
-        public Integer Id()  { return Native.getAstId(Context.nCtx, NativeObject); }
+        public long Id()  { return Native.getAstId(Context.nCtx, NativeObject); }
 
         /**
          * Translates (copies) the AST to the Context <paramref name="ctx"/>.
@@ -96,7 +96,7 @@ package com.Microsoft.Z3;
         /**
          * The kind of the AST.
          **/
-        public Z3_ast_kind ASTKind()  { return (Z3AstKind)Native.getAstKind(Context.nCtx, NativeObject); }
+        public Z3_ast_kind ASTKind()  { return (Z3_ast_kind)Native.getAstKind(Context.nCtx, NativeObject); }
 
         /**
          * Indicates whether the AST is an Expr
@@ -105,33 +105,33 @@ package com.Microsoft.Z3;
             {
                 switch (ASTKind)
                 {
-                    case Z3AstKind.Z3APPAST:
-                    case Z3AstKind.Z3NUMERALAST:
-                    case Z3AstKind.Z3QUANTIFIERAST:
-                    case Z3AstKind.Z3VARAST: return true;
+                    case Z3_ast_kind.Z3_APP_AST:
+                    case Z3_ast_kind.Z3_NUMERAL_AST:
+                    case Z3_ast_kind.Z3_QUANTIFIER_AST:
+                    case Z3_ast_kind.Z3_VAR_AST: return true;
                     default: return false;
-            }
+                }
         }
 
         /**
          * Indicates whether the AST is a BoundVariable
          **/
-        public boolean IsVar()  { return this.ASTKind == Z3AstKind.Z3VARAST; }
+        public boolean IsVar()  { return this.ASTKind == Z3_ast_kind.Z3_VAR_AST; }
 
         /**
          * Indicates whether the AST is a Quantifier
          **/
-        public boolean IsQuantifier()  { return this.ASTKind == Z3AstKind.Z3QUANTIFIERAST; }
+        public boolean IsQuantifier()  { return this.ASTKind == Z3_ast_kind.Z3_QUANTIFIER_AST; }
 
         /**
          * Indicates whether the AST is a Sort
          **/
-        public boolean IsSort()  { return this.ASTKind == Z3AstKind.Z3SORTAST; }
+        public boolean IsSort()  { return this.ASTKind == Z3_ast_kind.Z3_SORT_AST; }
 
         /**
          * Indicates whether the AST is a FunctionDeclaration
          **/
-        public boolean IsFuncDecl()  { return this.ASTKind == Z3AstKind.Z3FUNCDECLAST; }
+        public boolean IsFuncDecl()  { return this.ASTKind == Z3_ast_kind.Z3_FUNC_DECL_AST; }
 
         /**
          * A string representation of the AST.
@@ -174,7 +174,7 @@ package com.Microsoft.Z3;
                 throw new Z3Exception("inc() called on null context");
             if (o == IntPtr.Zero)
                 throw new Z3Exception("inc() called on null AST");
-            Context.ASTDRQ.IncAndClear(Context, o);
+            Context.AST_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
@@ -185,7 +185,7 @@ package com.Microsoft.Z3;
                 throw new Z3Exception("dec() called on null context");
             if (o == IntPtr.Zero)
                 throw new Z3Exception("dec() called on null AST");
-            Context.ASTDRQ.Add(o);
+            Context.AST_DRQ.Add(o);
             super.DecRef(o);
         }
 
@@ -194,14 +194,14 @@ package com.Microsoft.Z3;
             
             
 
-            switch ((Z3AstKind)Native.getAstKind(ctx.nCtx, obj))
+            switch ((Z3_ast_kind)Native.getAstKind(ctx.nCtx, obj))
             {
-                case Z3AstKind.Z3FUNCDECLAST: return new FuncDecl(ctx, obj);
-                case Z3AstKind.Z3QUANTIFIERAST: return new Quantifier(ctx, obj);
-                case Z3AstKind.Z3SORTAST: return Sort.Create(ctx, obj);
-                case Z3AstKind.Z3APPAST:
-                case Z3AstKind.Z3NUMERALAST:
-                case Z3AstKind.Z3VARAST: return Expr.Create(ctx, obj);
+                case Z3_ast_kind.Z3_FUNC_DECL_AST: return new FuncDecl(ctx, obj);
+                case Z3_ast_kind.Z3_QUANTIFIER_AST: return new Quantifier(ctx, obj);
+                case Z3_ast_kind.Z3_SORT_AST: return Sort.Create(ctx, obj);
+                case Z3_ast_kind.Z3_APP_AST:
+                case Z3_ast_kind.Z3_NUMERAL_AST:
+                case Z3_ast_kind.Z3_VAR_AST: return Expr.Create(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown AST kind");
             }

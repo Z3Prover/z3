@@ -19,7 +19,7 @@ package com.Microsoft.Z3;
             {
                 
                 return Native.fixedpointGetHelp(Context.nCtx, NativeObject);
-        }
+            }
 
         /**
          * Sets the fixedpoint solver parameters.
@@ -29,7 +29,7 @@ package com.Microsoft.Z3;
                 
                 Context.CheckContextMatch(value);
                 Native.fixedpointSetParams(Context.nCtx, NativeObject, value.NativeObject);
-        }
+            }
 
         /**
          * Retrieves parameter descriptions for Fixedpoint solver.
@@ -77,13 +77,13 @@ package com.Microsoft.Z3;
         /**
          * Add table fact to the fixedpoint solver.
          **/
-        public void AddFact(FuncDecl pred, Integer[] args)
+        public void AddFact(FuncDecl pred, long[] args)
         {
             
             
 
             Context.CheckContextMatch(pred);
-            Native.fixedpointAddFact(Context.nCtx, NativeObject, pred.NativeObject, (Integer)args.Length, args);
+            Native.fixedpointAddFact(Context.nCtx, NativeObject, pred.NativeObject, (long)args.Length, args);
         }
 
         /**
@@ -97,11 +97,11 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(query);
-            Z3Lboolean r = (Z3Lboolean)Native.fixedpointQuery(Context.nCtx, NativeObject, query.NativeObject);
+            Z3_lboolean r = (Z3_lboolean)Native.fixedpointQuery(Context.nCtx, NativeObject, query.NativeObject);
             switch (r)
             {
-                case Z3Lboolean.Z3LTRUE: return Status.SATISFIABLE;
-                case Z3Lboolean.Z3LFALSE: return Status.UNSATISFIABLE;
+                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -118,12 +118,12 @@ package com.Microsoft.Z3;
             
 
             Context.CheckContextMatch(relations);
-            Z3Lboolean r = (Z3Lboolean)Native.fixedpointQueryRelations(Context.nCtx, NativeObject,
+            Z3_lboolean r = (Z3_lboolean)Native.fixedpointQueryRelations(Context.nCtx, NativeObject,
                                    AST.ArrayLength(relations), AST.ArrayToNative(relations));
             switch (r)
             {
-                case Z3Lboolean.Z3LTRUE: return Status.SATISFIABLE;
-                case Z3Lboolean.Z3LFALSE: return Status.UNSATISFIABLE;
+                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -182,7 +182,7 @@ package com.Microsoft.Z3;
         /**
          * Retrieve the number of levels explored for a given predicate.
          **/
-        public Integer GetNumLevels(FuncDecl predicate)
+        public long GetNumLevels(FuncDecl predicate)
         {
             return Native.fixedpointGetNumLevels(Context.nCtx, NativeObject, predicate.NativeObject);
         }
@@ -238,30 +238,32 @@ package com.Microsoft.Z3;
         /**
          * Retrieve set of rules added to fixedpoint context.
          **/
-        public BoolExpr[] Rules {() 
+        public BoolExpr[] Rules() 
+            {
                 
 
                 ASTVector v = new ASTVector(Context, Native.fixedpointGetRules(Context.nCtx, NativeObject));
-                Integer n = v.Size;
+                long n = v.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new BoolExpr(Context, v[i].NativeObject);
                 return res;
-        }
+            }
 
         /**
          * Retrieve set of assertions added to fixedpoint context.
          **/
-        public BoolExpr[] Assertions {() 
+        public BoolExpr[] Assertions() 
+            {
                 
 
                 ASTVector v = new ASTVector(Context, Native.fixedpointGetAssertions(Context.nCtx, NativeObject));
-                Integer n = v.Size;
+                long n = v.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new BoolExpr(Context, v[i].NativeObject);
                 return res;
-        }
+            }
 
 
         Fixedpoint(Context ctx, IntPtr obj)
@@ -288,13 +290,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.FixedpointDRQ.IncAndClear(Context, o);
+            Context.Fixedpoint_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.FixedpointDRQ.Add(o);
+            Context.Fixedpoint_DRQ.Add(o);
             super.DecRef(o);
         }
     }

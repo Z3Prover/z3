@@ -19,7 +19,7 @@ package com.Microsoft.Z3;
                 
 
                 return Native.solverGetHelp(Context.nCtx, NativeObject);
-        }
+            }
 
         /**
          * Sets the solver parameters.
@@ -30,7 +30,7 @@ package com.Microsoft.Z3;
 
                 Context.CheckContextMatch(value);
                 Native.solverSetParams(Context.nCtx, NativeObject, value.NativeObject);
-        }
+            }
 
         /**
          * Retrieves parameter descriptions for solver.
@@ -43,7 +43,7 @@ package com.Microsoft.Z3;
          * <seealso cref="Pop"/>
          * <seealso cref="Push"/>
          **/
-        public Integer NumScopes()  { return Native.solverGetNumScopes(Context.nCtx, NativeObject); }
+        public long NumScopes()  { return Native.solverGetNumScopes(Context.nCtx, NativeObject); }
 
         /**
          * Creates a backtracking point.
@@ -59,7 +59,7 @@ package com.Microsoft.Z3;
          * <remarks>Note that an exception is thrown if <paramref name="n"/> is not smaller than <code>NumScopes</code></remarks>
          * <seealso cref="Push"/>
          **/
-        public void Pop(Integer n)
+        public void Pop(long n)
         {
             Native.solverPop(Context.nCtx, NativeObject, n);
         }
@@ -91,11 +91,11 @@ package com.Microsoft.Z3;
         /**
          * The number of assertions in the solver.
          **/
-        public Integer NumAssertions() 
+        public long NumAssertions() 
             {
                 ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context.nCtx, NativeObject));
                 return ass.Size;
-        }
+            }
 
         /**
          * The set of asserted formulas.
@@ -105,12 +105,12 @@ package com.Microsoft.Z3;
                 
 
                 ASTVector ass = new ASTVector(Context, Native.solverGetAssertions(Context.nCtx, NativeObject));
-                Integer n = ass.Size;
+                long n = ass.Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new BoolExpr(Context, ass[i].NativeObject);
                 return res;
-        }
+            }
 
         /**
          * Checks whether the assertions in the solver are consistent or not.
@@ -122,15 +122,15 @@ package com.Microsoft.Z3;
          **/
         public Status Check(Expr[] assumptions)
         {
-            Z3Lboolean r;
+            Z3_lboolean r;
             if (assumptions == null)
-                r = (Z3Lboolean)Native.solverCheck(Context.nCtx, NativeObject);
+                r = (Z3_lboolean)Native.solverCheck(Context.nCtx, NativeObject);
             else
-                r = (Z3Lboolean)Native.solverCheckAssumptions(Context.nCtx, NativeObject, (Integer)assumptions.Length, AST.ArrayToNative(assumptions));
+                r = (Z3_lboolean)Native.solverCheckAssumptions(Context.nCtx, NativeObject, (long)assumptions.Length, AST.ArrayToNative(assumptions));
             switch (r)
             {
-                case Z3Lboolean.Z3LTRUE: return Status.SATISFIABLE;
-                case Z3Lboolean.Z3LFALSE: return Status.UNSATISFIABLE;
+                case Z3_lboolean.Z3_L_TRUE: return Status.SATISFIABLE;
+                case Z3_lboolean.Z3_L_FALSE: return Status.UNSATISFIABLE;
                 default: return Status.UNKNOWN;
             }
         }
@@ -149,7 +149,7 @@ package com.Microsoft.Z3;
                     return null;
                 else
                     return new Model(Context, x);
-        }
+            }
 
         /**
          * The proof of the last <code>Check</code>.
@@ -165,7 +165,7 @@ package com.Microsoft.Z3;
                     return null;
                 else
                     return Expr.Create(Context, x);
-        }
+            }
 
         /**
          * The unsat core of the last <code>Check</code>.
@@ -180,12 +180,12 @@ package com.Microsoft.Z3;
                 
 
                 ASTVector core = new ASTVector(Context, Native.solverGetUnsatCore(Context.nCtx, NativeObject));
-                Integer n = core.Size;
+                long n = core.Size;
                 Expr[] res = new Expr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Expr.Create(Context, core[i].NativeObject);
                 return res;
-        }
+            }
 
         /**
          * A brief justification of why the last call to <code>Check</code> returned <code>UNKNOWN</code>.
@@ -195,7 +195,7 @@ package com.Microsoft.Z3;
                 
 
                 return Native.solverGetReasonUnknown(Context.nCtx, NativeObject);
-        }
+            }
 
         /**
          * Solver statistics.
@@ -205,7 +205,7 @@ package com.Microsoft.Z3;
                 
 
                 return new Statistics(Context, Native.solverGetStatistics(Context.nCtx, NativeObject));
-        }
+            }
 
         /**
          * A string representation of the solver.
@@ -235,13 +235,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.SolverDRQ.IncAndClear(Context, o);
+            Context.Solver_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.SolverDRQ.Add(o);
+            Context.Solver_DRQ.Add(o);
             super.DecRef(o);
         }
     }

@@ -25,10 +25,10 @@ package com.Microsoft.Z3;
         public UInt64 UInt64() 
             {
                 UInt64 res = 0;
-                if (Native.getNumeralInteger64(Context.nCtx, NativeObject, res) == 0)
+                if (Native.getNumeralLong64(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not a 64 bit unsigned");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the int value.
@@ -39,7 +39,7 @@ package com.Microsoft.Z3;
                 if (Native.getNumeralInt(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not an int");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the 64-bit int value.
@@ -50,18 +50,18 @@ package com.Microsoft.Z3;
                 if (Native.getNumeralInt64(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not an int64");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the int value.
          **/
-        public Integer UInt() 
+        public long UInt() 
             {
-                Integer res = 0;
-                if (Native.getNumeralInteger(Context.nCtx, NativeObject, res) == 0)
-                    throw new Z3Exception("Numeral is not a Integer");
+                long res = 0;
+                if (Native.getNumeralLong(Context.nCtx, NativeObject, res) == 0)
+                    throw new Z3Exception("Numeral is not a long");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the BigInteger value.
@@ -69,7 +69,7 @@ package com.Microsoft.Z3;
         public BigInteger BigInteger() 
             {  
                 return BigInteger.Parse(this.toString());
-        }
+            }
 
         /**
          * Returns a string representation of the numeral.
@@ -92,6 +92,7 @@ package com.Microsoft.Z3;
                 
 
                 return new IntNum(Context, Native.getNumerator(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * The denominator of a rational numeral.
@@ -100,6 +101,7 @@ package com.Microsoft.Z3;
                 
 
                 return new IntNum(Context, Native.getDenominator(Context.nCtx, NativeObject)); }
+        }
 
         /**
          * Converts the numerator of the rational to a BigInteger
@@ -108,7 +110,7 @@ package com.Microsoft.Z3;
             {                
                 IntNum n = Numerator;
                 return BigInteger.Parse(n.toString());
-        }
+            }
 
         /**
          * Converts the denominator of the rational to a BigInteger
@@ -117,13 +119,13 @@ package com.Microsoft.Z3;
             {
                 IntNum n = Denominator;
                 return BigInteger.Parse(n.toString());
-        }
+            }
 
         /**
          * Returns a string representation in decimal notation.
          * <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
          **/
-        public String ToDecimalString(Integer precision)
+        public String ToDecimalString(long precision)
         {
             return Native.getNumeralDecimalString(Context.nCtx, NativeObject, precision);
         }
@@ -154,10 +156,10 @@ package com.Microsoft.Z3;
         public UInt64 UInt64() 
             {
                 UInt64 res = 0;
-                if (Native.getNumeralInteger64(Context.nCtx, NativeObject, res) == 0)
+                if (Native.getNumeralLong64(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not a 64 bit unsigned");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the int value.
@@ -168,7 +170,7 @@ package com.Microsoft.Z3;
                 if (Native.getNumeralInt(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not an int");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the 64-bit int value.
@@ -179,18 +181,18 @@ package com.Microsoft.Z3;
                 if (Native.getNumeralInt64(Context.nCtx, NativeObject, res) == 0)
                     throw new Z3Exception("Numeral is not an int64");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the int value.
          **/
-        public Integer UInt() 
+        public long UInt() 
             {
-                Integer res = 0;
-                if (Native.getNumeralInteger(Context.nCtx, NativeObject, res) == 0)
-                    throw new Z3Exception("Numeral is not a Integer");
+                long res = 0;
+                if (Native.getNumeralLong(Context.nCtx, NativeObject, res) == 0)
+                    throw new Z3Exception("Numeral is not a long");
                 return res;
-        }
+            }
 
         /**
          * Retrieve the BigInteger value.
@@ -198,7 +200,7 @@ package com.Microsoft.Z3;
         public BigInteger BigInteger() 
             {
                 return BigInteger.Parse(this.toString());
-        }
+            }
 
         /**
          * Returns a string representation of the numeral.
@@ -223,7 +225,7 @@ package com.Microsoft.Z3;
          * <param name="precision">the precision of the result</param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToUpper(Integer precision)
+        public RatNum ToUpper(long precision)
         {
             
 
@@ -237,7 +239,7 @@ package com.Microsoft.Z3;
          * <param name="precision"></param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToLower(Integer precision)
+        public RatNum ToLower(long precision)
         {
             
 
@@ -248,7 +250,7 @@ package com.Microsoft.Z3;
          * Returns a string representation in decimal notation.
          * <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
          **/
-        public String ToDecimal(Integer precision)
+        public String ToDecimal(long precision)
         {
             
 

@@ -23,10 +23,10 @@ package com.Microsoft.Z3;
         /**
          * Retrieve kind of parameter.
          **/
-        public Z3ParamKind GetKind(Symbol name)
+        public Z3_param_kind GetKind(Symbol name)
         {
             
-            return (Z3ParamKind)Native.paramDescrsGetKind(Context.nCtx, NativeObject, name.NativeObject);
+            return (Z3_param_kind)Native.paramDescrsGetKind(Context.nCtx, NativeObject, name.NativeObject);
         }
 
         /**
@@ -34,18 +34,18 @@ package com.Microsoft.Z3;
          **/
         public Symbol[] Names() 
             {
-                  Integer sz = Native.paramDescrsSize(Context.nCtx, NativeObject);
+                  long sz = Native.paramDescrsSize(Context.nCtx, NativeObject);
                   Symbol[] names = new Symbol[sz];
-                  for (Integer i = 0; i < sz; ++i) {
+                  for (long i = 0; i < sz; ++i) {
                       names[i] = Symbol.Create(Context, Native.paramDescrsGetName(Context.nCtx, NativeObject, i));
+                  }
                   return names;
-            }
         }
 
         /**
          * The size of the ParamDescrs.
          **/
-        public Integer Size()  { return Native.paramDescrsSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.paramDescrsSize(Context.nCtx, NativeObject); }
 
         /**
          * Retrieves a string representation of the ParamDescrs. 
@@ -75,13 +75,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ParamDescrsDRQ.IncAndClear(Context, o);
+            Context.ParamDescrs_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ParamDescrsDRQ.Add(o);
+            Context.ParamDescrs_DRQ.Add(o);
             super.DecRef(o);
         }
     }

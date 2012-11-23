@@ -15,7 +15,7 @@ package com.Microsoft.Z3;
      **/
     public final class Log
     {
-        private  boolean mIsOpen = false;
+        private  boolean m_is_open = false;
 
         /**
          * Open an interaction log file.
@@ -24,7 +24,7 @@ package com.Microsoft.Z3;
          **/
         public  boolean Open(String filename)
         {
-            mIsOpen = true;
+            m_is_open = true;
             return Native.openLog(filename) == 1;
         }
 
@@ -33,7 +33,7 @@ package com.Microsoft.Z3;
          **/
         public  void Close()
         {
-            mIsOpen = false;
+            m_is_open = false;
             Native.closeLog();
         }
 
@@ -44,7 +44,7 @@ package com.Microsoft.Z3;
         {
             
 
-            if (!mIsOpen)
+            if (!m_is_open)
                 throw new Z3Exception("Log cannot be closed.");
             Native.appendLog(s);
         }
@@ -55,6 +55,6 @@ package com.Microsoft.Z3;
          **/
         public  boolean isOpen()
         {
-            return mIsOpen;
+            return m_is_open;
         }
     }

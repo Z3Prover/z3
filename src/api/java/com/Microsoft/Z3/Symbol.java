@@ -15,9 +15,9 @@ package com.Microsoft.Z3;
         /**
          * The kind of the symbol (int or string)
          **/
-        protected Z3SymbolKind Kind
+        protected Z3_symbol_kind Kind
         {
-            get { return (Z3SymbolKind)Native.getSymbolKind(Context.nCtx, NativeObject); }
+            get { return (Z3_symbol_kind)Native.getSymbolKind(Context.nCtx, NativeObject); }
         }
 
         /**
@@ -25,7 +25,7 @@ package com.Microsoft.Z3;
          **/
         public boolean IsIntSymbol()
         {
-            return Kind == Z3SymbolKind.Z3INTSYMBOL;
+            return Kind == Z3_symbol_kind.Z3_INT_SYMBOL;
         }
 
         /**
@@ -33,7 +33,7 @@ package com.Microsoft.Z3;
          **/
         public boolean IsStringSymbol()
         {
-            return Kind == Z3SymbolKind.Z3STRINGSYMBOL;
+            return Kind == Z3_symbol_kind.Z3_STRING_SYMBOL;
         }
 
         /**
@@ -61,10 +61,10 @@ package com.Microsoft.Z3;
             
             
 
-            switch ((Z3SymbolKind)Native.getSymbolKind(ctx.nCtx, obj))
+            switch ((Z3_symbol_kind)Native.getSymbolKind(ctx.nCtx, obj))
             {
-                case Z3SymbolKind.Z3INTSYMBOL: return new IntSymbol(ctx, obj);
-                case Z3SymbolKind.Z3STRINGSYMBOL: return new StringSymbol(ctx, obj);
+                case Z3_symbol_kind.Z3_INT_SYMBOL: return new IntSymbol(ctx, obj);
+                case Z3_symbol_kind.Z3_STRING_SYMBOL: return new StringSymbol(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown symbol kind encountered");
             }
@@ -85,7 +85,7 @@ package com.Microsoft.Z3;
                 if (!IsIntSymbol())
                     throw new Z3Exception("Int requested from non-Int symbol");
                 return Native.getSymbolInt(Context.nCtx, NativeObject);
-        }
+            }
 
         IntSymbol(Context ctx, IntPtr obj)
             { super(ctx, obj);
@@ -98,7 +98,7 @@ package com.Microsoft.Z3;
 
         void CheckNativeObject(IntPtr obj)
         {
-            if ((Z3SymbolKind)Native.getSymbolKind(Context.nCtx, obj) != Z3SymbolKind.Z3INTSYMBOL)
+            if ((Z3_symbol_kind)Native.getSymbolKind(Context.nCtx, obj) != Z3_symbol_kind.Z3_INT_SYMBOL)
                 throw new Z3Exception("Symbol is not of integer kind");
             super.CheckNativeObject(obj);
         }
@@ -120,7 +120,7 @@ package com.Microsoft.Z3;
                 if (!IsStringSymbol())
                     throw new Z3Exception("String requested from non-String symbol");
                 return Native.getSymbolString(Context.nCtx, NativeObject);                
-        }
+            }
 
         StringSymbol(Context ctx, IntPtr obj) { super(ctx, obj); 
             
@@ -132,7 +132,7 @@ package com.Microsoft.Z3;
 
         void CheckNativeObject(IntPtr obj)
         {
-            if ((Z3SymbolKind)Native.getSymbolKind(Context.nCtx, obj) != Z3SymbolKind.Z3STRINGSYMBOL)
+            if ((Z3_symbol_kind)Native.getSymbolKind(Context.nCtx, obj) != Z3_symbol_kind.Z3_STRING_SYMBOL)
                 throw new Z3Exception("Symbol is not of String kind");
 
             super.CheckNativeObject(obj);

@@ -14,7 +14,7 @@ package com.Microsoft.Z3;
         /**
          * The size of the vector
          **/
-        public Integer Size()  { return Native.astVectorSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.astVectorSize(Context.nCtx, NativeObject); }
 
         /**
          * Retrieves the i-th object in the vector.
@@ -22,24 +22,24 @@ package com.Microsoft.Z3;
          * <param name="i">Index</param>
          * @return An AST
          **/
-        public AST this[Integer i]() 
+        public AST get(long i) 
             {
                 
 
                 return new AST(Context, Native.astVectorGet(Context.nCtx, NativeObject, i));
-            set
+            }
+        public void set(long i, AST value) 
             {
                 
 
                 Native.astVectorSet(Context.nCtx, NativeObject, i, value.NativeObject);
             }
-        }
 
         /**
          * Resize the vector to <paramref name="newSize"/>.
          * <param name="newSize">The new size of the vector.</param>
          **/
-        public void Resize(Integer newSize)
+        public void Resize(long newSize)
         {
             Native.astVectorResize(Context.nCtx, NativeObject, newSize);
         }
@@ -95,13 +95,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ASTVectorDRQ.IncAndClear(Context, o);
+            Context.ASTVector_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ASTVectorDRQ.Add(o);
+            Context.ASTVector_DRQ.Add(o);
             super.DecRef(o);
         }
     }

@@ -18,7 +18,7 @@ package com.Microsoft.Z3;
          **/
         public Context()
             { super();
-            mCtx = Native.mkContextRc(IntPtr.Zero);
+            m_ctx = Native.mkContextRc(IntPtr.Zero);
             InitContext();
         }
 
@@ -32,7 +32,7 @@ package com.Microsoft.Z3;
             IntPtr cfg = Native.mkConfig();
             for (KeyValuePair<String, String>.Iterator kv = settings.iterator(); kv.hasNext(); )
                 Native.setParamValue(cfg, kv.Key, kv.Value);
-            mCtx = Native.mkContextRc(cfg);
+            m_ctx = Native.mkContextRc(cfg);
             Native.delConfig(cfg);
             InitContext();
         }
@@ -77,9 +77,9 @@ package com.Microsoft.Z3;
             return result;
         }
 
-        private BoolSort mBooleanSort = null;
-        private IntSort mIntSort = null;
-        private RealSort mRealSort = null;
+        private BoolSort m_booleanSort = null;
+        private IntSort m_intSort = null;
+        private RealSort m_realSort = null;
 
         /**
          * Retrieves the Boolean sort of the context.
@@ -88,8 +88,8 @@ package com.Microsoft.Z3;
             {
                 
 
-                if (mBooleanSort == null) mBooleanSort = new BoolSort(this); return mBooleanSort;
-        }
+                if (m_booleanSort == null) m_booleanSort = new BoolSort(this); return m_booleanSort;
+            }
 
         /**
          * Retrieves the Integer sort of the context.
@@ -97,14 +97,23 @@ package com.Microsoft.Z3;
         public IntSort IntSort() 
             {
                 
-                if (mIntSort == null) mIntSort = new IntSort(this); return mIntSort;
-        }
+                if (m_intSort == null) m_intSort = new IntSort(this); return m_intSort;
+            }
 
 
         /**
          * Retrieves the Real sort of the context.
          **/
-         /* Overloaded operators are not translated. */
+        public RealSort RealSort () {  return m_realSort; }
+
+        /**
+         * Create a new Boolean sort.
+         **/
+        public BoolSort MkBoolSort()
+        {
+            
+            return new BoolSort(this);
+        }
 
         /**
          * Create a new uninterpreted sort.
@@ -150,7 +159,7 @@ package com.Microsoft.Z3;
         /**
          * Create a new bit-vector sort.
          **/
-        public BitVecSort MkBitVecSort(Integer size)
+        public BitVecSort MkBitVecSort(long size)
         {
             
 
@@ -185,7 +194,7 @@ package com.Microsoft.Z3;
             CheckContextMatch(name);
             CheckContextMatch(fieldNames);
             CheckContextMatch(fieldSorts);
-            return new TupleSort(this, name, (Integer)fieldNames.Length, fieldNames, fieldSorts);
+            return new TupleSort(this, name, (long)fieldNames.Length, fieldNames, fieldSorts);
         }
 
         /**
@@ -274,7 +283,7 @@ package com.Microsoft.Z3;
          * if the corresponding sort reference is 0, then the value in sort_refs should be an index 
          * referring to one of the recursive datatypes that is declared.</param>
          **/
-        public Constructor MkConstructor(Symbol name, Symbol recognizer, Symbol[] fieldNames, Sort[] sorts, Integer[] sortRefs)
+        public Constructor MkConstructor(Symbol name, Symbol recognizer, Symbol[] fieldNames, Sort[] sorts, long[] sortRefs)
         {
             
             
@@ -292,7 +301,7 @@ package com.Microsoft.Z3;
          * <param name="sortRefs"></param>
          * @return 
          **/
-        public Constructor MkConstructor(String name, String recognizer, String[] fieldNames, Sort[] sorts, Integer[] sortRefs)
+        public Constructor MkConstructor(String name, String recognizer, String[] fieldNames, Sort[] sorts, long[] sortRefs)
         {
             
 
@@ -343,22 +352,22 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(names);
-            Integer n = (Integer)names.Length;
+            long n = (long)names.Length;
             ConstructorList[] cla = new ConstructorList[n];
-            IntPtr[] nConstr = new IntPtr[n];
-            for (Integer i = 0; i < n; i++)
+            IntPtr[] n_constr = new IntPtr[n];
+            for (long i = 0; i < n; i++)
             {
                 var constructor = c[i];
                 
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
-                nConstr[i] = cla[i].NativeObject;
+                n_constr[i] = cla[i].NativeObject;
             }
-            IntPtr[] nRes = new IntPtr[n];
-            Native.mkDatatypes(nCtx, n, Symbol.ArrayToNative(names), nRes, nConstr);
+            IntPtr[] n_res = new IntPtr[n];
+            Native.mkDatatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
             DatatypeSort[] res = new DatatypeSort[n];
-            for (Integer i = 0; i < n; i++)
-                res[i] = new DatatypeSort(this, nRes[i]);
+            for (long i = 0; i < n; i++)
+                res[i] = new DatatypeSort(this, n_res[i]);
             return res;
         }
 
@@ -504,7 +513,7 @@ package com.Microsoft.Z3;
          * <param name="index">The de-Bruijn index of the variable</param>
          * <param name="ty">The sort of the variable</param>
          **/
-        public Expr MkBound(Integer index, Sort ty)
+        public Expr MkBound(long index, Sort ty)
         {
             
             
@@ -526,7 +535,7 @@ package com.Microsoft.Z3;
             
 
             IntPtr[] termsNative = AST.ArrayToNative(terms);
-            return new Pattern(this, Native.mkPattern(nCtx, (Integer)terms.Length, termsNative));
+            return new Pattern(this, Native.mkPattern(nCtx, (long)terms.Length, termsNative));
         }
 
         /**
@@ -647,7 +656,7 @@ package com.Microsoft.Z3;
         /**
          * Creates a bit-vector constant.
          **/
-        public BitVecExpr MkBVConst(Symbol name, Integer size)
+        public BitVecExpr MkBVConst(Symbol name, long size)
         {
             
             
@@ -658,7 +667,7 @@ package com.Microsoft.Z3;
         /**
          * Creates a bit-vector constant.
          **/
-        public BitVecExpr MkBVConst(String name, Integer size)
+        public BitVecExpr MkBVConst(String name, long size)
         {
             
 
@@ -734,7 +743,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(args);
-            return new BoolExpr(this, Native.mkDistinct(nCtx, (Integer)args.Length, AST.ArrayToNative(args)));
+            return new BoolExpr(this, Native.mkDistinct(nCtx, (long)args.Length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -820,7 +829,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkAnd(nCtx, (Integer)t.Length, AST.ArrayToNative(t)));
+            return new BoolExpr(this, Native.mkAnd(nCtx, (long)t.Length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -833,7 +842,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkOr(nCtx, (Integer)t.Length, AST.ArrayToNative(t)));
+            return new BoolExpr(this, Native.mkOr(nCtx, (long)t.Length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -846,7 +855,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkAdd(nCtx, (Integer)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkAdd(nCtx, (long)t.Length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -859,7 +868,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkMul(nCtx, (Integer)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkMul(nCtx, (long)t.Length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -872,7 +881,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkSub(nCtx, (Integer)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkSub(nCtx, (long)t.Length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -1503,7 +1512,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkExtract(Integer high, Integer low, BitVecExpr t)
+        public BitVecExpr MkExtract(long high, long low, BitVecExpr t)
         {
             
             
@@ -1520,7 +1529,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkSignExt(Integer i, BitVecExpr t)
+        public BitVecExpr MkSignExt(long i, BitVecExpr t)
         {
             
             
@@ -1538,7 +1547,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkZeroExt(Integer i, BitVecExpr t)
+        public BitVecExpr MkZeroExt(long i, BitVecExpr t)
         {
             
             
@@ -1553,7 +1562,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkRepeat(Integer i, BitVecExpr t)
+        public BitVecExpr MkRepeat(long i, BitVecExpr t)
         {
             
             
@@ -1640,7 +1649,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkBVRotateLeft(Integer i, BitVecExpr t)
+        public BitVecExpr MkBVRotateLeft(long i, BitVecExpr t)
         {
             
             
@@ -1656,7 +1665,7 @@ package com.Microsoft.Z3;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkBVRotateRight(Integer i, BitVecExpr t)
+        public BitVecExpr MkBVRotateRight(long i, BitVecExpr t)
         {
             
             
@@ -1711,7 +1720,7 @@ package com.Microsoft.Z3;
          * The argument must be of integer sort.
          * </remarks>
          **/
-        public BitVecExpr MkInt2BV(Integer n, IntExpr t)
+        public BitVecExpr MkInt2BV(long n, IntExpr t)
         {
             
             
@@ -2089,7 +2098,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.mkSetUnion(nCtx, (Integer)args.Length, AST.ArrayToNative(args)));
+            return Expr.Create(this, Native.mkSetUnion(nCtx, (long)args.Length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -2102,7 +2111,7 @@ package com.Microsoft.Z3;
             
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.mkSetIntersect(nCtx, (Integer)args.Length, AST.ArrayToNative(args)));
+            return Expr.Create(this, Native.mkSetIntersect(nCtx, (long)args.Length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -2198,7 +2207,7 @@ package com.Microsoft.Z3;
          * <param name="ty">Sort of the numeral</param>
          * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
          **/
-        public Expr MkNumeral(Integer v, Sort ty)
+        public Expr MkNumeral(long v, Sort ty)
         {
             
             
@@ -2286,7 +2295,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Real
          **/
-        public RatNum MkReal(Integer v)
+        public RatNum MkReal(long v)
         {
             
 
@@ -2345,7 +2354,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Integer
          **/
-        public IntNum MkInt(Integer v)
+        public IntNum MkInt(long v)
         {
             
 
@@ -2381,7 +2390,7 @@ package com.Microsoft.Z3;
          * <param name="v">A string representing the value in decimal notation.</param>
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(String v, Integer size)
+        public BitVecNum MkBV(String v, long size)
         {
             
 
@@ -2393,7 +2402,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(int v, Integer size)
+        public BitVecNum MkBV(int v, long size)
         {
             
 
@@ -2405,7 +2414,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>    
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(Integer v, Integer size)
+        public BitVecNum MkBV(long v, long size)
         {
             
 
@@ -2417,7 +2426,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>
          *  * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(long v, Integer size)
+        public BitVecNum MkBV(long v, long size)
         {
             
 
@@ -2429,7 +2438,7 @@ package com.Microsoft.Z3;
          * <param name="v">value of the numeral.</param>
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(ulong v, Integer size)
+        public BitVecNum MkBV(ulong v, long size)
         {
             
 
@@ -2456,7 +2465,7 @@ package com.Microsoft.Z3;
          * <param name="quantifierID">optional symbol to track quantifier.</param>
          * <param name="skolemID">optional symbol to track skolem constants.</param>
          **/
-        public Quantifier MkForall(Sort[] sorts, Symbol[] names, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkForall(Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2476,7 +2485,7 @@ package com.Microsoft.Z3;
         /**
          * Create a universal Quantifier.
          **/
-        public Quantifier MkForall(Expr[] boundConstants, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkForall(Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2492,7 +2501,7 @@ package com.Microsoft.Z3;
          * Create an existential Quantifier.
          * <seealso cref="MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
          **/
-        public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2510,7 +2519,7 @@ package com.Microsoft.Z3;
         /**
          * Create an existential Quantifier.
          **/
-        public Quantifier MkExists(Expr[] boundConstants, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkExists(Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2525,7 +2534,7 @@ package com.Microsoft.Z3;
         /**
          * Create a Quantifier.
          **/
-        public Quantifier MkQuantifier(boolean universal, Sort[] sorts, Symbol[] names, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkQuantifier(boolean universal, Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2548,7 +2557,7 @@ package com.Microsoft.Z3;
         /**
          * Create a Quantifier.
          **/
-        public Quantifier MkQuantifier(boolean universal, Expr[] boundConstants, Expr body, Integer weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkQuantifier(boolean universal, Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2581,7 +2590,7 @@ package com.Microsoft.Z3;
          * <seealso cref="FuncDecl.ToString()"/>
          * <seealso cref="Sort.ToString()"/>
          **/
-        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx, Integer(value)); }
+        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx, (long)value); }
 
         /**
          * Convert a benchmark into an SMT-LIB formatted string.
@@ -2601,7 +2610,7 @@ package com.Microsoft.Z3;
             
 
             return Native.benchmarkToSmtlibString(nCtx, name, logic, status, attributes,
-                                            (Integer)assumptions.Length, AST.ArrayToNative(assumptions),
+                                            (long)assumptions.Length, AST.ArrayToNative(assumptions),
                                             formula.NativeObject);
         }
 
@@ -2617,10 +2626,10 @@ package com.Microsoft.Z3;
          **/
         public void ParseSMTLIBString(String str, Symbol[] sortNames, Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
         {
-            Integer csn = Symbol.ArrayLength(sortNames);
-            Integer cs = Sort.ArrayLength(sorts);
-            Integer cdn = Symbol.ArrayLength(declNames);
-            Integer cd = AST.ArrayLength(decls);
+            long csn = Symbol.ArrayLength(sortNames);
+            long cs = Sort.ArrayLength(sorts);
+            long cdn = Symbol.ArrayLength(declNames);
+            long cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
             Native.parseSmtlibString(nCtx, str,
@@ -2634,10 +2643,10 @@ package com.Microsoft.Z3;
          **/
         public void ParseSMTLIBFile(String fileName, Symbol[] sortNames, Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
         {
-            Integer csn = Symbol.ArrayLength(sortNames);
-            Integer cs = Sort.ArrayLength(sorts);
-            Integer cdn = Symbol.ArrayLength(declNames);
-            Integer cd = AST.ArrayLength(decls);
+            long csn = Symbol.ArrayLength(sortNames);
+            long cs = Sort.ArrayLength(sorts);
+            long cdn = Symbol.ArrayLength(declNames);
+            long cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
             Native.parseSmtlibFile(nCtx, fileName,
@@ -2648,7 +2657,7 @@ package com.Microsoft.Z3;
         /**
          * The number of SMTLIB formulas parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public Integer NumSMTLIBFormulas () { return Native.getSmtlibNumFormulas(nCtx); }
+        public long NumSMTLIBFormulas () { return Native.getSmtlibNumFormulas(nCtx); }
 
         /**
          * The formulas parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2657,17 +2666,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumSMTLIBFormulas;
+                long n = NumSMTLIBFormulas;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibFormula(nCtx, i));
                 return res;
-        }
+            }
 
         /**
          * The number of SMTLIB assumptions parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public Integer NumSMTLIBAssumptions () { return Native.getSmtlibNumAssumptions(nCtx); }
+        public long NumSMTLIBAssumptions () { return Native.getSmtlibNumAssumptions(nCtx); }
 
         /**
          * The assumptions parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2676,17 +2685,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumSMTLIBAssumptions;
+                long n = NumSMTLIBAssumptions;
                 BoolExpr[] res = new BoolExpr[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibAssumption(nCtx, i));
                 return res;
-        }
+            }
 
         /**
          * The number of SMTLIB declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public Integer NumSMTLIBDecls () { return Native.getSmtlibNumDecls(nCtx); }
+        public long NumSMTLIBDecls () { return Native.getSmtlibNumDecls(nCtx); }
 
         /**
          * The declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2695,17 +2704,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumSMTLIBDecls;
+                long n = NumSMTLIBDecls;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx, i));
                 return res;
-        }
+            }
 
         /**
          * The number of SMTLIB sorts parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public Integer NumSMTLIBSorts () { return Native.getSmtlibNumSorts(nCtx); }
+        public long NumSMTLIBSorts () { return Native.getSmtlibNumSorts(nCtx); }
 
         /**
          * The declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2714,12 +2723,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumSMTLIBSorts;
+                long n = NumSMTLIBSorts;
                 Sort[] res = new Sort[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Sort.Create(this, Native.getSmtlibSort(nCtx, i));
                 return res;
-        }
+            }
 
         /**
          * Parse the given string using the SMT-LIB2 parser. 
@@ -2730,10 +2739,10 @@ package com.Microsoft.Z3;
         {
             
 
-            Integer csn = Symbol.ArrayLength(sortNames);
-            Integer cs = Sort.ArrayLength(sorts);
-            Integer cdn = Symbol.ArrayLength(declNames);
-            Integer cd = AST.ArrayLength(decls);
+            long csn = Symbol.ArrayLength(sortNames);
+            long cs = Sort.ArrayLength(sorts);
+            long cdn = Symbol.ArrayLength(declNames);
+            long cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
             return (BoolExpr)Expr.Create(this, Native.parseSmtlib2String(nCtx, str,
@@ -2749,10 +2758,10 @@ package com.Microsoft.Z3;
         {
             
 
-            Integer csn = Symbol.ArrayLength(sortNames);
-            Integer cs = Sort.ArrayLength(sorts);
-            Integer cdn = Symbol.ArrayLength(declNames);
-            Integer cd = AST.ArrayLength(decls);
+            long csn = Symbol.ArrayLength(sortNames);
+            long cs = Sort.ArrayLength(sorts);
+            long cdn = Symbol.ArrayLength(declNames);
+            long cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
             return (BoolExpr)Expr.Create(this, Native.parseSmtlib2File(nCtx, fileName,
@@ -2790,7 +2799,7 @@ package com.Microsoft.Z3;
         /**
          * The number of supported tactics.
          **/
-        public Integer NumTactics()  { return Native.getNumTactics(nCtx); }
+        public long NumTactics()  { return Native.getNumTactics(nCtx); }
 
         /**
          * The names of all supported tactics.
@@ -2799,12 +2808,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumTactics;
+                long n = NumTactics;
                 String[] res = new String[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Native.getTacticName(nCtx, i);
                 return res;
-        }
+            }
 
         /**
          * Returns a string containing a description of the tactic with the given name.
@@ -2896,7 +2905,7 @@ package com.Microsoft.Z3;
          * If <paramref name="t"/> does not terminate within <paramref name="ms"/> milliseconds, then it fails.
          * </remarks>
          **/
-        public Tactic TryFor(Tactic t, Integer ms)
+        public Tactic TryFor(Tactic t, long ms)
         {
             
             
@@ -2944,7 +2953,7 @@ package com.Microsoft.Z3;
          * Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
          * modified anymore or the maximum number of iterations <paramref name="max"/> is reached.
          **/
-        public Tactic Repeat(Tactic t, Integer max)
+        public Tactic Repeat(Tactic t, long max)
         {
             
             
@@ -3062,7 +3071,7 @@ package com.Microsoft.Z3;
         /**
          * The number of supported Probes.
          **/
-        public Integer NumProbes()  { return Native.getNumProbes(nCtx); }
+        public long NumProbes()  { return Native.getNumProbes(nCtx); }
 
         /**
          * The names of all supported Probes.
@@ -3071,12 +3080,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumProbes;
+                long n = NumProbes;
                 String[] res = new String[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Native.getProbeName(nCtx, i);
                 return res;
-        }
+            }
 
         /**
          * Returns a string containing a description of the probe with the given name.
@@ -3355,7 +3364,7 @@ package com.Microsoft.Z3;
         ///// Note that it is possible for memory leaks to occur if error handlers
         ///// throw exceptions. 
         ///// </remarks>
-        //public delegate void ErrorHandler(Context ctx, Z3ErrorCode errorCode, String errorString);
+        //public delegate void ErrorHandler(Context ctx, Z3_error_code errorCode, String errorString);
 
         ///// <summary>
         ///// The OnError event.
@@ -3386,29 +3395,29 @@ package com.Microsoft.Z3;
          **/
         public String GetParamValue(String id)
         {
-            IntPtr res = IntPtr.Zero;
-            int r = Native.getParamValue(nCtx, id, out res);
-            if (r == (int)Z3Lboolean.Z3LFALSE)
+            Native.IntPtr res = new Native.IntPtr();
+            int r = Native.getParamValue(nCtx, id, res);
+            if (r == (int)Z3_lboolean.Z3_L_FALSE)
                 return null;
             else
                 return Marshal.PtrtoStringAnsi(res);
         }
 
 
-        IntPtr mCtx = IntPtr.Zero;
+        IntPtr m_ctx = IntPtr.Zero;
         Native.errorHandler mNErrHandler = null;
-        IntPtr nCtx () { return mCtx; }
+        IntPtr nCtx () { return m_ctx; }
 
-        void NativeErrorHandler(IntPtr ctx, Z3ErrorCode errorCode)
+        void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
         {
             // Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
         }
 
         void InitContext()
         {
-            PrintMode = Z3AstPrintMode.Z3PRINTSMTLIB2COMPLIANT;
-            mNErrHandler = new Native.errorHandler(NativeErrorHandler); // keep reference so it doesn't get collected.
-            Native.setErrorHandler(mCtx, mNErrHandler);
+            PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
+            m_n_err_handler = new Native.errorHandler(NativeErrorHandler); // keep reference so it doesn't get collected.
+            Native.setErrorHandler(m_ctx, m_n_err_handler);
             GC.SuppressFinalize(this);
         }
 
@@ -3453,40 +3462,40 @@ package com.Microsoft.Z3;
             
         }
 
-        private AST.DecRefQueue mASTDRQ = new AST.DecRefQueue();
-        private ASTMap.DecRefQueue mASTMapDRQ = new ASTMap.DecRefQueue();
-        private ASTVector.DecRefQueue mASTVectorDRQ = new ASTVector.DecRefQueue();
-        private ApplyResult.DecRefQueue mApplyResultDRQ = new ApplyResult.DecRefQueue();
-        private FuncInterp.Entry.DecRefQueue mFuncEntryDRQ = new FuncInterp.Entry.DecRefQueue();
-        private FuncInterp.DecRefQueue mFuncInterpDRQ = new FuncInterp.DecRefQueue();
-        private Goal.DecRefQueue mGoalDRQ = new Goal.DecRefQueue();
-        private Model.DecRefQueue mModelDRQ = new Model.DecRefQueue();
-        private Params.DecRefQueue mParamsDRQ = new Params.DecRefQueue();
-        private ParamDescrs.DecRefQueue mParamDescrsDRQ = new ParamDescrs.DecRefQueue();
-        private Probe.DecRefQueue mProbeDRQ = new Probe.DecRefQueue();
-        private Solver.DecRefQueue mSolverDRQ = new Solver.DecRefQueue();
-        private Statistics.DecRefQueue mStatisticsDRQ = new Statistics.DecRefQueue();
-        private Tactic.DecRefQueue mTacticDRQ = new Tactic.DecRefQueue();
-        private Fixedpoint.DecRefQueue mFixedpointDRQ = new Fixedpoint.DecRefQueue();
+        private AST.DecRefQueue m_AST_DRQ = new AST.DecRefQueue();
+        private ASTMap.DecRefQueue m_ASTMap_DRQ = new ASTMap.DecRefQueue();
+        private ASTVector.DecRefQueue m_ASTVector_DRQ = new ASTVector.DecRefQueue();
+        private ApplyResult.DecRefQueue m_ApplyResult_DRQ = new ApplyResult.DecRefQueue();
+        private FuncInterp.Entry.DecRefQueue m_FuncEntry_DRQ = new FuncInterp.Entry.DecRefQueue();
+        private FuncInterp.DecRefQueue m_FuncInterp_DRQ = new FuncInterp.DecRefQueue();
+        private Goal.DecRefQueue m_Goal_DRQ = new Goal.DecRefQueue();
+        private Model.DecRefQueue m_Model_DRQ = new Model.DecRefQueue();
+        private Params.DecRefQueue m_Params_DRQ = new Params.DecRefQueue();
+        private ParamDescrs.DecRefQueue m_ParamDescrs_DRQ = new ParamDescrs.DecRefQueue();
+        private Probe.DecRefQueue m_Probe_DRQ = new Probe.DecRefQueue();
+        private Solver.DecRefQueue m_Solver_DRQ = new Solver.DecRefQueue();
+        private Statistics.DecRefQueue m_Statistics_DRQ = new Statistics.DecRefQueue();
+        private Tactic.DecRefQueue m_Tactic_DRQ = new Tactic.DecRefQueue();
+        private Fixedpoint.DecRefQueue m_Fixedpoint_DRQ = new Fixedpoint.DecRefQueue();
 
-        AST.DecRefQueue AST_DRQ () { Contract.Ensures(Contract.Result<AST.DecRefQueue>() != null); return mASTDRQ; }
-        ASTMap.DecRefQueue ASTMap_DRQ () { Contract.Ensures(Contract.Result<ASTMap.DecRefQueue>() != null); return mASTMapDRQ; }
-        ASTVector.DecRefQueue ASTVector_DRQ () { Contract.Ensures(Contract.Result<ASTVector.DecRefQueue>() != null); return mASTVectorDRQ; }
-        ApplyResult.DecRefQueue ApplyResult_DRQ () { Contract.Ensures(Contract.Result<ApplyResult.DecRefQueue>() != null); return mApplyResultDRQ; }
-        FuncInterp.Entry.DecRefQueue FuncEntry_DRQ () { Contract.Ensures(Contract.Result<FuncInterp.Entry.DecRefQueue>() != null); return mFuncEntryDRQ; }
-        FuncInterp.DecRefQueue FuncInterp_DRQ () { Contract.Ensures(Contract.Result<FuncInterp.DecRefQueue>() != null); return mFuncInterpDRQ; }
-        Goal.DecRefQueue Goal_DRQ () { Contract.Ensures(Contract.Result<Goal.DecRefQueue>() != null); return mGoalDRQ; }
-        Model.DecRefQueue Model_DRQ () { Contract.Ensures(Contract.Result<Model.DecRefQueue>() != null); return mModelDRQ; }
-        Params.DecRefQueue Params_DRQ () { Contract.Ensures(Contract.Result<Params.DecRefQueue>() != null); return mParamsDRQ; }
-        ParamDescrs.DecRefQueue ParamDescrs_DRQ () { Contract.Ensures(Contract.Result<ParamDescrs.DecRefQueue>() != null); return mParamDescrsDRQ; }
-        Probe.DecRefQueue Probe_DRQ () { Contract.Ensures(Contract.Result<Probe.DecRefQueue>() != null); return mProbeDRQ; }
-        Solver.DecRefQueue Solver_DRQ () { Contract.Ensures(Contract.Result<Solver.DecRefQueue>() != null); return mSolverDRQ; }
-        Statistics.DecRefQueue Statistics_DRQ () { Contract.Ensures(Contract.Result<Statistics.DecRefQueue>() != null); return mStatisticsDRQ; }
-        Tactic.DecRefQueue Tactic_DRQ () { Contract.Ensures(Contract.Result<Tactic.DecRefQueue>() != null); return mTacticDRQ; }
-        Fixedpoint.DecRefQueue Fixedpoint_DRQ () { Contract.Ensures(Contract.Result<Fixedpoint.DecRefQueue>() != null); return mFixedpointDRQ; }
+        AST.DecRefQueue AST_DRQ () {  return m_AST_DRQ; }
+        ASTMap.DecRefQueue ASTMap_DRQ () {  return m_ASTMap_DRQ; }
+        ASTVector.DecRefQueue ASTVector_DRQ () {  return m_ASTVector_DRQ; }
+        ApplyResult.DecRefQueue ApplyResult_DRQ () {  return m_ApplyResult_DRQ; }
+        FuncInterp.Entry.DecRefQueue FuncEntry_DRQ () {  return m_FuncEntry_DRQ; }
+        FuncInterp.DecRefQueue FuncInterp_DRQ () {  return m_FuncInterp_DRQ; }
+        Goal.DecRefQueue Goal_DRQ () {  return m_Goal_DRQ; }
+        Model.DecRefQueue Model_DRQ () {  return m_Model_DRQ; }
+        Params.DecRefQueue Params_DRQ () {  return m_Params_DRQ; }
+        ParamDescrs.DecRefQueue ParamDescrs_DRQ () {  return m_ParamDescrs_DRQ; }
+        Probe.DecRefQueue Probe_DRQ () {  return m_Probe_DRQ; }
+        Solver.DecRefQueue Solver_DRQ () {  return m_Solver_DRQ; }
+        Statistics.DecRefQueue Statistics_DRQ () {  return m_Statistics_DRQ; }
+        Tactic.DecRefQueue Tactic_DRQ () {  return m_Tactic_DRQ; }
+        Fixedpoint.DecRefQueue Fixedpoint_DRQ () {  return m_Fixedpoint_DRQ; }
 
 
-        Integer refCount = 0;
+        long refCount = 0;
 
         /**
          * Finalizer.
@@ -3498,9 +3507,9 @@ package com.Microsoft.Z3;
 
             if (refCount == 0)
             {
-                mNErrHandler = null;
-                Native.delContext(mCtx);
-                mCtx = IntPtr.Zero;
+                m_n_err_handler = null;
+                Native.delContext(m_ctx);
+                m_ctx = IntPtr.Zero;
             }
             else
                 GC.ReRegisterForFinalize(this);
@@ -3512,23 +3521,23 @@ package com.Microsoft.Z3;
         public void Dispose()
         {
             // Console.WriteLine("Context Dispose from " + System.Threading.Thread.CurrentThread.ManagedThreadId);
-            ASTDRQ.Clear(this);
-            ASTMapDRQ.Clear(this);
-            ASTVectorDRQ.Clear(this);
-            ApplyResultDRQ.Clear(this);
-            FuncEntryDRQ.Clear(this);
-            FuncInterpDRQ.Clear(this);
-            GoalDRQ.Clear(this);
-            ModelDRQ.Clear(this);
-            ParamsDRQ.Clear(this);
-            ProbeDRQ.Clear(this);
-            SolverDRQ.Clear(this);
-            StatisticsDRQ.Clear(this);
-            TacticDRQ.Clear(this);
-            FixedpointDRQ.Clear(this);
+            AST_DRQ.Clear(this);
+            ASTMap_DRQ.Clear(this);
+            ASTVector_DRQ.Clear(this);
+            ApplyResult_DRQ.Clear(this);
+            FuncEntry_DRQ.Clear(this);
+            FuncInterp_DRQ.Clear(this);
+            Goal_DRQ.Clear(this);
+            Model_DRQ.Clear(this);
+            Params_DRQ.Clear(this);
+            Probe_DRQ.Clear(this);
+            Solver_DRQ.Clear(this);
+            Statistics_DRQ.Clear(this);
+            Tactic_DRQ.Clear(this);
+            Fixedpoint_DRQ.Clear(this);
 
-            mBooleanSort = null;
-            mIntSort = null;
-            mRealSort = null;
+            m_booleanSort = null;
+            m_intSort = null;
+            m_realSort = null;
         }
     }

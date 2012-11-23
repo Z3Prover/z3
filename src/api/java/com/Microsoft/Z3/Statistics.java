@@ -23,19 +23,19 @@ package com.Microsoft.Z3;
             /**
              * The uint-value of the entry.
              **/
-            public Integer UIntValue() { return mInteger; } 
+            public long UIntValue() { return m_long; } 
             /**
              * The double-value of the entry.
              **/
-            public double DoubleValue() { return mDouble; } 
+            public double DoubleValue() { return m_double; } 
             /**
              * True if the entry is uint-valued.
              **/
-            public boolean IsUInt() { return mIsInteger; } 
+            public boolean IsUInt() { return m_is_long; } 
             /**
              * True if the entry is double-valued.
              **/
-            public boolean IsDouble() { return mIsDouble; } 
+            public boolean IsDouble() { return m_is_double; } 
 
             /**
              * The string representation of the the entry's value.
@@ -45,12 +45,12 @@ package com.Microsoft.Z3;
                     
 
                     if (IsUInt)
-                        return mInteger.toString();
+                        return m_long.toString();
                     else if (IsDouble)
-                        return mDouble.toString();
+                        return m_double.toString();
                     else
                         throw new Z3Exception("Unknown statistical entry type");
-            }
+                }
 
             /**
              * The string representation of the Entry.
@@ -60,12 +60,12 @@ package com.Microsoft.Z3;
                 return Key + ": " + Value;
             }
 
-            private boolean mIsInteger = false;
-            private boolean mIsDouble = false;
-            private Integer mInteger = 0;
-            private double mDouble = 0.0;
-            Entry(String k, Integer v) { Key = k; mIsInteger = true; mInteger = v; }
-            Entry(String k, double v) { Key = k; mIsDouble = true; mDouble = v; }
+            private boolean m_is_long = false;
+            private boolean m_is_double = false;
+            private long m_long = 0;
+            private double m_double = 0.0;
+            Entry(String k, long v) { Key = k; m_is_long = true; m_long = v; }
+            Entry(String k, double v) { Key = k; m_is_double = true; m_double = v; }
         }
 
         /**
@@ -79,7 +79,7 @@ package com.Microsoft.Z3;
         /**
          * The number of statistical data.
          **/
-        public Integer Size()  { return Native.statsSize(Context.nCtx, NativeObject); }
+        public long Size()  { return Native.statsSize(Context.nCtx, NativeObject); }
 
         /**
          * The data entries.
@@ -90,21 +90,21 @@ package com.Microsoft.Z3;
                 
                 
 
-                Integer n = Size;
+                long n = Size;
                 Entry[] res = new Entry[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                 {
                     Entry e;
                     String k = Native.statsGetKey(Context.nCtx, NativeObject, i);
-                    if (Native.statsIsInteger(Context.nCtx, NativeObject, i) != 0)
-                        e = new Entry(k, Native.statsGetIntegerValue(Context.nCtx, NativeObject, i));
+                    if (Native.statsIsLong(Context.nCtx, NativeObject, i) != 0)
+                        e = new Entry(k, Native.statsGetLongValue(Context.nCtx, NativeObject, i));
                     else if (Native.statsIsDouble(Context.nCtx, NativeObject, i) != 0)
                         e = new Entry(k, Native.statsGetDoubleValue(Context.nCtx, NativeObject, i));
                     else
                         throw new Z3Exception("Unknown data entry value");
                     res[i] = e;
+                }
                 return res;
-            }
         }
 
         /**
@@ -114,26 +114,26 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = Size;
+                long n = Size;
                 String[] res = new String[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Native.statsGetKey(Context.nCtx, NativeObject, i);
                 return res;
-        }
+            }
 
         /**
          * The value of a particular statistical counter.
          * <remarks>Returns null if the key is unknown.</remarks>
          **/
-        public Entry this[String key]() 
+        public Entry get(String key) 
             {
-                Integer n = Size;
+                long n = Size;
                 Entry[] es = Entries;
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     if (es[i].Key == key)
                         return es[i];
                 return null;
-        }
+            }
 
         Statistics(Context ctx, IntPtr obj)
             { super(ctx, obj);
@@ -155,13 +155,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.StatisticsDRQ.IncAndClear(Context, o);
+            Context.Statistics_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.StatisticsDRQ.Add(o);
+            Context.Statistics_DRQ.Add(o);
             super.DecRef(o);
         }
     }

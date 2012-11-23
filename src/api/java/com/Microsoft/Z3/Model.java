@@ -35,7 +35,7 @@ package com.Microsoft.Z3;
 
             Context.CheckContextMatch(f);
             if (f.Arity != 0 ||
-                Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject)) == (Integer)Z3SortKind.Z3ARRAYSORT)
+                Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject)) == (long)Z3_sort_kind.Z3_ARRAY_SORT)
                 throw new Z3Exception("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
 
             IntPtr n = Native.modelGetConstInterp(Context.nCtx, NativeObject, f.NativeObject);
@@ -56,13 +56,13 @@ package com.Microsoft.Z3;
 
             Context.CheckContextMatch(f);
 
-            Z3SortKind sk = (Z3SortKind)Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject));
+            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(Context.nCtx, Native.getRange(Context.nCtx, f.NativeObject));
 
             if (f.Arity == 0)
             {
                 IntPtr n = Native.modelGetConstInterp(Context.nCtx, NativeObject, f.NativeObject);
 
-                if (sk == Z3SortKind.Z3ARRAYSORT)
+                if (sk == Z3_sort_kind.Z3_ARRAY_SORT)
                 {
                     if (n == IntPtr.Zero)
                         return null;
@@ -92,7 +92,7 @@ package com.Microsoft.Z3;
         /**
          * The number of constants that have an interpretation in the model.
          **/
-        public Integer NumConsts()  { return Native.modelGetNumConsts(Context.nCtx, NativeObject); }
+        public long NumConsts()  { return Native.modelGetNumConsts(Context.nCtx, NativeObject); }
 
         /**
          * The function declarations of the constants in the model.
@@ -101,17 +101,17 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumConsts;
+                long n = NumConsts;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The number of function interpretations in the model.
          **/
-        public Integer NumFuncs()  { return Native.modelGetNumFuncs(Context.nCtx, NativeObject); }
+        public long NumFuncs()  { return Native.modelGetNumFuncs(Context.nCtx, NativeObject); }
 
         /**
          * The function declarations of the function interpretations in the model.
@@ -120,12 +120,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumFuncs;
+                long n = NumFuncs;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * All symbols that have an interpretation in the model.
@@ -136,14 +136,14 @@ package com.Microsoft.Z3;
 
                 var nFuncs = NumFuncs;
                 var nConsts = NumConsts;
-                Integer n = nFuncs + nConsts;
+                long n = nFuncs + nConsts;
                 FuncDecl[] res = new FuncDecl[n];
-                for (Integer i = 0; i < nConsts; i++)
+                for (long i = 0; i < nConsts; i++)
                     res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context.nCtx, NativeObject, i));
-                for (Integer i = 0; i < nFuncs; i++)
+                for (long i = 0; i < nFuncs; i++)
                     res[nConsts + i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context.nCtx, NativeObject, i));                
                 return res;
-        }
+            }
 
         /**
          * A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model.
@@ -196,7 +196,7 @@ package com.Microsoft.Z3;
         /**
          * The number of uninterpreted sorts that the model has an interpretation for.
          **/
-        public Integer NumSorts () { return Native.modelGetNumSorts(Context.nCtx, NativeObject); }
+        public long NumSorts () { return Native.modelGetNumSorts(Context.nCtx, NativeObject); }
 
         /**
          * The uninterpreted sorts that the model has an interpretation for. 
@@ -212,12 +212,12 @@ package com.Microsoft.Z3;
             {
                 
 
-                Integer n = NumSorts;
+                long n = NumSorts;
                 Sort[] res = new Sort[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = Sort.Create(Context, Native.modelGetSort(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>.
@@ -231,9 +231,9 @@ package com.Microsoft.Z3;
             
 
             ASTVector nUniv = new ASTVector(Context, Native.modelGetSortUniverse(Context.nCtx, NativeObject, s.NativeObject));
-            Integer n = nUniv.Size;
+            long n = nUniv.Size;
             Expr[] res = new Expr[n];
-            for (Integer i = 0; i < n; i++)
+            for (long i = 0; i < n; i++)
                 res[i] = Expr.Create(Context, nUniv[i].NativeObject);
             return res;
         }
@@ -267,13 +267,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ModelDRQ.IncAndClear(Context, o);
+            Context.Model_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ModelDRQ.Add(o);
+            Context.Model_DRQ.Add(o);
             super.DecRef(o);
         }
     }

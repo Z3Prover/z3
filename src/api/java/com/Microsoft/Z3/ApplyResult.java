@@ -15,7 +15,7 @@ package com.Microsoft.Z3;
         /**
          * The number of Subgoals.
          **/
-        public Integer NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context.nCtx, NativeObject); }
+        public long NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context.nCtx, NativeObject); }
 
         /**
          * Retrieves the subgoals from the ApplyResult.
@@ -25,19 +25,19 @@ package com.Microsoft.Z3;
               
               
 
-                Integer n = NumSubgoals;
+                long n = NumSubgoals;
                 Goal[] res = new Goal[n];
-                for (Integer i = 0; i < n; i++)
+                for (long i = 0; i < n; i++)
                     res[i] = new Goal(Context, Native.applyResultGetSubgoal(Context.nCtx, NativeObject, i));
                 return res;
-        }
+            }
 
         /**
          * Convert a model for the subgoal <paramref name="i"/> into a model for the original 
          * goal <code>g</code>, that the ApplyResult was obtained from. 
          * @return A model for <code>g</code>
          **/
-        public Model ConvertModel(Integer i, Model m)
+        public Model ConvertModel(long i, Model m)
         {
             
             
@@ -72,13 +72,13 @@ package com.Microsoft.Z3;
 
         void IncRef(IntPtr o)
         {
-            Context.ApplyResultDRQ.IncAndClear(Context, o);
+            Context.ApplyResult_DRQ.IncAndClear(Context, o);
             super.IncRef(o);
         }
 
         void DecRef(IntPtr o)
         {
-            Context.ApplyResultDRQ.Add(o);
+            Context.ApplyResult_DRQ.Add(o);
             super.DecRef(o);
         }
     }

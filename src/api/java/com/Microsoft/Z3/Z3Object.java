@@ -25,18 +25,18 @@ package com.Microsoft.Z3;
          **/
         public void Dispose()
         {
-            if (mNObj != IntPtr.Zero)
+            if (m_n_obj != IntPtr.Zero)
             {
-                DecRef(mNObj);
-                mNObj = IntPtr.Zero;                
+                DecRef(m_n_obj);
+                m_n_obj = IntPtr.Zero;                
             }
 
-            if (mCtx != null)
+            if (m_ctx != null)
             {
-                mCtx.refCount--;
-                if (mCtx.refCount == 0)
-                    GC.ReRegisterForFinalize(mCtx);
-                mCtx = null;
+                m_ctx.refCount--;
+                if (m_ctx.refCount == 0)
+                    GC.ReRegisterForFinalize(m_ctx);
+                m_ctx = null;
             }
 
             GC.SuppressFinalize(this);
@@ -49,15 +49,15 @@ package com.Microsoft.Z3;
         }
 
 
-        private Context mCtx = null;
-        private IntPtr mNObj = IntPtr.Zero;
+        private Context m_ctx = null;
+        private IntPtr m_n_obj = IntPtr.Zero;
 
         Z3Object(Context ctx)
         {
             
 
             ctx.refCount++;
-            mCtx = ctx;
+            m_ctx = ctx;
         }
 
         Z3Object(Context ctx, IntPtr obj)
@@ -65,9 +65,9 @@ package com.Microsoft.Z3;
             
 
             ctx.refCount++;
-            mCtx = ctx;
+            m_ctx = ctx;
             IncRef(obj);
-            mNObj = obj;
+            m_n_obj = obj;
         }
 
         void IncRef(IntPtr o) { }
@@ -77,12 +77,12 @@ package com.Microsoft.Z3;
 
         IntPtr NativeObject
         {
-            get { return mNObj; }
+            get { return m_n_obj; }
             set
             {
                 if (value != IntPtr.Zero) { CheckNativeObject(value); IncRef(value); }
-                if (mNObj != IntPtr.Zero) { DecRef(mNObj); }
-                mNObj = value;
+                if (m_n_obj != IntPtr.Zero) { DecRef(m_n_obj); }
+                m_n_obj = value;
             }
         }
 
@@ -97,7 +97,7 @@ package com.Microsoft.Z3;
             get 
             {
                 
-                return mCtx; 
+                return m_ctx; 
             }            
         }
 
@@ -108,13 +108,13 @@ package com.Microsoft.Z3;
 
             if (a == null) return null;
             IntPtr[] an = new IntPtr[a.Length];
-            for (Integer i = 0; i < a.Length; i++)
+            for (long i = 0; i < a.Length; i++)
                 if (a[i] != null) an[i] = a[i].NativeObject;
             return an;
         }
 
-        static Integer ArrayLength(Z3Object[] a)
+        static long ArrayLength(Z3Object[] a)
         {
-            return (a == null)?0:(Integer)a.Length;
+            return (a == null)?0:(long)a.Length;
         }
     }
