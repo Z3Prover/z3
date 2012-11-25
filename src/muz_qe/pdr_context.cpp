@@ -35,7 +35,6 @@ Notes:
 #include "pdr_generalizers.h"
 #include "datatype_decl_plugin.h"
 #include "for_each_expr.h"
-#include "model_v2_pp.h"
 #include "dl_rule_set.h"
 #include "unit_subsumption_tactic.h"
 #include "model_smt2_pp.h"
@@ -146,7 +145,6 @@ namespace pdr {
         expr_ref vl(m);
         for (; it != end; ++it) {
             expr* pred = it->m_key;
-            TRACE("pdr", tout << mk_pp(pred, m) << "\n";);
             if (model.eval(to_app(pred)->get_decl(), vl) && m.is_true(vl)) {
                 return *it->m_value;
             }
@@ -362,7 +360,7 @@ namespace pdr {
         }
         // replace local constants by bound variables.
         expr_substitution sub(m);        
-        for (unsigned i = 0; i < m_sig.size(); ++i) {
+        for (unsigned i = 0; i < sig_size(); ++i) {
             c = m.mk_const(pm.o2n(sig(i), 0));
             v = m.mk_var(i, sig(i)->get_range());
             sub.insert(c, v);
@@ -397,7 +395,7 @@ namespace pdr {
         // replace bound variables by local constants.
         expr_ref result(property, m), v(m), c(m);
         expr_substitution sub(m);        
-        for (unsigned i = 0; i < m_sig.size(); ++i) {
+        for (unsigned i = 0; i < sig_size(); ++i) {
             c = m.mk_const(pm.o2n(sig(i), 0));
             v = m.mk_var(i, sig(i)->get_range());
             sub.insert(v, c);
@@ -602,6 +600,12 @@ namespace pdr {
         }
         m_rule2inst.insert(&rule,&var_reprs);
         m_rule2vars.insert(&rule, aux_vars);
+        TRACE("pdr", 
+              tout << rule.get_decl()->get_name() << "\n";
+              for (unsigned i = 0; i < var_reprs.size(); ++i) {
+                  tout << mk_pp(var_reprs[i].get(), m) << " ";
+              }
+              tout << "\n";);
     }
 
     bool pred_transformer::check_filled(app_ref_vector const& v) const {
@@ -723,7 +727,7 @@ namespace pdr {
         pred_transformer& p = pt();
         ast_manager& m = p.get_manager();
         manager& pm = p.get_pdr_manager();
-        TRACE("pdr", model_v2_pp(tout, get_model()););
+        TRACE("pdr", model_smt2_pp(tout, m, get_model(), 0););
         func_decl* f = p.head();
         unsigned arity = f->get_arity();
         expr_ref_vector args(m);

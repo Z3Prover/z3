@@ -40,29 +40,32 @@ namespace datalog {
 
 
     void mk_extract_quantifiers::extract(rule& r, rule_set& new_rules) {
-        app_ref_vector tail(m);
-        svector<bool>  neg_tail;
+        expr_ref_vector tail(m);
         quantifier_ref_vector quantifiers(m);
         unsigned utsz = r.get_uninterpreted_tail_size();
         unsigned tsz = r.get_tail_size();
         for (unsigned i = 0; i < utsz; ++i) {
             tail.push_back(r.get_tail(i));
-            neg_tail.push_back(r.is_neg_tail(i));
+            if (r.is_neg_tail(i)) {
+                new_rules.add_rule(&r);
+                return;
+            }
         }
         for (unsigned i = utsz; i < tsz; ++i) {
-            SASSERT(!r.is_neg_tail(i));
             app* t = r.get_tail(i);
             expr_ref_vector conjs(m);
             datalog::flatten_and(t, conjs);
+            quantifier_ref qe(m);
+            quantifier* q = 0;
             for (unsigned j = 0; j < conjs.size(); ++j) {
                 expr* e = conjs[j].get();
-                quantifier* q = 0;
                 if (rule_manager::is_forall(m, e, q)) {
                     quantifiers.push_back(q);
+                    qe = m.mk_exists(q->get_num_decls(), q->get_decl_sorts(), q->get_decl_names(), q->get_expr());
+                    tail.push_back(qe);
                 }
                 else {
-                    tail.push_back(is_app(e)?to_app(e):m.mk_eq(e, m.mk_true()));
-                    neg_tail.push_back(false);
+                    tail.push_back(e);
                 }
             }
         }
@@ -70,11 +73,16 @@ namespace datalog {
             new_rules.add_rule(&r);
         }
         else {
-            rule* new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), neg_tail.c_ptr(), r.name(), false);
-            new_rules.add_rule(new_rule);
+            expr_ref fml(m);
+            rule_ref_vector rules(rm);
+            fml = m.mk_implies(m.mk_and(tail.size(), tail.c_ptr()), r.get_head());
+            rm.mk_rule(fml, rules, r.name());
             quantifier_ref_vector* qs = alloc(quantifier_ref_vector, quantifiers);
-            m_quantifiers.insert(new_rule, qs);
             m_refs.push_back(qs);
+            for (unsigned i = 0; i < rules.size(); ++i) {
+                m_quantifiers.insert(rules[i].get(), qs);
+                new_rules.add_rule(rules[i].get());
+            }
         }
     }
     

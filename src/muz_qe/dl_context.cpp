@@ -54,6 +54,7 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
+#include"dl_mk_array_blast.h"
 #include"datatype_decl_plugin.h"
 #include"expr_abstract.h"
 
@@ -944,6 +945,7 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
 
         transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
+        transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
         transform_rules(transf, mc, pc);
     }
 

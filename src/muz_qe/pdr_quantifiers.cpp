@@ -24,6 +24,7 @@ Revision History:
 #include "qe.h"
 #include "var_subst.h"
 #include "dl_rule_set.h"
+#include "model_smt2_pp.h"
 
 
 namespace pdr {
@@ -181,25 +182,21 @@ namespace pdr {
         bool found_instance = false;
         TRACE("pdr", tout << mk_pp(m_A,m) << "\n";);
  
-        ast_manager mp(PGM_COARSE);        
-        ast_translation tr(m, mp);
-        ast_translation rev_tr(mp, m);
-        expr_ref_vector fmls(mp);
+        datalog::scoped_coarse_proof _scp(m);
+
+        expr_ref_vector fmls(m);
         front_end_params fparams;
         fparams.m_proof_mode = PGM_COARSE;
         // TBD: does not work on integers: fparams.m_mbqi = true;
-        expr_ref C(m);
-        fmls.push_back(tr(m_A.get()));
-        for (unsigned i = 0; i < m_Bs.size(); ++i) {
-            C = m.update_quantifier(qs[i], m_Bs[i].get());
-            fmls.push_back(tr(C.get()));
-        }        
+
+        fmls.push_back(m_A.get());
+        fmls.append(m_Bs);
         TRACE("pdr",
               tout << "assert\n";
               for (unsigned i = 0; i < fmls.size(); ++i) {
-                  tout << mk_pp(fmls[i].get(), mp) << "\n";
+                  tout << mk_pp(fmls[i].get(), m) << "\n";
               });
-        smt::kernel solver(mp, fparams);
+        smt::kernel solver(m, fparams);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             solver.assert_expr(fmls[i].get());
         }
@@ -216,8 +213,8 @@ namespace pdr {
         }
 
         proof* p = solver.get_proof();
-        TRACE("pdr", tout << mk_ismt2_pp(p, mp) << "\n";);
-        collect_insts collector(mp);
+        TRACE("pdr", tout << mk_ismt2_pp(p, m) << "\n";);
+        collect_insts collector(m);
         for_each_expr(collector, p);
         ptr_vector<quantifier> const& quants = collector.quantifiers();
 
@@ -225,20 +222,20 @@ namespace pdr {
             symbol qid = quants[i]->get_qid();
             if (!qid_map.find(qid, q)) {
                 TRACE("pdr", tout << "Could not find quantifier " 
-                      << mk_pp(quants[i], mp) << "\n";);
+                      << mk_pp(quants[i], m) << "\n";);
                 continue;
             }
             expr_ref_vector const& binding = collector.bindings()[i];
 
-            TRACE("pdr", tout << "Instantiating:\n" << mk_pp(quants[i], mp) << "\n";
+            TRACE("pdr", tout << "Instantiating:\n" << mk_pp(quants[i], m) << "\n";
                   for (unsigned j = 0; j < binding.size(); ++j) {
-                      tout << mk_pp(binding[j], mp) << " ";
+                      tout << mk_pp(binding[j], m) << " ";
                   }
                   tout << "\n";);
 
             expr_ref_vector new_binding(m);
             for (unsigned j = 0; j < binding.size(); ++j) {
-                new_binding.push_back(rev_tr(binding[j]));
+                new_binding.push_back(binding[j]);
             }
             add_binding(q, new_binding);
             found_instance = true;
@@ -258,11 +255,32 @@ namespace pdr {
         return found_instance;
     }
 
+    /**
+       Given node:
+
+         - pt - predicate transformer for rule:
+                P(x) :- Body1(x,y) || Body2(x,z) & (Fa u . Q(u,x,z)).
+         - rule - P(x) :- Body2(x,z)
+
+         - qis - Fa u . Q(u,x,z)
+
+         - A  := node.state(x) && Body2(x,y)
+
+         - Bs := array of Bs of the form:
+                 . Fa u . Q(u, P_x, P_y)  - instantiate quantifier to P variables.
+                 . B := inv(Q_0,Q_1,Q_2)
+                 . B := inv(u, P_x, P_y) := B[u/Q_0, P_x/Q_1, P_y/Q_2]
+                 . B := Fa u . inv(u, P_x, P_y)
+
+       
+    */
+
+
     void quantifier_model_checker::model_check_node(model_node& node) {
         TRACE("pdr", node.display(tout, 0););
         pred_transformer& pt = node.pt();
         manager& pm = pt.get_pdr_manager();
-        expr_ref A(m), B(m), C(m);
+        expr_ref A(m), B(m), C(m), v(m);
         expr_ref_vector As(m);
         m_Bs.reset();
         //
@@ -285,8 +303,12 @@ namespace pdr {
             return;
         }
         unsigned level = node.level();
-        unsigned previous_level = (level == 0)?0:(level-1);
+        if (level == 0) {
+            return;
+        }
+        unsigned previous_level = level - 1;
 
+        
         As.push_back(pt.get_propagation_formula(m_ctx.get_pred_transformers(), level));
         As.push_back(node.state());
         As.push_back(pt.rule2tag(m_current_rule));
@@ -296,28 +318,42 @@ namespace pdr {
         
         {
             datalog::scoped_no_proof _no_proof(m);
+            quantifier_ref q(m);
             scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
             for (unsigned j = 0; j < qis->size(); ++j) {
-                quantifier* q = (*qis)[j].get();
+                q = (*qis)[j].get();
+                app_ref_vector& inst      = pt.get_inst(m_current_rule);
+                ptr_vector<app>& aux_vars = pt.get_aux_vars(*m_current_rule);
+                TRACE("pdr", 
+                      tout << "q:\n" << mk_pp(q, m) << "\n";
+                      tout << "level: " << level << "\n";
+                      model_smt2_pp(tout, m, node.get_model(), 0);
+                      m_current_rule->display(m_ctx.get_context(), tout << "rule:\n"); 
+                      
+                      );
+
+                var_subst vs(m, false);
+                vs(q, inst.size(), (expr*const*)inst.c_ptr(), B);
+                q = to_quantifier(B);
+                TRACE("pdr", tout << "q instantiated:\n" << mk_pp(q, m) << "\n";);
+
                 app* a = to_app(q->get_expr());
                 func_decl* f = a->get_decl();
                 pred_transformer& pt2 = m_ctx.get_pred_transformer(f);
                 B = pt2.get_formulas(previous_level, true);
+                TRACE("pdr", tout << "B:\n" << mk_pp(B, m) << "\n";);
+
                 
                 expr_substitution sub(m);  
-                expr_ref_vector refs(m);
                 for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    expr* v = m.mk_const(pm.o2n(pt2.sig(i),0));
+                    v = m.mk_const(pm.o2n(pt2.sig(i),0));
                     sub.insert(v, a->get_arg(i));
-                    refs.push_back(v);
                 }
                 rep->set_substitution(&sub);
                 (*rep)(B);
-                app_ref_vector& inst      = pt.get_inst(m_current_rule);
-                ptr_vector<app>& aux_vars = pt.get_aux_vars(*m_current_rule);
-                pt.ground_free_vars(B, inst, aux_vars);
-                var_subst vs(m, false);
-                vs(B, inst.size(), (expr*const*)inst.c_ptr(), B);
+                TRACE("pdr", tout << "B substituted:\n" << mk_pp(B, m) << "\n";);
+                
+                B = m.update_quantifier(q, B);
                 m_Bs.push_back(B);
             }
         }
