@@ -388,7 +388,7 @@ namespace Microsoft.Z3
             IntPtr[] n_constr = new IntPtr[n];
             for (uint i = 0; i < n; i++)
             {
-                var constructor = c[i];
+                Constructor[] constructor = c[i];
                 Contract.Assume(Contract.ForAll(constructor, arr => arr != null), "Clousot does not support yet quantified formula on multidimensional arrays");
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
