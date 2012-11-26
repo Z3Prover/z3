@@ -904,6 +904,7 @@ namespace pdr {
         return !has_x;
     }
 
+
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml) {
         ast_manager& m = fml.get_manager();
         expr_ref_vector conjs(m);

@@ -43,6 +43,7 @@ Notes:
 #include "qe_lite.h"
 #include "ast_ll_pp.h"
 #include "proof_checker.h"
+#include "smt_value_sort.h"
 
 namespace pdr {
 
@@ -1827,14 +1828,14 @@ namespace pdr {
         if (!vars.empty()) {
             // also fresh names for auxiliary variables in body?
             expr_substitution sub(m);
-            expr_ref_vector refs(m);
             expr_ref tmp(m);
             proof_ref pr(m);
             pr = m.mk_asserted(m.mk_true());
-            for (unsigned i = 0; i < vars.size(); ++i) {                
-                VERIFY (M->eval(vars[i].get(), tmp, true));                
-                refs.push_back(tmp);
-                sub.insert(vars[i].get(), tmp, pr);
+            for (unsigned i = 0; i < vars.size(); ++i) {    
+                if (smt::is_value_sort(m, vars[i].get())) {
+                    VERIFY (M->eval(vars[i].get(), tmp, true)); 
+                    sub.insert(vars[i].get(), tmp, pr);
+                }
             }
             if (!rep) rep = mk_expr_simp_replacer(m);
             rep->set_substitution(&sub);
