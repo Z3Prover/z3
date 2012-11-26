@@ -193,7 +193,7 @@ namespace Microsoft.Z3
         {
             Contract.Ensures(Contract.Result<BitVecSort>() != null);
 
-            return new BitVecSort(this, size);
+            return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
         }
 
         /// <summary>
