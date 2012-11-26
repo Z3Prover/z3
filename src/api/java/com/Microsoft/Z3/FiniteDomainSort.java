@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -30,7 +31,7 @@ import java.lang.Exception;
             
         }
         FiniteDomainSort(Context ctx, Symbol name, long size)
-        { super(ctx, Native.mkFiniteDomainSort(ctx.nCtx(), name.NativeObject, size));
+        { super(ctx, Native.mkFiniteDomainSort(ctx.nCtx(), name.NativeObject(), size));
             
             
 

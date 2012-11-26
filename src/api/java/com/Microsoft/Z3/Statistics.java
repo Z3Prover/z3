@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -27,7 +28,7 @@ import java.lang.Exception;
             /**
              * The uint-value of the entry.
              **/
-            public long UIntValue() { return m_long; } 
+            public int UIntValue() { return m_int; } 
             /**
              * The double-value of the entry.
              **/
@@ -35,7 +36,7 @@ import java.lang.Exception;
             /**
              * True if the entry is uint-valued.
              **/
-            public boolean IsUInt() { return m_is_long; } 
+            public boolean IsUInt() { return m_is_int; } 
             /**
              * True if the entry is double-valued.
              **/
@@ -49,9 +50,9 @@ import java.lang.Exception;
                     
 
                     if (IsUInt)
-                        return m_long.ToString();
+                        return m_int.toString();
                     else if (IsDouble)
-                        return m_double.ToString();
+                        return m_double.toString();
                     else
                         throw new Z3Exception("Unknown statistical entry type");
                 }
@@ -64,15 +65,15 @@ import java.lang.Exception;
                 return Key + ": " + Value;
             }
 
-            private boolean m_is_long = false;
+            private boolean m_is_int = false;
             private boolean m_is_double = false;
-            private long m_long = 0;
+            private int m_int = 0;
             private double m_double = 0.0;
-            Entry(String k, long v)
+            Entry(String k, int v)
             {
                 Key = k;
-                m_is_long = true;
-                m_long = v;
+                m_is_int = true;
+                m_int = v;
             }
             Entry(String k, double v)
             {
@@ -93,7 +94,7 @@ import java.lang.Exception;
         /**
          * The number of statistical data.
          **/
-        public long Size()  { return Native.statsSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.statsSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The data entries.
@@ -104,15 +105,15 @@ import java.lang.Exception;
                 
                 
 
-                long n = Size;
+                int n = Size;
                 Entry[] res = new Entry[n];
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                 {
                     Entry e;
                     String k = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
-                    if (Native.statsIsLong(Context().nCtx(), NativeObject(), i) != 0)
-                        e = new Entry(k, Native.statsGetLongValue(Context().nCtx(), NativeObject(), i));
-                    else if (Native.statsIsDouble(Context().nCtx(), NativeObject(), i) != 0)
+                    if (Native.statsIsInt(Context().nCtx(), NativeObject(), i) )
+                        e = new Entry(k, Native.statsGetIntValue(Context().nCtx(), NativeObject(), i));
+                    else if (Native.statsIsDouble(Context().nCtx(), NativeObject(), i) )
                         e = new Entry(k, Native.statsGetDoubleValue(Context().nCtx(), NativeObject(), i));
                     else
                         throw new Z3Exception("Unknown data entry value");
@@ -128,9 +129,9 @@ import java.lang.Exception;
             {
                 
 
-                long n = Size;
+                int n = Size;
                 String[] res = new String[n];
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                     res[i] = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
                 return res;
             }
@@ -141,9 +142,9 @@ import java.lang.Exception;
          **/
         public Entry get(String key) 
             {
-                long n = Size;
+                int n = Size;
                 Entry[] es = Entries;
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                     if (es[i].Key == key)
                         return es[i];
                 return null;
@@ -169,13 +170,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Statistics_DRQ.IncAndClear(Context, o);
+            Context().Statistics_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Statistics_DRQ.Add(o);
+            Context().Statistics_DRQ().Add(o);
             super.DecRef(o);
         }
     }

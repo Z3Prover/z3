@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -22,13 +23,13 @@ import java.lang.Exception;
             {
                 
 
-                return new FuncDecl(Context, Native.getTupleSortMkDecl(Context().nCtx(), NativeObject()));
+                return new FuncDecl(Context(), Native.getTupleSortMkDecl(Context().nCtx(), NativeObject()));
             }
 
         /**
          * The number of fields in the tuple.
          **/
-        public long NumFields()  { return Native.getTupleSortNumFields(Context().nCtx(), NativeObject()); }
+        public int NumFields()  { return Native.getTupleSortNumFields(Context().nCtx(), NativeObject()); }
 
         /**
          * The field declarations.
@@ -37,20 +38,20 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumFields;
+                int n = NumFields();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.getTupleSortFieldDecl(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(Context(), Native.getTupleSortFieldDecl(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
-        TupleSort(Context ctx, Symbol name, long numFields, Symbol[] fieldNames, Sort[] fieldSorts)
+        TupleSort(Context ctx, Symbol name, int numFields, Symbol[] fieldNames, Sort[] fieldSorts)
         { super(ctx);
             
             
 
             long t = 0;
-            NativeObject() = Native.mkTupleSort(ctx.nCtx(), name.NativeObject, numFields,
+            NativeObject() = Native.mkTupleSort(ctx.nCtx(), name.NativeObject(), numFields,
                                                    Symbol.ArrayToNative(fieldNames), AST.ArrayToNative(fieldSorts),
                                                    t, new long[numFields]);
         }

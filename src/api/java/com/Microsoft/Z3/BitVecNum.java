@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 /* using System; */
 
 /* using System.Numerics; */
@@ -22,7 +23,7 @@ import java.lang.Exception;
         public long UInt64() 
             {
                 long res = 0;
-                if (Native.getNumeralLong64(Context().nCtx(), NativeObject(), res) == 0)
+                if (Native.getNumeralInt64(Context().nCtx(), NativeObject(), res) ^ true)
                     throw new Z3Exception("Numeral is not a 64 bit unsigned");
                 return res;
             }
@@ -33,7 +34,7 @@ import java.lang.Exception;
         public int Int() 
             {
                 int res = 0;
-                if (Native.getNumeralInt(Context().nCtx(), NativeObject(), res) == 0)
+                if (Native.getNumeralInt(Context().nCtx(), NativeObject(), res) ^ true)
                     throw new Z3Exception("Numeral is not an int");
                 return res;
             }
@@ -44,7 +45,7 @@ import java.lang.Exception;
         public long Int64() 
             {
                 long res = 0;
-                if (Native.getNumeralInt64(Context().nCtx(), NativeObject(), res) == 0)
+                if (Native.getNumeralInt64(Context().nCtx(), NativeObject(), res) ^ true)
                     throw new Z3Exception("Numeral is not an int64");
                 return res;
             }
@@ -52,11 +53,11 @@ import java.lang.Exception;
         /**
          * Retrieve the int value.
          **/
-        public long UInt() 
+        public int UInt() 
             {
-                long res = 0;
-                if (Native.getNumeralLong(Context().nCtx(), NativeObject(), res) == 0)
-                    throw new Z3Exception("Numeral is not a long");
+                int res = 0;
+                if (Native.getNumeralInt(Context().nCtx(), NativeObject(), res) ^ true)
+                    throw new Z3Exception("Numeral is not a int");
                 return res;
             }
 
@@ -65,7 +66,7 @@ import java.lang.Exception;
          **/
         public BigInteger BigInteger() 
             {
-                return BigInteger.Parse(this.ToString());
+                return new BigInteger(this.toString());
             }
 
         /**

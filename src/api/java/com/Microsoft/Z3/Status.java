@@ -7,27 +7,28 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
   /**
    * Status values.
    **/
-  public enum Status
+  public class Status
   {    
     /// <summary>
     /// Used to signify an unsatisfiable status.
     /// </summary>
-    UNSATISFIABLE  (1),
+public static final int     UNSATISFIABLE  = 1;
 
     /// <summary>
     /// Used to signify an unknown status.
     /// </summary>
-    UNKNOWN  (0),
+public static final int     UNKNOWN  = 0;
 
     /// <summary>
     /// Used to signify a satisfiable status.
     /// </summary>
-    SATISFIABLE  (1)
+public static final int     SATISFIABLE  = 1;
   }
 

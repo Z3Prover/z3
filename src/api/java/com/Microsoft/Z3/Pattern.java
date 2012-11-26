@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Runtime.InteropServices; */
@@ -21,7 +22,7 @@ import java.lang.Exception;
         /**
          * The number of terms in the pattern.
          **/
-        public long NumTerms()  { return Native.getPatternNumTerms(Context().nCtx(), NativeObject()); }
+        public int NumTerms()  { return Native.getPatternNumTerms(Context().nCtx(), NativeObject()); }
 
         /**
          * The terms in the pattern.
@@ -30,10 +31,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumTerms;
+                int n = NumTerms();
                 Expr[] res = new Expr[n];
-                for (long i; i < n; i++)
-                    res[i] = Expr.Create(Context, Native.getPattern(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Expr.Create(Context(), Native.getPattern(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 

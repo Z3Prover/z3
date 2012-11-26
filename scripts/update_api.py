@@ -509,6 +509,7 @@ def mk_java():
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
+    java_native.write('  public static class errorHandler { public long ptr; }\n')
 
     if is_windows():
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java'))

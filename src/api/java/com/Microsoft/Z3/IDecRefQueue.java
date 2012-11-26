@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Collections; */
@@ -23,8 +24,8 @@ import java.lang.Exception;
         
 
         protected Object m_lock = new Object();
-        protected List<Long> m_queue = new List<Long>();
-        final long m_move_limit = 1024;
+        protected LinkedList<Long> m_queue = new LinkedList<Long>();
+        final int m_move_limit = 1024;
 
         public abstract void IncRef(Context ctx, long obj);
         public abstract void DecRef(Context ctx, long obj);
@@ -34,7 +35,7 @@ import java.lang.Exception;
             
 
             IncRef(ctx, o);
-            if (m_queue.Count >= m_move_limit) Clear(ctx);
+            if (m_queue.size() >= m_move_limit) Clear(ctx);
         }
 
         public void Add(long o)
@@ -43,7 +44,7 @@ import java.lang.Exception;
 
             synchronized (m_lock)
             {
-                m_queue.Add(o);
+                m_queue.add(o);
             }
         }
 
@@ -53,9 +54,9 @@ import java.lang.Exception;
 
             synchronized (m_lock)
             {
-                for (Iterator o = m_queue.iterator(); o.hasNext(); )
+                for (Long o: m_queue)
                     DecRef(ctx, o);
-                m_queue.Clear();
+                m_queue.clear();
             }
         }
     }

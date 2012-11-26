@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -109,7 +110,7 @@ import java.lang.Exception;
                    ihead = 0,
                    itail = 0;
 
-            NativeObject() = Native.mkListSort(ctx.nCtx(), name.NativeObject, elemSort.NativeObject,
+            NativeObject() = Native.mkListSort(ctx.nCtx(), name.NativeObject(), elemSort.NativeObject(),
                                                   inil, iisnil, icons, iiscons, ihead, itail);
             nilDecl = new FuncDecl(ctx, inil);
             isNilDecl = new FuncDecl(ctx, iisnil);

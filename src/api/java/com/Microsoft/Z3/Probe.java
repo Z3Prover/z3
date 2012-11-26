@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Runtime.InteropServices; */
@@ -29,8 +30,8 @@ import java.lang.Exception;
         {
             
 
-            Context.CheckContextMatch(g);
-            return Native.probeApply(Context().nCtx(), NativeObject(), g.NativeObject);
+            Context().CheckContextMatch(g);
+            return Native.probeApply(Context().nCtx(), NativeObject(), g.NativeObject());
         }
 
         /**
@@ -67,13 +68,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Probe_DRQ.IncAndClear(Context, o);
+            Context().Probe_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Probe_DRQ.Add(o);
+            Context().Probe_DRQ().Add(o);
             super.DecRef(o);
         }
     }

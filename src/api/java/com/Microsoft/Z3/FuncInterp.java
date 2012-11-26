@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -28,13 +29,13 @@ import java.lang.Exception;
             public Expr Value() 
                 {
                     
-                    return Expr.Create(Context, Native.funcEntryGetValue(Context().nCtx(), NativeObject()));
+                    return Expr.Create(Context(), Native.funcEntryGetValue(Context().nCtx(), NativeObject()));
                 }
 
             /**
              * The number of arguments of the entry.
              **/
-            public long NumArgs()  { return Native.funcEntryGetNumArgs(Context().nCtx(), NativeObject()); }
+            public int NumArgs()  { return Native.funcEntryGetNumArgs(Context().nCtx(), NativeObject()); }
 
             /**
              * The arguments of the function entry.
@@ -44,10 +45,10 @@ import java.lang.Exception;
                     
                     
 
-                    long n = NumArgs;
+                    int n = NumArgs();
                     Expr[] res = new Expr[n];
-                    for (long i; i < n; i++)
-                        res[i] = Expr.Create(Context, Native.funcEntryGetArg(Context().nCtx(), NativeObject(), i));
+                    for (int i = 0; i < n; i++)
+                        res[i] = Expr.Create(Context(), Native.funcEntryGetArg(Context().nCtx(), NativeObject(), i));
                     return res;
                 }
 
@@ -56,10 +57,10 @@ import java.lang.Exception;
              **/
             public String toString()
             {
-                long n = NumArgs;
+                int n = NumArgs();
                 String res = "[";
                 Expr[] args = Args;
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                     res += args[i] + ", ";
                 return res + Value + "]";
             }
@@ -81,13 +82,13 @@ import java.lang.Exception;
 
             void IncRef(long o)
             {
-                Context.FuncEntry_DRQ.IncAndClear(Context, o);
+                Context().FuncEntry_DRQ().IncAndClear(Context(), o);
                 super.IncRef(o);
             }
 
             void DecRef(long o)
             {
-                Context.FuncEntry_DRQ.Add(o);
+                Context().FuncEntry_DRQ().Add(o);
                 super.DecRef(o);
             }
         };
@@ -95,7 +96,7 @@ import java.lang.Exception;
         /**
          * The number of entries in the function interpretation.
          **/
-        public long NumEntries()  { return Native.funcInterpGetNumEntries(Context().nCtx(), NativeObject()); }
+        public int NumEntries()  { return Native.funcInterpGetNumEntries(Context().nCtx(), NativeObject()); }
 
         /**
          * The entries in the function interpretation
@@ -105,10 +106,10 @@ import java.lang.Exception;
                 
                 
 
-                long n = NumEntries;
+                int n = NumEntries();
                 Entry[] res = new Entry[n];
-                for (long i; i < n; i++)
-                    res[i] = new Entry(Context, Native.funcInterpGetEntry(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new Entry(Context(), Native.funcInterpGetEntry(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -119,13 +120,13 @@ import java.lang.Exception;
             {
                 
 
-                return Expr.Create(Context, Native.funcInterpGetElse(Context().nCtx(), NativeObject()));
+                return Expr.Create(Context(), Native.funcInterpGetElse(Context().nCtx(), NativeObject()));
             }
 
         /**
          * The arity of the function interpretation
          **/
-        public long Arity()  { return Native.funcInterpGetArity(Context().nCtx(), NativeObject()); }
+        public int Arity()  { return Native.funcInterpGetArity(Context().nCtx(), NativeObject()); }
 
         /**
          * A string representation of the function interpretation.
@@ -134,12 +135,12 @@ import java.lang.Exception;
         {
             String res = "";
             res += "[";
-            for (Iterator e = Entries.iterator(); e.hasNext(); )
+            for (Entry e: Entries)
             {
-                long n = e.NumArgs;
+                int n = e.NumArgs;
                 if (n > 1) res += "[";
                 Expr[] args = e.Args;
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                 {
                     if (i != 0) res += ", ";
                     res += args[i];
@@ -172,13 +173,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.FuncInterp_DRQ.IncAndClear(Context, o);
+            Context().FuncInterp_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.FuncInterp_DRQ.Add(o);
+            Context().FuncInterp_DRQ().Add(o);
             super.DecRef(o);
         }
     }

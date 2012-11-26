@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -18,7 +19,7 @@ import java.lang.Exception;
         /**
          * The number of fields of the constructor.
          **/
-        public long NumFields() 
+        public int NumFields() 
             {
                 init();
                 return n;
@@ -70,13 +71,13 @@ import java.lang.Exception;
         }
 
 
-        private long n = 0;
+        private int n = 0;
         private FuncDecl m_testerDecl = null;
         private FuncDecl m_constructorDecl = null;
         private FuncDecl[] m_accessorDecls = null;
 
         Constructor(Context ctx, Symbol name, Symbol recognizer, Symbol[] fieldNames,
-                             Sort[] sorts, long[] sortRefs)
+                             Sort[] sorts, int[] sortRefs)
         { super(ctx);
             
             
@@ -86,12 +87,12 @@ import java.lang.Exception;
 
             if (n != AST.ArrayLength(sorts))
                 throw new Z3Exception("Number of field names does not match number of sorts");
-            if (sortRefs != null && sortRefs.Length != n)
+            if (sortRefs != null && sortRefs.length != n)
                 throw new Z3Exception("Number of field names does not match number of sort refs");
 
-            if (sortRefs == null) sortRefs = new long[n];
+            if (sortRefs == null) sortRefs = new int[n];
 
-            NativeObject() = Native.mkConstructor(ctx.nCtx(), name.NativeObject, recognizer.NativeObject,
+            NativeObject() = Native.mkConstructor(ctx.nCtx(), name.NativeObject(), recognizer.NativeObject(),
                                                     n,
                                                     Symbol.ArrayToNative(fieldNames),
                                                     Sort.ArrayToNative(sorts),
@@ -110,11 +111,11 @@ import java.lang.Exception;
             long tester = 0;
             long[] accessors = new long[n];
             Native.queryConstructor(Context().nCtx(), NativeObject(), n, constructor, tester, accessors);
-            m_constructorDecl = new FuncDecl(Context, constructor);
-            m_testerDecl = new FuncDecl(Context, tester);
+            m_constructorDecl = new FuncDecl(Context(), constructor);
+            m_testerDecl = new FuncDecl(Context(), tester);
             m_accessorDecls = new FuncDecl[n];
-            for (long i; i < n; i++)
-                m_accessorDecls[i] = new FuncDecl(Context, accessors[i]);
+            for (int i = 0; i < n; i++)
+                m_accessorDecls[i] = new FuncDecl(Context(), accessors[i]);
         }
 
     }

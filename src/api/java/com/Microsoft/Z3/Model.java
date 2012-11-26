@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -24,7 +25,7 @@ import java.lang.Exception;
         {
             
 
-            Context.CheckContextMatch(a);
+            Context().CheckContextMatch(a);
             return ConstInterp(a.FuncDecl);
         }
 
@@ -37,16 +38,16 @@ import java.lang.Exception;
         {
             
 
-            Context.CheckContextMatch(f);
+            Context().CheckContextMatch(f);
             if (f.Arity != 0 ||
-                Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject)) == (long)Z3_sort_kind.Z3_ARRAY_SORT)
+                Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT.toInt())
                 throw new Z3Exception("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
 
-            long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject);
+            long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject());
             if (n == 0)
                 return null;
             else
-                return Expr.Create(Context, n);
+                return Expr.Create(Context(), n);
         }
 
         /**
@@ -58,13 +59,13 @@ import java.lang.Exception;
         {
             
 
-            Context.CheckContextMatch(f);
+            Context().CheckContextMatch(f);
 
-            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject));
+            Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject())));
 
             if (f.Arity == 0)
             {
-                long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject);
+                long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject());
 
                 if (sk == Z3_sort_kind.Z3_ARRAY_SORT)
                 {
@@ -72,10 +73,10 @@ import java.lang.Exception;
                         return null;
                     else
                     {
-                        if (Native.isAsArray(Context().nCtx(), n) == 0)
+                        if (Native.isAsArray(Context().nCtx(), n) ^ true)
                             throw new Z3Exception("Argument was not an array constant");
                         long fd = Native.getAsArrayFuncDecl(Context().nCtx(), n);
-                        return FuncInterp(new FuncDecl(Context, fd));
+                        return FuncInterp(new FuncDecl(Context(), fd));
                     }
                 }
                 else
@@ -85,18 +86,18 @@ import java.lang.Exception;
             }
             else
             {
-                long n = Native.modelGetFuncInterp(Context().nCtx(), NativeObject(), f.NativeObject);
+                long n = Native.modelGetFuncInterp(Context().nCtx(), NativeObject(), f.NativeObject());
                 if (n == 0)
                     return null;
                 else
-                    return new FuncInterp(Context, n);
+                    return new FuncInterp(Context(), n);
             }
         }
 
         /**
          * The number of constants that have an interpretation in the model.
          **/
-        public long NumConsts()  { return Native.modelGetNumConsts(Context().nCtx(), NativeObject()); }
+        public int NumConsts()  { return Native.modelGetNumConsts(Context().nCtx(), NativeObject()); }
 
         /**
          * The function declarations of the constants in the model.
@@ -105,17 +106,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumConsts;
+                int n = NumConsts();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(Context(), Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The number of function interpretations in the model.
          **/
-        public long NumFuncs()  { return Native.modelGetNumFuncs(Context().nCtx(), NativeObject()); }
+        public int NumFuncs()  { return Native.modelGetNumFuncs(Context().nCtx(), NativeObject()); }
 
         /**
          * The function declarations of the function interpretations in the model.
@@ -124,10 +125,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumFuncs;
+                int n = NumFuncs();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(Context(), Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -138,14 +139,14 @@ import java.lang.Exception;
             {
                 
 
-                var nFuncs = NumFuncs;
-                var nConsts = NumConsts;
-                long n = nFuncs + nConsts;
+                var nFuncs = NumFuncs();
+                var nConsts = NumConsts();
+                int n = nFuncs + nConsts;
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < nConsts; i++)
-                    res[i] = new FuncDecl(Context, Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
-                for (long i; i < nFuncs; i++)
-                    res[nConsts + i] = new FuncDecl(Context, Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));                
+                for (int i = 0; i < nConsts; i++)
+                    res[i] = new FuncDecl(Context(), Native.modelGetConstDecl(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < nFuncs; i++)
+                    res[nConsts + i] = new FuncDecl(Context(), Native.modelGetFuncDecl(Context().nCtx(), NativeObject(), i));                
                 return res;
             }
 
@@ -180,10 +181,10 @@ import java.lang.Exception;
             
 
             long v = 0;
-            if (Native.modelEval(Context().nCtx(), NativeObject(), t.NativeObject, (completion) ? 1 : 0, v) == 0)
+            if (Native.modelEval(Context().nCtx(), NativeObject(), t.NativeObject(), (completion) ? true : false, v) ^ true)
                 throw new ModelEvaluationFailedException();
             else
-                return Expr.Create(Context, v);
+                return Expr.Create(Context(), v);
         }
 
         /**
@@ -200,7 +201,7 @@ import java.lang.Exception;
         /**
          * The number of uninterpreted sorts that the model has an interpretation for.
          **/
-        public long NumSorts () { return Native.modelGetNumSorts(Context().nCtx(), NativeObject()); }
+        public int NumSorts () { return Native.modelGetNumSorts(Context().nCtx(), NativeObject()); }
 
         /**
          * The uninterpreted sorts that the model has an interpretation for. 
@@ -216,10 +217,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumSorts;
+                int n = NumSorts();
                 Sort[] res = new Sort[n];
-                for (long i; i < n; i++)
-                    res[i] = Sort.Create(Context, Native.modelGetSort(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Sort.Create(Context(), Native.modelGetSort(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -234,11 +235,11 @@ import java.lang.Exception;
             
             
 
-            ASTVector nUniv = new ASTVector(Context, Native.modelGetSortUniverse(Context().nCtx(), NativeObject(), s.NativeObject));
-            long n = nUniv.Size;
+            ASTVector nUniv = new ASTVector(Context(), Native.modelGetSortUniverse(Context().nCtx(), NativeObject(), s.NativeObject()));
+            int n = nUniv.Size;
             Expr[] res = new Expr[n];
-            for (long i; i < n; i++)
-                res[i] = Expr.Create(Context, nUniv[i].NativeObject);
+            for (int i = 0; i < n; i++)
+                res[i] = Expr.Create(Context(), nUniv[i].NativeObject());
             return res;
         }
 
@@ -271,13 +272,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Model_DRQ.IncAndClear(Context, o);
+            Context().Model_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Model_DRQ.Add(o);
+            Context().Model_DRQ().Add(o);
             super.DecRef(o);
         }
     }

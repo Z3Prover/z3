@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -25,7 +26,7 @@ import java.lang.Exception;
          * An over approximation is applied when the objective is to find a proof for a given goal.
          * </remarks>
          **/
-        public Z3_goal_prec Precision()  { return (Z3_goal_prec)Native.goalPrecision(Context().nCtx(), NativeObject()); }
+        public Z3_goal_prec Precision()  { return Z3_goal_prec.fromInt(Native.goalPrecision(Context().nCtx(), NativeObject())); }
 
         /**
          * Indicates whether the goal is precise.
@@ -54,18 +55,18 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(constraints);
-            for (Iterator c = constraints.iterator(); c.hasNext(); )
+            Context().CheckContextMatch(constraints);
+            for (BoolExpr c: constraints)
             {
                  // It was an assume, now made an assert just to be sure we do not regress
-                Native.goalAssert(Context().nCtx(), NativeObject(), c.NativeObject);
+                Native.goalAssert(Context().nCtx(), NativeObject(), c.NativeObject());
             }
         }
 
         /**
          * Indicates whether the goal contains `false'.
          **/
-        public boolean Inconsistent()  { return Native.goalInconsistent(Context().nCtx(), NativeObject()) != 0; }
+        public boolean Inconsistent()  { return Native.goalInconsistent(Context().nCtx(), NativeObject()) ; }
 
         /**
          * The depth of the goal.
@@ -73,7 +74,7 @@ import java.lang.Exception;
          * This tracks how many transformations were applied to it.
          * </remarks>
          **/
-        public long Depth()  { return Native.goalDepth(Context().nCtx(), NativeObject()); }
+        public int Depth()  { return Native.goalDepth(Context().nCtx(), NativeObject()); }
 
         /**
          * Erases all formulas from the given goal.
@@ -86,7 +87,7 @@ import java.lang.Exception;
         /**
          * The number of formulas in the goal.
          **/
-        public long Size()  { return Native.goalSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.goalSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The formulas in the goal.
@@ -95,27 +96,27 @@ import java.lang.Exception;
             {
                 
 
-                long n = Size;
+                int n = Size;
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i; i < n; i++)
-                    res[i] = new BoolExpr(Context, Native.goalFormula(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new BoolExpr(Context(), Native.goalFormula(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The number of formulas, subformulas and terms in the goal.
          **/
-        public long NumExprs()  { return Native.goalNumExprs(Context().nCtx(), NativeObject()); }
+        public int NumExprs()  { return Native.goalNumExprs(Context().nCtx(), NativeObject()); }
 
         /**
          * Indicates whether the goal is empty, and it is precise or the product of an under approximation.
          **/
-        public boolean IsDecidedSat()  { return Native.goalIsDecidedSat(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsDecidedSat()  { return Native.goalIsDecidedSat(Context().nCtx(), NativeObject()) ; }
 
         /**
          * Indicates whether the goal contains `false', and it is precise or the product of an over approximation.
          **/
-        public boolean IsDecidedUnsat()  { return Native.goalIsDecidedUnsat(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsDecidedUnsat()  { return Native.goalIsDecidedUnsat(Context().nCtx(), NativeObject()) ; }
 
         /**
          * Translates (copies) the Goal to the target Context <paramref name="ctx"/>.
@@ -133,11 +134,11 @@ import java.lang.Exception;
          **/
         public Goal Simplify(Params p)
         {
-            Tactic t = Context.MkTactic("simplify");
+            Tactic t = Context().MkTactic("simplify");
             ApplyResult res = t.Apply(this, p);
             
             if (res.NumSubgoals == 0)
-                return Context.MkGoal();
+                return Context().MkGoal();
             else        
                 return res.Subgoals[0];
         }
@@ -154,7 +155,7 @@ import java.lang.Exception;
     Goal(Context ctx, long obj) { super(ctx, obj); {  }}
 
         Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs)
-        { super(ctx, Native.mkGoal(ctx.nCtx(), (models) ? 1 : 0, (unsatCores) ? 1 : 0, (proofs) ? 1 : 0));
+        { super(ctx, Native.mkGoal(ctx.nCtx(), (models) ? true : false, (unsatCores) ? true : false, (proofs) ? true : false));
             
         }
 
@@ -173,13 +174,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Goal_DRQ.IncAndClear(Context, o);
+            Context().Goal_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Goal_DRQ.Add(o);
+            Context().Goal_DRQ().Add(o);
             super.DecRef(o);
         }
 

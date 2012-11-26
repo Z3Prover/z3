@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Collections.Generic; */
@@ -34,7 +35,7 @@ import java.lang.Exception;
             
 
             long cfg = Native.mkConfig();
-            for (Iterator kv = settings.iterator(); kv.hasNext(); )
+            for (KeyValuePair<String, String> kv: settings)
                 Native.setParamValue(cfg, kv.Key, kv.Value);
             m_ctx = Native.mkContextRc(cfg);
             Native.delConfig(cfg);
@@ -76,8 +77,8 @@ import java.lang.Exception;
             
 
             if (names == null) return null;
-            Symbol[] result = new Symbol[names.Length];
-            for (int i; i < names.Length; ++i) result[i] = MkSymbol(names[i]);
+            Symbol[] result = new Symbol[names.length];
+            for (int i = 0; i < names.length; ++i) result[i] = MkSymbol(names[i]);
             return result;
         }
 
@@ -163,11 +164,11 @@ import java.lang.Exception;
         /**
          * Create a new bit-vector sort.
          **/
-        public BitVecSort MkBitVecSort(long size)
+        public BitVecSort MkBitVecSort(int size)
         {
             
 
-            return new BitVecSort(this, size);
+            return new BitVecSort(this, Native.mkBvSort(nCtx(), size));
         }
 
         /**
@@ -198,7 +199,7 @@ import java.lang.Exception;
             CheckContextMatch(name);
             CheckContextMatch(fieldNames);
             CheckContextMatch(fieldSorts);
-            return new TupleSort(this, name, (long)fieldNames.Length, fieldNames, fieldSorts);
+            return new TupleSort(this, name, (int)fieldNames.length, fieldNames, fieldSorts);
         }
 
         /**
@@ -287,7 +288,7 @@ import java.lang.Exception;
          * if the corresponding sort reference is 0, then the value in sort_refs should be an index 
          * referring to one of the recursive datatypes that is declared.</param>
          **/
-        public Constructor MkConstructor(Symbol name, Symbol recognizer, Symbol[] fieldNames, Sort[] sorts, long[] sortRefs)
+        public Constructor MkConstructor(Symbol name, Symbol recognizer, Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
         {
             
             
@@ -305,7 +306,7 @@ import java.lang.Exception;
          * <param name="sortRefs"></param>
          * @return 
          **/
-        public Constructor MkConstructor(String name, String recognizer, String[] fieldNames, Sort[] sorts, long[] sortRefs)
+        public Constructor MkConstructor(String name, String recognizer, String[] fieldNames, Sort[] sorts, int[] sortRefs)
         {
             
 
@@ -356,21 +357,21 @@ import java.lang.Exception;
             
 
             CheckContextMatch(names);
-            long n = (long)names.Length;
+            int n = (int)names.length;
             ConstructorList[] cla = new ConstructorList[n];
             long[] n_constr = new long[n];
-            for (long i; i < n; i++)
+            for (int i = 0; i < n; i++)
             {
-                var constructor = c[i];
+                Constructor[] constructor = c[i];
                 
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
                 n_constr[i] = cla[i].NativeObject();
             }
             long[] n_res = new long[n];
-            Native.mkDatatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
+            Native.mkDatatypes(nCtx(), n, Symbol.ArrayToNative(names), n_res, n_constr);
             DatatypeSort[] res = new DatatypeSort[n];
-            for (long i; i < n; i++)
+            for (int i = 0; i < n; i++)
                 res[i] = new DatatypeSort(this, n_res[i]);
             return res;
         }
@@ -517,12 +518,12 @@ import java.lang.Exception;
          * <param name="index">The de-Bruijn index of the variable</param>
          * <param name="ty">The sort of the variable</param>
          **/
-        public Expr MkBound(long index, Sort ty)
+        public Expr MkBound(int index, Sort ty)
         {
             
             
 
-            return Expr.Create(this, Native.mkBound(nCtx, index, ty.NativeObject));
+            return Expr.Create(this, Native.mkBound(nCtx(), index, ty.NativeObject()));
         }
 
         /**
@@ -531,7 +532,7 @@ import java.lang.Exception;
         public Pattern MkPattern(Expr[] terms)
         {
             
-            if (terms.Length == 0)
+            if (terms.length == 0)
                 throw new Z3Exception("Cannot create a pattern from zero terms");
 
             
@@ -539,7 +540,7 @@ import java.lang.Exception;
             
 
             long[] termsNative = AST.ArrayToNative(terms);
-            return new Pattern(this, Native.mkPattern(nCtx, (long)terms.Length, termsNative));
+            return new Pattern(this, Native.mkPattern(nCtx(), (int)terms.length, termsNative));
         }
 
         /**
@@ -554,7 +555,7 @@ import java.lang.Exception;
             CheckContextMatch(name);
             CheckContextMatch(range);
 
-            return Expr.Create(this, Native.mkConst(nCtx, name.NativeObject, range.NativeObject));
+            return Expr.Create(this, Native.mkConst(nCtx(), name.NativeObject(), range.NativeObject()));
         }
 
         /**
@@ -578,7 +579,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(range);
-            return Expr.Create(this, Native.mkFreshConst(nCtx, prefix, range.NativeObject));
+            return Expr.Create(this, Native.mkFreshConst(nCtx(), prefix, range.NativeObject()));
         }
 
         /**
@@ -601,7 +602,7 @@ import java.lang.Exception;
             
             
 
-            return (BoolExpr)MkConst(name, BoolSort);
+            return (BoolExpr)MkConst(name, BoolSort());
         }
 
         /**
@@ -611,7 +612,7 @@ import java.lang.Exception;
         {
             
 
-            return (BoolExpr)MkConst(MkSymbol(name), BoolSort);
+            return (BoolExpr)MkConst(MkSymbol(name), BoolSort());
         }
 
         /**
@@ -622,7 +623,7 @@ import java.lang.Exception;
             
             
 
-            return (IntExpr)MkConst(name, IntSort);
+            return (IntExpr)MkConst(name, IntSort());
         }
 
         /**
@@ -633,7 +634,7 @@ import java.lang.Exception;
             
             
 
-            return (IntExpr)MkConst(name, IntSort);
+            return (IntExpr)MkConst(name, IntSort());
         }
 
         /**
@@ -644,7 +645,7 @@ import java.lang.Exception;
             
             
 
-            return (RealExpr)MkConst(name, RealSort);
+            return (RealExpr)MkConst(name, RealSort());
         }
 
         /**
@@ -654,13 +655,13 @@ import java.lang.Exception;
         {
             
 
-            return (RealExpr)MkConst(name, RealSort);
+            return (RealExpr)MkConst(name, RealSort());
         }
 
         /**
          * Creates a bit-vector constant.
          **/
-        public BitVecExpr MkBVConst(Symbol name, long size)
+        public BitVecExpr MkBVConst(Symbol name, int size)
         {
             
             
@@ -671,7 +672,7 @@ import java.lang.Exception;
         /**
          * Creates a bit-vector constant.
          **/
-        public BitVecExpr MkBVConst(String name, long size)
+        public BitVecExpr MkBVConst(String name, int size)
         {
             
 
@@ -699,7 +700,7 @@ import java.lang.Exception;
         {
             
 
-            return new BoolExpr(this, Native.mkTrue(nCtx));
+            return new BoolExpr(this, Native.mkTrue(nCtx()));
         }
 
         /**
@@ -709,7 +710,7 @@ import java.lang.Exception;
         {
             
 
-            return new BoolExpr(this, Native.mkFalse(nCtx));
+            return new BoolExpr(this, Native.mkFalse(nCtx()));
         }
 
         /**
@@ -733,7 +734,7 @@ import java.lang.Exception;
 
             CheckContextMatch(x);
             CheckContextMatch(y);
-            return new BoolExpr(this, Native.mkEq(nCtx, x.NativeObject, y.NativeObject));
+            return new BoolExpr(this, Native.mkEq(nCtx(), x.NativeObject(), y.NativeObject()));
         }
 
         /**
@@ -747,7 +748,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(args);
-            return new BoolExpr(this, Native.mkDistinct(nCtx, (long)args.Length, AST.ArrayToNative(args)));
+            return new BoolExpr(this, Native.mkDistinct(nCtx(), (int)args.length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -759,7 +760,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(a);
-            return new BoolExpr(this, Native.mkNot(nCtx, a.NativeObject));
+            return new BoolExpr(this, Native.mkNot(nCtx(), a.NativeObject()));
         }
 
         /**    
@@ -778,7 +779,7 @@ import java.lang.Exception;
             CheckContextMatch(t1);
             CheckContextMatch(t2);
             CheckContextMatch(t3);
-            return Expr.Create(this, Native.mkIte(nCtx, t1.NativeObject, t2.NativeObject, t3.NativeObject));
+            return Expr.Create(this, Native.mkIte(nCtx(), t1.NativeObject(), t2.NativeObject(), t3.NativeObject()));
         }
 
         /**
@@ -792,7 +793,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkIff(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkIff(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -806,7 +807,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkImplies(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkImplies(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -820,7 +821,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkXor(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkXor(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -833,7 +834,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkAnd(nCtx, (long)t.Length, AST.ArrayToNative(t)));
+            return new BoolExpr(this, Native.mkAnd(nCtx(), (int)t.length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -846,7 +847,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkOr(nCtx, (long)t.Length, AST.ArrayToNative(t)));
+            return new BoolExpr(this, Native.mkOr(nCtx(), (int)t.length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -859,7 +860,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkAdd(nCtx, (long)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkAdd(nCtx(), (int)t.length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -872,7 +873,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkMul(nCtx, (long)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkMul(nCtx(), (int)t.length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -885,7 +886,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkSub(nCtx, (long)t.Length, AST.ArrayToNative(t)));
+            return (ArithExpr)Expr.Create(this, Native.mkSub(nCtx(), (int)t.length, AST.ArrayToNative(t)));
         }
 
         /**
@@ -897,7 +898,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return (ArithExpr)Expr.Create(this, Native.mkUnaryMinus(nCtx, t.NativeObject));
+            return (ArithExpr)Expr.Create(this, Native.mkUnaryMinus(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -911,7 +912,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return (ArithExpr)Expr.Create(this, Native.mkDiv(nCtx, t1.NativeObject, t2.NativeObject));
+            return (ArithExpr)Expr.Create(this, Native.mkDiv(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -926,7 +927,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new IntExpr(this, Native.mkMod(nCtx, t1.NativeObject, t2.NativeObject));
+            return new IntExpr(this, Native.mkMod(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -941,7 +942,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new IntExpr(this, Native.mkRem(nCtx, t1.NativeObject, t2.NativeObject));
+            return new IntExpr(this, Native.mkRem(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -955,7 +956,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return (ArithExpr)Expr.Create(this, Native.mkPower(nCtx, t1.NativeObject, t2.NativeObject));
+            return (ArithExpr)Expr.Create(this, Native.mkPower(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -969,7 +970,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkLt(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkLt(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -983,7 +984,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkLe(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkLe(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -997,7 +998,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkGt(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkGt(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1011,7 +1012,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkGe(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkGe(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1030,7 +1031,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new RealExpr(this, Native.mkInt2real(nCtx, t.NativeObject));
+            return new RealExpr(this, Native.mkInt2real(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1046,7 +1047,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new IntExpr(this, Native.mkReal2int(nCtx, t.NativeObject));
+            return new IntExpr(this, Native.mkReal2int(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1058,7 +1059,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkIsInt(nCtx, t.NativeObject));
+            return new BoolExpr(this, Native.mkIsInt(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1071,7 +1072,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkBvnot(nCtx, t.NativeObject));
+            return new BitVecExpr(this, Native.mkBvnot(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1084,7 +1085,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkBvredand(nCtx, t.NativeObject));
+            return new BitVecExpr(this, Native.mkBvredand(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1097,7 +1098,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkBvredor(nCtx, t.NativeObject));
+            return new BitVecExpr(this, Native.mkBvredor(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1112,7 +1113,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvand(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvand(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1127,7 +1128,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvor(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvor(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1142,7 +1143,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvxor(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvxor(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1157,7 +1158,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvnand(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvnand(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1172,7 +1173,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvnor(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvnor(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1187,7 +1188,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvxnor(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvxnor(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1200,7 +1201,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkBvneg(nCtx, t.NativeObject));
+            return new BitVecExpr(this, Native.mkBvneg(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1215,7 +1216,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvadd(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvadd(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1230,7 +1231,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvsub(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvsub(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1245,7 +1246,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvmul(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvmul(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1265,7 +1266,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvudiv(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvudiv(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1289,7 +1290,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvsdiv(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvsdiv(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1308,7 +1309,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvurem(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvurem(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1329,7 +1330,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvsrem(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvsrem(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1347,7 +1348,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvsmod(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvsmod(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1364,7 +1365,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvult(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvult(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1381,7 +1382,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvslt(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvslt(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1398,7 +1399,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvule(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvule(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1415,7 +1416,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsle(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvsle(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1432,7 +1433,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvuge(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvuge(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1449,7 +1450,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsge(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvsge(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1466,7 +1467,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvugt(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvugt(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1483,7 +1484,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsgt(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvsgt(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1504,7 +1505,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkConcat(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkConcat(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1516,13 +1517,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkExtract(long high, long low, BitVecExpr t)
+        public BitVecExpr MkExtract(int high, int low, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkExtract(nCtx, high, low, t.NativeObject));
+            return new BitVecExpr(this, Native.mkExtract(nCtx(), high, low, t.NativeObject()));
         }
 
         /**
@@ -1533,13 +1534,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkSignExt(long i, BitVecExpr t)
+        public BitVecExpr MkSignExt(int i, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkSignExt(nCtx, i, t.NativeObject));
+            return new BitVecExpr(this, Native.mkSignExt(nCtx(), i, t.NativeObject()));
         }
 
         /**
@@ -1551,13 +1552,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkZeroExt(long i, BitVecExpr t)
+        public BitVecExpr MkZeroExt(int i, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkZeroExt(nCtx, i, t.NativeObject));
+            return new BitVecExpr(this, Native.mkZeroExt(nCtx(), i, t.NativeObject()));
         }
 
         /**
@@ -1566,13 +1567,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkRepeat(long i, BitVecExpr t)
+        public BitVecExpr MkRepeat(int i, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkRepeat(nCtx, i, t.NativeObject));
+            return new BitVecExpr(this, Native.mkRepeat(nCtx(), i, t.NativeObject()));
         }
 
         /**
@@ -1595,7 +1596,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvshl(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvshl(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1618,7 +1619,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvlshr(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvlshr(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1643,7 +1644,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkBvashr(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkBvashr(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1653,13 +1654,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkBVRotateLeft(long i, BitVecExpr t)
+        public BitVecExpr MkBVRotateLeft(int i, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkRotateLeft(nCtx, i, t.NativeObject));
+            return new BitVecExpr(this, Native.mkRotateLeft(nCtx(), i, t.NativeObject()));
         }
 
         /**
@@ -1669,13 +1670,13 @@ import java.lang.Exception;
          * The argument <paramref name="t"/> must have a bit-vector sort.
          * </remarks>
          **/
-        public BitVecExpr MkBVRotateRight(long i, BitVecExpr t)
+        public BitVecExpr MkBVRotateRight(int i, BitVecExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkRotateRight(nCtx, i, t.NativeObject));
+            return new BitVecExpr(this, Native.mkRotateRight(nCtx(), i, t.NativeObject()));
         }
 
         /**
@@ -1693,7 +1694,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkExtRotateLeft(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkExtRotateLeft(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1711,7 +1712,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BitVecExpr(this, Native.mkExtRotateRight(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BitVecExpr(this, Native.mkExtRotateRight(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1724,13 +1725,13 @@ import java.lang.Exception;
          * The argument must be of integer sort.
          * </remarks>
          **/
-        public BitVecExpr MkInt2BV(long n, IntExpr t)
+        public BitVecExpr MkInt2BV(int n, IntExpr t)
         {
             
             
 
             CheckContextMatch(t);
-            return new BitVecExpr(this, Native.mkInt2bv(nCtx, n, t.NativeObject));
+            return new BitVecExpr(this, Native.mkInt2bv(nCtx(), n, t.NativeObject()));
         }
 
         /**
@@ -1754,7 +1755,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new IntExpr(this, Native.mkBv2int(nCtx, t.NativeObject, (signed) ? 1 : 0));
+            return new IntExpr(this, Native.mkBv2int(nCtx(), t.NativeObject(), (signed) ? true : false));
         }
 
         /**
@@ -1771,7 +1772,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvaddNoOverflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.mkBvaddNoOverflow(nCtx(), t1.NativeObject(), t2.NativeObject(), (isSigned) ? true : false));
         }
 
         /**
@@ -1788,7 +1789,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvaddNoUnderflow(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvaddNoUnderflow(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1805,7 +1806,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsubNoOverflow(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvsubNoOverflow(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1822,7 +1823,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsubNoUnderflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.mkBvsubNoUnderflow(nCtx(), t1.NativeObject(), t2.NativeObject(), (isSigned) ? true : false));
         }
 
         /**
@@ -1839,7 +1840,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvsdivNoOverflow(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvsdivNoOverflow(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1854,7 +1855,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new BoolExpr(this, Native.mkBvnegNoOverflow(nCtx, t.NativeObject));
+            return new BoolExpr(this, Native.mkBvnegNoOverflow(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -1871,7 +1872,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvmulNoOverflow(nCtx, t1.NativeObject, t2.NativeObject, (isSigned) ? 1 : 0));
+            return new BoolExpr(this, Native.mkBvmulNoOverflow(nCtx(), t1.NativeObject(), t2.NativeObject(), (isSigned) ? true : false));
         }
 
         /**
@@ -1888,7 +1889,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new BoolExpr(this, Native.mkBvmulNoUnderflow(nCtx, t1.NativeObject, t2.NativeObject));
+            return new BoolExpr(this, Native.mkBvmulNoUnderflow(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -1937,7 +1938,7 @@ import java.lang.Exception;
 
             CheckContextMatch(a);
             CheckContextMatch(i);
-            return Expr.Create(this, Native.mkSelect(nCtx, a.NativeObject, i.NativeObject));
+            return Expr.Create(this, Native.mkSelect(nCtx(), a.NativeObject(), i.NativeObject()));
         }
 
         /**
@@ -1967,7 +1968,7 @@ import java.lang.Exception;
             CheckContextMatch(a);
             CheckContextMatch(i);
             CheckContextMatch(v);
-            return new ArrayExpr(this, Native.mkStore(nCtx, a.NativeObject, i.NativeObject, v.NativeObject));
+            return new ArrayExpr(this, Native.mkStore(nCtx(), a.NativeObject(), i.NativeObject(), v.NativeObject()));
         }
 
         /**
@@ -1987,7 +1988,7 @@ import java.lang.Exception;
 
             CheckContextMatch(domain);
             CheckContextMatch(v);
-            return new ArrayExpr(this, Native.mkConstArray(nCtx, domain.NativeObject, v.NativeObject));
+            return new ArrayExpr(this, Native.mkConstArray(nCtx(), domain.NativeObject(), v.NativeObject()));
         }
 
         /**
@@ -2009,7 +2010,7 @@ import java.lang.Exception;
 
             CheckContextMatch(f);
             CheckContextMatch(args);
-            return (ArrayExpr)Expr.Create(this, Native.mkMap(nCtx, f.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args)));
+            return (ArrayExpr)Expr.Create(this, Native.mkMap(nCtx(), f.NativeObject(), AST.ArrayLength(args), AST.ArrayToNative(args)));
         }
 
         /**
@@ -2025,7 +2026,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(array);
-            return Expr.Create(this, Native.mkArrayDefault(nCtx, array.NativeObject));
+            return Expr.Create(this, Native.mkArrayDefault(nCtx(), array.NativeObject()));
         }
 
         /**
@@ -2049,7 +2050,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(domain);
-            return Expr.Create(this, Native.mkEmptySet(nCtx, domain.NativeObject));
+            return Expr.Create(this, Native.mkEmptySet(nCtx(), domain.NativeObject()));
         }
 
         /**
@@ -2061,7 +2062,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(domain);
-            return Expr.Create(this, Native.mkFullSet(nCtx, domain.NativeObject));
+            return Expr.Create(this, Native.mkFullSet(nCtx(), domain.NativeObject()));
         }
 
         /**
@@ -2075,7 +2076,7 @@ import java.lang.Exception;
 
             CheckContextMatch(set);
             CheckContextMatch(element);
-            return Expr.Create(this, Native.mkSetAdd(nCtx, set.NativeObject, element.NativeObject));
+            return Expr.Create(this, Native.mkSetAdd(nCtx(), set.NativeObject(), element.NativeObject()));
         }
 
 
@@ -2090,7 +2091,7 @@ import java.lang.Exception;
 
             CheckContextMatch(set);
             CheckContextMatch(element);
-            return Expr.Create(this, Native.mkSetDel(nCtx, set.NativeObject, element.NativeObject));
+            return Expr.Create(this, Native.mkSetDel(nCtx(), set.NativeObject(), element.NativeObject()));
         }
 
         /**
@@ -2102,7 +2103,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.mkSetUnion(nCtx, (long)args.Length, AST.ArrayToNative(args)));
+            return Expr.Create(this, Native.mkSetUnion(nCtx(), (int)args.length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -2115,7 +2116,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(args);
-            return Expr.Create(this, Native.mkSetIntersect(nCtx, (long)args.Length, AST.ArrayToNative(args)));
+            return Expr.Create(this, Native.mkSetIntersect(nCtx(), (int)args.length, AST.ArrayToNative(args)));
         }
 
         /**
@@ -2129,7 +2130,7 @@ import java.lang.Exception;
 
             CheckContextMatch(arg1);
             CheckContextMatch(arg2);
-            return Expr.Create(this, Native.mkSetDifference(nCtx, arg1.NativeObject, arg2.NativeObject));
+            return Expr.Create(this, Native.mkSetDifference(nCtx(), arg1.NativeObject(), arg2.NativeObject()));
         }
 
         /**
@@ -2141,7 +2142,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(arg);
-            return Expr.Create(this, Native.mkSetComplement(nCtx, arg.NativeObject));
+            return Expr.Create(this, Native.mkSetComplement(nCtx(), arg.NativeObject()));
         }
 
         /**
@@ -2155,7 +2156,7 @@ import java.lang.Exception;
 
             CheckContextMatch(elem);
             CheckContextMatch(set);
-            return Expr.Create(this, Native.mkSetMember(nCtx, elem.NativeObject, set.NativeObject));
+            return Expr.Create(this, Native.mkSetMember(nCtx(), elem.NativeObject(), set.NativeObject()));
         }
 
         /**
@@ -2169,7 +2170,7 @@ import java.lang.Exception;
 
             CheckContextMatch(arg1);
             CheckContextMatch(arg2);
-            return Expr.Create(this, Native.mkSetSubset(nCtx, arg1.NativeObject, arg2.NativeObject));
+            return Expr.Create(this, Native.mkSetSubset(nCtx(), arg1.NativeObject(), arg2.NativeObject()));
         }
 
 
@@ -2185,7 +2186,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(ty);
-            return Expr.Create(this, Native.mkNumeral(nCtx, v, ty.NativeObject));
+            return Expr.Create(this, Native.mkNumeral(nCtx(), v, ty.NativeObject()));
         }
 
         /**
@@ -2201,8 +2202,17 @@ import java.lang.Exception;
             
 
             CheckContextMatch(ty);
-            return Expr.Create(this, Native.mkInt(nCtx, v, ty.NativeObject));
+            return Expr.Create(this, Native.mkInt(nCtx(), v, ty.NativeObject()));
         }
+
+        /**
+         * Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
+         * It is slightly faster than <code>MakeNumeral</code> since it is not necessary to parse a string.       
+         * <param name="v">Value of the numeral</param>
+         * <param name="ty">Sort of the numeral</param>
+         * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
+         **/
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
@@ -2217,7 +2227,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(ty);
-            return Expr.Create(this, Native.mkUnsignedInt(nCtx, v, ty.NativeObject));
+            return Expr.Create(this, Native.mkInt64(nCtx(), v, ty.NativeObject()));
         }
 
         /**
@@ -2227,30 +2237,7 @@ import java.lang.Exception;
          * <param name="ty">Sort of the numeral</param>
          * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
          **/
-        public Expr MkNumeral(long v, Sort ty)
-        {
-            
-            
-
-            CheckContextMatch(ty);
-            return Expr.Create(this, Native.mkInt64(nCtx, v, ty.NativeObject));
-        }
-
-        /**
-         * Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
-         * It is slightly faster than <code>MakeNumeral</code> since it is not necessary to parse a string.       
-         * <param name="v">Value of the numeral</param>
-         * <param name="ty">Sort of the numeral</param>
-         * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
-         **/
-        public Expr MkNumeral(long v, Sort ty)
-        {
-            
-            
-
-            CheckContextMatch(ty);
-            return Expr.Create(this, Native.mkUnsignedInt64(nCtx, v, ty.NativeObject));
-        }
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a real from a fraction.
@@ -2267,7 +2254,7 @@ import java.lang.Exception;
             
             
 
-            return new RatNum(this, Native.mkReal(nCtx, num, den));
+            return new RatNum(this, Native.mkReal(nCtx(), num, den));
         }
 
         /**
@@ -2279,7 +2266,7 @@ import java.lang.Exception;
         {
             
 
-            return new RatNum(this, Native.mkNumeral(nCtx, v, RealSort.NativeObject));
+            return new RatNum(this, Native.mkNumeral(nCtx(), v, RealSort().NativeObject()));
         }
 
         /**
@@ -2291,8 +2278,15 @@ import java.lang.Exception;
         {
             
 
-            return new RatNum(this, Native.mkInt(nCtx, v, RealSort.NativeObject));
+            return new RatNum(this, Native.mkInt(nCtx(), v, RealSort().NativeObject()));
         }
+
+        /**
+         * Create a real numeral.
+         * <param name="v">value of the numeral.</param>    
+         * @return A Term with value <paramref name="v"/> and sort Real
+         **/
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a real numeral.
@@ -2303,7 +2297,7 @@ import java.lang.Exception;
         {
             
 
-            return new RatNum(this, Native.mkUnsignedInt(nCtx, v, RealSort.NativeObject));
+            return new RatNum(this, Native.mkInt64(nCtx(), v, RealSort().NativeObject()));
         }
 
         /**
@@ -2311,24 +2305,7 @@ import java.lang.Exception;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Real
          **/
-        public RatNum MkReal(long v)
-        {
-            
-
-            return new RatNum(this, Native.mkInt64(nCtx, v, RealSort.NativeObject));
-        }
-
-        /**
-         * Create a real numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Real
-         **/
-        public RatNum MkReal(long v)
-        {
-            
-
-            return new RatNum(this, Native.mkUnsignedInt64(nCtx, v, RealSort.NativeObject));
-        }
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create an integer numeral.
@@ -2338,7 +2315,7 @@ import java.lang.Exception;
         {
             
 
-            return new IntNum(this, Native.mkNumeral(nCtx, v, IntSort.NativeObject));
+            return new IntNum(this, Native.mkNumeral(nCtx(), v, IntSort().NativeObject()));
         }
 
         /**
@@ -2350,8 +2327,15 @@ import java.lang.Exception;
         {
             
 
-            return new IntNum(this, Native.mkInt(nCtx, v, IntSort.NativeObject));
+            return new IntNum(this, Native.mkInt(nCtx(), v, IntSort().NativeObject()));
         }
+
+        /**
+         * Create an integer numeral.
+         * <param name="v">value of the numeral.</param>    
+         * @return A Term with value <paramref name="v"/> and sort Integer
+         **/
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create an integer numeral.
@@ -2362,7 +2346,7 @@ import java.lang.Exception;
         {
             
 
-            return new IntNum(this, Native.mkUnsignedInt(nCtx, v, IntSort.NativeObject));
+            return new IntNum(this, Native.mkInt64(nCtx(), v, IntSort().NativeObject()));
         }
 
         /**
@@ -2370,31 +2354,14 @@ import java.lang.Exception;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Integer
          **/
-        public IntNum MkInt(long v)
-        {
-            
-
-            return new IntNum(this, Native.mkInt64(nCtx, v, IntSort.NativeObject));
-        }
-
-        /**
-         * Create an integer numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Integer
-         **/
-        public IntNum MkInt(long v)
-        {
-            
-
-            return new IntNum(this, Native.mkUnsignedInt64(nCtx, v, IntSort.NativeObject));
-        }
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a bit-vector numeral.
          * <param name="v">A string representing the value in decimal notation.</param>
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(String v, long size)
+        public BitVecNum MkBV(String v, int size)
         {
             
 
@@ -2406,7 +2373,7 @@ import java.lang.Exception;
          * <param name="v">value of the numeral.</param>    
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(int v, long size)
+        public BitVecNum MkBV(int v, int size)
         {
             
 
@@ -2418,19 +2385,14 @@ import java.lang.Exception;
          * <param name="v">value of the numeral.</param>    
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(long v, long size)
-        {
-            
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
-        }
+        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a bit-vector numeral.
          * <param name="v">value of the numeral.</param>
          *  * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(long v, long size)
+        public BitVecNum MkBV(long v, int size)
         {
             
 
@@ -2442,12 +2404,7 @@ import java.lang.Exception;
          * <param name="v">value of the numeral.</param>
          * <param name="size">the size of the bit-vector</param>
          **/
-        public BitVecNum MkBV(long v, long size)
-        {
-            
-
-            return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
-        }
+        /* Not translated because it would translate to a function with clashing types. */
 
 
         /**
@@ -2469,7 +2426,7 @@ import java.lang.Exception;
          * <param name="quantifierID">optional symbol to track quantifier.</param>
          * <param name="skolemID">optional symbol to track skolem constants.</param>
          **/
-        public Quantifier MkForall(Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkForall(Sort[] sorts, Symbol[] names, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2489,7 +2446,7 @@ import java.lang.Exception;
         /**
          * Create a universal Quantifier.
          **/
-        public Quantifier MkForall(Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkForall(Expr[] boundConstants, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2505,7 +2462,7 @@ import java.lang.Exception;
          * Create an existential Quantifier.
          * <seealso cref="MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
          **/
-        public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2523,7 +2480,7 @@ import java.lang.Exception;
         /**
          * Create an existential Quantifier.
          **/
-        public Quantifier MkExists(Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkExists(Expr[] boundConstants, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2538,7 +2495,7 @@ import java.lang.Exception;
         /**
          * Create a Quantifier.
          **/
-        public Quantifier MkQuantifier(boolean universal, Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkQuantifier(boolean universal, Sort[] sorts, Symbol[] names, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2561,7 +2518,7 @@ import java.lang.Exception;
         /**
          * Create a Quantifier.
          **/
-        public Quantifier MkQuantifier(boolean universal, Expr[] boundConstants, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        public Quantifier MkQuantifier(boolean universal, Expr[] boundConstants, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         {
             
             
@@ -2594,7 +2551,7 @@ import java.lang.Exception;
          * <seealso cref="FuncDecl.ToString()"/>
          * <seealso cref="Sort.ToString()"/>
          **/
-        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx, (long)value); }
+        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx(), (int)value); }
 
         /**
          * Convert a benchmark into an SMT-LIB formatted string.
@@ -2613,9 +2570,9 @@ import java.lang.Exception;
             
             
 
-            return Native.benchmarkToSmtlibString(nCtx, name, logic, status, attributes,
-                                            (long)assumptions.Length, AST.ArrayToNative(assumptions),
-                                            formula.NativeObject);
+            return Native.benchmarkToSmtlibString(nCtx(), name, logic, status, attributes,
+                                            (int)assumptions.length, AST.ArrayToNative(assumptions),
+                                            formula.NativeObject());
         }
 
         /**
@@ -2630,13 +2587,13 @@ import java.lang.Exception;
          **/
         public void ParseSMTLIBString(String str, Symbol[] sortNames, Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
         {
-            long csn = Symbol.ArrayLength(sortNames);
-            long cs = Sort.ArrayLength(sorts);
-            long cdn = Symbol.ArrayLength(declNames);
-            long cd = AST.ArrayLength(decls);
+            int csn = Symbol.ArrayLength(sortNames);
+            int cs = Sort.ArrayLength(sorts);
+            int cdn = Symbol.ArrayLength(declNames);
+            int cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            Native.parseSmtlibString(nCtx, str,
+            Native.parseSmtlibString(nCtx(), str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
         }
@@ -2647,13 +2604,13 @@ import java.lang.Exception;
          **/
         public void ParseSMTLIBFile(String fileName, Symbol[] sortNames, Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
         {
-            long csn = Symbol.ArrayLength(sortNames);
-            long cs = Sort.ArrayLength(sorts);
-            long cdn = Symbol.ArrayLength(declNames);
-            long cd = AST.ArrayLength(decls);
+            int csn = Symbol.ArrayLength(sortNames);
+            int cs = Sort.ArrayLength(sorts);
+            int cdn = Symbol.ArrayLength(declNames);
+            int cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            Native.parseSmtlibFile(nCtx, fileName,
+            Native.parseSmtlibFile(nCtx(), fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls));
         }
@@ -2661,7 +2618,7 @@ import java.lang.Exception;
         /**
          * The number of SMTLIB formulas parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public long NumSMTLIBFormulas () { return Native.getSmtlibNumFormulas(nCtx); }
+        public int NumSMTLIBFormulas () { return Native.getSmtlibNumFormulas(nCtx()); }
 
         /**
          * The formulas parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2670,17 +2627,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumSMTLIBFormulas;
+                int n = NumSMTLIBFormulas();
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i; i < n; i++)
-                    res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibFormula(nCtx, i));
+                for (int i = 0; i < n; i++)
+                    res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibFormula(nCtx(), i));
                 return res;
             }
 
         /**
          * The number of SMTLIB assumptions parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public long NumSMTLIBAssumptions () { return Native.getSmtlibNumAssumptions(nCtx); }
+        public int NumSMTLIBAssumptions () { return Native.getSmtlibNumAssumptions(nCtx()); }
 
         /**
          * The assumptions parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2689,17 +2646,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumSMTLIBAssumptions;
+                int n = NumSMTLIBAssumptions();
                 BoolExpr[] res = new BoolExpr[n];
-                for (long i; i < n; i++)
-                    res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibAssumption(nCtx, i));
+                for (int i = 0; i < n; i++)
+                    res[i] = (BoolExpr)Expr.Create(this, Native.getSmtlibAssumption(nCtx(), i));
                 return res;
             }
 
         /**
          * The number of SMTLIB declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public long NumSMTLIBDecls () { return Native.getSmtlibNumDecls(nCtx); }
+        public int NumSMTLIBDecls () { return Native.getSmtlibNumDecls(nCtx()); }
 
         /**
          * The declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2708,17 +2665,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumSMTLIBDecls;
+                int n = NumSMTLIBDecls();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx, i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx(), i));
                 return res;
             }
 
         /**
          * The number of SMTLIB sorts parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
          **/
-        public long NumSMTLIBSorts () { return Native.getSmtlibNumSorts(nCtx); }
+        public int NumSMTLIBSorts () { return Native.getSmtlibNumSorts(nCtx()); }
 
         /**
          * The declarations parsed by the last call to <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
@@ -2727,10 +2684,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumSMTLIBSorts;
+                int n = NumSMTLIBSorts();
                 Sort[] res = new Sort[n];
-                for (long i; i < n; i++)
-                    res[i] = Sort.Create(this, Native.getSmtlibSort(nCtx, i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Sort.Create(this, Native.getSmtlibSort(nCtx(), i));
                 return res;
             }
 
@@ -2743,13 +2700,13 @@ import java.lang.Exception;
         {
             
 
-            long csn = Symbol.ArrayLength(sortNames);
-            long cs = Sort.ArrayLength(sorts);
-            long cdn = Symbol.ArrayLength(declNames);
-            long cd = AST.ArrayLength(decls);
+            int csn = Symbol.ArrayLength(sortNames);
+            int cs = Sort.ArrayLength(sorts);
+            int cdn = Symbol.ArrayLength(declNames);
+            int cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.parseSmtlib2String(nCtx, str,
+            return (BoolExpr)Expr.Create(this, Native.parseSmtlib2String(nCtx(), str,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
         }
@@ -2762,13 +2719,13 @@ import java.lang.Exception;
         {
             
 
-            long csn = Symbol.ArrayLength(sortNames);
-            long cs = Sort.ArrayLength(sorts);
-            long cdn = Symbol.ArrayLength(declNames);
-            long cd = AST.ArrayLength(decls);
+            int csn = Symbol.ArrayLength(sortNames);
+            int cs = Sort.ArrayLength(sorts);
+            int cdn = Symbol.ArrayLength(declNames);
+            int cd = AST.ArrayLength(decls);
             if (csn != cs || cdn != cd)
                 throw new Z3Exception("Argument size mismatch");
-            return (BoolExpr)Expr.Create(this, Native.parseSmtlib2File(nCtx, fileName,
+            return (BoolExpr)Expr.Create(this, Native.parseSmtlib2File(nCtx(), fileName,
                 AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
                 AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
         }
@@ -2803,7 +2760,7 @@ import java.lang.Exception;
         /**
          * The number of supported tactics.
          **/
-        public long NumTactics()  { return Native.getNumTactics(nCtx); }
+        public int NumTactics()  { return Native.getNumTactics(nCtx()); }
 
         /**
          * The names of all supported tactics.
@@ -2812,10 +2769,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumTactics;
+                int n = NumTactics();
                 String[] res = new String[n];
-                for (long i; i < n; i++)
-                    res[i] = Native.getTacticName(nCtx, i);
+                for (int i = 0; i < n; i++)
+                    res[i] = Native.getTacticName(nCtx(), i);
                 return res;
             }
 
@@ -2826,7 +2783,7 @@ import java.lang.Exception;
         {
             
 
-            return Native.tacticGetDescr(nCtx, name);
+            return Native.tacticGetDescr(nCtx(), name);
         }
 
         /**
@@ -2856,19 +2813,19 @@ import java.lang.Exception;
             CheckContextMatch(ts);
 
             long last = 0;
-            if (ts != null && ts.Length > 0)
+            if (ts != null && ts.length > 0)
             {
-                last = ts[ts.Length - 1].NativeObject();
-                for (int i = ts.Length - 2; i >= 0; i--)
-                    last = Native.tacticAndThen(nCtx, ts[i].NativeObject, last);
+                last = ts[ts.length - 1].NativeObject();
+                for (int i = ts.length - 2; i >= 0; i--)
+                    last = Native.tacticAndThen(nCtx(), ts[i].NativeObject(), last);
             }
             if (last != 0)
             {
-                last = Native.tacticAndThen(nCtx, t2.NativeObject, last);
-                return new Tactic(this, Native.tacticAndThen(nCtx, t1.NativeObject, last));
+                last = Native.tacticAndThen(nCtx(), t2.NativeObject(), last);
+                return new Tactic(this, Native.tacticAndThen(nCtx(), t1.NativeObject(), last));
             }
             else
-                return new Tactic(this, Native.tacticAndThen(nCtx, t1.NativeObject, t2.NativeObject));
+                return new Tactic(this, Native.tacticAndThen(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -2900,7 +2857,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new Tactic(this, Native.tacticOrElse(nCtx, t1.NativeObject, t2.NativeObject));
+            return new Tactic(this, Native.tacticOrElse(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -2909,13 +2866,13 @@ import java.lang.Exception;
          * If <paramref name="t"/> does not terminate within <paramref name="ms"/> milliseconds, then it fails.
          * </remarks>
          **/
-        public Tactic TryFor(Tactic t, long ms)
+        public Tactic TryFor(Tactic t, int ms)
         {
             
             
 
             CheckContextMatch(t);
-            return new Tactic(this, Native.tacticTryFor(nCtx, t.NativeObject, ms));
+            return new Tactic(this, Native.tacticTryFor(nCtx(), t.NativeObject(), ms));
         }
 
         /**
@@ -2933,7 +2890,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t);
             CheckContextMatch(p);
-            return new Tactic(this, Native.tacticWhen(nCtx, p.NativeObject, t.NativeObject));
+            return new Tactic(this, Native.tacticWhen(nCtx(), p.NativeObject(), t.NativeObject()));
         }
 
         /**
@@ -2950,20 +2907,20 @@ import java.lang.Exception;
             CheckContextMatch(p);
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new Tactic(this, Native.tacticCond(nCtx, p.NativeObject, t1.NativeObject, t2.NativeObject));
+            return new Tactic(this, Native.tacticCond(nCtx(), p.NativeObject(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
          * Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
          * modified anymore or the maximum number of iterations <paramref name="max"/> is reached.
          **/
-        public Tactic Repeat(Tactic t, long max)
+        public Tactic Repeat(Tactic t, int max)
         {
             
             
 
             CheckContextMatch(t);
-            return new Tactic(this, Native.tacticRepeat(nCtx, t.NativeObject, max));
+            return new Tactic(this, Native.tacticRepeat(nCtx(), t.NativeObject(), max));
         }
 
         /**
@@ -2973,7 +2930,7 @@ import java.lang.Exception;
         {
             
 
-            return new Tactic(this, Native.tacticSkip(nCtx));
+            return new Tactic(this, Native.tacticSkip(nCtx()));
         }
 
         /**
@@ -2983,7 +2940,7 @@ import java.lang.Exception;
         {
             
 
-            return new Tactic(this, Native.tacticFail(nCtx));
+            return new Tactic(this, Native.tacticFail(nCtx()));
         }
 
         /**
@@ -2995,7 +2952,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(p);
-            return new Tactic(this, Native.tacticFailIf(nCtx, p.NativeObject));
+            return new Tactic(this, Native.tacticFailIf(nCtx(), p.NativeObject()));
         }
 
         /**
@@ -3006,7 +2963,7 @@ import java.lang.Exception;
         {
             
 
-            return new Tactic(this, Native.tacticFailIfNotDecided(nCtx));
+            return new Tactic(this, Native.tacticFailIfNotDecided(nCtx()));
         }
 
         /**
@@ -3020,7 +2977,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t);
             CheckContextMatch(p);
-            return new Tactic(this, Native.tacticUsingParams(nCtx, t.NativeObject, p.NativeObject));
+            return new Tactic(this, Native.tacticUsingParams(nCtx(), t.NativeObject(), p.NativeObject()));
         }
 
         /**
@@ -3045,7 +3002,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(t);
-            return new Tactic(this, Native.tacticParOr(nCtx, Tactic.ArrayLength(t), Tactic.ArrayToNative(t)));
+            return new Tactic(this, Native.tacticParOr(nCtx(), Tactic.ArrayLength(t), Tactic.ArrayToNative(t)));
         }
 
         /**
@@ -3060,7 +3017,7 @@ import java.lang.Exception;
 
             CheckContextMatch(t1);
             CheckContextMatch(t2);
-            return new Tactic(this, Native.tacticParAndThen(nCtx, t1.NativeObject, t2.NativeObject));
+            return new Tactic(this, Native.tacticParAndThen(nCtx(), t1.NativeObject(), t2.NativeObject()));
         }
 
         /**
@@ -3069,13 +3026,13 @@ import java.lang.Exception;
          **/
         public void Interrupt()
         {
-            Native.interrupt(nCtx);
+            Native.interrupt(nCtx());
         }
 
         /**
          * The number of supported Probes.
          **/
-        public long NumProbes()  { return Native.getNumProbes(nCtx); }
+        public int NumProbes()  { return Native.getNumProbes(nCtx()); }
 
         /**
          * The names of all supported Probes.
@@ -3084,10 +3041,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumProbes;
+                int n = NumProbes();
                 String[] res = new String[n];
-                for (long i; i < n; i++)
-                    res[i] = Native.getProbeName(nCtx, i);
+                for (int i = 0; i < n; i++)
+                    res[i] = Native.getProbeName(nCtx(), i);
                 return res;
             }
 
@@ -3098,7 +3055,7 @@ import java.lang.Exception;
         {
             
 
-            return Native.probeGetDescr(nCtx, name);
+            return Native.probeGetDescr(nCtx(), name);
         }
 
         /**
@@ -3118,7 +3075,7 @@ import java.lang.Exception;
         {
             
 
-            return new Probe(this, Native.probeConst(nCtx, val));
+            return new Probe(this, Native.probeConst(nCtx(), val));
         }
 
         /**
@@ -3133,7 +3090,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeLt(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeLt(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3148,7 +3105,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeGt(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeGt(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3163,7 +3120,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeLe(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeLe(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3178,7 +3135,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeGe(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeGe(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3193,7 +3150,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeEq(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeEq(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3208,7 +3165,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeAnd(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeAnd(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3223,7 +3180,7 @@ import java.lang.Exception;
 
             CheckContextMatch(p1);
             CheckContextMatch(p2);
-            return new Probe(this, Native.probeOr(nCtx, p1.NativeObject, p2.NativeObject));
+            return new Probe(this, Native.probeOr(nCtx(), p1.NativeObject(), p2.NativeObject()));
         }
 
         /**
@@ -3236,7 +3193,7 @@ import java.lang.Exception;
             
 
             CheckContextMatch(p);
-            return new Probe(this, Native.probeNot(nCtx, p.NativeObject));
+            return new Probe(this, Native.probeNot(nCtx(), p.NativeObject()));
         }
 
         /**
@@ -3252,9 +3209,9 @@ import java.lang.Exception;
             
 
             if (logic == null)
-                return new Solver(this, Native.mkSolver(nCtx));
+                return new Solver(this, Native.mkSolver(nCtx()));
             else
-                return new Solver(this, Native.mkSolverForLogic(nCtx, logic.NativeObject));
+                return new Solver(this, Native.mkSolverForLogic(nCtx(), logic.NativeObject()));
         }
 
         /**
@@ -3275,7 +3232,7 @@ import java.lang.Exception;
         {
             
 
-            return new Solver(this, Native.mkSimpleSolver(nCtx));
+            return new Solver(this, Native.mkSimpleSolver(nCtx()));
         }
 
         /**
@@ -3290,7 +3247,7 @@ import java.lang.Exception;
             
             
 
-            return new Solver(this, Native.mkSolverFromTactic(nCtx, t.NativeObject));
+            return new Solver(this, Native.mkSolverFromTactic(nCtx(), t.NativeObject()));
         }
 
         /**
@@ -3343,13 +3300,13 @@ import java.lang.Exception;
         {
             
 
-            return Native.simplifyGetHelp(nCtx);
+            return Native.simplifyGetHelp(nCtx());
         }
 
         /**
          * Retrieves parameter descriptions for simplifier.
          **/
-        public ParamDescrs SimplifyParameterDescriptions()  { return new ParamDescrs(this, Native.simplifyGetParamDescrs(nCtx)); }
+        public ParamDescrs SimplifyParameterDescriptions()  { return new ParamDescrs(this, Native.simplifyGetParamDescrs(nCtx())); }
 
         /**
          * Enable/disable printing of warning messages to the console.
@@ -3358,7 +3315,7 @@ import java.lang.Exception;
          **/
         public static void ToggleWarningMessages(boolean enabled)
         {
-            Native.toggleWarningMessages((enabled) ? 1 : 0);
+            Native.toggleWarningMessages((enabled) ? true : false);
         }
 
         ///// <summary>
@@ -3387,7 +3344,7 @@ import java.lang.Exception;
          **/
         public void UpdateParamValue(String id, String value)
         {
-            Native.updateParamValue(nCtx, id, value);
+            Native.updateParamValue(nCtx(), id, value);
         }
 
         /**
@@ -3400,8 +3357,8 @@ import java.lang.Exception;
         public String GetParamValue(String id)
         {
             long res = 0;
-            int r = Native.getParamValue(nCtx, id, res);
-            if (r == (int)Z3_lbool.Z3_L_FALSE)
+            int r = Native.getParamValue(nCtx(), id, res);
+            if (r == Z3_lbool.Z3_L_FALSE.toInt())
                 return null;
             else
                 return Marshal.PtrToStringAnsi(res);
@@ -3439,7 +3396,7 @@ import java.lang.Exception;
 
             if (arr != null)
             {
-                for (Iterator a = arr.iterator(); a.hasNext(); )
+                for (Z3Object a: arr)
                 {
                      // It was an assume, now we added the precondition, and we made it into an assert
                     CheckContextMatch(a);
@@ -3499,7 +3456,7 @@ import java.lang.Exception;
         Fixedpoint.DecRefQueue Fixedpoint_DRQ () {  return m_Fixedpoint_DRQ; }
 
 
-        long refCount = 0;
+        int refCount = 0;
 
         /**
          * Finalizer.

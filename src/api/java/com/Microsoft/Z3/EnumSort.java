@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -64,19 +65,19 @@ import java.lang.Exception;
             
             
 
-            int n = enumNames.Length;
+            int n = enumNames.length;
             long[] n_constdecls = new long[n];
             long[] n_testers = new long[n];
-            NativeObject() = Native.mkEnumerationSort(ctx.nCtx(), name.NativeObject, (long)n,
+            NativeObject() = Native.mkEnumerationSort(ctx.nCtx(), name.NativeObject(), (int)n,
                                                          Symbol.ArrayToNative(enumNames), n_constdecls, n_testers);
             _constdecls = new FuncDecl[n];
-            for (long i; i < n; i++)
+            for (int i = 0; i < n; i++)
                 _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
             _testerdecls = new FuncDecl[n];
-            for (long i; i < n; i++)
+            for (int i = 0; i < n; i++)
                 _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
             _consts = new Expr[n];
-            for (long i; i < n; i++)
+            for (int i = 0; i < n; i++)
                 _consts[i] = ctx.MkApp(_constdecls[i]);
         }
     };

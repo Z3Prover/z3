@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -21,9 +22,9 @@ import java.lang.Exception;
         /**
          * The major version
          **/
-        public  long Major() 
+        public  int Major() 
             {
-                long major = 0, minor = 0, build = 0, revision = 0;
+                int major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return major;
             }
@@ -31,9 +32,9 @@ import java.lang.Exception;
         /**
          * The minor version
          **/
-        public  long Minor() 
+        public  int Minor() 
             {
-                long major = 0, minor = 0, build = 0, revision = 0;
+                int major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return minor;
             }
@@ -41,9 +42,9 @@ import java.lang.Exception;
         /**
          * The build version
          **/
-        public  long Build() 
+        public  int Build() 
             {
-                long major = 0, minor = 0, build = 0, revision = 0;
+                int major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return build;
             }
@@ -51,9 +52,9 @@ import java.lang.Exception;
         /**
          * The revision
          **/
-        public  long Revision() 
+        public  int Revision() 
             {
-                long major = 0, minor = 0, build = 0, revision = 0;
+                int major = 0, minor = 0, build = 0, revision = 0;
                 Native.getVersion(major, minor, build, revision);
                 return revision;
             }
@@ -65,8 +66,8 @@ import java.lang.Exception;
         {
             
 
-            long major = 0, minor = 0, build = 0, revision = 0;
+            int major = 0, minor = 0, build = 0, revision = 0;
             Native.getVersion(major, minor, build, revision);
-            return major.ToString() + "." + minor.ToString() + "." + build.ToString() + "." + revision.ToString();
+            return major.toString() + "." + minor.toString() + "." + build.toString() + "." + revision.toString();
         }
     }

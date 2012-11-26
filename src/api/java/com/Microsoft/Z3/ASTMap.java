@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -24,7 +25,7 @@ import java.lang.Exception;
         {
             
 
-            return Native.astMapContains(Context().nCtx(), NativeObject(), k.NativeObject) != 0;
+            return Native.astMapContains(Context().nCtx(), NativeObject(), k.NativeObject()) ;
         }
 
         /**
@@ -39,7 +40,7 @@ import java.lang.Exception;
             
             
 
-            return new AST(Context, Native.astMapFind(Context().nCtx(), NativeObject(), k.NativeObject));
+            return new AST(Context(), Native.astMapFind(Context().nCtx(), NativeObject(), k.NativeObject()));
         }
 
         /**
@@ -52,7 +53,7 @@ import java.lang.Exception;
             
             
 
-            Native.astMapInsert(Context().nCtx(), NativeObject(), k.NativeObject, v.NativeObject);
+            Native.astMapInsert(Context().nCtx(), NativeObject(), k.NativeObject(), v.NativeObject());
         }
 
         /**
@@ -63,7 +64,7 @@ import java.lang.Exception;
         {
             
 
-            Native.astMapErase(Context().nCtx(), NativeObject(), k.NativeObject);
+            Native.astMapErase(Context().nCtx(), NativeObject(), k.NativeObject());
         }
 
         /**
@@ -77,14 +78,14 @@ import java.lang.Exception;
         /**
          * The size of the map
          **/
-        public long Size()  { return Native.astMapSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.astMapSize(Context().nCtx(), NativeObject()); }
 
         /**
          * The keys stored in the map.
          **/
         public ASTVector Keys() 
             {
-                return new ASTVector(Context, Native.astMapKeys(Context().nCtx(), NativeObject()));
+                return new ASTVector(Context(), Native.astMapKeys(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -119,13 +120,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.ASTMap_DRQ.IncAndClear(Context, o);
+            Context().ASTMap_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.ASTMap_DRQ.Add(o);
+            Context().ASTMap_DRQ().Add(o);
             super.DecRef(o);
         }
     }

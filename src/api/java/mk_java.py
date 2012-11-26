@@ -11,14 +11,29 @@ CS="../dotnet/"
 EXT=".cs"
 EXCLUDE=["Enumerations.cs", "Native.cs", "AssemblyInfo.cs"]
 OUTDIR="com/Microsoft/Z3/"
+ENUMS_FILE = "Enumerations.cs"
 
 import os
 import fileinput
 import string
 import re
 
+EXCLUDE_METHODS = [ [ "Context.cs", "public Expr MkNumeral(ulong" ],
+                    [ "Context.cs", "public Expr MkNumeral(uint" ],
+                    [ "Context.cs", "public RatNum MkReal(ulong" ],
+                    [ "Context.cs", "public RatNum MkReal(uint" ],
+                    [ "Context.cs", "public IntNum MkInt(ulong" ],
+                    [ "Context.cs", "public IntNum MkInt(uint" ],
+                    [ "Context.cs", "public BitVecNum MkBV(ulong" ],
+                    [ "Context.cs", "public BitVecNum MkBV(uint" ],
+                    ]
+
+ENUMS = []
+
 def mk_java_bindings():
-    print "Generating Java bindings (from C# bindings in " + CS + ")."
+    print "Generating Java bindings (from C# bindings in " + CS + ")..."
+    print "Finding enumerations in " + ENUMS_FILE + "..."
+    find_enums(ENUMS_FILE)
     for root, dirs, files in os.walk(CS):
         for fn in files:
             if not fn in EXCLUDE and fn.endswith(EXT):
@@ -31,14 +46,14 @@ def subst_getters(s, getters):
 def type_replace(s):
     s = s.replace(" bool", " boolean")
     s = s.replace("(bool", "(boolean")
-    s = s.replace("uint", "long")
+    s = s.replace("uint", "int")
     s = s.replace("ulong", "long")
     s = s.replace("string", "String")
     s = s.replace("IntPtr", "long")
     s = s.replace("Dictionary<", "Map<")
     s = s.replace("UInt64", "long")
     s = s.replace("Int64", "long")
-    s = s.replace("List<long>", "List<Long>")
+    s = s.replace("List<long>", "LinkedList<Long>")
     s = s.replace("System.Exception", "Exception")
     return s
 
@@ -55,12 +70,54 @@ def rename_native(s):
         s = c0 + c1 + c2
     return s
 
+def find_enums(fn):
+    for line in fileinput.input(os.path.join(CS, fn)):
+        s = string.rstrip(string.lstrip(line))
+        if s.startswith("public enum"):
+            ENUMS.append(s.split(" ")[2])
+
+
+def enum_replace(line):
+    for e in ENUMS:
+        if line.find("case") != -1:
+            line = line.replace(e + ".", "")
+        elif line.find("== (int)") != -1 or line.find("!= (int)") != -1:
+            line = re.sub("\(int\)" + e + "\.(?P<id>[A-Z0-9_]*)", e + ".\g<id>.toInt()", line)
+        elif line.find("==") != -1 or line.find("!=") != -1:
+            line = re.sub(e + "\.(?P<id>[A-Z0-9_]*)", e + ".\g<id>", line)
+        else:
+            # line = re.sub("\(\(" + e + "\)(?P<rest>.*\(.*)\)", "(" + e + ".values()[\g<rest>])", line)
+            line = re.sub("\(" + e + "\)(?P<rest>.*\(.*\))", e + ".fromInt(\g<rest>)", line)
+    return line
+
 def replace_generals(a):
     a = re.sub(" NativeObject", " NativeObject()", a)
-    a = re.sub(".NativeObject;", ".NativeObject();", a)
-    a = re.sub("Context.nCtx", "Context().nCtx()", a)
-    a = re.sub("ctx.nCtx", "ctx.nCtx()", a)
+    a = re.sub("\.NativeObject", ".NativeObject()", a)
+    a = re.sub("(?P<h>[\.\(])Id", "\g<h>Id()", a)
+    a = a.replace("(Context ==", "(Context() ==")
+    a = a.replace("(Context,", "(Context(),")
+    a = a.replace("Context.", "Context().")    
+    a = a.replace(".nCtx", ".nCtx()")    
+    a = a.replace("(nCtx", "(nCtx()")    
+    a = re.sub("Context\(\).(?P<id>[^_]*)_DRQ", "Context().\g<id>_DRQ()", a)
     a = re.sub("ASTKind", "ASTKind()", a)
+    a = re.sub("IsExpr(?P<f>[ ;])", "IsExpr()\g<f>", a)
+    a = re.sub("IsNumeral(?P<f>[ ;])", "IsNumeral()\g<f>", a)
+    a = re.sub("IsInt(?P<f>[ ;])", "IsInt()\g<f>", a)
+    a = re.sub("IsReal(?P<f>[ ;])", "IsReal()\g<f>", a)
+    a = re.sub("IsVar(?P<f>[ ;\)])", "IsVar()\g<f>", a)
+    a = re.sub("FuncDecl.DeclKind", "FuncDecl().DeclKind()", a)
+    a = re.sub("FuncDecl.DomainSize", "FuncDecl().DomainSize()", a)
+    a = re.sub("(?P<h>[=&]) Num(?P<id>[a-zA-Z]*)", "\g<h> Num\g<id>()", a)
+    a = re.sub("= Denominator", "= Denominator()", a)
+    a = re.sub(", BoolSort(?P<f>[\)\.])", ", BoolSort()\g<f>", a)
+    a = re.sub(", RealSort(?P<f>[\)\.])", ", RealSort()\g<f>", a)
+    a = re.sub(", IntSort(?P<f>[\)\.])", ", IntSort()\g<f>", a)
+    a = a.replace("? 1 : 0", "? true : false")
+    if a.find("Native.") != -1 and a.find("!= 0") != -1:
+        a = a.replace("!= 0", "")
+    if a.find("Native.") != -1 and a.find("== 0") != -1:
+        a = a.replace("== 0", "^ true")
     return a
 
 def translate(filename):
@@ -82,6 +139,8 @@ def translate(filename):
     in_getter_set = 0
     had_ulong_res = 0
     in_enum = 0
+    missing_foreach_brace = 0
+    foreach_opened_brace = 0
     for line in fileinput.input(os.path.join(CS, filename)):
         s = string.rstrip(string.lstrip(line))
         if in_javadoc:
@@ -104,6 +163,13 @@ def translate(filename):
                 tgt.write(t + " **/\n")
                 in_javadoc = 0
 
+        for i in range(0, len(EXCLUDE_METHODS)):
+            if filename == EXCLUDE_METHODS[i][0] and s.startswith(EXCLUDE_METHODS[i][1]):
+                tgt.write(t + "/* Not translated because it would translate to a function with clashing types. */\n")
+                in_unsupported = 1
+                break
+                    
+
         if in_unsupported:
             if s == "}":
                 in_unsupported = 0                
@@ -119,6 +185,7 @@ def translate(filename):
                 tgt.write("import java.math.BigInteger;\n")
                 tgt.write("import java.util.*;\n")
                 tgt.write("import java.lang.Exception;\n")
+                tgt.write("import com.Microsoft.Z3.Enumerations.*;\n")
             elif in_header == 1:
                 # tgt.write(" * " + line.replace(filename, tgtfn))
                 pass
@@ -134,14 +201,15 @@ def translate(filename):
                 tgt.write(t + "/* Overloaded operators are not translated. */\n")
                 in_unsupported = 1
             elif s.startswith("public enum"):
-                tgt.write(line)
+                tgt.write(line.replace("enum", "class"))
                 in_enum = 1
             elif in_enum == 1:
                 if s == "}":
                     tgt.write(line)
                     in_enum = 0
                 else:
-                    tgt.write(re.sub("(?P<id>.*)\W*=\W*(?P<val>[^\n,])", "\g<id> (\g<val>)", line))
+                    line = re.sub("(?P<id>.*)\W*=\W*(?P<val>[^\n,])", "public static final int \g<id> = \g<val>;", line)
+                    tgt.write(line.replace(",",""))
             elif s.startswith("public class") or s.startswith("internal class") or s.startswith("internal abstract class"):
                 a = line.replace(":", "extends").replace("internal ", "")
                 a = a.replace(", IComparable", "")
@@ -164,7 +232,7 @@ def translate(filename):
                 s = s.replace("internal virtual", "")
                 s = s.replace("internal", "")
                 tokens = s.split(" ")
-                print "TOKENS: " + str(len(tokens))
+                # print "TOKENS: " + str(len(tokens))
                 if len(tokens) == 3:
                     in_getter = tokens[2]
                     in_getter_type = type_replace((tokens[0] + " " + tokens[1]))
@@ -204,6 +272,7 @@ def translate(filename):
                         rest = type_replace(rest)
                         rest = rename_native(rest)
                         rest = replace_generals(rest)
+                        rest = enum_replace(rest)
                         t = ""
                         for i in range(0, lastindent):
                             t += " "
@@ -225,6 +294,7 @@ def translate(filename):
                 subst_getters(rest, getters)
                 rest = rename_native(rest)
                 rest = replace_generals(rest)
+                rest = enum_replace(rest)
                 if  in_bracket_op:
                     tgt.write(d + rest)
                 else:
@@ -240,6 +310,7 @@ def translate(filename):
                 rest = type_replace(rest)
                 rest = rename_native(rest)
                 rest = replace_generals(rest)
+                rest = enum_replace(rest)
                 if  in_bracket_op:
                     tgt.write(t + in_getter_type + " " + in_getter + " " + rest + "\n")
                 else:
@@ -257,6 +328,7 @@ def translate(filename):
                 rest = type_replace(rest)
                 rest = rename_native(rest)
                 rest = replace_generals(rest)
+                rest = enum_replace(rest)
                 ac_acc = in_getter_type[:in_getter_type.find(' ')]
                 ac_type = in_getter_type[in_getter_type.find(' ')+1:]
                 if  in_bracket_op:
@@ -301,19 +373,43 @@ def translate(filename):
                     else:
                         for i in range(0, mbraces):
                             line = line.replace("\n", "}\n")
-                if s.find("(") != -1:
+                if (s.find("public") != -1 or s.find("protected") != -1 or s.find("internal") != -1) and s.find("(") != -1:
                     line = re.sub(" = [\w.]+(?P<d>[,;\)])", "\g<d>", line)
                 a = type_replace(line)
+                a = enum_replace(a)
                 a = re.sub("(?P<d>[\(, ])params ", "\g<d>", a)
                 a = a.replace("base.", "super.")
                 a = re.sub("Contract.\w+\([\s\S]*\);", "", a)
                 a = rename_native(a)
                 a = re.sub("~\w+\(\)", "protected void finalize()", a)
+
+                if missing_foreach_brace == 1:
+                    # a = a.replace("\n", " // checked " + str(foreach_opened_brace) + "\n")
+                    if foreach_opened_brace == 0 and a.find("{") != -1:
+                        foreach_opened_brace = 1
+                    elif foreach_opened_brace == 0 and a.find("}") == -1:
+                        a = a.replace("\n", "}}\n")
+                        foreach_opened_brace = 0
+                        missing_foreach_brace = 0
+                    elif foreach_opened_brace == 1 and a.find("}") != -1:
+                        a = a.replace("\n", "}}\n")
+                        foreach_opened_brace = 0
+                        missing_foreach_brace = 0
+
+#                if a.find("foreach") != -1:
+#                   missing_foreach_brace = 1
+#                a = re.sub("foreach\s*\((?P<t>[\w <>,]+)\s+(?P<i>\w+)\s+in\s+(?P<w>\w+)\)",
+ #                          "{ Iterator fe_i = \g<w>.iterator(); while (fe_i.hasNext()) { \g<t> \g<i> = (long)fe_i.next(); ",
+#                           a)
                 a = re.sub("foreach\s*\((?P<t>[\w <>,]+)\s+(?P<i>\w+)\s+in\s+(?P<w>\w+)\)",
-                           "for (Iterator \g<i> = \g<w>.iterator(); \g<i>.hasNext(); )", a)
+                           "for (\g<t> \g<i>: \g<w>)",
+                           a)
+                if a.find("long o: m_queue") != -1:
+                    a = a.replace("long", "Long")
                 a = a.replace("readonly ", "")
                 a = a.replace("const ", "final ")
                 a = a.replace("String ToString", "String toString")
+                a = a.replace(".ToString", ".toString")
                 a = a.replace("internal ", "")
                 a = a.replace("new static", "static")
                 a = a.replace("new public", "public")
@@ -333,6 +429,13 @@ def translate(filename):
                 a = a.replace("out res", "res")
                 a = a.replace("GC.ReRegisterForFinalize(m_ctx);", "")
                 a = a.replace("GC.SuppressFinalize(this);", "")
+                a = a.replace(".Length", ".length")
+                a = a.replace("m_queue.Count", "m_queue.size()")
+                a = a.replace("m_queue.Add", "m_queue.add")
+                a = a.replace("m_queue.Clear", "m_queue.clear")
+                a = a.replace("for (long ", "for (int ")
+                a = a.replace("ReferenceEquals(Context, ctx)", "Context() == ctx")
+                a = a.replace("BigInteger.Parse", "new BigInteger")
                 if had_ulong_res == 0 and a.find("ulong res = 0") != -1:
                     a = a.replace("ulong res = 0;", "LongPtr res = new LongPtr();")
                 elif had_ulong_res == 1:
@@ -348,7 +451,6 @@ def translate(filename):
                 a = re.sub("NativeObject = (?P<rest>.*);", "setNativeObject(\g<rest>);", a)
                 a = replace_generals(a)
                 tgt.write(a)
-                
     tgt.close()
 
 mk_java_bindings()

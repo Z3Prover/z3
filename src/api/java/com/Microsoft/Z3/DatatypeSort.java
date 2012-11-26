@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -18,7 +19,7 @@ import java.lang.Exception;
         /**
          * The number of constructors of the datatype sort.
          **/
-        public long NumConstructors()  { return Native.getDatatypeSortNumConstructors(Context().nCtx(), NativeObject()); }
+        public int NumConstructors()  { return Native.getDatatypeSortNumConstructors(Context().nCtx(), NativeObject()); }
 
         /**
          * The constructors.
@@ -27,10 +28,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumConstructors;
+                int n = NumConstructors();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.getDatatypeSortConstructor(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(Context(), Native.getDatatypeSortConstructor(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -41,10 +42,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumConstructors;
+                int n = NumConstructors();
                 FuncDecl[] res = new FuncDecl[n];
-                for (long i; i < n; i++)
-                    res[i] = new FuncDecl(Context, Native.getDatatypeSortRecognizer(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new FuncDecl(Context(), Native.getDatatypeSortRecognizer(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -55,15 +56,15 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumConstructors;
+                int n = NumConstructors();
                 FuncDecl[][] res = new FuncDecl[n][];
-                for (long i; i < n; i++)
+                for (int i = 0; i < n; i++)
                 {
-                    FuncDecl fd = new FuncDecl(Context, Native.getDatatypeSortConstructor(Context().nCtx(), NativeObject(), i));
-                    long ds = fd.DomainSize;
+                    FuncDecl fd = new FuncDecl(Context(), Native.getDatatypeSortConstructor(Context().nCtx(), NativeObject(), i));
+                    int ds = fd.DomainSize;
                     FuncDecl[] tmp = new FuncDecl[ds];
-                    for (long j; j < ds; j++)
-                        tmp[j] = new FuncDecl(Context, Native.getDatatypeSortConstructorAccessor(Context().nCtx(), NativeObject(), i, j));
+                    for (int j = 0; j < ds; j++)
+                        tmp[j] = new FuncDecl(Context(), Native.getDatatypeSortConstructorAccessor(Context().nCtx(), NativeObject(), i, j));
                     res[i] = tmp;
                 }
                 return res;
@@ -72,7 +73,7 @@ import java.lang.Exception;
     DatatypeSort(Context ctx, long obj) { super(ctx, obj); {  }}
 
         DatatypeSort(Context ctx, Symbol name, Constructor[] constructors)
-        { super(ctx, Native.mkDatatype(ctx.nCtx(), name.NativeObject, (long)constructors.Length, ArrayToNative(constructors)));
+        { super(ctx, Native.mkDatatype(ctx.nCtx(), name.NativeObject(), (int)constructors.length, ArrayToNative(constructors)));
             
             
             
