@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 /* using System; */
 
 /* using System.Numerics; */
@@ -23,7 +24,7 @@ import java.lang.Exception;
             {
                 
 
-                return new IntNum(Context, Native.getNumerator(Context().nCtx(), NativeObject()));
+                return new IntNum(Context(), Native.getNumerator(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -33,7 +34,7 @@ import java.lang.Exception;
             {
                 
 
-                return new IntNum(Context, Native.getDenominator(Context().nCtx(), NativeObject()));
+                return new IntNum(Context(), Native.getDenominator(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -41,8 +42,8 @@ import java.lang.Exception;
          **/
         public BigInteger BigIntNumerator() 
             {
-                IntNum n = Numerator;
-                return BigInteger.Parse(n.ToString());
+                IntNum n = Numerator();
+                return new BigInteger(n.toString());
             }
 
         /**
@@ -50,15 +51,15 @@ import java.lang.Exception;
          **/
         public BigInteger BigIntDenominator() 
             {
-                IntNum n = Denominator;
-                return BigInteger.Parse(n.ToString());
+                IntNum n = Denominator();
+                return new BigInteger(n.toString());
             }
 
         /**
          * Returns a string representation in decimal notation.
          * <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
          **/
-        public String ToDecimalString(long precision)
+        public String ToDecimalString(int precision)
         {
             return Native.getNumeralDecimalString(Context().nCtx(), NativeObject(), precision);
         }

@@ -119,7 +119,6 @@ namespace pdr {
         select_elim_cfg(ast_manager & m, model_ref& md, params_ref const & p):m_r(m, md) {}        
     };
 
-    template class rewriter_tpl<select_elim_cfg>;
 
     class select_elim_star : public rewriter_tpl<select_elim_cfg> {
         select_elim_cfg m_cfg;
@@ -1206,5 +1205,6 @@ namespace pdr {
 
 template class rewriter_tpl<pdr::ite_hoister_cfg>;
 
+template class rewriter_tpl<pdr::select_elim_cfg>;
 
 

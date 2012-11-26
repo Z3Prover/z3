@@ -1854,8 +1854,25 @@ def mk_z3consts_java(api_files):
                         efile.write(' **/\n')
                         efile.write('public enum %s {\n' % name)
                         efile.write
+                        first = True
                         for k, i in decls.iteritems():
-                            efile.write('%s (%s),\n' % (k, i))
+                            if first:
+                               first = False 
+                            else:
+                                efile.write(',\n')
+                            efile.write('    %s (%s)' % (k, i))
+                        efile.write(";\n")
+                        efile.write('\n    private final int intValue;\n\n')
+                        efile.write('    %s(int v) {\n' % name)
+                        efile.write('        this.intValue = v;\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public static final %s fromInt(int v) {\n' % name)
+                        efile.write('        for (%s k: values()) \n' % name)
+                        efile.write('            if (k.intValue == v) return k;\n') 
+                        efile.write('        return values()[0];\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public final int toInt() { return this.intValue; }\n')
+                        #  efile.write(';\n  %s(int v) {}\n' % name)
                         efile.write('}\n\n')
                         efile.close()
                     mode = SEARCHING

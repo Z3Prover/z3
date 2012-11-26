@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -20,7 +21,7 @@ import java.lang.Exception;
             
         }
         UninterpretedSort(Context ctx, Symbol s)
-        { super(ctx, Native.mkUninterpretedSort(ctx.nCtx(), s.NativeObject));
+        { super(ctx, Native.mkUninterpretedSort(ctx.nCtx(), s.NativeObject()));
             
             
         }

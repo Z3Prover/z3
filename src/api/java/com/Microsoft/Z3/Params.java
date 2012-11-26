@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -22,17 +23,17 @@ import java.lang.Exception;
         {
             
 
-            Native.paramsSetBool(Context().nCtx(), NativeObject(), name.NativeObject, (value) ? 1 : 0);
+            Native.paramsSetBool(Context().nCtx(), NativeObject(), name.NativeObject(), (value) ? true : false);
         }
 
         /**
          * Adds a parameter setting.
          **/
-        public void Add(Symbol name, long value)
+        public void Add(Symbol name, int value)
         {
             
 
-            Native.paramsSetLong(Context().nCtx(), NativeObject(), name.NativeObject, value);
+            Native.paramsSetInt(Context().nCtx(), NativeObject(), name.NativeObject(), value);
         }
 
         /**
@@ -42,7 +43,7 @@ import java.lang.Exception;
         {
             
             
-            Native.paramsSetDouble(Context().nCtx(), NativeObject(), name.NativeObject, value);
+            Native.paramsSetDouble(Context().nCtx(), NativeObject(), name.NativeObject(), value);
         }
 
         /**
@@ -53,7 +54,7 @@ import java.lang.Exception;
             
             
 
-            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), name.NativeObject, value.NativeObject);
+            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), name.NativeObject(), value.NativeObject());
         }
 
         /**
@@ -61,15 +62,15 @@ import java.lang.Exception;
          **/
         public void Add(String name, boolean value)
         {
-            Native.paramsSetBool(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
+            Native.paramsSetBool(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), (value) ? true : false);
         }
 
         /**
          * Adds a parameter setting.
          **/
-        public void Add(String name, long value)
+        public void Add(String name, int value)
         {
-            Native.paramsSetLong(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value);
+            Native.paramsSetInt(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), value);
         }
 
         /**
@@ -77,7 +78,7 @@ import java.lang.Exception;
          **/
         public void Add(String name, double value)
         {
-            Native.paramsSetDouble(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value);
+            Native.paramsSetDouble(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), value);
         }
 
         /**
@@ -87,7 +88,7 @@ import java.lang.Exception;
         {
             
 
-            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), Context.MkSymbol(name).NativeObject, value.NativeObject);
+            Native.paramsSetSymbol(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), value.NativeObject());
         }
 
         /**
@@ -118,13 +119,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Params_DRQ.IncAndClear(Context, o);
+            Context().Params_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Params_DRQ.Add(o);
+            Context().Params_DRQ().Add(o);
             super.DecRef(o);
         }
     }

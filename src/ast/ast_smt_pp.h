@@ -79,22 +79,23 @@ public:
     void display_smt2(std::ostream& strm, expr* n);
     void display_expr(std::ostream& strm, expr* n);
     void display_expr_smt2(std::ostream& strm, expr* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
+    void display_ast_smt2(std::ostream& strm, ast* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
 
 };
 
 struct mk_smt_pp {
-    expr * m_expr;
+    ast*   m_ast;
     ast_manager& m_manager;
     unsigned m_indent;
     unsigned m_num_var_names;
     char const* const* m_var_names;
-    mk_smt_pp(expr* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0) :
-        m_expr(e), m_manager(m), m_indent(indent), m_num_var_names(num_var_names), m_var_names(var_names) {}
+    mk_smt_pp(ast* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0) :
+        m_ast(e), m_manager(m), m_indent(indent), m_num_var_names(num_var_names), m_var_names(var_names) {}
 };
 
 inline std::ostream& operator<<(std::ostream& out, const mk_smt_pp & p) {
     ast_smt_pp pp(p.m_manager);
-    pp.display_expr_smt2(out, p.m_expr, p.m_indent, p.m_num_var_names, p.m_var_names);
+    pp.display_ast_smt2(out, p.m_ast, p.m_indent, p.m_num_var_names, p.m_var_names);
     return out;
 }
 

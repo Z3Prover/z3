@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -18,7 +19,7 @@ import java.lang.Exception;
         /**
          * Indicates whether the quantifier is universal.
          **/
-        public boolean IsUniversal()  { return Native.isQuantifierForall(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsUniversal()  { return Native.isQuantifierForall(Context().nCtx(), NativeObject()) ; }
 
         /**
          * Indicates whether the quantifier is existential.
@@ -28,12 +29,12 @@ import java.lang.Exception;
         /**
          * The weight of the quantifier.
          **/
-        public long Weight()  { return Native.getQuantifierWeight(Context().nCtx(), NativeObject()); }
+        public int Weight()  { return Native.getQuantifierWeight(Context().nCtx(), NativeObject()); }
 
         /**
          * The number of patterns.
          **/
-        public long NumPatterns()  { return Native.getQuantifierNumPatterns(Context().nCtx(), NativeObject()); }
+        public int NumPatterns()  { return Native.getQuantifierNumPatterns(Context().nCtx(), NativeObject()); }
 
         /**
          * The patterns.
@@ -42,17 +43,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumPatterns;
+                int n = NumPatterns();
                 Pattern[] res = new Pattern[n];
-                for (long i; i < n; i++)
-                    res[i] = new Pattern(Context, Native.getQuantifierPatternAst(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new Pattern(Context(), Native.getQuantifierPatternAst(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The number of no-patterns.
          **/
-        public long NumNoPatterns()  { return Native.getQuantifierNumNoPatterns(Context().nCtx(), NativeObject()); }
+        public int NumNoPatterns()  { return Native.getQuantifierNumNoPatterns(Context().nCtx(), NativeObject()); }
 
         /**
          * The no-patterns.
@@ -61,17 +62,17 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumNoPatterns;
+                int n = NumNoPatterns();
                 Pattern[] res = new Pattern[n];
-                for (long i; i < n; i++)
-                    res[i] = new Pattern(Context, Native.getQuantifierNoPatternAst(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new Pattern(Context(), Native.getQuantifierNoPatternAst(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
         /**
          * The number of bound variables.
          **/
-        public long NumBound()  { return Native.getQuantifierNumBound(Context().nCtx(), NativeObject()); }
+        public int NumBound()  { return Native.getQuantifierNumBound(Context().nCtx(), NativeObject()); }
 
         /**
          * The symbols for the bound variables.
@@ -80,10 +81,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumBound;
+                int n = NumBound();
                 Symbol[] res = new Symbol[n];
-                for (long i; i < n; i++)
-                    res[i] = Symbol.Create(Context, Native.getQuantifierBoundName(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Symbol.Create(Context(), Native.getQuantifierBoundName(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -94,10 +95,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumBound;
+                int n = NumBound();
                 Sort[] res = new Sort[n];
-                for (long i; i < n; i++)
-                    res[i] = Sort.Create(Context, Native.getQuantifierBoundSort(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Sort.Create(Context(), Native.getQuantifierBoundSort(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -108,10 +109,10 @@ import java.lang.Exception;
             {
                 
 
-                return new BoolExpr(Context, Native.getQuantifierBody(Context().nCtx(), NativeObject()));
+                return new BoolExpr(Context(), Native.getQuantifierBody(Context().nCtx(), NativeObject()));
             }
 
-        Quantifier(Context ctx, boolean isForall, Sort[] sorts, Symbol[] names, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        Quantifier(Context ctx, boolean isForall, Sort[] sorts, Symbol[] names, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         { super(ctx);
             
             
@@ -123,38 +124,38 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(patterns);
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(sorts);
-            Context.CheckContextMatch(names);
-            Context.CheckContextMatch(body);
+            Context().CheckContextMatch(patterns);
+            Context().CheckContextMatch(noPatterns);
+            Context().CheckContextMatch(sorts);
+            Context().CheckContextMatch(names);
+            Context().CheckContextMatch(body);
 
-            if (sorts.Length != names.Length)
+            if (sorts.length != names.length)
                 throw new Z3Exception("Number of sorts does not match number of names");
 
             long[] _patterns = AST.ArrayToNative(patterns);
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject() = Native.mkQuantifier(ctx.nCtx(), (isForall) ? 1 : 0, weight,
+                NativeObject() = Native.mkQuantifier(ctx.nCtx(), (isForall) ? true : false, weight,
                                            AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                            AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                            Symbol.ArrayToNative(names),
-                                           body.NativeObject);
+                                           body.NativeObject());
             }
             else
             {
-                NativeObject() = Native.mkQuantifierEx(ctx.nCtx(), (isForall) ? 1 : 0, weight,
+                NativeObject() = Native.mkQuantifierEx(ctx.nCtx(), (isForall) ? true : false, weight,
                                   AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                   AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                   AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
                                   AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                   Symbol.ArrayToNative(names),
-                                  body.NativeObject);
+                                  body.NativeObject());
             }
         }
 
-        Quantifier(Context ctx, boolean isForall, Expr[] bound, Expr body, long weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
+        Quantifier(Context ctx, boolean isForall, Expr[] bound, Expr body, int weight, Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
         { super(ctx);
             
             
@@ -163,26 +164,26 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(noPatterns);
-            Context.CheckContextMatch(patterns);
-            //Context.CheckContextMatch(bound);
-            Context.CheckContextMatch(body);
+            Context().CheckContextMatch(noPatterns);
+            Context().CheckContextMatch(patterns);
+            //Context().CheckContextMatch(bound);
+            Context().CheckContextMatch(body);
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject() = Native.mkQuantifierConst(ctx.nCtx(), (isForall) ? 1 : 0, weight,
+                NativeObject() = Native.mkQuantifierConst(ctx.nCtx(), (isForall) ? true : false, weight,
                                                  AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                                  AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
-                                                 body.NativeObject);
+                                                 body.NativeObject());
             }
             else
             {
-                NativeObject() = Native.mkQuantifierConstEx(ctx.nCtx(), (isForall) ? 1 : 0, weight,
+                NativeObject() = Native.mkQuantifierConstEx(ctx.nCtx(), (isForall) ? true : false, weight,
                                         AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                         AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                         AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                         AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
-                                        body.NativeObject);
+                                        body.NativeObject());
             }
         }
 

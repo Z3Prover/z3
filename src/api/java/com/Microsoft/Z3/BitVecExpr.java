@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 /* using System; */
 /* using System.Collections.Generic; */
 /* using System.Linq; */
@@ -22,7 +23,7 @@ import java.lang.Exception;
         /**
          * The size of the sort of a bit-vector term.
          **/
-        public long SortSize()  { return ((BitVecSort)Sort).Size; }
+        public int SortSize()  { return ((BitVecSort)Sort).Size; }
 
         /** Constructor for BitVecExpr </summary>
          **/

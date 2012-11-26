@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -18,8 +19,7 @@ import java.lang.Exception;
         /**
          * The size of the bit-vector sort.
          **/
-        public long Size()  { return Native.getBvSortSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.getBvSortSize(Context().nCtx(), NativeObject()); }
 
     BitVecSort(Context ctx, long obj) { super(ctx, obj); {  }}
-    BitVecSort(Context ctx, long size) { super(ctx, Native.mkBvSort(ctx.nCtx(), size)); {  }}
     };

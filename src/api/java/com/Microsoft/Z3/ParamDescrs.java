@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -21,7 +22,7 @@ import java.lang.Exception;
         public void Validate(Params p)
         {
             
-            Native.paramsValidate(Context().nCtx(), p.NativeObject, NativeObject());
+            Native.paramsValidate(Context().nCtx(), p.NativeObject(), NativeObject());
         }
 
         /**
@@ -30,7 +31,7 @@ import java.lang.Exception;
         public Z3_param_kind GetKind(Symbol name)
         {
             
-            return (Z3_param_kind)Native.paramDescrsGetKind(Context().nCtx(), NativeObject(), name.NativeObject);
+            return Z3_param_kind.fromInt(Native.paramDescrsGetKind(Context().nCtx(), NativeObject(), name.NativeObject()));
         }
 
         /**
@@ -38,10 +39,10 @@ import java.lang.Exception;
          **/
         public Symbol[] Names() 
             {
-                  long sz = Native.paramDescrsSize(Context().nCtx(), NativeObject());
+                  int sz = Native.paramDescrsSize(Context().nCtx(), NativeObject());
                   Symbol[] names = new Symbol[sz];
-                  for (long i; i < sz; ++i) {
-                      names[i] = Symbol.Create(Context, Native.paramDescrsGetName(Context().nCtx(), NativeObject(), i));
+                  for (int i = 0; i < sz; ++i) {
+                      names[i] = Symbol.Create(Context(), Native.paramDescrsGetName(Context().nCtx(), NativeObject(), i));
                   }
                   return names;
         }
@@ -49,7 +50,7 @@ import java.lang.Exception;
         /**
          * The size of the ParamDescrs.
          **/
-        public long Size()  { return Native.paramDescrsSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.paramDescrsSize(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves a string representation of the ParamDescrs. 
@@ -79,13 +80,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.ParamDescrs_DRQ.IncAndClear(Context, o);
+            Context().ParamDescrs_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.ParamDescrs_DRQ.Add(o);
+            Context().ParamDescrs_DRQ().Add(o);
             super.DecRef(o);
         }
     }

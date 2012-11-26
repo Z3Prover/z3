@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -32,7 +33,7 @@ import java.lang.Exception;
         /**
          * Retrieves parameter descriptions for Tactics.
          **/
-        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context, Native.tacticGetParamDescrs(Context().nCtx(), NativeObject())); }
+        public ParamDescrs ParameterDescriptions()  { return new ParamDescrs(Context(), Native.tacticGetParamDescrs(Context().nCtx(), NativeObject())); }
 
 
         /**
@@ -43,13 +44,13 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(g);
+            Context().CheckContextMatch(g);
             if (p == null)
-                return new ApplyResult(Context, Native.tacticApply(Context().nCtx(), NativeObject(), g.NativeObject));
+                return new ApplyResult(Context(), Native.tacticApply(Context().nCtx(), NativeObject(), g.NativeObject()));
             else
             {
-                Context.CheckContextMatch(p);
-                return new ApplyResult(Context, Native.tacticApplyEx(Context().nCtx(), NativeObject(), g.NativeObject, p.NativeObject));
+                Context().CheckContextMatch(p);
+                return new ApplyResult(Context(), Native.tacticApplyEx(Context().nCtx(), NativeObject(), g.NativeObject(), p.NativeObject()));
             }
         }
 
@@ -72,7 +73,7 @@ import java.lang.Exception;
             {
                 
 
-                return Context.MkSolver(this);
+                return Context().MkSolver(this);
             }
 
         Tactic(Context ctx, long obj)
@@ -99,13 +100,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.Tactic_DRQ.IncAndClear(Context, o);
+            Context().Tactic_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.Tactic_DRQ.Add(o);
+            Context().Tactic_DRQ().Add(o);
             super.DecRef(o);
         }
     }

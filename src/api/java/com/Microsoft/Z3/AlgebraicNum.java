@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 /* using System; */
 
 /* using System.Numerics; */
@@ -23,11 +24,11 @@ import java.lang.Exception;
          * <param name="precision">the precision of the result</param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToUpper(long precision)
+        public RatNum ToUpper(int precision)
         {
             
 
-            return new RatNum(Context, Native.getAlgebraicNumberUpper(Context().nCtx(), NativeObject(), precision));
+            return new RatNum(Context(), Native.getAlgebraicNumberUpper(Context().nCtx(), NativeObject(), precision));
         }
 
         /**
@@ -37,18 +38,18 @@ import java.lang.Exception;
          * <param name="precision"></param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToLower(long precision)
+        public RatNum ToLower(int precision)
         {
             
 
-            return new RatNum(Context, Native.getAlgebraicNumberLower(Context().nCtx(), NativeObject(), precision));
+            return new RatNum(Context(), Native.getAlgebraicNumberLower(Context().nCtx(), NativeObject(), precision));
         }
 
         /**
          * Returns a string representation in decimal notation.
          * <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
          **/
-        public String ToDecimal(long precision)
+        public String ToDecimal(int precision)
         {
             
 

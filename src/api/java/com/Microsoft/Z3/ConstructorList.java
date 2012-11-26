@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Collections.Generic; */
@@ -37,6 +38,6 @@ import java.lang.Exception;
             
             
 
-            setNativeObject(Native.mkConstructorList(Context().nCtx(), (long)constructors.Length, Constructor.ArrayToNative(constructors)));
+            setNativeObject(Native.mkConstructorList(Context().nCtx(), (int)constructors.length, Constructor.ArrayToNative(constructors)));
         }
     }

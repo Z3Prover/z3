@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -105,14 +106,14 @@ import java.lang.Exception;
             
 
             if (a == null) return null;
-            long[] an = new long[a.Length];
-            for (long i; i < a.Length; i++)
+            long[] an = new long[a.length];
+            for (int i = 0; i < a.length; i++)
                 if (a[i] != null) an[i] = a[i].NativeObject();
             return an;
         }
 
-        static long ArrayLength(Z3Object[] a)
+        static int ArrayLength(Z3Object[] a)
         {
-            return (a == null)?0:(long)a.Length;
+            return (a == null)?0:(int)a.length;
         }
     }

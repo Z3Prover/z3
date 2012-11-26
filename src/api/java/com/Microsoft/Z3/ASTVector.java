@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -18,7 +19,7 @@ import java.lang.Exception;
         /**
          * The size of the vector
          **/
-        public long Size()  { return Native.astVectorSize(Context().nCtx(), NativeObject()); }
+        public int Size()  { return Native.astVectorSize(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves the i-th object in the vector.
@@ -26,24 +27,24 @@ import java.lang.Exception;
          * <param name="i">Index</param>
          * @return An AST
          **/
-        public AST get(long i) 
+        public AST get(int i) 
             {
                 
 
-                return new AST(Context, Native.astVectorGet(Context().nCtx(), NativeObject(), i));
+                return new AST(Context(), Native.astVectorGet(Context().nCtx(), NativeObject(), i));
             }
-        public void set(long i, AST value) 
+        public void set(int i, AST value) 
             {
                 
 
-                Native.astVectorSet(Context().nCtx(), NativeObject(), i, value.NativeObject);
+                Native.astVectorSet(Context().nCtx(), NativeObject(), i, value.NativeObject());
             }
 
         /**
          * Resize the vector to <paramref name="newSize"/>.
          * <param name="newSize">The new size of the vector.</param>
          **/
-        public void Resize(long newSize)
+        public void Resize(int newSize)
         {
             Native.astVectorResize(Context().nCtx(), NativeObject(), newSize);
         }
@@ -57,7 +58,7 @@ import java.lang.Exception;
         {
             
 
-            Native.astVectorPush(Context().nCtx(), NativeObject(), a.NativeObject);
+            Native.astVectorPush(Context().nCtx(), NativeObject(), a.NativeObject());
         }
 
         /**
@@ -70,7 +71,7 @@ import java.lang.Exception;
             
             
 
-            return new ASTVector(Context, Native.astVectorTranslate(Context().nCtx(), NativeObject(), ctx.nCtx()));
+            return new ASTVector(Context(), Native.astVectorTranslate(Context().nCtx(), NativeObject(), ctx.nCtx()));
         }
 
         /**
@@ -99,13 +100,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.ASTVector_DRQ.IncAndClear(Context, o);
+            Context().ASTVector_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.ASTVector_DRQ.Add(o);
+            Context().ASTVector_DRQ().Add(o);
             super.DecRef(o);
         }
     }

@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -22,7 +23,7 @@ import java.lang.Exception;
             {
                 
 
-                return Sort.Create(Context, Native.getArraySortDomain(Context().nCtx(), NativeObject()));
+                return Sort.Create(Context(), Native.getArraySortDomain(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -32,12 +33,12 @@ import java.lang.Exception;
             {
                 
 
-                return Sort.Create(Context, Native.getArraySortRange(Context().nCtx(), NativeObject()));
+                return Sort.Create(Context(), Native.getArraySortRange(Context().nCtx(), NativeObject()));
             }
 
     ArraySort(Context ctx, long obj) { super(ctx, obj); {  }}
         ArraySort(Context ctx, Sort domain, Sort range)
-        { super(ctx, Native.mkArraySort(ctx.nCtx(), domain.NativeObject, range.NativeObject));
+        { super(ctx, Native.mkArraySort(ctx.nCtx(), domain.NativeObject(), range.NativeObject()));
             
             
             

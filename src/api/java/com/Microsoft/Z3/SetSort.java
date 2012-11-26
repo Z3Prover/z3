@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -20,7 +21,7 @@ import java.lang.Exception;
             
         }
         SetSort(Context ctx, Sort ty)
-        { super(ctx, Native.mkSetSort(ctx.nCtx(), ty.NativeObject));
+        { super(ctx, Native.mkSetSort(ctx.nCtx(), ty.NativeObject()));
             
             
         }

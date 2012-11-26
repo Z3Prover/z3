@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -19,7 +20,7 @@ import java.lang.Exception;
         /**
          * The number of Subgoals.
          **/
-        public long NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context().nCtx(), NativeObject()); }
+        public int NumSubgoals()  { return Native.applyResultGetNumSubgoals(Context().nCtx(), NativeObject()); }
 
         /**
          * Retrieves the subgoals from the ApplyResult.
@@ -29,10 +30,10 @@ import java.lang.Exception;
                 
                 
 
-                long n = NumSubgoals;
+                int n = NumSubgoals();
                 Goal[] res = new Goal[n];
-                for (long i; i < n; i++)
-                    res[i] = new Goal(Context, Native.applyResultGetSubgoal(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = new Goal(Context(), Native.applyResultGetSubgoal(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -41,12 +42,12 @@ import java.lang.Exception;
          * goal <code>g</code>, that the ApplyResult was obtained from. 
          * @return A model for <code>g</code>
          **/
-        public Model ConvertModel(long i, Model m)
+        public Model ConvertModel(int i, Model m)
         {
             
             
 
-            return new Model(Context, Native.applyResultConvertModel(Context().nCtx(), NativeObject(), i, m.NativeObject));
+            return new Model(Context(), Native.applyResultConvertModel(Context().nCtx(), NativeObject(), i, m.NativeObject()));
         }
 
         /**
@@ -77,13 +78,13 @@ import java.lang.Exception;
 
         void IncRef(long o)
         {
-            Context.ApplyResult_DRQ.IncAndClear(Context, o);
+            Context().ApplyResult_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
-            Context.ApplyResult_DRQ.Add(o);
+            Context().ApplyResult_DRQ().Add(o);
             super.DecRef(o);
         }
     }

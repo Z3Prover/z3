@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -25,9 +26,9 @@ import java.lang.Exception;
             
 
             if (p == null)
-                return Expr.Create(Context, Native.simplify(Context().nCtx(), NativeObject()));
+                return Expr.Create(Context(), Native.simplify(Context().nCtx(), NativeObject()));
             else
-                return Expr.Create(Context, Native.simplifyEx(Context().nCtx(), NativeObject(), p.NativeObject));
+                return Expr.Create(Context(), Native.simplifyEx(Context().nCtx(), NativeObject(), p.NativeObject()));
         }
 
         /**
@@ -36,19 +37,19 @@ import java.lang.Exception;
         public FuncDecl FuncDecl() 
             {
                 
-                return new FuncDecl(Context, Native.getAppDecl(Context().nCtx(), NativeObject()));
+                return new FuncDecl(Context(), Native.getAppDecl(Context().nCtx(), NativeObject()));
             }
 
         /**
          * Indicates whether the expression is the true or false expression
          * or something else (Z3_L_UNDEF).
          **/
-        public Z3_lbool BoolValue()  { return (Z3_lbool)Native.getBoolValue(Context().nCtx(), NativeObject()); }
+        public Z3_lbool BoolValue()  { return Z3_lbool.fromInt(Native.getBoolValue(Context().nCtx(), NativeObject())); }
 
         /**
          * The number of arguments of the expression.
          **/
-        public long NumArgs()  { return Native.getAppNumArgs(Context().nCtx(), NativeObject()); }
+        public int NumArgs()  { return Native.getAppNumArgs(Context().nCtx(), NativeObject()); }
 
         /**
          * The arguments of the expression.
@@ -57,10 +58,10 @@ import java.lang.Exception;
             {
                 
 
-                long n = NumArgs;
+                int n = NumArgs();
                 Expr[] res = new Expr[n];
-                for (long i; i < n; i++)
-                    res[i] = Expr.Create(Context, Native.getAppArg(Context().nCtx(), NativeObject(), i));
+                for (int i = 0; i < n; i++)
+                    res[i] = Expr.Create(Context(), Native.getAppArg(Context().nCtx(), NativeObject(), i));
                 return res;
             }
 
@@ -73,10 +74,10 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(args);
-            if (args.Length != NumArgs)
+            Context().CheckContextMatch(args);
+            if (args.length != NumArgs())
                 throw new Z3Exception("Number of arguments does not match");
-            setNativeObject(Native.updateTerm(Context().nCtx(), NativeObject(), (long)args.Length, Expr.ArrayToNative(args)));
+            setNativeObject(Native.updateTerm(Context().nCtx(), NativeObject(), (int)args.length, Expr.ArrayToNative(args)));
         }
 
         /**
@@ -95,11 +96,11 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(from);
-            Context.CheckContextMatch(to);
-            if (from.Length != to.Length)
+            Context().CheckContextMatch(from);
+            Context().CheckContextMatch(to);
+            if (from.length != to.length)
                 throw new Z3Exception("Argument sizes do not match");
-            return Expr.Create(Context, Native.substitute(Context().nCtx(), NativeObject(), (long)from.Length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
+            return Expr.Create(Context(), Native.substitute(Context().nCtx(), NativeObject(), (int)from.length, Expr.ArrayToNative(from), Expr.ArrayToNative(to)));
         }
 
         /**
@@ -127,8 +128,8 @@ import java.lang.Exception;
             
             
 
-            Context.CheckContextMatch(to);
-            return Expr.Create(Context, Native.substituteVars(Context().nCtx(), NativeObject(), (long)to.Length, Expr.ArrayToNative(to)));
+            Context().CheckContextMatch(to);
+            return Expr.Create(Context(), Native.substituteVars(Context().nCtx(), NativeObject(), (int)to.length, Expr.ArrayToNative(to)));
         }
 
         /**
@@ -141,7 +142,7 @@ import java.lang.Exception;
             
             
 
-            if (ReferenceEquals(Context, ctx))
+            if (Context() == ctx)
                 return this;
             else
                 return Expr.Create(ctx, Native.translate(Context().nCtx(), NativeObject(), ctx.nCtx()));
@@ -152,19 +153,19 @@ import java.lang.Exception;
          **/
         public String toString()
         {
-            return super.ToString();
+            return super.toString();
         }
 
         /**
          * Indicates whether the term is a numeral
          **/
-        public boolean IsNumeral()  { return Native.isNumeralAst(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsNumeral()  { return Native.isNumeralAst(Context().nCtx(), NativeObject()) ; }
 
         /**
          * Indicates whether the term is well-sorted.
          * @return True if the term is well-sorted, false otherwise.
          **/
-        public boolean IsWellSorted()  { return Native.isWellSorted(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsWellSorted()  { return Native.isWellSorted(Context().nCtx(), NativeObject()) ; }
 
         /**
          * The Sort of the term.
@@ -172,28 +173,28 @@ import java.lang.Exception;
         public Sort Sort() 
             {
                 
-                return Sort.Create(Context, Native.getSort(Context().nCtx(), NativeObject()));
+                return Sort.Create(Context(), Native.getSort(Context().nCtx(), NativeObject()));
             }
 
         /**
          * Indicates whether the term represents a constant.
          **/
-        public boolean IsConst()  { return IsExpr && NumArgs == 0 && FuncDecl.DomainSize == 0; }
+        public boolean IsConst()  { return IsExpr() && NumArgs() == 0 && FuncDecl().DomainSize() == 0; }
 
         /**
          * Indicates whether the term is an integer numeral.
          **/
-        public boolean IsIntNum()  { return IsNumeral && IsInt; }
+        public boolean IsIntNum()  { return IsNumeral() && IsInt(); }
 
         /**
          * Indicates whether the term is a real numeral.
          **/
-        public boolean IsRatNum()  { return IsNumeral && IsReal; }
+        public boolean IsRatNum()  { return IsNumeral() && IsReal(); }
 
         /**
          * Indicates whether the term is an algebraic number
          **/
-        public boolean IsAlgebraicNumber()  { return Native.isAlgebraicNumber(Context().nCtx(), NativeObject()) != 0; }
+        public boolean IsAlgebraicNumber()  { return Native.isAlgebraicNumber(Context().nCtx(), NativeObject()) ; }
 
 
         /**
@@ -201,168 +202,169 @@ import java.lang.Exception;
          **/
         public boolean IsBool() 
             {
-                return (IsExpr &&
+                return (IsExpr() &&
                         Native.isEqSort(Context().nCtx(),
                                               Native.mkBoolSort(Context().nCtx()),
-                                              Native.getSort(Context().nCtx(), NativeObject())) != 0);
+                                              Native.getSort(Context().nCtx(), NativeObject())) );
             }
 
         /**
          * Indicates whether the term is the constant true.
          **/
-        public boolean IsTrue() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TRUE; } 
+        public boolean IsTrue() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TRUE; } 
 
         /**
          * Indicates whether the term is the constant false.
          **/
-        public boolean IsFalse() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FALSE; } 
+        public boolean IsFalse() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_FALSE; } 
 
         /**
          * Indicates whether the term is an equality predicate.
          **/
-        public boolean IsEq() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EQ; } 
+        public boolean IsEq() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EQ; } 
 
         /**
          * Indicates whether the term is an n-ary distinct predicate (every argument is mutually distinct).
          **/
-        public boolean IsDistinct() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DISTINCT; } 
+        public boolean IsDistinct() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_DISTINCT; } 
 
         /**
          * Indicates whether the term is a ternary if-then-else term
          **/
-        public boolean IsITE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ITE; } 
+        public boolean IsITE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ITE; } 
 
         /**
          * Indicates whether the term is an n-ary conjunction
          **/
-        public boolean IsAnd() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AND; } 
+        public boolean IsAnd() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_AND; } 
 
         /**
          * Indicates whether the term is an n-ary disjunction
          **/
-        public boolean IsOr() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OR; } 
+        public boolean IsOr() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_OR; } 
 
         /**
          * Indicates whether the term is an if-and-only-if (Boolean equivalence, binary)
          **/
-        public boolean IsIff() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IFF; } 
+        public boolean IsIff() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IFF; } 
 
         /**
          * Indicates whether the term is an exclusive or
          **/
-        public boolean IsXor() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR; } 
+        public boolean IsXor() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_XOR; } 
 
         /**
          * Indicates whether the term is a negation
          **/
-        public boolean IsNot() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_NOT; } 
+        public boolean IsNot() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_NOT; } 
 
         /**
          * Indicates whether the term is an implication
          **/
-        public boolean IsImplies() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IMPLIES; } 
+        public boolean IsImplies() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IMPLIES; } 
 
         /**
          * Indicates whether the term is of integer sort.
          **/
         public boolean IsInt() 
             {
-                return (Native.isNumeralAst(Context().nCtx(), NativeObject()) != 0 &&
-                        Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_INT_SORT);
+                return (Native.isNumeralAst(Context().nCtx(), NativeObject())  &&
+                        Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_INT_SORT.toInt());
             }
 
         /**
          * Indicates whether the term is of sort real.
          **/
-        public boolean IsReal()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_REAL_SORT; }
+        public boolean IsReal()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_REAL_SORT.toInt(); }
 
         /**
          * Indicates whether the term is an arithmetic numeral.
          **/
-        public boolean IsArithmeticNumeral() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ANUM; } 
+        public boolean IsArithmeticNumeral() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ANUM; } 
 
         /**
          * Indicates whether the term is a less-than-or-equal
          **/
-        public boolean IsLE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LE; } 
+        public boolean IsLE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LE; } 
 
         /**
          * Indicates whether the term is a greater-than-or-equal
          **/
-        public boolean IsGE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GE; } 
+        public boolean IsGE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_GE; } 
 
         /**
          * Indicates whether the term is a less-than
          **/
-        public boolean IsLT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LT; } 
+        public boolean IsLT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LT; } 
 
         /**
          * Indicates whether the term is a greater-than
          **/
-        public boolean IsGT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_GT; } 
+        public boolean IsGT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_GT; } 
 
         /**
          * Indicates whether the term is addition (binary)
          **/
-        public boolean IsAdd() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ADD; } 
+        public boolean IsAdd() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ADD; } 
 
         /**
          * Indicates whether the term is subtraction (binary)
          **/
-        public boolean IsSub() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SUB; } 
+        public boolean IsSub() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SUB; } 
 
         /**
          * Indicates whether the term is a unary minus
          **/
-        public boolean IsUMinus() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UMINUS; } 
+        public boolean IsUMinus() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UMINUS; } 
 
         /**
          * Indicates whether the term is multiplication (binary)
          **/
-        public boolean IsMul() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MUL; } 
+        public boolean IsMul() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_MUL; } 
 
         /**
          * Indicates whether the term is division (binary)
          **/
-        public boolean IsDiv() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_DIV; } 
+        public boolean IsDiv() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_DIV; } 
 
         /**
          * Indicates whether the term is integer division (binary)
          **/
-        public boolean IsIDiv() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IDIV; } 
+        public boolean IsIDiv() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IDIV; } 
 
         /**
          * Indicates whether the term is remainder (binary)
          **/
-        public boolean IsRemainder() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REM; } 
+        public boolean IsRemainder() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_REM; } 
 
         /**
          * Indicates whether the term is modulus (binary)
          **/
-        public boolean IsModulus() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_MOD; } 
+        public boolean IsModulus() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_MOD; } 
 
         /**
          * Indicates whether the term is a coercion of integer to real (unary)
          **/
-        public boolean IsIntToReal() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_REAL; } 
+        public boolean IsIntToReal() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TO_REAL; } 
 
         /**
          * Indicates whether the term is a coercion of real to integer (unary)
          **/
-        public boolean IsRealToInt() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_TO_INT; } 
+        public boolean IsRealToInt() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TO_INT; } 
 
         /**
          * Indicates whether the term is a check that tests whether a real is integral (unary)
          **/
-        public boolean IsRealIsInt() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IS_INT; } 
+        public boolean IsRealIsInt() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IS_INT; } 
 
         /**
          * Indicates whether the term is of an array sort.
          **/
         public boolean IsArray() 
             {
-                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject())  &&
+                        Z3_sort_kind.fromInt(Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject()))) 
+                        == Z3_sort_kind.Z3_ARRAY_SORT);
             }
 
         /**
@@ -370,366 +372,366 @@ import java.lang.Exception;
          * <remarks>It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
          * Array store takes at least 3 arguments. </remarks>
          **/
-        public boolean IsStore() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_STORE; } 
+        public boolean IsStore() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_STORE; } 
 
         /**
          * Indicates whether the term is an array select.
          **/
-        public boolean IsSelect() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SELECT; } 
+        public boolean IsSelect() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SELECT; } 
 
         /**
          * Indicates whether the term is a constant array.
          * <remarks>For example, select(const(v),i) = v holds for every v and i. The function is unary.</remarks>
          **/
-        public boolean IsConstantArray() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONST_ARRAY; } 
+        public boolean IsConstantArray() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY; } 
 
         /**
          * Indicates whether the term is a default array.
          * <remarks>For example default(const(v)) = v. The function is unary.</remarks>
          **/
-        public boolean IsDefaultArray() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT; } 
+        public boolean IsDefaultArray() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT; } 
 
         /**
          * Indicates whether the term is an array map.
          * <remarks>It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i.</remarks>
          **/
-        public boolean IsArrayMap() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ARRAY_MAP; } 
+        public boolean IsArrayMap() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP; } 
 
         /**
          * Indicates whether the term is an as-array term.
          * <remarks>An as-array term is n array value that behaves as the function graph of the 
          * function passed as parameter.</remarks>
          **/
-        public boolean IsAsArray() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_AS_ARRAY; } 
+        public boolean IsAsArray() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY; } 
 
         /**
          * Indicates whether the term is set union
          **/
-        public boolean IsSetUnion() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_UNION; } 
+        public boolean IsSetUnion() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_UNION; } 
 
         /**
          * Indicates whether the term is set intersection
          **/
-        public boolean IsSetIntersect() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_INTERSECT; } 
+        public boolean IsSetIntersect() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT; } 
 
         /**
          * Indicates whether the term is set difference
          **/
-        public boolean IsSetDifference() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_DIFFERENCE; } 
+        public boolean IsSetDifference() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE; } 
 
         /**
          * Indicates whether the term is set complement
          **/
-        public boolean IsSetComplement() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_COMPLEMENT; } 
+        public boolean IsSetComplement() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT; } 
 
         /**
          * Indicates whether the term is set subset
          **/
-        public boolean IsSetSubset() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SET_SUBSET; } 
+        public boolean IsSetSubset() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET; } 
 
         /**
          *  Indicates whether the terms is of bit-vector sort.
          **/
-        public boolean IsBV()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == (long)Z3_sort_kind.Z3_BV_SORT; }
+        public boolean IsBV()  { return Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_BV_SORT.toInt(); }
 
         /**
          * Indicates whether the term is a bit-vector numeral
          **/
-        public boolean IsBVNumeral() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNUM; } 
+        public boolean IsBVNumeral() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNUM; } 
 
         /**
          * Indicates whether the term is a one-bit bit-vector with value one
          **/
-        public boolean IsBVBitOne() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT1; } 
+        public boolean IsBVBitOne() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BIT1; } 
 
         /**
          * Indicates whether the term is a one-bit bit-vector with value zero
          **/
-        public boolean IsBVBitZero() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BIT0; } 
+        public boolean IsBVBitZero() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BIT0; } 
 
         /**
          * Indicates whether the term is a bit-vector unary minus
          **/
-        public boolean IsBVUMinus() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNEG; } 
+        public boolean IsBVUMinus() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNEG; } 
 
         /**
          * Indicates whether the term is a bit-vector addition (binary)
          **/
-        public boolean IsBVAdd() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BADD; } 
+        public boolean IsBVAdd() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BADD; } 
 
         /**
          * Indicates whether the term is a bit-vector subtraction (binary)
          **/
-        public boolean IsBVSub() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSUB; } 
+        public boolean IsBVSub() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSUB; } 
 
         /**
          * Indicates whether the term is a bit-vector multiplication (binary)
          **/
-        public boolean IsBVMul() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BMUL; } 
+        public boolean IsBVMul() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BMUL; } 
 
         /**
          * Indicates whether the term is a bit-vector signed division (binary)
          **/
-        public boolean IsBVSDiv() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV; } 
+        public boolean IsBVSDiv() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSDIV; } 
 
         /**
          * Indicates whether the term is a bit-vector unsigned division (binary)
          **/
-        public boolean IsBVUDiv() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV; } 
+        public boolean IsBVUDiv() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUDIV; } 
 
         /**
          * Indicates whether the term is a bit-vector signed remainder (binary)
          **/
-        public boolean IsBVSRem() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM; } 
+        public boolean IsBVSRem() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSREM; } 
 
         /**
          * Indicates whether the term is a bit-vector unsigned remainder (binary)
          **/
-        public boolean IsBVURem() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM; } 
+        public boolean IsBVURem() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUREM; } 
 
         /**
          * Indicates whether the term is a bit-vector signed modulus
          **/
-        public boolean IsBVSMod() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD; } 
+        public boolean IsBVSMod() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSMOD; } 
 
         /**
          * Indicates whether the term is a bit-vector signed division by zero
          **/
-        boolean IsBVSDiv0 () { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSDIV0; }
+        boolean IsBVSDiv0 () { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSDIV0; }
 
         /**
          * Indicates whether the term is a bit-vector unsigned division by zero
          **/
-        boolean IsBVUDiv0 () { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUDIV0; }
+        boolean IsBVUDiv0 () { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUDIV0; }
 
         /**
          * Indicates whether the term is a bit-vector signed remainder by zero
          **/
-        boolean IsBVSRem0 () { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSREM0; }
+        boolean IsBVSRem0 () { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSREM0; }
 
         /**
          * Indicates whether the term is a bit-vector unsigned remainder by zero
          **/
-        boolean IsBVURem0 () { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BUREM0; }
+        boolean IsBVURem0 () { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUREM0; }
 
         /**
          * Indicates whether the term is a bit-vector signed modulus by zero
          **/
-        boolean IsBVSMod0 () { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSMOD0; }
+        boolean IsBVSMod0 () { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSMOD0; }
 
         /**
          * Indicates whether the term is an unsigned bit-vector less-than-or-equal
          **/
-        public boolean IsBVULE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULEQ; } 
+        public boolean IsBVULE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ULEQ; } 
 
         /**
          * Indicates whether the term is a signed bit-vector less-than-or-equal
          **/
-        public boolean IsBVSLE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLEQ; } 
+        public boolean IsBVSLE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SLEQ; } 
 
         /**
          * Indicates whether the term is an unsigned bit-vector greater-than-or-equal
          **/
-        public boolean IsBVUGE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGEQ; } 
+        public boolean IsBVUGE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UGEQ; } 
 
         /**
          * Indicates whether the term is a signed bit-vector greater-than-or-equal
          **/
-        public boolean IsBVSGE() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGEQ; } 
+        public boolean IsBVSGE() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SGEQ; } 
 
         /**
          * Indicates whether the term is an unsigned bit-vector less-than
          **/
-        public boolean IsBVULT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ULT; } 
+        public boolean IsBVULT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ULT; } 
 
         /**
          * Indicates whether the term is a signed bit-vector less-than
          **/
-        public boolean IsBVSLT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SLT; } 
+        public boolean IsBVSLT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SLT; } 
 
         /**
          * Indicates whether the term is an unsigned bit-vector greater-than
          **/
-        public boolean IsBVUGT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_UGT; } 
+        public boolean IsBVUGT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UGT; } 
 
         /**
          * Indicates whether the term is a signed bit-vector greater-than
          **/
-        public boolean IsBVSGT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SGT; } 
+        public boolean IsBVSGT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SGT; } 
 
         /**
          * Indicates whether the term is a bit-wise AND
          **/
-        public boolean IsBVAND() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BAND; } 
+        public boolean IsBVAND() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BAND; } 
 
         /**
          * Indicates whether the term is a bit-wise OR
          **/
-        public boolean IsBVOR() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BOR; } 
+        public boolean IsBVOR() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BOR; } 
 
         /**
          * Indicates whether the term is a bit-wise NOT
          **/
-        public boolean IsBVNOT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOT; } 
+        public boolean IsBVNOT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNOT; } 
 
         /**
          * Indicates whether the term is a bit-wise XOR
          **/
-        public boolean IsBVXOR() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXOR; } 
+        public boolean IsBVXOR() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BXOR; } 
 
         /**
          * Indicates whether the term is a bit-wise NAND
          **/
-        public boolean IsBVNAND() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNAND; } 
+        public boolean IsBVNAND() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNAND; } 
 
         /**
          * Indicates whether the term is a bit-wise NOR
          **/
-        public boolean IsBVNOR() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BNOR; } 
+        public boolean IsBVNOR() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNOR; } 
 
         /**
          * Indicates whether the term is a bit-wise XNOR
          **/
-        public boolean IsBVXNOR() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BXNOR; } 
+        public boolean IsBVXNOR() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BXNOR; } 
 
         /**
          * Indicates whether the term is a bit-vector concatenation (binary)
          **/
-        public boolean IsBVConcat() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CONCAT; } 
+        public boolean IsBVConcat() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CONCAT; } 
 
         /**
          * Indicates whether the term is a bit-vector sign extension
          **/
-        public boolean IsBVSignExtension() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SIGN_EXT; } 
+        public boolean IsBVSignExtension() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT; } 
 
         /**
          * Indicates whether the term is a bit-vector zero extension
          **/
-        public boolean IsBVZeroExtension() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ZERO_EXT; } 
+        public boolean IsBVZeroExtension() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT; } 
 
         /**
          * Indicates whether the term is a bit-vector extraction
          **/
-        public boolean IsBVExtract() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXTRACT; } 
+        public boolean IsBVExtract() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXTRACT; } 
 
         /**
          * Indicates whether the term is a bit-vector repetition
          **/
-        public boolean IsBVRepeat() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_REPEAT; } 
+        public boolean IsBVRepeat() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_REPEAT; } 
 
         /**
          * Indicates whether the term is a bit-vector reduce OR
          **/
-        public boolean IsBVReduceOR() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDOR; } 
+        public boolean IsBVReduceOR() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BREDOR; } 
 
         /**
          * Indicates whether the term is a bit-vector reduce AND
          **/
-        public boolean IsBVReduceAND() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BREDAND; } 
+        public boolean IsBVReduceAND() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BREDAND; } 
 
         /**
          * Indicates whether the term is a bit-vector comparison
          **/
-        public boolean IsBVComp() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BCOMP; } 
+        public boolean IsBVComp() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BCOMP; } 
 
         /**
          * Indicates whether the term is a bit-vector shift left
          **/
-        public boolean IsBVShiftLeft() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BSHL; } 
+        public boolean IsBVShiftLeft() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSHL; } 
 
         /**
          * Indicates whether the term is a bit-vector logical shift right
          **/
-        public boolean IsBVShiftRightLogical() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BLSHR; } 
+        public boolean IsBVShiftRightLogical() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BLSHR; } 
 
         /**
          * Indicates whether the term is a bit-vector arithmetic shift left
          **/
-        public boolean IsBVShiftRightArithmetic() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BASHR; } 
+        public boolean IsBVShiftRightArithmetic() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BASHR; } 
 
         /**
          * Indicates whether the term is a bit-vector rotate left
          **/
-        public boolean IsBVRotateLeft() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_LEFT; } 
+        public boolean IsBVRotateLeft() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT; } 
 
         /**
          * Indicates whether the term is a bit-vector rotate right
          **/
-        public boolean IsBVRotateRight() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_ROTATE_RIGHT; } 
+        public boolean IsBVRotateRight() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT; } 
 
         /**
          * Indicates whether the term is a bit-vector rotate left (extended)
          * <remarks>Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one.</remarks>
          **/
-        public boolean IsBVRotateLeftExtended() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT; } 
+        public boolean IsBVRotateLeftExtended() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT; } 
 
         /**
          * Indicates whether the term is a bit-vector rotate right (extended)
          * <remarks>Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one.</remarks>
          **/
-        public boolean IsBVRotateRightExtended() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT; } 
+        public boolean IsBVRotateRightExtended() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT; } 
 
         /**
          * Indicates whether the term is a coercion from integer to bit-vector
          * <remarks>This function is not supported by the decision procedures. Only the most 
          * rudimentary simplification rules are applied to this function.</remarks>
          **/
-        public boolean IsIntToBV() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INT2BV; } 
+        public boolean IsIntToBV() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_INT2BV; } 
 
         /**
          * Indicates whether the term is a coercion from bit-vector to integer
          * <remarks>This function is not supported by the decision procedures. Only the most 
          * rudimentary simplification rules are applied to this function.</remarks>
          **/
-        public boolean IsBVToInt() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_BV2INT; } 
+        public boolean IsBVToInt() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BV2INT; } 
 
         /**
          * Indicates whether the term is a bit-vector carry
          * <remarks>Compute the carry bit in a full-adder.  The meaning is given by the 
          * equivalence (carry l1 l2 l3) &lt;=&gt; (or (and l1 l2) (and l1 l3) (and l2 l3)))</remarks>
          **/
-        public boolean IsBVCarry() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_CARRY; } 
+        public boolean IsBVCarry() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CARRY; } 
 
         /**
          * Indicates whether the term is a bit-vector ternary XOR
          * <remarks>The meaning is given by the equivalence (xor3 l1 l2 l3) &lt;=&gt; (xor (xor l1 l2) l3)</remarks>
          **/
-        public boolean IsBVXOR3() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_XOR3; } 
+        public boolean IsBVXOR3() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_XOR3; } 
 
 
         /**
          * Indicates whether the term is a label (used by the Boogie Verification condition generator).
          * <remarks>The label has two parameters, a string and a Boolean polarity. It takes one argument, a formula.</remarks>
          **/
-        public boolean IsLabel() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL; } 
+        public boolean IsLabel() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LABEL; } 
 
         /**
          * Indicates whether the term is a label literal (used by the Boogie Verification condition generator).                     
          * <remarks>A label literal has a set of string parameters. It takes no arguments.</remarks>
          **/
-        public boolean IsLabelLit() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_LABEL_LIT; } 
+        public boolean IsLabelLit() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT; } 
 
         /**
          * Indicates whether the term is a binary equivalence modulo namings. 
          * <remarks>This binary predicate is used in proof terms.
          * It captures equisatisfiability and equivalence modulo renamings.</remarks>
          **/
-        public boolean IsOEQ() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_OEQ; } 
+        public boolean IsOEQ() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_OEQ; } 
 
         /**
          * Indicates whether the term is a Proof for the expression 'true'.
          **/
-        public boolean IsProofTrue() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRUE; } 
+        public boolean IsProofTrue() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE; } 
 
         /**
          * Indicates whether the term is a proof for a fact asserted by the user.
          **/
-        public boolean IsProofAsserted() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ASSERTED; } 
+        public boolean IsProofAsserted() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED; } 
 
         /**
          * Indicates whether the term is a proof for a fact (tagged as goal) asserted by the user.
          **/
-        public boolean IsProofGoal() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_GOAL; } 
+        public boolean IsProofGoal() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL; } 
 
         /**
          * Indicates whether the term is proof via modus ponens
@@ -740,7 +742,7 @@ import java.lang.Exception;
          * [mp T1 T2]: q
          * The second antecedents may also be a proof for (iff p q).</remarks>
          **/
-        public boolean IsProofModusPonens() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS; } 
+        public boolean IsProofModusPonens() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS; } 
 
         /**
          * Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
@@ -749,7 +751,7 @@ import java.lang.Exception;
          * equivalence modulo namings, equality and equivalence.
          * That is, R is either '~', '=' or 'iff'.</remarks>
          **/
-        public boolean IsProofReflexivity() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY; } 
+        public boolean IsProofReflexivity() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY; } 
 
         /**
          * Indicates whether the term is proof by symmetricity of a relation
@@ -760,7 +762,7 @@ import java.lang.Exception;
          * T1 is the antecedent of this proof object.
          * </remarks>
          **/
-        public boolean IsProofSymmetry() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SYMMETRY; } 
+        public boolean IsProofSymmetry() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY; } 
 
         /**
          * Indicates whether the term is a proof by transitivity of a relation
@@ -772,7 +774,7 @@ import java.lang.Exception;
          * [trans T1 T2]: (R t u)
          * </remarks>
          **/
-        public boolean IsProofTransitivity() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY; } 
+        public boolean IsProofTransitivity() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY; } 
 
         /**
          * Indicates whether the term is a proof by condensed transitivity of a relation
@@ -793,7 +795,7 @@ import java.lang.Exception;
          * antecedent (R a b) as an edge between a and b.
          * </remarks>
          **/
-        public boolean IsProofTransitivityStar() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR; } 
+        public boolean IsProofTransitivityStar() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR; } 
 
 
         /**
@@ -807,7 +809,7 @@ import java.lang.Exception;
          * That is, reflexivity proofs are supressed to save space.
          * </remarks>
          **/
-        public boolean IsProofMonotonicity() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } 
+        public boolean IsProofMonotonicity() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY; } 
 
         /**
          * Indicates whether the term is a quant-intro proof 
@@ -817,7 +819,7 @@ import java.lang.Exception;
          * [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
          * </remarks>
          **/
-        public boolean IsProofQuantIntro() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO; } 
+        public boolean IsProofQuantIntro() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO; } 
 
         /**
          * Indicates whether the term is a distributivity proof object.  
@@ -835,7 +837,7 @@ import java.lang.Exception;
          * instantiated by f = or, and g = and.
          * </remarks>
          **/
-        public boolean IsProofDistributivity() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY; } 
+        public boolean IsProofDistributivity() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY; } 
 
         /**
          * Indicates whether the term is a proof by elimination of AND
@@ -845,7 +847,7 @@ import java.lang.Exception;
          * [and-elim T1]: l_i
          * </remarks>
          **/
-        public boolean IsProofAndElimination() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } 
+        public boolean IsProofAndElimination() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM; } 
 
         /**
          * Indicates whether the term is a proof by eliminiation of not-or
@@ -855,7 +857,7 @@ import java.lang.Exception;
          * [not-or-elim T1]: (not l_i)       
          * </remarks>
          **/
-        public boolean IsProofOrElimination() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM; } 
+        public boolean IsProofOrElimination() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM; } 
 
         /**
          * Indicates whether the term is a proof by rewriting
@@ -874,7 +876,7 @@ import java.lang.Exception;
          * (iff (or x false) x)          
          * </remarks>
          **/
-        public boolean IsProofRewrite() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE; } 
+        public boolean IsProofRewrite() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE; } 
 
         /**
          * Indicates whether the term is a proof by rewriting
@@ -890,7 +892,7 @@ import java.lang.Exception;
          * - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
          * </remarks>
          **/
-        public boolean IsProofRewriteStar() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } 
+        public boolean IsProofRewriteStar() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } 
 
         /**
          * Indicates whether the term is a proof for pulling quantifiers out.
@@ -898,7 +900,7 @@ import java.lang.Exception;
          * A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
          * </remarks>
          **/
-        public boolean IsProofPullQuant() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } 
+        public boolean IsProofPullQuant() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } 
 
         /**
          * Indicates whether the term is a proof for pulling quantifiers out.
@@ -908,7 +910,7 @@ import java.lang.Exception;
          * This proof object has no antecedents
          * </remarks>
          **/
-        public boolean IsProofPullQuantStar() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } 
+        public boolean IsProofPullQuantStar() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } 
 
         /**
          * Indicates whether the term is a proof for pushing quantifiers in.
@@ -921,7 +923,7 @@ import java.lang.Exception;
          *  This proof object has no antecedents
          * </remarks>
          **/
-        public boolean IsProofPushQuant() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT; } 
+        public boolean IsProofPushQuant() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT; } 
 
         /**
          * Indicates whether the term is a proof for elimination of unused variables.
@@ -933,7 +935,7 @@ import java.lang.Exception;
          * This proof object has no antecedents.
          * </remarks>
          **/
-        public boolean IsProofElimUnusedVars() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS; } 
+        public boolean IsProofElimUnusedVars() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS; } 
 
         /**
          * Indicates whether the term is a proof for destructive equality resolution
@@ -947,7 +949,7 @@ import java.lang.Exception;
          * Several variables can be eliminated simultaneously.
          * </remarks>
          **/
-        public boolean IsProofDER() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DER; } 
+        public boolean IsProofDER() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DER; } 
 
         /**
          * Indicates whether the term is a proof for quantifier instantiation
@@ -955,13 +957,13 @@ import java.lang.Exception;
          * A proof of (or (not (forall (x) (P x))) (P a))
          * </remarks>
          **/
-        public boolean IsProofQuantInst() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } 
+        public boolean IsProofQuantInst() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST; } 
 
         /**
          * Indicates whether the term is a hypthesis marker.
          * <remarks>Mark a hypothesis in a natural deduction style proof.</remarks>
          **/
-        public boolean IsProofHypothesis() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } 
+        public boolean IsProofHypothesis() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS; } 
 
         /**
          * Indicates whether the term is a proof by lemma
@@ -974,7 +976,7 @@ import java.lang.Exception;
          * when T1 contains the hypotheses: l_1, ..., l_n.
          * </remarks>
          **/
-        public boolean IsProofLemma() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_LEMMA; } 
+        public boolean IsProofLemma() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA; } 
 
         /**
          * Indicates whether the term is a proof by unit resolution
@@ -986,7 +988,7 @@ import java.lang.Exception;
          * [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m')
          * </remarks>
          **/
-        public boolean IsProofUnitResolution() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION; } 
+        public boolean IsProofUnitResolution() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION; } 
 
         /**
          * Indicates whether the term is a proof by iff-true
@@ -995,7 +997,7 @@ import java.lang.Exception;
          * [iff-true T1]: (iff p true)
          * </remarks>
          **/
-        public boolean IsProofIFFTrue() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_TRUE; } 
+        public boolean IsProofIFFTrue() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE; } 
 
         /**
          * Indicates whether the term is a proof by iff-false
@@ -1004,7 +1006,7 @@ import java.lang.Exception;
          * [iff-false T1]: (iff p false)
          * </remarks>
          **/
-        public boolean IsProofIFFFalse() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_FALSE; } 
+        public boolean IsProofIFFFalse() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE; } 
 
         /**
          * Indicates whether the term is a proof by commutativity
@@ -1017,7 +1019,7 @@ import java.lang.Exception;
          * Remark: if f is bool, then = is iff.
          * </remarks>
          **/
-        public boolean IsProofCommutativity() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY; } 
+        public boolean IsProofCommutativity() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY; } 
 
         /**
          * Indicates whether the term is a proof for Tseitin-like axioms
@@ -1053,7 +1055,7 @@ import java.lang.Exception;
          * bounded number of steps (=3).
          * </remarks>
          **/
-        public boolean IsProofDefAxiom() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM; } 
+        public boolean IsProofDefAxiom() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM; } 
 
         /**
          * Indicates whether the term is a proof for introduction of a name
@@ -1076,7 +1078,7 @@ import java.lang.Exception;
          * [def-intro]: (= n e)       
          * </remarks>
          **/
-        public boolean IsProofDefIntro() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_DEF_INTRO; } 
+        public boolean IsProofDefIntro() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO; } 
 
         /**
          * Indicates whether the term is a proof for application of a definition
@@ -1086,7 +1088,7 @@ import java.lang.Exception;
          *  n is a name for F.
          * </remarks>
          **/
-        public boolean IsProofApplyDef() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_APPLY_DEF; } 
+        public boolean IsProofApplyDef() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF; } 
 
         /**
          * Indicates whether the term is a proof iff-oeq
@@ -1095,7 +1097,7 @@ import java.lang.Exception;
          * [iff~ T1]: (~ p q)
          * </remarks>
          **/
-        public boolean IsProofIFFOEQ() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_IFF_OEQ; } 
+        public boolean IsProofIFFOEQ() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ; } 
 
         /**
          * Indicates whether the term is a proof for a positive NNF step
@@ -1123,7 +1125,7 @@ import java.lang.Exception;
          * over Boolean connectives 'and' and 'or'.
          * </remarks>
          **/
-        public boolean IsProofNNFPos() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_POS; } 
+        public boolean IsProofNNFPos() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS; } 
 
         /**
          * Indicates whether the term is a proof for a negative NNF step
@@ -1148,7 +1150,7 @@ import java.lang.Exception;
          *                             (and (or r_1 r_2) (or r_1' r_2')))
          * </remarks>
          **/
-        public boolean IsProofNNFNeg() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } 
+        public boolean IsProofNNFNeg() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } 
 
         /**
          * Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
@@ -1160,7 +1162,7 @@ import java.lang.Exception;
          * This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
          * </remarks>
          **/
-        public boolean IsProofNNFStar() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } 
+        public boolean IsProofNNFStar() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } 
 
         /**
          * Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
@@ -1170,7 +1172,7 @@ import java.lang.Exception;
          * This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.          
          * </remarks>
          **/
-        public boolean IsProofCNFStar() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } 
+        public boolean IsProofCNFStar() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } 
 
         /**
          * Indicates whether the term is a proof for a Skolemization step
@@ -1183,7 +1185,7 @@ import java.lang.Exception;
          * This proof object has no antecedents.
          * </remarks>
          **/
-        public boolean IsProofSkolemize() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE; } 
+        public boolean IsProofSkolemize() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE; } 
 
         /**
          * Indicates whether the term is a proof by modus ponens for equi-satisfiability.
@@ -1194,7 +1196,7 @@ import java.lang.Exception;
          * [mp~ T1 T2]: q  
          * </remarks>
          **/
-        public boolean IsProofModusPonensOEQ() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ; } 
+        public boolean IsProofModusPonensOEQ() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ; } 
 
         /**
          * Indicates whether the term is a proof for theory lemma
@@ -1213,15 +1215,16 @@ import java.lang.Exception;
          * - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
          * </remarks>
          **/
-        public boolean IsProofTheoryLemma() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_TH_LEMMA; } 
+        public boolean IsProofTheoryLemma() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA; } 
 
         /**
          * Indicates whether the term is of an array sort.
          **/
         public boolean IsRelation() 
             {
-                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_RELATION_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject())  &&
+                        Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) 
+                        == Z3_sort_kind.Z3_RELATION_SORT.toInt());
             }
 
         /**
@@ -1232,40 +1235,40 @@ import java.lang.Exception;
          * correspond to the <code>n</code> columns of the relation.
          * </remarks>
          **/
-        public boolean IsRelationStore() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_STORE; } 
+        public boolean IsRelationStore() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_STORE; } 
 
         /**
          * Indicates whether the term is an empty relation
          **/
-        public boolean IsEmptyRelation() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_EMPTY; } 
+        public boolean IsEmptyRelation() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY; } 
 
         /**
          * Indicates whether the term is a test for the emptiness of a relation
          **/
-        public boolean IsIsEmptyRelation() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_IS_EMPTY; } 
+        public boolean IsIsEmptyRelation() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY; } 
 
         /**
          * Indicates whether the term is a relational join
          **/
-        public boolean IsRelationalJoin() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_JOIN; } 
+        public boolean IsRelationalJoin() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN; } 
 
         /**
          * Indicates whether the term is the union or convex hull of two relations. 
          * <remarks>The function takes two arguments.</remarks>
          **/
-        public boolean IsRelationUnion() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_UNION; } 
+        public boolean IsRelationUnion() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_UNION; } 
 
         /**
          * Indicates whether the term is the widening of two relations
          * <remarks>The function takes two arguments.</remarks>
          **/
-        public boolean IsRelationWiden() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_WIDEN; } 
+        public boolean IsRelationWiden() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN; } 
 
         /**
          * Indicates whether the term is a projection of columns (provided as numbers in the parameters).
          * <remarks>The function takes one argument.</remarks>
          **/
-        public boolean IsRelationProject() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_PROJECT; } 
+        public boolean IsRelationProject() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT; } 
 
         /**
          * Indicates whether the term is a relation filter
@@ -1277,7 +1280,7 @@ import java.lang.Exception;
          * So the first column in the relation has index 0.
          * </remarks>
          **/
-        public boolean IsRelationFilter() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_FILTER; } 
+        public boolean IsRelationFilter() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER; } 
 
         /**
          * Indicates whether the term is an intersection of a relation with the negation of another.
@@ -1293,7 +1296,7 @@ import java.lang.Exception;
          * x on the columns c1, d1, .., cN, dN.
          * </remarks>
          **/
-        public boolean IsRelationNegationFilter() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER; } 
+        public boolean IsRelationNegationFilter() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER; } 
 
         /**
          * Indicates whether the term is the renaming of a column in a relation
@@ -1302,12 +1305,12 @@ import java.lang.Exception;
          * The parameters contain the renaming as a cycle.
          * </remarks>
          **/
-        public boolean IsRelationRename() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_RENAME; } 
+        public boolean IsRelationRename() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME; } 
 
         /**
          * Indicates whether the term is the complement of a relation
          **/
-        public boolean IsRelationComplement() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_COMPLEMENT; } 
+        public boolean IsRelationComplement() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT; } 
 
         /**
          * Indicates whether the term is a relational select
@@ -1317,7 +1320,7 @@ import java.lang.Exception;
          * and the remaining <code>n</code> arguments correspond to a record.
          * </remarks>
          **/
-        public boolean IsRelationSelect() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_SELECT; } 
+        public boolean IsRelationSelect() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT; } 
 
         /**
          * Indicates whether the term is a relational clone (copy)
@@ -1329,21 +1332,21 @@ import java.lang.Exception;
          * to perform destructive updates to the first argument.
          * </remarks>
          **/
-        public boolean IsRelationClone() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_RA_CLONE; } 
+        public boolean IsRelationClone() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE; } 
 
         /**
          * Indicates whether the term is of an array sort.
          **/
         public boolean IsFiniteDomain() 
             {
-                return (Native.isApp(Context().nCtx(), NativeObject()) != 0 &&
-                        (Z3_sort_kind)Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
+                return (Native.isApp(Context().nCtx(), NativeObject())  &&
+                        Native.getSortKind(Context().nCtx(), Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT.toInt());
             }
 
         /**
          * Indicates whether the term is a less than predicate over a finite domain.
          **/
-        public boolean IsFiniteDomainLT() { return FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_FD_LT; } 
+        public boolean IsFiniteDomainLT() { return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_FD_LT; } 
 
         /**
          * The de-Burijn index of a bound variable.
@@ -1364,9 +1367,9 @@ import java.lang.Exception;
          * index.
          * </remarks>
          **/
-        public long Index() 
+        public int Index() 
             {
-                if (!IsVar)
+                if (!IsVar())
                     throw new Z3Exception("Term is not a bound variable.");
 
                 
@@ -1385,9 +1388,9 @@ import java.lang.Exception;
 
         void CheckNativeObject(long obj)
         {
-            if (Native.isApp(Context().nCtx(), obj) == 0 &&
-                (Z3_ast_kind)Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST &&
-                (Z3_ast_kind)Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
+            if (Native.isApp(Context().nCtx(), obj) ^ true &&
+                Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
+                Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt())
                 throw new Z3Exception("Underlying object is not a term");
             super.CheckNativeObject(obj);
         }
@@ -1398,7 +1401,7 @@ import java.lang.Exception;
             
             
 
-            long obj = Native.mkApp(ctx.nCtx(), f.NativeObject,
+            long obj = Native.mkApp(ctx.nCtx(), f.NativeObject(),
                                           AST.ArrayLength(arguments),
                                           AST.ArrayToNative(arguments));
             return Create(ctx, obj);
@@ -1409,33 +1412,33 @@ import java.lang.Exception;
             
             
 
-            Z3_ast_kind k = (Z3_ast_kind)Native.getAstKind(ctx.nCtx(), obj);
+            Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
             if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
                 return new Quantifier(ctx, obj);
             long s = Native.getSort(ctx.nCtx(), obj);
-            Z3_sort_kind sk = (Z3_sort_kind)Native.getSortKind(ctx.nCtx(), s);
+            Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), s));
 
-            if (Native.isAlgebraicNumber(ctx.nCtx(), obj) != 0) // is this a numeral ast?
+            if (Native.isAlgebraicNumber(ctx.nCtx(), obj) ) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
-            if (Native.isNumeralAst(ctx.nCtx(), obj) != 0)
+            if (Native.isNumeralAst(ctx.nCtx(), obj) )
             {
                 switch (sk)
                 {
-                    case Z3_sort_kind.Z3_INT_SORT: return new IntNum(ctx, obj);
-                    case Z3_sort_kind.Z3_REAL_SORT: return new RatNum(ctx, obj);
-                    case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
+                    case Z3_INT_SORT: return new IntNum(ctx, obj);
+                    case Z3_REAL_SORT: return new RatNum(ctx, obj);
+                    case Z3_BV_SORT: return new BitVecNum(ctx, obj);
                 }
             }
 
             switch (sk)
             {
-                case Z3_sort_kind.Z3_BOOL_SORT: return new BoolExpr(ctx, obj);
-                case Z3_sort_kind.Z3_INT_SORT: return new IntExpr(ctx, obj);
-                case Z3_sort_kind.Z3_REAL_SORT: return new RealExpr(ctx, obj);
-                case Z3_sort_kind.Z3_BV_SORT: return new BitVecExpr(ctx, obj);
-                case Z3_sort_kind.Z3_ARRAY_SORT: return new ArrayExpr(ctx, obj);
-                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
+                case Z3_BOOL_SORT: return new BoolExpr(ctx, obj);
+                case Z3_INT_SORT: return new IntExpr(ctx, obj);
+                case Z3_REAL_SORT: return new RealExpr(ctx, obj);
+                case Z3_BV_SORT: return new BitVecExpr(ctx, obj);
+                case Z3_ARRAY_SORT: return new ArrayExpr(ctx, obj);
+                case Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
             }
 
             return new Expr(ctx, obj);

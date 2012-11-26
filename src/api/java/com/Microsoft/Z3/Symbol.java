@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Runtime.InteropServices; */
@@ -19,7 +20,7 @@ import java.lang.Exception;
         /**
          * The kind of the symbol (int or string)
          **/
-        protected Z3_symbol_kind Kind()  { return (Z3_symbol_kind)Native.getSymbolKind(Context().nCtx(), NativeObject()); }
+        protected Z3_symbol_kind Kind()  { return Z3_symbol_kind.fromInt(Native.getSymbolKind(Context().nCtx(), NativeObject())); }
 
         /**
          * Indicates whether the symbol is of Int kind
@@ -43,7 +44,7 @@ import java.lang.Exception;
         public String toString()
         {
             if (IsIntSymbol())
-                return ((IntSymbol)this).Int.ToString();
+                return ((IntSymbol)this).Int.toString();
             else if (IsStringSymbol())
                 return ((StringSymbol)this).String;
             else
@@ -62,10 +63,10 @@ import java.lang.Exception;
             
             
 
-            switch ((Z3_symbol_kind)Native.getSymbolKind(ctx.nCtx(), obj))
+            switch (Z3_symbol_kind.fromInt(Native.getSymbolKind(ctx.nCtx(), obj)))
             {
-                case Z3_symbol_kind.Z3_INT_SYMBOL: return new IntSymbol(ctx, obj);
-                case Z3_symbol_kind.Z3_STRING_SYMBOL: return new StringSymbol(ctx, obj);
+                case Z3_INT_SYMBOL: return new IntSymbol(ctx, obj);
+                case Z3_STRING_SYMBOL: return new StringSymbol(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown symbol kind encountered");
             }

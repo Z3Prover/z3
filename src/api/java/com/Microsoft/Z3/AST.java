@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 /* using System.Collections; */
@@ -58,9 +59,9 @@ import java.lang.Exception;
                 return 1;
             else
             {
-                if (Id < oAST.Id)
+                if (Id() < oAST.Id())
                     return -1;
-                else if (Id > oAST.Id)
+                else if (Id() > oAST.Id())
                     return +1;
                 else
                     return 0;
@@ -79,7 +80,7 @@ import java.lang.Exception;
         /**
          * A unique identifier for the AST (unique among all ASTs).
          **/
-        public long Id()  { return Native.getAstId(Context().nCtx(), NativeObject()); }
+        public int Id()  { return Native.getAstId(Context().nCtx(), NativeObject()); }
 
         /**
          * Translates (copies) the AST to the Context <paramref name="ctx"/>.
@@ -91,7 +92,7 @@ import java.lang.Exception;
             
             
 
-            if (ReferenceEquals(Context, ctx))
+            if (Context() == ctx)
                 return this;
             else
                 return new AST(ctx, Native.translate(Context().nCtx(), NativeObject(), ctx.nCtx()));
@@ -100,7 +101,7 @@ import java.lang.Exception;
         /**
          * The kind of the AST.
          **/
-        public Z3_ast_kind ASTKind()  { return (Z3_ast_kind)Native.getAstKind(Context().nCtx(), NativeObject()); }
+        public Z3_ast_kind ASTKind()  { return Z3_ast_kind.fromInt(Native.getAstKind(Context().nCtx(), NativeObject())); }
 
         /**
          * Indicates whether the AST is an Expr
@@ -109,10 +110,10 @@ import java.lang.Exception;
             {
                 switch (ASTKind())
                 {
-                    case Z3_ast_kind.Z3_APP_AST:
-                    case Z3_ast_kind.Z3_NUMERAL_AST:
-                    case Z3_ast_kind.Z3_QUANTIFIER_AST:
-                    case Z3_ast_kind.Z3_VAR_AST: return true;
+                    case Z3_APP_AST:
+                    case Z3_NUMERAL_AST:
+                    case Z3_QUANTIFIER_AST:
+                    case Z3_VAR_AST: return true;
                     default: return false;
                 }
         }
@@ -174,22 +175,22 @@ import java.lang.Exception;
         void IncRef(long o)
         {            
             // Console.WriteLine("AST IncRef()");
-            if (Context == null)
+            if (Context() == null)
                 throw new Z3Exception("inc() called on null context");
             if (o == 0)
                 throw new Z3Exception("inc() called on null AST");
-            Context.AST_DRQ.IncAndClear(Context, o);
+            Context().AST_DRQ().IncAndClear(Context(), o);
             super.IncRef(o);
         }
 
         void DecRef(long o)
         {
             // Console.WriteLine("AST DecRef()");
-            if (Context == null)
+            if (Context() == null)
                 throw new Z3Exception("dec() called on null context");
             if (o == 0)
                 throw new Z3Exception("dec() called on null AST");
-            Context.AST_DRQ.Add(o);
+            Context().AST_DRQ().Add(o);
             super.DecRef(o);
         }
 
@@ -198,14 +199,14 @@ import java.lang.Exception;
             
             
 
-            switch ((Z3_ast_kind)Native.getAstKind(ctx.nCtx(), obj))
+            switch (Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj)))
             {
-                case Z3_ast_kind.Z3_FUNC_DECL_AST: return new FuncDecl(ctx, obj);
-                case Z3_ast_kind.Z3_QUANTIFIER_AST: return new Quantifier(ctx, obj);
-                case Z3_ast_kind.Z3_SORT_AST: return Sort.Create(ctx, obj);
-                case Z3_ast_kind.Z3_APP_AST:
-                case Z3_ast_kind.Z3_NUMERAL_AST:
-                case Z3_ast_kind.Z3_VAR_AST: return Expr.Create(ctx, obj);
+                case Z3_FUNC_DECL_AST: return new FuncDecl(ctx, obj);
+                case Z3_QUANTIFIER_AST: return new Quantifier(ctx, obj);
+                case Z3_SORT_AST: return Sort.Create(ctx, obj);
+                case Z3_APP_AST:
+                case Z3_NUMERAL_AST:
+                case Z3_VAR_AST: return Expr.Create(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown AST kind");
             }

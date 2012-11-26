@@ -7,6 +7,7 @@ package com.Microsoft.Z3;
 import java.math.BigInteger;
 import java.util.*;
 import java.lang.Exception;
+import com.Microsoft.Z3.Enumerations.*;
 
 /* using System; */
 
@@ -57,12 +58,12 @@ import java.lang.Exception;
         /**
          * Returns a unique identifier for the sort.
          **/
-            public long Id()  { return Native.getSortId(Context().nCtx(), NativeObject()); }
+            public int Id()  { return Native.getSortId(Context().nCtx(), NativeObject()); }
 
         /**
          * The kind of the sort.
          **/
-        public Z3_sort_kind SortKind()  { return (Z3_sort_kind)Native.getSortKind(Context().nCtx(), NativeObject()); }
+        public Z3_sort_kind SortKind()  { return Z3_sort_kind.fromInt(Native.getSortKind(Context().nCtx(), NativeObject())); }
 
         /**
          * The name of the sort
@@ -70,7 +71,7 @@ import java.lang.Exception;
         public Symbol Name() 
             {
                 
-                return Symbol.Create(Context, Native.getSortName(Context().nCtx(), NativeObject()));
+                return Symbol.Create(Context(), Native.getSortName(Context().nCtx(), NativeObject()));
             }
 
         /**
@@ -89,7 +90,7 @@ import java.lang.Exception;
 
         void CheckNativeObject(long obj)
         {
-            if (Native.getAstKind(Context().nCtx(), obj) != (long)Z3_ast_kind.Z3_SORT_AST)
+            if (Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST.toInt())
                 throw new Z3Exception("Underlying object is not a sort");
             super.CheckNativeObject(obj);
         }
@@ -99,17 +100,17 @@ import java.lang.Exception;
             
             
 
-            switch ((Z3_sort_kind)Native.getSortKind(ctx.nCtx(), obj))
+            switch (Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj)))
             {
-                case Z3_sort_kind.Z3_ARRAY_SORT: return new ArraySort(ctx, obj);
-                case Z3_sort_kind.Z3_BOOL_SORT: return new BoolSort(ctx, obj);
-                case Z3_sort_kind.Z3_BV_SORT: return new BitVecSort(ctx, obj);
-                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeSort(ctx, obj);
-                case Z3_sort_kind.Z3_INT_SORT: return new IntSort(ctx, obj);
-                case Z3_sort_kind.Z3_REAL_SORT: return new RealSort(ctx, obj);
-                case Z3_sort_kind.Z3_UNINTERPRETED_SORT: return new UninterpretedSort(ctx, obj);
-                case Z3_sort_kind.Z3_FINITE_DOMAIN_SORT: return new FiniteDomainSort(ctx, obj);
-                case Z3_sort_kind.Z3_RELATION_SORT: return new RelationSort(ctx, obj);
+                case Z3_ARRAY_SORT: return new ArraySort(ctx, obj);
+                case Z3_BOOL_SORT: return new BoolSort(ctx, obj);
+                case Z3_BV_SORT: return new BitVecSort(ctx, obj);
+                case Z3_DATATYPE_SORT: return new DatatypeSort(ctx, obj);
+                case Z3_INT_SORT: return new IntSort(ctx, obj);
+                case Z3_REAL_SORT: return new RealSort(ctx, obj);
+                case Z3_UNINTERPRETED_SORT: return new UninterpretedSort(ctx, obj);
+                case Z3_FINITE_DOMAIN_SORT: return new FiniteDomainSort(ctx, obj);
+                case Z3_RELATION_SORT: return new RelationSort(ctx, obj);
                 default:
                     throw new Z3Exception("Unknown sort kind");
             }
