@@ -338,7 +338,7 @@ namespace datalog {
 
     expr_ref context::bind_variables(expr* fml, bool is_forall) {
         expr_ref result(m);
-        app_ref_vector & vars = m_vars;
+        app_ref_vector const & vars = m_vars;
         if (vars.empty()) {
             result = fml;
         }
@@ -352,13 +352,20 @@ namespace datalog {
             else {
                 svector<symbol> names;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
-                    if (vars.size() == i) {
-                        vars.push_back(m.mk_fresh_const("x", m.mk_bool_sort()));
-                    }
                     if (!sorts[i]) {
-                        sorts[i] = vars[i]->get_decl()->get_range();
+                        if (i < vars.size()) { 
+                            sorts[i] = vars[i]->get_decl()->get_range();
+                        }
+                        else {
+                            sorts[i] = m.mk_bool_sort();
+                        }
                     }
-                    names.push_back(vars[i]->get_decl()->get_name());
+                    if (i < vars.size()) {
+                        names.push_back(vars[i]->get_decl()->get_name());
+                    }
+                    else {
+                        names.push_back(symbol(i));
+                    }
                 }
                 quantifier_ref q(m);
                 sorts.reverse();
