@@ -116,6 +116,7 @@ namespace pdr {
         ptr_vector<datalog::rule> const& rules() const { return m_rules; }
         func_decl* sig(unsigned i) { init_sig(); return m_sig[i].get(); } // signature 
         func_decl* const* sig() { init_sig(); return m_sig.c_ptr(); }
+        unsigned  sig_size() { init_sig(); return m_sig.size(); }
         expr*  transition() const { return m_transition; }
         expr*  initial_state() const { return m_initial_state; }
         expr*  rule2tag(datalog::rule const* r) { return m_rule2tag.find(r); }

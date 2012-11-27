@@ -252,11 +252,11 @@ def param2java(p):
     k = param_kind(p)
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT:
-            return "Integer"
+            return "IntPtr"
         elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
-            return "Long"
+            return "LongPtr"
         elif param_type(p) == STRING:
-            return "String"
+            return "StringPtr"
         else:
             print "ERROR: unreachable code"
             assert(False)
@@ -496,19 +496,16 @@ def mk_java():
     if not is_java_enabled():
         return
     java_dir      = get_component('java').src_dir
-    try:
-        os.mkdir('%s/com/Microsoft/Z3/' % java_dir)
-    except:
-        pass # OK if it exists already.
-    java_nativef  = '%s/com/Microsoft/Z3/Native.java' % java_dir
-    java_wrapperf = '%s/com/Microsoft/Z3/Native.c' % java_dir 
+    java_nativef  = '%s/Native.java' % java_dir
+    java_wrapperf = '%s/Native.cpp' % java_dir 
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
-    java_native.write('package com.Microsoft.Z3;\n')
+    java_native.write('package %s;\n' % get_component('java').package_name)
     java_native.write('public final class Native {\n')
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
+    java_native.write('  public static class errorHandler { public long ptr; }\n')
 
     if is_windows():
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java'))

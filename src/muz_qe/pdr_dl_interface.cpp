@@ -58,18 +58,18 @@ dl_interface::~dl_interface() {
 // 
 void dl_interface::check_reset() {
     datalog::rule_ref_vector const& new_rules = m_ctx.get_rules().get_rules();
-    datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();    
-    for (unsigned i = 0; i < new_rules.size(); ++i) {
-        bool found = false;
-        for (unsigned j = 0; !found && j < old_rules.size(); ++j) {
+    datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();  
+    bool is_subsumed = !old_rules.empty();
+    for (unsigned i = 0; is_subsumed && i < new_rules.size(); ++i) {
+        is_subsumed = false;
+        for (unsigned j = 0; !is_subsumed && j < old_rules.size(); ++j) {
             if (m_ctx.check_subsumes(*old_rules[j], *new_rules[i])) {
-                found = true;
+                is_subsumed = true;
             }
         }
-        if (!found) {
-            CTRACE("pdr", (old_rules.size() > 0), new_rules[i]->display(m_ctx, tout << "Fresh rule "););
+        if (!is_subsumed) {
+            TRACE("pdr", new_rules[i]->display(m_ctx, tout << "Fresh rule "););
             m_context->reset();
-            break;
         }
     }
     m_old_rules.reset();
@@ -160,6 +160,8 @@ lbool dl_interface::query(expr * query) {
     m_ctx.replace_rules(old_rules);
 
     quantifier_model_checker quantifier_mc(*m_context, m, extract_quantifiers->quantifiers(), m_pdr_rules);
+    
+    datalog::scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
     m_context->set_proof_converter(pc);
     m_context->set_model_converter(mc);

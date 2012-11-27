@@ -196,6 +196,12 @@ namespace datalog {
         scoped_no_proof(ast_manager& m): scoped_proof_mode(m, PGM_DISABLED) {}
     };
 
+    class scoped_restore_proof : public scoped_proof_mode {
+    public:
+        scoped_restore_proof(ast_manager& m): scoped_proof_mode(m, m.proof_mode()) {}
+    };
+
+
     
 
     class variable_intersection

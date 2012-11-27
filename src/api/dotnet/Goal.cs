@@ -184,10 +184,10 @@ namespace Microsoft.Z3
         {
             Tactic t = Context.MkTactic("simplify");
             ApplyResult res = t.Apply(this, p);
-            
+
             if (res.NumSubgoals == 0)
-                return Context.MkGoal();
-            else        
+                throw new Z3Exception("No subgoals");
+            else
                 return res.Subgoals[0];
         }
 

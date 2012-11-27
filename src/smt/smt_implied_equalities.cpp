@@ -29,6 +29,7 @@ Revision History:
 #include "array_decl_plugin.h"
 #include "uint_set.h"
 #include "model_v2_pp.h"
+#include "smt_value_sort.h"
 
 
 namespace smt {
@@ -134,44 +135,7 @@ namespace smt {
                     }                    
                 }
             }
-        }        
-        
-        bool is_simple_type(sort* s) {
-            arith_util arith(m);
-            datatype_util data(m);
-            
-            ptr_vector<sort> sorts;
-            ast_mark mark;
-            sorts.push_back(s);
-            
-            while (!sorts.empty()) {
-                s = sorts.back();
-                sorts.pop_back();
-                if (mark.is_marked(s)) {
-                    continue;
-                }
-                mark.mark(s, true);
-                if (arith.is_int_real(s)) {
-                    // simple
-                }
-                else if (m.is_bool(s)) {
-                    // simple
-                }
-                else if (data.is_datatype(s)) {
-                    ptr_vector<func_decl> const& cs = *data.get_datatype_constructors(s);
-                    for (unsigned i = 0; i < cs.size(); ++i) {
-                        func_decl* f = cs[i];
-                        for (unsigned j = 0; j < f->get_arity(); ++j) {
-                            sorts.push_back(f->get_domain(j));
-                        }
-                    }
-                }
-                else {
-                    return false;
-                }
-            }
-            return true;        
-        }
+        }                
         
         /**
            \brief Extract implied equalities for a collection of terms in the current context.
@@ -216,7 +180,7 @@ namespace smt {
 
             uint_set non_values;
             
-            if (!is_simple_type(srt)) {
+            if (!is_value_sort(m, srt)) {
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     non_values.insert(i);
                 }

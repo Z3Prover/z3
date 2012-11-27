@@ -635,7 +635,7 @@ class FuncDeclRef(AstRef):
 	args = _get_args(args)
         num = len(args)
         if __debug__:
-            _z3_assert(num == self.arity(), "Incorrect number of arguments")
+            _z3_assert(num == self.arity(), "Incorrect number of arguments to %s" % self)
         _args = (Ast * num)()
         saved = []
         for i in range(num):
@@ -1735,7 +1735,7 @@ class ArithSortRef(SortRef):
     """Real and Integer sorts."""
 
     def is_real(self):
-        """Return `True` if `self` is the integer sort.
+        """Return `True` if `self` is of the sort Real.
         
         >>> x = Real('x')
         >>> x.is_real()
@@ -1749,7 +1749,7 @@ class ArithSortRef(SortRef):
         return self.kind() == Z3_REAL_SORT
 
     def is_int(self):
-        """Return `True` if `self` is the real sort.
+        """Return `True` if `self` is of the sort Integer.
         
         >>> x = Int('x')
         >>> x.is_int()

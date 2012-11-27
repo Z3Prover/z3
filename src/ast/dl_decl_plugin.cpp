@@ -44,8 +44,7 @@ namespace datalog {
         m_num_sym("N"),
         m_lt_sym("<"),
         m_le_sym("<="),
-        m_rule_sym("R"),
-        m_hyper_resolve_sym("hyper-res")
+        m_rule_sym("R")
     {
     }
 

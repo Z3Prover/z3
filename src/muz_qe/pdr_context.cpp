@@ -35,7 +35,6 @@ Notes:
 #include "pdr_generalizers.h"
 #include "datatype_decl_plugin.h"
 #include "for_each_expr.h"
-#include "model_v2_pp.h"
 #include "dl_rule_set.h"
 #include "unit_subsumption_tactic.h"
 #include "model_smt2_pp.h"
@@ -44,6 +43,7 @@ Notes:
 #include "qe_lite.h"
 #include "ast_ll_pp.h"
 #include "proof_checker.h"
+#include "smt_value_sort.h"
 
 namespace pdr {
 
@@ -146,7 +146,6 @@ namespace pdr {
         expr_ref vl(m);
         for (; it != end; ++it) {
             expr* pred = it->m_key;
-            TRACE("pdr", tout << mk_pp(pred, m) << "\n";);
             if (model.eval(to_app(pred)->get_decl(), vl) && m.is_true(vl)) {
                 return *it->m_value;
             }
@@ -300,6 +299,7 @@ namespace pdr {
             if (!m_invariants.contains(lemma)) {
                 TRACE("pdr", tout << "property1: " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
                 m_invariants.push_back(lemma);
+                m_prop2level.insert(lemma, lvl);
                 m_solver.add_formula(lemma);
                 return true;
             }
@@ -362,7 +362,7 @@ namespace pdr {
         }
         // replace local constants by bound variables.
         expr_substitution sub(m);        
-        for (unsigned i = 0; i < m_sig.size(); ++i) {
+        for (unsigned i = 0; i < sig_size(); ++i) {
             c = m.mk_const(pm.o2n(sig(i), 0));
             v = m.mk_var(i, sig(i)->get_range());
             sub.insert(c, v);
@@ -397,7 +397,7 @@ namespace pdr {
         // replace bound variables by local constants.
         expr_ref result(property, m), v(m), c(m);
         expr_substitution sub(m);        
-        for (unsigned i = 0; i < m_sig.size(); ++i) {
+        for (unsigned i = 0; i < sig_size(); ++i) {
             c = m.mk_const(pm.o2n(sig(i), 0));
             v = m.mk_var(i, sig(i)->get_range());
             sub.insert(v, c);
@@ -442,6 +442,7 @@ namespace pdr {
         tmp = pm.mk_and(conj);
         prop_solver::scoped_level _sl(m_solver, level);
         m_solver.set_core(core);
+        m_solver.set_model(0);
         lbool r = m_solver.check_conjunction_as_assumptions(tmp);
         if (r == l_false) {
             assumes_level = m_solver.assumes_level();
@@ -602,6 +603,12 @@ namespace pdr {
         }
         m_rule2inst.insert(&rule,&var_reprs);
         m_rule2vars.insert(&rule, aux_vars);
+        TRACE("pdr", 
+              tout << rule.get_decl()->get_name() << "\n";
+              for (unsigned i = 0; i < var_reprs.size(); ++i) {
+                  tout << mk_pp(var_reprs[i].get(), m) << " ";
+              }
+              tout << "\n";);
     }
 
     bool pred_transformer::check_filled(app_ref_vector const& v) const {
@@ -699,16 +706,10 @@ namespace pdr {
     void pred_transformer::inherit_properties(pred_transformer& other) {
         SASSERT(m_head == other.m_head);
         obj_map<expr, unsigned>::iterator it  = other.m_prop2level.begin();
-        obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();
-        
+        obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();        
         for (; it != end; ++it) {
             add_property(it->m_key, it->m_value);
         }
-        for (unsigned i = 0; i < other.m_invariants.size(); ++i) {
-            expr* e = other.m_invariants[i].get();
-            m_invariants.push_back(e);
-            m_solver.add_formula(e);
-        }        
     }
 
     // ----------------
@@ -723,20 +724,18 @@ namespace pdr {
         pred_transformer& p = pt();
         ast_manager& m = p.get_manager();
         manager& pm = p.get_pdr_manager();
-        TRACE("pdr", model_v2_pp(tout, get_model()););
+        TRACE("pdr", model_smt2_pp(tout, m, get_model(), 0););
         func_decl* f = p.head();
         unsigned arity = f->get_arity();
+        model_ref model = get_model_ptr();
         expr_ref_vector args(m);
-        func_decl_ref v(m);
+        expr_ref v(m);
+        model_evaluator mev(m);
+
         for (unsigned i = 0; i < arity; ++i) {
-            v = pm.o2n(p.sig(i),0);  
-            expr* e = get_model().get_const_interp(v);
-            if (e) {
-                args.push_back(e);
-            }
-            else {
-                args.push_back(m.mk_const(v));
-            }
+            v = m.mk_const(pm.o2n(p.sig(i),0));  
+            expr_ref e = mev.eval(model, v);
+            args.push_back(e);
         }            
         return expr_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
     }
@@ -1823,14 +1822,14 @@ namespace pdr {
         if (!vars.empty()) {
             // also fresh names for auxiliary variables in body?
             expr_substitution sub(m);
-            expr_ref_vector refs(m);
             expr_ref tmp(m);
             proof_ref pr(m);
             pr = m.mk_asserted(m.mk_true());
-            for (unsigned i = 0; i < vars.size(); ++i) {                
-                VERIFY (M->eval(vars[i].get(), tmp, true));                
-                refs.push_back(tmp);
-                sub.insert(vars[i].get(), tmp, pr);
+            for (unsigned i = 0; i < vars.size(); ++i) {    
+                if (smt::is_value_sort(m, vars[i].get())) {
+                    tmp = mev.eval(M, vars[i].get());
+                    sub.insert(vars[i].get(), tmp, pr);
+                }
             }
             if (!rep) rep = mk_expr_simp_replacer(m);
             rep->set_substitution(&sub);
@@ -1861,7 +1860,7 @@ namespace pdr {
                 for (unsigned j = 1; j < indices.size(); ++j) {
                     ptr_vector<app> const& vs = vars[indices[j]];
                     for (unsigned k = 0; k < vs.size(); ++k) {
-                        M->eval(vs[k]->get_decl(), tmp);
+                        tmp = mev.eval(M, vs[k]);
                         sub.insert(vs[k], tmp, pr);
                         child_states[indices[j]].push_back(m.mk_eq(vs[k], tmp));
                     }

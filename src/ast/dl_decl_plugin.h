@@ -69,7 +69,6 @@ namespace datalog {
         symbol m_lt_sym;
         symbol m_le_sym;
         symbol m_rule_sym;
-        symbol m_hyper_resolve_sym;
 
         bool check_bounds(char const* msg, unsigned low, unsigned up, unsigned val) const;
         bool check_domain(unsigned low, unsigned up, unsigned val) const;
@@ -93,7 +92,6 @@ namespace datalog {
         func_decl * mk_compare(decl_kind k, symbol const& sym, sort*const* domain);
         func_decl * mk_clone(sort* r);
         func_decl * mk_rule(unsigned arity);
-        func_decl * mk_hyper_res(unsigned num_params, parameter const* params, unsigned arity, sort *const* domain);
                                 
         sort * mk_finite_sort(unsigned num_params, parameter const* params);
         sort * mk_relation_sort(unsigned num_params, parameter const* params);

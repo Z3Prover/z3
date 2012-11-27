@@ -147,7 +147,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return m_a_rw.mk_app_core(f, num, args, result);
         if (fid == m_bv_rw.get_fid())
             return m_bv_rw.mk_app_core(f, num, args, result);
-        if (fid == m_ar_rw.get_fid())
+        if (fid == m_ar_rw.get_fid()) 
             return m_ar_rw.mk_app_core(f, num, args, result);
         if (fid == m_dt_rw.get_fid())
             return m_dt_rw.mk_app_core(f, num, args, result);

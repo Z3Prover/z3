@@ -144,7 +144,21 @@ public:
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array_tree(expr * n);
+    bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
+    bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
+    bool is_const(func_decl* f) const { return is_decl_of(f, m_fid, OP_CONST_ARRAY); }
+    bool is_map(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_MAP); }
+    bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
     func_decl * get_as_array_func_decl(app * n) const { SASSERT(is_as_array(n)); return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); }
+
+    app * mk_store(unsigned num_args, expr * const * args) {
+        return m_manager.mk_app(m_fid, OP_STORE, 0, 0, num_args, args);
+    }
+
+    app * mk_select(unsigned num_args, expr * const * args) {
+        return m_manager.mk_app(m_fid, OP_SELECT, 0, 0, num_args, args);
+    }
+
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {
         parameter p(f);
         return m_manager.mk_app(m_fid, OP_ARRAY_MAP, 1, &p, num_args, args);

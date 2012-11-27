@@ -37,6 +37,8 @@ namespace datalog {
 
         void extract(rule& r, rule_set& new_rules);
 
+        app_ref ensure_app(expr* e);
+
     public:
         /**
            \brief Create rule transformer that extracts universal quantifiers (over recursive predicates).
@@ -50,6 +52,8 @@ namespace datalog {
         obj_map<rule const, quantifier_ref_vector*>& quantifiers() { return m_quantifiers; }
 
         bool has_quantifiers() const { return !m_quantifiers.empty(); }
+
+        void ensure_predicate(expr* e, unsigned& max_var, app_ref_vector& tail);
 
     };
 
