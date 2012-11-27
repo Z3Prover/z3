@@ -4,7 +4,7 @@
  * @author Christoph M. Wintersteiger (cwinter)
  **/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
 /**
  * Objects of this class track statistical information about solvers.

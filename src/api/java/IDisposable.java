@@ -17,7 +17,7 @@ Notes:
     
 --*/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
 public class IDisposable
 {

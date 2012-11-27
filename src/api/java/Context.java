@@ -4,10 +4,10 @@
  * @author Christoph M. Wintersteiger (cwinter)
  **/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
 import java.util.*;
-import com.Microsoft.Z3.Enumerations.*;
+import com.microsoft.z3.enumerations.*;
 
 /**
  * The main interaction with Z3 happens via the Context.

@@ -4,7 +4,7 @@
  * @author Christoph M. Wintersteiger (cwinter)
  **/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
 /**
  * Internal base class for interfacing with native Z3 objects. Should not be

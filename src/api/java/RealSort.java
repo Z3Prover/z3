@@ -4,7 +4,7 @@
  * @author Christoph M. Wintersteiger (cwinter)
  **/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
 /**
  * A real sort

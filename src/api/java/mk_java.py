@@ -1,11 +1,18 @@
-############################################
+######################################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
 # Auxiliary scripts for generating Java bindings
 # from the managed API.
 #
 # Author: Christoph M. Wintersteiger (cwinter)
-############################################
+######################################################
+
+
+###
+# DO NOT USE THIS SCRIPT! 
+# This script creates a rough draft of a Java API from
+# the managed API, but does not automated the process.
+###
 
 CS="../dotnet/"
 EXT=".cs"

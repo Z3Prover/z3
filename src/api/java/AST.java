@@ -4,9 +4,9 @@
  * @author Christoph M. Wintersteiger (cwinter)
  **/
 
-package com.Microsoft.Z3;
+package com.microsoft.z3;
 
-import com.Microsoft.Z3.Enumerations.*;
+import com.microsoft.z3.enumerations.*;
 
 /**
  * The abstract syntax tree (AST) class.
