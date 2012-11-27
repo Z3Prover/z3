@@ -299,6 +299,7 @@ namespace pdr {
             if (!m_invariants.contains(lemma)) {
                 TRACE("pdr", tout << "property1: " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
                 m_invariants.push_back(lemma);
+                m_prop2level.insert(lemma, lvl);
                 m_solver.add_formula(lemma);
                 return true;
             }
@@ -709,11 +710,6 @@ namespace pdr {
         for (; it != end; ++it) {
             add_property(it->m_key, it->m_value);
         }
-        for (unsigned i = 0; i < other.m_invariants.size(); ++i) {
-            expr* e = other.m_invariants[i].get();
-            m_invariants.push_back(e);
-            m_solver.add_formula(e);
-        }        
     }
 
     // ----------------
