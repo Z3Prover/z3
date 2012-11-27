@@ -7,6 +7,9 @@
 *.cmi
 *.cmxa
 ocamlz3
+# Java generated files
+*.class
+*.jar
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
@@ -49,5 +52,6 @@ src/api/python/z3consts.py
 src/api/python/z3core.py
 src/ast/pattern/database.h
 src/util/version.h
-src/api/java/Z3Native.c
+src/api/java/Z3Native.cpp
 src/api/java/Z3Native.java
+src/api/java/enumerations/*.java
