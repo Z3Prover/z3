@@ -934,8 +934,7 @@ class JavaDLLComponent(Component):
 
     def mk_makefile(self, out):
         if is_java_enabled():
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            subdir = self.package_name.replace(".","/")
+            dllfile = '%s$(SO_EXT)' % self.dll_name            
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) ../src/api/java/Native.cpp\n')
             out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
             out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3.lib\n')
@@ -945,9 +944,8 @@ class JavaDLLComponent(Component):
             # for java_file in get_java_files((self.src_dir + "/%s/Enumerations") % subdir):
             #     out.write('%s ' % java_file)
             out.write('\n')
-            src_wsub = self.to_src_dir + "/" + subdir;
-            out.write(('\tjavac %s/Enumerations/*.java -d api/java\n' % (src_wsub)).replace("/","\\"))
-            out.write(('\tjavac -cp api/java %s/*.java -d api/java\n' % (src_wsub)).replace("/","\\"))
+            out.write(('\t%s %s/Enumerations/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\"))
+            out.write(('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\"))
             out.write('\tjar cf %s.jar api/java/\n' % self.package_name)
             out.write('java: %s.jar\n\n' % self.package_name)
     
@@ -1801,7 +1799,7 @@ def mk_z3consts_java(api_files):
     java = get_component(JAVA_COMPONENT)
 
     DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = java.src_dir + "/" + java.package_name.replace(".", "/") + "/Enumerations"
+    gendir = java.src_dir + "/Enumerations"
     if not os.path.exists(gendir):
         os.mkdir(gendir)
 
