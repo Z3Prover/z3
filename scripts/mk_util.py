@@ -484,6 +484,32 @@ def is_verbose():
 def is_java_enabled():
     return JAVA_ENABLED
 
+def is_compiler(given, expected):
+    """ 
+    Return True if the 'given' compiler is the expected one.
+    >>> is_compiler('g++', 'g++')
+    True
+    >>> is_compiler('/home/g++', 'g++')
+    True
+    >>> is_compiler(os.path.join('home', 'g++'), 'g++')
+    True
+    >>> is_compiler('clang++', 'g++')
+    False
+    >>> is_compiler(os.path.join('home', 'clang++'), 'clang++')
+    True
+    """
+    if given == expected:
+        return True
+    if len(expected) < len(given):
+        return given[len(given) - len(expected) - 1] == os.sep and given[len(given) - len(expected):] == expected
+    return False
+
+def is_CXX_gpp():
+    return is_compiler(CXX, 'g++')
+
+def is_CXX_clangpp():
+    return is_compiler(CXX, 'clang++')
+
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
 
@@ -1187,7 +1213,7 @@ def mk_config():
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         CXXFLAGS = '%s -c' % CXXFLAGS
-        if CXX == 'g++':
+        if is_CXX_gpp():
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
             SLIBEXTRAFLAGS = '-fopenmp'
@@ -1201,7 +1227,7 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
-            if CXX == 'clang++':
+            if is_CXX_clangpp():
                 CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
@@ -1990,3 +2016,8 @@ def mk_win_dist(build_path, dist_path):
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
         shutil.copy('%s/%s' % (build_path, pyc),
                     '%s/bin/%s' % (dist_path, pyc))
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
