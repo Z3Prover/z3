@@ -356,24 +356,36 @@ public class FuncDecl extends AST
 	}
 
 	/**
-	 * Create expression that applies function to arguments. <param
-	 * name="args"></param>
+	 * Create expression that applies function to arguments. 
+	 * <param name="args"></param>
 	 * 
 	 * @return
 	 **/
 	/* operator this[] not translated */
 
 	/**
-	 * Create expression that applies function to arguments. <param
-	 * name="args"></param>
+	 * Create expression that applies function to arguments.
+	 * <param name="args"></param>
 	 * 
 	 * @return
 	 **/
 	public Expr Apply(Expr[] args) throws Z3Exception
 	{
-
 		Context().CheckContextMatch(args);
 		return Expr.Create(Context(), this, args);
+	}
+
+	/**
+	 * Create expression that applies function to one argument.
+	 * <param name="arg"></param>
+	 * 
+	 * @return
+	 **/
+	public Expr Apply(Expr arg) throws Z3Exception
+	{
+		Context().CheckContextMatch(arg);
+		Expr[] a = { arg };
+		return Expr.Create(Context(), this, a);
 	}
 
 }

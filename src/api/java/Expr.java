@@ -16,9 +16,18 @@ import com.microsoft.z3.enumerations.*;
 public class Expr extends AST
 {
 	/**
-	 * Returns a simplified version of the expression. <param name="p">A set of
-	 * parameters to configure the simplifier</param> <seealso
-	 * cref="Context.SimplifyHelp"/>
+	 * Returns a simplified version of the expression
+	 **/
+	public Expr Simplify() throws Z3Exception
+	{
+	    return Simplify(null);
+	}
+
+	/**
+	 * Returns a simplified version of the expression 
+	 * A set of
+	 * parameters <param name="p" /> to configure the simplifier 
+	 * <seealso cref="Context.SimplifyHelp"/>
 	 **/
 	public Expr Simplify(Params p) throws Z3Exception
 	{

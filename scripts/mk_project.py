@@ -79,6 +79,7 @@ def init_project_def():
     add_c_example('c_example', 'c')
     add_c_example('maxsat')
     add_dotnet_example('dotnet_example', 'dotnet')
+    add_java_example('java_example', 'java')
     add_z3py_example('py_example', 'python')
     return API_files
 

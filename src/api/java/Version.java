@@ -9,16 +9,12 @@ package com.microsoft.z3;
 /**
  * Version information. <remarks>Note that this class is static.</remarks>
  **/
-public final class Version
+public class Version
 {
-    Version()
-    {
-    }
-
     /**
      * The major version
      **/
-    public int Major()
+    public static int Major()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -28,7 +24,7 @@ public final class Version
     /**
      * The minor version
      **/
-    public int Minor()
+    public static int Minor()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -38,7 +34,7 @@ public final class Version
     /**
      * The build version
      **/
-    public int Build()
+    public static int Build()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -48,7 +44,7 @@ public final class Version
     /**
      * The revision
      **/
-    public int Revision()
+    public static int Revision()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -58,7 +54,7 @@ public final class Version
     /**
      * A string representation of the version information.
      **/
-    public String toString()
+    public static String getString()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);

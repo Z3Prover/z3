@@ -37,6 +37,15 @@ public class Tactic extends Z3Object
      * Execute the tactic over the goal.
      * @throws Z3Exception 
      **/
+    public ApplyResult Apply(Goal g) throws Z3Exception
+    {	
+        return Apply(g, null);
+    }
+
+    /**
+     * Execute the tactic over the goal.
+     * @throws Z3Exception 
+     **/
     public ApplyResult Apply(Goal g, Params p) throws Z3Exception
     {
 

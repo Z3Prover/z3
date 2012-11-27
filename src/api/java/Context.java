@@ -525,7 +525,7 @@ public class Context extends IDisposable
 	public Expr MkConst(FuncDecl f) throws Z3Exception
 	{
 
-		return MkApp(f, null);
+	    return MkApp(f, (Expr)null);
 	}
 
 	/**
@@ -598,6 +598,17 @@ public class Context extends IDisposable
 	{
 
 		return (BitVecExpr) MkConst(name, MkBitVecSort(size));
+	}
+
+	/**
+	 * Create a new function application.
+	 **/
+	public Expr MkApp(FuncDecl f, Expr arg) throws Z3Exception
+	{
+	    CheckContextMatch(f);
+	    CheckContextMatch(arg);
+	    Expr[] args = { arg };
+	    return Expr.Create(this, f, args);
 	}
 
 	/**
@@ -2771,6 +2782,17 @@ public class Context extends IDisposable
 
 		CheckContextMatch(p);
 		return new Probe(this, Native.probeNot(nCtx(), p.NativeObject()));
+	}
+
+       /**
+	 * Creates a new (incremental) solver. <remarks> This solver also uses a set
+	 * of builtin tactics for handling the first check-sat command, and
+	 * check-sat commands that take more than a given number of milliseconds to
+	 * be solved. </remarks>
+	 **/
+	public Solver MkSolver() throws Z3Exception
+	{
+	    return MkSolver((Symbol)null);
 	}
 
 	/**

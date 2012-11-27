@@ -59,6 +59,6 @@ public class EnumSort extends Sort
 			_testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
 		_consts = new Expr[n];
 		for (int i = 0; i < n; i++)
-			_consts[i] = ctx.MkApp(_constdecls[i], null);
+		    _consts[i] = ctx.MkApp(_constdecls[i], (Expr)null);
 	}
 };

@@ -60,6 +60,14 @@ public class Solver extends Z3Object
     }
 
     /**
+     * Backtracks one backtracking point. <remarks>.
+     **/
+    public void Pop()
+    {
+	Pop(1);
+    }
+
+    /**
      * Backtracks <paramref name="n"/> backtracking points. <remarks>Note that
      * an exception is thrown if <paramref name="n"/> is not smaller than
      * <code>NumScopes</code></remarks> <seealso cref="Push"/>
@@ -79,7 +87,7 @@ public class Solver extends Z3Object
     }
 
     /**
-     * Assert a constraint (or multiple) into the solver.
+     * Assert a multiple constraints into the solver.
      * @throws Z3Exception 
      **/
     public void Assert(BoolExpr[] constraints) throws Z3Exception
@@ -90,6 +98,16 @@ public class Solver extends Z3Object
             Native.solverAssert(Context().nCtx(), NativeObject(),
                     a.NativeObject());
         }
+    }
+
+    /**
+     * Assert one constraint into the solver.
+     * @throws Z3Exception 
+     **/
+    public void Assert(BoolExpr constraint) throws Z3Exception
+    {
+        Context().CheckContextMatch(constraint);
+	Native.solverAssert(Context().nCtx(), NativeObject(), constraint.NativeObject());
     }
 
     /**
@@ -142,6 +160,16 @@ public class Solver extends Z3Object
         default:
             return Status.UNKNOWN;
         }
+    }
+
+    /**
+     * Checks whether the assertions in the solver are consistent or not.
+     * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
+     * cref="Proof"/> </remarks>
+     **/
+    public Status Check()
+    {
+	return Check(null);
     }
 
     /**

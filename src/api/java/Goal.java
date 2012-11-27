@@ -69,11 +69,20 @@ public class Goal extends Z3Object
 		Context().CheckContextMatch(constraints);
 		for (BoolExpr c : constraints)
 		{
-			// It was an assume, now made an assert just to be sure we do not
-			// regress
-			Native.goalAssert(Context().nCtx(), NativeObject(),
-					c.NativeObject());
+		    Native.goalAssert(Context().nCtx(), NativeObject(),
+				      c.NativeObject());
 		}
+	}
+
+        /**
+	 * Adds a <paramref name="constraint"/> to the given goal.
+	 * @throws Z3Exception 
+	 **/
+	public void Assert(BoolExpr constraint) throws Z3Exception
+	{
+	    Context().CheckContextMatch(constraint);		
+	    Native.goalAssert(Context().nCtx(), NativeObject(),
+			      constraint.NativeObject());
 	}
 
 	/**

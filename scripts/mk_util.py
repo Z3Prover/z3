@@ -1070,7 +1070,7 @@ class DotNetExampleComponent(ExampleComponent):
         if DOTNET_ENABLED:
             dll_name = get_component(DOTNET_COMPONENT).dll_name
             dll = '%s.dll' % dll_name
-            exefile = '%s.exe' % self.name
+            exefile = '%s$(EXE_EXT)' % self.name
             out.write('%s: %s' % (exefile, dll))
             for csfile in get_cs_files(self.ex_dir):
                 out.write(' ')
@@ -1088,6 +1088,28 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write('%s\\%s' % (win_ex_dir, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+
+class JavaExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def is_example(self):
+        return True
+
+    def mk_makefile(self, out):
+        if JAVA_ENABLED:
+            pkg = get_component(JAVA_COMPONENT).package_name + '.jar'
+            out.write('_ex_%s: %s' % (self.name, pkg))
+            # for javafile in get_java_files(self.ex_dir):
+            #     out.write(' ')
+            #     out.write('%s/%s' % (self.to_ex_dir, javafile))
+            out.write('\n')
+            out.write('\t%s -cp %s ' % (JAVAC, pkg))
+            win_ex_dir = self.to_ex_dir
+            for javafile in get_java_files(self.ex_dir):
+                out.write(' ')
+                out.write('%s/%s' % (win_ex_dir, javafile))
+            out.write(' -d .\n\n')
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -1152,6 +1174,10 @@ def add_c_example(name, path=None):
 
 def add_dotnet_example(name, path=None):
     c = DotNetExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_java_example(name, path=None):
+    c = JavaExampleComponent(name, path)
     reg_component(name, c)
 
 def add_z3py_example(name, path=None):
