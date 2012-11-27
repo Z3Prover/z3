@@ -56,6 +56,8 @@ JAVA_COMPONENT='java'
 CPP_COMPONENT='cpp'
 #####################
 IS_WINDOWS=False
+IS_LINUX=False
+IS_OSX=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -75,7 +77,13 @@ PREFIX='/usr'
 GMP=False
 
 def is_windows():
-   return IS_WINDOWS
+    return IS_WINDOWS
+
+def is_linux():
+    return IS_LINUX
+
+def is_osx():
+    return IS_OSX
 
 def unix_path2dos(path):
     return string.join(path.split('/'), '\\')
@@ -317,6 +325,11 @@ if os.name == 'nt':
     SHOW_CPPS=False
     # Enable .Net bindings by default on windows
     DOTNET_ENABLED=True
+elif os.name == 'posix':
+    if os.uname()[0] == 'Darwin':
+        IS_OSX=True
+    elif os.uname()[0] == 'Linux':
+        IS_LINUX=True
 
 def display_help(exit_code):
     print "mk_make.py: Z3 Makefile generator\n"
@@ -963,8 +976,15 @@ class JavaDLLComponent(Component):
         if is_java_enabled():
             dllfile = '%s$(SO_EXT)' % self.dll_name            
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) ../src/api/java/Native.cpp\n')
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3.lib\n')
+            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
+            if IS_OSX:
+                t.replace('PLATFORM', 'darwin')
+            elif IS_LINUX:
+                t.replace('PLATFORM', 'linux')
+            else:
+                t.replace('PLATFORM', 'win32')
+            out.write(t)
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3$(SO_EXT)\n')
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             # for java_file in get_java_files(self.src_dir):
             #     out.write('%s ' % java_file)
@@ -972,10 +992,10 @@ class JavaDLLComponent(Component):
             #     out.write('%s ' % java_file)
             out.write('\n')
             t = ('\t%s %s/enumerations/*.java -d api/java\n' % (JAVAC, self.to_src_dir))
-            if IS_WINDOWS: t = t.replace("/","\\")
+            if IS_WINDOWS: t = t.replace('/','\\')
             out.write(t)
-            t = ('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\")
-            if IS_WINDOWS: t = t.replace("/","\\")
+            t = ('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir))
+            if IS_WINDOWS: t = t.replace('/','\\')
             out.write(t)
             out.write('\tjar cfm %s.jar %s/manifest -C api/java .\n' % (self.package_name, self.to_src_dir))
             out.write('java: %s.jar\n\n' % self.package_name)
