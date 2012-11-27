@@ -994,6 +994,7 @@ namespace datalog {
         p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
                       
         p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
+        p.insert(":print-low-level-smt2", CPK_BOOL, "(default true) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
         
         PRIVATE_PARAMS(
             p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
@@ -1650,6 +1651,9 @@ namespace datalog {
         expr_ref_vector rules(m);
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
+        bool print_low_level = m_params.get_bool(":print-low-level-smt2", true);
+
+#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
 
         get_rules_as_formulas(rules, names);
 
@@ -1684,18 +1688,18 @@ namespace datalog {
         obj_hashtable<sort>& sorts = visitor.sorts();
         obj_hashtable<sort>::iterator sit = sorts.begin(), send = sorts.end();
         for (; sit != send; ++sit) {
-            ast_smt2_pp(out, *sit, env, params);
+            PP(*sit);
         }
         for (; it != end; ++it) {
             func_decl* f = *it;
-            ast_smt2_pp(out, f, env, params);
+            PP(f);
             out << "\n";
         }
         it = rels.begin(); end = rels.end();
         for (; it != end; ++it) {
             func_decl* f = *it;
             out << "(declare-rel " << f->get_name() << " (";
-            for (unsigned i = 0; i < f->get_arity(); ++i) {
+            for (unsigned i = 0; i < f->get_arity(); ++i) {                
                 ast_smt2_pp(out, f->get_domain(i), env, params);
                 if (i + 1 < f->get_arity()) {
                     out << " ";
@@ -1714,7 +1718,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < num_axioms; ++i) {
             out << "(assert ";
-            ast_smt2_pp(out, axioms[i], env, params);
+            PP(axioms[i]);
             out << ")\n";
         }
         for (unsigned i = 0; i < rules.size(); ++i) {            
@@ -1724,12 +1728,7 @@ namespace datalog {
             if (symbol::null != nm) {
                 out << "(! ";
             }
-            if (use_fixedpoint_extensions) {
-                ast_smt2_pp(out, r, env, params);
-            }
-            else {
-                out << mk_smt_pp(r, m);
-            }
+            PP(r);
             if (symbol::null != nm) {
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
@@ -1744,7 +1743,7 @@ namespace datalog {
         if (use_fixedpoint_extensions) {
             for (unsigned i = 0; i < num_queries; ++i) {
                 out << "(query ";
-                ast_smt2_pp(out, queries[i], env, params);
+                PP(queries[i]);
                 out << ")\n";
             }
         }
@@ -1754,7 +1753,7 @@ namespace datalog {
                 out << "(assert ";
                 expr_ref q(m);
                 q = m.mk_not(queries[i]);
-                ast_smt2_pp(out, q, env, params);
+                PP(q);
                 out << ")\n";
                 out << "(check-sat)\n";
                 if (num_queries > 1) out << "(pop)\n";
