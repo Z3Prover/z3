@@ -51,8 +51,8 @@ import com.Microsoft.Z3.Enumerations.*;
             
 
             long t = 0;
-            NativeObject() = Native.mkTupleSort(ctx.nCtx(), name.NativeObject(), numFields,
-                                                   Symbol.ArrayToNative(fieldNames), AST.ArrayToNative(fieldSorts),
-                                                   t, new long[numFields]);
+            setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.NativeObject(), numFields,
+					       Symbol.ArrayToNative(fieldNames), AST.ArrayToNative(fieldSorts),
+					       t, new long[numFields]));
         }
     };

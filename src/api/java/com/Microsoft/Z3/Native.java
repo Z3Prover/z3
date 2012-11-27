@@ -5,7 +5,7 @@ public final class Native {
   public static class LongPtr { public long value; }
   public static class StringPtr { public String value; }
   public static class errorHandler { public long ptr; }
-  static { System.loadLibrary("<mk_util.JavaDLLComponent instance at 0x0235B918>"); }
+  static { System.loadLibrary("<mk_util.JavaDLLComponent instance at 0x0256D828>"); }
   public static native long mkConfig();
   public static native void delConfig(long a0);
   public static native void setParamValue(long a0, String a1, String a2);

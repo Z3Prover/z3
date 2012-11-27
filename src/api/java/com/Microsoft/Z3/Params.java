@@ -29,16 +29,6 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Adds a parameter setting.
          **/
-        public void Add(Symbol name, int value)
-        {
-            
-
-            Native.paramsSetInt(Context().nCtx(), NativeObject(), name.NativeObject(), value);
-        }
-
-        /**
-         * Adds a parameter setting.
-         **/
         public void Add(Symbol name, double value)
         {
             
@@ -70,7 +60,7 @@ import com.Microsoft.Z3.Enumerations.*;
          **/
         public void Add(String name, int value)
         {
-            Native.paramsSetInt(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), value);
+            Native.paramsSetUint(Context().nCtx(), NativeObject(), Context().MkSymbol(name).NativeObject(), value);
         }
 
         /**

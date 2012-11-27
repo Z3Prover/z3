@@ -99,7 +99,7 @@ import com.Microsoft.Z3.Enumerations.*;
         public int NumAssertions() 
             {
                 ASTVector ass = new ASTVector(Context(), Native.solverGetAssertions(Context().nCtx(), NativeObject()));
-                return ass.Size;
+                return ass.Size();
             }
 
         /**
@@ -110,10 +110,10 @@ import com.Microsoft.Z3.Enumerations.*;
                 
 
                 ASTVector ass = new ASTVector(Context(), Native.solverGetAssertions(Context().nCtx(), NativeObject()));
-                int n = ass.Size;
+                int n = ass.Size();
                 BoolExpr[] res = new BoolExpr[n];
                 for (int i = 0; i < n; i++)
-                    res[i] = new BoolExpr(Context(), ass[i].NativeObject());
+                    res[i] = new BoolExpr(Context(), ass.get(i).NativeObject());
                 return res;
             }
 
@@ -185,10 +185,10 @@ import com.Microsoft.Z3.Enumerations.*;
                 
 
                 ASTVector core = new ASTVector(Context(), Native.solverGetUnsatCore(Context().nCtx(), NativeObject()));
-                int n = core.Size;
+                int n = core.Size();
                 Expr[] res = new Expr[n];
                 for (int i = 0; i < n; i++)
-                    res[i] = Expr.Create(Context(), core[i].NativeObject());
+                    res[i] = Expr.Create(Context(), core.get(i).NativeObject());
                 return res;
             }
 

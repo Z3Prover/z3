@@ -26,7 +26,7 @@ import com.Microsoft.Z3.Enumerations.*;
             
 
             Context().CheckContextMatch(a);
-            return ConstInterp(a.FuncDecl);
+            return ConstInterp(a.FuncDecl());
         }
 
         /**
@@ -39,7 +39,7 @@ import com.Microsoft.Z3.Enumerations.*;
             
 
             Context().CheckContextMatch(f);
-            if (f.Arity != 0 ||
+            if (f.Arity() != 0 ||
                 Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT.toInt())
                 throw new Z3Exception("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
 
@@ -63,7 +63,7 @@ import com.Microsoft.Z3.Enumerations.*;
 
             Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(Context().nCtx(), Native.getRange(Context().nCtx(), f.NativeObject())));
 
-            if (f.Arity == 0)
+            if (f.Arity() == 0)
             {
                 long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(), f.NativeObject());
 
@@ -139,8 +139,8 @@ import com.Microsoft.Z3.Enumerations.*;
             {
                 
 
-                var nFuncs = NumFuncs();
-                var nConsts = NumConsts();
+                int nFuncs = NumFuncs();
+                int nConsts = NumConsts();
                 int n = nFuncs + nConsts;
                 FuncDecl[] res = new FuncDecl[n];
                 for (int i = 0; i < nConsts; i++)
@@ -236,10 +236,10 @@ import com.Microsoft.Z3.Enumerations.*;
             
 
             ASTVector nUniv = new ASTVector(Context(), Native.modelGetSortUniverse(Context().nCtx(), NativeObject(), s.NativeObject()));
-            int n = nUniv.Size;
+            int n = nUniv.Size();
             Expr[] res = new Expr[n];
             for (int i = 0; i < n; i++)
-                res[i] = Expr.Create(Context(), nUniv[i].NativeObject());
+                res[i] = Expr.Create(Context(), nUniv.get(i).NativeObject());
             return res;
         }
 

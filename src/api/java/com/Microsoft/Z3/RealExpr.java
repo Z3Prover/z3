@@ -19,13 +19,15 @@ import com.Microsoft.Z3.Enumerations.*;
      **/
     public class RealExpr extends ArithExpr
     {
-        /** Constructor for RealExpr </summary>
-     **/
+        /** 
+	 *  Constructor for RealExpr </summary>
+	**/
         protected RealExpr(Context ctx)
         { super(ctx);
             
         }
-        RealExpr(Context ctx, long obj)
+
+        RealExpr(Context ctx, long obj) throws Z3Exception
         { super(ctx, obj);
             
         }

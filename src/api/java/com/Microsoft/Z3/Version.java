@@ -68,6 +68,6 @@ import com.Microsoft.Z3.Enumerations.*;
 
             int major = 0, minor = 0, build = 0, revision = 0;
             Native.getVersion(major, minor, build, revision);
-            return major.toString() + "." + minor.toString() + "." + build.toString() + "." + revision.toString();
+            return Integer.toString(major) + "." + Integer.toString(minor) + "." + Integer.toString(build) + "." + Integer.toString(revision);
         }
     }

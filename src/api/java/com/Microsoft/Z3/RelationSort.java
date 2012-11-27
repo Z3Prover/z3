@@ -31,7 +31,7 @@ import com.Microsoft.Z3.Enumerations.*;
                 if (m_columnSorts != null)
                     return m_columnSorts;
 
-                int n = Arity;
+                int n = Arity();
                 Sort[] res = new Sort[n];
                 for (int i = 0; i < n; i++)
                     res[i] = Sort.Create(Context(), Native.getRelationColumn(Context().nCtx(), NativeObject(), i));

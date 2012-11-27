@@ -20,7 +20,7 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Finalizer.
          **/
-        protected void finalize()
+        protected void finalize() throws Z3Exception
         {
             Dispose();            
         }
@@ -28,7 +28,7 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Disposes of the underlying native Z3 object.
          **/
-        public void Dispose()
+        public void Dispose() throws Z3Exception
         {
             if (m_n_obj != 0)
             {
@@ -65,7 +65,7 @@ import com.Microsoft.Z3.Enumerations.*;
             m_ctx = ctx;
         }
 
-        Z3Object(Context ctx, long obj)
+        Z3Object(Context ctx, long obj) throws Z3Exception
         {
             
 
@@ -75,13 +75,13 @@ import com.Microsoft.Z3.Enumerations.*;
             m_n_obj = obj;
         }
 
-        void IncRef(long o) { }
-        void DecRef(long o) { }
+        void IncRef(long o) throws Z3Exception { }
+        void DecRef(long o) throws Z3Exception { }
 
-        void CheckNativeObject(long obj) { }
+        void CheckNativeObject(long obj) throws Z3Exception { }
 
-                         long NativeObject()  { return m_n_obj; }
-                         void setNativeObject(long value) 
+	long NativeObject()  { return m_n_obj; }
+	void setNativeObject(long value)  throws Z3Exception
             {
                 if (value != 0) { CheckNativeObject(value); IncRef(value); }
                 if (m_n_obj != 0) { DecRef(m_n_obj); }

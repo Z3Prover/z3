@@ -72,7 +72,7 @@ import com.Microsoft.Z3.Enumerations.*;
             return Native.getNumeralString(Context().nCtx(), NativeObject());
         }
 
-        RatNum(Context ctx, long obj)
+        RatNum(Context ctx, long obj) throws Z3Exception
         { super(ctx, obj);
             
         }

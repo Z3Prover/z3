@@ -21,7 +21,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="p">A set of parameters to configure the simplifier</param>
          * <seealso cref="Context.SimplifyHelp"/>
          **/
-        public Expr Simplify(Params p)
+        public Expr Simplify(Params p) throws Z3Exception
         {
             
 
@@ -54,7 +54,7 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * The arguments of the expression.
          **/
-        public Expr[] Args() 
+        public Expr[] Args() throws Z3Exception
             {
                 
 
@@ -69,7 +69,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * Update the arguments of the expression using the arguments <paramref name="args"/>
          * The number of new arguments should coincide with the current number of arguments.
          **/
-        public void Update(Expr[] args)
+        public void Update(Expr[] args) throws Z3Exception
         {
             
             
@@ -88,7 +88,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * sort of <code>from[i]</code> must be equal to sort of <code>to[i]</code>.
          * </remarks>    
          **/
-        public Expr Substitute(Expr[] from, Expr[] to)
+        public Expr Substitute(Expr[] from, Expr[] to) throws Z3Exception
         {
             
             
@@ -107,7 +107,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * Substitute every occurrence of <code>from</code> in the expression with <code>to</code>.
          * <seealso cref="Substitute(Expr[],Expr[])"/>
          **/
-        public Expr Substitute(Expr from, Expr to)
+        public Expr Substitute(Expr from, Expr to) throws Z3Exception
         {
             
             
@@ -122,7 +122,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * For every <code>i</code> smaller than <code>num_exprs</code>, the variable with de-Bruijn index <code>i</code> is replaced with term <code>to[i]</code>.
          * </remarks>
          **/
-        public Expr SubstituteVars(Expr[] to)
+        public Expr SubstituteVars(Expr[] to) throws Z3Exception
         {
             
             
@@ -137,7 +137,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="ctx">A context</param>
          * @return A copy of the term which is associated with <paramref name="ctx"/>
          **/
-        public Expr Translate(Context ctx)
+        public Expr Translate(Context ctx) throws Z3Exception
         {
             
             
@@ -1367,7 +1367,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * index.
          * </remarks>
          **/
-        public int Index() 
+        public int Index() throws Z3Exception
             {
                 if (!IsVar())
                     throw new Z3Exception("Term is not a bound variable.");
@@ -1384,9 +1384,9 @@ import com.Microsoft.Z3.Enumerations.*;
         /** 
          * Constructor for Expr 
          **/
-    protected Expr(Context ctx, long obj) { super(ctx, obj); {  }}
+    protected Expr(Context ctx, long obj) throws Z3Exception { super(ctx, obj); {  }}
 
-        void CheckNativeObject(long obj)
+        void CheckNativeObject(long obj) throws Z3Exception
         {
             if (Native.isApp(Context().nCtx(), obj) ^ true &&
                 Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
@@ -1395,7 +1395,7 @@ import com.Microsoft.Z3.Enumerations.*;
             super.CheckNativeObject(obj);
         }
 
-        static Expr Create(Context ctx, FuncDecl f, Expr[] arguments)
+        static Expr Create(Context ctx, FuncDecl f, Expr[] arguments) throws Z3Exception
         {
             
             
@@ -1407,7 +1407,7 @@ import com.Microsoft.Z3.Enumerations.*;
             return Create(ctx, obj);
         }
 
-        static Expr Create(Context ctx, long obj)
+        static Expr Create(Context ctx, long obj) throws Z3Exception
         {
             
             

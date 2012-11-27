@@ -59,10 +59,10 @@ import com.Microsoft.Z3.Enumerations.*;
             {
                 int n = NumArgs();
                 String res = "[";
-                Expr[] args = Args;
+                Expr[] args = Args();
                 for (int i = 0; i < n; i++)
                     res += args[i] + ", ";
-                return res + Value + "]";
+                return res + Value() + "]";
             }
 
         Entry(Context ctx, long obj) { super(ctx, obj); {  }}
@@ -135,20 +135,20 @@ import com.Microsoft.Z3.Enumerations.*;
         {
             String res = "";
             res += "[";
-            for (Entry e: Entries)
+            for (Entry e: Entries())
             {
-                int n = e.NumArgs;
+                int n = e.NumArgs();
                 if (n > 1) res += "[";
-                Expr[] args = e.Args;
+                Expr[] args = e.Args();
                 for (int i = 0; i < n; i++)
                 {
                     if (i != 0) res += ", ";
                     res += args[i];
                 }
                 if (n > 1) res += "]";
-                res += " -> " + e.Value + ", ";
+                res += " -> " + e.Value() + ", ";
             }
-            res += "else -> " + Else;
+            res += "else -> " + Else();
             res += "]";
             return res;
         }

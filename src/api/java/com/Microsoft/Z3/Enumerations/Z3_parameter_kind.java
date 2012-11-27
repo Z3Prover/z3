@@ -2,7 +2,7 @@
  *  Automatically generated file
  **/
 
-package com.Microsoft.Z3;
+package com.Microsoft.Z3.Enumerations;
 
 /**
  * Z3_parameter_kind

@@ -24,7 +24,7 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Indicates whether the quantifier is existential.
          **/
-        public boolean IsExistential()  { return !IsUniversal; }
+        public boolean IsExistential()  { return !IsUniversal(); }
 
         /**
          * The weight of the quantifier.
@@ -137,21 +137,21 @@ import com.Microsoft.Z3.Enumerations.*;
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject() = Native.mkQuantifier(ctx.nCtx(), (isForall) ? true : false, weight,
-                                           AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
-                                           AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
-                                           Symbol.ArrayToNative(names),
-                                           body.NativeObject());
+                setNativeObject(Native.mkQuantifier(ctx.nCtx(), (isForall) ? true : false, weight,
+						 AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
+						 AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
+						 Symbol.ArrayToNative(names),
+						 body.NativeObject()));
             }
             else
             {
-                NativeObject() = Native.mkQuantifierEx(ctx.nCtx(), (isForall) ? true : false, weight,
-                                  AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
-                                  AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
-                                  AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
-                                  AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
-                                  Symbol.ArrayToNative(names),
-                                  body.NativeObject());
+                setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), (isForall) ? true : false, weight,
+						      AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
+						      AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
+						      AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
+						      AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
+						      Symbol.ArrayToNative(names),
+						      body.NativeObject()));
             }
         }
 
@@ -171,19 +171,19 @@ import com.Microsoft.Z3.Enumerations.*;
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject() = Native.mkQuantifierConst(ctx.nCtx(), (isForall) ? true : false, weight,
-                                                 AST.ArrayLength(bound), AST.ArrayToNative(bound),
-                                                 AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
-                                                 body.NativeObject());
+                setNativeObject(Native.mkQuantifierConst(ctx.nCtx(), (isForall) ? true : false, weight,
+							 AST.ArrayLength(bound), AST.ArrayToNative(bound),
+							 AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
+							 body.NativeObject()));
             }
             else
             {
-                NativeObject() = Native.mkQuantifierConstEx(ctx.nCtx(), (isForall) ? true : false, weight,
-                                        AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
-                                        AST.ArrayLength(bound), AST.ArrayToNative(bound),
-                                        AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
-                                        AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
-                                        body.NativeObject());
+                setNativeObject(Native.mkQuantifierConstEx(ctx.nCtx(), (isForall) ? true : false, weight,
+							   AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
+							   AST.ArrayLength(bound), AST.ArrayToNative(bound),
+							   AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
+							   AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
+							   body.NativeObject()));
             }
         }
 
@@ -192,7 +192,7 @@ import com.Microsoft.Z3.Enumerations.*;
 
         void CheckNativeObject(long obj)
         {
-            if ((Z3_ast_kind)Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
+            if (Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt())
                 throw new Z3Exception("Underlying object is not a quantifier");
             super.CheckNativeObject(obj);
         }

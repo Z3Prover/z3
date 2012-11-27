@@ -25,6 +25,8 @@ import com.Microsoft.Z3.Enumerations.*;
             /**
              * The key of the entry.
              **/
+	    public String Key;
+
             /**
              * The uint-value of the entry.
              **/
@@ -49,10 +51,10 @@ import com.Microsoft.Z3.Enumerations.*;
                 {
                     
 
-                    if (IsUInt)
-                        return m_int.toString();
-                    else if (IsDouble)
-                        return m_double.toString();
+                    if (IsUInt())
+                        return Integer.toString(m_int);
+                    else if (IsDouble())
+                        return Double.toString(m_double);
                     else
                         throw new Z3Exception("Unknown statistical entry type");
                 }
@@ -62,7 +64,7 @@ import com.Microsoft.Z3.Enumerations.*;
              **/
             public String toString()
             {
-                return Key + ": " + Value;
+                return Key + ": " + Value();
             }
 
             private boolean m_is_int = false;
@@ -71,13 +73,13 @@ import com.Microsoft.Z3.Enumerations.*;
             private double m_double = 0.0;
             Entry(String k, int v)
             {
-                Key = k;
+		Key = k;
                 m_is_int = true;
                 m_int = v;
             }
             Entry(String k, double v)
             {
-                Key = k;
+		Key = k;
                 m_is_double = true;
                 m_double = v;
             }
@@ -105,14 +107,14 @@ import com.Microsoft.Z3.Enumerations.*;
                 
                 
 
-                int n = Size;
+                int n = Size();
                 Entry[] res = new Entry[n];
                 for (int i = 0; i < n; i++)
                 {
                     Entry e;
                     String k = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
-                    if (Native.statsIsInt(Context().nCtx(), NativeObject(), i) )
-                        e = new Entry(k, Native.statsGetIntValue(Context().nCtx(), NativeObject(), i));
+                    if (Native.statsIsUint(Context().nCtx(), NativeObject(), i) )
+                        e = new Entry(k, Native.statsGetUintValue(Context().nCtx(), NativeObject(), i));
                     else if (Native.statsIsDouble(Context().nCtx(), NativeObject(), i) )
                         e = new Entry(k, Native.statsGetDoubleValue(Context().nCtx(), NativeObject(), i));
                     else
@@ -129,7 +131,7 @@ import com.Microsoft.Z3.Enumerations.*;
             {
                 
 
-                int n = Size;
+                int n = Size();
                 String[] res = new String[n];
                 for (int i = 0; i < n; i++)
                     res[i] = Native.statsGetKey(Context().nCtx(), NativeObject(), i);
@@ -142,8 +144,8 @@ import com.Microsoft.Z3.Enumerations.*;
          **/
         public Entry get(String key) 
             {
-                int n = Size;
-                Entry[] es = Entries;
+                int n = Size();
+                Entry[] es = Entries();
                 for (int i = 0; i < n; i++)
                     if (es[i].Key == key)
                         return es[i];

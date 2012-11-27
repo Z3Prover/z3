@@ -27,7 +27,7 @@ import com.Microsoft.Z3.Enumerations.*;
          **/
         public boolean IsIntSymbol()
         {
-            return Kind == Z3_symbol_kind.Z3_INT_SYMBOL;
+            return Kind() == Z3_symbol_kind.Z3_INT_SYMBOL;
         }
 
         /**
@@ -35,7 +35,7 @@ import com.Microsoft.Z3.Enumerations.*;
          **/
         public boolean IsStringSymbol()
         {
-            return Kind == Z3_symbol_kind.Z3_STRING_SYMBOL;
+            return Kind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
         }
 
         /**
@@ -44,9 +44,9 @@ import com.Microsoft.Z3.Enumerations.*;
         public String toString()
         {
             if (IsIntSymbol())
-                return ((IntSymbol)this).Int.toString();
+                return Integer.toString(((IntSymbol)this).Int());
             else if (IsStringSymbol())
-                return ((StringSymbol)this).String;
+                return ((StringSymbol)this).String();
             else
                 throw new Z3Exception("Unknown symbol kind encountered");
         }
@@ -54,8 +54,8 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Symbol constructor
          **/
-    protected Symbol(Context ctx, long obj) { super(ctx, obj); 
-            
+	protected Symbol(Context ctx, long obj) { 
+	    super(ctx, obj);            
         }
 
         static Symbol Create(Context ctx, long obj)

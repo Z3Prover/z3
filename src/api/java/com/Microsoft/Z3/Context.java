@@ -42,6 +42,12 @@ import com.Microsoft.Z3.Enumerations.*;
             InitContext();
         }
 
+        private Context(long ctx)
+        {
+	    super();
+	    this.m_ctx = ctx;
+	}
+
         /**
          * Creates a new symbol using an integer.
          * <remarks>
@@ -591,7 +597,7 @@ import com.Microsoft.Z3.Enumerations.*;
             
             
 
-            return MkApp(f);
+            return MkApp(f, null);
         }
 
         /**
@@ -2212,15 +2218,6 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="ty">Sort of the numeral</param>
          * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
          **/
-        /* Not translated because it would translate to a function with clashing types. */
-
-        /**
-         * Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
-         * It is slightly faster than <code>MakeNumeral</code> since it is not necessary to parse a string.       
-         * <param name="v">Value of the numeral</param>
-         * <param name="ty">Sort of the numeral</param>
-         * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
-         **/
         public Expr MkNumeral(long v, Sort ty)
         {
             
@@ -2229,15 +2226,6 @@ import com.Microsoft.Z3.Enumerations.*;
             CheckContextMatch(ty);
             return Expr.Create(this, Native.mkInt64(nCtx(), v, ty.NativeObject()));
         }
-
-        /**
-         * Create a Term of a given sort. This function can be use to create numerals that fit in a machine integer.
-         * It is slightly faster than <code>MakeNumeral</code> since it is not necessary to parse a string.       
-         * <param name="v">Value of the numeral</param>
-         * <param name="ty">Sort of the numeral</param>
-         * @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
-         **/
-        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a real from a fraction.
@@ -2286,26 +2274,12 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Real
          **/
-        /* Not translated because it would translate to a function with clashing types. */
-
-        /**
-         * Create a real numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Real
-         **/
         public RatNum MkReal(long v)
         {
             
 
             return new RatNum(this, Native.mkInt64(nCtx(), v, RealSort().NativeObject()));
         }
-
-        /**
-         * Create a real numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Real
-         **/
-        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create an integer numeral.
@@ -2335,26 +2309,12 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="v">value of the numeral.</param>    
          * @return A Term with value <paramref name="v"/> and sort Integer
          **/
-        /* Not translated because it would translate to a function with clashing types. */
-
-        /**
-         * Create an integer numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Integer
-         **/
         public IntNum MkInt(long v)
         {
             
 
             return new IntNum(this, Native.mkInt64(nCtx(), v, IntSort().NativeObject()));
         }
-
-        /**
-         * Create an integer numeral.
-         * <param name="v">value of the numeral.</param>    
-         * @return A Term with value <paramref name="v"/> and sort Integer
-         **/
-        /* Not translated because it would translate to a function with clashing types. */
 
         /**
          * Create a bit-vector numeral.
@@ -2382,13 +2342,6 @@ import com.Microsoft.Z3.Enumerations.*;
 
         /**
          * Create a bit-vector numeral.
-         * <param name="v">value of the numeral.</param>    
-         * <param name="size">the size of the bit-vector</param>
-         **/
-        /* Not translated because it would translate to a function with clashing types. */
-
-        /**
-         * Create a bit-vector numeral.
          * <param name="v">value of the numeral.</param>
          *  * <param name="size">the size of the bit-vector</param>
          **/
@@ -2398,13 +2351,6 @@ import com.Microsoft.Z3.Enumerations.*;
 
             return (BitVecNum)MkNumeral(v, MkBitVecSort(size));
         }
-
-        /**
-         * Create a bit-vector numeral.
-         * <param name="v">value of the numeral.</param>
-         * <param name="size">the size of the bit-vector</param>
-         **/
-        /* Not translated because it would translate to a function with clashing types. */
 
 
         /**
@@ -2551,7 +2497,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <seealso cref="FuncDecl.ToString()"/>
          * <seealso cref="Sort.ToString()"/>
          **/
-        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx(), (int)value); }
+        public void setPrintMode(Z3_ast_print_mode value)  { Native.setAstPrintMode(nCtx(), value.toInt()); }
 
         /**
          * Convert a benchmark into an SMT-LIB formatted string.
@@ -3356,12 +3302,12 @@ import com.Microsoft.Z3.Enumerations.*;
          **/
         public String GetParamValue(String id)
         {
-            long res = 0;
-            int r = Native.getParamValue(nCtx(), id, res);
-            if (r == Z3_lbool.Z3_L_FALSE.toInt())
+            String res = new String();
+            boolean r = Native.getParamValue(nCtx(), id, res);
+            if (!r)
                 return null;
             else
-                return Marshal.PtrToStringAnsi(res);
+                return res;
         }
 
 
@@ -3376,7 +3322,7 @@ import com.Microsoft.Z3.Enumerations.*;
 
         void InitContext()
         {
-            PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
+            setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
             m_n_err_handler = new Native.errorHandler(NativeErrorHandler); // keep reference so it doesn't get collected.
             Native.setErrorHandler(m_ctx, m_n_err_handler);
             
@@ -3386,7 +3332,7 @@ import com.Microsoft.Z3.Enumerations.*;
         {
             
 
-            if (!ReferenceEquals(this, other.Context))
+            if (this == other.Context())
                 throw new Z3Exception("Context mismatch");
         }
 
@@ -3402,25 +3348,6 @@ import com.Microsoft.Z3.Enumerations.*;
                     CheckContextMatch(a);
                 }
             }
-        }
-
-        private void ObjectInvariant()
-        {
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
-            
         }
 
         private AST.DecRefQueue m_AST_DRQ = new AST.DecRefQueue();
@@ -3473,7 +3400,8 @@ import com.Microsoft.Z3.Enumerations.*;
                 m_ctx = 0;
             }
             else
-                GC.ReRegisterForFinalize(this);
+		/* re-queue the finalizer */
+                new Context(m_ctx);
         }
 
         /**

@@ -43,7 +43,7 @@ import com.Microsoft.Z3.Enumerations.*;
 
         void CheckNativeObject(long obj)
         {
-            if ((Z3_symbol_kind)Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_STRING_SYMBOL)
+            if (Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_STRING_SYMBOL.toInt())
                 throw new Z3Exception("Symbol is not of String kind");
 
             super.CheckNativeObject(obj);

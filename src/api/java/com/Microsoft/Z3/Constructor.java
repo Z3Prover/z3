@@ -92,11 +92,11 @@ import com.Microsoft.Z3.Enumerations.*;
 
             if (sortRefs == null) sortRefs = new int[n];
 
-            NativeObject() = Native.mkConstructor(ctx.nCtx(), name.NativeObject(), recognizer.NativeObject(),
-                                                    n,
-                                                    Symbol.ArrayToNative(fieldNames),
-                                                    Sort.ArrayToNative(sorts),
-                                                    sortRefs);
+            setNativeObject(Native.mkConstructor(ctx.nCtx(), name.NativeObject(), recognizer.NativeObject(),
+						 n,
+						 Symbol.ArrayToNative(fieldNames),
+						 Sort.ArrayToNative(sorts),
+						 sortRefs));
 
         }
 
