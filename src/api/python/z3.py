@@ -632,7 +632,7 @@ class FuncDeclRef(AstRef):
         >>> f(x, x)
         f(x, ToReal(x))
         """
-	args = _get_args(args)
+        args = _get_args(args)
         num = len(args)
         if __debug__:
             _z3_assert(num == self.arity(), "Incorrect number of arguments to %s" % self)
