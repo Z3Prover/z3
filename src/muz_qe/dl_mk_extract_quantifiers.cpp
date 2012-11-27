@@ -121,10 +121,11 @@ namespace datalog {
         }
         else {
             rule_ref new_rule(rm);
-            std::cout << mk_pp(r.get_head(), m) << " :- \n";
-            for (unsigned i = 0; i < tail.size(); ++i) {
-                std::cout << "  " << mk_pp(tail[i].get(), m) << "\n";
-            }
+            TRACE("dl", 
+                  tout << mk_pp(r.get_head(), m) << " :- \n";
+                  for (unsigned i = 0; i < tail.size(); ++i) {
+                      tout << "  " << mk_pp(tail[i].get(), m) << "\n";
+                  });
             new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), 0, r.name(), false);
             quantifier_ref_vector* qs = alloc(quantifier_ref_vector, quantifiers);
             m_refs.push_back(qs);

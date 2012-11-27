@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Remove array variables from rules.
+    Remove array stores from rules.
 
 Author:
 
@@ -53,6 +53,11 @@ namespace datalog {
         unsigned utsz = r.get_uninterpreted_tail_size();
         unsigned tsz = r.get_tail_size();
         expr_ref_vector conjs(m), new_conjs(m);
+        expr_ref tmp(m);
+        expr_substitution sub(m);
+        uint_set lhs_vars, rhs_vars;
+        bool change = false;
+
         for (unsigned i = 0; i < utsz; ++i) {
             new_conjs.push_back(r.get_tail(i));
         }
@@ -60,11 +65,10 @@ namespace datalog {
             conjs.push_back(r.get_tail(i));
         }
         flatten_and(conjs);
-        expr_substitution sub(m);
-        uint_set lhs_vars, rhs_vars;
         for (unsigned i = 0; i < conjs.size(); ++i) {
-            expr* x, *y;
-            if (is_store_def(conjs[i].get(), x, y)) {
+            expr* x, *y, *e = conjs[i].get();
+            
+            if (is_store_def(e, x, y)) {
                 // enforce topological order consistency:
                 uint_set lhs;
                 collect_vars(m, x, lhs_vars);
@@ -72,17 +76,20 @@ namespace datalog {
                 lhs = lhs_vars;
                 lhs &= rhs_vars;
                 if (!lhs.empty()) {
-                    new_conjs.push_back(conjs[i].get());
+                    TRACE("dl", tout << "unusable equality " << mk_pp(e, m) << "\n";);
+                    new_conjs.push_back(e);
                 }
                 else {
                     sub.insert(x, y);
                 }
             }
             else {
-                new_conjs.push_back(conjs[i].get());
+                m_rewriter(e, tmp);
+                change = change || (tmp != e);
+                new_conjs.push_back(tmp);
             }
         }
-        if (sub.empty()) {
+        if (sub.empty() && !change) {
             rules.add_rule(&r);
             return false;
         }
@@ -101,6 +108,8 @@ namespace datalog {
         fml2 = m.mk_implies(body, head);
         rm.mk_rule(fml2, new_rules, r.name());
         SASSERT(new_rules.size() == 1);
+
+        TRACE("dl", tout << "new body " << mk_pp(fml2, m) << "\n";);
         
         rules.add_rule(new_rules[0].get());
         if (m_pc) {
@@ -131,7 +140,6 @@ namespace datalog {
             pc = concat(pc.get(), epc.get());
         }
         return rules;        
-
     }
 
 };

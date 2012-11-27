@@ -26,6 +26,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "ast_smt_pp.h"
 #include "expr_abstract.h"
+#include "dl_mk_extract_quantifiers.h"
 
 
 namespace pdr {
@@ -129,7 +130,10 @@ namespace pdr {
         inv_var_shifter invsh(m);
         vs(q->get_expr(), binding.size(), binding.c_ptr(), e);
         invsh(e, q->get_num_decls(), e);
-        expr_abstract(m, 0, var_inst.size(), (expr*const*)var_inst.c_ptr(), e, e);
+        expr_ref_vector inst(m);
+        inst.append(var_inst.size(), (expr*const*)var_inst.c_ptr());
+        inst.reverse();
+        expr_abstract(m, 0, inst.size(), inst.c_ptr(), e, e);
         TRACE("pdr", tout << mk_pp(e, m) << "\n";);
         m_instantiated_rules.push_back(m_current_rule);
         m_instantiations.push_back(to_app(e));
@@ -403,16 +407,18 @@ namespace pdr {
     }
 
     void quantifier_model_checker::refine() {
-        IF_VERBOSE(1, verbose_stream() << "instantiating quantifiers\n";);
-        datalog::rule_manager& rule_m = m_rules.get_rule_manager();
+        datalog::mk_extract_quantifiers eq(m_ctx.get_context());
+        datalog::rule_manager& rm = m_rules.get_rule_manager();
         datalog::rule_set new_rules(m_rules.get_context());
         datalog::rule_set::iterator it = m_rules.begin(), end = m_rules.end();
         for (; it != end; ++it) {
             datalog::rule* r = *it;
-            expr_ref_vector body(m);
+            datalog::var_counter vc(true);
+            unsigned max_var = vc.get_max_var(*r);
+            app_ref_vector body(m);
             for (unsigned i = 0; i < m_instantiations.size(); ++i) {
                 if (r == m_instantiated_rules[i]) {
-                    body.push_back(m_instantiations[i].get());
+                    eq.ensure_predicate(m_instantiations[i].get(), max_var, body);
                 }
             }
             if (body.empty()) {
@@ -424,18 +430,19 @@ namespace pdr {
                 }
                 quantifier_ref_vector* qs = 0;
                 m_quantifiers.find(r, qs);
-                m_quantifiers.remove(r);
-                datalog::rule_ref_vector rules(rule_m);
-                expr_ref rule(m.mk_implies(m.mk_and(body.size(), body.c_ptr()), r->get_head()), m);
-                std::cout << mk_pp(rule, m) << "\n";
-                rule_m.mk_rule(rule, rules, r->name());
-                for (unsigned i = 0; i < rules.size(); ++i) {
-                    new_rules.add_rule(rules[i].get());
-                    m_quantifiers.insert(rules[i].get(), qs);
-                }
+                m_quantifiers.remove(r);                
+                datalog::rule_ref new_rule(rm);
+                new_rule = rm.mk(r->get_head(), body.size(), body.c_ptr(), 0, r->name(), false);
+                new_rules.add_rule(new_rule);
+                m_quantifiers.insert(new_rule, qs);
+                IF_VERBOSE(1, 
+                           verbose_stream() << "instantiating quantifiers\n";                           
+                           r->display(m_ctx.get_context(), verbose_stream());
+                           verbose_stream() << "replaced by\n";
+                           new_rule->display(m_ctx.get_context(), verbose_stream()););
             }
         }
-        new_rules.close();                  
+        new_rules.close();
         m_rules.reset();
         m_rules.add_rules(new_rules);
         m_rules.close();
