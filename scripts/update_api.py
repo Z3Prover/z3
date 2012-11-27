@@ -507,8 +507,8 @@ def mk_java():
     java_native.write('  public static class StringPtr { public String value; }\n')
     java_native.write('  public static class errorHandler { public long ptr; }\n')
 
-    if is_windows():
-        java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java'))
+    if IS_WINDOWS:
+        java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
     else:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
     for name, result, params in _dotnet_decls:
