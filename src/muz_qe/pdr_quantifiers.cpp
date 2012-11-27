@@ -19,12 +19,13 @@ Revision History:
 
 #include "pdr_quantifiers.h"
 #include "pdr_context.h"
-#include "model_smt2_pp.h"
-#include "ast_smt2_pp.h"
 #include "qe.h"
 #include "var_subst.h"
 #include "dl_rule_set.h"
+#include "ast_smt2_pp.h"
 #include "model_smt2_pp.h"
+#include "ast_smt_pp.h"
+#include "expr_abstract.h"
 
 
 namespace pdr {
@@ -104,21 +105,34 @@ namespace pdr {
     }
      
     void quantifier_model_checker::apply_binding(quantifier* q, expr_ref_vector& binding) {          
+
+        datalog::scoped_no_proof _scp(m);
+
         app_ref_vector& var_inst = m_current_pt->get_inst(m_current_rule);
-        expr_substitution sub(m);
-        for (unsigned i = 0; i < var_inst.size(); ++i) {
-            expr* v = var_inst[i].get();
-            sub.insert(v, m.mk_var(i, m.get_sort(v)));
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
+
+        TRACE("pdr", tout << mk_pp(q, m) << "\n";
+              tout << "binding\n";
+              for (unsigned i = 0; i < binding.size(); ++i) {
+                  tout << mk_pp(binding[i].get(), m) << " ";
+              }
+              tout << "\n";
+              tout << "inst\n";
+              for (unsigned i = 0; i < var_inst.size(); ++i) {
+                  tout << mk_pp(var_inst[i].get(), m) << " ";
+              }
+              tout << "\n";
+              );
+
+
         expr_ref e(m);
         var_subst vs(m, false);
+        inv_var_shifter invsh(m);
         vs(q->get_expr(), binding.size(), binding.c_ptr(), e);
-        (*rep)(e);        
+        invsh(e, q->get_num_decls(), e);
+        expr_abstract(m, 0, var_inst.size(), (expr*const*)var_inst.c_ptr(), e, e);
+        TRACE("pdr", tout << mk_pp(e, m) << "\n";);
         m_instantiated_rules.push_back(m_current_rule);
         m_instantiations.push_back(to_app(e));
-        TRACE("pdr", tout << mk_pp(e, m) << "\n";);
     }
 
 
@@ -187,6 +201,7 @@ namespace pdr {
         expr_ref_vector fmls(m);
         front_end_params fparams;
         fparams.m_proof_mode = PGM_COARSE;
+        fparams.m_mbqi = true;
         // TBD: does not work on integers: fparams.m_mbqi = true;
 
         fmls.push_back(m_A.get());
@@ -364,6 +379,12 @@ namespace pdr {
               for (unsigned i = 0; i < m_Bs.size(); ++i) {
                   tout << mk_pp((*qis)[i].get(), m) << "\n" << mk_pp(m_Bs[i].get(), m) << "\n";
               }
+              ast_smt_pp pp(m);
+              pp.add_assumption(m_A);
+              for (unsigned i = 0; i < m_Bs.size(); ++i) {
+                  pp.add_assumption(m_Bs[i].get());
+              }
+              pp.display_smt2(tout, m.mk_true());
               );
 
         find_instantiations(*qis, level);
@@ -406,6 +427,7 @@ namespace pdr {
                 m_quantifiers.remove(r);
                 datalog::rule_ref_vector rules(rule_m);
                 expr_ref rule(m.mk_implies(m.mk_and(body.size(), body.c_ptr()), r->get_head()), m);
+                std::cout << mk_pp(rule, m) << "\n";
                 rule_m.mk_rule(rule, rules, r->name());
                 for (unsigned i = 0; i < rules.size(); ++i) {
                     new_rules.add_rule(rules[i].get());

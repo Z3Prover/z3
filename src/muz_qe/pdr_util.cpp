@@ -549,7 +549,7 @@ namespace pdr {
         }
     }
     
-    bool model_evaluator::extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref else_case) {
+    bool model_evaluator::extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case) {
         SASSERT(m_array.is_array(a));
         
         while (m_array.is_store(a)) {
@@ -582,6 +582,9 @@ namespace pdr {
                 stores.push_back(store);
             }        
             else_case = g->get_else();
+            if (!else_case) {
+                return false;
+            }
             if (!is_ground(else_case)) {
                 return false;
             }
@@ -901,6 +904,32 @@ namespace pdr {
             }
         }
         return !has_x;
+    }
+
+    expr_ref model_evaluator::eval(model_ref& model, expr* e) {
+        expr_ref result(m);
+        m_model = model;
+        VERIFY(m_model->eval(e, result, true));
+        if (m_array.is_array(e)) {
+            vector<expr_ref_vector> stores;
+            expr_ref_vector args(m);
+            expr_ref else_case(m);
+            if (extract_array_func_interp(result, stores, else_case)) {
+                result = m_array.mk_const_array(m.get_sort(e), else_case);
+                while (!stores.empty() && stores.back().back() == else_case) {
+                    stores.pop_back();
+                }
+                for (unsigned i = stores.size(); i > 0; ) {
+                    --i;
+                    args.resize(1);
+                    args[0] = result;
+                    args.append(stores[i]);
+                    result = m_array.mk_store(args.size(), args.c_ptr());
+                }
+                return result;
+            }
+        }
+        return result;
     }
 
 

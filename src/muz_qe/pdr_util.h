@@ -103,7 +103,7 @@ namespace pdr {
         
         bool check_model(ptr_vector<expr> const & formulas);
 
-        bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref else_case);
+        bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case);
         
     public:
         model_evaluator(ast_manager& m) : m(m), m_arith(m), m_array(m), m_refs(m) {}
@@ -127,6 +127,8 @@ namespace pdr {
            for_each_expr visitor.
        */
        void operator()(expr* e) {} 
+
+       expr_ref eval(model_ref& mdl, expr* e);
     };
 
     /**

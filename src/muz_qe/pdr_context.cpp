@@ -731,17 +731,15 @@ namespace pdr {
         TRACE("pdr", model_smt2_pp(tout, m, get_model(), 0););
         func_decl* f = p.head();
         unsigned arity = f->get_arity();
+        model_ref model = get_model_ptr();
         expr_ref_vector args(m);
-        func_decl_ref v(m);
+        expr_ref v(m);
+        model_evaluator mev(m);
+
         for (unsigned i = 0; i < arity; ++i) {
-            v = pm.o2n(p.sig(i),0);  
-            expr* e = get_model().get_const_interp(v);
-            if (e) {
-                args.push_back(e);
-            }
-            else {
-                args.push_back(m.mk_const(v));
-            }
+            v = m.mk_const(pm.o2n(p.sig(i),0));  
+            expr_ref e = mev.eval(model, v);
+            args.push_back(e);
         }            
         return expr_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
     }
@@ -1833,7 +1831,7 @@ namespace pdr {
             pr = m.mk_asserted(m.mk_true());
             for (unsigned i = 0; i < vars.size(); ++i) {    
                 if (smt::is_value_sort(m, vars[i].get())) {
-                    VERIFY (M->eval(vars[i].get(), tmp, true)); 
+                    tmp = mev.eval(M, vars[i].get());
                     sub.insert(vars[i].get(), tmp, pr);
                 }
             }
@@ -1866,7 +1864,7 @@ namespace pdr {
                 for (unsigned j = 1; j < indices.size(); ++j) {
                     ptr_vector<app> const& vs = vars[indices[j]];
                     for (unsigned k = 0; k < vs.size(); ++k) {
-                        M->eval(vs[k]->get_decl(), tmp);
+                        tmp = mev.eval(M, vs[k]);
                         sub.insert(vs[k], tmp, pr);
                         child_states[indices[j]].push_back(m.mk_eq(vs[k], tmp));
                     }

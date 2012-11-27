@@ -67,8 +67,13 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
         buffer << s << k;
         return symbol(buffer.str().c_str());            
     }
-    
-    buffer << mk_smt2_quoted_symbol(s);
+
+    if (is_smt2_quoted_symbol(s)) {
+        buffer << mk_smt2_quoted_symbol(s);
+    }
+    else {
+        buffer << s;
+    }
     if (k > 0) {
         buffer << k;
     }
