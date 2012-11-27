@@ -501,7 +501,7 @@ def mk_java():
     except:
         pass # OK if it exists already.
     java_nativef  = '%s/com/Microsoft/Z3/Native.java' % java_dir
-    java_wrapperf = '%s/com/Microsoft/Z3/Native.c' % java_dir 
+    java_wrapperf = '%s/Native.cpp' % java_dir 
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
     java_native.write('package com.Microsoft.Z3;\n')

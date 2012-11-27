@@ -61,7 +61,7 @@ import com.Microsoft.Z3.Enumerations.*;
                 for (int i = 0; i < n; i++)
                 {
                     FuncDecl fd = new FuncDecl(Context(), Native.getDatatypeSortConstructor(Context().nCtx(), NativeObject(), i));
-                    int ds = fd.DomainSize;
+                    int ds = fd.DomainSize();
                     FuncDecl[] tmp = new FuncDecl[ds];
                     for (int j = 0; j < ds; j++)
                         tmp[j] = new FuncDecl(Context(), Native.getDatatypeSortConstructorAccessor(Context().nCtx(), NativeObject(), i, j));

@@ -23,7 +23,7 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * The size of the sort of a bit-vector term.
          **/
-        public int SortSize()  { return ((BitVecSort)Sort).Size; }
+        public int SortSize()  { return ((BitVecSort)Sort()).Size(); }
 
         /** Constructor for BitVecExpr </summary>
          **/

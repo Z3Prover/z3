@@ -24,7 +24,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="precision">the precision of the result</param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToUpper(int precision)
+        public RatNum ToUpper(int precision) throws Z3Exception
         {
             
 
@@ -38,7 +38,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="precision"></param>
          * @return A numeral Expr of sort Real
          **/
-        public RatNum ToLower(int precision)
+        public RatNum ToLower(int precision) throws Z3Exception
         {
             
 
@@ -49,14 +49,14 @@ import com.Microsoft.Z3.Enumerations.*;
          * Returns a string representation in decimal notation.
          * <remarks>The result has at most <paramref name="precision"/> decimal places.</remarks>    
          **/
-        public String ToDecimal(int precision)
+        public String ToDecimal(int precision) throws Z3Exception
         {
             
 
             return Native.getNumeralDecimalString(Context().nCtx(), NativeObject(), precision);
         }
 
-        AlgebraicNum(Context ctx, long obj)
+        AlgebraicNum(Context ctx, long obj) throws Z3Exception
         { super(ctx, obj);
             
         }

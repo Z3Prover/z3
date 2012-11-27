@@ -39,7 +39,7 @@ import com.Microsoft.Z3.Enumerations.*;
 
         void CheckNativeObject(long obj)
         {
-            if ((Z3_symbol_kind)Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL)
+            if (Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL.toInt())
                 throw new Z3Exception("Symbol is not of integer kind");
             super.CheckNativeObject(obj);
         }

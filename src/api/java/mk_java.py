@@ -163,11 +163,11 @@ def translate(filename):
                 tgt.write(t + " **/\n")
                 in_javadoc = 0
 
-        for i in range(0, len(EXCLUDE_METHODS)):
-            if filename == EXCLUDE_METHODS[i][0] and s.startswith(EXCLUDE_METHODS[i][1]):
-                tgt.write(t + "/* Not translated because it would translate to a function with clashing types. */\n")
-                in_unsupported = 1
-                break
+        # for i in range(0, len(EXCLUDE_METHODS)):
+        #     if filename == EXCLUDE_METHODS[i][0] and s.startswith(EXCLUDE_METHODS[i][1]):
+        #         tgt.write(t + "/* Not translated because it would translate to a function with clashing types. */\n")
+        #         in_unsupported = 1
+        #         break
                     
 
         if in_unsupported:

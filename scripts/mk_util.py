@@ -493,6 +493,9 @@ def get_c_files(path):
 def get_cs_files(path):
     return filter(lambda f: f.endswith('.cs'), os.listdir(path))
 
+def get_java_files(path):
+    return filter(lambda f: f.endswith('.java'), os.listdir(path))
+
 def find_all_deps(name, deps):
     new_deps = []
     for dep in deps:
@@ -932,19 +935,21 @@ class JavaDLLComponent(Component):
     def mk_makefile(self, out):
         if is_java_enabled():
             dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('%s: %s/Z3Native.java %s$(SO_EXT)\n' % (dllfile, self.to_src_dir, get_component('api_dll').dll_name))
-            if IS_WINDOWS:
-                out.write('\tcd %s && %s Z3Native.java\n' % (unix_path2dos(self.to_src_dir), JAVAC))
-                out.write('\tmove %s\\*.class .\n' % unix_path2dos(self.to_src_dir))
-                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Z3Native.c\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) Z3Native$(OBJ_EXT) libz3.lib\n' % dllfile)
-            else:
-                out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
-                out.write('\tmv %s/*.class .\n' % self.to_src_dir)
-                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
-            out.write('%s: %s\n\n' % (self.name, dllfile))
-            # TODO: Compile and package all the .class files.
+            subdir = self.package_name.replace(".","/")
+            out.write('libz3java$(SO_EXT): libz3$(SO_EXT) ../src/api/java/Native.cpp\n')
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3.lib\n')
+            out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
+            # for java_file in get_java_files(self.src_dir):
+            #     out.write('%s ' % java_file)
+            # for java_file in get_java_files((self.src_dir + "/%s/Enumerations") % subdir):
+            #     out.write('%s ' % java_file)
+            out.write('\n')
+            src_wsub = self.to_src_dir + "/" + subdir;
+            out.write(('\tjavac %s/Enumerations/*.java -d api/java\n' % (src_wsub)).replace("/","\\"))
+            out.write(('\tjavac -cp api/java %s/*.java -d api/java\n' % (src_wsub)).replace("/","\\"))
+            out.write('\tjar cf %s.jar api/java/\n' % self.package_name)
+            out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
         return is_java_enabled()
@@ -1847,7 +1852,7 @@ def mk_z3consts_java(api_files):
                     if name not in DeprecatedEnums:
                         efile  = open('%s/%s.java' % (gendir, name), 'w')
                         efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s;\n\n' % java.package_name);
+                        efile.write('package %s.Enumerations;\n\n' % java.package_name);
 
                         efile.write('/**\n')
                         efile.write(' * %s\n' % name)

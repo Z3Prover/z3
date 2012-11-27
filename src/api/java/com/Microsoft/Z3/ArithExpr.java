@@ -25,7 +25,7 @@ import com.Microsoft.Z3.Enumerations.*;
         { super(ctx);
             
         }
-        ArithExpr(Context ctx, long obj)
+        ArithExpr(Context ctx, long obj) throws Z3Exception
         { super(ctx, obj);
             
         }

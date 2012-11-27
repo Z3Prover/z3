@@ -68,8 +68,8 @@ import com.Microsoft.Z3.Enumerations.*;
             int n = enumNames.length;
             long[] n_constdecls = new long[n];
             long[] n_testers = new long[n];
-            NativeObject() = Native.mkEnumerationSort(ctx.nCtx(), name.NativeObject(), (int)n,
-                                                         Symbol.ArrayToNative(enumNames), n_constdecls, n_testers);
+            setNativeObject(Native.mkEnumerationSort(ctx.nCtx(), name.NativeObject(), (int)n,
+						     Symbol.ArrayToNative(enumNames), n_constdecls, n_testers));
             _constdecls = new FuncDecl[n];
             for (int i = 0; i < n; i++)
                 _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
@@ -78,6 +78,6 @@ import com.Microsoft.Z3.Enumerations.*;
                 _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
             _consts = new Expr[n];
             for (int i = 0; i < n; i++)
-                _consts[i] = ctx.MkApp(_constdecls[i]);
+                _consts[i] = ctx.MkApp(_constdecls[i], null);
         }
     };

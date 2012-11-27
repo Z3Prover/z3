@@ -165,8 +165,8 @@ namespace Microsoft.Z3
             {
                 Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
 
-                var nFuncs = NumFuncs;
-                var nConsts = NumConsts;
+                uint nFuncs = NumFuncs;
+                uint nConsts = NumConsts;
                 uint n = nFuncs + nConsts;
                 FuncDecl[] res = new FuncDecl[n];
                 for (uint i = 0; i < nConsts; i++)

@@ -14,21 +14,29 @@ import com.Microsoft.Z3.Enumerations.*;
   /**
    * Status values.
    **/
-  public class Status
+  public enum Status
   {    
-    /// <summary>
     /// Used to signify an unsatisfiable status.
-    /// </summary>
-public static final int     UNSATISFIABLE  = 1;
+      UNSATISFIABLE (1),
 
-    /// <summary>
     /// Used to signify an unknown status.
-    /// </summary>
-public static final int     UNKNOWN  = 0;
+      UNKNOWN  (0),
 
-    /// <summary>
     /// Used to signify a satisfiable status.
-    /// </summary>
-public static final int     SATISFIABLE  = 1;
+      SATISFIABLE  (1);
+
+    private final int intValue;
+
+    Status (int v) {
+        this.intValue = v;
+    }
+
+    public static final Status fromInt(int v) {
+        for (Status  k: values()) 
+            if (k.intValue == v) return k;
+        return values()[0];
+    }
+
+    public final int toInt() { return this.intValue; }
   }
 

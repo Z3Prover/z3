@@ -110,8 +110,8 @@ import com.Microsoft.Z3.Enumerations.*;
                    ihead = 0,
                    itail = 0;
 
-            NativeObject() = Native.mkListSort(ctx.nCtx(), name.NativeObject(), elemSort.NativeObject(),
-                                                  inil, iisnil, icons, iiscons, ihead, itail);
+            setNativeObject(Native.mkListSort(ctx.nCtx(), name.NativeObject(), elemSort.NativeObject(),
+					      inil, iisnil, icons, iiscons, ihead, itail));
             nilDecl = new FuncDecl(ctx, inil);
             isNilDecl = new FuncDecl(ctx, iisnil);
             consDecl = new FuncDecl(ctx, icons);

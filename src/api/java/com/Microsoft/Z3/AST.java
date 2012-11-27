@@ -87,7 +87,7 @@ import com.Microsoft.Z3.Enumerations.*;
          * <param name="ctx">A context</param>
          * @return A copy of the AST which is associated with <paramref name="ctx"/>
          **/
-        public AST Translate(Context ctx)
+        public AST Translate(Context ctx) throws Z3Exception
         {
             
             
@@ -157,7 +157,7 @@ import com.Microsoft.Z3.Enumerations.*;
         }
 
     AST(Context ctx) { super(ctx); {  }}
-    AST(Context ctx, long obj) { super(ctx, obj); {  }}
+    AST(Context ctx, long obj) throws Z3Exception { super(ctx, obj); {  }}
 
         class DecRefQueue extends IDecRefQueue
         {
@@ -172,7 +172,7 @@ import com.Microsoft.Z3.Enumerations.*;
             }
         };        
 
-        void IncRef(long o)
+        void IncRef(long o) throws Z3Exception
         {            
             // Console.WriteLine("AST IncRef()");
             if (Context() == null)
@@ -183,7 +183,7 @@ import com.Microsoft.Z3.Enumerations.*;
             super.IncRef(o);
         }
 
-        void DecRef(long o)
+        void DecRef(long o) throws Z3Exception
         {
             // Console.WriteLine("AST DecRef()");
             if (Context() == null)
@@ -194,7 +194,7 @@ import com.Microsoft.Z3.Enumerations.*;
             super.DecRef(o);
         }
 
-        static AST Create(Context ctx, long obj)
+        static AST Create(Context ctx, long obj) throws Z3Exception
         {
             
             

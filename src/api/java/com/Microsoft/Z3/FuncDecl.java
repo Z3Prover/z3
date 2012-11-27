@@ -77,7 +77,7 @@ import com.Microsoft.Z3.Enumerations.*;
             {
                 
 
-                var n = DomainSize;
+                int n = DomainSize();
 
                 Sort[] res = new Sort[n];
                 for (int i = 0; i < n; i++)
@@ -171,25 +171,25 @@ import com.Microsoft.Z3.Enumerations.*;
 
             /**The int value of the parameter.</summary>
          **/
-            public int Int () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_INT) throw new Z3Exception("parameter is not an int"); return i; }
+            public int Int () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_INT) throw new Z3Exception("parameter is not an int"); return i; }
             /**The double value of the parameter.</summary>
          **/
-            public double Double () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_DOUBLE) throw new Z3Exception("parameter is not a double "); return d; }
+            public double Double () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_DOUBLE) throw new Z3Exception("parameter is not a double "); return d; }
             /**The Symbol value of the parameter.</summary>
          **/
-            public Symbol Symbol () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_SYMBOL) throw new Z3Exception("parameter is not a Symbol"); return sym; }
+            public Symbol Symbol () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_SYMBOL) throw new Z3Exception("parameter is not a Symbol"); return sym; }
             /**The Sort value of the parameter.</summary>
          **/
-            public Sort Sort () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_SORT) throw new Z3Exception("parameter is not a Sort"); return srt; }
+            public Sort Sort () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_SORT) throw new Z3Exception("parameter is not a Sort"); return srt; }
             /**The AST value of the parameter.</summary>
          **/
-            public AST AST () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_AST) throw new Z3Exception("parameter is not an AST"); return ast; }
+            public AST AST () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_AST) throw new Z3Exception("parameter is not an AST"); return ast; }
             /**The FunctionDeclaration value of the parameter.</summary>
          **/
-            public FuncDecl FuncDecl () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL) throw new Z3Exception("parameter is not a function declaration"); return fd; }
+            public FuncDecl FuncDecl () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_FUNC_DECL) throw new Z3Exception("parameter is not a function declaration"); return fd; }
             /**The rational string value of the parameter.</summary>
          **/
-            public String Rational () { if (ParameterKind != Z3_parameter_kind.Z3_PARAMETER_RATIONAL) throw new Z3Exception("parameter is not a rational String"); return r; }
+            public String Rational () { if (ParameterKind() != Z3_parameter_kind.Z3_PARAMETER_RATIONAL) throw new Z3Exception("parameter is not a rational String"); return r; }
 
             /**
              * The kind of the parameter.

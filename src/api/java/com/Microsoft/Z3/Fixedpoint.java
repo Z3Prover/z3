@@ -123,8 +123,8 @@ import com.Microsoft.Z3.Enumerations.*;
             
 
             Context().CheckContextMatch(relations);
-            Z3_lbool r = (Z3_lbool)Native.fixedpointQueryRelations(Context().nCtx(), NativeObject(),
-                                   AST.ArrayLength(relations), AST.ArrayToNative(relations));
+            Z3_lbool r = Z3_lbool.fromInt(Native.fixedpointQueryRelations(Context().nCtx(), NativeObject(),
+									  AST.ArrayLength(relations), AST.ArrayToNative(relations)));
             switch (r)
             {
                 case Z3_L_TRUE: return Status.SATISFIABLE;
@@ -248,10 +248,10 @@ import com.Microsoft.Z3.Enumerations.*;
                 
 
                 ASTVector v = new ASTVector(Context(), Native.fixedpointGetRules(Context().nCtx(), NativeObject()));
-                int n = v.Size;
+                int n = v.Size();
                 BoolExpr[] res = new BoolExpr[n];
                 for (int i = 0; i < n; i++)
-                    res[i] = new BoolExpr(Context(), v[i].NativeObject());
+                    res[i] = new BoolExpr(Context(), v.get(i).NativeObject());
                 return res;
             }
 
@@ -263,10 +263,10 @@ import com.Microsoft.Z3.Enumerations.*;
                 
 
                 ASTVector v = new ASTVector(Context(), Native.fixedpointGetAssertions(Context().nCtx(), NativeObject()));
-                int n = v.Size;
+                int n = v.Size();
                 BoolExpr[] res = new BoolExpr[n];
                 for (int i = 0; i < n; i++)
-                    res[i] = new BoolExpr(Context(), v[i].NativeObject());
+                    res[i] = new BoolExpr(Context(), v.get(i).NativeObject());
                 return res;
             }
 

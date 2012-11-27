@@ -31,21 +31,21 @@ import com.Microsoft.Z3.Enumerations.*;
         /**
          * Indicates whether the goal is precise.
          **/
-        public boolean IsPrecise()  { return Precision == Z3_goal_prec.Z3_GOAL_PRECISE; }
+        public boolean IsPrecise()  { return Precision() == Z3_goal_prec.Z3_GOAL_PRECISE; }
         /**
          * Indicates whether the goal is an under-approximation.
          **/
-        public boolean IsUnderApproximation()  { return Precision == Z3_goal_prec.Z3_GOAL_UNDER; }
+        public boolean IsUnderApproximation()  { return Precision() == Z3_goal_prec.Z3_GOAL_UNDER; }
 
         /**
          * Indicates whether the goal is an over-approximation.
          **/
-        public boolean IsOverApproximation()  { return Precision == Z3_goal_prec.Z3_GOAL_OVER; }
+        public boolean IsOverApproximation()  { return Precision() == Z3_goal_prec.Z3_GOAL_OVER; }
 
         /**
          * Indicates whether the goal is garbage (i.e., the product of over- and under-approximations).
          **/
-        public boolean IsGarbage()  { return Precision == Z3_goal_prec.Z3_GOAL_UNDER_OVER; }
+        public boolean IsGarbage()  { return Precision() == Z3_goal_prec.Z3_GOAL_UNDER_OVER; }
 
         /**
          * Adds the <paramref name="constraints"/> to the given goal. 
@@ -96,7 +96,7 @@ import com.Microsoft.Z3.Enumerations.*;
             {
                 
 
-                int n = Size;
+                int n = Size();
                 BoolExpr[] res = new BoolExpr[n];
                 for (int i = 0; i < n; i++)
                     res[i] = new BoolExpr(Context(), Native.goalFormula(Context().nCtx(), NativeObject(), i));
@@ -132,15 +132,15 @@ import com.Microsoft.Z3.Enumerations.*;
          * Simplifies the goal.
          * <remarks>Essentially invokes the `simplify' tactic on the goal.</remarks>
          **/
-        public Goal Simplify(Params p)
+        public Goal Simplify(Params p) throws Z3Exception
         {
             Tactic t = Context().MkTactic("simplify");
             ApplyResult res = t.Apply(this, p);
             
-            if (res.NumSubgoals == 0)
-                return Context().MkGoal();
+            if (res.NumSubgoals() == 0)
+                throw new Z3Exception("No subgoals");
             else        
-                return res.Subgoals[0];
+                return res.Subgoals()[0];
         }
 
         /**
@@ -152,11 +152,11 @@ import com.Microsoft.Z3.Enumerations.*;
             return Native.goalToString(Context().nCtx(), NativeObject());
         }
 
-    Goal(Context ctx, long obj) { super(ctx, obj); {  }}
+	Goal(Context ctx, long obj) { super(ctx, obj); {  }}
 
         Goal(Context ctx, boolean models, boolean unsatCores, boolean proofs)
-        { super(ctx, Native.mkGoal(ctx.nCtx(), (models) ? true : false, (unsatCores) ? true : false, (proofs) ? true : false));
-            
+        { 
+	    super(ctx, Native.mkGoal(ctx.nCtx(), (models) ? true : false, (unsatCores) ? true : false, (proofs) ? true : false));            
         }
 
         class DecRefQueue extends IDecRefQueue

@@ -62,7 +62,7 @@ import com.Microsoft.Z3.Enumerations.*;
                 
                 
 
-                return Apply(g);
+                return Apply(g, null);
             }
 
         /**
