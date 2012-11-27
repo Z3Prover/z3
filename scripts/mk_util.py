@@ -978,11 +978,11 @@ class JavaDLLComponent(Component):
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) ../src/api/java/Native.cpp\n')
             t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
-                t.replace('PLATFORM', 'darwin')
+                t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
-                t.replace('PLATFORM', 'linux')
+                t = t.replace('PLATFORM', 'linux')
             else:
-                t.replace('PLATFORM', 'win32')
+                t = t.replace('PLATFORM', 'win32')
             out.write(t)
             out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3$(SO_EXT)\n')
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
