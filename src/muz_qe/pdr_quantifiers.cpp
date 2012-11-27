@@ -106,11 +106,19 @@ namespace pdr {
     }
      
     void quantifier_model_checker::apply_binding(quantifier* q, expr_ref_vector& binding) {          
-
         datalog::scoped_no_proof _scp(m);
-
         app_ref_vector& var_inst = m_current_pt->get_inst(m_current_rule);
-
+        expr_ref e(m);
+        var_subst vs(m, false);
+        inv_var_shifter invsh(m);
+        vs(q->get_expr(), binding.size(), binding.c_ptr(), e);
+        invsh(e, q->get_num_decls(), e);
+        expr_ref_vector inst(m);
+        inst.append(var_inst.size(), (expr*const*)var_inst.c_ptr());
+        inst.reverse();
+        expr_abstract(m, 0, inst.size(), inst.c_ptr(), e, e);
+        m_instantiated_rules.push_back(m_current_rule);
+        m_instantiations.push_back(to_app(e));
         TRACE("pdr", tout << mk_pp(q, m) << "\n";
               tout << "binding\n";
               for (unsigned i = 0; i < binding.size(); ++i) {
@@ -122,21 +130,8 @@ namespace pdr {
                   tout << mk_pp(var_inst[i].get(), m) << " ";
               }
               tout << "\n";
+              tout << mk_pp(e, m) << "\n";
               );
-
-
-        expr_ref e(m);
-        var_subst vs(m, false);
-        inv_var_shifter invsh(m);
-        vs(q->get_expr(), binding.size(), binding.c_ptr(), e);
-        invsh(e, q->get_num_decls(), e);
-        expr_ref_vector inst(m);
-        inst.append(var_inst.size(), (expr*const*)var_inst.c_ptr());
-        inst.reverse();
-        expr_abstract(m, 0, inst.size(), inst.c_ptr(), e, e);
-        TRACE("pdr", tout << mk_pp(e, m) << "\n";);
-        m_instantiated_rules.push_back(m_current_rule);
-        m_instantiations.push_back(to_app(e));
     }
 
 
@@ -206,7 +201,6 @@ namespace pdr {
         front_end_params fparams;
         fparams.m_proof_mode = PGM_COARSE;
         fparams.m_mbqi = true;
-        // TBD: does not work on integers: fparams.m_mbqi = true;
 
         fmls.push_back(m_A.get());
         fmls.append(m_Bs);
@@ -259,18 +253,6 @@ namespace pdr {
             add_binding(q, new_binding);
             found_instance = true;
         }
-        if (collector.size() == 0) {
-            // Try to create dummy instances.
-            for (unsigned i = 0; i < m_Bs.size(); ++i) {
-                q = qs[i];
-                expr_ref_vector binding(m);
-                for (unsigned j = 0; j < q->get_num_decls(); ++j) {
-                    binding.push_back(m.mk_fresh_const("B", q->get_decl_sort(j)));
-                }
-                add_binding(q, binding);
-            }
-            found_instance = true;
-        }
         return found_instance;
     }
 
@@ -300,7 +282,7 @@ namespace pdr {
         pred_transformer& pt = node.pt();
         manager& pm = pt.get_pdr_manager();
         expr_ref A(m), B(m), C(m), v(m);
-        expr_ref_vector As(m);
+        expr_ref_vector As(m), Bs(m);
         m_Bs.reset();
         //
         // nodes from leaves that are repeated 
@@ -342,7 +324,6 @@ namespace pdr {
             for (unsigned j = 0; j < qis->size(); ++j) {
                 q = (*qis)[j].get();
                 app_ref_vector& inst      = pt.get_inst(m_current_rule);
-                ptr_vector<app>& aux_vars = pt.get_aux_vars(*m_current_rule);
                 TRACE("pdr", 
                       tout << "q:\n" << mk_pp(q, m) << "\n";
                       tout << "level: " << level << "\n";
@@ -359,7 +340,7 @@ namespace pdr {
                 app* a = to_app(q->get_expr());
                 func_decl* f = a->get_decl();
                 pred_transformer& pt2 = m_ctx.get_pred_transformer(f);
-                B = pt2.get_formulas(previous_level, true);
+                B = pt2.get_formulas(previous_level, false);
                 TRACE("pdr", tout << "B:\n" << mk_pp(B, m) << "\n";);
 
                 
@@ -371,17 +352,23 @@ namespace pdr {
                 rep->set_substitution(&sub);
                 (*rep)(B);
                 TRACE("pdr", tout << "B substituted:\n" << mk_pp(B, m) << "\n";);
-                
-                B = m.update_quantifier(q, B);
-                m_Bs.push_back(B);
+                datalog::flatten_and(B, Bs);
+                for (unsigned i = 0; i < Bs.size(); ++i) {
+                    m_Bs.push_back(m.update_quantifier(q, Bs[i].get()));                    
+                }
             }
         }
 
         TRACE("pdr", 
               tout << "A:\n" << mk_pp(m_A, m) << "\n";
+              tout << "quantifier:\n";
+              for (unsigned i = 0; i < qis->size(); ++i) {
+                  tout << mk_pp((*qis)[i].get(), m) << " ";
+              }
+              tout << "\n";
               tout << "B:\n";
               for (unsigned i = 0; i < m_Bs.size(); ++i) {
-                  tout << mk_pp((*qis)[i].get(), m) << "\n" << mk_pp(m_Bs[i].get(), m) << "\n";
+                  tout << mk_pp(m_Bs[i].get(), m) << "\n";
               }
               ast_smt_pp pp(m);
               pp.add_assumption(m_A);

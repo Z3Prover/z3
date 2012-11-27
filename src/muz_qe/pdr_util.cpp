@@ -219,10 +219,20 @@ namespace pdr {
         collect(formulas, tocollect);
         for (unsigned i = 0; i < tocollect.size(); ++i) {
             expr* e = tocollect[i];
+            expr* e1, *e2;
             SASSERT(m.is_bool(e));
             SASSERT(is_true(e) || is_false(e));
             if (is_true(e)) {
                 result.push_back(e);
+            }
+            // hack to break disequalities for arithmetic variables.
+            else if (m.is_eq(e, e1, e2) && m_arith.is_int_real(e1)) {
+                if (get_number(e1) < get_number(e2)) {
+                    result.push_back(m_arith.mk_lt(e1,e2));
+                }
+                else {
+                    result.push_back(m_arith.mk_lt(e2,e1));
+                }
             }
             else {
                 result.push_back(m.mk_not(e));
@@ -260,11 +270,11 @@ namespace pdr {
                     SASSERT(v);
                     // no-op                    
                 }
-                else if (!m.is_bool(args[0])) {
-                    tocollect.push_back(e);
+                else if (m.is_bool(args[0])) {
+                    todo.append(sz, args);
                 }
                 else {
-                    todo.append(sz, args);
+                    tocollect.push_back(e);
                 }
                 break;                              
             case OP_DISTINCT:
