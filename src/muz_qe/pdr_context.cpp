@@ -442,6 +442,7 @@ namespace pdr {
         tmp = pm.mk_and(conj);
         prop_solver::scoped_level _sl(m_solver, level);
         m_solver.set_core(core);
+        m_solver.set_model(0);
         lbool r = m_solver.check_conjunction_as_assumptions(tmp);
         if (r == l_false) {
             assumes_level = m_solver.assumes_level();
@@ -705,8 +706,7 @@ namespace pdr {
     void pred_transformer::inherit_properties(pred_transformer& other) {
         SASSERT(m_head == other.m_head);
         obj_map<expr, unsigned>::iterator it  = other.m_prop2level.begin();
-        obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();
-        
+        obj_map<expr, unsigned>::iterator end = other.m_prop2level.end();        
         for (; it != end; ++it) {
             add_property(it->m_key, it->m_value);
         }

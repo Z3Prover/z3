@@ -94,7 +94,7 @@ namespace pdr {
             scoped_level(prop_solver& ps, unsigned lvl):m_lev(ps.m_in_level) { 
                 SASSERT(!m_lev); m_lev = true; ps.m_current_level = lvl; 
             }
-                ~scoped_level() { m_lev = false; }
+            ~scoped_level() { m_lev = false; }
         };
         
         void add_formula(expr * form);
