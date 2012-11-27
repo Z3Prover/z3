@@ -110,7 +110,7 @@ namespace Microsoft.Z3
             {
                 Contract.Ensures(Contract.Result<Sort[]>() != null);
 
-                var n = DomainSize;
+                uint n = DomainSize;
 
                 Sort[] res = new Sort[n];
                 for (uint i = 0; i < n; i++)
