@@ -925,12 +925,13 @@ class DotNetDLLComponent(Component):
 
 
 class JavaDLLComponent(Component):
-    def __init__(self, name, dll_name, package_name, path, deps):
+    def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
         self.dll_name     = dll_name
         self.package_name = package_name
+        self.manifest_file = manifest_file
 
     def mk_makefile(self, out):
         if is_java_enabled():
@@ -941,12 +942,16 @@ class JavaDLLComponent(Component):
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             # for java_file in get_java_files(self.src_dir):
             #     out.write('%s ' % java_file)
-            # for java_file in get_java_files((self.src_dir + "/%s/Enumerations") % subdir):
+            # for java_file in get_java_files((self.src_dir + "/%s/enumerations") % subdir):
             #     out.write('%s ' % java_file)
             out.write('\n')
-            out.write(('\t%s %s/Enumerations/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\"))
-            out.write(('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\"))
-            out.write('\tjar cf %s.jar api/java/\n' % self.package_name)
+            t = ('\t%s %s/enumerations/*.java -d api/java\n' % (JAVAC, self.to_src_dir))
+            if IS_WINDOWS: t = t.replace("/","\\")
+            out.write(t)
+            t = ('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir)).replace("/","\\")
+            if IS_WINDOWS: t = t.replace("/","\\")
+            out.write(t)
+            out.write('\tjar cfm %s.jar %s/manifest -C api/java .\n' % (self.package_name, self.to_src_dir))
             out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
@@ -1086,8 +1091,8 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
     reg_component(name, c)
 
-def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None):
-    c = JavaDLLComponent(name, dll_name, package_name, path, deps)
+def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
+    c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
 def add_cpp_example(name, path=None):
@@ -1799,7 +1804,7 @@ def mk_z3consts_java(api_files):
     java = get_component(JAVA_COMPONENT)
 
     DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = java.src_dir + "/Enumerations"
+    gendir = java.src_dir + "/enumerations"
     if not os.path.exists(gendir):
         os.mkdir(gendir)
 
@@ -1850,7 +1855,7 @@ def mk_z3consts_java(api_files):
                     if name not in DeprecatedEnums:
                         efile  = open('%s/%s.java' % (gendir, name), 'w')
                         efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s.Enumerations;\n\n' % java.package_name);
+                        efile.write('package %s.enumerations;\n\n' % java.package_name);
 
                         efile.write('/**\n')
                         efile.write(' * %s\n' % name)
