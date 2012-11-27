@@ -974,9 +974,10 @@ class JavaDLLComponent(Component):
 
     def mk_makefile(self, out):
         if is_java_enabled():
+            mk_dir(BUILD_DIR+'/api/java/classes')
             dllfile = '%s$(SO_EXT)' % self.dll_name            
-            out.write('libz3java$(SO_EXT): libz3$(SO_EXT) ../src/api/java/Native.cpp\n')
-            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
+            out.write('libz3java$(SO_EXT): libz3$(SO_EXT) %s/Native.cpp\n' % self.to_src_dir)
+            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
                 t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
@@ -984,20 +985,20 @@ class JavaDLLComponent(Component):
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3$(SO_EXT)\n')
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3$(LIB_EXT)\n')
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             # for java_file in get_java_files(self.src_dir):
             #     out.write('%s ' % java_file)
             # for java_file in get_java_files((self.src_dir + "/%s/enumerations") % subdir):
             #     out.write('%s ' % java_file)
             out.write('\n')
-            t = ('\t%s %s/enumerations/*.java -d api/java\n' % (JAVAC, self.to_src_dir))
+            t = ('\t%s %s/enumerations/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
             if IS_WINDOWS: t = t.replace('/','\\')
             out.write(t)
-            t = ('\t%s -cp api/java %s/*.java -d api/java\n' % (JAVAC, self.to_src_dir))
+            t = ('\t%s -cp api/java/classes %s/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
             if IS_WINDOWS: t = t.replace('/','\\')
             out.write(t)
-            out.write('\tjar cfm %s.jar %s/manifest -C api/java .\n' % (self.package_name, self.to_src_dir))
+            out.write('\tjar cfm %s.jar %s/manifest -C api/java/classes .\n' % (self.package_name, self.to_src_dir))
             out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
