@@ -104,13 +104,12 @@ public class Z3Object extends IDisposable
             return null;
         long[] an = new long[a.length];
         for (int i = 0; i < a.length; i++)
-            if (a[i] != null)
-                an[i] = a[i].NativeObject();
+	    an[i] = a[i].NativeObject();
         return an;
     }
 
     static int ArrayLength(Z3Object[] a)
     {
-        return (a == null) ? 0 : (int) a.length;
+        return (a == null) ? 0 : a.length;
     }
 }

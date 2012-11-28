@@ -3083,8 +3083,6 @@ public class Context extends IDisposable
 	 **/
 	protected void finalize()
 	{
-		// Console.WriteLine("Context Finalizer from " +
-		// System.Threading.Thread.CurrentThread.ManagedThreadId);
 		Dispose();
 
 		if (m_refCount == 0)
@@ -3094,6 +3092,7 @@ public class Context extends IDisposable
 			m_ctx = 0;
 		} else
 			/* re-queue the finalizer */
+                        /* BUG: DRQ's need to be taken over too! */
 			new Context(m_ctx, m_refCount, m_n_err_handler);
 	}
 
@@ -3102,8 +3101,6 @@ public class Context extends IDisposable
 	 **/
 	public void Dispose()
 	{
-		// Console.WriteLine("Context Dispose from " +
-		// System.Threading.Thread.CurrentThread.ManagedThreadId);
 		m_AST_DRQ.Clear(this);
 		m_ASTMap_DRQ.Clear(this);
 		m_ASTVector_DRQ.Clear(this);
