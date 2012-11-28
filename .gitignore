@@ -34,6 +34,8 @@ ncscope.out
 # Commonly used directories for code
 bld_dbg/*
 bld_rel/*
+bld_dbg_x64/*
+bld_rel_x64/*
 # Auto generated files.
 config.log
 config.status
