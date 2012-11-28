@@ -468,18 +468,6 @@ def java_method_name(name):
         i = i + 1
     return result
 
-# Return the Java method name used to retrieve the elements of the given parameter
-def java_get_array_elements(p):
-    if param_type(p) == INT or param_type(p) == UINT:
-        return 'GetIntArrayElements'
-    else:
-        return 'GetLongArrayElements'
-# Return the Java method name used to release the elements of the given parameter
-def java_release_array_elements(p):
-    if param_type(p) == INT or param_type(p) == UINT:
-        return 'ReleaseIntArrayElements'
-    else:
-        return 'ReleaseLongArrayElements'
 # Return the type of the java array elements
 def java_array_element_type(p):
     if param_type(p) == INT or param_type(p) == UINT:
@@ -536,7 +524,24 @@ def mk_java():
     java_wrapper.write('#include"z3.h"\n')
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('extern "C" {\n')
-    java_wrapper.write('#endif\n')
+    java_wrapper.write('#endif\n\n')
+    if VS_X64:        
+        java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
+        java_wrapper.write('  T * NEW = (T*) jenv->GetLongArrayElements(OLD, NULL);              \n')
+        java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
+        java_wrapper.write('  jenv->ReleaseLongArrayElements(OLD, (jlong *) NEW, JNI_ABORT);     \n\n')
+    else:
+        java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
+        java_wrapper.write('  T * NEW = 0; {                                                   \\\n')
+        java_wrapper.write('  jlong * temp = jenv->GetLongArrayElements(OLD, NULL);            \\\n')
+        java_wrapper.write('  unsigned int size = jenv->GetArrayLength(OLD);                   \\\n')
+        java_wrapper.write('  NEW = (T*) (new int[size]);                                      \\\n')
+        java_wrapper.write('  for (unsigned i=0; i < size; i++)                                \\\n')
+        java_wrapper.write('    NEW[i] = reinterpret_cast<T>(temp[i]);                         \\\n')
+        java_wrapper.write('  jenv->ReleaseLongArrayElements(OLD, temp, JNI_ABORT);            \\\n')
+        java_wrapper.write('  }                                                                  \n\n')
+        java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
+        java_wrapper.write('  delete [] NEW;                                                     \n\n')
     pkg_str = get_component('java').package_name.replace('.', '_')
     for name, result, params in _dotnet_decls:
         java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
@@ -553,11 +558,10 @@ def mk_java():
             if k == OUT or k == INOUT:
                 java_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
             elif k == IN_ARRAY or k == INOUT_ARRAY:
-                java_wrapper.write('  %s * _a%s = (%s *) jenv->%s(a%s, NULL);\n' % (type2str(param_type(param)),
-                                                                                             i,
-                                                                                             type2str(param_type(param)),
-                                                                                             java_get_array_elements(param),
-                                                                                             i))
+                if param_type(param) == INT or param_type(param) == UINT:
+                    java_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
+                else:                    
+                    java_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
             elif k == OUT_ARRAY:
                 java_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)), 
                                                                                                      i, 
@@ -602,10 +606,11 @@ def mk_java():
                                                                                                 i))
                 java_wrapper.write('  free(_a%s);\n' % i)
             elif k == IN_ARRAY or k == OUT_ARRAY:
-                java_wrapper.write('  jenv->%s(a%s, (%s *) _a%s, JNI_ABORT);\n' % (java_release_array_elements(param), 
-                                                                                            i, 
-                                                                                            java_array_element_type(param),
-                                                                                            i))
+                if param_type(param) == INT or param_type(param) == UINT:
+                    java_wrapper.write('  jenv->ReleaseIntArrayElements(a%s, (jint*)_a%s, JNI_ABORT);\n' % (i, i))
+                else:
+                    java_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
+
             elif k == OUT or k == INOUT:
                 if param_type(param) == INT or param_type(param) == UINT:
                     java_wrapper.write('  {\n')
