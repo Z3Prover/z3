@@ -994,7 +994,7 @@ namespace datalog {
         p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
                       
         p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
-        p.insert(":print-low-level-smt2", CPK_BOOL, "(default true) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
+        p.insert(":print-low-level-smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
         
         PRIVATE_PARAMS(
             p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
@@ -1651,7 +1651,7 @@ namespace datalog {
         expr_ref_vector rules(m);
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
-        bool print_low_level = m_params.get_bool(":print-low-level-smt2", true);
+        bool print_low_level = m_params.get_bool(":print-low-level-smt2", false);
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
 

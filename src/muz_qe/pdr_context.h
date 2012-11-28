@@ -140,7 +140,7 @@ namespace pdr {
         bool propagate_to_next_level(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
 
-        lbool is_reachable(model_node& n, expr_ref_vector* core);
+        lbool is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level);
         bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = 0);
         bool check_inductive(unsigned level, expr_ref_vector& state, bool& assumes_level);
 
@@ -309,7 +309,7 @@ namespace pdr {
         void close_node(model_node& n);
         void check_pre_closed(model_node& n);
         void expand_node(model_node& n);
-        lbool expand_state(model_node& n, expr_ref_vector& cube);
+        lbool expand_state(model_node& n, expr_ref_vector& cube, bool& uses_level);
         void create_children(model_node& n);
         expr_ref mk_sat_answer() const;
         expr_ref mk_unsat_answer() const;
