@@ -839,7 +839,7 @@ namespace test_mapi
             // Error handling test.
             try
             {
-                Expr plus_ri = ctx.MkAdd(ctx.MkInt(1), ctx.MkReal(2));
+                IntExpr i = ctx.MkInt("1/2");
                 throw new TestFailedException(); // unreachable
             }
             catch (Z3Exception)

@@ -113,7 +113,6 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<BoolSort>() != null);
-
                 if (m_boolSort == null) m_boolSort = new BoolSort(this); return m_boolSort;
             }
         }
@@ -134,7 +133,14 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves the Real sort of the context.
         /// </summary>
-        public RealSort RealSort { get { Contract.Ensures(Contract.Result<RealSort>() != null); if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort; } }
+        public RealSort RealSort
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<RealSort>() != null); 
+                if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
+            }
+        }
 
         /// <summary>
         /// Create a new Boolean sort.
