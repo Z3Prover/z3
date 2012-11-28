@@ -1786,8 +1786,6 @@ public class Expr extends AST
 				return new RatNum(ctx, obj);
 			case Z3_BV_SORT:
 				return new BitVecNum(ctx, obj);
-			case Z3_UNKNOWN_SORT:
-				throw new Z3Exception("Unknown Sort");
 			default: ;
 			}
 		}
@@ -1806,8 +1804,6 @@ public class Expr extends AST
 			return new ArrayExpr(ctx, obj);
 		case Z3_DATATYPE_SORT:
 			return new DatatypeExpr(ctx, obj);
-		case Z3_UNKNOWN_SORT:
-			throw new Z3Exception("Unknown Sort");
 		default: ;
 		}
 
