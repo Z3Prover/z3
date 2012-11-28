@@ -2974,23 +2974,15 @@ public class Context extends IDisposable
 
 	void CheckContextMatch(Z3Object other) throws Z3Exception
 	{
-
-		if (this == other.Context())
-			throw new Z3Exception("Context mismatch");
+	    if (this != other.Context())
+		throw new Z3Exception("Context mismatch");
 	}
 
 	void CheckContextMatch(Z3Object[] arr) throws Z3Exception
 	{
-
-		if (arr != null)
-		{
-			for (Z3Object a : arr)
-			{
-				// It was an assume, now we added the precondition, and we made
-				// it into an assert
-				CheckContextMatch(a);
-			}
-		}
+	    if (arr != null)
+		for (Z3Object a : arr)
+		    CheckContextMatch(a);
 	}
 
 	private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
@@ -3091,8 +3083,6 @@ public class Context extends IDisposable
 	 **/
 	protected void finalize()
 	{
-		// Console.WriteLine("Context Finalizer from " +
-		// System.Threading.Thread.CurrentThread.ManagedThreadId);
 		Dispose();
 
 		if (m_refCount == 0)
@@ -3102,6 +3092,7 @@ public class Context extends IDisposable
 			m_ctx = 0;
 		} else
 			/* re-queue the finalizer */
+                        /* BUG: DRQ's need to be taken over too! */
 			new Context(m_ctx, m_refCount, m_n_err_handler);
 	}
 
@@ -3110,8 +3101,6 @@ public class Context extends IDisposable
 	 **/
 	public void Dispose()
 	{
-		// Console.WriteLine("Context Dispose from " +
-		// System.Threading.Thread.CurrentThread.ManagedThreadId);
 		m_AST_DRQ.Clear(this);
 		m_ASTMap_DRQ.Clear(this);
 		m_ASTVector_DRQ.Clear(this);

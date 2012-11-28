@@ -14,6 +14,8 @@ Version 4.3.2
 
 - Removed 'autoconf' dependency. We do not need to execute 'autoconf' and './configure' anymore to build Z3.
 
+- Fixed incorrect result returned by Z3_solver_get_num_scopes. (Thanks to Herman Venter). This bug was introduced in Z3 4.3.0
+
 Version 4.3.1
 =============
 
