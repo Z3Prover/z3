@@ -806,7 +806,6 @@ class JavaExample
     {
         System.out.println("BasicTests");
 
-        Symbol qi = ctx.MkSymbol(1);
         Symbol fname = ctx.MkSymbol("f");
         Symbol x = ctx.MkSymbol("x");
         Symbol y = ctx.MkSymbol("y");
@@ -2207,7 +2206,8 @@ class JavaExample
         } catch (Z3Exception ex)
         {
             System.out.println("Z3 Managed Exception: " + ex.getMessage());
-            System.out.println("Stack trace: " + ex.getStackTrace());
+            System.out.println("Stack trace: ");
+            ex.printStackTrace(System.out);            
         } catch (TestFailedException ex)
         {
             System.out.println("TEST CASE FAILED: " + ex.getMessage());

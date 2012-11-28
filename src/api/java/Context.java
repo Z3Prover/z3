@@ -2974,23 +2974,15 @@ public class Context extends IDisposable
 
 	void CheckContextMatch(Z3Object other) throws Z3Exception
 	{
-
-		if (this == other.Context())
-			throw new Z3Exception("Context mismatch");
+	    if (this != other.Context())
+		throw new Z3Exception("Context mismatch");
 	}
 
 	void CheckContextMatch(Z3Object[] arr) throws Z3Exception
 	{
-
-		if (arr != null)
-		{
-			for (Z3Object a : arr)
-			{
-				// It was an assume, now we added the precondition, and we made
-				// it into an assert
-				CheckContextMatch(a);
-			}
-		}
+	    if (arr != null)
+		for (Z3Object a : arr)
+		    CheckContextMatch(a);
 	}
 
 	private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
