@@ -308,7 +308,7 @@ void strategic_solver::pop(unsigned n) {
 unsigned strategic_solver::get_scope_level() const {
     if (m_ctx == 0)
         return 0;
-    return m_ctx->m_assertions.size();
+    return m_ctx->m_scopes.size();
 }
 
 struct aux_timeout_eh : public event_handler {
