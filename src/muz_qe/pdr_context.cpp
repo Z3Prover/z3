@@ -266,7 +266,7 @@ namespace pdr {
             }
             else if (is_invariant(tgt_level, curr, false, assumes_level)) {
                 
-                add_property(curr, tgt_level); // assumes_level?tgt_level:infty_level
+                add_property(curr, assumes_level?tgt_level:infty_level);
                 TRACE("pdr", tout << "is invariant: "<< tgt_level << " " << mk_pp(curr, m) << "\n";);              
                 src[i] = src.back();
                 src.pop_back();
@@ -293,9 +293,6 @@ namespace pdr {
 
     bool pred_transformer::add_property1(expr * lemma, unsigned lvl) {        
         if (is_infty_level(lvl)) {
-            if (m.is_false(lemma)) {
-                return false;
-            }
             if (!m_invariants.contains(lemma)) {
                 TRACE("pdr", tout << "property1: " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
                 m_invariants.push_back(lemma);
@@ -410,7 +407,7 @@ namespace pdr {
         add_property(result, level);        
     }
 
-    lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core) {
+    lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level) {
         TRACE("pdr", 
               tout << "is-reachable: " << head()->get_name() << " level: " << n.level() << "\n";
               tout << mk_pp(n.state(), m) << "\n";);
@@ -426,6 +423,9 @@ namespace pdr {
                   model_smt2_pp(tout, m, *model, 0);
                   tout << mk_pp(n.state(), m) << "\n";);
             n.set_model(model);
+        }
+        else if (is_sat == l_false) {
+            uses_level = m_solver.assumes_level();
         }
         return is_sat;
     }
@@ -1640,7 +1640,8 @@ namespace pdr {
             close_node(n);
         }
         else {
-            switch (expand_state(n, cube)) {
+            bool uses_level = true;
+            switch (expand_state(n, cube, uses_level)) {
             case l_true:
                 if (n.level() == 0) {
                     TRACE("pdr", tout << "reachable\n";);
@@ -1653,7 +1654,7 @@ namespace pdr {
                 break;
             case l_false: {
                 core_generalizer::cores cores;
-                cores.push_back(std::make_pair(cube, true));
+                cores.push_back(std::make_pair(cube, uses_level));
                 
                 for (unsigned i = 0; !cores.empty() && i < m_core_generalizers.size(); ++i) {
                     core_generalizer::cores new_cores;                    
@@ -1666,7 +1667,7 @@ namespace pdr {
                 bool found_invariant = false;
                 for (unsigned i = 0; i < cores.size(); ++i) {
                     expr_ref_vector const& core = cores[i].first;
-                    bool uses_level = cores[i].second;
+                    uses_level = cores[i].second;
                     found_invariant = !uses_level || found_invariant;
                     expr_ref ncore(m_pm.mk_not_and(core), m);
                     TRACE("pdr", tout << "invariant state: " << (uses_level?"":"(inductive) ") <<  mk_pp(ncore, m) << "\n";);
@@ -1690,8 +1691,8 @@ namespace pdr {
     // return a property that blocks state and is implied by the 
     // predicate transformer (or some unfolding of it).
     // 
-    lbool context::expand_state(model_node& n, expr_ref_vector& result) {
-        return n.pt().is_reachable(n, &result);
+    lbool context::expand_state(model_node& n, expr_ref_vector& result, bool& uses_level) {
+        return n.pt().is_reachable(n, &result, uses_level);
     }
 
     void context::propagate(unsigned max_prop_lvl) {    
