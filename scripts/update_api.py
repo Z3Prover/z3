@@ -537,8 +537,9 @@ def mk_java():
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('extern "C" {\n')
     java_wrapper.write('#endif\n')
+    pkg_str = get_component('java').package_name.replace('.', '_')
     for name, result, params in _dotnet_decls:
-        java_wrapper.write('JNIEXPORT %s JNICALL Java_Z3Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), java_method_name(name)))
+        java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
         i = 0;
         for param in params:
             java_wrapper.write(', ')

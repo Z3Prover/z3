@@ -985,7 +985,10 @@ class JavaDLLComponent(Component):
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) Native$(OBJ_EXT) libz3$(LIB_EXT)\n')
+            if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(LIB_EXT)\n')
+            else:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(SO_EXT)\n')
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             # for java_file in get_java_files(self.src_dir):
             #     out.write('%s ' % java_file)
