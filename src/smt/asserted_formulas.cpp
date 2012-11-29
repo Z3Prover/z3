@@ -287,6 +287,7 @@ void asserted_formulas::reduce() {
     INVOKE(m_params.m_quasi_macros && has_quantifiers(), apply_quasi_macros());    
     INVOKE(m_params.m_simplify_bit2int, apply_bit2int());
     INVOKE(m_params.m_eliminate_bounds && has_quantifiers(), cheap_quant_fourier_motzkin());
+    INVOKE(m_params.m_ematching && has_quantifiers(), infer_patterns());
     INVOKE(m_params.m_max_bv_sharing && has_bv(), max_bv_sharing());
     INVOKE(m_params.m_bb_quantifiers, elim_bvs_from_quantifiers());
     // temporary HACK: make sure that arith & bv are list-assoc 
