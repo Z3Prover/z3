@@ -102,6 +102,7 @@ template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_term(app * term) {
     bool result = null_theory_var != mk_term(term);
     CTRACE("arith", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
+    TRACE("non_diff_logic", tout << "Terms may not be internalized\n";);
     found_non_diff_logic_expr(term);
     return result;
 }
@@ -831,6 +832,7 @@ theory_var theory_diff_logic<Ext>::mk_var(app* n) {
         v = mk_var(e);
     }      
     if (is_interpreted(n)) {
+        TRACE("non_diff_logic", tout << "Variable should not be interpreted\n";);
         found_non_diff_logic_expr(n);
     }
     TRACE("arith", tout << mk_pp(n, get_manager()) << " |-> " << v << "\n";);
