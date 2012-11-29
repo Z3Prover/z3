@@ -6,5 +6,10 @@ To build the example execute
 in the build directory.
 
 It will create JavaExample.class in the build directory,
-which can be run via
+which can be run on Windows via 
    java -cp com.microsoft.z3.jar;. JavaExample
+
+On Linux and FreeBSD, we must use
+   LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
+ 
+   

@@ -2157,7 +2157,7 @@ class JavaExample
             p.SimpleExample();
 
             {
-                HashMap<String, String> cfg = new HashMap<>();
+                HashMap<String, String> cfg = new HashMap<String, String>();
                 cfg.put("MODEL", "true");
                 cfg.put("PROOF_MODE", "2");
                 Context ctx = new Context(cfg);
