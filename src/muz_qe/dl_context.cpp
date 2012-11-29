@@ -995,6 +995,7 @@ namespace datalog {
                       
         p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
         p.insert(":print-low-level-smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
+        p.insert(":print-with-variable-declarations", CPK_BOOL, "(default true) use variable declarations when displaying rules (instead of attempting to use original names)");
         
         PRIVATE_PARAMS(
             p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
@@ -1652,6 +1653,7 @@ namespace datalog {
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
         bool print_low_level = m_params.get_bool(":print-low-level-smt2", false);
+        bool do_declare_vars = m_params.get_bool(":print-with-variable-declarations", true);
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
 
@@ -1708,7 +1710,7 @@ namespace datalog {
             out << "))\n";
         }
 
-        if (use_fixedpoint_extensions) {
+        if (use_fixedpoint_extensions && do_declare_vars) {
             declare_vars(rules, fresh_names, out);
         }
 
