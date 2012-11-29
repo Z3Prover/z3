@@ -18,6 +18,8 @@ Version 4.3.2
 
 - Java bindings. To enable them, we must use the option `--java` when executing the `mk_make.py` script. Example: `python scripts/mk_make.py --java 
 
+- Fixed crash when parsing incorrect formulas. The crash was introduced when support for "arithmetic coercions" was added in Z3 4.3.0.
+
 Version 4.3.1
 =============
 
