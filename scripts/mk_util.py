@@ -1097,7 +1097,7 @@ class JavaExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return True
+        return JAVA_ENABLED
 
     def mk_makefile(self, out):
         if JAVA_ENABLED:
