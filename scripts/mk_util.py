@@ -1601,8 +1601,10 @@ def mk_mem_initializer_cpp(cnames, path):
     fullname = '%s/mem_initializer.cpp' % path
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    initializer_pat   = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
-    finalizer_pat     = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    # ADD_INITIALIZER with priority
+    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
+    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
         h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
@@ -1615,15 +1617,22 @@ def mk_mem_initializer_cpp(cnames, path):
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append(m.group(1))
+                    initializer_cmds.append((m.group(1), 0))
+                m = initializer_prio_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     finalizer_cmds.append(m.group(1))
+    initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
-    for cmd in initializer_cmds:
+    for (cmd, prio) in initializer_cmds:
         fout.write(cmd)
         fout.write('\n')
     fout.write('}\n')
