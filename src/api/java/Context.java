@@ -86,7 +86,6 @@ public class Context extends IDisposable
 	 **/
 	public BoolSort BoolSort() throws Z3Exception
 	{
-
 		if (m_boolSort == null)
 			m_boolSort = new BoolSort(this);
 		return m_boolSort;
@@ -97,7 +96,6 @@ public class Context extends IDisposable
 	 **/
 	public IntSort IntSort() throws Z3Exception
 	{
-
 		if (m_intSort == null)
 			m_intSort = new IntSort(this);
 		return m_intSort;
@@ -106,8 +104,10 @@ public class Context extends IDisposable
 	/**
 	 * Retrieves the Real sort of the context.
 	 **/
-	public RealSort RealSort()
+	public RealSort RealSort() throws Z3Exception 
 	{
+	    if (m_realSort== null)
+	        m_realSort = new RealSort(this);
 		return m_realSort;
 	}
 

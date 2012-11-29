@@ -882,10 +882,10 @@ class JavaExample
         Expr inum = rn.Numerator();
         Expr iden = rn.Denominator();
         System.out.println("Numerator: " + inum + " Denominator: " + iden);
-        if (inum.toString() != "42" || iden.toString() != "43")
+        if (!inum.toString().equals("42") || !iden.toString().equals("43"))
             throw new TestFailedException();
 
-        if (rn.ToDecimalString(3) != "0.976?")
+        if (!rn.ToDecimalString(3).toString().equals("0.976?"))
             throw new TestFailedException();
 
         BigIntCheck(ctx, ctx.MkReal("-1231231232/234234333"));
@@ -895,23 +895,23 @@ class JavaExample
 
         String bn = "1234567890987654321";
 
-        if (ctx.MkInt(bn).BigInteger().toString() != bn)
+        if (!ctx.MkInt(bn).BigInteger().toString().equals(bn))
             throw new TestFailedException();
 
-        if (ctx.MkBV(bn, 128).BigInteger().toString() != bn)
+        if (!ctx.MkBV(bn, 128).BigInteger().toString().equals(bn))
             throw new TestFailedException();
 
-        if (ctx.MkBV(bn, 32).BigInteger().toString() == bn)
+        if (ctx.MkBV(bn, 32).BigInteger().toString().equals(bn))
             throw new TestFailedException();
 
         // Error handling test.
         try
         {
-            Expr plus_ri = ctx.MkAdd(new ArithExpr[] { ctx.MkInt(1),
-                    ctx.MkReal(2) });
+            IntExpr i = ctx.MkInt("0.5");
             throw new TestFailedException(); // unreachable
         } catch (Z3Exception e)
         {
+            System.out.println("GOT: " + e.getMessage());
         }
     }
 
@@ -2211,9 +2211,13 @@ class JavaExample
         } catch (TestFailedException ex)
         {
             System.out.println("TEST CASE FAILED: " + ex.getMessage());
+            System.out.println("Stack trace: ");
+            ex.printStackTrace(System.out);     
         } catch (Exception ex)
         {
             System.out.println("Unknown Exception: " + ex.getMessage());
+            System.out.println("Stack trace: ");
+            ex.printStackTrace(System.out);
         }
     }
 }
