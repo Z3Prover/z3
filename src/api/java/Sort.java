@@ -39,10 +39,15 @@ public class Sort extends AST
      **/
     public boolean equals(Object o)
     {
-        Sort casted = (Sort) o;
-        if (casted == null)
-            return false;
-        return this == casted;
+        Sort casted = null;
+
+	try {
+	    casted = Sort.class.cast(o);
+	} catch (ClassCastException e) {
+	    return false;
+	}
+
+	return this.NativeObject() == casted.NativeObject();
     }
 
     /**

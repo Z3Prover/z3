@@ -524,7 +524,7 @@ public class Context extends IDisposable
     public Expr MkConst(FuncDecl f) throws Z3Exception
     {
 
-        return MkApp(f, (Expr) null);
+        return MkApp(f, (Expr[]) null);
     }
 
     /**

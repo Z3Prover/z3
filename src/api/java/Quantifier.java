@@ -159,13 +159,14 @@ public class Quantifier extends BoolExpr
                     .NativeObject()));
         } else
         {
-            setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), (isForall) ? true
-                    : false, weight, AST.GetNativeObject(quantifierID), AST
-                    .GetNativeObject(skolemID), AST.ArrayLength(patterns), AST
-                    .ArrayToNative(patterns), AST.ArrayLength(noPatterns), AST
-                    .ArrayToNative(noPatterns), AST.ArrayLength(sorts), AST
-                    .ArrayToNative(sorts), Symbol.ArrayToNative(names), body
-                    .NativeObject()));
+            setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), 
+		    (isForall) ? true : false, weight, AST.GetNativeObject(quantifierID), 
+		     AST.GetNativeObject(skolemID), 
+		     AST.ArrayLength(patterns), AST.ArrayToNative(patterns), 
+		     AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns), 
+		     AST.ArrayLength(sorts), AST.ArrayToNative(sorts), 
+		     Symbol.ArrayToNative(names), 
+		     body.NativeObject()));
         }
     }
 
