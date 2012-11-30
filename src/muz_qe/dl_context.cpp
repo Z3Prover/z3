@@ -1626,6 +1626,23 @@ namespace datalog {
    
     void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
         expr_ref fml(m);
+        datalog::rule_manager& rm = get_rule_manager();
+        datalog::rule_ref_vector rule_refs(rm);
+        
+        // ensure that rules are all using bound variables.
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            ptr_vector<sort> sorts;
+            get_free_vars(m_rule_fmls[i].get(), sorts);
+            if (!sorts.empty()) {
+                rm.mk_rule(m_rule_fmls[i].get(), rule_refs, m_rule_names[i]);
+                m_rule_fmls[i] = m_rule_fmls.back();
+                m_rule_names[i] = m_rule_names.back();
+                m_rule_fmls.pop_back();
+                m_rule_names.pop_back();
+                --i;
+            }
+        }
+        add_rules(rule_refs);
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
             (*it)->to_formula(fml);
@@ -1732,13 +1749,20 @@ namespace datalog {
             }
             PP(r);
             if (symbol::null != nm) {
+                out << " :named ";
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
                     s << nm << "!";
                     nm = symbol(s.str().c_str());                    
                 }
                 fresh_names.add(nm);
-                out << " :named " << nm << ")";
+                if (is_smt2_quoted_symbol(nm)) {
+                    out << mk_smt2_quoted_symbol(nm);
+                }
+                else {
+                    out << nm;
+                }
+                out << ")";
             }
             out << ")\n";
         }
