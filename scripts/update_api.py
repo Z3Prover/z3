@@ -585,7 +585,7 @@ def mk_java():
     java_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
     java_wrapper.write('  // wrappers below.\n')
     java_wrapper.write('}\n\n')
-    java_wrapper.write('JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, long a0)\n' % pkg_str)
+    java_wrapper.write('JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)\n' % pkg_str)
     java_wrapper.write('{\n')
     java_wrapper.write('  Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);\n')
     java_wrapper.write('}\n\n')
