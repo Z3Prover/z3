@@ -173,7 +173,8 @@ public:
     }
 
     std::string get_value(char const * name) {
-        
+        // TODO
+        return "";
     }
 
 
@@ -200,9 +201,19 @@ void gparams::set(char const * name, char const * value) {
     g_imp->set(name, value);
 }
 
+void gparams::set(symbol const & name, char const * value) {
+    SASSERT(g_imp != 0);
+    g_imp->set(name.bare_str(), value);
+}
+
 std::string gparams::get_value(char const * name) {
     SASSERT(g_imp != 0);
-    g_imp->get_value(name);
+    return g_imp->get_value(name);
+}
+
+std::string gparams::get_value(symbol const & name) {
+    SASSERT(g_imp != 0);
+    return g_imp->get_value(name.bare_str());
 }
 
 void gparams::register_global(param_descrs & d) {

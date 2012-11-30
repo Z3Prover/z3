@@ -24,8 +24,9 @@ Notes:
 class gparams {
     struct imp;
     static imp * g_imp; 
-    typedef z3_exception exception;
 public:
+    typedef default_exception exception;
+
     /**
        \brief Set a global parameter \c name with \c value.
        
@@ -44,6 +45,7 @@ public:
        An exception is thrown if the the parameter name is unknown, or if the value is incorrect.
     */
     static void set(char const * name, char const * value);
+    static void set(symbol const & name, char const * value);
     
     /**
        \brief Auxiliary method used to implement get-option in SMT 2.0 front-end.
@@ -53,6 +55,7 @@ public:
        An exception is thrown if the the parameter name is unknown.
     */
     static std::string get_value(char const * name);
+    static std::string get_value(symbol const & name);
     
     /**
        \brief Register additional global parameters

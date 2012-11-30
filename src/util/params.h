@@ -85,8 +85,8 @@ public:
       
       It displays 'default' if k is not in the parameter set.
     */
-    void display(std::ostream & out, char const * k);
-    void display(std::ostream & out, symbol const & k);
+    void display(std::ostream & out, char const * k) const;
+    void display(std::ostream & out, symbol const & k) const;
 };
 
 inline std::ostream & operator<<(std::ostream & out, params_ref const & ref) {
