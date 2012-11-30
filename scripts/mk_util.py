@@ -1420,10 +1420,101 @@ def mk_makefile():
 # Generate automatically generated source code
 def mk_auto_src():
     if not ONLY_MAKEFILES:
+        exec_pyg_scripts()
         mk_pat_db()
         mk_all_install_tactic_cpps()
         mk_all_mem_initializer_cpps()
         mk_all_gparams_register_modules()
+
+UINT   = 0
+BOOL   = 1
+DOUBLE = 2
+STRING = 3
+SYMBOL = 4
+UINT_MAX = 4294967295
+CURR_PYG = None
+
+def get_curr_pyg():
+    return CURR_PYG
+
+TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
+TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
+TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
+
+def pyg_default(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    return p[2]
+
+def pyg_default_as_c_literal(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    elif p[1] == STRING:
+        return '"%s"' % p[2]
+    elif p[1] == SYMBOL:
+        return 'symbol("%s")' % p[2]
+    return p[2]
+
+def def_module_params(module_name, export, params):
+    pyg = get_curr_pyg()
+    hpp = '%shpp' % pyg[:len(pyg)-3]
+    out = open(hpp, 'w')
+    out.write('// Automatically generated file\n')
+    out.write('#include"params.h"\n')
+    if export:
+        out.write('#include"gparams.h"\n')
+    out.write('struct %s_params {\n' % module_name)
+    out.write('  params_ref const & p;\n')
+    if export:
+        out.write('  params_ref const & g;\n')
+    out.write('  %s_params(params_ref const & _p = params_ref()):\n' % module_name)
+    out.write('     p(_p)')
+    if export:
+        out.write(', g(gparams::get_module("%s"))' % module_name)
+    out.write(' {}\n')
+    out.write('  static void collect_param_descrs(param_descrs & d) {\n')
+    for param in params:
+        out.write('    d.insert("%s", %s, "%s", "%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param)))
+    out.write('  }\n')
+    if export:
+        out.write('  /*\n')
+        out.write("     REG_MODULE_PARAMS('%s', '%s_params::collect_param_descrs')\n" % (module_name, module_name))
+        out.write('  */\n')
+    # Generated accessors
+    for param in params:
+        if export:
+            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], param[0], TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+        else:
+            out.write('  %s %s() const { return p.%s("%s", %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], param[0], TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+    out.write('};\n')
+    if is_verbose():
+        print "Generated '%s'" % hpp
+
+def max_memory_param():
+    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes.')
+
+PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL, 
+                'UINT_MAX' : UINT_MAX, 
+                'max_memory_param' : max_memory_param,
+                'def_module_params' : def_module_params }
+
+# Execute python auxiliary scripts that generate extra code for Z3.
+def exec_pyg_scripts():
+    global CURR_PYG
+    for root, dirs, files in os.walk('src'): 
+        for f in files:
+            if f.endswith('.pyg'):
+                script = os.path.join(root, f)
+                CURR_PYG = script
+                execfile(script, PYG_GLOBALS)
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1548,7 +1639,7 @@ def mk_install_tactic_cpp(cnames, path):
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1613,7 +1704,7 @@ def mk_mem_initializer_cpp(cnames, path):
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1674,7 +1765,7 @@ def mk_gparams_register_modules(cnames, path):
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
