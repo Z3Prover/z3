@@ -22,18 +22,35 @@ Notes:
 #include"dictionary.h"
 
 struct param_descrs::imp {
-    typedef std::pair<param_kind, char const *> info;
+    struct info {
+        param_kind   m_kind;
+        char const * m_descr;
+        char const * m_default;
+
+        info(param_kind k, char const * descr, char const * def):
+            m_kind(k),
+            m_descr(descr),
+            m_default(def) {
+        }
+
+        info():
+            m_kind(CPK_INVALID), 
+            m_descr(0), 
+            m_default(0) {
+        }
+    };
+
     dictionary<info> m_info;
     svector<symbol> m_names;
 
-    void insert(symbol const & name, param_kind k, char const * descr) {
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def) {
         SASSERT(!name.is_numerical());
         info i;
         if (m_info.find(name, i)) {
-            SASSERT(i.first == k);
+            SASSERT(i.m_kind == k);
             return;
         }
-        m_info.insert(name, info(k, descr));
+        m_info.insert(name, info(k, descr, def));
         m_names.push_back(name);
     }
 
@@ -44,8 +61,22 @@ struct param_descrs::imp {
     param_kind get_kind(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
-            return i.first;
+            return i.m_kind;
         return CPK_INVALID;
+    }
+
+    char const * get_descr(symbol const & name) const {
+        info i;
+        if (m_info.find(name, i))
+            return i.m_descr;
+        return 0;
+    }
+
+    char const * get_default(symbol const & name) const {
+        info i;
+        if (m_info.find(name, i))
+            return i.m_default;
+        return 0;
     }
 
     unsigned size() const {
@@ -87,10 +118,12 @@ struct param_descrs::imp {
                     out << s[i];
             }
             info d;
-            d.second = 0;
             m_info.find(*it2, d);
-            SASSERT(d.second);
-            out << " (" << d.first << ") " << d.second << "\n";
+            SASSERT(d.m_descr);
+            out << " (" << d.m_kind << ") " << d.m_descr;
+            if (d.m_default != 0)
+                out << " (default: " << d.m_default << ")";
+            out << "\n";
         }
     }
 
@@ -98,7 +131,7 @@ struct param_descrs::imp {
         dictionary<info>::iterator it  = other.m_imp->m_info.begin();
         dictionary<info>::iterator end = other.m_imp->m_info.end();
         for (; it != end; ++it) {
-            insert(it->m_key, it->m_value.first, it->m_value.second);
+            insert(it->m_key, it->m_value.m_kind, it->m_value.m_descr, it->m_value.m_default);
         }
     }
 
@@ -116,12 +149,28 @@ void param_descrs::copy(param_descrs & other) {
     m_imp->copy(other);
 }
 
-void param_descrs::insert(symbol const & name, param_kind k, char const * descr) {
-    m_imp->insert(name, k, descr);
+void param_descrs::insert(symbol const & name, param_kind k, char const * descr, char const * def) {
+    m_imp->insert(name, k, descr, def);
 }
 
-void param_descrs::insert(char const * name, param_kind k, char const * descr) {
-    insert(symbol(name), k, descr);
+void param_descrs::insert(char const * name, param_kind k, char const * descr, char const * def) {
+    insert(symbol(name), k, descr, def);
+}
+
+char const * param_descrs::get_descr(char const * name) const {
+    return get_descr(symbol(name));
+}
+
+char const * param_descrs::get_descr(symbol const & name) const {
+    return m_imp->get_descr(name);
+}
+
+char const * param_descrs::get_default(char const * name) const {
+    return get_default(symbol(name));
+}
+
+char const * param_descrs::get_default(symbol const & name) const {
+    return m_imp->get_default(name);
 }
 
 void param_descrs::erase(symbol const & name) {
@@ -234,6 +283,12 @@ public:
     rational get_rat(char const * k, rational const & _default) const; 
     symbol get_sym(symbol const & k, symbol const & _default) const;
     symbol get_sym(char const * k, symbol const & _default) const;
+
+    bool get_bool(char const * k, params_ref const & fallback, bool _default) const;
+    unsigned get_uint(char const * k, params_ref const & fallback, unsigned _default) const;
+    double get_double(char const * k, params_ref const & fallback, double _default) const;
+    char const * get_str(char const * k, params_ref const & fallback, char const * _default) const;
+    symbol get_sym(char const * k, params_ref const & fallback, symbol const & _default) const;
 
     // setters
     void set_bool(symbol const & k, bool v);
@@ -372,7 +427,7 @@ void params_ref::copy_core(params const * src) {
         return;
     svector<params::entry>::const_iterator it  = src->m_entries.begin();  
     svector<params::entry>::const_iterator end = src->m_entries.end();    
-    for (; it != end; ++it) {                                
+    for (; it != end; ++it) {
         switch (it->second.m_kind) {
         case CPK_BOOL:
             m_params->set_bool(it->first, it->second.m_bool_value);
@@ -438,6 +493,26 @@ symbol params_ref::get_sym(symbol const & k, symbol const & _default) const {
 
 symbol params_ref::get_sym(char const * k, symbol const & _default) const { 
     return m_params ? m_params->get_sym(k, _default) : _default; 
+}
+
+bool params_ref::get_bool(char const * k, params_ref const & fallback, bool _default) const {
+    return m_params ? m_params->get_bool(k, fallback, _default) : fallback.get_bool(k, _default);
+}
+
+unsigned params_ref::get_uint(char const * k, params_ref const & fallback, unsigned _default) const {
+    return m_params ? m_params->get_uint(k, fallback, _default) : fallback.get_uint(k, _default);
+}
+
+double params_ref::get_double(char const * k, params_ref const & fallback, double _default) const {
+    return m_params ? m_params->get_double(k, fallback, _default) : fallback.get_double(k, _default);
+}
+
+char const * params_ref::get_str(char const * k, params_ref const & fallback, char const * _default) const {
+    return m_params ? m_params->get_str(k, fallback, _default) : fallback.get_str(k, _default);
+}
+
+symbol params_ref::get_sym(char const * k, params_ref const & fallback, symbol const & _default) const {
+    return m_params ? m_params->get_sym(k, fallback, _default) : fallback.get_sym(k, _default);
 }
 
 bool params_ref::empty() const {
@@ -682,6 +757,41 @@ symbol params::get_sym(symbol const & k, symbol const & _default) const {
 
 symbol params::get_sym(char const * k, symbol const & _default) const {
     GET_VALUE(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
+}
+
+#define GET_VALUE2(MATCH_CODE, KIND) {                                  \
+    if (!empty()) {                                                     \
+        TRAVERSE_CONST_ENTRIES(if (it->first == k && it->second.m_kind == KIND) { \
+                MATCH_CODE                                              \
+        });                                                             \
+    }                                                                   \
+}
+
+#define GET_SIMPLE_VALUE2(FIELD_NAME, KIND) GET_VALUE2(return it->second.FIELD_NAME;, KIND)
+
+bool params::get_bool(char const * k, params_ref const & fallback, bool _default) const {
+    GET_SIMPLE_VALUE2(m_bool_value, CPK_BOOL);
+    return fallback.get_bool(k, _default);
+}
+
+unsigned params::get_uint(char const * k, params_ref const & fallback, unsigned _default) const {
+    GET_SIMPLE_VALUE2(m_uint_value, CPK_UINT);
+    return fallback.get_uint(k, _default);
+}
+
+double params::get_double(char const * k, params_ref const & fallback, double _default) const {
+    GET_SIMPLE_VALUE2(m_double_value, CPK_DOUBLE);
+    return fallback.get_double(k, _default);
+}
+
+char const * params::get_str(char const * k, params_ref const & fallback, char const * _default) const {
+    GET_SIMPLE_VALUE2(m_str_value, CPK_STRING);
+    return fallback.get_str(k, _default);
+}
+
+symbol params::get_sym(char const * k, params_ref const & fallback, symbol const & _default) const {
+    GET_VALUE2(return symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);, CPK_SYMBOL);
+    return fallback.get_sym(k, _default);
 }
 
 #define SET_VALUE(MATCH_CODE, ADD_CODE) {       \

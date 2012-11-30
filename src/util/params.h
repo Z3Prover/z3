@@ -38,10 +38,10 @@ public:
 
     params_ref & operator=(params_ref const & p);
     
-    // copy params from p
+    // copy params from src
     void copy(params_ref const & src);
     void append(params_ref const & src) { copy(src); }
-     
+
     bool get_bool(symbol const & k, bool _default) const;
     bool get_bool(char const * k, bool _default) const;
     unsigned get_uint(symbol const & k, unsigned _default) const;
@@ -54,6 +54,12 @@ public:
     rational get_rat(char const * k, rational const & _default) const;
     symbol get_sym(symbol const & k, symbol const & _default) const;
     symbol get_sym(char const * k, symbol const & _default) const;
+
+    bool get_bool(char const * k, params_ref const & fallback, bool _default) const;
+    unsigned get_uint(char const * k, params_ref const & fallback, unsigned _default) const;
+    double get_double(char const * k, params_ref const & fallback, double _default) const;
+    char const * get_str(char const * k, params_ref const & fallback, char const * _default) const;
+    symbol get_sym(char const * k, params_ref const & fallback, symbol const & _default) const;
 
     bool empty() const;
     bool contains(symbol const & k) const;
@@ -101,12 +107,16 @@ public:
     param_descrs();
     ~param_descrs();
     void copy(param_descrs & other);
-    void insert(char const * name, param_kind k, char const * descr);
-    void insert(symbol const & name, param_kind k, char const * descr);
+    void insert(char const * name, param_kind k, char const * descr, char const * def = 0);
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0);
     void erase(char const * name);
     void erase(symbol const & name);
     param_kind get_kind(char const * name) const;
     param_kind get_kind(symbol const & name) const;
+    char const * get_descr(char const * name) const;
+    char const * get_descr(symbol const & name) const;
+    char const * get_default(char const * name) const;
+    char const * get_default(symbol const & name) const;
     void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false) const;
     unsigned size() const; 
     symbol get_param_name(unsigned idx) const;
