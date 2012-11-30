@@ -38,12 +38,11 @@ public class Context extends IDisposable
         InitContext();
     }
 
-    private Context(long ctx, long refCount, Native.errorHandler errh)
+    private Context(long ctx, long refCount)
     {
         super();
         this.m_ctx = ctx;
         this.m_refCount = refCount;
-        this.m_n_err_handler = errh;
     }
 
     /**
@@ -2908,21 +2907,6 @@ public class Context extends IDisposable
         Native.toggleWarningMessages((enabled) ? true : false);
     }
 
-    // /// <summary>
-    // /// A delegate which is executed when an error is raised.
-    // /// </summary>
-    // /// <remarks>
-    // /// Note that it is possible for memory leaks to occur if error handlers
-    // /// throw exceptions.
-    // /// </remarks>
-    // public delegate void ErrorHandler(Context ctx, Z3_error_code errorCode,
-    // String errorString);
-
-    // /// <summary>
-    // /// The OnError event.
-    // /// </summary>
-    // public event ErrorHandler OnError = null;
-
     /**
      * Update a mutable configuration parameter. <remarks> The list of all
      * configuration parameters can be obtained using the Z3 executable:
@@ -2950,26 +2934,16 @@ public class Context extends IDisposable
     }
 
     long m_ctx = 0;
-    Native.errorHandler m_n_err_handler = null;
 
     long nCtx()
     {
         return m_ctx;
     }
 
-    // void NativeErrorHandler(long ctx, Z3_error_code errorCode)
-    // {
-    // // Do-nothing error handler. The wrappers in Z3.Native will throw
-    // exceptions upon errors.
-    // }
-
     void InitContext() throws Z3Exception
     {
         setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
-        // m_n_err_handler = new Native.errorHandler(NativeErrorHandler); //
-        // keep reference so it doesn't get collected.
-        // if (m_n_err_handler != null) Native.setErrorHandler(m_ctx,
-        // m_n_err_handler);
+	Native.setInternalErrorHandler(nCtx());
     }
 
     void CheckContextMatch(Z3Object other) throws Z3Exception
@@ -3087,7 +3061,6 @@ public class Context extends IDisposable
 
         if (m_refCount == 0)
         {
-            m_n_err_handler = null;
             try
             {
                 Native.delContext(m_ctx);
@@ -3099,7 +3072,7 @@ public class Context extends IDisposable
         } else
             /* re-queue the finalizer */
             /* BUG: DRQ's need to be taken over too! */
-            new Context(m_ctx, m_refCount, m_n_err_handler);
+            new Context(m_ctx, m_refCount);
     }
 
     /**
