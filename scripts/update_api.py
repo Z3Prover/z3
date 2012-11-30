@@ -489,18 +489,19 @@ def mk_java():
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
     java_native.write('package %s;\n' % get_component('java').package_name)
+    java_native.write('import %s.enumerations.*;\n' % get_component('java').package_name)
     java_native.write('public final class Native {\n')
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
     java_native.write('  public static class errorHandler { public long ptr; }\n')
-
     if IS_WINDOWS:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
     else:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
+    java_native.write('\n\n')
     for name, result, params in _dotnet_decls:
-        java_native.write('  public static native %s %s(' % (type2java(result), java_method_name(name)))
+        java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
         first = True
         i = 0;
         for param in params:
@@ -511,12 +512,46 @@ def mk_java():
             java_native.write('%s a%d' % (param2java(param), i))
             i = i + 1
         java_native.write(');\n')
-    java_native.write('  public static void main(String[] args) {\n')
-    java_native.write('     IntPtr major = new IntPtr(), minor = new IntPtr(), build = new IntPtr(), revision = new IntPtr();\n')
-    java_native.write('     getVersion(major, minor, build, revision);\n')
-    java_native.write('     System.out.format("Z3 (for Java) %d.%d.%d%n", major.value, minor.value, build.value);\n')
-    java_native.write('  }\n')
-    java_native.write('}\n');
+    java_native.write('\n\n')
+    # Exception wrappers
+    for name, result, params in _dotnet_decls:
+        java_native.write('  public static %s %s(' % (type2java(result), java_method_name(name)))
+        first = True
+        i = 0;
+        for param in params:
+            if first:
+                first = False
+            else:
+                java_native.write(', ')
+            java_native.write('%s a%d' % (param2java(param), i))
+            i = i + 1
+        java_native.write(')')
+        if len(params) > 0 and param_type(params[0]) == CONTEXT:
+            java_native.write(' throws Z3Exception')
+        java_native.write('\n')
+        java_native.write('  {\n')
+        java_native.write('      ')
+        if result != VOID:
+            java_native.write('%s res = ' % type2java(result))
+        java_native.write('INTERNAL%s(' % (java_method_name(name)))
+        first = True
+        i = 0;
+        for param in params:
+            if first:
+                first = False
+            else:
+                java_native.write(', ')
+            java_native.write('a%d' % i)
+            i = i + 1
+        java_native.write(');\n')
+        if len(params) > 0 and param_type(params[0]) == CONTEXT:
+            java_native.write('      Z3_error_code err = Z3_error_code.fromInt(INTERNALgetErrorCode(a0));\n')
+            java_native.write('      if (err != Z3_error_code.Z3_OK)\n')
+            java_native.write('          throw new Z3Exception(INTERNALgetErrorMsgEx(a0, err.toInt()));\n')
+        if result != VOID:
+            java_native.write('      return res;\n')
+        java_native.write('  }\n\n')
+    java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
     java_wrapper.write('// Automatically generated file\n')
     java_wrapper.write('#include<jni.h>\n')
@@ -544,7 +579,7 @@ def mk_java():
         java_wrapper.write('  delete [] NEW;                                                     \n\n')
     pkg_str = get_component('java').package_name.replace('.', '_')
     for name, result, params in _dotnet_decls:
-        java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
+        java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
         i = 0;
         for param in params:
             java_wrapper.write(', ')
@@ -629,7 +664,7 @@ def mk_java():
         if result == STRING:
             java_wrapper.write('  return jenv->NewStringUTF(result);\n')
         elif result != VOID:
-            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))
+            java_wrapper.write('  return (%s) result;\n' % type2javaw(result))        
         java_wrapper.write('}\n')
     java_wrapper.write('#ifdef __cplusplus\n')
     java_wrapper.write('}\n')

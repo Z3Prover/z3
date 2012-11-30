@@ -159,7 +159,7 @@ class JavaExample
         Sort t = f.Range();
         Sort[] dom = f.Domain();
 
-        if (dom.length != 2 || !t.Equals(dom[0]) || !t.Equals(dom[1]))
+        if (dom.length != 2 || !t.equals(dom[0]) || !t.equals(dom[1]))
         {
             System.out.println(Integer.toString(dom.length) + " "
                     + dom[0].toString() + " " + dom[1].toString() + " "
@@ -700,7 +700,7 @@ class JavaExample
             System.out.println(q2);
         }
 
-        System.out.println(q1.Equals(q2));
+        System.out.println(q1.equals(q2));
     }
 
     // / Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when

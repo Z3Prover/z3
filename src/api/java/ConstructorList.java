@@ -14,7 +14,7 @@ public class ConstructorList extends Z3Object
 	/**
 	 * Destructor.
 	 **/
-	protected void finalize()
+	protected void finalize() throws Z3Exception
 	{
 		Native.delConstructorList(Context().nCtx(), NativeObject());
 	}

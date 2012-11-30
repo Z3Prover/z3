@@ -14,7 +14,7 @@ public class RelationSort extends Sort
     /**
      * The arity of the relation sort.
      **/
-    public int Arity()
+    public int Arity() throws Z3Exception
     {
         return Native.getRelationArity(Context().nCtx(), NativeObject());
     }

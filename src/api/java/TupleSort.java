@@ -25,7 +25,7 @@ public class TupleSort extends Sort
     /**
      * The number of fields in the tuple.
      **/
-    public int NumFields()
+    public int NumFields() throws Z3Exception
     {
         return Native.getTupleSortNumFields(Context().nCtx(), NativeObject());
     }

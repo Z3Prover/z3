@@ -7,6 +7,7 @@
 package com.microsoft.z3;
 
 import java.math.BigInteger;
+
 /**
  * Rational Numerals
  **/
@@ -63,7 +64,13 @@ public class RatNum extends RealExpr
      **/
     public String toString()
     {
-        return Native.getNumeralString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.getNumeralString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     RatNum(Context ctx, long obj) throws Z3Exception

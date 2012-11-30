@@ -16,14 +16,15 @@ public class Solver extends Z3Object
     /**
      * A string that describes all available solver parameters.
      **/
-    public String Help()
+    public String Help() throws Z3Exception
     {
         return Native.solverGetHelp(Context().nCtx(), NativeObject());
     }
 
     /**
      * Sets the solver parameters.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public void setParameters(Params value) throws Z3Exception
     {
@@ -34,7 +35,8 @@ public class Solver extends Z3Object
 
     /**
      * Retrieves parameter descriptions for solver.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public ParamDescrs ParameterDescriptions() throws Z3Exception
     {
@@ -46,7 +48,7 @@ public class Solver extends Z3Object
      * The current number of backtracking points (scopes). <seealso cref="Pop"/>
      * <seealso cref="Push"/>
      **/
-    public int NumScopes()
+    public int NumScopes() throws Z3Exception
     {
         return Native.solverGetNumScopes(Context().nCtx(), NativeObject());
     }
@@ -54,7 +56,7 @@ public class Solver extends Z3Object
     /**
      * Creates a backtracking point. <seealso cref="Pop"/>
      **/
-    public void Push()
+    public void Push() throws Z3Exception
     {
         Native.solverPush(Context().nCtx(), NativeObject());
     }
@@ -62,9 +64,9 @@ public class Solver extends Z3Object
     /**
      * Backtracks one backtracking point. <remarks>.
      **/
-    public void Pop()
+    public void Pop() throws Z3Exception
     {
-	Pop(1);
+        Pop(1);
     }
 
     /**
@@ -72,7 +74,7 @@ public class Solver extends Z3Object
      * an exception is thrown if <paramref name="n"/> is not smaller than
      * <code>NumScopes</code></remarks> <seealso cref="Push"/>
      **/
-    public void Pop(int n)
+    public void Pop(int n) throws Z3Exception
     {
         Native.solverPop(Context().nCtx(), NativeObject(), n);
     }
@@ -81,14 +83,15 @@ public class Solver extends Z3Object
      * Resets the Solver. <remarks>This removes all assertions from the
      * solver.</remarks>
      **/
-    public void Reset()
+    public void Reset() throws Z3Exception
     {
         Native.solverReset(Context().nCtx(), NativeObject());
     }
 
     /**
      * Assert a multiple constraints into the solver.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public void Assert(BoolExpr[] constraints) throws Z3Exception
     {
@@ -102,17 +105,20 @@ public class Solver extends Z3Object
 
     /**
      * Assert one constraint into the solver.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public void Assert(BoolExpr constraint) throws Z3Exception
     {
         Context().CheckContextMatch(constraint);
-	Native.solverAssert(Context().nCtx(), NativeObject(), constraint.NativeObject());
+        Native.solverAssert(Context().nCtx(), NativeObject(),
+                constraint.NativeObject());
     }
 
     /**
      * The number of assertions in the solver.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public int NumAssertions() throws Z3Exception
     {
@@ -123,7 +129,8 @@ public class Solver extends Z3Object
 
     /**
      * The set of asserted formulas.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public BoolExpr[] Assertions() throws Z3Exception
     {
@@ -141,7 +148,7 @@ public class Solver extends Z3Object
      * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
      * cref="Proof"/> </remarks>
      **/
-    public Status Check(Expr[] assumptions)
+    public Status Check(Expr[] assumptions) throws Z3Exception
     {
         Z3_lbool r;
         if (assumptions == null)
@@ -167,9 +174,9 @@ public class Solver extends Z3Object
      * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
      * cref="Proof"/> </remarks>
      **/
-    public Status Check()
+    public Status Check() throws Z3Exception
     {
-	return Check(null);
+        return Check(null);
     }
 
     /**
@@ -177,7 +184,8 @@ public class Solver extends Z3Object
      * <code>null</code> if <code>Check</code> was not invoked before, if its
      * results was not <code>SATISFIABLE</code>, or if model production is not
      * enabled. </remarks>
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Model Model() throws Z3Exception
     {
@@ -193,7 +201,8 @@ public class Solver extends Z3Object
      * <code>null</code> if <code>Check</code> was not invoked before, if its
      * results was not <code>UNSATISFIABLE</code>, or if proof production is
      * disabled. </remarks>
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Expr Proof() throws Z3Exception
     {
@@ -209,7 +218,8 @@ public class Solver extends Z3Object
      * is a subset of <code>Assertions</code> The result is empty if
      * <code>Check</code> was not invoked before, if its results was not
      * <code>UNSATISFIABLE</code>, or if core production is disabled. </remarks>
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Expr[] UnsatCore() throws Z3Exception
     {
@@ -227,15 +237,15 @@ public class Solver extends Z3Object
      * A brief justification of why the last call to <code>Check</code> returned
      * <code>UNKNOWN</code>.
      **/
-    public String ReasonUnknown()
+    public String ReasonUnknown() throws Z3Exception
     {
-
         return Native.solverGetReasonUnknown(Context().nCtx(), NativeObject());
     }
 
     /**
      * Solver statistics.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Statistics Statistics() throws Z3Exception
     {
@@ -248,7 +258,13 @@ public class Solver extends Z3Object
      **/
     public String toString()
     {
-        return Native.solverToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.solverToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     Solver(Context ctx, long obj) throws Z3Exception

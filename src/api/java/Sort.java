@@ -37,7 +37,7 @@ public class Sort extends AST
      * 
      * @return
      **/
-    public boolean Equals(Object o)
+    public boolean equals(Object o)
     {
         Sort casted = (Sort) o;
         if (casted == null)
@@ -86,7 +86,13 @@ public class Sort extends AST
      **/
     public String toString()
     {
-        return Native.sortToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.sortToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     /**

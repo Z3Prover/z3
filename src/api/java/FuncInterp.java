@@ -33,7 +33,7 @@ public class FuncInterp extends Z3Object
 		/**
 		 * The number of arguments of the entry.
 		 **/
-		public int NumArgs()
+		public int NumArgs() throws Z3Exception
 		{
 			return Native.funcEntryGetNumArgs(Context().nCtx(), NativeObject());
 		}
@@ -93,7 +93,7 @@ public class FuncInterp extends Z3Object
 	/**
 	 * The number of entries in the function interpretation.
 	 **/
-	public int NumEntries()
+	public int NumEntries() throws Z3Exception
 	{
 		return Native.funcInterpGetNumEntries(Context().nCtx(), NativeObject());
 	}
@@ -127,7 +127,7 @@ public class FuncInterp extends Z3Object
 	/**
 	 * The arity of the function interpretation
 	 **/
-	public int Arity()
+	public int Arity() throws Z3Exception
 	{
 		return Native.funcInterpGetArity(Context().nCtx(), NativeObject());
 	}

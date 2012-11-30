@@ -9,11 +9,23 @@ class ParamsDecRefQueue extends IDecRefQueue
 {
     public void IncRef(Context ctx, long obj)
     {
-        Native.paramsIncRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.paramsIncRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 
     public void DecRef(Context ctx, long obj)
     {
-        Native.paramsDecRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.paramsDecRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 };

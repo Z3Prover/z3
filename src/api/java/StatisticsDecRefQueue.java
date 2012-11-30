@@ -9,11 +9,23 @@ class StatisticsDecRefQueue extends IDecRefQueue
 {
     public void IncRef(Context ctx, long obj)
     {
-	Native.statsIncRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.statsIncRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
-    
+
     public void DecRef(Context ctx, long obj)
     {
-	Native.statsDecRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.statsDecRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 };

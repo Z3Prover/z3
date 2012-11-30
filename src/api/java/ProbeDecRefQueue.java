@@ -9,11 +9,23 @@ class ProbeDecRefQueue extends IDecRefQueue
 {
     public void IncRef(Context ctx, long obj)
     {
-        Native.probeIncRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.probeIncRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 
     public void DecRef(Context ctx, long obj)
     {
-        Native.probeDecRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.probeDecRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 };

@@ -54,7 +54,7 @@ public class Constructor extends Z3Object
 	/**
 	 * Destructor.
 	 **/
-	protected void finalize()
+	protected void finalize() throws Z3Exception
 	{
 		Native.delConstructor(Context().nCtx(), NativeObject());
 	}

@@ -9,11 +9,23 @@ class TacticDecRefQueue extends IDecRefQueue
 {
     public void IncRef(Context ctx, long obj)
     {
-        Native.tacticIncRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.tacticIncRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 
     public void DecRef(Context ctx, long obj)
     {
-        Native.tacticDecRef(ctx.nCtx(), obj);
+        try
+        {
+            Native.tacticDecRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
     }
 };
