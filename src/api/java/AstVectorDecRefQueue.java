@@ -7,13 +7,25 @@ package com.microsoft.z3;
 
 class ASTVectorDecRefQueue extends IDecRefQueue
 {
-	public void IncRef(Context ctx, long obj)
-	{
-		Native.astVectorIncRef(ctx.nCtx(), obj);
-	}
+    public void IncRef(Context ctx, long obj)
+    {
+        try
+        {
+            Native.astVectorIncRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
+    }
 
-	public void DecRef(Context ctx, long obj)
-	{
-		Native.astVectorDecRef(ctx.nCtx(), obj);
-	}
+    public void DecRef(Context ctx, long obj)
+    {
+        try
+        {
+            Native.astVectorDecRef(ctx.nCtx(), obj);
+        } catch (Z3Exception e)
+        {
+            // OK.
+        }
+    }
 };

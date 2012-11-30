@@ -990,10 +990,13 @@ class JavaDLLComponent(Component):
             else:
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(SO_EXT)\n')
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
-            # for java_file in get_java_files(self.src_dir):
-            #     out.write('%s ' % java_file)
-            # for java_file in get_java_files((self.src_dir + "/%s/enumerations") % subdir):
-            #     out.write('%s ' % java_file)
+            deps = ''
+            for jfile in get_java_files(self.src_dir):
+                deps += ('%s/%s ' % (self.to_src_dir, jfile))
+            for jfile in get_java_files((self.src_dir + "/enumerations")):
+                deps += ('%s/enumerations/%s ' % (self.to_src_dir, jfile))
+            if IS_WINDOWS: deps = deps.replace('/', '\\')
+            out.write(deps)
             out.write('\n')
             t = ('\t%s %s/enumerations/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
             if IS_WINDOWS: t = t.replace('/','\\')
@@ -1103,10 +1106,12 @@ class JavaExampleComponent(ExampleComponent):
         if JAVA_ENABLED:
             pkg = get_component(JAVA_COMPONENT).package_name + '.jar'
             out.write('_ex_%s: %s' % (self.name, pkg))
-            # for javafile in get_java_files(self.ex_dir):
-            #     out.write(' ')
-            #     out.write('%s/%s' % (self.to_ex_dir, javafile))
-            out.write('\n')
+            deps = ''
+            for jfile in get_java_files(self.ex_dir):
+                out.write(' %s/%s' % (self.to_ex_dir, jfile))
+            if IS_WINDOWS:
+                deps = deps.replace('/', '\\')
+            out.write('%s\n' % deps)
             out.write('\t%s -cp %s ' % (JAVAC, pkg))
             win_ex_dir = self.to_ex_dir
             for javafile in get_java_files(self.ex_dir):

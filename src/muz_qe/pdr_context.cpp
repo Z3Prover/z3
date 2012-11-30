@@ -1827,10 +1827,8 @@ namespace pdr {
             proof_ref pr(m);
             pr = m.mk_asserted(m.mk_true());
             for (unsigned i = 0; i < vars.size(); ++i) {    
-                if (smt::is_value_sort(m, vars[i].get())) {
-                    tmp = mev.eval(M, vars[i].get());
-                    sub.insert(vars[i].get(), tmp, pr);
-                }
+                tmp = mev.eval(M, vars[i].get());
+                sub.insert(vars[i].get(), tmp, pr);
             }
             if (!rep) rep = mk_expr_simp_replacer(m);
             rep->set_substitution(&sub);

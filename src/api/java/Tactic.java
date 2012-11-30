@@ -18,7 +18,7 @@ public class Tactic extends Z3Object
     /**
      * A string containing a description of parameters accepted by the tactic.
      **/
-    public String Help()
+    public String Help() throws Z3Exception
     {
         return Native.tacticGetHelp(Context().nCtx(), NativeObject());
     }

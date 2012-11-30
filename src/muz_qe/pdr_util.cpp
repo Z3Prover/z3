@@ -608,6 +608,7 @@ namespace pdr {
        best effort evaluator of extensional array equality.
      */
     void model_evaluator::eval_array_eq(app* e, expr* arg1, expr* arg2) {
+        TRACE("pdr", tout << "array equality: " << mk_pp(e, m) << "\n";);
         expr_ref v1(m), v2(m);
         m_model->eval(arg1, v1);
         m_model->eval(arg2, v2);
@@ -633,7 +634,10 @@ namespace pdr {
 
         if (else1 != else2) {
             if (m.is_value(else1) && m.is_value(else2)) {
-                set_bool(e, false);
+                TRACE("pdr", tout 
+                      << "defaults are different: " << mk_pp(e, m) << " " 
+                      << mk_pp(else1, m) << " " << mk_pp(else2, m) << "\n";);
+                set_false(e);
             }
             else {
                 TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
@@ -659,7 +663,10 @@ namespace pdr {
                 continue;
             }
             else if (m.is_value(w1) && m.is_value(w2)) {
-                set_bool(e, false);
+                TRACE("pdr", tout << "Equality evaluation: " << mk_pp(e, m) << "\n"; 
+                      tout << mk_pp(s1, m) << " |-> " << mk_pp(w1, m) << "\n";
+                      tout << mk_pp(s2, m) << " |-> " << mk_pp(w2, m) << "\n";);
+                set_false(e);
                 return;
             }
             else {
@@ -668,7 +675,7 @@ namespace pdr {
                 return;
             }
         }
-        set_bool(e, true);                
+        set_true(e);
     }
 
     void model_evaluator::eval_eq(app* e, expr* arg1, expr* arg2) {

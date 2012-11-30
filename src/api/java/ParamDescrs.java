@@ -16,7 +16,7 @@ public class ParamDescrs extends Z3Object
     /**
      * validate a set of parameters.
      **/
-    public void Validate(Params p)
+    public void Validate(Params p) throws Z3Exception
     {
 
         Native.paramsValidate(Context().nCtx(), p.NativeObject(),
@@ -26,7 +26,7 @@ public class ParamDescrs extends Z3Object
     /**
      * Retrieve kind of parameter.
      **/
-    public Z3_param_kind GetKind(Symbol name)
+    public Z3_param_kind GetKind(Symbol name) throws Z3Exception
     {
 
         return Z3_param_kind.fromInt(Native.paramDescrsGetKind(
@@ -53,7 +53,7 @@ public class ParamDescrs extends Z3Object
     /**
      * The size of the ParamDescrs.
      **/
-    public int Size()
+    public int Size() throws Z3Exception
     {
         return Native.paramDescrsSize(Context().nCtx(), NativeObject());
     }
@@ -63,7 +63,13 @@ public class ParamDescrs extends Z3Object
      **/
     public String toString()
     {
-        return Native.paramDescrsToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.paramDescrsToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     ParamDescrs(Context ctx, long obj) throws Z3Exception

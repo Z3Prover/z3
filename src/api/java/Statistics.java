@@ -56,7 +56,8 @@ public class Statistics extends Z3Object
 
         /**
          * The string representation of the the entry's value.
-         * @throws Z3Exception 
+         * 
+         * @throws Z3Exception
          **/
         public String Value() throws Z3Exception
         {
@@ -107,20 +108,27 @@ public class Statistics extends Z3Object
      **/
     public String toString()
     {
-        return Native.statsToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.statsToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     /**
      * The number of statistical data.
      **/
-    public int Size()
+    public int Size() throws Z3Exception
     {
         return Native.statsSize(Context().nCtx(), NativeObject());
     }
 
     /**
      * The data entries.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Entry[] Entries() throws Z3Exception
     {
@@ -147,7 +155,7 @@ public class Statistics extends Z3Object
     /**
      * The statistical counters.
      **/
-    public String[] Keys()
+    public String[] Keys() throws Z3Exception
     {
         int n = Size();
         String[] res = new String[n];
@@ -159,7 +167,8 @@ public class Statistics extends Z3Object
     /**
      * The value of a particular statistical counter. <remarks>Returns null if
      * the key is unknown.</remarks>
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Entry get(String key) throws Z3Exception
     {

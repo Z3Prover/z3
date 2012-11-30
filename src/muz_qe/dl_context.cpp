@@ -995,6 +995,7 @@ namespace datalog {
                       
         p.insert("print_with_fixedpoint_extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
         p.insert("print_low_level_smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
+        p.insert("print_with_variable_declarations", CPK_BOOL, "(default true) use variable declarations when displaying rules (instead of attempting to use original names)");
         
         PRIVATE_PARAMS(
             p.insert("dbg_fpr_nonempty_relation_signature", CPK_BOOL, 
@@ -1625,6 +1626,23 @@ namespace datalog {
    
     void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
         expr_ref fml(m);
+        datalog::rule_manager& rm = get_rule_manager();
+        datalog::rule_ref_vector rule_refs(rm);
+        
+        // ensure that rules are all using bound variables.
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            ptr_vector<sort> sorts;
+            get_free_vars(m_rule_fmls[i].get(), sorts);
+            if (!sorts.empty()) {
+                rm.mk_rule(m_rule_fmls[i].get(), rule_refs, m_rule_names[i]);
+                m_rule_fmls[i] = m_rule_fmls.back();
+                m_rule_names[i] = m_rule_names.back();
+                m_rule_fmls.pop_back();
+                m_rule_names.pop_back();
+                --i;
+            }
+        }
+        add_rules(rule_refs);
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
             (*it)->to_formula(fml);
@@ -1652,6 +1670,7 @@ namespace datalog {
         svector<symbol> names;
         bool use_fixedpoint_extensions = m_params.get_bool("print_with_fixedpoint_extensions", true);
         bool print_low_level = m_params.get_bool("print_low_level_smt2", false);
+        bool do_declare_vars = m_params.get_bool("print_with_variable_declarations", true);
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
 
@@ -1708,7 +1727,7 @@ namespace datalog {
             out << "))\n";
         }
 
-        if (use_fixedpoint_extensions) {
+        if (use_fixedpoint_extensions && do_declare_vars) {
             declare_vars(rules, fresh_names, out);
         }
 
@@ -1730,13 +1749,20 @@ namespace datalog {
             }
             PP(r);
             if (symbol::null != nm) {
+                out << " :named ";
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
                     s << nm << "!";
                     nm = symbol(s.str().c_str());                    
                 }
                 fresh_names.add(nm);
-                out << " :named " << nm << ")";
+                if (is_smt2_quoted_symbol(nm)) {
+                    out << mk_smt2_quoted_symbol(nm);
+                }
+                else {
+                    out << nm;
+                }
+                out << ")";
             }
             out << ")\n";
         }

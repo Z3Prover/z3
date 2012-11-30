@@ -14,7 +14,7 @@ public class FiniteDomainSort extends Sort
 	/**
 	 * The size of the finite domain sort.
 	 **/
-	public long Size()
+	public long Size() throws Z3Exception
 	{
 		Native.LongPtr res = new Native.LongPtr();
 		Native.getFiniteDomainSortSize(Context().nCtx(), NativeObject(), res);

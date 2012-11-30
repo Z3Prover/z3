@@ -16,7 +16,7 @@ public class Quantifier extends BoolExpr
     /**
      * Indicates whether the quantifier is universal.
      **/
-    public boolean IsUniversal()
+    public boolean IsUniversal() throws Z3Exception
     {
         return Native.isQuantifierForall(Context().nCtx(), NativeObject());
     }
@@ -24,7 +24,7 @@ public class Quantifier extends BoolExpr
     /**
      * Indicates whether the quantifier is existential.
      **/
-    public boolean IsExistential()
+    public boolean IsExistential() throws Z3Exception
     {
         return !IsUniversal();
     }
@@ -32,7 +32,7 @@ public class Quantifier extends BoolExpr
     /**
      * The weight of the quantifier.
      **/
-    public int Weight()
+    public int Weight() throws Z3Exception
     {
         return Native.getQuantifierWeight(Context().nCtx(), NativeObject());
     }
@@ -40,7 +40,7 @@ public class Quantifier extends BoolExpr
     /**
      * The number of patterns.
      **/
-    public int NumPatterns()
+    public int NumPatterns() throws Z3Exception
     {
         return Native
                 .getQuantifierNumPatterns(Context().nCtx(), NativeObject());
@@ -64,7 +64,7 @@ public class Quantifier extends BoolExpr
     /**
      * The number of no-patterns.
      **/
-    public int NumNoPatterns()
+    public int NumNoPatterns() throws Z3Exception
     {
         return Native.getQuantifierNumNoPatterns(Context().nCtx(),
                 NativeObject());
@@ -88,7 +88,7 @@ public class Quantifier extends BoolExpr
     /**
      * The number of bound variables.
      **/
-    public int NumBound()
+    public int NumBound() throws Z3Exception
     {
         return Native.getQuantifierNumBound(Context().nCtx(), NativeObject());
     }

@@ -80,7 +80,13 @@ public class Params extends Z3Object
      **/
     public String toString()
     {
-        return Native.paramsToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.paramsToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     Params(Context ctx) throws Z3Exception

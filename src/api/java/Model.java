@@ -19,7 +19,7 @@ public class Model extends Z3Object
      * 
      * @return An expression if the constant has an interpretation in the model,
      *         null otherwise.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public Expr ConstInterp(Expr a) throws Z3Exception
     {
@@ -33,7 +33,7 @@ public class Model extends Z3Object
      * 
      * @return An expression if the function has an interpretation in the model,
      *         null otherwise.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public Expr ConstInterp(FuncDecl f) throws Z3Exception
     {
@@ -60,7 +60,7 @@ public class Model extends Z3Object
      * 
      * @return A FunctionInterpretation if the function has an interpretation in
      *         the model, null otherwise.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public FuncInterp FuncInterp(FuncDecl f) throws Z3Exception
     {
@@ -105,14 +105,15 @@ public class Model extends Z3Object
     /**
      * The number of constants that have an interpretation in the model.
      **/
-    public int NumConsts()
+    public int NumConsts() throws Z3Exception
     {
         return Native.modelGetNumConsts(Context().nCtx(), NativeObject());
     }
 
     /**
      * The function declarations of the constants in the model.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public FuncDecl[] ConstDecls() throws Z3Exception
     {
@@ -127,14 +128,15 @@ public class Model extends Z3Object
     /**
      * The number of function interpretations in the model.
      **/
-    public int NumFuncs()
+    public int NumFuncs() throws Z3Exception
     {
         return Native.modelGetNumFuncs(Context().nCtx(), NativeObject());
     }
 
     /**
      * The function declarations of the function interpretations in the model.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public FuncDecl[] FuncDecls() throws Z3Exception
     {
@@ -148,7 +150,8 @@ public class Model extends Z3Object
 
     /**
      * All symbols that have an interpretation in the model.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public FuncDecl[] Decls() throws Z3Exception
     {
@@ -192,7 +195,7 @@ public class Model extends Z3Object
      * that does not have an interpretation in the model. </param>
      * 
      * @return The evaluation of <paramref name="t"/> in the model.
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public Expr Eval(Expr t, boolean completion) throws Z3Exception
     {
@@ -206,7 +209,8 @@ public class Model extends Z3Object
 
     /**
      * Alias for <code>Eval</code>.
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Expr Evaluate(Expr t, boolean completion) throws Z3Exception
     {
@@ -217,7 +221,7 @@ public class Model extends Z3Object
      * The number of uninterpreted sorts that the model has an interpretation
      * for.
      **/
-    public int NumSorts()
+    public int NumSorts() throws Z3Exception
     {
         return Native.modelGetNumSorts(Context().nCtx(), NativeObject());
     }
@@ -228,7 +232,8 @@ public class Model extends Z3Object
      * in a formula. The interpretation for a sort is a finite set of distinct
      * values. We say this finite set is the "universe" of the sort. </remarks>
      * <seealso cref="NumSorts"/> <seealso cref="SortUniverse"/>
-     * @throws Z3Exception 
+     * 
+     * @throws Z3Exception
      **/
     public Sort[] Sorts() throws Z3Exception
     {
@@ -248,7 +253,7 @@ public class Model extends Z3Object
      * 
      * @return An array of expressions, where each is an element of the universe
      *         of <paramref name="s"/>
-     * @throws Z3Exception 
+     * @throws Z3Exception
      **/
     public Expr[] SortUniverse(Sort s) throws Z3Exception
     {
@@ -269,7 +274,13 @@ public class Model extends Z3Object
      **/
     public String toString()
     {
-        return Native.modelToString(Context().nCtx(), NativeObject());
+        try
+        {
+            return Native.modelToString(Context().nCtx(), NativeObject());
+        } catch (Z3Exception e)
+        {
+            return "Z3Exception: " + e.getMessage();
+        }
     }
 
     Model(Context ctx, long obj) throws Z3Exception

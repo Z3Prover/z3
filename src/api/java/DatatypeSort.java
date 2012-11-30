@@ -14,7 +14,7 @@ public class DatatypeSort extends Sort
 	/**
 	 * The number of constructors of the datatype sort.
 	 **/
-	public int NumConstructors()
+	public int NumConstructors() throws Z3Exception
 	{
 		return Native.getDatatypeSortNumConstructors(Context().nCtx(),
 				NativeObject());
