@@ -23,21 +23,14 @@ Revision History:
 #include"api_util.h"
 #include"cmd_context.h"
 #include"symbol.h"
+#include"gparams.h"
 
 namespace api {
 
-    config_params::config_params():
-        m_ini(false /* do not abort on errors */) {
-        register_verbosity_level(m_ini);
-        register_warning(m_ini);
-        m_params.register_params(m_ini); 
-        register_pp_params(m_ini);
+    config_params::config_params() {
     }
     
     config_params::config_params(front_end_params const & p):m_params(p) {
-        register_verbosity_level(m_ini);
-        register_warning(m_ini);
-        register_pp_params(m_ini);
     }
 
 };
@@ -56,66 +49,35 @@ extern "C" {
     }
     
     void Z3_API Z3_set_param_value(Z3_config c, char const * param_id, char const * param_value) {
+        // REMARK: we don't need Z3_config anymore
         try { 
             LOG_Z3_set_param_value(c, param_id, param_value);
-            api::config_params* p = reinterpret_cast<api::config_params*>(c);
-            if (param_id != 0 && param_id[0] == ':') {
-                // Allow SMT2 style paramater names such as  :model, :relevancy, etc
-                std::string new_param_id = smt2_keyword_to_param(symbol(param_id));
-                p->m_ini.set_param_value(new_param_id.c_str(), param_value);
-            }
-            else {
-                p->m_ini.set_param_value(param_id, param_value);
-            }
+            gparams::set(param_id, param_value);
         }
-        catch (set_get_param_exception & ex) {
+        catch (gparams::exception & ex) {
             // The error handler was not set yet.
             // Just throw a warning.
             std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ", " << ex.get_msg();
+            buffer << "Error setting " << param_id << ", " << ex.msg();
             warning_msg(buffer.str().c_str());
         }
     }
 
     void Z3_API Z3_update_param_value(Z3_context c, Z3_string param_id, Z3_string param_value) {
+        Z3_TRY;
         LOG_Z3_update_param_value(c, param_id, param_value);
         RESET_ERROR_CODE();
-        ini_params ini;        
-        mk_c(c)->fparams().register_params(ini);
-        register_pp_params(ini);
-        register_verbosity_level(ini);
-        register_warning(ini);
-        if (mk_c(c)->has_solver()) {
-            ini.freeze();
-        }
-        if (param_id != 0 && param_id[0] == ':') {
-            // Allow SMT2 style paramater names such as  :model, :relevancy, etc
-            std::string new_param_id = smt2_keyword_to_param(symbol(param_id));
-            ini.set_param_value(new_param_id.c_str(), param_value);
-        }
-        else {
-            ini.set_param_value(param_id, param_value);
-        }
-        memory::set_high_watermark(static_cast<size_t>(mk_c(c)->fparams().m_memory_high_watermark)*1024*1024);
-        memory::set_max_size(static_cast<size_t>(mk_c(c)->fparams().m_memory_max_size)*1024*1024);
+        gparams::set(param_id, param_value);
+        // TODO: set memory limits
+        // memory::set_high_watermark(static_cast<size_t>(mk_c(c)->fparams().m_memory_high_watermark)*1024*1024);
+        // memory::set_max_size(static_cast<size_t>(mk_c(c)->fparams().m_memory_max_size)*1024*1024);
+        Z3_CATCH;
     }
 
     Z3_bool Z3_API Z3_get_param_value(Z3_context c, Z3_string param_id, Z3_string* param_value) {
         LOG_Z3_get_param_value(c, param_id, param_value);
-        ini_params ini;        
-        mk_c(c)->fparams().register_params(ini);
-        register_verbosity_level(ini);
-        register_pp_params(ini);
-        register_warning(ini);
-        std::string param_value_s;
-        if (!ini.get_param_value(param_id, param_value_s)) {
-            if (param_value) *param_value = 0;
-            return false;
-        }
-        if (param_value) {
-            *param_value = mk_c(c)->mk_external_string(param_value_s);
-        }
-        return true;
+        // TODO: we don't really have support for that anymore.
+        return false;
     }
 
 };
