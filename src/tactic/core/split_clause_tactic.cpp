@@ -96,11 +96,11 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) {
-        m_largest_clause = p.get_bool(":split-largest-clause", false);
+        m_largest_clause = p.get_bool("split_largest_clause", false);
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
-        r.insert(":split-largest-clause", CPK_BOOL, "(default: false) split the largest clause in the goal.");
+        r.insert("split_largest_clause", CPK_BOOL, "(default: false) split the largest clause in the goal.");
     }
     
     virtual void operator()(goal_ref const & in, 

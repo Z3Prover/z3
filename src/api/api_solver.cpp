@@ -37,8 +37,8 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         Z3_solver_ref * s = to_solver(_s);
         s->m_solver->set_produce_proofs(m.proofs_enabled());
-        s->m_solver->set_produce_unsat_cores(s->m_params.get_bool(":unsat-core", false));
-        s->m_solver->set_produce_models(s->m_params.get_bool(":model", true));
+        s->m_solver->set_produce_unsat_cores(s->m_params.get_bool("unsat_core", false));
+        s->m_solver->set_produce_models(s->m_params.get_bool("model", true));
         s->m_solver->set_front_end_params(mk_c(c)->fparams());
         s->m_solver->updt_params(s->m_params);
         s->m_solver->init(m, s->m_logic);
@@ -127,8 +127,8 @@ extern "C" {
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
         if (to_solver(s)->m_initialized) {
-            bool old_model = to_solver(s)->m_params.get_bool(":model", true);
-            bool new_model = to_param_ref(p).get_bool(":model", true);
+            bool old_model = to_solver(s)->m_params.get_bool("model", true);
+            bool new_model = to_param_ref(p).get_bool("model", true);
             if (old_model != new_model)
                 to_solver_ref(s)->set_produce_models(new_model);
             to_solver_ref(s)->updt_params(to_param_ref(p));
@@ -238,8 +238,8 @@ extern "C" {
             }
         }
         expr * const * _assumptions = to_exprs(assumptions);
-        unsigned timeout     = to_solver(s)->m_params.get_uint(":timeout", UINT_MAX);
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool(":ctrl-c", false);
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", UINT_MAX);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
         cancel_eh<solver> eh(*to_solver_ref(s));
         api::context::set_interruptable(*(mk_c(c)), eh);
         lbool result;

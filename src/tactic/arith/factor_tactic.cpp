@@ -40,7 +40,7 @@ class factor_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_split_factors = p.get_bool(":split-factors", true);
+            m_split_factors = p.get_bool("split_factors", true);
             m_fparams.updt_params(p);
         }
 
@@ -311,7 +311,7 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert(":split-factors", CPK_BOOL, 
+        r.insert("split_factors", CPK_BOOL, 
                  "(default: true) apply simplifications such as (= (* p1 p2) 0) --> (or (= p1 0) (= p2 0)).");
         polynomial::factor_params::get_param_descrs(r);
     }

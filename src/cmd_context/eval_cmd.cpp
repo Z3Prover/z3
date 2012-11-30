@@ -62,7 +62,7 @@ public:
         SASSERT(last_result);
         last_result->get_model(md);
         expr_ref r(ctx.m());
-        unsigned timeout = m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout = m_params.get_uint("timeout", UINT_MAX);
         model_evaluator ev(*(md.get()), m_params);
         cancel_eh<model_evaluator> eh(ev);
         { 

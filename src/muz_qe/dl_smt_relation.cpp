@@ -533,7 +533,7 @@ namespace datalog {
 
                 IF_VERBOSE(10, verbose_stream() << "Computing delta...\n"; );
                      
-                if (params.get_bool(":smt-relation-ground-recursive", false)) { 
+                if (params.get_bool("smt_relation_ground_recursive", false)) { 
                     // ensure R is ground. Simplify S using assumption not R
                     if (!is_ground(rInst)) {
                         proof_ref pr(m);

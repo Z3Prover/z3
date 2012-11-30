@@ -72,8 +72,8 @@ static void display_statistics(
     code.process_all_costs();
     {
         params_ref p(ctx.get_params());
-        p.set_bool(":output-profile", true);
-        p.set_uint(":profile-milliseconds-threshold", 100);
+        p.set_bool("output_profile", true);
+        p.set_uint("profile_milliseconds_threshold", 100);
         ctx.updt_params(p);
 
         out << "--------------\n";
@@ -132,9 +132,9 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref params;
-    params.set_sym(":engine", symbol("datalog"));
-    params.set_sym(":default-table", dl_params.m_default_table);
-    params.set_bool(":default-table-checked", dl_params.m_default_table_checked);
+    params.set_sym("engine", symbol("datalog"));
+    params.set_sym("default_table", dl_params.m_default_table);
+    params.set_bool("default_table_checked", dl_params.m_default_table_checked);
 
     datalog::context ctx(m, front_end_params, params);
     size_t watermark = front_end_params.m_memory_high_watermark;
@@ -252,7 +252,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
         TRACE("dl_compiler", ctx.display(tout);
               rules_code.display(ctx, tout););
         
-        if (ctx.get_params().get_bool(":output-tuples", true)) { 
+        if (ctx.get_params().get_bool("output_tuples", true)) { 
             ctx.display_output_facts(std::cout);
         }
 

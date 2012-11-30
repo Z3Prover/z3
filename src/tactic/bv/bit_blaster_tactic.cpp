@@ -36,7 +36,7 @@ class bit_blaster_tactic : public tactic {
         }
 
         void updt_params_core(params_ref const & p) {
-            m_blast_quant = p.get_bool(":blast-quant", false);
+            m_blast_quant = p.get_bool("blast_quant", false);
         }
 
         void updt_params(params_ref const & p) {
@@ -120,10 +120,10 @@ public:
     virtual void collect_param_descrs(param_descrs & r) { 
         insert_max_memory(r);
         insert_max_steps(r);
-        r.insert(":blast-mul", CPK_BOOL, "(default: true) bit-blast multipliers (and dividers, remainders).");
-        r.insert(":blast-add", CPK_BOOL, "(default: true) bit-blast adders.");
-        r.insert(":blast-quant", CPK_BOOL, "(default: false) bit-blast quantified variables.");
-        r.insert(":blast-full", CPK_BOOL, "(default: false) bit-blast any term with bit-vector sort, this option will make E-matching ineffective in any pattern containing bit-vector terms.");
+        r.insert("blast_mul", CPK_BOOL, "(default: true) bit-blast multipliers (and dividers, remainders).");
+        r.insert("blast_add", CPK_BOOL, "(default: true) bit-blast adders.");
+        r.insert("blast_quant", CPK_BOOL, "(default: false) bit-blast quantified variables.");
+        r.insert("blast_full", CPK_BOOL, "(default: false) bit-blast any term with bit-vector sort, this option will make E-matching ineffective in any pattern containing bit-vector terms.");
     }
      
     virtual void operator()(goal_ref const & g, 

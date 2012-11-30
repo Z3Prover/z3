@@ -863,15 +863,15 @@ private:
         }
 
         void updt_params(params_ref const & p) {
-            m_max_memory   = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_all_clauses_limit = p.get_uint(":pb2bv-all-clauses-limit", 8);
-            m_cardinality_limit = p.get_uint(":pb2bv-cardinality-limit", UINT_MAX);
+            m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_all_clauses_limit = p.get_uint("pb2bv_all_clauses_limit", 8);
+            m_cardinality_limit = p.get_uint("pb2bv_cardinality_limit", UINT_MAX);
         }
 
         void collect_param_descrs(param_descrs & r) {
             insert_max_memory(r);
-            r.insert(":pb2bv-all-clauses-limit", CPK_UINT, "(default: 8) maximum number of literals for using equivalent CNF encoding of PB constraint.");
-            r.insert(":pb2bv-cardinality-limit", CPK_UINT, "(default: inf) limit for using arc-consistent cardinality constraint encoding.");
+            r.insert("pb2bv_all_clauses_limit", CPK_UINT, "(default: 8) maximum number of literals for using equivalent CNF encoding of PB constraint.");
+            r.insert("pb2bv_cardinality_limit", CPK_UINT, "(default: inf) limit for using arc-consistent cardinality constraint encoding.");
         }
         
         void set_cancel(bool f) {

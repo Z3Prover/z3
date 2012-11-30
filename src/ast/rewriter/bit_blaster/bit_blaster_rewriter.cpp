@@ -125,12 +125,12 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_max_steps      = p.get_uint(":max-steps", UINT_MAX);
-        m_blast_add      = p.get_bool(":blast-add", true);
-        m_blast_mul      = p.get_bool(":blast-mul", true);
-        m_blast_full     = p.get_bool(":blast-full", false);
-        m_blast_quant    = p.get_bool(":blast-quant", false);
+        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_max_steps      = p.get_uint("max_steps", UINT_MAX);
+        m_blast_add      = p.get_bool("blast_add", true);
+        m_blast_mul      = p.get_bool("blast_mul", true);
+        m_blast_full     = p.get_bool("blast_full", false);
+        m_blast_quant    = p.get_bool("blast_quant", false);
         m_blaster.set_max_memory(m_max_memory);
     }
 

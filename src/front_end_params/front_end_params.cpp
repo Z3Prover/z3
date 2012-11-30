@@ -25,62 +25,62 @@ void front_end_params::register_params(ini_params & p) {
     parser_params::register_params(p);
     arith_simplifier_params::register_params(p);
     model_params::register_params(p);
-    p.register_bool_param("AT_LABELS_CEX", m_at_labels_cex, 
+    p.register_bool_param("at_labels_cex", m_at_labels_cex, 
                           "only use labels that contain '@' when building multiple counterexamples");
-    p.register_bool_param("CHECK_AT_LABELS", m_check_at_labels, 
+    p.register_bool_param("check_at_labels", m_check_at_labels, 
                           "check that labels containing '@' are used correctly to only produce unique counter examples");
-    p.register_bool_param("DEFAULT_QID", m_default_qid, "create a default quantifier id based on its position, the id is used to report profiling information (see QI_PROFILE)");
+    p.register_bool_param("default_qid", m_default_qid, "create a default quantifier id based on its position, the id is used to report profiling information (see QI_PROFILE)");
     
-    p.register_bool_param("TYPE_CHECK", m_well_sorted_check, "enable/disable type checker");
-    p.register_bool_param("WELL_SORTED_CHECK", m_well_sorted_check, "enable/disable type checker");
-    p.register_bool_param("INTERACTIVE", m_interactive, "enable interactive mode using Simplify input format");
-    p.register_unsigned_param("SOFT_TIMEOUT", m_soft_timeout, "set approximate timeout for each solver query (milliseconds), the value 0 represents no timeout", true);
-    p.register_double_param("INSTRUCTION_MAX", m_instr_out, "set the (approximate) maximal number of instructions per invocation of check", true);
-    p.register_bool_param("AUTO_CONFIG", m_auto_config, "use heuristics to set Z3 configuration parameters, it is only available for the SMT-LIB input format");
-    p.register_int_param("PROOF_MODE", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
-    p.register_bool_param("TRACE", m_trace, "enable tracing for the Axiom Profiler tool");
-    p.register_string_param("TRACE_FILE_NAME", m_trace_file_name, "tracing file name");
-    p.register_bool_param("ASYNC_COMMANDS", m_async_commands, "enable/disable support for asynchronous commands in the Simplify front-end.");
-    p.register_bool_param("DISPLAY_CONFIG", m_display_config, "display configuration used by Z3");
+    p.register_bool_param("type_check", m_well_sorted_check, "enable/disable type checker");
+    p.register_bool_param("well_sorted_check", m_well_sorted_check, "enable/disable type checker");
+    p.register_bool_param("interactive", m_interactive, "enable interactive mode using Simplify input format");
+    p.register_unsigned_param("soft_timeout", m_soft_timeout, "set approximate timeout for each solver query (milliseconds), the value 0 represents no timeout", true);
+    p.register_double_param("instruction_max", m_instr_out, "set the (approximate) maximal number of instructions per invocation of check", true);
+    p.register_bool_param("auto_config", m_auto_config, "use heuristics to set Z3 configuration parameters, it is only available for the SMT-LIB input format");
+    p.register_int_param("proof_mode", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
+    p.register_bool_param("trace", m_trace, "enable tracing for the Axiom Profiler tool");
+    p.register_string_param("trace_file_name", m_trace_file_name, "tracing file name");
+    p.register_bool_param("async_commands", m_async_commands, "enable/disable support for asynchronous commands in the Simplify front-end.");
+    p.register_bool_param("display_config", m_display_config, "display configuration used by Z3");
 
 #ifdef _WINDOWS
     // The non-windows memory manager does not have access to memory sizes.
-    p.register_unsigned_param("MEMORY_HIGH_WATERMARK", m_memory_high_watermark, 
+    p.register_unsigned_param("memory_high_watermark", m_memory_high_watermark, 
                               "set high watermark for memory consumption (in megabytes)");
-    p.register_unsigned_param("MEMORY_MAX_SIZE", m_memory_max_size,
+    p.register_unsigned_param("memory_max_size", m_memory_max_size,
                               "set hard upper limit for memory consumption (in megabytes)");
 #endif
 
 #ifndef _EXTERNAL_RELEASE
     // external users should not have access to it.
-    p.register_bool_param("PREPROCESS", m_preprocess);
+    p.register_bool_param("preprocess", m_preprocess);
 #endif
 
-    p.register_bool_param("USER_THEORY_PREPROCESS_AXIOMS", 
+    p.register_bool_param("user_theory_preprocess_axioms", 
                           m_user_theory_preprocess_axioms, 
                           "Apply full pre-processing to user theory axioms",
                           true);
 
-    p.register_bool_param("USER_THEORY_PERSIST_AXIOMS",
+    p.register_bool_param("user_theory_persist_axioms",
                           m_user_theory_persist_axioms,
                           "Persist user axioms to the base level",
                           true);
 
-    p.register_bool_param("SMTLIB2_COMPLIANT", m_smtlib2_compliant);    
+    p.register_bool_param("smtlib2_compliant", m_smtlib2_compliant);    
 
-    p.register_bool_param("IGNORE_BAD_PATTERNS", m_ignore_bad_patterns);
+    p.register_bool_param("ignore_bad_patterns", m_ignore_bad_patterns);
 
     PRIVATE_PARAMS({
-        p.register_bool_param("IGNORE_CHECKSAT", m_ignore_checksat);
-        p.register_bool_param("DEBUG_REF_COUNT", m_debug_ref_count);
-        p.register_bool_param("IGNORE_USER_PATTERNS", m_ignore_user_patterns);
-        p.register_bool_param("INCREMENTAL_CORE_ASSERT", m_incremental_core_assert);
-        DEBUG_CODE(p.register_int_param("COPY_PARAMS", m_copy_params););
+        p.register_bool_param("ignore_checksat", m_ignore_checksat);
+        p.register_bool_param("debug_ref_count", m_debug_ref_count);
+        p.register_bool_param("ignore_user_patterns", m_ignore_user_patterns);
+        p.register_bool_param("incremental_core_assert", m_incremental_core_assert);
+        DEBUG_CODE(p.register_int_param("copy_params", m_copy_params););
     });
 
     // temporary hack until strategic_solver is ported to new tactic framework
     PRIVATE_PARAMS({
-        p.register_bool_param("NLSAT", m_nlsat);
+        p.register_bool_param("nlsat", m_nlsat);
     });
 }
 

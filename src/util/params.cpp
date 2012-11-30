@@ -60,7 +60,7 @@ struct param_descrs::imp {
         bool operator()(symbol const & s1, symbol const & s2) const { return strcmp(s1.bare_str(), s2.bare_str()) < 0; }
     };
 
-    void display(std::ostream & out, unsigned indent) const {
+    void display(std::ostream & out, unsigned indent, bool smt2_style) const {
         svector<symbol> names;
         dictionary<info>::iterator it  = m_info.begin();
         dictionary<info>::iterator end = m_info.end();
@@ -72,7 +72,20 @@ struct param_descrs::imp {
         svector<symbol>::iterator end2 = names.end();
         for (; it2 != end2; ++it2) {
             for (unsigned i = 0; i < indent; i++) out << " ";
-            out << *it2;
+            if (smt2_style)
+                out << ':';
+            char const * s = it2->bare_str();
+            unsigned n = strlen(s);
+            for (unsigned i = 0; i < n; i++) {
+                if (smt2_style && s[i] == '_')
+                    out << '-';
+                else if (!smt2_style && s[i] == '-')
+                    out << '_';
+                else if (s[i] >= 'A' && s[i] <= 'Z')
+                    out << (s[i] - 'A' + 'a');
+                else 
+                    out << s[i];
+            }
             info d;
             d.second = 0;
             m_info.find(*it2, d);
@@ -80,6 +93,15 @@ struct param_descrs::imp {
             out << " (" << d.first << ") " << d.second << "\n";
         }
     }
+
+    void copy(param_descrs & other) {
+        dictionary<info>::iterator it  = other.m_imp->m_info.begin();
+        dictionary<info>::iterator end = other.m_imp->m_info.end();
+        for (; it != end; ++it) {
+            insert(it->m_key, it->m_value.first, it->m_value.second);
+        }
+    }
+
 };
 
 param_descrs::param_descrs() {
@@ -88,6 +110,10 @@ param_descrs::param_descrs() {
 
 param_descrs::~param_descrs() {
     dealloc(m_imp);
+}
+
+void param_descrs::copy(param_descrs & other) {
+    m_imp->copy(other);
 }
 
 void param_descrs::insert(symbol const & name, param_kind k, char const * descr) {
@@ -122,28 +148,28 @@ symbol param_descrs::get_param_name(unsigned i) const {
     return m_imp->get_param_name(i);
 }
 
-void param_descrs::display(std::ostream & out, unsigned indent) const {
-    return m_imp->display(out, indent);
+void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style) const {
+    return m_imp->display(out, indent, smt2_style);
 }
 
 void insert_max_memory(param_descrs & r) {
-    r.insert(":max-memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.");
+    r.insert("max_memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.");
 }
 
 void insert_max_steps(param_descrs & r) {
-    r.insert(":max-steps", CPK_UINT, "(default: infty) maximum number of steps.");
+    r.insert("max_steps", CPK_UINT, "(default: infty) maximum number of steps.");
 }
 
 void insert_produce_models(param_descrs & r) {
-    r.insert(":produce-models", CPK_BOOL, "(default: false) model generation.");
+    r.insert("produce_models", CPK_BOOL, "(default: false) model generation.");
 }
 
 void insert_produce_proofs(param_descrs & r) {
-    r.insert(":produce-proofs", CPK_BOOL, "(default: false) proof generation.");
+    r.insert("produce_proofs", CPK_BOOL, "(default: false) proof generation.");
 }
 
 void insert_timeout(param_descrs & r) {
-    r.insert(":timeout", CPK_UINT, "(default: infty) timeout in milliseconds.");
+    r.insert("timeout", CPK_UINT, "(default: infty) timeout in milliseconds.");
 }
 
 class params {
@@ -255,6 +281,39 @@ public:
         }
         out << ")";
     }
+
+    void display(std::ostream & out, symbol const & k) const {
+        svector<params::entry>::const_iterator it  = m_entries.begin();  
+        svector<params::entry>::const_iterator end = m_entries.end();
+        for (; it != end; ++it) {                                
+            if (it->first != k)
+                continue;
+            switch (it->second.m_kind) {
+            case CPK_BOOL:
+                out << it->second.m_bool_value;
+                return;
+            case CPK_UINT:
+                out << it->second.m_uint_value;
+                return;
+            case CPK_DOUBLE:
+                out << it->second.m_double_value;
+                return;
+            case CPK_NUMERAL:
+                out << *(it->second.m_rat_value);
+                return;
+            case CPK_SYMBOL:
+                out << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                return;
+            case CPK_STRING:
+                out << it->second.m_str_value;
+                return;
+            default:
+                out << "internal";
+                return;
+            }
+        }
+        out << "default";
+    }
 };
 
 params_ref::~params_ref() {
@@ -272,6 +331,17 @@ void params_ref::display(std::ostream & out) const {
         m_params->display(out);
     else
         out << "(params)";
+}
+
+void params_ref::display(std::ostream & out, char const * k) const {
+    display(out, symbol(k));
+}
+
+void params_ref::display(std::ostream & out, symbol const & k) const {
+    if (m_params)
+        m_params->display(out, k);
+    else
+        out << "default";
 }
 
 void params_ref::validate(param_descrs const & p) const {

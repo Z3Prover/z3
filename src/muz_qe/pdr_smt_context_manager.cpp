@@ -96,7 +96,7 @@ namespace pdr {
     smt_context_manager::smt_context_manager(front_end_params& fp, params_ref const& p, ast_manager& m):
         m_fparams(fp), 
         m(m), 
-        m_max_num_contexts(p.get_uint(":max-num-contexts", 500)), 
+        m_max_num_contexts(p.get_uint("max_num_contexts", 500)), 
         m_num_contexts(0), 
         m_predicate_list(m) {
     }

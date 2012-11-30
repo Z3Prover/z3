@@ -792,13 +792,13 @@ class fm_tactic : public tactic {
         }
         
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_fm_real_only   = p.get_bool(":fm-real-only", true);
-            m_fm_limit       = p.get_uint(":fm-limit", 5000000);
-            m_fm_cutoff1     = p.get_uint(":fm-cutoff1", 8);
-            m_fm_cutoff2     = p.get_uint(":fm-cutoff2", 256);
-            m_fm_extra       = p.get_uint(":fm-extra", 0);
-            m_fm_occ         = p.get_bool(":fm-occ", false);
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_fm_real_only   = p.get_bool("fm_real_only", true);
+            m_fm_limit       = p.get_uint("fm_limit", 5000000);
+            m_fm_cutoff1     = p.get_uint("fm_cutoff1", 8);
+            m_fm_cutoff2     = p.get_uint("fm_cutoff2", 256);
+            m_fm_extra       = p.get_uint("fm_extra", 0);
+            m_fm_occ         = p.get_bool("fm_occ", false);
         }
         
         void set_cancel(bool f) {
@@ -1668,12 +1668,12 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
         insert_produce_models(r);
         insert_max_memory(r);
-        r.insert(":fm-real-only", CPK_BOOL, "(default: true) consider only real variables for fourier-motzkin elimination.");
-        r.insert(":fm-occ", CPK_BOOL, "(default: false) consider inequalities occurring in clauses for FM.");
-        r.insert(":fm-limit", CPK_UINT, "(default: 5000000) maximum number of constraints, monomials, clauses visited during FM.");
-        r.insert(":fm-cutoff1", CPK_UINT, "(default: 8) first cutoff for FM based on maximum number of lower/upper occurrences.");
-        r.insert(":fm-cutoff2", CPK_UINT, "(default: 256) second cutoff for FM based on num_lower * num_upper occurrences.");
-        r.insert(":fm-extra", CPK_UINT, "(default: 0) max. increase on the number of inequalities for each FM variable elimination step.");
+        r.insert("fm_real_only", CPK_BOOL, "(default: true) consider only real variables for fourier-motzkin elimination.");
+        r.insert("fm_occ", CPK_BOOL, "(default: false) consider inequalities occurring in clauses for FM.");
+        r.insert("fm_limit", CPK_UINT, "(default: 5000000) maximum number of constraints, monomials, clauses visited during FM.");
+        r.insert("fm_cutoff1", CPK_UINT, "(default: 8) first cutoff for FM based on maximum number of lower/upper occurrences.");
+        r.insert("fm_cutoff2", CPK_UINT, "(default: 256) second cutoff for FM based on num_lower * num_upper occurrences.");
+        r.insert("fm_extra", CPK_UINT, "(default: 0) max. increase on the number of inequalities for each FM variable elimination step.");
     }
 
     virtual void set_cancel(bool f) {
@@ -1707,9 +1707,9 @@ public:
 
 tactic * mk_fm_tactic(ast_manager & m, params_ref const & p) {
     params_ref s_p = p;
-    s_p.set_bool(":arith-lhs", true);
-    s_p.set_bool(":elim-and", true);
-    s_p.set_bool(":som", true);
+    s_p.set_bool("arith_lhs", true);
+    s_p.set_bool("elim_and", true);
+    s_p.set_bool("som", true);
     return and_then(using_params(mk_simplify_tactic(m, s_p), s_p), 
                     clean(alloc(fm_tactic, m, p)));
 }

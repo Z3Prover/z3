@@ -71,7 +71,7 @@ namespace datalog {
         m_ctx.set_output_predicate(m_query_pred);
         m_ctx.apply_default_transformation(mc, m_pc);
         
-        if (m_ctx.get_params().get_bool(":slice", true)) {
+        if (m_ctx.get_params().get_bool("slice", true)) {
             datalog::rule_transformer transformer(m_ctx);
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);

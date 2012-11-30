@@ -1340,7 +1340,7 @@ namespace qe {
             m_nnf(m, get_is_relevant(), get_mk_atom())
         {
             params_ref params;
-            params.set_bool(":gcd-rounding", true);
+            params.set_bool("gcd_rounding", true);
             m_rewriter.updt_params(params);
         }
 
@@ -2010,7 +2010,7 @@ namespace qe {
         }
 
         void updt_params(params_ref const& p) {
-            m_eliminate_variables_as_block = p.get_bool(":eliminate-variables-as-block", m_eliminate_variables_as_block);
+            m_eliminate_variables_as_block = p.get_bool("eliminate_variables_as_block", m_eliminate_variables_as_block);
         }
         
         void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) {
@@ -2194,7 +2194,7 @@ namespace qe {
     }
 
     void expr_quant_elim::updt_params(params_ref const& p) {
-        bool r = p.get_bool(":use-neq-qe", m_use_new_qe);
+        bool r = p.get_bool("use_neq_qe", m_use_new_qe);
         if (r != m_use_new_qe) {
             dealloc(m_qe);
             m_qe = 0;
@@ -2205,9 +2205,9 @@ namespace qe {
     }
 
     void expr_quant_elim::collect_param_descrs(param_descrs& r) {
-        r.insert(":eliminate-variables-as-block", CPK_BOOL, 
+        r.insert("eliminate_variables_as_block", CPK_BOOL, 
                  "(default: true) eliminate variables as a block (true) or one at a time (false)");
-        // r.insert(":use-new-qe", CPK_BOOL, "(default: true) invoke quantifier engine based on abstracted solver");
+        // r.insert("use_new_qe", CPK_BOOL, "(default: true) invoke quantifier engine based on abstracted solver");
     }
 
     void expr_quant_elim::init_qe() {

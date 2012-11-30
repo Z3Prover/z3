@@ -198,15 +198,15 @@ namespace nlsat {
         }
 
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_lazy           = p.get_uint(":lazy", 0);
-            m_simplify_cores = p.get_bool(":simplify-conflicts", true);
-            bool min_cores   = p.get_bool(":minimize-conflicts", false);
-            m_reorder        = p.get_bool(":reorder", true);
-            m_randomize      = p.get_bool(":randomize", true);
-            m_max_conflicts  = p.get_uint(":max-conflicts", UINT_MAX);
-            m_random_order   = p.get_bool(":shuffle-vars", false);
-            m_random_seed    = p.get_uint(":seed", 0);
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_lazy           = p.get_uint("lazy", 0);
+            m_simplify_cores = p.get_bool("simplify_conflicts", true);
+            bool min_cores   = p.get_bool("minimize_conflicts", false);
+            m_reorder        = p.get_bool("reorder", true);
+            m_randomize      = p.get_bool("randomize", true);
+            m_max_conflicts  = p.get_uint("max_conflicts", UINT_MAX);
+            m_random_order   = p.get_bool("shuffle_vars", false);
+            m_random_seed    = p.get_uint("seed", 0);
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -2572,13 +2572,13 @@ namespace nlsat {
     void solver::collect_param_descrs(param_descrs & d) {
         insert_max_memory(d);
         algebraic_numbers::manager::collect_param_descrs(d);
-        d.insert(":max-conflicts", CPK_UINT, "(default: inf) maximum number of conflicts.");
-        d.insert(":shuffle-vars", CPK_BOOL, "(default: false) use a variable order.");
-        d.insert(":seed", CPK_UINT, "(default: 0) random seed.");
-        d.insert(":randomize", CPK_BOOL, "(default: true) randomize selection of a witness in nlsat.");
-        d.insert(":reorder", CPK_BOOL, "(default: true) reorder variables.");
-        d.insert(":lazy", CPK_UINT, "(default: 0) how lazy the solver is.");
-        d.insert(":simplify-conflicts", CPK_BOOL, "(default: true) simplify conflicts using equalities before resolving them in nlsat solver.");
+        d.insert("max_conflicts", CPK_UINT, "(default: inf) maximum number of conflicts.");
+        d.insert("shuffle_vars", CPK_BOOL, "(default: false) use a variable order.");
+        d.insert("seed", CPK_UINT, "(default: 0) random seed.");
+        d.insert("randomize", CPK_BOOL, "(default: true) randomize selection of a witness in nlsat.");
+        d.insert("reorder", CPK_BOOL, "(default: true) reorder variables.");
+        d.insert("lazy", CPK_UINT, "(default: 0) how lazy the solver is.");
+        d.insert("simplify_conflicts", CPK_BOOL, "(default: true) simplify conflicts using equalities before resolving them in nlsat solver.");
     }
 
     unsynch_mpq_manager & solver::qm() {

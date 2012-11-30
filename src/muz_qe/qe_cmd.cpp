@@ -16,8 +16,8 @@ public:
     
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         insert_timeout(p);
-        p.insert(":print", CPK_BOOL, "(default: true)  print the simplified term.");
-        p.insert(":print-statistics", CPK_BOOL, "(default: false) print statistics.");
+        p.insert("print", CPK_BOOL, "(default: true)  print the simplified term.");
+        p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
     virtual ~qe_cmd() {
@@ -45,11 +45,11 @@ public:
 
         qe(m_target, result, pr);            
 
-        if (m_params.get_bool(":print", true)) {
+        if (m_params.get_bool("print", true)) {
             ctx.display(ctx.regular_stream(), result);
             ctx.regular_stream() << std::endl; 
         }
-        if (m_params.get_bool(":print-statistics", false)) {
+        if (m_params.get_bool("print_statistics", false)) {
             statistics st;
             qe.collect_statistics(st);
             st.display(ctx.regular_stream());

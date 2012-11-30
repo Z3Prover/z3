@@ -1418,6 +1418,7 @@ def mk_auto_src():
         mk_pat_db()
         mk_all_install_tactic_cpps()
         mk_all_mem_initializer_cpps()
+        mk_all_gparams_register_modules()
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1594,7 +1595,7 @@ def mk_all_install_tactic_cpps():
 # This file implements the procedures
 #    void mem_initialize()
 #    void mem_finalize()
-# This procedures are invoked by the Z3 memory_manager
+# These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
     initializer_cmds = []
     finalizer_cmds   = []
@@ -1652,6 +1653,56 @@ def mk_all_mem_initializer_cpps():
                 cnames.extend(c.deps)
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
+
+# Generate an mem_initializer.cpp at path.
+# This file implements the procedure
+#    void gparams_register_modules()
+# This procedure is invoked by gparams::init()
+def mk_gparams_register_modules(cnames, path):
+    cmds = []
+    mod_cmds = []
+    fullname = '%s/gparams_register_modules.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"gparams.h"\n')
+    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
+    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    for cname in cnames:
+        c = get_component(cname)
+        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                m = reg_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    cmds.append((m.group(1)))
+                m = reg_mod_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    mod_cmds.append((m.group(1), m.group(2)))
+    fout.write('void gparams_register_modules() {\n')
+    for code in cmds:
+        fout.write('{ param_descrs d; %s(*d); gparams::register_global(d); }\n' % code)
+    for (mod, code) in mod_cmds:
+        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_gparams_register_modules():
+    if not ONLY_MAKEFILES:
+        for c in get_components():
+            if c.require_mem_initializer():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_gparams_register_modules(cnames, c.src_dir)
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):

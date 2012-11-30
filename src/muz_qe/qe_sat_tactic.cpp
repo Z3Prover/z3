@@ -301,17 +301,17 @@ namespace qe {
         virtual void cleanup() {}   
 
         virtual void updt_params(params_ref const & p) {            
-            m_extrapolate_strategy_param = p.get_uint(":extrapolate-strategy", m_extrapolate_strategy_param);
-            m_projection_mode_param = p.get_bool(":projection-mode", m_projection_mode_param);
-            m_strong_context_simplify_param = p.get_bool(":strong-context-simplify", m_strong_context_simplify_param);
-            m_ctx_simplify_local_param = p.get_bool(":strong-context-simplify-local", m_ctx_simplify_local_param);
+            m_extrapolate_strategy_param = p.get_uint("extrapolate_strategy", m_extrapolate_strategy_param);
+            m_projection_mode_param = p.get_bool("projection_mode", m_projection_mode_param);
+            m_strong_context_simplify_param = p.get_bool("strong_context_simplify", m_strong_context_simplify_param);
+            m_ctx_simplify_local_param = p.get_bool("strong_context_simplify_local", m_ctx_simplify_local_param);
         }
 
         virtual void collect_param_descrs(param_descrs & r) {
-            r.insert(":extrapolate-strategy",CPK_UINT, "(default: 0 trivial extrapolation) 1 - nnf strengthening 2 - smt-test 3 - nnf_weakening");
-            r.insert(":projection-mode", CPK_BOOL, "(default: true - full) false - partial quantifier instantiation");
-            r.insert(":strong-context-simplify", CPK_BOOL, "(default: true) use strong context simplifier on result of quantifier elimination");
-            r.insert(":strong-context-simplify-local", CPK_BOOL, "(default: false) use strong context simplifier locally on the new formula only");
+            r.insert("extrapolate_strategy",CPK_UINT, "(default: 0 trivial extrapolation) 1 - nnf strengthening 2 - smt-test 3 - nnf_weakening");
+            r.insert("projection_mode", CPK_BOOL, "(default: true - full) false - partial quantifier instantiation");
+            r.insert("strong_context_simplify", CPK_BOOL, "(default: true) use strong context simplifier on result of quantifier elimination");
+            r.insert("strong_context_simplify_local", CPK_BOOL, "(default: false) use strong context simplifier locally on the new formula only");
         }
 
 

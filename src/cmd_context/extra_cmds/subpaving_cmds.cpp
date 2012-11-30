@@ -31,7 +31,7 @@ static void to_subpaving(cmd_context & ctx, expr * t) {
     expr2var e2v(m);
     expr2subpaving e2s(m, *s, &e2v);
     params_ref p;
-    p.set_bool(":mul-to-power", true);
+    p.set_bool("mul_to_power", true);
     th_rewriter simp(m, p);
     expr_ref t_s(m);
     simp(t, t_s);

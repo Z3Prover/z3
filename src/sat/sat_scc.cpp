@@ -231,11 +231,11 @@ namespace sat {
     }
 
     void scc::updt_params(params_ref const & p) {
-        m_scc = p.get_bool(":scc", true);
+        m_scc = p.get_bool("scc", true);
     }
 
     void scc::collect_param_descrs(param_descrs & d) {
-        d.insert(":scc", CPK_BOOL, "(default: true) eliminate Boolean variables by computing strongly connected components.");
+        d.insert("scc", CPK_BOOL, "(default: true) eliminate Boolean variables by computing strongly connected components.");
     }
 
 };

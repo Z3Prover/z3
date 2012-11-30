@@ -79,6 +79,14 @@ public:
     void display(std::ostream & out) const;
 
     void validate(param_descrs const & p) const;
+
+    /*
+      \brief Display the value of the given parameter.
+      
+      It displays 'default' if k is not in the parameter set.
+    */
+    void display(std::ostream & out, char const * k);
+    void display(std::ostream & out, symbol const & k);
 };
 
 inline std::ostream & operator<<(std::ostream & out, params_ref const & ref) {
@@ -92,13 +100,14 @@ class param_descrs {
 public:
     param_descrs();
     ~param_descrs();
+    void copy(param_descrs & other);
     void insert(char const * name, param_kind k, char const * descr);
     void insert(symbol const & name, param_kind k, char const * descr);
     void erase(char const * name);
     void erase(symbol const & name);
     param_kind get_kind(char const * name) const;
     param_kind get_kind(symbol const & name) const;
-    void display(std::ostream & out, unsigned indent = 0) const;
+    void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false) const;
     unsigned size() const; 
     symbol get_param_name(unsigned idx) const;
 };

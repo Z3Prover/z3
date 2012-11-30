@@ -60,6 +60,9 @@ namespace algebraic_numbers {
         manager(unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
         ~manager();
 
+        /*
+          REG_MODULE_PARAMS('algebraic', 'algebraic_numbers::manager::get_param_descrs')
+        */
         static void get_param_descrs(param_descrs & r);
         static void collect_param_descrs(param_descrs & r) { get_param_descrs(r); }
 

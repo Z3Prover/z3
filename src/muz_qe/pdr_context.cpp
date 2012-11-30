@@ -1098,7 +1098,7 @@ namespace pdr {
           m_pm(m_fparams, m_params, m),
           m_query_pred(m),
           m_query(0),
-          m_search(m_params.get_bool(":bfs-model-search", true)),
+          m_search(m_params.get_bool("bfs_model_search", true)),
           m_last_result(l_undef),
           m_inductive_lvl(0),
           m_cancel(false)
@@ -1323,7 +1323,7 @@ namespace pdr {
     };
 
     void context::validate() {
-        if (!m_params.get_bool(":validate-result", false)) {
+        if (!m_params.get_bool("validate_result", false)) {
             return;
         }
         switch(m_last_result) {
@@ -1414,12 +1414,12 @@ namespace pdr {
     void context::init_core_generalizers(datalog::rule_set& rules) {
         reset_core_generalizers();
         classifier_proc classify(m, rules);
-        bool use_mc = m_params.get_bool(":use-multicore-generalizer", false);
+        bool use_mc = m_params.get_bool("use_multicore_generalizer", false);
         if (use_mc) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
-        if (m_params.get_bool(":use-farkas", true) && !classify.is_bool()) {
-            if (m_params.get_bool(":inline-proof-mode", true)) {
+        if (m_params.get_bool("use_farkas", true) && !classify.is_bool()) {
+            if (m_params.get_bool("inline_proof_mode", true)) {
                 m.toggle_proof_mode(PGM_FINE);
                 m_fparams.m_proof_mode = PGM_FINE;                
                 m_fparams.m_arith_bound_prop = BP_NONE;
@@ -1435,13 +1435,13 @@ namespace pdr {
                 m_core_generalizers.push_back(alloc(core_farkas_generalizer, *this, m, m_fparams));
             }
         }
-        if (!use_mc && m_params.get_bool(":use-inductive-generalizer", true)) {
+        if (!use_mc && m_params.get_bool("use_inductive_generalizer", true)) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
         }
-        if (m_params.get_bool(":use-interpolants", false)) {
+        if (m_params.get_bool("use_interpolants", false)) {
             m_core_generalizers.push_back(alloc(core_interpolant_generalizer, *this));
         }
-        if (m_params.get_bool(":inductive-reachability-check", false)) {
+        if (m_params.get_bool("inductive_reachability_check", false)) {
             m_core_generalizers.push_back(alloc(core_induction_generalizer, *this));
         }
     }
@@ -1553,7 +1553,7 @@ namespace pdr {
         \brief Retrieve satisfying assignment with explanation.
     */
     expr_ref context::mk_sat_answer() const {
-        if (m_params.get_bool(":generate-proof-trace", false)) {
+        if (m_params.get_bool("generate_proof_trace", false)) {
             proof_ref pr = get_proof();
             return expr_ref(pr.get(), m);
         }
@@ -1674,7 +1674,7 @@ namespace pdr {
                     n.pt().add_property(ncore, uses_level?n.level():infty_level);
                 }
                 CASSERT("pdr",n.level() == 0 || check_invariant(n.level()-1));
-                m_search.backtrack_level(!found_invariant && m_params.get_bool(":flexible-trace", false), n);
+                m_search.backtrack_level(!found_invariant && m_params.get_bool("flexible_trace", false), n);
                 break;
             }
             case l_undef: {
@@ -1696,7 +1696,7 @@ namespace pdr {
     }
 
     void context::propagate(unsigned max_prop_lvl) {    
-        if (m_params.get_bool(":simplify-formulas-pre", false)) {            
+        if (m_params.get_bool("simplify_formulas_pre", false)) {            
             simplify_formulas();
         }
         for (unsigned lvl = 0; lvl <= max_prop_lvl; lvl++) {
@@ -1715,7 +1715,7 @@ namespace pdr {
                 throw inductive_exception();
             }
         }
-        if (m_params.get_bool(":simplify-formulas-post", false)) {            
+        if (m_params.get_bool("simplify_formulas_post", false)) {            
             simplify_formulas();
         }
     }
@@ -1763,7 +1763,7 @@ namespace pdr {
     */
     void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
-        bool use_model_generalizer = m_params.get_bool(":use-model-generalizer", false);
+        bool use_model_generalizer = m_params.get_bool("use_model_generalizer", false);
         datalog::scoped_no_proof _sc(m);
  
         pred_transformer& pt = n.pt();

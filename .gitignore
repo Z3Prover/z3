@@ -42,6 +42,7 @@ config.status
 configure
 install_tactic.cpp
 mem_initializer.cpp
+gparams_register_modules.cpp
 scripts/config-debug.mk
 scripts/config-release.mk
 src/api/api_commands.cpp

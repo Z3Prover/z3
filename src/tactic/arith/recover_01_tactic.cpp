@@ -58,7 +58,7 @@ class recover_01_tactic : public tactic {
         }
         
         void updt_params_core(params_ref const & p) {
-            m_cls_max_size   = p.get_uint(":recover-01-max-bits", 10);
+            m_cls_max_size   = p.get_uint("recover_01_max_bits", 10);
         }
         
         void updt_params(params_ref const & p) {
@@ -408,7 +408,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) { 
         th_rewriter::get_param_descrs(r);
-        r.insert(":recover-01-max-bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
+        r.insert("recover_01_max_bits", CPK_UINT, "(default: 10) maximum number of bits to consider in a clause.");
     }
 
     void operator()(goal_ref const & g, 

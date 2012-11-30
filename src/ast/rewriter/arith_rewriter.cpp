@@ -22,18 +22,18 @@ Notes:
 #include"ast_pp.h"
 
 void arith_rewriter::updt_local_params(params_ref const & p) {
-    m_arith_lhs       = p.get_bool(":arith-lhs", false);
-    m_gcd_rounding    = p.get_bool(":gcd-rounding", false);
-    m_eq2ineq         = p.get_bool(":eq2ineq", false);
-    m_elim_to_real    = p.get_bool(":elim-to-real", false);
-    m_push_to_real    = p.get_bool(":push-to-real", true);
-    m_anum_simp       = p.get_bool(":algebraic-number-evaluator", true);
-    m_max_degree      = p.get_uint(":max-degree", 64);
-    m_expand_power    = p.get_bool(":expand-power", false);
-    m_mul2power       = p.get_bool(":mul-to-power", false);
-    m_elim_rem        = p.get_bool(":elim-rem", false);
-    m_expand_tan      = p.get_bool(":expand-tan", false);
-    set_sort_sums(p.get_bool(":sort-sums", false)); // set here to avoid collision with bvadd
+    m_arith_lhs       = p.get_bool("arith_lhs", false);
+    m_gcd_rounding    = p.get_bool("gcd_rounding", false);
+    m_eq2ineq         = p.get_bool("eq2ineq", false);
+    m_elim_to_real    = p.get_bool("elim_to_real", false);
+    m_push_to_real    = p.get_bool("push_to_real", true);
+    m_anum_simp       = p.get_bool("algebraic_number_evaluator", true);
+    m_max_degree      = p.get_uint("max_degree", 64);
+    m_expand_power    = p.get_bool("expand_power", false);
+    m_mul2power       = p.get_bool("mul_to_power", false);
+    m_elim_rem        = p.get_bool("elim_rem", false);
+    m_expand_tan      = p.get_bool("expand_tan", false);
+    set_sort_sums(p.get_bool("sort_sums", false)); // set here to avoid collision with bvadd
 }
 
 void arith_rewriter::updt_params(params_ref const & p) {
@@ -43,18 +43,18 @@ void arith_rewriter::updt_params(params_ref const & p) {
 
 void arith_rewriter::get_param_descrs(param_descrs & r) {
     poly_rewriter<arith_rewriter_core>::get_param_descrs(r);
-    r.insert(":algebraic-number-evaluator", CPK_BOOL, "(default: true) simplify/evaluate expressions containing (algebraic) irrational numbers.");
-    r.insert(":mul-to-power", CPK_BOOL, "(default: false) collpase (* t ... t) into (^ t k), it is ignored if :expand-power is true.");
-    r.insert(":expand-power", CPK_BOOL, "(default: false) expand (^ t k) into (* t ... t) if  1 < k <= :max-degree.");
-    r.insert(":expand-tan", CPK_BOOL, "(default: false) replace (tan x) with (/ (sin x) (cos x)).");
-    r.insert(":max-degree", CPK_UINT, "(default: 64) max degree of algebraic numbers (and power operators) processed by simplifier.");
-    r.insert(":eq2ineq", CPK_BOOL, "(default: false) split arithmetic equalities into two inequalities.");
-    r.insert(":sort-sums", CPK_BOOL, "(default: false) sort the arguments of + application.");
-    r.insert(":gcd-rounding", CPK_BOOL, "(default: false) use gcd rounding on integer arithmetic atoms.");
-    r.insert(":arith-lhs", CPK_BOOL, "(default: false) all monomials are moved to the left-hand-side, and the right-hand-side is just a constant.");
-    r.insert(":elim-to-real", CPK_BOOL, "(default: false) eliminate to_real from arithmetic predicates that contain only integers.");
-    r.insert(":push-to-real", CPK_BOOL, "(default: true) distribute to_real over * and +.");
-    r.insert(":elim-rem", CPK_BOOL, "(default: false) replace (rem x y) with (ite (>= y 0) (mod x y) (- (mod x y))).");
+    r.insert("algebraic_number_evaluator", CPK_BOOL, "(default: true) simplify/evaluate expressions containing (algebraic) irrational numbers.");
+    r.insert("mul_to_power", CPK_BOOL, "(default: false) collpase (* t ... t) into (^ t k), it is ignored if expand_power is true.");
+    r.insert("expand_power", CPK_BOOL, "(default: false) expand (^ t k) into (* t ... t) if  1 < k <= max_degree.");
+    r.insert("expand_tan", CPK_BOOL, "(default: false) replace (tan x) with (/ (sin x) (cos x)).");
+    r.insert("max_degree", CPK_UINT, "(default: 64) max degree of algebraic numbers (and power operators) processed by simplifier.");
+    r.insert("eq2ineq", CPK_BOOL, "(default: false) split arithmetic equalities into two inequalities.");
+    r.insert("sort_sums", CPK_BOOL, "(default: false) sort the arguments of + application.");
+    r.insert("gcd_rounding", CPK_BOOL, "(default: false) use gcd rounding on integer arithmetic atoms.");
+    r.insert("arith_lhs", CPK_BOOL, "(default: false) all monomials are moved to the left-hand-side, and the right-hand-side is just a constant.");
+    r.insert("elim_to_real", CPK_BOOL, "(default: false) eliminate to_real from arithmetic predicates that contain only integers.");
+    r.insert("push_to_real", CPK_BOOL, "(default: true) distribute to_real over * and +.");
+    r.insert("elim_rem", CPK_BOOL, "(default: false) replace (rem x y) with (ite (>= y 0) (mod x y) (- (mod x y))).");
 }
 
 br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {

@@ -32,6 +32,7 @@ Revision History:
 #include"timeout.h"
 #include"z3_exception.h"
 #include"error_codes.h"
+#include"gparams.h"
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_Z3_LOG } input_kind;
 
@@ -76,8 +77,7 @@ void display_usage() {
     std::cout << "  " << OPT << "version    prints version number of Z3.\n";
     std::cout << "  " << OPT << "v:level    be verbose, where <level> is the verbosity level.\n";
     std::cout << "  " << OPT << "nw         disable warning messages.\n";
-    std::cout << "  " << OPT << "ini:file   configuration file.\n";
-    std::cout << "  " << OPT << "ini?       display all available INI file parameters.\n";
+    std::cout << "  " << OPT << "params     display all available parameters.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
@@ -285,13 +285,8 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "nw") == 0) {
                 enable_warning_messages(false);
             }
-            else if (strcmp(opt_name, "ini") == 0) {
-                if (!opt_arg)
-                    error("option argument (/ini:file) is missing.");
-                read_ini_file(opt_arg);
-            }
-            else if (strcmp(opt_name, "ini?") == 0) {
-                display_ini_help();
+            else if (strcmp(opt_name, "params") == 0) {
+                gparams::display(std::cout);
                 exit(0);
             }
             else if (strcmp(opt_name, "geninidoc") == 0) {
@@ -327,7 +322,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             char * key   = argv[i];
             *eq_pos      = 0;
             char * value = eq_pos+1; 
-            g_params->set_param_value(key, value);
+            gparams::set(key, value);
         }
         else {
             if (g_front_end_params->m_interactive) {

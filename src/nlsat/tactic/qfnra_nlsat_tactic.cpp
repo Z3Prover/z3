@@ -31,13 +31,13 @@ Notes:
 
 tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p = p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":blast-distinct", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("blast_distinct", true);
     params_ref purify_p = p;
-    purify_p.set_bool(":complete", false); // temporary hack, solver does not support uninterpreted functions for encoding (div0 x) applications. So, we replace it application of this kind with an uninterpreted function symbol.
+    purify_p.set_bool("complete", false); // temporary hack, solver does not support uninterpreted functions for encoding (div0 x) applications. So, we replace it application of this kind with an uninterpreted function symbol.
 
     tactic * factor;
-    if (p.get_bool(":factor", true))
+    if (p.get_bool("factor", true))
         factor = mk_factor_tactic(m, p);
     else
         factor = mk_skip_tactic();

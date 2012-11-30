@@ -128,7 +128,7 @@ namespace datalog {
         dl_decl_util dl_util(m);
         relation_manager & rmgr = ctx.get_rmanager();
 
-        relation_plugin & rel_plugin = *ctx.get_rmanager().get_relation_plugin(params.get_sym(":default-relation", symbol("sparse")));
+        relation_plugin & rel_plugin = *ctx.get_rmanager().get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
         SASSERT(&rel_plugin);
         finite_product_relation_plugin plg(rel_plugin, rmgr);
 

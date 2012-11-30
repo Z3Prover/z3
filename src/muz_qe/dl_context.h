@@ -156,25 +156,25 @@ namespace datalog {
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
 
-        bool output_profile() const { return m_params.get_bool(":output-profile", false); } 
-        bool fix_unbound_vars() const { return m_params.get_bool(":fix-unbound-vars", false); }
-        symbol default_table() const { return m_params.get_sym(":default-table", symbol("sparse")); }
-        symbol default_relation() const { return m_params.get_sym(":default-relation", external_relation_plugin::get_name()); }
-        symbol default_table_checker() const { return m_params.get_sym(":default-table-checker", symbol("sparse")); }
-        bool default_table_checked() const { return m_params.get_bool(":default-table-checked", false); }
-        bool dbg_fpr_nonempty_relation_signature() const { return m_params.get_bool(":dbg-fpr-nonempty-relation-signatures", false); } 
-        unsigned dl_profile_milliseconds_threshold() const { return m_params.get_uint(":profile-milliseconds-threshold", 0); }
-        bool all_or_nothing_deltas() const { return m_params.get_bool(":all-or-nothing-deltas", false); }
-        bool compile_with_widening() const { return m_params.get_bool(":compile-with-widening", false); }
-        bool unbound_compressor() const { return m_params.get_bool(":unbound-compressor", true); }
-        bool similarity_compressor() const { return m_params.get_bool(":similarity-compressor", true); }
-        unsigned similarity_compressor_threshold() const { return m_params.get_uint(":similarity-compressor-threshold", 11); }
+        bool output_profile() const { return m_params.get_bool("output_profile", false); } 
+        bool fix_unbound_vars() const { return m_params.get_bool("fix_unbound_vars", false); }
+        symbol default_table() const { return m_params.get_sym("default_table", symbol("sparse")); }
+        symbol default_relation() const { return m_params.get_sym("default_relation", external_relation_plugin::get_name()); }
+        symbol default_table_checker() const { return m_params.get_sym("default_table_checker", symbol("sparse")); }
+        bool default_table_checked() const { return m_params.get_bool("default_table_checked", false); }
+        bool dbg_fpr_nonempty_relation_signature() const { return m_params.get_bool("dbg_fpr_nonempty_relation_signatures", false); } 
+        unsigned dl_profile_milliseconds_threshold() const { return m_params.get_uint("profile_milliseconds_threshold", 0); }
+        bool all_or_nothing_deltas() const { return m_params.get_bool("all_or_nothing_deltas", false); }
+        bool compile_with_widening() const { return m_params.get_bool("compile_with_widening", false); }
+        bool unbound_compressor() const { return m_params.get_bool("unbound_compressor", true); }
+        bool similarity_compressor() const { return m_params.get_bool("similarity_compressor", true); }
+        unsigned similarity_compressor_threshold() const { return m_params.get_uint("similarity_compressor_threshold", 11); }
         unsigned soft_timeout() const { return m_fparams.m_soft_timeout; }
-        unsigned initial_restart_timeout() const { return m_params.get_uint(":initial-restart-timeout", 0); } 
-        bool generate_explanations() const { return m_params.get_bool(":generate-explanations", false); }
-        bool explanations_on_relation_level() const { return m_params.get_bool(":explanations-on-relation-level", false); }
-        bool magic_sets_for_queries() const { return m_params.get_bool(":magic-sets-for-queries", false); }
-        bool eager_emptiness_checking() const { return m_params.get_bool(":eager-emptiness-checking", true); }
+        unsigned initial_restart_timeout() const { return m_params.get_uint("initial_restart_timeout", 0); } 
+        bool generate_explanations() const { return m_params.get_bool("generate_explanations", false); }
+        bool explanations_on_relation_level() const { return m_params.get_bool("explanations_on_relation_level", false); }
+        bool magic_sets_for_queries() const { return m_params.get_bool("magic_sets_for_queries", false); }
+        bool eager_emptiness_checking() const { return m_params.get_bool("eager_emptiness_checking", true); }
 
         void register_finite_sort(sort * s, sort_kind k);
 

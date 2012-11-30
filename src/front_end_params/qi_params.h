@@ -107,31 +107,31 @@ struct qi_params {
     }
     
     void register_params(ini_params & p) {
-        p.register_unsigned_param("QI_MAX_EAGER_MULTI_PATTERNS", m_qi_max_eager_multipatterns,
+        p.register_unsigned_param("qi_max_eager_multi_patterns", m_qi_max_eager_multipatterns,
                                   "Specify the number of extra multi patterns that are processed eagerly. By default, the prover use at most one multi-pattern eagerly when there is no unary pattern. This value should be smaller than or equal to PI_MAX_MULTI_PATTERNS");
-        p.register_unsigned_param("QI_MAX_LAZY_MULTI_PATTERN_MATCHING", m_qi_max_lazy_multipattern_matching, "Maximum number of rounds of matching in a branch for delayed multipatterns. A multipattern is delayed based on the value of QI_MAX_EAGER_MULTI_PATTERNS");
-        p.register_string_param("QI_COST", m_qi_cost, "The cost function for quantifier instantiation");
-        p.register_string_param("QI_NEW_GEN", m_qi_new_gen, "The function for calculating the generation of newly constructed terms");
-        p.register_double_param("QI_EAGER_THRESHOLD", m_qi_eager_threshold, "Threshold for eager quantifier instantiation");
-        p.register_double_param("QI_LAZY_THRESHOLD", m_qi_lazy_threshold, "Threshold for lazy quantifier instantiation");
-        p.register_bool_param("QI_PROFILE", m_qi_profile);
-        p.register_unsigned_param("QI_PROFILE_FREQ", m_qi_profile_freq);
-        p.register_int_param("QI_QUICK_CHECKER", 0, 2, reinterpret_cast<int&>(m_qi_quick_checker), "0 - do not use (cheap) model checker, 1 - instantiate instances unsatisfied by current model, 2 - 1 + instantiate instances not satisfied by current model");
-        p.register_bool_param("QI_LAZY_QUICK_CHECKER", m_qi_lazy_quick_checker);
-        p.register_bool_param("QI_PROMOTE_UNSAT", m_qi_promote_unsat);
-        p.register_unsigned_param("QI_MAX_INSTANCES", m_qi_max_instances);
-        p.register_bool_param("QI_LAZY_INSTANTIATION", m_qi_lazy_instantiation);
-        p.register_bool_param("QI_CONSERVATIVE_FINAL_CHECK", m_qi_conservative_final_check);
+        p.register_unsigned_param("qi_max_lazy_multi_pattern_matching", m_qi_max_lazy_multipattern_matching, "Maximum number of rounds of matching in a branch for delayed multipatterns. A multipattern is delayed based on the value of QI_MAX_EAGER_MULTI_PATTERNS");
+        p.register_string_param("qi_cost", m_qi_cost, "The cost function for quantifier instantiation");
+        p.register_string_param("qi_new_gen", m_qi_new_gen, "The function for calculating the generation of newly constructed terms");
+        p.register_double_param("qi_eager_threshold", m_qi_eager_threshold, "Threshold for eager quantifier instantiation");
+        p.register_double_param("qi_lazy_threshold", m_qi_lazy_threshold, "Threshold for lazy quantifier instantiation");
+        p.register_bool_param("qi_profile", m_qi_profile);
+        p.register_unsigned_param("qi_profile_freq", m_qi_profile_freq);
+        p.register_int_param("qi_quick_checker", 0, 2, reinterpret_cast<int&>(m_qi_quick_checker), "0 - do not use (cheap) model checker, 1 - instantiate instances unsatisfied by current model, 2 - 1 + instantiate instances not satisfied by current model");
+        p.register_bool_param("qi_lazy_quick_checker", m_qi_lazy_quick_checker);
+        p.register_bool_param("qi_promote_unsat", m_qi_promote_unsat);
+        p.register_unsigned_param("qi_max_instances", m_qi_max_instances);
+        p.register_bool_param("qi_lazy_instantiation", m_qi_lazy_instantiation);
+        p.register_bool_param("qi_conservative_final_check", m_qi_conservative_final_check);
 
 
-        p.register_bool_param("MBQI", m_mbqi, "Model Based Quantifier Instantiation (MBQI)");
-        p.register_unsigned_param("MBQI_MAX_CEXS", m_mbqi_max_cexs, "Initial maximal number of counterexamples used in MBQI, each counterexample generates a quantifier instantiation", true);
-        p.register_unsigned_param("MBQI_MAX_CEXS_INCR", m_mbqi_max_cexs_incr, "Increment for MBQI_MAX_CEXS, the increment is performed after each round of MBQI", true);
-        p.register_unsigned_param("MBQI_MAX_ITERATIONS", m_mbqi_max_iterations, "Maximum number of rounds of MBQI", true);
-        p.register_bool_param("MBQI_TRACE", m_mbqi_trace, "Generate tracing messages for Model Based Quantifier Instantiation (MBQI). It will display a message before every round of MBQI, and the quantifiers that were not satisfied.", true);
-        p.register_unsigned_param("MBQI_FORCE_TEMPLATE", m_mbqi_force_template, "Some quantifiers can be used as templates for building interpretations for functions. Z3 uses heuristics to decide whether a quantifier will be used as a template or not. Quantifiers with weight >= MBQI_FORCE_TEMPLATE are forced to be used as a template", true);
+        p.register_bool_param("mbqi", m_mbqi, "Model Based Quantifier Instantiation (MBQI)");
+        p.register_unsigned_param("mbqi_max_cexs", m_mbqi_max_cexs, "Initial maximal number of counterexamples used in MBQI, each counterexample generates a quantifier instantiation", true);
+        p.register_unsigned_param("mbqi_max_cexs_incr", m_mbqi_max_cexs_incr, "Increment for MBQI_MAX_CEXS, the increment is performed after each round of MBQI", true);
+        p.register_unsigned_param("mbqi_max_iterations", m_mbqi_max_iterations, "Maximum number of rounds of MBQI", true);
+        p.register_bool_param("mbqi_trace", m_mbqi_trace, "Generate tracing messages for Model Based Quantifier Instantiation (MBQI). It will display a message before every round of MBQI, and the quantifiers that were not satisfied.", true);
+        p.register_unsigned_param("mbqi_force_template", m_mbqi_force_template, "Some quantifiers can be used as templates for building interpretations for functions. Z3 uses heuristics to decide whether a quantifier will be used as a template or not. Quantifiers with weight >= MBQI_FORCE_TEMPLATE are forced to be used as a template", true);
 
-        p.register_bool_param("INST_GEN", m_instgen, "Enable Instantiation Generation solver (disables other quantifier reasoning)", false);
+        p.register_bool_param("inst_gen", m_instgen, "Enable Instantiation Generation solver (disables other quantifier reasoning)", false);
     }
 };
 

@@ -36,7 +36,7 @@ class qe_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_fparams.m_nlquant_elim = p.get_bool(":qe-nonlinear", false);
+            m_fparams.m_nlquant_elim = p.get_bool("qe_nonlinear", false);
             m_qe.updt_params(p);
         }
 
@@ -113,7 +113,7 @@ public:
 
    
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert(":qe-nonlinear", CPK_BOOL, "(default: false) enable virtual term substitution.");
+        r.insert("qe_nonlinear", CPK_BOOL, "(default: false) enable virtual term substitution.");
         m_imp->collect_param_descrs(r);
     }
     

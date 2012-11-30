@@ -60,8 +60,8 @@ public:
     }
 
     void updt_params_core(params_ref const & p) {
-        m_candidate_models     = p.get_bool(":candidate-models", false);
-        m_fail_if_inconclusive = p.get_bool(":fail-if-inconclusive", true);
+        m_candidate_models     = p.get_bool("candidate_models", false);
+        m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
     }
     
     virtual void updt_params(params_ref const & p) {
@@ -69,12 +69,12 @@ public:
         updt_params_core(p);
         m_params_ref = p;
         params2front_end_params(m_params_ref, fparams());
-        SASSERT(p.get_bool(":auto_config", fparams().m_auto_config) == fparams().m_auto_config);
+        SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
     
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert(":candidate-models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
-        r.insert(":fail-if-inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
+        r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
+        r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         solver_front_end_params_descrs(r);
     }
     
@@ -315,7 +315,7 @@ tactic * mk_smt_tactic(params_ref const & p) {
 
 tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
     params_ref p = _p;    
-    p.set_bool(":auto-config", auto_config);
+    p.set_bool("auto_config", auto_config);
     tactic * r = mk_smt_tactic(p);
     TRACE("smt_tactic", tout << "auto_config: " << auto_config << "\nr: " << r << "\np: " << p << "\n";);
     return using_params(r, p);

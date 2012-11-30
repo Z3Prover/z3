@@ -29,8 +29,8 @@ struct bit_blaster_params {
         m_bb_quantifiers(false) {
     }
     void register_params(ini_params & p) {
-        p.register_bool_param("BB_EXT_GATES", m_bb_ext_gates, "use extended gates during bit-blasting");
-        p.register_bool_param("BB_QUANTIFIERS", m_bb_quantifiers, "convert bit-vectors to Booleans in quantifiers");
+        p.register_bool_param("bb_ext_gates", m_bb_ext_gates, "use extended gates during bit-blasting");
+        p.register_bool_param("bb_quantifiers", m_bb_quantifiers, "convert bit-vectors to Booleans in quantifiers");
     }
 };
 

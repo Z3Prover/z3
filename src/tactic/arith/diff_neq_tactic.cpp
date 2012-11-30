@@ -62,7 +62,7 @@ class diff_neq_tactic : public tactic {
         }
         
         void updt_params(params_ref const & p) {
-            m_max_k          = rational(p.get_uint(":diff-neq-max-k", 1024));
+            m_max_k          = rational(p.get_uint("diff_neq_max_k", 1024));
             m_max_neg_k      = -m_max_k;
             if (m_max_k >= rational(INT_MAX/2)) 
                 m_max_k = rational(INT_MAX/2);
@@ -374,7 +374,7 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
-        r.insert(":diff-neq-max-k", CPK_UINT, "(default: 1024) maximum variable upper bound for diff neq solver.");
+        r.insert("diff_neq_max_k", CPK_UINT, "(default: 1024) maximum variable upper bound for diff neq solver.");
     }
 
     virtual void collect_statistics(statistics & st) const {

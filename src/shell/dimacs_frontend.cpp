@@ -69,7 +69,7 @@ unsigned read_dimacs(char const * file_name, front_end_params & front_end_params
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref p;
-    p.set_bool(":produce-models", front_end_params.m_model);
+    p.set_bool("produce_models", front_end_params.m_model);
     sat::solver solver(p, 0);
     g_solver = &solver;
 

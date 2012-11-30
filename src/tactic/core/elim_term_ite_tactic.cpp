@@ -72,7 +72,7 @@ class elim_term_ite_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         }
     };
     
@@ -160,7 +160,7 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {
         insert_max_memory(r);
         insert_max_steps(r);
-        r.insert(":max-args", CPK_UINT, 
+        r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     

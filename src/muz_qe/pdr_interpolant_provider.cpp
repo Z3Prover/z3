@@ -318,7 +318,7 @@ lbool interpolant_provider_impl::get_interpolant(expr * f1, expr * f2, expr_ref&
         throw default_exception("invalid interpolator output");
     }
     res = *ait;
-    if (m_params.get_bool(":dump-interpolants", false)) {
+    if (m_params.get_bool("dump_interpolants", false)) {
         interpolant_provider::output_interpolant(m, f1, f2, res);
     }
     return l_true;

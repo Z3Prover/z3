@@ -674,8 +674,8 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         expr * a = to_expr(_a);
         params_ref p = to_param_ref(_p);
-        unsigned timeout     = p.get_uint(":timeout", UINT_MAX);
-        bool     use_ctrl_c  = p.get_bool(":ctrl-c", false);
+        unsigned timeout     = p.get_uint("timeout", UINT_MAX);
+        bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         th_rewriter m_rw(m, p);
         expr_ref    result(m);
         cancel_eh<th_rewriter> eh(m_rw);

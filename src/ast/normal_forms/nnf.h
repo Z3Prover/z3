@@ -41,6 +41,9 @@ public:
                     );
 
     void updt_params(params_ref const & p);
+    /*
+      REG_MODULE_PARAMS('nnf', 'nnf::get_param_descrs')
+    */
     static void get_param_descrs(param_descrs & r);
 
     void cancel() { set_cancel(true); }

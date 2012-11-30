@@ -19,6 +19,24 @@ Revision History:
 #include"pp.h"
 using namespace format_ns;
 
+void pp_param_descrs(param_descrs & p) {
+    p.insert("max_indent", CPK_UINT, "max. indentation in pretty printer");
+    p.insert("max_num_lines", CPK_UINT, "max. number of lines to be displayed in pretty printer");
+    p.insert("max_width", CPK_UINT, "max. width in pretty printer");
+    p.insert("max_ribbon", CPK_UINT, "max. ribbon (width - indentation) in pretty printer");
+    p.insert("max_depth", CPK_UINT, "max. term depth (when pretty printing SMT2 terms/formulas)");
+    p.insert("min_alias_size", CPK_UINT, "min. size for creating an alias for a shared term (when pretty printing SMT2 terms/formulas)");
+    p.insert("decimal", CPK_BOOL, "pretty print real numbers using decimal notation (the output may be truncated). Z3 adds a '?' if the value is not precise");
+    p.insert("decimal_precision", CPK_BOOL, "maximum number of decimal places to be used when pp.decimal=true");
+    p.insert("bv_literals", CPK_BOOL, "use Bit-Vector literals (e.g, #x0F and #b0101) during pretty printing");
+    p.insert("bv_neg", CPK_BOOL, "use bvneg when displaying Bit-Vector literals where the most significant bit is 1");
+    p.insert("flat_assoc", CPK_BOOL, "flat associative operators (when pretty printing SMT2 terms/formulas)");
+    p.insert("fixed_indent", CPK_BOOL, "use a fixed indentation for applications");
+    p.insert("single_line", CPK_BOOL, "ignore line breaks when true");
+    p.insert("bounded", CPK_BOOL, "ignore characters exceeding max widht");
+    p.insert("simplify_implies", CPK_BOOL, "simplify nested implications for pretty printing");
+}
+
 pp_params g_pp_params;
 
 void set_pp_default_params(pp_params const & p) {

@@ -210,7 +210,7 @@ public:
         datalog::context& dlctx = m_dl_ctx->dlctx();
         set_background(ctx);        
         dlctx.updt_params(m_params);
-        unsigned timeout   = m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
         cancel_eh<datalog::context> eh(dlctx);
         lbool status = l_undef;
         {
@@ -266,9 +266,9 @@ public:
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         m_dl_ctx->dlctx().collect_params(p);
         insert_timeout(p);
-        p.insert(":print-answer", CPK_BOOL, "(default: false) print answer instance(s) to query.");
-        p.insert(":print-certificate", CPK_BOOL, "(default: false) print certificate for reachability or non-reachability.");
-        p.insert(":print-statistics",  CPK_BOOL, "(default: false) print statistics.");
+        p.insert("print_answer", CPK_BOOL, "(default: false) print answer instance(s) to query.");
+        p.insert("print_certificate", CPK_BOOL, "(default: false) print certificate for reachability or non-reachability.");
+        p.insert("print_statistics",  CPK_BOOL, "(default: false) print statistics.");
     }
    
 
@@ -283,7 +283,7 @@ private:
     }
 
     void print_answer(cmd_context& ctx) {
-        if (m_params.get_bool(":print-answer", false)) {
+        if (m_params.get_bool("print_answer", false)) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             ast_manager& m = ctx.m();
             expr_ref query_result(dlctx.get_answer_as_formula(), m);
@@ -298,7 +298,7 @@ private:
     }
 
     void print_statistics(cmd_context& ctx) {
-        if (m_params.get_bool(":print-statistics", false)) {
+        if (m_params.get_bool("print_statistics", false)) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             unsigned long long max_mem = memory::get_max_used_memory();
@@ -312,7 +312,7 @@ private:
     }
 
     void print_certificate(cmd_context& ctx) {
-        if (m_params.get_bool(":print-certificate", false)) {
+        if (m_params.get_bool("print_certificate", false)) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             if (!dlctx.display_certificate(ctx.regular_stream())) {
                 throw cmd_exception("certificates are not supported for the selected engine");

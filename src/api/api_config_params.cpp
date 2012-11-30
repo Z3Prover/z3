@@ -21,6 +21,7 @@ Revision History:
 #include"pp.h"
 #include"api_log_macros.h"
 #include"api_util.h"
+#include"cmd_context.h"
 #include"symbol.h"
 
 namespace api {
@@ -41,8 +42,6 @@ namespace api {
 
 };
 
-extern std::string smt_keyword2opt_name(symbol const & opt);
-
 extern "C" {
     Z3_config Z3_API Z3_mk_config() {
         LOG_Z3_mk_config();
@@ -62,7 +61,7 @@ extern "C" {
             api::config_params* p = reinterpret_cast<api::config_params*>(c);
             if (param_id != 0 && param_id[0] == ':') {
                 // Allow SMT2 style paramater names such as  :model, :relevancy, etc
-                std::string new_param_id = smt_keyword2opt_name(symbol(param_id));
+                std::string new_param_id = smt2_keyword_to_param(symbol(param_id));
                 p->m_ini.set_param_value(new_param_id.c_str(), param_value);
             }
             else {
@@ -91,7 +90,7 @@ extern "C" {
         }
         if (param_id != 0 && param_id[0] == ':') {
             // Allow SMT2 style paramater names such as  :model, :relevancy, etc
-            std::string new_param_id = smt_keyword2opt_name(symbol(param_id));
+            std::string new_param_id = smt2_keyword_to_param(symbol(param_id));
             ini.set_param_value(new_param_id.c_str(), param_value);
         }
         else {

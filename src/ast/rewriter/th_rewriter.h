@@ -37,7 +37,9 @@ public:
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
-
+    /*
+      REG_MODULE_PARAMS('simplify', 'th_rewriter::get_param_descrs')
+    */
     unsigned get_cache_size() const;
     unsigned get_num_steps() const;
 

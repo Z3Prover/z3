@@ -16,7 +16,7 @@ Version 4.3.2
 
 - Fixed incorrect result returned by Z3_solver_get_num_scopes. (Thanks to Herman Venter). This bug was introduced in Z3 4.3.0
 
-- Java bindings. To enable them, we must use the option `--java` when executing the `mk_make.py` script. Example: `python scripts/mk_make.py --java 
+- Java bindings. To enable them, we must use the option `--java` when executing the `mk_make.py` script. Example: `python scripts/mk_make.py --java`
 
 - Fixed crash when parsing incorrect formulas. The crash was introduced when support for "arithmetic coercions" was added in Z3 4.3.0.
 

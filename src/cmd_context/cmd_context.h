@@ -37,6 +37,11 @@ Notes:
 #include"progress_callback.h"
 #include"scoped_ptr_vector.h"
 
+/**
+   \brief Auxiliary function for converting SMT2 keywords into Z3 internal parameter names.
+*/
+std::string smt2_keyword_to_param(symbol const & k);
+
 struct front_end_params;
 
 class func_decls {

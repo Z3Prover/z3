@@ -153,7 +153,7 @@ public:
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         insert_timeout(p);
         insert_max_memory(p);
-        p.insert(":print-statistics", CPK_BOOL, "(default: false) print statistics.");
+        p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
     void display_statistics(cmd_context & ctx, tactic * t) {
@@ -180,9 +180,9 @@ public:
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         exec_given_tactic_cmd::init_pdescrs(ctx, p);
-        p.insert(":print-unsat-core", CPK_BOOL, "(default: false) print unsatisfiable core.");
-        p.insert(":print-proof", CPK_BOOL, "(default: false) print proof.");
-        p.insert(":print-model", CPK_BOOL, "(default: false) print model.");
+        p.insert("print_unsat_core", CPK_BOOL, "(default: false) print unsatisfiable core.");
+        p.insert("print_proof", CPK_BOOL, "(default: false) print proof.");
+        p.insert("print_model", CPK_BOOL, "(default: false) print model.");
     }
     
     virtual void execute(cmd_context & ctx) {
@@ -192,7 +192,7 @@ public:
         tref->set_front_end_params(ctx.params());
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
-        unsigned timeout   = p.get_uint(":timeout", UINT_MAX);
+        unsigned timeout   = p.get_uint("timeout", UINT_MAX);
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
         TRACE("check_sat_using", g->display(tout););
@@ -241,7 +241,7 @@ public:
             ptr_vector<expr> core_elems;
             m.linearize(core, core_elems);
             result->m_core.append(core_elems.size(), core_elems.c_ptr());
-            if (p.get_bool(":print-unsat-core", false)) {
+            if (p.get_bool("print_unsat_core", false)) {
                 ctx.regular_stream() << "(unsat-core";
                 ptr_vector<expr>::const_iterator it  = core_elems.begin();
                 ptr_vector<expr>::const_iterator end = core_elems.end();
@@ -255,7 +255,7 @@ public:
         
         if (ctx.produce_models() && md) {
             result->m_model = md;
-            if (p.get_bool(":print-model", false)) {
+            if (p.get_bool("print_model", false)) {
                 ctx.regular_stream() << "(model " << std::endl;
                 model_smt2_pp(ctx.regular_stream(), ctx, *md, 2);
                 ctx.regular_stream() << ")" << std::endl;
@@ -266,12 +266,12 @@ public:
 
         if (ctx.produce_proofs() && pr) {
             result->m_proof = pr;
-            if (p.get_bool(":print-proof", false)) {
+            if (p.get_bool("print_proof", false)) {
                 ctx.regular_stream() << mk_ismt2_pp(pr, m) << "\n";
             }
         }
 
-        if (p.get_bool(":print-statistics", false))
+        if (p.get_bool("print_statistics", false))
             display_statistics(ctx, tref.get());
     }
 };
@@ -285,14 +285,14 @@ public:
     virtual char const * get_main_descr() const { return "apply the given tactic to the current context, and print the resultant set of goals."; }
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
-        p.insert(":print", CPK_BOOL, "(default: true) print resultant goals.");
+        p.insert("print", CPK_BOOL, "(default: true) print resultant goals.");
 #ifndef _EXTERNAL_RELEASE
-        p.insert(":print-proof", CPK_BOOL, "(default: false) print proof associated with each assertion.");
+        p.insert("print_proof", CPK_BOOL, "(default: false) print proof associated with each assertion.");
 #endif
-        p.insert(":print-model-converter", CPK_BOOL, "(default: false) print model converter.");
-        p.insert(":print-benchmark", CPK_BOOL, "(default: false) display resultant goals as a SMT2 benchmark.");
+        p.insert("print_model_converter", CPK_BOOL, "(default: false) print model converter.");
+        p.insert("print_benchmark", CPK_BOOL, "(default: false) display resultant goals as a SMT2 benchmark.");
 #ifndef _EXTERNAL_RELEASE
-        p.insert(":print-dependencies", CPK_BOOL, "(default: false) print dependencies when displaying the resultant set of goals.");
+        p.insert("print_dependencies", CPK_BOOL, "(default: false) print dependencies when displaying the resultant set of goals.");
 #endif
         exec_given_tactic_cmd::init_pdescrs(ctx, p);
     }
@@ -307,7 +307,7 @@ public:
             goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
             assert_exprs_from(ctx, *g);
             
-            unsigned timeout   = p.get_uint(":timeout", UINT_MAX); 
+            unsigned timeout   = p.get_uint("timeout", UINT_MAX); 
             
             goal_ref_buffer     result_goals;
             model_converter_ref mc;
@@ -330,8 +330,8 @@ public:
                 }
             }
             
-            if (!failed && p.get_bool(":print", true)) {
-                bool print_dependencies = p.get_bool(":print-dependencies", false);
+            if (!failed && p.get_bool("print", true)) {
+                bool print_dependencies = p.get_bool("print_dependencies", false);
                 ctx.regular_stream() << "(goals\n";
                 unsigned sz = result_goals.size();
                 for (unsigned i = 0; i < sz; i++) {
@@ -344,12 +344,12 @@ public:
             }
 
 #ifndef _EXTERNAL_RELEASE
-            if (!failed && ctx.produce_proofs() && p.get_bool(":print-proof", false)) {
+            if (!failed && ctx.produce_proofs() && p.get_bool("print_proof", false)) {
                 // TODO
             }
 #endif
 
-            if (!failed && p.get_bool(":print-benchmark", false)) { 
+            if (!failed && p.get_bool("print_benchmark", false)) { 
                 unsigned num_goals = result_goals.size();
                 SASSERT(num_goals > 0);
                 if (num_goals == 1) {
@@ -381,10 +381,10 @@ public:
                 }
             }
             
-            if (!failed && mc && p.get_bool(":print-model-converter", false)) 
+            if (!failed && mc && p.get_bool("print_model_converter", false)) 
                 mc->display(ctx.regular_stream());
             
-            if (p.get_bool(":print-statistics", false))
+            if (p.get_bool("print_statistics", false))
                 display_statistics(ctx, tref.get());
         }
     }

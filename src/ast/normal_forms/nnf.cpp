@@ -122,11 +122,11 @@ public:
     }
 
     void updt_params(params_ref const & p) {    
-        m_sk_hack_enabled  = p.get_bool(":nnf-sk-hack", false);
+        m_sk_hack_enabled  = p.get_bool("sk_hack", false);
     }
 
     static void get_param_descrs(param_descrs & r) {
-        r.insert(":nnf-sk-hack", CPK_BOOL, "(default: false) hack for VCC");
+        r.insert("sk_hack", CPK_BOOL, "(default: false) hack for VCC");
     }
 
     ast_manager & m() const { return m_manager; }
@@ -264,7 +264,7 @@ struct nnf::imp {
     }
 
     void updt_local_params(params_ref const & p) {    
-        symbol mode_sym    = p.get_sym(":nnf-mode", m_skolem);
+        symbol mode_sym    = p.get_sym("mode", m_skolem);
         if (mode_sym == m_skolem)
             m_mode = NNF_SKOLEM;
         else if (mode_sym == "full")
@@ -276,18 +276,18 @@ struct nnf::imp {
 
         TRACE("nnf", tout << "nnf-mode: " << m_mode << " " << mode_sym << "\n" << p << "\n";);
 
-        m_ignore_labels    = p.get_bool(":nnf-ignore-labels", false);
-        m_skolemize        = p.get_bool(":skolemize", true);
-        m_max_memory       = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+        m_ignore_labels    = p.get_bool("ignore_labels", false);
+        m_skolemize        = p.get_bool("skolemize", true);
+        m_max_memory       = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
     static void get_param_descrs(param_descrs & r) {
         insert_max_memory(r);
-        r.insert(":nnf-mode", CPK_SYMBOL, 
+        r.insert("mode", CPK_SYMBOL, 
                  "(default: skolem) NNF translation mode: skolem (skolem normal form), quantifiers (skolem normal form + quantifiers in NNF), full");
-        r.insert(":nnf-ignore-labels", CPK_BOOL, 
+        r.insert("ignore_labels", CPK_BOOL, 
                  "(default: false) remove/ignore labels in the input formula, this option is ignored if proofs are enabled");
-        r.insert(":skolemize", CPK_BOOL,
+        r.insert("skolemize", CPK_BOOL,
                  "(default: true) skolemize (existential force) quantifiers");
         skolemizer::get_param_descrs(r);
     }
@@ -884,15 +884,15 @@ nnf::nnf(ast_manager & m, defined_names & n, params_ref const & p) {
 nnf::nnf(ast_manager & m, defined_names & n, nnf_params & np) {
     params_ref p;
     if (np.m_nnf_mode == NNF_FULL)
-        p.set_sym(":nnf-mode", symbol("full"));
+        p.set_sym("mode", symbol("full"));
     else if (np.m_nnf_mode == NNF_QUANT)
-        p.set_sym(":nnf-mode", symbol("quantifiers"));
+        p.set_sym("mode", symbol("quantifiers"));
     
     if (np.m_nnf_ignore_labels)
-        p.set_bool(":nnf-ignore-labels", true);
+        p.set_bool("ignore_labels", true);
     
     if (np.m_nnf_sk_hack)
-        p.set_bool(":nnf-sk-hack", true);
+        p.set_bool("sk_hack", true);
     m_imp = alloc(imp, m, n, p);
 }
 

@@ -751,7 +751,7 @@ namespace datalog {
         valid.resize(sz, true);        
 
         params_ref const& params = m_context.get_params();
-        bool allow_branching = params.get_bool(":inline-linear-branch", false);
+        bool allow_branching = params.get_bool("inline_linear_branch", false);
 
         for (unsigned i = 0; i < sz; ++i) {
 
@@ -867,7 +867,7 @@ namespace datalog {
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
 
-        if (params.get_bool(":inline-eager", true)) {
+        if (params.get_bool("inline_eager", true)) {
             TRACE("dl", source.display(tout << "before eager inlining\n"););
             plan_inlining(source);            
             something_done = transform_rules(source, *res);            
@@ -879,7 +879,7 @@ namespace datalog {
             TRACE("dl", res->display(tout << "after eager inlining\n"););
         }
 
-        if (params.get_bool(":inline-linear", true) && inline_linear(res)) {
+        if (params.get_bool("inline_linear", true) && inline_linear(res)) {
             something_done = true;
         }
 

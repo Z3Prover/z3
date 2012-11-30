@@ -54,8 +54,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_max_steps      = p.get_uint(":max-steps", UINT_MAX);        
+        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_max_steps      = p.get_uint("max_steps", UINT_MAX);        
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 
