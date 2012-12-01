@@ -59,6 +59,7 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_IS_NZERO:  SASSERT(num_args == 1); st = mk_is_nzero(args[0], result); break;
     case OP_FLOAT_IS_PZERO:  SASSERT(num_args == 1); st = mk_is_pzero(args[0], result); break;
     case OP_FLOAT_IS_SIGN_MINUS: SASSERT(num_args == 1); st = mk_is_sign_minus(args[0], result); break;
+    case OP_TO_IEEE_BV:      SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
     }
     return st;
 }
@@ -437,5 +438,9 @@ br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result
         return BR_DONE;
     }
 
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_to_ieee_bv(expr * arg1, expr_ref & result) {
     return BR_FAILED;
 }
