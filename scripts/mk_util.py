@@ -1472,7 +1472,7 @@ def def_module_params(module_name, export, params):
     out.write('struct %s_params {\n' % module_name)
     out.write('  params_ref const & p;\n')
     if export:
-        out.write('  params_ref const & g;\n')
+        out.write('  params_ref g;\n')
     out.write('  %s_params(params_ref const & _p = params_ref()):\n' % module_name)
     out.write('     p(_p)')
     if export:

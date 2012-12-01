@@ -29,6 +29,7 @@ Notes:
 #include"eval_cmd.h"
 #include"front_end_params.h"
 #include"gparams.h"
+#include"model_params.hpp"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -104,9 +105,10 @@ ATOMIC_CMD(get_model_cmd, "get-model", "retrieve model for the last check-sat co
         throw cmd_exception("model is not available");
     model_ref m;
     ctx.get_check_sat_result()->get_model(m);
-    if (ctx.params().m_model_v1_pp || ctx.params().m_model_v2_pp) {
+    model_params p;
+    if (p.v1() || p.v2()) {
         std::ostringstream buffer;
-        model_v2_pp(buffer, *m, ctx.params().m_model_partial);
+        model_v2_pp(buffer, *m, p.partial());
         ctx.regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
     } else {
         ctx.regular_stream() << "(model " << std::endl;

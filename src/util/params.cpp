@@ -57,6 +57,10 @@ struct param_descrs::imp {
     void erase(symbol const & name) {
         m_info.erase(name);
     }
+
+    bool contains(symbol const & name) const {
+        return m_info.contains(name);
+    }
                                     
     param_kind get_kind(symbol const & name) const {
         info i;
@@ -155,6 +159,14 @@ void param_descrs::insert(symbol const & name, param_kind k, char const * descr,
 
 void param_descrs::insert(char const * name, param_kind k, char const * descr, char const * def) {
     insert(symbol(name), k, descr, def);
+}
+
+bool param_descrs::contains(char const * name) const {
+    return contains(symbol(name));
+}
+
+bool param_descrs::contains(symbol const & name) const {
+    return m_imp->contains(name);
 }
 
 char const * param_descrs::get_descr(char const * name) const {
@@ -345,7 +357,7 @@ public:
                 continue;
             switch (it->second.m_kind) {
             case CPK_BOOL:
-                out << it->second.m_bool_value;
+                out << (it->second.m_bool_value?"true":"false");
                 return;
             case CPK_UINT:
                 out << it->second.m_uint_value;

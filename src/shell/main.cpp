@@ -77,7 +77,7 @@ void display_usage() {
     std::cout << "  " << OPT << "version    prints version number of Z3.\n";
     std::cout << "  " << OPT << "v:level    be verbose, where <level> is the verbosity level.\n";
     std::cout << "  " << OPT << "nw         disable warning messages.\n";
-    std::cout << "  " << OPT << "params     display all available parameters.\n";
+    std::cout << "  " << OPT << "ps         display all available parameters.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
@@ -184,10 +184,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 if (i < argc - 1)
                     g_aux_input_file += " ";
             }
-            if (g_front_end_params->m_interactive) {
-                warning_msg("ignoring input file in interactive mode.");
-            }
-            else if (g_input_file) {
+            if (g_input_file) {
                 warning_msg("input file was already specified.");
             }
             else {
@@ -284,7 +281,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "nw") == 0) {
                 enable_warning_messages(false);
             }
-            else if (strcmp(opt_name, "params") == 0) {
+            else if (strcmp(opt_name, "ps") == 0) {
                 gparams::display(std::cout);
                 exit(0);
             }
@@ -324,10 +321,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             gparams::set(key, value);
         }
         else {
-            if (g_front_end_params->m_interactive) {
-                warning_msg("ignoring input file in interactive mode.");
-            }
-            else if (g_input_file) {
+            if (g_input_file) {
                 warning_msg("input file was already specified.");
             }
             else {
@@ -389,7 +383,7 @@ int main(int argc, char ** argv) {
         if (g_input_file && g_standard_input) {
             error("using standard input to read formula.");
         }
-        if (!g_input_file && !g_front_end_params->m_interactive && !g_standard_input) {
+        if (!g_input_file && !g_standard_input) {
             error("input file was not specified.");
         }
         

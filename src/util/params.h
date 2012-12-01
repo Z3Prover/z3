@@ -109,6 +109,8 @@ public:
     void copy(param_descrs & other);
     void insert(char const * name, param_kind k, char const * descr, char const * def = 0);
     void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0);
+    bool contains(char const * name) const;
+    bool contains(symbol const & name) const;
     void erase(char const * name);
     void erase(symbol const & name);
     param_kind get_kind(char const * name) const;

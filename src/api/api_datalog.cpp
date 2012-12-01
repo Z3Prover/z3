@@ -344,7 +344,7 @@ extern "C" {
         std::istream& s) {
         ast_manager& m = mk_c(c)->m();
         dl_collected_cmds coll(m);
-        cmd_context ctx(&mk_c(c)->fparams(), false, &m);
+        cmd_context ctx(false, &m);
         install_dl_collect_cmds(coll, ctx);
         ctx.set_ignore_check(true);
         if (!parse_smt2_commands(ctx, s)) {

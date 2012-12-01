@@ -103,5 +103,17 @@ void smt_params::register_params(ini_params & p) {
     p.register_bool_param("model_on_final_check", m_model_on_final_check, "display candidate model (in the standard output) whenever Z3 hits a final check", true);
     
     p.register_unsigned_param("progress_sampling_freq", m_progress_sampling_freq, "frequency for progress output in miliseconds");
+
+
+    p.register_bool_param("user_theory_preprocess_axioms", 
+                          m_user_theory_preprocess_axioms, 
+                          "Apply full pre-processing to user theory axioms",
+                          true);
+
+    p.register_bool_param("user_theory_persist_axioms",
+                          m_user_theory_persist_axioms,
+                          "Persist user axioms to the base level",
+                          true);
+
 }
 

@@ -316,10 +316,9 @@ public:
     }
 };
 
-cmd_context::cmd_context(front_end_params * params, bool main_ctx, ast_manager * m, symbol const & l):
+cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
-    m_params(params == 0 ? alloc(front_end_params) : params),
-    m_params_owner(params == 0),
+    m_fparams(alloc(front_end_params)),
     m_logic(l),
     m_interactive_mode(false),
     m_global_decls(false),  // :global-decls is false by default.
@@ -359,9 +358,7 @@ cmd_context::~cmd_context() {
     finalize_probes();
     m_solver = 0;
     m_check_sat_result = 0;
-    if (m_params_owner) {
-        dealloc(m_params);
-    }
+    dealloc(m_fparams);
 }
 
 void cmd_context::set_produce_models(bool f) {
@@ -380,10 +377,6 @@ void cmd_context::set_produce_proofs(bool f) {
     // can only be set before initialization
     SASSERT(!has_manager());
     params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
-}
-
-bool cmd_context::is_smtlib2_compliant() const { 
-    return params().m_smtlib2_compliant; 
 }
 
 bool cmd_context::produce_models() const { 
@@ -599,8 +592,9 @@ void cmd_context::init_manager() {
     m_manager  = alloc(ast_manager, params().m_proof_mode, params().m_trace_stream);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
-    if (params().m_smtlib2_compliant)
-        m_manager->enable_int_real_coercions(false);
+    // PARAM-TODO
+    // if (params().m_smtlib2_compliant)
+    //    m_manager->enable_int_real_coercions(false);
 }
 
 void cmd_context::init_external_manager() {

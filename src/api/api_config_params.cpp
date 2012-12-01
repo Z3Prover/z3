@@ -36,9 +36,45 @@ namespace api {
 };
 
 extern "C" {
+    void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value) {
+        memory::initialize(UINT_MAX);
+        LOG_Z3_global_param_set(param_id, param_value);
+        try { 
+            gparams::set(param_id, param_value);
+        }
+        catch (z3_exception & ex) {
+            // The error handler is only available for contexts
+            // Just throw a warning.
+            std::ostringstream buffer;
+            buffer << "Error setting " << param_id << ", " << ex.msg();
+            warning_msg(buffer.str().c_str());
+        }
+    }
+
+    std::string g_Z3_global_param_get_buffer;
+    
+    Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {
+        memory::initialize(UINT_MAX);
+        LOG_Z3_global_param_get(param_id, param_value);
+        *param_value = 0;
+        try {
+            g_Z3_global_param_get_buffer = gparams::get_value(param_id);
+            *param_value = g_Z3_global_param_get_buffer.c_str();
+            return Z3_TRUE;
+        }
+        catch (z3_exception & ex) {
+            // The error handler is only available for contexts
+            // Just throw a warning.
+            std::ostringstream buffer;
+            buffer << "Error setting " << param_id << ", " << ex.msg();
+            warning_msg(buffer.str().c_str());
+            return Z3_FALSE;
+        }
+    }
+
     Z3_config Z3_API Z3_mk_config() {
+        memory::initialize(UINT_MAX);
         LOG_Z3_mk_config();
-        memory::initialize(0);
         Z3_config r = reinterpret_cast<Z3_config>(alloc(api::config_params));
         RETURN_Z3(r);
     }
@@ -49,35 +85,19 @@ extern "C" {
     }
     
     void Z3_API Z3_set_param_value(Z3_config c, char const * param_id, char const * param_value) {
-        // REMARK: we don't need Z3_config anymore
-        try { 
-            LOG_Z3_set_param_value(c, param_id, param_value);
-            gparams::set(param_id, param_value);
-        }
-        catch (gparams::exception & ex) {
-            // The error handler was not set yet.
-            // Just throw a warning.
-            std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ", " << ex.msg();
-            warning_msg(buffer.str().c_str());
-        }
+        LOG_Z3_set_param_value(c, param_id, param_value);
+        // PARAM-TODO save the parameter
     }
 
     void Z3_API Z3_update_param_value(Z3_context c, Z3_string param_id, Z3_string param_value) {
-        Z3_TRY;
         LOG_Z3_update_param_value(c, param_id, param_value);
         RESET_ERROR_CODE();
-        gparams::set(param_id, param_value);
-        // TODO: set memory limits
-        // memory::set_high_watermark(static_cast<size_t>(mk_c(c)->fparams().m_memory_high_watermark)*1024*1024);
-        // memory::set_max_size(static_cast<size_t>(mk_c(c)->fparams().m_memory_max_size)*1024*1024);
-        Z3_CATCH;
+        // NOOP in the current version
     }
 
     Z3_bool Z3_API Z3_get_param_value(Z3_context c, Z3_string param_id, Z3_string* param_value) {
         LOG_Z3_get_param_value(c, param_id, param_value);
-        // TODO: we don't really have support for that anymore.
-        return false;
+        return Z3_FALSE;
     }
 
 };

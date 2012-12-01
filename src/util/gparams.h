@@ -31,7 +31,7 @@ public:
        \brief Set a global parameter \c name with \c value.
        
        The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
-       The character '.' is used a delimiter (more later).
+       The character '.' is a delimiter (more later).
        
        The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
        Thus, the following parameter names are considered equivalent: "auto-config"  and "AUTO_CONFIG".
@@ -90,13 +90,13 @@ public:
        // In this example "p" will contain "decimal" -> true after executing this function.
        params_ref const & p = get_module_params("pp")
     */
-    static params_ref const & get_module(char const * module_name);
-    static params_ref const & get_module(symbol const & module_name);
+    static params_ref get_module(char const * module_name);
+    static params_ref get_module(symbol const & module_name);
 
     /**
        \brief Return the global parameter set (i.e., parameters that are not associated with any particular module).
     */
-    static params_ref const & get();
+    static params_ref get();
 
     /**
        \brief Dump information about available parameters in the given output stream.

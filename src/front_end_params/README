@@ -1,0 +1,9 @@
+This directory contains the "remains" of the old parameter setting
+infrastructure used by Z3. Old code (mostly `smt::context`) is still
+based on the front_end_params structure. However, we removed support
+for the old INI file infrastructure.  Instead, we have functions for
+setting the fields of front_end_params using parameter sets
+(params_ref).  Moreover, many of the parameters in front_end_params
+are now "hidden".  That is, they can't be set from the command line or
+using the command `set-option`.
+

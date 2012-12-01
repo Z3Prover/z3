@@ -22,9 +22,7 @@ void front_end_params::register_params(ini_params & p) {
     p.register_param_vector(m_param_vector.get());
     preprocessor_params::register_params(p);
     smt_params::register_params(p);
-    parser_params::register_params(p);
     arith_simplifier_params::register_params(p);
-    model_params::register_params(p);
     p.register_bool_param("at_labels_cex", m_at_labels_cex, 
                           "only use labels that contain '@' when building multiple counterexamples");
     p.register_bool_param("check_at_labels", m_check_at_labels, 
@@ -33,14 +31,12 @@ void front_end_params::register_params(ini_params & p) {
     
     p.register_bool_param("type_check", m_well_sorted_check, "enable/disable type checker");
     p.register_bool_param("well_sorted_check", m_well_sorted_check, "enable/disable type checker");
-    p.register_bool_param("interactive", m_interactive, "enable interactive mode using Simplify input format");
     p.register_unsigned_param("soft_timeout", m_soft_timeout, "set approximate timeout for each solver query (milliseconds), the value 0 represents no timeout", true);
     p.register_double_param("instruction_max", m_instr_out, "set the (approximate) maximal number of instructions per invocation of check", true);
     p.register_bool_param("auto_config", m_auto_config, "use heuristics to set Z3 configuration parameters, it is only available for the SMT-LIB input format");
     p.register_int_param("proof_mode", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
     p.register_bool_param("trace", m_trace, "enable tracing for the Axiom Profiler tool");
     p.register_string_param("trace_file_name", m_trace_file_name, "tracing file name");
-    p.register_bool_param("async_commands", m_async_commands, "enable/disable support for asynchronous commands in the Simplify front-end.");
     p.register_bool_param("display_config", m_display_config, "display configuration used by Z3");
 
 #ifdef _WINDOWS
@@ -51,29 +47,10 @@ void front_end_params::register_params(ini_params & p) {
                               "set hard upper limit for memory consumption (in megabytes)");
 #endif
 
-#ifndef _EXTERNAL_RELEASE
-    // external users should not have access to it.
-    p.register_bool_param("preprocess", m_preprocess);
-#endif
-
-    p.register_bool_param("user_theory_preprocess_axioms", 
-                          m_user_theory_preprocess_axioms, 
-                          "Apply full pre-processing to user theory axioms",
-                          true);
-
-    p.register_bool_param("user_theory_persist_axioms",
-                          m_user_theory_persist_axioms,
-                          "Persist user axioms to the base level",
-                          true);
-
-    p.register_bool_param("smtlib2_compliant", m_smtlib2_compliant);    
-
-    p.register_bool_param("ignore_bad_patterns", m_ignore_bad_patterns);
 
     PRIVATE_PARAMS({
         p.register_bool_param("ignore_checksat", m_ignore_checksat);
         p.register_bool_param("debug_ref_count", m_debug_ref_count);
-        p.register_bool_param("ignore_user_patterns", m_ignore_user_patterns);
         p.register_bool_param("incremental_core_assert", m_incremental_core_assert);
         DEBUG_CODE(p.register_int_param("copy_params", m_copy_params););
     });

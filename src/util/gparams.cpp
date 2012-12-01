@@ -26,7 +26,6 @@ struct gparams::imp {
     param_descrs              m_param_descrs;
     dictionary<params_ref *>  m_module_params;
     params_ref                m_params;
-    params_ref                m_empty;
 public:
     imp() {
     }
@@ -49,28 +48,37 @@ public:
     }
 
     void register_global(param_descrs & d) {
-        m_param_descrs.copy(d);
+        #pragma omp critical (gparams)
+        {
+           m_param_descrs.copy(d);
+        }
     }
 
     void register_module(char const * module_name, param_descrs * d) {
-        symbol s(module_name);
-        param_descrs * old_d;
-        if (m_module_param_descrs.find(s, old_d)) {
-            old_d->copy(*d);
-            dealloc(d);
-        }
-        else {
-            m_module_param_descrs.insert(s, d);
+        #pragma omp critical (gparams)
+        {
+            symbol s(module_name);
+            param_descrs * old_d;
+            if (m_module_param_descrs.find(s, old_d)) {
+                old_d->copy(*d);
+                dealloc(d);
+            }
+            else {
+                m_module_param_descrs.insert(s, d);
+            }
         }
     }
 
     void display(std::ostream & out, unsigned indent, bool smt2_style) {
-        m_param_descrs.display(out, indent, smt2_style);
-        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-        for (; it != end; ++it) {
-            out << "[module] " << it->m_key << "\n";
-            it->m_value->display(out, indent + 4, smt2_style);
+        #pragma omp critical (gparams)
+        {
+            m_param_descrs.display(out, indent, smt2_style);
+            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
+            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+            for (; it != end; ++it) {
+                out << "[module] " << it->m_key << "\n";
+                it->m_value->display(out, indent + 4, smt2_style);
+            }
         }
     }
 
@@ -102,15 +110,13 @@ public:
             return m_params;
         }
         else {
-            params_ref * p;
-            if (m_module_params.find(mod_name, p)) {
-                return *p;
-            }
-            else {
+            params_ref * p = 0;
+            if (!m_module_params.find(mod_name, p)) {
                 p = alloc(params_ref);
                 m_module_params.insert(mod_name, p);
-                return *p;
             }
+            SASSERT(p != 0);
+            return *p;
         }
     }
 
@@ -119,9 +125,9 @@ public:
         params_ref & ps = get_params(mod_name);
         if (k == CPK_INVALID) {
             if (mod_name == symbol::null)
-                throw default_exception("unknown parameter '%s'", param_name.bare_str());
+                throw exception("unknown parameter '%s'", param_name.bare_str());
             else
-                throw default_exception("unknown parameter '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
+                throw exception("unknown parameter '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
         }
         else if (k == CPK_UINT) {
             long val = strtol(value, 0, 10);
@@ -136,9 +142,9 @@ public:
             }
             else {
                 if (mod_name == symbol::null)
-                    throw default_exception("invalid value '%s' for Boolean parameter '%s'", value, param_name.bare_str());
+                    throw exception("invalid value '%s' for Boolean parameter '%s'", value, param_name.bare_str());
                 else
-                    throw default_exception("invalid value '%s' for Boolean parameter '%s' at module '%s'", value, param_name.bare_str(), mod_name.bare_str());
+                    throw exception("invalid value '%s' for Boolean parameter '%s' at module '%s'", value, param_name.bare_str(), mod_name.bare_str());
             }
         }
         else if (k == CPK_SYMBOL) {
@@ -149,47 +155,125 @@ public:
         }
         else {
             if (mod_name == symbol::null)
-                throw default_exception("unsupported parameter type '%s'", param_name.bare_str());
+                throw exception("unsupported parameter type '%s'", param_name.bare_str());
             else
-                throw default_exception("unsupported parameter type '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
+                throw exception("unsupported parameter type '%s' at module '%s'", param_name.bare_str(), mod_name.bare_str());
         }
     }
 
     void set(char const * name, char const * value) {
-        symbol m, p;
-        normalize(name, m, p);
-        if (m == symbol::null) {
-            set(m_param_descrs, p, value, m);
-        }
-        else {
-            param_descrs * d;
-            if (m_module_param_descrs.find(m, d)) {
-                set(*d, p, value, m);
+        bool error = false;
+        std::string error_msg;
+        #pragma omp critical (gparams)
+        {
+            try {
+                symbol m, p;
+                normalize(name, m, p);
+                if (m == symbol::null) {
+                    set(m_param_descrs, p, value, m);
+                }
+                else {
+                    param_descrs * d;
+                    if (m_module_param_descrs.find(m, d)) {
+                        set(*d, p, value, m);
+                    }
+                    else {
+                        throw exception("invalid parameter, unknown module '%s'", m.bare_str());
+                    }
+                }
             }
-            else {
-                throw default_exception("invalid parameter, unknown module '%s'", m.bare_str());
+            catch (exception & ex) {
+                // Exception cannot cross critical section boundaries.
+                error = true;
+                error_msg = ex.msg();
             }
         }
+        if (error)
+            throw exception(error_msg);
+    }
+
+    std::string get_value(params_ref const & ps, symbol const & p) {
+        std::ostringstream buffer;
+        ps.display(buffer, p);
+        return buffer.str();
+    }
+
+    std::string get_default(param_descrs const & d, symbol const & p, symbol const & m) {
+        if (!d.contains(p)) {
+            if (m == symbol::null)
+                throw exception("unknown parameter '%s'", p.bare_str());
+            else
+                throw exception("unknown parameter '%s' at module '%s'", p.bare_str(), m.bare_str());
+        }
+        char const * r = d.get_default(p);
+        if (r == 0) 
+            return "default";
+        return r;
     }
 
     std::string get_value(char const * name) {
-        // TODO
-        return "";
+        std::string r;
+        bool error = false;
+        std::string error_msg;
+        #pragma omp critical (gparams)
+        {
+            try {
+                symbol m, p;
+                normalize(name, m, p);
+                if (m == symbol::null) {
+                    if (m_params.contains(p)) {
+                        r = get_value(m_params, p);
+                    }
+                    else {
+                        r = get_default(m_param_descrs, p, m);
+                    }
+                }
+                else {
+                    params_ref * ps = 0;
+                    if (m_module_params.find(m, ps) && ps->contains(p)) {
+                        r = get_value(*ps, p);
+                    }
+                    else {
+                        param_descrs * d;
+                        if (m_module_param_descrs.find(m, d)) {
+                            r = get_default(*d, p, m);
+                        }
+                        else {
+                            throw exception("unknown module '%s'", m.bare_str());
+                        }
+                    }
+                }
+            }
+            catch (exception & ex) {
+                // Exception cannot cross critical section boundaries.
+                error = true;
+                error_msg = ex.msg();
+            }
+        }
+        if (error)
+            throw exception(error_msg);
+        return r;
     }
 
-
-    params_ref const & get_module(symbol const & module_name) {
+    params_ref get_module(symbol const & module_name) {
+        params_ref result;
         params_ref * ps = 0;
-        if (m_module_params.find(module_name, ps)) {
-            return *ps;
+        #pragma omp critical (gparams)
+        {
+            if (m_module_params.find(module_name, ps)) {
+                result = *ps;
+            }
         }
-        else {
-            return m_empty;
-        }
+        return result;
     }
     
-    params_ref const & get() { 
-        return m_params;
+    params_ref get() { 
+        params_ref result;
+        #pragma omp critical (gparams)
+        {
+            result = m_params;
+        }
+        return result;
     }
 
 };
@@ -226,16 +310,16 @@ void gparams::register_module(char const * module_name, param_descrs * d) {
     g_imp->register_module(module_name, d);
 }
 
-params_ref const & gparams::get_module(char const * module_name) {
+params_ref gparams::get_module(char const * module_name) {
     return get_module(symbol(module_name));
 }
 
-params_ref const & gparams::get_module(symbol const & module_name) {
+params_ref gparams::get_module(symbol const & module_name) {
     SASSERT(g_imp != 0);
     return g_imp->get_module(module_name);
 }
 
-params_ref const & gparams::get() {
+params_ref gparams::get() {
     SASSERT(g_imp != 0);
     return g_imp->get();
 }

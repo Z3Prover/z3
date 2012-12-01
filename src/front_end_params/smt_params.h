@@ -169,6 +169,7 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
     //
     // -----------------------------------
     bool             m_model; 
+    bool             m_model_compact;
     bool             m_model_validate;
     bool             m_model_on_timeout;
     bool             m_model_on_final_check;
@@ -187,6 +188,15 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
     // -----------------------------------
     bool             m_display_installed_theories;
 
+    // -----------------------------------
+    //
+    // From front_end_params
+    //
+    // -----------------------------------
+    bool                m_preprocess;  // temporary hack for disabling all preprocessing..
+    bool                m_user_theory_preprocess_axioms;
+    bool                m_user_theory_persist_axioms;
+    
     smt_params():
         m_display_proof(false),
         m_display_dot_proof(false),
@@ -241,11 +251,17 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
         m_display_ll_bool_var2expr(false),
         m_abort_after_preproc(false),
         m_model(true),
+        m_model_compact(false),
         m_model_validate(false),
         m_model_on_timeout(false),
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),
-        m_display_installed_theories(false) {
+        m_display_installed_theories(false),
+        m_preprocess(true), // temporary hack for disabling all preprocessing..
+        m_user_theory_preprocess_axioms(false),
+        m_user_theory_persist_axioms(false)
+    {
+
     }
 
     void register_params(ini_params & p);

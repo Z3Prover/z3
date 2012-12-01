@@ -138,8 +138,7 @@ public:
 
 protected:
     bool                         m_main_ctx;
-    front_end_params *           m_params;
-    bool                         m_params_owner;
+    front_end_params *           m_fparams;
     symbol                       m_logic;
     bool                         m_interactive_mode;
     bool                         m_global_decls;
@@ -251,9 +250,8 @@ protected:
     void print_unsupported_info(symbol const& s) { if (s != symbol::null) diagnostic_stream() << "; " << s << std::endl;}
 
 public:
-    cmd_context(front_end_params * params = 0, bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
+    cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
-    bool is_smtlib2_compliant() const;
     void set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }
@@ -290,7 +288,7 @@ public:
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
-    front_end_params & params() const { return *m_params; }
+    front_end_params & params() const { return *m_fparams; }
  
     void set_solver(solver * s);
     solver * get_solver() const { return m_solver.get(); }
