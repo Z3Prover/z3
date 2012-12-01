@@ -23,7 +23,6 @@ Revision History:
 #include"ast.h"
 #include"preprocessor_params.h"
 #include"smt_params.h"
-#include"pp_params.h"
 #include"parser_params.h"
 #include"arith_simplifier_params.h"
 #include"model_params.h"

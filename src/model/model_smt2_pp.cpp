@@ -128,7 +128,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         format_ref f_card(fm(m));
         f_card = mk_indent(m, indent, mk_seq1<format**, f2f>(m, f_args, f_args+2, f2f(), "forall"));
         pp_indent(out, indent);
-        pp(out, f_card, m, get_pp_default_params());
+        pp(out, f_card, m);
         out << "\n";
         pp_indent(out, indent);
         out << ";; -----------\n";
@@ -284,7 +284,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
                                                                               body.get(),
                                                                               mk_string(m, ")")))));
         pp_indent(out, indent);
-        pp(out, def.get(), m, get_pp_default_params());
+        pp(out, def.get(), m);
         out << "\n";
     }
 }

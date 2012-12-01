@@ -29,7 +29,6 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_converter.h"
 
-
 namespace pdr {
 
     class collect_decls_proc {
@@ -143,11 +142,10 @@ namespace pdr {
             }
         }
         smt2_pp_environment_dbg env(m);
-        pp_params params;
         func_decl_set::iterator it = aux_decls.begin(), end = aux_decls.end();
         for (; it != end; ++it) {
             func_decl* f = *it;
-            ast_smt2_pp(out, f, env, params);
+            ast_smt2_pp(out, f, env);
             out << "\n";
         }
 

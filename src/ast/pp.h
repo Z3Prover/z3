@@ -20,21 +20,9 @@ Revision History:
 #define _PP_H_
 
 #include"format.h"
-#include"pp_params.h"
 #include"params.h"
 
-/*
-  REG_MODULE_PARAMS('pp', 'pp_param_descrs')
-*/
-void pp_param_descrs(param_descrs & d);
-
-void set_pp_default_params(pp_params const & p);
-void register_pp_params(ini_params & p);
-
-pp_params const & get_pp_default_params();
-
-void pp(std::ostream & out, format_ns::format * f, ast_manager & m, pp_params const & p);
-void pp(std::ostream & out, format_ns::format * f, ast_manager & m);
+void pp(std::ostream & out, format_ns::format * f, ast_manager & m, params_ref const & p = params_ref());
 
 #endif /* _PP_H_ */
 

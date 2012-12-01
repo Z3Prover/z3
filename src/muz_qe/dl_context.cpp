@@ -1672,12 +1672,11 @@ namespace datalog {
         bool print_low_level = m_params.get_bool("print_low_level_smt2", false);
         bool do_declare_vars = m_params.get_bool("print_with_variable_declarations", true);
 
-#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
+#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
         get_rules_as_formulas(rules, names);
 
         smt2_pp_environment_dbg env(m);
-        pp_params params;
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
         collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
@@ -1719,7 +1718,7 @@ namespace datalog {
             func_decl* f = *it;
             out << "(declare-rel " << f->get_name() << " (";
             for (unsigned i = 0; i < f->get_arity(); ++i) {                
-                ast_smt2_pp(out, f->get_domain(i), env, params);
+                ast_smt2_pp(out, f->get_domain(i), env);
                 if (i + 1 < f->get_arity()) {
                     out << " ";
                 }
@@ -1796,7 +1795,6 @@ namespace datalog {
         // 
         smt2_pp_environment_dbg env(m);
         var_subst vsubst(m, false);
-        pp_params param;
         
         expr_ref_vector fresh_vars(m), subst(m);
         expr_ref res(m);
@@ -1839,7 +1837,7 @@ namespace datalog {
                     symbol name = fresh_names.next();
                     fresh_vars.push_back(m.mk_const(name, s));
                     out << "(declare-var " << name << " ";
-                    ast_smt2_pp(out, s, env, param);
+                    ast_smt2_pp(out, s, env);
                     out << ")\n"; 
                 }
                 subst.push_back(fresh_vars[vars[max_var]].get());

@@ -105,7 +105,7 @@ void fpa2bv_converter::mk_value(func_decl * f, unsigned num, expr * const * args
 
         mk_triple(bv_sgn, bv_sig, biased_exp, result);
         TRACE("fpa2bv_dbg", tout << "value of [" << sign << " " << m_mpz_manager.to_string(sig) << " " << exp << "] is " 
-                                 << mk_ismt2_pp(result, m) << std::endl;);
+              << mk_ismt2_pp(result, m) << std::endl;);
                         
     }
 }

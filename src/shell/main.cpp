@@ -127,7 +127,6 @@ void init_params() {
         g_extra_params = new extra_params();
         register_verbosity_level(*g_params);
         register_warning(*g_params);
-        register_pp_params(*g_params);
         g_front_end_params->register_params(*g_params);
         g_extra_params->register_params(*g_params);
         g_params_initialized = true;

@@ -1536,8 +1536,7 @@ cmd_context::pp_env & cmd_context::get_pp_env() const {
 }
 
 void cmd_context::pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const {
-    mk_smt2_format(n, get_pp_env(), get_pp_default_params(),
-                   num_vars, var_prefix, r, var_names);
+    mk_smt2_format(n, get_pp_env(), params_ref(), num_vars, var_prefix, r, var_names);
 }
 
 void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
@@ -1546,7 +1545,7 @@ void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
 }
 
 void cmd_context::pp(func_decl * f, format_ns::format_ref & r) const {
-    mk_smt2_format(f, get_pp_env(), get_pp_default_params(), r);
+    mk_smt2_format(f, get_pp_env(), params_ref(), r);
 }
 
 void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {
@@ -1554,7 +1553,7 @@ void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {
     f = pp(s);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const {
@@ -1562,7 +1561,7 @@ void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigne
     pp(n, num_vars, var_prefix, f, var_names);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::display(std::ostream & out, expr * n, unsigned indent) const {
@@ -1575,7 +1574,7 @@ void cmd_context::display(std::ostream & out, func_decl * d, unsigned indent) co
     pp(d, f);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::dump_assertions(std::ostream & out) const {

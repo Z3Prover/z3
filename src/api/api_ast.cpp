@@ -36,6 +36,7 @@ Revision History:
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+#include"pp_params.hpp"
 
 extern "C" {
 
@@ -833,7 +834,8 @@ extern "C" {
             break;
         case Z3_PRINT_SMTLIB_COMPLIANT: {
             ast_smt_pp pp(mk_c(c)->m());
-            pp.set_simplify_implies(get_pp_default_params().m_pp_simplify_implies);
+            pp_params params;
+            pp.set_simplify_implies(params.simplify_implies());
             ast* a1 = to_ast(a);
             pp.set_logic(mk_c(c)->fparams().m_smtlib_logic.c_str());
             if (!is_expr(a1)) {
@@ -886,7 +888,8 @@ extern "C" {
         pp.set_logic(logic);
         pp.set_status(status);
         pp.add_attributes(attributes);
-        pp.set_simplify_implies(get_pp_default_params().m_pp_simplify_implies);
+        pp_params params;
+        pp.set_simplify_implies(params.simplify_implies());
         for (unsigned i = 0; i < num_assumptions; ++i) {
             pp.add_assumption(to_expr(assumptions[i]));
         }
