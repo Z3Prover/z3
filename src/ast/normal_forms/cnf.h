@@ -19,10 +19,28 @@ Revision History:
 #ifndef _CNF_H_
 #define _CNF_H_
 
-#include"cnf_params.h"
 #include"pull_quant.h"
 #include"nnf.h"
 #include"approx_nat.h"
+
+/**
+   \brief CNF translation mode.  The cheapest mode is CNF_QUANT, and
+   the most expensive is CNF_FULL.
+*/
+enum cnf_mode {
+    CNF_DISABLED, /* CNF translator is disabled. 
+                     This mode is sufficient when using E-matching.
+                  */
+    CNF_QUANT, /* A subformula is put into CNF if it is inside of a
+                  quantifier.
+               
+                  This mode is sufficient when using Superposition
+                  Calculus.
+               */
+    CNF_OPPORTUNISTIC, /* a subformula is also put in CNF if it is cheap. */
+    CNF_FULL /* Everything is put into CNF, new names are introduced
+                if it is too expensive. */
+};
 
 /**
    \brief Entry into the todo list of the CNF translator. It is also used as the key in the CNF cache.
@@ -71,7 +89,6 @@ public:
 */
 class cnf {
     typedef std::pair<expr *, bool> expr_bool_pair;
-    cnf_params &            m_params;
     ast_manager &           m_manager;
     defined_names &         m_defined_names;
     pull_quant              m_pull;
@@ -82,6 +99,9 @@ class cnf {
     ptr_vector<expr>        m_result_defs;
     ptr_vector<proof>       m_result_def_proofs;
     proof_ref_vector        m_coarse_proofs;
+
+    cnf_mode                m_cnf_mode;
+    unsigned                m_cnf_factor;
 
     void cache_result(expr * e, bool in_q, expr * r, proof * pr);
     void get_cached(expr * n, bool in_q, expr * & r, proof * & pr) const { m_cache.get(cnf_entry(n, true, in_q), r, pr); }
@@ -105,7 +125,7 @@ class cnf {
 
     void reduce(expr * n, expr_ref & r, proof_ref & pr);
 public:
-    cnf(ast_manager & m, defined_names & n, cnf_params & params);
+    cnf(ast_manager & m, defined_names & n, params_ref const & p = params_ref());
     ~cnf();
     void operator()(expr * n,                          // [IN] expression that should be put into CNF
                     expr_ref_vector & new_defs,        // [OUT] new definitions

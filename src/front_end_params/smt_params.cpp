@@ -31,7 +31,6 @@ void smt_params::register_params(ini_params & p) {
     p.register_bool_param("display_proof", m_display_proof);
     p.register_bool_param("display_dot_proof", m_display_dot_proof);
     p.register_bool_param("display_unsat_core", m_display_unsat_core);
-    p.register_bool_param("internalizer_nnf", m_internalizer_nnf);
     p.register_bool_param("eq_propagation", m_eq_propagation);
     p.register_bool_param("bin_clauses", m_binary_clause_opt);
     p.register_unsigned_param("relevancy", m_relevancy_lvl, "relevancy propagation heuristic: 0 - disabled, 1 - relevancy is tracked by only affects quantifier instantiation, 2 - relevancy is tracked, and an atom is only asserted if it is relevant", true);

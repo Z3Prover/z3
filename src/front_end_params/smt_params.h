@@ -72,7 +72,6 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
     bool             m_display_dot_proof;
     bool             m_display_unsat_core;
     bool             m_check_proof;
-    bool             m_internalizer_nnf;
     bool             m_eq_propagation;
     bool             m_binary_clause_opt;
     unsigned         m_relevancy_lvl;
@@ -193,7 +192,6 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
         m_display_dot_proof(false),
         m_display_unsat_core(false),
         m_check_proof(false), 
-        m_internalizer_nnf(false),
         m_eq_propagation(true),
         m_binary_clause_opt(true),
         m_relevancy_lvl(2),

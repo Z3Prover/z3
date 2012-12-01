@@ -654,10 +654,6 @@ namespace smt {
     protected:
         unsigned m_generation; //!< temporary variable used during internalization
 
-        bool expand_pos_def_only() const {
-            return m_fparams.m_nnf_mode == NNF_FULL && m_fparams.m_internalizer_nnf;
-        }
-
     public:
         bool binary_clause_opt_enabled() const {
             return !m_manager.proofs_enabled() && m_fparams.m_binary_clause_opt;

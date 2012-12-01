@@ -1566,9 +1566,7 @@ namespace smt {
             mk_gate_clause(~l, l_arg);
             buffer.push_back(~l_arg);
         }
-        if (!expand_pos_def_only()) {
-            mk_gate_clause(buffer.size(), buffer.c_ptr());
-        }
+        mk_gate_clause(buffer.size(), buffer.c_ptr());
     }
 
     void context::mk_or_cnstr(app * n) {
@@ -1578,8 +1576,7 @@ namespace smt {
         unsigned num_args = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
             literal l_arg = get_literal(n->get_arg(i));
-            if (!expand_pos_def_only())
-                mk_gate_clause(l, ~l_arg);
+            mk_gate_clause(l, ~l_arg);
             buffer.push_back(l_arg);
         }
         mk_gate_clause(buffer.size(), buffer.c_ptr());

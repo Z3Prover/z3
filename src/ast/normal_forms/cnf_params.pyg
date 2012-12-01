@@ -1,0 +1,4 @@
+def_module_params('cnf', 
+                  export=True,
+                  params=(('mode', UINT, 0, 'CNF translation mode: 0 - disabled, 1 - quantifiers in CNF, 2 - opportunistic, 3 - full'),
+                          ('factor', UINT, 4, 'the maximum number of clauses that can be created when converting a subformula')))

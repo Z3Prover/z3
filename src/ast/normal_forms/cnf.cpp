@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include"cnf.h"
+#include"cnf_params.hpp"
 #include"var_subst.h"
 #include"ast_util.h"
 #include"ast_pp.h"
@@ -159,7 +160,7 @@ inline bool cnf::is_too_expensive(approx_nat approx_result_size, ptr_buffer<expr
     // (OR A (AND B C)) is always considered cheap.
     if (args.size() == 2 && (!m_manager.is_and(args[0]) || !m_manager.is_and(args[1])))
         return false;
-    return !(approx_result_size < m_params.m_cnf_factor);
+    return !(approx_result_size < m_cnf_factor);
 }
 
 /**
@@ -265,13 +266,13 @@ void cnf::reduce1_or(app * n, bool in_q) {
     get_args(n, in_q, new_args, new_arg_prs);
     expr *   r;
     proof * pr = 0;
-    if (in_q || m_params.m_cnf_mode == CNF_OPPORTUNISTIC || m_params.m_cnf_mode == CNF_FULL) {
+    if (in_q || m_cnf_mode == CNF_OPPORTUNISTIC || m_cnf_mode == CNF_FULL) {
         ptr_buffer<expr>  f_args;
         flat_args(n->get_decl(), new_args, f_args);
         TRACE("cnf_or", for (unsigned i = 0; i < f_args.size(); i++) tout << mk_pp(f_args[i], m_manager) << "\n";);
         approx_nat result_size = approx_result_size_for_disj(f_args);
         TRACE("cnf_or", tout << mk_pp(n, m_manager) << "\napprox. result: " << result_size << "\n";);
-        if (m_params.m_cnf_mode != CNF_OPPORTUNISTIC || result_size < m_params.m_cnf_factor) {
+        if (m_cnf_mode != CNF_OPPORTUNISTIC || result_size < m_cnf_factor) {
             expr_ref_buffer  cheap_args(m_manager);
             proof_ref_buffer cheap_args_pr(m_manager);
             if (is_too_expensive(result_size, f_args)) {
@@ -354,7 +355,7 @@ void cnf::reduce1_and(app * n, bool in_q) {
     get_args(n, in_q, new_args, new_arg_prs);
     app * r;
     proof * pr = 0;
-    if (in_q || m_params.m_cnf_mode == CNF_OPPORTUNISTIC || m_params.m_cnf_mode == CNF_FULL) {
+    if (in_q || m_cnf_mode == CNF_OPPORTUNISTIC || m_cnf_mode == CNF_FULL) {
         ptr_buffer<expr> f_args;
         flat_args(n->get_decl(), new_args, f_args);
         r    = m_manager.mk_and(f_args.size(), f_args.c_ptr());
@@ -379,7 +380,7 @@ void cnf::reduce1_label(app * n, bool in_q) {
     expr * new_arg;
     proof * new_arg_pr;
     get_cached(n->get_arg(0), true, new_arg, new_arg_pr);
-    if (in_q || m_params.m_cnf_mode == CNF_FULL) {
+    if (in_q || m_cnf_mode == CNF_FULL) {
         // TODO: in the current implementation, labels are removed during CNF translation.
         // This is satisfactory for Boogie, since it does not use labels inside quantifiers,
         // and we only need CNF_QUANT for Superposition Calculus.
@@ -439,8 +440,7 @@ void cnf::reduce1_quantifier(quantifier * q, bool in_q) {
     TRACE("cnf_quant", tout << mk_pp(q, m_manager) << "\n" << mk_pp(r, m_manager) << "\n";);
 }
 
-cnf::cnf(ast_manager & m, defined_names & n, cnf_params & params):
-    m_params(params),
+cnf::cnf(ast_manager & m, defined_names & n, params_ref const & params):
     m_manager(m),
     m_defined_names(n),
     m_pull(m),
@@ -448,6 +448,9 @@ cnf::cnf(ast_manager & m, defined_names & n, cnf_params & params):
     m_todo_defs(m),
     m_todo_proofs(m),
     m_coarse_proofs(m) {
+    cnf_params p(params);
+    m_cnf_mode   = static_cast<cnf_mode>(p.mode());
+    m_cnf_factor = p.factor();
 }
 
 cnf::~cnf() {
@@ -488,7 +491,7 @@ void cnf::reduce(expr * n, expr_ref & r, proof_ref & pr) {
 }
 
 void cnf::operator()(expr * n, expr_ref_vector & new_defs, proof_ref_vector & new_def_proofs, expr_ref & r, proof_ref & pr) {
-    if (m_params.m_cnf_mode == CNF_DISABLED) {
+    if (m_cnf_mode == CNF_DISABLED) {
         r  = n;
         pr = m_manager.mk_reflexivity(n); 
         return;

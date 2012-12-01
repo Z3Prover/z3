@@ -18,6 +18,7 @@ def init_project_def():
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
     add_lib('rewriter', ['ast', 'polynomial'], 'ast/rewriter')
+    add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
     add_lib('substitution', ['ast'], 'ast/substitution')
@@ -30,7 +31,6 @@ def init_project_def():
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
     add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
-    add_lib('normal_forms', ['rewriter', 'front_end_params'], 'ast/normal_forms')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')

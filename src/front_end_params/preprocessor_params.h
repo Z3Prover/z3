@@ -19,8 +19,6 @@ Revision History:
 #ifndef _PREPROCESSOR_PARAMS_H_
 #define _PREPROCESSOR_PARAMS_H_
 
-#include"nnf_params.h"
-#include"cnf_params.h"
 #include"pattern_inference_params.h"
 #include"bit_blaster_params.h"
 #include"bv_simplifier_params.h"
@@ -31,7 +29,7 @@ enum lift_ite_kind {
     LI_FULL
 };
 
-struct preprocessor_params : public nnf_params, public cnf_params, public pattern_inference_params, 
+struct preprocessor_params : public pattern_inference_params, 
                              public bit_blaster_params, public bv_simplifier_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
@@ -79,8 +77,6 @@ public:
     }
 
     void register_params(ini_params & p) {
-        nnf_params::register_params(p);
-        cnf_params::register_params(p);
         pattern_inference_params::register_params(p);
         bit_blaster_params::register_params(p);
         bv_simplifier_params::register_params(p);

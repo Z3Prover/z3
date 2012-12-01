@@ -25,12 +25,12 @@ Revision History:
 #include"bv_simplifier_plugin.h"
 #include"for_each_expr.h"
 #include"well_sorted.h"
+#include"pull_quant.h"
 #include"pull_ite_tree.h"
 #include"push_app_ite.h"
 #include"elim_term_ite.h"
 #include"pattern_inference.h"
 #include"nnf.h"
-#include"cnf.h"
 #include"bv_elim.h"
 #include"inj_axiom.h"
 #include"der.h"
@@ -86,22 +86,6 @@ void asserted_formulas::setup() {
  
     if (m_params.m_relevancy_lvl == 0)
         m_params.m_relevancy_lemma = false;
-   
-    switch (m_params.m_cnf_mode) {
-    case CNF_QUANT: 
-        if (m_params.m_nnf_mode == NNF_SKOLEM)
-            m_params.m_nnf_mode = NNF_QUANT;
-        break;
-    case CNF_OPPORTUNISTIC:
-        if (m_params.m_nnf_mode == NNF_SKOLEM)
-            m_params.m_nnf_mode = NNF_QUANT;
-        break;
-    case CNF_FULL:
-        m_params.m_nnf_mode = NNF_FULL;
-        break;
-    default:
-        break;
-    }
 }
 
 void asserted_formulas::setup_simplifier_plugins(simplifier & s, basic_simplifier_plugin * & bsimp, arith_simplifier_plugin * & asimp, bv_simplifier_plugin * & bvsimp) {
@@ -439,13 +423,10 @@ void asserted_formulas::apply_quasi_macros() {
 }
 
 void asserted_formulas::nnf_cnf() {
-    IF_IVERBOSE(10, verbose_stream() << "applying nnf&cnf...\n";);
-    nnf              apply_nnf(m_manager, m_defined_names, m_params);
-    cnf              apply_cnf(m_manager, m_defined_names, m_params);
+    IF_IVERBOSE(10, verbose_stream() << "applying nnf...\n";);
+    nnf              apply_nnf(m_manager, m_defined_names);
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);
-    expr_ref_vector  cnf_todo(m_manager);
-    proof_ref_vector cnf_todo_prs(m_manager);
     expr_ref_vector  push_todo(m_manager);
     proof_ref_vector push_todo_prs(m_manager);
     
@@ -456,60 +437,33 @@ void asserted_formulas::nnf_cnf() {
         expr * n    = m_asserted_formulas.get(i);
         TRACE("nnf_bug", tout << "processing:\n" << mk_pp(n, m_manager) << "\n";);
         proof * pr  = m_asserted_formula_prs.get(i, 0);
-        cnf_todo.reset();
-        cnf_todo_prs.reset();
         expr_ref   r1(m_manager);
         proof_ref  pr1(m_manager);
         CASSERT("well_sorted",is_well_sorted(m_manager, n));
-        apply_nnf(n, cnf_todo, cnf_todo_prs, r1, pr1);
+        apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
         CASSERT("well_sorted",is_well_sorted(m_manager, r1));
         pr = m_manager.mk_modus_ponens(pr, pr1);
-        cnf_todo.push_back(r1);
-        cnf_todo_prs.push_back(pr);
+        push_todo.push_back(r1);
+        push_todo_prs.push_back(pr);
 
         if (canceled()) {
             return;
         }
-        
-        unsigned sz1 = cnf_todo.size();
-        for (unsigned j = 0; j < sz1; j++) {
-            push_todo.reset();
-            push_todo_prs.reset();
-
+        unsigned sz2 = push_todo.size();
+        for (unsigned k = 0; k < sz2; k++) {
+            expr * n   = push_todo.get(k);
+            proof * pr = 0;
+            m_simplifier(n, r1, pr1);
+            CASSERT("well_sorted",is_well_sorted(m_manager, r1));
             if (canceled()) {
                 return;
             }        
-        
-            expr * n   = cnf_todo.get(j);
-            proof * pr = m_manager.proofs_enabled() ? cnf_todo_prs.get(j) : 0;
-        
-            CASSERT("well_sorted",is_well_sorted(m_manager, n));
-            apply_cnf(n, push_todo, push_todo_prs, r1, pr1);
-            CASSERT("well_sorted",is_well_sorted(m_manager, r1));
-
-            push_todo.push_back(r1);
-
-            if (m_manager.proofs_enabled()) {
-                pr = m_manager.mk_modus_ponens(pr, pr1);
-                push_todo_prs.push_back(pr);
-            }
-        
-            unsigned sz2 = push_todo.size();
-            for (unsigned k = 0; k < sz2; k++) {
-                expr * n   = push_todo.get(k);
-                proof * pr = 0;
-                m_simplifier(n, r1, pr1);
-                CASSERT("well_sorted",is_well_sorted(m_manager, r1));
-                if (canceled()) {
-                    return;
-                }        
-                
-                if (m_manager.proofs_enabled())
-                    pr = m_manager.mk_modus_ponens(push_todo_prs.get(k), pr1);
-                else
-                    pr = 0;
-                push_assertion(r1, pr, new_exprs, new_prs);
-            }
+            
+            if (m_manager.proofs_enabled())
+                pr = m_manager.mk_modus_ponens(push_todo_prs.get(k), pr1);
+            else
+                pr = 0;
+            push_assertion(r1, pr, new_exprs, new_prs);
         }
     }
     swap_asserted_formulas(new_exprs, new_prs);
