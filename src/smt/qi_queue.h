@@ -53,7 +53,6 @@ namespace smt {
         cached_var_subst              m_subst;
         svector<float>                m_vals;
         double                        m_eager_cost_threshold;
-        std::ostream *                m_trace_stream;
         struct entry {
             fingerprint * m_qb;
             float         m_cost;
@@ -81,7 +80,7 @@ namespace smt {
         void display_instance_profile(fingerprint * f, quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned proof_id, unsigned generation);
 
     public:
-        qi_queue(quantifier_manager & qm, context & ctx, qi_params & params, std::ostream *trace);
+        qi_queue(quantifier_manager & qm, context & ctx, qi_params & params);
         ~qi_queue();
         void setup();
         /**

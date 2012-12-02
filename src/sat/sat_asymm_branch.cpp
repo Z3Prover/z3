@@ -194,17 +194,17 @@ namespace sat {
     }
     
     void asymm_branch::updt_params(params_ref const & p) {
-        m_asymm_branch        = p.get_bool(":asymm-branch", true);
-        m_asymm_branch_rounds = p.get_uint(":asymm-branch-rounds", 32);
-        m_asymm_branch_limit  = p.get_uint(":asymm-branch-limit", 100000000);
+        m_asymm_branch        = p.get_bool("asymm_branch", true);
+        m_asymm_branch_rounds = p.get_uint("asymm_branch_rounds", 32);
+        m_asymm_branch_limit  = p.get_uint("asymm_branch_limit", 100000000);
         if (m_asymm_branch_limit > INT_MAX)
             m_asymm_branch_limit = INT_MAX;
     }
 
     void asymm_branch::collect_param_descrs(param_descrs & d) {
-        d.insert(":asymm-branch", CPK_BOOL, "(default: true) asymmetric branching.");
-        d.insert(":asymm-branch-rounds", CPK_UINT, "(default: 32) maximum number of rounds of asymmetric branching.");
-        d.insert(":asymm-branch-limit", CPK_UINT, "approx. maximum number of literals visited during asymmetric branching.");
+        d.insert("asymm_branch", CPK_BOOL, "(default: true) asymmetric branching.");
+        d.insert("asymm_branch_rounds", CPK_UINT, "(default: 32) maximum number of rounds of asymmetric branching.");
+        d.insert("asymm_branch_limit", CPK_UINT, "approx. maximum number of literals visited during asymmetric branching.");
     }
     
     void asymm_branch::collect_statistics(statistics & st) {

@@ -474,7 +474,7 @@ void context_t<C>::del(interval & a) {
 
 template<typename C>
 void context_t<C>::updt_params(params_ref const & p) {
-    unsigned epsilon = p.get_uint(":epsilon", 20);
+    unsigned epsilon = p.get_uint("epsilon", 20);
     if (epsilon != 0) {
         nm().set(m_epsilon, static_cast<int>(epsilon));
         nm().inv(m_epsilon);
@@ -485,18 +485,18 @@ void context_t<C>::updt_params(params_ref const & p) {
         m_zero_epsilon = true;
     }
 
-    unsigned max_power = p.get_uint(":max-bound", 10);
+    unsigned max_power = p.get_uint("max_bound", 10);
     nm().set(m_max_bound, 10);
     nm().power(m_max_bound, max_power, m_max_bound);
     nm().set(m_minus_max_bound, m_max_bound);
     nm().neg(m_minus_max_bound);
 
-    m_max_depth = p.get_uint(":max-depth", 128);
-    m_max_nodes = p.get_uint(":max-nodes", 8192);
+    m_max_depth = p.get_uint("max_depth", 128);
+    m_max_nodes = p.get_uint("max_nodes", 8192);
 
-    m_max_memory = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+    m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
 
-    unsigned prec = p.get_uint(":nth-root-precision", 8192);
+    unsigned prec = p.get_uint("nth_root_precision", 8192);
     if (prec == 0) 
         prec = 1;
     nm().set(m_nth_root_prec, static_cast<int>(prec));
@@ -505,20 +505,20 @@ void context_t<C>::updt_params(params_ref const & p) {
 
 template<typename C>
 void context_t<C>::collect_param_descrs(param_descrs & d) {
-    d.insert(":max-nodes", CPK_UINT, "(default: 8192) maximum number of nodes in the subpaving tree.");
-    d.insert(":max-depth", CPK_UINT, "(default: 128) maximum depth of the subpaving tree.");
-    d.insert(":epsilon", CPK_UINT, "(default: 20) value k s.t. a new lower (upper) bound for x is propagated only new-lower(x) > lower(k) + 1/k * max(min(upper(x) - lower(x), |lower|), 1) (new-upper(x) < upper(x) - 1/k * max(min(upper(x) - lower(x), |lower|), 1)). If k = 0, then this restriction is ignored.");
-    d.insert(":max-bound", CPK_UINT, "(default 10) value k s.t. a new upper (lower) bound for x is propagated only if upper(x) > -10^k or lower(x) = -oo (lower(x) < 10^k or upper(x) = oo)");
-    d.insert(":nth-root-precision", CPK_UINT, "(default 8192) value k s.t. 1/k is the precision for computing the nth root in the subpaving module.");
+    d.insert("max_nodes", CPK_UINT, "(default: 8192) maximum number of nodes in the subpaving tree.");
+    d.insert("max_depth", CPK_UINT, "(default: 128) maximum depth of the subpaving tree.");
+    d.insert("epsilon", CPK_UINT, "(default: 20) value k s.t. a new lower (upper) bound for x is propagated only new-lower(x) > lower(k) + 1/k * max(min(upper(x) - lower(x), |lower|), 1) (new-upper(x) < upper(x) - 1/k * max(min(upper(x) - lower(x), |lower|), 1)). If k = 0, then this restriction is ignored.");
+    d.insert("max_bound", CPK_UINT, "(default 10) value k s.t. a new upper (lower) bound for x is propagated only if upper(x) > -10^k or lower(x) = -oo (lower(x) < 10^k or upper(x) = oo)");
+    d.insert("nth_root_precision", CPK_UINT, "(default 8192) value k s.t. 1/k is the precision for computing the nth root in the subpaving module.");
 }
 
 template<typename C>
 void context_t<C>::display_params(std::ostream & out) const { 
-    out << ":max-nodes  " << m_max_nodes << "\n";
-    out << ":max-depth  " << m_max_depth << "\n";
-    out << ":epsilon    " << nm().to_rational_string(m_epsilon) << "\n";
-    out << ":max-bound  " << nm().to_rational_string(m_max_bound) << "\n";
-    out << ":max-memory " << m_max_memory << "\n";
+    out << "max_nodes  " << m_max_nodes << "\n";
+    out << "max_depth  " << m_max_depth << "\n";
+    out << "epsilon    " << nm().to_rational_string(m_epsilon) << "\n";
+    out << "max_bound  " << nm().to_rational_string(m_max_bound) << "\n";
+    out << "max_memory " << m_max_memory << "\n";
 }
 
 template<typename C>

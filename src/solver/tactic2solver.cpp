@@ -20,7 +20,6 @@ Notes:
 
 --*/
 #include"tactic2solver.h"
-#include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 
 tactic2solver_core::ctx::ctx(ast_manager & m, symbol const & logic):
@@ -94,8 +93,6 @@ lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const 
     SASSERT(m_ctx);
     ast_manager & m = m_ctx->m();
     params_ref p = m_params;
-    if (m_fparams)
-        front_end_params2params(*m_fparams, p);
     #pragma omp critical (tactic2solver_core)
     {
         m_ctx->m_tactic = get_tactic(m, p);
@@ -107,8 +104,6 @@ lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const 
         return l_undef;
     tactic & t                       = *(m_ctx->m_tactic);
     simple_check_sat_result & result = *(m_ctx->m_result);
-    if (m_fparams)
-        t.set_front_end_params(*m_fparams);
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
     t.set_logic(m_ctx->m_logic);
     unsigned sz = m_ctx->m_assertions.size();

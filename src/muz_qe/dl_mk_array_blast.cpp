@@ -30,7 +30,7 @@ namespace datalog {
         a(m),
         rm(ctx.get_rule_manager()),
         m_rewriter(m, m_params){
-        m_params.set_bool(":expand-select-store",true);
+        m_params.set_bool("expand_select_store",true);
         m_rewriter.updt_params(m_params);
     }
 

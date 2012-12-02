@@ -1363,16 +1363,16 @@ class sls_tactic : public tactic {
 
         static void collect_param_descrs(param_descrs & r) {
             insert_produce_models(r);
-            r.insert(":sls-restarts", CPK_UINT, "(default: infty) # of SLS restarts.");
-            r.insert(":random-seed", CPK_UINT, "(default: 0) random seed.");
-            r.insert(":plateau-limit", CPK_UINT, "(default: 100) SLS plateau limit.");
+            r.insert("sls_restarts", CPK_UINT, "(default: infty) # of SLS restarts.");
+            r.insert("random_seed", CPK_UINT, "(default: 0) random seed.");
+            r.insert("plateau_limit", CPK_UINT, "(default: 100) SLS plateau limit.");
         }
 
         void updt_params(params_ref const & p) {        
-            m_produce_models = p.get_bool(":produce-models", false);        
-            m_max_restarts = p.get_uint(":sls-restarts", -1);
-            m_tracker.set_random_seed(p.get_uint(":random-seed", 0));
-            m_plateau_limit = p.get_uint(":plateau-limit", 100);
+            m_produce_models = p.get_bool("produce_models", false);        
+            m_max_restarts = p.get_uint("sls_restarts", -1);
+            m_tracker.set_random_seed(p.get_uint("random_seed", 0));
+            m_plateau_limit = p.get_uint("plateau_limit", 100);
         }
 
         void checkpoint() { 
@@ -1854,28 +1854,28 @@ tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    // main_p.set_bool(":pull-cheap-ite", true);
-    main_p.set_bool(":push-ite-bv", true);
-    main_p.set_bool(":blast-distinct", true);
-    // main_p.set_bool(":udiv2mul", true);
-    main_p.set_bool(":hi-div0", true);
+    main_p.set_bool("elim_and", true);
+    // main_p.set_bool("pull-cheap_ite", true);
+    main_p.set_bool("push_ite_bv", true);
+    main_p.set_bool("blast_distinct", true);
+    // main_p.set_bool("udiv2mul", true);
+    main_p.set_bool("hi_div0", true);
 
     params_ref simp2_p = p;
-    simp2_p.set_bool(":som", true);
-    simp2_p.set_bool(":pull-cheap-ite", true);
-    simp2_p.set_bool(":push-ite-bv", false);
-    simp2_p.set_bool(":local-ctx", true);
-    simp2_p.set_uint(":local-ctx-limit", 10000000);
+    simp2_p.set_bool("som", true);
+    simp2_p.set_bool("pull_cheap_ite", true);
+    simp2_p.set_bool("push_ite_bv", false);
+    simp2_p.set_bool("local_ctx", true);
+    simp2_p.set_uint("local_ctx_limit", 10000000);
 
     params_ref hoist_p;
-    hoist_p.set_bool(":hoist-mul", true);
-    // hoist_p.set_bool(":hoist-cmul", true);
-    hoist_p.set_bool(":som", false);
+    hoist_p.set_bool("hoist_mul", true);
+    // hoist_p.set_bool("hoist_cmul", true);
+    hoist_p.set_bool("som", false);
 
     params_ref gaussian_p;
     // conservative gaussian elimination. 
-    gaussian_p.set_uint(":gaussian-max-occs", 2); 
+    gaussian_p.set_uint("gaussian_max_occs", 2); 
 
     return and_then(and_then(mk_simplify_tactic(m),                             
                              mk_propagate_values_tactic(m),
@@ -1890,8 +1890,8 @@ tactic * mk_preamble(ast_manager & m, params_ref const & p) {
 
 tactic * mk_qfbv_sls_tactic(ast_manager & m, params_ref const & p) {
     params_ref sls_p(p);
-    sls_p.set_uint(":sls-restarts", 10000);
-    sls_p.set_uint(":plateau-limit", 100);
+    sls_p.set_uint("sls_restarts", 10000);
+    sls_p.set_uint("plateau_limit", 100);
 
     tactic * t = and_then(mk_preamble(m, p),
                           using_params(mk_sls_tactic(m, p), sls_p));

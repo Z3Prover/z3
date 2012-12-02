@@ -24,7 +24,7 @@ Revision History:
 #include"array_decl_plugin.h"
 #include"simplifier_plugin.h"
 #include"basic_simplifier_plugin.h"
-#include"theory_array_params.h"
+#include"array_simplifier_params.h"
 #include"simplifier.h"
 #include"obj_hashtable.h"
 #include"lbool.h"
@@ -71,7 +71,7 @@ class array_simplifier_plugin : public simplifier_plugin {
     array_util         m_util;
     basic_simplifier_plugin& m_simp;
     simplifier&              m_simplifier;
-    theory_array_params const&     m_params;
+    array_simplifier_params const&     m_params;
     select_cache       m_select_cache;
     ptr_vector<expr>   m_tmp;
     ptr_vector<expr>   m_tmp2;
@@ -100,7 +100,7 @@ class array_simplifier_plugin : public simplifier_plugin {
 
 
 public:
-    array_simplifier_plugin(ast_manager & m, basic_simplifier_plugin& s, simplifier& simp, theory_array_params const& p);
+    array_simplifier_plugin(ast_manager & m, basic_simplifier_plugin& s, simplifier& simp, array_simplifier_params const& p);
     virtual ~array_simplifier_plugin();
 
     virtual bool reduce(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);

@@ -18,7 +18,6 @@ Revision History:
 --*/
 
 #include"util.h"
-#include"ini_file.h"
 
 unsigned g_verbosity_level = 0;
 
@@ -28,10 +27,6 @@ void set_verbosity_level(unsigned lvl) {
 
 unsigned get_verbosity_level() {
     return g_verbosity_level;
-}
-
-void register_verbosity_level(ini_params & p) {
-    p.register_unsigned_param("VERBOSE", g_verbosity_level, "be verbose, where the value is the verbosity level", true);
 }
 
 static std::ostream* g_verbose_stream = &std::cerr;

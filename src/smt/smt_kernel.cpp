@@ -19,7 +19,7 @@ Revision History:
 #include"smt_kernel.h"
 #include"smt_context.h" 
 #include"ast_smt2_pp.h"
-#include"params2front_end_params.h"
+#include"params2smt_params.h"
 
 namespace smt {
 
@@ -27,12 +27,12 @@ namespace smt {
         smt::context m_kernel;
         params_ref   m_params;
         
-        imp(ast_manager & m, front_end_params & fp, params_ref const & p):
+        imp(ast_manager & m, smt_params & fp, params_ref const & p):
             m_kernel(m, fp, p),
             m_params(p) {
         }
 
-        front_end_params & fparams() {
+        smt_params & fparams() {
             return m_kernel.get_fparams();
         }
 
@@ -179,11 +179,13 @@ namespace smt {
         }
 
         void updt_params(params_ref const & p) {
-            params2front_end_params(p, fparams());
+            // We don't need params2smt_params anymore. smt_params has support for reading params_ref.
+            // The update is performed at smt_kernel "users".
+            // params2smt_params(p, fparams());
         }
     };
 
-    kernel::kernel(ast_manager & m, front_end_params & fp, params_ref const & p) {
+    kernel::kernel(ast_manager & m, smt_params & fp, params_ref const & p) {
         m_imp = alloc(imp, m, fp, p);
     }
 
@@ -237,7 +239,7 @@ namespace smt {
 
     void kernel::reset() {
         ast_manager & _m       = m();
-        front_end_params & fps = m_imp->fparams();
+        smt_params & fps = m_imp->fparams();
         params_ref ps          = m_imp->params();
         #pragma omp critical (smt_kernel)
         {
@@ -343,7 +345,7 @@ namespace smt {
     }
 
     void kernel::collect_param_descrs(param_descrs & d) {
-        solver_front_end_params_descrs(d);
+        solver_smt_params_descrs(d);
     }
 
     context & kernel::get_context() {

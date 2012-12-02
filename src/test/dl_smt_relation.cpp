@@ -14,7 +14,7 @@ namespace datalog {
         arith_util a(m);
         sort* int_sort = a.mk_int();
         sort* real_sort = a.mk_real();
-        front_end_params params;
+        smt_params params;
         context ctx(m, params);    
         relation_manager & rm = ctx.get_rmanager();
         relation_signature sig1;

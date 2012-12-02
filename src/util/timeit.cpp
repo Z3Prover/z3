@@ -38,9 +38,9 @@ struct timeit::imp {
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        m_out << m_msg << ", time: " << std::fixed << std::setprecision(2) << m_watch.get_seconds() 
-              << " secs, memory: (before " << std::fixed << std::setprecision(2) << m_start_memory 
-              << ", after " << std::fixed << std::setprecision(2) << end_memory << ")" 
+        m_out << "(" << m_msg << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() 
+              << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory 
+              << " :after-memory " << std::fixed << std::setprecision(2) << end_memory << ")" 
               << std::endl;
     }
 };

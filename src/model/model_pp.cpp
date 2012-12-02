@@ -85,8 +85,7 @@ static void display_functions(std::ostream & out, model_core const & md) {
         if (fi->is_partial())
             out << "  #unspecified";
         else {
-            pp_params const & params = get_pp_default_params();
-            out << "  " << mk_ismt2_pp(fi->get_else(), m, params, 5, arity, "x");
+            out << "  " << mk_ismt2_pp(fi->get_else(), m, params_ref(), 5, arity, "x");
         }
         for (unsigned j = 0; j < num_entries; j++)
             out << ")";

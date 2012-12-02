@@ -157,8 +157,6 @@ struct delete_proc {
 
 void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
-class ini_params;
-void register_verbosity_level(ini_params & p);
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
 

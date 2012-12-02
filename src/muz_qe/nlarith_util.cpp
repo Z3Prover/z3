@@ -72,7 +72,7 @@ namespace nlarith {
         bool       m_enable_linear;
         app_ref m_zero;
         app_ref m_one;
-        front_end_params m_params;
+        smt_params m_params;
         basic_simplifier_plugin m_bs;
         arith_simplifier_plugin m_rw;
         arith_rewriter m_rw1;

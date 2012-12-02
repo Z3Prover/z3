@@ -30,7 +30,7 @@ Notes:
 #include "bool_rewriter.h"
 #include "dl_util.h"
 #include "for_each_expr.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "model.h"
 #include "model_v2_pp.h"
 #include "ref_vector.h"

@@ -129,7 +129,7 @@ namespace datalog {
         }
         IF_VERBOSE(10, verbose_stream() << "Checking emptiness...\n"; );
 
-        front_end_params& params = get_plugin().get_fparams();
+        smt_params& params = get_plugin().get_fparams();
         // [Leo]: asserted_formulas do not have support for der.
         //        We should use the tactics der.
         // flet<bool> flet2(params.m_der, true);
@@ -182,7 +182,7 @@ namespace datalog {
         expr_ref fml_free(m), fml_inst(m);
         fml_free = m.mk_and(facts, m.mk_not(get_relation()));
         instantiate(fml_free, fml_inst);
-        front_end_params& params = get_plugin().get_fparams();
+        smt_params& params = get_plugin().get_fparams();
         // [Leo]: asserted_formulas do not have support for qe nor der.
         //        We should use the tactics qe and der.
         //        BTW, qe at asserted_formulas was disabled when we moved to codeplex, but the field m_quant_elim was not deleted.
@@ -239,7 +239,7 @@ namespace datalog {
 
     void smt_relation::display_finite(std::ostream & out) const {
         ast_manager& m = get_manager();
-        front_end_params& params = get_plugin().get_fparams();
+        smt_params& params = get_plugin().get_fparams();
         expr* r = get_relation();
         expr_ref tmp(m);
         expr_ref_vector values(m), eqs(m);
@@ -524,7 +524,7 @@ namespace datalog {
 
                 expr_ref rInst(m), srcInst(m), tmp(m), tmp1(m);
                 expr_ref notR(m), srcGround(m);
-                front_end_params& fparams = get(r).get_plugin().get_fparams();
+                smt_params& fparams = get(r).get_plugin().get_fparams();
                 params_ref const& params = get(r).get_plugin().get_params();
                 
                 get(r).instantiate(get(r).get_relation(), rInst);
@@ -533,7 +533,7 @@ namespace datalog {
 
                 IF_VERBOSE(10, verbose_stream() << "Computing delta...\n"; );
                      
-                if (params.get_bool(":smt-relation-ground-recursive", false)) { 
+                if (params.get_bool("smt_relation_ground_recursive", false)) { 
                     // ensure R is ground. Simplify S using assumption not R
                     if (!is_ground(rInst)) {
                         proof_ref pr(m);
@@ -730,8 +730,8 @@ namespace datalog {
         return symbol(m_counter++);
     }
 
-    front_end_params& smt_relation_plugin::get_fparams() { 
-        return const_cast<front_end_params&>(get_manager().get_context().get_fparams()); 
+    smt_params& smt_relation_plugin::get_fparams() { 
+        return const_cast<smt_params&>(get_manager().get_context().get_fparams()); 
     }
 
     params_ref const& smt_relation_plugin::get_params() { 

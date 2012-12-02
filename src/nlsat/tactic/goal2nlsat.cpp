@@ -77,8 +77,8 @@ struct goal2nlsat::imp {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory   = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_factor       = p.get_bool(":factor", true);  
+        m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_factor       = p.get_bool("factor", true);  
         m_fparams.updt_params(p);
     }
 
@@ -293,7 +293,7 @@ goal2nlsat::~goal2nlsat() {
     
 void goal2nlsat::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
-    r.insert(":factor", CPK_BOOL, "(default: true) factor polynomials.");
+    r.insert("factor", CPK_BOOL, "(default: true) factor polynomials.");
     polynomial::factor_params::get_param_descrs(r);
 }
     

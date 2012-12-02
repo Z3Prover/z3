@@ -37,7 +37,6 @@ Revision History:
 #include"var_subst.h"
 #include"well_sorted.h"
 #include"str_hashtable.h"
-#include"front_end_params.h"
 #include"stopwatch.h"
 
 class id_param_info {

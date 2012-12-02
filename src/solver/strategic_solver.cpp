@@ -18,8 +18,6 @@ Notes:
 --*/
 #include"strategic_solver.h"
 #include"scoped_timer.h"
-#include"front_end_params.h"
-#include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 
 // minimum verbosity level for portfolio verbose messages
@@ -33,7 +31,6 @@ strategic_solver::ctx::ctx(ast_manager & m):
 
 strategic_solver::strategic_solver():
     m_manager(0),
-    m_fparams(0),
     m_force_tactic(false),
     m_inc_mode(false),
     m_check_sat_executed(false),
@@ -50,6 +47,7 @@ strategic_solver::strategic_solver():
     m_produce_proofs = false;
     m_produce_models = false;
     m_produce_unsat_cores = false;
+    m_auto_config = true;
 }
 
 strategic_solver::~strategic_solver() {
@@ -99,10 +97,9 @@ void strategic_solver::set_inc_solver(solver * s) {
 void strategic_solver::updt_params(params_ref const & p) {
     if (m_inc_solver)
         m_inc_solver->updt_params(p);
-    if (m_fparams)
-        params2front_end_params(p, *m_fparams);
+    m_params = p;
+    m_auto_config = p.get_bool("auto_config", true);
 }
-
 
 void strategic_solver::collect_param_descrs(param_descrs & r) {
     if (m_inc_solver)
@@ -191,7 +188,6 @@ void strategic_solver::init_inc_solver() {
     m_inc_solver->set_produce_proofs(m_produce_proofs);
     m_inc_solver->set_produce_models(m_produce_models);
     m_inc_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-    m_inc_solver->set_front_end_params(*m_fparams);
     m_inc_solver->init(m(), m_logic);
     unsigned sz = get_num_assertions();
     if (m_produce_unsat_cores) {
@@ -324,12 +320,9 @@ struct aux_timeout_eh : public event_handler {
 struct strategic_solver::mk_tactic {
     strategic_solver *  m_solver;
 
-    mk_tactic(strategic_solver * s, tactic_factory * f):m_solver(s) {
+    mk_tactic(strategic_solver * s, tactic_factory * f, params_ref const & p):m_solver(s) {
         ast_manager & m = s->m();
-        params_ref p;
-        front_end_params2params(*s->m_fparams, p);
         tactic * tct = (*f)(m, p);
-        tct->set_front_end_params(*s->m_fparams);
         tct->set_logic(s->m_logic);
         if (s->m_callback)
             tct->set_progress_callback(s->m_callback);
@@ -376,7 +369,7 @@ lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assum
     reset_results();
     m_check_sat_executed = true;
     if (num_assumptions > 0 || // assumptions were provided
-        (!m_fparams->m_auto_config && !m_force_tactic) // auto config and force_tactic are turned off
+        (!m_auto_config && !m_force_tactic) // auto config and force_tactic are turned off
         ) {
         // must use incremental solver
         return check_sat_with_assumptions(num_assumptions, assumptions);
@@ -440,7 +433,7 @@ lbool strategic_solver::check_sat(unsigned num_assumptions, expr * const * assum
 
     TRACE("strategic_solver", tout << "using goal...\n"; g->display_with_dependencies(tout););
     
-    mk_tactic tct_maker(this, factory);
+    mk_tactic tct_maker(this, factory, m_params);
     SASSERT(m_curr_tactic);
 
     proof_ref pr(m());

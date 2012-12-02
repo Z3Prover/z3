@@ -19,27 +19,24 @@ Notes:
 #include"solver_na2as.h"
 #include"smt_kernel.h"
 #include"reg_decl_plugins.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 
 namespace smt {
 
     class solver : public solver_na2as {
-        front_end_params *  m_params;
+        smt_params          m_params;
         smt::kernel *       m_context;
         progress_callback * m_callback;
     public:
-        solver():m_params(0), m_context(0), m_callback(0) {}
+        solver():m_context(0), m_callback(0) {}
 
         virtual ~solver() {
             if (m_context != 0)
                 dealloc(m_context);
         }
 
-        virtual void set_front_end_params(front_end_params & p) {
-            m_params = &p;
-        }
-
         virtual void updt_params(params_ref const & p) {
+            m_params.updt_params(p);
             if (m_context == 0)
                 return;
             m_context->updt_params(p);
@@ -49,8 +46,7 @@ namespace smt {
             if (m_context == 0) {
                 ast_manager m;
                 reg_decl_plugins(m);
-                front_end_params p;
-                smt::kernel s(m, p);
+                smt::kernel s(m, m_params);
                 s.collect_param_descrs(r);
             }
             else {
@@ -59,11 +55,10 @@ namespace smt {
         }
 
         virtual void init_core(ast_manager & m, symbol const & logic) {
-            SASSERT(m_params);
             reset();
 #pragma omp critical (solver)
             {
-                m_context = alloc(smt::kernel, m, *m_params);
+                m_context = alloc(smt::kernel, m, m_params);
                 if (m_callback)
                     m_context->set_progress_callback(m_callback);
             }

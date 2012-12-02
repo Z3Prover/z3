@@ -1824,7 +1824,6 @@ namespace smt {
         backtrack_stack     m_backtrack_stack;
         unsigned            m_top;
         const instruction * m_pc;
-        std::ostream*       m_trace_stream;
 
         // auxiliary temporary variables
         unsigned            m_max_generation;  // the maximum generation of an app enode processed.
@@ -1855,10 +1854,9 @@ namespace smt {
 
         void update_max_generation(enode * n) {
             m_max_generation = std::max(m_max_generation, n->get_generation());
-#ifndef SMTCOMP
-            if (m_trace_stream != NULL)
+
+            if (m_ast_manager.has_trace_stream())
                 m_used_enodes.push_back(n);
-#endif
         }
         
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
@@ -1965,12 +1963,11 @@ namespace smt {
 #define INIT_ARGS_SIZE 16
 
     public:
-        interpreter(context & ctx, mam & m, bool use_filters, std::ostream *trace_stream):
+        interpreter(context & ctx, mam & m, bool use_filters):
             m_context(ctx),
             m_ast_manager(ctx.get_manager()),
             m_mam(m), 
-            m_use_filters(use_filters),
-            m_trace_stream(trace_stream) {
+            m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE, 0);
         }
 
@@ -2266,12 +2263,12 @@ namespace smt {
         m_pattern_instances.reset();
         m_pattern_instances.push_back(n);
         m_max_generation = n->get_generation();
-#ifndef SMTCOMP
-        if (m_trace_stream != NULL) {
+
+        if (m_ast_manager.has_trace_stream()) {
             m_used_enodes.reset();
             m_used_enodes.push_back(n);
         }
-#endif
+
         m_pc             = t->get_root();
         m_registers[0]   = n;
         m_top            = 0;
@@ -2638,10 +2635,10 @@ namespace smt {
         }
         backtrack_point & bp = m_backtrack_stack[m_top - 1];
         m_max_generation     = bp.m_old_max_generation;
-#ifndef SMTCOMP
-        if (m_trace_stream != NULL)
+
+        if (m_ast_manager.has_trace_stream())
             m_used_enodes.shrink(bp.m_old_used_enodes_size);
-#endif
+
         TRACE("mam_int", tout << "backtrack top: " << bp.m_instr << " " << *(bp.m_instr) << "\n";);
 #ifdef _PROFILE_MAM
         if (bp.m_instr->m_opcode != CHOOSE) // CHOOSE has a different status. It is a control flow backtracking.
@@ -3759,14 +3756,14 @@ namespace smt {
         }
 
     public:
-        mam_impl(context & ctx, bool use_filters, std::ostream *trace):
-            mam(ctx, trace), 
+        mam_impl(context & ctx, bool use_filters):
+            mam(ctx), 
             m_ast_manager(ctx.get_manager()),
             m_use_filters(use_filters),
             m_trail_stack(*this),
             m_ct_manager(m_lbl_hasher, m_trail_stack),
             m_compiler(ctx, m_ct_manager, m_lbl_hasher, use_filters),
-            m_interpreter(ctx, *this, use_filters, trace),
+            m_interpreter(ctx, *this, use_filters),
             m_trees(m_ast_manager, m_compiler, m_trail_stack),
             m_region(m_trail_stack.get_region()),
             m_r1(0),
@@ -3980,8 +3977,8 @@ namespace smt {
         }
     };
 
-    mam * mk_mam(context & ctx, std::ostream *trace) {
-        return alloc(mam_impl, ctx, true, trace);
+    mam * mk_mam(context & ctx) {
+        return alloc(mam_impl, ctx, true);
     }
 };
 

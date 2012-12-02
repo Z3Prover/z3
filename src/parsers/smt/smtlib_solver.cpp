@@ -28,15 +28,18 @@ Revision History:
 #include"solver.h"
 #include"smt_strategic_solver.h"
 #include"cmd_context.h"
+#include"model_params.hpp"
+#include"parser_params.hpp"
 
 namespace smtlib {
 
-    solver::solver(front_end_params & params):
-        m_ast_manager(params.m_proof_mode, params.m_trace_stream),
-        m_params(params),
+    solver::solver():
+        m_ast_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, 
+                      m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0),
         m_ctx(0),
-        m_parser(parser::create(m_ast_manager, params.m_ignore_user_patterns)), 
         m_error_code(0) {
+        parser_params ps;
+        m_parser = parser::create(m_ast_manager, ps.ignore_user_patterns());
         m_parser->initialize_smtlib();
     }
 
@@ -82,7 +85,7 @@ namespace smtlib {
             // Hack: it seems SMT-LIB allow benchmarks without any :formula
             benchmark.add_formula(m_ast_manager.mk_true());
         }
-        m_ctx = alloc(cmd_context, &m_params, true, &m_ast_manager, benchmark.get_logic());
+        m_ctx = alloc(cmd_context, true, &m_ast_manager, benchmark.get_logic());
         m_ctx->set_solver(mk_smt_strategic_solver(false));
         theory::expr_iterator fit  = benchmark.begin_formulas();
         theory::expr_iterator fend = benchmark.end_formulas();
@@ -100,12 +103,13 @@ namespace smtlib {
         check_sat_result * r = m_ctx->get_check_sat_result();
         if (r != 0) {
             proof * pr = r->get_proof();
-            if (pr != 0 && m_params.m_display_proof)
+            if (pr != 0 && m_params.m_proof)
                 std::cout << mk_ll_pp(pr, m_ast_manager, false, false);
             model_ref md;
             if (r->status() != l_false) r->get_model(md);
             if (md.get() != 0 && m_params.m_model) {
-                model_v2_pp(std::cout, *(md.get()), m_params.m_model_partial);
+                model_params p;
+                model_v2_pp(std::cout, *(md.get()), p.partial());
             }
         }
         else {

@@ -62,14 +62,14 @@ public:
     }
 
     virtual void updt_params(params_ref const & p) {
-        m_max_memory        = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_aig_gate_encoding = p.get_bool(":aig-default-gate-encoding", true);
-        m_aig_per_assertion = p.get_bool(":aig-per-assertion", true); 
+        m_max_memory        = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_aig_gate_encoding = p.get_bool("aig_default_gate_encoding", true);
+        m_aig_per_assertion = p.get_bool("aig_per_assertion", true); 
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
         insert_max_memory(r);
-        r.insert(":aig-per-assertion", CPK_BOOL, "(default: true) process one assertion at a time.");
+        r.insert("aig_per_assertion", CPK_BOOL, "(default: true) process one assertion at a time.");
     }
 
     void operator()(goal_ref const & g) {

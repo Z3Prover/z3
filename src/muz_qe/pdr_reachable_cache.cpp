@@ -27,7 +27,7 @@ namespace pdr {
           m_ctx(0),
           m_ref_holder(m), 
           m_disj_connector(m),
-          m_cache_mode((datalog::PDR_CACHE_MODE)params.get_uint(":cache-mode",0)) {
+          m_cache_mode((datalog::PDR_CACHE_MODE)params.get_uint("cache_mode",0)) {
         if (m_cache_mode == datalog::CONSTRAINT_CACHE) {
             m_ctx = pm.mk_fresh();
             m_ctx->assert_expr(m_pm.get_background());

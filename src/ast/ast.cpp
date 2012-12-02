@@ -1196,13 +1196,36 @@ decl_plugin * user_sort_plugin::mk_fresh() {
 //
 // -----------------------------------
 
-ast_manager::ast_manager(proof_gen_mode m, std::ostream *trace_stream, bool is_format_manager):
+ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_format_manager):
     m_alloc("ast_manager"),
     m_expr_array_manager(*this, m_alloc),
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
-    m_trace_stream(trace_stream) {
+    m_trace_stream(0),
+    m_trace_stream_owner(false) {
+
+    if (trace_file) {
+        m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
+        m_trace_stream_owner = true;
+    }
+
+    if (!is_format_manager)
+        m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
+    else 
+        m_format_manager = 0;
+    init();
+}
+
+ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_format_manager):
+    m_alloc("ast_manager"),
+    m_expr_array_manager(*this, m_alloc),
+    m_expr_dependency_manager(*this, m_alloc),
+    m_expr_dependency_array_manager(*this, m_alloc),
+    m_proof_mode(m),
+    m_trace_stream(trace_stream),
+    m_trace_stream_owner(false) {
+
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
     else 
@@ -1216,9 +1239,10 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
-    m_trace_stream(src.m_trace_stream) {
+    m_trace_stream(src.m_trace_stream),
+    m_trace_stream_owner(false) {
     SASSERT(!src.is_format_manager());
-    m_format_manager = 0;
+    m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
     copy_families_plugins(src);
 }
@@ -1256,6 +1280,7 @@ void ast_manager::init() {
 
 ast_manager::~ast_manager() {
     SASSERT(is_format_manager() || !m_family_manager.has_family(symbol("format")));
+
     dec_ref(m_bool_sort);
     dec_ref(m_proof_sort);
     dec_ref(m_true);
@@ -1294,6 +1319,13 @@ ast_manager::~ast_manager() {
 #endif
     if (m_format_manager != 0)
         dealloc(m_format_manager);
+    if (m_trace_stream_owner) {
+        std::fstream & tmp = * m_trace_stream;
+        tmp << "[eof]\n";
+        tmp.close();
+        dealloc(m_trace_stream);
+        m_trace_stream = 0;
+    }
 }
 
 void ast_manager::compact_memory() {
@@ -1873,8 +1905,8 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
         new_node = new (mem) app(decl, num_args, args);
         r = register_node(new_node);
     }
-#ifndef SMTCOMP
-    if (m_trace_stream != NULL && r == new_node) {
+
+    if (m_trace_stream && r == new_node) {
         *m_trace_stream << "[mk-app] #" << r->get_id() << " ";        
         if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
             ast_ll_pp(*m_trace_stream, *this, r);
@@ -1887,7 +1919,7 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
             *m_trace_stream << "\n";
         }
     }
-#endif
+
     return r;
 }
 
@@ -2064,8 +2096,7 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
                                                  num_no_patterns, no_patterns);
     quantifier * r = register_node(new_node);
               
-#ifndef SMTCOMP
-    if (m_trace_stream != NULL && r == new_node) {
+    if (m_trace_stream && r == new_node) {
         *m_trace_stream << "[mk-quant] #" << r->get_id() << " " << qid;
         for (unsigned i = 0; i < num_patterns; ++i) {
             *m_trace_stream << " #" << patterns[i]->get_id();
@@ -2073,7 +2104,7 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
         *m_trace_stream << " #" << body->get_id() << "\n";
         
     }
-#endif
+
     return r;
 }
 

@@ -36,7 +36,7 @@ namespace pdr {
     class core_farkas_generalizer : public core_generalizer {
         farkas_learner m_farkas_learner;
     public:
-        core_farkas_generalizer(context& ctx, ast_manager& m, front_end_params& p);
+        core_farkas_generalizer(context& ctx, ast_manager& m, smt_params& p);
         virtual ~core_farkas_generalizer() {}
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);  
         virtual void collect_statistics(statistics& st) const;

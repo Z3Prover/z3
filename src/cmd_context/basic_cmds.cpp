@@ -27,7 +27,9 @@ Notes:
 #include"cmd_util.h"
 #include"simplify_cmd.h"
 #include"eval_cmd.h"
-#include"front_end_params.h"
+#include"gparams.h"
+#include"model_params.hpp"
+#include"env_params.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -103,9 +105,10 @@ ATOMIC_CMD(get_model_cmd, "get-model", "retrieve model for the last check-sat co
         throw cmd_exception("model is not available");
     model_ref m;
     ctx.get_check_sat_result()->get_model(m);
-    if (ctx.params().m_model_v1_pp || ctx.params().m_model_v2_pp) {
+    model_params p;
+    if (p.v1() || p.v2()) {
         std::ostringstream buffer;
-        model_v2_pp(buffer, *m, ctx.params().m_model_partial);
+        model_v2_pp(buffer, *m, p.partial());
         ctx.regular_stream() << "\"" << escaped(buffer.str().c_str(), true) << "\"" << std::endl;
     } else {
         ctx.regular_stream() << "(model " << std::endl;
@@ -156,7 +159,7 @@ public:
 };
 
 ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
-    if (ctx.params().m_proof_mode == PGM_DISABLED)
+    if (!ctx.produce_proofs())
         throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
     if (!ctx.has_manager() ||
         ctx.cs_state() != cmd_context::css_unsat)
@@ -219,25 +222,6 @@ UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr
 
 UNARY_CMD(echo_cmd, "echo", "<string>", "display the given string", CPK_STRING, char const *, ctx.regular_stream() << arg << std::endl;);
 
-/**
-   \brief Convert a keyword into an internal Z3 option name
-*/
-std::string smt_keyword2opt_name(symbol const & opt) {
-    std::string r;
-    SASSERT(opt.bare_str()[0] == ':');
-    r = opt.bare_str() + 1;
-    unsigned sz = static_cast<unsigned>(r.size());
-    for (unsigned i = 0; i < sz; i++) {
-        char curr = r[i];
-        if ('a' <= curr && curr <= 'z')
-            r[i] = 'A' + (curr - 'a');
-        else if (curr == '-')
-            r[i] = '_';
-    }
-    TRACE("smt2_opt_name", tout << opt << " -> '" << r << "'\n";);
-    return r;
-}
-
 class set_get_option_cmd : public cmd {
 protected:
     symbol      m_true;
@@ -259,7 +243,6 @@ protected:
     symbol      m_numeral_as_real;
     symbol      m_error_behavior;
     symbol      m_int_real_coercions;
-    ini_params  m_ini;
 
     bool is_builtin_option(symbol const & s) const {
         return 
@@ -270,7 +253,7 @@ protected:
     }
 
 public:
-    set_get_option_cmd(char const * name, front_end_params & params):
+    set_get_option_cmd(char const * name):
         cmd(name), 
         m_true("true"),
         m_false("false"),
@@ -289,10 +272,7 @@ public:
         m_global_decls(":global-decls"),
         m_numeral_as_real(":numeral-as-real"),
         m_error_behavior(":error-behavior"),
-        m_int_real_coercions(":int-real-coercions"),
-        m_ini(false) {
-        params.register_params(m_ini);
-        register_pp_params(m_ini);
+        m_int_real_coercions(":int-real-coercions") {
     }
     virtual ~set_get_option_cmd() {}
 
@@ -324,22 +304,13 @@ class set_option_cmd : public set_get_option_cmd {
     }
     
     void set_param(cmd_context & ctx, char const * value) {
-        m_ini.freeze(ctx.has_manager());
-        std::string internal_opt = smt_keyword2opt_name(m_option);
         try {
-            std::string old_value;
-            if (!m_ini.get_param_value(internal_opt.c_str(), old_value)) {
-                m_unsupported = true;
-                return;
-            }
-            m_ini.set_param_value(internal_opt.c_str(), value);
+            gparams::set(m_option, value);
+            env_params::updt_params();
+            ctx.params().updt_params();
         }
-        catch (set_get_param_exception ex) {
-            std::string msg = "error setting '";
-            msg += m_option.str();
-            msg += "', ";
-            msg += ex.get_msg();
-            throw cmd_exception(msg);
+        catch (gparams::exception ex) {
+            throw cmd_exception(ex.msg());
         }
     }
 
@@ -406,8 +377,8 @@ class set_option_cmd : public set_get_option_cmd {
     }
 
 public:
-    set_option_cmd(front_end_params & params):
-        set_get_option_cmd("set-option", params),
+    set_option_cmd():
+        set_get_option_cmd("set-option"),
         m_unsupported(false) {
     }
 
@@ -485,8 +456,8 @@ class get_option_cmd : public set_get_option_cmd {
     }
 
 public:
-    get_option_cmd(front_end_params & params):
-        set_get_option_cmd("get-option", params) {
+    get_option_cmd():
+        set_get_option_cmd("get-option") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get configuration option."; }
@@ -507,13 +478,13 @@ public:
             print_bool(ctx, ctx.interactive_mode());
         }
         else if (opt == m_produce_proofs) {
-            print_bool(ctx, ctx.params().m_proof_mode != PGM_DISABLED);
+            print_bool(ctx, ctx.produce_proofs());
         }
         else if (opt == m_produce_unsat_cores) {
             print_bool(ctx, ctx.produce_unsat_cores());
         }
         else if (opt == m_produce_models) {
-            print_bool(ctx, ctx.params().m_model);
+            print_bool(ctx, ctx.produce_models());
         }
         else if (opt == m_produce_assignments) {
             print_bool(ctx, ctx.produce_assignments());
@@ -545,12 +516,10 @@ public:
             print_bool(ctx, ctx.m().int_real_coercions());
         }
         else {
-            std::string iopt = smt_keyword2opt_name(opt);
-            std::string r;
-            if (m_ini.get_param_value(iopt.c_str(), r)) {
-                ctx.regular_stream() << r << std::endl;
+            try {
+                std::string val = gparams::get_value(opt);
             }
-            else {
+            catch (gparams::exception ex) {
                 ctx.print_unsupported(opt);
             }
         }
@@ -744,8 +713,8 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(get_assertions_cmd));
     ctx.insert(alloc(get_proof_cmd));
     ctx.insert(alloc(get_unsat_core_cmd));
-    ctx.insert(alloc(set_option_cmd, ctx.params()));
-    ctx.insert(alloc(get_option_cmd, ctx.params()));
+    ctx.insert(alloc(set_option_cmd));
+    ctx.insert(alloc(get_option_cmd));
     ctx.insert(alloc(get_info_cmd));
     ctx.insert(alloc(set_info_cmd));
     ctx.insert(alloc(builtin_cmd, "assert", "<term>", "assert term."));

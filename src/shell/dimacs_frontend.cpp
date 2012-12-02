@@ -22,7 +22,6 @@ Revision History:
 #include"timeout.h"
 #include"dimacs.h"
 #include"sat_solver.h"
-#include"front_end_params.h"
 
 extern bool          g_display_statistics;
 static sat::solver * g_solver = 0;
@@ -64,12 +63,12 @@ static void display_model(sat::solver const & s) {
     std::cout << "\n";
 }
 
-unsigned read_dimacs(char const * file_name, front_end_params & front_end_params) {
+unsigned read_dimacs(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref p;
-    p.set_bool(":produce-models", front_end_params.m_model);
+    p.set_bool("produce_models", true);
     sat::solver solver(p, 0);
     g_solver = &solver;
 
@@ -90,8 +89,7 @@ unsigned read_dimacs(char const * file_name, front_end_params & front_end_params
     switch (r) {
     case l_true: 
         std::cout << "sat\n"; 
-        if (front_end_params.m_model)
-            display_model(solver);
+        display_model(solver);
         break;
     case l_undef: 
         std::cout << "unknown\n"; 

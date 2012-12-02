@@ -243,11 +243,11 @@ namespace sat {
     }
 
     void probing::updt_params(params_ref const & p) {
-        m_probing             = p.get_bool(":probing", true);
-        m_probing_limit       = p.get_uint(":probing-limit", 5000000);
-        m_probing_cache       = p.get_bool(":probing-cache", true);
-        m_probing_binary      = p.get_bool(":probing-binary", true);
-        m_probing_cache_limit = megabytes_to_bytes(p.get_uint(":probing-chache-limit", 1024));
+        m_probing             = p.get_bool("probing", true);
+        m_probing_limit       = p.get_uint("probing_limit", 5000000);
+        m_probing_cache       = p.get_bool("probing_cache", true);
+        m_probing_binary      = p.get_bool("probing_binary", true);
+        m_probing_cache_limit = megabytes_to_bytes(p.get_uint("probing_chache_limit", 1024));
     }
 
     void probing::collect_param_descrs(param_descrs & d) {

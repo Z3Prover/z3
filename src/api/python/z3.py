@@ -169,28 +169,6 @@ class Context:
         """
         Z3_interrupt(self.ref())
         
-    def set(self, *args, **kws):
-        """Set global configuration options. 
-
-        Z3 command line options can be set using this method. 
-        The option names can be specified in different ways:
-        
-        >>> ctx = Context()
-        >>> ctx.set('WELL_SORTED_CHECK', True)
-        >>> ctx.set(':well-sorted-check', True)
-        >>> ctx.set(well_sorted_check=True)
-        """
-        if __debug__:
-            _z3_assert(len(args) % 2 == 0, "Argument list must have an even number of elements.")
-        for key, value in kws.iteritems():
-            Z3_update_param_value(self.ctx, str(key).upper(), _to_param_value(value))
-        prev = None
-        for a in args:
-            if prev == None:
-                prev = a
-            else:
-                Z3_update_param_value(self.ctx, str(prev), _to_param_value(a))
-                prev = None
 
 # Global Z3 context
 _main_ctx = None
@@ -221,15 +199,37 @@ def _get_ctx(ctx):
         return ctx
 
 def set_option(*args, **kws):
-    """Update parameters of the global context `main_ctx()`, and global configuration options of Z3Py. See `Context.set()`.
-    
+    """Set Z3 global (or module) parameters.
+
     >>> set_option(precision=10)
     """
+    if __debug__:
+        _z3_assert(len(args) % 2 == 0, "Argument list must have an even number of elements.")
     new_kws = {}
     for k, v in kws.iteritems():
         if not set_pp_option(k, v):
             new_kws[k] = v
-    main_ctx().set(*args, **new_kws)
+    for key, value in new_kws.iteritems():
+        Z3_global_param_set(str(key).upper(), _to_param_value(value))
+    prev = None
+    for a in args:
+        if prev == None:
+            prev = a
+        else:
+            Z3_global_param_set(str(prev), _to_param_value(a))
+            prev = None
+
+def get_option(name):
+    """Return the value of a Z3 global (or module) parameter
+
+    >>> get_option('nlsat.reorder')
+    true
+    """
+    ptr = (ctypes.c_char_p * 1)()
+    if Z3_global_param_get(str(name), ptr):
+        r = str(ptr[0])
+        return r
+    raise Z3Exception("failed to retrieve value for '%s'" % name)
 
 #########################################
 #

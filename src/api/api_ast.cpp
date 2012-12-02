@@ -36,6 +36,7 @@ Revision History:
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+#include"pp_params.hpp"
 
 extern "C" {
 
@@ -674,8 +675,8 @@ extern "C" {
         ast_manager & m = mk_c(c)->m();
         expr * a = to_expr(_a);
         params_ref p = to_param_ref(_p);
-        unsigned timeout     = p.get_uint(":timeout", UINT_MAX);
-        bool     use_ctrl_c  = p.get_bool(":ctrl-c", false);
+        unsigned timeout     = p.get_uint("timeout", mk_c(c)->get_timeout());
+        bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         th_rewriter m_rw(m, p);
         expr_ref    result(m);
         cancel_eh<th_rewriter> eh(m_rw);
@@ -833,7 +834,8 @@ extern "C" {
             break;
         case Z3_PRINT_SMTLIB_COMPLIANT: {
             ast_smt_pp pp(mk_c(c)->m());
-            pp.set_simplify_implies(get_pp_default_params().m_pp_simplify_implies);
+            pp_params params;
+            pp.set_simplify_implies(params.simplify_implies());
             ast* a1 = to_ast(a);
             pp.set_logic(mk_c(c)->fparams().m_smtlib_logic.c_str());
             if (!is_expr(a1)) {
@@ -886,7 +888,8 @@ extern "C" {
         pp.set_logic(logic);
         pp.set_status(status);
         pp.add_attributes(attributes);
-        pp.set_simplify_implies(get_pp_default_params().m_pp_simplify_implies);
+        pp_params params;
+        pp.set_simplify_implies(params.simplify_implies());
         for (unsigned i = 0; i < num_assumptions; ++i) {
             pp.add_assumption(to_expr(assumptions[i]));
         }

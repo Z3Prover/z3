@@ -1420,9 +1420,109 @@ def mk_makefile():
 # Generate automatically generated source code
 def mk_auto_src():
     if not ONLY_MAKEFILES:
+        exec_pyg_scripts()
         mk_pat_db()
         mk_all_install_tactic_cpps()
         mk_all_mem_initializer_cpps()
+        mk_all_gparams_register_modules()
+
+UINT   = 0
+BOOL   = 1
+DOUBLE = 2
+STRING = 3
+SYMBOL = 4
+UINT_MAX = 4294967295
+CURR_PYG = None
+
+def get_curr_pyg():
+    return CURR_PYG
+
+TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
+TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
+TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
+
+def pyg_default(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    return p[2]
+
+def pyg_default_as_c_literal(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    elif p[1] == STRING:
+        return '"%s"' % p[2]
+    elif p[1] == SYMBOL:
+        return 'symbol("%s")' % p[2]
+    return p[2]
+
+def to_c_method(s):
+    return s.replace('.', '_')
+
+def def_module_params(module_name, export, params, class_name=None, description=None):
+    pyg = get_curr_pyg()
+    dirname = os.path.split(get_curr_pyg())[0]
+    if class_name == None:
+        class_name = '%s_params' % module_name
+    hpp = os.path.join(dirname, '%s.hpp' % class_name)
+    out = open(hpp, 'w')
+    out.write('// Automatically generated file\n')
+    out.write('#include"params.h"\n')
+    if export:
+        out.write('#include"gparams.h"\n')
+    out.write('struct %s {\n' % class_name)
+    out.write('  params_ref const & p;\n')
+    if export:
+        out.write('  params_ref g;\n')
+    out.write('  %s(params_ref const & _p = params_ref()):\n' % class_name)
+    out.write('     p(_p)')
+    if export:
+        out.write(', g(gparams::get_module("%s"))' % module_name)
+    out.write(' {}\n')
+    out.write('  static void collect_param_descrs(param_descrs & d) {\n')
+    for param in params:
+        out.write('    d.insert("%s", %s, "%s", "%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param)))
+    out.write('  }\n')
+    if export:
+        out.write('  /*\n')
+        out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
+        if description != None:
+            out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
+        out.write('  */\n')
+    # Generated accessors
+    for param in params:
+        if export:
+            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+        else:
+            out.write('  %s %s() const { return p.%s("%s", %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+    out.write('};\n')
+    if is_verbose():
+        print "Generated '%s'" % hpp
+
+def max_memory_param():
+    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes.')
+
+PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL, 
+                'UINT_MAX' : UINT_MAX, 
+                'max_memory_param' : max_memory_param,
+                'def_module_params' : def_module_params }
+
+# Execute python auxiliary scripts that generate extra code for Z3.
+def exec_pyg_scripts():
+    global CURR_PYG
+    for root, dirs, files in os.walk('src'): 
+        for f in files:
+            if f.endswith('.pyg'):
+                script = os.path.join(root, f)
+                CURR_PYG = script
+                execfile(script, PYG_GLOBALS)
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1547,7 +1647,7 @@ def mk_install_tactic_cpp(cnames, path):
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1599,18 +1699,20 @@ def mk_all_install_tactic_cpps():
 # This file implements the procedures
 #    void mem_initialize()
 #    void mem_finalize()
-# This procedures are invoked by the Z3 memory_manager
+# These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
     initializer_cmds = []
     finalizer_cmds   = []
     fullname = '%s/mem_initializer.cpp' % path
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    initializer_pat   = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
-    finalizer_pat     = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    # ADD_INITIALIZER with priority
+    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
+    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1620,15 +1722,22 @@ def mk_mem_initializer_cpp(cnames, path):
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append(m.group(1))
+                    initializer_cmds.append((m.group(1), 0))
+                m = initializer_prio_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     finalizer_cmds.append(m.group(1))
+    initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
-    for cmd in initializer_cmds:
+    for (cmd, prio) in initializer_cmds:
         fout.write(cmd)
         fout.write('\n')
     fout.write('}\n')
@@ -1648,6 +1757,63 @@ def mk_all_mem_initializer_cpps():
                 cnames.extend(c.deps)
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
+
+# Generate an mem_initializer.cpp at path.
+# This file implements the procedure
+#    void gparams_register_modules()
+# This procedure is invoked by gparams::init()
+def mk_gparams_register_modules(cnames, path):
+    cmds = []
+    mod_cmds = []
+    mod_descrs = []
+    fullname = '%s/gparams_register_modules.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"gparams.h"\n')
+    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
+    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
+    for cname in cnames:
+        c = get_component(cname)
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                m = reg_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    cmds.append((m.group(1)))
+                m = reg_mod_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    mod_cmds.append((m.group(1), m.group(2)))
+                m = reg_mod_descr_pat.match(line)
+                if m:
+                    mod_descrs.append((m.group(1), m.group(2)))
+    fout.write('void gparams_register_modules() {\n')
+    for code in cmds:
+        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
+    for (mod, code) in mod_cmds:
+        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+    for (mod, descr) in mod_descrs:
+        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_gparams_register_modules():
+    if not ONLY_MAKEFILES:
+        for c in get_components():
+            if c.require_mem_initializer():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_gparams_register_modules(cnames, c.src_dir)
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):

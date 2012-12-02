@@ -55,6 +55,8 @@ namespace smt2 {
         svector<char>      m_cache;
         svector<char>      m_cache_result;
         
+        bool               m_smtlib2_compliant;
+        
         char curr() const { return m_curr; }
         void new_line() { m_line++; m_spos = 0; }
         void next();
@@ -74,7 +76,7 @@ namespace smt2 {
             EOF_TOKEN
         };
         
-        scanner(cmd_context & ctx, std::istream& stream, bool interactive = false);
+        scanner(cmd_context & ctx, std::istream& stream, bool interactive = false, params_ref const & p = params_ref());
         
         ~scanner() {}    
         

@@ -39,7 +39,7 @@ Revision History:
 
 namespace smt {
 
-    context::context(ast_manager & m, front_end_params & p, params_ref const & _p):
+    context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m_manager(m),
         m_fparams(p),
         m_params(_p),
@@ -102,7 +102,7 @@ namespace smt {
         flush();
     }
 
-    context * context::mk_fresh(symbol const * l, front_end_params * p) {
+    context * context::mk_fresh(symbol const * l, smt_params * p) {
         context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
         new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
         // copy missing simplifier_plugins
@@ -190,11 +190,10 @@ namespace smt {
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
         if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
             m_atom_propagation_queue.push_back(l);
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
+
+        if (m_manager.has_trace_stream())
             trace_assign(l, j, decision);
         m_case_split_queue->assign_lit_eh(l);
-#endif
     }
     
     bool context::bcp() {
@@ -1789,10 +1788,10 @@ namespace smt {
        \brief Create an internal backtracking point
     */
     void context::push_scope() {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[push] " << m_scope_lvl << "\n";
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[push] " << m_scope_lvl << "\n";
+
         m_scope_lvl++;
         m_region.push_scope();
         m_scopes.push_back(scope());
@@ -2237,10 +2236,10 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
+
         TRACE("context", tout << "backtracking: " << num_scopes << "\n";);
         TRACE("pop_scope_detail", display(tout););
         SASSERT(num_scopes > 0);
@@ -2488,7 +2487,7 @@ namespace smt {
         SASSERT(check_clauses(m_lemmas));
         SASSERT(check_clauses(m_aux_clauses));
 
-        IF_VERBOSE(2, verbose_stream() << "simplifying clause set... "; verbose_stream().flush(););
+        IF_VERBOSE(2, verbose_stream() << "(smt.simplifying-clause-set"; verbose_stream().flush(););
 
         // m_simp_counter is used to balance the cost of simplify_clause.
         //
@@ -2503,8 +2502,7 @@ namespace smt {
         // the field m_simp_qhead is used to check whether there are 
         // new assigned literals at the base level.
         m_simp_qhead = m_assigned_literals.size();
-        
-        unsigned num_clauses     = m_aux_clauses.size() + m_lemmas.size();
+
         unsigned num_del_clauses = 0;
 
         SASSERT(m_scope_lvl == m_base_lvl);
@@ -2519,7 +2517,7 @@ namespace smt {
             num_del_clauses += simplify_clauses(m_lemmas, bs.m_lemmas_lim);
         }
         TRACE("simp_counter", tout << "simp_counter: " << m_simp_counter << " scope_lvl: " << m_scope_lvl << "\n";);
-        IF_VERBOSE(2, verbose_stream() << "num. deleted clauses: " << num_del_clauses << " (out of " << num_clauses << ")" << std::endl;);
+        IF_VERBOSE(2, verbose_stream() << " :num-deleted-clauses " << num_del_clauses << ")" << std::endl;);
         TRACE("simplify_clauses_detail", tout << "after:\n"; display_clauses(tout, m_lemmas););
         SASSERT(check_clauses(m_lemmas) && check_clauses(m_aux_clauses));
     }
@@ -2551,7 +2549,7 @@ namespace smt {
         SASSERT(start_at <= sz);
         if (start_at + m_fparams.m_recent_lemmas_size >= sz)
             return;
-        IF_VERBOSE(2, verbose_stream() << "deleting inactive lemmas... "; verbose_stream().flush(););
+        IF_VERBOSE(2, verbose_stream() << "(smt.delete-inactive-lemmas"; verbose_stream().flush(););
         SASSERT (m_fparams.m_recent_lemmas_size < sz);
         unsigned end_at        = sz - m_fparams.m_recent_lemmas_size;
         SASSERT(start_at < end_at);
@@ -2595,7 +2593,7 @@ namespace smt {
                 cls->set_activity(cls->get_activity() / m_fparams.m_clause_decay);
             }
         }
-        IF_VERBOSE(2, verbose_stream() << "num. deleted clauses: " << num_del_cls << " (out of " << sz << ")" << std::endl;);
+        IF_VERBOSE(2, verbose_stream() << " :num-deleted-clauses " << num_del_cls << ")" << std::endl;);
     }
 
     /**
@@ -2606,7 +2604,7 @@ namespace smt {
        depends on which group the clauses is in.
     */
     void context::del_inactive_lemmas2() {
-        IF_VERBOSE(2, verbose_stream() << "deleting inactive clauses... "; verbose_stream().flush(););
+        IF_VERBOSE(2, verbose_stream() << "(smt.delete-inactive-clauses "; verbose_stream().flush(););
         unsigned sz            = m_lemmas.size();
         unsigned start_at      = m_base_lvl == 0 ? 0 : m_base_scopes[m_base_lvl - 1].m_lemmas_lim;
         SASSERT(start_at <= sz);
@@ -2645,7 +2643,7 @@ namespace smt {
         }
         SASSERT(j <= sz);
         m_lemmas.shrink(j);
-        IF_VERBOSE(2, verbose_stream() << "num. deleted clauses: " << num_del_cls << " (out of " << sz << ")" << std::endl;);
+        IF_VERBOSE(2, verbose_stream() << " :num-deleted-clauses " << num_del_cls << ")" << std::endl;);
     }
 
     /**
@@ -2786,7 +2784,7 @@ namespace smt {
     }
 
     void context::assert_expr(expr * e, proof * pr) {
-        timeit tt(get_verbosity_level() >= 100, "simplifying");
+        timeit tt(get_verbosity_level() >= 100, "smt.simplifying");
         assert_expr_core(e, pr);
     }
 
@@ -2800,7 +2798,7 @@ namespace smt {
 
     void context::internalize_assertions() {
         TRACE("internalize_assertions", tout << "internalize_assertions()...\n";);
-        timeit tt(get_verbosity_level() >= 100, "preprocessing");
+        timeit tt(get_verbosity_level() >= 100, "smt.preprocessing");
         reduce_assertions();
         if (!m_asserted_formulas.inconsistent()) {
             unsigned sz    = m_asserted_formulas.get_num_formulas();
@@ -2928,10 +2926,8 @@ namespace smt {
        Return true if succeeded.
     */
     bool context::check_preamble(bool reset_cancel) {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[begin-check] " << m_scope_lvl << "\n";
-#endif
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[begin-check] " << m_scope_lvl << "\n";
 
         if (reset_cancel) {
             m_cancel_flag = false;
@@ -3103,7 +3099,6 @@ namespace smt {
         m_next_progress_sample         = 0;
         TRACE("literal_occ", display_literal_num_occs(tout););
         m_timer.start();
-        m_instr.start();
     }
 
     void context::end_search() {
@@ -3159,7 +3154,7 @@ namespace smt {
             exit(1);
         }
 #endif
-        timeit tt(get_verbosity_level() >= 100, "searching");
+        timeit tt(get_verbosity_level() >= 100, "smt.stats");
         scoped_mk_model smk(*this);
         SASSERT(at_search_level());
         TRACE("search", display(tout); display_enodes_lbls(tout););
@@ -3167,7 +3162,7 @@ namespace smt {
         init_search();
         flet<bool> l(m_searching, true);
         TRACE("after_init_search", display(tout););
-        IF_VERBOSE(2, verbose_stream() << "searching...\n";);
+        IF_VERBOSE(2, verbose_stream() << "(smt.searching)\n";);
         TRACE("search_lite", tout << "searching...\n";);
         lbool    status            = l_undef;
         unsigned curr_lvl          = m_scope_lvl;
@@ -3216,16 +3211,16 @@ namespace smt {
             inc_limits();
             if (force_restart || !m_fparams.m_restart_adaptive || m_agility < m_fparams.m_restart_agility_threshold) {
                 SASSERT(!inconsistent());
-                IF_VERBOSE(1, verbose_stream() << "restarting... propagations: " << m_stats.m_num_propagations 
-                           << ", decisions: " << m_stats.m_num_decisions
-                           << ", conflicts: " << m_stats.m_num_conflicts << ", restart: " << m_restart_threshold;
+                IF_VERBOSE(1, verbose_stream() << "(smt.restarting :propagations " << m_stats.m_num_propagations 
+                           << " :decisions " << m_stats.m_num_decisions
+                           << " :conflicts " << m_stats.m_num_conflicts << " :restart " << m_restart_threshold;
                            if (m_fparams.m_restart_strategy == RS_IN_OUT_GEOMETRIC) {
-                               verbose_stream() << ", restart-outer: " << m_restart_outer_threshold;
+                               verbose_stream() << " :restart-outer " << m_restart_outer_threshold;
                            }
                            if (m_fparams.m_restart_adaptive) {
-                               verbose_stream() << ", agility: " << m_agility;
+                               verbose_stream() << " :agility " << m_agility;
                            }
-                           verbose_stream() << std::endl; verbose_stream().flush(););
+                           verbose_stream() << ")" << std::endl; verbose_stream().flush(););
                 // execute the restart
                 m_stats.m_num_restarts++;
                 if (m_scope_lvl > curr_lvl) {
@@ -3260,12 +3255,12 @@ namespace smt {
     void context::tick(unsigned & counter) const {
         counter++;
         if (counter > m_fparams.m_tick) {
-            IF_VERBOSE(3, verbose_stream() << "working...";
-                       verbose_stream() << " num. conflicts: " << m_num_conflicts;
+            IF_VERBOSE(3, verbose_stream() << "(smt.working";
+                       verbose_stream() << " :conflicts " << m_num_conflicts;
                        // verbose_stream() << " lemma avg. activity: " << get_lemma_avg_activity();
                        if (m_fparams.m_restart_adaptive)
-                       verbose_stream() << " agility: " << m_agility;
-                       verbose_stream() << std::endl; verbose_stream().flush(););
+                       verbose_stream() << " :agility " << m_agility;
+                       verbose_stream() << ")" << std::endl; verbose_stream().flush(););
             TRACE("assigned_literals_per_lvl", display_num_assigned_literals_per_lvl(tout); tout << "\n";);
             counter = 0;
         }
@@ -3359,11 +3354,6 @@ namespace smt {
                 return true;
             }
 
-            if (m_instr.is_instruction_maxed(m_fparams.m_instr_out)) {
-                m_last_search_failure = TIMEOUT;
-                return true;
-            }
-
             if (m_progress_callback) {
                 m_progress_callback->fast_progress_sample();
                 if (m_fparams.m_progress_sampling_freq > 0 && m_timer.ms_timeout(m_next_progress_sample + 1)) {
@@ -3416,7 +3406,7 @@ namespace smt {
             final_check_status ok;
             if (m_final_check_idx < num_th) {
                 theory * th = m_theory_set[m_final_check_idx];
-                IF_VERBOSE(100, verbose_stream() << "final check '" << th->get_name() << "' ...\n";);
+                IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"" << th->get_name() << "\")\n";);
                 ok = th->final_check_eh();
                 TRACE("final_check_step", tout << "final check '" << th->get_name() << " ok: " << ok << " inconsistent " << inconsistent() << "\n";);
                 if (ok == FC_GIVEUP) {
@@ -3541,13 +3531,13 @@ namespace smt {
                       tout << ", ilvl: " << get_intern_level(l.var()) << "\n" 
                            << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";
                   });
-#ifndef SMTCOMP
-            if (m_fparams.m_trace_stream != NULL) {
-                *m_fparams.m_trace_stream << "[conflict] ";
-                display_literals(*m_fparams.m_trace_stream, num_lits, lits);
-                *m_fparams.m_trace_stream << "\n";
+
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[conflict] ";
+                display_literals(m_manager.trace_stream(), num_lits, lits);
+                m_manager.trace_stream() << "\n";
             }
-#endif
+
 #ifdef Z3DEBUG 
             expr_ref_vector expr_lits(m_manager);
             svector<bool>   expr_signs;

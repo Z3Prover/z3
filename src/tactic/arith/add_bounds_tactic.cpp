@@ -70,8 +70,8 @@ class add_bounds_tactic : public tactic {
         }
         
         void updt_params(params_ref const & p) {
-            m_lower  = p.get_rat(":add-bound-lower", rational(-2));
-            m_upper  = p.get_rat(":add-bound-upper", rational(2));
+            m_lower  = p.get_rat("add_bound_lower", rational(-2));
+            m_upper  = p.get_rat("add_bound_upper", rational(2));
         }
         
         void set_cancel(bool f) {
@@ -159,8 +159,8 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
-        r.insert(":add-bound-lower", CPK_NUMERAL, "(default: -2) lower bound to be added to unbounded variables.");
-        r.insert(":add-bound-upper", CPK_NUMERAL, "(default: 2) upper bound to be added to unbounded variables.");
+        r.insert("add_bound_lower", CPK_NUMERAL, "(default: -2) lower bound to be added to unbounded variables.");
+        r.insert("add_bound_upper", CPK_NUMERAL, "(default: 2) upper bound to be added to unbounded variables.");
     }
     
     virtual void operator()(goal_ref const & g, 

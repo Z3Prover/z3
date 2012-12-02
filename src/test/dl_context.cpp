@@ -2,7 +2,7 @@
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
 #include "dl_context.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 
 using namespace datalog;
 
@@ -27,7 +27,7 @@ static void dl_context_simple_query_test(params_ref & params) {
     ast_manager m;
     dl_decl_util decl_util(m);
 
-    front_end_params fparams;
+    smt_params fparams;
     context ctx(m, fparams);
     ctx.updt_params(params);
 
@@ -49,7 +49,7 @@ static void dl_context_simple_query_test(params_ref & params) {
 void dl_context_saturate_file(params_ref & params, const char * f) {
     ast_manager m;
     dl_decl_util decl_util(m);
-    front_end_params fparams;
+    smt_params fparams;
     context ctx(m, fparams);
     ctx.updt_params(params);
 

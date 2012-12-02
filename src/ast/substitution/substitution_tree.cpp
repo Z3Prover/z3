@@ -607,8 +607,8 @@ void substitution_tree::display(std::ostream & out, node * n, unsigned delta) co
         out << "  ";
     display(out, n->m_subst);
     if (n->m_leaf) {
-        pp_params p;
-        p.m_pp_single_line = true;
+        params_ref p;
+        p.set_bool("single_line", true);
         out << "  ==> ";
         out << mk_pp(n->m_expr, m_manager, p);
         out << "\n";

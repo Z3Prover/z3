@@ -40,9 +40,9 @@ public:
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         th_rewriter::get_param_descrs(p);
         insert_timeout(p);
-        p.insert(":print", CPK_BOOL, "(default: true)  print the simplified term.");
-        p.insert(":print-proofs", CPK_BOOL, "(default: false) print a proof showing the original term is equal to the resultant one.");
-        p.insert(":print-statistics", CPK_BOOL, "(default: false) print statistics.");
+        p.insert("print", CPK_BOOL, "(default: true)  print the simplified term.");
+        p.insert("print_proofs", CPK_BOOL, "(default: false) print a proof showing the original term is equal to the resultant one.");
+        p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
     virtual ~simplify_cmd() {
@@ -67,12 +67,12 @@ public:
             throw cmd_exception("invalid simplify command, argument expected");
         expr_ref r(ctx.m());
         proof_ref pr(ctx.m());
-        if (m_params.get_bool(":som", false))
-            m_params.set_bool(":flat", true);
+        if (m_params.get_bool("som", false))
+            m_params.set_bool("flat", true);
         th_rewriter s(ctx.m(), m_params);
         unsigned cache_sz;
         unsigned num_steps = 0;
-        unsigned timeout   = m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
         bool failed = false;
         cancel_eh<th_rewriter> eh(s);
         { 
@@ -94,17 +94,17 @@ public:
             num_steps = s.get_num_steps();
             s.cleanup();
         }
-        if (m_params.get_bool(":print", true)) {
+        if (m_params.get_bool("print", true)) {
             ctx.display(ctx.regular_stream(), r);
             ctx.regular_stream() << std::endl; 
         }
-        if (!failed && m_params.get_bool(":print-proofs", false)) {
+        if (!failed && m_params.get_bool("print_proofs", false)) {
             ast_smt_pp pp(ctx.m());
             pp.set_logic(ctx.get_logic().str().c_str());
             pp.display_expr_smt2(ctx.regular_stream(), pr.get());
             ctx.regular_stream() << std::endl;
         }
-        if (m_params.get_bool(":print-statistics", false)) {
+        if (m_params.get_bool("print_statistics", false)) {
             shared_occs s1(ctx.m());
             if (!failed)
                 s1(r);

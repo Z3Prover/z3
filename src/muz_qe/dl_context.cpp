@@ -226,7 +226,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    context::context(ast_manager & m, front_end_params& fp, params_ref const& pa):
+    context::context(ast_manager & m, smt_params& fp, params_ref const& pa):
         m(m),
         m_fparams(fp),
         m_params(pa),
@@ -960,56 +960,56 @@ namespace datalog {
     }
 
     void context::collect_params(param_descrs& p) {
-        p.insert(":engine",    CPK_SYMBOL, "(default: automatically configured) select 'datalog', PDR 'pdr' engine.");
-        p.insert(":bit-blast", CPK_BOOL, "(default: false) bit-blast bit-vectors (for PDR engine).");
-        p.insert(":default-table", CPK_SYMBOL, "default table implementation: 'sparse' (default), 'hashtable', 'bitvector',  'interval'");
-        p.insert(":default-relation", CPK_SYMBOL, "default relation implementation: 'external_relation', 'pentagon'");
+        p.insert("engine",    CPK_SYMBOL, "(default: automatically configured) select 'datalog', PDR 'pdr' engine.");
+        p.insert("bit_blast", CPK_BOOL, "(default: false) bit-blast bit-vectors (for PDR engine).");
+        p.insert("default_table", CPK_SYMBOL, "default table implementation: 'sparse' (default), 'hashtable', 'bitvector',  'interval'");
+        p.insert("default_relation", CPK_SYMBOL, "default relation implementation: 'external_relation', 'pentagon'");
 
-        p.insert(":generate-explanations", CPK_BOOL, "if true, signature of relations will be extended to contain explanations for facts");
-        p.insert(":explanations-on-relation-level", CPK_BOOL, "if true, explanations are generated as history of each relation, "
-                 "rather than per fact (:generate-explanations must be set to true for this option to have any effect)");
+        p.insert("generate_explanations", CPK_BOOL, "if true, signature of relations will be extended to contain explanations for facts");
+        p.insert("explanations_on_relation_level", CPK_BOOL, "if true, explanations are generated as history of each relation, "
+                 "rather than per fact (generate_explanations must be set to true for this option to have any effect)");
 
-        p.insert(":magic-sets-for-queries", CPK_BOOL, "magic set transformation will be used for queries");
-        p.insert(":unbound-compressor", CPK_BOOL, "auxiliary relations will be introduced to avoid unbound variables in rule heads");
-        p.insert(":similarity-compressor", CPK_BOOL, "rules that differ only in values of constants will be merged into a single rule");
-        p.insert(":similarity-compressor-threshold", CPK_UINT, "if :dl-similiaryt-compressor is on, this value determines how many "
+        p.insert("magic_sets_for_queries", CPK_BOOL, "magic set transformation will be used for queries");
+        p.insert("unbound_compressor", CPK_BOOL, "auxiliary relations will be introduced to avoid unbound variables in rule heads");
+        p.insert("similarity_compressor", CPK_BOOL, "rules that differ only in values of constants will be merged into a single rule");
+        p.insert("similarity_compressor_threshold", CPK_UINT, "if dl_similiaryt_compressor is on, this value determines how many "
                  "similar rules there must be in order for them to be merged");
 
-        p.insert(":all-or-nothing-deltas", CPK_BOOL, "compile rules so that it is enough for the delta relation in union and widening "
+        p.insert("all_or_nothing_deltas", CPK_BOOL, "compile rules so that it is enough for the delta relation in union and widening "
                  "operations to determine only whether the updated relation was modified or not");
-        p.insert(":compile-with-widening", CPK_BOOL, "widening will be used to compile recursive rules");
-        p.insert(":eager-emptiness-checking", CPK_BOOL, "emptiness of affected relations will be checked after each instruction, "
+        p.insert("compile_with_widening", CPK_BOOL, "widening will be used to compile recursive rules");
+        p.insert("eager_emptiness_checking", CPK_BOOL, "emptiness of affected relations will be checked after each instruction, "
                  "so that we may ommit unnecessary instructions");
-        p.insert(":default-table-checked", CPK_BOOL,
-            "if true, the detault table will be :default-table inside a wrapper that checks that "
-             "its results are the same as of :default-table-checker table");
+        p.insert("default_table_checked", CPK_BOOL,
+            "if true, the detault table will be default_table inside a wrapper that checks that "
+             "its results are the same as of default_table_checker table");
 
 
-        p.insert(":initial-restart-timeout", CPK_UINT, "length of saturation run before the first restart (in ms); zero means no restarts");
-        p.insert(":restart-timeout-quotient", CPK_UINT, "restart timeout will be multiplied by this number after each restart");
-        p.insert(":use-map-names", CPK_BOOL, "use names from map files when displaying tuples");
+        p.insert("initial_restart_timeout", CPK_UINT, "length of saturation run before the first restart (in ms); zero means no restarts");
+        p.insert("restart_timeout_quotient", CPK_UINT, "restart timeout will be multiplied by this number after each restart");
+        p.insert("use_map_names", CPK_BOOL, "use names from map files when displaying tuples");
 
-        p.insert(":output-profile", CPK_BOOL, "determines whether profile informations should be output when outputting Datalog rules or instructions");
-        p.insert(":output-tuples", CPK_BOOL, "determines whether tuples for output predicates should be output");
-        p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
+        p.insert("output_profile", CPK_BOOL, "determines whether profile informations should be output when outputting Datalog rules or instructions");
+        p.insert("output_tuples", CPK_BOOL, "determines whether tuples for output predicates should be output");
+        p.insert("profile_timeout_milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
                       
-        p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
-        p.insert(":print-low-level-smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
-        p.insert(":print-with-variable-declarations", CPK_BOOL, "(default true) use variable declarations when displaying rules (instead of attempting to use original names)");
+        p.insert("print_with_fixedpoint_extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
+        p.insert("print_low_level_smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
+        p.insert("print_with_variable_declarations", CPK_BOOL, "(default true) use variable declarations when displaying rules (instead of attempting to use original names)");
         
-        PRIVATE_PARAMS(
-            p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
-                              "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
-                              "by putting in half of the table columns, if it would have been empty otherwise");
+#ifndef _EXTERNAL_RELEASE
+        p.insert("dbg_fpr_nonempty_relation_signature", CPK_BOOL, 
+                 "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
+                 "by putting in half of the table columns, if it would have been empty otherwise");
         
-            p.insert(":smt-relation-ground-recursive", CPK_BOOL, "Ensure recursive relation is ground in union");
-        );
-        
-        p.insert(":fix-unbound-vars", CPK_BOOL, "fix unbound variables in tail");
-        p.insert(":default-table-checker", CPK_SYMBOL, "see :default-table-checked");
-        p.insert(":inline-linear", CPK_BOOL, "(default true) try linear inlining method");
-        p.insert(":inline-eager", CPK_BOOL, "(default true) try eager inlining of rules");
-        PRIVATE_PARAMS(p.insert(":inline-linear-branch", CPK_BOOL, "try linear inlining method with potential expansion"););
+        p.insert("smt_relation_ground_recursive", CPK_BOOL, "Ensure recursive relation is ground in union");
+        p.insert("inline_linear_branch", CPK_BOOL, "try linear inlining method with potential expansion");
+#endif
+        p.insert("fix_unbound_vars", CPK_BOOL, "fix unbound variables in tail");
+        p.insert("default_table_checker", CPK_SYMBOL, "see default_table_checked");
+        p.insert("inline_linear", CPK_BOOL, "(default true) try linear inlining method");
+        p.insert("inline_eager", CPK_BOOL, "(default true) try eager inlining of rules");
+
 
         pdr::dl_interface::collect_params(p);
         bmc::collect_params(p);
@@ -1190,7 +1190,7 @@ namespace datalog {
     };
 
     void context::configure_engine() {
-        symbol e = m_params.get_sym(":engine", symbol());
+        symbol e = m_params.get_sym("engine", symbol());
         
         if (e == symbol("datalog")) {
             m_engine = DATALOG_ENGINE;
@@ -1668,16 +1668,15 @@ namespace datalog {
         expr_ref fml(m);
         expr_ref_vector rules(m);
         svector<symbol> names;
-        bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
-        bool print_low_level = m_params.get_bool(":print-low-level-smt2", false);
-        bool do_declare_vars = m_params.get_bool(":print-with-variable-declarations", true);
+        bool use_fixedpoint_extensions = m_params.get_bool("print_with_fixedpoint_extensions", true);
+        bool print_low_level = m_params.get_bool("print_low_level_smt2", false);
+        bool do_declare_vars = m_params.get_bool("print_with_variable_declarations", true);
 
-#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env, params);
+#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
         get_rules_as_formulas(rules, names);
 
         smt2_pp_environment_dbg env(m);
-        pp_params params;
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
         collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
@@ -1719,7 +1718,7 @@ namespace datalog {
             func_decl* f = *it;
             out << "(declare-rel " << f->get_name() << " (";
             for (unsigned i = 0; i < f->get_arity(); ++i) {                
-                ast_smt2_pp(out, f->get_domain(i), env, params);
+                ast_smt2_pp(out, f->get_domain(i), env);
                 if (i + 1 < f->get_arity()) {
                     out << " ";
                 }
@@ -1796,7 +1795,6 @@ namespace datalog {
         // 
         smt2_pp_environment_dbg env(m);
         var_subst vsubst(m, false);
-        pp_params param;
         
         expr_ref_vector fresh_vars(m), subst(m);
         expr_ref res(m);
@@ -1839,7 +1837,7 @@ namespace datalog {
                     symbol name = fresh_names.next();
                     fresh_vars.push_back(m.mk_const(name, s));
                     out << "(declare-var " << name << " ";
-                    ast_smt2_pp(out, s, env, param);
+                    ast_smt2_pp(out, s, env);
                     out << ")\n"; 
                 }
                 subst.push_back(fresh_vars[vars[max_var]].get());

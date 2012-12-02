@@ -306,8 +306,7 @@ lbool interpolant_provider_impl::get_interpolant(expr * f1, expr * f2, expr_ref&
         return l_undef;
     }
 
-    front_end_params dummy_params;
-    cmd_context cctx(&dummy_params, false, &m);
+    cmd_context cctx(false, &m);
     for_each_expr(used_symbol_inserter(cctx), f1);
 
     parse_smt2_commands(cctx, std::istringstream(res_text), false);
@@ -318,7 +317,7 @@ lbool interpolant_provider_impl::get_interpolant(expr * f1, expr * f2, expr_ref&
         throw default_exception("invalid interpolator output");
     }
     res = *ait;
-    if (m_params.get_bool(":dump-interpolants", false)) {
+    if (m_params.get_bool("dump_interpolants", false)) {
         interpolant_provider::output_interpolant(m, f1, f2, res);
     }
     return l_true;

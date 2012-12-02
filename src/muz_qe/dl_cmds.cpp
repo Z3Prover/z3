@@ -33,6 +33,8 @@ Notes:
 
 
 class dl_context {
+    // PARAM-TODO temp HACK: added m_params field because cmd_context does not have smt_params anymore
+    smt_params                    m_params; 
     cmd_context &                 m_cmd;
     dl_collected_cmds*            m_collected_cmds;
     unsigned                      m_ref_count;
@@ -62,7 +64,7 @@ public:
     void init() {
         ast_manager& m = m_cmd.m();
         if (!m_context) {
-            m_context = alloc(datalog::context, m, m_cmd.params()); 
+            m_context = alloc(datalog::context, m, m_params);
         }
         if (!m_decl_plugin) {
             symbol name("datalog_relation");
@@ -210,7 +212,7 @@ public:
         datalog::context& dlctx = m_dl_ctx->dlctx();
         set_background(ctx);        
         dlctx.updt_params(m_params);
-        unsigned timeout   = m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout   = m_params.get_uint("timeout", UINT_MAX);
         cancel_eh<datalog::context> eh(dlctx);
         lbool status = l_undef;
         {
@@ -266,9 +268,9 @@ public:
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         m_dl_ctx->dlctx().collect_params(p);
         insert_timeout(p);
-        p.insert(":print-answer", CPK_BOOL, "(default: false) print answer instance(s) to query.");
-        p.insert(":print-certificate", CPK_BOOL, "(default: false) print certificate for reachability or non-reachability.");
-        p.insert(":print-statistics",  CPK_BOOL, "(default: false) print statistics.");
+        p.insert("print_answer", CPK_BOOL, "(default: false) print answer instance(s) to query.");
+        p.insert("print_certificate", CPK_BOOL, "(default: false) print certificate for reachability or non-reachability.");
+        p.insert("print_statistics",  CPK_BOOL, "(default: false) print statistics.");
     }
    
 
@@ -283,7 +285,7 @@ private:
     }
 
     void print_answer(cmd_context& ctx) {
-        if (m_params.get_bool(":print-answer", false)) {
+        if (m_params.get_bool("print_answer", false)) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             ast_manager& m = ctx.m();
             expr_ref query_result(dlctx.get_answer_as_formula(), m);
@@ -298,7 +300,7 @@ private:
     }
 
     void print_statistics(cmd_context& ctx) {
-        if (m_params.get_bool(":print-statistics", false)) {
+        if (m_params.get_bool("print_statistics", false)) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             unsigned long long max_mem = memory::get_max_used_memory();
@@ -312,7 +314,7 @@ private:
     }
 
     void print_certificate(cmd_context& ctx) {
-        if (m_params.get_bool(":print-certificate", false)) {
+        if (m_params.get_bool("print_certificate", false)) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             if (!dlctx.display_certificate(ctx.regular_stream())) {
                 throw cmd_exception("certificates are not supported for the selected engine");
@@ -472,8 +474,10 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
     ctx.insert(alloc(dl_query_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_rel_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_var_cmd, dl_ctx));
-    PRIVATE_PARAMS(ctx.insert(alloc(dl_push_cmd, dl_ctx));); // not exposed to keep command-extensions simple.
-    PRIVATE_PARAMS(ctx.insert(alloc(dl_pop_cmd, dl_ctx)););    
+#ifndef _EXTERNAL_RELEASE
+    ctx.insert(alloc(dl_push_cmd, dl_ctx)); // not exposed to keep command-extensions simple.
+    ctx.insert(alloc(dl_pop_cmd, dl_ctx));
+#endif
 }
 
 void install_dl_cmds(cmd_context & ctx) {

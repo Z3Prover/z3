@@ -141,8 +141,8 @@ public:
 UNARY_CMD(bool_rewriter_cmd, "dbg-bool-rewriter", "<term>", "apply the Boolean rewriter to the given term", CPK_EXPR, expr *, {
     expr_ref t(ctx.m());
     params_ref p;
-    p.set_bool(":flat", false);
-    SASSERT(p.get_bool(":flat", true) == false);
+    p.set_bool("flat", false);
+    SASSERT(p.get_bool("flat", true) == false);
     bool_rewriter_star r(ctx.m(), p);
     r(arg, t);
     ctx.display(ctx.regular_stream(), t);
@@ -153,7 +153,7 @@ UNARY_CMD(bool_frewriter_cmd, "dbg-bool-flat-rewriter", "<term>", "apply the Boo
     expr_ref t(ctx.m());
     { 
         params_ref p;
-        p.set_bool(":flat", true);
+        p.set_bool("flat", true);
         bool_rewriter_star r(ctx.m(), p);
         r(arg, t);
     }
@@ -165,8 +165,8 @@ UNARY_CMD(elim_and_cmd, "dbg-elim-and", "<term>", "apply the Boolean rewriter (e
     expr_ref t(ctx.m());
     { 
         params_ref p;
-        p.set_bool(":flat", true);
-        p.set_bool(":elim-and", true);
+        p.set_bool("flat", true);
+        p.set_bool("elim_and", true);
         bool_rewriter_star r(ctx.m(), p);
         r(arg, t);
     }
@@ -208,15 +208,15 @@ UNARY_CMD(some_value_cmd, "dbg-some-value", "<sort>", "retrieve some value of th
 void tst_params(cmd_context & ctx) {
     params_ref p1;
     params_ref p2;
-    p1.set_uint(":val", 100);
+    p1.set_uint("val", 100);
     p2 = p1;
-    SASSERT(p2.get_uint(":val", 0) == 100);
-    p2.set_uint(":val", 200);
-    SASSERT(p2.get_uint(":val", 0) == 200);
-    SASSERT(p1.get_uint(":val", 0) == 100);
+    SASSERT(p2.get_uint("val", 0) == 100);
+    p2.set_uint("val", 200);
+    SASSERT(p2.get_uint("val", 0) == 200);
+    SASSERT(p1.get_uint("val", 0) == 100);
     p2 = p1;
-    SASSERT(p2.get_uint(":val", 0) == 100);
-    SASSERT(p1.get_uint(":val", 0) == 100);
+    SASSERT(p2.get_uint("val", 0) == 100);
+    SASSERT(p1.get_uint("val", 0) == 100);
     ctx.regular_stream() << "worked" << std::endl;
 }
 

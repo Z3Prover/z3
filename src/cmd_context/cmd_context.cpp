@@ -16,7 +16,6 @@ Notes:
 
 --*/
 #include<signal.h>
-#include"front_end_params.h"
 #include"tptr.h"
 #include"cmd_context.h"
 #include"func_decl_dependencies.h"
@@ -38,6 +37,22 @@ Notes:
 #include"well_sorted.h"
 #include"model_evaluator.h"
 #include"for_each_expr.h"
+
+std::string smt2_keyword_to_param(symbol const & opt) {
+    std::string r;
+    SASSERT(opt.bare_str()[0] == ':');
+    r = opt.bare_str() + 1;
+    unsigned sz = static_cast<unsigned>(r.size());
+    for (unsigned i = 0; i < sz; i++) {
+        char curr = r[i];
+        if ('A' <= curr && curr <= 'Z')
+            r[i] = curr - 'A' + 'a';
+        else if (curr == '-')
+            r[i] = '_';
+    }
+    TRACE("smt2_keyword_to_param", tout << opt << " -> '" << r << "'\n";);
+    return r;
+}
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -300,10 +315,8 @@ public:
     }
 };
 
-cmd_context::cmd_context(front_end_params * params, bool main_ctx, ast_manager * m, symbol const & l):
+cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
-    m_params(params == 0 ? alloc(front_end_params) : params),
-    m_params_owner(params == 0),
     m_logic(l),
     m_interactive_mode(false),
     m_global_decls(false),  // :global-decls is false by default.
@@ -343,39 +356,44 @@ cmd_context::~cmd_context() {
     finalize_probes();
     m_solver = 0;
     m_check_sat_result = 0;
-    if (m_params_owner) {
-        dealloc(m_params);
-    }
 }
 
 void cmd_context::set_produce_models(bool f) {
-    params().m_model = f;
     if (m_solver)
         m_solver->set_produce_models(f);
+    m_params.m_model = f;
 }
 
 void cmd_context::set_produce_unsat_cores(bool f) {
     // can only be set before initialization
     SASSERT(!has_manager());
-    m_produce_unsat_cores = f;
+    m_params.m_unsat_core = f;
 }
 
 void cmd_context::set_produce_proofs(bool f) {
     // can only be set before initialization
     SASSERT(!has_manager());
-    params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
-}
-
-bool cmd_context::is_smtlib2_compliant() const { 
-    return params().m_smtlib2_compliant; 
+    m_params.m_proof = f;
 }
 
 bool cmd_context::produce_models() const { 
-    return params().m_model; 
+    return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const { 
-    return params().m_proof_mode != PGM_DISABLED; 
+    return m_params.m_proof;
+}
+
+bool cmd_context::produce_unsat_cores() const { 
+    return m_params.m_unsat_core;
+}
+
+bool cmd_context::well_sorted_check_enabled() const {
+    return m_params.m_well_sorted_check;
+}
+
+bool cmd_context::validate_model_enabled() const {
+    return m_params.m_validate_model;
 }
 
 cmd_context::check_sat_state cmd_context::cs_state() const {
@@ -460,6 +478,7 @@ bool cmd_context::logic_has_arith_core(symbol const & s) const {
         s == "LIA" ||        
         s == "LRA" || 
         s == "QF_FPA" ||
+        s == "QF_FPABV" ||
         s == "HORN";
 }
 
@@ -478,6 +497,7 @@ bool cmd_context::logic_has_bv_core(symbol const & s) const {
         s == "QF_ABV" ||
         s == "QF_AUFBV" ||
         s == "QF_BVRE" ||
+        s == "QF_FPABV" ||
         s == "HORN";
 }
 
@@ -502,7 +522,7 @@ bool cmd_context::logic_has_seq() const {
 }
 
 bool cmd_context::logic_has_floats() const {
-    return !has_logic() || m_logic == "QF_FPA";
+    return !has_logic() || m_logic == "QF_FPA" || m_logic == "QF_FPABV";
 }
 
 bool cmd_context::logic_has_array_core(symbol const & s) const {
@@ -568,10 +588,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         insert(pm().mk_plist_decl());
     }
     if (m_solver) {
-        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-        m_solver->set_produce_models(params().m_model);
-        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
-        m_solver->init(m(), m_logic);
+        init_solver_options(m_solver.get());
     }
     m_check_logic.set_logic(m(), m_logic);
 }
@@ -580,11 +597,14 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, params().m_proof_mode, params().m_trace_stream);
+    m_manager  = alloc(ast_manager, 
+                       produce_proofs() ? PGM_FINE : PGM_DISABLED, 
+                       m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
-    if (params().m_smtlib2_compliant)
-        m_manager->enable_int_real_coercions(false);
+    // PARAM-TODO
+    // if (params().m_smtlib2_compliant)
+    //    m_manager->enable_int_real_coercions(false);
 }
 
 void cmd_context::init_external_manager() {
@@ -599,7 +619,7 @@ bool cmd_context::supported_logic(symbol const & s) const {
         logic_has_arith_core(s) || logic_has_bv_core(s) || 
         logic_has_array_core(s) || logic_has_seq_core(s) ||
         logic_has_horn(s) ||
-        s == "QF_FPA";
+        s == "QF_FPA" || s == "QF_FPABV";
 }
 
 void cmd_context::set_logic(symbol const & s) {
@@ -843,7 +863,7 @@ object_ref * cmd_context::find_object_ref(symbol const & s) const {
     return r;
 }
 
-#define CHECK_SORT(T) if (params().m_well_sorted_check) m().check_sorts_core(T)
+#define CHECK_SORT(T) if (well_sorted_check_enabled()) m().check_sorts_core(T)
 
 void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
     mk_app(s, 0, 0, 0, 0, 0, result);
@@ -883,13 +903,13 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             return;
         }
         SASSERT(num_args > 0);
-        TRACE("macro_bug", tout << "m_well_sorted_check: " << params().m_well_sorted_check << "\n";
+        TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_m.second, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
         subst(_m.second, num_args, args, result);
-        if (params().m_well_sorted_check && !is_well_sorted(m(), result))
+        if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
     }
@@ -918,7 +938,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         func_decl * f = fs.find(m(), num_args, args, range);
         if (f == 0)
             throw cmd_exception("unknown constant ", s);
-        if (params().m_well_sorted_check)
+        if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
         return;
@@ -1139,7 +1159,7 @@ void cmd_context::assert_expr(expr * t) {
     m_check_sat_result = 0;
     m().inc_ref(t);
     m_assertions.push_back(t);
-    if (m_produce_unsat_cores)
+    if (produce_unsat_cores())
         m_assertion_names.push_back(0);
     if (m_solver)
         m_solver->assert_expr(t);
@@ -1148,7 +1168,7 @@ void cmd_context::assert_expr(expr * t) {
 void cmd_context::assert_expr(symbol const & name, expr * t) {
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
-    if (!m_produce_unsat_cores || name == symbol::null) {
+    if (!produce_unsat_cores() || name == symbol::null) {
         assert_expr(t);
         return;
     }
@@ -1254,7 +1274,7 @@ void cmd_context::restore_assertions(unsigned old_sz) {
     SASSERT(old_sz <= m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
     restore(m(), m_assertions, old_sz);
-    if (m_produce_unsat_cores)
+    if (produce_unsat_cores())
         restore(m(), m_assertion_names, old_sz);
     if (m_interactive_mode)
         m_assertion_strings.shrink(old_sz);
@@ -1283,18 +1303,12 @@ void cmd_context::pop(unsigned n) {
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     if (m_ignore_check)
         return;
-    IF_VERBOSE(100, verbose_stream() << "check-sat..." << std::endl;);
+    IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
-    if (params().m_ignore_checksat) {
-        m_check_sat_result = 0;
-        regular_stream() << "unknown" << std::endl;
-        return;
-    }
     if (!has_manager())
         init_manager();
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
-        m_solver->set_front_end_params(params());
         m_solver->set_progress_callback(this);
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
@@ -1392,7 +1406,7 @@ struct contains_array_op_proc {
    \brief Check if the current model satisfies the quantifier free formulas.
 */
 void cmd_context::validate_model() {
-    if (!params().m_model_validate) 
+    if (!validate_model_enabled()) 
         return;
     if (!is_model_available())
         return;
@@ -1400,9 +1414,9 @@ void cmd_context::validate_model() {
     get_check_sat_result()->get_model(md);
     SASSERT(md.get() != 0);
     params_ref p;
-    p.set_uint(":max-degree", UINT_MAX); // evaluate algebraic numbers of any degree.
-    p.set_uint(":sort-store", true); 
-    p.set_bool(":model-completion", true); 
+    p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
+    p.set_uint("sort_store", true); 
+    p.set_bool("model_completion", true); 
     model_evaluator evaluator(*(md.get()), p);
     contains_array_op_proc contains_array(m());
     {
@@ -1435,15 +1449,23 @@ void cmd_context::validate_model() {
     }
 }
 
+void cmd_context::init_solver_options(solver * s) {
+    m_solver->set_produce_unsat_cores(produce_unsat_cores());
+    m_solver->set_produce_models(produce_models());
+    m_solver->set_produce_proofs(produce_proofs());
+    m_solver->init(m(), m_logic);
+    if (!m_params.m_auto_config) {
+        params_ref p;
+        p.set_bool("auto_config", false);
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::set_solver(solver * s) {
     m_check_sat_result = 0;
     m_solver = s;
-    m_solver->set_front_end_params(params());
     if (has_manager() && s != 0) {
-        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-        m_solver->set_produce_models(params().m_model);
-        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
-        m_solver->init(m(), m_logic);
+        init_solver_options(s);
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
         svector<scope>::iterator it  = m_scopes.begin();
@@ -1497,7 +1519,7 @@ void cmd_context::display_assertions() {
 }
 
 bool cmd_context::is_model_available() const {
-    if (params().m_model &&
+    if (produce_models() &&
         has_manager() &&
         (cs_state() == css_sat || cs_state() == css_unknown)) {
         model_ref md;
@@ -1520,8 +1542,7 @@ cmd_context::pp_env & cmd_context::get_pp_env() const {
 }
 
 void cmd_context::pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const {
-    mk_smt2_format(n, get_pp_env(), get_pp_default_params(),
-                   num_vars, var_prefix, r, var_names);
+    mk_smt2_format(n, get_pp_env(), params_ref(), num_vars, var_prefix, r, var_names);
 }
 
 void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
@@ -1530,7 +1551,7 @@ void cmd_context::pp(expr * n, format_ns::format_ref & r) const {
 }
 
 void cmd_context::pp(func_decl * f, format_ns::format_ref & r) const {
-    mk_smt2_format(f, get_pp_env(), get_pp_default_params(), r);
+    mk_smt2_format(f, get_pp_env(), params_ref(), r);
 }
 
 void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {
@@ -1538,7 +1559,7 @@ void cmd_context::display(std::ostream & out, sort * s, unsigned indent) const {
     f = pp(s);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const {
@@ -1546,7 +1567,7 @@ void cmd_context::display(std::ostream & out, expr * n, unsigned indent, unsigne
     pp(n, num_vars, var_prefix, f, var_names);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::display(std::ostream & out, expr * n, unsigned indent) const {
@@ -1559,7 +1580,7 @@ void cmd_context::display(std::ostream & out, func_decl * d, unsigned indent) co
     pp(d, f);
     if (indent > 0) 
         f = format_ns::mk_indent(m(), indent, f);
-    ::pp(out, f.get(), m(), get_pp_default_params());
+    ::pp(out, f.get(), m());
 }
 
 void cmd_context::dump_assertions(std::ostream & out) const {

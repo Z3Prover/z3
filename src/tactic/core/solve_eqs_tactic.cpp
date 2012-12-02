@@ -71,9 +71,9 @@ class solve_eqs_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
         
         void updt_params(params_ref const & p) {
-            m_ite_solver     = p.get_bool(":ite-solver", true);
-            m_theory_solver  = p.get_bool(":theory-solver", true);
-            m_max_occs       = p.get_uint(":solve-eqs-max-occs", UINT_MAX);
+            m_ite_solver     = p.get_bool("ite_solver", true);
+            m_theory_solver  = p.get_bool("theory_solver", true);
+            m_max_occs       = p.get_uint("solve_eqs_max_occs", UINT_MAX);
         }
         
         void set_cancel(bool f) {
@@ -732,9 +732,9 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert(":solve-eqs-max-occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
-        r.insert(":theory-solver", CPK_BOOL, "(default: true) use theory solvers.");
-        r.insert(":ite-solver", CPK_BOOL, "(default: true) use if-then-else solver.");
+        r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
+        r.insert("theory_solver", CPK_BOOL, "(default: true) use theory solvers.");
+        r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
     }
     
     virtual void operator()(goal_ref const & in, 

@@ -1162,7 +1162,7 @@ public:
         : dparser(ctx, ctx.get_manager()),
         m_bool_sort(ctx.get_manager()),
         m_short_sort(ctx.get_manager()),
-        m_use_map_names(ctx.get_params().get_bool(":use-map-names", true)) { 
+        m_use_map_names(ctx.get_params().get_bool("use_map_names", true)) { 
     }
     ~wpa_parser_impl() {
         reset_dealloc_values(m_sort_contents);

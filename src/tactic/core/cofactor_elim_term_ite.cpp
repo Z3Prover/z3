@@ -304,7 +304,7 @@ struct cofactor_elim_term_ite::imp {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
     void set_cancel(bool f) {

@@ -1,0 +1,7 @@
+def_module_params(class_name='arith_simplifier_params_helper',
+                  module_name="old_simplify", # Parameters will be in the old_simplify module
+                  description="old simplification (stack) still used in the smt module",
+                  export=True,
+                  params=(
+                          ('arith.expand_eqs', BOOL, False, 'expand equalities into two inequalities'),
+                          ('arith.process_all_eqs', BOOL, False, 'put all equations in the form (= t c), where c is a numeral')))

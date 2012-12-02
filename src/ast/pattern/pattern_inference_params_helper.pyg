@@ -1,0 +1,12 @@
+def_module_params(class_name='pattern_inference_params_helper',
+                  module_name='pi',
+                  description='pattern inference (heuristics) for universal formulas (without annotation)',
+                  export=True,
+                  params=(('max_multi_patterns', UINT, 0, 'when patterns are not provided, the prover uses a heuristic to infer them, this option sets the threshold on the number of extra multi-patterns that can be created; by default, the prover creates at most one multi-pattern when there is no unary pattern'),
+                          ('block_loop_patterns', BOOL, True, 'block looping patterns during pattern inference'),
+                          ('arith', UINT, 1, '0 - do not infer patterns with arithmetic terms, 1 - use patterns with arithmetic terms if there is no other pattern, 2 - always use patterns with arithmetic terms'),
+                          ('use_database', BOOL, True, 'use pattern database'),
+                          ('arith_weight', UINT, 5, 'default weight for quantifiers where the only available pattern has nested arithmetic terms'),
+                          ('non_nested_arith_weight', UINT, 10, 'default weight for quantifiers where the only available pattern has non nested arithmetic terms'),
+                          ('pull_quantifiers', BOOL, True, 'pull nested quantifiers, if no pattern was found'),
+                          ('warnings', BOOL, False, 'enable/disable warning messages in the pattern inference module')))

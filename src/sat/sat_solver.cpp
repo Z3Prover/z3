@@ -1909,7 +1909,7 @@ namespace sat {
         m_asymm_branch.updt_params(p);
         m_probing.updt_params(p);
         m_scc.updt_params(p);
-        m_rand.set_seed(p.get_uint(":random-seed", 0));
+        m_rand.set_seed(p.get_uint("random_seed", 0));
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

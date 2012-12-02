@@ -138,7 +138,7 @@ tactic * mk_simplify_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_elim_and_tactic(ast_manager & m, params_ref const & p) {
     params_ref xp = p;
-    xp.set_bool(":elim-and", true);
+    xp.set_bool("elim_and", true);
     return using_params(mk_simplify_tactic(m, xp), xp);
 }
 

@@ -108,13 +108,13 @@ lbool dl_interface::query(expr * query) {
 
     model_converter_ref mc = datalog::mk_skip_model_converter();
     proof_converter_ref pc;
-    if (m_ctx.get_params().get_bool(":generate-proof-trace", false)) {
+    if (m_ctx.get_params().get_bool("generate_proof_trace", false)) {
         pc = datalog::mk_skip_proof_converter();
     }
     m_ctx.set_output_predicate(query_pred);
     m_ctx.apply_default_transformation(mc, pc);
 
-    if (m_ctx.get_params().get_bool(":slice", true)) {
+    if (m_ctx.get_params().get_bool("slice", true)) {
         datalog::rule_transformer transformer(m_ctx);
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
@@ -133,10 +133,10 @@ lbool dl_interface::query(expr * query) {
         }
     }
 
-    if (m_ctx.get_params().get_uint(":unfold-rules",0) > 0) {
-        unsigned num_unfolds = m_ctx.get_params().get_uint(":unfold-rules", 0);
+    if (m_ctx.get_params().get_uint("unfold_rules",0) > 0) {
+        unsigned num_unfolds = m_ctx.get_params().get_uint("unfold_rules", 0);
         datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
-        if (m_ctx.get_params().get_uint(":coalesce-rules", false)) {
+        if (m_ctx.get_params().get_uint("coalesce_rules", false)) {
             transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
             m_ctx.transform_rules(transformer1, mc, pc);
         }
@@ -198,7 +198,7 @@ expr_ref dl_interface::get_cover_delta(int level, func_decl* pred_orig) {
 }
 
 void dl_interface::add_cover(int level, func_decl* pred, expr* property) {
-    if (m_ctx.get_params().get_bool(":slice", true)) {
+    if (m_ctx.get_params().get_bool("slice", true)) {
         throw default_exception("Covers are incompatible with slicing. Disable slicing before using covers");
     }
     m_context->add_cover(level, pred, property);
@@ -248,28 +248,30 @@ proof_ref dl_interface::get_proof() {
 }
 
 void dl_interface::collect_params(param_descrs& p) {
-    p.insert(":bfs-model-search", CPK_BOOL, "PDR: (default true) use BFS strategy for expanding model search");    
-    p.insert(":use-farkas", CPK_BOOL, "PDR: (default true) use lemma generator based on Farkas (for linear real arithmetic)");
-    p.insert(":generate-proof-trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
-    p.insert(":inline-proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract "
+    p.insert("bfs_model_search", CPK_BOOL, "PDR: (default true) use BFS strategy for expanding model search");    
+    p.insert("use_farkas", CPK_BOOL, "PDR: (default true) use lemma generator based on Farkas (for linear real arithmetic)");
+    p.insert("generate_proof_trace", CPK_BOOL, "PDR: (default false) trace for 'sat' answer as proof object");
+    p.insert("inline_proofs", CPK_BOOL, "PDR: (default true) run PDR with proof mode turned on and extract "
              "Farkas coefficients directly (instead of creating a separate proof object when extracting coefficients)"); 
-    p.insert(":flexible-trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples "
+    p.insert("flexible_trace", CPK_BOOL, "PDR: (default false) allow PDR generate long counter-examples "
              "by extending candidate trace within search area");
-    p.insert(":unfold-rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
-    p.insert(":use-model-generalizer", CPK_BOOL, "PDR: (default false) use model for backwards propagation (instead of symbolic simulation)");
-    p.insert(":validate-result", CPK_BOOL, "PDR (default false) validate result (by proof checking or model checking)");
-    PRIVATE_PARAMS(p.insert(":use-multicore-generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););
-    PRIVATE_PARAMS(p.insert(":use-inductive-generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening"););
-    PRIVATE_PARAMS(p.insert(":use-interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation"););
-    PRIVATE_PARAMS(p.insert(":dump-interpolants", CPK_BOOL, "PDR: (default false) display interpolants"););
-    PRIVATE_PARAMS(p.insert(":cache-mode", CPK_UINT, "PDR: use no (0 - default) symbolic (1) or explicit cache (2) for model search"););
-    PRIVATE_PARAMS(p.insert(":inductive-reachability-check", CPK_BOOL, 
-                            "PDR: (default false) assume negation of the cube on the previous level when "
-                            "checking for reachability (not only during cube weakening)"););
-    PRIVATE_PARAMS(p.insert(":max-num-contexts", CPK_UINT, "PDR: (default 500) maximal number of contexts to create"););
-    PRIVATE_PARAMS(p.insert(":try-minimize-core", CPK_BOOL, "PDR: (default false) try to reduce core size (before inductive minimization)");); 
-    p.insert(":simplify-formulas-pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation");
-    p.insert(":simplify-formulas-post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation");
-    p.insert(":slice", CPK_BOOL, "PDR: (default true) simplify clause set using slicing");
-    p.insert(":coalesce-rules", CPK_BOOL, "BMC: (default false) coalesce rules");
+    p.insert("unfold_rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
+    p.insert("use_model_generalizer", CPK_BOOL, "PDR: (default false) use model for backwards propagation (instead of symbolic simulation)");
+    p.insert("validate_result", CPK_BOOL, "PDR (default false) validate result (by proof checking or model checking)");
+#ifndef _EXTERNAL_RELEASE
+    p.insert("use_multicore_generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states");
+    p.insert("use_inductive_generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening");
+    p.insert("use_interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation");
+    p.insert("dump_interpolants", CPK_BOOL, "PDR: (default false) display interpolants");
+    p.insert("cache_mode", CPK_UINT, "PDR: use no (0 - default) symbolic (1) or explicit cache (2) for model search");
+    p.insert("inductive_reachability_check", CPK_BOOL,
+             "PDR: (default false) assume negation of the cube on the previous level when "
+             "checking for reachability (not only during cube weakening)");
+    p.insert("max_num_contexts", CPK_UINT, "PDR: (default 500) maximal number of contexts to create");
+    p.insert("try_minimize_core", CPK_BOOL, "PDR: (default false) try to reduce core size (before inductive minimization)");
+#endif
+    p.insert("simplify_formulas_pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation");
+    p.insert("simplify_formulas_post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation");
+    p.insert("slice", CPK_BOOL, "PDR: (default true) simplify clause set using slicing");
+    p.insert("coalesce_rules", CPK_BOOL, "BMC: (default false) coalesce rules");
 }

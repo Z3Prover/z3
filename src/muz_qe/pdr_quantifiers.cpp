@@ -213,7 +213,7 @@ namespace pdr {
         datalog::scoped_fine_proof _scp(m);
 
         expr_ref_vector fmls(m);
-        front_end_params fparams;
+        smt_params fparams;
         fparams.m_proof_mode = PGM_FINE;
         fparams.m_mbqi = true;
 

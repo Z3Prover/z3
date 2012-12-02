@@ -230,12 +230,12 @@ namespace smt {
     class clause_subsumption {
         ast_manager& m;
         grounder     m_grounder;
-        front_end_params m_params;
+        smt_params m_params;
         context      m_ctx;
         quantifier_ref_vector m_assumptions;
         unsigned_vector m_limit;
     public:
-        clause_subsumption(ast_manager& m, front_end_params& p): 
+        clause_subsumption(ast_manager& m, smt_params& p): 
             m(m), m_grounder(m), m_params(p), m_ctx(m,m_params), m_assumptions(m) {
                 m_params.m_instgen = false;
         }
@@ -1131,7 +1131,7 @@ namespace smt {
         };
 
         ast_manager&           m_manager;
-        front_end_params&      m_params;
+        smt_params&      m_params;
         fo_clause_internalizer m_internalizer;
         instantiator           m_instantiator;
         clause_subsumption     m_subsumer;
@@ -1184,7 +1184,7 @@ namespace smt {
 
 
     public:
-        theory_instgen_impl(ast_manager& m, front_end_params& p):            
+        theory_instgen_impl(ast_manager& m, smt_params& p):            
             theory_instgen(m.get_family_id("inst_gen")),
             m_manager(m),
             m_params(p),
@@ -1277,7 +1277,7 @@ namespace smt {
 
     };
 
-    theory_instgen* mk_theory_instgen(ast_manager& m, front_end_params& p) { 
+    theory_instgen* mk_theory_instgen(ast_manager& m, smt_params& p) { 
         return alloc(theory_instgen_impl, m, p); 
     }
 

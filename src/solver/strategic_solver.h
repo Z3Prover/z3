@@ -23,7 +23,6 @@ Notes:
 #include"tactic.h"
 
 class progress_callback;
-struct front_end_params;
 
 /**
    \brief Implementation of the solver API that supports:
@@ -57,7 +56,7 @@ public:
 
 private:
     ast_manager *        m_manager;
-    front_end_params *   m_fparams;
+    params_ref           m_params;
     symbol               m_logic;
     bool                 m_force_tactic; // use tactics even when auto_config = false
     bool                 m_inc_mode;
@@ -93,6 +92,8 @@ private:
     bool                 m_produce_models;
     bool                 m_produce_unsat_cores;
 
+    bool                 m_auto_config;
+
     progress_callback *  m_callback;
 
     void reset_results();
@@ -117,8 +118,6 @@ public:
     void set_tactic_for(symbol const & logic, tactic_factory * fct);
     void set_inc_unknown_behavior(inc_unknown_behavior b) { m_inc_unknown_behavior = b; }
     void force_tactic(bool f) { m_force_tactic = f; }
-
-    virtual void set_front_end_params(front_end_params & p) { m_fparams = &p; }
 
     virtual void updt_params(params_ref const & p);
     virtual void collect_param_descrs(param_descrs & r);

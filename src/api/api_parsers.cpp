@@ -296,7 +296,7 @@ extern "C" {
                                 Z3_symbol const decl_names[],
                                 Z3_func_decl const decls[]) {
         Z3_TRY;
-        cmd_context ctx(&mk_c(c)->fparams(), false, &(mk_c(c)->m()));
+        cmd_context ctx(false, &(mk_c(c)->m()));
         ctx.set_ignore_check(true);
         if (exec) {
             ctx.set_solver(alloc(z3_context_solver, *mk_c(c)));
@@ -362,7 +362,7 @@ extern "C" {
                                          Z3_symbol decl_names[],
                                          Z3_func_decl decls[]) { 
         Z3_TRY;
-        cmd_context ctx(&mk_c(c)->fparams(), false, &(mk_c(c)->m()));
+        cmd_context ctx(false, &(mk_c(c)->m()));
         std::string s(str);
         std::istringstream is(s);
         // No logging for this one, since it private.

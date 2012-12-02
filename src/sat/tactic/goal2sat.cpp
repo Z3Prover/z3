@@ -67,8 +67,8 @@ struct goal2sat::imp {
     }
         
     void updt_params(params_ref const & p) {
-        m_ite_extra       = p.get_bool(":ite-extra", true);
-        m_max_memory      = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+        m_ite_extra       = p.get_bool("ite_extra", true);
+        m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
     void throw_op_not_handled() {
@@ -420,7 +420,7 @@ goal2sat::goal2sat():m_imp(0) {
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
-    r.insert(":ite-extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
+    r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
 }
 
 struct goal2sat::scoped_set_imp {
@@ -575,8 +575,8 @@ struct sat2goal::imp {
     }
 
     void updt_params(params_ref const & p) {
-        m_learned        = p.get_bool(":learned", false);
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+        m_learned        = p.get_bool("learned", false);
+        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
     }
 
     void checkpoint() {
@@ -676,7 +676,7 @@ sat2goal::sat2goal():m_imp(0) {
 
 void sat2goal::collect_param_descrs(param_descrs & r) {
     insert_max_memory(r);
-    r.insert(":learned", CPK_BOOL, "(default: false) collect also learned clauses.");
+    r.insert("learned", CPK_BOOL, "(default: false) collect also learned clauses.");
 }
 
 struct sat2goal::scoped_set_imp {

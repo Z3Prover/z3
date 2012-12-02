@@ -29,16 +29,15 @@ Revision History:
 #define _PROTO_MODEL_H_
 
 #include"model_core.h"
-#include"model_params.h"
 #include"value_factory.h"
 #include"plugin_manager.h"
 #include"simplifier.h"
 #include"arith_decl_plugin.h"
 #include"func_decl_dependencies.h"
 #include"model.h"
+#include"params.h"
 
 class proto_model : public model_core {
-    model_params const &          m_params; 
     ast_ref_vector                m_asts;
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
@@ -46,6 +45,8 @@ class proto_model : public model_core {
     family_id                     m_afid;        //!< array family id: hack for displaying models in V1.x style
     func_decl_set                 m_aux_decls;
     ptr_vector<expr>              m_tmp;
+
+    bool                          m_model_partial;
 
     void reset_finterp();
 
@@ -60,10 +61,8 @@ class proto_model : public model_core {
 
 
 public:
-    proto_model(ast_manager & m, simplifier & s, model_params const & p);
+    proto_model(ast_manager & m, simplifier & s, params_ref const & p = params_ref());
     virtual ~proto_model(); 
-
-    model_params const & get_model_params() const { return m_params; }
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 

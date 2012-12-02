@@ -63,9 +63,9 @@ class bv1_blaster_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_max_steps      = p.get_uint(":max-steps", UINT_MAX);
-            m_produce_models = p.get_bool(":produce-models", false);
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_max_steps      = p.get_uint("max_steps", UINT_MAX);
+            m_produce_models = p.get_bool("produce_models", false);
         }
         
         bool rewrite_patterns() const { UNREACHABLE(); return false; }

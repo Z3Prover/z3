@@ -18,7 +18,6 @@ Revision History:
 
 --*/
 #include"api_context.h"
-#include"api_config_params.h"
 #include"smtparser.h"
 #include"version.h"
 #include"ast_pp.h"
@@ -54,14 +53,6 @@ namespace api {
         return static_cast<Z3_search_failure>(f);
     }
 
-    context::param_ini::param_ini(front_end_params & p) : m_params(p) {
-        p.open_trace_file();
-    }
-
-    context::param_ini::~param_ini() {
-        m_params.close_trace_file();
-    }
-        
     context::add_plugins::add_plugins(ast_manager & m) {
         reg_decl_plugins(m);
     }
@@ -88,11 +79,10 @@ namespace api {
         }
     }
 
-    context::context(config_params * p, bool user_ref_count):
-        m_params(p ? p->m_params : front_end_params()),
-        m_param_ini(m_params),
+    context::context(context_params * p, bool user_ref_count):
+        m_params(*p),
         m_user_ref_count(user_ref_count),
-        m_manager(m_params.m_proof_mode, m_params.m_trace_stream),
+        m_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0), 
         m_plugins(m_manager),
         m_arith_util(m_manager),
         m_bv_util(m_manager),
@@ -115,8 +105,6 @@ namespace api {
         //
         // Configuration parameter settings.
         //
-        memory::set_high_watermark(static_cast<size_t>(m_params.m_memory_high_watermark)*1024*1024);
-        memory::set_max_size(static_cast<size_t>(m_params.m_memory_max_size)*1024*1024);
         if (m_params.m_debug_ref_count) {
             m_manager.debug_ref_count();
         }
@@ -335,7 +323,8 @@ namespace api {
 
     smt::kernel & context::get_smt_kernel() {
         if (!m_solver) {
-            m_solver = alloc(smt::kernel, m_manager, m_params);
+            m_fparams.updt_params(m_params);
+            m_solver = alloc(smt::kernel, m_manager, m_fparams);
         }
         return *m_solver;
     }
@@ -420,15 +409,15 @@ extern "C" {
     
     Z3_context Z3_API Z3_mk_context(Z3_config c) {
         LOG_Z3_mk_context(c);
-        memory::initialize(0);
-        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<api::config_params*>(c), false));
+        memory::initialize(UINT_MAX);
+        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), false));
         RETURN_Z3(r);
     }
 
     Z3_context Z3_API Z3_mk_context_rc(Z3_config c) {
         LOG_Z3_mk_context_rc(c);
-        memory::initialize(0);
-        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<api::config_params*>(c), true));
+        memory::initialize(UINT_MAX);
+        Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), true));
         RETURN_Z3(r);
     }
 
@@ -574,11 +563,4 @@ ast_manager & Z3_API Z3_get_manager(__in Z3_context c) {
     return mk_c(c)->m();
 }
 
-front_end_params& Z3_API Z3_get_parameters(__in Z3_context c) {
-    return mk_c(c)->fparams();
-}
 
-Z3_context Z3_mk_context_from_params(front_end_params const& p) {
-    api::config_params cp(p);
-    return reinterpret_cast<Z3_context>(alloc(api::context, &cp));
-}

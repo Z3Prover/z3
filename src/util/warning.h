@@ -21,8 +21,6 @@ Revision History:
 #include<iostream>
 #include<stdarg.h>
 
-class ini_params;
-
 void send_warnings_to_stdout(bool flag);
 
 void enable_warning_messages(bool flag);
@@ -32,8 +30,6 @@ void set_error_stream(std::ostream* strm);
 void set_warning_stream(std::ostream* strm);
 
 void warning_msg(const char * msg, ...);
-
-void register_warning(ini_params & p);
 
 void disable_error_msg_prefix();
 

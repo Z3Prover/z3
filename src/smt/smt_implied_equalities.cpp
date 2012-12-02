@@ -197,7 +197,7 @@ namespace smt {
             s_stats_val_eq_timer.start();
 
             params_ref p;
-            p.set_bool(":produce-models", false);
+            p.set_bool("produce_models", false);
             m_solver.updt_params(p);
 
             for (unsigned i = 0; i < terms.size(); ++i) {
@@ -232,7 +232,7 @@ namespace smt {
             }
             m_stats_val_eq_timer.stop();
             s_stats_val_eq_timer.stop();
-            p.set_bool(":produce-models", true);
+            p.set_bool("produce_models", true);
             m_solver.updt_params(p);
 
 
@@ -325,7 +325,7 @@ namespace smt {
         
         lbool operator()(unsigned num_terms, expr* const* terms, unsigned* class_ids) {
             params_ref p;
-            p.set_bool(":produce-models", true);
+            p.set_bool("produce_models", true);
             m_solver.updt_params(p);
             sort2term_ids termids;
             stopwatch timer;

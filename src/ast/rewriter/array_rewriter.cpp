@@ -21,13 +21,13 @@ Notes:
 #include"ast_pp.h"
 
 void array_rewriter::updt_params(params_ref const & p) {
-    m_sort_store = p.get_bool(":sort-store", false);
-    m_expand_select_store = p.get_bool(":expand-select-store", false);
+    m_sort_store = p.get_bool("sort_store", false);
+    m_expand_select_store = p.get_bool("expand_select_store", false);
 }
 
 void array_rewriter::get_param_descrs(param_descrs & r) {
-    r.insert(":expand-select-store", CPK_BOOL, "(default: false) replace a (select (store ...) ...) term by an if-then-else term.");
-    r.insert(":sort-store", CPK_BOOL, "(default: false) sort nested stores when the indices are known to be different.");
+    r.insert("expand_select_store", CPK_BOOL, "(default: false) replace a (select (store ...) ...) term by an if-then-else term.");
+    r.insert("sort_store", CPK_BOOL, "(default: false) sort nested stores when the indices are known to be different.");
 }
 
 br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {

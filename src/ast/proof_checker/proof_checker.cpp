@@ -4,7 +4,6 @@
 // include "spc_decl_plugin.h"
 #include "ast_smt_pp.h"
 #include "arith_decl_plugin.h"
-#include "front_end_params.h"
 #include "th_rewriter.h"
 #include "var_subst.h"
 

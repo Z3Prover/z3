@@ -48,7 +48,7 @@ namespace smt {
         virtual ~case_split_queue() {}
     };
 
-    case_split_queue * mk_case_split_queue(context & ctx, front_end_params & p);
+    case_split_queue * mk_case_split_queue(context & ctx, smt_params & p);
 };
 
 #endif /* _SMT_CASE_SPLIT_QUEUE_H_ */

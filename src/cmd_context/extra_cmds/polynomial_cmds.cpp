@@ -26,10 +26,10 @@ Notes:
 #include"parametric_cmd.h"
 #include"mpq.h"
 #include"algebraic_numbers.h"
-#include"pp.h"
-#include"pp_params.h"
 #include"polynomial_var2value.h"
 #include"expr2var.h"
+#include"pp.h"
+#include"pp_params.hpp"
 
 static void to_poly(cmd_context & ctx, expr * t) {
     polynomial::numeral_manager nm;
@@ -145,9 +145,11 @@ class poly_isolate_roots_cmd : public cmd {
             scoped_anum_vector rs(m_am);
             m_am.isolate_roots(m_p, m_x2v, rs);
             ctx.regular_stream() << "(roots";
+            pp_params params;
+            bool pp_decimal = params.decimal();
             for (unsigned i = 0; i < rs.size(); i++) {
                 ctx.regular_stream() << std::endl;
-                if (!get_pp_default_params().m_pp_decimal)
+                if (!pp_decimal)
                     m_am.display_root_smt2(ctx.regular_stream(), rs[i]);
                 else
                     m_am.display_decimal(ctx.regular_stream(), rs[i]);

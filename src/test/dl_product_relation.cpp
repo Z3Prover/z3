@@ -19,7 +19,7 @@ namespace datalog {
     };
 
 
-    void test_functional_columns(front_end_params fparams, params_ref& params) {
+    void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
         ctx.updt_params(params);
@@ -121,14 +121,14 @@ namespace datalog {
         }
     }
 
-    void test_finite_product_relation(front_end_params fparams, params_ref& params) {
+    void test_finite_product_relation(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
         ctx.updt_params(params);
         dl_decl_util dl_util(m);
         relation_manager & rmgr = ctx.get_rmanager();
 
-        relation_plugin & rel_plugin = *ctx.get_rmanager().get_relation_plugin(params.get_sym(":default-relation", symbol("sparse")));
+        relation_plugin & rel_plugin = *ctx.get_rmanager().get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
         SASSERT(&rel_plugin);
         finite_product_relation_plugin plg(rel_plugin, rmgr);
 
@@ -338,7 +338,7 @@ namespace datalog {
 using namespace datalog;
 
 void tst_dl_product_relation() {
-    front_end_params fparams;
+    smt_params fparams;
     params_ref params;
 
     test_functional_columns(fparams, params);

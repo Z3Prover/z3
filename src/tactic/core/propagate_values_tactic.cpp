@@ -44,7 +44,7 @@ class propagate_values_tactic : public tactic {
         }
 
         void updt_params_core(params_ref const & p) {
-            m_max_rounds = p.get_uint(":max-rounds", 4);
+            m_max_rounds = p.get_uint("max_rounds", 4);
         }
         
         void updt_params(params_ref const & p) {
@@ -237,7 +237,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) {
         th_rewriter::get_param_descrs(r);
-        r.insert(":max-rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
+        r.insert("max_rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
     }
     
     virtual void operator()(goal_ref const & in, 

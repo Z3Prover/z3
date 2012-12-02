@@ -29,7 +29,6 @@ Notes:
 #include"tactic_exception.h"
 #include"lbool.h"
 
-struct front_end_params;
 class progress_callback;
 
 typedef ptr_buffer<goal> goal_buffer;
@@ -92,7 +91,6 @@ public:
     virtual void reset() { cleanup(); }
 
     // for backward compatibility
-    virtual void set_front_end_params(front_end_params & p) {}
     virtual void set_logic(symbol const & l) {}
     virtual void set_progress_callback(progress_callback * callback) {}
 

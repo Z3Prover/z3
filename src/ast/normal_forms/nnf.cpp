@@ -18,6 +18,7 @@ Notes:
 
 --*/
 #include"nnf.h"
+#include"nnf_params.hpp"
 #include"warning.h"
 #include"used_vars.h"
 #include"well_sorted.h"
@@ -28,6 +29,40 @@ Notes:
 #include"cooperate.h"
 
 #include"ast_smt2_pp.h"
+
+/**
+   \brief NNF translation mode.  The cheapest mode is NNF_SKOLEM, and
+   the most expensive is NNF_FULL.
+*/
+enum nnf_mode {
+    NNF_SKOLEM, /* A subformula is put into NNF only if it contains
+                   quantifiers or labels. The result of the
+                   transformation will be in skolem normal form.
+                   If a formula is too expensive to be put into NNF,
+                   then nested quantifiers and labels are renamed.
+                   
+                   This mode is sufficient when using E-matching.
+                */
+    NNF_QUANT, /* A subformula is put into NNF if it contains
+                  quantifiers, labels, or is in the scope of a
+                  quantifier. The result of the transformation will be
+                  in skolem normal form, and the body of quantifiers
+                  will be in NNF. If a ground formula is too expensive to
+                  be put into NNF, then nested quantifiers and labels 
+                  are renamed.
+
+                  This mode is sufficient when using Superposition
+                  Calculus.
+
+                  Remark: If the problem does not contain quantifiers,
+                  then NNF_QUANT is identical to NNF_SKOLEM.
+               */
+    NNF_OPPORTUNISTIC, /* Similar to NNF_QUANT, but a subformula is
+                          also put into NNF, if it is
+                          cheap. Otherwise, the nested quantifiers and
+                          labels are renamed. */
+    NNF_FULL /* Everything is put into NNF. */
+};
 
 class skolemizer {
     typedef act_cache cache;
@@ -113,20 +148,16 @@ class skolemizer {
     }
 
 public:
-    skolemizer(ast_manager & m, params_ref const & p):
+    skolemizer(ast_manager & m):
         m_manager(m),
         m_sk_hack("sk_hack"),
+        m_sk_hack_enabled(false),
         m_cache(m),
         m_cache_pr(m) {
-        updt_params(p);
     }
 
-    void updt_params(params_ref const & p) {    
-        m_sk_hack_enabled  = p.get_bool(":nnf-sk-hack", false);
-    }
-
-    static void get_param_descrs(param_descrs & r) {
-        r.insert(":nnf-sk-hack", CPK_BOOL, "(default: false) hack for VCC");
+    void set_sk_hack(bool f) {
+        m_sk_hack_enabled  = f;
     }
 
     ast_manager & m() const { return m_manager; }
@@ -220,8 +251,6 @@ struct nnf::imp {
     name_exprs *           m_name_nested_formulas;
     name_exprs *           m_name_quant;
     
-    symbol                 m_skolem;
-
     volatile bool          m_cancel;
     unsigned long long     m_max_memory; // in bytes
 
@@ -231,10 +260,9 @@ struct nnf::imp {
         m_todo_defs(m),
         m_todo_proofs(m),
         m_result_pr_stack(m),
-        m_skolemizer(m, p),
-        m_skolem("skolem"),
+        m_skolemizer(m),
         m_cancel(false) {
-        updt_local_params(p);
+        updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
             m_cache[i] = alloc(act_cache, m);
             if (m.proofs_enabled())
@@ -258,14 +286,10 @@ struct nnf::imp {
         del_name_exprs(m_name_quant);
     }
 
-    void updt_params(params_ref const & p) {
-        updt_local_params(p);
-        m_skolemizer.updt_params(p);
-    }
-
-    void updt_local_params(params_ref const & p) {    
-        symbol mode_sym    = p.get_sym(":nnf-mode", m_skolem);
-        if (mode_sym == m_skolem)
+    void updt_params(params_ref const & _p) {
+        nnf_params p(_p);
+        symbol mode_sym    = p.mode();
+        if (mode_sym == "skolem")
             m_mode = NNF_SKOLEM;
         else if (mode_sym == "full")
             m_mode = NNF_FULL;
@@ -273,23 +297,17 @@ struct nnf::imp {
             m_mode = NNF_QUANT;
         else 
             throw nnf_params_exception("invalid NNF mode");
+        
+        TRACE("nnf", tout << "nnf-mode: " << m_mode << " " << mode_sym << "\n" << _p << "\n";);
 
-        TRACE("nnf", tout << "nnf-mode: " << m_mode << " " << mode_sym << "\n" << p << "\n";);
-
-        m_ignore_labels    = p.get_bool(":nnf-ignore-labels", false);
-        m_skolemize        = p.get_bool(":skolemize", true);
-        m_max_memory       = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+        m_ignore_labels    = p.ignore_labels();
+        m_skolemize        = p.skolemize();
+        m_max_memory       = megabytes_to_bytes(p.max_memory());
+        m_skolemizer.set_sk_hack(p.sk_hack());
     }
 
     static void get_param_descrs(param_descrs & r) {
-        insert_max_memory(r);
-        r.insert(":nnf-mode", CPK_SYMBOL, 
-                 "(default: skolem) NNF translation mode: skolem (skolem normal form), quantifiers (skolem normal form + quantifiers in NNF), full");
-        r.insert(":nnf-ignore-labels", CPK_BOOL, 
-                 "(default: false) remove/ignore labels in the input formula, this option is ignored if proofs are enabled");
-        r.insert(":skolemize", CPK_BOOL,
-                 "(default: true) skolemize (existential force) quantifiers");
-        skolemizer::get_param_descrs(r);
+        nnf_params::collect_param_descrs(r);
     }
 
     void reset() {
@@ -878,21 +896,6 @@ struct nnf::imp {
 
 nnf::nnf(ast_manager & m, defined_names & n, params_ref const & p) {
     TRACE("nnf", tout << "nnf constructor: " << p << "\n";);
-    m_imp = alloc(imp, m, n, p);
-}
-
-nnf::nnf(ast_manager & m, defined_names & n, nnf_params & np) {
-    params_ref p;
-    if (np.m_nnf_mode == NNF_FULL)
-        p.set_sym(":nnf-mode", symbol("full"));
-    else if (np.m_nnf_mode == NNF_QUANT)
-        p.set_sym(":nnf-mode", symbol("quantifiers"));
-    
-    if (np.m_nnf_ignore_labels)
-        p.set_bool(":nnf-ignore-labels", true);
-    
-    if (np.m_nnf_sk_hack)
-        p.set_bool(":nnf-sk-hack", true);
     m_imp = alloc(imp, m, n, p);
 }
 

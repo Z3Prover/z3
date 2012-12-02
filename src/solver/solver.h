@@ -23,8 +23,6 @@ Notes:
 #include"progress_callback.h"
 #include"params.h"
 
-struct front_end_params;
-
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.
@@ -41,15 +39,6 @@ struct front_end_params;
 class solver : public check_sat_result {
 public:
     virtual ~solver() {}
-    
-    /**
-       \brief This method is invoked to allow the solver to access the front_end_params (environment parameters).
-       
-       \warning This method is used for backward compatibility. The first solver implemented in Z3 used
-       front_end_params to store its configuration parameters. 
-    */
-    virtual void set_front_end_params(front_end_params & p) {} 
-
     /**
        \brief Update the solver internal settings. 
     */

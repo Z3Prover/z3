@@ -8,7 +8,7 @@
 namespace datalog {
 
     static void test_interval_relation() {
-        front_end_params params;
+        smt_params params;
         ast_manager ast_m;
         context ctx(ast_m, params);    
         arith_util autil(ast_m);
@@ -111,7 +111,7 @@ namespace datalog {
 
         std::cout << "bound relation\n";
 
-        front_end_params params;
+        smt_params params;
         ast_manager ast_m;
         context ctx(ast_m, params);    
         arith_util autil(ast_m);

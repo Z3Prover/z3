@@ -1260,13 +1260,13 @@ namespace fm {
         }
         
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_fm_real_only   = p.get_bool(":fm-real-only", true);
-            m_fm_limit       = p.get_uint(":fm-limit", 5000000);
-            m_fm_cutoff1     = p.get_uint(":fm-cutoff1", 8);
-            m_fm_cutoff2     = p.get_uint(":fm-cutoff2", 256);
-            m_fm_extra       = p.get_uint(":fm-extra", 0);
-            m_fm_occ         = p.get_bool(":fm-occ", false);
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_fm_real_only   = p.get_bool("fm_real_only", true);
+            m_fm_limit       = p.get_uint("fm_limit", 5000000);
+            m_fm_cutoff1     = p.get_uint("fm_cutoff1", 8);
+            m_fm_cutoff2     = p.get_uint("fm_cutoff2", 256);
+            m_fm_extra       = p.get_uint("fm_extra", 0);
+            m_fm_occ         = p.get_bool("fm_occ", false);
         }
         
         void set_cancel(bool f) {

@@ -26,7 +26,7 @@ Revision History:
 
 namespace smt {
 
-    qi_queue::qi_queue(quantifier_manager & qm, context & ctx, qi_params & params, std::ostream *trace_stream):
+    qi_queue::qi_queue(quantifier_manager & qm, context & ctx, qi_params & params):
         m_qm(qm),
         m_context(ctx),
         m_manager(m_context.get_manager()),
@@ -37,7 +37,6 @@ namespace smt {
         m_parser(m_manager),
         m_evaluator(m_manager),
         m_subst(m_manager),
-        m_trace_stream(trace_stream), 
         m_instances(m_manager) {
         init_parser_vars();
         m_vals.resize(15, 0.0f);
@@ -173,25 +172,23 @@ namespace smt {
     }
 
     void qi_queue::display_instance_profile(fingerprint * f, quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned proof_id, unsigned generation) {
-#ifndef SMTCOMP
-        if (m_trace_stream != NULL) {
-            *m_trace_stream << "[instance] ";
+        if (m_manager.has_trace_stream()) {
+            m_manager.trace_stream() << "[instance] ";
 #if 1
-            *m_trace_stream << static_cast<void*>(f);
+            m_manager.trace_stream() << static_cast<void*>(f);
 #else
             for (unsigned i = 0; i < num_bindings; i++) {
                 // I don't want to use mk_pp because it creates expressions for pretty printing.
                 // This nasty side-effect may change the behavior of Z3.
-                *m_trace_stream << " #" << bindings[i]->get_owner_id();
+                m_manager.trace_stream() << " #" << bindings[i]->get_owner_id();
             }
             
 #endif
             if (m_manager.proofs_enabled())
-                *m_trace_stream << " #" << proof_id;
-            *m_trace_stream << " ; " << generation;
-            *m_trace_stream << "\n";
+                m_manager.trace_stream() << " #" << proof_id;
+            m_manager.trace_stream() << " ; " << generation;
+            m_manager.trace_stream() << "\n";
         }
-#endif
     }
 
     void qi_queue::instantiate(entry & ent) {
@@ -224,10 +221,10 @@ namespace smt {
         TRACE("qi_queue_bug", tout << "new instance after simplification:\n" << mk_pp(s_instance, m_manager) << "\n";);
         if (m_manager.is_true(s_instance)) {
             TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m_manager););
-#ifndef SMTCOMP
-            if (m_trace_stream != NULL) 
-                *m_trace_stream << "[end-of-instance]\n";
-#endif
+
+            if (m_manager.has_trace_stream()) 
+                m_manager.trace_stream() << "[end-of-instance]\n";
+
             return;
         }
         quantifier_stat * stat = m_qm.get_stat(q);
@@ -308,10 +305,10 @@ namespace smt {
                 }
             }
         });
-#ifndef SMTCOMP
-        if (m_trace_stream != NULL)
-            *m_trace_stream << "[end-of-instance]\n";
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[end-of-instance]\n";
+
     }
 
     void qi_queue::push_scope() {

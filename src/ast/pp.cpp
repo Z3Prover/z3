@@ -17,21 +17,8 @@ Revision History:
 
 --*/
 #include"pp.h"
+#include"pp_params.hpp"
 using namespace format_ns;
-
-pp_params g_pp_params;
-
-void set_pp_default_params(pp_params const & p) {
-    g_pp_params = p;
-}
-
-void register_pp_params(ini_params & p) {
-    g_pp_params.register_params(p);
-}
-
-pp_params const & get_pp_default_params() {
-    return g_pp_params;
-}
 
 static std::pair<unsigned, bool> space_upto_line_break(ast_manager & m, format * f) {
     unsigned r;
@@ -69,7 +56,15 @@ inline bool fits(ast_manager & m, format * f, unsigned space_left) {
     return s <= space_left;
 }
 
-void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
+void pp(std::ostream & out, format * f, ast_manager & m, params_ref const & _p) {
+    pp_params p(_p);
+    unsigned max_width     = p.max_width();
+    unsigned max_ribbon    = p.max_ribbon(); 
+    unsigned max_num_lines = p.max_num_lines();
+    unsigned max_indent    = p.max_indent();
+    bool     bounded       = p.bounded();
+    bool     single_line   = p.single_line();
+
     unsigned pos = 0;
     unsigned ribbon_pos = 0;
     unsigned line = 0;
@@ -80,7 +75,7 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
     todo.push_back(std::make_pair(f, 0));
     app_ref  space(mk_string(m, " "), fm(m));
     while (!todo.empty()) {
-        if (line >= p.m_pp_max_num_lines)
+        if (line >= max_num_lines)
             return;
         std::pair<format *, unsigned> pair = todo.back();
         format * f = pair.first;
@@ -89,10 +84,10 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
         SASSERT(f->get_family_id() == fm(m).get_family_id("format"));
         switch (f->get_decl_kind()) {
         case OP_STRING:
-            if (p.m_pp_bounded && pos > p.m_pp_max_width)
+            if (bounded && pos > max_width)
                 break;
             len = static_cast<unsigned>(strlen(f->get_decl()->get_parameter(0).get_symbol().bare_str()));
-            if (p.m_pp_bounded && pos + len > p.m_pp_max_width) {
+            if (bounded && pos + len > max_width) {
                 out << "...";
                 break;
             }
@@ -103,7 +98,7 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
         case OP_INDENT:
             todo.push_back(std::make_pair(to_app(f->get_arg(0)), 
                                           std::min(indent + f->get_decl()->get_parameter(0).get_int(),
-                                                   p.m_pp_max_indent)));
+                                                   max_indent)));
             break;
         case OP_COMPOSE:
             i = f->get_num_args();
@@ -113,7 +108,7 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
             }
             break;
         case OP_CHOICE:
-            space_left = std::min(p.m_pp_max_width - pos, p.m_pp_max_ribbon - pos);
+            space_left = std::min(max_width - pos, max_ribbon - pos);
             if (space_left > 0 && fits(m, to_app(f->get_arg(0)), space_left)) 
                 todo.push_back(std::make_pair(to_app(f->get_arg(0)), indent));
             else
@@ -121,14 +116,14 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
             break;
         case OP_LINE_BREAK:
         case OP_LINE_BREAK_EXT:
-            if (p.m_pp_single_line) {
+            if (single_line) {
                 todo.push_back(std::make_pair(space, indent));
                 break;
             }
             pos = indent;
             ribbon_pos = 0;
             line++;
-            if (line < p.m_pp_max_num_lines) {
+            if (line < max_num_lines) {
                 out << "\n";
                 for (unsigned i = 0; i < indent; i++) 
                     out << " ";
@@ -140,9 +135,5 @@ void pp(std::ostream & out, format * f, ast_manager & m, pp_params const & p) {
             break;
         }
     }
-}
-
-void pp(std::ostream & out, format_ns::format * f, ast_manager & m) {
-    pp(out, f, m, g_pp_params);
 }
 

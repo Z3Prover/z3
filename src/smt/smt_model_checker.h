@@ -24,7 +24,7 @@ Revision History:
 #include"ast.h"
 #include"obj_hashtable.h"
 #include"qi_params.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"region.h"
 
 class proto_model;
@@ -39,9 +39,9 @@ namespace smt {
     class model_checker {
         ast_manager &                               m_manager;
         qi_params const &                           m_params;
-        // copy of front_end_params for auxiliary context. 
+        // copy of smt_params for auxiliary context. 
         // the idea is to use a different configuration for the aux context (e.g., disable relevancy)
-        scoped_ptr<front_end_params>                m_fparams;
+        scoped_ptr<smt_params>                      m_fparams;
         quantifier_manager *                        m_qm;
         context *                                   m_context; // owner of the model checker
         obj_map<enode, app *> const *               m_root2value; // temp field to store mapping received in the check method.

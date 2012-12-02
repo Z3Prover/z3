@@ -26,7 +26,7 @@ class horn_tactic : public tactic {
     struct imp {
         ast_manager&             m;
         datalog::context         m_ctx;
-        front_end_params         m_fparams;
+        smt_params               m_fparams;
 
         imp(ast_manager & m, params_ref const & p):
             m(m),
@@ -168,9 +168,9 @@ class horn_tactic : public tactic {
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {
-                if (!m_ctx.get_params().get_bool(":generate-proof-trace", true)) {
+                if (!m_ctx.get_params().get_bool("generate_proof_trace", true)) {
                     params_ref params = m_ctx.get_params();
-                    params.set_bool(":generate-proof-trace", true);
+                    params.set_bool("generate_proof_trace", true);
                     updt_params(params);
                 }
             }
