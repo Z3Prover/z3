@@ -463,7 +463,7 @@ namespace datalog {
 
         if (r->has_quantifiers()) {
             res = r;
-            return false;
+            return true;
         }
 
     start:

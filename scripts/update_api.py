@@ -474,11 +474,6 @@ def java_array_element_type(p):
         return 'jint'
     else:
         return 'jlong'
-def java_set_array_region(p):
-    if param_type(p) == INT or param_type(p) == UINT:
-        return 'SetIntArrayRegion'
-    else:
-        return 'SetLongArrayRegion'
 
 def mk_java():
     if not is_java_enabled():
@@ -494,12 +489,12 @@ def mk_java():
     java_native.write('  public static class IntPtr { public int value; }\n')
     java_native.write('  public static class LongPtr { public long value; }\n')
     java_native.write('  public static class StringPtr { public String value; }\n')
-    java_native.write('  public static class errorHandler { public long ptr; }\n')
+    java_native.write('  public static native void setInternalErrorHandler(long ctx);\n\n')
     if IS_WINDOWS:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name)
     else:
         java_native.write('  static { System.loadLibrary("%s"); }\n' % get_component('java').dll_name[3:]) # We need 3: to extract the prexi 'lib' form the dll_name
-    java_native.write('\n\n')
+    java_native.write('\n')
     for name, result, params in _dotnet_decls:
         java_native.write('  protected static native %s INTERNAL%s(' % (type2java(result), java_method_name(name)))
         first = True
@@ -553,6 +548,7 @@ def mk_java():
         java_native.write('  }\n\n')
     java_native.write('}\n')
     java_wrapper = open(java_wrapperf, 'w')
+    pkg_str = get_component('java').package_name.replace('.', '_')
     java_wrapper.write('// Automatically generated file\n')
     java_wrapper.write('#include<jni.h>\n')
     java_wrapper.write('#include<stdlib.h>\n')
@@ -562,23 +558,55 @@ def mk_java():
     java_wrapper.write('#endif\n\n')
     java_wrapper.write('#if defined(_M_X64) || defined(_AMD64_)\n\n')
     java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
-    java_wrapper.write('  T * NEW = (T*) jenv->GetLongArrayElements(OLD, NULL);              \n')
+    java_wrapper.write('  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);\n')
     java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
-    java_wrapper.write('  jenv->ReleaseLongArrayElements(OLD, (jlong *) NEW, JNI_ABORT);     \n\n')
+    java_wrapper.write('  if (OLD != 0) jenv->ReleaseLongArrayElements(OLD, (jlong *) NEW, JNI_ABORT);     \n\n')
+    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                               \\\n')
+    java_wrapper.write('  jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW);             \n')
+    java_wrapper.write('#define SETLONGAREGION(OLD,Z,SZ,NEW)                               \\\n')
+    java_wrapper.write('  jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)NEW)              \n\n')
     java_wrapper.write('#else\n\n')
     java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
     java_wrapper.write('  T * NEW = 0; {                                                   \\\n')
-    java_wrapper.write('  jlong * temp = jenv->GetLongArrayElements(OLD, NULL);            \\\n')
-    java_wrapper.write('  unsigned int size = jenv->GetArrayLength(OLD);                   \\\n')
-    java_wrapper.write('  NEW = (T*) (new int[size]);                                      \\\n')
-    java_wrapper.write('  for (unsigned i=0; i < size; i++)                                \\\n')
-    java_wrapper.write('    NEW[i] = reinterpret_cast<T>(temp[i]);                         \\\n')
-    java_wrapper.write('  jenv->ReleaseLongArrayElements(OLD, temp, JNI_ABORT);            \\\n')
-    java_wrapper.write('  }                                                                  \n\n')
-    java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
+    java_wrapper.write('  jlong * temp = (OLD == 0) ? 0 : jenv->GetLongArrayElements(OLD, NULL); \\\n')
+    java_wrapper.write('  unsigned int size = (OLD == 0) ? 0 :jenv->GetArrayLength(OLD);     \\\n')
+    java_wrapper.write('  if (OLD != 0) {                                                    \\\n')
+    java_wrapper.write('    NEW = (T*) (new int[size]);                                      \\\n')
+    java_wrapper.write('    for (unsigned i=0; i < size; i++)                                \\\n')
+    java_wrapper.write('      NEW[i] = reinterpret_cast<T>(temp[i]);                         \\\n')
+    java_wrapper.write('    jenv->ReleaseLongArrayElements(OLD, temp, JNI_ABORT);            \\\n')
+    java_wrapper.write('  }                                                                  \\\n')
+    java_wrapper.write('  }                                                                    \n\n')
+    java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                   \\\n')
     java_wrapper.write('  delete [] NEW;                                                     \n\n')
+    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)				    \\\n')
+    java_wrapper.write('  {                                                                 \\\n')
+    java_wrapper.write('    jlong * temp = new jlong[SZ];                                   \\\n')
+    java_wrapper.write('    jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)temp);         \\\n')
+    java_wrapper.write('    for (int i = 0; i < (SZ); i++)                                  \\\n')
+    java_wrapper.write('      NEW[i] = reinterpret_cast<T>(temp[i]);                        \\\n')
+    java_wrapper.write('    delete [] temp;                                                 \\\n')
+    java_wrapper.write('  }\n\n')
+    java_wrapper.write('#define SETLONGAREGION(OLD,Z,SZ,NEW)                                \\\n')
+    java_wrapper.write('  {                                                                 \\\n')
+    java_wrapper.write('    jlong * temp = new jlong[SZ];                                   \\\n')
+    java_wrapper.write('    for (int i = 0; i < (SZ); i++)                                  \\\n')
+    java_wrapper.write('      temp[i] = reinterpret_cast<jlong>(NEW[i]);                    \\\n')
+    java_wrapper.write('    jenv->SetLongArrayRegion(OLD,Z,(jsize)SZ,temp);                 \\\n')
+    java_wrapper.write('    delete [] temp;                                                 \\\n')
+    java_wrapper.write('  }\n\n')
     java_wrapper.write('#endif\n\n')
-    pkg_str = get_component('java').package_name.replace('.', '_')
+    java_wrapper.write('void Z3JavaErrorHandler(Z3_context c, Z3_error_code e)\n')
+    java_wrapper.write('{\n')
+    java_wrapper.write('  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()\n')
+    java_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
+    java_wrapper.write('  // wrappers below.\n')
+    java_wrapper.write('}\n\n')
+    java_wrapper.write('JNIEXPORT void JNICALL Java_%s_Native_setInternalErrorHandler(JNIEnv * jenv, jclass cls, jlong a0)\n' % pkg_str)
+    java_wrapper.write('{\n')
+    java_wrapper.write('  Z3_set_error_handler((Z3_context)a0, Z3JavaErrorHandler);\n')
+    java_wrapper.write('}\n\n')
+    java_wrapper.write('')
     for name, result, params in _dotnet_decls:
         java_wrapper.write('JNIEXPORT %s JNICALL Java_%s_Native_INTERNAL%s(JNIEnv * jenv, jclass cls' % (type2javaw(result), pkg_str, java_method_name(name)))
         i = 0;
@@ -604,6 +632,10 @@ def mk_java():
                                                                                                      type2str(param_type(param)), 
                                                                                                      param_array_capacity_pos(param), 
                                                                                                      type2str(param_type(param))))
+                if param_type(param) == INT or param_type(param) == UINT:
+                    java_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
+                else:
+                    java_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
             elif k == IN and param_type(param) == STRING:
                 java_wrapper.write('  Z3_string _a%s = (Z3_string) jenv->GetStringUTFChars(a%s, NULL);\n' % (i, i))
             i = i + 1
@@ -635,11 +667,10 @@ def mk_java():
         for param in params:
             k = param_kind(param)
             if k == OUT_ARRAY:
-                java_wrapper.write('  jenv->%s(a%s, 0, (jsize)a%s, (%s *) _a%s);\n' % (java_set_array_region(param),
-                                                                                                i,
-                                                                                                param_array_capacity_pos(param),
-                                                                                                java_array_element_type(param),
-                                                                                                i))
+                if param_type(param) == INT or param_type(param) == UINT:
+                    java_wrapper.write('  jenv->SetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
+                else:
+                    java_wrapper.write('  SETLONGAREGION(a%s, 0, a%s, _a%s);\n' % (i, param_array_capacity_pos(param), i))
                 java_wrapper.write('  free(_a%s);\n' % i)
             elif k == IN_ARRAY or k == OUT_ARRAY:
                 if param_type(param) == INT or param_type(param) == UINT:

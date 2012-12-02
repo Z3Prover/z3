@@ -37,10 +37,15 @@ public class AST extends Z3Object
      **/
     public boolean equals(Object o)
     {
-        AST casted = (AST) o;
-        if (casted == null)
-            return false;
-        return this == casted;
+	AST casted = null;
+
+	try {
+	    casted = AST.class.cast(o);
+	} catch (ClassCastException e) {
+	    return false;
+	}
+
+        return this.NativeObject() == casted.NativeObject();
     }
 
     /**
@@ -53,18 +58,20 @@ public class AST extends Z3Object
     {
         if (other == null)
             return 1;
-        AST oAST = (AST) other;
-        if (oAST == null)
-            return 1;
-        else
-        {
-            if (Id() < oAST.Id())
-                return -1;
-            else if (Id() > oAST.Id())
-                return +1;
-            else
-                return 0;
-        }
+
+        AST oAST = null;
+	try {
+	    AST.class.cast(other);
+	} catch (ClassCastException e) {
+	    return 1;
+	}
+
+	if (Id() < oAST.Id())
+	    return -1;
+	else if (Id() > oAST.Id())
+	    return +1;
+	else
+	    return 0;
     }
 
     /**

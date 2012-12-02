@@ -348,13 +348,13 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         // When the bv_decl_plugin is installed, then we know how to convert 3 bit-vectors into a float!        
         sort * fp = mk_float_sort(domain[2]->get_parameter(0).get_int(), domain[1]->get_parameter(0).get_int()+1);
         symbol name("asFloat");
-        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));    
-    }
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
+		}
     else {
         // .. Otherwise we only know how to convert rationals/reals. 
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
             m_manager->raise_exception("expecting two integer parameters to asFloat");        
-		if (arity != 2 && arity != 3)
+        if (arity != 2 && arity != 3)
 			m_manager->raise_exception("invalid number of arguments to asFloat operator");
 		if (!is_rm_sort(domain[0]) || domain[1] != m_real_sort)
             m_manager->raise_exception("sort mismatch");
@@ -371,6 +371,23 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
             return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
         }
     }
+}
+
+func_decl * float_decl_plugin::mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                             unsigned arity, sort * const * domain, sort * range) {
+    if (!m_bv_plugin)
+        m_manager->raise_exception("asIEEEBV unsupported; use a logic with BV support");
+    if (arity != 1)
+        m_manager->raise_exception("invalid number of arguments to asIEEEBV");
+    if (!is_float_sort(domain[0]))
+        m_manager->raise_exception("sort mismatch");
+
+    // When the bv_decl_plugin is installed, then we know how to convert a float to an IEEE bit-vector.
+    unsigned float_sz = domain[0]->get_parameter(0).get_int() + domain[0]->get_parameter(1).get_int();
+    parameter ps[] = { parameter(float_sz) };
+    sort * bv_srt = m_bv_plugin->mk_sort(m_bv_fid, 1, ps);
+    symbol name("asIEEEBV");
+    return m_manager->mk_func_decl(name, 1, domain, bv_srt, func_decl_info(m_family_id, k, num_parameters, parameters));        
 }
 
 func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -420,6 +437,8 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_rm_unary_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_FUSED_MA:
         return mk_fused_ma(k, num_parameters, parameters, arity, domain, range);
+    case OP_TO_IEEE_BV:
+        return mk_to_ieee_bv(k, num_parameters, parameters, arity, domain, range);
     default:
         m_manager->raise_exception("unsupported floating point operator");
         return 0;
@@ -462,7 +481,10 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("min", OP_FLOAT_MIN));
     op_names.push_back(builtin_name("max", OP_FLOAT_MAX));
 
-    op_names.push_back(builtin_name("asFloat", OP_TO_FLOAT));    
+    op_names.push_back(builtin_name("asFloat", OP_TO_FLOAT));
+
+    if (m_bv_plugin)
+        op_names.push_back(builtin_name("asIEEEBV", OP_TO_IEEE_BV));
 }
 
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {

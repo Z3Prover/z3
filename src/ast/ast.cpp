@@ -2637,12 +2637,13 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
     ptr_buffer<expr> args;
     args.append(num_proofs, (expr**) proofs);
     expr * fact;
-    expr const * f1 = get_fact(proofs[0]);
-    expr const * f2 = get_fact(proofs[1]);
+    expr * f1 = get_fact(proofs[0]);
+    expr * f2 = get_fact(proofs[1]);
     if (num_proofs == 2 && is_complement(f1, f2)) {
         fact = mk_false();
     }
     else {
+        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_pp(f1, *this) << " " << mk_pp(f2, *this) << "\n";);
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
         app const * cls   = to_app(f1);

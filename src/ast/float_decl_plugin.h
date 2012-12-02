@@ -67,6 +67,7 @@ enum float_op_kind {
     OP_FLOAT_IS_SIGN_MINUS,
 
     OP_TO_FLOAT,
+    OP_TO_IEEE_BV,
     
     LAST_FLOAT_OP
 };
@@ -118,6 +119,8 @@ class float_decl_plugin : public decl_plugin {
                             unsigned arity, sort * const * domain, sort * range);
     func_decl * mk_to_float(decl_kind k, unsigned num_parameters, parameter const * parameters,
                             unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                              unsigned arity, sort * const * domain, sort * range);
 
     virtual void set_manager(ast_manager * m, family_id id);
     unsigned mk_id(mpf const & v);
@@ -159,7 +162,7 @@ class float_util {
     ast_manager &       m_manager;
     float_decl_plugin * m_plugin;
     family_id           m_fid;
-    arith_util          m_a_util;
+    arith_util          m_a_util;    
 public:
     float_util(ast_manager & m);
     ~float_util();
@@ -209,7 +212,7 @@ public:
 
     bool is_to_float(expr * n) { return is_app_of(n, m_fid, OP_TO_FLOAT); }
 
-    app * mk_to_float(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_TO_FLOAT, arg1, arg2); }
+    app * mk_to_float(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_TO_FLOAT, arg1, arg2); }    
     app * mk_add(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_ADD, arg1, arg2, arg3); }
     app * mk_mul(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_MUL, arg1, arg2, arg3); }
     app * mk_sub(expr * arg1, expr * arg2, expr * arg3) { return m().mk_app(m_fid, OP_FLOAT_SUB, arg1, arg2, arg3); }
@@ -238,6 +241,8 @@ public:
     app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SIGN_MINUS, arg1); }
 
     bool is_uminus(expr * a) { return is_app_of(a, m_fid, OP_FLOAT_UMINUS); }
+    
+    app * mk_to_ieee_bv(expr * arg1) { return m().mk_app(m_fid, OP_TO_IEEE_BV, arg1); }
 };
 
 #endif

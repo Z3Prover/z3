@@ -16,7 +16,6 @@ public class EnumSort extends Sort
 	 **/
 	public FuncDecl[] ConstDecls()
 	{
-
 		return _constdecls;
 	}
 
@@ -25,7 +24,6 @@ public class EnumSort extends Sort
 	 **/
 	public Expr[] Consts()
 	{
-
 		return _consts;
 	}
 
@@ -34,7 +32,6 @@ public class EnumSort extends Sort
 	 **/
 	public FuncDecl[] TesterDecls()
 	{
-
 		return _testerdecls;
 	}
 
@@ -53,12 +50,12 @@ public class EnumSort extends Sort
 				n_constdecls, n_testers));
 		_constdecls = new FuncDecl[n];
 		for (int i = 0; i < n; i++)
-			_constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
+		    _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
 		_testerdecls = new FuncDecl[n];
 		for (int i = 0; i < n; i++)
-			_testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
+		    _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
 		_consts = new Expr[n];
 		for (int i = 0; i < n; i++)
-		    _consts[i] = ctx.MkApp(_constdecls[i], (Expr)null);
+		    _consts[i] = ctx.MkApp(_constdecls[i], (Expr[])null);
 	}
 };

@@ -1768,7 +1768,7 @@ namespace datalog {
         if (use_fixedpoint_extensions) {
             for (unsigned i = 0; i < num_queries; ++i) {
                 out << "(query ";
-                PP(queries[i]);
+                PP(queries[i]);                
                 out << ")\n";
             }
         }

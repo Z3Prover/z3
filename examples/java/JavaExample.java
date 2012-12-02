@@ -907,11 +907,10 @@ class JavaExample
         // Error handling test.
         try
         {
-            IntExpr i = ctx.MkInt("0.5");
+            IntExpr i = ctx.MkInt("1/2");
             throw new TestFailedException(); // unreachable
         } catch (Z3Exception e)
-        {
-            System.out.println("GOT: " + e.getMessage());
+        {            
         }
     }
 
@@ -1001,19 +1000,38 @@ class JavaExample
         }
 
         AST a = ctx.MkInt(42);
-        Expr ae = (a.getClass() == Expr.class) ? ((Expr) a) : null;
-        if (ae == null)
+
+        try
+        {
+            Expr.class.cast(a);
+        } catch (ClassCastException e)
+        {
             throw new TestFailedException();
-        ArithExpr aae = (a.getClass() == ArithExpr.class) ? ((ArithExpr) a)
-                : null;
-        if (aae == null)
+        }
+
+        try
+        {
+            ArithExpr.class.cast(a);
+        } catch (ClassCastException e)
+        {
             throw new TestFailedException();
-        IntExpr aie = (a.getClass() == IntExpr.class) ? ((IntExpr) a) : null;
-        if (aie == null)
+        }
+
+        try
+        {
+            IntExpr.class.cast(a);
+        } catch (ClassCastException e)
+        {
             throw new TestFailedException();
-        IntNum ain = (a.getClass() == IntNum.class) ? ((IntNum) a) : null;
-        if (ain == null)
+        }
+
+        try
+        {
+            IntNum.class.cast(a);
+        } catch (ClassCastException e)
+        {
             throw new TestFailedException();
+        }
 
         Expr[][] earr = new Expr[2][];
         earr[0] = new Expr[2];
@@ -1585,7 +1603,7 @@ class JavaExample
 
         Symbol name = ctx.MkSymbol("fruit");
 
-        EnumSort fruit = ctx.MkEnumSort(ctx.MkSymbol("fruit"),
+        EnumSort fruit = ctx.MkEnumSort(name,
                 new Symbol[] { ctx.MkSymbol("apple"), ctx.MkSymbol("banana"),
                         ctx.MkSymbol("orange") });
 
@@ -1974,7 +1992,7 @@ class JavaExample
     {
         int num_Exprs = to_minimize.length;
         int[] upper = new int[num_Exprs];
-        int[] lower = new int[num_Exprs];        
+        int[] lower = new int[num_Exprs];
         for (int i = 0; i < upper.length; ++i)
         {
             upper[i] = Integer.MAX_VALUE;
@@ -2207,12 +2225,12 @@ class JavaExample
         {
             System.out.println("Z3 Managed Exception: " + ex.getMessage());
             System.out.println("Stack trace: ");
-            ex.printStackTrace(System.out);            
+            ex.printStackTrace(System.out);
         } catch (TestFailedException ex)
         {
             System.out.println("TEST CASE FAILED: " + ex.getMessage());
             System.out.println("Stack trace: ");
-            ex.printStackTrace(System.out);     
+            ex.printStackTrace(System.out);
         } catch (Exception ex)
         {
             System.out.println("Unknown Exception: " + ex.getMessage());
