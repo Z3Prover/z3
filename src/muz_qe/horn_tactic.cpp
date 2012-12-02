@@ -26,7 +26,7 @@ class horn_tactic : public tactic {
     struct imp {
         ast_manager&             m;
         datalog::context         m_ctx;
-        front_end_params         m_fparams;
+        smt_params               m_fparams;
 
         imp(ast_manager & m, params_ref const & p):
             m(m),

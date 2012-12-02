@@ -3,7 +3,7 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    params2front_end_params.h
+    params2smt_params.h
 
 Abstract:
 
@@ -16,17 +16,17 @@ Author:
 Revision History:
 
 --*/
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"params.h"
 
 /**
-   Update front_end_params using s.
+   Update smt_params using s.
    Only the most frequently used options are updated.
 
    This function is mainly used to allow smt::context to be used in
    the new strategy framework.
 */
-void params2front_end_params(params_ref const & s, front_end_params & t) {
+void params2smt_params(params_ref const & s, smt_params & t) {
     t.m_relevancy_lvl = s.get_uint("relevancy", t.m_relevancy_lvl);
     TRACE("qi_cost", s.display(tout); tout << "\n";);
     t.m_qi_cost = s.get_str("qi_cost", t.m_qi_cost.c_str());
@@ -36,7 +36,6 @@ void params2front_end_params(params_ref const & s, front_end_params & t) {
     t.m_model = s.get_bool("produce_models", t.m_model);
     if (s.get_bool("produce_proofs", false))
         t.m_proof_mode = PGM_FINE;
-    t.m_well_sorted_check = s.get_bool("check_sorts", t.m_well_sorted_check);
     t.m_qi_eager_threshold = s.get_double("qi_eager_threshold", t.m_qi_eager_threshold);
     t.m_qi_lazy_threshold =  s.get_double("qi_lazy_threshold", t.m_qi_lazy_threshold);
     t.m_preprocess = s.get_bool("preprocess", t.m_preprocess);
@@ -57,7 +56,7 @@ void params2front_end_params(params_ref const & s, front_end_params & t) {
    It also copies the model construction parameter. Thus, model construction
    can be enabled at the command line.
 */
-void front_end_params2params(front_end_params const & s, params_ref & t) {
+void smt_params2params(smt_params const & s, params_ref & t) {
     if (s.m_model)
         t.set_bool("produce_models", true);
     if (!s.m_hi_div0)
@@ -67,7 +66,7 @@ void front_end_params2params(front_end_params const & s, params_ref & t) {
 /**
    \brief Bridge for using params_ref with smt::context.
 */
-void solver_front_end_params_descrs(param_descrs & r) {
+void solver_smt_params_descrs(param_descrs & r) {
     r.insert("hi_div0", CPK_BOOL, "(default: true) if true, then Z3 uses the usual hardware interpretation for division (rem, mod) by zero. Otherwise, these operations are considered uninterpreted");
     r.insert("relevancy", CPK_UINT, "relevancy propagation heuristic: 0 - disabled, 1 - relevancy is tracked by only affects quantifier instantiation, 2 - relevancy is tracked, and an atom is only asserted if it is relevant");
     r.insert("mbqi", CPK_BOOL, "model based quantifier instantiation (MBQI)");

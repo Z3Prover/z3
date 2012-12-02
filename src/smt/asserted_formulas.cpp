@@ -40,7 +40,7 @@ Revision History:
 #include"distribute_forall.h"
 #include"quasi_macros.h"
 
-asserted_formulas::asserted_formulas(ast_manager & m, front_end_params & p):
+asserted_formulas::asserted_formulas(ast_manager & m, smt_params & p):
     m_manager(m),
     m_params(p),
     m_pre_simplifier(m),

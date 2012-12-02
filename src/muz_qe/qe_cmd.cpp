@@ -38,7 +38,7 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-        front_end_params par;
+        smt_params par;
         proof_ref pr(ctx.m());
         qe::expr_quant_elim_star1 qe(ctx.m(), par);
         expr_ref result(ctx.m());

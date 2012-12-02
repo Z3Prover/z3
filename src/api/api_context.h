@@ -28,7 +28,7 @@ Revision History:
 #include"datatype_decl_plugin.h"
 #include"dl_decl_plugin.h"
 #include"smt_kernel.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"event_handler.h"
 #include"tactic_manager.h"
 #include"context_params.h"
@@ -53,7 +53,7 @@ namespace api {
         datalog::dl_decl_util      m_datalog_util;
 
         // Support for old solver API
-        front_end_params           m_fparams;
+        smt_params           m_fparams;
         smt::kernel *              m_solver;     // General purpose solver for backward compatibility
         // -------------------------------
 
@@ -172,7 +172,7 @@ namespace api {
         // Solver interface for backward compatibility 
         //
         // ------------------------
-        front_end_params & fparams() { return m_fparams; }
+        smt_params & fparams() { return m_fparams; }
         bool has_solver() const { return m_solver != 0; }
         smt::kernel & get_smt_kernel();
         void assert_cnstr(expr * a);

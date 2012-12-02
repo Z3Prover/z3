@@ -39,7 +39,7 @@ Revision History:
 
 namespace smt {
 
-    context::context(ast_manager & m, front_end_params & p, params_ref const & _p):
+    context::context(ast_manager & m, smt_params & p, params_ref const & _p):
         m_manager(m),
         m_fparams(p),
         m_params(_p),
@@ -102,7 +102,7 @@ namespace smt {
         flush();
     }
 
-    context * context::mk_fresh(symbol const * l, front_end_params * p) {
+    context * context::mk_fresh(symbol const * l, smt_params * p) {
         context * new_ctx = alloc(context, m_manager, p == 0 ? m_fparams : *p);
         new_ctx->set_logic(l == 0 ? m_setup.get_logic() : *l);
         // copy missing simplifier_plugins

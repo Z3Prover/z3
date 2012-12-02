@@ -33,8 +33,8 @@ Notes:
 
 
 class dl_context {
-    // PARAM-TODO temp HACK: added m_params field because cmd_context does not have front_end_params anymore
-    front_end_params              m_params; 
+    // PARAM-TODO temp HACK: added m_params field because cmd_context does not have smt_params anymore
+    smt_params                    m_params; 
     cmd_context &                 m_cmd;
     dl_collected_cmds*            m_collected_cmds;
     unsigned                      m_ref_count;

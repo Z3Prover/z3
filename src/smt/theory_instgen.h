@@ -25,7 +25,7 @@ Revision History:
 #define _THEORY_INST_GEN_H_
 
 #include "smt_theory.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 
 namespace smt {
 
@@ -37,7 +37,7 @@ namespace smt {
         virtual char const * get_name() const { return "instgen"; }
     };
 
-    theory_instgen* mk_theory_instgen(ast_manager& m, front_end_params& p);
+    theory_instgen* mk_theory_instgen(ast_manager& m, smt_params& p);
 
 };
 

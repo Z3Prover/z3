@@ -1319,7 +1319,7 @@ namespace qe {
     
     public:
 
-        quant_elim_plugin(ast_manager& m, quant_elim& qe, front_end_params& p): 
+        quant_elim_plugin(ast_manager& m, quant_elim& qe, smt_params& p): 
             m(m),
             m_qe(qe),
             m_rewriter(m),
@@ -1959,7 +1959,7 @@ namespace qe {
 
     class quant_elim_new : public quant_elim {
         ast_manager&            m;
-        front_end_params&       m_fparams;  
+        smt_params&       m_fparams;  
         expr_ref                m_assumption;
         bool                    m_produce_models;
         ptr_vector<quant_elim_plugin> m_plugins;
@@ -1968,7 +1968,7 @@ namespace qe {
         bool                     m_eliminate_variables_as_block;
 
     public:
-        quant_elim_new(ast_manager& m, front_end_params& p) :
+        quant_elim_new(ast_manager& m, smt_params& p) :
             m(m),
             m_fparams(p),
             m_assumption(m),
@@ -2165,7 +2165,7 @@ namespace qe {
     // ------------------------------------------------
     // expr_quant_elim
 
-    expr_quant_elim::expr_quant_elim(ast_manager& m, front_end_params const& fp, params_ref const& p):
+    expr_quant_elim::expr_quant_elim(ast_manager& m, smt_params const& fp, params_ref const& p):
         m(m),
         m_fparams(fp),
         m_params(p),
@@ -2212,7 +2212,7 @@ namespace qe {
 
     void expr_quant_elim::init_qe() {
         if (!m_qe) {
-            m_qe = alloc(quant_elim_new, m, const_cast<front_end_params&>(m_fparams));
+            m_qe = alloc(quant_elim_new, m, const_cast<smt_params&>(m_fparams));
         }
     }
 
@@ -2399,7 +2399,7 @@ namespace qe {
         cache_result(q, r, pr); 
     }
 
-    expr_quant_elim_star1::expr_quant_elim_star1(ast_manager& m, front_end_params const& p): 
+    expr_quant_elim_star1::expr_quant_elim_star1(ast_manager& m, smt_params const& p): 
         simplifier(m), m_quant_elim(m, p), m_assumption(m.mk_true())
     {
     }
@@ -2437,7 +2437,7 @@ namespace qe {
     
     class simplify_solver_context : public i_solver_context {
         ast_manager&             m;
-        front_end_params         m_fparams;
+        smt_params         m_fparams;
         app_ref_vector*          m_vars;
         expr_ref*                m_fml;
         ptr_vector<contains_app> m_contains;
@@ -2612,7 +2612,7 @@ namespace qe {
     }
     
     void simplify_exists(app_ref_vector& vars, expr_ref& fml) {
-        front_end_params params;
+        smt_params params;
         ast_manager& m = fml.get_manager();
         simplify_solver_context ctx(m);
         ctx.solve(fml, vars);       

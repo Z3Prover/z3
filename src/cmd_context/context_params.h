@@ -36,7 +36,6 @@ public:
     bool        m_validate_model;
     bool        m_unsat_core;
     unsigned    m_timeout;
-    bool        m_statistics;
 
     context_params();
     void set(char const * param, char const * value);

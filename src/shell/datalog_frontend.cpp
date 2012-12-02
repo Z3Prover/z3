@@ -25,7 +25,7 @@ Revision History:
 #undef min
 #undef max
 #endif
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"datalog_parser.h"
 #include"arith_decl_plugin.h"
 #include"dl_compiler.h"
@@ -43,7 +43,7 @@ static datalog::context * g_ctx = 0;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
-static front_end_params * g_params;
+static smt_params * g_params;
 
 datalog_params::datalog_params():
     m_default_table("sparse"),
@@ -61,7 +61,7 @@ static void display_statistics(
     datalog::rule_set& orig_rules,
     datalog::instruction_block& code,
     datalog::execution_context& ex_ctx,
-    front_end_params& params,
+    smt_params& params,
     bool verbose
     ) 
 {
@@ -125,8 +125,10 @@ static void on_ctrl_c(int) {
 }
 
 
-unsigned read_datalog(char const * file, datalog_params const& dl_params, front_end_params & front_end_params) {
+unsigned read_datalog(char const * file) {
     IF_VERBOSE(1, verbose_stream() << "Z3 Datalog Engine\n";);
+    datalog_params dl_params;
+    smt_params     s_params;
     ast_manager m;
     g_overall_time.start();
     register_on_timeout_proc(on_timeout);
@@ -136,11 +138,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
     params.set_sym("default_table", dl_params.m_default_table);
     params.set_bool("default_table_checked", dl_params.m_default_table_checked);
 
-    datalog::context ctx(m, front_end_params, params);
-    size_t watermark = front_end_params.m_memory_high_watermark;
-    if (watermark == 0) {
-        memory::set_high_watermark(static_cast<size_t>(UINT_MAX));
-    }
+    datalog::context ctx(m, s_params, params);
     datalog::relation_manager & rmgr = ctx.get_rmanager();
     datalog::relation_plugin & inner_plg = *rmgr.get_relation_plugin(symbol("tr_hashtable"));
     SASSERT(&inner_plg);
@@ -190,7 +188,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
     g_orig_rules = &original_rules;
     g_code = &rules_code;
     g_ectx = &ex_ctx;
-    g_params = &front_end_params;
+    g_params = &s_params;
 
     try {    
         g_piece_timer.reset();
@@ -262,7 +260,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
             original_rules, 
             rules_code,
             ex_ctx,
-            front_end_params,
+            s_params,
             false);
 
     }
@@ -274,7 +272,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
             original_rules, 
             rules_code,
             ex_ctx,
-            front_end_params,
+            s_params,
             true);
         return ERR_MEMOUT;
     }

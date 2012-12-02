@@ -19,8 +19,6 @@ Revision History:
 #ifndef _SMTLIB_FRONTEND_H_
 #define _SMTLIB_FRONTEND_H_
 
-#include"front_end_params.h"
-
 unsigned read_smtlib_file(char const * benchmark_file);
 unsigned read_smtlib2_commands(char const * command_file);
 

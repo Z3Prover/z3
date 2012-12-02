@@ -32,7 +32,7 @@ namespace smt {
     conflict_resolution::conflict_resolution(ast_manager & m,
                                              context & ctx,
                                              dyn_ack_manager & dyn_ack_manager,
-                                             front_end_params const & params,
+                                             smt_params const & params,
                                              literal_vector const & assigned_literals,
                                              vector<watch_list> & watches
                                              ):
@@ -1419,7 +1419,7 @@ namespace smt {
     conflict_resolution * mk_conflict_resolution(ast_manager & m, 
                                                  context & ctx,
                                                  dyn_ack_manager & dack_manager,
-                                                 front_end_params const & params,
+                                                 smt_params const & params,
                                                  literal_vector const & assigned_literals,  
                                                  vector<watch_list> & watches) {
         return alloc(conflict_resolution, m, ctx, dack_manager, params, assigned_literals, watches);

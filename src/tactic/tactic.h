@@ -29,7 +29,6 @@ Notes:
 #include"tactic_exception.h"
 #include"lbool.h"
 
-struct front_end_params;
 class progress_callback;
 
 typedef ptr_buffer<goal> goal_buffer;

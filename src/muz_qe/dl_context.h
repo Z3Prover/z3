@@ -24,7 +24,7 @@ Revision History:
 #undef max
 #endif
 #include"arith_decl_plugin.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"map.h"
 #include"th_rewriter.h"
 #include"str_hashtable.h"
@@ -78,7 +78,7 @@ namespace datalog {
         typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
         ast_manager &      m;
-        front_end_params&  m_fparams;
+        smt_params&  m_fparams;
         params_ref         m_params;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
@@ -122,7 +122,7 @@ namespace datalog {
 
 
     public:
-        context(ast_manager & m, front_end_params& params, params_ref const& p = params_ref());
+        context(ast_manager & m, smt_params& params, params_ref const& p = params_ref());
         ~context();
         void reset();
 
@@ -149,7 +149,7 @@ namespace datalog {
         relation_manager & get_rmanager() { return m_rmanager; }
         const relation_manager & get_rmanager() const { return m_rmanager; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
-        front_end_params & get_fparams() const { return m_fparams; }
+        smt_params & get_fparams() const { return m_fparams; }
         params_ref const&  get_params() const { return m_params; }
         DL_ENGINE get_engine() { configure_engine(); return m_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }

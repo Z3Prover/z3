@@ -21,7 +21,7 @@ Author:
 struct unit_subsumption_tactic : public tactic {
     ast_manager&    m;
     params_ref      m_params;
-    front_end_params m_fparams;
+    smt_params      m_fparams;
     volatile bool   m_cancel;
     smt::context    m_context;
     expr_ref_vector m_clauses;

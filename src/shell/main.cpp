@@ -41,7 +41,6 @@ std::string         g_aux_input_file;
 char const *        g_input_file          = 0;
 bool                g_standard_input      = false;
 input_kind          g_input_kind          = IN_UNSPECIFIED;
-front_end_params *  g_front_end_params    = 0;
 bool                g_display_statistics  = false;
 bool                g_display_istatistics = false;
 
@@ -98,36 +97,7 @@ void display_usage() {
     std::cout << "  " << OPT << "dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
 }
-
-class extra_params : public datalog_params {
-    bool &   m_statistics;
-public:
-    extra_params():
-        m_statistics(g_display_statistics) {
-    }
-
-    virtual ~extra_params() {}
-};
-
-extra_params*       g_extra_params = 0;
-bool                g_params_initialized = false;
-
-void init_params() {
-    if (!g_params_initialized) {
-        z3_bound_num_procs();
-        g_front_end_params = new front_end_params();
-        g_extra_params = new extra_params();
-        g_params_initialized = true;
-    }
-}
-
-void del_params() {
-    delete g_extra_params;
-    delete g_front_end_params;
-    g_extra_params = 0;
-    g_front_end_params = 0;
-}
-    
+   
 void parse_cmd_line_args(int argc, char ** argv) {
     int i = 1;
     char * eq_pos = 0;
@@ -200,17 +170,8 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 long lvl = strtol(opt_arg, 0, 10);
                 set_verbosity_level(lvl);
             }
-            else if (strcmp(opt_name, "vldt") == 0) {
-                g_front_end_params->m_model_validate = true;
-            }
             else if (strcmp(opt_name, "file") == 0) {
                 g_input_file = opt_arg;
-            }
-            else if (strcmp(opt_name, "r") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/r:level) is missing.");
-                }
-                g_front_end_params->m_relevancy_lvl = strtol(opt_arg, 0, 10);
             }
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
@@ -221,8 +182,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "t") == 0) {
                 if (!opt_arg)
                     error("option argument (/t:timeout) is missing.");
-                long tm = strtol(opt_arg, 0, 10);
-                g_front_end_params->m_soft_timeout = tm*1000;
+                gparams::set("timeout", opt_arg);
             }
             else if (strcmp(opt_name, "nw") == 0) {
                 enable_warning_messages(false);
@@ -248,7 +208,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "memory") == 0) {
                 if (!opt_arg)
                     error("option argument (/memory:val) is missing.");
-                g_front_end_params->m_memory_high_watermark = strtoul(opt_arg, 0, 10);
+                gparams::set("memory_max_size", opt_arg);
             }
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
@@ -288,27 +248,10 @@ char const * get_extension(char const * file_name) {
     }
 }
 
-class global_state_initialiser {
-public:
-    global_state_initialiser() {
-        memory::initialize(0);
-        init_params();
-    }
-
-    void reset() {
-        del_params();
-        memory::finalize();
-    }
-
-    ~global_state_initialiser() {
-        reset();
-    }
-};
-
 int main(int argc, char ** argv) {
     try{
         unsigned return_value = 0;
-        global_state_initialiser global_state;
+        memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
         parse_cmd_line_args(argc, argv);
         env_params::updt_params();
@@ -353,7 +296,7 @@ int main(int argc, char ** argv) {
             return_value = read_dimacs(g_input_file);
             break;
         case IN_DATALOG:
-            read_datalog(g_input_file, *g_extra_params, *g_front_end_params);
+            read_datalog(g_input_file);
             break;
         case IN_Z3_LOG:
             replay_z3_log(g_input_file);
@@ -361,7 +304,6 @@ int main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
-        global_state.reset();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();
 #endif

@@ -78,7 +78,7 @@ namespace pdr {
     class manager
     {
         ast_manager&      m;
-        front_end_params& m_fparams;
+        smt_params& m_fparams;
         params_ref const& m_params;
         
         mutable bool_rewriter m_brwr;
@@ -110,11 +110,11 @@ namespace pdr {
         void add_new_state(func_decl * s);
         
     public:
-        manager(front_end_params& fparams, params_ref const& params, 
+        manager(smt_params& fparams, params_ref const& params, 
                 ast_manager & manager);
         
         ast_manager& get_manager() const { return m; }
-        front_end_params& get_fparams() const { return m_fparams; }
+        smt_params& get_fparams() const { return m_fparams; }
         params_ref const& get_params() const { return m_params; }
         bool_rewriter& get_brwr() const { return m_brwr; }
 

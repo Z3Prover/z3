@@ -285,7 +285,7 @@ namespace pdr {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         
-        front_end_params&    m_fparams;
+        smt_params&    m_fparams;
         params_ref const&    m_params;
         ast_manager&         m;
         datalog::context*    m_context;
@@ -343,13 +343,13 @@ namespace pdr {
            We check whether there is some reachable state of the relation checked_relation.
         */
         context(
-            front_end_params&  fparams,
+            smt_params&        fparams,
             params_ref const&  params,
             ast_manager&       m);
 
         ~context();
         
-        front_end_params& get_fparams() const { return m_fparams; }
+        smt_params&       get_fparams() const { return m_fparams; }
         params_ref const& get_params() const { return m_params; }
         ast_manager&      get_manager() const { return m; }
         manager&          get_pdr_manager() { return m_pm; }

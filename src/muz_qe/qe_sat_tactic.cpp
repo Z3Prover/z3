@@ -59,7 +59,7 @@ namespace qe {
         ast_manager&            m;
         expr_ref                m_false;
         volatile bool           m_cancel;
-        front_end_params        m_fparams;
+        smt_params              m_fparams;
         params_ref              m_params;
         unsigned                m_extrapolate_strategy_param;
         bool                    m_projection_mode_param;

@@ -35,7 +35,7 @@ namespace pdr {
     class prop_solver {
     
     private:
-        front_end_params&   m_fparams;        
+        smt_params&         m_fparams;        
         ast_manager&        m;
         manager&            m_pm;
         symbol              m_name;

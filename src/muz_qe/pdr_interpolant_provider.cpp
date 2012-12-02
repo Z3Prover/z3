@@ -306,7 +306,7 @@ lbool interpolant_provider_impl::get_interpolant(expr * f1, expr * f2, expr_ref&
         return l_undef;
     }
 
-    front_end_params dummy_params;
+    smt_params dummy_params;
     cmd_context cctx(&dummy_params, false, &m);
     for_each_expr(used_symbol_inserter(cctx), f1);
 

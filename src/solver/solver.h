@@ -23,8 +23,6 @@ Notes:
 #include"progress_callback.h"
 #include"params.h"
 
-struct front_end_params;
-
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.

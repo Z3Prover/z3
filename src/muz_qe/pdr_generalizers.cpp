@@ -103,7 +103,7 @@ namespace pdr {
     //     weaken predecessor.
     //    
 
-    core_farkas_generalizer::core_farkas_generalizer(context& ctx, ast_manager& m, front_end_params& p):
+    core_farkas_generalizer::core_farkas_generalizer(context& ctx, ast_manager& m, smt_params& p):
         core_generalizer(ctx), 
         m_farkas_learner(p, m) 
     {}

@@ -20,7 +20,7 @@ Revision History:
 #define _DL_SMT_RELATION_H_
 
 #include "dl_base.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "params.h"
 
 namespace datalog {
@@ -70,7 +70,7 @@ namespace datalog {
 
         symbol fresh_name(); 
 
-        front_end_params& get_fparams(); 
+        smt_params& get_fparams(); 
 
         params_ref const& get_params();
 

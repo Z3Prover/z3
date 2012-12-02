@@ -24,7 +24,7 @@ Revision History:
 class qe_tactic : public tactic {
     struct     imp {
         ast_manager &            m;
-        front_end_params         m_fparams;
+        smt_params               m_fparams;
         volatile bool            m_cancel;
         qe::expr_quant_elim      m_qe;
 

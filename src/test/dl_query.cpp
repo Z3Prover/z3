@@ -2,7 +2,7 @@
 #include "ast_pp.h"
 #include "dl_table_relation.h"
 #include "dl_context.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "stopwatch.h"
 #include "reg_decl_plugins.h"
 
@@ -43,7 +43,7 @@ void dl_query_ask_for_last_arg(context & ctx, func_decl * pred, relation_fact & 
     }
 }
 
-void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& params,
+void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         context & ctx_b, char const* problem_file, unsigned test_count,
         bool use_magic_sets) {
 
@@ -124,7 +124,7 @@ void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& para
     }
 }
 
-void dl_query_test_wpa(front_end_params & fparams, params_ref& params) {
+void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     params.set_bool(":magic-sets-for-queries", true);
     ast_manager m;
     reg_decl_plugins(m);
@@ -183,7 +183,7 @@ void dl_query_test_wpa(front_end_params & fparams, params_ref& params) {
 }
 
 void tst_dl_query() {
-    front_end_params fparams;
+    smt_params fparams;
     params_ref params;
     params.set_sym(":default-table", symbol("sparse"));
     params.set_sym(":default-relation", symbol("tr_sparse"));

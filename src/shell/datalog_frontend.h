@@ -25,7 +25,7 @@ struct datalog_params {
     datalog_params();
 };
 
-unsigned read_datalog(char const * file, datalog_params const& dl_params, front_end_params & front_end_params);
+unsigned read_datalog(char const * file);
 
 
 #endif /* _DATALOG_FRONTEND_H_ */

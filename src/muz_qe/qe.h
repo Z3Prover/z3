@@ -22,7 +22,7 @@ Revision History:
 #define __QE_H__
 
 #include "ast.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "statistics.h"
 #include "lbool.h"
 #include "expr_functors.h"
@@ -221,7 +221,7 @@ namespace qe {
 
     qe_solver_plugin* mk_array_plugin(i_solver_context& ctx);
 
-    qe_solver_plugin* mk_arith_plugin(i_solver_context& ctx, bool produce_models, front_end_params& p);
+    qe_solver_plugin* mk_arith_plugin(i_solver_context& ctx, bool produce_models, smt_params& p);
 
     class def_vector {
         func_decl_ref_vector m_vars;
@@ -275,7 +275,7 @@ namespace qe {
 
     class expr_quant_elim {
         ast_manager&            m;
-        front_end_params const& m_fparams;
+        smt_params const& m_fparams;
         params_ref              m_params;
         expr_ref_vector         m_trail;
         obj_map<expr,expr*>     m_visited;
@@ -283,7 +283,7 @@ namespace qe {
         expr*                   m_assumption;
         bool                    m_use_new_qe;
     public:
-        expr_quant_elim(ast_manager& m, front_end_params const& fp, params_ref const& p = params_ref());
+        expr_quant_elim(ast_manager& m, smt_params const& fp, params_ref const& p = params_ref());
         ~expr_quant_elim(); 
 
         void operator()(expr* assumption, expr* fml, expr_ref& result);
@@ -331,7 +331,7 @@ namespace qe {
         virtual void reduce1_quantifier(quantifier * q);
         virtual bool is_target(quantifier * q) const { return q->get_num_patterns() == 0 && q->get_num_no_patterns() == 0; }
     public:
-        expr_quant_elim_star1(ast_manager & m, front_end_params const& p);
+        expr_quant_elim_star1(ast_manager & m, smt_params const& p);
         virtual ~expr_quant_elim_star1() {}
 
         void collect_statistics(statistics & st) const {

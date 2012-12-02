@@ -19,12 +19,12 @@ Notes:
 #include"tactic.h"
 #include"tactical.h"
 #include"smt_kernel.h"
-#include"front_end_params.h"
-#include"params2front_end_params.h"
+#include"smt_params.h"
+#include"params2smt_params.h"
 #include"rewriter_types.h"
 
 class smt_tactic : public tactic {
-    front_end_params             m_params;
+    smt_params             m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
     std::string                  m_failure;
@@ -51,7 +51,7 @@ public:
         SASSERT(m_ctx == 0);
     }
 
-    front_end_params & fparams() {
+    smt_params & fparams() {
         return m_params;
     }
 
@@ -64,15 +64,15 @@ public:
         TRACE("smt_tactic", tout << this << "\nupdt_params: " << p << "\n";);
         updt_params_core(p);
         m_params_ref = p;
-        // PARAM-TODO update params2front_end_params p ---> m_params
-        params2front_end_params(m_params_ref, fparams());
+        // PARAM-TODO update params2smt_params p ---> m_params
+        params2smt_params(m_params_ref, fparams());
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
     
     virtual void collect_param_descrs(param_descrs & r) {
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
-        solver_front_end_params_descrs(r);
+        solver_smt_params_descrs(r);
     }
     
     virtual void set_cancel(bool f) {

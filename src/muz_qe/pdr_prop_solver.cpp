@@ -24,7 +24,7 @@ Revision History:
 #include "ast_smt2_pp.h"
 #include "dl_util.h"
 #include "model_pp.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "datatype_decl_plugin.h"
 #include "bv_decl_plugin.h"
 #include "pdr_farkas_learner.h"

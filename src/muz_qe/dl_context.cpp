@@ -226,7 +226,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    context::context(ast_manager & m, front_end_params& fp, params_ref const& pa):
+    context::context(ast_manager & m, smt_params& fp, params_ref const& pa):
         m(m),
         m_fparams(fp),
         m_params(pa),

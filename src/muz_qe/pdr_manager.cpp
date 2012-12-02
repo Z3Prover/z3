@@ -166,7 +166,7 @@ namespace pdr {
         return res;
     }
     
-    manager::manager(front_end_params& fparams, params_ref const& params, ast_manager& manager) :
+    manager::manager(smt_params& fparams, params_ref const& params, ast_manager& manager) :
         m(manager),
         m_fparams(fparams),
         m_params(params),

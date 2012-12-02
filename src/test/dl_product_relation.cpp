@@ -19,7 +19,7 @@ namespace datalog {
     };
 
 
-    void test_functional_columns(front_end_params fparams, params_ref& params) {
+    void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
         ctx.updt_params(params);
@@ -121,7 +121,7 @@ namespace datalog {
         }
     }
 
-    void test_finite_product_relation(front_end_params fparams, params_ref& params) {
+    void test_finite_product_relation(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
         ctx.updt_params(params);
@@ -338,7 +338,7 @@ namespace datalog {
 using namespace datalog;
 
 void tst_dl_product_relation() {
-    front_end_params fparams;
+    smt_params fparams;
     params_ref params;
 
     test_functional_columns(fparams, params);

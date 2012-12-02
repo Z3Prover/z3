@@ -24,7 +24,7 @@ static void test_table(mk_table_fn mk_table) {
     sig.push_back(4);
     sig.push_back(8);
     sig.push_back(4);
-    front_end_params params;
+    smt_params params;
     ast_manager ast_m;
     datalog::context ctx(ast_m, params);    
     datalog::relation_manager & m = ctx.get_rmanager();

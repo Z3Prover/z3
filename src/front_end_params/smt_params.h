@@ -19,6 +19,7 @@ Revision History:
 #ifndef _SMT_PARAMS_H_
 #define _SMT_PARAMS_H_
 
+#include"ast.h"
 #include"dyn_ack_params.h"
 #include"qi_params.h"
 #include"theory_arith_params.h"
@@ -205,6 +206,24 @@ struct smt_params : public preprocessor_params,
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.    
     bool                m_dump_goal_as_smt;
+    proof_gen_mode      m_proof_mode;
+    bool                m_auto_config;
+
+#if 0
+    unsigned            m_memory_high_watermark;
+    unsigned            m_memory_max_size;
+
+    bool                m_auto_config;
+
+    bool                m_debug_ref_count;
+    
+        m_well_sorted_check(true),
+        m_memory_high_watermark(0),
+        m_memory_max_size(0),
+
+        m_auto_config(true),
+        m_debug_ref_count(false) {
+#endif
 
     smt_params():
         m_display_proof(false),
@@ -272,7 +291,9 @@ struct smt_params : public preprocessor_params,
         m_soft_timeout(0),
         m_at_labels_cex(false),
         m_check_at_labels(false),
-        m_dump_goal_as_smt(false) {
+        m_dump_goal_as_smt(false),
+        m_proof_mode(PGM_DISABLED),
+        m_auto_config(true) {
     }
 };
 

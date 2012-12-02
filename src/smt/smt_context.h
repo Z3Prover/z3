@@ -71,7 +71,7 @@ namespace smt {
 
     protected:
         ast_manager &               m_manager;
-        front_end_params &          m_fparams;
+        smt_params &          m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
         volatile bool               m_cancel_flag;
@@ -220,7 +220,7 @@ namespace smt {
             return m_asserted_formulas.get_simplifier();
         }
 
-        front_end_params & get_fparams() {
+        smt_params & get_fparams() {
             return m_fparams;
         }
 
@@ -1314,7 +1314,7 @@ namespace smt {
         void assert_expr_core(expr * e, proof * pr);
 
     public:
-        context(ast_manager & m, front_end_params & fp, params_ref const & p = params_ref());
+        context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 
         virtual ~context();
 
@@ -1325,7 +1325,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = 0,  front_end_params * p = 0);
+        context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
 
         app * mk_eq_atom(expr * lhs, expr * rhs);
 

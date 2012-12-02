@@ -1087,7 +1087,7 @@ namespace pdr {
     // context
 
     context::context(
-        front_end_params&     fparams,
+        smt_params&     fparams,
         params_ref const&     params,
         ast_manager&          m
         )

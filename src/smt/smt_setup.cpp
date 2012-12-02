@@ -33,7 +33,7 @@ Revision History:
 
 namespace smt {
 
-    setup::setup(context & c, front_end_params & params):
+    setup::setup(context & c, smt_params & params):
         m_context(c),
         m_manager(c.get_manager()),
         m_params(params),

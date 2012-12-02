@@ -19,7 +19,7 @@ Revision History:
 #ifndef _ASSERTED_FORMULAS_H_
 #define _ASSERTED_FORMULAS_H_
 
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"simplifier.h"
 #include"basic_simplifier_plugin.h"
 #include"static_features.h" 
@@ -36,7 +36,7 @@ class bv_simplifier_plugin;
 
 class asserted_formulas {
     ast_manager &                m_manager;
-    front_end_params &           m_params;
+    smt_params &                 m_params;
     simplifier                   m_pre_simplifier;
     simplifier                   m_simplifier;
     basic_simplifier_plugin *    m_bsimp;
@@ -100,7 +100,7 @@ class asserted_formulas {
     bool canceled() { return m_cancel_flag; }
 
 public:
-    asserted_formulas(ast_manager & m, front_end_params & p);
+    asserted_formulas(ast_manager & m, smt_params & p);
     ~asserted_formulas();
 
     void setup();

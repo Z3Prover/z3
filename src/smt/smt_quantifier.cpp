@@ -33,7 +33,7 @@ namespace smt {
     struct quantifier_manager::imp {
         quantifier_manager &                   m_wrapper;
         context &                              m_context;
-        front_end_params &                     m_params;
+        smt_params &                           m_params;
         qi_queue                               m_qi_queue;
         obj_map<quantifier, quantifier_stat *> m_quantifier_stat;
         quantifier_stat_gen                    m_qstat_gen;
@@ -41,7 +41,7 @@ namespace smt {
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
         
-        imp(quantifier_manager & wrapper, context & ctx, front_end_params & p, quantifier_manager_plugin * plugin):
+        imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
             m_context(ctx),
             m_params(p),
@@ -242,7 +242,7 @@ namespace smt {
 
     };
 
-    quantifier_manager::quantifier_manager(context & ctx, front_end_params & fp, params_ref const & p) {
+    quantifier_manager::quantifier_manager(context & ctx, smt_params & fp, params_ref const & p) {
         m_imp = alloc(imp, *this, ctx, fp, mk_default_plugin());
         m_imp->m_plugin->set_manager(*this);
     }
@@ -355,7 +355,7 @@ namespace smt {
         #pragma omp critical (quantifier_manager)
         {
             context & ctx        = m_imp->m_context;
-            front_end_params & p = m_imp->m_params;
+            smt_params & p = m_imp->m_params;
             quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
             dealloc(m_imp);
             m_imp = alloc(imp, *this, ctx, p, plugin);
@@ -395,7 +395,7 @@ namespace smt {
     // The default plugin uses E-matching, MBQI and quick-checker
     class default_qm_plugin : public quantifier_manager_plugin {
         quantifier_manager *        m_qm;
-        front_end_params *          m_fparams;
+        smt_params *                m_fparams;
         context *                   m_context;
         scoped_ptr<mam>             m_mam;
         scoped_ptr<mam>             m_lazy_mam;

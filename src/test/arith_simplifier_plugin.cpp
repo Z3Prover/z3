@@ -1,5 +1,5 @@
 #include "arith_eq_solver.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 
 typedef rational numeral;
 typedef vector<numeral> row;
@@ -24,7 +24,7 @@ static void test_solve_integer_equations(
 }
                
 void tst_arith_simplifier_plugin() {
-    front_end_params params;
+    smt_params params;
     ast_manager m;
     arith_eq_solver asimp(m);
     

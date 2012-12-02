@@ -19,12 +19,12 @@ Notes:
 #include"solver_na2as.h"
 #include"smt_kernel.h"
 #include"reg_decl_plugins.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 
 namespace smt {
 
     class solver : public solver_na2as {
-        front_end_params    m_params;
+        smt_params          m_params;
         smt::kernel *       m_context;
         progress_callback * m_callback;
     public:

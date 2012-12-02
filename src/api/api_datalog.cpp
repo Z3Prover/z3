@@ -32,7 +32,7 @@ Revision History:
 
 namespace api {
     
-    fixedpoint_context::fixedpoint_context(ast_manager& m, front_end_params& p) : 
+    fixedpoint_context::fixedpoint_context(ast_manager& m, smt_params& p) : 
         m_state(0), 
         m_reduce_app(0), 
         m_reduce_assign(0), 

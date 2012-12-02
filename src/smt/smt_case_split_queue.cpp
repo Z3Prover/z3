@@ -278,7 +278,7 @@ namespace smt {
         };
         typedef int_hashtable<int_hash, default_eq<int> > bool_var_set;
         context &         m_context;
-        front_end_params &m_params;  
+        smt_params &m_params;  
         ast_manager &     m_manager;
         ptr_vector<expr>  m_queue;
         unsigned          m_head;
@@ -287,7 +287,7 @@ namespace smt {
         unsigned          m_head2;
         svector<scope>    m_scopes;
     public:
-        rel_case_split_queue(context & ctx, front_end_params & p):
+        rel_case_split_queue(context & ctx, smt_params & p):
             m_context(ctx),
             m_params(p),
             m_manager(ctx.get_manager()),
@@ -465,14 +465,14 @@ namespace smt {
         typedef int_hashtable<int_hash, default_eq<int> > bool_var_set;
         context &         m_context;
         ast_manager &     m_manager;
-        front_end_params &m_params;  
+        smt_params &m_params;  
         ptr_vector<expr>  m_queue;
         unsigned          m_head;
         int               m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
         bool_var_act_queue m_delayed_queue;
         svector<scope>    m_scopes;
     public:
-        rel_act_case_split_queue(context & ctx, front_end_params & p):
+        rel_act_case_split_queue(context & ctx, smt_params & p):
             m_context(ctx),
             m_manager(ctx.get_manager()),
             m_params(p),
@@ -694,7 +694,7 @@ namespace smt {
 
         typedef int_hashtable<int_hash, default_eq<int> > bool_var_set;
         context &            m_context;
-        front_end_params &   m_params;  
+        smt_params &   m_params;  
         ast_manager &        m_manager;
         ptr_vector<expr>     m_queue;
         unsigned             m_head;
@@ -714,7 +714,7 @@ namespace smt {
 
 
     public:
-        rel_goal_case_split_queue(context & ctx, front_end_params & p):
+        rel_goal_case_split_queue(context & ctx, smt_params & p):
             m_context(ctx),
             m_params(p),
             m_manager(ctx.get_manager()),
@@ -1088,7 +1088,7 @@ namespace smt {
     };
    
 
-    case_split_queue * mk_case_split_queue(context & ctx, front_end_params & p) {
+    case_split_queue * mk_case_split_queue(context & ctx, smt_params & p) {
         if (p.m_relevancy_lvl < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
                                       p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
             warning_msg("relevacy must be enabled to use option CASE_SPLIT=3, 4 or 5");

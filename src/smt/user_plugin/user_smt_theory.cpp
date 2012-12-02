@@ -44,7 +44,7 @@ namespace smt {
         {}
     };
 
-    user_theory::user_theory(ast_manager & m, front_end_params const& p, void * ext_context, void * ext_data, char const * name, family_id fid, user_decl_plugin * dp, user_simplifier_plugin * sp):
+    user_theory::user_theory(ast_manager & m, smt_params const& p, void * ext_context, void * ext_data, char const * name, family_id fid, user_decl_plugin * dp, user_simplifier_plugin * sp):
         theory(fid),
         m_params(p),
         m_ext_context(ext_context),
