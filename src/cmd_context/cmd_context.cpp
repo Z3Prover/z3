@@ -597,7 +597,9 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, produce_proofs() ? PGM_FINE : PGM_DISABLED); // PARAM-TODO , params().m_trace_stream);
+    m_manager  = alloc(ast_manager, 
+                       produce_proofs() ? PGM_FINE : PGM_DISABLED, 
+                       m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
     // PARAM-TODO

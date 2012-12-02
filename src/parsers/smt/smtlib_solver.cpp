@@ -33,9 +33,9 @@ Revision History:
 
 namespace smtlib {
 
-    solver::solver(front_end_params & params):
-        m_ast_manager(params.m_proof_mode, params.m_trace_stream),
-        m_params(params),
+    solver::solver():
+        m_ast_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, 
+                      m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0),
         m_ctx(0),
         m_error_code(0) {
         parser_params ps;
@@ -103,7 +103,7 @@ namespace smtlib {
         check_sat_result * r = m_ctx->get_check_sat_result();
         if (r != 0) {
             proof * pr = r->get_proof();
-            if (pr != 0 && m_params.m_display_proof)
+            if (pr != 0 && m_params.m_proof)
                 std::cout << mk_ll_pp(pr, m_ast_manager, false, false);
             model_ref md;
             if (r->status() != l_false) r->get_model(md);

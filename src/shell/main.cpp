@@ -122,8 +122,6 @@ void init_params() {
 }
 
 void del_params() {
-    if (g_front_end_params != NULL)
-        g_front_end_params->close_trace_file();
     delete g_extra_params;
     delete g_front_end_params;
     g_extra_params = 0;
@@ -315,7 +313,6 @@ int main(int argc, char ** argv) {
         parse_cmd_line_args(argc, argv);
         env_params::updt_params();
 
-        g_front_end_params->open_trace_file();
         if (g_input_file && g_standard_input) {
             error("using standard input to read formula.");
         }
@@ -346,11 +343,11 @@ int main(int argc, char ** argv) {
 	}
         switch (g_input_kind) {
         case IN_SMTLIB:
-            return_value = read_smtlib_file(g_input_file, *g_front_end_params);
+            return_value = read_smtlib_file(g_input_file);
             break;
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
-            return_value = read_smtlib2_commands(g_input_file, *g_front_end_params);
+            return_value = read_smtlib2_commands(g_input_file);
             break;
         case IN_DIMACS:
             return_value = read_dimacs(g_input_file);

@@ -190,11 +190,10 @@ namespace smt {
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
         if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(bool_var2expr(l.var()))))
             m_atom_propagation_queue.push_back(l);
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
+
+        if (m_manager.has_trace_stream())
             trace_assign(l, j, decision);
         m_case_split_queue->assign_lit_eh(l);
-#endif
     }
     
     bool context::bcp() {
@@ -1789,10 +1788,10 @@ namespace smt {
        \brief Create an internal backtracking point
     */
     void context::push_scope() {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[push] " << m_scope_lvl << "\n";
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[push] " << m_scope_lvl << "\n";
+
         m_scope_lvl++;
         m_region.push_scope();
         m_scopes.push_back(scope());
@@ -2237,10 +2236,10 @@ namespace smt {
        \warning This method will not invoke reset_cache_generation.
     */
     unsigned context::pop_scope_core(unsigned num_scopes) {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[pop] " << num_scopes << " " << m_scope_lvl << "\n";
+
         TRACE("context", tout << "backtracking: " << num_scopes << "\n";);
         TRACE("pop_scope_detail", display(tout););
         SASSERT(num_scopes > 0);
@@ -2927,10 +2926,8 @@ namespace smt {
        Return true if succeeded.
     */
     bool context::check_preamble(bool reset_cancel) {
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[begin-check] " << m_scope_lvl << "\n";
-#endif
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[begin-check] " << m_scope_lvl << "\n";
 
         if (reset_cancel) {
             m_cancel_flag = false;
@@ -3534,13 +3531,13 @@ namespace smt {
                       tout << ", ilvl: " << get_intern_level(l.var()) << "\n" 
                            << mk_pp(bool_var2expr(l.var()), m_manager) << "\n";
                   });
-#ifndef SMTCOMP
-            if (m_fparams.m_trace_stream != NULL) {
-                *m_fparams.m_trace_stream << "[conflict] ";
-                display_literals(*m_fparams.m_trace_stream, num_lits, lits);
-                *m_fparams.m_trace_stream << "\n";
+
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[conflict] ";
+                display_literals(m_manager.trace_stream(), num_lits, lits);
+                m_manager.trace_stream() << "\n";
             }
-#endif
+
 #ifdef Z3DEBUG 
             expr_ref_vector expr_lits(m_manager);
             svector<bool>   expr_signs;

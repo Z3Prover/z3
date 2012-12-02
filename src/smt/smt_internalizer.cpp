@@ -952,10 +952,10 @@ namespace smt {
                   tout << "is_true_eq: " << e->is_true_eq() << " in cg_table: " << m_cg_table.contains_ptr(e) << " is_cgr: " 
                        << e->is_cgr() << "\n";
               });
-#ifndef SMTCOMP
-        if (m_fparams.m_trace_stream != NULL)
-            *m_fparams.m_trace_stream << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
-#endif
+
+        if (m_manager.has_trace_stream())
+            m_manager.trace_stream() << "[attach-enode] #" << n->get_id() << " " << m_generation << "\n";        
+
         return e;
     }
 

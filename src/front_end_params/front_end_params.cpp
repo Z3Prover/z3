@@ -49,19 +49,3 @@ void front_end_params::register_params(ini_params & p) {
 
 #endif
 
-void front_end_params::open_trace_file() {
-    if (m_trace) {
-        m_trace_stream = alloc(std::fstream, m_trace_file_name.c_str(), std::ios_base::out);
-    }
-}
-
-void front_end_params::close_trace_file() {
-    if (m_trace_stream != NULL) {
-        std::fstream &tmp = *m_trace_stream;
-        m_trace_stream = NULL;
-        tmp << "[eof]\n";
-        tmp.close();
-        // do not delete it, this might be called from a Ctrl-C signal handler
-        // and there might be someone writing to it
-    }
-}

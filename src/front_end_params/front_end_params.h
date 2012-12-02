@@ -30,9 +30,6 @@ struct front_end_params : public smt_params {
     bool                m_auto_config;
 
     bool                m_debug_ref_count;
-    bool                m_trace;
-    std::string         m_trace_file_name;
-    std::fstream*       m_trace_stream;
 
     front_end_params():
         m_well_sorted_check(true),
@@ -40,15 +37,8 @@ struct front_end_params : public smt_params {
         m_memory_max_size(0),
         m_proof_mode(PGM_DISABLED),
         m_auto_config(true),
-        m_debug_ref_count(false),
-        m_trace(false),
-        m_trace_file_name("z3.log"),
-        m_trace_stream(NULL) {
+        m_debug_ref_count(false) {
     }
-
-    void open_trace_file();
-
-    void close_trace_file();
 
     bool has_auto_config(unsigned idx) { return m_auto_config; }
 

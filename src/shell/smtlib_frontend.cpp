@@ -67,11 +67,11 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
-unsigned read_smtlib_file(char const * benchmark_file, front_end_params & front_end_params) {
+unsigned read_smtlib_file(char const * benchmark_file) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
-    smtlib::solver solver(front_end_params);
+    smtlib::solver solver;
     g_solver = &solver;
     
     bool ok = true;
@@ -92,7 +92,7 @@ unsigned read_smtlib_file(char const * benchmark_file, front_end_params & front_
     return solver.get_error_code();
 }
 
-unsigned read_smtlib2_commands(char const* file_name, front_end_params& front_end_params) {
+unsigned read_smtlib2_commands(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);

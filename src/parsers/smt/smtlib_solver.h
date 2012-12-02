@@ -20,20 +20,20 @@ Revision History:
 #define _SMTLIB_SOLVER_H_
 
 #include"smtparser.h"
-#include"front_end_params.h"
+#include"context_params.h"
 #include"lbool.h"
 
 class cmd_context;
 
 namespace smtlib  {    
     class solver {
+        context_params      m_params;
         ast_manager         m_ast_manager;
-        front_end_params &  m_params;
         cmd_context *       m_ctx;
         scoped_ptr<parser>  m_parser;
         unsigned            m_error_code;
     public:
-        solver(front_end_params & params);
+        solver();
         ~solver(); 
         bool solve_smt(char const * benchmark_file);
         bool solve_smt_string(char const * benchmark_string);

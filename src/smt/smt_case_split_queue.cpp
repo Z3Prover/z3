@@ -395,8 +395,8 @@ namespace smt {
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
                     expr * undef_child = 0;
                     if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {					
-                        if (m_params.m_trace_stream != NULL) {
-                            *m_params.m_trace_stream << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
+                        if (m_manager.has_trace_stream()) {
+                            m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
                         }
                         TRACE("case_split", tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
                         literal l = m_context.get_literal(undef_child);
@@ -851,8 +851,8 @@ namespace smt {
             if ((is_or && val == l_true) || (is_and && val == l_false)) {
                 expr * undef_child = 0;
                 if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {					
-                    if (m_params.m_trace_stream != NULL) {
-                        *m_params.m_trace_stream << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
+                    if (m_manager.has_trace_stream()) {
+                        m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
                     }
                     TRACE("case_split", tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
                     literal l = m_context.get_literal(undef_child);
@@ -900,11 +900,6 @@ namespace smt {
                     // does the push after calling us
                     m_priority_queue2.insert(idx);
                     e.m_last_decided = -1;
-                    /*
-                    if (m_params.m_trace_stream != NULL) {
-                        *m_params.m_trace_stream << "[generation] #" << e.m_expr->get_id() << " " << e.m_generation << "\n";
-                    }
-                    */
                     return;
                 }
             }

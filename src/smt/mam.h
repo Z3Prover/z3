@@ -29,11 +29,9 @@ namespace smt {
     class mam {
     protected:
         context &       m_context;
-        std::ostream *  m_trace_stream;
     public:
-        mam(context & ctx, std::ostream *trace):
-            m_context(ctx),
-            m_trace_stream(trace) {
+        mam(context & ctx):
+            m_context(ctx) {
         }
         
         virtual ~mam() {
@@ -68,7 +66,7 @@ namespace smt {
 #endif
     };
 
-    mam * mk_mam(context & ctx, std::ostream *trace);
+    mam * mk_mam(context & ctx);
 };
 
 #endif /* _MAM_H_ */

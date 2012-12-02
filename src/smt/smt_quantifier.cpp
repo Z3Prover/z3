@@ -45,12 +45,15 @@ namespace smt {
             m_wrapper(wrapper),
             m_context(ctx),
             m_params(p),
-            m_qi_queue(m_wrapper, ctx, p, p.m_trace_stream),
+            m_qi_queue(m_wrapper, ctx, p),
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
             m_plugin(plugin) {
             m_num_instances = 0;
             m_qi_queue.setup();
         }
+
+        bool has_trace_stream() const { return m_context.get_manager().has_trace_stream(); }
+        std::ostream & trace_stream() { return m_context.get_manager().trace_stream(); }
 
         quantifier_stat * get_stat(quantifier * q) const {
             return m_quantifier_stat.find(q);
@@ -112,8 +115,8 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
             if (f) {
-                if (m_params.m_trace_stream != NULL) {
-                    std::ostream & out = *m_params.m_trace_stream;
+                if (has_trace_stream()) {
+                    std::ostream & out = trace_stream();
                     out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id();
                     for (unsigned i = 0; i < num_bindings; i++) {
                         // I don't want to use mk_pp because it creates expressions for pretty printing.
@@ -418,8 +421,8 @@ namespace smt {
             m_fparams       = &(m_context->get_fparams());
             ast_manager & m = m_context->get_manager();
 
-            m_mam           = mk_mam(*m_context, m_fparams->m_trace_stream);
-            m_lazy_mam      = mk_mam(*m_context, m_fparams->m_trace_stream);
+            m_mam           = mk_mam(*m_context);
+            m_lazy_mam      = mk_mam(*m_context);
             m_model_finder  = alloc(model_finder, m, m_context->get_simplifier());
             m_model_checker = alloc(model_checker, m, *m_fparams, *(m_model_finder.get()));
 
