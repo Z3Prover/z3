@@ -36,7 +36,6 @@ void front_end_params::register_params(ini_params & p) {
     p.register_int_param("proof_mode", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
     p.register_bool_param("trace", m_trace, "enable tracing for the Axiom Profiler tool");
     p.register_string_param("trace_file_name", m_trace_file_name, "tracing file name");
-    p.register_bool_param("display_config", m_display_config, "display configuration used by Z3");
 
 #ifdef _WINDOWS
     // The non-windows memory manager does not have access to memory sizes.

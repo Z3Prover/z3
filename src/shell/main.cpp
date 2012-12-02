@@ -77,7 +77,7 @@ void display_usage() {
     std::cout << "  " << OPT << "version    prints version number of Z3.\n";
     std::cout << "  " << OPT << "v:level    be verbose, where <level> is the verbosity level.\n";
     std::cout << "  " << OPT << "nw         disable warning messages.\n";
-    std::cout << "  " << OPT << "ps         display all available parameters.\n";
+    std::cout << "  " << OPT << "ps         display Z3 global (and module) parameters.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
@@ -87,8 +87,6 @@ void display_usage() {
     // 
     std::cout << "\nOutput:\n";
     std::cout << "  " << OPT << "st         display statistics.\n";
-    std::cout << "\nSearch heuristics:\n";
-    std::cout << "  " << OPT << "rs:num     random seed.\n";
 #if defined(Z3DEBUG) || defined(_TRACE)
     std::cout << "\nDebugging support:\n";
 #endif
@@ -225,20 +223,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
                     error("optional argument (/r:level) is missing.");
                 }
                 g_front_end_params->m_relevancy_lvl = strtol(opt_arg, 0, 10);
-            }
-            else if (strcmp(opt_name, "rd") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/rd:num) is missing.");
-                }
-                g_front_end_params->m_random_var_freq = static_cast<double>(strtol(opt_arg, 0, 10)) / 100.0;
-            }
-            else if (strcmp(opt_name, "rs") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/rs:num) is missing.");
-                }
-                long seed = strtol(opt_arg, 0, 10);
-                g_front_end_params->m_random_seed = seed;
-                g_front_end_params->m_arith_random_seed = seed;
             }
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
@@ -382,7 +366,7 @@ int main(int argc, char ** argv) {
             return_value = read_smtlib2_commands(g_input_file, *g_front_end_params);
             break;
         case IN_DIMACS:
-            return_value = read_dimacs(g_input_file, *g_front_end_params);
+            return_value = read_dimacs(g_input_file);
             break;
         case IN_DATALOG:
             read_datalog(g_input_file, *g_extra_params, *g_front_end_params);

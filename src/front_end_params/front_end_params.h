@@ -33,8 +33,6 @@ struct front_end_params : public smt_params {
     bool                m_trace;
     std::string         m_trace_file_name;
     std::fstream*       m_trace_stream;
-    bool                m_display_config;
-    bool                m_dump_goal_as_smt;
 
     front_end_params():
         m_well_sorted_check(true),
@@ -45,9 +43,7 @@ struct front_end_params : public smt_params {
         m_debug_ref_count(false),
         m_trace(false),
         m_trace_file_name("z3.log"),
-        m_trace_stream(NULL),
-        m_display_config(false),
-        m_dump_goal_as_smt(false) {
+        m_trace_stream(NULL) {
     }
 
     void open_trace_file();
