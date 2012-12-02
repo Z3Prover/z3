@@ -1461,19 +1461,22 @@ def pyg_default_as_c_literal(p):
         return 'symbol("%s")' % p[2]
     return p[2]
 
-def def_module_params(module_name, export, params):
+def def_module_params(module_name, export, params, class_name=None):
     pyg = get_curr_pyg()
+    print os.path.split(get_curr_pyg)
     hpp = '%shpp' % pyg[:len(pyg)-3]
     out = open(hpp, 'w')
+    if class_name == None:
+        class_name = '%s_params' % module_name
     out.write('// Automatically generated file\n')
     out.write('#include"params.h"\n')
     if export:
         out.write('#include"gparams.h"\n')
-    out.write('struct %s_params {\n' % module_name)
+    out.write('struct %s {\n' % class_name)
     out.write('  params_ref const & p;\n')
     if export:
         out.write('  params_ref g;\n')
-    out.write('  %s_params(params_ref const & _p = params_ref()):\n' % module_name)
+    out.write('  %s(params_ref const & _p = params_ref()):\n' % class_name)
     out.write('     p(_p)')
     if export:
         out.write(', g(gparams::get_module("%s"))' % module_name)
@@ -1484,7 +1487,7 @@ def def_module_params(module_name, export, params):
     out.write('  }\n')
     if export:
         out.write('  /*\n')
-        out.write("     REG_MODULE_PARAMS('%s', '%s_params::collect_param_descrs')\n" % (module_name, module_name))
+        out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
         out.write('  */\n')
     # Generated accessors
     for param in params:
