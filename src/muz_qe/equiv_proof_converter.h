@@ -43,13 +43,7 @@ public:
         return m_replace.translate(translator);
     }
 
-    void insert(expr* fml1, expr* fml2) {
-        proof_ref p1(m), p2(m), p3(m);
-        p1 = m.mk_asserted(fml1);
-        p2 = m.mk_rewrite(fml1, fml2);
-        p3 = m.mk_modus_ponens(p1, p2);
-        m_replace.insert(p3);
-    }
+    void insert(expr* fml1, expr* fml2);
 
     ast_manager& get_manager() { return m; }
 

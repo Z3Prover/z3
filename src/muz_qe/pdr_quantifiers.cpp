@@ -105,7 +105,11 @@ namespace pdr {
     }
 
 
-    void quantifier_model_checker::add_binding(quantifier* q, expr_ref_vector& binding) {          
+    void quantifier_model_checker::add_binding(quantifier* q, expr_ref_vector& binding) {      
+        if (binding.size() != q->get_num_decls()) {
+            // not a full binding. It may happen that the quantifier got simplified.
+            return;
+        }
         apply_binding(q, binding);
         vector<expr_ref_vector> bindings;
         generalize_binding(binding, bindings);
@@ -126,15 +130,18 @@ namespace pdr {
         inst.append(var_inst.size(), (expr*const*)var_inst.c_ptr());
         inst.reverse();
         expr_abstract(m, 0, inst.size(), inst.c_ptr(), e, e);
+        if (m_instantiations.contains(to_app(e))) {
+            return;
+        }
         m_instantiated_rules.push_back(m_current_rule);
         m_instantiations.push_back(to_app(e));
         TRACE("pdr", tout << mk_pp(q, m) << "\n";
-              tout << "binding\n";
+              tout << "binding: ";
               for (unsigned i = 0; i < binding.size(); ++i) {
                   tout << mk_pp(binding[i].get(), m) << " ";
               }
               tout << "\n";
-              tout << "inst\n";
+              tout << "inst: ";
               for (unsigned i = 0; i < var_inst.size(); ++i) {
                   tout << mk_pp(var_inst[i].get(), m) << " ";
               }
@@ -361,6 +368,7 @@ namespace pdr {
         scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
         for (unsigned j = 0; j < qis.size(); ++j) {
             q = qis[j].get();
+            SASSERT(is_forall(q));
             app_ref_vector& inst      = pt.get_inst(m_current_rule);
             TRACE("pdr", 
                   tout << "q:\n" << mk_pp(q, m) << "\n";
@@ -433,11 +441,16 @@ namespace pdr {
         unsigned t_size  = r.get_tail_size();   
         var_subst vs(m, false);
         sort_ref_vector vars(m);
+        uint_set empty_index_set;
+        qe_lite qe(m);
+
         r.get_vars(vars);
+#if 1
         if (qis) {
             quantifier_ref_vector const& qi = *qis;
             for (unsigned i = 0; i < qi.size(); ++i) {
-                fml = qi[i]->get_expr();
+                quantifier* q = qi[i];
+                fml = q->get_expr();
                 a = to_app(fml);
                 p = a->get_decl();
                 expr* p_reach = get_reachable(p);
@@ -448,9 +461,17 @@ namespace pdr {
                     sub.insert(v, a->get_arg(j));
                 }
                 sub(p_reach, fml);
-                body.push_back(m.update_quantifier(qi[i], fml));
+                uint_set is;
+                for (unsigned j = 0; j < q->get_num_decls(); ++j) {
+                    is.insert(j);
+                }
+                fml = m.mk_not(fml);
+                qe(is, true, fml);
+                fml = m.mk_not(fml);
+                body.push_back(m.update_quantifier(q, fml));
             }
         }
+#endif
         a = r.get_head();
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             v = m.mk_var(vars.size()+i, m.get_sort(a->get_arg(i)));
@@ -489,8 +510,6 @@ namespace pdr {
         SASSERT(is_well_sorted(m, fml));
         if (!vars.empty()) {
             fml = to_quantifier(fml)->get_expr();
-            uint_set empty_index_set;
-            qe_lite qe(m);
             qe(empty_index_set, false, fml);
             fml = m.mk_exists(vars.size(), vars.c_ptr(), names.c_ptr(), fml);
             SASSERT(is_well_sorted(m, fml));
@@ -498,7 +517,7 @@ namespace pdr {
         }
         SASSERT(is_well_sorted(m, fml));
         
-        IF_VERBOSE(0, verbose_stream() << "instantiate to\n:" << mk_pp(fml, m) << "\n";);
+        IF_VERBOSE(0, verbose_stream() << "instantiate to:\n" << mk_pp(fml, m) << "\n";);
         return fml;
     }
 

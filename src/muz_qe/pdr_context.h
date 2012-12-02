@@ -132,7 +132,6 @@ namespace pdr {
         bool is_reachable(expr* state);
         void remove_predecessors(expr_ref_vector& literals);
         void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
-        void find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const;
         datalog::rule const& find_rule(model_core const& model) const;
         expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
         ptr_vector<app>& get_aux_vars(datalog::rule const& r) { return m_rule2vars.find(&r); }
@@ -163,6 +162,8 @@ namespace pdr {
 
         void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars);
 
+        prop_solver& get_solver() { return m_solver; }
+
     };
 
 
@@ -177,10 +178,11 @@ namespace pdr {
         unsigned               m_orig_level;
         unsigned               m_depth;
         bool                   m_closed;
+        datalog::rule const*   m_rule;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
             m_parent(parent), m_pt(pt), m_state(state), m_model(0), 
-                m_level(level), m_orig_level(level), m_depth(0), m_closed(false) {
+                m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
             if (m_parent) {
                 m_parent->m_children.push_back(this);
                 SASSERT(m_parent->m_level == level+1);
@@ -216,6 +218,9 @@ namespace pdr {
         void set_closed();     
         void set_pre_closed() { m_closed = true; }
         void reset() { m_children.reset(); }
+
+        void set_rule(datalog::rule const* r) { m_rule = r; }
+        datalog::rule* get_rule();
 
         expr_ref get_trace() const;
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);

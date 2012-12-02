@@ -162,9 +162,6 @@ namespace pdr {
         }
     }
 
-    void pred_transformer::find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const {
-        find_predecessors(find_rule(model), preds);        
-    }
 
     void pred_transformer::remove_predecessors(expr_ref_vector& literals) {
         // remove tags
@@ -740,6 +737,44 @@ namespace pdr {
         return expr_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
     }
 
+    static bool is_ini(datalog::rule const& r) {
+        return r.get_uninterpreted_tail_size() == 0;
+    }
+
+    datalog::rule* model_node::get_rule() {
+        if (m_rule) {
+            return const_cast<datalog::rule*>(m_rule);
+        }
+        // only initial states are not set by the PDR search.
+        datalog::rule const& rl1 = pt().find_rule(*m_model);
+        if (is_ini(rl1)) {
+            set_rule(&rl1);
+            return const_cast<datalog::rule*>(m_rule);
+        }
+        ast_manager& m = pt().get_manager();
+        // otherwise, the initial state is reachable.
+        ptr_vector<datalog::rule> const& rules = pt().rules();
+        ptr_vector<datalog::rule> ini_rules;
+        expr_ref_vector tags(m);
+        expr_ref ini_tags(m), ini_state(m);
+        for (unsigned i = 0; i < rules.size(); ++i) {
+            datalog::rule* rl = rules[i];
+            if (is_ini(*rl)) {
+                tags.push_back(pt().rule2tag(rl));
+            }
+        }
+        SASSERT(!tags.empty());
+        ini_tags = m.mk_or(tags.size(), tags.c_ptr());
+        ini_state = m.mk_and(ini_tags, pt().initial_state(), state());
+        model_ref mdl;
+        pt().get_solver().set_model(&mdl);
+        VERIFY(l_true == pt().get_solver().check_conjunction_as_assumptions(ini_state));
+        datalog::rule const& rl2 = pt().find_rule(*mdl);
+        SASSERT(is_ini(rl2));
+        set_rule(&rl2);
+        return const_cast<datalog::rule*>(m_rule);                        
+    }
+
 
     void model_node::mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding) {
         ast_manager& m = pt().get_manager();
@@ -763,7 +798,7 @@ namespace pdr {
                 model.insert(e, m.mk_true());
             }
         }
-        r0 = const_cast<datalog::rule*>(&pt().find_rule(*m_model.get()));
+        r0 = get_rule();
         app_ref_vector& inst = pt().get_inst(r0);
         TRACE("pdr", tout << mk_pp(state(), m) << " instance: " << inst.size() << "\n";);
         for (unsigned i = 0; i < inst.size(); ++i) {
@@ -1644,7 +1679,7 @@ namespace pdr {
             switch (expand_state(n, cube, uses_level)) {
             case l_true:
                 if (n.level() == 0) {
-                    TRACE("pdr", tout << "reachable\n";);
+                    TRACE("pdr", tout << "reachable at level 0\n";);
                     close_node(n);
                 }
                 else {
@@ -1771,6 +1806,8 @@ namespace pdr {
         datalog::rule const& r = pt.find_rule(*M);
         expr* T   = pt.get_transition(r);
         expr* phi = n.state();
+
+        n.set_rule(&r);
 
         IF_VERBOSE(3, verbose_stream() << "Model:\n";
                    model_smt2_pp(verbose_stream(), m, *M, 0);
