@@ -248,7 +248,6 @@ void asserted_formulas::reduce() {
     if (m_macro_manager.has_macros())
         expand_macros();
     TRACE("before_reduce", display(tout););
-    IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";);
     CASSERT("well_sorted", check_well_sorted());
 
 #define INVOKE(COND, FUNC) if (COND) { FUNC; IF_VERBOSE(10000, verbose_stream() << "total size: " << get_total_size() << "\n";); }  TRACE("reduce_step_ll", ast_mark visited; display_ll(tout, visited);); TRACE("reduce_step", display(tout << #FUNC << " ");); CASSERT("well_sorted",check_well_sorted()); if (inconsistent() || canceled()) { TRACE("after_reduce", display(tout);); TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited);); return;  }
@@ -280,7 +279,7 @@ void asserted_formulas::reduce() {
 
     CASSERT("well_sorted",check_well_sorted());
 
-    IF_VERBOSE(10, verbose_stream() << "simplifier done.\n";);
+    IF_VERBOSE(10, verbose_stream() << "(smt.simplifier-done)\n";);
     TRACE("after_reduce", display(tout););
     TRACE("after_reduce_ll", ast_mark visited; display_ll(tout, visited););
     TRACE("macros", m_macro_manager.display(tout););
@@ -288,7 +287,7 @@ void asserted_formulas::reduce() {
 }
 
 void asserted_formulas::eliminate_and() {
-    IF_IVERBOSE(10, verbose_stream() << "eliminating and...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.eliminating-and)\n";);
     set_eliminate_and(true);
     reduce_asserted_formulas();    
     TRACE("after_elim_and", display(tout););
@@ -393,19 +392,19 @@ void asserted_formulas::find_macros_core() {
 }
 
 void asserted_formulas::find_macros() {
-    IF_IVERBOSE(10, verbose_stream() << "trying to find macros...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.find-macros)\n";);
     TRACE("before_find_macros", display(tout););
     find_macros_core();
     TRACE("after_find_macros", display(tout););
 }
 
 void asserted_formulas::expand_macros() {
-    IF_IVERBOSE(10, verbose_stream() << "expanding macros...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.expand-macros)\n";);
     find_macros_core();
 }
 
 void asserted_formulas::apply_quasi_macros() {
-    IF_IVERBOSE(10, verbose_stream() << "finding quasi macros...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.find-quasi-macros)\n";);
     TRACE("before_quasi_macros", display(tout););
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);      
@@ -423,7 +422,7 @@ void asserted_formulas::apply_quasi_macros() {
 }
 
 void asserted_formulas::nnf_cnf() {
-    IF_IVERBOSE(10, verbose_stream() << "applying nnf...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.nnf)\n";);
     nnf              apply_nnf(m_manager, m_defined_names);
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);
@@ -471,7 +470,7 @@ void asserted_formulas::nnf_cnf() {
 
 #define MK_SIMPLE_SIMPLIFIER(NAME, FUNCTOR_DEF, LABEL, MSG)                                                             \
 void asserted_formulas::NAME() {                                                                                        \
-    IF_IVERBOSE(10, verbose_stream() << MSG << "...\n";);                                                                      \
+    IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);     \
     TRACE(LABEL, tout << "before:\n"; display(tout););                                                                  \
     FUNCTOR_DEF;                                                                                                        \
     expr_ref_vector  new_exprs(m_manager);                                                                              \
@@ -503,16 +502,16 @@ void asserted_formulas::NAME() {                                                
     TRACE(LABEL, display(tout););                                                                                       \
 }
 
-MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m_manager, *m_bsimp), "distribute_forall", "distribute forall");
+MK_SIMPLE_SIMPLIFIER(apply_distribute_forall, distribute_forall functor(m_manager, *m_bsimp), "distribute_forall", "distribute-forall");
 
 void asserted_formulas::reduce_and_solve() {
-    IF_IVERBOSE(10, verbose_stream() << "reducing...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.reducing)\n";);
     flush_cache(); // collect garbage
     reduce_asserted_formulas();
 }
 
 void asserted_formulas::infer_patterns() {
-    IF_IVERBOSE(10, verbose_stream() << "pattern inference...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.pattern-inference)\n";);
     TRACE("before_pattern_inference", display(tout););
     pattern_inference infer(m_manager, m_params);
     expr_ref_vector  new_exprs(m_manager);
@@ -546,7 +545,7 @@ void asserted_formulas::commit() {
 }
 
 void asserted_formulas::eliminate_term_ite() {
-    IF_IVERBOSE(10, verbose_stream() << "eliminating ite term...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.eliminating-ite-term)\n";);
     TRACE("before_elim_term_ite", display(tout););
     elim_term_ite   elim(m_manager, m_defined_names);
     expr_ref_vector  new_exprs(m_manager);
@@ -583,7 +582,7 @@ void asserted_formulas::eliminate_term_ite() {
 }
 
 void asserted_formulas::propagate_values() {
-    IF_IVERBOSE(10, verbose_stream() << "constant propagation...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.constant-propagation)\n";);
     TRACE("propagate_values", tout << "before:\n"; display(tout););
     flush_cache();
     bool found = false;
@@ -661,7 +660,7 @@ void asserted_formulas::propagate_booleans() {
     flush_cache();
     while (cont) {
         TRACE("propagate_booleans", tout << "before:\n"; display(tout););
-        IF_IVERBOSE(10, verbose_stream() << "boolean propagation...\n";);
+        IF_IVERBOSE(10, verbose_stream() << "(smt.propagate-booleans)\n";);
         cont        = false;
         unsigned i  = m_asserted_qhead;
         unsigned sz = m_asserted_formulas.size();
@@ -704,7 +703,7 @@ void asserted_formulas::propagate_booleans() {
 
 #define MK_SIMPLIFIER(NAME, FUNCTOR, TAG, MSG, REDUCE)                  \
 bool asserted_formulas::NAME() {                                        \
-    IF_IVERBOSE(10, verbose_stream() << MSG << "...\n";);               \
+    IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);     \
     TRACE(TAG, ast_mark visited; display_ll(tout, visited););           \
     FUNCTOR;                                                            \
     bool changed = false;                                               \
@@ -741,9 +740,9 @@ bool asserted_formulas::NAME() {                                        \
     return changed;                                                     \
 }
 
-MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m_manager, m_simplifier), "pull_cheap_ite_trees", "pull cheap ite trees", false);
+MK_SIMPLIFIER(pull_cheap_ite_trees, pull_cheap_ite_tree_star functor(m_manager, m_simplifier), "pull_cheap_ite_trees", "pull-cheap-ite-trees", false);
 
-MK_SIMPLIFIER(pull_nested_quantifiers, pull_nested_quant functor(m_manager), "pull_nested_quantifiers", "pull nested quantifiers", false);
+MK_SIMPLIFIER(pull_nested_quantifiers, pull_nested_quant functor(m_manager), "pull_nested_quantifiers", "pull-nested-quantifiers", false);
 
 proof * asserted_formulas::get_inconsistency_proof() const {
     if (!inconsistent())
@@ -761,7 +760,7 @@ proof * asserted_formulas::get_inconsistency_proof() const {
 }
 
 void asserted_formulas::refine_inj_axiom() {
-    IF_IVERBOSE(10, verbose_stream() << "refining injectivity...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.refine-injectivity)\n";);
     TRACE("inj_axiom", display(tout););
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();
@@ -783,9 +782,9 @@ void asserted_formulas::refine_inj_axiom() {
     TRACE("inj_axiom", display(tout););
 }
 
-MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate bit-vector over integers", true);
+MK_SIMPLIFIER(apply_bit2int, bit2int& functor = m_bit2int, "bit2int", "propagate-bit-vector-over-integers", true);
 
-MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap fourier-motzkin", true);
+MK_SIMPLIFIER(cheap_quant_fourier_motzkin, elim_bounds_star functor(m_manager), "elim_bounds", "cheap-fourier-motzkin", true);
 
 // MK_SIMPLIFIER(quant_elim, qe::expr_quant_elim_star1 &functor = m_quant_elim, 
 //              "quantifiers", "quantifier elimination procedures", true);
@@ -795,11 +794,11 @@ bool asserted_formulas::quant_elim() {
     return false;
 }
 
-MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate bit-vectors from quantifiers", true);
+MK_SIMPLIFIER(elim_bvs_from_quantifiers, bv_elim_star functor(m_manager), "bv_elim", "eliminate-bit-vectors-from-quantifiers", true);
 
 #define LIFT_ITE(NAME, FUNCTOR, MSG)                                                                                            \
 void asserted_formulas::NAME() {                                                                                                \
-    IF_IVERBOSE(10, verbose_stream() << MSG;);                                                                                         \
+    IF_IVERBOSE(10, verbose_stream() << "(smt." << MSG << ")\n";);            \
     TRACE("lift_ite", display(tout););                                                                                          \
     FUNCTOR;                                                                                                                    \
     unsigned i  = m_asserted_qhead;                                                                                             \
@@ -822,8 +821,8 @@ void asserted_formulas::NAME() {                                                
     reduce_and_solve();                                                                                                         \
 }
 
-LIFT_ITE(lift_ite, push_app_ite functor(m_simplifier, m_params.m_lift_ite == LI_CONSERVATIVE), "lifting ite...\n");
-LIFT_ITE(ng_lift_ite, ng_push_app_ite functor(m_simplifier, m_params.m_ng_lift_ite == LI_CONSERVATIVE), "lifting ng ite...\n");
+LIFT_ITE(lift_ite, push_app_ite functor(m_simplifier, m_params.m_lift_ite == LI_CONSERVATIVE), "lifting ite");
+LIFT_ITE(ng_lift_ite, ng_push_app_ite functor(m_simplifier, m_params.m_ng_lift_ite == LI_CONSERVATIVE), "lifting ng ite");
 
 unsigned asserted_formulas::get_total_size() const {
     expr_mark visited;
@@ -835,7 +834,7 @@ unsigned asserted_formulas::get_total_size() const {
 }
 
 void asserted_formulas::max_bv_sharing() {
-    IF_IVERBOSE(10, verbose_stream() << "maximizing bv sharing...\n";);
+    IF_IVERBOSE(10, verbose_stream() << "(smt.maximizing-bv-sharing)\n";);
     TRACE("bv_sharing", display(tout););
     unsigned i  = m_asserted_qhead;
     unsigned sz = m_asserted_formulas.size();

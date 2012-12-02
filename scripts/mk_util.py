@@ -1784,7 +1784,7 @@ def mk_gparams_register_modules(cnames, path):
                     mod_cmds.append((m.group(1), m.group(2)))
     fout.write('void gparams_register_modules() {\n')
     for code in cmds:
-        fout.write('{ param_descrs d; %s(*d); gparams::register_global(d); }\n' % code)
+        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
     for (mod, code) in mod_cmds:
         fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
     fout.write('}\n')

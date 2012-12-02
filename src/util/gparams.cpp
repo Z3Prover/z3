@@ -18,6 +18,7 @@ Notes:
 --*/
 #include"gparams.h"
 #include"dictionary.h"
+#include"trace.h"
 
 extern void gparams_register_modules();
 
@@ -291,6 +292,7 @@ public:
     
     params_ref get() { 
         params_ref result;
+        TRACE("gparams", tout << "get() m_params: " << m_params << "\n";);
         #pragma omp critical (gparams)
         {
             result = m_params;
@@ -303,6 +305,7 @@ public:
 gparams::imp * gparams::g_imp = 0;
 
 void gparams::set(char const * name, char const * value) {
+    TRACE("gparams", tout << "setting [" << name << "] <- '" << value << "'\n";);
     SASSERT(g_imp != 0);
     g_imp->set(name, value);
 }
@@ -342,6 +345,7 @@ params_ref gparams::get_module(symbol const & module_name) {
 }
 
 params_ref gparams::get() {
+    TRACE("gparams", tout << "gparams::get()\n";);
     SASSERT(g_imp != 0);
     return g_imp->get();
 }
@@ -352,11 +356,13 @@ void gparams::display(std::ostream & out, unsigned indent, bool smt2_style) {
 }
 
 void gparams::init() {
+    TRACE("gparams", tout << "gparams::init()\n";);
     g_imp = alloc(imp);
     gparams_register_modules();
 }
 
 void gparams::finalize() {
+    TRACE("gparams", tout << "gparams::finalize()\n";);
     if (g_imp != 0) {
         dealloc(g_imp);
         g_imp = 0;

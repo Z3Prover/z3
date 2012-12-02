@@ -211,7 +211,7 @@ namespace smt {
 
         final_check_status final_check_eh(bool full) {
             if (full) {
-                IF_VERBOSE(100, verbose_stream() << "final check 'quantifiers'...\n";);
+                IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"quantifiers\")\n";);
                 final_check_status result  = m_qi_queue.final_check_eh() ? FC_DONE : FC_CONTINUE;
                 final_check_status presult = m_plugin->final_check_eh(full);
                 if (presult != FC_DONE)

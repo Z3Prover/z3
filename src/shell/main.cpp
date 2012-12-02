@@ -33,6 +33,7 @@ Revision History:
 #include"z3_exception.h"
 #include"error_codes.h"
 #include"gparams.h"
+#include"env_params.h"
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_Z3_LOG } input_kind;
 
@@ -106,12 +107,6 @@ public:
     }
 
     virtual ~extra_params() {}
-
-    // PARAM-TODO
-    // virtual void register_params(ini_params & p) {
-        // datalog_params::register_params(p);
-        // p.register_bool_param("STATISTICS", m_statistics, "display statistics");
-    // }
 };
 
 extra_params*       g_extra_params = 0;
@@ -123,8 +118,6 @@ void init_params() {
         g_front_end_params = new front_end_params();
         // g_params = new ini_params();
         g_extra_params = new extra_params();
-        // register_verbosity_level(*g_params);
-        // register_warning(*g_params);
         // g_front_end_params->register_params(*g_params);
         // g_extra_params->register_params(*g_params);
         g_params_initialized = true;
@@ -304,9 +297,6 @@ class global_state_initialiser {
 public:
     global_state_initialiser() {
         memory::initialize(0);
-#if defined(_WINDOWS) && defined(_Z3_BUILD_PARALLEL_SMT)
-        memory::mem->set_threaded_mode(true);
-#endif
         init_params();
     }
 
@@ -326,8 +316,8 @@ int main(int argc, char ** argv) {
         global_state_initialiser global_state;
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
         parse_cmd_line_args(argc, argv);
-        memory::set_high_watermark(static_cast<size_t>(g_front_end_params->m_memory_high_watermark) * 1024 * 1024);
-        memory::set_max_size(static_cast<size_t>(g_front_end_params->m_memory_max_size) * 1024 * 1024);
+        env_params::updt_params();
+
         g_front_end_params->open_trace_file();
         if (g_input_file && g_standard_input) {
             error("using standard input to read formula.");

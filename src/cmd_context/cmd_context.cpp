@@ -1309,7 +1309,7 @@ void cmd_context::pop(unsigned n) {
 void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     if (m_ignore_check)
         return;
-    IF_VERBOSE(100, verbose_stream() << "check-sat..." << std::endl;);
+    IF_VERBOSE(100, verbose_stream() << "(started \"check-sat\")" << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
     if (!has_manager())
         init_manager();

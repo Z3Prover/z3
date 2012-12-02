@@ -118,7 +118,7 @@ namespace smt {
 
     void setup::setup_auto_config() {
         static_features    st(m_manager);
-        IF_VERBOSE(100, verbose_stream() << "configuring...\n";);
+        IF_VERBOSE(100, verbose_stream() << "(smt.configuring)\n";);
         TRACE("setup", tout << "setup, logic: " << m_logic << "\n";);
         // HACK: do not collect features for QF_BV and QF_AUFBV... since they do not use them...
         if (m_logic == "QF_BV") {
@@ -128,7 +128,7 @@ namespace smt {
             setup_QF_AUFBV();
         }
         else {
-            IF_VERBOSE(100, verbose_stream() << "collecting features...\n";);
+            IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
             st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 

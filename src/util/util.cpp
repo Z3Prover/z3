@@ -29,11 +29,6 @@ unsigned get_verbosity_level() {
     return g_verbosity_level;
 }
 
-void register_verbosity_level() {
-    // PARAM-TODO
-    // p.register_unsigned_param("VERBOSE", g_verbosity_level, "be verbose, where the value is the verbosity level", true);
-}
-
 static std::ostream* g_verbose_stream = &std::cerr;
 
 void set_verbose_stream(std::ostream& str) {

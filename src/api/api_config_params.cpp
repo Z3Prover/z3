@@ -24,6 +24,7 @@ Revision History:
 #include"cmd_context.h"
 #include"symbol.h"
 #include"gparams.h"
+#include"env_params.h"
 
 namespace api {
 
@@ -41,6 +42,7 @@ extern "C" {
         LOG_Z3_global_param_set(param_id, param_value);
         try { 
             gparams::set(param_id, param_value);
+            env_params::updt_params();
         }
         catch (z3_exception & ex) {
             // The error handler is only available for contexts
