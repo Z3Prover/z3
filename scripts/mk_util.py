@@ -1463,11 +1463,11 @@ def pyg_default_as_c_literal(p):
 
 def def_module_params(module_name, export, params, class_name=None):
     pyg = get_curr_pyg()
-    print os.path.split(get_curr_pyg)
-    hpp = '%shpp' % pyg[:len(pyg)-3]
-    out = open(hpp, 'w')
+    dirname = os.path.split(get_curr_pyg())[0]
     if class_name == None:
         class_name = '%s_params' % module_name
+    hpp = os.path.join(dirname, '%s.hpp' % class_name)
+    out = open(hpp, 'w')
     out.write('// Automatically generated file\n')
     out.write('#include"params.h"\n')
     if export:
