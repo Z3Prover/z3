@@ -35,17 +35,15 @@ def init_project_def():
     add_lib('cmd_context', ['solver', 'rewriter'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
-    # Front-end-params module still contain a lot of parameters for smt solver component.
-    # This should be fixed
-    add_lib('front_end_params', ['ast'])
+    add_lib('proof_checker', ['rewriter'], 'ast/proof_checker')
     # Simplifier module will be deleted in the future.
     # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
+    add_lib('simplifier', ['rewriter'], 'ast/simplifier')
+    add_lib('macros', ['simplifier'], 'ast/macros')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
-    add_lib('macros', ['simplifier', 'front_end_params'], 'ast/macros')
-    add_lib('proof_checker', ['rewriter', 'front_end_params'], 'ast/proof_checker')
-    add_lib('bit_blaster', ['rewriter', 'simplifier', 'front_end_params'], 'ast/rewriter/bit_blaster')
-    add_lib('proto_model', ['model', 'simplifier', 'front_end_params'], 'smt/proto_model')
+    add_lib('bit_blaster', ['rewriter', 'simplifier'], 'ast/rewriter/bit_blaster')
+    add_lib('smt_params', ['ast', 'simplifier', 'pattern', 'bit_blaster'], 'smt/params')
+    add_lib('proto_model', ['model', 'simplifier', 'smt_params'], 'smt/proto_model')
     add_lib('smt', ['bit_blaster', 'macros', 'normal_forms', 'cmd_context', 'proto_model',
                     'substitution', 'grobner', 'euclid', 'proof_checker', 'pattern', 'parser_util'])
     add_lib('user_plugin', ['smt'], 'smt/user_plugin')

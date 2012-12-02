@@ -19,6 +19,8 @@ Revision History:
 #ifndef _THEORY_ARRAY_PARAMS_H_
 #define _THEORY_ARRAY_PARAMS_H_
 
+#include"array_simplifier_params.h"
+
 enum array_solver_id {
     AR_NO_ARRAY,
     AR_SIMPLE,
@@ -26,7 +28,7 @@ enum array_solver_id {
     AR_FULL
 };
 
-struct theory_array_params {
+struct theory_array_params : public array_simplifier_params {
     array_solver_id m_array_mode;
     bool            m_array_weak;
     bool            m_array_extensional;
@@ -36,8 +38,6 @@ struct theory_array_params {
     bool            m_array_always_prop_upward;
     bool            m_array_lazy_ieq;
     unsigned        m_array_lazy_ieq_delay;
-    bool            m_array_canonize_simplify;
-    bool            m_array_simplify; // temporary hack for disabling array simplifier plugin.
 
     theory_array_params():
         m_array_mode(AR_FULL),
@@ -48,9 +48,7 @@ struct theory_array_params {
         m_array_cg(false),
         m_array_always_prop_upward(true), // UPWARDs filter is broken... TODO: fix it
         m_array_lazy_ieq(false),
-        m_array_lazy_ieq_delay(10),
-        m_array_canonize_simplify(false),
-        m_array_simplify(true) {
+        m_array_lazy_ieq_delay(10) {
     }
 
 #if 0
