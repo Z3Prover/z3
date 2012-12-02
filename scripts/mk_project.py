@@ -25,22 +25,22 @@ def init_project_def():
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast'], 'math/grobner')
     add_lib('euclid', ['util'], 'math/euclid')
-    # Front-end-params module still contain a lot of parameters for smt solver component.
-    # This should be fixed
-    add_lib('front_end_params', ['ast'])
-    # Simplifier module will be deleted in the future.
-    # It has been replaced with rewriter module.
-    add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
     add_lib('core_tactics', ['tactic', 'normal_forms'], 'tactic/core')
     add_lib('sat_tactic', ['tactic', 'sat'], 'sat/tactic')
     add_lib('arith_tactics', ['core_tactics', 'sat'], 'tactic/arith')
     add_lib('nlsat_tactic', ['nlsat', 'sat_tactic', 'arith_tactics'], 'nlsat/tactic')
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
-    add_lib('solver', ['model', 'tactic', 'front_end_params'])
+    add_lib('solver', ['model', 'tactic'])
     add_lib('cmd_context', ['solver', 'rewriter'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
+    # Front-end-params module still contain a lot of parameters for smt solver component.
+    # This should be fixed
+    add_lib('front_end_params', ['ast'])
+    # Simplifier module will be deleted in the future.
+    # It has been replaced with rewriter module.
+    add_lib('simplifier', ['rewriter', 'front_end_params'], 'ast/simplifier')
     add_lib('pattern', ['normal_forms', 'smt2parser', 'simplifier'], 'ast/pattern')
     add_lib('macros', ['simplifier', 'front_end_params'], 'ast/macros')
     add_lib('proof_checker', ['rewriter', 'front_end_params'], 'ast/proof_checker')

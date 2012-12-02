@@ -27,7 +27,6 @@ Notes:
 #include"cmd_util.h"
 #include"simplify_cmd.h"
 #include"eval_cmd.h"
-#include"front_end_params.h"
 #include"gparams.h"
 #include"model_params.hpp"
 
@@ -159,7 +158,7 @@ public:
 };
 
 ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
-    if (ctx.params().m_proof_mode == PGM_DISABLED)
+    if (!ctx.produce_proofs())
         throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
     if (!ctx.has_manager() ||
         ctx.cs_state() != cmd_context::css_unsat)
@@ -253,7 +252,7 @@ protected:
     }
 
 public:
-    set_get_option_cmd(char const * name, front_end_params & params):
+    set_get_option_cmd(char const * name):
         cmd(name), 
         m_true("true"),
         m_false("false"),
@@ -375,8 +374,8 @@ class set_option_cmd : public set_get_option_cmd {
     }
 
 public:
-    set_option_cmd(front_end_params & params):
-        set_get_option_cmd("set-option", params),
+    set_option_cmd():
+        set_get_option_cmd("set-option"),
         m_unsupported(false) {
     }
 
@@ -454,8 +453,8 @@ class get_option_cmd : public set_get_option_cmd {
     }
 
 public:
-    get_option_cmd(front_end_params & params):
-        set_get_option_cmd("get-option", params) {
+    get_option_cmd():
+        set_get_option_cmd("get-option") {
     }
     virtual char const * get_usage() const { return "<keyword>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "get configuration option."; }
@@ -476,13 +475,13 @@ public:
             print_bool(ctx, ctx.interactive_mode());
         }
         else if (opt == m_produce_proofs) {
-            print_bool(ctx, ctx.params().m_proof_mode != PGM_DISABLED);
+            print_bool(ctx, ctx.produce_proofs());
         }
         else if (opt == m_produce_unsat_cores) {
             print_bool(ctx, ctx.produce_unsat_cores());
         }
         else if (opt == m_produce_models) {
-            print_bool(ctx, ctx.params().m_model);
+            print_bool(ctx, ctx.produce_models());
         }
         else if (opt == m_produce_assignments) {
             print_bool(ctx, ctx.produce_assignments());
@@ -711,8 +710,8 @@ void install_basic_cmds(cmd_context & ctx) {
     ctx.insert(alloc(get_assertions_cmd));
     ctx.insert(alloc(get_proof_cmd));
     ctx.insert(alloc(get_unsat_core_cmd));
-    ctx.insert(alloc(set_option_cmd, ctx.params()));
-    ctx.insert(alloc(get_option_cmd, ctx.params()));
+    ctx.insert(alloc(set_option_cmd));
+    ctx.insert(alloc(get_option_cmd));
     ctx.insert(alloc(get_info_cmd));
     ctx.insert(alloc(set_info_cmd));
     ctx.insert(alloc(builtin_cmd, "assert", "<term>", "assert term."));

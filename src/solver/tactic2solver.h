@@ -43,13 +43,12 @@ class tactic2solver_core : public solver_na2as {
         ast_manager & m() const { return m_assertions.m(); }
     };
     scoped_ptr<ctx>            m_ctx;
-    front_end_params *         m_fparams;
     params_ref                 m_params;
     bool                       m_produce_models;
     bool                       m_produce_proofs;
     bool                       m_produce_unsat_cores;
 public:
-    tactic2solver_core():m_ctx(0), m_fparams(0), m_produce_models(false), m_produce_proofs(false), m_produce_unsat_cores(false) {}
+    tactic2solver_core():m_ctx(0), m_produce_models(false), m_produce_proofs(false), m_produce_unsat_cores(false) {}
     virtual ~tactic2solver_core();
 
     virtual tactic * get_tactic(ast_manager & m, params_ref const & p) = 0;

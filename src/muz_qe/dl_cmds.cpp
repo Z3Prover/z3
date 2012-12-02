@@ -33,6 +33,8 @@ Notes:
 
 
 class dl_context {
+    // PARAM-TODO temp HACK: added m_params field because cmd_context does not have front_end_params anymore
+    front_end_params              m_params; 
     cmd_context &                 m_cmd;
     dl_collected_cmds*            m_collected_cmds;
     unsigned                      m_ref_count;
@@ -62,7 +64,7 @@ public:
     void init() {
         ast_manager& m = m_cmd.m();
         if (!m_context) {
-            m_context = alloc(datalog::context, m, m_cmd.params()); 
+            m_context = alloc(datalog::context, m, m_params);
         }
         if (!m_decl_plugin) {
             symbol name("datalog_relation");

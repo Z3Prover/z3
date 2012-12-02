@@ -16,7 +16,6 @@ Notes:
 
 --*/
 #include<signal.h>
-#include"front_end_params.h"
 #include"tptr.h"
 #include"cmd_context.h"
 #include"func_decl_dependencies.h"
@@ -318,7 +317,6 @@ public:
 
 cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
-    m_fparams(alloc(front_end_params)),
     m_logic(l),
     m_interactive_mode(false),
     m_global_decls(false),  // :global-decls is false by default.
@@ -358,11 +356,11 @@ cmd_context::~cmd_context() {
     finalize_probes();
     m_solver = 0;
     m_check_sat_result = 0;
-    dealloc(m_fparams);
 }
 
 void cmd_context::set_produce_models(bool f) {
-    params().m_model = f;
+    // PARAM-TODO 
+    // params().m_model = f;
     if (m_solver)
         m_solver->set_produce_models(f);
 }
@@ -374,18 +372,34 @@ void cmd_context::set_produce_unsat_cores(bool f) {
 }
 
 void cmd_context::set_produce_proofs(bool f) {
+    // PARAM-TODO
     // can only be set before initialization
     SASSERT(!has_manager());
-    params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
+    // params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
 }
 
 bool cmd_context::produce_models() const { 
-    return params().m_model; 
+    // PARAM-TODO
+    // return params().m_model; 
+    return true;
 }
 
 bool cmd_context::produce_proofs() const { 
-    return params().m_proof_mode != PGM_DISABLED; 
+    // PARAM-TODO
+    // return params().m_proof_mode != PGM_DISABLED; 
+    return false;
 }
+
+bool cmd_context::well_sorted_check_enabled() const {
+    // PARAM-TODO
+    return true;
+}
+
+bool cmd_context::validate_model_enabled() const {
+    // PARAM-TODO
+    return false;
+}
+
 
 cmd_context::check_sat_state cmd_context::cs_state() const {
     if (m_check_sat_result.get() == 0)
@@ -579,9 +593,9 @@ void cmd_context::init_manager_core(bool new_manager) {
         insert(pm().mk_plist_decl());
     }
     if (m_solver) {
-        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-        m_solver->set_produce_models(params().m_model);
-        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
+        m_solver->set_produce_unsat_cores(produce_unsat_cores());
+        m_solver->set_produce_models(produce_models());
+        m_solver->set_produce_proofs(produce_proofs());
         m_solver->init(m(), m_logic);
     }
     m_check_logic.set_logic(m(), m_logic);
@@ -591,7 +605,7 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, params().m_proof_mode, params().m_trace_stream);
+    m_manager  = alloc(ast_manager, produce_proofs() ? PGM_FINE : PGM_DISABLED); // PARAM-TODO , params().m_trace_stream);
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
     // PARAM-TODO
@@ -855,7 +869,7 @@ object_ref * cmd_context::find_object_ref(symbol const & s) const {
     return r;
 }
 
-#define CHECK_SORT(T) if (params().m_well_sorted_check) m().check_sorts_core(T)
+#define CHECK_SORT(T) if (well_sorted_check_enabled()) m().check_sorts_core(T)
 
 void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
     mk_app(s, 0, 0, 0, 0, 0, result);
@@ -895,13 +909,13 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             return;
         }
         SASSERT(num_args > 0);
-        TRACE("macro_bug", tout << "m_well_sorted_check: " << params().m_well_sorted_check << "\n";
+        TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
               tout << "s: " << s << "\n";
               tout << "body:\n" << mk_ismt2_pp(_m.second, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
         subst(_m.second, num_args, args, result);
-        if (params().m_well_sorted_check && !is_well_sorted(m(), result))
+        if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
         return;
     }
@@ -930,7 +944,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
         func_decl * f = fs.find(m(), num_args, args, range);
         if (f == 0)
             throw cmd_exception("unknown constant ", s);
-        if (params().m_well_sorted_check)
+        if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);
         result = m().mk_app(f, num_args, args);
         return;
@@ -1151,7 +1165,7 @@ void cmd_context::assert_expr(expr * t) {
     m_check_sat_result = 0;
     m().inc_ref(t);
     m_assertions.push_back(t);
-    if (m_produce_unsat_cores)
+    if (produce_unsat_cores())
         m_assertion_names.push_back(0);
     if (m_solver)
         m_solver->assert_expr(t);
@@ -1160,7 +1174,7 @@ void cmd_context::assert_expr(expr * t) {
 void cmd_context::assert_expr(symbol const & name, expr * t) {
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
-    if (!m_produce_unsat_cores || name == symbol::null) {
+    if (!produce_unsat_cores() || name == symbol::null) {
         assert_expr(t);
         return;
     }
@@ -1266,7 +1280,7 @@ void cmd_context::restore_assertions(unsigned old_sz) {
     SASSERT(old_sz <= m_assertions.size());
     SASSERT(!m_interactive_mode || m_assertions.size() == m_assertion_strings.size());
     restore(m(), m_assertions, old_sz);
-    if (m_produce_unsat_cores)
+    if (produce_unsat_cores())
         restore(m(), m_assertion_names, old_sz);
     if (m_interactive_mode)
         m_assertion_strings.shrink(old_sz);
@@ -1398,7 +1412,7 @@ struct contains_array_op_proc {
    \brief Check if the current model satisfies the quantifier free formulas.
 */
 void cmd_context::validate_model() {
-    if (!params().m_model_validate) 
+    if (!validate_model_enabled()) 
         return;
     if (!is_model_available())
         return;
@@ -1445,9 +1459,9 @@ void cmd_context::set_solver(solver * s) {
     m_check_sat_result = 0;
     m_solver = s;
     if (has_manager() && s != 0) {
-        m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-        m_solver->set_produce_models(params().m_model);
-        m_solver->set_produce_proofs(params().m_proof_mode == PGM_FINE);
+        m_solver->set_produce_unsat_cores(produce_unsat_cores());
+        m_solver->set_produce_models(produce_models());
+        m_solver->set_produce_proofs(produce_proofs());
         m_solver->init(m(), m_logic);
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
@@ -1502,7 +1516,7 @@ void cmd_context::display_assertions() {
 }
 
 bool cmd_context::is_model_available() const {
-    if (params().m_model &&
+    if (produce_models() &&
         has_manager() &&
         (cs_state() == css_sat || cs_state() == css_unknown)) {
         model_ref md;

@@ -24,7 +24,6 @@ Notes:
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
 #include"model_smt2_pp.h"
-#include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 #include"tactic.h"
 #include"tactical.h"
@@ -187,7 +186,6 @@ public:
     
     virtual void execute(cmd_context & ctx) {
         params_ref p = ps();
-        front_end_params2params(ctx.params(), p);
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
@@ -298,7 +296,6 @@ public:
     
     virtual void execute(cmd_context & ctx) {
         params_ref p = ps();
-        front_end_params2params(ctx.params(), p);
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         {
             tactic & t = *(tref.get());

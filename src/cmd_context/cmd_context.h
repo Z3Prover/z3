@@ -42,8 +42,6 @@ Notes:
 */
 std::string smt2_keyword_to_param(symbol const & k);
 
-struct front_end_params;
-
 class func_decls {
     func_decl * m_decls;
 public:
@@ -138,7 +136,6 @@ public:
 
 protected:
     bool                         m_main_ctx;
-    front_end_params *           m_fparams;
     symbol                       m_logic;
     bool                         m_interactive_mode;
     bool                         m_global_decls;
@@ -274,6 +271,8 @@ public:
     bool produce_models() const;
     bool produce_proofs() const;
     bool produce_unsat_cores() const { return m_produce_unsat_cores; }
+    bool well_sorted_check_enabled() const;
+    bool validate_model_enabled() const;
     void set_produce_models(bool flag);
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
@@ -288,7 +287,6 @@ public:
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
-    front_end_params & params() const { return *m_fparams; }
  
     void set_solver(solver * s);
     solver * get_solver() const { return m_solver.get(); }
