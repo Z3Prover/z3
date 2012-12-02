@@ -19,6 +19,8 @@ Revision History:
 #ifndef _PATTERN_INFERENCE_PARAMS_H_
 #define _PATTERN_INFERENCE_PARAMS_H_
 
+#include"pattern_inference_params_helper.hpp"
+
 enum arith_pattern_inference_kind {
     AP_NO,           // do not infer patterns with arithmetic terms
     AP_CONSERVATIVE, // only infer patterns with arithmetic terms if there is no other option
@@ -37,17 +39,22 @@ struct pattern_inference_params {
     bool                          m_pi_avoid_skolems;
     bool                          m_pi_warnings;
     
-    pattern_inference_params():
-        m_pi_max_multi_patterns(0),
-        m_pi_block_loop_patterns(true),
-        m_pi_arith(AP_CONSERVATIVE),
-        m_pi_use_database(false), 
-        m_pi_arith_weight(5),
-        m_pi_non_nested_arith_weight(10),
-        m_pi_pull_quantifiers(true),
+    pattern_inference_params(params_ref const & p = params_ref()):
         m_pi_nopat_weight(-1),
-        m_pi_avoid_skolems(true),
-        m_pi_warnings(false) {
+        m_pi_avoid_skolems(true) {
+        updt_params(p);
+    }
+
+    void updt_params(params_ref const & _p) {
+        pattern_inference_params_helper p(_p);
+        m_pi_max_multi_patterns      = p.max_multi_patterns();
+        m_pi_block_loop_patterns     = p.block_loop_patterns();
+        m_pi_arith                   = static_cast<arith_pattern_inference_kind>(p.arith());
+        m_pi_use_database            = p.use_database();
+        m_pi_arith_weight            = p.arith_weight();
+        m_pi_non_nested_arith_weight = p.non_nested_arith_weight();
+        m_pi_pull_quantifiers        = p.pull_quantifiers();
+        m_pi_warnings                = p.warnings();
     }
 };
 
