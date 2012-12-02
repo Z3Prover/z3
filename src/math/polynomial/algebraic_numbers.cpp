@@ -25,6 +25,7 @@ Notes:
 #include"scoped_ptr_vector.h"
 #include"mpbqi.h"
 #include"timeit.h"
+#include"algebraic_params.hpp"
 
 namespace algebraic_numbers {
 
@@ -57,12 +58,7 @@ namespace algebraic_numbers {
     typedef upolynomial::factors factors;
 
     void manager::get_param_descrs(param_descrs & r) {
-        r.insert("zero_accuracy", CPK_UINT, "(default: 0) one of the most time-consuming operations in the real algebraic number module is determining the sign of a polynomial evaluated at a sample point with non-rational algebraic number values. Let k be the value of this option. If k is 0, Z3 uses precise computation. Otherwise, the result of a polynomial evaluation is considered to be 0 if Z3 can show it is inside the interval (-1/2^k, 1/2^k).");
-        r.insert("min_mag", CPK_UINT, "(default: 16) Z3 represents algebraic numbers using a (square-free) polynomial p and an isolating interval (which contains one and only one root of p). This interval may be refined during the computations. This parameter specifies whether to cache the value of a refined interval or not. It says the minimal size of an interval for caching purposes is 1/2^16");
-        r.insert("factor", CPK_BOOL, "(default: true) use polynomial factorization to simplify polynomials representing algebraic numbers.");
-        r.insert("factor_max_prime", CPK_UINT, "(default: 31), parameter for the polynomial factorization procedure in the algebraic number module. Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.");
-        r.insert("factor_num_primes", CPK_UINT, "(default: 1), parameter for the polynomial factorization procedure in the algebraic number module. Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.");
-        r.insert("factor_search_size", CPK_UINT, "(default: 5000), parameter for the polynomial factorization procedure in the algebraic number module. Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.");
+        algebraic_params::collect_param_descrs(r);
     }
 
     struct manager::imp {
@@ -156,13 +152,14 @@ namespace algebraic_numbers {
 #endif
         }
 
-        void updt_params(params_ref const & p) {
-            m_min_magnitude            = -static_cast<int>(p.get_uint("min_mag", 16));
-            m_factor                   = p.get_bool("factor", true); // use polynomial factorization
-            m_factor_params.m_max_p    = p.get_uint("factor_max_prime", 31);
-            m_factor_params.m_p_trials = p.get_uint("factor_num_primes", 1);
-            m_factor_params.m_max_search_size = p.get_uint("factor_max_search_size", 5000);
-            m_zero_accuracy            = -static_cast<int>(p.get_uint("zero_accuracy", 0));
+        void updt_params(params_ref const & _p) {
+            algebraic_params p(_p);
+            m_min_magnitude            = -static_cast<int>(p.min_mag());
+            m_factor                   = p.factor();
+            m_factor_params.m_max_p    = p.factor_max_prime();
+            m_factor_params.m_p_trials = p.factor_num_primes();
+            m_factor_params.m_max_search_size = p.factor_search_size();
+            m_zero_accuracy            = -static_cast<int>(p.zero_accuracy());
         }
 
         unsynch_mpq_manager & qm() { 

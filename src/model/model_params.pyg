@@ -1,7 +1,6 @@
 def_module_params('model', 
                   export=True,
-                  params=(('validate', BOOL, False, 'validate models produced by Z3'),
-                          ('partial', BOOL, False, 'enable/disable partial function interpretations'),
+                  params=(('partial', BOOL, False, 'enable/disable partial function interpretations'),
                           ('v1', BOOL, False, 'use Z3 version 1.x pretty printer'),
                           ('v2', BOOL, False, 'use Z3 version 2.x (x <= 16) pretty printer'),
                           ('compact', BOOL, False, 'try to compact function graph (i.e., function interpretations that are lookup tables)'),
