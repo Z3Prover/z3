@@ -53,7 +53,6 @@ namespace api {
         struct add_plugins {  add_plugins(ast_manager & m); };
         
         front_end_params           m_params;
-        param_ini                  m_param_ini;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
         ast_manager                m_manager;
         add_plugins                m_plugins;

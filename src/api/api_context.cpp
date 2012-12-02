@@ -90,7 +90,6 @@ namespace api {
 
     context::context(config_params * p, bool user_ref_count):
         m_params(p ? p->m_params : front_end_params()),
-        m_param_ini(m_params),
         m_user_ref_count(user_ref_count),
         m_manager(m_params.m_proof_mode, m_params.m_trace_stream),
         m_plugins(m_manager),

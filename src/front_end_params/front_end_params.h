@@ -41,11 +41,7 @@ struct front_end_params : public smt_params {
         m_memory_high_watermark(0),
         m_memory_max_size(0),
         m_proof_mode(PGM_DISABLED),
-#if    defined(SMTCOMP) || defined(_EXTERNAL_RELEASE)
         m_auto_config(true),
-#else
-        m_auto_config(false), 
-#endif
         m_debug_ref_count(false),
         m_trace(false),
         m_trace_file_name("z3.log"),
