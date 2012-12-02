@@ -19,7 +19,7 @@ Revision History:
 #ifndef _BV_SIMPLIFIER_PARAMS_H_
 #define _BV_SIMPLIFIER_PARAMS_H_
 
-#include"bv_simplifier_params_helper.hpp"
+#include"params.h"
 
 struct bv_simplifier_params {
     bool  m_hi_div0; //!< if true, uses the hardware interpretation for div0, mod0, ... if false, div0, mod0, ... are considered uninterpreted.
@@ -29,11 +29,7 @@ struct bv_simplifier_params {
         updt_params(p);
     }
 
-    void updt_params(params_ref const & _p) {
-        bv_simplifier_params_helper p(_p);
-        m_hi_div0 = p.bv_hi_div0();
-        m_bv2int_distribute = p.bv_bv2int_distribute();
-    }
+    void updt_params(params_ref const & _p);
 };
 
 #endif /* _BV_SIMPLIFIER_PARAMS_H_ */

@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
@@ -19,7 +19,7 @@ Revision History:
 #ifndef _ARRAY_SIMPLIFIER_PARAMS_H_
 #define _ARRAY_SIMPLIFIER_PARAMS_H_
 
-#include"array_simplifier_params_helper.hpp"
+#include"params.h"
 
 struct array_simplifier_params {
     bool            m_array_canonize_simplify;
@@ -29,11 +29,7 @@ struct array_simplifier_params {
         updt_params(p);
     }
 
-    void updt_params(params_ref const & _p) {
-        array_simplifier_params_helper p(_p);
-        m_array_canonize_simplify = p.array_canonize();
-        m_array_simplify          = p.array_simplify();
-    }
+    void updt_params(params_ref const & _p);
 };
     
 #endif /* _ARITH_SIMPLIFIER_PARAMS_H_ */

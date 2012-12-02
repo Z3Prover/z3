@@ -1464,7 +1464,7 @@ def pyg_default_as_c_literal(p):
 def to_c_method(s):
     return s.replace('.', '_')
 
-def def_module_params(module_name, export, params, class_name=None):
+def def_module_params(module_name, export, params, class_name=None, description=None):
     pyg = get_curr_pyg()
     dirname = os.path.split(get_curr_pyg())[0]
     if class_name == None:
@@ -1491,6 +1491,8 @@ def def_module_params(module_name, export, params, class_name=None):
     if export:
         out.write('  /*\n')
         out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
+        if description != None:
+            out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
         out.write('  */\n')
     # Generated accessors
     for param in params:
@@ -1763,12 +1765,14 @@ def mk_all_mem_initializer_cpps():
 def mk_gparams_register_modules(cnames, path):
     cmds = []
     mod_cmds = []
+    mod_descrs = []
     fullname = '%s/gparams_register_modules.cpp' % path
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
     fout.write('#include"gparams.h"\n')
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
         h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
@@ -1788,11 +1792,16 @@ def mk_gparams_register_modules(cnames, path):
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     mod_cmds.append((m.group(1), m.group(2)))
+                m = reg_mod_descr_pat.match(line)
+                if m:
+                    mod_descrs.append((m.group(1), m.group(2)))
     fout.write('void gparams_register_modules() {\n')
     for code in cmds:
         fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
     for (mod, code) in mod_cmds:
         fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+    for (mod, descr) in mod_descrs:
+        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
     fout.write('}\n')
     if VERBOSE:
         print "Generated '%s'" % fullname

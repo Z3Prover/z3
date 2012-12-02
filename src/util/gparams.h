@@ -80,6 +80,11 @@ public:
     static void register_module(char const * module_name, param_descrs * d); 
 
     /**
+       \brief Add a (small) description to the given module.
+    */
+    static void register_module_descr(char const * module_name, char const * descr);
+
+    /**
        \brief Retrieves the parameters associated with the given module.
        
        Example:

@@ -19,7 +19,7 @@ Revision History:
 #ifndef _ARITH_SIMPLIFIER_PARAMS_H_
 #define _ARITH_SIMPLIFIER_PARAMS_H_
 
-#include"arith_simplifier_params_helper.hpp"
+#include"params.h"
 
 struct arith_simplifier_params { 
     bool    m_arith_expand_eqs;
@@ -29,11 +29,7 @@ struct arith_simplifier_params {
         updt_params(p);
     }
 
-    void updt_params(params_ref const & _p) {
-        arith_simplifier_params_helper p(_p);
-        m_arith_expand_eqs      = p.arith_expand_eqs();
-        m_arith_process_all_eqs = p.arith_process_all_eqs();
-    }
+    void updt_params(params_ref const & _p);
 };
     
 #endif /* _ARITH_SIMPLIFIER_PARAMS_H_ */

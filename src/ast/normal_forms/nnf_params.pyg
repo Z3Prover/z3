@@ -1,4 +1,5 @@
 def_module_params('nnf', 
+                  description='negation normal form',
                   export=True,
                   params=(max_memory_param(),
                           ('sk_hack', BOOL, False, 'hack for VCC'),

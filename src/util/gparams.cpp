@@ -37,6 +37,7 @@ bool is_old_param_name(symbol const & name) {
 
 struct gparams::imp {
     dictionary<param_descrs*> m_module_param_descrs;
+    dictionary<char const *>  m_module_descrs;
     param_descrs              m_param_descrs;
     dictionary<params_ref *>  m_module_params;
     params_ref                m_params;
@@ -83,6 +84,13 @@ public:
         }
     }
 
+    void register_module_descr(char const * module_name, char const * descr) {
+        #pragma omp critical (gparams)
+        {
+            m_module_descrs.insert(symbol(module_name), descr);
+        }
+    }
+
     void display(std::ostream & out, unsigned indent, bool smt2_style) {
         #pragma omp critical (gparams)
         {
@@ -92,7 +100,12 @@ public:
             dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
             dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
             for (; it != end; ++it) {
-                out << "[module] " << it->m_key << "\n";
+                out << "[module] " << it->m_key;
+                char const * descr = 0;
+                if (m_module_descrs.find(it->m_key, descr)) {
+                    out << ", description: " << descr;
+                }
+                out << "\n";
                 it->m_value->display(out, indent + 4, smt2_style);
             }
         }
@@ -335,6 +348,11 @@ void gparams::register_global(param_descrs & d) {
 void gparams::register_module(char const * module_name, param_descrs * d) {
     SASSERT(g_imp != 0);
     g_imp->register_module(module_name, d);
+}
+
+void gparams::register_module_descr(char const * module_name, char const * descr) {
+    SASSERT(g_imp != 0);
+    g_imp->register_module_descr(module_name, descr);
 }
 
 params_ref gparams::get_module(char const * module_name) {

@@ -1,5 +1,6 @@
 
 def_module_params('nlsat', 
+                  description='nonlinear solver',
                   export=True,
                   params=(max_memory_param(),
                           ('lazy', UINT, 0, "how lazy the solver is."),

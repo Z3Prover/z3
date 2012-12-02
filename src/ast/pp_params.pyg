@@ -1,5 +1,6 @@
 def_module_params('pp', 
                   export=True,
+                  description='pretty printer',
                   params=(('max_indent', UINT, UINT_MAX, 'max. indentation in pretty printer'),
                           ('max_num_lines', UINT, UINT_MAX, 'max. number of lines to be displayed in pretty printer'),
                           ('max_width', UINT, 80, 'max. width in pretty printer'),
