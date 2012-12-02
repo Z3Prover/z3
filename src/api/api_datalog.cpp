@@ -265,7 +265,7 @@ extern "C" {
         RESET_ERROR_CODE();
         lbool r = l_undef;
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
-        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", UINT_MAX);
+        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         api::context::set_interruptable(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
@@ -289,7 +289,7 @@ extern "C" {
         LOG_Z3_fixedpoint_query_relations(c, d, num_relations, relations);
         RESET_ERROR_CODE();
         lbool r = l_undef;
-        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", UINT_MAX);
+        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
         api::context::set_interruptable(*(mk_c(c)), eh);
         {

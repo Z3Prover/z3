@@ -31,28 +31,19 @@ Revision History:
 #include"front_end_params.h"
 #include"event_handler.h"
 #include"tactic_manager.h"
+#include"context_params.h"
 
 namespace smtlib {
     class parser;
 };
 
 namespace api {
-    class config_params;
-
     Z3_search_failure mk_Z3_search_failure(smt::failure f);
        
 
     class context : public tactic_manager {
-        class param_ini {
-            front_end_params & m_params;
-        public:
-            param_ini(front_end_params & p);
-            ~param_ini();
-        };
-        
         struct add_plugins {  add_plugins(ast_manager & m); };
-        
-        front_end_params           m_params;
+        context_params             m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
         ast_manager                m_manager;
         add_plugins                m_plugins;
@@ -61,8 +52,11 @@ namespace api {
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
 
+        // Support for old solver API
+        front_end_params           m_fparams;
         smt::kernel *              m_solver;     // General purpose solver for backward compatibility
-        
+        // -------------------------------
+
         ast_ref_vector             m_last_result; //!< used when m_user_ref_count == true
         ast_ref_vector             m_ast_trail;   //!< used when m_user_ref_count == false
         unsigned_vector            m_ast_lim;
@@ -102,11 +96,16 @@ namespace api {
         //
         // ------------------------
         
-        context(config_params * p, bool user_ref_count = false);
+        context(context_params * p, bool user_ref_count = false);
         ~context();
-
-        front_end_params & fparams() { return m_params; }
         ast_manager & m() { return m_manager; }
+
+        context_params & params() { return m_params; }
+        bool produce_proofs() const { return m_manager.proofs_enabled(); }
+        bool produce_models() const { return m_params.m_model; }
+        bool produce_unsat_cores() const { return m_params.m_unsat_core; }
+        bool use_auto_config() const { return m_params.m_auto_config; }
+        unsigned get_timeout() const { return m_params.m_timeout; }
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
@@ -167,12 +166,13 @@ namespace api {
         static void out_of_memory_handler(void * _ctx);
 
         void check_sorts(ast * n);
+
         // ------------------------
         //
         // Solver interface for backward compatibility 
         //
         // ------------------------
-        
+        front_end_params & fparams() { return m_fparams; }
         bool has_solver() const { return m_solver != 0; }
         smt::kernel & get_smt_kernel();
         void assert_cnstr(expr * a);

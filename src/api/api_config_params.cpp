@@ -17,7 +17,6 @@ Revision History:
 --*/
 #include"z3.h"
 #include"api_context.h"
-#include"api_config_params.h"
 #include"pp.h"
 #include"api_log_macros.h"
 #include"api_util.h"
@@ -25,16 +24,7 @@ Revision History:
 #include"symbol.h"
 #include"gparams.h"
 #include"env_params.h"
-
-namespace api {
-
-    config_params::config_params() {
-    }
-    
-    config_params::config_params(front_end_params const & p):m_params(p) {
-    }
-
-};
+#include"context_params.h"
 
 extern "C" {
     void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value) {
@@ -68,7 +58,7 @@ extern "C" {
             // The error handler is only available for contexts
             // Just throw a warning.
             std::ostringstream buffer;
-            buffer << "Error setting " << param_id << ", " << ex.msg();
+            buffer << "Error setting " << param_id << ": " << ex.msg();
             warning_msg(buffer.str().c_str());
             return Z3_FALSE;
         }
@@ -77,28 +67,41 @@ extern "C" {
     Z3_config Z3_API Z3_mk_config() {
         memory::initialize(UINT_MAX);
         LOG_Z3_mk_config();
-        Z3_config r = reinterpret_cast<Z3_config>(alloc(api::config_params));
+        Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));
         RETURN_Z3(r);
     }
     
     void Z3_API Z3_del_config(Z3_config c) {
         LOG_Z3_del_config(c);
-        dealloc((reinterpret_cast<api::config_params*>(c)));
+        dealloc((reinterpret_cast<context_params*>(c)));
     }
     
     void Z3_API Z3_set_param_value(Z3_config c, char const * param_id, char const * param_value) {
         LOG_Z3_set_param_value(c, param_id, param_value);
-        // PARAM-TODO save the parameter
+        try {
+            context_params * p = reinterpret_cast<context_params*>(c);
+            p->set(param_id, param_value);
+        }
+        catch (z3_exception & ex) {
+            // The error handler is only available for contexts
+            // Just throw a warning.
+            std::ostringstream buffer;
+            buffer << "Error setting " << param_id << ": " << ex.msg();
+            warning_msg(buffer.str().c_str());
+        }
     }
 
     void Z3_API Z3_update_param_value(Z3_context c, Z3_string param_id, Z3_string param_value) {
+        Z3_TRY;
         LOG_Z3_update_param_value(c, param_id, param_value);
         RESET_ERROR_CODE();
-        // NOOP in the current version
+        mk_c(c)->params().set(param_id, param_value);
+        Z3_CATCH;
     }
 
     Z3_bool Z3_API Z3_get_param_value(Z3_context c, Z3_string param_id, Z3_string* param_value) {
         LOG_Z3_get_param_value(c, param_id, param_value);
+        // TODO
         return Z3_FALSE;
     }
 

@@ -1308,6 +1308,12 @@ extern "C" {
           - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
           - trace  (Boolean)           Tracing support for VCC
           - trace_file_name (String)   Trace out file for VCC traces
+          - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+          - well_sorted_check          type checker
+          - auto_config                use heuristics to automatically select solver and configure it
+          - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+          - validate_model             validate models produced by solvers
+          - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
 
        \sa Z3_set_param_value
        \sa Z3_del_config
@@ -1420,19 +1426,18 @@ extern "C" {
 #endif
 
     /**
-       \brief This is a deprecated function. This is a NOOP in the current version of Z3.
+       \brief Set a value of a context parameter.
 
-       \deprecated Use #Z3_global_param_set.
+       \sa Use #Z3_global_param_set.
 
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
 
     /**
-       \brief This is a deprecated function. This is a NOOP in the current version of Z3.
-       It always return Z3_FALSE.
+       \brief Return the value of a context parameter.
       
-       \deprecated Use #Z3_global_param_get
+       \sa Use #Z3_global_param_get
 
        def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
     */
