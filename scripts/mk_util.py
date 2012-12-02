@@ -1461,6 +1461,9 @@ def pyg_default_as_c_literal(p):
         return 'symbol("%s")' % p[2]
     return p[2]
 
+def to_c_method(s):
+    return s.replace('.', '_')
+
 def def_module_params(module_name, export, params, class_name=None):
     pyg = get_curr_pyg()
     dirname = os.path.split(get_curr_pyg())[0]
@@ -1493,10 +1496,10 @@ def def_module_params(module_name, export, params, class_name=None):
     for param in params:
         if export:
             out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' % 
-                      (TYPE2CTYPE[param[1]], param[0], TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
         else:
             out.write('  %s %s() const { return p.%s("%s", %s); }\n' % 
-                      (TYPE2CTYPE[param[1]], param[0], TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
     out.write('};\n')
     if is_verbose():
         print "Generated '%s'" % hpp
