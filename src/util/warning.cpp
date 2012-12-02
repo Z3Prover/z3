@@ -82,11 +82,6 @@ void set_warning_stream(std::ostream* strm) {
     g_warning_stream = strm;
 }
 
-void register_warning() {
-    // PARAM-TODO
-    // p.register_bool_param("WARNING", g_warning_msgs, "enable/disable warning messages", true);
-}
-
 void disable_error_msg_prefix() {
     g_show_error_msg_prefix = false;
 }
