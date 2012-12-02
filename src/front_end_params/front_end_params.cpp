@@ -32,10 +32,6 @@ void front_end_params::register_params(ini_params & p) {
     p.register_bool_param("well_sorted_check", m_well_sorted_check, "enable/disable type checker");
     p.register_unsigned_param("soft_timeout", m_soft_timeout, "set approximate timeout for each solver query (milliseconds), the value 0 represents no timeout", true);
     p.register_double_param("instruction_max", m_instr_out, "set the (approximate) maximal number of instructions per invocation of check", true);
-    p.register_bool_param("auto_config", m_auto_config, "use heuristics to set Z3 configuration parameters, it is only available for the SMT-LIB input format");
-    p.register_int_param("proof_mode", 0, 2, reinterpret_cast<int&>(m_proof_mode), "select proof generation mode: 0 - disabled, 1 - coarse grain, 2 - fine grain");
-    p.register_bool_param("trace", m_trace, "enable tracing for the Axiom Profiler tool");
-    p.register_string_param("trace_file_name", m_trace_file_name, "tracing file name");
 
 #ifdef _WINDOWS
     // The non-windows memory manager does not have access to memory sizes.
@@ -47,7 +43,6 @@ void front_end_params::register_params(ini_params & p) {
 
 
     PRIVATE_PARAMS({
-        p.register_bool_param("debug_ref_count", m_debug_ref_count);
     });
 
 }

@@ -29,6 +29,7 @@ Notes:
 #include"eval_cmd.h"
 #include"gparams.h"
 #include"model_params.hpp"
+#include"env_params.h"
 
 class help_cmd : public cmd {
     svector<symbol> m_cmds;
@@ -305,6 +306,8 @@ class set_option_cmd : public set_get_option_cmd {
     void set_param(cmd_context & ctx, char const * value) {
         try {
             gparams::set(m_option, value);
+            env_params::updt_params();
+            ctx.params().updt_params();
         }
         catch (gparams::exception ex) {
             throw cmd_exception(ex.msg());

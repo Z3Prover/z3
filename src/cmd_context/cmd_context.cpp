@@ -359,47 +359,42 @@ cmd_context::~cmd_context() {
 }
 
 void cmd_context::set_produce_models(bool f) {
-    // PARAM-TODO 
-    // params().m_model = f;
     if (m_solver)
         m_solver->set_produce_models(f);
+    m_params.m_model = f;
 }
 
 void cmd_context::set_produce_unsat_cores(bool f) {
     // can only be set before initialization
     SASSERT(!has_manager());
-    m_produce_unsat_cores = f;
+    m_params.m_unsat_core = f;
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    // PARAM-TODO
     // can only be set before initialization
     SASSERT(!has_manager());
-    // params().m_proof_mode = f ? PGM_FINE : PGM_DISABLED;
+    m_params.m_proof = f;
 }
 
 bool cmd_context::produce_models() const { 
-    // PARAM-TODO
-    // return params().m_model; 
-    return true;
+    return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const { 
-    // PARAM-TODO
-    // return params().m_proof_mode != PGM_DISABLED; 
-    return false;
+    return m_params.m_proof;
+}
+
+bool cmd_context::produce_unsat_cores() const { 
+    return m_params.m_unsat_core;
 }
 
 bool cmd_context::well_sorted_check_enabled() const {
-    // PARAM-TODO
-    return true;
+    return m_params.m_well_sorted_check;
 }
 
 bool cmd_context::validate_model_enabled() const {
-    // PARAM-TODO
-    return false;
+    return m_params.m_validate_model;
 }
-
 
 cmd_context::check_sat_state cmd_context::cs_state() const {
     if (m_check_sat_result.get() == 0)
@@ -593,10 +588,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         insert(pm().mk_plist_decl());
     }
     if (m_solver) {
-        m_solver->set_produce_unsat_cores(produce_unsat_cores());
-        m_solver->set_produce_models(produce_models());
-        m_solver->set_produce_proofs(produce_proofs());
-        m_solver->init(m(), m_logic);
+        init_solver_options(m_solver.get());
     }
     m_check_logic.set_logic(m(), m_logic);
 }
@@ -1455,14 +1447,23 @@ void cmd_context::validate_model() {
     }
 }
 
+void cmd_context::init_solver_options(solver * s) {
+    m_solver->set_produce_unsat_cores(produce_unsat_cores());
+    m_solver->set_produce_models(produce_models());
+    m_solver->set_produce_proofs(produce_proofs());
+    m_solver->init(m(), m_logic);
+    if (!m_params.m_auto_config) {
+        params_ref p;
+        p.set_bool("auto_config", false);
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::set_solver(solver * s) {
     m_check_sat_result = 0;
     m_solver = s;
     if (has_manager() && s != 0) {
-        m_solver->set_produce_unsat_cores(produce_unsat_cores());
-        m_solver->set_produce_models(produce_models());
-        m_solver->set_produce_proofs(produce_proofs());
-        m_solver->init(m(), m_logic);
+        init_solver_options(s);
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
         svector<scope>::iterator it  = m_scopes.begin();

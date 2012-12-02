@@ -24,7 +24,7 @@ Notes:
 
 void env_params::updt_params() {
     params_ref p = gparams::get();
-    set_verbosity_level(p.get_uint("verbose", 0));
+    set_verbosity_level(p.get_uint("verbose", get_verbosity_level()));
     enable_warning_messages(p.get_bool("warning", true));
     memory::set_max_size(p.get_uint("memory_max_size", 0));
 }

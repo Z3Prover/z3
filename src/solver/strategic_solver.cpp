@@ -99,8 +99,6 @@ void strategic_solver::updt_params(params_ref const & p) {
         m_inc_solver->updt_params(p);
     m_params = p;
     m_auto_config = p.get_bool("auto_config", true);
-    // PARAM-TODO
-    // PROOFS, MODELS, UNSATCORES
 }
 
 void strategic_solver::collect_param_descrs(param_descrs & r) {

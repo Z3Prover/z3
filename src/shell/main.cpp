@@ -116,10 +116,7 @@ void init_params() {
     if (!g_params_initialized) {
         z3_bound_num_procs();
         g_front_end_params = new front_end_params();
-        // g_params = new ini_params();
         g_extra_params = new extra_params();
-        // g_front_end_params->register_params(*g_params);
-        // g_extra_params->register_params(*g_params);
         g_params_initialized = true;
     }
 }

@@ -86,7 +86,9 @@ public:
     void display(std::ostream & out, unsigned indent, bool smt2_style) {
         #pragma omp critical (gparams)
         {
-            m_param_descrs.display(out, indent, smt2_style);
+            out << "Global parameters\n";
+            m_param_descrs.display(out, indent + 4, smt2_style);
+            out << "\n";
             dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
             dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
             for (; it != end; ++it) {
