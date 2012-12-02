@@ -36,7 +36,6 @@ Notes:
 #include"ast_pp.h"
 #include"cmd_context.h"
 #include"smt2parser.h"
-#include"front_end_params.h"
 
 expr_pattern_match::expr_pattern_match(ast_manager & manager):
     m_manager(manager), m_precompiled(manager) {        

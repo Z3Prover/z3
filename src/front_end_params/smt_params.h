@@ -25,6 +25,7 @@ Revision History:
 #include"theory_array_params.h"
 #include"theory_bv_params.h"
 #include"theory_datatype_params.h"
+#include"preprocessor_params.h"
 
 enum phase_selection { 
     PS_ALWAYS_FALSE,
@@ -65,7 +66,12 @@ enum case_split_strategy {
     CS_RELEVANCY_GOAL, // based on relevancy and the current goal
 };
 
-struct smt_params : public dyn_ack_params, public qi_params, public theory_arith_params, public theory_array_params, public theory_bv_params, 
+struct smt_params : public preprocessor_params, 
+                    public dyn_ack_params, 
+                    public qi_params, 
+                    public theory_arith_params, 
+                    public theory_array_params, 
+                    public theory_bv_params, 
                     public theory_datatype_params {
     bool             m_display_proof;
     bool             m_display_dot_proof;
@@ -196,7 +202,9 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
     bool                m_user_theory_preprocess_axioms;
     bool                m_user_theory_persist_axioms;
     unsigned            m_soft_timeout;
-    
+    bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
+    bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.    
+
     smt_params():
         m_display_proof(false),
         m_display_dot_proof(false),
@@ -260,7 +268,9 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
         m_user_theory_persist_axioms(false),
-        m_soft_timeout(0)
+        m_soft_timeout(0),
+        m_at_labels_cex(false),
+        m_check_at_labels(false)
     {
 
     }

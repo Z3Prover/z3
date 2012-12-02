@@ -48,7 +48,7 @@ namespace smt {
 
     void model_generator::init_model() {
         SASSERT(!m_model);
-        // PARAM-TODO
+        // PARAM-TODO smt_params ---> params_ref
         m_model = alloc(proto_model, m_manager, m_context->get_simplifier()); // , m_context->get_fparams());
         ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
         ptr_vector<theory>::const_iterator end = m_context->end_theories();

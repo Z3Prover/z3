@@ -107,8 +107,6 @@ lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const 
         return l_undef;
     tactic & t                       = *(m_ctx->m_tactic);
     simple_check_sat_result & result = *(m_ctx->m_result);
-    if (m_fparams)
-        t.set_front_end_params(*m_fparams);
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
     t.set_logic(m_ctx->m_logic);
     unsigned sz = m_ctx->m_assertions.size();

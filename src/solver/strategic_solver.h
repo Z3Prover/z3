@@ -118,8 +118,6 @@ public:
     void set_inc_unknown_behavior(inc_unknown_behavior b) { m_inc_unknown_behavior = b; }
     void force_tactic(bool f) { m_force_tactic = f; }
 
-    virtual void set_front_end_params(front_end_params & p) { m_fparams = &p; }
-
     virtual void updt_params(params_ref const & p);
     virtual void collect_param_descrs(param_descrs & r);
 

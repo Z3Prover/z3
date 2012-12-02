@@ -51,10 +51,6 @@ void front_end_params::register_params(ini_params & p) {
         p.register_bool_param("debug_ref_count", m_debug_ref_count);
     });
 
-    // temporary hack until strategic_solver is ported to new tactic framework
-    PRIVATE_PARAMS({
-        p.register_bool_param("nlsat", m_nlsat);
-    });
 }
 
 #endif

@@ -92,7 +92,6 @@ public:
     virtual void reset() { cleanup(); }
 
     // for backward compatibility
-    virtual void set_front_end_params(front_end_params & p) {}
     virtual void set_logic(symbol const & l) {}
     virtual void set_progress_callback(progress_callback * callback) {}
 

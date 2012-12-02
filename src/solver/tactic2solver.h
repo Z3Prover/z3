@@ -54,8 +54,6 @@ public:
 
     virtual tactic * get_tactic(ast_manager & m, params_ref const & p) = 0;
     
-    virtual void set_front_end_params(front_end_params & p) { m_fparams = &p; } 
-
     virtual void updt_params(params_ref const & p);
     virtual void collect_param_descrs(param_descrs & r);
 

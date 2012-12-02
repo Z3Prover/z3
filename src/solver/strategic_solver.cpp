@@ -191,7 +191,6 @@ void strategic_solver::init_inc_solver() {
     m_inc_solver->set_produce_proofs(m_produce_proofs);
     m_inc_solver->set_produce_models(m_produce_models);
     m_inc_solver->set_produce_unsat_cores(m_produce_unsat_cores);
-    m_inc_solver->set_front_end_params(*m_fparams);
     m_inc_solver->init(m(), m_logic);
     unsigned sz = get_num_assertions();
     if (m_produce_unsat_cores) {
@@ -329,7 +328,6 @@ struct strategic_solver::mk_tactic {
         params_ref p;
         front_end_params2params(*s->m_fparams, p);
         tactic * tct = (*f)(m, p);
-        tct->set_front_end_params(*s->m_fparams);
         tct->set_logic(s->m_logic);
         if (s->m_callback)
             tct->set_progress_callback(s->m_callback);

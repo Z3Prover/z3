@@ -22,7 +22,6 @@ Notes:
 
 #include"ast.h"
 #include"map.h"
-#include"front_end_params.h"
 
 class expr_pattern_match {
 

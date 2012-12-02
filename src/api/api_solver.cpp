@@ -39,7 +39,6 @@ extern "C" {
         s->m_solver->set_produce_proofs(m.proofs_enabled());
         s->m_solver->set_produce_unsat_cores(s->m_params.get_bool("unsat_core", false));
         s->m_solver->set_produce_models(s->m_params.get_bool("model", true));
-        s->m_solver->set_front_end_params(mk_c(c)->fparams());
         s->m_solver->updt_params(s->m_params);
         s->m_solver->init(m, s->m_logic);
         s->m_initialized = true;

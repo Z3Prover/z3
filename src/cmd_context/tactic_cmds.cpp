@@ -189,7 +189,6 @@ public:
         params_ref p = ps();
         front_end_params2params(ctx.params(), p);
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
-        tref->set_front_end_params(ctx.params());
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", UINT_MAX);

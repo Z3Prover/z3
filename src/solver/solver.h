@@ -41,15 +41,6 @@ struct front_end_params;
 class solver : public check_sat_result {
 public:
     virtual ~solver() {}
-    
-    /**
-       \brief This method is invoked to allow the solver to access the front_end_params (environment parameters).
-       
-       \warning This method is used for backward compatibility. The first solver implemented in Z3 used
-       front_end_params to store its configuration parameters. 
-    */
-    virtual void set_front_end_params(front_end_params & p) {} 
-
     /**
        \brief Update the solver internal settings. 
     */

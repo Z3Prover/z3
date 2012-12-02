@@ -20,14 +20,9 @@ Revision History:
 #define _FRONT_END_PARAMS_H_
 
 #include"ast.h"
-#include"preprocessor_params.h"
 #include"smt_params.h"
-#include"arith_simplifier_params.h"
 
-struct front_end_params : public preprocessor_params, public smt_params, 
-                          public arith_simplifier_params {
-    bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
-    bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
+struct front_end_params : public smt_params {
     bool                m_well_sorted_check;
     unsigned            m_memory_high_watermark;
     unsigned            m_memory_max_size;
@@ -39,13 +34,9 @@ struct front_end_params : public preprocessor_params, public smt_params,
     std::string         m_trace_file_name;
     std::fstream*       m_trace_stream;
     bool                m_display_config;
-    bool                m_nlsat; // temporary hack until strategic_solver is ported to new tactic framework
-
     bool                m_dump_goal_as_smt;
 
     front_end_params():
-        m_at_labels_cex(false),
-        m_check_at_labels(false),
         m_well_sorted_check(true),
         m_memory_high_watermark(0),
         m_memory_max_size(0),
@@ -60,7 +51,6 @@ struct front_end_params : public preprocessor_params, public smt_params,
         m_trace_file_name("z3.log"),
         m_trace_stream(NULL),
         m_display_config(false),
-        m_nlsat(false),
         m_dump_goal_as_smt(false) {
     }
 

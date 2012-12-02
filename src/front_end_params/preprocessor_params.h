@@ -22,6 +22,7 @@ Revision History:
 #include"pattern_inference_params.h"
 #include"bit_blaster_params.h"
 #include"bv_simplifier_params.h"
+#include"arith_simplifier_params.h"
 
 enum lift_ite_kind {
     LI_NONE,
@@ -30,7 +31,9 @@ enum lift_ite_kind {
 };
 
 struct preprocessor_params : public pattern_inference_params, 
-                             public bit_blaster_params, public bv_simplifier_params {
+                             public bit_blaster_params, 
+                             public bv_simplifier_params, 
+                             public arith_simplifier_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
     bool            m_pull_cheap_ite_trees;
@@ -81,6 +84,7 @@ public:
         pattern_inference_params::register_params(p);
         bit_blaster_params::register_params(p);
         bv_simplifier_params::register_params(p);
+        arith_simplifier_params::register_params(p);
         p.register_int_param("lift_ite", 0, 2, reinterpret_cast<int&>(m_lift_ite), "ite term lifting: 0 - no lifting, 1 - conservative, 2 - full");
         p.register_int_param("ng_lift_ite", 0, 2, reinterpret_cast<int&>(m_ng_lift_ite), "ite (non-ground) term lifting: 0 - no lifting, 1 - conservative, 2 - full");
         p.register_bool_param("elim_term_ite", m_eliminate_term_ite, "eliminate term if-then-else in the preprocessor");

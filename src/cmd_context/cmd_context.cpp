@@ -1301,7 +1301,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         init_manager();
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
-        m_solver->set_front_end_params(params());
         m_solver->set_progress_callback(this);
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
@@ -1445,7 +1444,6 @@ void cmd_context::validate_model() {
 void cmd_context::set_solver(solver * s) {
     m_check_sat_result = 0;
     m_solver = s;
-    m_solver->set_front_end_params(params());
     if (has_manager() && s != 0) {
         m_solver->set_produce_unsat_cores(m_produce_unsat_cores);
         m_solver->set_produce_models(params().m_model);

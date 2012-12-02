@@ -24,7 +24,7 @@ Notes:
 #include"rewriter_types.h"
 
 class smt_tactic : public tactic {
-    scoped_ptr<front_end_params> m_params;
+    front_end_params             m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
     std::string                  m_failure;
@@ -52,11 +52,7 @@ public:
     }
 
     front_end_params & fparams() {
-        if (!m_params) {
-            m_params = alloc(front_end_params);
-            params2front_end_params(m_params_ref, fparams());
-        }
-        return *m_params;
+        return m_params;
     }
 
     void updt_params_core(params_ref const & p) {
@@ -68,6 +64,7 @@ public:
         TRACE("smt_tactic", tout << this << "\nupdt_params: " << p << "\n";);
         updt_params_core(p);
         m_params_ref = p;
+        // PARAM-TODO update params2front_end_params p ---> m_params
         params2front_end_params(m_params_ref, fparams());
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
@@ -97,14 +94,6 @@ public:
         m_stats.reset();
     }
     
-    // for backward compatibility
-    virtual void set_front_end_params(front_end_params & p) {
-        m_params = alloc(front_end_params, p);
-        SASSERT(m_params.get() == &fparams());
-        // must propagate the params_ref to fparams
-        params2front_end_params(m_params_ref, fparams());
-    }
-
     virtual void set_logic(symbol const & l) {
         m_logic = l;
     }
