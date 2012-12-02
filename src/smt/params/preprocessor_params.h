@@ -56,7 +56,7 @@ struct preprocessor_params : public pattern_inference_params,
     bool            m_nlquant_elim;
 
 public:
-    preprocessor_params():
+    preprocessor_params(params_ref const & p = params_ref()):
         m_lift_ite(LI_NONE),
         m_ng_lift_ite(LI_NONE), 
         m_pull_cheap_ite_trees(false),
@@ -77,36 +77,12 @@ public:
         m_max_bv_sharing(true),
         m_pre_simplifier(true),
         m_nlquant_elim(false) {
+        updt_local_params(p);
     }
 
-#if 0
-    void register_params(ini_params & p) {
-        pattern_inference_params::register_params(p);
-        bit_blaster_params::register_params(p);
-        bv_simplifier_params::register_params(p);
-        arith_simplifier_params::register_params(p);
-        p.register_int_param("lift_ite", 0, 2, reinterpret_cast<int&>(m_lift_ite), "ite term lifting: 0 - no lifting, 1 - conservative, 2 - full");
-        p.register_int_param("ng_lift_ite", 0, 2, reinterpret_cast<int&>(m_ng_lift_ite), "ite (non-ground) term lifting: 0 - no lifting, 1 - conservative, 2 - full");
-        p.register_bool_param("elim_term_ite", m_eliminate_term_ite, "eliminate term if-then-else in the preprocessor");
-        p.register_bool_param("elim_and", m_eliminate_and, "represent (and a b) as (not (or (not a) (not b)))");
-        p.register_bool_param("macro_finder", m_macro_finder, "try to find universally quantified formulas that can be viewed as macros");
-        p.register_bool_param("propagate_values", m_propagate_values, "propagate values during preprocessing step");
-        p.register_bool_param("propagate_booleans", m_propagate_booleans, "propagate boolean values during preprocessing step");
-        p.register_bool_param("pull_cheap_ite_trees", m_pull_cheap_ite_trees);
-        p.register_bool_param("pull_nested_quantifiers", m_pull_nested_quantifiers, "eliminate nested quantifiers by moving nested quantified variables to the outermost quantifier, it is unnecessary if the formula is converted into CNF");
-        p.register_bool_param("refine_inj_axiom", m_refine_inj_axiom);
-        p.register_bool_param("elim_bounds", m_eliminate_bounds, "cheap Fourier-Motzkin");
+    void updt_local_params(params_ref const & p);
 
-        p.register_bool_param("bit2int", m_simplify_bit2int, "hoist bit2int conversions over arithmetical expressions");
-        p.register_bool_param("distribute_forall", m_distribute_forall);
-        p.register_bool_param("reduce_args", m_reduce_args);
-        p.register_bool_param("quasi_macros", m_quasi_macros);
-        p.register_bool_param("restricted_quasi_macros", m_restricted_quasi_macros);
-        p.register_bool_param("bv_max_sharing", m_max_bv_sharing);
-        p.register_bool_param("pre_simplifier", m_pre_simplifier);
-    }
-#endif
-
+    void updt_params(params_ref const & p);
 };
 
 #endif /* _PREPROCESSOR_PARAMS_H_ */

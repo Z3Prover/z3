@@ -323,7 +323,7 @@ namespace api {
 
     smt::kernel & context::get_smt_kernel() {
         if (!m_solver) {
-            // PARAM-TODO: copy config_params -> fparams
+            m_fparams.updt_params(m_params);
             m_solver = alloc(smt::kernel, m_manager, m_fparams);
         }
         return *m_solver;

@@ -36,7 +36,7 @@ namespace smt {
         }
 
         virtual void updt_params(params_ref const & p) {
-            // PARAM-TODO copy p --> m_params
+            m_params.updt_params(p);
             if (m_context == 0)
                 return;
             m_context->updt_params(p);

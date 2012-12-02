@@ -27,6 +27,7 @@ Revision History:
 #include"theory_bv_params.h"
 #include"theory_datatype_params.h"
 #include"preprocessor_params.h"
+#include"context_params.h"
 
 enum phase_selection { 
     PS_ALWAYS_FALSE,
@@ -209,23 +210,7 @@ struct smt_params : public preprocessor_params,
     proof_gen_mode      m_proof_mode;
     bool                m_auto_config;
 
-#if 0
-    unsigned            m_memory_high_watermark;
-    unsigned            m_memory_max_size;
-
-    bool                m_auto_config;
-
-    bool                m_debug_ref_count;
-    
-        m_well_sorted_check(true),
-        m_memory_high_watermark(0),
-        m_memory_max_size(0),
-
-        m_auto_config(true),
-        m_debug_ref_count(false) {
-#endif
-
-    smt_params():
+    smt_params(params_ref const & p = params_ref()):
         m_display_proof(false),
         m_display_dot_proof(false),
         m_display_unsat_core(false),
@@ -294,7 +279,14 @@ struct smt_params : public preprocessor_params,
         m_dump_goal_as_smt(false),
         m_proof_mode(PGM_DISABLED),
         m_auto_config(true) {
+        updt_local_params(p);
     }
+
+    void updt_local_params(params_ref const & p);
+
+    void updt_params(params_ref const & p);
+
+    void updt_params(context_params const & p);
 };
 
 #endif /* _SMT_PARAMS_H_ */

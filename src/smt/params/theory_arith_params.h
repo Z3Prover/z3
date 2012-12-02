@@ -20,6 +20,7 @@ Revision History:
 #define _THEORY_ARITH_PARAMS_H_
 
 #include<limits.h>
+#include"params.h"
 
 enum arith_solver_id {
     AS_NO_ARITH,
@@ -104,7 +105,7 @@ struct theory_arith_params {
     bool                    m_arith_euclidean_solver;
 
 
-    theory_arith_params():
+    theory_arith_params(params_ref const & p = params_ref()):
         m_arith_mode(AS_ARITH),
         m_arith_auto_config_simplex(false),
         m_arith_blands_rule_threshold(1000),
@@ -149,7 +150,10 @@ struct theory_arith_params {
         m_nl_arith_branching(true),
         m_nl_arith_rounds(1024),
         m_arith_euclidean_solver(false) {
+        updt_params(p);
     }
+
+    void updt_params(params_ref const & p);
 };
 
 #endif /* _THEORY_ARITH_PARAMS_H_ */

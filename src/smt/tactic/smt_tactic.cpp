@@ -24,7 +24,7 @@ Notes:
 #include"rewriter_types.h"
 
 class smt_tactic : public tactic {
-    smt_params             m_params;
+    smt_params                   m_params;
     params_ref                   m_params_ref;
     statistics                   m_stats;
     std::string                  m_failure;
@@ -63,9 +63,7 @@ public:
     virtual void updt_params(params_ref const & p) {
         TRACE("smt_tactic", tout << this << "\nupdt_params: " << p << "\n";);
         updt_params_core(p);
-        m_params_ref = p;
-        // PARAM-TODO update params2smt_params p ---> m_params
-        params2smt_params(m_params_ref, fparams());
+        fparams().updt_params(p);
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
     

@@ -20,6 +20,7 @@ Revision History:
 #define _QI_PARAMS_H_
 
 #include"util.h"
+#include"params.h"
 
 enum quick_checker_mode {
     MC_NO,     // do not use (cheap) model checking based instantiation
@@ -53,7 +54,7 @@ struct qi_params {
 
     bool               m_instgen;
 
-    qi_params():
+    qi_params(params_ref const & p = params_ref()):
         /*
           The "weight 0" performance bug
           ------------------------------
@@ -93,49 +94,17 @@ struct qi_params {
         m_qi_max_instances(UINT_MAX),
         m_qi_lazy_instantiation(false),
         m_qi_conservative_final_check(false),
-#ifdef _EXTERNAL_RELEASE
         m_mbqi(true), // enabled by default
-#else
-        m_mbqi(false), // to avoid Rustan whining that the models are not partial anymore.
-#endif
         m_mbqi_max_cexs(1),
         m_mbqi_max_cexs_incr(1),
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
         m_mbqi_force_template(10),
         m_instgen(false) {
+        updt_params(p);
     }
 
-#if 0    
-    void register_params(ini_params & p) {
-        p.register_unsigned_param("qi_max_eager_multi_patterns", m_qi_max_eager_multipatterns,
-                                  "Specify the number of extra multi patterns that are processed eagerly. By default, the prover use at most one multi-pattern eagerly when there is no unary pattern. This value should be smaller than or equal to PI_MAX_MULTI_PATTERNS");
-        p.register_unsigned_param("qi_max_lazy_multi_pattern_matching", m_qi_max_lazy_multipattern_matching, "Maximum number of rounds of matching in a branch for delayed multipatterns. A multipattern is delayed based on the value of QI_MAX_EAGER_MULTI_PATTERNS");
-        p.register_string_param("qi_cost", m_qi_cost, "The cost function for quantifier instantiation");
-        p.register_string_param("qi_new_gen", m_qi_new_gen, "The function for calculating the generation of newly constructed terms");
-        p.register_double_param("qi_eager_threshold", m_qi_eager_threshold, "Threshold for eager quantifier instantiation");
-        p.register_double_param("qi_lazy_threshold", m_qi_lazy_threshold, "Threshold for lazy quantifier instantiation");
-        p.register_bool_param("qi_profile", m_qi_profile);
-        p.register_unsigned_param("qi_profile_freq", m_qi_profile_freq);
-        p.register_int_param("qi_quick_checker", 0, 2, reinterpret_cast<int&>(m_qi_quick_checker), "0 - do not use (cheap) model checker, 1 - instantiate instances unsatisfied by current model, 2 - 1 + instantiate instances not satisfied by current model");
-        p.register_bool_param("qi_lazy_quick_checker", m_qi_lazy_quick_checker);
-        p.register_bool_param("qi_promote_unsat", m_qi_promote_unsat);
-        p.register_unsigned_param("qi_max_instances", m_qi_max_instances);
-        p.register_bool_param("qi_lazy_instantiation", m_qi_lazy_instantiation);
-        p.register_bool_param("qi_conservative_final_check", m_qi_conservative_final_check);
-
-
-        p.register_bool_param("mbqi", m_mbqi, "Model Based Quantifier Instantiation (MBQI)");
-        p.register_unsigned_param("mbqi_max_cexs", m_mbqi_max_cexs, "Initial maximal number of counterexamples used in MBQI, each counterexample generates a quantifier instantiation", true);
-        p.register_unsigned_param("mbqi_max_cexs_incr", m_mbqi_max_cexs_incr, "Increment for MBQI_MAX_CEXS, the increment is performed after each round of MBQI", true);
-        p.register_unsigned_param("mbqi_max_iterations", m_mbqi_max_iterations, "Maximum number of rounds of MBQI", true);
-        p.register_bool_param("mbqi_trace", m_mbqi_trace, "Generate tracing messages for Model Based Quantifier Instantiation (MBQI). It will display a message before every round of MBQI, and the quantifiers that were not satisfied.", true);
-        p.register_unsigned_param("mbqi_force_template", m_mbqi_force_template, "Some quantifiers can be used as templates for building interpretations for functions. Z3 uses heuristics to decide whether a quantifier will be used as a template or not. Quantifiers with weight >= MBQI_FORCE_TEMPLATE are forced to be used as a template", true);
-
-        p.register_bool_param("inst_gen", m_instgen, "Enable Instantiation Generation solver (disables other quantifier reasoning)", false);
-    }
-#endif
-
+    void updt_params(params_ref const & p);
 };
 
 #endif /* _QI_PARAMS_H_ */

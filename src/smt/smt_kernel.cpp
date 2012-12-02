@@ -179,7 +179,9 @@ namespace smt {
         }
 
         void updt_params(params_ref const & p) {
-            params2smt_params(p, fparams());
+            // We don't need params2smt_params anymore. smt_params has support for reading params_ref.
+            // The update is performed at smt_kernel "users".
+            // params2smt_params(p, fparams());
         }
     };
 

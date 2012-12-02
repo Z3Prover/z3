@@ -19,6 +19,8 @@ Revision History:
 #ifndef _THEORY_BV_PARAMS_H_
 #define _THEORY_BV_PARAMS_H_
 
+#include"params.h"
+
 enum bv_solver_id {
     BS_NO_BV,
     BS_BLASTER
@@ -31,24 +33,17 @@ struct theory_bv_params {
     bool         m_bv_cc;
     unsigned     m_bv_blast_max_size;
     bool         m_bv_enable_int2bv2int;
-    theory_bv_params():
+    theory_bv_params(params_ref const & p = params_ref()):
         m_bv_mode(BS_BLASTER),
         m_bv_reflect(true),
         m_bv_lazy_le(false),
         m_bv_cc(false),
         m_bv_blast_max_size(INT_MAX),
-        m_bv_enable_int2bv2int(false) {}
-#if 0
-     void register_params(ini_params & p) {
-         p.register_int_param("bv_solver", 0, 2, reinterpret_cast<int&>(m_bv_mode), "0 - no bv, 1 - simple");
-         p.register_unsigned_param("bv_blast_max_size", m_bv_blast_max_size, "Maximal size for bit-vectors to blast");
-         p.register_bool_param("bv_reflect", m_bv_reflect);
-         p.register_bool_param("bv_lazy_le", m_bv_lazy_le);
-         p.register_bool_param("bv_cc", m_bv_cc, "enable congruence closure for BV operators");
-         p.register_bool_param("bv_enable_int2bv_propagation", m_bv_enable_int2bv2int, 
-                               "enable full (potentially expensive) propagation for int2bv and bv2int");
-     }
-#endif
+        m_bv_enable_int2bv2int(false) {
+        updt_params(p);
+    }
+    
+    void updt_params(params_ref const & p);
 };
 
 #endif /* _THEORY_BV_PARAMS_H_ */
