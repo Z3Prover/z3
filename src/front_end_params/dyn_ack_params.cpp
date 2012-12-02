@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include"dyn_ack_params.h"
 
+#if 0
 void dyn_ack_params::register_params(ini_params & p) {
     p.register_int_param("dack", 0, 2, reinterpret_cast<int&>(m_dack), 
                          "0 - disable dynamic ackermannization, 1 - expand Leibniz's axiom if a congruence is the root of a conflict, 2 - expand Leibniz's axiom if a congruence is used during conflict resolution.");
@@ -27,5 +28,5 @@ void dyn_ack_params::register_params(ini_params & p) {
     p.register_unsigned_param("dack_gc", m_dack_gc, "Dynamic ackermannization garbage collection frequency (per conflict).");
     p.register_double_param("dack_gc_inv_decay", m_dack_gc_inv_decay);
 }
-
+#endif
 

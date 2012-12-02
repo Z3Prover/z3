@@ -1295,11 +1295,6 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         return;
     IF_VERBOSE(100, verbose_stream() << "check-sat..." << std::endl;);
     TRACE("before_check_sat", dump_assertions(tout););
-    if (params().m_ignore_checksat) {
-        m_check_sat_result = 0;
-        regular_stream() << "unknown" << std::endl;
-        return;
-    }
     if (!has_manager())
         init_manager();
     if (m_solver) {

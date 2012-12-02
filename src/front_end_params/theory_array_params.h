@@ -19,8 +19,6 @@ Revision History:
 #ifndef _THEORY_ARRAY_PARAMS_H_
 #define _THEORY_ARRAY_PARAMS_H_
 
-#include"ini_file.h"
-
 enum array_solver_id {
     AR_NO_ARRAY,
     AR_SIMPLE,
@@ -55,6 +53,7 @@ struct theory_array_params {
         m_array_simplify(true) {
     }
 
+#if 0
     void register_params(ini_params & p) {
         p.register_int_param("array_solver", 0, 3, reinterpret_cast<int&>(m_array_mode), "0 - no array, 1 - simple, 2 - model based, 3 - full");
         p.register_bool_param("array_weak", m_array_weak);
@@ -69,6 +68,8 @@ struct theory_array_params {
         p.register_bool_param("array_canonize", m_array_canonize_simplify, 
                               "Normalize arrays into normal form during simplification");
     }
+#endif
+
 };
 
 

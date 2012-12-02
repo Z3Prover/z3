@@ -19,6 +19,7 @@ Revision History:
 #include"smt_params.h"
 #include"trace.h"
 
+#if 0
 void smt_params::register_params(ini_params & p) {
     dyn_ack_params::register_params(p);
     qi_params::register_params(p);
@@ -117,3 +118,4 @@ void smt_params::register_params(ini_params & p) {
 
 }
 
+#endif

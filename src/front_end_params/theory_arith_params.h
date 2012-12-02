@@ -19,7 +19,7 @@ Revision History:
 #ifndef _THEORY_ARITH_PARAMS_H_
 #define _THEORY_ARITH_PARAMS_H_
 
-#include"ini_file.h"
+#include<limits.h>
 
 enum arith_solver_id {
     AS_NO_ARITH,
@@ -150,8 +150,6 @@ struct theory_arith_params {
         m_nl_arith_rounds(1024),
         m_arith_euclidean_solver(false) {
     }
-
-    void register_params(ini_params & p);
 };
 
 #endif /* _THEORY_ARITH_PARAMS_H_ */

@@ -76,6 +76,7 @@ public:
         m_nlquant_elim(false) {
     }
 
+#if 0
     void register_params(ini_params & p) {
         pattern_inference_params::register_params(p);
         bit_blaster_params::register_params(p);
@@ -100,6 +101,8 @@ public:
         p.register_bool_param("bv_max_sharing", m_max_bv_sharing);
         p.register_bool_param("pre_simplifier", m_pre_simplifier);
     }
+#endif
+
 };
 
 #endif /* _PREPROCESSOR_PARAMS_H_ */

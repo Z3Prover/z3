@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include"pattern_inference_params.h"
 
+#if 0
 void pattern_inference_params::register_params(ini_params & p) {
     p.register_unsigned_param("pi_max_multi_patterns", m_pi_max_multi_patterns, 
                               "when patterns are not provided, the prover uses a heuristic to infer them. This option sets the threshold on the number of extra multi-patterns that can be created. By default, the prover creates at most one multi-pattern when there is no unary pattern");
@@ -33,5 +34,5 @@ void pattern_inference_params::register_params(ini_params & p) {
     p.register_bool_param("pi_avoid_skolems", m_pi_avoid_skolems);
     p.register_bool_param("pi_warnings", m_pi_warnings, "enable/disable warning messages in the pattern inference module.");
 }
-
+#endif
 

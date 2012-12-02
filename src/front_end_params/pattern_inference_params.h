@@ -19,8 +19,6 @@ Revision History:
 #ifndef _PATTERN_INFERENCE_PARAMS_H_
 #define _PATTERN_INFERENCE_PARAMS_H_
 
-#include"ini_file.h"
-
 enum arith_pattern_inference_kind {
     AP_NO,           // do not infer patterns with arithmetic terms
     AP_CONSERVATIVE, // only infer patterns with arithmetic terms if there is no other option
@@ -51,8 +49,6 @@ struct pattern_inference_params {
         m_pi_avoid_skolems(true),
         m_pi_warnings(false) {
     }
-
-    void register_params(ini_params & p);    
 };
 
 #endif /* _PATTERN_INFERENCE_PARAMS_H_ */

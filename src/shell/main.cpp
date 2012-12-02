@@ -109,13 +109,13 @@ public:
 
     virtual ~extra_params() {}
 
-    virtual void register_params(ini_params & p) {
-        datalog_params::register_params(p);
-        p.register_bool_param("STATISTICS", m_statistics, "display statistics");
-    }
+    // PARAM-TODO
+    // virtual void register_params(ini_params & p) {
+        // datalog_params::register_params(p);
+        // p.register_bool_param("STATISTICS", m_statistics, "display statistics");
+    // }
 };
 
-ini_params*         g_params = 0;
 extra_params*       g_extra_params = 0;
 bool                g_params_initialized = false;
 
@@ -123,12 +123,12 @@ void init_params() {
     if (!g_params_initialized) {
         z3_bound_num_procs();
         g_front_end_params = new front_end_params();
-        g_params = new ini_params();
+        // g_params = new ini_params();
         g_extra_params = new extra_params();
-        register_verbosity_level(*g_params);
-        register_warning(*g_params);
-        g_front_end_params->register_params(*g_params);
-        g_extra_params->register_params(*g_params);
+        // register_verbosity_level(*g_params);
+        // register_warning(*g_params);
+        // g_front_end_params->register_params(*g_params);
+        // g_extra_params->register_params(*g_params);
         g_params_initialized = true;
     }
 }
@@ -137,37 +137,11 @@ void del_params() {
     if (g_front_end_params != NULL)
         g_front_end_params->close_trace_file();
     delete g_extra_params;
-    delete g_params;
     delete g_front_end_params;
     g_extra_params = 0;
-    g_params = 0;
     g_front_end_params = 0;
 }
-
     
-void read_ini_file(const char * file_name) {
-    std::ifstream in(file_name);
-    if (in.bad() || in.fail()) {
-        std::cerr << "Error: failed to open init file \"" << file_name << "\".\n"; 
-        exit(ERR_INI_FILE);
-    }
-    g_params->read_ini_file(in);
-}
-
-void display_ini_help() {
-    g_params->display_params(std::cout);
-}
-
-void display_config() {
-    if (g_front_end_params->m_display_config) {
-        display_ini_help();
-    }
-}
-
-void display_ini_doc() {
-    g_params->display_params_documentation(std::cout);
-}
-
 void parse_cmd_line_args(int argc, char ** argv) {
     int i = 1;
     char * eq_pos = 0;
@@ -285,10 +259,6 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 gparams::display(std::cout);
                 exit(0);
             }
-            else if (strcmp(opt_name, "geninidoc") == 0) {
-                display_ini_doc();
-                exit(0);
-            }
 #ifdef _TRACE
             else if (strcmp(opt_name, "tr") == 0) {
                 if (!opt_arg)
@@ -375,11 +345,6 @@ int main(int argc, char ** argv) {
         memory::set_high_watermark(static_cast<size_t>(g_front_end_params->m_memory_high_watermark) * 1024 * 1024);
         memory::set_max_size(static_cast<size_t>(g_front_end_params->m_memory_max_size) * 1024 * 1024);
         g_front_end_params->open_trace_file();
-        DEBUG_CODE(
-                   if (g_front_end_params->m_copy_params != -1) {
-                       g_front_end_params->copy_params(g_front_end_params->m_copy_params);
-                       TRACE("copy_params", g_params->display_params(tout););
-                   });
         if (g_input_file && g_standard_input) {
             error("using standard input to read formula.");
         }

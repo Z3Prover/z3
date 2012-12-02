@@ -23,7 +23,7 @@ struct datalog_params {
     symbol m_default_table;
     bool   m_default_table_checked;
     datalog_params();
-    virtual void register_params(ini_params& p);        
+    // virtual void register_params(ini_params& p);        
 };
 
 unsigned read_datalog(char const * file, datalog_params const& dl_params, front_end_params & front_end_params);

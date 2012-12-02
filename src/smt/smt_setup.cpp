@@ -55,7 +55,6 @@ namespace smt {
         case CFG_LOGIC: setup_default(); break;
         case CFG_AUTO:  setup_auto_config(); break;
         }
-        TRACE("setup", ini_params p; m_params.register_params(p); p.display_params(tout););
     }
 
     void setup::setup_default() {

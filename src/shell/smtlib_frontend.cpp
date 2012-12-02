@@ -40,7 +40,6 @@ static smtlib::solver*     g_solver      = 0;
 static cmd_context *       g_cmd_context = 0;
 
 static void display_statistics() {
-    display_config();
     clock_t end_time = clock();
     if ((g_solver || g_cmd_context) && g_display_statistics) {
         std::cout.flush();

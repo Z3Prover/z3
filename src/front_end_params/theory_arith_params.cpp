@@ -19,6 +19,7 @@ Revision History:
 
 #include"theory_arith_params.h"
 
+#if 0
 void theory_arith_params::register_params(ini_params & p) {
 #ifdef _EXTERNAL_RELEASE
     p.register_int_param("arith_solver", 0, 3, reinterpret_cast<int&>(m_arith_mode), "select arithmetic solver: 0 - no solver, 1 - bellman-ford based solver (diff. logic only), 2 - simplex based solver, 3 - floyd-warshall based solver (diff. logic only) and no theory combination");
@@ -74,3 +75,4 @@ void theory_arith_params::register_params(ini_params & p) {
     p.register_bool_param("arith_euclidean_solver", m_arith_euclidean_solver, "");
 }
 
+#endif

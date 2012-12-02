@@ -997,19 +997,19 @@ namespace datalog {
         p.insert("print_low_level_smt2", CPK_BOOL, "(default false) use (faster) low-level SMT2 printer (the printer is scalable but the result may not be as readable)");
         p.insert("print_with_variable_declarations", CPK_BOOL, "(default true) use variable declarations when displaying rules (instead of attempting to use original names)");
         
-        PRIVATE_PARAMS(
-            p.insert("dbg_fpr_nonempty_relation_signature", CPK_BOOL, 
-                              "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
-                              "by putting in half of the table columns, if it would have been empty otherwise");
+#ifndef _EXTERNAL_RELEASE
+        p.insert("dbg_fpr_nonempty_relation_signature", CPK_BOOL, 
+                 "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
+                 "by putting in half of the table columns, if it would have been empty otherwise");
         
-            p.insert("smt_relation_ground_recursive", CPK_BOOL, "Ensure recursive relation is ground in union");
-        );
-        
+        p.insert("smt_relation_ground_recursive", CPK_BOOL, "Ensure recursive relation is ground in union");
+        p.insert("inline_linear_branch", CPK_BOOL, "try linear inlining method with potential expansion");
+#endif
         p.insert("fix_unbound_vars", CPK_BOOL, "fix unbound variables in tail");
         p.insert("default_table_checker", CPK_SYMBOL, "see default_table_checked");
         p.insert("inline_linear", CPK_BOOL, "(default true) try linear inlining method");
         p.insert("inline_eager", CPK_BOOL, "(default true) try eager inlining of rules");
-        PRIVATE_PARAMS(p.insert("inline_linear_branch", CPK_BOOL, "try linear inlining method with potential expansion"););
+
 
         pdr::dl_interface::collect_params(p);
         bmc::collect_params(p);

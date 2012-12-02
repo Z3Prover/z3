@@ -19,7 +19,6 @@ Revision History:
 #ifndef _FRONT_END_PARAMS_H_
 #define _FRONT_END_PARAMS_H_
 
-#include"ini_file.h"
 #include"ast.h"
 #include"preprocessor_params.h"
 #include"smt_params.h"
@@ -27,23 +26,14 @@ Revision History:
 
 struct front_end_params : public preprocessor_params, public smt_params, 
                           public arith_simplifier_params {
-    ref<param_vector>   m_param_vector;
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.
-    bool                m_default_qid;
     bool                m_well_sorted_check;
-    bool                m_incremental_core_assert; // assert conditions to the core incrementally
-    unsigned            m_soft_timeout;
-    double              m_instr_out;
     unsigned            m_memory_high_watermark;
     unsigned            m_memory_max_size;
     proof_gen_mode      m_proof_mode;
     bool                m_auto_config;
-#ifdef Z3DEBUG
-    int                 m_copy_params; // used for testing copy params... Invoke method copy_params(m_copy_params) in main.cpp when diff -1.
-#endif
 
-    bool                m_ignore_checksat; // abort before checksat... for internal debugging
     bool                m_debug_ref_count;
     bool                m_trace;
     std::string         m_trace_file_name;
@@ -54,14 +44,9 @@ struct front_end_params : public preprocessor_params, public smt_params,
     bool                m_dump_goal_as_smt;
 
     front_end_params():
-        m_param_vector(alloc(param_vector, this)),
         m_at_labels_cex(false),
         m_check_at_labels(false),
-        m_default_qid(false),
         m_well_sorted_check(true),
-        m_incremental_core_assert(true),
-        m_soft_timeout(0),
-        m_instr_out(0.0),
         m_memory_high_watermark(0),
         m_memory_max_size(0),
         m_proof_mode(PGM_DISABLED),
@@ -70,10 +55,6 @@ struct front_end_params : public preprocessor_params, public smt_params,
 #else
         m_auto_config(false), 
 #endif
-#ifdef Z3DEBUG
-        m_copy_params(-1),
-#endif
-        m_ignore_checksat(false),
         m_debug_ref_count(false),
         m_trace(false),
         m_trace_file_name("z3.log"),
@@ -83,15 +64,9 @@ struct front_end_params : public preprocessor_params, public smt_params,
         m_dump_goal_as_smt(false) {
     }
 
-    void register_params(ini_params & p);
-
     void open_trace_file();
 
     void close_trace_file();
-
-    void copy_params(unsigned idx) {
-        m_param_vector->copy_params(this, idx);
-    }
 
     bool has_auto_config(unsigned idx) { return m_auto_config; }
 

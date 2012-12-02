@@ -258,16 +258,18 @@ void dl_interface::collect_params(param_descrs& p) {
     p.insert("unfold_rules", CPK_UINT, "PDR: (default 0) unfold rules statically using iterative squarring");
     p.insert("use_model_generalizer", CPK_BOOL, "PDR: (default false) use model for backwards propagation (instead of symbolic simulation)");
     p.insert("validate_result", CPK_BOOL, "PDR (default false) validate result (by proof checking or model checking)");
-    PRIVATE_PARAMS(p.insert("use_multicore_generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states"););
-    PRIVATE_PARAMS(p.insert("use_inductive_generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening"););
-    PRIVATE_PARAMS(p.insert("use_interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation"););
-    PRIVATE_PARAMS(p.insert("dump_interpolants", CPK_BOOL, "PDR: (default false) display interpolants"););
-    PRIVATE_PARAMS(p.insert("cache_mode", CPK_UINT, "PDR: use no (0 - default) symbolic (1) or explicit cache (2) for model search"););
-    PRIVATE_PARAMS(p.insert("inductive_reachability_check", CPK_BOOL, 
-                            "PDR: (default false) assume negation of the cube on the previous level when "
-                            "checking for reachability (not only during cube weakening)"););
-    PRIVATE_PARAMS(p.insert("max_num_contexts", CPK_UINT, "PDR: (default 500) maximal number of contexts to create"););
-    PRIVATE_PARAMS(p.insert("try_minimize_core", CPK_BOOL, "PDR: (default false) try to reduce core size (before inductive minimization)");); 
+#ifndef _EXTERNAL_RELEASE
+    p.insert("use_multicore_generalizer", CPK_BOOL, "PDR: (default false) extract multiple cores for blocking states");
+    p.insert("use_inductive_generalizer", CPK_BOOL, "PDR: (default true) generalize lemmas using induction strengthening");
+    p.insert("use_interpolants", CPK_BOOL, "PDR: (default false) use iZ3 interpolation for lemma generation");
+    p.insert("dump_interpolants", CPK_BOOL, "PDR: (default false) display interpolants");
+    p.insert("cache_mode", CPK_UINT, "PDR: use no (0 - default) symbolic (1) or explicit cache (2) for model search");
+    p.insert("inductive_reachability_check", CPK_BOOL,
+             "PDR: (default false) assume negation of the cube on the previous level when "
+             "checking for reachability (not only during cube weakening)");
+    p.insert("max_num_contexts", CPK_UINT, "PDR: (default 500) maximal number of contexts to create");
+    p.insert("try_minimize_core", CPK_BOOL, "PDR: (default false) try to reduce core size (before inductive minimization)");
+#endif
     p.insert("simplify_formulas_pre", CPK_BOOL, "PDR: (default false) simplify derived formulas before inductive propagation");
     p.insert("simplify_formulas_post", CPK_BOOL, "PDR: (default false) simplify derived formulas after inductive propagation");
     p.insert("slice", CPK_BOOL, "PDR: (default true) simplify clause set using slicing");

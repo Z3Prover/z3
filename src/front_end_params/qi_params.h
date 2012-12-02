@@ -19,7 +19,7 @@ Revision History:
 #ifndef _QI_PARAMS_H_
 #define _QI_PARAMS_H_
 
-#include"ini_file.h"
+#include"util.h"
 
 enum quick_checker_mode {
     MC_NO,     // do not use (cheap) model checking based instantiation
@@ -105,7 +105,8 @@ struct qi_params {
         m_mbqi_force_template(10),
         m_instgen(false) {
     }
-    
+
+#if 0    
     void register_params(ini_params & p) {
         p.register_unsigned_param("qi_max_eager_multi_patterns", m_qi_max_eager_multipatterns,
                                   "Specify the number of extra multi patterns that are processed eagerly. By default, the prover use at most one multi-pattern eagerly when there is no unary pattern. This value should be smaller than or equal to PI_MAX_MULTI_PATTERNS");
@@ -133,6 +134,8 @@ struct qi_params {
 
         p.register_bool_param("inst_gen", m_instgen, "Enable Instantiation Generation solver (disables other quantifier reasoning)", false);
     }
+#endif
+
 };
 
 #endif /* _QI_PARAMS_H_ */

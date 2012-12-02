@@ -18,8 +18,9 @@ Revision History:
 --*/
 #include"front_end_params.h"
 
+#if 0
+
 void front_end_params::register_params(ini_params & p) {
-    p.register_param_vector(m_param_vector.get());
     preprocessor_params::register_params(p);
     smt_params::register_params(p);
     arith_simplifier_params::register_params(p);
@@ -27,8 +28,6 @@ void front_end_params::register_params(ini_params & p) {
                           "only use labels that contain '@' when building multiple counterexamples");
     p.register_bool_param("check_at_labels", m_check_at_labels, 
                           "check that labels containing '@' are used correctly to only produce unique counter examples");
-    p.register_bool_param("default_qid", m_default_qid, "create a default quantifier id based on its position, the id is used to report profiling information (see QI_PROFILE)");
-    
     p.register_bool_param("type_check", m_well_sorted_check, "enable/disable type checker");
     p.register_bool_param("well_sorted_check", m_well_sorted_check, "enable/disable type checker");
     p.register_unsigned_param("soft_timeout", m_soft_timeout, "set approximate timeout for each solver query (milliseconds), the value 0 represents no timeout", true);
@@ -49,10 +48,7 @@ void front_end_params::register_params(ini_params & p) {
 
 
     PRIVATE_PARAMS({
-        p.register_bool_param("ignore_checksat", m_ignore_checksat);
         p.register_bool_param("debug_ref_count", m_debug_ref_count);
-        p.register_bool_param("incremental_core_assert", m_incremental_core_assert);
-        DEBUG_CODE(p.register_int_param("copy_params", m_copy_params););
     });
 
     // temporary hack until strategic_solver is ported to new tactic framework
@@ -60,6 +56,8 @@ void front_end_params::register_params(ini_params & p) {
         p.register_bool_param("nlsat", m_nlsat);
     });
 }
+
+#endif
 
 void front_end_params::open_trace_file() {
     if (m_trace) {

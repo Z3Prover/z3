@@ -23,7 +23,6 @@ Revision History:
 #include "util.h"
 #include "buffer.h"
 #include "vector.h"
-#include "ini_file.h"
 
 #ifdef _WINDOWS
 #define PRF sprintf_s
@@ -83,8 +82,9 @@ void set_warning_stream(std::ostream* strm) {
     g_warning_stream = strm;
 }
 
-void register_warning(ini_params & p) {
-    p.register_bool_param("WARNING", g_warning_msgs, "enable/disable warning messages", true);
+void register_warning() {
+    // PARAM-TODO
+    // p.register_bool_param("WARNING", g_warning_msgs, "enable/disable warning messages", true);
 }
 
 void disable_error_msg_prefix() {

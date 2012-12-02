@@ -19,8 +19,6 @@ Revision History:
 #ifndef _DYN_ACK_PARAMS_H_
 #define _DYN_ACK_PARAMS_H_
 
-#include"ini_file.h"
-
 enum dyn_ack_strategy {
     DACK_DISABLED,
     DACK_ROOT, // congruence is the root of the conflict
@@ -45,7 +43,6 @@ public:
         m_dack_gc_inv_decay(0.8) {
     }
 
-    void register_params(ini_params & p);
 };
 
 

@@ -3103,7 +3103,6 @@ namespace smt {
         m_next_progress_sample         = 0;
         TRACE("literal_occ", display_literal_num_occs(tout););
         m_timer.start();
-        m_instr.start();
     }
 
     void context::end_search() {
@@ -3355,11 +3354,6 @@ namespace smt {
                 return true;
             
             if (m_timer.ms_timeout(m_fparams.m_soft_timeout)) {
-                m_last_search_failure = TIMEOUT;
-                return true;
-            }
-
-            if (m_instr.is_instruction_maxed(m_fparams.m_instr_out)) {
                 m_last_search_failure = TIMEOUT;
                 return true;
             }

@@ -50,10 +50,10 @@ datalog_params::datalog_params():
     m_default_table_checked(false)
 {}
 
-void datalog_params::register_params(ini_params& p) {
-    p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
-    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
-}
+// void datalog_params::register_params(ini_params& p) {
+//    p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
+//    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
+// }
 
 static void display_statistics(
     std::ostream& out,

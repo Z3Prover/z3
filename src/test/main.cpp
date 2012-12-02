@@ -140,7 +140,6 @@ int main(int argc, char ** argv) {
     TST(diff_logic);
     TST(uint_set);
     TST_ARGV(expr_rand);
-    TST(ini_file);
     TST(list);
     TST(small_object_allocator);
     TST(timeout);

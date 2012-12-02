@@ -19,7 +19,6 @@ Revision History:
 #ifndef _SMT_PARAMS_H_
 #define _SMT_PARAMS_H_
 
-#include"ini_file.h"
 #include"dyn_ack_params.h"
 #include"qi_params.h"
 #include"theory_arith_params.h"
@@ -196,6 +195,7 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
     bool                m_preprocess;  // temporary hack for disabling all preprocessing..
     bool                m_user_theory_preprocess_axioms;
     bool                m_user_theory_persist_axioms;
+    unsigned            m_soft_timeout;
     
     smt_params():
         m_display_proof(false),
@@ -259,12 +259,11 @@ struct smt_params : public dyn_ack_params, public qi_params, public theory_arith
         m_display_installed_theories(false),
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
-        m_user_theory_persist_axioms(false)
+        m_user_theory_persist_axioms(false),
+        m_soft_timeout(0)
     {
 
     }
-
-    void register_params(ini_params & p);
 };
 
 #endif /* _SMT_PARAMS_H_ */

@@ -47,7 +47,6 @@ Revision History:
 #include"proto_model.h"
 #include"model.h"
 #include"timer.h"
-#include"instruction_count.h"
 #include"statistics.h"
 #include"progress_callback.h"
 
@@ -77,7 +76,6 @@ namespace smt {
         setup                       m_setup;
         volatile bool               m_cancel_flag;
         timer                       m_timer;
-        instruction_count           m_instr;
         asserted_formulas           m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
