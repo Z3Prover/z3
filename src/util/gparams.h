@@ -106,8 +106,13 @@ public:
     /**
        \brief Dump information about available parameters in the given output stream.
     */
-    static void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false);
+    static void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false, bool include_descr=true);
     
+    // Auxiliary APIs for better command line support
+    static void display_modules(std::ostream & out);
+    static void display_module(std::ostream & out, char const * module_name);
+    static void display_parameter(std::ostream & out, char const * name);
+
     /**
        \brief Initialize the global parameter management module.
        

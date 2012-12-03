@@ -119,7 +119,7 @@ public:
     char const * get_descr(symbol const & name) const;
     char const * get_default(char const * name) const;
     char const * get_default(symbol const & name) const;
-    void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false) const;
+    void display(std::ostream & out, unsigned indent = 0, bool smt2_style=false, bool include_descr=true) const;
     unsigned size() const; 
     symbol get_param_name(unsigned idx) const;
 };

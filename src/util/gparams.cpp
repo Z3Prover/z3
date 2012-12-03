@@ -91,26 +91,6 @@ public:
         }
     }
 
-    void display(std::ostream & out, unsigned indent, bool smt2_style) {
-        #pragma omp critical (gparams)
-        {
-            out << "Global parameters\n";
-            m_param_descrs.display(out, indent + 4, smt2_style);
-            out << "\n";
-            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-            for (; it != end; ++it) {
-                out << "[module] " << it->m_key;
-                char const * descr = 0;
-                if (m_module_descrs.find(it->m_key, descr)) {
-                    out << ", description: " << descr;
-                }
-                out << "\n";
-                it->m_value->display(out, indent + 4, smt2_style);
-            }
-        }
-    }
-
     void normalize(char const * name, /* out */ symbol & mod_name, /* out */ symbol & param_name) {
         if (*name == ':')
             name++;
@@ -315,6 +295,80 @@ public:
         return result;
     }
 
+    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {
+        #pragma omp critical (gparams)
+        {
+            out << "Global parameters\n";
+            m_param_descrs.display(out, indent + 4, smt2_style, include_descr);
+            out << "\n";
+            if (!smt2_style) {
+                out << "To set a module parameter, use <module-name>.<parameter-name>=value\n";
+                out << "Example:  pp.decimal=true\n";
+                out << "\n";
+            }
+            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
+            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+            for (; it != end; ++it) {
+                out << "[module] " << it->m_key;
+                char const * descr = 0;
+                if (m_module_descrs.find(it->m_key, descr)) {
+                    out << ", description: " << descr;
+                }
+                out << "\n";
+                it->m_value->display(out, indent + 4, smt2_style, include_descr);
+            }
+        }
+    }
+
+    void display_modules(std::ostream & out) {
+        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
+        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+        for (; it != end; ++it) {
+            out << "[module] " << it->m_key;
+            char const * descr = 0;
+            if (m_module_descrs.find(it->m_key, descr)) {
+                out << ", description: " << descr;
+            }
+            out << "\n";
+        }
+    }
+
+    void display_module(std::ostream & out, symbol const & module_name) {
+        param_descrs * d = 0;
+        if (!m_module_param_descrs.find(module_name, d))
+            throw exception("unknown module '%s'", module_name.bare_str());
+        out << "[module] " << module_name;
+        char const * descr = 0;
+        if (m_module_descrs.find(module_name, descr)) {
+            out << ", description: " << descr;
+        }
+        out << "\n";
+        d->display(out, 4, false);
+    }
+
+    void display_parameter(std::ostream & out, char const * name) {
+        symbol m, p;
+        normalize(name, m, p);
+        std::cout << name << " " << m << " " << p << "\n";
+        param_descrs * d;
+        if (m == symbol::null) {
+            d = &m_param_descrs;
+        }
+        else {
+            if (!m_module_param_descrs.find(m, d))
+                throw exception("unknown module '%s'", m.bare_str());
+        }
+        if (!d->contains(p))
+            throw_unknown_parameter(p, m);
+        out << "  name:           " << p << "\n";
+        if (m != symbol::null) {
+            out << "  module:         " << m << "\n";
+            out << "  qualified name: " << m << "." << p << "\n";
+        }
+        out << "  type:           " << d->get_kind(p) << "\n";
+        out << "  description:    " << d->get_descr(p) << "\n";
+        out << "  default value:  " << d->get_default(p) << "\n";
+    }
 };
 
 gparams::imp * gparams::g_imp = 0;
@@ -370,9 +424,24 @@ params_ref gparams::get() {
     return g_imp->get();
 }
 
-void gparams::display(std::ostream & out, unsigned indent, bool smt2_style) {
+void gparams::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {
     SASSERT(g_imp != 0);
-    g_imp->display(out, indent, smt2_style);
+    g_imp->display(out, indent, smt2_style, include_descr);
+}
+
+void gparams::display_modules(std::ostream & out) {
+    SASSERT(g_imp != 0);
+    g_imp->display_modules(out);
+}
+
+void gparams::display_module(std::ostream & out, char const * module_name) {
+    SASSERT(g_imp != 0);
+    g_imp->display_module(out, symbol(module_name));
+}
+
+void gparams::display_parameter(std::ostream & out, char const * name) {
+    SASSERT(g_imp != 0);
+    g_imp->display_parameter(out, name);
 }
 
 void gparams::init() {
