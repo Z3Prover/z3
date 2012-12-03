@@ -1,3 +1,5 @@
+from z3 import *
+
 """
 In Z3, variables are caleld *uninterpreted* consts and 
 variables are *interpreted* consts.
