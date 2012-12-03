@@ -343,7 +343,7 @@ void tst_dl_product_relation() {
 
     test_functional_columns(fparams, params);
 
-    params.set_sym(":default-relation", symbol("tr_sparse"));
+    params.set_sym("default_relation", symbol("tr_sparse"));
     test_finite_product_relation(fparams, params);
     
 }

@@ -38,11 +38,6 @@ Notes:
 #include"scoped_ptr_vector.h"
 #include"context_params.h"
 
-/**
-   \brief Auxiliary function for converting SMT2 keywords into Z3 internal parameter names.
-*/
-std::string smt2_keyword_to_param(symbol const & k);
-
 class func_decls {
     func_decl * m_decls;
 public:

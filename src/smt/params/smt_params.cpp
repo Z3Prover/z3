@@ -22,6 +22,8 @@ Revision History:
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
     m_auto_config = p.auto_config();
+    m_random_seed = p.random_seed();
+    m_relevancy_lvl = p.relevancy();
     m_ematching   = p.ematching();
     m_phase_selection = static_cast<phase_selection>(p.phase_selection());
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());
@@ -29,6 +31,11 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_case_split_strategy = static_cast<case_split_strategy>(p.case_split());
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
+    m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
+    if (_p.get_bool("arith.greatest_error_pivot", false))
+        m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
+    else if (_p.get_bool("arith.least_error_pivot", false))
+        m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
 }
 
 void smt_params::updt_params(params_ref const & p) {

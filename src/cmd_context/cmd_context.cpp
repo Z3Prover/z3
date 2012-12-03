@@ -38,22 +38,6 @@ Notes:
 #include"model_evaluator.h"
 #include"for_each_expr.h"
 
-std::string smt2_keyword_to_param(symbol const & opt) {
-    std::string r;
-    SASSERT(opt.bare_str()[0] == ':');
-    r = opt.bare_str() + 1;
-    unsigned sz = static_cast<unsigned>(r.size());
-    for (unsigned i = 0; i < sz; i++) {
-        char curr = r[i];
-        if ('A' <= curr && curr <= 'Z')
-            r[i] = curr - 'A' + 'a';
-        else if (curr == '-')
-            r[i] = '_';
-    }
-    TRACE("smt2_keyword_to_param", tout << opt << " -> '" << r << "'\n";);
-    return r;
-}
-
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
     m.inc_ref(f);

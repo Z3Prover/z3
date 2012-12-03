@@ -342,7 +342,7 @@ protected:
 
 tactic * mk_degree_shift_tactic(ast_manager & m, params_ref const & p) {
     params_ref mul2power_p;
-    mul2power_p.set_bool(":mul-to-power", true);
+    mul2power_p.set_bool("mul_to_power", true);
     return and_then(using_params(mk_simplify_tactic(m), mul2power_p),
                     clean(alloc(degree_shift_tactic, m)));
 }

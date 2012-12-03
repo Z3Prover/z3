@@ -50,7 +50,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     dl_decl_util decl_util(m);
 
     context ctx_q(m, fparams);
-    params.set_bool(":magic-sets-for-queries", use_magic_sets);
+    params.set_bool("magic_sets_for_queries", use_magic_sets);
     ctx_q.updt_params(params);
     {
         parser* p = parser::create(ctx_q,m);
@@ -125,7 +125,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
 }
 
 void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
-    params.set_bool(":magic-sets-for-queries", true);
+    params.set_bool("magic_sets_for_queries", true);
     ast_manager m;
     reg_decl_plugins(m);
     arith_util arith(m);
@@ -185,8 +185,8 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
 void tst_dl_query() {
     smt_params fparams;
     params_ref params;
-    params.set_sym(":default-table", symbol("sparse"));
-    params.set_sym(":default-relation", symbol("tr_sparse"));
+    params.set_sym("default_table", symbol("sparse"));
+    params.set_sym("default_relation", symbol("tr_sparse"));
 
     //params.m_dl_default_table = symbol("hashtable");
     //params.m_dl_default_relation = symbol("tr_hashtable");
@@ -212,9 +212,9 @@ void tst_dl_query() {
     ctx_base.dl_saturate();
 
     for(unsigned use_restarts=0; use_restarts<=1; use_restarts++) {
-        params.set_uint(":initial-restart-timeout", use_restarts ? 100 : 0);
+        params.set_uint("initial_restart_timeout", use_restarts ? 100 : 0);
         for(unsigned use_similar=0; use_similar<=1; use_similar++) {
-            params.set_uint(":similarity-compressor", use_similar != 0);
+            params.set_uint("similarity_compressor", use_similar != 0);
 
             for(unsigned use_magic_sets=0; use_magic_sets<=1; use_magic_sets++) {
                 stopwatch watch;

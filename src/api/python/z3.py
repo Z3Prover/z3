@@ -223,7 +223,7 @@ def get_option(name):
     """Return the value of a Z3 global (or module) parameter
 
     >>> get_option('nlsat.reorder')
-    true
+    'true'
     """
     ptr = (ctypes.c_char_p * 1)()
     if Z3_global_param_get(str(name), ptr):
@@ -4384,8 +4384,8 @@ def args2params(arguments, keywords, ctx=None):
     """Convert python arguments into a Z3_params object.
     A ':' is added to the keywords, and '_' is replaced with '-'
 
-    >>> args2params([':model', True, ':relevancy', 2], {'elim_and' : True})
-    (params :model 1 :relevancy 2 :elim-and 1)
+    >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
+    (params model 1 relevancy 2 elim_and 1)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")
@@ -4398,7 +4398,6 @@ def args2params(arguments, keywords, ctx=None):
             r.set(prev, a)
             prev = None
     for k, v in keywords.iteritems():
-        k = ':' + k.replace('_', '-')
         r.set(k, v)
     return r
 

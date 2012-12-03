@@ -902,7 +902,7 @@ public:
 
 tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p) {
     params_ref elim_rem_p = p;
-    elim_rem_p.set_bool("elim-rem", true);
+    elim_rem_p.set_bool("elim_rem", true);
     
     params_ref skolemize_p;
     skolemize_p.set_bool("skolemize", false);
