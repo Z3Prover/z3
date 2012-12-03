@@ -205,7 +205,7 @@ namespace datalog {
 
     void mk_rule_inliner::count_pred_occurrences(rule_set const & orig)
     {
-        m_context.get_rmanager().collect_non_empty_predicates(m_preds_with_facts);
+        m_context.get_rel_context().get_rmanager().collect_non_empty_predicates(m_preds_with_facts);
 
         rule_set::iterator rend = orig.end();
         for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {

@@ -35,11 +35,11 @@ Revision History:
 #include"dl_rule_set.h"
 #include"pdr_dl_interface.h"
 #include"dl_bmc_engine.h"
+#include"rel_context.h"
 #include"lbool.h"
 #include"statistics.h"
 #include"params.h"
 #include"trail.h"
-#include"dl_external_relation.h"
 #include"model_converter.h"
 #include"proof_converter.h"
 #include"model2expr.h"
@@ -75,7 +75,6 @@ namespace datalog {
         typedef map<symbol, func_decl*, symbol_hash_proc, symbol_eq_proc> sym2decl;
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
-        typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
         ast_manager &      m;
         smt_params &       m_fparams;
@@ -84,7 +83,6 @@ namespace datalog {
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
-        relation_manager   m_rmanager;
         rule_manager       m_rule_manager;
 
         trail_stack<context> m_trail;
@@ -94,7 +92,6 @@ namespace datalog {
         func_decl_set      m_preds;
         sym2decl           m_preds_by_name;
         pred2syms          m_argument_var_names;
-        decl_set           m_output_preds;
         rule_set           m_rule_set;
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;
@@ -102,22 +99,19 @@ namespace datalog {
 
         scoped_ptr<pdr::dl_interface>   m_pdr;
         scoped_ptr<bmc>                 m_bmc;
+        scoped_ptr<rel_context>         m_rel;
 
         bool               m_closed;
         bool               m_saturation_was_run;
         execution_result   m_last_status;
-        relation_base *    m_last_result_relation;
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine;
         volatile bool      m_cancel;
-        fact_vector        m_table_facts;
 
         bool is_fact(app * head) const;
         bool has_sort_domain(relation_sort s) const;
         sort_domain & get_sort_domain(relation_sort s);
         const sort_domain & get_sort_domain(relation_sort s) const;
-
-        relation_plugin & get_ordinary_relation_plugin(symbol relation_name);
 
         class engine_type_proc;
 
@@ -130,25 +124,12 @@ namespace datalog {
         void push();
         void pop();
         
-        relation_base & get_relation(func_decl * pred) { return get_rmanager().get_relation(pred); }
-        relation_base * try_get_relation(func_decl * pred) const { return get_rmanager().try_get_relation(pred); }
-
         bool saturation_was_run() const { return m_saturation_was_run; }
         void notify_saturation_was_run() { m_saturation_was_run = true; }
-
-        /**
-           \brief Store the relation \c rel under the predicate \c pred. The \c context object
-           takes over the ownership of the relation object.
-        */
-        void store_relation(func_decl * pred, relation_base * rel) {
-            get_rmanager().store_relation(pred, rel);
-        }
 
         void configure_engine();
 
         ast_manager & get_manager() const { return m; }
-        relation_manager & get_rmanager() { return m_rmanager; }
-        const relation_manager & get_rmanager() const { return m_rmanager; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
         fixedpoint_params const&  get_params() const { return m_params; }
@@ -247,8 +228,8 @@ namespace datalog {
             symbol const *  relation_names);
 
         void set_output_predicate(func_decl * pred);
-        bool is_output_predicate(func_decl * pred) { return m_output_preds.contains(pred); }
-        const decl_set & get_output_predicates() const { return m_output_preds; }
+        bool is_output_predicate(func_decl * pred);
+        const decl_set & get_output_predicates();
 
         rule_set const & get_rules() { flush_add_rules(); return m_rule_set; }
 
@@ -314,7 +295,6 @@ namespace datalog {
            and there is no transformation of relation values before they are put into the
            table.
          */
-        bool can_add_table_fact(func_decl * pred);
         void add_table_fact(func_decl * pred, const table_fact & fact);
         void add_table_fact(func_decl * pred, unsigned num_args, unsigned args[]);
 
@@ -323,6 +303,7 @@ namespace datalog {
         */
         void close();
         void ensure_closed();
+        bool is_closed() { return m_closed; }
 
         /**
            \brief Undo the effect of the \c close operation.
@@ -351,13 +332,10 @@ namespace datalog {
         void display_rules(std::ostream & out) const {
             m_rule_set.display(out);
         }
-        void display_facts(std::ostream & out) const {
-            m_rmanager.display(out);
-        }
 
         void display(std::ostream & out) const {
             display_rules(out);
-            display_facts(out);
+            if (m_rel) m_rel->display_facts(out);
         }
 
         void display_smt2(unsigned num_queries, expr* const* queries, std::ostream& out);
@@ -407,22 +385,15 @@ namespace datalog {
         /**
            Query multiple output relations.
         */
-        lbool dl_query(unsigned num_rels, func_decl * const* rels);
+        lbool rel_query(unsigned num_rels, func_decl * const* rels);
 
-        /**
-           Reset tables that are under negation.
-         */
-        void reset_negated_tables();
-
-        /**
-           Just reset all tables.
-        */
-        void reset_tables(); 
 
         /**
            \brief retrieve last proof status.
         */
         execution_result get_status();
+
+        void set_status(execution_result r) { m_last_status = r; }
 
         /**
            \brief retrieve formula corresponding to query that returns l_true.
@@ -446,19 +417,24 @@ namespace datalog {
          */
         bool result_contains_fact(relation_fact const& f);
 
+#if 0
         /**
            \brief display facts generated for query.
         */
         void display_output_facts(std::ostream & out) const {
-            m_rmanager.display_output_tables(out);
+            get_rel_context().get_rmanager().display_output_tables(out);
         }
+#endif
 
-        /**
-           \brief expose datalog saturation for test.
-        */
-        lbool dl_saturate();
+        rel_context& get_rel_context() { ensure_rel(); return *m_rel; }
 
     private:
+
+        /**
+           Just reset all tables.
+        */
+        void reset_tables(); 
+
 
         void flush_add_rules();
 
@@ -466,9 +442,11 @@ namespace datalog {
 
         void ensure_bmc();
 
+        void ensure_rel();
+
         void new_query();
 
-        lbool dl_query(expr* query);
+        lbool rel_query(expr* query);
 
         lbool pdr_query(expr* query);
 

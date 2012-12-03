@@ -1326,9 +1326,6 @@ private:
             throw default_exception("tuple file %s for undeclared predicate %s", 
                 m_current_file.c_str(), predicate_name.bare_str());
         }
-        if(!m_context.can_add_table_fact(pred)) {
-            NOT_IMPLEMENTED_YET();
-        }
         unsigned pred_arity = pred->get_arity();
         sort * const * arg_sorts = pred->get_domain();
 

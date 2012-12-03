@@ -48,7 +48,7 @@ namespace api {
         if (!m.has_plugin(name)) {
             m.register_plugin(name, alloc(datalog::dl_decl_plugin));
         }        
-        datalog::relation_manager& r = m_context.get_rmanager();
+        datalog::relation_manager& r = m_context.get_rel_context().get_rmanager();
         r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
     }        
     
@@ -295,7 +295,7 @@ extern "C" {
         {
             scoped_timer timer(timeout, &eh);
             try {
-                r = to_fixedpoint_ref(d)->ctx().dl_query(num_relations, to_func_decls(relations));
+                r = to_fixedpoint_ref(d)->ctx().rel_query(num_relations, to_func_decls(relations));
             }
             catch (z3_exception& ex) {
                 mk_c(c)->handle_exception(ex);

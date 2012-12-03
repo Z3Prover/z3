@@ -97,7 +97,7 @@ namespace datalog {
             return 0;
         }
 
-        relation_manager & rm = m_context.get_rmanager();
+        relation_manager & rm = m_context.get_rel_context().get_rmanager();
         rule_set::decl2rules::iterator it  = source.begin_grouped_rules();
         rule_set::decl2rules::iterator end = source.end_grouped_rules();
 

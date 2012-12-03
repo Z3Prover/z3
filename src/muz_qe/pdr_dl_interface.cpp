@@ -83,7 +83,6 @@ lbool dl_interface::query(expr * query) {
     m_pdr_rules.reset();
     m_refs.reset();
     m_pred2slice.reset();
-    m_ctx.get_rmanager().reset_relations();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
     datalog::rule_set        old_rules(m_ctx.get_rules());

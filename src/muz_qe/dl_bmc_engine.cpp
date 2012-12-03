@@ -57,7 +57,6 @@ namespace datalog {
 
         m_ctx.ensure_opened();
         m_rules.reset();
-        m_ctx.get_rmanager().reset_relations();
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
         datalog::rule_set        old_rules(m_ctx.get_rules());
         datalog::rule_ref_vector query_rules(rule_manager);

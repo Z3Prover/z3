@@ -1014,7 +1014,7 @@ namespace datalog {
         out << '.';
         if (ctx.output_profile()) {
             out << " {";
-            output_profile(ctx, out);
+            output_profile(out);
             out << '}';
         }
         out << '\n';
