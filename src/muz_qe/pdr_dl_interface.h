@@ -66,8 +66,6 @@ namespace pdr {
         expr_ref get_cover_delta(int level, func_decl* pred);
        
         void add_cover(int level, func_decl* pred, expr* property);
-
-        static void collect_params(param_descrs& p);
                
         void updt_params();
 

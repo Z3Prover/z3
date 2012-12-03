@@ -24,7 +24,6 @@ Revision History:
 #undef max
 #endif
 #include"arith_decl_plugin.h"
-#include"smt_params.h"
 #include"map.h"
 #include"th_rewriter.h"
 #include"str_hashtable.h"
@@ -44,6 +43,7 @@ Revision History:
 #include"model_converter.h"
 #include"proof_converter.h"
 #include"model2expr.h"
+#include"smt_params.h"
 
 namespace datalog {
 
@@ -78,8 +78,9 @@ namespace datalog {
         typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
         ast_manager &      m;
-        smt_params&  m_fparams;
-        params_ref         m_params;
+        smt_params &       m_fparams;
+        params_ref         m_params_ref;
+        fixedpoint_params  m_params;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -122,7 +123,7 @@ namespace datalog {
 
 
     public:
-        context(ast_manager & m, smt_params& params, params_ref const& p = params_ref());
+        context(ast_manager & m, smt_params& fp, params_ref const& p = params_ref());
         ~context();
         void reset();
 
@@ -150,31 +151,31 @@ namespace datalog {
         const relation_manager & get_rmanager() const { return m_rmanager; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
-        params_ref const&  get_params() const { return m_params; }
+        fixedpoint_params const&  get_params() const { return m_params; }
         DL_ENGINE get_engine() { configure_engine(); return m_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
 
-        bool output_profile() const { return m_params.get_bool("output_profile", false); } 
-        bool fix_unbound_vars() const { return m_params.get_bool("fix_unbound_vars", false); }
-        symbol default_table() const { return m_params.get_sym("default_table", symbol("sparse")); }
-        symbol default_relation() const { return m_params.get_sym("default_relation", external_relation_plugin::get_name()); }
-        symbol default_table_checker() const { return m_params.get_sym("default_table_checker", symbol("sparse")); }
-        bool default_table_checked() const { return m_params.get_bool("default_table_checked", false); }
-        bool dbg_fpr_nonempty_relation_signature() const { return m_params.get_bool("dbg_fpr_nonempty_relation_signatures", false); } 
-        unsigned dl_profile_milliseconds_threshold() const { return m_params.get_uint("profile_milliseconds_threshold", 0); }
-        bool all_or_nothing_deltas() const { return m_params.get_bool("all_or_nothing_deltas", false); }
-        bool compile_with_widening() const { return m_params.get_bool("compile_with_widening", false); }
-        bool unbound_compressor() const { return m_params.get_bool("unbound_compressor", true); }
-        bool similarity_compressor() const { return m_params.get_bool("similarity_compressor", true); }
-        unsigned similarity_compressor_threshold() const { return m_params.get_uint("similarity_compressor_threshold", 11); }
+        bool output_profile() const { return m_params.output_profile(); }
+        bool fix_unbound_vars() const { return m_params.fix_unbound_vars(); }
+        symbol default_table() const { return m_params.default_table(); }
+        symbol default_relation() const { return m_params.default_relation(); } // external_relation_plugin::get_name()); 
+        symbol default_table_checker() const { return m_params.default_table_checker(); }
+        bool default_table_checked() const { return m_params.default_table_checked(); }
+        bool dbg_fpr_nonempty_relation_signature() const { return m_params.dbg_fpr_nonempty_relation_signature(); }
+        unsigned dl_profile_milliseconds_threshold() const { return m_params.profile_timeout_milliseconds(); }
+        bool all_or_nothing_deltas() const { return m_params.all_or_nothing_deltas(); }
+        bool compile_with_widening() const { return m_params.compile_with_widening(); }
+        bool unbound_compressor() const { return m_params.unbound_compressor(); }
+        bool similarity_compressor() const { return m_params.similarity_compressor(); }
+        unsigned similarity_compressor_threshold() const { return m_params.similarity_compressor_threshold(); }
         unsigned soft_timeout() const { return m_fparams.m_soft_timeout; }
-        unsigned initial_restart_timeout() const { return m_params.get_uint("initial_restart_timeout", 0); } 
-        bool generate_explanations() const { return m_params.get_bool("generate_explanations", false); }
-        bool explanations_on_relation_level() const { return m_params.get_bool("explanations_on_relation_level", false); }
-        bool magic_sets_for_queries() const { return m_params.get_bool("magic_sets_for_queries", false); }
-        bool eager_emptiness_checking() const { return m_params.get_bool("eager_emptiness_checking", true); }
+        unsigned initial_restart_timeout() const { return m_params.initial_restart_timeout(); } 
+        bool generate_explanations() const { return m_params.generate_explanations(); }
+        bool explanations_on_relation_level() const { return m_params.explanations_on_relation_level(); }
+        bool magic_sets_for_queries() const { return m_params.magic_sets_for_queries();  }
+        bool eager_emptiness_checking() const { return m_params.eager_emptiness_checking(); }
 
         void register_finite_sort(sort * s, sort_kind k);
 

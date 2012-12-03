@@ -166,7 +166,7 @@ namespace pdr {
         return res;
     }
     
-    manager::manager(smt_params& fparams, params_ref const& params, ast_manager& manager) :
+    manager::manager(smt_params& fparams, fixedpoint_params const& params, ast_manager& manager) :
         m(manager),
         m_fparams(fparams),
         m_params(params),
@@ -311,17 +311,8 @@ namespace pdr {
         else {
             return false;
         }
-    }
-    
-    
-    interpolant_provider& manager::get_interpolator() {
-        if(!m_interpolator) {
-            m_interpolator = interpolant_provider::mk(m, get_params());
-        }
-        return *m_interpolator;
-    }
-    
-    
+    }       
+        
     bool manager::implication_surely_holds(expr * lhs, expr * rhs, expr * bg) {
         smt::kernel sctx(m, get_fparams());
         if(bg) {

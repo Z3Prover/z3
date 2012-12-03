@@ -1160,9 +1160,9 @@ class wpa_parser_impl : public wpa_parser, dparser {
 public:        
     wpa_parser_impl(context & ctx) 
         : dparser(ctx, ctx.get_manager()),
-        m_bool_sort(ctx.get_manager()),
-        m_short_sort(ctx.get_manager()),
-        m_use_map_names(ctx.get_params().get_bool("use_map_names", true)) { 
+          m_bool_sort(ctx.get_manager()),
+          m_short_sort(ctx.get_manager()),
+          m_use_map_names(ctx.get_params().use_map_names()) {
     }
     ~wpa_parser_impl() {
         reset_dealloc_values(m_sort_contents);

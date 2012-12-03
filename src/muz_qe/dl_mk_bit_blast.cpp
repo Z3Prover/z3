@@ -161,7 +161,7 @@ namespace datalog {
         impl(context& ctx):
             m_context(ctx),
             m(ctx.get_manager()),
-            m_params(ctx.get_params()),
+            m_params(ctx.get_params().p),
             m_rules(ctx.get_rule_manager()),
             m_blaster(ctx.get_manager(), m_params),
             m_rewriter(ctx.get_manager(), ctx, m_rules) {
@@ -172,7 +172,7 @@ namespace datalog {
         
         rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
             // TODO mc, pc
-            if (!m_context.get_params().get_bool("bit_blast", false)) {
+            if (!m_context.get_params().bit_blast()) {
                 return 0;
             }
             if (m_context.get_engine() != PDR_ENGINE) {

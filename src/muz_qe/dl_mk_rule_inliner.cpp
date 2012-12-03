@@ -750,8 +750,7 @@ namespace datalog {
         valid.reset();
         valid.resize(sz, true);        
 
-        params_ref const& params = m_context.get_params();
-        bool allow_branching = params.get_bool("inline_linear_branch", false);
+        bool allow_branching = m_context.get_params().inline_linear_branch();
 
         for (unsigned i = 0; i < sz; ++i) {
 
@@ -842,7 +841,6 @@ namespace datalog {
         bool something_done = false;
         ref<horn_subsume_model_converter> hsmc;        
         ref<replace_proof_converter> hpc;
-        params_ref const& params = m_context.get_params();
 
         if (source.get_num_rules() == 0) {
             return 0;
@@ -867,7 +865,7 @@ namespace datalog {
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
 
-        if (params.get_bool("inline_eager", true)) {
+        if (m_context.get_params().inline_eager()) {
             TRACE("dl", source.display(tout << "before eager inlining\n"););
             plan_inlining(source);            
             something_done = transform_rules(source, *res);            
@@ -879,7 +877,7 @@ namespace datalog {
             TRACE("dl", res->display(tout << "after eager inlining\n"););
         }
 
-        if (params.get_bool("inline_linear", true) && inline_linear(res)) {
+        if (m_context.get_params().inline_linear() && inline_linear(res)) {
             something_done = true;
         }
 

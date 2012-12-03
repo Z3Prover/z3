@@ -212,7 +212,7 @@ namespace pdr {
         m(pm.get_manager()),
         m_pm(pm),
         m_name(name),
-        m_try_minimize_core(pm.get_params().get_bool("try_minimize_core", false)),
+        m_try_minimize_core(pm.get_params().try_minimize_core()),
         m_ctx(pm.mk_fresh()),
         m_pos_level_atoms(m),
         m_neg_level_atoms(m),

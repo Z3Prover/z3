@@ -24,6 +24,7 @@ Revision History:
 #include "statistics.h"
 #include "smt_kernel.h"
 #include "bv_decl_plugin.h"
+#include "smt_params.h"
 
 
 namespace datalog {
@@ -130,8 +131,6 @@ namespace datalog {
         void reset_statistics(); 
 
         expr_ref get_answer();
-
-        static void collect_params(param_descrs& p);
     };
 };
 

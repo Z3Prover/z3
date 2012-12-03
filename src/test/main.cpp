@@ -166,7 +166,6 @@ int main(int argc, char ** argv) {
     TST(total_order);
     TST(dl_table);
     TST(dl_context);
-    TST(dl_smt_relation);
     TST(dl_query);
     TST(dl_util);
     TST(dl_product_relation);

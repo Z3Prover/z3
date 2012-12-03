@@ -30,6 +30,7 @@ Revision History:
 #include "pdr_prop_solver.h"
 #include "pdr_reachable_cache.h"
 
+
 namespace datalog {
     class rule_set;
     class context;
@@ -291,7 +292,7 @@ namespace pdr {
         };
         
         smt_params&    m_fparams;
-        params_ref const&    m_params;
+        fixedpoint_params const&    m_params;
         ast_manager&         m;
         datalog::context*    m_context;
         manager              m_pm;  
@@ -349,13 +350,13 @@ namespace pdr {
         */
         context(
             smt_params&        fparams,
-            params_ref const&  params,
+            fixedpoint_params const&  params,
             ast_manager&       m);
 
         ~context();
         
         smt_params&       get_fparams() const { return m_fparams; }
-        params_ref const& get_params() const { return m_params; }
+        fixedpoint_params const& get_params() const { return m_params; }
         ast_manager&      get_manager() const { return m; }
         manager&          get_pdr_manager() { return m_pm; }
         decl2rel const&   get_pred_transformers() const { return m_rels; }

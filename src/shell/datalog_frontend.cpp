@@ -26,12 +26,12 @@ Revision History:
 #undef max
 #endif
 #include"smt_params.h"
-#include"datalog_parser.h"
 #include"arith_decl_plugin.h"
 #include"dl_compiler.h"
-#include"dl_context.h"
 #include"dl_mk_filter_rules.h"
 #include"dl_finite_product_relation.h"
+#include"dl_context.h"
+#include"datalog_parser.h"
 #include"datalog_frontend.h"
 #include"timeout.h"
 
@@ -71,7 +71,7 @@ static void display_statistics(
 
     code.process_all_costs();
     {
-        params_ref p(ctx.get_params());
+        params_ref p;
         p.set_bool("output_profile", true);
         p.set_uint("profile_milliseconds_threshold", 100);
         ctx.updt_params(p);
@@ -250,7 +250,7 @@ unsigned read_datalog(char const * file) {
         TRACE("dl_compiler", ctx.display(tout);
               rules_code.display(ctx, tout););
         
-        if (ctx.get_params().get_bool("output_tuples", true)) { 
+        if (ctx.get_params().output_tuples()) {
             ctx.display_output_facts(std::cout);
         }
 
