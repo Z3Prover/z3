@@ -497,7 +497,7 @@ static tactic * mk_using_params(cmd_context & ctx, sexpr * n) {
             throw cmd_exception("invalid using-params combinator, keyword expected", c->get_line(), c->get_pos());
         if (i == num_children)
             throw cmd_exception("invalid using-params combinator, parameter value expected", c->get_line(), c->get_pos());
-        symbol param_name = c->get_symbol();
+        symbol param_name = symbol(smt2_keyword_to_param(c->get_symbol()).c_str());
         c = n->get_child(i);
         i++;
         switch (descrs.get_kind(param_name)) {
