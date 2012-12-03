@@ -44,6 +44,11 @@ struct dl_context {
     scoped_ptr<datalog::context>  m_context; 
     trail_stack<dl_context>       m_trail;
 
+    fixedpoint_params const& get_params() { 
+        init();
+        return m_context->get_params();
+    }
+
     dl_context(cmd_context & ctx, dl_collected_cmds* collected_cmds):
         m_params(m_params_ref),
         m_cmd(ctx),
@@ -214,7 +219,7 @@ public:
         datalog::context& dlctx = m_dl_ctx->dlctx();
         set_background(ctx);        
         dlctx.updt_params(m_params);
-        unsigned timeout   = m_dl_ctx->m_params.timeout(); 
+        unsigned timeout   = m_dl_ctx->get_params().timeout(); 
         cancel_eh<datalog::context> eh(dlctx);
         lbool status = l_undef;
         {
@@ -283,7 +288,7 @@ private:
     }
 
     void print_answer(cmd_context& ctx) {
-        if (m_dl_ctx->m_params.print_answer()) {
+        if (m_dl_ctx->get_params().print_answer()) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             ast_manager& m = ctx.m();
             expr_ref query_result(dlctx.get_answer_as_formula(), m);
@@ -298,7 +303,7 @@ private:
     }
 
     void print_statistics(cmd_context& ctx) {
-        if (m_dl_ctx->m_params.print_statistics()) {
+        if (m_dl_ctx->get_params().print_statistics()) {
             statistics st;
             datalog::context& dlctx = m_dl_ctx->dlctx();
             unsigned long long max_mem = memory::get_max_used_memory();
@@ -312,7 +317,7 @@ private:
     }
 
     void print_certificate(cmd_context& ctx) {
-        if (m_dl_ctx->m_params.print_certificate()) {
+        if (m_dl_ctx->get_params().print_certificate()) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
             if (!dlctx.display_certificate(ctx.regular_stream())) {
                 throw cmd_exception("certificates are not supported for the selected engine");
