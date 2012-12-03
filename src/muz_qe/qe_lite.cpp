@@ -33,6 +33,8 @@ Revision History:
 #include "dl_util.h"
 #include "th_rewriter.h"
 #include "dl_util.h"
+#include "for_each_expr.h"
+#include "expr_safe_replace.h"
 
 
 class is_variable_proc {
@@ -77,9 +79,10 @@ public:
 namespace eq {
     class der {
         ast_manager &   m;
+        arith_util      a;
         is_variable_proc* m_is_variable;
         var_subst       m_subst;
-        expr_ref_buffer m_new_exprs;
+        expr_ref_vector m_new_exprs;
         
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
@@ -225,7 +228,81 @@ namespace eq {
                 return false;
             }
         }
+
+        bool solve_arith_core(app * lhs, expr * rhs, expr * eq, var* & var, expr_ref & def) {
+            SASSERT(a.is_add(lhs));
+            bool is_int  = a.is_int(lhs);
+            expr * a1; 
+            expr * v;
+            rational a_val;
+            unsigned num = lhs->get_num_args();
+            unsigned i;
+            for (i = 0; i < num; i++) {
+                expr * arg = lhs->get_arg(i);
+                if (is_variable(arg)) {
+                    a_val = rational(1); 
+                    v     = arg;
+                    break;
+                }
+                else if (a.is_mul(arg, a1, v) && 
+                         is_variable(v) && 
+                         a.is_numeral(a1, a_val) &&
+                         !a_val.is_zero() &&
+                         (!is_int || a_val.is_minus_one())) {
+                    break;
+                }
+            }
+            if (i == num)
+                return false;
+            var = to_var(v);
+            expr_ref inv_a(m);
+            if (!a_val.is_one()) {
+                inv_a = a.mk_numeral(rational(1)/a_val, is_int);
+                rhs   = a.mk_mul(inv_a, rhs);
+            }
+            
+            ptr_buffer<expr> other_args;
+            for (unsigned j = 0; j < num; j++) {
+                if (i != j) {
+                    if (inv_a)
+                        other_args.push_back(a.mk_mul(inv_a, lhs->get_arg(j)));
+                    else
+                        other_args.push_back(lhs->get_arg(j));
+                }
+            }
+            switch (other_args.size()) {
+            case 0:
+                def = rhs;
+                break;
+            case 1:
+                def = a.mk_sub(rhs, other_args[0]);
+                break;
+            default:
+                def = a.mk_sub(rhs, a.mk_add(other_args.size(), other_args.c_ptr()));
+                break;
+            }
+            m_new_exprs.push_back(def);
+            return true;
+        }
         
+        bool arith_solve(expr * lhs, expr * rhs, expr * eq, var* & var, expr_ref & t) {
+            return 
+                (a.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, var, t)) ||
+                (a.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, var, t));
+        }
+
+        bool trival_solve(expr* lhs, expr* rhs, expr* eq, var* & v, expr_ref& t) {
+            if (!is_variable(lhs)) {
+                std::swap(lhs, rhs);
+            }
+            if (!is_variable(lhs)) {
+                return false;
+            }
+            v = to_var(lhs);
+            t = rhs;
+            TRACE("der", tout << mk_pp(eq, m) << "\n";);
+            return true;
+        }
         
 
         /**
@@ -251,14 +328,13 @@ namespace eq {
                     TRACE("der", tout << mk_pp(e, m) << "\n";);
                     return true;
                 }
-                if (!is_variable(lhs))
-                    std::swap(lhs, rhs);
-                if (!is_variable(lhs))
-                    return false;
-                v = to_var(lhs);
-                t = rhs;
-                TRACE("der", tout << mk_pp(e, m) << "\n";);
-                return true;
+                if (trival_solve(lhs, rhs, e, v, t)) {
+                    return true;
+                }
+                if (arith_solve(lhs, rhs, e, v, t)) {
+                    return true;
+                }
+                return false;
             }
             
             // (ite cond (= VAR t) (= VAR t2)) case
@@ -494,7 +570,7 @@ namespace eq {
         }
 
     public:
-        der(ast_manager & m): m(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m) {}
+        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m) {}
         
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
@@ -538,19 +614,128 @@ namespace eq {
 namespace ar {
     class der {
         ast_manager&             m;
+        array_util               a;
         is_variable_proc*        m_is_variable;
+        ptr_vector<expr>         m_todo;
+        expr_mark                m_visited;
         
         bool is_variable(expr * e) const {
             return (*m_is_variable)(e);
         }
 
+        void mark_all(expr* e) {
+            for_each_expr(*this, m_visited, e);
+        }
+
+        void mark_all(expr_ref_vector const& fmls, unsigned j) {
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                if (i != j) {
+                    mark_all(fmls[i]);
+                }
+            }
+        }
+
+        /**
+           Ex A. A[x] = t & Phi where x \not\in A, t. 
+           =>
+           Ex A. Phi[store(A,x,t)]
+         */
+
+        bool solve_select(expr_ref_vector& conjs, unsigned i, expr* e1, expr* e2) {
+            if (a.is_select(e1)) {
+                app* a1 = to_app(e1);
+                expr* A = a1->get_arg(0);
+                if (!is_variable(A)) {
+                    return false;
+                }
+                m_visited.reset();
+                for (unsigned j = 1; j < a1->get_num_args(); ++j) {
+                    mark_all(a1->get_arg(j));
+                }
+                mark_all(e2);
+                if (m_visited.is_marked(A)) {
+                    return false;
+                }
+                ptr_vector<expr> args;
+                args.push_back(A);
+                args.append(a1->get_num_args()-1, a1->get_args()+1);
+                args.push_back(e2);
+                expr* B = a.mk_store(args.size(), args.c_ptr());
+                expr_safe_replace rep(m);
+                rep.insert(A, B);
+                expr_ref tmp(m);
+                for (unsigned j = 0; j < conjs.size(); ++j) {
+                    if (i == j) {
+                        conjs[j] = m.mk_true();
+                    }
+                    else {
+                        rep(conjs[j].get(), tmp);
+                        conjs[j] = tmp;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+
+        bool solve_select(expr_ref_vector& conjs, unsigned i, expr* e) {
+            expr* e1, *e2;
+            return 
+                m.is_eq(e, e1, e2) &&
+                (solve_select(conjs, i, e1, e2) ||
+                 solve_select(conjs, i, e2, e1));
+        }
+
+        /**
+           Ex x. A[x] != B[x] & Phi where x \not\in A, B, Phi
+           =>
+           A != B & Phi
+         */
+        bool solve_neq_select(expr_ref_vector& conjs, unsigned i, expr* e) {
+            expr* e1, *a1, *a2;
+            if (m.is_not(e, e1) && m.is_eq(e1, a1, a2)) {
+                if (a.is_select(a1) && 
+                    a.is_select(a2) && 
+                    to_app(a1)->get_num_args() == to_app(a2)->get_num_args()) {
+                    expr* e1 = to_app(a1)->get_arg(0);
+                    expr* e2 = to_app(a2)->get_arg(0);
+                    m_visited.reset();
+                    mark_all(conjs, i);
+                    mark_all(e1);
+                    mark_all(e2);
+                    for (unsigned j = 1; j < to_app(a1)->get_num_args(); ++j) {
+                        expr* x = to_app(a1)->get_arg(j);
+                        expr* y = to_app(a2)->get_arg(j);
+                        if (!is_variable(x)) {
+                            return false;
+                        }
+                        if (x != y) {
+                            return false;
+                        }
+                        if (m_visited.is_marked(x)) {
+                            return false;
+                        }
+                    }
+                    conjs[i] = m.mk_not(m.mk_eq(e1, e2));
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
     public:
 
-        der(ast_manager& m): m(m), m_is_variable(0) {}
+        der(ast_manager& m): m(m), a(m), m_is_variable(0) {}
 
         void operator()(expr_ref_vector& fmls) {
-            IF_VERBOSE(1, verbose_stream() << "Todo: eliminate arrays\n";);
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                solve_select(fmls, i, fmls[i].get());
+                solve_neq_select(fmls, i, fmls[i].get());
+            }
         }
+
+        void operator()(expr* e) {}
 
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
@@ -1904,6 +2089,22 @@ class qe_lite::impl {
     fm::fm       m_fm;
     ar::der      m_array_der;
 
+    bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
+        index = fmls.size();
+        if (index <= 1) {
+            return false;
+        }
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            if (!is_ground(fmls[i])) {
+                if (index != fmls.size()) {
+                    return false;
+                }
+                index = i;
+            }
+        }
+        return index < fmls.size();
+    }
+
 public:
     impl(ast_manager& m): m(m), m_der(m), m_fm(m, m_params), m_array_der(m) {}
     
@@ -1970,9 +2171,21 @@ public:
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& fmls) {
         datalog::flatten_and(fmls);
+        unsigned index;
+        if (has_unique_non_ground(fmls, index)) {
+            expr_ref fml(m);
+            fml = fmls[index].get();
+            (*this)(index_set, index_of_bound, fml);
+            fmls[index] = fml;
+            return;
+        }
+        TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) {
+                tout << mk_pp(fmls[i].get(), m) << "\n";
+            });
+        IF_VERBOSE(3, for (unsigned i = 0; i < fmls.size(); ++i) {
+                verbose_stream() << mk_pp(fmls[i].get(), m) << "\n";
+            });
         is_variable_test is_var(index_set, index_of_bound);
-        TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
-        IF_VERBOSE(3, for (unsigned i = 0; i < fmls.size(); ++i) verbose_stream() << mk_pp(fmls[i].get(), m) << "\n";);
         m_der.set_is_variable_proc(is_var);
         m_fm.set_is_variable_proc(is_var);
         m_array_der.set_is_variable_proc(is_var);

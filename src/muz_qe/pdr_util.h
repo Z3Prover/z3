@@ -129,6 +129,8 @@ namespace pdr {
        void operator()(expr* e) {} 
 
        expr_ref eval(model_ref& mdl, expr* e);
+
+       expr_ref eval(model_ref& mdl, func_decl* d);
     };
 
     /**

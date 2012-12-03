@@ -238,11 +238,13 @@ namespace pdr {
                 result.push_back(m.mk_not(e));
             }
         }
+#if 0
         select_elim_star select_elim(m, m_model);
         for (unsigned i = 0; i < result.size(); ++i) {
             select_elim(result[i].get(), tmp);
             result[i] = tmp;
         }
+#endif
         reset();
         TRACE("pdr", 
               tout << "minimized model:\n";
@@ -386,13 +388,12 @@ namespace pdr {
             for_each_expr(*this, m_visited, tocollect[i]);
         }
         unsigned sz = m_model->get_num_constants();
-        expr_ref e(m), eq(m);
+        expr_ref e(m), eq(m), val(m);
         expr_ref_vector model(m);
         for (unsigned i = 0; i < sz; i++) {
-            func_decl * d = m_model->get_constant(i); 
-            expr* val = m_model->get_const_interp(d);
-            e = m.mk_const(d);
+            e = m.mk_const(m_model->get_constant(i));
             if (m_visited.is_marked(e)) {
+                val = eval(m_model, e);
                 eq = m.mk_eq(e, val);
                 model.push_back(eq);
             }
@@ -921,6 +922,20 @@ namespace pdr {
             }
         }
         return !has_x;
+    }
+
+    expr_ref model_evaluator::eval(model_ref& model, func_decl* d) {
+        SASSERT(d->get_arity() == 0);
+        expr_ref result(m);
+        if (m_array.is_array(d->get_range())) {
+            expr_ref e(m);
+            e = m.mk_const(d);
+            result = eval(model, e);
+        }
+        else {
+            result = model->get_const_interp(d);
+        }
+        return result;
     }
 
     expr_ref model_evaluator::eval(model_ref& model, expr* e) {
