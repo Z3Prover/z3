@@ -21,6 +21,7 @@ Revision History:
 #include"sat_elim_eqs.h"
 #include"stopwatch.h"
 #include"trace.h"
+#include"sat_scc_params.hpp"
 
 namespace sat {
 
@@ -230,12 +231,13 @@ namespace sat {
         m_num_elim = 0;
     }
 
-    void scc::updt_params(params_ref const & p) {
-        m_scc = p.get_bool("scc", true);
+    void scc::updt_params(params_ref const & _p) {
+        sat_scc_params p(_p);
+        m_scc = p.scc();
     }
 
     void scc::collect_param_descrs(param_descrs & d) {
-        d.insert("scc", CPK_BOOL, "(default: true) eliminate Boolean variables by computing strongly connected components.");
+        sat_scc_params::collect_param_descrs(d);
     }
 
 };
