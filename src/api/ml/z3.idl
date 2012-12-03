@@ -91,11 +91,6 @@ quote(c,"#define xstr(s) str(s)");
 quote(c,"#define str(s) #s");
 
 
-// CamlIDL (1.05) has a bug where it does not accept [unsigned] as a type,
-// only as a specifier, so unsigned is defined to be unsigned int.
-#define unsigned unsigned int
-
-
 // Suppress "warning C4090: 'function' : different 'const' qualifiers" as
 // CamlIDL does not seem to get this right.
 quote(c,"#pragma warning(disable:4090)");
