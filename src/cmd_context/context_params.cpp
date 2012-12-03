@@ -62,8 +62,8 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "model") {
         set_bool(m_model, param, value);
     }
-    else if (p == "validate_model") {
-        set_bool(m_validate_model, param, value);
+    else if (p == "model_validate") {
+        set_bool(m_model_validate, param, value);
     }
     else if (p == "trace") {
         set_bool(m_trace, param, value);
@@ -92,7 +92,7 @@ void context_params::updt_params(params_ref const & p) {
     m_auto_config       = p.get_bool("auto_config", true);
     m_proof             = p.get_bool("proof", false);
     m_model             = p.get_bool("model", true);
-    m_validate_model    = p.get_bool("validate_model", false);
+    m_model_validate    = p.get_bool("model_validate", false);
     m_trace             = p.get_bool("trace", false);
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
     m_unsat_core        = p.get_bool("unsat_core", false);
@@ -106,7 +106,7 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
     d.insert("proof", CPK_BOOL, "proof generation, it must be enabled when the Z3 context is created", "false");
     d.insert("model", CPK_BOOL, "model generation for solvers, this parameter can be overwritten when creating a solver", "true");
-    d.insert("validate_model", CPK_BOOL, "validate models produced by solvers", "false");
+    d.insert("model_validate", CPK_BOOL, "validate models produced by solvers", "false");
     d.insert("trace", CPK_BOOL, "trace generation for VCC", "false");
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
     d.insert("unsat_core", CPK_BOOL, "unsat-core generation for solvers, this parameter can be overwritten when creating a solver, not every solver in Z3 supports unsat core generation", "false");

@@ -33,7 +33,7 @@ public:
     std::string m_trace_file_name;
     bool        m_well_sorted_check;
     bool        m_model;
-    bool        m_validate_model;
+    bool        m_model_validate;
     bool        m_unsat_core;
     unsigned    m_timeout;
 

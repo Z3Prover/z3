@@ -393,7 +393,7 @@ bool cmd_context::well_sorted_check_enabled() const {
 }
 
 bool cmd_context::validate_model_enabled() const {
-    return m_params.m_validate_model;
+    return m_params.m_model_validate;
 }
 
 cmd_context::check_sat_state cmd_context::cs_state() const {

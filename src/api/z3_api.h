@@ -1312,7 +1312,7 @@ extern "C" {
           - well_sorted_check          type checker
           - auto_config                use heuristics to automatically select solver and configure it
           - model                      model generation for solvers, this parameter can be overwritten when creating a solver
-          - validate_model             validate models produced by solvers
+          - model_validate             validate models produced by solvers
           - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
 
        \sa Z3_set_param_value
