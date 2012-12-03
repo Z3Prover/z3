@@ -80,8 +80,8 @@ void display_usage() {
     std::cout << "  " << OPT << "p          display Z3 global (and module) parameters.\n";
     std::cout << "  " << OPT << "pd         display Z3 global (and module) parameter descriptions.\n";
     std::cout << "  " << OPT << "pm:name    display Z3 module ('name') parameters.\n";
-    std::cout << "  " << OPT << "pp:name    display Z3 parameter description.\n";
-    std::cout << "  --"      << "           all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
+    std::cout << "  " << OPT << "pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
+    std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
     std::cout << "  " << OPT << "T:timeout  set the timeout (in seconds).\n";
@@ -199,9 +199,13 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 exit(0);
             }
             else if (strcmp(opt_name, "pm") == 0) {
-                if (!opt_arg)
-                    error("option argument (-pm:name) is missing.");
-                gparams::display_module(std::cout, opt_arg);
+                if (opt_arg) {
+                    gparams::display_module(std::cout, opt_arg);
+                }
+                else {
+                    gparams::display_modules(std::cout);
+                    std::cout << "\nUse -pm:name to display all parameters available at module 'name'\n";
+                }
                 exit(0);
             }
             else if (strcmp(opt_name, "pp") == 0) {

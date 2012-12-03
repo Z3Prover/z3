@@ -1,0 +1,11 @@
+def_module_params('rewriter',
+                  description='new formula simplification module used in the tactic framework, and new solvers',
+                  export=True,
+                  params=(max_memory_param(),
+                          max_steps_param(),
+                          ("flat", BOOL, True, "create nary applications for and,or,+,*,bvadd,bvmul,bvand,bvor,bvxor"),
+                          ("push_ite_arith", BOOL, False, "push if-then-else over arithmetic terms."),
+                          ("push_ite_bv", BOOL, False, "push if-then-else over bit-vector terms."),
+                          ("pull_cheap_ite", BOOL, False, "pull if-then-else terms when cheap."),
+                          ("cache_all", BOOL, False, "cache all intermediate results.")))
+

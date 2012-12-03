@@ -17,17 +17,18 @@ Notes:
 
 --*/
 #include"array_rewriter.h"
+#include"array_rewriter_params.hpp"
 #include"ast_lt.h"
 #include"ast_pp.h"
 
-void array_rewriter::updt_params(params_ref const & p) {
-    m_sort_store = p.get_bool("sort_store", false);
-    m_expand_select_store = p.get_bool("expand_select_store", false);
+void array_rewriter::updt_params(params_ref const & _p) {
+    array_rewriter_params p(_p);
+    m_sort_store = p.sort_store();
+    m_expand_select_store = p.expand_select_store();
 }
 
 void array_rewriter::get_param_descrs(param_descrs & r) {
-    r.insert("expand_select_store", CPK_BOOL, "(default: false) replace a (select (store ...) ...) term by an if-then-else term.");
-    r.insert("sort_store", CPK_BOOL, "(default: false) sort nested stores when the indices are known to be different.");
+    array_rewriter_params::collect_param_descrs(r);
 }
 
 br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {

@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include"poly_rewriter.h"
+#include"poly_rewriter_params.hpp"
 #include"ast_lt.h"
 #include"ast_ll_pp.h"
 #include"ast_smt2_pp.h"
@@ -26,20 +27,18 @@ char const * poly_rewriter<Config>::g_ste_blowup_msg = "sum of monomials blowup"
 
 
 template<typename Config>
-void poly_rewriter<Config>::updt_params(params_ref const & p) {
-    m_flat = p.get_bool("flat", true);
-    m_som  = p.get_bool("som", false);
-    m_hoist_mul = p.get_bool("hoist_mul", false);
-    m_hoist_cmul = p.get_bool("hoist_cmul", false);
-    m_som_blowup = p.get_uint("som_blowup", UINT_MAX);
+void poly_rewriter<Config>::updt_params(params_ref const & _p) {
+    poly_rewriter_params p(_p);
+    m_flat = p.flat();
+    m_som  = p.som();
+    m_hoist_mul = p.hoist_mul();
+    m_hoist_cmul = p.hoist_cmul();
+    m_som_blowup = p.som_blowup();
 }
 
 template<typename Config>
 void poly_rewriter<Config>::get_param_descrs(param_descrs & r) {
-    r.insert("som", CPK_BOOL, "(default: false) put polynomials in som-of-monomials form.");
-    r.insert("som_blowup", CPK_UINT, "(default: infty) maximum number of monomials generated when putting a polynomial in sum-of-monomials normal form");
-    r.insert("hoist_mul", CPK_BOOL, "(default: false) hoist multiplication over summation to minimize number of multiplications");
-    r.insert("hoist_cmul", CPK_BOOL, "(default: false) hoist constant multiplication over summation to minimize number of multiplications");
+    poly_rewriter_params::collect_param_descrs(r);
 }
 
 template<typename Config>

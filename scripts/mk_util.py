@@ -1507,11 +1507,15 @@ def def_module_params(module_name, export, params, class_name=None, description=
         print "Generated '%s'" % hpp
 
 def max_memory_param():
-    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes.')
+    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes')
+
+def max_steps_param():
+    return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
 
 PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL, 
                 'UINT_MAX' : UINT_MAX, 
                 'max_memory_param' : max_memory_param,
+                'max_steps_param' : max_steps_param,
                 'def_module_params' : def_module_params }
 
 # Execute python auxiliary scripts that generate extra code for Z3.

@@ -36,13 +36,27 @@ bool is_old_param_name(symbol const & name) {
 }
 
 struct gparams::imp {
+    bool                      m_modules_registered;
     dictionary<param_descrs*> m_module_param_descrs;
     dictionary<char const *>  m_module_descrs;
     param_descrs              m_param_descrs;
     dictionary<params_ref *>  m_module_params;
     params_ref                m_params;
+
+    void check_registered() {
+        if (m_modules_registered)
+            return;
+        m_modules_registered = true;
+        gparams_register_modules();
+    }
+
+    dictionary<param_descrs*> & get_module_param_descrs() { check_registered(); return m_module_param_descrs; }
+    dictionary<char const *> & get_module_descrs() { check_registered(); return m_module_descrs; }
+    param_descrs & get_param_descrs() { check_registered(); return m_param_descrs; }
+
 public:
-    imp() {
+    imp():
+        m_modules_registered(false) {
     }
 
     ~imp() {
@@ -62,34 +76,44 @@ public:
         }
     }
 
+    // -----------------------------------------------
+    //
+    // Module registration routines.
+    // They are invoked when descriptions are initialized
+    //
+    // -----------------------------------------------
+
     void register_global(param_descrs & d) {
-        #pragma omp critical (gparams)
-        {
-           m_param_descrs.copy(d);
-        }
+        // Don't need synchronization here, this method
+        // is invoked from check_registered that is already protected.
+        m_param_descrs.copy(d);
     }
 
     void register_module(char const * module_name, param_descrs * d) {
-        #pragma omp critical (gparams)
-        {
-            symbol s(module_name);
-            param_descrs * old_d;
-            if (m_module_param_descrs.find(s, old_d)) {
-                old_d->copy(*d);
-                dealloc(d);
-            }
-            else {
-                m_module_param_descrs.insert(s, d);
-            }
+        // Don't need synchronization here, this method
+        // is invoked from check_registered that is already protected.
+        symbol s(module_name);
+        param_descrs * old_d;
+        if (m_module_param_descrs.find(s, old_d)) {
+            old_d->copy(*d);
+            dealloc(d);
+        }
+        else {
+            m_module_param_descrs.insert(s, d);
         }
     }
 
     void register_module_descr(char const * module_name, char const * descr) {
-        #pragma omp critical (gparams)
-        {
-            m_module_descrs.insert(symbol(module_name), descr);
-        }
+        // Don't need synchronization here, this method
+        // is invoked from check_registered that is already protected.
+        m_module_descrs.insert(symbol(module_name), descr);
     }
+
+    // -----------------------------------------------
+    //
+    // Parameter setting & retrieval
+    //
+    // -----------------------------------------------
 
     void normalize(char const * name, /* out */ symbol & mod_name, /* out */ symbol & param_name) {
         if (*name == ':')
@@ -132,7 +156,7 @@ public:
     void throw_unknown_parameter(symbol const & param_name, symbol const & mod_name) {
         if (mod_name == symbol::null) {
             if (is_old_param_name(param_name)) {
-                throw exception("unknown parameter '%s', this is an old parameter name, invoke 'z3 -ps' to obtain the new parameter list", 
+                throw exception("unknown parameter '%s', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list", 
                                 param_name.bare_str());
             }
             else {
@@ -191,11 +215,11 @@ public:
                 symbol m, p;
                 normalize(name, m, p);
                 if (m == symbol::null) {
-                    set(m_param_descrs, p, value, m);
+                    set(get_param_descrs(), p, value, m);
                 }
                 else {
                     param_descrs * d;
-                    if (m_module_param_descrs.find(m, d)) {
+                    if (get_module_param_descrs().find(m, d)) {
                         set(*d, p, value, m);
                     }
                     else {
@@ -203,7 +227,7 @@ public:
                     }
                 }
             }
-            catch (exception & ex) {
+            catch (z3_exception & ex) {
                 // Exception cannot cross critical section boundaries.
                 error = true;
                 error_msg = ex.msg();
@@ -243,7 +267,7 @@ public:
                         r = get_value(m_params, p);
                     }
                     else {
-                        r = get_default(m_param_descrs, p, m);
+                        r = get_default(get_param_descrs(), p, m);
                     }
                 }
                 else {
@@ -253,7 +277,7 @@ public:
                     }
                     else {
                         param_descrs * d;
-                        if (m_module_param_descrs.find(m, d)) {
+                        if (get_module_param_descrs().find(m, d)) {
                             r = get_default(*d, p, m);
                         }
                         else {
@@ -262,7 +286,7 @@ public:
                     }
                 }
             }
-            catch (exception & ex) {
+            catch (z3_exception & ex) {
                 // Exception cannot cross critical section boundaries.
                 error = true;
                 error_msg = ex.msg();
@@ -295,23 +319,29 @@ public:
         return result;
     }
 
+    // -----------------------------------------------
+    //
+    // Pretty printing
+    //
+    // -----------------------------------------------
+
     void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {
         #pragma omp critical (gparams)
         {
             out << "Global parameters\n";
-            m_param_descrs.display(out, indent + 4, smt2_style, include_descr);
+            get_param_descrs().display(out, indent + 4, smt2_style, include_descr);
             out << "\n";
             if (!smt2_style) {
                 out << "To set a module parameter, use <module-name>.<parameter-name>=value\n";
                 out << "Example:  pp.decimal=true\n";
                 out << "\n";
             }
-            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+            dictionary<param_descrs*>::iterator it  = get_module_param_descrs().begin();
+            dictionary<param_descrs*>::iterator end = get_module_param_descrs().end();
             for (; it != end; ++it) {
                 out << "[module] " << it->m_key;
                 char const * descr = 0;
-                if (m_module_descrs.find(it->m_key, descr)) {
+                if (get_module_descrs().find(it->m_key, descr)) {
                     out << ", description: " << descr;
                 }
                 out << "\n";
@@ -321,53 +351,84 @@ public:
     }
 
     void display_modules(std::ostream & out) {
-        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-        for (; it != end; ++it) {
-            out << "[module] " << it->m_key;
-            char const * descr = 0;
-            if (m_module_descrs.find(it->m_key, descr)) {
-                out << ", description: " << descr;
+        #pragma omp critical (gparams)
+        {
+            dictionary<param_descrs*>::iterator it  = get_module_param_descrs().begin();
+            dictionary<param_descrs*>::iterator end = get_module_param_descrs().end();
+            for (; it != end; ++it) {
+                out << "[module] " << it->m_key;
+                char const * descr = 0;
+                if (get_module_descrs().find(it->m_key, descr)) {
+                    out << ", description: " << descr;
+                }
+                out << "\n";
             }
-            out << "\n";
         }
     }
 
     void display_module(std::ostream & out, symbol const & module_name) {
-        param_descrs * d = 0;
-        if (!m_module_param_descrs.find(module_name, d))
-            throw exception("unknown module '%s'", module_name.bare_str());
-        out << "[module] " << module_name;
-        char const * descr = 0;
-        if (m_module_descrs.find(module_name, descr)) {
-            out << ", description: " << descr;
+        bool error = false;
+        std::string error_msg;
+        #pragma omp critical (gparams)
+        {
+            try {
+                param_descrs * d = 0;
+                if (!get_module_param_descrs().find(module_name, d))
+                    throw exception("unknown module '%s'", module_name.bare_str());
+                out << "[module] " << module_name;
+                char const * descr = 0;
+                if (get_module_descrs().find(module_name, descr)) {
+                    out << ", description: " << descr;
+                }
+                out << "\n";
+                d->display(out, 4, false);
+            }
+            catch (z3_exception & ex) {
+                // Exception cannot cross critical section boundaries.
+                error = true;
+                error_msg = ex.msg();
+            }
         }
-        out << "\n";
-        d->display(out, 4, false);
+        if (error)
+            throw exception(error_msg);
     }
 
     void display_parameter(std::ostream & out, char const * name) {
-        symbol m, p;
-        normalize(name, m, p);
-        std::cout << name << " " << m << " " << p << "\n";
-        param_descrs * d;
-        if (m == symbol::null) {
-            d = &m_param_descrs;
+        bool error = false;
+        std::string error_msg;
+        #pragma omp critical (gparams)
+        {
+            try {
+                symbol m, p;
+                normalize(name, m, p);
+                std::cout << name << " " << m << " " << p << "\n";
+                param_descrs * d;
+                if (m == symbol::null) {
+                    d = &get_param_descrs();
+                }
+                else {
+                    if (!get_module_param_descrs().find(m, d))
+                        throw exception("unknown module '%s'", m.bare_str());
+                }
+                if (!d->contains(p))
+                    throw_unknown_parameter(p, m);
+                out << "  name:           " << p << "\n";
+                if (m != symbol::null) {
+                    out << "  module:         " << m << "\n";
+                    out << "  qualified name: " << m << "." << p << "\n";
+                }
+                out << "  type:           " << d->get_kind(p) << "\n";
+                out << "  description:    " << d->get_descr(p) << "\n";
+                out << "  default value:  " << d->get_default(p) << "\n";
+            }
+            catch (z3_exception & ex) {
+                // Exception cannot cross critical section boundaries.
+                error = true;
+                error_msg = ex.msg();
+            }
         }
-        else {
-            if (!m_module_param_descrs.find(m, d))
-                throw exception("unknown module '%s'", m.bare_str());
-        }
-        if (!d->contains(p))
-            throw_unknown_parameter(p, m);
-        out << "  name:           " << p << "\n";
-        if (m != symbol::null) {
-            out << "  module:         " << m << "\n";
-            out << "  qualified name: " << m << "." << p << "\n";
-        }
-        out << "  type:           " << d->get_kind(p) << "\n";
-        out << "  description:    " << d->get_descr(p) << "\n";
-        out << "  default value:  " << d->get_default(p) << "\n";
+        if (error)
+            throw exception(error_msg);
     }
 };
 
@@ -447,7 +508,6 @@ void gparams::display_parameter(std::ostream & out, char const * name) {
 void gparams::init() {
     TRACE("gparams", tout << "gparams::init()\n";);
     g_imp = alloc(imp);
-    gparams_register_modules();
 }
 
 void gparams::finalize() {
