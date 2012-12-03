@@ -1,0 +1,6 @@
+def_module_params(module_name='sat', 
+                  class_name='sat_asymm_branch_params',
+                  export=True,
+                  params=(('asymm_branch', BOOL, True, 'asymmetric branching'),
+                          ('asymm_branch.rounds', UINT, 32, 'maximum number of rounds of asymmetric branching'),
+                          ('asymm_branch.limit', UINT, 100000000, 'approx. maximum number of literals visited during asymmetric branching')))

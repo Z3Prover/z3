@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include"th_rewriter.h"
+#include"rewriter_params.hpp"
 #include"bool_rewriter.h"
 #include"arith_rewriter.h"
 #include"bv_rewriter.h"
@@ -56,14 +57,15 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     ast_manager & m() const { return m_b_rw.m(); }
 
-    void updt_local_params(params_ref const & p) {
-        m_flat           = p.get_bool("flat", true);
-        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_max_steps      = p.get_uint("max_steps", UINT_MAX);
-        m_pull_cheap_ite = p.get_bool("pull_cheap_ite", false);
-        m_cache_all      = p.get_bool("cache_all", false);
-        m_push_ite_arith = p.get_bool("push_ite_arith", false);
-        m_push_ite_bv    = p.get_bool("push_ite_bv", false);
+    void updt_local_params(params_ref const & _p) {
+        rewriter_params p(_p);
+        m_flat           = p.flat();
+        m_max_memory     = megabytes_to_bytes(p.max_memory());
+        m_max_steps      = p.max_steps();
+        m_pull_cheap_ite = p.pull_cheap_ite();
+        m_cache_all      = p.cache_all();
+        m_push_ite_arith = p.push_ite_arith();
+        m_push_ite_bv    = p.push_ite_bv();
     }
         
     void updt_params(params_ref const & p) {
@@ -693,12 +695,7 @@ void th_rewriter::get_param_descrs(param_descrs & r) {
     arith_rewriter::get_param_descrs(r);
     bv_rewriter::get_param_descrs(r);
     array_rewriter::get_param_descrs(r);
-    insert_max_memory(r);
-    insert_max_steps(r);
-    r.insert("push_ite_arith", CPK_BOOL, "(default: false) push if-then-else over arithmetic terms.");
-    r.insert("push_ite_bv", CPK_BOOL, "(default: false) push if-then-else over bit-vector terms.");
-    r.insert("pull_cheap_ite", CPK_BOOL, "(default: false) pull if-then-else terms when cheap.");
-    r.insert("cache_all", CPK_BOOL, "(default: false) cache all intermediate results.");
+    rewriter_params::collect_param_descrs(r);
 }
 
 th_rewriter::~th_rewriter() {

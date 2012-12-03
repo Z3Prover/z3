@@ -17,25 +17,21 @@ Notes:
 
 --*/
 #include"bool_rewriter.h"
+#include"bool_rewriter_params.hpp"
 #include"rewriter_def.h"
 
-void bool_rewriter::updt_params(params_ref const & p) {
-    m_flat                 = p.get_bool("flat", true);
-    m_elim_and             = p.get_bool("elim_and", false);
-    m_local_ctx            = p.get_bool("local_ctx", false);
-    m_local_ctx_limit      = p.get_uint("local_ctx_limit", UINT_MAX);
-    m_blast_distinct       = p.get_bool("blast_distinct", false); 
-    m_ite_extra_rules      = p.get_bool("ite_extra_rules", false);
+void bool_rewriter::updt_params(params_ref const & _p) {
+    bool_rewriter_params p(_p);
+    m_flat                 = p.flat();
+    m_elim_and             = p.elim_and();
+    m_local_ctx            = p.local_ctx();
+    m_local_ctx_limit      = p.local_ctx_limit();
+    m_blast_distinct       = p.blast_distinct();
+    m_ite_extra_rules      = p.ite_extra_rules();
 }
 
 void bool_rewriter::get_param_descrs(param_descrs & r) {
-    r.insert("ite_extra_rules", CPK_BOOL, 
-             "(default: false) extra ite simplifications, these additional simplifications may reduce size locally but increase globally.");
-    r.insert("flat", CPK_BOOL, "(default: true) create nary applications for and,or,+,*,bvadd,bvmul,bvand,bvor,bvxor.");
-    r.insert("elim_and", CPK_BOOL, "(default: false) conjunctions are rewritten using negation and disjunctions.");
-    r.insert("local_ctx", CPK_BOOL, "(default: false) perform local (i.e., cheap) context simplifications.");
-    r.insert("local_ctx_limit", CPK_UINT, "(default: inf) limit for applying local context simplifier.");
-    r.insert("blast_distinct", CPK_BOOL, "(default: false) expand a distinct predicate into a quadratic number of disequalities."); 
+    bool_rewriter_params::collect_param_descrs(r);
 }
 
 br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {

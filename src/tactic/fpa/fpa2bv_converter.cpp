@@ -1403,7 +1403,7 @@ void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const *
     SASSERT(num == 1);
     expr * sgn, * s, * e;
     split(args[0], sgn, s, e);    
-    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, s), e);
+    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
 }
 
 void fpa2bv_converter::split(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {

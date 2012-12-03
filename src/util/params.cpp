@@ -95,7 +95,7 @@ struct param_descrs::imp {
         bool operator()(symbol const & s1, symbol const & s2) const { return strcmp(s1.bare_str(), s2.bare_str()) < 0; }
     };
 
-    void display(std::ostream & out, unsigned indent, bool smt2_style) const {
+    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
         svector<symbol> names;
         dictionary<info>::iterator it  = m_info.begin();
         dictionary<info>::iterator end = m_info.end();
@@ -124,7 +124,9 @@ struct param_descrs::imp {
             info d;
             m_info.find(*it2, d);
             SASSERT(d.m_descr);
-            out << " (" << d.m_kind << ") " << d.m_descr;
+            out << " (" << d.m_kind << ")";
+            if (include_descr)
+                out << " " << d.m_descr;
             if (d.m_default != 0)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
@@ -209,8 +211,8 @@ symbol param_descrs::get_param_name(unsigned i) const {
     return m_imp->get_param_name(i);
 }
 
-void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style) const {
-    return m_imp->display(out, indent, smt2_style);
+void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
+    return m_imp->display(out, indent, smt2_style, include_descr);
 }
 
 void insert_max_memory(param_descrs & r) {
