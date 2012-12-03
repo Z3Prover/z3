@@ -1809,11 +1809,12 @@ namespace pdr {
 
         n.set_rule(&r);
 
-        IF_VERBOSE(3, verbose_stream() << "Model:\n";
-                   model_smt2_pp(verbose_stream(), m, *M, 0);
-                   verbose_stream() << "\n";
-                   verbose_stream() << "Transition:\n" << mk_pp(T, m) << "\n";
-                   verbose_stream() << "Phi:\n" << mk_pp(phi, m) << "\n";);
+        TRACE("pdr", 
+              tout << "Model:\n";
+              model_smt2_pp(tout, m, *M, 0);
+              tout << "\n";
+              tout << "Transition:\n" << mk_pp(T, m) << "\n";
+              tout << "Phi:\n" << mk_pp(phi, m) << "\n";);
                       
         model_evaluator mev(m);
         expr_ref_vector mdl(m), forms(m), Phi(m);
@@ -1843,19 +1844,21 @@ namespace pdr {
         qe_lite qe(m);
         expr_ref phi1 = m_pm.mk_and(Phi);
         qe(vars, phi1);
+        TRACE("pdr", tout << "Eliminated\n" << mk_pp(phi1, m) << "\n";);
         if (!use_model_generalizer) {
             reduce_disequalities(*M, 3, phi1);
+            TRACE("pdr", tout  << "Reduced-eq\n" << mk_pp(phi1, m) << "\n";);
         }
         get_context().get_rewriter()(phi1);
 
-        IF_VERBOSE(2, 
-                   verbose_stream() << "Vars:\n";
-                   for (unsigned i = 0; i < vars.size(); ++i) {
-                       verbose_stream() << mk_pp(vars[i].get(), m) << "\n";
-                   }
-                   verbose_stream() << "Literals\n";
-                   verbose_stream() << mk_pp(m_pm.mk_and(Phi), m) << "\n";
-                   verbose_stream() << "Reduced\n" << mk_pp(phi1, m) << "\n";);
+        TRACE("pdr", 
+              tout << "Vars:\n";
+              for (unsigned i = 0; i < vars.size(); ++i) {
+                  tout << mk_pp(vars[i].get(), m) << "\n";
+              }
+              tout << "Literals\n";
+              tout << mk_pp(m_pm.mk_and(Phi), m) << "\n";
+              tout << "Reduced\n" << mk_pp(phi1, m) << "\n";);
         
         if (!vars.empty()) {
             // also fresh names for auxiliary variables in body?
@@ -1870,7 +1873,7 @@ namespace pdr {
             if (!rep) rep = mk_expr_simp_replacer(m);
             rep->set_substitution(&sub);
             (*rep)(phi1);
-            IF_VERBOSE(2, verbose_stream() << "Projected:\n" << mk_pp(phi1, m) << "\n";);
+            TRACE("pdr", tout << "Projected:\n" << mk_pp(phi1, m) << "\n";);
         }
         Phi.reset();
         datalog::flatten_and(phi1, Phi);

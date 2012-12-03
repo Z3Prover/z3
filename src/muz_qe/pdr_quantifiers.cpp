@@ -536,7 +536,7 @@ namespace pdr {
         if (!node.get_model_ptr()) {
             return;
         }
-        m_current_rule = &pt.find_rule(node.get_model());   
+        m_current_rule = node.get_rule();
         m_current_pt = &pt;
         m_current_node = &node;
         if (!m_current_rule) { 

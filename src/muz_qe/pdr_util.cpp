@@ -238,11 +238,13 @@ namespace pdr {
                 result.push_back(m.mk_not(e));
             }
         }
+#if 0
         select_elim_star select_elim(m, m_model);
         for (unsigned i = 0; i < result.size(); ++i) {
             select_elim(result[i].get(), tmp);
             result[i] = tmp;
         }
+#endif
         reset();
         TRACE("pdr", 
               tout << "minimized model:\n";
