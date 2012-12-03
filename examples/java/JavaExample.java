@@ -712,9 +712,9 @@ class JavaExample
         System.out.println("QuantifierExample3");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("MBQI", "false");
-        cfg.put("PROOF_MODE", "2");
-        cfg.put("AUTO_CONFIG", "false");
+        cfg.put("smt.mbqi", "false");
+        cfg.put("proof", "true");
+        cfg.put("auto_config", "false");
 
         /*
          * If quantified formulas are asserted in a logical context, then the
@@ -761,9 +761,9 @@ class JavaExample
         System.out.println("QuantifierExample4");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("MBQI", "false");
-        cfg.put("PROOF_MODE", "2");
-        cfg.put("AUTO_CONFIG", "false");
+        cfg.put("smt.mbqi", "false");
+        cfg.put("proof", "true");
+        cfg.put("auto_config", "false");
 
         /*
          * If quantified formulas are asserted in a logical context, then the
@@ -1081,7 +1081,7 @@ class JavaExample
 
         {
             HashMap<String, String> cfg = new HashMap<String, String>();
-            cfg.put("MODEL", "true");
+            cfg.put("model", "true");
             Context ctx = new Context(cfg);
             Expr a = ctx.ParseSMTLIB2File(filename, null, null, null, null);
 
@@ -2100,7 +2100,7 @@ class JavaExample
         System.out.println("UnsatCoreAndProofExample");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("PROOF_MODE", "2");
+        cfg.put("proof", "true");
 
         {
             Context ctx = new Context(cfg);
@@ -2176,8 +2176,8 @@ class JavaExample
 
             {
                 HashMap<String, String> cfg = new HashMap<String, String>();
-                cfg.put("MODEL", "true");
-                cfg.put("PROOF_MODE", "2");
+                cfg.put("model", "true");
+                cfg.put("proof", "true");
                 Context ctx = new Context(cfg);
                 p.BasicTests(ctx);
                 p.CastingTest(ctx);

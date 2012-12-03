@@ -80,7 +80,7 @@ namespace api {
     }
 
     context::context(context_params * p, bool user_ref_count):
-        m_params(*p),
+        m_params(p != 0 ? *p : context_params()),
         m_user_ref_count(user_ref_count),
         m_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0), 
         m_plugins(m_manager),

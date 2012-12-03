@@ -178,6 +178,11 @@ public:
             long val = strtol(value, 0, 10);
             ps.set_uint(param_name, static_cast<unsigned>(val));
         }
+        else if (k == CPK_DOUBLE) {
+            char * aux;
+            double val = strtod(value, &aux);
+            ps.set_double(param_name, val);
+        }
         else if (k == CPK_BOOL) {
             if (strcmp(value, "true") == 0) {
                 ps.set_bool(param_name, true);
@@ -196,7 +201,16 @@ public:
             ps.set_sym(param_name, symbol(value));
         }
         else if (k == CPK_STRING) {
-            ps.set_str(param_name, value);
+            // There is no guarantee that (external) callers will not delete value after invoking gparams::set.
+            // I see two solutions:
+            //    1) Modify params_ref to create a copy of set_str parameters.
+            //       This solution is not nice since we create copies and move the params_ref around.
+            //       We would have to keep copying the strings.
+            //       Moreover, when we use params_ref internally, the value is usually a static value. 
+            //       So, we would be paying this price for nothing.
+            //    2) "Copy" value by transforming it into a symbol. 
+            //       I'm using this solution for now.
+            ps.set_str(param_name, symbol(value).bare_str());
         }
         else {
             if (mod_name == symbol::null)

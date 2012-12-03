@@ -47,10 +47,21 @@ namespace smt {
 
     void qi_queue::setup() {
         TRACE("qi_cost", tout << "qi_cost: " << m_params.m_qi_cost << "\n";);
-        if (!m_parser.parse_string(m_params.m_qi_cost.c_str(), m_cost_function))
-            throw default_exception("invalid cost function %s", m_params.m_qi_cost.c_str());
-        if (!m_parser.parse_string(m_params.m_qi_new_gen.c_str(), m_new_gen_function))
-            throw default_exception("invalid new-gen function %s", m_params.m_qi_new_gen.c_str());
+        if (!m_parser.parse_string(m_params.m_qi_cost.c_str(), m_cost_function)) {
+            // it is not reasonable to abort here during the creation of smt::context just because an invalid option was provided.
+            // throw default_exception("invalid cost function %s", m_params.m_qi_cost.c_str());
+            
+            // using warning message instead
+            warning_msg("invalid cost function '%s', switching to default one", m_params.m_qi_cost.c_str());
+            // Trying again with default function
+            VERIFY(m_parser.parse_string("(+ weight generation)", m_cost_function));
+        }
+        if (!m_parser.parse_string(m_params.m_qi_new_gen.c_str(), m_new_gen_function)) {
+            // See comment above
+            // throw default_exception("invalid new-gen function %s", m_params.m_qi_new_gen.c_str());
+            warning_msg("invalid new_gen function '%s', switching to default one", m_params.m_qi_new_gen.c_str());
+            VERIFY(m_parser.parse_string("cost", m_new_gen_function));
+        }
         m_eager_cost_threshold = m_params.m_qi_eager_threshold;
     }
 
