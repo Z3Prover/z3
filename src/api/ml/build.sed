@@ -1,7 +1,7 @@
 # attempt to clean up the mess with 'unsigned'
-s/__in unsigned __/__in __/g
-s/__out unsigned __/__out __/g
-s/__out_opt unsigned __/__out_opt __/g
+s/ unsigned/ unsigned int/g
+s/unsigned int long/unsigned long/g
+s/unsigned int __/unsigned __/g
 
 
 # '@name ' -> 'Section: '
