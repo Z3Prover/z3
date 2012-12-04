@@ -232,8 +232,11 @@ struct z3_replayer::imp {
     }
 
     void read_ptr() {
-        if (!(('0' <= curr() && curr() <= '9') || ('A' <= curr() && curr() <= 'F') || ('a' <= curr() && curr() <= 'f')))
+        if (!(('0' <= curr() && curr() <= '9') || ('A' <= curr() && curr() <= 'F') || ('a' <= curr() && curr() <= 'f'))) {
+            TRACE("invalid_ptr", tout << "curr: " << curr() << "\n";);
             throw z3_replayer_exception("invalid ptr");
+        }
+        unsigned pos = 0;
         m_ptr = 0;
         while (true) {
             char c = curr();
@@ -246,10 +249,13 @@ struct z3_replayer::imp {
             else if ('A' <= c && c <= 'F') {
                 m_ptr = m_ptr * 16 + 10 + (c - 'A');
             }
+            else if (pos == 1 && (c == 'x' || c == 'X')) {
+                // support for 0x.... notation
+            }
             else {
                 return;
             }
-            next();
+            next(); pos++;
         }
     }
 

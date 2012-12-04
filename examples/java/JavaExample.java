@@ -182,6 +182,7 @@ class JavaExample
     public void SimpleExample() throws Z3Exception
     {
         System.out.println("SimpleExample");
+        Log.Append("SimpleExample");
 
         {
             Context ctx = new Context();
@@ -367,6 +368,7 @@ class JavaExample
     void ArrayExample1(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("ArrayExample1");
+        Log.Append("ArrayExample1");
 
         Goal g = ctx.MkGoal(true, false, false);
         ArraySort asort = ctx.MkArraySort(ctx.IntSort(), ctx.MkBitVecSort(32));
@@ -416,6 +418,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ArrayExample2");
+        Log.Append("ArrayExample2");
 
         Sort int_type = ctx.IntSort();
         Sort array_type = ctx.MkArraySort(int_type, int_type);
@@ -465,6 +468,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ArrayExample3");
+        Log.Append("ArrayExample2");
 
         for (int n = 2; n <= 5; n++)
         {
@@ -503,6 +507,7 @@ class JavaExample
     void SudokuExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("SudokuExample");
+        Log.Append("SudokuExample");
 
         // 9x9 matrix of integer variables
         IntExpr[][] X = new IntExpr[9][];
@@ -609,6 +614,7 @@ class JavaExample
     void QuantifierExample1(Context ctx) throws Z3Exception
     {
         System.out.println("QuantifierExample");
+        Log.Append("QuantifierExample");
 
         Sort[] types = new Sort[3];
         IntExpr[] xs = new IntExpr[3];
@@ -654,6 +660,7 @@ class JavaExample
     {
 
         System.out.println("QuantifierExample2");
+        Log.Append("QuantifierExample2");
 
         Expr q1, q2;
         FuncDecl f = ctx.MkFuncDecl("f", ctx.IntSort(), ctx.IntSort());
@@ -710,9 +717,11 @@ class JavaExample
     public void QuantifierExample3() throws Z3Exception, TestFailedException
     {
         System.out.println("QuantifierExample3");
+        Log.Append("QuantifierExample3");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("smt.mbqi", "false");
+        // We must set a global or provide an argument to Prove
+        // cfg.put("mbqi", "false"); 
         cfg.put("proof", "true");
         cfg.put("auto_config", "false");
 
@@ -759,9 +768,11 @@ class JavaExample
     public void QuantifierExample4() throws Z3Exception, TestFailedException
     {
         System.out.println("QuantifierExample4");
+        Log.Append("QuantifierExample4");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("smt.mbqi", "false");
+        // We must set a global or provide an argument to Prove
+        // cfg.put("mbqi", "false");
         cfg.put("proof", "true");
         cfg.put("auto_config", "false");
 
@@ -1117,6 +1128,7 @@ class JavaExample
     void LogicExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("LogicTest");
+        Log.Append("LogicTest");
 
         Context.ToggleWarningMessages(true);
 
@@ -1148,6 +1160,7 @@ class JavaExample
     void ParOrExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("ParOrExample");
+        Log.Append("ParOrExample");
 
         BitVecSort bvs = ctx.MkBitVecSort(32);
         Expr x = ctx.MkConst("x", bvs);
@@ -1179,6 +1192,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("FindModelExample1");
+        Log.Append("FindModelExample1");
 
         BoolExpr x = ctx.MkBoolConst("x");
         BoolExpr y = ctx.MkBoolConst("y");
@@ -1195,7 +1209,8 @@ class JavaExample
     public void FindModelExample2(Context ctx) throws Z3Exception,
             TestFailedException
     {
-        System.out.println("find_model_example2");
+        System.out.println("FindModelExample2");
+        Log.Append("FindModelExample2");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -1235,6 +1250,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ProveExample1");
+        Log.Append("ProveExample1");
 
         /* create uninterpreted type. */
         Sort U = ctx.MkUninterpretedSort(ctx.MkSymbol("U"));
@@ -1281,6 +1297,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ProveExample2");
+        Log.Append("ProveExample2");
 
         /* declare function g */
         Sort I = ctx.IntSort();
@@ -1336,6 +1353,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("PushPopExample1");
+        Log.Append("PushPopExample1");
 
         /* create a big number */
         IntSort int_type = ctx.IntSort();
@@ -1402,6 +1420,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("TupleExample");
+        Log.Append("TupleExample");
 
         Sort int_type = ctx.IntSort();
         TupleSort tuple = ctx.MkTupleSort(ctx.MkSymbol("mk_tuple"), // name of
@@ -1436,6 +1455,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("BitvectorExample1");
+        Log.Append("BitvectorExample1");
 
         Sort bv_type = ctx.MkBitVecSort(32);
         BitVecExpr x = (BitVecExpr) ctx.MkConst("x", bv_type);
@@ -1457,6 +1477,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("BitvectorExample2");
+        Log.Append("BitvectorExample2");
 
         /* construct x ^ y - 103 == x * y */
         Sort bv_type = ctx.MkBitVecSort(32);
@@ -1482,6 +1503,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ParserExample1");
+        Log.Append("ParserExample1");
 
         ctx.ParseSMTLIBString(
                 "(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))",
@@ -1499,6 +1521,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ParserExample2");
+        Log.Append("ParserExample2");
 
         Symbol[] declNames = { ctx.MkSymbol("a"), ctx.MkSymbol("b") };
         FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
@@ -1517,6 +1540,7 @@ class JavaExample
     public void ParserExample3(Context ctx) throws Exception
     {
         System.out.println("ParserExample3");
+        Log.Append("ParserExample3");
 
         /* declare function g */
         Sort I = ctx.MkIntSort();
@@ -1539,6 +1563,7 @@ class JavaExample
     public void ParserExample4(Context ctx) throws Z3Exception
     {
         System.out.println("ParserExample4");
+        Log.Append("ParserExample4");
 
         ctx.ParseSMTLIBString(
                 "(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))",
@@ -1585,6 +1610,7 @@ class JavaExample
     public void ITEExample(Context ctx) throws Z3Exception
     {
         System.out.println("ITEExample");
+        Log.Append("ITEExample");
 
         BoolExpr f = ctx.MkFalse();
         Expr one = ctx.MkInt(1);
@@ -1600,6 +1626,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("EnumExample");
+        Log.Append("EnumExample");
 
         Symbol name = ctx.MkSymbol("fruit");
 
@@ -1645,6 +1672,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ListExample");
+        Log.Append("ListExample");
 
         Sort int_ty;
         ListSort int_list;
@@ -1711,6 +1739,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("TreeExample");
+        Log.Append("TreeExample");
 
         Sort cell;
         FuncDecl nil_decl, is_nil_decl, cons_decl, is_cons_decl, car_decl, cdr_decl;
@@ -1786,6 +1815,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ForestExample");
+        Log.Append("ForestExample");
 
         Sort tree, forest;
         FuncDecl nil1_decl, is_nil1_decl, cons1_decl, is_cons1_decl, car1_decl, cdr1_decl;
@@ -1901,6 +1931,7 @@ class JavaExample
     public void EvalExample1(Context ctx) throws Z3Exception
     {
         System.out.println("EvalExample1");
+        Log.Append("EvalExample1");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -1940,6 +1971,7 @@ class JavaExample
     public void EvalExample2(Context ctx) throws Z3Exception
     {
         System.out.println("EvalExample2");
+        Log.Append("EvalExample2");
 
         Sort int_type = ctx.IntSort();
         TupleSort tuple = ctx.MkTupleSort(ctx.MkSymbol("mk_tuple"), // name of
@@ -2063,6 +2095,7 @@ class JavaExample
     public void FindSmallModelExample(Context ctx) throws Z3Exception
     {
         System.out.println("FindSmallModelExample");
+        Log.Append("FindSmallModelExample");
 
         BitVecExpr x = ctx.MkBVConst("x", 32);
         BitVecExpr y = ctx.MkBVConst("y", 32);
@@ -2079,6 +2112,7 @@ class JavaExample
     public void SimplifierExample(Context ctx) throws Z3Exception
     {
         System.out.println("SimplifierExample");
+        Log.Append("SimplifierExample");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -2098,6 +2132,7 @@ class JavaExample
     public void UnsatCoreAndProofExample() throws Z3Exception
     {
         System.out.println("UnsatCoreAndProofExample");
+        Log.Append("UnsatCoreAndProofExample");
 
         HashMap<String, String> cfg = new HashMap<String, String>();
         cfg.put("proof", "true");
@@ -2144,6 +2179,7 @@ class JavaExample
     public void FiniteDomainExample(Context ctx) throws Z3Exception
     {
         System.out.println("FiniteDomainExample");
+        Log.Append("FiniteDomainExample");
 
         FiniteDomainSort s = ctx.MkFiniteDomainSort("S", 10);
         FiniteDomainSort t = ctx.MkFiniteDomainSort("T", 10);

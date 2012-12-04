@@ -266,7 +266,7 @@ namespace smt {
         // Moreover, if model construction is enabled, then rational numbers may be needed
         // to compute the actual value of epsilon even if the input does not have rational numbers.
         // Example: (x < 1) and (x > 0)
-        if (m_params.m_proof_mode != PGM_DISABLED) {
+        if (m_manager.proof_mode() != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
@@ -343,7 +343,7 @@ namespace smt {
               tout << "RELEVANCY: " << m_params.m_relevancy_lvl << "\n";
               tout << "ARITH_EQ_BOUNDS: " << m_params.m_arith_eq_bounds << "\n";);
 
-        if (m_params.m_proof_mode != PGM_DISABLED) {
+        if (m_manager.proof_mode() != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
@@ -394,7 +394,7 @@ namespace smt {
                 m_params.m_lemma_gc_half          = true;
                 m_params.m_restart_strategy       = RS_GEOMETRIC;
                 
-                if (m_params.m_proof_mode != PGM_DISABLED) {
+                if (m_manager.proof_mode() != PGM_DISABLED) {
                     m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
                 }
                 else if (st.m_arith_k_sum < rational(INT_MAX / 8))
@@ -409,7 +409,7 @@ namespace smt {
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
-        if (m_params.m_proof_mode != PGM_DISABLED) {
+        if (m_manager.proof_mode() != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
         // else if (st.m_arith_k_sum < rational(INT_MAX / 8))
@@ -683,7 +683,7 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        if (m_params.m_proof_mode != PGM_DISABLED) {
+        if (m_manager.proof_mode() != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
         else {
@@ -692,7 +692,7 @@ namespace smt {
     }
 
     void setup::setup_mi_arith() {
-        if (m_params.m_proof_mode != PGM_DISABLED) {
+        if (m_manager.proof_mode() != PGM_DISABLED) {
             m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
         }
         else {
@@ -734,7 +734,7 @@ namespace smt {
             }
             break;
         default:
-            if (m_params.m_proof_mode != PGM_DISABLED) {
+            if (m_manager.proof_mode() != PGM_DISABLED) {
                 m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
             }
             // else if (m_params.m_arith_fixnum) {
