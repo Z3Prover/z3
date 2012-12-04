@@ -201,7 +201,7 @@ extern "C" {
         LOG_Z3_get_as_array_func_decl(c, a);
         RESET_ERROR_CODE();
         if (is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY)) {
-            return of_func_decl(to_func_decl(to_app(a)->get_decl()->get_parameter(0).get_ast()));
+            RETURN_Z3(of_func_decl(to_func_decl(to_app(a)->get_decl()->get_parameter(0).get_ast())));
         }
         else {
             SET_ERROR_CODE(Z3_INVALID_ARG);
