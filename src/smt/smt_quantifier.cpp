@@ -562,7 +562,7 @@ namespace smt {
         virtual quantifier_manager::check_model_result
         check_model(proto_model * m, obj_map<enode, app *> const & root2value) {
             if (m_fparams->m_mbqi) {
-                IF_VERBOSE(10, verbose_stream() << "model based quantifier instantiation...\n";);
+                IF_VERBOSE(10, verbose_stream() << "(smt.mbqi)\n";);
                 if (m_model_checker->check(m, root2value)) {
                     return quantifier_manager::SAT;
                 }
@@ -594,7 +594,6 @@ namespace smt {
         final_check_status final_check_quant() {
             if (use_ematching()) {
                 if (m_lazy_matching_idx < m_fparams->m_qi_max_lazy_multipattern_matching) {
-                    IF_VERBOSE(100, verbose_stream() << "matching delayed multi-patterns... \n";);
                     m_lazy_mam->rematch();
                     m_context->push_trail(value_trail<context, unsigned>(m_lazy_matching_idx));
                     m_lazy_matching_idx++;

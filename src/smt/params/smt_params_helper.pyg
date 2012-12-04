@@ -35,6 +35,7 @@ def_module_params(module_name='smt',
                           ('arith.nl.rounds', UINT, 1024, 'threshold for number of (nested) final checks for non linear arithmetic'),
                           ('arith.euclidean_solver', BOOL, False, 'eucliean solver for linear integer arithmetic'),
                           ('arith.propagate_eqs', BOOL, True, 'propagate (cheap) equalities'),
+                          ('arith.propagation_mode', UINT, 2, '0 - no propagation, 1 - propagate existing literals, 2 - refine bounds'),
                           ('arith.branch_cut_ratio', UINT, 2, 'branch/cut ratio for linear integer arithmetic'),
                           ('arith.int_eq_branch', BOOL, False, 'branching using derived integer equations'),
                           ('arith.ignore_int', BOOL, False, 'treat integer variables as real')))

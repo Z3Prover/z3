@@ -312,7 +312,7 @@ namespace smt {
         TRACE("model_checker", tout << "MODEL_CHECKER INVOKED\n";
               tout << "model:\n"; model_pp(tout, *m_curr_model););
         if (m_params.m_mbqi_trace) {
-            verbose_stream() << "[mbqi] started\n";
+            verbose_stream() << "(smt.mbqi \"started\")\n";
         }
 
         init_aux_context();
@@ -324,13 +324,12 @@ namespace smt {
             quantifier * q = *it;
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true) {
                 if (m_params.m_mbqi_trace && q->get_qid() != symbol::null) {
-                    verbose_stream() << "[mbqi] checking: " << q->get_qid() << "\n";
+                    verbose_stream() << "(smt.mbqi :checking " << q->get_qid() << ")\n";
                 }
                 found_relevant = true;
                 if (!check(q)) {
-                    IF_VERBOSE(5, verbose_stream() << "current model does not satisfy: " << q->get_qid() << "\n";);
-                    if (m_params.m_mbqi_trace) {
-                        verbose_stream() << "[mbqi] failed " << q->get_qid() << "\n";
+                    if (m_params.m_mbqi_trace || get_verbosity_level() >= 5) {
+                        verbose_stream() << "(smt.mbqi :failed " << q->get_qid() << ")\n";
                     }
                     num_failures++;
                 }
@@ -347,9 +346,9 @@ namespace smt {
             m_curr_model->cleanup();
         if (m_params.m_mbqi_trace) {
             if (num_failures == 0)
-                verbose_stream() << "[mbqi] succeeded\n";
+                verbose_stream() << "(smt.mbqi :succeeded true)\n";
             else
-                verbose_stream() << "[mbqi] num failures " << num_failures << "\n";
+                verbose_stream() << "(smt.mbqi :num-failures " << num_failures << ")\n";
         }
         return num_failures == 0;
     }
@@ -360,7 +359,7 @@ namespace smt {
     }
 
     void model_checker::restart_eh() {
-        IF_VERBOSE(100, verbose_stream() << "instantiating new instances...\n";);
+        IF_VERBOSE(100, verbose_stream() << "(smt.mbqi \"instantiating new instances...\")\n";);
         assert_new_instances();
         reset_new_instances();
     }

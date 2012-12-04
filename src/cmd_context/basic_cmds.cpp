@@ -307,7 +307,7 @@ class set_option_cmd : public set_get_option_cmd {
         try {
             gparams::set(m_option, value);
             env_params::updt_params();
-            ctx.params().updt_params();
+            ctx.global_params_updated();
         }
         catch (gparams::exception ex) {
             throw cmd_exception(ex.msg());
@@ -517,7 +517,7 @@ public:
         }
         else {
             try {
-                std::string val = gparams::get_value(opt);
+                ctx.regular_stream() << gparams::get_value(opt) << std::endl;
             }
             catch (gparams::exception ex) {
                 ctx.print_unsupported(opt);

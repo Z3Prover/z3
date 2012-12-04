@@ -342,6 +342,16 @@ cmd_context::~cmd_context() {
     m_check_sat_result = 0;
 }
 
+void cmd_context::global_params_updated() {
+    m_params.updt_params();
+    if (m_solver) {
+        params_ref p;
+        if (!m_params.m_auto_config)
+            p.set_bool("auto_config", false);
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::set_produce_models(bool f) {
     if (m_solver)
         m_solver->set_produce_models(f);
