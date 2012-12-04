@@ -32,7 +32,6 @@ Revision History:
 #include "pdr_util.h"
 #include "pdr_sym_mux.h"
 #include "pdr_farkas_learner.h"
-#include "pdr_interpolant_provider.h"
 #include "pdr_smt_context_manager.h"
 #include "dl_rule.h"
 
@@ -79,7 +78,7 @@ namespace pdr {
     {
         ast_manager&      m;
         smt_params& m_fparams;
-        params_ref const& m_params;
+        fixedpoint_params const& m_params;
         
         mutable bool_rewriter m_brwr;
         
@@ -91,16 +90,6 @@ namespace pdr {
         /** whenever we need an unique number, we get this one and increase */
         unsigned m_next_unique_num;
         
-        /**
-           It would make more sense to have interpolantor inside the prop_solver,
-           however we have one prop_solver instance in each relation.
-           Each instance of interpolant_provider creates a temporary file and
-           interpolant_provider can be shared, so it makes  more sence to have 
-           it in pdr_manager which is created only once.
-        */
-        
-        scoped_ptr<interpolant_provider> m_interpolator;
-
         
         static vector<std::string> get_state_suffixes();
         
@@ -110,12 +99,12 @@ namespace pdr {
         void add_new_state(func_decl * s);
         
     public:
-        manager(smt_params& fparams, params_ref const& params, 
+        manager(smt_params& fparams, fixedpoint_params const& params, 
                 ast_manager & manager);
         
         ast_manager& get_manager() const { return m; }
         smt_params& get_fparams() const { return m_fparams; }
-        params_ref const& get_params() const { return m_params; }
+        fixedpoint_params const& get_params() const { return m_params; }
         bool_rewriter& get_brwr() const { return m_brwr; }
 
         expr_ref mk_and(unsigned sz, expr* const* exprs);
@@ -298,7 +287,6 @@ namespace pdr {
         
         expr* get_background() const { return m_background; }
         
-        interpolant_provider& get_interpolator();
         
         /**
            Return true if we can show that lhs => rhs. The function can have false negatives

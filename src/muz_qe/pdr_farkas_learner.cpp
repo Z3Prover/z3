@@ -29,7 +29,6 @@ Revision History:
 #include "pdr_util.h"
 #include "pdr_farkas_learner.h"
 #include "th_rewriter.h"
-#include "pdr_interpolant_provider.h"
 #include "ast_ll_pp.h"
 #include "arith_bounds_tactic.h"
 #include "proof_utils.h"

@@ -26,6 +26,7 @@ Revision History:
 #include"horn_subsume_model_converter.h"
 #include"replace_proof_converter.h"
 #include"substitution.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

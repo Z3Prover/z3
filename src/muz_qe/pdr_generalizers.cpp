@@ -20,7 +20,6 @@ Revision History:
 
 #include "pdr_context.h"
 #include "pdr_farkas_learner.h"
-#include "pdr_interpolant_provider.h"
 #include "pdr_generalizers.h"
 #include "expr_abstract.h"
 #include "var_subst.h"
@@ -143,77 +142,6 @@ namespace pdr {
     }
 
 
-    /**
-              < F, phi, i + 1 >
-             /                 \
-       < G, psi, i >       < H, theta, i >
-          core
-
-      Given:
-        1. psi => core
-        2. Gi => not core
-        3. phi & psi & theta => F_{i+1}
-
-      Then, by weakening 2:
-        Gi => (F_{i+1} => not (phi & core & theta))
-            
-      Find interpolant I, such that
-
-        Gi => I, I => (F_{i+1} => not (phi & core' & theta'))
-      
-      where core => core', theta => theta'
-
-      This implementation checks if
-
-        Gi => (F_{i+1} => not (phi & theta))
-
-    */
-    void core_interpolant_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        if (!n.parent()) {
-            return;
-        }
-        manager& pm = n.pt().get_pdr_manager();
-        ast_manager& m = n.pt().get_manager();
-        model_node&  p = *n.parent();
-
-        // find index of node into parent.
-        unsigned index = 0;
-        for (; index < p.children().size() && (&n != p.children()[index]); ++index);
-        SASSERT(index < p.children().size());
-
-        expr_ref G(m), F(m), r(m), B(m), I(m), cube(m);
-        expr_ref_vector fmls(m);
-
-        F = p.pt().get_formulas(p.level(), true);
-        G = n.pt().get_formulas(n.level(), true);
-        pm.formula_n2o(index, false, G);
-
-        // get formulas from siblings.
-        for (unsigned i = 0; i < p.children().size(); ++i) {
-            if (i != index) {
-                pm.formula_n2o(p.children()[i]->state(), r, i, true);
-                fmls.push_back(r);
-            }
-        }
-        fmls.push_back(F);
-        fmls.push_back(p.state());
-        B = pm.mk_and(fmls);        
-        
-        // when G & B is unsat, find I such that G => I, I => not B
-        lbool res = pm.get_interpolator().get_interpolant(G, B, I);
-
-        TRACE("pdr", 
-              tout << "Interpolating:\n" << mk_pp(G, m) << "\n" << mk_pp(B, m) << "\n";
-              if (res == l_true) tout << mk_pp(I, m) << "\n"; else tout << "failed\n";);
-
-        if(res == l_true) {
-            pm.formula_o2n(I, cube, index, true);
-            TRACE("pdr", tout << "After renaming: " << mk_pp(cube, m) << "\n";);
-            core.reset();
-            datalog::flatten_and(cube, core);
-            uses_level = true;
-        }
-    }
 
 
     // 
@@ -463,7 +391,7 @@ namespace pdr {
         imp imp(m_ctx);
         ast_manager& m = core.get_manager();
         expr_ref goal = imp.mk_induction_goal(p->pt(), p->level(), depth);
-        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params());
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
         ctx.assert_expr(goal);
         lbool r = ctx.check();
         TRACE("pdr", tout << r << "\n";

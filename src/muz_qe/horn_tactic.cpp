@@ -168,8 +168,8 @@ class horn_tactic : public tactic {
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {
-                if (!m_ctx.get_params().get_bool("generate_proof_trace", true)) {
-                    params_ref params = m_ctx.get_params();
+                if (!m_ctx.get_params().generate_proof_trace()) {
+                    params_ref params = m_ctx.get_params().p;
                     params.set_bool("generate_proof_trace", true);
                     updt_params(params);
                 }

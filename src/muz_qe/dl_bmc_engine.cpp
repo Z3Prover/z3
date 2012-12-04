@@ -57,7 +57,6 @@ namespace datalog {
 
         m_ctx.ensure_opened();
         m_rules.reset();
-        m_ctx.get_rmanager().reset_relations();
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
         datalog::rule_set        old_rules(m_ctx.get_rules());
         datalog::rule_ref_vector query_rules(rule_manager);
@@ -71,7 +70,7 @@ namespace datalog {
         m_ctx.set_output_predicate(m_query_pred);
         m_ctx.apply_default_transformation(mc, m_pc);
         
-        if (m_ctx.get_params().get_bool("slice", true)) {
+        if (m_ctx.get_params().slice()) {
             datalog::rule_transformer transformer(m_ctx);
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);
@@ -1098,9 +1097,6 @@ namespace datalog {
 
     void bmc::reset_statistics() {
         m_solver.reset_statistics();
-    }
-
-    void bmc::collect_params(param_descrs& p) {
     }
 
     expr_ref bmc::get_answer() {        

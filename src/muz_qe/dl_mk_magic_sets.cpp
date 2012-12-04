@@ -365,7 +365,7 @@ namespace datalog {
                 rule * r = *it;
                 transform_rule(task.m_adornment, r);
             }
-            if(!m_context.get_relation(task.m_pred).empty()) {
+            if(!m_context.get_rel_context().get_relation(task.m_pred).empty()) {
                 //we need a rule to copy facts that are already in a relation into the adorned
                 //relation (since out intentional predicates can have facts, not only rules)
                 create_transfer_rule(task);

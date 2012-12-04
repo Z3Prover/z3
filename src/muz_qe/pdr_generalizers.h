@@ -51,13 +51,6 @@ namespace pdr {
         virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
     };
 
-    class core_interpolant_generalizer : public core_generalizer {
-    public:
-        core_interpolant_generalizer(context& ctx): core_generalizer(ctx) {}
-        virtual ~core_interpolant_generalizer() {}
-        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
-    };
-
     class core_induction_generalizer : public core_generalizer {
         class imp;
     public:

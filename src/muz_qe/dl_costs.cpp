@@ -115,7 +115,7 @@ namespace datalog {
     }
 
 
-    void accounted_object::output_profile(context & ctx, std::ostream & out) const {
+    void accounted_object::output_profile(std::ostream & out) const {
         costs c;
         get_total_cost(c);
         c.output(out);

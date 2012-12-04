@@ -79,7 +79,7 @@ namespace datalog {
         void process_costs();
 
         bool passes_output_thresholds(context & ctx) const;
-        void output_profile(context & ctx, std::ostream & out) const;
+        void output_profile(std::ostream & out) const;
 
     private:
         //private and undefined copy constructor and operator= to avoid the default ones
