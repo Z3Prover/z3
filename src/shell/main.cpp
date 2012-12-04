@@ -44,15 +44,9 @@ input_kind          g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
 bool                g_display_istatistics = false;
 
-#ifdef _WINDOWS
-#define OPT "/"
-#else
-#define OPT "-"
-#endif
-
 void error(const char * msg) {
     std::cerr << "Error: " << msg << "\n";
-    std::cerr << "For usage information: z3 " << OPT << "h\n";
+    std::cerr << "For usage information: z3 -h\n";
     exit(ERR_CMD_LINE);
 }
 
@@ -64,40 +58,40 @@ void display_usage() {
     std::cout << "32";
 #endif
     std::cout << " bit]. (C) Copyright 2006 Microsoft Corp.\n";
-    std::cout << "Usage: z3 [options] [" << OPT << "file:]file\n";
+    std::cout << "Usage: z3 [options] [-file:]file\n";
     std::cout << "\nInput format:\n";
-    std::cout << "  " << OPT << "smt        use parser for SMT input format.\n";
-    std::cout << "  " << OPT << "smt2       use parser for SMT 2 input format.\n";
-    std::cout << "  " << OPT << "dl         use parser for Datalog input format.\n";
-    std::cout << "  " << OPT << "dimacs     use parser for DIMACS input format.\n";
-    std::cout << "  " << OPT << "log        use parser for Z3 log input format.\n";
-    std::cout << "  " << OPT << "in         read formula from standard input.\n";
+    std::cout << "  -smt        use parser for SMT input format.\n";
+    std::cout << "  -smt2       use parser for SMT 2 input format.\n";
+    std::cout << "  -dl         use parser for Datalog input format.\n";
+    std::cout << "  -dimacs     use parser for DIMACS input format.\n";
+    std::cout << "  -log        use parser for Z3 log input format.\n";
+    std::cout << "  -in         read formula from standard input.\n";
     std::cout << "\nMiscellaneous:\n";
-    std::cout << "  " << OPT << "h, " << OPT << "?      prints this message.\n";
-    std::cout << "  " << OPT << "version    prints version number of Z3.\n";
-    std::cout << "  " << OPT << "v:level    be verbose, where <level> is the verbosity level.\n";
-    std::cout << "  " << OPT << "nw         disable warning messages.\n";
-    std::cout << "  " << OPT << "p          display Z3 global (and module) parameters.\n";
-    std::cout << "  " << OPT << "pd         display Z3 global (and module) parameter descriptions.\n";
-    std::cout << "  " << OPT << "pm:name    display Z3 module ('name') parameters.\n";
-    std::cout << "  " << OPT << "pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
+    std::cout << "  -h, -?      prints this message.\n";
+    std::cout << "  -version    prints version number of Z3.\n";
+    std::cout << "  -v:level    be verbose, where <level> is the verbosity level.\n";
+    std::cout << "  -nw         disable warning messages.\n";
+    std::cout << "  -p          display Z3 global (and module) parameters.\n";
+    std::cout << "  -pd         display Z3 global (and module) parameter descriptions.\n";
+    std::cout << "  -pm:name    display Z3 module ('name') parameters.\n";
+    std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
-    std::cout << "  " << OPT << "T:timeout  set the timeout (in seconds).\n";
-    std::cout << "  " << OPT << "t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
-    std::cout << "  " << OPT << "memory:Megabytes  set a limit for virtual memory consumption.\n";
+    std::cout << "  -T:timeout  set the timeout (in seconds).\n";
+    std::cout << "  -t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
+    std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
     // 
     std::cout << "\nOutput:\n";
-    std::cout << "  " << OPT << "st         display statistics.\n";
+    std::cout << "  -st         display statistics.\n";
 #if defined(Z3DEBUG) || defined(_TRACE)
     std::cout << "\nDebugging support:\n";
 #endif
 #ifdef _TRACE
-    std::cout << "  " << OPT << "tr:tag     enable trace messages tagged with <tag>.\n";
+    std::cout << "  -tr:tag     enable trace messages tagged with <tag>.\n";
 #endif
 #ifdef Z3DEBUG
-    std::cout << "  " << OPT << "dbg:tag    enable assertions tagged with <tag>.\n";
+    std::cout << "  -dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
 }
    
@@ -235,7 +229,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             }
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
-                std::cerr << "For usage information: z3 " << OPT << "h\n";
+                std::cerr << "For usage information: z3 -h\n";
                 exit(ERR_CMD_LINE);
             }
         }
