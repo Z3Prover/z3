@@ -91,11 +91,6 @@ quote(c,"#define xstr(s) str(s)");
 quote(c,"#define str(s) #s");
 
 
-// Suppress "warning C4090: 'function' : different 'const' qualifiers" as
-// CamlIDL does not seem to get this right.
-quote(c,"#pragma warning(disable:4090)");
-
-
 #ifndef MLAPIV3
 
 #define DEFINE_TYPE(T) typedef [abstract] void* T
