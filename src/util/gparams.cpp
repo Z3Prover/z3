@@ -35,6 +35,47 @@ bool is_old_param_name(symbol const & name) {
     return false;
 }
 
+char const * g_params_renames[] = {
+    "proof_mode", "proof",
+    "soft_timeout", "timeout",
+    "mbqi", "smt.mbqi",
+    "relevancy", "smt.relevancy",
+    "ematching", "smt.ematching",
+    "macro_finder", "smt.macro_finder",
+    "delay_units", "smt.delay_units",
+    "case_split", "smt.case_split",
+    "phase_selection", "smt.phase_selection",
+    "restart_strategy", "smt.restart_strategy",
+    "restart_factor", "smt.restart_factor",
+    "arith_random_initial_value", "smt.arith.random_initial_value",
+    "bv_reflect", "smt.bv.reflect",
+    "qi_cost", "smt.qi.cost",
+    "qi_eager_threshold", "smt.qi.eager_threshold",
+    "nl_arith", "smt.arith.nl",
+    "nnf_sk_hack", "nnf.sk_hack",
+    "model_v2", "model.v2",
+    "pi_non_nested_arith_weight", "pi.non_nested_arith_weight",
+    "pi_warnings", "pi.warnings",
+    "pp_decimal", "pp.decimal",
+    "pp_decimal", "pp.decimal_precision",
+    "pp_bv_literals", "pp.bv_literals",
+    "pp_bv_neg", "pp.bv_neg",
+    "pp_max_depth", "pp.max_depth",
+    "pp_min_alias_size", "pp.min_alias_size",
+    0 };
+
+char const * get_new_param_name(symbol const & p) {
+    char const * const * it = g_params_renames;
+    while (*it) {
+        if (p == *it) {
+            it++;
+            return *it;
+        }
+        it += 2;
+    }
+    return 0;
+}
+
 struct gparams::imp {
     bool                      m_modules_registered;
     dictionary<param_descrs*> m_module_param_descrs;
@@ -160,7 +201,12 @@ public:
 
     void throw_unknown_parameter(symbol const & param_name, symbol const & mod_name) {
         if (mod_name == symbol::null) {
-            if (is_old_param_name(param_name)) {
+            char const * new_name = get_new_param_name(param_name);
+            if (new_name) {
+                throw exception("the parameter '%s' was renamed to '%s', invoke 'z3 -p' to obtain the new parameter list, and 'z3 -pp:%s' for the full description of the parameter",
+                                param_name.bare_str(), new_name, new_name);
+            }
+            else if (is_old_param_name(param_name)) {
                 throw exception("unknown parameter '%s', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list", 
                                 param_name.bare_str());
             }
