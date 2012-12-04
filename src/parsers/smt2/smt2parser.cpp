@@ -35,6 +35,7 @@ namespace smt2 {
 
     class parser {
         cmd_context &        m_ctx;
+        params_ref           m_params;
         scanner              m_scanner;
         scanner::token       m_curr;
         cmd *                m_curr_cmd;
@@ -2285,6 +2286,10 @@ namespace smt2 {
                     shrink(m_sexpr_stack, sexpr_spos);
                     m_symbol_stack.shrink(sym_spos);
                     m_num_bindings = 0;
+                    // HACK for propagating the update of parser parameters
+                    if (norm_param_name(s) == "set_option") {
+                        updt_params();
+                    }
                     return;
                 }
                 else {
@@ -2357,9 +2362,10 @@ namespace smt2 {
         }
 
     public:
-        parser(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & _p):
+        parser(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & p):
             m_ctx(ctx), 
-            m_scanner(ctx, is, interactive, _p), 
+            m_params(p),
+            m_scanner(ctx, is, interactive, p), 
             m_curr(scanner::NULL_TOKEN),
             m_curr_cmd(0),
             m_num_bindings(0),
@@ -2397,14 +2403,18 @@ namespace smt2 {
             // the following assertion does not hold if ctx was already attached to an AST manager before the parser object is created.
             // SASSERT(!m_ctx.has_manager());
             
-            parser_params p(_p);
-            m_ignore_user_patterns = p.ignore_user_patterns();
-            m_ignore_bad_patterns  = p.ignore_bad_patterns();
-            m_display_error_for_vs = p.error_for_visual_studio();
+            updt_params();
         }
         
         ~parser() {
             reset_stack();
+        }
+
+        void updt_params() {
+            parser_params p(m_params);
+            m_ignore_user_patterns = p.ignore_user_patterns();
+            m_ignore_bad_patterns  = p.ignore_bad_patterns();
+            m_display_error_for_vs = p.error_for_visual_studio();
         }
   
         void reset() {
