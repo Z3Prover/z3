@@ -53,6 +53,12 @@ Author:
 #endif
 
 
+// The V3 API uses a single handler irregardless of UNSAFE_ERRORS
+quote(c,"
+/* All contexts share the same handler */
+static value caml_z3_error_handler = 0;
+");
+
 #ifdef SAFE_ERRORS
 
 quote(mlmli,"
@@ -64,7 +70,7 @@ quote(mlmli,"
 exception Error of context * error_code
 ");
 quote(ml,"
-/* Register dynamically-generated exception tag for use from C */
+(* Register dynamically-generated exception tag for use from C *)
 let _ = Callback.register_exception \"Z3.Error\" (Error (Obj.magic None, OK))
 ");
 
@@ -108,16 +114,13 @@ quote(mlmli,"
 exception Error of context * error_code
 ");
 quote(ml,"
-/* Register dynamically-generated exception tag for use from C */
+(* Register dynamically-generated exception tag for use from C *)
 let _ = Callback.register_exception \"Z3.Error\" (Error (Obj.magic None, OK))
 ");
 
 quote(c,"
 /* Error checking routine that does nothing */
 void check_error_code(Z3_context c) {}
-
-/* All contexts share the same handler */
-static value caml_error_handler = 0;
 
 static void error_handler_static (Z3_context c, Z3_error_code e)
 {
@@ -126,8 +129,8 @@ static void error_handler_static (Z3_context c, Z3_error_code e)
   value ctx_err[2];
   ctx_err[0] = c2ml_Z3_context(&c);
   ctx_err[1] = camlidl_c2ml_z3_Z3_error_code(&e, &_ctxs);
-  if (caml_error_handler) {
-    caml_callback2(caml_error_handler, ctx_err[0], ctx_err[1]);
+  if (caml_z3_error_handler) {
+    caml_callback2(caml_z3_error_handler, ctx_err[0], ctx_err[1]);
   } else {
     /* if no handler set, raise OCaml Error exception */
     exn_tag = caml_named_value(\"Z3.Error\");
@@ -141,7 +144,7 @@ static void error_handler_static (Z3_context c, Z3_error_code e)
 
 void ml2c_Z3_error_handler (value ml_handler, void* c_handler)
 {
-  caml_error_handler = ml_handler;
+  caml_z3_error_handler = ml_handler;
   c_handler = (void*)error_handler_static;
 }
 
