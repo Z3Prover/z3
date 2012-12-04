@@ -1387,7 +1387,7 @@ namespace pdr {
             break;
         }            
         case l_false: {
-            expr_ref_vector refs(m), fmls(m);
+            expr_ref_vector refs(m);
             expr_ref tmp(m);
             model_ref model;
             vector<relation_info> rs;
@@ -1402,6 +1402,7 @@ namespace pdr {
                 for (unsigned i = 0; i < rules.size(); ++i) {
                     datalog::rule& r = *rules[i];
                     model->eval(r.get_head(), tmp);
+                    expr_ref_vector fmls(m);
                     fmls.push_back(m.mk_not(tmp));
                     unsigned utsz = r.get_uninterpreted_tail_size();
                     unsigned tsz  = r.get_tail_size();

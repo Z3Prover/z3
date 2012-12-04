@@ -417,15 +417,6 @@ namespace datalog {
          */
         bool result_contains_fact(relation_fact const& f);
 
-#if 0
-        /**
-           \brief display facts generated for query.
-        */
-        void display_output_facts(std::ostream & out) const {
-            get_rel_context().get_rmanager().display_output_tables(out);
-        }
-#endif
-
         rel_context& get_rel_context() { ensure_rel(); return *m_rel; }
 
     private:

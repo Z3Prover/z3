@@ -925,13 +925,14 @@ namespace datalog {
         m_cancel = false;
         if (m_pdr.get()) m_pdr->cleanup();
         if (m_bmc.get()) m_bmc->cleanup();
+        if (m_rel.get()) m_rel->cleanup();
     }
 
     class context::engine_type_proc {
-        ast_manager& m;
-        arith_util   a;
+        ast_manager&  m;
+        arith_util    a;
         datatype_util dt;
-        DL_ENGINE    m_engine;
+        DL_ENGINE     m_engine;
 
     public:
         engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}

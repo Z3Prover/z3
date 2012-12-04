@@ -86,48 +86,6 @@ namespace pdr {
         return res.str();
     }
 
-    /////////////////////////
-    // select elimination rewriter
-    //
-
-    class select_elim {
-        ast_manager& m;
-        array_util   a;
-        model_ref    m_model;
-    public:
-        select_elim(ast_manager& m, model_ref& md): m(m), a(m), m_model(md) {}
-        
-        br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
-            if (a.is_select(f)) {
-                expr_ref tmp(m);
-                tmp = m.mk_app(f, num_args, args);
-                m_model->eval(tmp, result);
-                return BR_DONE;
-            }
-            else {
-                return BR_FAILED;
-            }
-        }
-    };
-
-    struct select_elim_cfg: public default_rewriter_cfg {
-        select_elim m_r;
-        bool rewrite_patterns() const { return false; }
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            return m_r.mk_app_core(f, num, args, result);
-        }
-        select_elim_cfg(ast_manager & m, model_ref& md, params_ref const & p):m_r(m, md) {}        
-    };
-
-
-    class select_elim_star : public rewriter_tpl<select_elim_cfg> {
-        select_elim_cfg m_cfg;
-    public:
-        select_elim_star(ast_manager & m, model_ref& md, params_ref const & p = params_ref()):
-            rewriter_tpl<select_elim_cfg>(m, false, m_cfg),
-            m_cfg(m, md, p) {}
-    };
-
 
 
     /////////////////////////
@@ -238,13 +196,6 @@ namespace pdr {
                 result.push_back(m.mk_not(e));
             }
         }
-#if 0
-        select_elim_star select_elim(m, m_model);
-        for (unsigned i = 0; i < result.size(); ++i) {
-            select_elim(result[i].get(), tmp);
-            result[i] = tmp;
-        }
-#endif
         reset();
         TRACE("pdr", 
               tout << "minimized model:\n";
@@ -1266,6 +1217,5 @@ namespace pdr {
 
 template class rewriter_tpl<pdr::ite_hoister_cfg>;
 
-template class rewriter_tpl<pdr::select_elim_cfg>;
 
 

@@ -73,7 +73,8 @@ namespace datalog {
         void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
         void cancel() { m_cancel = true; }
-
+        
+        void cleanup() { m_cancel = false; }
 
 
         /**
