@@ -1428,7 +1428,7 @@ extern "C" {
     /**
        \brief Set a value of a context parameter.
 
-       \sa Use #Z3_global_param_set.
+       \sa Z3_global_param_set
 
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
@@ -1437,7 +1437,7 @@ extern "C" {
     /**
        \brief Return the value of a context parameter.
       
-       \sa Use #Z3_global_param_get
+       \sa Z3_global_param_get
 
        def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
     */
@@ -1707,7 +1707,7 @@ extern "C" {
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
 
-       \sa Z3_get_finite_domain_sort_size.
+       \sa Z3_get_finite_domain_sort_size
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */
