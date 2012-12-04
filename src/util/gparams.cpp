@@ -60,20 +60,22 @@ public:
     }
 
     ~imp() {
-        {
-            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
-            }
+        reset();
+        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
+        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
         }
-        {
-            dictionary<params_ref*>::iterator it  = m_module_params.begin();
-            dictionary<params_ref*>::iterator end = m_module_params.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
-            }
+    }
+
+    void reset() {
+        m_params.reset();
+        dictionary<params_ref*>::iterator it  = m_module_params.begin();
+        dictionary<params_ref*>::iterator end = m_module_params.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
         }
+        m_module_params.reset();
     }
 
     // -----------------------------------------------
@@ -447,6 +449,11 @@ public:
 };
 
 gparams::imp * gparams::g_imp = 0;
+
+void gparams::reset() {
+    SASSERT(g_imp != 0);
+    g_imp->reset();
+}
 
 void gparams::set(char const * name, char const * value) {
     TRACE("gparams", tout << "setting [" << name << "] <- '" << value << "'\n";);

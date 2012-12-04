@@ -1260,6 +1260,17 @@ extern "C" {
        def_API('Z3_global_param_set', VOID, (_in(STRING), _in(STRING)))
     */
     void Z3_API Z3_global_param_set(__in Z3_string param_id, __in Z3_string param_value);
+
+
+    /**
+       \brief Restore the value of all global (and module) parameters.
+       This command will not affect already created objects (such as tactics and solvers).
+
+       \sa Z3_global_param_set
+
+       def_API('Z3_global_param_reset_all', VOID, ())
+    */
+    void Z3_API Z3_global_param_reset_all();
     
     /**
        \brief Get a global (or module) parameter.

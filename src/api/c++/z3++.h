@@ -67,6 +67,7 @@ namespace z3 {
     inline void set_param(char const * param, char const * value) { Z3_global_param_set(param, value); }
     inline void set_param(char const * param, bool value) { Z3_global_param_set(param, value ? "true" : "false"); }
     inline void set_param(char const * param, int value) { std::ostringstream oss; oss << value; Z3_global_param_set(param, oss.str().c_str()); }
+    inline void reset_params() { Z3_global_param_reset_all(); }
 
     /**
        \brief Exception used to sign API usage errors.

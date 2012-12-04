@@ -219,6 +219,11 @@ def set_param(*args, **kws):
             Z3_global_param_set(str(prev), _to_param_value(a))
             prev = None
 
+def reset_params():
+    """Reset all global (or module) parameters.
+    """
+    Z3_global_param_reset_all()
+
 def set_option(*args, **kws):
     """Alias for 'set_param' for backward compatibility.
     """

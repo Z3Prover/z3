@@ -28,6 +28,11 @@ public:
     typedef default_exception exception;
 
     /**
+       \brief Reset all global and module parameters.
+    */
+    static void reset();
+
+    /**
        \brief Set a global parameter \c name with \c value.
        
        The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
