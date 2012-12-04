@@ -93,6 +93,11 @@ void display_usage() {
 #ifdef Z3DEBUG
     std::cout << "  -dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
+    std::cout << "\nParameter setting:\n";
+    std::cout << "Global and module parameters can be set in the command line.\n";
+    std::cout << "  param_name=value              for setting global parameters.\n";
+    std::cout << "  module_name.param_name=value  for setting module parameters.\n";
+    std::cout << "Use 'z3 -p' for the complete list of global and module parameters.\n";
 }
    
 void parse_cmd_line_args(int argc, char ** argv) {
@@ -126,6 +131,9 @@ void parse_cmd_line_args(int argc, char ** argv) {
 #endif
             ) {
             char * opt_name = arg + 1;
+            // allow names such as --help
+            if (*opt_name == '-')
+                opt_name++;
             char * opt_arg  = 0;
             char * colon    = strchr(arg, ':');
             if (colon) {
