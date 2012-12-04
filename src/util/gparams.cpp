@@ -69,13 +69,16 @@ public:
     }
 
     void reset() {
-        m_params.reset();
-        dictionary<params_ref*>::iterator it  = m_module_params.begin();
-        dictionary<params_ref*>::iterator end = m_module_params.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        #pragma omp critical (gparams)
+        {
+            m_params.reset();
+            dictionary<params_ref*>::iterator it  = m_module_params.begin();
+            dictionary<params_ref*>::iterator end = m_module_params.end();
+            for (; it != end; ++it) {
+                dealloc(it->m_value);
+            }
+            m_module_params.reset();
         }
-        m_module_params.reset();
     }
 
     // -----------------------------------------------
