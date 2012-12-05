@@ -87,8 +87,8 @@ namespace smt {
         typedef vector<numeral> numeral_vector; 
 
         static const int    dead_row_id = -1;
-        static const bool   proofs_enabled = Ext::proofs_enabled;
     protected:
+        bool proofs_enabled() const { return get_manager().proofs_enabled(); }
         
         struct linear_monomial {
             numeral     m_coeff;
@@ -233,8 +233,8 @@ namespace smt {
             void reset();
             literal_vector& lits() { return m_lits; }
             eq_vector& eqs() { return m_eqs; }
-            void push_lit(literal l, numeral const& r);
-            void push_eq(enode_pair const& p, numeral const& r);
+            void push_lit(literal l, numeral const& r, bool proofs_enabled);
+            void push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled);
             unsigned num_params() const { return empty()?0:m_eq_coeffs.size() + m_lit_coeffs.size() + 1; }
             numeral const* lit_coeffs() const { return m_lit_coeffs.c_ptr(); }
             numeral const* eq_coeffs() const { return m_eq_coeffs.c_ptr(); }
@@ -284,8 +284,8 @@ namespace smt {
             bool is_true() const { return m_is_true; }
             void assign_eh(bool is_true, inf_numeral const & epsilon);
             virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff) { 
-                a.push_lit(literal(get_bool_var(), !m_is_true), coeff); 
+            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) { 
+                a.push_lit(literal(get_bool_var(), !m_is_true), coeff, proofs_enabled); 
             }
         };
 
@@ -301,9 +301,9 @@ namespace smt {
             }
             virtual ~eq_bound() {}
             virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff) {
+            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
-                a.push_eq(enode_pair(m_lhs, m_rhs), coeff); 
+                a.push_eq(enode_pair(m_lhs, m_rhs), coeff, proofs_enabled); 
             }
         };
 
@@ -316,7 +316,7 @@ namespace smt {
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
             virtual ~derived_bound() {}
             virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff); 
+            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled); 
             virtual void push_lit(literal l, numeral const&) { m_lits.push_back(l); }
             virtual void push_eq(enode_pair const& p, numeral const&) { m_eqs.push_back(p); }
         };
@@ -329,7 +329,7 @@ namespace smt {
             justified_derived_bound(theory_var v, inf_numeral const & val, bound_kind k):derived_bound(v, val, k) {}
             virtual ~justified_derived_bound() {}
             virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff);
+            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled);
             virtual void push_lit(literal l, numeral const& coeff);               
 
             virtual void push_eq(enode_pair const& p, numeral const& coeff);
@@ -1053,28 +1053,7 @@ namespace smt {
         static inf_numeral mk_inf_numeral(numeral const & n, numeral const & r) {
             return inf_numeral(n, r);
         }
-        static const bool proofs_enabled = false;
         mi_ext() : m_int_epsilon(rational(1)), m_real_epsilon(rational(0), true) {}
-    };
-
-    class mi_ext_with_proofs {
-    public:
-        typedef rational     numeral;
-        typedef inf_rational inf_numeral;
-        inf_numeral   m_int_epsilon;
-        inf_numeral   m_real_epsilon;
-        numeral fractional_part(inf_numeral const& n) {
-            SASSERT(n.is_rational());
-            return n.get_rational() - floor(n);
-        }
-        static numeral fractional_part(numeral const & n) {
-            return n - floor(n);
-        }
-        static inf_numeral mk_inf_numeral(numeral const & n, numeral const & r) {
-            return inf_numeral(n, r);
-        }
-        static const bool proofs_enabled = true;
-        mi_ext_with_proofs() : m_int_epsilon(rational(1)), m_real_epsilon(rational(0), true) {}
     };
 
     class i_ext {
@@ -1090,7 +1069,6 @@ namespace smt {
             UNREACHABLE();
             return inf_numeral(n);
         }
-        static const bool proofs_enabled = false;
         i_ext() : m_int_epsilon(1), m_real_epsilon(1) {}
     };
 
@@ -1107,7 +1085,6 @@ namespace smt {
             UNREACHABLE();
             return inf_numeral(n);
         }
-        static const bool proofs_enabled = false;
         si_ext(): m_int_epsilon(s_integer(1)), m_real_epsilon(s_integer(1)) {}
     };
     
@@ -1128,12 +1105,10 @@ namespace smt {
         static inf_numeral mk_inf_numeral(numeral const& n, numeral const& i) {
             return inf_numeral(n, i);
         }
-        static const bool proofs_enabled = false;
         smi_ext() : m_int_epsilon(s_integer(1)), m_real_epsilon(s_integer(0), true) {}
     };
     
     typedef theory_arith<mi_ext> theory_mi_arith;
-    typedef theory_arith<mi_ext_with_proofs> theory_mi_arith_w_proofs;
     typedef theory_arith<i_ext> theory_i_arith;
     // typedef theory_arith<si_ext> theory_si_arith;
     // typedef theory_arith<smi_ext> theory_smi_arith;
