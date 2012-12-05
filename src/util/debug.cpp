@@ -22,6 +22,7 @@ Revision History:
 #endif
 #include<iostream>
 #include"str_hashtable.h"
+#include"z3_exception.h"
 
 volatile bool g_enable_assertions = true;
 
@@ -73,7 +74,7 @@ void invoke_gdb() {
     char buffer[1024];
     int * x = 0;
     for (;;) {
-        std::cerr << "(C)ontinue, (A)bort, (S)top, Invoke (G)DB\n";
+        std::cerr << "(C)ontinue, (A)bort, (S)top, (T)hrow exception, Invoke (G)DB\n";
         char result;
         std::cin >> result;
         switch(result) {
@@ -88,6 +89,9 @@ void invoke_gdb() {
             // force seg fault...
             *x = 0;
             return;
+        case 't':
+        case 'T':
+            throw default_exception("assertion violation");
         case 'G':
         case 'g':
             sprintf(buffer, "gdb -nw /proc/%d/exe %d", getpid(), getpid());

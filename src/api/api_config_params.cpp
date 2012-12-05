@@ -43,6 +43,13 @@ extern "C" {
         }
     }
 
+    void Z3_API Z3_global_param_reset_all() {
+        memory::initialize(UINT_MAX);
+        LOG_Z3_global_param_reset_all();
+        gparams::reset();
+        env_params::updt_params();
+    }
+
     std::string g_Z3_global_param_get_buffer;
     
     Z3_bool_opt Z3_API Z3_global_param_get(Z3_string param_id, Z3_string_ptr param_value) {

@@ -1260,6 +1260,17 @@ extern "C" {
        def_API('Z3_global_param_set', VOID, (_in(STRING), _in(STRING)))
     */
     void Z3_API Z3_global_param_set(__in Z3_string param_id, __in Z3_string param_value);
+
+
+    /**
+       \brief Restore the value of all global (and module) parameters.
+       This command will not affect already created objects (such as tactics and solvers).
+
+       \sa Z3_global_param_set
+
+       def_API('Z3_global_param_reset_all', VOID, ())
+    */
+    void Z3_API Z3_global_param_reset_all();
     
     /**
        \brief Get a global (or module) parameter.
@@ -1312,7 +1323,7 @@ extern "C" {
           - well_sorted_check          type checker
           - auto_config                use heuristics to automatically select solver and configure it
           - model                      model generation for solvers, this parameter can be overwritten when creating a solver
-          - validate_model             validate models produced by solvers
+          - model_validate             validate models produced by solvers
           - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
 
        \sa Z3_set_param_value
@@ -1428,7 +1439,7 @@ extern "C" {
     /**
        \brief Set a value of a context parameter.
 
-       \sa Use #Z3_global_param_set.
+       \sa Z3_global_param_set
 
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
@@ -1437,7 +1448,7 @@ extern "C" {
     /**
        \brief Return the value of a context parameter.
       
-       \sa Use #Z3_global_param_get
+       \sa Z3_global_param_get
 
        def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
     */
@@ -1707,7 +1718,7 @@ extern "C" {
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
 
-       \sa Z3_get_finite_domain_sort_size.
+       \sa Z3_get_finite_domain_sort_size
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */

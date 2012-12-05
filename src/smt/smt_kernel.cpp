@@ -19,7 +19,7 @@ Revision History:
 #include"smt_kernel.h"
 #include"smt_context.h" 
 #include"ast_smt2_pp.h"
-#include"params2smt_params.h"
+#include"smt_params_helper.hpp"
 
 namespace smt {
 
@@ -345,7 +345,7 @@ namespace smt {
     }
 
     void kernel::collect_param_descrs(param_descrs & d) {
-        solver_smt_params_descrs(d);
+        smt_params_helper::collect_param_descrs(d);
     }
 
     context & kernel::get_context() {

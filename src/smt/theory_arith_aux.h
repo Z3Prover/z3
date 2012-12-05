@@ -336,7 +336,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::push_lit(literal l, numeral const& r) { 
+    void theory_arith<Ext>::antecedents::push_lit(literal l, numeral const& r, bool proofs_enabled) { 
         m_lits.push_back(l);
         if (proofs_enabled) {
             m_lit_coeffs.push_back(r); 
@@ -344,7 +344,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    void theory_arith<Ext>::antecedents::push_eq(enode_pair const& p, numeral const& r) { 
+    void theory_arith<Ext>::antecedents::push_eq(enode_pair const& p, numeral const& r, bool proofs_enabled) { 
         m_eqs.push_back(p);
         if (proofs_enabled) {
             m_eq_coeffs.push_back(r); 
@@ -690,14 +690,14 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    void theory_arith<Ext>::derived_bound::push_justification(antecedents& a, numeral const& coeff) {
+    void theory_arith<Ext>::derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
 
         if (proofs_enabled) {
             for (unsigned i = 0; i < m_lits.size(); ++i) {
-                a.push_lit(m_lits[i], coeff);
+                a.push_lit(m_lits[i], coeff, proofs_enabled);
             }
             for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                a.push_eq(m_eqs[i], coeff);
+                a.push_eq(m_eqs[i], coeff, proofs_enabled);
             }
         }
         else {
@@ -708,12 +708,12 @@ namespace smt {
 
 
     template<typename Ext>
-    void theory_arith<Ext>::justified_derived_bound::push_justification(antecedents& a, numeral const& coeff) {
+    void theory_arith<Ext>::justified_derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
         for (unsigned i = 0; i < this->m_lits.size(); ++i) {
-            a.push_lit(this->m_lits[i], coeff*m_lit_coeffs[i]);
+            a.push_lit(this->m_lits[i], coeff*m_lit_coeffs[i], proofs_enabled);
         }
         for (unsigned i = 0; i < this->m_eqs.size(); ++i) {
-            a.push_eq(this->m_eqs[i], coeff*m_eq_coeffs[i]);
+            a.push_eq(this->m_eqs[i], coeff*m_eq_coeffs[i], proofs_enabled);
         }
     }
 
@@ -755,7 +755,7 @@ namespace smt {
             literal l = ante.lits()[i];
             if (lits.contains(l.index()))
                 continue;
-            if (proofs_enabled) {
+            if (proofs_enabled()) {
                 new_bound.push_lit(l, ante.lit_coeffs()[i]);
             }			
             else {
@@ -768,7 +768,7 @@ namespace smt {
             enode_pair const & p = ante.eqs()[i];
             if (eqs.contains(p))
                 continue;
-            if (proofs_enabled) {
+            if (proofs_enabled()) {
                 new_bound.push_eq(p, ante.eq_coeffs()[i]);
             }
             else {
@@ -796,7 +796,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::mk_bound_from_row(theory_var v, inf_numeral const & k, bound_kind kind, row const & r) {
         inf_numeral k_norm = normalize_bound(v, k, kind);
-        derived_bound * new_bound = proofs_enabled?alloc(justified_derived_bound, v, k_norm, kind):alloc(derived_bound, v, k_norm, kind);
+        derived_bound * new_bound = proofs_enabled()?alloc(justified_derived_bound, v, k_norm, kind):alloc(derived_bound, v, k_norm, kind);
         m_bounds_to_delete.push_back(new_bound);
         m_asserted_bounds.push_back(new_bound);
         m_tmp_lit_set.reset();

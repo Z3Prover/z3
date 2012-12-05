@@ -38,22 +38,6 @@ Notes:
 #include"model_evaluator.h"
 #include"for_each_expr.h"
 
-std::string smt2_keyword_to_param(symbol const & opt) {
-    std::string r;
-    SASSERT(opt.bare_str()[0] == ':');
-    r = opt.bare_str() + 1;
-    unsigned sz = static_cast<unsigned>(r.size());
-    for (unsigned i = 0; i < sz; i++) {
-        char curr = r[i];
-        if ('A' <= curr && curr <= 'Z')
-            r[i] = curr - 'A' + 'a';
-        else if (curr == '-')
-            r[i] = '_';
-    }
-    TRACE("smt2_keyword_to_param", tout << opt << " -> '" << r << "'\n";);
-    return r;
-}
-
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
     m.inc_ref(f);
@@ -358,6 +342,16 @@ cmd_context::~cmd_context() {
     m_check_sat_result = 0;
 }
 
+void cmd_context::global_params_updated() {
+    m_params.updt_params();
+    if (m_solver) {
+        params_ref p;
+        if (!m_params.m_auto_config)
+            p.set_bool("auto_config", false);
+        m_solver->updt_params(p);
+    }
+}
+
 void cmd_context::set_produce_models(bool f) {
     if (m_solver)
         m_solver->set_produce_models(f);
@@ -393,7 +387,7 @@ bool cmd_context::well_sorted_check_enabled() const {
 }
 
 bool cmd_context::validate_model_enabled() const {
-    return m_params.m_validate_model;
+    return m_params.m_model_validate;
 }
 
 cmd_context::check_sat_state cmd_context::cs_state() const {

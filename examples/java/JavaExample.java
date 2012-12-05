@@ -182,6 +182,7 @@ class JavaExample
     public void SimpleExample() throws Z3Exception
     {
         System.out.println("SimpleExample");
+        Log.Append("SimpleExample");
 
         {
             Context ctx = new Context();
@@ -249,24 +250,28 @@ class JavaExample
         return res;
     }
 
-    void Prove(Context ctx, BoolExpr f) throws Z3Exception, TestFailedException
+    void Prove(Context ctx, BoolExpr f, boolean useMBQI) throws Z3Exception,
+            TestFailedException
     {
         BoolExpr[] assumptions = new BoolExpr[0];
-        Prove(ctx, f, assumptions);
+        Prove(ctx, f, useMBQI, assumptions);
     }
 
-    void Prove(Context ctx, BoolExpr f, BoolExpr assumption)
+    void Prove(Context ctx, BoolExpr f, boolean useMBQI, BoolExpr assumption)
             throws Z3Exception, TestFailedException
     {
         BoolExpr[] assumptions = { assumption };
-        Prove(ctx, f, assumptions);
+        Prove(ctx, f, useMBQI, assumptions);
     }
 
-    void Prove(Context ctx, BoolExpr f, BoolExpr[] assumptions)
+    void Prove(Context ctx, BoolExpr f, boolean useMBQI, BoolExpr[] assumptions)
             throws Z3Exception, TestFailedException
     {
         System.out.println("Proving: " + f);
         Solver s = ctx.MkSolver();
+        Params p = ctx.MkParams();
+        p.Add("mbqi", useMBQI);
+        s.setParameters(p);
         for (BoolExpr a : assumptions)
             s.Assert(a);
         s.Assert(ctx.MkNot(f));
@@ -285,25 +290,28 @@ class JavaExample
         }
     }
 
-    void Disprove(Context ctx, BoolExpr f) throws Z3Exception,
+    void Disprove(Context ctx, BoolExpr f, boolean useMBQI) throws Z3Exception,
             TestFailedException
     {
         BoolExpr[] a = {};
-        Disprove(ctx, f, a);
+        Disprove(ctx, f, useMBQI, a);
     }
 
-    void Disprove(Context ctx, BoolExpr f, BoolExpr assumption)
+    void Disprove(Context ctx, BoolExpr f, boolean useMBQI, BoolExpr assumption)
             throws Z3Exception, TestFailedException
     {
         BoolExpr[] a = { assumption };
-        Disprove(ctx, f, a);
+        Disprove(ctx, f, useMBQI, a);
     }
 
-    void Disprove(Context ctx, BoolExpr f, BoolExpr[] assumptions)
-            throws Z3Exception, TestFailedException
+    void Disprove(Context ctx, BoolExpr f, boolean useMBQI,
+            BoolExpr[] assumptions) throws Z3Exception, TestFailedException
     {
         System.out.println("Disproving: " + f);
         Solver s = ctx.MkSolver();
+        Params p = ctx.MkParams();
+        p.Add("mbqi", useMBQI);
+        s.setParameters(p);
         for (BoolExpr a : assumptions)
             s.Assert(a);
         s.Assert(ctx.MkNot(f));
@@ -331,7 +339,7 @@ class JavaExample
                 ctx.MkRealSort());
         ArithExpr yr = (ArithExpr) ctx.MkConst(ctx.MkSymbol("y"),
                 ctx.MkRealSort());
-        Goal g4 = ctx.MkGoal(true, false, true);
+        Goal g4 = ctx.MkGoal(true, false, false);
         g4.Assert(ctx.MkGt(xr, ctx.MkReal(10, 1)));
         g4.Assert(ctx.MkEq(yr,
                 ctx.MkAdd(new ArithExpr[] { xr, ctx.MkReal(1, 1) })));
@@ -367,6 +375,7 @@ class JavaExample
     void ArrayExample1(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("ArrayExample1");
+        Log.Append("ArrayExample1");
 
         Goal g = ctx.MkGoal(true, false, false);
         ArraySort asort = ctx.MkArraySort(ctx.IntSort(), ctx.MkBitVecSort(32));
@@ -416,6 +425,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ArrayExample2");
+        Log.Append("ArrayExample2");
 
         Sort int_type = ctx.IntSort();
         Sort array_type = ctx.MkArraySort(int_type, int_type);
@@ -452,7 +462,7 @@ class JavaExample
         System.out
                 .println("prove: store(a1, i1, v1) = store(a2, i2, v2) implies (i1 = i3 or i2 = i3 or select(a1, i3) = select(a2, i3))");
         System.out.println(thm);
-        Prove(ctx, thm);
+        Prove(ctx, thm, false);
     }
 
     // / Show that <code>distinct(a_0, ... , a_n)</code> is
@@ -465,6 +475,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ArrayExample3");
+        Log.Append("ArrayExample2");
 
         for (int n = 2; n <= 5; n++)
         {
@@ -503,6 +514,7 @@ class JavaExample
     void SudokuExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("SudokuExample");
+        Log.Append("SudokuExample");
 
         // 9x9 matrix of integer variables
         IntExpr[][] X = new IntExpr[9][];
@@ -609,6 +621,7 @@ class JavaExample
     void QuantifierExample1(Context ctx) throws Z3Exception
     {
         System.out.println("QuantifierExample");
+        Log.Append("QuantifierExample");
 
         Sort[] types = new Sort[3];
         IntExpr[] xs = new IntExpr[3];
@@ -654,6 +667,7 @@ class JavaExample
     {
 
         System.out.println("QuantifierExample2");
+        Log.Append("QuantifierExample2");
 
         Expr q1, q2;
         FuncDecl f = ctx.MkFuncDecl("f", ctx.IntSort(), ctx.IntSort());
@@ -707,97 +721,83 @@ class JavaExample
     // / <code>f</code> is injective in the second argument. <seealso
     // cref="inj_axiom"/>
 
-    public void QuantifierExample3() throws Z3Exception, TestFailedException
+    public void QuantifierExample3(Context ctx) throws Z3Exception,
+            TestFailedException
     {
         System.out.println("QuantifierExample3");
-
-        HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("MBQI", "false");
-        cfg.put("PROOF_MODE", "2");
-        cfg.put("AUTO_CONFIG", "false");
+        Log.Append("QuantifierExample3");
 
         /*
          * If quantified formulas are asserted in a logical context, then the
          * model produced by Z3 should be viewed as a potential model.
          */
 
-        {
-            Context ctx = new Context(cfg);
+        /* declare function f */
+        Sort I = ctx.IntSort();
+        FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
 
-            /* declare function f */
-            Sort I = ctx.IntSort();
-            FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
+        /* f is injective in the second argument. */
+        BoolExpr inj = InjAxiom(ctx, f, 1);
 
-            /* f is injective in the second argument. */
-            BoolExpr inj = InjAxiom(ctx, f, 1);
+        /* create x, y, v, w, fxy, fwv */
+        Expr x = ctx.MkIntConst("x");
+        Expr y = ctx.MkIntConst("y");
+        Expr v = ctx.MkIntConst("v");
+        Expr w = ctx.MkIntConst("w");
+        Expr fxy = ctx.MkApp(f, new Expr[] { x, y });
+        Expr fwv = ctx.MkApp(f, new Expr[] { w, v });
 
-            /* create x, y, v, w, fxy, fwv */
-            Expr x = ctx.MkIntConst("x");
-            Expr y = ctx.MkIntConst("y");
-            Expr v = ctx.MkIntConst("v");
-            Expr w = ctx.MkIntConst("w");
-            Expr fxy = ctx.MkApp(f, new Expr[] { x, y });
-            Expr fwv = ctx.MkApp(f, new Expr[] { w, v });
+        /* f(x, y) = f(w, v) */
+        BoolExpr p1 = ctx.MkEq(fxy, fwv);
 
-            /* f(x, y) = f(w, v) */
-            BoolExpr p1 = ctx.MkEq(fxy, fwv);
+        /* prove f(x, y) = f(w, v) implies y = v */
+        BoolExpr p2 = ctx.MkEq(y, v);
+        Prove(ctx, p2, false, new BoolExpr[] { inj, p1 });
 
-            /* prove f(x, y) = f(w, v) implies y = v */
-            BoolExpr p2 = ctx.MkEq(y, v);
-            Prove(ctx, p2, new BoolExpr[] { inj, p1 });
-
-            /* disprove f(x, y) = f(w, v) implies x = w */
-            BoolExpr p3 = ctx.MkEq(x, w);
-            Disprove(ctx, p3, new BoolExpr[] { inj, p1 });
-        }
+        /* disprove f(x, y) = f(w, v) implies x = w */
+        BoolExpr p3 = ctx.MkEq(x, w);
+        Disprove(ctx, p3, false, new BoolExpr[] { inj, p1 });
     }
 
     // / Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when
     // / <code>f</code> is injective in the second argument. <seealso
     // cref="inj_axiom"/>
 
-    public void QuantifierExample4() throws Z3Exception, TestFailedException
+    public void QuantifierExample4(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("QuantifierExample4");
-
-        HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("MBQI", "false");
-        cfg.put("PROOF_MODE", "2");
-        cfg.put("AUTO_CONFIG", "false");
+        Log.Append("QuantifierExample4");
 
         /*
          * If quantified formulas are asserted in a logical context, then the
          * model produced by Z3 should be viewed as a potential model.
          */
 
-        {
-            Context ctx = new Context(cfg);
-            /* declare function f */
-            Sort I = ctx.IntSort();
-            FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
+        /* declare function f */
+        Sort I = ctx.IntSort();
+        FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
 
-            /* f is injective in the second argument. */
-            BoolExpr inj = InjAxiomAbs(ctx, f, 1);
+        /* f is injective in the second argument. */
+        BoolExpr inj = InjAxiomAbs(ctx, f, 1);
 
-            /* create x, y, v, w, fxy, fwv */
-            Expr x = ctx.MkIntConst("x");
-            Expr y = ctx.MkIntConst("y");
-            Expr v = ctx.MkIntConst("v");
-            Expr w = ctx.MkIntConst("w");
-            Expr fxy = ctx.MkApp(f, new Expr[] { x, y });
-            Expr fwv = ctx.MkApp(f, new Expr[] { w, v });
+        /* create x, y, v, w, fxy, fwv */
+        Expr x = ctx.MkIntConst("x");
+        Expr y = ctx.MkIntConst("y");
+        Expr v = ctx.MkIntConst("v");
+        Expr w = ctx.MkIntConst("w");
+        Expr fxy = ctx.MkApp(f, new Expr[] { x, y });
+        Expr fwv = ctx.MkApp(f, new Expr[] { w, v });
 
-            /* f(x, y) = f(w, v) */
-            BoolExpr p1 = ctx.MkEq(fxy, fwv);
+        /* f(x, y) = f(w, v) */
+        BoolExpr p1 = ctx.MkEq(fxy, fwv);
 
-            /* prove f(x, y) = f(w, v) implies y = v */
-            BoolExpr p2 = ctx.MkEq(y, v);
-            Prove(ctx, p2, new BoolExpr[] { inj, p1 });
+        /* prove f(x, y) = f(w, v) implies y = v */
+        BoolExpr p2 = ctx.MkEq(y, v);
+        Prove(ctx, p2, false, new BoolExpr[] { inj, p1 });
 
-            /* disprove f(x, y) = f(w, v) implies x = w */
-            BoolExpr p3 = ctx.MkEq(x, w);
-            Disprove(ctx, p3, new BoolExpr[] { inj, p1 });
-        }
+        /* disprove f(x, y) = f(w, v) implies x = w */
+        BoolExpr p3 = ctx.MkEq(x, w);
+        Disprove(ctx, p3, false, new BoolExpr[] { inj, p1 });
     }
 
     // / Some basic tests.
@@ -824,7 +824,7 @@ class JavaExample
         BoolExpr trivial_eq = ctx.MkEq(fapp, fapp);
         BoolExpr nontrivial_eq = ctx.MkEq(fapp, fapp2);
 
-        Goal g = ctx.MkGoal(true, false, true);
+        Goal g = ctx.MkGoal(true, false, false);
         g.Assert(trivial_eq);
         g.Assert(nontrivial_eq);
         System.out.println("Goal: " + g);
@@ -910,7 +910,7 @@ class JavaExample
             IntExpr i = ctx.MkInt("1/2");
             throw new TestFailedException(); // unreachable
         } catch (Z3Exception e)
-        {            
+        {
         }
     }
 
@@ -1081,7 +1081,7 @@ class JavaExample
 
         {
             HashMap<String, String> cfg = new HashMap<String, String>();
-            cfg.put("MODEL", "true");
+            cfg.put("model", "true");
             Context ctx = new Context(cfg);
             Expr a = ctx.ParseSMTLIB2File(filename, null, null, null, null);
 
@@ -1117,6 +1117,7 @@ class JavaExample
     void LogicExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("LogicTest");
+        Log.Append("LogicTest");
 
         Context.ToggleWarningMessages(true);
 
@@ -1132,7 +1133,7 @@ class JavaExample
         System.out.println("solver result: " + res);
 
         // Or perhaps a tactic for QF_BV
-        Goal g = ctx.MkGoal(true, false, true);
+        Goal g = ctx.MkGoal(true, false, false);
         g.Assert(eq);
 
         Tactic t = ctx.MkTactic("qfbv");
@@ -1148,13 +1149,14 @@ class JavaExample
     void ParOrExample(Context ctx) throws Z3Exception, TestFailedException
     {
         System.out.println("ParOrExample");
+        Log.Append("ParOrExample");
 
         BitVecSort bvs = ctx.MkBitVecSort(32);
         Expr x = ctx.MkConst("x", bvs);
         Expr y = ctx.MkConst("y", bvs);
         BoolExpr q = ctx.MkEq(x, y);
 
-        Goal g = ctx.MkGoal(true, false, true);
+        Goal g = ctx.MkGoal(true, false, false);
         g.Assert(q);
 
         Tactic t1 = ctx.MkTactic("qfbv");
@@ -1179,6 +1181,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("FindModelExample1");
+        Log.Append("FindModelExample1");
 
         BoolExpr x = ctx.MkBoolConst("x");
         BoolExpr y = ctx.MkBoolConst("y");
@@ -1195,7 +1198,8 @@ class JavaExample
     public void FindModelExample2(Context ctx) throws Z3Exception,
             TestFailedException
     {
-        System.out.println("find_model_example2");
+        System.out.println("FindModelExample2");
+        Log.Append("FindModelExample2");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -1235,6 +1239,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ProveExample1");
+        Log.Append("ProveExample1");
 
         /* create uninterpreted type. */
         Sort U = ctx.MkUninterpretedSort(ctx.MkSymbol("U"));
@@ -1255,7 +1260,7 @@ class JavaExample
         /* prove g(x) = g(y) */
         BoolExpr f = ctx.MkEq(gx, gy);
         System.out.println("prove: x = y implies g(x) = g(y)");
-        Prove(ctx, ctx.MkImplies(eq, f));
+        Prove(ctx, ctx.MkImplies(eq, f), false);
 
         /* create g(g(x)) */
         Expr ggx = g.Apply(gx);
@@ -1263,7 +1268,7 @@ class JavaExample
         /* disprove g(g(x)) = g(y) */
         f = ctx.MkEq(ggx, gy);
         System.out.println("disprove: x = y implies g(g(x)) = g(y)");
-        Disprove(ctx, ctx.MkImplies(eq, f));
+        Disprove(ctx, ctx.MkImplies(eq, f), false);
 
         /* Print the model using the custom model printer */
         Model m = Check(ctx, ctx.MkNot(f), Status.SATISFIABLE);
@@ -1281,6 +1286,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ProveExample2");
+        Log.Append("ProveExample2");
 
         /* declare function g */
         Sort I = ctx.IntSort();
@@ -1318,14 +1324,14 @@ class JavaExample
         BoolExpr f = ctx.MkLt(z, zero);
         System.out
                 .println("prove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0");
-        Prove(ctx, f, new BoolExpr[] { c1, c2, c3 });
+        Prove(ctx, f, false, new BoolExpr[] { c1, c2, c3 });
 
         /* disprove z < -1 */
         IntExpr minus_one = ctx.MkInt(-1);
         f = ctx.MkLt(z, minus_one);
         System.out
                 .println("disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1");
-        Disprove(ctx, f, new BoolExpr[] { c1, c2, c3 });
+        Disprove(ctx, f, false, new BoolExpr[] { c1, c2, c3 });
     }
 
     // / Show how push & pop can be used to create "backtracking" points.
@@ -1336,6 +1342,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("PushPopExample1");
+        Log.Append("PushPopExample1");
 
         /* create a big number */
         IntSort int_type = ctx.IntSort();
@@ -1402,6 +1409,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("TupleExample");
+        Log.Append("TupleExample");
 
         Sort int_type = ctx.IntSort();
         TupleSort tuple = ctx.MkTupleSort(ctx.MkSymbol("mk_tuple"), // name of
@@ -1423,7 +1431,7 @@ class JavaExample
         Expr n2 = first.Apply(n1);
         BoolExpr n3 = ctx.MkEq(x, n2);
         System.out.println("Tuple example: " + n3);
-        Prove(ctx, n3);
+        Prove(ctx, n3, false);
     }
 
     // / Simple bit-vector example.
@@ -1436,6 +1444,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("BitvectorExample1");
+        Log.Append("BitvectorExample1");
 
         Sort bv_type = ctx.MkBitVecSort(32);
         BitVecExpr x = (BitVecExpr) ctx.MkConst("x", bv_type);
@@ -1448,7 +1457,7 @@ class JavaExample
         BoolExpr thm = ctx.MkIff(c1, c2);
         System.out
                 .println("disprove: x - 10 <= 0 IFF x <= 10 for (32-bit) machine integers");
-        Disprove(ctx, thm);
+        Disprove(ctx, thm, false);
     }
 
     // / Find x and y such that: x ^ y - 103 == x * y
@@ -1457,6 +1466,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("BitvectorExample2");
+        Log.Append("BitvectorExample2");
 
         /* construct x ^ y - 103 == x * y */
         Sort bv_type = ctx.MkBitVecSort(32);
@@ -1482,6 +1492,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ParserExample1");
+        Log.Append("ParserExample1");
 
         ctx.ParseSMTLIBString(
                 "(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))",
@@ -1499,6 +1510,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ParserExample2");
+        Log.Append("ParserExample2");
 
         Symbol[] declNames = { ctx.MkSymbol("a"), ctx.MkSymbol("b") };
         FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
@@ -1517,6 +1529,7 @@ class JavaExample
     public void ParserExample3(Context ctx) throws Exception
     {
         System.out.println("ParserExample3");
+        Log.Append("ParserExample3");
 
         /* declare function g */
         Sort I = ctx.MkIntSort();
@@ -1531,7 +1544,7 @@ class JavaExample
 
         BoolExpr thm = ctx.SMTLIBFormulas()[0];
         System.out.println("formula: " + thm);
-        Prove(ctx, thm, ca);
+        Prove(ctx, thm, false, ca);
     }
 
     // / Display the declarations, assumptions and formulas in a SMT-LIB string.
@@ -1539,6 +1552,7 @@ class JavaExample
     public void ParserExample4(Context ctx) throws Z3Exception
     {
         System.out.println("ParserExample4");
+        Log.Append("ParserExample4");
 
         ctx.ParseSMTLIBString(
                 "(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))",
@@ -1585,6 +1599,7 @@ class JavaExample
     public void ITEExample(Context ctx) throws Z3Exception
     {
         System.out.println("ITEExample");
+        Log.Append("ITEExample");
 
         BoolExpr f = ctx.MkFalse();
         Expr one = ctx.MkInt(1);
@@ -1600,6 +1615,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("EnumExample");
+        Log.Append("EnumExample");
 
         Symbol name = ctx.MkSymbol("fruit");
 
@@ -1620,15 +1636,16 @@ class JavaExample
         Expr orange = fruit.Consts()[2];
 
         /* Apples are different from oranges */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(apple, orange)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(apple, orange)), false);
 
         /* Apples pass the apple test */
-        Prove(ctx, (BoolExpr) ctx.MkApp(fruit.TesterDecls()[0], apple));
+        Prove(ctx, (BoolExpr) ctx.MkApp(fruit.TesterDecls()[0], apple), false);
 
         /* Oranges fail the apple test */
-        Disprove(ctx, (BoolExpr) ctx.MkApp(fruit.TesterDecls()[0], orange));
+        Disprove(ctx, (BoolExpr) ctx.MkApp(fruit.TesterDecls()[0], orange),
+                false);
         Prove(ctx, (BoolExpr) ctx.MkNot((BoolExpr) ctx.MkApp(
-                fruit.TesterDecls()[0], orange)));
+                fruit.TesterDecls()[0], orange)), false);
 
         Expr fruity = ctx.MkConst("fruity", fruit);
 
@@ -1636,7 +1653,8 @@ class JavaExample
 
         Prove(ctx,
                 ctx.MkOr(new BoolExpr[] { ctx.MkEq(fruity, apple),
-                        ctx.MkEq(fruity, banana), ctx.MkEq(fruity, orange) }));
+                        ctx.MkEq(fruity, banana), ctx.MkEq(fruity, orange) }),
+                false);
     }
 
     // / Create a list datatype.
@@ -1645,6 +1663,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ListExample");
+        Log.Append("ListExample");
 
         Sort int_ty;
         ListSort int_list;
@@ -1660,25 +1679,25 @@ class JavaExample
         l2 = ctx.MkApp(int_list.ConsDecl(), new Expr[] { ctx.MkInt(2), nil });
 
         /* nil != cons(1, nil) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(nil, l1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(nil, l1)), false);
 
         /* cons(2,nil) != cons(1, nil) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(l1, l2)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(l1, l2)), false);
 
         /* cons(x,nil) = cons(y, nil) => x = y */
         x = ctx.MkConst("x", int_ty);
         y = ctx.MkConst("y", int_ty);
         l1 = ctx.MkApp(int_list.ConsDecl(), new Expr[] { x, nil });
         l2 = ctx.MkApp(int_list.ConsDecl(), new Expr[] { y, nil });
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)));
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
         u = ctx.MkConst("u", int_list);
         v = ctx.MkConst("v", int_list);
         l1 = ctx.MkApp(int_list.ConsDecl(), new Expr[] { x, u });
         l2 = ctx.MkApp(int_list.ConsDecl(), new Expr[] { y, v });
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)));
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)));
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)), false);
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
         Prove(ctx,
@@ -1686,10 +1705,10 @@ class JavaExample
                         (BoolExpr) ctx.MkApp(int_list.IsNilDecl(),
                                 new Expr[] { u }),
                         (BoolExpr) ctx.MkApp(int_list.IsConsDecl(),
-                                new Expr[] { u }) }));
+                                new Expr[] { u }) }), false);
 
         /* occurs check u != cons(x,u) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)), false);
 
         /* destructors: is_cons(u) => u = cons(head(u),tail(u)) */
         fml1 = ctx.MkEq(u, ctx.MkApp(int_list.ConsDecl(),
@@ -1700,9 +1719,9 @@ class JavaExample
                 fml1);
         System.out.println("Formula " + fml);
 
-        Prove(ctx, fml);
+        Prove(ctx, fml, false);
 
-        Disprove(ctx, fml1);
+        Disprove(ctx, fml1, false);
     }
 
     // / Create a binary tree datatype.
@@ -1711,6 +1730,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("TreeExample");
+        Log.Append("TreeExample");
 
         Sort cell;
         FuncDecl nil_decl, is_nil_decl, cons_decl, is_cons_decl, car_decl, cdr_decl;
@@ -1741,7 +1761,7 @@ class JavaExample
         l2 = ctx.MkApp(cons_decl, new Expr[] { l1, nil });
 
         /* nil != cons(nil, nil) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(nil, l1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(nil, l1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
         u = ctx.MkConst("u", cell);
@@ -1750,17 +1770,18 @@ class JavaExample
         y = ctx.MkConst("y", cell);
         l1 = ctx.MkApp(cons_decl, new Expr[] { x, u });
         l2 = ctx.MkApp(cons_decl, new Expr[] { y, v });
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)));
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)));
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)), false);
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
         Prove(ctx,
                 ctx.MkOr(new BoolExpr[] {
                         (BoolExpr) ctx.MkApp(is_nil_decl, new Expr[] { u }),
-                        (BoolExpr) ctx.MkApp(is_cons_decl, new Expr[] { u }) }));
+                        (BoolExpr) ctx.MkApp(is_cons_decl, new Expr[] { u }) }),
+                false);
 
         /* occurs check u != cons(x,u) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)), false);
 
         /* destructors: is_cons(u) => u = cons(car(u),cdr(u)) */
         fml1 = ctx.MkEq(
@@ -1771,9 +1792,9 @@ class JavaExample
                                 ctx.MkApp(cdr_decl, u) }));
         fml = ctx.MkImplies((BoolExpr) ctx.MkApp(is_cons_decl, u), fml1);
         System.out.println("Formula " + fml);
-        Prove(ctx, fml);
+        Prove(ctx, fml, false);
 
-        Disprove(ctx, fml1);
+        Disprove(ctx, fml1, false);
     }
 
     // / Create a forest of trees.
@@ -1786,6 +1807,7 @@ class JavaExample
             TestFailedException
     {
         System.out.println("ForestExample");
+        Log.Append("ForestExample");
 
         Sort tree, forest;
         FuncDecl nil1_decl, is_nil1_decl, cons1_decl, is_cons1_decl, car1_decl, cdr1_decl;
@@ -1874,8 +1896,8 @@ class JavaExample
         f3 = ctx.MkApp(cons1_decl, new Expr[] { t1, f1 });
 
         /* nil != cons(nil,nil) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(nil1, f1)));
-        Prove(ctx, ctx.MkNot(ctx.MkEq(nil2, t1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(nil1, f1)), false);
+        Prove(ctx, ctx.MkNot(ctx.MkEq(nil2, t1)), false);
 
         /* cons(x,u) = cons(x, v) => u = v */
         u = ctx.MkConst("u", forest);
@@ -1884,16 +1906,16 @@ class JavaExample
         y = ctx.MkConst("y", tree);
         l1 = ctx.MkApp(cons1_decl, new Expr[] { x, u });
         l2 = ctx.MkApp(cons1_decl, new Expr[] { y, v });
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)));
-        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)));
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(u, v)), false);
+        Prove(ctx, ctx.MkImplies(ctx.MkEq(l1, l2), ctx.MkEq(x, y)), false);
 
         /* is_nil(u) or is_cons(u) */
         Prove(ctx, ctx.MkOr(new BoolExpr[] {
                 (BoolExpr) ctx.MkApp(is_nil1_decl, new Expr[] { u }),
-                (BoolExpr) ctx.MkApp(is_cons1_decl, new Expr[] { u }) }));
+                (BoolExpr) ctx.MkApp(is_cons1_decl, new Expr[] { u }) }), false);
 
         /* occurs check u != cons(x,u) */
-        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)));
+        Prove(ctx, ctx.MkNot(ctx.MkEq(u, l1)), false);
     }
 
     // / Demonstrate how to use #Eval.
@@ -1901,6 +1923,7 @@ class JavaExample
     public void EvalExample1(Context ctx) throws Z3Exception
     {
         System.out.println("EvalExample1");
+        Log.Append("EvalExample1");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -1940,6 +1963,7 @@ class JavaExample
     public void EvalExample2(Context ctx) throws Z3Exception
     {
         System.out.println("EvalExample2");
+        Log.Append("EvalExample2");
 
         Sort int_type = ctx.IntSort();
         TupleSort tuple = ctx.MkTupleSort(ctx.MkSymbol("mk_tuple"), // name of
@@ -2063,6 +2087,7 @@ class JavaExample
     public void FindSmallModelExample(Context ctx) throws Z3Exception
     {
         System.out.println("FindSmallModelExample");
+        Log.Append("FindSmallModelExample");
 
         BitVecExpr x = ctx.MkBVConst("x", 32);
         BitVecExpr y = ctx.MkBVConst("y", 32);
@@ -2079,6 +2104,7 @@ class JavaExample
     public void SimplifierExample(Context ctx) throws Z3Exception
     {
         System.out.println("SimplifierExample");
+        Log.Append("SimplifierExample");
 
         IntExpr x = ctx.MkIntConst("x");
         IntExpr y = ctx.MkIntConst("y");
@@ -2095,48 +2121,42 @@ class JavaExample
 
     // / Extract unsatisfiable core example
 
-    public void UnsatCoreAndProofExample() throws Z3Exception
+    public void UnsatCoreAndProofExample(Context ctx) throws Z3Exception
     {
         System.out.println("UnsatCoreAndProofExample");
+        Log.Append("UnsatCoreAndProofExample");
 
-        HashMap<String, String> cfg = new HashMap<String, String>();
-        cfg.put("PROOF_MODE", "2");
+        Solver solver = ctx.MkSolver();
 
+        BoolExpr pa = ctx.MkBoolConst("PredA");
+        BoolExpr pb = ctx.MkBoolConst("PredB");
+        BoolExpr pc = ctx.MkBoolConst("PredC");
+        BoolExpr pd = ctx.MkBoolConst("PredD");
+        BoolExpr p1 = ctx.MkBoolConst("P1");
+        BoolExpr p2 = ctx.MkBoolConst("P2");
+        BoolExpr p3 = ctx.MkBoolConst("P3");
+        BoolExpr p4 = ctx.MkBoolConst("P4");
+        BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2),
+                ctx.MkNot(p3), ctx.MkNot(p4) };
+        BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
+        BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
+        BoolExpr f3 = ctx.MkOr(new BoolExpr[] { ctx.MkNot(pa), ctx.MkNot(pc) });
+        BoolExpr f4 = pd;
+
+        solver.Assert(ctx.MkOr(new BoolExpr[] { f1, p1 }));
+        solver.Assert(ctx.MkOr(new BoolExpr[] { f2, p2 }));
+        solver.Assert(ctx.MkOr(new BoolExpr[] { f3, p3 }));
+        solver.Assert(ctx.MkOr(new BoolExpr[] { f4, p4 }));
+        Status result = solver.Check(assumptions);
+
+        if (result == Status.UNSATISFIABLE)
         {
-            Context ctx = new Context(cfg);
-            Solver solver = ctx.MkSolver();
-
-            BoolExpr pa = ctx.MkBoolConst("PredA");
-            BoolExpr pb = ctx.MkBoolConst("PredB");
-            BoolExpr pc = ctx.MkBoolConst("PredC");
-            BoolExpr pd = ctx.MkBoolConst("PredD");
-            BoolExpr p1 = ctx.MkBoolConst("P1");
-            BoolExpr p2 = ctx.MkBoolConst("P2");
-            BoolExpr p3 = ctx.MkBoolConst("P3");
-            BoolExpr p4 = ctx.MkBoolConst("P4");
-            BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1),
-                    ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
-            BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
-            BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
-            BoolExpr f3 = ctx.MkOr(new BoolExpr[] { ctx.MkNot(pa),
-                    ctx.MkNot(pc) });
-            BoolExpr f4 = pd;
-
-            solver.Assert(ctx.MkOr(new BoolExpr[] { f1, p1 }));
-            solver.Assert(ctx.MkOr(new BoolExpr[] { f2, p2 }));
-            solver.Assert(ctx.MkOr(new BoolExpr[] { f3, p3 }));
-            solver.Assert(ctx.MkOr(new BoolExpr[] { f4, p4 }));
-            Status result = solver.Check(assumptions);
-
-            if (result == Status.UNSATISFIABLE)
+            System.out.println("unsat");
+            System.out.println("proof: " + solver.Proof());
+            System.out.println("core: ");
+            for (Expr c : solver.UnsatCore())
             {
-                System.out.println("unsat");
-                System.out.println("proof: " + solver.Proof());
-                System.out.println("core: ");
-                for (Expr c : solver.UnsatCore())
-                {
-                    System.out.println(c);
-                }
+                System.out.println(c);
             }
         }
     }
@@ -2144,6 +2164,7 @@ class JavaExample
     public void FiniteDomainExample(Context ctx) throws Z3Exception
     {
         System.out.println("FiniteDomainExample");
+        Log.Append("FiniteDomainExample");
 
         FiniteDomainSort s = ctx.MkFiniteDomainSort("S", 10);
         FiniteDomainSort t = ctx.MkFiniteDomainSort("T", 10);
@@ -2174,10 +2195,9 @@ class JavaExample
 
             p.SimpleExample();
 
-            {
+            { // These examples need model generation turned on.
                 HashMap<String, String> cfg = new HashMap<String, String>();
-                cfg.put("MODEL", "true");
-                cfg.put("PROOF_MODE", "2");
+                cfg.put("model", "true");
                 Context ctx = new Context(cfg);
                 p.BasicTests(ctx);
                 p.CastingTest(ctx);
@@ -2188,25 +2208,16 @@ class JavaExample
                 p.ParOrExample(ctx);
                 p.FindModelExample1(ctx);
                 p.FindModelExample2(ctx);
-                p.ProveExample1(ctx);
-                p.ProveExample2(ctx);
                 p.PushPopExample1(ctx);
                 p.ArrayExample1(ctx);
-                p.ArrayExample2(ctx);
                 p.ArrayExample3(ctx);
-                p.TupleExample(ctx);
                 p.BitvectorExample1(ctx);
                 p.BitvectorExample2(ctx);
                 p.ParserExample1(ctx);
                 p.ParserExample2(ctx);
-                p.ParserExample3(ctx);
                 p.ParserExample4(ctx);
                 p.ParserExample5(ctx);
                 p.ITEExample(ctx);
-                p.EnumExample(ctx);
-                p.ListExample(ctx);
-                p.TreeExample(ctx);
-                p.ForestExample(ctx);
                 p.EvalExample1(ctx);
                 p.EvalExample2(ctx);
                 p.FindSmallModelExample(ctx);
@@ -2214,9 +2225,31 @@ class JavaExample
                 p.FiniteDomainExample(ctx);
             }
 
-            p.QuantifierExample3();
-            p.QuantifierExample4();
-            p.UnsatCoreAndProofExample();
+            { // These examples need proof generation turned on.
+                HashMap<String, String> cfg = new HashMap<String, String>();
+                cfg.put("proof", "true");
+                Context ctx = new Context(cfg);
+                p.ProveExample1(ctx);
+                p.ProveExample2(ctx);
+                p.ArrayExample2(ctx);
+                p.TupleExample(ctx);
+                p.ParserExample3(ctx);
+                p.EnumExample(ctx);
+                p.ListExample(ctx);
+                p.TreeExample(ctx);
+                p.ForestExample(ctx);
+                p.UnsatCoreAndProofExample(ctx);
+            }
+
+            { // These examples need proof generation turned on and auto-config
+              // set to false.
+                HashMap<String, String> cfg = new HashMap<String, String>();
+                cfg.put("proof", "true");
+                cfg.put("auto-config", "false");
+                Context ctx = new Context(cfg);
+                p.QuantifierExample3(ctx);
+                p.QuantifierExample4(ctx);
+            }
 
             Log.Close();
             if (Log.isOpen())

@@ -3657,6 +3657,7 @@ namespace Microsoft.Z3
             Goal_DRQ.Clear(this);
             Model_DRQ.Clear(this);
             Params_DRQ.Clear(this);
+            ParamDescrs_DRQ.Clear(this);
             Probe_DRQ.Clear(this);
             Solver_DRQ.Clear(this);
             Statistics_DRQ.Clear(this);

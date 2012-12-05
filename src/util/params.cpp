@@ -21,6 +21,29 @@ Notes:
 #include"symbol.h"
 #include"dictionary.h"
 
+std::string norm_param_name(char const * n) {
+    if (n == 0)
+        return "_";
+    if (*n == ':')
+        n++;
+    std::string r = n;
+    unsigned sz = r.size();
+    if (sz == 0)
+        return "_";
+    for (unsigned i = 0; i < sz; i++) {
+        char curr = r[i];
+        if ('A' <= curr && curr <= 'Z')
+            r[i] = curr - 'A' + 'a';
+        else if (curr == '-' || curr == ':')
+            r[i] = '_';
+    }
+    return r;
+}
+
+std::string norm_param_name(symbol const & n) {
+    return norm_param_name(n.bare_str());
+}
+
 struct param_descrs::imp {
     struct info {
         param_kind   m_kind;

@@ -24,7 +24,7 @@ using System.Threading;
 using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
-{    
+{
     [ContractClass(typeof(DecRefQueueContracts))]
     internal abstract class IDecRefQueue
     {
@@ -35,7 +35,7 @@ namespace Microsoft.Z3
         {
             Contract.Invariant(this.m_queue != null);
         }
-        
+
         #endregion
 
         readonly internal protected Object m_lock = new Object();

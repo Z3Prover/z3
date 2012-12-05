@@ -27,13 +27,13 @@ Revision History:
 
 static tactic * mk_quant_preprocessor(ast_manager & m, bool disable_gaussian = false) {
     params_ref pull_ite_p;
-    pull_ite_p.set_bool(":pull-cheap-ite", true);
-    pull_ite_p.set_bool(":local-ctx", true);
-    pull_ite_p.set_uint(":local-ctx-limit", 10000000);
+    pull_ite_p.set_bool("pull_cheap_ite", true);
+    pull_ite_p.set_bool("local_ctx", true);
+    pull_ite_p.set_uint("local_ctx_limit", 10000000);
     
     params_ref ctx_simp_p;
-    ctx_simp_p.set_uint(":max-depth", 30);
-    ctx_simp_p.set_uint(":max-steps", 5000000);
+    ctx_simp_p.set_uint("max_depth", 30);
+    ctx_simp_p.set_uint("max_steps", 5000000);
 
     tactic * solve_eqs;
     if (disable_gaussian)
@@ -71,8 +71,8 @@ tactic * mk_uflra_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_auflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref qi_p;
-    qi_p.set_str(":qi-cost", "0");
-    TRACE("qi_cost", qi_p.display(tout); tout << "\n" << qi_p.get_str("qi_cost", "<null>") << "\n";);
+    qi_p.set_str("qi.cost", "0");
+    TRACE("qi_cost", qi_p.display(tout); tout << "\n" << qi_p.get_str("qi.cost", "<null>") << "\n";);
     tactic * st = and_then(mk_no_solve_eq_preprocessor(m),
                            or_else(and_then(fail_if(mk_gt(mk_num_exprs_probe(), mk_const_probe(static_cast<double>(128)))),
                                             using_params(mk_smt_tactic(), qi_p),

@@ -22,6 +22,9 @@ Notes:
 #include"cmd_context_types.h"
 #include"vector.h"
 
+std::string norm_param_name(char const * n);
+std::string norm_param_name(symbol const & n);
+
 typedef cmd_arg_kind param_kind;
 
 class params;

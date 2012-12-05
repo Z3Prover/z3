@@ -72,9 +72,9 @@ void tst_dl_context() {
 
     params_ref params;
     for(unsigned rel_index=0; rel_index<rel_cnt; rel_index++) {
-        params.set_sym(":default-relation", relations[rel_index]);
+        params.set_sym("default_relation", relations[rel_index]);
         for(int eager_checking=1; eager_checking>=0; eager_checking--) {
-            params.set_bool(":eager-emptiness-checking", eager_checking!=0);
+            params.set_bool("eager_emptiness_checking", eager_checking!=0);
 
             std::cerr << "Testing " << relations[rel_index] << "\n";
             std::cerr << "Eager emptiness checking " << (eager_checking!=0 ? "on" : "off") << "\n";

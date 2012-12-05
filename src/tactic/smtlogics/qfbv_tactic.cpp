@@ -33,40 +33,40 @@ Notes:
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":push-ite-bv", true);
-    main_p.set_bool(":blast-distinct", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("push_ite_bv", true);
+    main_p.set_bool("blast_distinct", true);
 
     params_ref simp2_p = p;
-    simp2_p.set_bool(":som", true);
-    simp2_p.set_bool(":pull-cheap-ite", true);
-    simp2_p.set_bool(":push-ite-bv", false);
-    simp2_p.set_bool(":local-ctx", true);
-    simp2_p.set_uint(":local-ctx-limit", 10000000);
+    simp2_p.set_bool("som", true);
+    simp2_p.set_bool("pull_cheap_ite", true);
+    simp2_p.set_bool("push_ite_bv", false);
+    simp2_p.set_bool("local_ctx", true);
+    simp2_p.set_uint("local_ctx_limit", 10000000);
 
     params_ref local_ctx_p = p;
-    local_ctx_p.set_bool(":local-ctx", true);
+    local_ctx_p.set_bool("local_ctx", true);
 
     params_ref solver_p;
-    solver_p.set_bool(":preprocess", false); // preprocessor of smt::context is not needed.
+    solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
     
     params_ref no_flat_p;
-    no_flat_p.set_bool(":flat", false);
+    no_flat_p.set_bool("flat", false);
 
     params_ref ctx_simp_p;
-    ctx_simp_p.set_uint(":max-depth", 32);
-    ctx_simp_p.set_uint(":max-steps", 50000000);
+    ctx_simp_p.set_uint("max_depth", 32);
+    ctx_simp_p.set_uint("max_steps", 50000000);
 
     params_ref hoist_p;
-    hoist_p.set_bool(":hoist-mul", true);
-    hoist_p.set_bool(":som", false);
+    hoist_p.set_bool("hoist_mul", true);
+    hoist_p.set_bool("som", false);
 
     params_ref solve_eq_p;
     // conservative guassian elimination. 
-    solve_eq_p.set_uint(":solve-eqs-max-occs", 2); 
+    solve_eq_p.set_uint("solve_eqs_max_occs", 2); 
 
     params_ref big_aig_p;
-    big_aig_p.set_bool(":aig-per-assertion", false);
+    big_aig_p.set_bool("aig_per_assertion", false);
 
     tactic * preamble_st = and_then(and_then(mk_simplify_tactic(m),
                                              mk_propagate_values_tactic(m),
@@ -74,7 +74,7 @@ tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
                                              mk_elim_uncnstr_tactic(m),
                                              if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
                                              using_params(mk_simplify_tactic(m), simp2_p)),
-                                    // Z3 can solve a couple of extra benchmarks by using :hoist-mul
+                                    // Z3 can solve a couple of extra benchmarks by using hoist_mul
                                     // but the timeout in SMT-COMP is too small. 
                                     // Moreover, it impacted negatively some easy benchmarks.
                                     // We should decide later, if we keep it or not.

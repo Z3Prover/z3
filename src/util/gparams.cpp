@@ -35,6 +35,47 @@ bool is_old_param_name(symbol const & name) {
     return false;
 }
 
+char const * g_params_renames[] = {
+    "proof_mode", "proof",
+    "soft_timeout", "timeout",
+    "mbqi", "smt.mbqi",
+    "relevancy", "smt.relevancy",
+    "ematching", "smt.ematching",
+    "macro_finder", "smt.macro_finder",
+    "delay_units", "smt.delay_units",
+    "case_split", "smt.case_split",
+    "phase_selection", "smt.phase_selection",
+    "restart_strategy", "smt.restart_strategy",
+    "restart_factor", "smt.restart_factor",
+    "arith_random_initial_value", "smt.arith.random_initial_value",
+    "bv_reflect", "smt.bv.reflect",
+    "qi_cost", "smt.qi.cost",
+    "qi_eager_threshold", "smt.qi.eager_threshold",
+    "nl_arith", "smt.arith.nl",
+    "nnf_sk_hack", "nnf.sk_hack",
+    "model_v2", "model.v2",
+    "pi_non_nested_arith_weight", "pi.non_nested_arith_weight",
+    "pi_warnings", "pi.warnings",
+    "pp_decimal", "pp.decimal",
+    "pp_decimal", "pp.decimal_precision",
+    "pp_bv_literals", "pp.bv_literals",
+    "pp_bv_neg", "pp.bv_neg",
+    "pp_max_depth", "pp.max_depth",
+    "pp_min_alias_size", "pp.min_alias_size",
+    0 };
+
+char const * get_new_param_name(symbol const & p) {
+    char const * const * it = g_params_renames;
+    while (*it) {
+        if (p == *it) {
+            it++;
+            return *it;
+        }
+        it += 2;
+    }
+    return 0;
+}
+
 struct gparams::imp {
     bool                      m_modules_registered;
     dictionary<param_descrs*> m_module_param_descrs;
@@ -60,19 +101,24 @@ public:
     }
 
     ~imp() {
-        {
-            dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
-            dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
-            for (; it != end; ++it) {
-                dealloc(it->m_value);
-            }
+        reset();
+        dictionary<param_descrs*>::iterator it  = m_module_param_descrs.begin();
+        dictionary<param_descrs*>::iterator end = m_module_param_descrs.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
         }
+    }
+
+    void reset() {
+        #pragma omp critical (gparams)
         {
+            m_params.reset();
             dictionary<params_ref*>::iterator it  = m_module_params.begin();
             dictionary<params_ref*>::iterator end = m_module_params.end();
             for (; it != end; ++it) {
                 dealloc(it->m_value);
             }
+            m_module_params.reset();
         }
     }
 
@@ -155,7 +201,12 @@ public:
 
     void throw_unknown_parameter(symbol const & param_name, symbol const & mod_name) {
         if (mod_name == symbol::null) {
-            if (is_old_param_name(param_name)) {
+            char const * new_name = get_new_param_name(param_name);
+            if (new_name) {
+                throw exception("the parameter '%s' was renamed to '%s', invoke 'z3 -p' to obtain the new parameter list, and 'z3 -pp:%s' for the full description of the parameter",
+                                param_name.bare_str(), new_name, new_name);
+            }
+            else if (is_old_param_name(param_name)) {
                 throw exception("unknown parameter '%s', this is an old parameter name, invoke 'z3 -p' to obtain the new parameter list", 
                                 param_name.bare_str());
             }
@@ -178,6 +229,11 @@ public:
             long val = strtol(value, 0, 10);
             ps.set_uint(param_name, static_cast<unsigned>(val));
         }
+        else if (k == CPK_DOUBLE) {
+            char * aux;
+            double val = strtod(value, &aux);
+            ps.set_double(param_name, val);
+        }
         else if (k == CPK_BOOL) {
             if (strcmp(value, "true") == 0) {
                 ps.set_bool(param_name, true);
@@ -196,7 +252,16 @@ public:
             ps.set_sym(param_name, symbol(value));
         }
         else if (k == CPK_STRING) {
-            ps.set_str(param_name, value);
+            // There is no guarantee that (external) callers will not delete value after invoking gparams::set.
+            // I see two solutions:
+            //    1) Modify params_ref to create a copy of set_str parameters.
+            //       This solution is not nice since we create copies and move the params_ref around.
+            //       We would have to keep copying the strings.
+            //       Moreover, when we use params_ref internally, the value is usually a static value. 
+            //       So, we would be paying this price for nothing.
+            //    2) "Copy" value by transforming it into a symbol. 
+            //       I'm using this solution for now.
+            ps.set_str(param_name, symbol(value).bare_str());
         }
         else {
             if (mod_name == symbol::null)
@@ -433,6 +498,11 @@ public:
 };
 
 gparams::imp * gparams::g_imp = 0;
+
+void gparams::reset() {
+    SASSERT(g_imp != 0);
+    g_imp->reset();
+}
 
 void gparams::set(char const * name, char const * value) {
     TRACE("gparams", tout << "setting [" << name << "] <- '" << value << "'\n";);

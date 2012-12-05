@@ -28,8 +28,8 @@ Notes:
 
 tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":blast-distinct", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("blast_distinct", true);
 
     tactic * preamble_st = and_then(mk_simplify_tactic(m),
                                     mk_propagate_values_tactic(m),

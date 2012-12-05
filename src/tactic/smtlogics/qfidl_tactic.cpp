@@ -37,23 +37,23 @@ Notes:
 
 tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":blast-distinct", true);
-    main_p.set_bool(":som", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("blast_distinct", true);
+    main_p.set_bool("som", true);
 
     params_ref lhs_p;
-    lhs_p.set_bool(":arith-lhs", true);
+    lhs_p.set_bool("arith_lhs", true);
 
     params_ref lia2pb_p;
-    lia2pb_p.set_uint(":lia2pb-max-bits", 4);
+    lia2pb_p.set_uint("lia2pb_max_bits", 4);
 
     params_ref pb2bv_p;
-    pb2bv_p.set_uint(":pb2bv-all-clauses-limit", 8);
+    pb2bv_p.set_uint("pb2bv_all_clauses_limit", 8);
 
     params_ref pull_ite_p;
-    pull_ite_p.set_bool(":pull-cheap-ite", true);
-    pull_ite_p.set_bool(":local-ctx", true);
-    pull_ite_p.set_uint(":local-ctx-limit", 10000000);
+    pull_ite_p.set_bool("pull_cheap_ite", true);
+    pull_ite_p.set_bool("local_ctx", true);
+    pull_ite_p.set_uint("local_ctx_limit", 10000000);
 
     tactic * preamble_st = and_then(and_then(mk_simplify_tactic(m),
                                              mk_fix_dl_var_tactic(m),
@@ -71,10 +71,10 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
     params_ref bv_solver_p;
     // The cardinality constraint encoding generates a lot of shared if-then-else's that can be flattened.
     // Several of them are simplified to and/or. If we flat them, we increase a lot the memory consumption.
-    bv_solver_p.set_bool(":flat", false); 
-    bv_solver_p.set_bool(":som", false); 
+    bv_solver_p.set_bool("flat", false); 
+    bv_solver_p.set_bool("som", false); 
     // dynamic psm seems to work well.
-    bv_solver_p.set_sym(":gc-strategy", symbol("dyn-psm"));
+    bv_solver_p.set_sym("gc", symbol("dyn_psm"));
 
     tactic * bv_solver = using_params(and_then(mk_simplify_tactic(m),
                                                mk_propagate_values_tactic(m),
@@ -93,7 +93,7 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
                  bv_solver);
     
     params_ref diff_neq_p;
-    diff_neq_p.set_uint(":diff-neq-max-k", 25);
+    diff_neq_p.set_uint("diff_neq_max_k", 25);
 
     tactic * st = cond(mk_and(mk_lt(mk_num_consts_probe(), mk_const_probe(static_cast<double>(BIG_PROBLEM))),
                               mk_and(mk_not(mk_produce_proofs_probe()),

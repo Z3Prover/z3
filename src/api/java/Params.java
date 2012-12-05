@@ -44,8 +44,8 @@ public class Params extends Z3Object
      **/
     public void Add(String name, boolean value) throws Z3Exception
     {
-        Native.paramsSetBool(Context().nCtx(), NativeObject(), Context()
-                .MkSymbol(name).NativeObject(), (value) ? true : false);
+        Native.paramsSetBool(Context().nCtx(), NativeObject(), 
+                Context().MkSymbol(name).NativeObject(), value);
     }
 
     /**

@@ -64,17 +64,17 @@ probe * mk_quasi_pb_probe() {
 // Create SMT solver that does not use cuts
 static tactic * mk_no_cut_smt_tactic(unsigned rs) {
     params_ref solver_p;
-    solver_p.set_uint(":arith-branch-cut-ratio", 10000000);
-    solver_p.set_uint(":random-seed", rs);
+    solver_p.set_uint("arith.branch_cut_ratio", 10000000);
+    solver_p.set_uint("random_seed", rs);
     return using_params(mk_smt_tactic_using(false), solver_p);
 }
 
 // Create SMT solver that does not use cuts
 static tactic * mk_no_cut_no_relevancy_smt_tactic(unsigned rs) {
     params_ref solver_p;
-    solver_p.set_uint(":arith-branch-cut-ratio", 10000000);
-    solver_p.set_uint(":random-seed", rs);
-    solver_p.set_uint(":relevancy", 0);
+    solver_p.set_uint("arith.branch_cut_ratio", 10000000);
+    solver_p.set_uint("random_seed", rs);
+    solver_p.set_uint("relevancy", 0);
     return using_params(mk_smt_tactic_using(false), solver_p);
 }
 
@@ -82,10 +82,10 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
     params_ref solver_p;
     // The cardinality constraint encoding generates a lot of shared if-then-else's that can be flattened.
     // Several of them are simplified to and/or. If we flat them, we increase a lot the memory consumption.
-    solver_p.set_bool(":flat", false); 
-    solver_p.set_bool(":som", false); 
+    solver_p.set_bool("flat", false); 
+    solver_p.set_bool("som", false); 
     // dynamic psm seems to work well.
-    solver_p.set_sym(":gc-strategy", symbol("dyn-psm"));
+    solver_p.set_sym("gc", symbol("dyn_psm"));
     
     return using_params(and_then(mk_simplify_tactic(m),
                                  mk_propagate_values_tactic(m),
@@ -101,8 +101,8 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
 
 static tactic * mk_pb_tactic(ast_manager & m) {
     params_ref pb2bv_p;
-    pb2bv_p.set_bool(":ite-extra", true);    
-    pb2bv_p.set_uint(":pb2bv-all-clauses-limit", 8);
+    pb2bv_p.set_bool("ite_extra", true);    
+    pb2bv_p.set_uint("pb2bv_all_clauses_limit", 8);
     
     return and_then(fail_if_not(mk_is_pb_probe()),
                     fail_if(mk_produce_proofs_probe()),
@@ -119,8 +119,8 @@ static tactic * mk_pb_tactic(ast_manager & m) {
 
 static tactic * mk_lia2sat_tactic(ast_manager & m) {
     params_ref pb2bv_p;
-    pb2bv_p.set_bool(":ite-extra", true);    
-    pb2bv_p.set_uint(":pb2bv-all-clauses-limit", 8);
+    pb2bv_p.set_bool("ite_extra", true);    
+    pb2bv_p.set_uint("pb2bv_all_clauses_limit", 8);
     
     return and_then(fail_if(mk_is_unbounded_probe()),
                     fail_if(mk_produce_proofs_probe()),
@@ -137,11 +137,11 @@ static tactic * mk_lia2sat_tactic(ast_manager & m) {
 // Fails if the problem is no ILP.
 static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
     params_ref add_bounds_p1;
-    add_bounds_p1.set_rat(":add-bound-lower", rational(-16));
-    add_bounds_p1.set_rat(":add-bound-upper", rational(15));
+    add_bounds_p1.set_rat("add_bound_lower", rational(-16));
+    add_bounds_p1.set_rat("add_bound_upper", rational(15));
     params_ref add_bounds_p2;
-    add_bounds_p2.set_rat(":add-bound-lower", rational(-32));
-    add_bounds_p2.set_rat(":add-bound-upper", rational(31));
+    add_bounds_p2.set_rat("add_bound_lower", rational(-32));
+    add_bounds_p2.set_rat("add_bound_upper", rational(31));
 
     return and_then(fail_if_not(mk_and(mk_is_ilp_probe(), mk_is_unbounded_probe())),
                     fail_if(mk_produce_proofs_probe()),
@@ -170,22 +170,22 @@ static tactic * mk_bounded_tactic(ast_manager & m) {
 
 tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":som", true);
-    // main_p.set_bool(":push-ite-arith", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("som", true);
+    // main_p.set_bool("push_ite_arith", true);
     
     params_ref pull_ite_p;
-    pull_ite_p.set_bool(":pull-cheap-ite", true);
-    pull_ite_p.set_bool(":push-ite-arith", false);
-    pull_ite_p.set_bool(":local-ctx", true);
-    pull_ite_p.set_uint(":local-ctx-limit", 10000000);
+    pull_ite_p.set_bool("pull_cheap_ite", true);
+    pull_ite_p.set_bool("push_ite_arith", false);
+    pull_ite_p.set_bool("local_ctx", true);
+    pull_ite_p.set_uint("local_ctx_limit", 10000000);
 
     params_ref ctx_simp_p;
-    ctx_simp_p.set_uint(":max-depth", 30);
-    ctx_simp_p.set_uint(":max-steps", 5000000);
+    ctx_simp_p.set_uint("max_depth", 30);
+    ctx_simp_p.set_uint("max_steps", 5000000);
 
     params_ref lhs_p;
-    lhs_p.set_bool(":arith-lhs", true);
+    lhs_p.set_bool("arith_lhs", true);
 
     tactic * preamble_st = and_then(and_then(mk_simplify_tactic(m),
                                              mk_propagate_values_tactic(m),
@@ -197,10 +197,10 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                     );
 
     params_ref quasi_pb_p;
-    quasi_pb_p.set_uint(":lia2pb-max-bits", 64);
+    quasi_pb_p.set_uint("lia2pb_max_bits", 64);
     
     params_ref no_cut_p;
-    no_cut_p.set_uint(":arith-branch-cut-ratio", 10000000);
+    no_cut_p.set_uint("arith.branch_cut_ratio", 10000000);
     
     
     tactic * st = using_params(and_then(preamble_st,

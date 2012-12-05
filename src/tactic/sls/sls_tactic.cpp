@@ -1855,7 +1855,7 @@ tactic * mk_sls_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_preamble(ast_manager & m, params_ref const & p) {
     params_ref main_p;
     main_p.set_bool("elim_and", true);
-    // main_p.set_bool("pull-cheap_ite", true);
+    // main_p.set_bool("pull_cheap_ite", true);
     main_p.set_bool("push_ite_bv", true);
     main_p.set_bool("blast_distinct", true);
     // main_p.set_bool("udiv2mul", true);

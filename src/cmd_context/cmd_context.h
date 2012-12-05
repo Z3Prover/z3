@@ -38,11 +38,6 @@ Notes:
 #include"scoped_ptr_vector.h"
 #include"context_params.h"
 
-/**
-   \brief Auxiliary function for converting SMT2 keywords into Z3 internal parameter names.
-*/
-std::string smt2_keyword_to_param(symbol const & k);
-
 class func_decls {
     func_decl * m_decls;
 public:
@@ -254,6 +249,7 @@ public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
     context_params  & params() { return m_params; }
+    void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     void set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }

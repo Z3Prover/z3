@@ -2456,7 +2456,7 @@ namespace smt {
                     delta -= coeff*(k_2 - k_1);
                 }
                 TRACE("propagate_bounds", tout << "delta (after replace): " << delta << "\n";);
-                new_atom->push_justification(ante, coeff);
+                new_atom->push_justification(ante, coeff, proofs_enabled());
                 SASSERT(delta >= inf_numeral::zero());
             }
         }
@@ -2569,7 +2569,7 @@ namespace smt {
             for (; it != end; ++it)
                 lits.push_back(~(*it));
             justification * js = 0;
-            if (proofs_enabled) {
+            if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr(),
                            ante.num_params(), ante.params("assign-bounds"));
             }
@@ -2656,13 +2656,13 @@ namespace smt {
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
-                  if (proofs_enabled) {
+                  if (proofs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
-                  if (proofs_enabled) {
+                  if (proofs_enabled()) {
                       tout << "bound: " << bounds.eq_coeffs()[i] << "\n";
                   }
               }

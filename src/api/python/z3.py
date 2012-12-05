@@ -198,10 +198,10 @@ def _get_ctx(ctx):
     else:
         return ctx
 
-def set_option(*args, **kws):
+def set_param(*args, **kws):
     """Set Z3 global (or module) parameters.
 
-    >>> set_option(precision=10)
+    >>> set_param(precision=10)
     """
     if __debug__:
         _z3_assert(len(args) % 2 == 0, "Argument list must have an even number of elements.")
@@ -219,11 +219,21 @@ def set_option(*args, **kws):
             Z3_global_param_set(str(prev), _to_param_value(a))
             prev = None
 
-def get_option(name):
+def reset_params():
+    """Reset all global (or module) parameters.
+    """
+    Z3_global_param_reset_all()
+
+def set_option(*args, **kws):
+    """Alias for 'set_param' for backward compatibility.
+    """
+    return set_param(*args, **kws)
+
+def get_param(name):
     """Return the value of a Z3 global (or module) parameter
 
-    >>> get_option('nlsat.reorder')
-    true
+    >>> get_param('nlsat.reorder')
+    'true'
     """
     ptr = (ctypes.c_char_p * 1)()
     if Z3_global_param_get(str(name), ptr):
@@ -4384,8 +4394,8 @@ def args2params(arguments, keywords, ctx=None):
     """Convert python arguments into a Z3_params object.
     A ':' is added to the keywords, and '_' is replaced with '-'
 
-    >>> args2params([':model', True, ':relevancy', 2], {'elim_and' : True})
-    (params :model 1 :relevancy 2 :elim-and 1)
+    >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
+    (params model 1 relevancy 2 elim_and 1)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")
@@ -4398,7 +4408,6 @@ def args2params(arguments, keywords, ctx=None):
             r.set(prev, a)
             prev = None
     for k, v in keywords.iteritems():
-        k = ':' + k.replace('_', '-')
         r.set(k, v)
     return r
 
