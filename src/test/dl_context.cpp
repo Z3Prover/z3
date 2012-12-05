@@ -60,7 +60,7 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     }
     dealloc(parser);
     std::cerr << "Saturating...\n";
-    ctx.dl_saturate();
+    ctx.get_rel_context().saturate();
     std::cerr << "Done\n";
 }
 

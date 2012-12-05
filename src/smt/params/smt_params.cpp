@@ -29,6 +29,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_case_split_strategy = static_cast<case_split_strategy>(p.case_split());
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
+    m_proof_mode     = _p.get_bool("produce_proofs", false)? PGM_FINE : PGM_DISABLED;
 }
 
 void smt_params::updt_params(params_ref const & p) {

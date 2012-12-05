@@ -22,11 +22,12 @@ namespace datalog {
     void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
+        rel_context& rctx = ctx.get_rel_context();
         ctx.updt_params(params);
-        relation_manager & rmgr(ctx.get_rmanager());
+        relation_manager & rmgr(rctx.get_rmanager());
 
         sparse_table_plugin & plugin = 
-            static_cast<sparse_table_plugin &>(*ctx.get_rmanager().get_table_plugin(symbol("sparse")));
+            static_cast<sparse_table_plugin &>(*rctx.get_rmanager().get_table_plugin(symbol("sparse")));
         SASSERT(&plugin);
         table_signature sig2;
         sig2.push_back(2);
@@ -126,9 +127,9 @@ namespace datalog {
         context ctx(m, fparams);
         ctx.updt_params(params);
         dl_decl_util dl_util(m);
-        relation_manager & rmgr = ctx.get_rmanager();
+        relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
 
-        relation_plugin & rel_plugin = *ctx.get_rmanager().get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
+        relation_plugin & rel_plugin = *rmgr.get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
         SASSERT(&rel_plugin);
         finite_product_relation_plugin plg(rel_plugin, rmgr);
 
