@@ -49,13 +49,8 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
 
     dl_decl_util decl_util(m);
 
-<<<<<<< HEAD
-    context ctx_q(m, fparams);   
-    params.set_bool(":magic-sets-for-queries", use_magic_sets);
-=======
     context ctx_q(m, fparams);
     params.set_bool("magic_sets_for_queries", use_magic_sets);
->>>>>>> 3736c5ea3b97521dad85cdc6262151fae2875ec5
     ctx_q.updt_params(params);
     {
         parser* p = parser::create(ctx_q,m);
