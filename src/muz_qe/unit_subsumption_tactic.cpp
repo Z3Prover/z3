@@ -37,7 +37,6 @@ struct unit_subsumption_tactic : public tactic {
         m_cancel(false), 
         m_context(m, m_fparams, p),
         m_clauses(m) {
-            m_fparams.m_proof_mode = m.proof_mode();
     }
            
     void set_cancel(bool f) {

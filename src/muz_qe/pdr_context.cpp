@@ -1456,7 +1456,6 @@ namespace pdr {
         }
         if (m_params.use_farkas() && !classify.is_bool()) {
             m.toggle_proof_mode(PGM_FINE);
-            m_fparams.m_proof_mode = PGM_FINE;                
             m_fparams.m_arith_bound_prop = BP_NONE;
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;

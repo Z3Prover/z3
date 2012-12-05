@@ -28,7 +28,6 @@ Notes:
 #include"cancel_eh.h"
 #include"scoped_ctrl_c.h"
 #include"scoped_timer.h"
-#include"params2smt_params.h"
 #include"trail.h"
 #include<iomanip>
 

@@ -255,7 +255,6 @@ namespace pdr {
 
     smt_params farkas_learner::get_proof_params(smt_params& orig_params) {
         smt_params res(orig_params);
-        res.m_proof_mode = PROOF_MODE;
         res.m_arith_bound_prop = BP_NONE;
         // temp hack to fix the build
         // res.m_conflict_resolution_strategy = CR_ALL_DECIDED;

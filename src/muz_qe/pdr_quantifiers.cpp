@@ -214,7 +214,7 @@ namespace pdr {
 
         expr_ref_vector fmls(m);
         smt_params fparams;
-        fparams.m_proof_mode = PGM_FINE;
+        SASSERT(m.proofs_enabled());
         fparams.m_mbqi = true;
 
         fmls.push_back(m_A.get());

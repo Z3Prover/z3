@@ -207,7 +207,6 @@ struct smt_params : public preprocessor_params,
     bool                m_at_labels_cex; // only use labels which contains the @ symbol when building multiple counterexamples.
     bool                m_check_at_labels; // check that @ labels are inserted to generate unique counter-examples.    
     bool                m_dump_goal_as_smt;
-    proof_gen_mode      m_proof_mode;
     bool                m_auto_config;
 
     smt_params(params_ref const & p = params_ref()):
@@ -277,7 +276,6 @@ struct smt_params : public preprocessor_params,
         m_at_labels_cex(false),
         m_check_at_labels(false),
         m_dump_goal_as_smt(false),
-        m_proof_mode(PGM_DISABLED),
         m_auto_config(true) {
         updt_local_params(p);
     }

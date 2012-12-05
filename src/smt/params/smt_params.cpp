@@ -51,6 +51,5 @@ void smt_params::updt_params(context_params const & p) {
     m_soft_timeout   = p.m_timeout;
     m_model          = p.m_model;
     m_model_validate = p.m_model_validate;
-    m_proof_mode     = p.m_proof ? PGM_FINE : PGM_DISABLED;
 }
 
