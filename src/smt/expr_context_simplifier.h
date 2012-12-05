@@ -75,7 +75,7 @@ public:
     void operator()(expr_ref& result) { simplify(result.get(), result); }
     void push() { m_solver.push(); }
     void pop() { m_solver.pop(1); }
-    void assert(expr* e) { m_solver.assert_expr(e); }
+    void assert_expr(expr* e) { m_solver.assert_expr(e); }
     
     void collect_statistics(statistics & st) const { m_solver.collect_statistics(st); }
     void reset_statistics() { m_solver.reset_statistics(); }

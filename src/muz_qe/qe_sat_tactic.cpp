@@ -629,7 +629,7 @@ namespace qe {
             expr_ref fml(_fml, m);
             if (m_strong_context_simplify_param && m_ctx_simplify_local_param) {
                 m_ctx_rewriter.push();
-                m_ctx_rewriter.assert(M(idx));
+                m_ctx_rewriter.assert_expr(M(idx));
                 m_ctx_rewriter(fml);
                 m_ctx_rewriter.pop();
                 TRACE("qe", tout << mk_pp(_fml, m) << "\n-- context simplify -->\n" << mk_pp(fml, m) << "\n";);
@@ -650,7 +650,7 @@ namespace qe {
             m_rewriter(not_fml);
             if (m_strong_context_simplify_param && !m_ctx_simplify_local_param) {
                 m_ctx_rewriter.push();
-                m_ctx_rewriter.assert(M(idx));
+                m_ctx_rewriter.assert_expr(M(idx));
                 m_ctx_rewriter(not_fml);
                 m_ctx_rewriter.pop();
             }

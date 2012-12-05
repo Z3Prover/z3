@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include<iostream>
+#include"z3_omp.h"
 #include"util.h"
 #include"timeout.h"
 #include"error_codes.h"
