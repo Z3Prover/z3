@@ -41,8 +41,6 @@ namespace datalog {
         fact_vector        m_table_facts;
 
         void reset_negated_tables();
-
-        lbool saturate();
         
         relation_plugin & get_ordinary_relation_plugin(symbol relation_name);
         
@@ -109,6 +107,7 @@ namespace datalog {
         void display_output_facts(std::ostream & out) const;
         void display_facts(std::ostream & out) const;
 
+        lbool saturate();
 
     };
 };

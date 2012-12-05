@@ -283,6 +283,7 @@ namespace smt {
         if (!m_fparams) {
             m_fparams = alloc(smt_params, m_context->get_fparams());
             m_fparams->m_relevancy_lvl = 0; // no relevancy since the model checking problems are quantifier free
+            m_fparams->m_proof_mode = m_manager.proof_mode();            
         }
         if (!m_aux_context) {
             symbol logic;
