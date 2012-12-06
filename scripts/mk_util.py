@@ -88,6 +88,9 @@ def is_osx():
 def unix_path2dos(path):
     return string.join(path.split('/'), '\\')
 
+def to_unix_path(path):
+    return string.join(path.split('\\'), '/')
+
 def which(program):
     import os
     def is_exe(fpath):
@@ -440,7 +443,7 @@ def extract_c_includes(fname):
 
 # Given a path dir1/subdir2/subdir3 returns ../../..
 def reverse_path(p):
-    l = p.split('/')
+    l = to_unix_path(p).split('/')
     n = len(l)
     r = '..'
     for i in range(1, n):
