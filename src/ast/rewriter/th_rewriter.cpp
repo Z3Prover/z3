@@ -483,9 +483,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             f = to_app(t1)->get_decl();
             return unify_core(to_app(t1), t2, new_t1, new_t2, c, first);
         }
-        else {
+        else if (is_arith_bv_app(t2)) {
             f = to_app(t2)->get_decl();
             return unify_core(to_app(t2), t1, new_t2, new_t1, c, first);
+        }
+        else {
+            return false;
         }
     }
 
