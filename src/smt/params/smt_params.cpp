@@ -52,4 +52,3 @@ void smt_params::updt_params(context_params const & p) {
     m_model          = p.m_model;
     m_model_validate = p.m_model_validate;
 }
-
