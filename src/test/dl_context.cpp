@@ -2,7 +2,7 @@
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
 #include "dl_context.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 
 using namespace datalog;
 
@@ -27,7 +27,7 @@ static void dl_context_simple_query_test(params_ref & params) {
     ast_manager m;
     dl_decl_util decl_util(m);
 
-    front_end_params fparams;
+    smt_params fparams;
     context ctx(m, fparams);
     ctx.updt_params(params);
 
@@ -49,7 +49,7 @@ static void dl_context_simple_query_test(params_ref & params) {
 void dl_context_saturate_file(params_ref & params, const char * f) {
     ast_manager m;
     dl_decl_util decl_util(m);
-    front_end_params fparams;
+    smt_params fparams;
     context ctx(m, fparams);
     ctx.updt_params(params);
 
@@ -60,7 +60,7 @@ void dl_context_saturate_file(params_ref & params, const char * f) {
     }
     dealloc(parser);
     std::cerr << "Saturating...\n";
-    ctx.dl_saturate();
+    ctx.get_rel_context().saturate();
     std::cerr << "Done\n";
 }
 
@@ -72,9 +72,9 @@ void tst_dl_context() {
 
     params_ref params;
     for(unsigned rel_index=0; rel_index<rel_cnt; rel_index++) {
-        params.set_sym(":default-relation", relations[rel_index]);
+        params.set_sym("default_relation", relations[rel_index]);
         for(int eager_checking=1; eager_checking>=0; eager_checking--) {
-            params.set_bool(":eager-emptiness-checking", eager_checking!=0);
+            params.set_bool("eager_emptiness_checking", eager_checking!=0);
 
             std::cerr << "Testing " << relations[rel_index] << "\n";
             std::cerr << "Eager emptiness checking " << (eager_checking!=0 ? "on" : "off") << "\n";

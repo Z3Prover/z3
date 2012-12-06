@@ -25,7 +25,7 @@ Revision History:
 #include"smt_enode.h"
 #include"dyn_ack.h"
 #include"obj_pair_hashtable.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"obj_pair_hashtable.h"
 #include"map.h"
 #include"watch_list.h"
@@ -46,7 +46,7 @@ namespace smt {
         typedef obj_pair_set<enode, enode> enode_pair_set;
 
         ast_manager &                  m_manager;
-        front_end_params const &       m_params;
+        smt_params const &       m_params;
         context &                      m_ctx;
         dyn_ack_manager &              m_dyn_ack_manager;
         literal_vector const &         m_assigned_literals;
@@ -204,7 +204,7 @@ namespace smt {
         conflict_resolution(ast_manager & m, 
                             context & ctx,
                             dyn_ack_manager & dack_manager,
-                            front_end_params const & params,
+                            smt_params const & params,
                             literal_vector const & assigned_literals,
                             vector<watch_list> & watches
                             );
@@ -266,7 +266,7 @@ namespace smt {
     conflict_resolution * mk_conflict_resolution(ast_manager & m, 
                                                  context & ctx,
                                                  dyn_ack_manager & dack_manager,
-                                                 front_end_params const & params,
+                                                 smt_params const & params,
                                                  literal_vector const & assigned_literals,  
                                                  vector<watch_list> & watches
                                                  );

@@ -26,7 +26,7 @@ class horn_tactic : public tactic {
     struct imp {
         ast_manager&             m;
         datalog::context         m_ctx;
-        front_end_params         m_fparams;
+        smt_params               m_fparams;
 
         imp(ast_manager & m, params_ref const & p):
             m(m),
@@ -90,21 +90,30 @@ class horn_tactic : public tactic {
             m_ctx.register_predicate(to_app(a)->get_decl(), true);
         }
 
-        void check_predicate(expr* a) {
-            expr* a1 = 0;
-            while (true) {
+        void check_predicate(ast_mark& mark, expr* a) {
+            ptr_vector<expr> todo;
+            todo.push_back(a);
+            while (!todo.empty()) {
+                a = todo.back();
+                todo.pop_back();
+                if (mark.is_marked(a)) {
+                    continue;
+                }
+                mark.mark(a, true);
                 if (is_quantifier(a)) {
                     a = to_quantifier(a)->get_expr();
-                    continue;
+                    todo.push_back(a);
                 }
-                if (m.is_not(a, a1)) {
-                    a = a1;
-                    continue;
+                else if (m.is_not(a) || m.is_and(a) || m.is_or(a) || m.is_implies(a)) {
+                    todo.append(to_app(a)->get_num_args(), to_app(a)->get_args());
                 }
-                if (is_predicate(a)) {
+                else if (m.is_ite(a)) {
+                    todo.append(to_app(a)->get_arg(1));
+                    todo.append(to_app(a)->get_arg(2));
+                }
+                else if (is_predicate(a)) {
                     register_predicate(a);
                 }
-                break;
             }
         }
 
@@ -112,14 +121,15 @@ class horn_tactic : public tactic {
 
         formula_kind get_formula_kind(expr_ref& f) {
             normalize(f);
+            ast_mark mark;
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
             expr* a = 0, *a1 = 0;
             datalog::flatten_or(f, args);
             for (unsigned i = 0; i < args.size(); ++i) {
-                a = args[i].get();    
-                check_predicate(a);
-                if (m.is_not(a, a1) && is_predicate(a1)) {
+                a = args[i].get(); 
+                check_predicate(mark, a);
+                if (m.is_not(a, a1)) {
                     body.push_back(a1);
                 }
                 else if (is_predicate(a)) {
@@ -127,9 +137,6 @@ class horn_tactic : public tactic {
                         return IS_NONE;
                     }
                     head = a;
-                }
-                else if (m.is_not(a, a1)) {
-                    body.push_back(a1);
                 }
                 else {
                     body.push_back(m.mk_not(a));
@@ -161,9 +168,9 @@ class horn_tactic : public tactic {
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {
-                if (!m_ctx.get_params().get_bool(":generate-proof-trace", true)) {
-                    params_ref params = m_ctx.get_params();
-                    params.set_bool(":generate-proof-trace", true);
+                if (!m_ctx.get_params().generate_proof_trace()) {
+                    params_ref params = m_ctx.get_params().p;
+                    params.set_bool("generate_proof_trace", true);
                     updt_params(params);
                 }
             }

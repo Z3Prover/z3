@@ -22,7 +22,7 @@ Revision History:
 #include "ast.h"
 #include "obj_hashtable.h"
 #include "basic_simplifier_plugin.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "smt_kernel.h"
 #include "arith_decl_plugin.h"
 
@@ -57,7 +57,7 @@ private:
 
 class expr_strong_context_simplifier {
     ast_manager& m_manager;
-    front_end_params & m_params;
+    smt_params & m_params;
     arith_util    m_arith;
     unsigned      m_id;
     func_decl_ref m_fn;
@@ -70,12 +70,12 @@ class expr_strong_context_simplifier {
     bool is_forced(expr* e, expr* v);
 
 public:
-    expr_strong_context_simplifier(front_end_params& p, ast_manager& m);
+    expr_strong_context_simplifier(smt_params& p, ast_manager& m);
     void operator()(expr* e, expr_ref& result) { simplify(e, result); }
     void operator()(expr_ref& result) { simplify(result.get(), result); }
     void push() { m_solver.push(); }
     void pop() { m_solver.pop(1); }
-    void assert(expr* e) { m_solver.assert_expr(e); }
+    void assert_expr(expr* e) { m_solver.assert_expr(e); }
     
     void collect_statistics(statistics & st) const { m_solver.collect_statistics(st); }
     void reset_statistics() { m_solver.reset_statistics(); }

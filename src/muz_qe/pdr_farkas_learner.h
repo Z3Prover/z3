@@ -26,7 +26,7 @@ Revision History:
 #include "smt_kernel.h"
 #include "bool_rewriter.h"
 #include "pdr_util.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "tactic.h"
 
 namespace pdr {
@@ -39,12 +39,12 @@ class farkas_learner {
 
     typedef obj_hashtable<expr> expr_set;
 
-    front_end_params         m_proof_params;
+    smt_params               m_proof_params;
     ast_manager              m_pr;
     scoped_ptr<smt::kernel>  m_ctx;
 
 
-    static front_end_params get_proof_params(front_end_params& orig_params);
+    static smt_params get_proof_params(smt_params& orig_params);
 
     //
     // all ast objects passed to private functions have m_proof_mgs as their ast_manager
@@ -72,7 +72,7 @@ class farkas_learner {
     static void test();
 
 public:
-    farkas_learner(front_end_params& params, ast_manager& m);
+    farkas_learner(smt_params& params, ast_manager& m);
 
     /**
        All ast objects have the ast_manager which was passed as 

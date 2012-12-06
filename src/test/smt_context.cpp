@@ -3,7 +3,7 @@
 
 void tst_smt_context()
 {
-    front_end_params params;
+    smt_params params;
 
     ast_manager m;
     reg_decl_plugins(m);

@@ -248,10 +248,13 @@ namespace test_mapi
             return res;
         }
 
-        static void Prove(Context ctx, BoolExpr f, params BoolExpr[] assumptions)
+        static void Prove(Context ctx, BoolExpr f, bool useMBQI = false, params BoolExpr[] assumptions)
         {
             Console.WriteLine("Proving: " + f);
             Solver s = ctx.MkSolver();
+            Params p = ctx.MkParams();
+            p.Add("mbqi", useMBQI);
+            s.Parameters = p;
             foreach (BoolExpr a in assumptions)
                 s.Assert(a);
             s.Assert(ctx.MkNot(f));
@@ -270,10 +273,13 @@ namespace test_mapi
             }
         }
 
-        static void Disprove(Context ctx, BoolExpr f, params BoolExpr[] assumptions)
+        static void Disprove(Context ctx, BoolExpr f, bool useMBQI = false, params BoolExpr[] assumptions)
         {
             Console.WriteLine("Disproving: " + f);
             Solver s = ctx.MkSolver();
+            Params p = ctx.MkParams();
+            p.Add("mbqi", useMBQI);
+            s.Parameters = p;
             foreach (BoolExpr a in assumptions)
                 s.Assert(a);
             s.Assert(ctx.MkNot(f));
@@ -298,7 +304,7 @@ namespace test_mapi
 
             ArithExpr xr = (ArithExpr)ctx.MkConst(ctx.MkSymbol("x"), ctx.MkRealSort());
             ArithExpr yr = (ArithExpr)ctx.MkConst(ctx.MkSymbol("y"), ctx.MkRealSort());
-            Goal g4 = ctx.MkGoal(true, false, true);
+            Goal g4 = ctx.MkGoal(true);
             g4.Assert(ctx.MkGt(xr, ctx.MkReal(10, 1)));
             g4.Assert(ctx.MkEq(yr, ctx.MkAdd(xr, ctx.MkReal(1, 1))));
             g4.Assert(ctx.MkGt(yr, ctx.MkReal(1, 1)));
@@ -330,7 +336,7 @@ namespace test_mapi
         {
             Console.WriteLine("ArrayExample1");
 
-            Goal g = ctx.MkGoal(true, false, false);
+            Goal g = ctx.MkGoal(true);
             ArraySort asort = ctx.MkArraySort(ctx.IntSort, ctx.MkBitVecSort(32));
             ArrayExpr aex = (ArrayExpr)ctx.MkConst(ctx.MkSymbol("MyArray"), asort);
             Expr sel = ctx.MkSelect(aex, ctx.MkInt(0));
@@ -640,95 +646,76 @@ namespace test_mapi
         /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when 
         /// <code>f</code> is injective in the second argument. <seealso cref="inj_axiom"/>
         /// </summary>
-        public static void QuantifierExample3()
+        public static void QuantifierExample3(Context ctx)
         {
             Console.WriteLine("QuantifierExample3");
-
-
-            Dictionary<string, string> cfg = new Dictionary<string, string>() { 
-                { "MBQI", "false" },
-                { "PROOF_MODE", "2" },
-                { "AUTO_CONFIG", "false" }
-                };
 
             /* If quantified formulas are asserted in a logical context, then
                the model produced by Z3 should be viewed as a potential model. */
 
-            using (Context ctx = new Context(cfg))
-            {
-                /* declare function f */
-                Sort I = ctx.IntSort;
-                FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
+            /* declare function f */
+            Sort I = ctx.IntSort;
+            FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
 
-                /* f is injective in the second argument. */
-                BoolExpr inj = InjAxiom(ctx, f, 1);
+            /* f is injective in the second argument. */
+            BoolExpr inj = InjAxiom(ctx, f, 1);
 
-                /* create x, y, v, w, fxy, fwv */
-                Expr x = ctx.MkIntConst("x");
-                Expr y = ctx.MkIntConst("y");
-                Expr v = ctx.MkIntConst("v");
-                Expr w = ctx.MkIntConst("w");
-                Expr fxy = ctx.MkApp(f, x, y);
-                Expr fwv = ctx.MkApp(f, w, v);
+            /* create x, y, v, w, fxy, fwv */
+            Expr x = ctx.MkIntConst("x");
+            Expr y = ctx.MkIntConst("y");
+            Expr v = ctx.MkIntConst("v");
+            Expr w = ctx.MkIntConst("w");
+            Expr fxy = ctx.MkApp(f, x, y);
+            Expr fwv = ctx.MkApp(f, w, v);
 
-                /* f(x, y) = f(w, v) */
-                BoolExpr p1 = ctx.MkEq(fxy, fwv);
+            /* f(x, y) = f(w, v) */
+            BoolExpr p1 = ctx.MkEq(fxy, fwv);
 
-                /* prove f(x, y) = f(w, v) implies y = v */
-                BoolExpr p2 = ctx.MkEq(y, v);
-                Prove(ctx, p2, inj, p1);
+            /* prove f(x, y) = f(w, v) implies y = v */
+            BoolExpr p2 = ctx.MkEq(y, v);
+            Prove(ctx, p2, false, inj, p1);
 
-                /* disprove f(x, y) = f(w, v) implies x = w */
-                BoolExpr p3 = ctx.MkEq(x, w);
-                Disprove(ctx, p3, inj, p1);
-            }
+            /* disprove f(x, y) = f(w, v) implies x = w */
+            BoolExpr p3 = ctx.MkEq(x, w);
+            Disprove(ctx, p3, false, inj, p1);
         }
 
         /// <summary>
         /// Prove that <tt>f(x, y) = f(w, v) implies y = v</tt> when 
         /// <code>f</code> is injective in the second argument. <seealso cref="inj_axiom"/>
         /// </summary>
-        public static void QuantifierExample4()
+        public static void QuantifierExample4(Context ctx)
         {
             Console.WriteLine("QuantifierExample4");
-
-            Dictionary<string, string> cfg = new Dictionary<string, string>() { 
-            { "MBQI", "false" },
-            { "PROOF_MODE", "2" },
-            { "AUTO_CONFIG","false" }};
-
 
             /* If quantified formulas are asserted in a logical context, then
                the model produced by Z3 should be viewed as a potential model. */
 
-            using (Context ctx = new Context(cfg))
-            {
-                /* declare function f */
-                Sort I = ctx.IntSort;
-                FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
+            /* declare function f */
+            Sort I = ctx.IntSort;
+            FuncDecl f = ctx.MkFuncDecl("f", new Sort[] { I, I }, I);
 
-                /* f is injective in the second argument. */
-                BoolExpr inj = InjAxiomAbs(ctx, f, 1);
+            /* f is injective in the second argument. */
+            BoolExpr inj = InjAxiomAbs(ctx, f, 1);
 
-                /* create x, y, v, w, fxy, fwv */
-                Expr x = ctx.MkIntConst("x");
-                Expr y = ctx.MkIntConst("y");
-                Expr v = ctx.MkIntConst("v");
-                Expr w = ctx.MkIntConst("w");
-                Expr fxy = ctx.MkApp(f, x, y);
-                Expr fwv = ctx.MkApp(f, w, v);
+            /* create x, y, v, w, fxy, fwv */
+            Expr x = ctx.MkIntConst("x");
+            Expr y = ctx.MkIntConst("y");
+            Expr v = ctx.MkIntConst("v");
+            Expr w = ctx.MkIntConst("w");
+            Expr fxy = ctx.MkApp(f, x, y);
+            Expr fwv = ctx.MkApp(f, w, v);
 
-                /* f(x, y) = f(w, v) */
-                BoolExpr p1 = ctx.MkEq(fxy, fwv);
+            /* f(x, y) = f(w, v) */
+            BoolExpr p1 = ctx.MkEq(fxy, fwv);
 
-                /* prove f(x, y) = f(w, v) implies y = v */
-                BoolExpr p2 = ctx.MkEq(y, v);
-                Prove(ctx, p2, inj, p1);
+            /* prove f(x, y) = f(w, v) implies y = v */
+            BoolExpr p2 = ctx.MkEq(y, v);
+            Prove(ctx, p2, false, inj, p1);
 
-                /* disprove f(x, y) = f(w, v) implies x = w */
-                BoolExpr p3 = ctx.MkEq(x, w);
-                Disprove(ctx, p3, inj, p1);
-            }
+            /* disprove f(x, y) = f(w, v) implies x = w */
+            BoolExpr p3 = ctx.MkEq(x, w);
+            Disprove(ctx, p3, false, inj, p1);
         }
 
         /// <summary>
@@ -756,7 +743,7 @@ namespace test_mapi
             BoolExpr trivial_eq = ctx.MkEq(fapp, fapp);
             BoolExpr nontrivial_eq = ctx.MkEq(fapp, fapp2);
 
-            Goal g = ctx.MkGoal(true, false, true);
+            Goal g = ctx.MkGoal(true);
             g.Assert(trivial_eq);
             g.Assert(nontrivial_eq);
             Console.WriteLine("Goal: " + g);
@@ -784,18 +771,18 @@ namespace test_mapi
                 throw new TestFailedException();
 
 
-            Goal g2 = ctx.MkGoal(true, true, false);
+            Goal g2 = ctx.MkGoal(true, true);
             ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g2);
             if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedSat)
                 throw new TestFailedException();
 
-            g2 = ctx.MkGoal(true, true, false);
+            g2 = ctx.MkGoal(true, true);
             g2.Assert(ctx.MkFalse());
             ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g2);
             if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedUnsat)
                 throw new TestFailedException();
 
-            Goal g3 = ctx.MkGoal(true, true, false);
+            Goal g3 = ctx.MkGoal(true, true);
             Expr xc = ctx.MkConst(ctx.MkSymbol("x"), ctx.IntSort);
             Expr yc = ctx.MkConst(ctx.MkSymbol("y"), ctx.IntSort);
             g3.Assert(ctx.MkEq(xc, ctx.MkNumeral(1, ctx.IntSort)));
@@ -839,7 +826,7 @@ namespace test_mapi
             // Error handling test.
             try
             {
-                Expr plus_ri = ctx.MkAdd(ctx.MkInt(1), ctx.MkReal(2));
+                IntExpr i = ctx.MkInt("1/2");
                 throw new TestFailedException(); // unreachable
             }
             catch (Z3Exception)
@@ -1063,7 +1050,7 @@ namespace test_mapi
 
 
             // Or perhaps a tactic for QF_BV
-            Goal g = ctx.MkGoal(true, false, true);
+            Goal g = ctx.MkGoal(true);
             g.Assert(eq);
 
             Tactic t = ctx.MkTactic("qfbv");
@@ -1086,7 +1073,7 @@ namespace test_mapi
             Expr y = ctx.MkConst("y", bvs);
             BoolExpr q = ctx.MkEq(x, y);
 
-            Goal g = ctx.MkGoal(true, false, true);
+            Goal g = ctx.MkGoal(true);
             g.Assert(q);
 
             Tactic t1 = ctx.MkTactic("qfbv");
@@ -1128,7 +1115,7 @@ namespace test_mapi
         /// </summary>
         public static void FindModelExample2(Context ctx)
         {
-            Console.WriteLine("find_model_example2");
+            Console.WriteLine("FindModelExample2");
 
             IntExpr x = ctx.MkIntConst("x");
             IntExpr y = ctx.MkIntConst("y");
@@ -1250,13 +1237,13 @@ namespace test_mapi
             /* prove z < 0 */
             BoolExpr f = ctx.MkLt(z, zero);
             Console.WriteLine("prove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < 0");
-            Prove(ctx, f, c1, c2, c3);
+            Prove(ctx, f, false, c1, c2, c3);
 
             /* disprove z < -1 */
             IntExpr minus_one = ctx.MkInt(-1);
             f = ctx.MkLt(z, minus_one);
             Console.WriteLine("disprove: not(g(g(x) - g(y)) = g(z)), x + z <= y <= x implies z < -1");
-            Disprove(ctx, f, c1, c2, c3);
+            Disprove(ctx, f, false, c1, c2, c3);
         }
 
         /// <summary>
@@ -1448,7 +1435,7 @@ namespace test_mapi
 
             BoolExpr thm = ctx.SMTLIBFormulas[0];
             Console.WriteLine("formula: {0}", thm);
-            Prove(ctx, thm, ca);
+            Prove(ctx, thm, false, ca);
         }
 
         /// <summary>
@@ -1979,45 +1966,40 @@ namespace test_mapi
         /// <summary>
         /// Extract unsatisfiable core example 
         /// </summary>
-        public static void UnsatCoreAndProofExample()
+        public static void UnsatCoreAndProofExample(Context ctx)
         {
             Console.WriteLine("UnsatCoreAndProofExample");
 
-            Dictionary<string, string> cfg = new Dictionary<string, string>() { { "PROOF_MODE", "2" } };
+            Solver solver = ctx.MkSolver();
 
-            using (Context ctx = new Context(cfg))
+            BoolExpr pa = ctx.MkBoolConst("PredA");
+            BoolExpr pb = ctx.MkBoolConst("PredB");
+            BoolExpr pc = ctx.MkBoolConst("PredC");
+            BoolExpr pd = ctx.MkBoolConst("PredD");
+            BoolExpr p1 = ctx.MkBoolConst("P1");
+            BoolExpr p2 = ctx.MkBoolConst("P2");
+            BoolExpr p3 = ctx.MkBoolConst("P3");
+            BoolExpr p4 = ctx.MkBoolConst("P4");
+            BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
+            BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
+            BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
+            BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
+            BoolExpr f4 = pd;
+
+            solver.Assert(ctx.MkOr(f1, p1));
+            solver.Assert(ctx.MkOr(f2, p2));
+            solver.Assert(ctx.MkOr(f3, p3));
+            solver.Assert(ctx.MkOr(f4, p4));
+            Status result = solver.Check(assumptions);
+
+            if (result == Status.UNSATISFIABLE)
             {
-                Solver solver = ctx.MkSolver();
-
-                BoolExpr pa = ctx.MkBoolConst("PredA");
-                BoolExpr pb = ctx.MkBoolConst("PredB");
-                BoolExpr pc = ctx.MkBoolConst("PredC");
-                BoolExpr pd = ctx.MkBoolConst("PredD");
-                BoolExpr p1 = ctx.MkBoolConst("P1");
-                BoolExpr p2 = ctx.MkBoolConst("P2");
-                BoolExpr p3 = ctx.MkBoolConst("P3");
-                BoolExpr p4 = ctx.MkBoolConst("P4");
-                BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
-                BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
-                BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
-                BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
-                BoolExpr f4 = pd;
-
-                solver.Assert(ctx.MkOr(f1, p1));
-                solver.Assert(ctx.MkOr(f2, p2));
-                solver.Assert(ctx.MkOr(f3, p3));
-                solver.Assert(ctx.MkOr(f4, p4));
-                Status result = solver.Check(assumptions);
-
-                if (result == Status.UNSATISFIABLE)
+                Console.WriteLine("unsat");
+                Console.WriteLine("proof: {0}", solver.Proof);
+                Console.WriteLine("core: ");
+                foreach (Expr c in solver.UnsatCore)
                 {
-                    Console.WriteLine("unsat");
-                    Console.WriteLine("proof: {0}", solver.Proof);
-                    Console.WriteLine("core: ");
-                    foreach (Expr c in solver.UnsatCore)
-                    {
-                        Console.WriteLine("{0}", c);
-                    }
+                    Console.WriteLine("{0}", c);
                 }
             }
         }
@@ -2054,9 +2036,8 @@ namespace test_mapi
 
                 SimpleExample();
 
-                using (Context ctx = new Context(new Dictionary<string, string>()
-                                 { { "MODEL", "true"},
-                                   { "PROOF_MODE", "2"} }))
+                // These examples need model generation turned on.
+                using (Context ctx = new Context(new Dictionary<string, string>() { { "model", "true" } }))
                 {
                     BasicTests(ctx);
                     CastingTest(ctx);
@@ -2067,25 +2048,16 @@ namespace test_mapi
                     ParOrExample(ctx);
                     FindModelExample1(ctx);
                     FindModelExample2(ctx);
-                    ProveExample1(ctx);
-                    ProveExample2(ctx);
                     PushPopExample1(ctx);
                     ArrayExample1(ctx);
-                    ArrayExample2(ctx);
                     ArrayExample3(ctx);
-                    TupleExample(ctx);
                     BitvectorExample1(ctx);
                     BitvectorExample2(ctx);
                     ParserExample1(ctx);
                     ParserExample2(ctx);
-                    ParserExample3(ctx);
                     ParserExample4(ctx);
                     ParserExample5(ctx);
                     ITEExample(ctx);
-                    EnumExample(ctx);
-                    ListExample(ctx);
-                    TreeExample(ctx);
-                    ForestExample(ctx);
                     EvalExample1(ctx);
                     EvalExample2(ctx);
                     FindSmallModelExample(ctx);
@@ -2093,9 +2065,29 @@ namespace test_mapi
                     FiniteDomainExample(ctx);
                 }
 
-                QuantifierExample3();
-                QuantifierExample4();
-                UnsatCoreAndProofExample();
+                // These examples need proof generation turned on.
+                using (Context ctx = new Context(new Dictionary<string, string>() { { "proof", "true" } }))
+                {
+                    ProveExample1(ctx);
+                    ProveExample2(ctx);
+                    ArrayExample2(ctx);
+                    TupleExample(ctx);
+                    ParserExample3(ctx);
+                    EnumExample(ctx);
+                    ListExample(ctx);
+                    TreeExample(ctx);
+                    ForestExample(ctx);
+                    UnsatCoreAndProofExample(ctx);
+                }
+
+                // These examples need proof generation turned on and auto-config set to false.
+                using (Context ctx = new Context(new Dictionary<string, string>() 
+                    { {"proof", "true" }, 
+                      {"auto-config", "false" } }))
+                {
+                    QuantifierExample3(ctx);
+                    QuantifierExample4(ctx);
+                }                
 
                 Log.Close();
                 if (Log.isOpen())

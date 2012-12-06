@@ -40,7 +40,6 @@ static smtlib::solver*     g_solver      = 0;
 static cmd_context *       g_cmd_context = 0;
 
 static void display_statistics() {
-    display_config();
     clock_t end_time = clock();
     if ((g_solver || g_cmd_context) && g_display_statistics) {
         std::cout.flush();
@@ -68,11 +67,11 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
-unsigned read_smtlib_file(char const * benchmark_file, front_end_params & front_end_params) {
+unsigned read_smtlib_file(char const * benchmark_file) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
-    smtlib::solver solver(front_end_params);
+    smtlib::solver solver;
     g_solver = &solver;
     
     bool ok = true;
@@ -93,22 +92,15 @@ unsigned read_smtlib_file(char const * benchmark_file, front_end_params & front_
     return solver.get_error_code();
 }
 
-unsigned read_smtlib2_commands(char const* file_name, front_end_params& front_end_params) {
+unsigned read_smtlib2_commands(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
-    cmd_context ctx(&front_end_params);
+    cmd_context ctx;
 
-    // temporary hack until strategic_solver is ported to new tactic framework
-    if (front_end_params.m_nlsat) {
-        tactic_factory2solver * s = alloc(tactic_factory2solver);
-        s->set_tactic(alloc(qfnra_nlsat_fct));
-        ctx.set_solver(s);
-    }
-    else {
-        solver * s = mk_smt_strategic_solver(false);
-        ctx.set_solver(s);
-    }
+    solver * s = mk_smt_strategic_solver(false);
+    ctx.set_solver(s);
+
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);
     install_polynomial_cmds(ctx);

@@ -26,16 +26,16 @@ Notes:
 
 tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":som", true);
-    main_p.set_bool(":sort-store", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("som", true);
+    main_p.set_bool("sort_store", true);
     
     params_ref ctx_simp_p;
-    ctx_simp_p.set_uint(":max-depth", 30);
-    ctx_simp_p.set_uint(":max-steps", 5000000);
+    ctx_simp_p.set_uint("max_depth", 30);
+    ctx_simp_p.set_uint("max_steps", 5000000);
 
     params_ref solver_p;
-    solver_p.set_bool(":array-old-simplifier", false);
+    solver_p.set_bool("array.simplify", false); // disable array simplifications at old_simplify module
 
     tactic * preamble_st = and_then(mk_simplify_tactic(m),
                                     mk_propagate_values_tactic(m),

@@ -113,7 +113,6 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<BoolSort>() != null);
-
                 if (m_boolSort == null) m_boolSort = new BoolSort(this); return m_boolSort;
             }
         }
@@ -134,7 +133,14 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieves the Real sort of the context.
         /// </summary>
-        public RealSort RealSort { get { Contract.Ensures(Contract.Result<RealSort>() != null); if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort; } }
+        public RealSort RealSort
+        {
+            get
+            {
+                Contract.Ensures(Contract.Result<RealSort>() != null); 
+                if (m_realSort == null) m_realSort = new RealSort(this); return m_realSort;
+            }
+        }
 
         /// <summary>
         /// Create a new Boolean sort.
@@ -193,7 +199,7 @@ namespace Microsoft.Z3
         {
             Contract.Ensures(Contract.Result<BitVecSort>() != null);
 
-            return new BitVecSort(this, size);
+            return new BitVecSort(this, Native.Z3_mk_bv_sort(nCtx, size));
         }
 
         /// <summary>
@@ -388,7 +394,7 @@ namespace Microsoft.Z3
             IntPtr[] n_constr = new IntPtr[n];
             for (uint i = 0; i < n; i++)
             {
-                var constructor = c[i];
+                Constructor[] constructor = c[i];
                 Contract.Assume(Contract.ForAll(constructor, arr => arr != null), "Clousot does not support yet quantified formula on multidimensional arrays");
                 CheckContextMatch(constructor);
                 cla[i] = new ConstructorList(this, constructor);
@@ -3651,6 +3657,7 @@ namespace Microsoft.Z3
             Goal_DRQ.Clear(this);
             Model_DRQ.Clear(this);
             Params_DRQ.Clear(this);
+            ParamDescrs_DRQ.Clear(this);
             Probe_DRQ.Clear(this);
             Solver_DRQ.Clear(this);
             Statistics_DRQ.Clear(this);

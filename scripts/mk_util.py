@@ -56,6 +56,8 @@ JAVA_COMPONENT='java'
 CPP_COMPONENT='cpp'
 #####################
 IS_WINDOWS=False
+IS_LINUX=False
+IS_OSX=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -75,7 +77,13 @@ PREFIX='/usr'
 GMP=False
 
 def is_windows():
-   return IS_WINDOWS
+    return IS_WINDOWS
+
+def is_linux():
+    return IS_LINUX
+
+def is_osx():
+    return IS_OSX
 
 def unix_path2dos(path):
     return string.join(path.split('/'), '\\')
@@ -317,6 +325,11 @@ if os.name == 'nt':
     SHOW_CPPS=False
     # Enable .Net bindings by default on windows
     DOTNET_ENABLED=True
+elif os.name == 'posix':
+    if os.uname()[0] == 'Darwin':
+        IS_OSX=True
+    elif os.uname()[0] == 'Linux':
+        IS_LINUX=True
 
 def display_help(exit_code):
     print "mk_make.py: Z3 Makefile generator\n"
@@ -484,6 +497,32 @@ def is_verbose():
 def is_java_enabled():
     return JAVA_ENABLED
 
+def is_compiler(given, expected):
+    """ 
+    Return True if the 'given' compiler is the expected one.
+    >>> is_compiler('g++', 'g++')
+    True
+    >>> is_compiler('/home/g++', 'g++')
+    True
+    >>> is_compiler(os.path.join('home', 'g++'), 'g++')
+    True
+    >>> is_compiler('clang++', 'g++')
+    False
+    >>> is_compiler(os.path.join('home', 'clang++'), 'clang++')
+    True
+    """
+    if given == expected:
+        return True
+    if len(expected) < len(given):
+        return given[len(given) - len(expected) - 1] == os.sep and given[len(given) - len(expected):] == expected
+    return False
+
+def is_CXX_gpp():
+    return is_compiler(CXX, 'g++')
+
+def is_CXX_clangpp():
+    return is_compiler(CXX, 'clang++')
+
 def get_cpp_files(path):
     return filter(lambda f: f.endswith('.cpp'), os.listdir(path))
 
@@ -492,6 +531,9 @@ def get_c_files(path):
 
 def get_cs_files(path):
     return filter(lambda f: f.endswith('.cs'), os.listdir(path))
+
+def get_java_files(path):
+    return filter(lambda f: f.endswith('.java'), os.listdir(path))
 
 def find_all_deps(name, deps):
     new_deps = []
@@ -922,29 +964,48 @@ class DotNetDLLComponent(Component):
 
 
 class JavaDLLComponent(Component):
-    def __init__(self, name, dll_name, package_name, path, deps):
+    def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
         Component.__init__(self, name, path, deps)
         if dll_name == None:
             dll_name = name
         self.dll_name     = dll_name
         self.package_name = package_name
+        self.manifest_file = manifest_file
 
     def mk_makefile(self, out):
         if is_java_enabled():
-            dllfile = '%s$(SO_EXT)' % self.dll_name
-            out.write('%s: %s/Z3Native.java %s$(SO_EXT)\n' % (dllfile, self.to_src_dir, get_component('api_dll').dll_name))
-            if IS_WINDOWS:
-                out.write('\tcd %s && %s Z3Native.java\n' % (unix_path2dos(self.to_src_dir), JAVAC))
-                out.write('\tmove %s\\*.class .\n' % unix_path2dos(self.to_src_dir))
-                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I"%s/include/win32" -I%s %s/Z3Native.c\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) Z3Native$(OBJ_EXT) libz3.lib\n' % dllfile)
+            mk_dir(BUILD_DIR+'/api/java/classes')
+            dllfile = '%s$(SO_EXT)' % self.dll_name            
+            out.write('libz3java$(SO_EXT): libz3$(SO_EXT) %s/Native.cpp\n' % self.to_src_dir)
+            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
+            if IS_OSX:
+                t = t.replace('PLATFORM', 'darwin')
+            elif IS_LINUX:
+                t = t.replace('PLATFORM', 'linux')
             else:
-                out.write('\tcd %s; %s Z3Native.java\n' % (self.to_src_dir, JAVAC))
-                out.write('\tmv %s/*.class .\n' % self.to_src_dir)
-                out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)Z3Native$(OBJ_EXT) -I"%s/include" -I%s %s/Z3Native.c\n' % (JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir))
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) -L. Z3Native$(OBJ_EXT) -lz3\n' % dllfile)
-            out.write('%s: %s\n\n' % (self.name, dllfile))
-            # TODO: Compile and package all the .class files.
+                t = t.replace('PLATFORM', 'win32')
+            out.write(t)
+            if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(LIB_EXT)\n')
+            else:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(SO_EXT)\n')
+            out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
+            deps = ''
+            for jfile in get_java_files(self.src_dir):
+                deps += ('%s/%s ' % (self.to_src_dir, jfile))
+            for jfile in get_java_files((self.src_dir + "/enumerations")):
+                deps += ('%s/enumerations/%s ' % (self.to_src_dir, jfile))
+            if IS_WINDOWS: deps = deps.replace('/', '\\')
+            out.write(deps)
+            out.write('\n')
+            t = ('\t%s %s/enumerations/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
+            if IS_WINDOWS: t = t.replace('/','\\')
+            out.write(t)
+            t = ('\t%s -cp api/java/classes %s/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
+            if IS_WINDOWS: t = t.replace('/','\\')
+            out.write(t)
+            out.write('\tjar cfm %s.jar %s/manifest -C api/java/classes .\n' % (self.package_name, self.to_src_dir))
+            out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
         return is_java_enabled()
@@ -1015,7 +1076,7 @@ class DotNetExampleComponent(ExampleComponent):
         if DOTNET_ENABLED:
             dll_name = get_component(DOTNET_COMPONENT).dll_name
             dll = '%s.dll' % dll_name
-            exefile = '%s.exe' % self.name
+            exefile = '%s$(EXE_EXT)' % self.name
             out.write('%s: %s' % (exefile, dll))
             for csfile in get_cs_files(self.ex_dir):
                 out.write(' ')
@@ -1033,6 +1094,30 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write('%s\\%s' % (win_ex_dir, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+
+class JavaExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def is_example(self):
+        return JAVA_ENABLED
+
+    def mk_makefile(self, out):
+        if JAVA_ENABLED:
+            pkg = get_component(JAVA_COMPONENT).package_name + '.jar'
+            out.write('_ex_%s: %s' % (self.name, pkg))
+            deps = ''
+            for jfile in get_java_files(self.ex_dir):
+                out.write(' %s/%s' % (self.to_ex_dir, jfile))
+            if IS_WINDOWS:
+                deps = deps.replace('/', '\\')
+            out.write('%s\n' % deps)
+            out.write('\t%s -cp %s ' % (JAVAC, pkg))
+            win_ex_dir = self.to_ex_dir
+            for javafile in get_java_files(self.ex_dir):
+                out.write(' ')
+                out.write('%s/%s' % (win_ex_dir, javafile))
+            out.write(' -d .\n\n')
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -1083,8 +1168,8 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir)
     reg_component(name, c)
 
-def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None):
-    c = JavaDLLComponent(name, dll_name, package_name, path, deps)
+def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
+    c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
 
 def add_cpp_example(name, path=None):
@@ -1097,6 +1182,10 @@ def add_c_example(name, path=None):
 
 def add_dotnet_example(name, path=None):
     c = DotNetExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_java_example(name, path=None):
+    c = JavaExampleComponent(name, path)
     reg_component(name, c)
 
 def add_z3py_example(name, path=None):
@@ -1179,7 +1268,7 @@ def mk_config():
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         CXXFLAGS = '%s -c' % CXXFLAGS
-        if CXX == 'g++':
+        if is_CXX_gpp():
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
             SLIBEXTRAFLAGS = '-fopenmp'
@@ -1193,7 +1282,7 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
-            if CXX == 'clang++':
+            if is_CXX_clangpp():
                 CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
@@ -1331,9 +1420,113 @@ def mk_makefile():
 # Generate automatically generated source code
 def mk_auto_src():
     if not ONLY_MAKEFILES:
+        exec_pyg_scripts()
         mk_pat_db()
         mk_all_install_tactic_cpps()
         mk_all_mem_initializer_cpps()
+        mk_all_gparams_register_modules()
+
+UINT   = 0
+BOOL   = 1
+DOUBLE = 2
+STRING = 3
+SYMBOL = 4
+UINT_MAX = 4294967295
+CURR_PYG = None
+
+def get_curr_pyg():
+    return CURR_PYG
+
+TYPE2CPK = { UINT : 'CPK_UINT', BOOL : 'CPK_BOOL',  DOUBLE : 'CPK_DOUBLE',  STRING : 'CPK_STRING',  SYMBOL : 'CPK_SYMBOL' }
+TYPE2CTYPE = { UINT : 'unsigned', BOOL : 'bool', DOUBLE : 'double', STRING : 'char const *', SYMBOL : 'symbol' }
+TYPE2GETTER = { UINT : 'get_uint', BOOL : 'get_bool', DOUBLE : 'get_double', STRING : 'get_str',  SYMBOL : 'get_sym' }
+
+def pyg_default(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    return p[2]
+
+def pyg_default_as_c_literal(p):
+    if p[1] == BOOL:
+        if p[2]:
+            return "true"
+        else:
+            return "false"
+    elif p[1] == STRING:
+        return '"%s"' % p[2]
+    elif p[1] == SYMBOL:
+        return 'symbol("%s")' % p[2]
+    return p[2]
+
+def to_c_method(s):
+    return s.replace('.', '_')
+
+def def_module_params(module_name, export, params, class_name=None, description=None):
+    pyg = get_curr_pyg()
+    dirname = os.path.split(get_curr_pyg())[0]
+    if class_name == None:
+        class_name = '%s_params' % module_name
+    hpp = os.path.join(dirname, '%s.hpp' % class_name)
+    out = open(hpp, 'w')
+    out.write('// Automatically generated file\n')
+    out.write('#include"params.h"\n')
+    if export:
+        out.write('#include"gparams.h"\n')
+    out.write('struct %s {\n' % class_name)
+    out.write('  params_ref const & p;\n')
+    if export:
+        out.write('  params_ref g;\n')
+    out.write('  %s(params_ref const & _p = params_ref()):\n' % class_name)
+    out.write('     p(_p)')
+    if export:
+        out.write(', g(gparams::get_module("%s"))' % module_name)
+    out.write(' {}\n')
+    out.write('  static void collect_param_descrs(param_descrs & d) {\n')
+    for param in params:
+        out.write('    d.insert("%s", %s, "%s", "%s");\n' % (param[0], TYPE2CPK[param[1]], param[3], pyg_default(param)))
+    out.write('  }\n')
+    if export:
+        out.write('  /*\n')
+        out.write("     REG_MODULE_PARAMS('%s', '%s::collect_param_descrs')\n" % (module_name, class_name))
+        if description != None:
+            out.write("     REG_MODULE_DESCRIPTION('%s', '%s')\n" % (module_name, description))
+        out.write('  */\n')
+    # Generated accessors
+    for param in params:
+        if export:
+            out.write('  %s %s() const { return p.%s("%s", g, %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+        else:
+            out.write('  %s %s() const { return p.%s("%s", %s); }\n' % 
+                      (TYPE2CTYPE[param[1]], to_c_method(param[0]), TYPE2GETTER[param[1]], param[0], pyg_default_as_c_literal(param)))
+    out.write('};\n')
+    if is_verbose():
+        print "Generated '%s'" % hpp
+
+def max_memory_param():
+    return ('max_memory', UINT, UINT_MAX, 'maximum amount of memory in megabytes')
+
+def max_steps_param():
+    return ('max_steps', UINT, UINT_MAX, 'maximum number of steps')
+
+PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRING, 'SYMBOL' : SYMBOL, 
+                'UINT_MAX' : UINT_MAX, 
+                'max_memory_param' : max_memory_param,
+                'max_steps_param' : max_steps_param,
+                'def_module_params' : def_module_params }
+
+# Execute python auxiliary scripts that generate extra code for Z3.
+def exec_pyg_scripts():
+    global CURR_PYG
+    for root, dirs, files in os.walk('src'): 
+        for f in files:
+            if f.endswith('.pyg'):
+                script = os.path.join(root, f)
+                CURR_PYG = script
+                execfile(script, PYG_GLOBALS)
 
 # TODO: delete after src/ast/pattern/expr_pattern_match
 # database.smt ==> database.h
@@ -1458,7 +1651,7 @@ def mk_install_tactic_cpp(cnames, path):
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1510,18 +1703,20 @@ def mk_all_install_tactic_cpps():
 # This file implements the procedures
 #    void mem_initialize()
 #    void mem_finalize()
-# This procedures are invoked by the Z3 memory_manager
+# These procedures are invoked by the Z3 memory_manager
 def mk_mem_initializer_cpp(cnames, path):
     initializer_cmds = []
     finalizer_cmds   = []
     fullname = '%s/mem_initializer.cpp' % path
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    initializer_pat   = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
-    finalizer_pat     = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
+    initializer_pat      = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\'\)')
+    # ADD_INITIALIZER with priority
+    initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
+    finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for cname in cnames:
         c = get_component(cname)
-        h_files = filter(lambda f: f.endswith('.h'), os.listdir(c.src_dir))
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
         for h_file in h_files:
             added_include = False
             fin = open("%s/%s" % (c.src_dir, h_file), 'r')
@@ -1531,15 +1726,22 @@ def mk_mem_initializer_cpp(cnames, path):
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
-                    initializer_cmds.append(m.group(1))
+                    initializer_cmds.append((m.group(1), 0))
+                m = initializer_prio_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
                         fout.write('#include"%s"\n' % h_file)
                     finalizer_cmds.append(m.group(1))
+    initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
-    for cmd in initializer_cmds:
+    for (cmd, prio) in initializer_cmds:
         fout.write(cmd)
         fout.write('\n')
     fout.write('}\n')
@@ -1559,6 +1761,63 @@ def mk_all_mem_initializer_cpps():
                 cnames.extend(c.deps)
                 cnames.append(c.name)
                 mk_mem_initializer_cpp(cnames, c.src_dir)
+
+# Generate an mem_initializer.cpp at path.
+# This file implements the procedure
+#    void gparams_register_modules()
+# This procedure is invoked by gparams::init()
+def mk_gparams_register_modules(cnames, path):
+    cmds = []
+    mod_cmds = []
+    mod_descrs = []
+    fullname = '%s/gparams_register_modules.cpp' % path
+    fout  = open(fullname, 'w')
+    fout.write('// Automatically generated file.\n')
+    fout.write('#include"gparams.h"\n')
+    reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
+    reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
+    reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
+    for cname in cnames:
+        c = get_component(cname)
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(c.src_dir))
+        for h_file in h_files:
+            added_include = False
+            fin = open("%s/%s" % (c.src_dir, h_file), 'r')
+            for line in fin:
+                m = reg_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    cmds.append((m.group(1)))
+                m = reg_mod_pat.match(line)
+                if m:
+                    if not added_include:
+                        added_include = True
+                        fout.write('#include"%s"\n' % h_file)
+                    mod_cmds.append((m.group(1), m.group(2)))
+                m = reg_mod_descr_pat.match(line)
+                if m:
+                    mod_descrs.append((m.group(1), m.group(2)))
+    fout.write('void gparams_register_modules() {\n')
+    for code in cmds:
+        fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
+    for (mod, code) in mod_cmds:
+        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+    for (mod, descr) in mod_descrs:
+        fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
+    fout.write('}\n')
+    if VERBOSE:
+        print "Generated '%s'" % fullname
+
+def mk_all_gparams_register_modules():
+    if not ONLY_MAKEFILES:
+        for c in get_components():
+            if c.require_mem_initializer():
+                cnames = []
+                cnames.extend(c.deps)
+                cnames.append(c.name)
+                mk_gparams_register_modules(cnames, c.src_dir)
 
 # Generate a .def based on the files at c.export_files slot.
 def mk_def_file(c):
@@ -1796,7 +2055,7 @@ def mk_z3consts_java(api_files):
     java = get_component(JAVA_COMPONENT)
 
     DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = java.src_dir + "/" + java.package_name.replace(".", "/") + "/Enumerations"
+    gendir = java.src_dir + "/enumerations"
     if not os.path.exists(gendir):
         os.mkdir(gendir)
 
@@ -1847,15 +2106,32 @@ def mk_z3consts_java(api_files):
                     if name not in DeprecatedEnums:
                         efile  = open('%s/%s.java' % (gendir, name), 'w')
                         efile.write('/**\n *  Automatically generated file\n **/\n\n')
-                        efile.write('package %s;\n\n' % java.package_name);
+                        efile.write('package %s.enumerations;\n\n' % java.package_name);
 
                         efile.write('/**\n')
                         efile.write(' * %s\n' % name)
                         efile.write(' **/\n')
                         efile.write('public enum %s {\n' % name)
                         efile.write
+                        first = True
                         for k, i in decls.iteritems():
-                            efile.write('%s (%s),\n' % (k, i))
+                            if first:
+                               first = False 
+                            else:
+                                efile.write(',\n')
+                            efile.write('    %s (%s)' % (k, i))
+                        efile.write(";\n")
+                        efile.write('\n    private final int intValue;\n\n')
+                        efile.write('    %s(int v) {\n' % name)
+                        efile.write('        this.intValue = v;\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public static final %s fromInt(int v) {\n' % name)
+                        efile.write('        for (%s k: values()) \n' % name)
+                        efile.write('            if (k.intValue == v) return k;\n') 
+                        efile.write('        return values()[0];\n')
+                        efile.write('    }\n\n')
+                        efile.write('    public final int toInt() { return this.intValue; }\n')
+                        #  efile.write(';\n  %s(int v) {}\n' % name)
                         efile.write('}\n\n')
                         efile.close()
                     mode = SEARCHING
@@ -1965,3 +2241,8 @@ def mk_win_dist(build_path, dist_path):
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
         shutil.copy('%s/%s' % (build_path, pyc),
                     '%s/bin/%s' % (dist_path, pyc))
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

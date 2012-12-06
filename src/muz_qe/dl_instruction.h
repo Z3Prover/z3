@@ -58,7 +58,7 @@ namespace datalog {
     private:
         typedef u_map<std::string> reg_annotations;
 
-        context &           m_datalog_context;
+        context &           m_context;
         reg_vector          m_registers;
 
         reg_annotations     m_reg_annotation;
@@ -73,12 +73,12 @@ namespace datalog {
          */
         bool                m_eager_emptiness_checking;
     public:
-        execution_context(context & datalog_context);
+        execution_context(context & context);
         ~execution_context();
 
         void reset();
 
-        context & get_datalog_context() { return m_datalog_context; };
+        rel_context & get_rel_context() { return m_context.get_rel_context(); };
 
         void set_timelimit(unsigned time_in_ms);
         void reset_timelimit();
@@ -208,7 +208,7 @@ namespace datalog {
 
            The newline character at the end should not be printed.
         */
-        virtual void display_head_impl(context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
             out << "<instruction>";
         }
         /**
@@ -216,7 +216,7 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(context & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(rel_context & ctx, std::ostream & out, std::string indentation) const {}
     public:
         typedef execution_context::reg_type reg_type;
         typedef execution_context::reg_idx reg_idx;
@@ -227,10 +227,10 @@ namespace datalog {
 
         virtual void make_annotations(execution_context & ctx)  = 0;
 
-        void display(context & ctx, std::ostream & out) const {
+        void display(rel_context & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(context & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const;
 
         static instruction * mk_load(ast_manager & m, func_decl * pred, reg_idx tgt);
         /**
@@ -329,10 +329,10 @@ namespace datalog {
 
         void make_annotations(execution_context & ctx);
 
-        void display(context & ctx, std::ostream & out) const {
+        void display(rel_context & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(context & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const;
     };
 
 

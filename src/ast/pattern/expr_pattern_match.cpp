@@ -36,7 +36,6 @@ Notes:
 #include"ast_pp.h"
 #include"cmd_context.h"
 #include"smt2parser.h"
-#include"front_end_params.h"
 
 expr_pattern_match::expr_pattern_match(ast_manager & manager):
     m_manager(manager), m_precompiled(manager) {        
@@ -388,8 +387,7 @@ expr_pattern_match::initialize(char const * spec_string) {
     m_instrs.push_back(instr(BACKTRACK));
 
     std::istringstream is(spec_string);
-    front_end_params p;
-    cmd_context      ctx(&p, true, &m_manager);
+    cmd_context      ctx(true, &m_manager);
     VERIFY(parse_smt2_commands(ctx, is));
 
     ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();

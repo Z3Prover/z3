@@ -19,7 +19,7 @@ Revision History:
 #ifndef _DIMACS_FRONTEND_H_
 #define _DIMACS_FRONTEND_H_
 
-unsigned read_dimacs(char const * benchmark_file, front_end_params & front_end_params);
+unsigned read_dimacs(char const * benchmark_file);
 
 #endif /* _DATALOG_FRONTEND_H_ */
 

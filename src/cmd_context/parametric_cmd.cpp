@@ -16,6 +16,7 @@ Notes:
 
 --*/
 #include<sstream>
+#include"cmd_context.h"
 #include"parametric_cmd.h"
 
 char const * parametric_cmd::get_descr(cmd_context & ctx) const { 
@@ -37,13 +38,15 @@ cmd_arg_kind parametric_cmd::next_arg_kind(cmd_context & ctx) const {
 
 void parametric_cmd::set_next_arg(cmd_context & ctx, symbol const & s) { 
     if (m_last == symbol::null) {
-        m_last = s;
+        m_last = symbol(norm_param_name(s).c_str());
         if (pdescrs(ctx).get_kind(m_last.bare_str()) == CPK_INVALID)
             throw cmd_exception("invalid keyword argument");
         return;
     }
-    m_params.set_sym(m_last.bare_str(), s);
-    m_last = symbol::null;
+    else {
+        m_params.set_sym(m_last.bare_str(), s);
+        m_last = symbol::null;
+    }
 }
 
 param_descrs const & parametric_cmd::pdescrs(cmd_context & ctx) const {

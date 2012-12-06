@@ -100,6 +100,7 @@ public:
     void mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     fpa2bv_model_converter * mk_model_converter();
 

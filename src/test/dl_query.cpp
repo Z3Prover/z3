@@ -2,7 +2,7 @@
 #include "ast_pp.h"
 #include "dl_table_relation.h"
 #include "dl_context.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "stopwatch.h"
 #include "reg_decl_plugins.h"
 
@@ -43,21 +43,21 @@ void dl_query_ask_for_last_arg(context & ctx, func_decl * pred, relation_fact & 
     }
 }
 
-void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& params,
+void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         context & ctx_b, char const* problem_file, unsigned test_count,
         bool use_magic_sets) {
 
     dl_decl_util decl_util(m);
 
     context ctx_q(m, fparams);
-    params.set_bool(":magic-sets-for-queries", use_magic_sets);
+    params.set_bool("magic_sets_for_queries", use_magic_sets);
     ctx_q.updt_params(params);
     {
         parser* p = parser::create(ctx_q,m);
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    relation_manager & rel_mgr_q = ctx_b.get_rmanager();
+    relation_manager & rel_mgr_q = ctx_b.get_rel_context().get_rmanager();
 
     decl_set out_preds = ctx_b.get_output_predicates();
     decl_set::iterator it = out_preds.begin();
@@ -68,10 +68,10 @@ void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& para
         func_decl * pred_q = ctx_q.try_get_predicate_decl(symbol(pred_b->get_name().bare_str()));
         SASSERT(pred_q);
 
-        relation_base & rel_b = ctx_b.get_relation(pred_b);
+        relation_base & rel_b = ctx_b.get_rel_context().get_relation(pred_b);
 
         relation_signature sig_b = rel_b.get_signature();
-        relation_signature sig_q = ctx_q.get_relation(pred_q).get_signature();
+        relation_signature sig_q = ctx_q.get_rel_context().get_relation(pred_q).get_signature();
         SASSERT(sig_b.size()==sig_q.size());
 
         std::cerr << "Queries on random facts...\n";
@@ -124,8 +124,8 @@ void dl_query_test(ast_manager & m, front_end_params & fparams, params_ref& para
     }
 }
 
-void dl_query_test_wpa(front_end_params & fparams, params_ref& params) {
-    params.set_bool(":magic-sets-for-queries", true);
+void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
+    params.set_bool("magic_sets_for_queries", true);
     ast_manager m;
     reg_decl_plugins(m);
     arith_util arith(m);
@@ -183,10 +183,10 @@ void dl_query_test_wpa(front_end_params & fparams, params_ref& params) {
 }
 
 void tst_dl_query() {
-    front_end_params fparams;
+    smt_params fparams;
     params_ref params;
-    params.set_sym(":default-table", symbol("sparse"));
-    params.set_sym(":default-relation", symbol("tr_sparse"));
+    params.set_sym("default_table", symbol("sparse"));
+    params.set_sym("default_relation", symbol("tr_sparse"));
 
     //params.m_dl_default_table = symbol("hashtable");
     //params.m_dl_default_relation = symbol("tr_hashtable");
@@ -209,12 +209,12 @@ void tst_dl_query() {
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    ctx_base.dl_saturate();
+    ctx_base.get_rel_context().saturate();
 
     for(unsigned use_restarts=0; use_restarts<=1; use_restarts++) {
-        params.set_uint(":initial-restart-timeout", use_restarts ? 100 : 0);
+        params.set_uint("initial_restart_timeout", use_restarts ? 100 : 0);
         for(unsigned use_similar=0; use_similar<=1; use_similar++) {
-            params.set_uint(":similarity-compressor", use_similar != 0);
+            params.set_uint("similarity_compressor", use_similar != 0);
 
             for(unsigned use_magic_sets=0; use_magic_sets<=1; use_magic_sets++) {
                 stopwatch watch;

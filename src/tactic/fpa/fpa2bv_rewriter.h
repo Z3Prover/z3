@@ -54,8 +54,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_max_steps      = p.get_uint(":max-steps", UINT_MAX);        
+        m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_max_steps      = p.get_uint("max_steps", UINT_MAX);        
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 
@@ -129,6 +129,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_SIGN_MINUS: m_conv.mk_is_sign_minus(f, num, args, result); return BR_DONE;
             case OP_TO_FLOAT: m_conv.mk_to_float(f, num, args, result); return BR_DONE;
+            case OP_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
             default:
                 TRACE("fpa2bv", tout << "unsupported operator: " << f->get_name() << "\n";
                       for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m()) << std::endl;);

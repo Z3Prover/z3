@@ -98,7 +98,7 @@ namespace qe {
         bool_rewriter              m_bool_rewriter;
         arith_rewriter             m_arith_rewriter;
 
-        arith_qe_util(ast_manager& m, front_end_params& p, i_solver_context& ctx) : 
+        arith_qe_util(ast_manager& m, smt_params& p, i_solver_context& ctx) : 
             m(m), 
             m_ctx(ctx),
             m_arith(m),
@@ -1511,7 +1511,7 @@ public:
         subst_cache        m_subst;
 
     public:
-        arith_plugin(i_solver_context& ctx, ast_manager& m, front_end_params& p): 
+        arith_plugin(i_solver_context& ctx, ast_manager& m, smt_params& p): 
             qe_solver_plugin(m, m.get_family_id("arith"), ctx),
             m_util(m, p, ctx),
             m_trail(m)
@@ -2562,7 +2562,7 @@ public:
     };
 
 
-    qe_solver_plugin* mk_arith_plugin(i_solver_context& ctx, bool produce_models, front_end_params& p) {
+    qe_solver_plugin* mk_arith_plugin(i_solver_context& ctx, bool produce_models, smt_params& p) {
         if (p.m_nlquant_elim) {
             return alloc(nlarith_plugin, ctx, ctx.get_manager(), produce_models);
         }

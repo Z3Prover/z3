@@ -32,7 +32,7 @@ namespace smt {
     conflict_resolution::conflict_resolution(ast_manager & m,
                                              context & ctx,
                                              dyn_ack_manager & dyn_ack_manager,
-                                             front_end_params const & params,
+                                             smt_params const & params,
                                              literal_vector const & assigned_literals,
                                              vector<watch_list> & watches
                                              ):
@@ -304,13 +304,13 @@ namespace smt {
                 if (th)
                     th->conflict_resolution_eh(to_app(n), var);
             }
-#ifndef SMTCOMP
-            if (m_params.m_trace_stream != NULL) {
-                *m_params.m_trace_stream << "[resolve-lit] " << m_conflict_lvl - lvl << " ";
-                m_ctx.display_literal(*m_params.m_trace_stream, ~antecedent);
-                *m_params.m_trace_stream << "\n";
+
+            if (get_manager().has_trace_stream()) {
+                get_manager().trace_stream() << "[resolve-lit] " << m_conflict_lvl - lvl << " ";
+                m_ctx.display_literal(get_manager().trace_stream(), ~antecedent);
+                get_manager().trace_stream() << "\n";
             }
-#endif
+
             if (lvl == m_conflict_lvl) {
                 num_marks++;
             }
@@ -478,13 +478,12 @@ namespace smt {
         }
         
         do {
-#ifndef SMTCOMP
-            if (m_params.m_trace_stream != NULL) {
-                *m_params.m_trace_stream << "[resolve-process] ";
-                m_ctx.display_literal(*m_params.m_trace_stream, ~consequent);
-                *m_params.m_trace_stream << "\n";
+
+            if (get_manager().has_trace_stream()) {
+                get_manager().trace_stream() << "[resolve-process] ";
+                m_ctx.display_literal(get_manager().trace_stream(), ~consequent);
+                get_manager().trace_stream() << "\n";
             }
-#endif
 
             TRACE("conflict", tout << "processing consequent: "; m_ctx.display_literal(tout, consequent); tout << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << "\n";);
@@ -1420,7 +1419,7 @@ namespace smt {
     conflict_resolution * mk_conflict_resolution(ast_manager & m, 
                                                  context & ctx,
                                                  dyn_ack_manager & dack_manager,
-                                                 front_end_params const & params,
+                                                 smt_params const & params,
                                                  literal_vector const & assigned_literals,  
                                                  vector<watch_list> & watches) {
         return alloc(conflict_resolution, m, ctx, dack_manager, params, assigned_literals, watches);

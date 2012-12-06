@@ -67,6 +67,8 @@ public:
     br_status mk_is_nzero(expr * arg1, expr_ref & result);
     br_status mk_is_pzero(expr * arg1, expr_ref & result);
     br_status mk_is_sign_minus(expr * arg1, expr_ref & result);
+
+    br_status mk_to_ieee_bv(expr * arg1, expr_ref & result);
 };
 
 #endif

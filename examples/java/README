@@ -1,0 +1,15 @@
+### This is work-in-progress and does not work yet.
+
+Small example using the Z3 Java bindings.
+To build the example execute
+   make examples
+in the build directory.
+
+It will create JavaExample.class in the build directory,
+which can be run on Windows via 
+   java -cp com.microsoft.z3.jar;. JavaExample
+
+On Linux and FreeBSD, we must use
+   LD_LIBRARY_PATH=. java -cp com.microsoft.z3.jar:. JavaExample
+ 
+   

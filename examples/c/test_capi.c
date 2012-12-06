@@ -70,7 +70,7 @@ Z3_context mk_context_custom(Z3_config cfg, Z3_error_handler err)
 {
     Z3_context ctx;
     
-    Z3_set_param_value(cfg, "MODEL", "true");
+    Z3_set_param_value(cfg, "model", "true");
     ctx = Z3_mk_context(cfg);
     Z3_set_error_handler(ctx, err);
     
@@ -105,7 +105,7 @@ Z3_context mk_context()
 Z3_context mk_proof_context() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx;
-    Z3_set_param_value(cfg, "PROOF_MODE", "2");
+    Z3_set_param_value(cfg, "proof", "true");
     ctx = mk_context_custom(cfg, throw_z3_error);
     Z3_del_config(cfg);
     return ctx;
@@ -1038,12 +1038,12 @@ void quantifier_example1()
     /* If quantified formulas are asserted in a logical context, then
        Z3 may return L_UNDEF. In this case, the model produced by Z3 should be viewed as a potential/candidate model.
     */
-    Z3_set_param_value(cfg, "MODEL", "true");
+
     /*
        The current model finder for quantified formulas cannot handle injectivity.
        So, we are limiting the number of iterations to avoid a long "wait".
     */
-    Z3_set_param_value(cfg, "MBQI_MAX_ITERATIONS", "10");
+    Z3_global_param_set("smt.mbqi.max_iterations", "10");
     ctx = mk_context_custom(cfg, error_handler);
     Z3_del_config(cfg);
 
@@ -1087,8 +1087,9 @@ void quantifier_example1()
     if (Z3_get_search_failure(ctx) != Z3_QUANTIFIERS) {
         exitf("unexpected result");
     }
-
     Z3_del_context(ctx);
+    /* reset global parameters set by this function */
+    Z3_global_param_reset_all(); 
 }
 
 /**
@@ -1646,7 +1647,7 @@ void parser_example3()
 
     cfg = Z3_mk_config();
     /* See quantifer_example1 */
-    Z3_set_param_value(cfg, "MODEL", "true");
+    Z3_set_param_value(cfg, "model", "true");
     ctx = mk_context_custom(cfg, error_handler);
     Z3_del_config(cfg);
 
@@ -2249,57 +2250,6 @@ void unsat_core_and_proof_example() {
     Z3_del_context(ctx);
 }
 
-/**
-   \brief Extract classes of implied equalities.
-
-   This example illustrates the use of #Z3_get_implied_equalities.
-*/ 
-void get_implied_equalities_example() {
-    Z3_config cfg = Z3_mk_config();
-    Z3_context ctx; 
-
-    printf("\nget_implied_equalities example\n");
-    LOG_MSG("get_implied_equalities example");
-    
-    Z3_set_param_value(cfg, "ARITH_PROCESS_ALL_EQS", "true");
-    Z3_set_param_value(cfg, "ARITH_EQ_BOUNDS", "true");
-    ctx = Z3_mk_context(cfg);
-    Z3_del_config(cfg);
-    {
-        Z3_sort int_ty = Z3_mk_int_sort(ctx);
-        Z3_ast a = mk_int_var(ctx,"a");
-        Z3_ast b = mk_int_var(ctx,"b");
-        Z3_ast c = mk_int_var(ctx,"c");
-        Z3_ast d = mk_int_var(ctx,"d");
-        Z3_func_decl f = Z3_mk_func_decl(ctx, Z3_mk_string_symbol(ctx,"f"), 1, &int_ty, int_ty);
-        Z3_ast fa = Z3_mk_app(ctx, f, 1, &a);
-        Z3_ast fb = Z3_mk_app(ctx, f, 1, &b);
-        Z3_ast fc = Z3_mk_app(ctx, f, 1, &c);
-        unsigned const num_terms = 7;
-	unsigned i;
-        Z3_ast terms[7] = { a, b, c, d, fa, fb, fc };
-        unsigned class_ids[7] = { 0, 0, 0, 0, 0, 0, 0 };
-        
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, a, b));
-        Z3_assert_cnstr(ctx, Z3_mk_eq(ctx, b, c));
-        Z3_assert_cnstr(ctx, Z3_mk_le(ctx, fc, b));
-        Z3_assert_cnstr(ctx, Z3_mk_le(ctx, b, fa));
-        
-        Z3_get_implied_equalities(ctx, num_terms, terms, class_ids);
-        for (i = 0; i < num_terms; ++i) {
-            printf("Class %s |-> %d\n", Z3_ast_to_string(ctx, terms[i]), class_ids[i]);
-        }
-        printf("asserting f(a) <= b\n");
-        Z3_assert_cnstr(ctx, Z3_mk_le(ctx, fa, b));
-        Z3_get_implied_equalities(ctx, num_terms, terms, class_ids);
-        for (i = 0; i < num_terms; ++i) {
-            printf("Class %s |-> %d\n", Z3_ast_to_string(ctx, terms[i]), class_ids[i]);
-        }
-    }
-    /* delete logical context */
-    Z3_del_context(ctx);
-}
-
 #define MAX_RETRACTABLE_ASSERTIONS 1024
 
 /**
@@ -2504,7 +2454,7 @@ void reference_counter_example() {
     LOG_MSG("reference_counter_example");
 
     cfg                = Z3_mk_config();
-    Z3_set_param_value(cfg, "MODEL", "true");
+    Z3_set_param_value(cfg, "model", "true");
     // Create a Z3 context where the user is reponsible for managing
     // Z3_ast reference counters.
     ctx                = Z3_mk_context_rc(cfg);
@@ -2685,7 +2635,6 @@ int main() {
     binary_tree_example();
     enum_example();
     unsat_core_and_proof_example();
-    get_implied_equalities_example();
     incremental_example1();
     reference_counter_example();
     smt2parser_example();

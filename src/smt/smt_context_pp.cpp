@@ -583,7 +583,8 @@ namespace smt {
     }
     
     void context::trace_assign(literal l, b_justification j, bool decision) const {
-        std::ostream & out = *m_fparams.m_trace_stream;
+        SASSERT(m_manager.has_trace_stream());
+        std::ostream & out = m_manager.trace_stream();
         out << "[assign] ";
         display_literal(out, l);
         if (decision)

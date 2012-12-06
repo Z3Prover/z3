@@ -6,7 +6,7 @@
 
 void tst_theory_dl() {
     ast_manager m;
-    front_end_params params;
+    smt_params params;
     params.m_model = true;
     datalog::dl_decl_util u(m);
     smt::context ctx(m, params);

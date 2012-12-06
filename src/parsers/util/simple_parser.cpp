@@ -112,7 +112,7 @@ expr * simple_parser::parse_expr(scanner & s) {
 }
 
 bool simple_parser::parse(std::istream & in, expr_ref & result) {
-	scanner s(in, std::cerr, false);
+    scanner s(in, std::cerr, false);
     try {
         result = parse_expr(s);
         if (!result)

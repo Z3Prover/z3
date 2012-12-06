@@ -433,7 +433,8 @@ namespace Microsoft.Z3
             get
             {
                 return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_ARRAY_SORT);
+                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) 
+                        == Z3_sort_kind.Z3_ARRAY_SORT);
             }
         }
 
@@ -1308,7 +1309,8 @@ namespace Microsoft.Z3
             get
             {
                 return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_RELATION_SORT);
+                        Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) 
+                        == (uint)Z3_sort_kind.Z3_RELATION_SORT);
             }
         }
 
@@ -1429,7 +1431,7 @@ namespace Microsoft.Z3
             get
             {
                 return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
-                        (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
+                        Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
             }
         }
 
@@ -1489,8 +1491,8 @@ namespace Microsoft.Z3
         internal override void CheckNativeObject(IntPtr obj)
         {
             if (Native.Z3_is_app(Context.nCtx, obj) == 0 &&
-                (Z3_ast_kind)Native.Z3_get_ast_kind(Context.nCtx, obj) != Z3_ast_kind.Z3_VAR_AST &&
-                (Z3_ast_kind)Native.Z3_get_ast_kind(Context.nCtx, obj) != Z3_ast_kind.Z3_QUANTIFIER_AST)
+                Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_VAR_AST &&
+                Native.Z3_get_ast_kind(Context.nCtx, obj) != (uint)Z3_ast_kind.Z3_QUANTIFIER_AST)
                 throw new Z3Exception("Underlying object is not a term");
             base.CheckNativeObject(obj);
         }
@@ -1530,7 +1532,7 @@ namespace Microsoft.Z3
                 {
                     case Z3_sort_kind.Z3_INT_SORT: return new IntNum(ctx, obj);
                     case Z3_sort_kind.Z3_REAL_SORT: return new RatNum(ctx, obj);
-                    case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);
+                    case Z3_sort_kind.Z3_BV_SORT: return new BitVecNum(ctx, obj);                    
                 }
             }
 
@@ -1541,7 +1543,7 @@ namespace Microsoft.Z3
                 case Z3_sort_kind.Z3_REAL_SORT: return new RealExpr(ctx, obj);
                 case Z3_sort_kind.Z3_BV_SORT: return new BitVecExpr(ctx, obj);
                 case Z3_sort_kind.Z3_ARRAY_SORT: return new ArrayExpr(ctx, obj);
-                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);
+                case Z3_sort_kind.Z3_DATATYPE_SORT: return new DatatypeExpr(ctx, obj);                
             }
 
             return new Expr(ctx, obj);

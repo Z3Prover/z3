@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include"sat_asymm_branch.h"
+#include"sat_asymm_branch_params.hpp"
 #include"sat_solver.h"
 #include"stopwatch.h"
 #include"trace.h"
@@ -193,18 +194,17 @@ namespace sat {
         }
     }
     
-    void asymm_branch::updt_params(params_ref const & p) {
-        m_asymm_branch        = p.get_bool(":asymm-branch", true);
-        m_asymm_branch_rounds = p.get_uint(":asymm-branch-rounds", 32);
-        m_asymm_branch_limit  = p.get_uint(":asymm-branch-limit", 100000000);
+    void asymm_branch::updt_params(params_ref const & _p) {
+        sat_asymm_branch_params p(_p);
+        m_asymm_branch        = p.asymm_branch();
+        m_asymm_branch_rounds = p.asymm_branch_rounds();
+        m_asymm_branch_limit  = p.asymm_branch_limit();
         if (m_asymm_branch_limit > INT_MAX)
             m_asymm_branch_limit = INT_MAX;
     }
 
     void asymm_branch::collect_param_descrs(param_descrs & d) {
-        d.insert(":asymm-branch", CPK_BOOL, "(default: true) asymmetric branching.");
-        d.insert(":asymm-branch-rounds", CPK_UINT, "(default: 32) maximum number of rounds of asymmetric branching.");
-        d.insert(":asymm-branch-limit", CPK_UINT, "approx. maximum number of literals visited during asymmetric branching.");
+        sat_asymm_branch_params::collect_param_descrs(d);
     }
     
     void asymm_branch::collect_statistics(statistics & st) {

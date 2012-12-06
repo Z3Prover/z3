@@ -37,7 +37,6 @@ public:
 
     void updt_params(params_ref const & p);
     static void get_param_descrs(param_descrs & r);
-
     unsigned get_cache_size() const;
     unsigned get_num_steps() const;
 

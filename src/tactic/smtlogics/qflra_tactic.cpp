@@ -29,23 +29,23 @@ Notes:
 
 tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
     params_ref pivot_p;
-    pivot_p.set_bool(":arith-greatest-error-pivot", true);
+    pivot_p.set_bool("arith.greatest_error_pivot", true);
 
     params_ref main_p = p;
-    main_p.set_bool(":elim-and", true);
-    main_p.set_bool(":som", true);
-    main_p.set_bool(":blast-distinct", true);
+    main_p.set_bool("elim_and", true);
+    main_p.set_bool("som", true);
+    main_p.set_bool("blast_distinct", true);
     
     params_ref ctx_simp_p;
-    ctx_simp_p.set_uint(":max-depth", 30);
-    ctx_simp_p.set_uint(":max-steps", 5000000);
+    ctx_simp_p.set_uint("max_depth", 30);
+    ctx_simp_p.set_uint("max_steps", 5000000);
     
     params_ref lhs_p;
-    lhs_p.set_bool(":arith-lhs", true);
-    lhs_p.set_bool(":eq2ineq", true);
+    lhs_p.set_bool("arith_lhs", true);
+    lhs_p.set_bool("eq2ineq", true);
     
     params_ref elim_to_real_p;
-    elim_to_real_p.set_bool(":elim-to-real", true);
+    elim_to_real_p.set_bool("elim_to_real", true);
     
 
 #if 0

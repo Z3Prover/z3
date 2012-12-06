@@ -25,7 +25,7 @@ Notes:
 
 static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigned bv_size) {
     params_ref nra2sat_p = p;
-    nra2sat_p.set_uint(":nla2bv-max-bv-size", p.get_uint(":nla2bv-max-bv-size", bv_size));   
+    nra2sat_p.set_uint("nla2bv_max_bv_size", p.get_uint("nla2bv_max_bv_size", bv_size));   
     
     return and_then(mk_nla2bv_tactic(m, nra2sat_p),
                     mk_smt_tactic(),
@@ -34,11 +34,11 @@ static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigne
 
 tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
     params_ref p1 = p;
-    p1.set_uint(":seed", 11);
-    p1.set_bool(":factor", false);
+    p1.set_uint("seed", 11);
+    p1.set_bool("factor", false);
     params_ref p2 = p;
-    p2.set_uint(":seed", 13);
-    p2.set_bool(":factor", false);
+    p2.set_uint("seed", 13);
+    p2.set_bool("factor", false);
 
     return and_then(mk_simplify_tactic(m, p), 
                     mk_propagate_values_tactic(m, p),

@@ -40,7 +40,7 @@ public:
     double_manager(params_ref const & p = params_ref()) { updt_params(p); }
 
     void updt_params(params_ref const & p) {
-        m_zero_tolerance = p.get_double(":zero-tolerance", 0.00000001);
+        m_zero_tolerance = p.get_double("zero_tolerance", 0.00000001);
     }
 
     static void reset(double & a) { a = 0.0; }

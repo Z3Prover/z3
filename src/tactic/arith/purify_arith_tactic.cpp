@@ -856,11 +856,11 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) {
-        r.insert(":complete", CPK_BOOL, 
+        r.insert("complete", CPK_BOOL, 
                  "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a functio. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root");
-        r.insert(":elim-root-objects", CPK_BOOL,
+        r.insert("elim_root_objects", CPK_BOOL,
                  "(default: true) eliminate root objects.");
-        r.insert(":elim-inverses", CPK_BOOL,
+        r.insert("elim_inverses", CPK_BOOL,
                  "(default: true) eliminate inverse trigonometric functions (asin, acos, atan).");
         th_rewriter::get_param_descrs(r);
     }
@@ -876,9 +876,9 @@ public:
             tactic_report report("purify-arith", *g);
             bool produce_proofs = g->proofs_enabled();
             bool produce_models = g->models_enabled();
-            bool elim_root_objs = m_params.get_bool(":elim-root-objects", true);
-            bool elim_inverses  = m_params.get_bool(":elim-inverses", true);
-            bool complete       = m_params.get_bool(":complete", true);
+            bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
+            bool elim_inverses  = m_params.get_bool("elim_inverses", true);
+            bool complete       = m_params.get_bool("complete", true);
             purify_arith_proc proc(m_util, m_aux_decls, produce_proofs, elim_root_objs, elim_inverses, complete);
             
             proc(*(g.get()), mc, produce_models);
@@ -902,10 +902,10 @@ public:
 
 tactic * mk_purify_arith_tactic(ast_manager & m, params_ref const & p) {
     params_ref elim_rem_p = p;
-    elim_rem_p.set_bool(":elim-rem", true);
+    elim_rem_p.set_bool("elim_rem", true);
     
     params_ref skolemize_p;
-    skolemize_p.set_bool(":skolemize", false);
+    skolemize_p.set_bool("skolemize", false);
 
     return and_then(using_params(mk_snf_tactic(m, skolemize_p), skolemize_p),
                     using_params(mk_simplify_tactic(m, elim_rem_p), elim_rem_p),

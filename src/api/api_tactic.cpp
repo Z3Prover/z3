@@ -404,8 +404,8 @@ extern "C" {
         Z3_apply_result_ref * ref = alloc(Z3_apply_result_ref, mk_c(c)->m());
         mk_c(c)->save_object(ref); 
 
-        unsigned timeout     = p.get_uint(":timeout", UINT_MAX);
-        bool     use_ctrl_c  = p.get_bool(":ctrl-c", false);
+        unsigned timeout     = p.get_uint("timeout", UINT_MAX);
+        bool     use_ctrl_c  = p.get_bool("ctrl_c", false);
         cancel_eh<tactic> eh(*to_tactic_ref(t));
         
         to_tactic_ref(t)->updt_params(p);

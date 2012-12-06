@@ -29,7 +29,6 @@ Revision History:
 #include "pdr_util.h"
 #include "pdr_farkas_learner.h"
 #include "th_rewriter.h"
-#include "pdr_interpolant_provider.h"
 #include "ast_ll_pp.h"
 #include "arith_bounds_tactic.h"
 #include "proof_utils.h"
@@ -244,7 +243,7 @@ namespace pdr {
         }
     };
     
-    farkas_learner::farkas_learner(front_end_params& params, ast_manager& outer_mgr) 
+    farkas_learner::farkas_learner(smt_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
           m_pr(PROOF_MODE),
           p2o(m_pr, outer_mgr),
@@ -254,9 +253,8 @@ namespace pdr {
         m_ctx = alloc(smt::kernel, m_pr, m_proof_params);
     }
 
-    front_end_params farkas_learner::get_proof_params(front_end_params& orig_params) {
-        front_end_params res(orig_params);
-        res.m_proof_mode = PROOF_MODE;
+    smt_params farkas_learner::get_proof_params(smt_params& orig_params) {
+        smt_params res(orig_params);
         res.m_arith_bound_prop = BP_NONE;
         // temp hack to fix the build
         // res.m_conflict_resolution_strategy = CR_ALL_DECIDED;
@@ -796,7 +794,7 @@ namespace pdr {
 
 
     void farkas_learner::test()  {
-        front_end_params params;
+        smt_params params;
         enable_trace("farkas_learner");
                
         bool res;
@@ -883,7 +881,7 @@ namespace pdr {
         end = p->get_benchmark()->end_formulas();
         B = m.mk_and(static_cast<unsigned>(end-it), it);
 
-        front_end_params params;
+        smt_params params;
         pdr::farkas_learner fl(params, m);
         expr_ref_vector lemmas(m);
         bool res = fl.get_lemma_guesses(A, B, lemmas);        

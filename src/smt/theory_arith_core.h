@@ -1979,7 +1979,7 @@ namespace smt {
               tout << "is_below_lower: " << below_lower(x_i) << ", is_above_upper: " << above_upper(x_i) << "\n";);
         antecedents& ante = get_antecedents();
         explain_bound(r, idx, !is_below, delta, ante);
-        b->push_justification(ante, numeral(1));
+        b->push_justification(ante, numeral(1), proofs_enabled());
        
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), 
@@ -2122,8 +2122,8 @@ namespace smt {
     void theory_arith<Ext>::sign_bound_conflict(bound * b1, bound * b2) {
         SASSERT(b1->get_var() == b2->get_var());
         antecedents& ante = get_antecedents();
-        b1->push_justification(ante, numeral(1));
-        b2->push_justification(ante, numeral(1));
+        b1->push_justification(ante, numeral(1), proofs_enabled());
+        b2->push_justification(ante, numeral(1), proofs_enabled());
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, is_int(b1->get_var()), "farkas");
         TRACE("arith_conflict", tout << "bound conflict\n";);
@@ -2382,7 +2382,7 @@ namespace smt {
                 if (!b->has_justification())
                     continue;
                 if (!relax_bounds() || delta.is_zero()) {
-                    b->push_justification(ante, it->m_coeff);
+                    b->push_justification(ante, it->m_coeff, proofs_enabled());
                     continue;
                 }
                 numeral coeff = it->m_coeff;
@@ -2442,7 +2442,7 @@ namespace smt {
                 SASSERT(!is_b_lower || k_2 <= k_1);
                 SASSERT(is_b_lower  || k_2 >= k_1);
                 if (new_atom == 0) {
-                    b->push_justification(ante, coeff);
+                    b->push_justification(ante, coeff, proofs_enabled());
                     continue;
                 }
                 SASSERT(!is_b_lower || k_2 < k_1);
@@ -2456,7 +2456,7 @@ namespace smt {
                     delta -= coeff*(k_2 - k_1);
                 }
                 TRACE("propagate_bounds", tout << "delta (after replace): " << delta << "\n";);
-                new_atom->push_justification(ante, coeff);
+                new_atom->push_justification(ante, coeff, proofs_enabled());
                 SASSERT(delta >= inf_numeral::zero());
             }
         }
@@ -2569,7 +2569,7 @@ namespace smt {
             for (; it != end; ++it)
                 lits.push_back(~(*it));
             justification * js = 0;
-            if (proofs_enabled) {
+            if (proofs_enabled()) {
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr(),
                            ante.num_params(), ante.params("assign-bounds"));
             }
@@ -2656,13 +2656,13 @@ namespace smt {
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
-                  if (proofs_enabled) {
+                  if (proofs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
-                  if (proofs_enabled) {
+                  if (proofs_enabled()) {
                       tout << "bound: " << bounds.eq_coeffs()[i] << "\n";
                   }
               }
@@ -2686,8 +2686,8 @@ namespace smt {
         typename vector<row_entry>::const_iterator end = r.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead() && is_fixed(it->m_var)) {
-                lower(it->m_var)->push_justification(antecedents, it->m_coeff);
-                upper(it->m_var)->push_justification(antecedents, it->m_coeff);                
+                lower(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());
+                upper(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());                
             }
         }
     }

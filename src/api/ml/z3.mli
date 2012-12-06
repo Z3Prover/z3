@@ -4886,7 +4886,8 @@ external fixedpoint_add_rule : context -> fixedpoint -> ast -> symbol -> unit
        of sorts in the domain of [r]. Each sort in the domain should be an integral
       (bit-vector, Boolean or or finite domain sort).
 
-       The call has the same effect as adding a rule where  is applied to the arguments.
+       The call has the same effect as adding a rule where 
+ is applied to the arguments.
 
        def_API('fixedpoint_add_fact', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(FUNC_DECL), _in(UINT), _in_array(3, UINT)))
 *)

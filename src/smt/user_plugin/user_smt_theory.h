@@ -43,7 +43,7 @@ namespace smt {
         typedef union_find<user_theory>  th_union_find;
         typedef std::pair<theory_var, theory_var> var_pair;
 
-        front_end_params const&   m_params;
+        smt_params const&   m_params;
         void *                    m_ext_context;
         void *                    m_ext_data; 
         std::string               m_name;
@@ -134,7 +134,7 @@ namespace smt {
         void assert_axiom_core(app* axiom);
 
     public:
-        user_theory(ast_manager & m, front_end_params const& p, void * ext_context, void * ext_data, char const * name, family_id fid, user_decl_plugin * dp, user_simplifier_plugin * sp);
+        user_theory(ast_manager & m, smt_params const& p, void * ext_context, void * ext_data, char const * name, family_id fid, user_decl_plugin * dp, user_simplifier_plugin * sp);
         virtual ~user_theory();
 
         virtual theory * mk_fresh(context * new_ctx);

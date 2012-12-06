@@ -19,11 +19,17 @@ Revision History:
 
 #include "pdr_quantifiers.h"
 #include "pdr_context.h"
-#include "model_smt2_pp.h"
-#include "ast_smt2_pp.h"
 #include "qe.h"
 #include "var_subst.h"
 #include "dl_rule_set.h"
+#include "ast_smt2_pp.h"
+#include "model_smt2_pp.h"
+#include "ast_smt_pp.h"
+#include "expr_abstract.h"
+#include "dl_mk_extract_quantifiers.h"
+#include "qe_lite.h"
+#include "well_sorted.h"
+#include "expr_safe_replace.h"
 
 
 namespace pdr {
@@ -46,6 +52,12 @@ namespace pdr {
         }
     }
 
+    quantifier_model_checker::~quantifier_model_checker() {
+        obj_map<func_decl,expr*>::iterator it = m_reachable.begin(), end = m_reachable.end();
+        for (; it != end; ++it) {
+            m.dec_ref(it->m_value);
+        }
+    }
 
     void quantifier_model_checker::generalize_binding(expr_ref_vector const& binding, vector<expr_ref_vector>& bindings) {
         expr_ref_vector new_binding(m);
@@ -93,7 +105,11 @@ namespace pdr {
     }
 
 
-    void quantifier_model_checker::add_binding(quantifier* q, expr_ref_vector& binding) {          
+    void quantifier_model_checker::add_binding(quantifier* q, expr_ref_vector& binding) {      
+        if (binding.size() != q->get_num_decls()) {
+            // not a full binding. It may happen that the quantifier got simplified.
+            return;
+        }
         apply_binding(q, binding);
         vector<expr_ref_vector> bindings;
         generalize_binding(binding, bindings);
@@ -103,21 +119,35 @@ namespace pdr {
     }
      
     void quantifier_model_checker::apply_binding(quantifier* q, expr_ref_vector& binding) {          
+        datalog::scoped_no_proof _scp(m);
         app_ref_vector& var_inst = m_current_pt->get_inst(m_current_rule);
-        expr_substitution sub(m);
-        for (unsigned i = 0; i < var_inst.size(); ++i) {
-            expr* v = var_inst[i].get();
-            sub.insert(v, m.mk_var(i, m.get_sort(v)));
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
         expr_ref e(m);
         var_subst vs(m, false);
+        inv_var_shifter invsh(m);
         vs(q->get_expr(), binding.size(), binding.c_ptr(), e);
-        (*rep)(e);        
+        invsh(e, q->get_num_decls(), e);
+        expr_ref_vector inst(m);
+        inst.append(var_inst.size(), (expr*const*)var_inst.c_ptr());
+        inst.reverse();
+        expr_abstract(m, 0, inst.size(), inst.c_ptr(), e, e);
+        if (m_instantiations.contains(to_app(e))) {
+            return;
+        }
         m_instantiated_rules.push_back(m_current_rule);
         m_instantiations.push_back(to_app(e));
-        TRACE("pdr", tout << mk_pp(e, m) << "\n";);
+        TRACE("pdr", tout << mk_pp(q, m) << "\n";
+              tout << "binding: ";
+              for (unsigned i = 0; i < binding.size(); ++i) {
+                  tout << mk_pp(binding[i].get(), m) << " ";
+              }
+              tout << "\n";
+              tout << "inst: ";
+              for (unsigned i = 0; i < var_inst.size(); ++i) {
+                  tout << mk_pp(var_inst[i].get(), m) << " ";
+              }
+              tout << "\n";
+              tout << mk_pp(e, m) << "\n";
+              );
     }
 
 
@@ -179,35 +209,35 @@ namespace pdr {
 
     bool quantifier_model_checker::find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level) {
         bool found_instance = false;
-        TRACE("pdr", tout << mk_pp(m_A,m) << "\n";);
  
-        ast_manager mp(PGM_COARSE);        
-        ast_translation tr(m, mp);
-        ast_translation rev_tr(mp, m);
-        expr_ref_vector fmls(mp);
-        front_end_params fparams;
-        fparams.m_proof_mode = PGM_COARSE;
-        // TBD: does not work on integers: fparams.m_mbqi = true;
-        expr_ref C(m);
-        fmls.push_back(tr(m_A.get()));
-        for (unsigned i = 0; i < m_Bs.size(); ++i) {
-            C = m.update_quantifier(qs[i], m_Bs[i].get());
-            fmls.push_back(tr(C.get()));
-        }        
+        datalog::scoped_fine_proof _scp(m);
+
+        expr_ref_vector fmls(m);
+        smt_params fparams;
+        SASSERT(m.proofs_enabled());
+        fparams.m_mbqi = true;
+
+        fmls.push_back(m_A.get());
+        fmls.append(m_Bs);
         TRACE("pdr",
               tout << "assert\n";
               for (unsigned i = 0; i < fmls.size(); ++i) {
-                  tout << mk_pp(fmls[i].get(), mp) << "\n";
+                  tout << mk_pp(fmls[i].get(), m) << "\n";
               });
-        smt::kernel solver(mp, fparams);
+
+        smt::kernel solver(m, fparams);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             solver.assert_expr(fmls[i].get());
         }
         lbool result = solver.check();
+
+        TRACE("pdr", tout << result << "\n";);
+
         if (result != l_false) {
-            TRACE("pdr", tout << result << "\n";);
-            return found_instance;
+            return false;
         }
+        m_rules_model_check = false;
+
         map<symbol, quantifier*, symbol_hash_proc, symbol_eq_proc> qid_map;
         quantifier* q;
         for (unsigned i = 0; i < qs.size();  ++i) {
@@ -216,53 +246,287 @@ namespace pdr {
         }
 
         proof* p = solver.get_proof();
-        TRACE("pdr", tout << mk_ismt2_pp(p, mp) << "\n";);
-        collect_insts collector(mp);
+        TRACE("pdr", tout << mk_ismt2_pp(p, m) << "\n";);
+        collect_insts collector(m);
         for_each_expr(collector, p);
         ptr_vector<quantifier> const& quants = collector.quantifiers();
 
         for (unsigned i = 0; i < collector.size(); ++i) {
             symbol qid = quants[i]->get_qid();
             if (!qid_map.find(qid, q)) {
-                TRACE("pdr", tout << "Could not find quantifier " 
-                      << mk_pp(quants[i], mp) << "\n";);
+                TRACE("pdr", tout << "Could not find quantifier " << mk_pp(quants[i], m) << "\n";);
                 continue;
             }
             expr_ref_vector const& binding = collector.bindings()[i];
 
-            TRACE("pdr", tout << "Instantiating:\n" << mk_pp(quants[i], mp) << "\n";
+            TRACE("pdr", tout << "Instantiating:\n" << mk_pp(quants[i], m) << "\n";
                   for (unsigned j = 0; j < binding.size(); ++j) {
-                      tout << mk_pp(binding[j], mp) << " ";
+                      tout << mk_pp(binding[j], m) << " ";
                   }
                   tout << "\n";);
 
             expr_ref_vector new_binding(m);
             for (unsigned j = 0; j < binding.size(); ++j) {
-                new_binding.push_back(rev_tr(binding[j]));
+                new_binding.push_back(binding[j]);
             }
             add_binding(q, new_binding);
-            found_instance = true;
-        }
-        if (collector.size() == 0) {
-            // Try to create dummy instances.
-            for (unsigned i = 0; i < m_Bs.size(); ++i) {
-                q = qs[i];
-                expr_ref_vector binding(m);
-                for (unsigned j = 0; j < q->get_num_decls(); ++j) {
-                    binding.push_back(m.mk_fresh_const("B", q->get_decl_sort(j)));
-                }
-                add_binding(q, binding);
-            }
             found_instance = true;
         }
         return found_instance;
     }
 
+
+    /**
+       For under-approximations:
+
+       m_reachable: set of reachable states, per predicate
+       
+       rules:       P(x)   :- B[x,y] & Fa z . Q(y,z)
+                    Q(y,z) :- C[y,z,u] & Fa w . R(u,w)
+       
+       qis:         Fa z . Q(y,z)
+       
+       M:           model satisfying P(x) & B[x,y]
+       
+       B'[x,y]:     body with reachable states substituted for predicates.
+       
+       Q'[y,z]:     reachable states substituted for Q.
+       
+       S'[x]:       Ex y . B'[x,y] & Fa z . Q'[y, z]
+       
+       Method:
+
+       1. M |= Fa z . Q'[y, z] => done
+          
+          Weaker variant: 
+          Check B[x,y] & Fa z . Q'[y, z] for consistency.
+
+       2. Otherwise, extract instantiations.
+      
+       3. Update reachable (for next round):
+
+          Q'[y,z] :=  Q'[y,z] \/ C'[y,z,u] & Fa w . R'(u,w)
+          
+    */
+
+
+    /**
+       For over-approximations:
+
+         - pt - predicate transformer for rule:
+                P(x) :- Body1(x,y) || Body2(x,z) & (Fa u . Q(u,x,z)).
+         - rule - P(x) :- Body2(x,z)
+
+         - qis - Fa u . Q(u,x,z)
+
+         - A  := node.state(x) && Body2(x,y)
+
+
+         - Bs := array of Bs of the form:
+                 . Fa u . Q(u, P_x, P_y)  - instantiate quantifier to P variables.
+                 . B := inv(Q_0,Q_1,Q_2)
+                 . B := inv(u, P_x, P_y) := B[u/Q_0, P_x/Q_1, P_y/Q_2]
+                 . B := Fa u . inv(u, P_x, P_y)
+       
+    */
+
+    void quantifier_model_checker::update_reachable(func_decl* f, expr* e) {
+        expr* e_old;
+        m.inc_ref(e);
+        if (m_reachable.find(f, e_old)) {
+            m.dec_ref(e_old);
+        }
+        m_reachable.insert(f, e);
+    }
+
+
+    expr_ref quantifier_model_checker::get_reachable(func_decl* p) {
+        expr* e = 0;
+        if (!m_reachable.find(p, e)) {
+            e = m_ctx.get_pred_transformer(p).initial_state();
+            update_reachable(p, e);
+        }
+        return expr_ref(e, m);
+    }
+
+    void quantifier_model_checker::add_over_approximations(quantifier_ref_vector& qis, model_node& n) {
+        add_approximations(qis, n, true);
+    }
+
+    void quantifier_model_checker::add_under_approximations(quantifier_ref_vector& qis, model_node& n) {
+        add_approximations(qis, n, false);
+    }
+    
+    void quantifier_model_checker::add_approximations(quantifier_ref_vector& qis, model_node& n, bool is_over) {
+        pred_transformer& pt = n.pt();
+        manager& pm = pt.get_pdr_manager();
+        unsigned level = n.level();
+        expr_ref_vector Bs(m);
+        expr_ref B(m), v(m);
+        quantifier_ref q(m);
+        datalog::scoped_no_proof _no_proof(m);
+        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+        for (unsigned j = 0; j < qis.size(); ++j) {
+            q = qis[j].get();
+            SASSERT(is_forall(q));
+            app_ref_vector& inst      = pt.get_inst(m_current_rule);
+            TRACE("pdr", 
+                  tout << "q:\n" << mk_pp(q, m) << "\n";
+                  tout << "level: " << level << "\n";
+                  model_smt2_pp(tout, m, n.get_model(), 0);
+                  m_current_rule->display(m_ctx.get_context(), tout << "rule:\n");                  
+                  );
+            
+            var_subst vs(m, false);
+            vs(q, inst.size(), (expr*const*)inst.c_ptr(), B);
+            q = to_quantifier(B);
+            TRACE("pdr", tout << "q instantiated:\n" << mk_pp(q, m) << "\n";);
+            
+            app* a = to_app(q->get_expr());
+            func_decl* f = a->get_decl();
+            pred_transformer& pt2 = m_ctx.get_pred_transformer(f);
+            if (is_over) {
+                B = pt2.get_formulas(level - 1, false);
+            }
+            else {
+                B = get_reachable(f);
+                SASSERT(is_well_sorted(m, B));
+            }
+            TRACE("pdr", tout << "B:\n" << mk_pp(B, m) << "\n";);
+                    
+            expr_safe_replace sub(m);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                v = m.mk_const(pm.o2n(pt2.sig(i),0));
+                sub.insert(v, a->get_arg(i));
+            }
+            sub(B);
+            TRACE("pdr", tout << "B substituted:\n" << mk_pp(B, m) << "\n";);
+            datalog::flatten_and(B, Bs);
+            for (unsigned i = 0; i < Bs.size(); ++i) {
+                m_Bs.push_back(m.update_quantifier(q, Bs[i].get()));                    
+            }
+        }
+    }
+
+    /**
+       \brief compute strongest post-conditions for each predicate transformer.
+       (or at least something sufficient to change the set of current counter-examples)
+     */
+    void quantifier_model_checker::weaken_under_approximation() {
+
+        datalog::rule_set::decl2rules::iterator it = m_rules.begin_grouped_rules(), end = m_rules.end_grouped_rules();
+        
+        for (; it != end; ++it) {
+            func_decl* p = it->m_key;
+            datalog::rule_vector& rules = *it->m_value;
+            expr_ref_vector bodies(m);
+            for (unsigned i = 0; i < rules.size(); ++i) {
+                bodies.push_back(strongest_post_condition(*rules[i]));
+            }           
+            update_reachable(p, m.mk_or(bodies.size(), bodies.c_ptr()));
+        }
+    }
+
+    expr_ref quantifier_model_checker::strongest_post_condition(datalog::rule& r) {
+        pred_transformer& pt = m_ctx.get_pred_transformer(r.get_decl());
+        manager& pm = pt.get_pdr_manager();
+        quantifier_ref_vector* qis = 0;
+        m_quantifiers.find(&r, qis);        
+        expr_ref_vector body(m), inst(m);
+        expr_ref fml(m), v(m);        
+        app* a;
+        func_decl* p;
+        svector<symbol> names;
+        unsigned ut_size = r.get_uninterpreted_tail_size();
+        unsigned t_size  = r.get_tail_size();   
+        var_subst vs(m, false);
+        sort_ref_vector vars(m);
+        uint_set empty_index_set;
+        qe_lite qe(m);
+
+        r.get_vars(vars);
+#if 1
+        if (qis) {
+            quantifier_ref_vector const& qi = *qis;
+            for (unsigned i = 0; i < qi.size(); ++i) {
+                quantifier* q = qi[i];
+                fml = q->get_expr();
+                a = to_app(fml);
+                p = a->get_decl();
+                expr* p_reach = get_reachable(p);
+                pred_transformer& pt2 = m_ctx.get_pred_transformer(p);
+                expr_safe_replace sub(m);
+                for (unsigned j = 0; j < a->get_num_args(); ++j) {
+                    v = m.mk_const(pm.o2n(pt2.sig(j),0));
+                    sub.insert(v, a->get_arg(j));
+                }
+                sub(p_reach, fml);
+                uint_set is;
+                for (unsigned j = 0; j < q->get_num_decls(); ++j) {
+                    is.insert(j);
+                }
+                fml = m.mk_not(fml);
+                qe(is, true, fml);
+                fml = m.mk_not(fml);
+                body.push_back(m.update_quantifier(q, fml));
+            }
+        }
+#endif
+        a = r.get_head();
+        for (unsigned i = 0; i < a->get_num_args(); ++i) {
+            v = m.mk_var(vars.size()+i, m.get_sort(a->get_arg(i)));
+            body.push_back(m.mk_eq(v, a->get_arg(i)));
+        }
+        for (unsigned i = 0; i < ut_size; ++i) {
+            a = r.get_tail(i);
+            p = a->get_decl();
+            pred_transformer& pt2 = m_ctx.get_pred_transformer(p);
+            expr* p_reach = get_reachable(p);
+            expr_safe_replace sub(m);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                v = m.mk_const(pm.o2n(pt2.sig(i),0));
+                sub.insert(v, a->get_arg(i));
+            }
+            sub(p_reach, fml);
+            body.push_back(fml);
+        }
+        for (unsigned i = ut_size; i < t_size; ++i) {
+            body.push_back(r.get_tail(i));
+        }
+        fml = m.mk_and(body.size(), body.c_ptr());
+        vars.reverse();
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            names.push_back(symbol(i));
+        }
+        if (!vars.empty()) {
+            fml = m.mk_exists(vars.size(), vars.c_ptr(), names.c_ptr(), fml);
+            SASSERT(is_well_sorted(m, fml));
+        }
+
+        for (unsigned i = 0; i < r.get_head()->get_num_args(); ++i) {
+            inst.push_back(m.mk_const(pm.o2n(pt.sig(i),0)));
+        }
+        vs(fml, inst.size(), inst.c_ptr(), fml);
+        SASSERT(is_well_sorted(m, fml));
+        if (!vars.empty()) {
+            fml = to_quantifier(fml)->get_expr();
+            qe(empty_index_set, false, fml);
+            fml = m.mk_exists(vars.size(), vars.c_ptr(), names.c_ptr(), fml);
+            SASSERT(is_well_sorted(m, fml));
+            m_ctx.get_context().get_rewriter()(fml);
+        }
+        SASSERT(is_well_sorted(m, fml));
+        
+        IF_VERBOSE(0, verbose_stream() << "instantiate to:\n" << mk_pp(fml, m) << "\n";);
+        return fml;
+    }
+
+
     void quantifier_model_checker::model_check_node(model_node& node) {
         TRACE("pdr", node.display(tout, 0););
         pred_transformer& pt = node.pt();
         manager& pm = pt.get_pdr_manager();
-        expr_ref A(m), B(m), C(m);
+        expr_ref A(m), C(m);
         expr_ref_vector As(m);
         m_Bs.reset();
         //
@@ -272,7 +536,7 @@ namespace pdr {
         if (!node.get_model_ptr()) {
             return;
         }
-        m_current_rule = &pt.find_rule(node.get_model());   
+        m_current_rule = node.get_rule();
         m_current_pt = &pt;
         m_current_node = &node;
         if (!m_current_rule) { 
@@ -285,49 +549,36 @@ namespace pdr {
             return;
         }
         unsigned level = node.level();
-        unsigned previous_level = (level == 0)?0:(level-1);
-
+        if (level == 0) {
+            return;
+        }
+        
         As.push_back(pt.get_propagation_formula(m_ctx.get_pred_transformers(), level));
         As.push_back(node.state());
         As.push_back(pt.rule2tag(m_current_rule));
         m_A = pm.mk_and(As);
 
         // Add quantifiers:
-        
-        {
-            datalog::scoped_no_proof _no_proof(m);
-            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-            for (unsigned j = 0; j < qis->size(); ++j) {
-                quantifier* q = (*qis)[j].get();
-                app* a = to_app(q->get_expr());
-                func_decl* f = a->get_decl();
-                pred_transformer& pt2 = m_ctx.get_pred_transformer(f);
-                B = pt2.get_formulas(previous_level, true);
-                
-                expr_substitution sub(m);  
-                expr_ref_vector refs(m);
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    expr* v = m.mk_const(pm.o2n(pt2.sig(i),0));
-                    sub.insert(v, a->get_arg(i));
-                    refs.push_back(v);
-                }
-                rep->set_substitution(&sub);
-                (*rep)(B);
-                app_ref_vector& inst      = pt.get_inst(m_current_rule);
-                ptr_vector<app>& aux_vars = pt.get_aux_vars(*m_current_rule);
-                pt.ground_free_vars(B, inst, aux_vars);
-                var_subst vs(m, false);
-                vs(B, inst.size(), (expr*const*)inst.c_ptr(), B);
-                m_Bs.push_back(B);
-            }
-        }
+        // add_over_approximations(*qis, node);
+        add_under_approximations(*qis, node);
 
         TRACE("pdr", 
               tout << "A:\n" << mk_pp(m_A, m) << "\n";
+              tout << "quantifier:\n";
+              for (unsigned i = 0; i < qis->size(); ++i) {
+                  tout << mk_pp((*qis)[i].get(), m) << " ";
+              }
+              tout << "\n";
               tout << "B:\n";
               for (unsigned i = 0; i < m_Bs.size(); ++i) {
-                  tout << mk_pp((*qis)[i].get(), m) << "\n" << mk_pp(m_Bs[i].get(), m) << "\n";
+                  tout << mk_pp(m_Bs[i].get(), m) << "\n";
               }
+              ast_smt_pp pp(m);
+              pp.add_assumption(m_A);
+              for (unsigned i = 0; i < m_Bs.size(); ++i) {
+                  pp.add_assumption(m_Bs[i].get());
+              }
+              pp.display_smt2(tout, m.mk_true());
               );
 
         find_instantiations(*qis, level);
@@ -336,26 +587,32 @@ namespace pdr {
     bool quantifier_model_checker::model_check(model_node& root) {
         m_instantiations.reset();
         m_instantiated_rules.reset();
+        m_rules_model_check = true;
         ptr_vector<model_node> nodes;
         get_nodes(root, nodes);
         for (unsigned i = nodes.size(); i > 0; ) {
             --i;
             model_check_node(*nodes[i]);
         }
-        return m_instantiations.empty();
+        if (!m_rules_model_check) {
+            weaken_under_approximation();
+        }
+        return m_rules_model_check;
     }
 
     void quantifier_model_checker::refine() {
-        IF_VERBOSE(1, verbose_stream() << "instantiating quantifiers\n";);
-        datalog::rule_manager& rule_m = m_rules.get_rule_manager();
+        datalog::mk_extract_quantifiers eq(m_ctx.get_context());
+        datalog::rule_manager& rm = m_rules.get_rule_manager();
         datalog::rule_set new_rules(m_rules.get_context());
         datalog::rule_set::iterator it = m_rules.begin(), end = m_rules.end();
         for (; it != end; ++it) {
             datalog::rule* r = *it;
-            expr_ref_vector body(m);
+            datalog::var_counter vc(true);
+            unsigned max_var = vc.get_max_var(*r);
+            app_ref_vector body(m);
             for (unsigned i = 0; i < m_instantiations.size(); ++i) {
                 if (r == m_instantiated_rules[i]) {
-                    body.push_back(m_instantiations[i].get());
+                    eq.ensure_predicate(m_instantiations[i].get(), max_var, body);
                 }
             }
             if (body.empty()) {
@@ -367,17 +624,19 @@ namespace pdr {
                 }
                 quantifier_ref_vector* qs = 0;
                 m_quantifiers.find(r, qs);
-                m_quantifiers.remove(r);
-                datalog::rule_ref_vector rules(rule_m);
-                expr_ref rule(m.mk_implies(m.mk_and(body.size(), body.c_ptr()), r->get_head()), m);
-                rule_m.mk_rule(rule, rules, r->name());
-                for (unsigned i = 0; i < rules.size(); ++i) {
-                    new_rules.add_rule(rules[i].get());
-                    m_quantifiers.insert(rules[i].get(), qs);
-                }
+                m_quantifiers.remove(r);                
+                datalog::rule_ref new_rule(rm);
+                new_rule = rm.mk(r->get_head(), body.size(), body.c_ptr(), 0, r->name(), false);
+                new_rules.add_rule(new_rule);
+                m_quantifiers.insert(new_rule, qs);
+                IF_VERBOSE(1, 
+                           verbose_stream() << "instantiating quantifiers\n";                           
+                           r->display(m_ctx.get_context(), verbose_stream());
+                           verbose_stream() << "replaced by\n";
+                           new_rule->display(m_ctx.get_context(), verbose_stream()););
             }
         }
-        new_rules.close();                  
+        new_rules.close();
         m_rules.reset();
         m_rules.add_rules(new_rules);
         m_rules.close();
@@ -393,137 +652,4 @@ namespace pdr {
         return false;
     }
 };
-
-
-#if 0
-    //
-    // Build:
-    //
-    //    A & forall x . B1 & forall y . B2 & ...
-    // =  
-    //    not exists x y . (!A or !B1 or !B2 or ...)
-    // 
-    // Find an instance that satisfies formula.
-    // (or find all instances?)
-    //
-    bool quantifier_model_checker::find_instantiations_qe_based(quantifier_ref_vector const& qs, unsigned level) {
-        expr_ref_vector fmls(m), conjs(m), fresh_vars(m);
-        app_ref_vector all_vars(m);
-        expr_ref C(m);
-        qe::def_vector defs(m);
-        front_end_params fparams;
-        qe::expr_quant_elim qe(m, fparams);
-        for (unsigned i = 0; i < m_Bs.size(); ++i) {
-            quantifier* q = qs[i];
-            unsigned num_decls = q->get_num_decls();
-            unsigned offset = all_vars.size();
-            for (unsigned j = 0; j < num_decls; ++j) {
-                all_vars.push_back(m.mk_fresh_const("V",q->get_decl_sort(j)));
-            }
-            var_subst varsubst(m, false);
-            varsubst(m_Bs[i].get(), num_decls, (expr**)(all_vars.c_ptr() + offset), C);
-            fmls.push_back(C);
-        }
-        conjs.push_back(m_A);
-        conjs.push_back(m.mk_not(m.mk_and(fmls.size(), fmls.c_ptr())));
-        // add previous instances.
-        expr* r = m.mk_and(m_Bs.size(), m_Bs.c_ptr());
-        m_trail.push_back(r);
-        expr* inst;
-        if (!m_bound.find(m_current_rule, r, inst)) {
-            TRACE("pdr", tout << "did not find: " << mk_pp(r, m) << "\n";);
-            m_trail.push_back(r);Newton Sanches
-            inst = m.mk_true();
-            m_bound.insert(m_current_rule, r, inst);
-        }
-        else {
-            TRACE("pdr", tout << "blocking: " << mk_pp(inst, m) << "\n";);
-            conjs.push_back(inst);
-        }
-        C = m.mk_and(conjs.size(), conjs.c_ptr());
-        lbool result = qe.first_elim(all_vars.size(), all_vars.c_ptr(), C, defs);
-        TRACE("pdr", tout << mk_pp(C.get(), m) << "\n" << result << "\n";);
-        if (result != l_true) {
-            return false;
-        }
-        inst = m.mk_and(inst, m.mk_not(C));
-        m_trail.push_back(inst);
-        m_bound.insert(m_current_rule, r, inst);
-        TRACE("pdr",
-              tout << "Instantiating\n";
-              for (unsigned i = 0; i < defs.size(); ++i) {
-                  tout << defs.var(i)->get_name() << " " << mk_pp(defs.def(i), m) << "\n";
-              }
-              );
-        expr_substitution sub(m);  
-        for (unsigned i = 0; i < defs.size(); ++i) {
-            sub.insert(m.mk_const(defs.var(i)), defs.def(i));
-        }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
-        rep->set_substitution(&sub);
-        for (unsigned i = 0; i < all_vars.size(); ++i) {
-            expr_ref tmp(all_vars[i].get(), m);
-            (*rep)(tmp);
-            all_vars[i] = to_app(tmp);
-            }
-        unsigned offset = 0;
-        for (unsigned i = 0; i < m_Bs.size(); ++i) {
-            quantifier* q = qs[i];
-            unsigned num_decls = q->get_num_decls();                
-            expr_ref_vector new_binding(m);
-            for (unsigned j = 0; j < num_decls; ++j) {
-                new_binding.push_back(all_vars[offset+j].get());
-            }
-            offset += num_decls;
-            add_binding(q, new_binding);
-        }
-        return true;
-    }
-
-    bool quantifier_model_checker::find_instantiations_model_based(quantifier_ref_vector const& qs, unsigned level) {
-        bool found_instance = false;
-        expr_ref C(m);
-        front_end_params fparams;
-        smt::kernel solver(m, fparams);
-        solver.assert_expr(m_A);
-        for (unsigned i = 0; i < m_Bs.size(); ++i) {
-            expr_ref_vector fresh_vars(m);
-            quantifier* q = qs[i];
-            for (unsigned j = 0; j < q->get_num_decls(); ++j) {
-                fresh_vars.push_back(m.mk_fresh_const("V",q->get_decl_sort(j)));
-            }
-            var_subst varsubst(m, false);
-            varsubst(m_Bs[i].get(), fresh_vars.size(), fresh_vars.c_ptr(), C);
-            TRACE("pdr", tout << "updated propagation formula: " << mk_pp(C,m) << "\n";);
-            
-            solver.push();
-            // TBD: what to do with the different tags when unfolding the same predicate twice?
-            solver.assert_expr(m.mk_not(C));
-            lbool result = solver.check();
-            if (result == l_true) {
-                found_instance = true;
-                model_ref mr;
-                solver.get_model(mr);                
-                TRACE("pdr", model_smt2_pp(tout, m, *mr, 0););
-                
-                expr_ref_vector insts(m);
-                for (unsigned j = 0; j < fresh_vars.size(); ++j) {
-                    expr* interp = mr->get_const_interp(to_app(fresh_vars[j].get())->get_decl());
-                    if (interp) {
-                        insts.push_back(interp);
-                    }
-                    else {
-                        insts.push_back(fresh_vars[j].get());
-                    }
-                    TRACE("pdr", tout << mk_pp(insts.back(), m) << "\n";);
-                }
-                add_binding(q, insts);
-            }
-            solver.pop(1);
-        }
-        return found_instance;
-    }
-
-
-#endif
 

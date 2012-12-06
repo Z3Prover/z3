@@ -90,6 +90,9 @@ namespace polynomial {
         factor_params();
         factor_params(unsigned max_p, unsigned p_trials, unsigned max_search_size);
         void updt_params(params_ref const & p);
+        /*
+          REG_MODULE_PARAMS('factor', polynomial::factor_params::get_param_descrs')
+        */
         static void get_param_descrs(param_descrs & r);
     };
 

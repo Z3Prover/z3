@@ -21,7 +21,7 @@ Notes:
 #include "ast_pp.h"
 
 void bv2int_rewriter_ctx::update_params(params_ref const& p) {
-    m_max_size = p.get_uint(":max-bv-size", UINT_MAX);
+    m_max_size = p.get_uint("max_bv_size", UINT_MAX);
 }
 
 struct lt_rational {

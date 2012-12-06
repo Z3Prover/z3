@@ -1,5 +1,5 @@
 #include "ast.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "simplifier.h"
 #include "qe.h"
 #include "basic_simplifier_plugin.h"
@@ -33,7 +33,7 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
     // enable_trace("bv_bit_prop");
 
     simplifier simp(m);
-    front_end_params params;
+    smt_params params;
     // params.m_quant_elim = true;
 
     std::cout << mk_pp(fml, m) << "\n";

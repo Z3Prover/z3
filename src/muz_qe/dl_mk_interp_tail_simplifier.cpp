@@ -461,6 +461,11 @@ namespace datalog {
     {
         rule_ref r(r0, m_context.get_rule_manager());
 
+        if (r->has_quantifiers()) {
+            res = r;
+            return true;
+        }
+
     start:
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();

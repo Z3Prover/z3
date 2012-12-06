@@ -140,7 +140,6 @@ int main(int argc, char ** argv) {
     TST(diff_logic);
     TST(uint_set);
     TST_ARGV(expr_rand);
-    TST(ini_file);
     TST(list);
     TST(small_object_allocator);
     TST(timeout);
@@ -167,7 +166,6 @@ int main(int argc, char ** argv) {
     TST(total_order);
     TST(dl_table);
     TST(dl_context);
-    TST(dl_smt_relation);
     TST(dl_query);
     TST(dl_util);
     TST(dl_product_relation);

@@ -79,6 +79,7 @@ static void init(strategic_solver * s) {
     s->set_tactic_for(symbol("UFBV"),      alloc(ufbv_fct));
     s->set_tactic_for(symbol("BV"),        alloc(ufbv_fct));        
     s->set_tactic_for(symbol("QF_FPA"),    alloc(qffpa_fct));
+    s->set_tactic_for(symbol("QF_FPABV"),    alloc(qffpa_fct));
     s->set_tactic_for(symbol("HORN"),      alloc(horn_fct));
 }
 

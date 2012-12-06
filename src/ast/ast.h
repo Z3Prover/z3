@@ -1350,7 +1350,8 @@ protected:
     unsigned                  m_fresh_id;
     bool                      m_debug_ref_count;
     u_map<unsigned>           m_debug_free_indices;
-    std::ostream*             m_trace_stream;
+    std::fstream*             m_trace_stream;
+    bool                      m_trace_stream_owner;
 #ifdef Z3DEBUG
     bool slow_not_contains(ast const * n);
 #endif
@@ -1361,9 +1362,13 @@ protected:
     bool coercion_needed(func_decl * decl, unsigned num_args, expr * const * args);
 
 public:
-    ast_manager(proof_gen_mode = PGM_DISABLED, std::ostream * trace_stream = NULL, bool is_format_manager = false);
+    ast_manager(proof_gen_mode = PGM_DISABLED, char const * trace_file = 0, bool is_format_manager = false);
+    ast_manager(proof_gen_mode, std::fstream * trace_stream, bool is_format_manager = false);
     ast_manager(ast_manager const & src, bool disable_proofs = false);
     ~ast_manager();
+
+    bool has_trace_stream() const { return m_trace_stream != 0; }
+    std::ostream & trace_stream() { SASSERT(has_trace_stream()); return *m_trace_stream; }
 
     void enable_int_real_coercions(bool f) { m_int_real_coercions = f; }
     bool int_real_coercions() const { return m_int_real_coercions; }

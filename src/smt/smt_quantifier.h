@@ -25,7 +25,7 @@ Revision History:
 #include"smt_types.h"
 
 class proto_model;
-struct front_end_params;
+struct smt_params;
 
 namespace smt {
     class quantifier_manager_plugin;
@@ -35,7 +35,7 @@ namespace smt {
         struct imp;
         imp *                       m_imp;
     public:
-        quantifier_manager(context & ctx, front_end_params & fp, params_ref const & p);
+        quantifier_manager(context & ctx, smt_params & fp, params_ref const & p);
         ~quantifier_manager();
         
         context & get_context() const;

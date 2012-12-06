@@ -19,6 +19,7 @@ Revision History:
 
 --*/
 #include"sat_simplifier.h"
+#include"sat_simplifier_params.hpp"
 #include"sat_solver.h"
 #include"stopwatch.h"
 #include"trace.h"
@@ -1430,45 +1431,28 @@ namespace sat {
         m_new_cls.finalize();
     }
 
-    void simplifier::updt_params(params_ref const & p) {
-        m_elim_blocked_clauses    = p.get_bool(":elim-blocked-clauses", false);
-        m_elim_blocked_clauses_at = p.get_uint(":elim-blocked-clauses-at", 2);
-        m_blocked_clause_limit    = p.get_uint(":blocked-clause-limit", 100000000);
-        m_resolution              = p.get_bool(":resolution", true);
-        m_res_limit               = p.get_uint(":resolution-limit", 500000000);
-        m_res_occ_cutoff          = p.get_uint(":res-occ-cutoff", 10);
-        m_res_occ_cutoff1         = p.get_uint(":res-occ-cutoff-range1", 8);
-        m_res_occ_cutoff2         = p.get_uint(":res-occ-cutoff-range2", 5);
-        m_res_occ_cutoff3         = p.get_uint(":res-occ-cutoff-range3", 3);
-        m_res_lit_cutoff1         = p.get_uint(":res-lit-cutoff-range1", 700);
-        m_res_lit_cutoff2         = p.get_uint(":res-lit-cutoff-range2", 400);
-        m_res_lit_cutoff3         = p.get_uint(":res-lit-cutoff-range3", 300);
-        m_res_cls_cutoff1         = p.get_uint(":res-cls-cutoff1", 100000);
-        m_res_cls_cutoff2         = p.get_uint(":res-cls-cutoff2", 700000);
-        m_subsumption             = p.get_bool(":subsumption", true);
-        m_subsumption_limit       = p.get_uint(":subsumption-limit", 100000000);
+    void simplifier::updt_params(params_ref const & _p) {
+        sat_simplifier_params p(_p);
+        m_elim_blocked_clauses    = p.elim_blocked_clauses();
+        m_elim_blocked_clauses_at = p.elim_blocked_clauses_at();
+        m_blocked_clause_limit    = p.blocked_clause_limit();
+        m_resolution              = p.resolution();
+        m_res_limit               = p.resolution_limit();
+        m_res_occ_cutoff          = p.resolution_occ_cutoff();
+        m_res_occ_cutoff1         = p.resolution_occ_cutoff_range1();
+        m_res_occ_cutoff2         = p.resolution_occ_cutoff_range2();
+        m_res_occ_cutoff3         = p.resolution_occ_cutoff_range3();
+        m_res_lit_cutoff1         = p.resolution_lit_cutoff_range1();
+        m_res_lit_cutoff2         = p.resolution_lit_cutoff_range2();
+        m_res_lit_cutoff3         = p.resolution_lit_cutoff_range3();
+        m_res_cls_cutoff1         = p.resolution_cls_cutoff1();
+        m_res_cls_cutoff2         = p.resolution_cls_cutoff2();
+        m_subsumption             = p.subsumption();
+        m_subsumption_limit       = p.subsumption_limit();
     }
 
     void simplifier::collect_param_descrs(param_descrs & r) {
-        r.insert(":elim-blocked-clauses", CPK_BOOL, "(default: false) eliminate blocked clauses.");
-        r.insert(":elim-blocked-clauses-at", CPK_UINT, "(default: 2) eliminate blocked clauses only once at the given simplification round.");
-        r.insert(":blocked-clause-limit", CPK_UINT, "(default: 100000000) maximum number of literals visited during blocked clause elimination.");
-        r.insert(":resolution", CPK_BOOL, "(default: true) eliminate boolean variables using resolution.");
-        r.insert(":resolution-limit", CPK_UINT, "(default: 500000000) approx. maximum number of literals visited during variable elimination.");
-        r.insert(":res-occ-cutoff", CPK_UINT, "(default: 10) first cutoff (on number of positive/negative occurrences) for Boolean variable elimination.");
-        r.insert(":res-occ-cutoff-range1", CPK_UINT, "(default: 8) second cutoff (number of positive/negative occurrences) for Boolean variable elimination, for problems containing less than :res-cls-cutoff1 clauses.");
-        r.insert(":res-occ-cutoff-range2", CPK_UINT, "(default: 5) second cutoff (number of positive/negative occurrences) for Boolean variable elimination, for problems containing more than :res-cls-cutoff1 and less than :res-cls-cutoff2.");
-        r.insert(":res-occ-cutoff-range3", CPK_UINT, "(default: 3) second cutoff (number of positive/negative occurrences) for Boolean variable elimination, for problems containing more than :res-cls-cutoff2.");
-
-        r.insert(":res-lit-cutoff-range1", CPK_UINT, "(default: 700) second cutoff (total number of literals) for Boolean variable elimination, for problems containing less than :res-cls-cutoff1 clauses.");
-        r.insert(":res-lit-cutoff-range2", CPK_UINT, "(default: 400) second cutoff (total number of literals) for Boolean variable elimination, for problems containing more than :res-cls-cutoff1 and less than :res-cls-cutoff2.");
-        r.insert(":res-lit-cutoff-range3", CPK_UINT, "(default: 300) second cutoff (total number of literals) for Boolean variable elimination, for problems containing more than :res-cls-cutoff2.");
-
-        r.insert(":res-cls-cutoff1", CPK_UINT, "(default: 100000000) limit1 - total number of problems clauses for the second cutoff of Boolean variable elimination.");
-        r.insert(":res-cls-cutoff2", CPK_UINT, "(default: 700000000) limit2 - total number of problems clauses for the second cutoff of Boolean variable elimination.");
-
-        r.insert(":subsumption", CPK_BOOL, "(default: true) eliminate subsumed clauses.");         
-        r.insert(":subsumption-limit", CPK_UINT, "(default: 100000000) approx. maximum number of literals visited during subsumption (and subsumption resolution).");
+        sat_simplifier_params::collect_param_descrs(r);
     }
         
     void simplifier::collect_statistics(statistics & st) {

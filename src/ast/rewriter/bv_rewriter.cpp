@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include"bv_rewriter.h"
+#include"bv_rewriter_params.hpp"
 #include"poly_rewriter_def.h"
 #include"ast_smt2_pp.h"
 
@@ -53,15 +54,16 @@ app * mk_extract_proc::operator()(unsigned high, unsigned low, expr * arg) {
     return r;
 }
 
-void bv_rewriter::updt_local_params(params_ref const & p) {
-    m_hi_div0 = p.get_bool(":hi-div0", true);
-    m_elim_sign_ext = p.get_bool(":elim-sign-ext", true);
-    m_mul2concat = p.get_bool(":mul2concat", false);
-    m_bit2bool = p.get_bool(":bit2bool", true);
-    m_blast_eq_value = p.get_bool(":blast-eq-value", false);
-    m_mkbv2num = p.get_bool(":mkbv2num", false);
-    m_split_concat_eq = p.get_bool(":split-concat-eq", false);
-    m_udiv2mul = p.get_bool(":udiv2mul", false);
+void bv_rewriter::updt_local_params(params_ref const & _p) {
+    bv_rewriter_params p(_p);
+    m_hi_div0 = p.hi_div0();
+    m_elim_sign_ext = p.elim_sign_ext();
+    m_mul2concat = p.mul2concat();
+    m_bit2bool = p.bit2bool();
+    m_blast_eq_value = p.blast_eq_value();
+    m_split_concat_eq = p.split_concat_eq();
+    m_udiv2mul = p.udiv2mul();
+    m_mkbv2num = _p.get_bool("mkbv2num", false);
 }
 
 void bv_rewriter::updt_params(params_ref const & p) {
@@ -71,15 +73,9 @@ void bv_rewriter::updt_params(params_ref const & p) {
 
 void bv_rewriter::get_param_descrs(param_descrs & r) {
     poly_rewriter<bv_rewriter_core>::get_param_descrs(r);
-    r.insert(":udiv2mul", CPK_BOOL, "(default: false) convert constant udiv to mul.");
-    r.insert(":split-concat-eq", CPK_BOOL, "(default: false) split equalities of the form (= (concat t1 t2) t3).");
-    r.insert(":bit2bool", CPK_BOOL, "(default: true) try to convert bit-vector terms of size 1 into Boolean terms.");
-    r.insert(":blast-eq-value", CPK_BOOL, "(default: false) blast (some) Bit-vector equalities into bits.");
-    r.insert(":elim-sign-ext", CPK_BOOL, "(default: true) expand sign-ext operator using concat and extract.");
-    r.insert(":hi-div0", CPK_BOOL, "(default: true) use the 'hardware interpretation' for division by zero (for bit-vector terms).");
-    r.insert(":mul2concat", CPK_BOOL, "(default: false) replace multiplication by a power of two into a concatenation.");
+    bv_rewriter_params::collect_param_descrs(r);
 #ifndef _EXTERNAL_RELEASE
-    r.insert(":mkbv2num", CPK_BOOL, "(default: false) convert (mkbv [true/false]*) into a numeral");         
+    r.insert("mkbv2num", CPK_BOOL, "(default: false) convert (mkbv [true/false]*) into a numeral");         
 #endif
 }
 

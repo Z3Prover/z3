@@ -37,7 +37,6 @@ namespace Microsoft.Z3
 
         #region Internal
         internal BitVecSort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
-        internal BitVecSort(Context ctx, uint size) : base(ctx, Native.Z3_mk_bv_sort(ctx.nCtx, size)) { Contract.Requires(ctx != null); }
         #endregion
     };
 }

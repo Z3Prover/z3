@@ -116,15 +116,15 @@ void bound_propagator::del_constraint(constraint & c) {
 }
     
 void bound_propagator::updt_params(params_ref const & p) {
-    m_max_refinements = p.get_uint(":bound-max-refinements", 16);
-    m_threshold       = p.get_double(":bound-threshold", 0.05);
-    m_small_interval  = p.get_double(":bound-small-interval", 128);
-    m_strict2double   = p.get_double(":strict2double", 0.00001);
+    m_max_refinements = p.get_uint("bound_max_refinements", 16);
+    m_threshold       = p.get_double("bound_threshold", 0.05);
+    m_small_interval  = p.get_double("bound_small_interval", 128);
+    m_strict2double   = p.get_double("strict2double", 0.00001);
 }
 
 void bound_propagator::get_param_descrs(param_descrs & r) {
-    r.insert(":bound-max-refinements", CPK_UINT, "(default: 16) maximum number of bound refinements (per round) for unbounded variables.");
-    r.insert(":bound-threshold", CPK_DOUBLE, "(default: 0.05) bound propagation improvement threshold ratio.");
+    r.insert("bound_max_refinements", CPK_UINT, "(default: 16) maximum number of bound refinements (per round) for unbounded variables.");
+    r.insert("bound_threshold", CPK_DOUBLE, "(default: 0.05) bound propagation improvement threshold ratio.");
 }
 
 void bound_propagator::collect_statistics(statistics & st) const {

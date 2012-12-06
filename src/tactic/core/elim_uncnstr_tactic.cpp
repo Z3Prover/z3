@@ -881,8 +881,8 @@ class elim_uncnstr_tactic : public tactic {
         }
         
         void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-            m_max_steps      = p.get_uint(":max-steps", UINT_MAX);
+            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+            m_max_steps      = p.get_uint("max_steps", UINT_MAX);
         }
         
         ast_manager & m() { return m_manager; }

@@ -1,5 +1,5 @@
 #include "expr_substitution.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "substitution.h"
 #include "unifier.h"
 #include "bv_decl_plugin.h"
@@ -10,7 +10,7 @@
 void tst_substitution()
 {
     memory::initialize(0);
-    front_end_params params;
+    smt_params params;
     params.m_model = true;
 
     enable_trace("subst_bug");

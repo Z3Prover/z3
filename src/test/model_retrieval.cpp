@@ -1,6 +1,6 @@
 
 #include "ast.h"
-#include "front_end_params.h"
+#include "smt_params.h"
 #include "smt_context.h"
 #include "arith_decl_plugin.h"
 #include "bv_decl_plugin.h"
@@ -11,7 +11,7 @@
 void tst_model_retrieval()
 {          
     memory::initialize(0);
-    front_end_params params;
+    smt_params params;
     params.m_model = true;
 
 

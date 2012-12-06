@@ -17,6 +17,7 @@ Notes:
 
 --*/
 #include"th_rewriter.h"
+#include"rewriter_params.hpp"
 #include"bool_rewriter.h"
 #include"arith_rewriter.h"
 #include"bv_rewriter.h"
@@ -56,14 +57,15 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
     ast_manager & m() const { return m_b_rw.m(); }
 
-    void updt_local_params(params_ref const & p) {
-        m_flat           = p.get_bool(":flat", true);
-        m_max_memory     = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_max_steps      = p.get_uint(":max-steps", UINT_MAX);
-        m_pull_cheap_ite = p.get_bool(":pull-cheap-ite", false);
-        m_cache_all      = p.get_bool(":cache-all", false);
-        m_push_ite_arith = p.get_bool(":push-ite-arith", false);
-        m_push_ite_bv    = p.get_bool(":push-ite-bv", false);
+    void updt_local_params(params_ref const & _p) {
+        rewriter_params p(_p);
+        m_flat           = p.flat();
+        m_max_memory     = megabytes_to_bytes(p.max_memory());
+        m_max_steps      = p.max_steps();
+        m_pull_cheap_ite = p.pull_cheap_ite();
+        m_cache_all      = p.cache_all();
+        m_push_ite_arith = p.push_ite_arith();
+        m_push_ite_bv    = p.push_ite_bv();
     }
         
     void updt_params(params_ref const & p) {
@@ -481,9 +483,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             f = to_app(t1)->get_decl();
             return unify_core(to_app(t1), t2, new_t1, new_t2, c, first);
         }
-        else {
+        else if (is_arith_bv_app(t2)) {
             f = to_app(t2)->get_decl();
             return unify_core(to_app(t2), t1, new_t2, new_t1, c, first);
+        }
+        else {
+            return false;
         }
     }
 
@@ -693,12 +698,7 @@ void th_rewriter::get_param_descrs(param_descrs & r) {
     arith_rewriter::get_param_descrs(r);
     bv_rewriter::get_param_descrs(r);
     array_rewriter::get_param_descrs(r);
-    insert_max_memory(r);
-    insert_max_steps(r);
-    r.insert(":push-ite-arith", CPK_BOOL, "(default: false) push if-then-else over arithmetic terms.");
-    r.insert(":push-ite-bv", CPK_BOOL, "(default: false) push if-then-else over bit-vector terms.");
-    r.insert(":pull-cheap-ite", CPK_BOOL, "(default: false) pull if-then-else terms when cheap.");
-    r.insert(":cache-all", CPK_BOOL, "(default: false) cache all intermediate results.");
+    rewriter_params::collect_param_descrs(r);
 }
 
 th_rewriter::~th_rewriter() {

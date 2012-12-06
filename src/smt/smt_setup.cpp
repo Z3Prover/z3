@@ -33,7 +33,7 @@ Revision History:
 
 namespace smt {
 
-    setup::setup(context & c, front_end_params & params):
+    setup::setup(context & c, smt_params & params):
         m_context(c),
         m_manager(c.get_manager()),
         m_params(params),
@@ -55,7 +55,6 @@ namespace smt {
         case CFG_LOGIC: setup_default(); break;
         case CFG_AUTO:  setup_auto_config(); break;
         }
-        TRACE("setup", ini_params p; m_params.register_params(p); p.display_params(tout););
     }
 
     void setup::setup_default() {
@@ -119,7 +118,7 @@ namespace smt {
 
     void setup::setup_auto_config() {
         static_features    st(m_manager);
-        IF_VERBOSE(100, verbose_stream() << "configuring...\n";);
+        IF_VERBOSE(100, verbose_stream() << "(smt.configuring)\n";);
         TRACE("setup", tout << "setup, logic: " << m_logic << "\n";);
         // HACK: do not collect features for QF_BV and QF_AUFBV... since they do not use them...
         if (m_logic == "QF_BV") {
@@ -129,7 +128,7 @@ namespace smt {
             setup_QF_AUFBV();
         }
         else {
-            IF_VERBOSE(100, verbose_stream() << "collecting features...\n";);
+            IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
             st.collect(m_context.get_num_asserted_formulas(), m_context.get_asserted_formulas());
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
             if (m_logic == "QF_UF") 
@@ -267,8 +266,8 @@ namespace smt {
         // Moreover, if model construction is enabled, then rational numbers may be needed
         // to compute the actual value of epsilon even if the input does not have rational numbers.
         // Example: (x < 1) and (x > 0)
-        if (m_params.m_proof_mode != PGM_DISABLED) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
+        if (m_manager.proofs_enabled()) {
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
             if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8))
@@ -344,8 +343,8 @@ namespace smt {
               tout << "RELEVANCY: " << m_params.m_relevancy_lvl << "\n";
               tout << "ARITH_EQ_BOUNDS: " << m_params.m_arith_eq_bounds << "\n";);
 
-        if (m_params.m_proof_mode != PGM_DISABLED) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
+        if (m_manager.proofs_enabled()) {
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
         else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
             TRACE("setup", tout << "using dense diff logic...\n";);
@@ -395,8 +394,8 @@ namespace smt {
                 m_params.m_lemma_gc_half          = true;
                 m_params.m_restart_strategy       = RS_GEOMETRIC;
                 
-                if (m_params.m_proof_mode != PGM_DISABLED) {
-                    m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
+                if (m_manager.proofs_enabled()) {
+                    m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
                 }
                 else if (st.m_arith_k_sum < rational(INT_MAX / 8))
                     m_context.register_plugin(alloc(smt::theory_dense_si, m_manager, m_params));
@@ -410,8 +409,8 @@ namespace smt {
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
-        if (m_params.m_proof_mode != PGM_DISABLED) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
+        if (m_manager.proofs_enabled()) {
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
         // else if (st.m_arith_k_sum < rational(INT_MAX / 8))
         //    m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
@@ -684,21 +683,11 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        if (m_params.m_proof_mode != PGM_DISABLED) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
-        }
-        else {
-            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
-        }
+        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
     }
 
     void setup::setup_mi_arith() {
-        if (m_params.m_proof_mode != PGM_DISABLED) {
-            m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
-        }
-        else {
-            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-        }
+        m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
     }
 
     void setup::setup_arith() {
@@ -735,21 +724,10 @@ namespace smt {
             }
             break;
         default:
-            if (m_params.m_proof_mode != PGM_DISABLED) {
-                m_context.register_plugin(alloc(smt::theory_mi_arith_w_proofs, m_manager, m_params));
-            }
-            // else if (m_params.m_arith_fixnum) {
-            //    if (m_params.m_arith_int_only)
-            //        m_context.register_plugin(alloc(smt::theory_si_arith, m_manager, m_params));
-            //    else
-            //        m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));
-            // }
-            else {
-                if (m_params.m_arith_int_only)
-                    m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
-                else
-                    m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
-            }
+            if (m_params.m_arith_int_only)
+                m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+            else
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         }
     }

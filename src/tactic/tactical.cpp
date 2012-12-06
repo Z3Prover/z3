@@ -87,11 +87,6 @@ public:
         m_t2->reset();
     }
 
-    virtual void set_front_end_params(front_end_params & p) {
-        m_t1->set_front_end_params(p);
-        m_t2->set_front_end_params(p);
-    }
-
     virtual void set_logic(symbol const & l) {
         m_t1->set_logic(l);
         m_t2->set_logic(l);
@@ -378,13 +373,6 @@ public:
         ptr_vector<tactic>::iterator end = m_ts.end();
         for (; it != end; ++it)
             (*it)->reset();
-    }
-
-    virtual void set_front_end_params(front_end_params & p) {
-        ptr_vector<tactic>::iterator it  = m_ts.begin();
-        ptr_vector<tactic>::iterator end = m_ts.end();
-        for (; it != end; ++it)
-            (*it)->set_front_end_params(p);
     }
 
     virtual void set_logic(symbol const & l) {
@@ -992,7 +980,6 @@ public:
     virtual void cleanup(void) { m_t->cleanup(); }
     virtual void collect_statistics(statistics & st) const { m_t->collect_statistics(st); }
     virtual void reset_statistics() { m_t->reset_statistics(); }    
-    virtual void set_front_end_params(front_end_params & p) { m_t->set_front_end_params(p); }
     virtual void updt_params(params_ref const & p) { m_t->updt_params(p); }
     virtual void collect_param_descrs(param_descrs & r) { m_t->collect_param_descrs(r); }
     virtual void reset() { m_t->reset(); }

@@ -58,6 +58,7 @@ Revision History:
 #endif
 #include"util.h"
 #include<limits.h>
+#include"z3_omp.h"
 
 struct scoped_timer::imp {
     event_handler *  m_eh;

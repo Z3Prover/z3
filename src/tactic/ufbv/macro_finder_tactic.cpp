@@ -102,7 +102,7 @@ class macro_finder_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
-            m_elim_and = p.get_bool(":elim-and", false);
+            m_elim_and = p.get_bool("elim_and", false);
         }
     };
 
@@ -131,7 +131,7 @@ public:
         insert_max_memory(r);
         insert_produce_models(r);
         insert_produce_proofs(r);
-        r.insert(":elim-and", CPK_BOOL, "(default: false) eliminate conjunctions during (internal) calls to the simplifier.");
+        r.insert("elim_and", CPK_BOOL, "(default: false) eliminate conjunctions during (internal) calls to the simplifier.");
     }
     
     virtual void operator()(goal_ref const & in, 

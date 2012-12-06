@@ -29,7 +29,6 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_converter.h"
 
-
 namespace pdr {
 
     class collect_decls_proc {
@@ -143,11 +142,10 @@ namespace pdr {
             }
         }
         smt2_pp_environment_dbg env(m);
-        pp_params params;
         func_decl_set::iterator it = aux_decls.begin(), end = aux_decls.end();
         for (; it != end; ++it) {
             func_decl* f = *it;
-            ast_smt2_pp(out, f, env, params);
+            ast_smt2_pp(out, f, env);
             out << "\n";
         }
 
@@ -168,7 +166,7 @@ namespace pdr {
         return res;
     }
     
-    manager::manager(front_end_params& fparams, params_ref const& params, ast_manager& manager) :
+    manager::manager(smt_params& fparams, fixedpoint_params const& params, ast_manager& manager) :
         m(manager),
         m_fparams(fparams),
         m_params(params),
@@ -313,17 +311,8 @@ namespace pdr {
         else {
             return false;
         }
-    }
-    
-    
-    interpolant_provider& manager::get_interpolator() {
-        if(!m_interpolator) {
-            m_interpolator = interpolant_provider::mk(m, get_params());
-        }
-        return *m_interpolator;
-    }
-    
-    
+    }       
+        
     bool manager::implication_surely_holds(expr * lhs, expr * rhs, expr * bg) {
         smt::kernel sctx(m, get_fparams());
         if(bg) {

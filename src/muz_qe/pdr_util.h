@@ -28,6 +28,7 @@ Revision History:
 #include "trace.h"
 #include "vector.h"
 #include "arith_decl_plugin.h"
+#include "array_decl_plugin.h"
 #include "bv_decl_plugin.h"
 
 
@@ -56,6 +57,7 @@ namespace pdr {
     class model_evaluator {
         ast_manager&           m;
         arith_util             m_arith;
+        array_util             m_array;
         obj_map<expr,rational> m_numbers;
         expr_ref_vector        m_refs;
         obj_map<expr, expr*>   m_values;
@@ -78,7 +80,8 @@ namespace pdr {
         expr_ref_vector prune_by_cone_of_influence(ptr_vector<expr> const & formulas);
         void eval_arith(app* e);
         void eval_basic(app* e);
-        void eval_iff(app* e, expr* arg1, expr* arg2);
+        void eval_eq(app* e, expr* arg1, expr* arg2);
+        void eval_array_eq(app* e, expr* arg1, expr* arg2);
         void inherit_value(expr* e, expr* v);
         
         inline bool is_unknown(expr* x)  { return !m1.is_marked(x) && !m2.is_marked(x); }
@@ -99,9 +102,11 @@ namespace pdr {
         inline void set_value(expr* x, expr* v) { set_v(x); m_refs.push_back(v); m_values.insert(x, v); }
         
         bool check_model(ptr_vector<expr> const & formulas);
+
+        bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case);
         
     public:
-        model_evaluator(ast_manager& m) : m(m), m_arith(m), m_refs(m) {}
+        model_evaluator(ast_manager& m) : m(m), m_arith(m), m_array(m), m_refs(m) {}
             
         /**
            \brief extract equalities from model that suffice to satisfy formula.
@@ -118,12 +123,15 @@ namespace pdr {
        */
        expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, model_ref& mdl);
 
-
-       // for_each_expr visitor.
+       /** 
+           for_each_expr visitor.
+       */
        void operator()(expr* e) {} 
-    };
 
-    void get_value_from_model(const model_core & mdl, func_decl * f, expr_ref& res);
+       expr_ref eval(model_ref& mdl, expr* e);
+
+       expr_ref eval(model_ref& mdl, func_decl* d);
+    };
 
     /**
        \brief replace variables that are used in many disequalities by

@@ -58,7 +58,7 @@ namespace smt {
            \remark if negate == true, then the hypothesis is actually (not (= lhs rhs))
         */
         proof * mk_hypothesis(ast_manager & m, app * eq, bool negate, expr * lhs, expr * rhs) {
-            SASSERT(m.is_eq(eq));
+            SASSERT(m.is_eq(eq) || m.is_iff(eq));
             SASSERT((eq->get_arg(0) == lhs && eq->get_arg(1) == rhs) ||
                     (eq->get_arg(0) == rhs && eq->get_arg(1) == lhs));
             app * h = negate ? m.mk_not(eq) : eq;

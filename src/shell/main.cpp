@@ -32,6 +32,8 @@ Revision History:
 #include"timeout.h"
 #include"z3_exception.h"
 #include"error_codes.h"
+#include"gparams.h"
+#include"env_params.h"
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_Z3_LOG } input_kind;
 
@@ -39,19 +41,12 @@ std::string         g_aux_input_file;
 char const *        g_input_file          = 0;
 bool                g_standard_input      = false;
 input_kind          g_input_kind          = IN_UNSPECIFIED;
-front_end_params *  g_front_end_params    = 0;
 bool                g_display_statistics  = false;
 bool                g_display_istatistics = false;
 
-#ifdef _WINDOWS
-#define OPT "/"
-#else
-#define OPT "-"
-#endif
-
 void error(const char * msg) {
     std::cerr << "Error: " << msg << "\n";
-    std::cerr << "For usage information: z3 " << OPT << "h\n";
+    std::cerr << "For usage information: z3 -h\n";
     exit(ERR_CMD_LINE);
 }
 
@@ -63,112 +58,48 @@ void display_usage() {
     std::cout << "32";
 #endif
     std::cout << " bit]. (C) Copyright 2006 Microsoft Corp.\n";
-    std::cout << "Usage: z3 [options] [" << OPT << "file:]file\n";
+    std::cout << "Usage: z3 [options] [-file:]file\n";
     std::cout << "\nInput format:\n";
-    std::cout << "  " << OPT << "smt        use parser for SMT input format.\n";
-    std::cout << "  " << OPT << "smt2       use parser for SMT 2 input format.\n";
-    std::cout << "  " << OPT << "dl         use parser for Datalog input format.\n";
-    std::cout << "  " << OPT << "dimacs     use parser for DIMACS input format.\n";
-    std::cout << "  " << OPT << "log        use parser for Z3 log input format.\n";
-    std::cout << "  " << OPT << "in         read formula from standard input.\n";
+    std::cout << "  -smt        use parser for SMT input format.\n";
+    std::cout << "  -smt2       use parser for SMT 2 input format.\n";
+    std::cout << "  -dl         use parser for Datalog input format.\n";
+    std::cout << "  -dimacs     use parser for DIMACS input format.\n";
+    std::cout << "  -log        use parser for Z3 log input format.\n";
+    std::cout << "  -in         read formula from standard input.\n";
     std::cout << "\nMiscellaneous:\n";
-    std::cout << "  " << OPT << "h, " << OPT << "?      prints this message.\n";
-    std::cout << "  " << OPT << "version    prints version number of Z3.\n";
-    std::cout << "  " << OPT << "v:level    be verbose, where <level> is the verbosity level.\n";
-    std::cout << "  " << OPT << "nw         disable warning messages.\n";
-    std::cout << "  " << OPT << "ini:file   configuration file.\n";
-    std::cout << "  " << OPT << "ini?       display all available INI file parameters.\n";
+    std::cout << "  -h, -?      prints this message.\n";
+    std::cout << "  -version    prints version number of Z3.\n";
+    std::cout << "  -v:level    be verbose, where <level> is the verbosity level.\n";
+    std::cout << "  -nw         disable warning messages.\n";
+    std::cout << "  -p          display Z3 global (and module) parameters.\n";
+    std::cout << "  -pd         display Z3 global (and module) parameter descriptions.\n";
+    std::cout << "  -pm:name    display Z3 module ('name') parameters.\n";
+    std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
     // timeout and memout are now available on Linux and OSX too.
-    std::cout << "  " << OPT << "T:timeout  set the timeout (in seconds).\n";
-    std::cout << "  " << OPT << "t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
-    std::cout << "  " << OPT << "memory:Megabytes  set a limit for virtual memory consumption.\n";
+    std::cout << "  -T:timeout  set the timeout (in seconds).\n";
+    std::cout << "  -t:timeout  set the soft timeout (in seconds). It only kills the current query.\n";
+    std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
     // 
     std::cout << "\nOutput:\n";
-    std::cout << "  " << OPT << "st         display statistics.\n";
-    std::cout << "\nSearch heuristics:\n";
-    std::cout << "  " << OPT << "rs:num     random seed.\n";
+    std::cout << "  -st         display statistics.\n";
 #if defined(Z3DEBUG) || defined(_TRACE)
     std::cout << "\nDebugging support:\n";
 #endif
 #ifdef _TRACE
-    std::cout << "  " << OPT << "tr:tag     enable trace messages tagged with <tag>.\n";
+    std::cout << "  -tr:tag     enable trace messages tagged with <tag>.\n";
 #endif
 #ifdef Z3DEBUG
-    std::cout << "  " << OPT << "dbg:tag    enable assertions tagged with <tag>.\n";
+    std::cout << "  -dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
+    std::cout << "\nParameter setting:\n";
+    std::cout << "Global and module parameters can be set in the command line.\n";
+    std::cout << "  param_name=value              for setting global parameters.\n";
+    std::cout << "  module_name.param_name=value  for setting module parameters.\n";
+    std::cout << "Use 'z3 -p' for the complete list of global and module parameters.\n";
 }
-
-class extra_params : public datalog_params {
-    bool &   m_statistics;
-public:
-    extra_params():
-        m_statistics(g_display_statistics) {
-    }
-
-    virtual ~extra_params() {}
-
-    virtual void register_params(ini_params & p) {
-        datalog_params::register_params(p);
-        p.register_bool_param("STATISTICS", m_statistics, "display statistics");
-    }
-};
-
-ini_params*         g_params = 0;
-extra_params*       g_extra_params = 0;
-bool                g_params_initialized = false;
-
-void init_params() {
-    if (!g_params_initialized) {
-        z3_bound_num_procs();
-        g_front_end_params = new front_end_params();
-        g_params = new ini_params();
-        g_extra_params = new extra_params();
-        register_verbosity_level(*g_params);
-        register_warning(*g_params);
-        register_pp_params(*g_params);
-        g_front_end_params->register_params(*g_params);
-        g_extra_params->register_params(*g_params);
-        g_params_initialized = true;
-    }
-}
-
-void del_params() {
-    if (g_front_end_params != NULL)
-        g_front_end_params->close_trace_file();
-    delete g_extra_params;
-    delete g_params;
-    delete g_front_end_params;
-    g_extra_params = 0;
-    g_params = 0;
-    g_front_end_params = 0;
-}
-
-    
-void read_ini_file(const char * file_name) {
-    std::ifstream in(file_name);
-    if (in.bad() || in.fail()) {
-        std::cerr << "Error: failed to open init file \"" << file_name << "\".\n"; 
-        exit(ERR_INI_FILE);
-    }
-    g_params->read_ini_file(in);
-}
-
-void display_ini_help() {
-    g_params->display_params(std::cout);
-}
-
-void display_config() {
-    if (g_front_end_params->m_display_config) {
-        display_ini_help();
-    }
-}
-
-void display_ini_doc() {
-    g_params->display_params_documentation(std::cout);
-}
-
+   
 void parse_cmd_line_args(int argc, char ** argv) {
     int i = 1;
     char * eq_pos = 0;
@@ -185,10 +116,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 if (i < argc - 1)
                     g_aux_input_file += " ";
             }
-            if (g_front_end_params->m_interactive) {
-                warning_msg("ignoring input file in interactive mode.");
-            }
-            else if (g_input_file) {
+            if (g_input_file) {
                 warning_msg("input file was already specified.");
             }
             else {
@@ -203,6 +131,9 @@ void parse_cmd_line_args(int argc, char ** argv) {
 #endif
             ) {
             char * opt_name = arg + 1;
+            // allow names such as --help
+            if (*opt_name == '-')
+                opt_name++;
             char * opt_arg  = 0;
             char * colon    = strchr(arg, ':');
             if (colon) {
@@ -240,86 +171,73 @@ void parse_cmd_line_args(int argc, char ** argv) {
             }
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
-                    error("option argument (/v:level) is missing.");
+                    error("option argument (-v:level) is missing.");
                 long lvl = strtol(opt_arg, 0, 10);
                 set_verbosity_level(lvl);
-            }
-            else if (strcmp(opt_name, "vldt") == 0) {
-                g_front_end_params->m_model_validate = true;
             }
             else if (strcmp(opt_name, "file") == 0) {
                 g_input_file = opt_arg;
             }
-            else if (strcmp(opt_name, "r") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/r:level) is missing.");
-                }
-                g_front_end_params->m_relevancy_lvl = strtol(opt_arg, 0, 10);
-            }
-            else if (strcmp(opt_name, "rd") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/rd:num) is missing.");
-                }
-                g_front_end_params->m_random_var_freq = static_cast<double>(strtol(opt_arg, 0, 10)) / 100.0;
-            }
-            else if (strcmp(opt_name, "rs") == 0) {
-                if (!opt_arg) {
-                    error("optional argument (/rs:num) is missing.");
-                }
-                long seed = strtol(opt_arg, 0, 10);
-                g_front_end_params->m_random_seed = seed;
-                g_front_end_params->m_arith_random_seed = seed;
-            }
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
-                    error("option argument (/T:timeout) is missing.");
+                    error("option argument (-T:timeout) is missing.");
                 long tm = strtol(opt_arg, 0, 10);
                 set_timeout(tm * 1000);
             }
             else if (strcmp(opt_name, "t") == 0) {
                 if (!opt_arg)
-                    error("option argument (/t:timeout) is missing.");
-                long tm = strtol(opt_arg, 0, 10);
-                g_front_end_params->m_soft_timeout = tm*1000;
+                    error("option argument (-t:timeout) is missing.");
+                gparams::set("timeout", opt_arg);
             }
             else if (strcmp(opt_name, "nw") == 0) {
                 enable_warning_messages(false);
             }
-            else if (strcmp(opt_name, "ini") == 0) {
-                if (!opt_arg)
-                    error("option argument (/ini:file) is missing.");
-                read_ini_file(opt_arg);
-            }
-            else if (strcmp(opt_name, "ini?") == 0) {
-                display_ini_help();
+            else if (strcmp(opt_name, "p") == 0) {
+                gparams::display(std::cout, 0, false, false);
                 exit(0);
             }
-            else if (strcmp(opt_name, "geninidoc") == 0) {
-                display_ini_doc();
+            else if (strcmp(opt_name, "pd") == 0) {
+                gparams::display(std::cout, 0, false, true);
+                exit(0);
+            }
+            else if (strcmp(opt_name, "pm") == 0) {
+                if (opt_arg) {
+                    gparams::display_module(std::cout, opt_arg);
+                }
+                else {
+                    gparams::display_modules(std::cout);
+                    std::cout << "\nUse -pm:name to display all parameters available at module 'name'\n";
+                }
+                exit(0);
+            }
+            else if (strcmp(opt_name, "pp") == 0) {
+                if (!opt_arg)
+                    error("option argument (-pp:name) is missing.");
+                gparams::display_parameter(std::cout, opt_arg);
                 exit(0);
             }
 #ifdef _TRACE
             else if (strcmp(opt_name, "tr") == 0) {
                 if (!opt_arg)
-                    error("option argument (/tr:tag) is missing.");
+                    error("option argument (-tr:tag) is missing.");
                 enable_trace(opt_arg);
             }
 #endif
 #ifdef Z3DEBUG
             else if (strcmp(opt_name, "dbg") == 0) {
                 if (!opt_arg)
-                    error("option argument (/dbg:tag) is missing.");
+                    error("option argument (-dbg:tag) is missing.");
                 enable_debug(opt_arg);
             }
 #endif
             else if (strcmp(opt_name, "memory") == 0) {
                 if (!opt_arg)
-                    error("option argument (/memory:val) is missing.");
-                g_front_end_params->m_memory_high_watermark = strtoul(opt_arg, 0, 10);
+                    error("option argument (-memory:val) is missing.");
+                gparams::set("memory_max_size", opt_arg);
             }
             else {
                 std::cerr << "Error: invalid command line option: " << arg << "\n";
-                std::cerr << "For usage information: z3 " << OPT << "h\n";
+                std::cerr << "For usage information: z3 -h\n";
                 exit(ERR_CMD_LINE);
             }
         }
@@ -327,13 +245,10 @@ void parse_cmd_line_args(int argc, char ** argv) {
             char * key   = argv[i];
             *eq_pos      = 0;
             char * value = eq_pos+1; 
-            g_params->set_param_value(key, value);
+            gparams::set(key, value);
         }
         else {
-            if (g_front_end_params->m_interactive) {
-                warning_msg("ignoring input file in interactive mode.");
-            }
-            else if (g_input_file) {
+            if (g_input_file) {
                 warning_msg("input file was already specified.");
             }
             else {
@@ -358,44 +273,18 @@ char const * get_extension(char const * file_name) {
     }
 }
 
-class global_state_initialiser {
-public:
-    global_state_initialiser() {
-        memory::initialize(0);
-#if defined(_WINDOWS) && defined(_Z3_BUILD_PARALLEL_SMT)
-        memory::mem->set_threaded_mode(true);
-#endif
-        init_params();
-    }
-
-    void reset() {
-        del_params();
-        memory::finalize();
-    }
-
-    ~global_state_initialiser() {
-        reset();
-    }
-};
-
 int main(int argc, char ** argv) {
     try{
         unsigned return_value = 0;
-        global_state_initialiser global_state;
+        memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
         parse_cmd_line_args(argc, argv);
-        memory::set_high_watermark(static_cast<size_t>(g_front_end_params->m_memory_high_watermark) * 1024 * 1024);
-        memory::set_max_size(static_cast<size_t>(g_front_end_params->m_memory_max_size) * 1024 * 1024);
-        g_front_end_params->open_trace_file();
-        DEBUG_CODE(
-                   if (g_front_end_params->m_copy_params != -1) {
-                       g_front_end_params->copy_params(g_front_end_params->m_copy_params);
-                       TRACE("copy_params", g_params->display_params(tout););
-                   });
+        env_params::updt_params();
+
         if (g_input_file && g_standard_input) {
             error("using standard input to read formula.");
         }
-        if (!g_input_file && !g_front_end_params->m_interactive && !g_standard_input) {
+        if (!g_input_file && !g_standard_input) {
             error("input file was not specified.");
         }
         
@@ -422,17 +311,17 @@ int main(int argc, char ** argv) {
 	}
         switch (g_input_kind) {
         case IN_SMTLIB:
-            return_value = read_smtlib_file(g_input_file, *g_front_end_params);
+            return_value = read_smtlib_file(g_input_file);
             break;
         case IN_SMTLIB_2:
             memory::exit_when_out_of_memory(true, "(error \"out of memory\")");
-            return_value = read_smtlib2_commands(g_input_file, *g_front_end_params);
+            return_value = read_smtlib2_commands(g_input_file);
             break;
         case IN_DIMACS:
-            return_value = read_dimacs(g_input_file, *g_front_end_params);
+            return_value = read_dimacs(g_input_file);
             break;
         case IN_DATALOG:
-            read_datalog(g_input_file, *g_extra_params, *g_front_end_params);
+            read_datalog(g_input_file);
             break;
         case IN_Z3_LOG:
             replay_z3_log(g_input_file);
@@ -440,7 +329,6 @@ int main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
-        global_state.reset();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();
 #endif

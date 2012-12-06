@@ -23,8 +23,11 @@ Small example:
 >>> s.add(y == x + 1)
 >>> s.check()
 sat
->>> s.model()
-[y = 2, x = 1]
+>>> m = s.model()
+>>> m[x]
+1
+>>> m[y]
+2
 
 Z3 exceptions:
 
@@ -169,28 +172,6 @@ class Context:
         """
         Z3_interrupt(self.ref())
         
-    def set(self, *args, **kws):
-        """Set global configuration options. 
-
-        Z3 command line options can be set using this method. 
-        The option names can be specified in different ways:
-        
-        >>> ctx = Context()
-        >>> ctx.set('WELL_SORTED_CHECK', True)
-        >>> ctx.set(':well-sorted-check', True)
-        >>> ctx.set(well_sorted_check=True)
-        """
-        if __debug__:
-            _z3_assert(len(args) % 2 == 0, "Argument list must have an even number of elements.")
-        for key, value in kws.iteritems():
-            Z3_update_param_value(self.ctx, str(key).upper(), _to_param_value(value))
-        prev = None
-        for a in args:
-            if prev == None:
-                prev = a
-            else:
-                Z3_update_param_value(self.ctx, str(prev), _to_param_value(a))
-                prev = None
 
 # Global Z3 context
 _main_ctx = None
@@ -220,16 +201,48 @@ def _get_ctx(ctx):
     else:
         return ctx
 
-def set_option(*args, **kws):
-    """Update parameters of the global context `main_ctx()`, and global configuration options of Z3Py. See `Context.set()`.
-    
-    >>> set_option(precision=10)
+def set_param(*args, **kws):
+    """Set Z3 global (or module) parameters.
+
+    >>> set_param(precision=10)
     """
+    if __debug__:
+        _z3_assert(len(args) % 2 == 0, "Argument list must have an even number of elements.")
     new_kws = {}
     for k, v in kws.iteritems():
         if not set_pp_option(k, v):
             new_kws[k] = v
-    main_ctx().set(*args, **new_kws)
+    for key, value in new_kws.iteritems():
+        Z3_global_param_set(str(key).upper(), _to_param_value(value))
+    prev = None
+    for a in args:
+        if prev == None:
+            prev = a
+        else:
+            Z3_global_param_set(str(prev), _to_param_value(a))
+            prev = None
+
+def reset_params():
+    """Reset all global (or module) parameters.
+    """
+    Z3_global_param_reset_all()
+
+def set_option(*args, **kws):
+    """Alias for 'set_param' for backward compatibility.
+    """
+    return set_param(*args, **kws)
+
+def get_param(name):
+    """Return the value of a Z3 global (or module) parameter
+
+    >>> get_param('nlsat.reorder')
+    'true'
+    """
+    ptr = (ctypes.c_char_p * 1)()
+    if Z3_global_param_get(str(name), ptr):
+        r = str(ptr[0])
+        return r
+    raise Z3Exception("failed to retrieve value for '%s'" % name)
 
 #########################################
 #
@@ -632,10 +645,10 @@ class FuncDeclRef(AstRef):
         >>> f(x, x)
         f(x, ToReal(x))
         """
-	args = _get_args(args)
+        args = _get_args(args)
         num = len(args)
         if __debug__:
-            _z3_assert(num == self.arity(), "Incorrect number of arguments")
+            _z3_assert(num == self.arity(), "Incorrect number of arguments to %s" % self)
         _args = (Ast * num)()
         saved = []
         for i in range(num):
@@ -1718,10 +1731,11 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     >>> q = Exists([x, y], f(x, y) >= x, skid="foo")
     >>> q
     Exists([x, y], f(x, y) >= x)
-    >>> Tactic('nnf')(q)
-    [[f(x!foo!1, y!foo!0) >= x!foo!1]]
-    >>> Tactic('nnf')(q).as_expr()
-    f(x!foo!3, y!foo!2) >= x!foo!3
+    >>> is_quantifier(q)
+    True
+    >>> r = Tactic('nnf')(q).as_expr()
+    >>> is_quantifier(r)
+    False
     """
     return _mk_quantifier(False, vs, body, weight, qid, skid, patterns, no_patterns)
 
@@ -1735,7 +1749,7 @@ class ArithSortRef(SortRef):
     """Real and Integer sorts."""
 
     def is_real(self):
-        """Return `True` if `self` is the integer sort.
+        """Return `True` if `self` is of the sort Real.
         
         >>> x = Real('x')
         >>> x.is_real()
@@ -1749,7 +1763,7 @@ class ArithSortRef(SortRef):
         return self.kind() == Z3_REAL_SORT
 
     def is_int(self):
-        """Return `True` if `self` is the real sort.
+        """Return `True` if `self` is of the sort Integer.
         
         >>> x = Int('x')
         >>> x.is_int()
@@ -4384,8 +4398,8 @@ def args2params(arguments, keywords, ctx=None):
     """Convert python arguments into a Z3_params object.
     A ':' is added to the keywords, and '_' is replaced with '-'
 
-    >>> args2params([':model', True, ':relevancy', 2], {'elim_and' : True})
-    (params :model 1 :relevancy 2 :elim-and 1)
+    >>> args2params(['model', True, 'relevancy', 2], {'elim_and' : True})
+    (params model 1 relevancy 2 elim_and 1)
     """
     if __debug__:
         _z3_assert(len(arguments) % 2 == 0, "Argument list must have an even number of elements.")
@@ -4398,7 +4412,6 @@ def args2params(arguments, keywords, ctx=None):
             r.set(prev, a)
             prev = None
     for k, v in keywords.iteritems():
-        k = ':' + k.replace('_', '-')
         r.set(k, v)
     return r
 
@@ -5774,8 +5787,15 @@ class Solver(Z3PPObject):
         >>> s.assert_and_track(x < 0,  p3)
         >>> print s.check()
         unsat
-        >>> print s.unsat_core()
-        [p3, p1]
+        >>> c = s.unsat_core()
+        >>> len(c)
+        2
+        >>> Bool('p1') in c
+        True
+        >>> Bool('p2') in c
+        False
+        >>> p3 in c
+        True
         """
         if isinstance(p, str):
             p = Bool(p, self.ctx)
@@ -6972,9 +6992,9 @@ def solve(*args, **keywords):
     configure it using the options in `keywords`, adds the constraints
     in `args`, and invokes check.
     
-    >>> a, b = Ints('a b')
-    >>> solve(a + b == 3, Or(a == 0, a == 1), a != 0)
-    [b = 2, a = 1]
+    >>> a = Int('a')
+    >>> solve(a > 0, a < 2)
+    [a = 1]
     """
     s = Solver()
     s.set(**keywords)

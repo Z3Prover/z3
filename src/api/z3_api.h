@@ -1234,23 +1234,97 @@ extern "C" {
     
 #ifdef CorML3
     /**
+        @name Configuration
+    */
+
+    /*@{*/
+    /**
+       \brief Set a global (or module) parameter.
+       This setting is shared by all Z3 contexts.
+       
+       When a Z3 module is initialized it will use the value of these parameters
+       when Z3_params objects are not provided.
+
+       The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
+       The character '.' is a delimiter (more later).
+       
+       The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
+       Thus, the following parameter names are considered equivalent: "pp.decimal-precision"  and "PP.DECIMAL_PRECISION".
+       
+       This function can be used to set parameters for a specific Z3 module.
+       This can be done by using <module-name>.<parameter-name>.
+       For example:
+       Z3_global_param_set('pp.decimal', 'true')
+       will set the parameter "decimal" in the module "pp" to true.
+
+       def_API('Z3_global_param_set', VOID, (_in(STRING), _in(STRING)))
+    */
+    void Z3_API Z3_global_param_set(__in Z3_string param_id, __in Z3_string param_value);
+
+
+    /**
+       \brief Restore the value of all global (and module) parameters.
+       This command will not affect already created objects (such as tactics and solvers).
+
+       \sa Z3_global_param_set
+
+       def_API('Z3_global_param_reset_all', VOID, ())
+    */
+    void Z3_API Z3_global_param_reset_all();
+    
+    /**
+       \brief Get a global (or module) parameter.
+       
+       Returns \mlonly \c None \endmlonly \conly \c Z3_FALSE
+       if the parameter value does not exist.
+
+       \sa Z3_global_param_set
+
+       The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
+
+       \remark This function cannot be invoked simultaneously from different threads without synchronization.
+       The result string stored in param_value is stored in shared location.
+
+       def_API('Z3_global_param_get', BOOL, (_in(STRING), _out(STRING)))
+    */
+    Z3_bool_opt Z3_API Z3_global_param_get(__in Z3_string param_id, __out_opt Z3_string_ptr param_value);
+
+    /*@}*/
+
+    /**
         @name Create configuration
     */
     /*@{*/
 
     /**
-       \brief Create a configuration.
+       \brief Create a configuration object for the Z3 context object.
 
        Configurations are created in order to assign parameters prior to creating 
-       contexts for Z3 interaction. For example, if the users wishes to use model
+       contexts for Z3 interaction. For example, if the users wishes to use proof
        generation, then call:
 
-       \ccode{Z3_set_param_value(cfg\, "MODEL"\, "true")}
+       \ccode{Z3_set_param_value(cfg\, "proof"\, "true")}
 
        \mlonly \remark Consider using {!mk_context_x} instead of using
        explicit configuration objects. The function {!mk_context_x}
        receives an array of string pairs. This array represents the
        configuration options. \endmlonly
+
+       \remark In previous versions of Z3, the \c Z3_config was used to store
+       global and module configurations. Now, we should use \c Z3_global_param_set.
+
+       The following parameters can be set:
+        
+          - proof  (Boolean)           Enable proof generation
+          - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+          - trace  (Boolean)           Tracing support for VCC
+          - trace_file_name (String)   Trace out file for VCC traces
+          - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+          - well_sorted_check          type checker
+          - auto_config                use heuristics to automatically select solver and configure it
+          - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+          - model_validate             validate models produced by solvers
+          - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
 
        \sa Z3_set_param_value
        \sa Z3_del_config
@@ -1271,18 +1345,14 @@ extern "C" {
     /**
        \brief Set a configuration parameter.
 
-       The list of all configuration parameters can be obtained using the Z3 executable:
-
-       \verbatim
-       z3.exe -ini?
-       \endverbatim
+       The following parameters can be set for 
 
        \sa Z3_mk_config
 
        def_API('Z3_set_param_value', VOID, (_in(CONFIG), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_set_param_value(__in Z3_config c, __in Z3_string param_id, __in Z3_string param_value);
-
+    
     /*@}*/
 #endif
 
@@ -1367,33 +1437,18 @@ extern "C" {
 #endif
 
     /**
-       \brief Update a mutable configuration parameter.
+       \brief Set a value of a context parameter.
 
-       The list of all configuration parameters can be obtained using the Z3 executable:
-
-       \verbatim
-       z3.exe -ini?
-       \endverbatim
-
-       Only a few configuration parameters are mutable once the context is created.
-       The error handler is invoked when trying to modify an immutable parameter.
-
-       \conly \sa Z3_set_param_value
-       \mlonly \sa Z3_mk_context \endmlonly
+       \sa Z3_global_param_set
 
        def_API('Z3_update_param_value', VOID, (_in(CONTEXT), _in(STRING), _in(STRING)))
     */
     void Z3_API Z3_update_param_value(__in Z3_context c, __in Z3_string param_id, __in Z3_string param_value);
 
     /**
-       \brief Get a configuration parameter.
+       \brief Return the value of a context parameter.
       
-       Returns \mlonly \c None \endmlonly \conly \c Z3_FALSE
-       if the parameter value does not exist.
-
-       \conly \sa Z3_mk_config
-       \conly \sa Z3_set_param_value
-       \mlonly \sa Z3_mk_context \endmlonly
+       \sa Z3_global_param_get
 
        def_API('Z3_get_param_value', BOOL, (_in(CONTEXT), _in(STRING), _out(STRING)))
     */
@@ -1663,7 +1718,7 @@ extern "C" {
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
 
-       \sa Z3_get_finite_domain_sort_size.
+       \sa Z3_get_finite_domain_sort_size
 
        def_API('Z3_mk_finite_domain_sort', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT64)))
     */

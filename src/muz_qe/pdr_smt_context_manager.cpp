@@ -21,7 +21,7 @@ Revision History:
 #include "has_free_vars.h"
 #include "ast_pp.h"
 #include <sstream>
-#include "front_end_params.h"
+#include "smt_params.h"
 
 namespace pdr {
 
@@ -93,10 +93,10 @@ namespace pdr {
         return m_context.get_proof();
     }
 
-    smt_context_manager::smt_context_manager(front_end_params& fp, params_ref const& p, ast_manager& m):
+    smt_context_manager::smt_context_manager(smt_params& fp, fixedpoint_params const& p, ast_manager& m):
         m_fparams(fp), 
         m(m), 
-        m_max_num_contexts(p.get_uint(":max-num-contexts", 500)), 
+        m_max_num_contexts(p.max_num_contexts()),
         m_num_contexts(0), 
         m_predicate_list(m) {
     }

@@ -50,9 +50,9 @@ class lia2pb_tactic : public tactic {
         }
     
         void updt_params_core(params_ref const & p) {
-            m_partial_lia2pb = p.get_bool(":lia2pb-partial", false);
-            m_max_bits       = p.get_uint(":lia2pb-max-bits", 32);
-            m_total_bits     = p.get_uint(":lia2pb-total-bits", 2048);
+            m_partial_lia2pb = p.get_bool("lia2pb_partial", false);
+            m_max_bits       = p.get_uint("lia2pb_max_bits", 32);
+            m_total_bits     = p.get_uint("lia2pb_total_bits", 2048);
         }
 
         void updt_params(params_ref const & p) {
@@ -325,9 +325,9 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
-        r.insert(":lia2pb-partial", CPK_BOOL, "(default: false) partial lia2pb conversion.");
-        r.insert(":lia2pb-max-bits", CPK_UINT, "(default: 32) maximum number of bits to be used (per variable) in lia2pb.");
-        r.insert(":lia2pb-total-bits", CPK_UINT, "(default: 2048) total number of bits to be used (per problem) in lia2pb.");
+        r.insert("lia2pb_partial", CPK_BOOL, "(default: false) partial lia2pb conversion.");
+        r.insert("lia2pb_max_bits", CPK_UINT, "(default: 32) maximum number of bits to be used (per variable) in lia2pb.");
+        r.insert("lia2pb_total_bits", CPK_UINT, "(default: 2048) total number of bits to be used (per problem) in lia2pb.");
     }
 
     virtual void operator()(goal_ref const & in, 

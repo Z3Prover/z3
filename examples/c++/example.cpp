@@ -143,7 +143,7 @@ void prove_example2() {
 void nonlinear_example1() {
     std::cout << "nonlinear example 1\n";
     config cfg;
-    cfg.set(":auto-config", true);
+    cfg.set("auto_config", true);
     context c(cfg);
 
     expr x = c.real_const("x");
@@ -158,12 +158,13 @@ void nonlinear_example1() {
     std::cout << s.check() << "\n";
     model m = s.get_model();
     std::cout << m << "\n";
-    c.set(":pp-decimal", true); // set decimal notation
+    set_param("pp.decimal", true); // set decimal notation
     std::cout << "model in decimal notation\n";
     std::cout << m << "\n";
-    c.set(":pp-decimal-precision", 50); // increase number of decimal places to 50.
+    set_param("pp.decimal-precision", 50); // increase number of decimal places to 50.
     std::cout << "model using 50 decimal places\n";
     std::cout << m << "\n";
+    set_param("pp.decimal", false); // disable decimal notation
 }
 
 /**
@@ -352,7 +353,7 @@ void quantifier_example() {
     
     // making sure model based quantifier instantiation is enabled.
     params p(c);
-    p.set(":mbqi", true);
+    p.set("mbqi", true);
     s.set(p);
 
     s.add(forall(x, y, f(x, y) >= 0));
@@ -468,7 +469,7 @@ void unsat_core_example3() {
 
     // enabling unsat core tracking
     params p(c);
-    p.set(":unsat-core", true);
+    p.set("unsat_core", true);
     s.set(p);
 
     // The following assertion will not be tracked.
@@ -585,7 +586,7 @@ void tactic_example4() {
     std::cout << "tactic example 4\n";
     context c;
     params p(c);
-    p.set(":mul2concat", true);
+    p.set("mul2concat", true);
     tactic t = 
         with(tactic(c, "simplify"), p) &
         tactic(c, "solve-eqs") &
@@ -628,8 +629,8 @@ void tactic_example6() {
     std::cout << "tactic example 6\n";
     context c;
     params p(c);
-    p.set(":arith-lhs", true);
-    p.set(":som", true); // sum-of-monomials normal form
+    p.set("arith_lhs", true);
+    p.set("som", true); // sum-of-monomials normal form
     solver s = 
         (with(tactic(c, "simplify"), p) &
          tactic(c, "normalize-bounds") &

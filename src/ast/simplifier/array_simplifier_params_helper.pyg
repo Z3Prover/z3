@@ -1,0 +1,6 @@
+def_module_params(class_name='array_simplifier_params_helper',
+                  module_name="old_simplify", # Parameters will be in the old_simplify module
+                  export=True,
+                  params=(
+                          ('array.canonize', BOOL, False, 'normalize array terms into normal form during simplification'),
+                          ('array.simplify', BOOL, True, 'enable/disable array simplifications')))

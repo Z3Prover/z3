@@ -33,7 +33,7 @@ array_simplifier_plugin::array_simplifier_plugin(
     ast_manager & m, 
     basic_simplifier_plugin& s, 
     simplifier& simp,
-    theory_array_params const& p) : 
+    array_simplifier_params const& p) : 
     simplifier_plugin(symbol("array"),m),
     m_util(m),
     m_simp(s),

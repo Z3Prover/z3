@@ -26,6 +26,7 @@ Revision History:
 #include"horn_subsume_model_converter.h"
 #include"replace_proof_converter.h"
 #include"substitution.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 
@@ -191,10 +192,21 @@ namespace datalog {
         scoped_coarse_proof(ast_manager& m): scoped_proof_mode(m, PGM_COARSE) {}
     };
 
+    class scoped_fine_proof : public scoped_proof_mode {
+    public:
+        scoped_fine_proof(ast_manager& m): scoped_proof_mode(m, PGM_FINE) {}
+    };
+
     class scoped_no_proof : public scoped_proof_mode {
     public:
         scoped_no_proof(ast_manager& m): scoped_proof_mode(m, PGM_DISABLED) {}
     };
+
+    class scoped_restore_proof : public scoped_proof_mode {
+    public:
+        scoped_restore_proof(ast_manager& m): scoped_proof_mode(m, m.proof_mode()) {}
+    };
+
 
     
 

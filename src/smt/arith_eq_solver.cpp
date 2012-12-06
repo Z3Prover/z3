@@ -26,8 +26,8 @@ arith_eq_solver::arith_eq_solver(ast_manager & m, params_ref const& p):
     m_util(m),
     m_arith_rewriter(m)
 {
-    m_params.set_bool(":gcd-rounding", true);
-    // m_params.set_bool(":sum", true);
+    m_params.set_bool("gcd_rounding", true);
+    // m_params.set_bool("sum", true);
     m_arith_rewriter.updt_params(m_params);
 }
 

@@ -105,7 +105,7 @@ void fpa2bv_converter::mk_value(func_decl * f, unsigned num, expr * const * args
 
         mk_triple(bv_sgn, bv_sig, biased_exp, result);
         TRACE("fpa2bv_dbg", tout << "value of [" << sign << " " << m_mpz_manager.to_string(sig) << " " << exp << "] is " 
-                                 << mk_ismt2_pp(result, m) << std::endl;);
+              << mk_ismt2_pp(result, m) << std::endl;);
                         
     }
 }
@@ -1399,6 +1399,13 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
     }
 }
 
+void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    expr * sgn, * s, * e;
+    split(args[0], sgn, s, e);    
+    result = m_bv_util.mk_concat(m_bv_util.mk_concat(sgn, e), s);
+}
+
 void fpa2bv_converter::split(expr * e, expr * & sgn, expr * & sig, expr * & exp) const {
     SASSERT(is_app_of(e, m_plugin->get_family_id(), OP_TO_FLOAT));
     SASSERT(to_app(e)->get_num_args() == 3);
@@ -2035,7 +2042,8 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
             tout << bv_mdl->get_constant(i)->get_name() << " --> " << 
                 mk_ismt2_pp(bv_mdl->get_const_interp(bv_mdl->get_constant(i)), m) << std::endl;
         );
-
+    
+    obj_hashtable<func_decl> seen;
 
     for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
          it != m_const2bv.end();
@@ -2052,6 +2060,10 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         expr * sgn = bv_mdl->get_const_interp(to_app(a->get_arg(0))->get_decl());
         expr * sig = bv_mdl->get_const_interp(to_app(a->get_arg(1))->get_decl());
         expr * exp = bv_mdl->get_const_interp(to_app(a->get_arg(2))->get_decl());
+
+        seen.insert(to_app(a->get_arg(0))->get_decl());
+        seen.insert(to_app(a->get_arg(1))->get_decl());
+        seen.insert(to_app(a->get_arg(2))->get_decl());
 
         if (!sgn && !sig && !exp)
             continue;
@@ -2080,7 +2092,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         fu.fm().set(fp_val, ebits, sbits, !mpqm.is_zero(sgn_q.to_mpq()), sig_z, exp_z);
 
         float_mdl->register_decl(var, fu.mk_value(fp_val));
-
+        
         mpzm.del(sig_z);
     }
 
@@ -2104,9 +2116,36 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
 			case BV_RM_TO_POSITIVE: float_mdl->register_decl(var, fu.mk_round_toward_positive()); break;
 			case BV_RM_TO_ZERO: 
 			default: float_mdl->register_decl(var, fu.mk_round_toward_zero());
-			}				
+			}
+            seen.insert(var);
 		}		
 	}
 
     fu.fm().del(fp_val);
+
+    // Keep all the non-float constants.
+    unsigned sz = bv_mdl->get_num_constants();
+    for (unsigned i = 0; i < sz; i++)
+    {
+        func_decl * c = bv_mdl->get_constant(i);
+        if (seen.contains(c))
+            continue;
+        float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
+    }
+
+    // And keep everything else
+    sz = bv_mdl->get_num_functions();
+    for (unsigned i = 0; i < sz; i++)
+    {
+        func_decl * c = bv_mdl->get_function(i);
+        float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
+    }
+
+    sz = bv_mdl->get_num_uninterpreted_sorts();
+    for (unsigned i = 0; i < sz; i++)
+    {
+        sort * s = bv_mdl->get_uninterpreted_sort(i);
+        ptr_vector<expr> u = bv_mdl->get_universe(s);
+        float_mdl->register_usort(s, u.size(), u.c_ptr());
+    }
 }

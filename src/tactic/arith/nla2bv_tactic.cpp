@@ -68,7 +68,7 @@ class nla2bv_tactic : public tactic {
             m_is_sat_preserving(true), 
             m_arith(m), 
             m_bv(m), 
-            m_bv2real(m, rational(p.get_uint(":nla2bv-root",2)), rational(p.get_uint(":nla2bv-divisor",2)), p.get_uint(":nla2bv-max-bv-size", UINT_MAX)),
+            m_bv2real(m, rational(p.get_uint("nla2bv_root",2)), rational(p.get_uint("nla2bv_divisor",2)), p.get_uint("nla2bv_max_bv_size", UINT_MAX)),
             m_bv2int_ctx(m, p),
             m_bounds(m), 
             m_subst(m), 
@@ -76,7 +76,7 @@ class nla2bv_tactic : public tactic {
             m_defs(m),
             m_trail(m),
             m_fmc(0) {
-            m_default_bv_size = m_num_bits = p.get_uint(":nla2bv-bv-size", 4);
+            m_default_bv_size = m_num_bits = p.get_uint("nla2bv_bv_size", 4);
         }
 
         ~imp() {}
@@ -436,10 +436,10 @@ public:
     }
 
     virtual void collect_param_descrs(param_descrs & r) { 
-        r.insert(":nla2bv-max-bv-size", CPK_UINT, "(default: inf) maximum bit-vector size used by nla2bv tactic");
-        r.insert(":nla2bv-bv-size", CPK_UINT, "(default: 4) default bit-vector size used by nla2bv tactic.");
-        r.insert(":nla2bv-root", CPK_UINT, "(default: 2) nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding.");
-        r.insert(":nla2bv-divisor", CPK_UINT, "(default: 2) nla2bv tactic parameter.");
+        r.insert("nla2bv_max_bv_size", CPK_UINT, "(default: inf) maximum bit-vector size used by nla2bv tactic");
+        r.insert("nla2bv_bv_size", CPK_UINT, "(default: 4) default bit-vector size used by nla2bv tactic.");
+        r.insert("nla2bv_root", CPK_UINT, "(default: 2) nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding.");
+        r.insert("nla2bv_divisor", CPK_UINT, "(default: 2) nla2bv tactic parameter.");
     }
     
     /**

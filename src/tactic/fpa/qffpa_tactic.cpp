@@ -26,7 +26,7 @@ Notes:
 
 tactic * mk_qffpa_tactic(ast_manager & m, params_ref const & p) {
     params_ref sat_simp_p = p;
-    sat_simp_p .set_bool(":elim-and", true);
+    sat_simp_p .set_bool("elim_and", true);
 
     return and_then(mk_simplify_tactic(m, p),
                     mk_fpa2bv_tactic(m, p),

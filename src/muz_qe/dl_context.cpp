@@ -24,18 +24,12 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"dl_table.h"
-#include"dl_sparse_table.h"
 #include"dl_table_relation.h"
-#include"dl_bound_relation.h"
-#include"dl_interval_relation.h"
-#include"dl_finite_product_relation.h"
-#include"dl_product_relation.h"
 #include"dl_rule_transformer.h"
 #include"dl_mk_coi_filter.h"
 #include"dl_mk_explanations.h"
 #include"dl_mk_filter_rules.h"
 #include"dl_mk_interp_tail_simplifier.h"
-#include"dl_mk_magic_sets.h"
 #include"dl_mk_rule_inliner.h"
 #include"dl_mk_simple_joins.h"
 #include"dl_mk_similarity_compressor.h"
@@ -44,16 +38,13 @@ Revision History:
 #include"dl_compiler.h"
 #include"dl_instruction.h"
 #include"dl_context.h"
-#include"dl_smt_relation.h"
-#ifndef _EXTERNAL_RELEASE
-#include"dl_skip_table.h"
-#endif
 #include"for_each_expr.h"
 #include"ast_smt_pp.h"
 #include"ast_smt2_pp.h"
 #include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
+#include"dl_mk_array_blast.h"
 #include"datatype_decl_plugin.h"
 #include"expr_abstract.h"
 
@@ -189,7 +180,6 @@ namespace datalog {
         virtual ~restore_rules() {}
         
         virtual void undo(context& ctx) {
-            ctx.reset_tables();
             ctx.replace_rules(*m_old_rules);
             reset();
         }
@@ -209,7 +199,6 @@ namespace datalog {
         m_trail.push_scope();
         m_trail.push(restore_rules(m_rule_set));
         m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_background));
-        m_trail.push(restore_vec_size_trail<context,fact_vector>(m_table_facts));
     }
 
     void context::pop() {
@@ -225,14 +214,14 @@ namespace datalog {
     //
     // -----------------------------------
 
-    context::context(ast_manager & m, front_end_params& fp, params_ref const& pa):
+    context::context(ast_manager & m, smt_params& fp, params_ref const& pa):
         m(m),
         m_fparams(fp),
-        m_params(pa),
+        m_params_ref(pa),
+        m_params(m_params_ref),
         m_decl_util(m),
         m_rewriter(m),
         m_var_subst(m),
-        m_rmanager(*this),
         m_rule_manager(*this),
         m_trail(*this),
         m_pinned(m),
@@ -242,26 +231,11 @@ namespace datalog {
         m_background(m),
         m_closed(false),
         m_saturation_was_run(false),
-        m_last_result_relation(0),
         m_last_answer(m),
         m_engine(LAST_ENGINE),
         m_cancel(false) {
         
         //register plugins for builtin tables
-        get_rmanager().register_plugin(alloc(sparse_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(hashtable_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
-
-#ifndef _EXTERNAL_RELEASE
-        get_rmanager().register_plugin(alloc(skip_table_plugin, get_rmanager()));
-#endif
-
-        //register plugins for builtin relations
-        get_rmanager().register_plugin(alloc(smt_relation_plugin, get_rmanager()));
-
-        get_rmanager().register_plugin(alloc(bound_relation_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(interval_relation_plugin, get_rmanager()));
     }
 
     context::~context() {
@@ -272,14 +246,12 @@ namespace datalog {
         m_trail.reset();
         m_rule_set.reset();
         m_argument_var_names.reset();
-        m_output_preds.reset();
         m_preds.reset();
         m_preds_by_name.reset();
         reset_dealloc_values(m_sorts);
-        if (m_last_result_relation) {
-            m_last_result_relation->deallocate();
-            m_last_result_relation = 0;
-        }
+        m_pdr = 0;
+        m_bmc = 0;
+        m_rel = 0;
     }
 
     bool context::is_fact(app * head) const {
@@ -337,7 +309,7 @@ namespace datalog {
 
     expr_ref context::bind_variables(expr* fml, bool is_forall) {
         expr_ref result(m);
-        app_ref_vector const& vars = m_vars;
+        app_ref_vector const & vars = m_vars;
         if (vars.empty()) {
             result = fml;
         }
@@ -352,9 +324,19 @@ namespace datalog {
                 svector<symbol> names;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
                     if (!sorts[i]) {
-                        sorts[i] = vars[i]->get_decl()->get_range();
+                        if (i < vars.size()) { 
+                            sorts[i] = vars[i]->get_decl()->get_range();
+                        }
+                        else {
+                            sorts[i] = m.mk_bool_sort();
+                        }
                     }
-                    names.push_back(vars[i]->get_decl()->get_name());
+                    if (i < vars.size()) {
+                        names.push_back(vars[i]->get_decl()->get_name());
+                    }
+                    else {
+                        names.push_back(symbol(i));
+                    }
                 }
                 quantifier_ref q(m);
                 sorts.reverse();
@@ -445,59 +427,13 @@ namespace datalog {
         return e->get_data().m_value[arg_index];
     }
 
-    relation_plugin & context::get_ordinary_relation_plugin(symbol relation_name) {
-        relation_plugin * plugin = get_rmanager().get_relation_plugin(relation_name);
-        if (!plugin) {
-            std::stringstream sstm;
-            sstm << "relation plugin " << relation_name << " does not exist";
-            throw default_exception(sstm.str());
-        }
-        if (plugin->is_product_relation()) {
-            throw default_exception("cannot request product relation directly");
-        }
-        if (plugin->is_sieve_relation()) {
-            throw default_exception("cannot request sieve relation directly");
-        }
-        if (plugin->is_finite_product_relation()) {
-            throw default_exception("cannot request finite product relation directly");
-        }
-        return *plugin;
-    }
 
     void context::set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
             symbol const * relation_names) {
-        relation_manager & rmgr = get_rmanager();
-
-        family_id target_kind = null_family_id;
-        switch (relation_name_cnt) {
-        case 0: 
-            return;
-        case 1:
-            target_kind = get_ordinary_relation_plugin(relation_names[0]).get_kind();
-            break;
-        default: {
-            svector<family_id> rel_kinds; // kinds of plugins that are not table plugins
-            family_id rel_kind;           // the aggregate kind of non-table plugins
-            for (unsigned i = 0; i < relation_name_cnt; i++) {
-                relation_plugin & p = get_ordinary_relation_plugin(relation_names[i]);
-                rel_kinds.push_back(p.get_kind());                
-            }
-            if (rel_kinds.size() == 1) {
-                rel_kind = rel_kinds[0];
-            }
-            else {
-                relation_signature rel_sig;
-                //rmgr.from_predicate(pred, rel_sig);
-                product_relation_plugin & prod_plugin = product_relation_plugin::get_plugin(rmgr);
-                rel_kind = prod_plugin.get_relation_kind(rel_sig, rel_kinds);
-            }
-            target_kind = rel_kind;
-            break;
-        }       
+        if (relation_name_cnt > 0) {
+            ensure_rel();
+            m_rel->set_predicate_representation(pred, relation_name_cnt, relation_names);
         }
-
-        SASSERT(target_kind != null_family_id);
-        get_rmanager().set_predicate_kind(pred, target_kind);
     }
 
     func_decl * context::mk_fresh_head_predicate(symbol const & prefix, symbol const & suffix, 
@@ -507,19 +443,25 @@ namespace datalog {
 
         register_predicate(new_pred);
 
-        if (orig_pred) {
-            family_id target_kind = get_rmanager().get_requested_predicate_kind(orig_pred);            
-            if (target_kind != null_family_id) {
-                get_rmanager().set_predicate_kind(new_pred, target_kind);
-            }
+        if (m_rel.get()) {
+            m_rel->inherit_predicate_kind(new_pred, orig_pred);
         }
         return new_pred;
     }
 
     void context::set_output_predicate(func_decl * pred) { 
-        if (!m_output_preds.contains(pred)) {
-            m_output_preds.insert(pred);
-        }
+        ensure_rel();
+        m_rel->set_output_predicate(pred);
+    }
+
+    bool context::is_output_predicate(func_decl * pred) {
+        ensure_rel();
+        return m_rel->is_output_predicate(pred); 
+    }
+
+    const decl_set & context::get_output_predicates() { 
+        ensure_rel();
+        return m_rel->get_output_predicates();
     }
 
     void context::add_rule(expr* rl, symbol const& name) {
@@ -552,7 +494,6 @@ namespace datalog {
             throw default_exception(strm.str());
         }
         rule_ref r(rules[0].get(), rm);
-        get_rmanager().reset_saturated_marks();
         rule_ref_vector const& rls = m_rule_set.get_rules();
         rule* old_rule = 0;
         for (unsigned i = 0; i < rls.size(); ++i) {
@@ -785,7 +726,6 @@ namespace datalog {
     }
 
     void context::add_rule(rule_ref& r) {
-        get_rmanager().reset_saturated_marks();
         m_rule_set.add_rule(r);
     }
 
@@ -799,12 +739,10 @@ namespace datalog {
 
     void context::add_fact(func_decl * pred, const relation_fact & fact) {
         if (get_engine() == DATALOG_ENGINE) {
-            get_rmanager().reset_saturated_marks();
-            get_relation(pred).add_fact(fact);
-            m_table_facts.push_back(std::make_pair(pred, fact));
+            ensure_rel();
+            m_rel->add_fact(pred, fact);
         }
         else {
-            ast_manager& m = get_manager();
             expr_ref rule(m.mk_app(pred, fact.size(), (expr*const*)fact.c_ptr()), m);
             add_rule(rule, symbol::null);
         }
@@ -822,25 +760,17 @@ namespace datalog {
         add_fact(head->get_decl(), fact);
     }
 
-    bool context::can_add_table_fact(func_decl * pred) {
-        return get_relation(pred).from_table();
-    }
-
     void context::add_table_fact(func_decl * pred, const table_fact & fact) {
-        relation_base & rel0 = get_relation(pred);
-        if (get_engine() != DATALOG_ENGINE || 
-            !can_add_table_fact(pred) || 
-            !rel0.from_table()) {
+        if (get_engine() == DATALOG_ENGINE) {
+            ensure_rel();
+            m_rel->add_fact(pred, fact);
+        }
+        else {
             relation_fact rfact(m);
             for (unsigned i = 0; i < fact.size(); ++i) {
                 rfact.push_back(m_decl_util.mk_numeral(fact[i], pred->get_domain()[i]));
             }
             add_fact(pred, rfact);
-        }
-        else {
-            get_rmanager().reset_saturated_marks();
-            table_relation & rel = static_cast<table_relation &>(rel0);
-            rel.add_table_fact(fact);
         }
     }
     
@@ -944,181 +874,28 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
 
         transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
+        transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
         transform_rules(transf, mc, pc);
     }
 
     void context::collect_params(param_descrs& p) {
-        p.insert(":engine",    CPK_SYMBOL, "(default: automatically configured) select 'datalog', PDR 'pdr' engine.");
-        p.insert(":bit-blast", CPK_BOOL, "(default: false) bit-blast bit-vectors (for PDR engine).");
-        p.insert(":default-table", CPK_SYMBOL, "default table implementation: 'sparse' (default), 'hashtable', 'bitvector',  'interval'");
-        p.insert(":default-relation", CPK_SYMBOL, "default relation implementation: 'external_relation', 'pentagon'");
-
-        p.insert(":generate-explanations", CPK_BOOL, "if true, signature of relations will be extended to contain explanations for facts");
-        p.insert(":explanations-on-relation-level", CPK_BOOL, "if true, explanations are generated as history of each relation, "
-                 "rather than per fact (:generate-explanations must be set to true for this option to have any effect)");
-
-        p.insert(":magic-sets-for-queries", CPK_BOOL, "magic set transformation will be used for queries");
-        p.insert(":unbound-compressor", CPK_BOOL, "auxiliary relations will be introduced to avoid unbound variables in rule heads");
-        p.insert(":similarity-compressor", CPK_BOOL, "rules that differ only in values of constants will be merged into a single rule");
-        p.insert(":similarity-compressor-threshold", CPK_UINT, "if :dl-similiaryt-compressor is on, this value determines how many "
-                 "similar rules there must be in order for them to be merged");
-
-        p.insert(":all-or-nothing-deltas", CPK_BOOL, "compile rules so that it is enough for the delta relation in union and widening "
-                 "operations to determine only whether the updated relation was modified or not");
-        p.insert(":compile-with-widening", CPK_BOOL, "widening will be used to compile recursive rules");
-        p.insert(":eager-emptiness-checking", CPK_BOOL, "emptiness of affected relations will be checked after each instruction, "
-                 "so that we may ommit unnecessary instructions");
-        p.insert(":default-table-checked", CPK_BOOL,
-            "if true, the detault table will be :default-table inside a wrapper that checks that "
-             "its results are the same as of :default-table-checker table");
-
-
-        p.insert(":initial-restart-timeout", CPK_UINT, "length of saturation run before the first restart (in ms); zero means no restarts");
-        p.insert(":restart-timeout-quotient", CPK_UINT, "restart timeout will be multiplied by this number after each restart");
-        p.insert(":use-map-names", CPK_BOOL, "use names from map files when displaying tuples");
-
-        p.insert(":output-profile", CPK_BOOL, "determines whether profile informations should be output when outputting Datalog rules or instructions");
-        p.insert(":output-tuples", CPK_BOOL, "determines whether tuples for output predicates should be output");
-        p.insert(":profile-timeout-milliseconds", CPK_UINT, "instructions and rules that took less than the threshold will not be printed when printed the instruction/rule list");
-                      
-        p.insert(":print-with-fixedpoint-extensions", CPK_BOOL, "(default true) use SMT-LIB2 fixedpoint extensions, instead of pure SMT2, when printing rules");
-        
-        PRIVATE_PARAMS(
-            p.insert(":dbg-fpr-nonempty-relation-signature", CPK_BOOL, 
-                              "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
-                              "by putting in half of the table columns, if it would have been empty otherwise");
-        
-            p.insert(":smt-relation-ground-recursive", CPK_BOOL, "Ensure recursive relation is ground in union");
-        );
-        
-        p.insert(":fix-unbound-vars", CPK_BOOL, "fix unbound variables in tail");
-        p.insert(":default-table-checker", CPK_SYMBOL, "see :default-table-checked");
-        p.insert(":inline-linear", CPK_BOOL, "(default true) try linear inlining method");
-        p.insert(":inline-eager", CPK_BOOL, "(default true) try eager inlining of rules");
-        PRIVATE_PARAMS(p.insert(":inline-linear-branch", CPK_BOOL, "try linear inlining method with potential expansion"););
-
-        pdr::dl_interface::collect_params(p);
-        bmc::collect_params(p);
+        fixedpoint_params::collect_param_descrs(p);
         insert_timeout(p);
     }
 
     void context::updt_params(params_ref const& p) {
-        m_params.copy(p);
-        if (m_pdr.get()) m_pdr->updt_params();
-        
+        m_params_ref.copy(p);
+        if (m_pdr.get()) m_pdr->updt_params();        
     }
 
-    void context::collect_predicates(decl_set & res) {
-        unsigned rule_cnt = m_rule_set.get_num_rules();
-        for (unsigned rindex=0; rindex<rule_cnt; rindex++) {
-            rule * r = m_rule_set.get_rule(rindex);
-            res.insert(r->get_head()->get_decl());
-            unsigned tail_len = r->get_uninterpreted_tail_size();
-            for (unsigned tindex=0; tindex<tail_len; tindex++) {
-                res.insert(r->get_tail(tindex)->get_decl());
-            }
-        }
-        decl_set::iterator oit = m_output_preds.begin();
-        decl_set::iterator oend = m_output_preds.end();
-        for (; oit!=oend; ++oit) {
-            res.insert(*oit);
-        }
-        get_rmanager().collect_predicates(res);
+    void context::collect_predicates(decl_set& res) {
+        ensure_rel();
+        m_rel->collect_predicates(res);
     }
-    
-    void context::restrict_predicates( const decl_set & res ) {
-        set_intersection(m_output_preds, res);
-        get_rmanager().restrict_predicates(res);
-    }
-    
-    lbool context::dl_saturate() {
-        if (!m_closed) {
-            close();
-        }
-        bool time_limit = soft_timeout()!=0;
-        unsigned remaining_time_limit = soft_timeout();
-        unsigned restart_time = initial_restart_timeout();
-        
-        rule_set original_rules(get_rules());
-        decl_set original_predicates;
-        collect_predicates(original_predicates);
-                
-        instruction_block rules_code;
-        instruction_block termination_code;
-        execution_context ex_ctx(*this);
 
-        lbool result;
-
-        TRACE("dl", display(tout););
-
-        while (true) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
-            transform_rules(mc, pc);
-            compiler::compile(*this, get_rules(), rules_code, termination_code);
-
-            TRACE("dl", rules_code.display(*this, tout); );
-
-            bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
-
-            if (time_limit || restart_time!=0) {
-                unsigned timeout = time_limit ? (restart_time!=0) ? 
-                    std::min(remaining_time_limit, restart_time)
-                    : remaining_time_limit : restart_time;
-                ex_ctx.set_timelimit(timeout);
-            }
-
-            bool early_termination = !rules_code.perform(ex_ctx);
-            ex_ctx.reset_timelimit();
-            VERIFY( termination_code.perform(ex_ctx) );
-
-            rules_code.process_all_costs();
-
-            IF_VERBOSE(10, ex_ctx.report_big_relations(1000, verbose_stream()););
-        
-            if (!early_termination) {
-                m_last_status = OK;
-                result = l_true;
-                break;
-            }
-
-            if (memory::above_high_watermark()) {
-                m_last_status = MEMOUT;
-                result = l_undef;
-                break;
-            }
-            if (timeout_after_this_round || m_cancel) {
-                m_last_status = TIMEOUT;
-                result = l_undef;
-                break;
-            }
-            SASSERT(restart_time!=0);
-            if (time_limit) {
-                SASSERT(remaining_time_limit>restart_time);
-                remaining_time_limit-=restart_time;
-            }
-            uint64 new_restart_time = static_cast<uint64>(restart_time)*initial_restart_timeout();
-            if (new_restart_time>UINT_MAX) {
-                restart_time=UINT_MAX;
-            }
-            else {
-                restart_time=static_cast<unsigned>(new_restart_time);
-            }
-
-            rules_code.reset();
-            termination_code.reset();
-            ex_ctx.reset();
-            reopen();
-            restrict_predicates(original_predicates);
-            replace_rules(original_rules);
-            close();
-        }
-        reopen();
-        restrict_predicates(original_predicates);
-        replace_rules(original_rules);
-        close();
-        TRACE("dl", ex_ctx.report_big_relations(100, tout););
-        return result;
+    void context::restrict_predicates(decl_set const& res) {
+        ensure_rel();
+        m_rel->restrict_predicates(res);
     }
 
     expr_ref context::get_background_assertion() {
@@ -1141,19 +918,21 @@ namespace datalog {
         m_cancel = true;
         if (m_pdr.get()) m_pdr->cancel();
         if (m_bmc.get()) m_bmc->cancel();
+        if (m_rel.get()) m_rel->cancel();
     }
 
     void context::cleanup() {
         m_cancel = false;
         if (m_pdr.get()) m_pdr->cleanup();
         if (m_bmc.get()) m_bmc->cleanup();
+        if (m_rel.get()) m_rel->cleanup();
     }
 
     class context::engine_type_proc {
-        ast_manager& m;
-        arith_util   a;
+        ast_manager&  m;
+        arith_util    a;
         datatype_util dt;
-        DL_ENGINE    m_engine;
+        DL_ENGINE     m_engine;
 
     public:
         engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}
@@ -1176,7 +955,7 @@ namespace datalog {
     };
 
     void context::configure_engine() {
-        symbol e = m_params.get_sym(":engine", symbol());
+        symbol e = m_params.engine();
         
         if (e == symbol("datalog")) {
             m_engine = DATALOG_ENGINE;
@@ -1220,7 +999,7 @@ namespace datalog {
         
         switch(get_engine()) {
         case DATALOG_ENGINE:
-            return dl_query(query);
+            return rel_query(query);
         case PDR_ENGINE:
         case QPDR_ENGINE:
             return pdr_query(query);
@@ -1229,18 +1008,14 @@ namespace datalog {
             return bmc_query(query);
         default:
             UNREACHABLE();
-            return dl_query(query);
+            return rel_query(query);
         }
     }
 
     void context::new_query() {
         flush_add_rules();
-        if (m_last_result_relation) {
-            m_last_result_relation->deallocate();
-            m_last_result_relation = 0;
-        }
         m_last_status = OK;
-        m_last_answer = get_manager().mk_true();
+        m_last_answer = 0;
     }
 
     model_ref context::get_model() {
@@ -1273,7 +1048,6 @@ namespace datalog {
 
     lbool context::pdr_query(expr* query) {
         ensure_pdr();
-        m_last_answer = 0; 
         return m_pdr->query(query);
     }
 
@@ -1285,218 +1059,25 @@ namespace datalog {
 
     lbool context::bmc_query(expr* query) {
         ensure_bmc();
-        m_last_answer = 0;
         return m_bmc->query(query);
     }
 
-#define BEGIN_QUERY()                           \
-    rule_set original_rules(get_rules());       \
-    decl_set original_preds;                    \
-    collect_predicates(original_preds);         \
-    bool was_closed = m_closed;                 \
-    if (m_closed) {                             \
-        reopen();                               \
-    }                                           \
-
-#define END_QUERY()                             \
-    reopen();                                   \
-    replace_rules(original_rules);              \
-    restrict_predicates(original_preds);        \
-                                                \
-    if (was_closed) {                           \
-        close();                                \
-    }                                           \
-
-    lbool context::dl_query(unsigned num_rels, func_decl * const* rels) {
-        BEGIN_QUERY();
-        for (unsigned i = 0; i < num_rels; ++i) {
-            set_output_predicate(rels[i]);
+    void context::ensure_rel() {
+        if (!m_rel.get()) {
+            m_rel = alloc(rel_context, *this);
         }
-        close();
-        reset_negated_tables();
-        lbool res = dl_saturate();
+    }
 
-        switch(res) {
-        case l_true: {
-            expr_ref_vector ans(m);
-            expr_ref e(m);
-            bool some_non_empty = num_rels == 0;
-            for (unsigned i = 0; i < num_rels; ++i) {
-                relation_base& rel = get_relation(rels[i]);
-                if (!rel.empty()) {
-                    some_non_empty = true;
-                }
-                rel.to_formula(e);
-                ans.push_back(e);
-            }
-            SASSERT(!m_last_result_relation);
-            if (some_non_empty) {
-                m_last_answer = m.mk_and(ans.size(), ans.c_ptr());
-            }
-            else {
-                m_last_answer = m.mk_false();
-                res = l_false;
-            }
-            break;
-        }            
-        case l_false:
-            m_last_answer = m.mk_false();
-            break;
-        case l_undef:
-            break;
-        }
-        END_QUERY();
-        return res;
+    lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {
+        ensure_rel();
+        return m_rel->query(num_rels, rels);
     }
     
-    lbool context::dl_query(expr* query) {
-        BEGIN_QUERY();
-        rule_manager& rm = get_rule_manager();
-        rule_ref qrule(rm);
-        rule_ref_vector qrules(rm);
-        func_decl_ref query_pred(get_manager());
-        try {
-            rm.mk_query(query, query_pred, qrules, qrule);
-        }
-        catch(default_exception& exn) {
-            close();
-            m_last_status = INPUT_ERROR;
-            throw exn;
-        }
-        try {            
-            add_rules(qrules);
-        }
-        catch (default_exception& exn) {
-            close();
-            m_last_status = INPUT_ERROR;
-            throw exn;
-        }
-        
-        set_output_predicate(qrule->get_head()->get_decl());
-        close();
-        reset_negated_tables();
-        
-        if (generate_explanations()) {
-            model_converter_ref mc; // ignored in Datalog mode
-            proof_converter_ref pc; // ignored in Datalog mode
-            rule_transformer transformer(*this);
-            //expl_plugin is deallocated when transformer goes out of scope
-            mk_explanations * expl_plugin = 
-                alloc(mk_explanations, *this, explanations_on_relation_level());
-            transformer.register_plugin(expl_plugin);
-            transform_rules(transformer, mc, pc);
-
-            //we will retrieve the predicate with explanations instead of the original query predicate
-            query_pred = expl_plugin->get_e_decl(query_pred);
-            const rule_vector & query_rules = get_rules().get_predicate_rules(query_pred);
-            SASSERT(query_rules.size()==1);
-            qrule = query_rules.back();
-        }
-
-        if (magic_sets_for_queries()) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
-            rule_transformer transformer(*this);
-            transformer.register_plugin(alloc(mk_magic_sets, *this, qrule.get()));
-            transform_rules(transformer, mc, pc);
-        }
-
-        lbool res = dl_saturate();
-        
-        if (res != l_undef) {
-            m_last_result_relation = get_relation(query_pred).clone();
-            if (m_last_result_relation->empty()) {
-                res = l_false;
-                m_last_answer = m.mk_false();
-            }
-            else {
-                m_last_result_relation->to_formula(m_last_answer);
-            }
-        }
-        
-        END_QUERY();
-        return res;
+    lbool context::rel_query(expr* query) {
+        ensure_rel();
+        return m_rel->query(query);
     }
 
-    void context::reset_tables() {
-        get_rmanager().reset_saturated_marks();
-        rule_set::decl2rules::iterator it  = m_rule_set.begin_grouped_rules();
-        rule_set::decl2rules::iterator end = m_rule_set.end_grouped_rules();
-        for (; it != end; ++it) {
-            func_decl* p = it->m_key;
-            relation_base & rel = get_relation(p);
-            rel.reset();
-        }
-        for (unsigned i = 0; i < m_table_facts.size(); ++i) {
-            func_decl* pred = m_table_facts[i].first;
-            relation_fact const& fact = m_table_facts[i].second;
-            get_relation(pred).add_fact(fact);
-        }
-    }
-
-    void context::reset_negated_tables() {
-        rule_set::pred_set_vector const & pred_sets = m_rule_set.get_strats();
-        bool non_empty = false;
-        for (unsigned i = 1; i < pred_sets.size(); ++i) {
-            func_decl_set::iterator it = pred_sets[i]->begin(), end = pred_sets[i]->end();
-            for (; it != end; ++it) {
-                func_decl* pred = *it;
-                relation_base & rel = get_relation(pred);
-                if (!rel.empty()) {
-                    non_empty = true;
-                    break;
-                }
-            }
-        }
-        if (!non_empty) {
-            return;
-        }
-        // collect predicates that depend on negation.
-        func_decl_set depends_on_negation;
-        for (unsigned i = 1; i < pred_sets.size(); ++i) {
-            bool change = true;
-            while (change) {
-                change = false;
-                func_decl_set::iterator it = pred_sets[i]->begin(), end = pred_sets[i]->end();
-                for (; it != end; ++it) {
-                    func_decl* pred = *it;
-                    if (depends_on_negation.contains(pred)) {
-                        continue;
-                    }
-                    rule_vector const& rules = m_rule_set.get_predicate_rules(pred);
-                    bool inserted = false;
-                    for (unsigned j = 0; !inserted && j < rules.size(); ++j) {
-                        rule* r = rules[j];
-                        unsigned psz = r->get_positive_tail_size();
-                        unsigned tsz = r->get_uninterpreted_tail_size();
-                        if (psz < tsz) {
-                            depends_on_negation.insert(pred);
-                            change = true;
-                            inserted = true;
-                        }
-                        for (unsigned k = 0; !inserted && k < tsz; ++k) {
-                            func_decl* tail_decl = r->get_tail(k)->get_decl();
-                            if (depends_on_negation.contains(tail_decl)) {
-                                depends_on_negation.insert(pred);
-                                change   = true;
-                                inserted = true;
-                            }
-                        }
-                    }
-                }
-            }
-        }        
-        func_decl_set::iterator it = depends_on_negation.begin(), end = depends_on_negation.end();
-        for (; it != end; ++it) {
-            func_decl* pred = *it;
-            relation_base & rel = get_relation(pred);
-            
-            if (!rel.empty()) {
-                TRACE("dl", tout << "Resetting: " << mk_ismt2_pp(pred, m) << "\n";);
-                rel.reset();
-            }
-        }
-    }
     
     expr* context::get_answer_as_formula() {
         if (m_last_answer) {
@@ -1512,6 +1093,10 @@ namespace datalog {
         case QBMC_ENGINE:
             ensure_bmc();
             m_last_answer = m_bmc->get_answer();
+            return m_last_answer.get();
+        case DATALOG_ENGINE:
+            ensure_rel();
+            m_last_answer = m_rel->get_last_answer();
             return m_last_answer.get();
         default:
             UNREACHABLE();
@@ -1573,8 +1158,8 @@ namespace datalog {
     execution_result context::get_status() { return m_last_status; }
 
     bool context::result_contains_fact(relation_fact const& f) {
-        SASSERT(m_last_result_relation);
-        return m_last_result_relation->contains_fact(f);
+        ensure_rel();
+        return m_rel->result_contains_fact(f);
     }
     
     // TBD: algebraic data-types declarations will not be printed.
@@ -1612,6 +1197,23 @@ namespace datalog {
    
     void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
         expr_ref fml(m);
+        datalog::rule_manager& rm = get_rule_manager();
+        datalog::rule_ref_vector rule_refs(rm);
+        
+        // ensure that rules are all using bound variables.
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+            ptr_vector<sort> sorts;
+            get_free_vars(m_rule_fmls[i].get(), sorts);
+            if (!sorts.empty()) {
+                rm.mk_rule(m_rule_fmls[i].get(), rule_refs, m_rule_names[i]);
+                m_rule_fmls[i] = m_rule_fmls.back();
+                m_rule_names[i] = m_rule_names.back();
+                m_rule_fmls.pop_back();
+                m_rule_names.pop_back();
+                --i;
+            }
+        }
+        add_rules(rule_refs);
         rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
         for (; it != end; ++it) {
             (*it)->to_formula(fml);
@@ -1637,12 +1239,15 @@ namespace datalog {
         expr_ref fml(m);
         expr_ref_vector rules(m);
         svector<symbol> names;
-        bool use_fixedpoint_extensions = m_params.get_bool(":print-with-fixedpoint-extensions", true);
+        bool use_fixedpoint_extensions = m_params.print_with_fixedpoint_extensions();
+        bool print_low_level = m_params.print_low_level_smt2();
+        bool do_declare_vars = m_params.print_with_variable_declarations();
+
+#define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
         get_rules_as_formulas(rules, names);
 
         smt2_pp_environment_dbg env(m);
-        pp_params params;
         mk_fresh_name fresh_names;
         collect_free_funcs(num_axioms,  axioms,  visited, visitor, fresh_names);
         collect_free_funcs(rules.size(), rules.c_ptr(),   visited, visitor, fresh_names);
@@ -1672,19 +1277,19 @@ namespace datalog {
         obj_hashtable<sort>& sorts = visitor.sorts();
         obj_hashtable<sort>::iterator sit = sorts.begin(), send = sorts.end();
         for (; sit != send; ++sit) {
-            ast_smt2_pp(out, *sit, env, params);
+            PP(*sit);
         }
         for (; it != end; ++it) {
             func_decl* f = *it;
-            ast_smt2_pp(out, f, env, params);
+            PP(f);
             out << "\n";
         }
         it = rels.begin(); end = rels.end();
         for (; it != end; ++it) {
             func_decl* f = *it;
             out << "(declare-rel " << f->get_name() << " (";
-            for (unsigned i = 0; i < f->get_arity(); ++i) {
-                ast_smt2_pp(out, f->get_domain(i), env, params);
+            for (unsigned i = 0; i < f->get_arity(); ++i) {                
+                ast_smt2_pp(out, f->get_domain(i), env);
                 if (i + 1 < f->get_arity()) {
                     out << " ";
                 }
@@ -1692,7 +1297,7 @@ namespace datalog {
             out << "))\n";
         }
 
-        if (use_fixedpoint_extensions) {
+        if (use_fixedpoint_extensions && do_declare_vars) {
             declare_vars(rules, fresh_names, out);
         }
 
@@ -1702,7 +1307,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < num_axioms; ++i) {
             out << "(assert ";
-            ast_smt2_pp(out, axioms[i], env, params);
+            PP(axioms[i]);
             out << ")\n";
         }
         for (unsigned i = 0; i < rules.size(); ++i) {            
@@ -1712,27 +1317,29 @@ namespace datalog {
             if (symbol::null != nm) {
                 out << "(! ";
             }
-            if (use_fixedpoint_extensions) {
-                ast_smt2_pp(out, r, env, params);
-            }
-            else {
-                out << mk_smt_pp(r, m);
-            }
+            PP(r);
             if (symbol::null != nm) {
+                out << " :named ";
                 while (fresh_names.contains(nm)) {
                     std::ostringstream s;
                     s << nm << "!";
                     nm = symbol(s.str().c_str());                    
                 }
                 fresh_names.add(nm);
-                out << " :named " << nm << ")";
+                if (is_smt2_quoted_symbol(nm)) {
+                    out << mk_smt2_quoted_symbol(nm);
+                }
+                else {
+                    out << nm;
+                }
+                out << ")";
             }
             out << ")\n";
         }
         if (use_fixedpoint_extensions) {
             for (unsigned i = 0; i < num_queries; ++i) {
                 out << "(query ";
-                ast_smt2_pp(out, queries[i], env, params);
+                PP(queries[i]);                
                 out << ")\n";
             }
         }
@@ -1742,7 +1349,7 @@ namespace datalog {
                 out << "(assert ";
                 expr_ref q(m);
                 q = m.mk_not(queries[i]);
-                ast_smt2_pp(out, q, env, params);
+                PP(q);
                 out << ")\n";
                 out << "(check-sat)\n";
                 if (num_queries > 1) out << "(pop)\n";
@@ -1759,7 +1366,6 @@ namespace datalog {
         // 
         smt2_pp_environment_dbg env(m);
         var_subst vsubst(m, false);
-        pp_params param;
         
         expr_ref_vector fresh_vars(m), subst(m);
         expr_ref res(m);
@@ -1802,7 +1408,7 @@ namespace datalog {
                     symbol name = fresh_names.next();
                     fresh_vars.push_back(m.mk_const(name, s));
                     out << "(declare-var " << name << " ";
-                    ast_smt2_pp(out, s, env, param);
+                    ast_smt2_pp(out, s, env);
                     out << ")\n"; 
                 }
                 subst.push_back(fresh_vars[vars[max_var]].get());

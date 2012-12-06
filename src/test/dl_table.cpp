@@ -24,12 +24,12 @@ static void test_table(mk_table_fn mk_table) {
     sig.push_back(4);
     sig.push_back(8);
     sig.push_back(4);
-    front_end_params params;
+    smt_params params;
     ast_manager ast_m;
     datalog::context ctx(ast_m, params);    
-    datalog::relation_manager & m = ctx.get_rmanager();
+    datalog::relation_manager & m = ctx.get_rel_context().get_rmanager();
 
-    ctx.get_rmanager().register_plugin(alloc(datalog::bitvector_table_plugin, ctx.get_rmanager()));
+    m.register_plugin(alloc(datalog::bitvector_table_plugin, m));
 
     datalog::table_base* _tbl = mk_table(m, sig);
     datalog::table_base& table = *_tbl;

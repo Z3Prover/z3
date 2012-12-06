@@ -21,7 +21,7 @@ Author:
 struct unit_subsumption_tactic : public tactic {
     ast_manager&    m;
     params_ref      m_params;
-    front_end_params m_fparams;
+    smt_params      m_fparams;
     volatile bool   m_cancel;
     smt::context    m_context;
     expr_ref_vector m_clauses;
@@ -37,7 +37,6 @@ struct unit_subsumption_tactic : public tactic {
         m_cancel(false), 
         m_context(m, m_fparams, p),
         m_clauses(m) {
-            m_fparams.m_proof_mode = m.proof_mode();
     }
            
     void set_cancel(bool f) {

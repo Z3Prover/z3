@@ -90,10 +90,10 @@ struct ctx_simplify_tactic::imp {
     }
 
     void updt_params(params_ref const & p) {
-        m_max_memory   = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
-        m_max_steps    = p.get_uint(":max-steps", UINT_MAX);
-        m_max_depth    = p.get_uint(":max-depth", 1024);
-        m_bail_on_blowup = p.get_bool(":bail-on-blowup", false);
+        m_max_memory   = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
+        m_max_steps    = p.get_uint("max_steps", UINT_MAX);
+        m_max_depth    = p.get_uint("max_depth", 1024);
+        m_bail_on_blowup = p.get_bool("bail_on_blowup", false);
     }
 
     void checkpoint() {
@@ -519,7 +519,7 @@ void ctx_simplify_tactic::updt_params(params_ref const & p) {
 void ctx_simplify_tactic::get_param_descrs(param_descrs & r) {
     insert_max_memory(r);
     insert_max_steps(r);
-    r.insert(":max-depth", CPK_UINT, "(default: 1024) maximum term depth.");
+    r.insert("max_depth", CPK_UINT, "(default: 1024) maximum term depth.");
 }
 
 void ctx_simplify_tactic::operator()(goal_ref const & in, 

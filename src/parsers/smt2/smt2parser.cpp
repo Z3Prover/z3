@@ -28,13 +28,14 @@ Revision History:
 #include"rewriter.h"
 #include"has_free_vars.h"
 #include"ast_smt2_pp.h"
-#include"front_end_params.h"
+#include"parser_params.hpp"
 
 namespace smt2 {
     typedef cmd_exception parser_exception;
 
     class parser {
         cmd_context &        m_ctx;
+        params_ref           m_params;
         scanner              m_scanner;
         scanner::token       m_curr;
         cmd *                m_curr_cmd;
@@ -106,9 +107,14 @@ namespace smt2 {
         ast_manager & m() const { return m_ctx.m(); }
         pdecl_manager & pm() const { return m_ctx.pm(); }
         sexpr_manager & sm() const { return m_ctx.sm(); }
+
+        bool m_ignore_user_patterns;
+        bool m_ignore_bad_patterns;
+        bool m_display_error_for_vs;
         
-        bool ignore_user_patterns() const { return m_ctx.params().m_ignore_user_patterns; }
-        bool ignore_bad_patterns() const { return m_ctx.params().m_ignore_bad_patterns; }
+        bool ignore_user_patterns() const { return m_ignore_user_patterns; }
+        bool ignore_bad_patterns() const  { return m_ignore_bad_patterns; }
+        bool use_vs_format() const        { return m_display_error_for_vs; }
 
         struct psort_frame {
             psort_decl *     m_decl;
@@ -382,8 +388,6 @@ namespace smt2 {
         void check_string(char const * msg) { if (!curr_is_string()) throw parser_exception(msg); }
         void check_int(char const * msg) { if (!curr_is_int()) throw parser_exception(msg); }
         void check_float(char const * msg) { if (!curr_is_float()) throw parser_exception(msg); }
-
-        bool use_vs_format() const { return m_ctx.params().m_display_error_for_vs; }
 
         void error(unsigned line, unsigned pos, char const * msg) {
             if (use_vs_format()) {
@@ -2282,6 +2286,10 @@ namespace smt2 {
                     shrink(m_sexpr_stack, sexpr_spos);
                     m_symbol_stack.shrink(sym_spos);
                     m_num_bindings = 0;
+                    // HACK for propagating the update of parser parameters
+                    if (norm_param_name(s) == "set_option") {
+                        updt_params();
+                    }
                     return;
                 }
                 else {
@@ -2354,9 +2362,10 @@ namespace smt2 {
         }
 
     public:
-        parser(cmd_context & ctx, std::istream & is, bool interactive):
+        parser(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & p):
             m_ctx(ctx), 
-            m_scanner(ctx, is, interactive), 
+            m_params(p),
+            m_scanner(ctx, is, interactive, p), 
             m_curr(scanner::NULL_TOKEN),
             m_curr_cmd(0),
             m_num_bindings(0),
@@ -2393,10 +2402,19 @@ namespace smt2 {
             m_num_open_paren(0) {
             // the following assertion does not hold if ctx was already attached to an AST manager before the parser object is created.
             // SASSERT(!m_ctx.has_manager());
+            
+            updt_params();
         }
         
         ~parser() {
             reset_stack();
+        }
+
+        void updt_params() {
+            parser_params p(m_params);
+            m_ignore_user_patterns = p.ignore_user_patterns();
+            m_ignore_bad_patterns  = p.ignore_bad_patterns();
+            m_display_error_for_vs = p.error_for_visual_studio();
         }
   
         void reset() {
@@ -2487,8 +2505,8 @@ namespace smt2 {
     };
 };
 
-bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive) {
-    smt2::parser p(ctx, is, interactive);
+bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps) {
+    smt2::parser p(ctx, is, interactive, ps);
     return p();
 }
 

@@ -20,7 +20,7 @@ Revision History:
 #define _SMT_SETUP_H_
 
 #include"ast.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 
 struct static_features;
 namespace smt {
@@ -42,7 +42,7 @@ namespace smt {
     class setup {
         context &          m_context;
         ast_manager &      m_manager;
-        front_end_params & m_params;
+        smt_params & m_params;
         symbol             m_logic;
         bool               m_already_configured;
         void setup_auto_config();
@@ -96,7 +96,7 @@ namespace smt {
         void setup_i_arith();
         void setup_mi_arith();
     public:
-        setup(context & c, front_end_params & params);
+        setup(context & c, smt_params & params);
         void mark_already_configured() { m_already_configured = true; }
         bool already_configured() const { return m_already_configured; }
         bool set_logic(symbol logic) { 

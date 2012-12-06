@@ -33,7 +33,7 @@ namespace smt {
     struct quantifier_manager::imp {
         quantifier_manager &                   m_wrapper;
         context &                              m_context;
-        front_end_params &                     m_params;
+        smt_params &                           m_params;
         qi_queue                               m_qi_queue;
         obj_map<quantifier, quantifier_stat *> m_quantifier_stat;
         quantifier_stat_gen                    m_qstat_gen;
@@ -41,16 +41,19 @@ namespace smt {
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
         
-        imp(quantifier_manager & wrapper, context & ctx, front_end_params & p, quantifier_manager_plugin * plugin):
+        imp(quantifier_manager & wrapper, context & ctx, smt_params & p, quantifier_manager_plugin * plugin):
             m_wrapper(wrapper),
             m_context(ctx),
             m_params(p),
-            m_qi_queue(m_wrapper, ctx, p, p.m_trace_stream),
+            m_qi_queue(m_wrapper, ctx, p),
             m_qstat_gen(ctx.get_manager(), ctx.get_region()),
             m_plugin(plugin) {
             m_num_instances = 0;
             m_qi_queue.setup();
         }
+
+        bool has_trace_stream() const { return m_context.get_manager().has_trace_stream(); }
+        std::ostream & trace_stream() { return m_context.get_manager().trace_stream(); }
 
         quantifier_stat * get_stat(quantifier * q) const {
             return m_quantifier_stat.find(q);
@@ -112,8 +115,8 @@ namespace smt {
             get_stat(q)->update_max_generation(max_generation);
             fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
             if (f) {
-                if (m_params.m_trace_stream != NULL) {
-                    std::ostream & out = *m_params.m_trace_stream;
+                if (has_trace_stream()) {
+                    std::ostream & out = trace_stream();
                     out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id();
                     for (unsigned i = 0; i < num_bindings; i++) {
                         // I don't want to use mk_pp because it creates expressions for pretty printing.
@@ -211,7 +214,7 @@ namespace smt {
 
         final_check_status final_check_eh(bool full) {
             if (full) {
-                IF_VERBOSE(100, verbose_stream() << "final check 'quantifiers'...\n";);
+                IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"quantifiers\")\n";);
                 final_check_status result  = m_qi_queue.final_check_eh() ? FC_DONE : FC_CONTINUE;
                 final_check_status presult = m_plugin->final_check_eh(full);
                 if (presult != FC_DONE)
@@ -239,7 +242,7 @@ namespace smt {
 
     };
 
-    quantifier_manager::quantifier_manager(context & ctx, front_end_params & fp, params_ref const & p) {
+    quantifier_manager::quantifier_manager(context & ctx, smt_params & fp, params_ref const & p) {
         m_imp = alloc(imp, *this, ctx, fp, mk_default_plugin());
         m_imp->m_plugin->set_manager(*this);
     }
@@ -352,7 +355,7 @@ namespace smt {
         #pragma omp critical (quantifier_manager)
         {
             context & ctx        = m_imp->m_context;
-            front_end_params & p = m_imp->m_params;
+            smt_params & p = m_imp->m_params;
             quantifier_manager_plugin * plugin = m_imp->m_plugin->mk_fresh();
             dealloc(m_imp);
             m_imp = alloc(imp, *this, ctx, p, plugin);
@@ -392,7 +395,7 @@ namespace smt {
     // The default plugin uses E-matching, MBQI and quick-checker
     class default_qm_plugin : public quantifier_manager_plugin {
         quantifier_manager *        m_qm;
-        front_end_params *          m_fparams;
+        smt_params *                m_fparams;
         context *                   m_context;
         scoped_ptr<mam>             m_mam;
         scoped_ptr<mam>             m_lazy_mam;
@@ -418,8 +421,8 @@ namespace smt {
             m_fparams       = &(m_context->get_fparams());
             ast_manager & m = m_context->get_manager();
 
-            m_mam           = mk_mam(*m_context, m_fparams->m_trace_stream);
-            m_lazy_mam      = mk_mam(*m_context, m_fparams->m_trace_stream);
+            m_mam           = mk_mam(*m_context);
+            m_lazy_mam      = mk_mam(*m_context);
             m_model_finder  = alloc(model_finder, m, m_context->get_simplifier());
             m_model_checker = alloc(model_checker, m, *m_fparams, *(m_model_finder.get()));
 
@@ -559,7 +562,7 @@ namespace smt {
         virtual quantifier_manager::check_model_result
         check_model(proto_model * m, obj_map<enode, app *> const & root2value) {
             if (m_fparams->m_mbqi) {
-                IF_VERBOSE(10, verbose_stream() << "model based quantifier instantiation...\n";);
+                IF_VERBOSE(10, verbose_stream() << "(smt.mbqi)\n";);
                 if (m_model_checker->check(m, root2value)) {
                     return quantifier_manager::SAT;
                 }
@@ -591,7 +594,6 @@ namespace smt {
         final_check_status final_check_quant() {
             if (use_ematching()) {
                 if (m_lazy_matching_idx < m_fparams->m_qi_max_lazy_multipattern_matching) {
-                    IF_VERBOSE(100, verbose_stream() << "matching delayed multi-patterns... \n";);
                     m_lazy_mam->rematch();
                     m_context->push_trail(value_trail<context, unsigned>(m_lazy_matching_idx));
                     m_lazy_matching_idx++;

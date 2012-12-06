@@ -181,8 +181,6 @@ namespace Microsoft.Z3
             if (sorts.Length != names.Length)
                 throw new Z3Exception("Number of sorts does not match number of names");
 
-            IntPtr[] _patterns = AST.ArrayToNative(patterns);
-
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
                 NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (isForall) ? 1 : 0, weight,

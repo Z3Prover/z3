@@ -1,5 +1,7 @@
 *~
 *.pyc
+# .hpp files are automatically generated
+*.hpp
 .z3-trace
 # OCaml generated files
 *.a
@@ -7,6 +9,9 @@
 *.cmi
 *.cmxa
 ocamlz3
+# Java generated files
+*.class
+*.jar
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
@@ -31,12 +36,15 @@ ncscope.out
 # Commonly used directories for code
 bld_dbg/*
 bld_rel/*
+bld_dbg_x64/*
+bld_rel_x64/*
 # Auto generated files.
 config.log
 config.status
 configure
 install_tactic.cpp
 mem_initializer.cpp
+gparams_register_modules.cpp
 scripts/config-debug.mk
 scripts/config-release.mk
 src/api/api_commands.cpp
@@ -49,5 +57,6 @@ src/api/python/z3consts.py
 src/api/python/z3core.py
 src/ast/pattern/database.h
 src/util/version.h
-src/api/java/Z3Native.c
-src/api/java/Z3Native.java
+src/api/java/Native.cpp
+src/api/java/Native.java
+src/api/java/enumerations/*.java

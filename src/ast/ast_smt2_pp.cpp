@@ -24,6 +24,7 @@ Revision History:
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
 #include"algebraic_numbers.h"
+#include"pp_params.hpp"
 using namespace format_ns;
 
 #define ALIAS_PREFIX "a"
@@ -376,7 +377,6 @@ typedef app_ref_vector format_ref_vector;
 
 class smt2_printer {
     ast_manager &                         m_manager;
-    pp_params const &                     m_params;
     smt2_pp_environment &                 m_env;
 
     shared_occs                           m_soccs;
@@ -420,6 +420,16 @@ class smt2_printer {
     svector<info>                         m_info_stack;
 
     string_buffer<> m_next_name_buffer;
+
+    // Config
+    bool     m_pp_decimal;
+    unsigned m_pp_decimal_precision;
+    bool     m_pp_bv_lits;
+    bool     m_pp_bv_neg;
+    unsigned m_pp_max_depth;
+    unsigned m_pp_min_alias_size;
+    bool     m_pp_flat_assoc;
+
 
     symbol next_name(char const * prefix, unsigned & idx) {
         while (true) {
@@ -508,10 +518,10 @@ class smt2_printer {
     void pp_const(app * c) {
         format * f;
         if (m_env.get_autil().is_numeral(c) || m_env.get_autil().is_irrational_algebraic_numeral(c)) {
-            f = m_env.pp_arith_literal(c, m_params.m_pp_decimal, m_params.m_pp_decimal_precision);
+            f = m_env.pp_arith_literal(c, m_pp_decimal, m_pp_decimal_precision);
         }
         else if (m_env.get_bvutil().is_numeral(c)) {
-            f = m_env.pp_bv_literal(c, m_params.m_pp_bv_lits, m_params.m_pp_bv_neg);
+            f = m_env.pp_bv_literal(c, m_pp_bv_lits, m_pp_bv_neg);
         }
         else if (m_env.get_futil().is_value(c)) {
             f = m_env.pp_float_literal(c);
@@ -584,8 +594,8 @@ class smt2_printer {
         m_format_stack.shrink(fr.m_spos);
         m_info_stack.shrink(fr.m_spos);
         if (fr.m_use_alias && m_root != t &&
-            ((f_info.m_depth >= m_params.m_pp_max_depth) || 
-             ((f_info.m_weight >= m_params.m_pp_min_alias_size || is_quantifier(t)) && m_soccs.is_shared(t)))) {
+            ((f_info.m_depth >= m_pp_max_depth) || 
+             ((f_info.m_weight >= m_pp_min_alias_size || is_quantifier(t)) && m_soccs.is_shared(t)))) {
             symbol a = next_alias();
             TRACE("smt2_pp", tout << "a: " << a << " depth: " << f_info.m_depth << ", weight: " << f_info.m_weight 
                   << ", lvl: " << f_info.m_lvl << " t: #" << t->get_id() << "\n" << mk_ll_pp(t, m()) 
@@ -602,7 +612,7 @@ class smt2_printer {
     }
 
     bool flat_assoc(app * t, frame const & fr) {
-        if (!m_params.m_pp_flat_assoc)
+        if (!m_pp_flat_assoc)
             return false;
         func_decl * f = t->get_decl();
         if (f->is_associative() && m_frame_stack.size() >= 2 && !m_soccs.is_shared(t)) {
@@ -943,9 +953,8 @@ class smt2_printer {
     }
 
 public:
-    smt2_printer(smt2_pp_environment & env, pp_params const & params):
+    smt2_printer(smt2_pp_environment & env, params_ref const & params):
         m_manager(env.get_manager()),
-        m_params(params),
         m_env(env),
         m_soccs(m_manager),
         m_root(0),
@@ -953,6 +962,15 @@ public:
         m_next_alias_idx(1),
         m_format_stack(fm()) {
         init_expr2alias_stack();
+
+        pp_params p(params);
+        m_pp_decimal = p.decimal();
+        m_pp_decimal_precision = p.decimal_precision();
+        m_pp_bv_lits = p.bv_literals();
+        m_pp_bv_neg  = p.bv_neg();
+        m_pp_max_depth = p.max_depth();
+        m_pp_min_alias_size = p.min_alias_size();
+        m_pp_flat_assoc = p.flat_assoc();
     }
 
     ~smt2_printer() {
@@ -1003,24 +1021,24 @@ public:
 
 };
 
-void mk_smt2_format(expr * n, smt2_pp_environment & env, pp_params const & p, 
+void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p, 
                     unsigned num_vars, char const * var_prefix,
                     format_ref & r, sbuffer<symbol> & var_names) {
     smt2_printer pr(env, p);
     pr(n, num_vars, var_prefix, r, var_names);
 }
 
-void mk_smt2_format(sort * s, smt2_pp_environment & env, pp_params const & p, format_ref & r) {
+void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, format_ref & r) {
     smt2_printer pr(env, p);
     pr(s, r);
 }
 
-void mk_smt2_format(func_decl * f, smt2_pp_environment & env, pp_params const & p, format_ref & r) {
+void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ref & r) {
     smt2_printer pr(env, p);
     pr(f, r);
 }
 
-std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, pp_params const & p, unsigned indent, 
+std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p, unsigned indent, 
                             unsigned num_vars, char const * var_prefix) {
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
@@ -1032,7 +1050,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & e
     return out;
 }
 
-std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, pp_params const & p, unsigned indent) {
+std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p, unsigned indent) {
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
     sbuffer<symbol> var_names;
@@ -1043,7 +1061,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & e
     return out;
 }
 
-std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, pp_params const & p, unsigned indent) {
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p, unsigned indent) {
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
     sbuffer<symbol> var_names;
@@ -1054,7 +1072,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environmen
     return out;
 }
 
-mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, pp_params const & p, unsigned indent, unsigned num_vars, char const * var_prefix):
+mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent, unsigned num_vars, char const * var_prefix):
     m_ast(t),
     m_manager(m),
     m_params(p),
@@ -1066,7 +1084,7 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, pp_params const & p, unsigned
 mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num_vars, char const * var_prefix):
     m_ast(t),
     m_manager(m),
-    m_params(get_pp_default_params()),
+    m_params(m_empty),
     m_indent(indent),
     m_num_vars(num_vars),
     m_var_prefix(var_prefix) {

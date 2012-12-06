@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include"proto_model.h"
+#include"model_params.hpp"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
 #include"var_subst.h"
@@ -26,15 +27,16 @@ Revision History:
 #include"model_v2_pp.h"
 #include"basic_simplifier_plugin.h"
 
-proto_model::proto_model(ast_manager & m, simplifier & s, model_params const & p):
+proto_model::proto_model(ast_manager & m, simplifier & s, params_ref const & p):
     model_core(m),
-    m_params(p),
     m_asts(m),
     m_simplifier(s),
     m_afid(m.get_family_id(symbol("array"))) {
     register_factory(alloc(basic_factory, m));
     m_user_sort_factory = alloc(user_sort_factory, m);
     register_factory(m_user_sort_factory);
+    
+    m_model_partial = model_params(p).partial();
 }
 
 void proto_model::reset_finterp() {
@@ -620,7 +622,7 @@ void proto_model::complete_partial_func(func_decl * f) {
    \brief Set the (else) field of function interpretations... 
 */
 void proto_model::complete_partial_funcs() {
-    if (m_params.m_model_partial)
+    if (m_model_partial)
         return;
 
     // m_func_decls may be "expanded" when we invoke get_some_value.

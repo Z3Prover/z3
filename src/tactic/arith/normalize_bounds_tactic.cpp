@@ -44,7 +44,7 @@ class normalize_bounds_tactic : public tactic {
         }
         
         void updt_params_core(params_ref const & p) {
-            m_normalize_int_only = p.get_bool(":norm-int-only", true);
+            m_normalize_int_only = p.get_bool("norm_int_only", true);
         }
         
         void updt_params(params_ref const & p) {
@@ -173,7 +173,7 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) { 
         insert_produce_models(r);
-        r.insert(":norm-int-only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
+        r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
     }
 
     virtual void operator()(goal_ref const & in, 

@@ -47,7 +47,6 @@ Revision History:
 #include"proto_model.h"
 #include"model.h"
 #include"timer.h"
-#include"instruction_count.h"
 #include"statistics.h"
 #include"progress_callback.h"
 
@@ -72,12 +71,11 @@ namespace smt {
 
     protected:
         ast_manager &               m_manager;
-        front_end_params &          m_fparams;
+        smt_params &          m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
         volatile bool               m_cancel_flag;
         timer                       m_timer;
-        instruction_count           m_instr;
         asserted_formulas           m_asserted_formulas;
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
@@ -222,7 +220,7 @@ namespace smt {
             return m_asserted_formulas.get_simplifier();
         }
 
-        front_end_params & get_fparams() {
+        smt_params & get_fparams() {
             return m_fparams;
         }
 
@@ -653,10 +651,6 @@ namespace smt {
 
     protected:
         unsigned m_generation; //!< temporary variable used during internalization
-
-        bool expand_pos_def_only() const {
-            return m_fparams.m_nnf_mode == NNF_FULL && m_fparams.m_internalizer_nnf;
-        }
 
     public:
         bool binary_clause_opt_enabled() const {
@@ -1320,7 +1314,7 @@ namespace smt {
         void assert_expr_core(expr * e, proof * pr);
 
     public:
-        context(ast_manager & m, front_end_params & fp, params_ref const & p = params_ref());
+        context(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 
         virtual ~context();
 
@@ -1331,7 +1325,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = 0,  front_end_params * p = 0);
+        context * mk_fresh(symbol const * l = 0,  smt_params * p = 0);
 
         app * mk_eq_atom(expr * lhs, expr * rhs);
 

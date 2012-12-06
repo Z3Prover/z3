@@ -25,13 +25,13 @@ Revision History:
 #undef min
 #undef max
 #endif
-#include"front_end_params.h"
-#include"datalog_parser.h"
+#include"smt_params.h"
 #include"arith_decl_plugin.h"
 #include"dl_compiler.h"
-#include"dl_context.h"
 #include"dl_mk_filter_rules.h"
 #include"dl_finite_product_relation.h"
+#include"dl_context.h"
+#include"datalog_parser.h"
 #include"datalog_frontend.h"
 #include"timeout.h"
 
@@ -43,17 +43,17 @@ static datalog::context * g_ctx = 0;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
-static front_end_params * g_params;
+static smt_params * g_params;
 
 datalog_params::datalog_params():
     m_default_table("sparse"),
     m_default_table_checked(false)
 {}
 
-void datalog_params::register_params(ini_params& p) {
-    p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
-    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
-}
+// void datalog_params::register_params(ini_params& p) {
+//    p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
+//    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
+// }
 
 static void display_statistics(
     std::ostream& out,
@@ -61,7 +61,7 @@ static void display_statistics(
     datalog::rule_set& orig_rules,
     datalog::instruction_block& code,
     datalog::execution_context& ex_ctx,
-    front_end_params& params,
+    smt_params& params,
     bool verbose
     ) 
 {
@@ -71,9 +71,9 @@ static void display_statistics(
 
     code.process_all_costs();
     {
-        params_ref p(ctx.get_params());
-        p.set_bool(":output-profile", true);
-        p.set_uint(":profile-milliseconds-threshold", 100);
+        params_ref p;
+        p.set_bool("output_profile", true);
+        p.set_uint("profile_milliseconds_threshold", 100);
         ctx.updt_params(p);
 
         out << "--------------\n";
@@ -86,7 +86,7 @@ static void display_statistics(
 
         out << "--------------\n";
         out << "instructions  \n";
-        code.display(ctx, out);
+        code.display(ctx.get_rel_context(), out);
 
         out << "--------------\n";
         out << "big relations \n";
@@ -94,7 +94,7 @@ static void display_statistics(
     }
     out << "--------------\n";
     out << "relation sizes\n";
-    ctx.get_rmanager().display_relation_sizes(out);
+    ctx.get_rel_context().get_rmanager().display_relation_sizes(out);
 
     if (verbose) {
         out << "--------------\n";
@@ -125,23 +125,21 @@ static void on_ctrl_c(int) {
 }
 
 
-unsigned read_datalog(char const * file, datalog_params const& dl_params, front_end_params & front_end_params) {
+unsigned read_datalog(char const * file) {
     IF_VERBOSE(1, verbose_stream() << "Z3 Datalog Engine\n";);
+    datalog_params dl_params;
+    smt_params     s_params;
     ast_manager m;
     g_overall_time.start();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref params;
-    params.set_sym(":engine", symbol("datalog"));
-    params.set_sym(":default-table", dl_params.m_default_table);
-    params.set_bool(":default-table-checked", dl_params.m_default_table_checked);
+    params.set_sym("engine", symbol("datalog"));
+    params.set_sym("default_table", dl_params.m_default_table);
+    params.set_bool("default_table_checked", dl_params.m_default_table_checked);
 
-    datalog::context ctx(m, front_end_params, params);
-    size_t watermark = front_end_params.m_memory_high_watermark;
-    if (watermark == 0) {
-        memory::set_high_watermark(static_cast<size_t>(UINT_MAX));
-    }
-    datalog::relation_manager & rmgr = ctx.get_rmanager();
+    datalog::context ctx(m, s_params, params);
+    datalog::relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
     datalog::relation_plugin & inner_plg = *rmgr.get_relation_plugin(symbol("tr_hashtable"));
     SASSERT(&inner_plg);
     rmgr.register_plugin(alloc(datalog::finite_product_relation_plugin, inner_plg, rmgr));
@@ -190,7 +188,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
     g_orig_rules = &original_rules;
     g_code = &rules_code;
     g_ectx = &ex_ctx;
-    g_params = &front_end_params;
+    g_params = &s_params;
 
     try {    
         g_piece_timer.reset();
@@ -208,7 +206,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
             
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
             
-            TRACE("dl_compiler", rules_code.display(ctx, tout););
+            TRACE("dl_compiler", rules_code.display(ctx.get_rel_context(), tout););
             
             rules_code.make_annotations(ex_ctx);
             
@@ -250,10 +248,10 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
         
 
         TRACE("dl_compiler", ctx.display(tout);
-              rules_code.display(ctx, tout););
+              rules_code.display(ctx.get_rel_context(), tout););
         
-        if (ctx.get_params().get_bool(":output-tuples", true)) { 
-            ctx.display_output_facts(std::cout);
+        if (ctx.get_params().output_tuples()) {
+            ctx.get_rel_context().display_output_facts(std::cout);
         }
 
         display_statistics(
@@ -262,7 +260,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
             original_rules, 
             rules_code,
             ex_ctx,
-            front_end_params,
+            s_params,
             false);
 
     }
@@ -274,7 +272,7 @@ unsigned read_datalog(char const * file, datalog_params const& dl_params, front_
             original_rules, 
             rules_code,
             ex_ctx,
-            front_end_params,
+            s_params,
             true);
         return ERR_MEMOUT;
     }

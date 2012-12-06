@@ -34,7 +34,7 @@ Revision History:
 #include"statistics.h"
 #include"smt_failure.h"
 
-struct front_end_params;
+struct smt_params;
 class progress_callback;
 
 namespace smt {
@@ -46,7 +46,7 @@ namespace smt {
         struct imp;
         imp *  m_imp;
     public:
-        kernel(ast_manager & m, front_end_params & fp, params_ref const & p = params_ref());
+        kernel(ast_manager & m, smt_params & fp, params_ref const & p = params_ref());
 
         ~kernel();
 

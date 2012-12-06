@@ -45,7 +45,6 @@ Notes:
 #include"arith_decl_plugin.h"
 #include"for_each_expr.h"
 #include"extension_model_converter.h"
-#include"params2front_end_params.h"
 #include"ast_smt2_pp.h"
 
 class vsubst_tactic : public tactic {
@@ -93,8 +92,8 @@ class vsubst_tactic : public tactic {
             throw tactic_exception("there are no real variables");
         }
 
-        front_end_params params;
-        params2front_end_params(p, params);
+        smt_params params;
+        params.updt_params(p);
         params.m_model = false;
         flet<bool> fl1(params.m_nlquant_elim, true);
         flet<bool> fl2(params.m_nl_arith_gb, false);

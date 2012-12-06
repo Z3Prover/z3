@@ -32,7 +32,7 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"smt_justification.h"
 #include"map.h"
-#include"front_end_params.h"
+#include"smt_params.h"
 #include"arith_eq_adapter.h"
 #include"smt_model_generator.h"
 #include"numeral_factory.h"
@@ -251,7 +251,7 @@ namespace smt {
             }
         };
 
-        front_end_params &             m_params;
+        smt_params &             m_params;
         arith_util                     m_util;
         arith_eq_adapter               m_arith_eq_adapter;
         theory_diff_logic_statistics   m_stats;
@@ -305,7 +305,7 @@ namespace smt {
         void del_clause_eh(clause* cls);
 
     public:    
-        theory_diff_logic(ast_manager& m, front_end_params & params):
+        theory_diff_logic(ast_manager& m, smt_params & params):
             theory(m.get_family_id("arith")),
             m_params(params),
             m_util(m),

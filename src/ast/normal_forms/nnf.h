@@ -21,7 +21,6 @@ Notes:
 #define _NNF_H_
 
 #include"ast.h"
-#include"nnf_params.h"
 #include"params.h"
 #include"defined_names.h"
 
@@ -30,7 +29,6 @@ class nnf {
     imp *  m_imp;
 public:
     nnf(ast_manager & m, defined_names & n, params_ref const & p = params_ref());
-    nnf(ast_manager & m, defined_names & n, nnf_params & params); // for backward compatibility
     ~nnf();
     
     void operator()(expr * n,                          // [IN] expression that should be put into NNF
@@ -41,6 +39,9 @@ public:
                     );
 
     void updt_params(params_ref const & p);
+    /*
+      REG_MODULE_PARAMS('nnf', 'nnf::get_param_descrs')
+    */
     static void get_param_descrs(param_descrs & r);
 
     void cancel() { set_cancel(true); }

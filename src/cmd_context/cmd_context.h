@@ -36,8 +36,7 @@ Notes:
 #include"check_logic.h"
 #include"progress_callback.h"
 #include"scoped_ptr_vector.h"
-
-struct front_end_params;
+#include"context_params.h"
 
 class func_decls {
     func_decl * m_decls;
@@ -132,9 +131,8 @@ public:
     };
 
 protected:
+    context_params               m_params;
     bool                         m_main_ctx;
-    front_end_params *           m_params;
-    bool                         m_params_owner;
     symbol                       m_logic;
     bool                         m_interactive_mode;
     bool                         m_global_decls;
@@ -245,10 +243,13 @@ protected:
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s) { if (s != symbol::null) diagnostic_stream() << "; " << s << std::endl;}
 
+    void init_solver_options(solver * s);
+
 public:
-    cmd_context(front_end_params * params = 0, bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
+    cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
-    bool is_smtlib2_compliant() const;
+    context_params  & params() { return m_params; }
+    void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     void set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }
@@ -270,7 +271,9 @@ public:
     void set_random_seed(unsigned s) { m_random_seed = s; }
     bool produce_models() const;
     bool produce_proofs() const;
-    bool produce_unsat_cores() const { return m_produce_unsat_cores; }
+    bool produce_unsat_cores() const;
+    bool well_sorted_check_enabled() const;
+    bool validate_model_enabled() const;
     void set_produce_models(bool flag);
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
@@ -285,7 +288,6 @@ public:
     virtual ast_manager & get_ast_manager() { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
-    front_end_params & params() const { return *m_params; }
  
     void set_solver(solver * s);
     solver * get_solver() const { return m_solver.get(); }

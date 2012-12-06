@@ -81,14 +81,14 @@ class subpaving_tactic : public tactic {
         void collect_param_descrs(param_descrs & r) {        
             m_ctx->collect_param_descrs(r);
             // #ifndef _EXTERNAL_RELEASE
-            r.insert(":numeral", CPK_SYMBOL, "(default: mpq) options: mpq, mpf, hwf, mpff, mpfx.");
-            r.insert(":print-nodes", CPK_BOOL, "(default: false) display subpaving tree leaves.");
+            r.insert("numeral", CPK_SYMBOL, "(default: mpq) options: mpq, mpf, hwf, mpff, mpfx.");
+            r.insert("print_nodes", CPK_BOOL, "(default: false) display subpaving tree leaves.");
             // #endif
         }
         
         void updt_params(params_ref const & p) {
-            m_display = p.get_bool(":print-nodes", false);
-            symbol engine = p.get_sym(":numeral", symbol("mpq"));
+            m_display = p.get_bool("print_nodes", false);
+            symbol engine = p.get_sym("numeral", symbol("mpq"));
             engine_kind new_kind;
             if (engine == "mpq")
                 new_kind = MPQ;
@@ -293,16 +293,16 @@ tactic * mk_subpaving_tactic_core(ast_manager & m, params_ref const & p) {
 
 tactic * mk_subpaving_tactic(ast_manager & m, params_ref const & p) {
     params_ref simp_p  = p;
-    simp_p.set_bool(":arith-lhs", true);
-    simp_p.set_bool(":expand-power", true);
-    simp_p.set_uint(":max-power", UINT_MAX);
-    simp_p.set_bool(":som", true);
-    simp_p.set_bool(":eq2ineq", true);
-    simp_p.set_bool(":elim-and", true);
-    simp_p.set_bool(":blast-distinct", true);
+    simp_p.set_bool("arith_lhs", true);
+    simp_p.set_bool("expand_power", true);
+    simp_p.set_uint("max_power", UINT_MAX);
+    simp_p.set_bool("som", true);
+    simp_p.set_bool("eq2ineq", true);
+    simp_p.set_bool("elim_and", true);
+    simp_p.set_bool("blast_distinct", true);
 
     params_ref simp2_p = p;
-    simp2_p.set_bool(":mul-to-power", true);
+    simp2_p.set_bool("mul_to_power", true);
 
     return and_then(using_params(mk_simplify_tactic(m, p),
                                  simp_p),

@@ -23,6 +23,7 @@ Revision History:
 #include "smt_kernel.h"
 #include "sat_solver.h"
 #include "func_decl_dependencies.h"
+#include "dl_util.h"
 
 namespace pdr {
     
@@ -88,7 +89,7 @@ namespace pdr {
     };
 
     class smt_context_manager {
-        front_end_params&        m_fparams;
+        smt_params&        m_fparams;
         ast_manager&             m;
         unsigned                 m_max_num_contexts;
         ptr_vector<smt::kernel>  m_contexts;
@@ -96,7 +97,7 @@ namespace pdr {
         app_ref_vector           m_predicate_list;
         func_decl_set            m_predicate_set;        
     public:
-        smt_context_manager(front_end_params& fp, params_ref const& p, ast_manager& m);
+        smt_context_manager(smt_params& fp, fixedpoint_params const& p, ast_manager& m);
         ~smt_context_manager();
         smt_context* mk_fresh();                
         void collect_statistics(statistics& st) const;

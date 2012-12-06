@@ -17,14 +17,13 @@ Revision History:
 
 --*/
 
-#include "ast.h"
-#include "params.h"
-#include "ref_vector.h"
-#include "pdr_manager.h"
-#include "pdr_smt_context_manager.h"
 
 #ifndef _REACHABLE_CACHE_H_
 #define _REACHABLE_CACHE_H_
+#include "ast.h"
+#include "ref_vector.h"
+#include "pdr_manager.h"
+#include "pdr_smt_context_manager.h"
 
 namespace pdr {
     class reachable_cache {
@@ -48,7 +47,7 @@ namespace pdr {
         void add_disjuncted_formula(expr * f);
         
     public:
-        reachable_cache(pdr::manager & pm, params_ref const& params);
+        reachable_cache(pdr::manager & pm, fixedpoint_params const& params);
         
         void add_init(app * f)   { add_disjuncted_formula(f); }
         

@@ -1,0 +1,9 @@
+def_module_params('nnf', 
+                  description='negation normal form',
+                  export=True,
+                  params=(max_memory_param(),
+                          ('sk_hack', BOOL, False, 'hack for VCC'),
+                          ('mode', SYMBOL, 'skolem', 
+                           'NNF translation mode: skolem (skolem normal form), quantifiers (skolem normal form + quantifiers in NNF), full'),
+                          ('ignore_labels', BOOL, False, 'remove/ignore labels in the input formula, this option is ignored if proofs are enabled'),
+                          ('skolemize', BOOL, True, 'skolemize (existential force) quantifiers')))

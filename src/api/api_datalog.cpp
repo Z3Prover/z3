@@ -32,7 +32,7 @@ Revision History:
 
 namespace api {
     
-    fixedpoint_context::fixedpoint_context(ast_manager& m, front_end_params& p) : 
+    fixedpoint_context::fixedpoint_context(ast_manager& m, smt_params& p) : 
         m_state(0), 
         m_reduce_app(0), 
         m_reduce_assign(0), 
@@ -48,7 +48,7 @@ namespace api {
         if (!m.has_plugin(name)) {
             m.register_plugin(name, alloc(datalog::dl_decl_plugin));
         }        
-        datalog::relation_manager& r = m_context.get_rmanager();
+        datalog::relation_manager& r = m_context.get_rel_context().get_rmanager();
         r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
     }        
     
@@ -265,7 +265,7 @@ extern "C" {
         RESET_ERROR_CODE();
         lbool r = l_undef;
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
-        unsigned timeout = to_fixedpoint(d)->m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         api::context::set_interruptable(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
@@ -289,13 +289,13 @@ extern "C" {
         LOG_Z3_fixedpoint_query_relations(c, d, num_relations, relations);
         RESET_ERROR_CODE();
         lbool r = l_undef;
-        unsigned timeout = to_fixedpoint(d)->m_params.get_uint(":timeout", UINT_MAX);
+        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
         api::context::set_interruptable(*(mk_c(c)), eh);
         {
             scoped_timer timer(timeout, &eh);
             try {
-                r = to_fixedpoint_ref(d)->ctx().dl_query(num_relations, to_func_decls(relations));
+                r = to_fixedpoint_ref(d)->ctx().rel_query(num_relations, to_func_decls(relations));
             }
             catch (z3_exception& ex) {
                 mk_c(c)->handle_exception(ex);
@@ -344,7 +344,7 @@ extern "C" {
         std::istream& s) {
         ast_manager& m = mk_c(c)->m();
         dl_collected_cmds coll(m);
-        cmd_context ctx(&mk_c(c)->fparams(), false, &m);
+        cmd_context ctx(false, &m);
         install_dl_collect_cmds(coll, ctx);
         ctx.set_ignore_check(true);
         if (!parse_smt2_commands(ctx, s)) {

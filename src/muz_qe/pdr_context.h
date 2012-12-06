@@ -30,6 +30,7 @@ Revision History:
 #include "pdr_prop_solver.h"
 #include "pdr_reachable_cache.h"
 
+
 namespace datalog {
     class rule_set;
     class context;
@@ -116,6 +117,7 @@ namespace pdr {
         ptr_vector<datalog::rule> const& rules() const { return m_rules; }
         func_decl* sig(unsigned i) { init_sig(); return m_sig[i].get(); } // signature 
         func_decl* const* sig() { init_sig(); return m_sig.c_ptr(); }
+        unsigned  sig_size() { init_sig(); return m_sig.size(); }
         expr*  transition() const { return m_transition; }
         expr*  initial_state() const { return m_initial_state; }
         expr*  rule2tag(datalog::rule const* r) { return m_rule2tag.find(r); }
@@ -131,7 +133,6 @@ namespace pdr {
         bool is_reachable(expr* state);
         void remove_predecessors(expr_ref_vector& literals);
         void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
-        void find_predecessors(model_core const& model, ptr_vector<func_decl>& preds) const;
         datalog::rule const& find_rule(model_core const& model) const;
         expr* get_transition(datalog::rule const& r) { return m_rule2transition.find(&r); }
         ptr_vector<app>& get_aux_vars(datalog::rule const& r) { return m_rule2vars.find(&r); }
@@ -139,7 +140,7 @@ namespace pdr {
         bool propagate_to_next_level(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
 
-        lbool is_reachable(model_node& n, expr_ref_vector* core);
+        lbool is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level);
         bool is_invariant(unsigned level, expr* co_state, bool inductive, bool& assumes_level, expr_ref_vector* core = 0);
         bool check_inductive(unsigned level, expr_ref_vector& state, bool& assumes_level);
 
@@ -162,6 +163,8 @@ namespace pdr {
 
         void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars);
 
+        prop_solver& get_solver() { return m_solver; }
+
     };
 
 
@@ -176,10 +179,11 @@ namespace pdr {
         unsigned               m_orig_level;
         unsigned               m_depth;
         bool                   m_closed;
+        datalog::rule const*   m_rule;
     public:
         model_node(model_node* parent, expr_ref& state, pred_transformer& pt, unsigned level):
             m_parent(parent), m_pt(pt), m_state(state), m_model(0), 
-                m_level(level), m_orig_level(level), m_depth(0), m_closed(false) {
+                m_level(level), m_orig_level(level), m_depth(0), m_closed(false), m_rule(0) {
             if (m_parent) {
                 m_parent->m_children.push_back(this);
                 SASSERT(m_parent->m_level == level+1);
@@ -215,6 +219,9 @@ namespace pdr {
         void set_closed();     
         void set_pre_closed() { m_closed = true; }
         void reset() { m_children.reset(); }
+
+        void set_rule(datalog::rule const* r) { m_rule = r; }
+        datalog::rule* get_rule();
 
         expr_ref get_trace() const;
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);
@@ -284,8 +291,8 @@ namespace pdr {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         
-        front_end_params&    m_fparams;
-        params_ref const&    m_params;
+        smt_params&    m_fparams;
+        fixedpoint_params const&    m_params;
         ast_manager&         m;
         datalog::context*    m_context;
         manager              m_pm;  
@@ -308,7 +315,7 @@ namespace pdr {
         void close_node(model_node& n);
         void check_pre_closed(model_node& n);
         void expand_node(model_node& n);
-        lbool expand_state(model_node& n, expr_ref_vector& cube);
+        lbool expand_state(model_node& n, expr_ref_vector& cube, bool& uses_level);
         void create_children(model_node& n);
         expr_ref mk_sat_answer() const;
         expr_ref mk_unsat_answer() const;
@@ -342,14 +349,14 @@ namespace pdr {
            We check whether there is some reachable state of the relation checked_relation.
         */
         context(
-            front_end_params&  fparams,
-            params_ref const&  params,
+            smt_params&        fparams,
+            fixedpoint_params const&  params,
             ast_manager&       m);
 
         ~context();
         
-        front_end_params& get_fparams() const { return m_fparams; }
-        params_ref const& get_params() const { return m_params; }
+        smt_params&       get_fparams() const { return m_fparams; }
+        fixedpoint_params const& get_params() const { return m_params; }
         ast_manager&      get_manager() const { return m; }
         manager&          get_pdr_manager() { return m_pm; }
         decl2rel const&   get_pred_transformers() const { return m_rels; }

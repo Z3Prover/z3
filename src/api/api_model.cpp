@@ -25,6 +25,7 @@ Revision History:
 #include"model.h"
 #include"model_v2_pp.h"
 #include"model_smt2_pp.h"
+#include"model_params.hpp"
 
 extern "C" {
 
@@ -200,7 +201,7 @@ extern "C" {
         LOG_Z3_get_as_array_func_decl(c, a);
         RESET_ERROR_CODE();
         if (is_expr(to_ast(a)) && is_app_of(to_expr(a), mk_c(c)->get_array_fid(), OP_AS_ARRAY)) {
-            return of_func_decl(to_func_decl(to_app(a)->get_decl()->get_parameter(0).get_ast()));
+            RETURN_Z3(of_func_decl(to_func_decl(to_app(a)->get_decl()->get_parameter(0).get_ast())));
         }
         else {
             SET_ERROR_CODE(Z3_INVALID_ARG);
@@ -488,7 +489,8 @@ extern "C" {
                            Z3_model m,
                            Z3_ast t,
                            Z3_ast * v) {
-        return Z3_model_eval(c, m, t, mk_c(c)->fparams().m_model_completion, v);
+        model_params p;
+        return Z3_model_eval(c, m, t, p.completion(), v);
     }
 
     Z3_bool Z3_API Z3_eval_func_decl(Z3_context c, 
@@ -660,7 +662,8 @@ extern "C" {
                 result.resize(result.size()-1);
         }
         else {
-            model_v2_pp(buffer, *(to_model_ref(m)), mk_c(c)->fparams().m_model_partial);
+            model_params p;
+            model_v2_pp(buffer, *(to_model_ref(m)), p.partial());
             result = buffer.str();
         }
         return mk_c(c)->mk_external_string(result);

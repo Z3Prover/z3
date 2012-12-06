@@ -1160,9 +1160,9 @@ class wpa_parser_impl : public wpa_parser, dparser {
 public:        
     wpa_parser_impl(context & ctx) 
         : dparser(ctx, ctx.get_manager()),
-        m_bool_sort(ctx.get_manager()),
-        m_short_sort(ctx.get_manager()),
-        m_use_map_names(ctx.get_params().get_bool(":use-map-names", true)) { 
+          m_bool_sort(ctx.get_manager()),
+          m_short_sort(ctx.get_manager()),
+          m_use_map_names(ctx.get_params().use_map_names()) {
     }
     ~wpa_parser_impl() {
         reset_dealloc_values(m_sort_contents);
@@ -1325,9 +1325,6 @@ private:
         if(!pred) {
             throw default_exception("tuple file %s for undeclared predicate %s", 
                 m_current_file.c_str(), predicate_name.bare_str());
-        }
-        if(!m_context.can_add_table_fact(pred)) {
-            NOT_IMPLEMENTED_YET();
         }
         unsigned pred_arity = pred->get_arity();
         sort * const * arg_sorts = pred->get_domain();

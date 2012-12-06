@@ -122,12 +122,12 @@ class tseitin_cnf_tactic : public tactic {
         }
         
         void updt_params(params_ref const & p) {
-            m_common_patterns = p.get_bool(":common-patterns", true);
-            m_distributivity  = p.get_bool(":distributivity",  true);
-            m_distributivity_blowup = p.get_uint(":distributivity-blowup", 32);
-            m_ite_chains      = p.get_bool(":ite-chains", true);
-            m_ite_extra       = p.get_bool(":ite-extra", true);
-            m_max_memory      = megabytes_to_bytes(p.get_uint(":max-memory", UINT_MAX));
+            m_common_patterns = p.get_bool("common_patterns", true);
+            m_distributivity  = p.get_bool("distributivity",  true);
+            m_distributivity_blowup = p.get_uint("distributivity_blowup", 32);
+            m_ite_chains      = p.get_bool("ite_chains", true);
+            m_ite_extra       = p.get_bool("ite_extra", true);
+            m_max_memory      = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         }
         
         void push_frame(app * n) { m_frame_stack.push_back(frame(n)); }
@@ -881,11 +881,11 @@ public:
 
     virtual void collect_param_descrs(param_descrs & r) {
         insert_max_memory(r);
-        r.insert(":common-patterns", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing commonly used patterns");
-        r.insert(":distributivity", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by applying distributivity over unshared subformulas");
-        r.insert(":distributivity-blowup", CPK_UINT, "(default: 32) maximum overhead for applying distributivity during CNF encoding");
-        r.insert("ite-chaing", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing if-then-else chains");                                                       
-        r.insert(":ite-extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
+        r.insert("common_patterns", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing commonly used patterns");
+        r.insert("distributivity", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by applying distributivity over unshared subformulas");
+        r.insert("distributivity_blowup", CPK_UINT, "(default: 32) maximum overhead for applying distributivity during CNF encoding");
+        r.insert("ite_chaing", CPK_BOOL, "(default: true) minimize the number of auxiliary variables during CNF encoding by identifing if-then-else chains");                                                       
+        r.insert("ite_extra", CPK_BOOL, "(default: true) add redundant clauses (that improve unit propagation) when encoding if-then-else formulas");
     }
     
     virtual void operator()(goal_ref const & in, 
@@ -934,8 +934,8 @@ tactic * mk_tseitin_cnf_core_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_tseitin_cnf_tactic(ast_manager & m, params_ref const & p) {
     params_ref simp_p = p;
-    simp_p.set_bool(":elim-and", true);
-    simp_p.set_bool(":blast-distinct", true);
+    simp_p.set_bool("elim_and", true);
+    simp_p.set_bool("blast_distinct", true);
     return or_else(mk_tseitin_cnf_core_tactic(m, p),
                    and_then(using_params(mk_simplify_tactic(m, p), simp_p),
                             mk_tseitin_cnf_core_tactic(m, p)));

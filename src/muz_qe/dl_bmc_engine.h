@@ -24,6 +24,7 @@ Revision History:
 #include "statistics.h"
 #include "smt_kernel.h"
 #include "bv_decl_plugin.h"
+#include "smt_params.h"
 
 
 namespace datalog {
@@ -32,7 +33,7 @@ namespace datalog {
     class bmc {
         context&         m_ctx;
         ast_manager&     m;
-        front_end_params m_fparams;
+        smt_params       m_fparams;
         smt::kernel      m_solver;
         obj_map<func_decl, sort*> m_pred2sort;
         obj_map<sort, func_decl*> m_sort2pred;
@@ -130,8 +131,6 @@ namespace datalog {
         void reset_statistics(); 
 
         expr_ref get_answer();
-
-        static void collect_params(param_descrs& p);
     };
 };
 
