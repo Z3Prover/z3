@@ -85,11 +85,9 @@ def is_linux():
 def is_osx():
     return IS_OSX
 
-def unix_path2dos(path):
-    return string.join(path.split('/'), '\\')
-
-def to_unix_path(path):
-    return string.join(path.split('\\'), '/')
+def norm_path(p):
+    # We use '/' on mk_project for convenience
+    return os.path.join(*(p.split('/')))
 
 def which(program):
     import os
@@ -443,7 +441,7 @@ def extract_c_includes(fname):
 
 # Given a path dir1/subdir2/subdir3 returns ../../..
 def reverse_path(p):
-    l = to_unix_path(p).split('/')
+    l = p.split(os.sep)
     n = len(l)
     r = '..'
     for i in range(1, n):
@@ -461,6 +459,7 @@ def set_build_dir(d):
 
 def set_z3py_dir(p):
     global SRC_DIR, Z3PY_SRC_DIR
+    p = norm_path(p)
     full = os.path.join(SRC_DIR, p)
     if not os.path.exists(full):
         raise MKException("Python bindings directory '%s' does not exist" % full)
@@ -559,6 +558,7 @@ class Component:
         if path == None:
             path = name
         self.name = name
+        path = norm_path(path)
         self.path = path
         self.deps = find_all_deps(name, deps)
         self.build_dir = path
@@ -989,25 +989,29 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
             if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(LIB_EXT)\n')
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %
+                          os.join.path('api', 'java', 'Native'))
             else:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) api/java/Native$(OBJ_EXT) libz3$(SO_EXT)\n')
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
+                          os.join.path('api', 'java', 'Native'))
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             deps = ''
             for jfile in get_java_files(self.src_dir):
                 deps += ('%s ' % os.path.join(self.to_src_dir, jfile))
             for jfile in get_java_files(os.path.join(self.src_dir, "enumerations")):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
-            if IS_WINDOWS: deps = deps.replace('/', '\\')
             out.write(deps)
             out.write('\n')
-            t = ('\t%s %s/enumerations/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
-            if IS_WINDOWS: t = t.replace('/','\\')
+            t = ('\t%s %s.java -d %s\n' % (JAVAC, os.join.path(self.to_src_dir, 'enumerations', '*'), os.join.path('api', 'java', 'classes')))
             out.write(t)
-            t = ('\t%s -cp api/java/classes %s/*.java -d api/java/classes\n' % (JAVAC, self.to_src_dir))
-            if IS_WINDOWS: t = t.replace('/','\\')
+            t = ('\t%s -cp api/java/classes %s.java -d %s\n' % (JAVAC, 
+                                                                os.join.path('api', 'java', 'classes'), 
+                                                                os.join.path(self.to_src_dir, '*'), 
+                                                                os.join.path('api', 'java', 'classes')))
             out.write(t)
-            out.write('\tjar cfm %s.jar %s/manifest -C api/java/classes .\n' % (self.package_name, self.to_src_dir))
+            out.write('\tjar cfm %s.jar %s -C %s .\n' % (self.package_name, 
+                                                         os.join.path(self.to_src_dir, 'manifest'), 
+                                                         os.join.path('api', 'java', 'classes')))
             out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
