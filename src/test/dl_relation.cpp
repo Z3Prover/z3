@@ -12,7 +12,7 @@ namespace datalog {
         ast_manager ast_m;
         context ctx(ast_m, params);    
         arith_util autil(ast_m);
-        relation_manager & m = ctx.get_rmanager();
+        relation_manager & m = ctx.get_rel_context().get_rmanager();
         m.register_plugin(alloc(interval_relation_plugin, m));
         interval_relation_plugin& ip = dynamic_cast<interval_relation_plugin&>(*m.get_relation_plugin(symbol("interval_relation")));
         SASSERT(&ip);
@@ -115,7 +115,7 @@ namespace datalog {
         ast_manager ast_m;
         context ctx(ast_m, params);    
         arith_util autil(ast_m);
-        relation_manager & m = ctx.get_rmanager();
+        relation_manager & m = ctx.get_rel_context().get_rmanager();
         m.register_plugin(alloc(bound_relation_plugin, m));
         bound_relation_plugin& br = dynamic_cast<bound_relation_plugin&>(*m.get_relation_plugin(symbol("bound_relation")));
         SASSERT(&br);
