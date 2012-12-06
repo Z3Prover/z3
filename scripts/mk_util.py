@@ -1459,7 +1459,10 @@ def pyg_default_as_c_literal(p):
         return '"%s"' % p[2]
     elif p[1] == SYMBOL:
         return 'symbol("%s")' % p[2]
-    return p[2]
+    elif p[1] == UINT:
+        return '%su' % p[2]
+    else:
+        return p[2]
 
 def to_c_method(s):
     return s.replace('.', '_')
