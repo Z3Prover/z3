@@ -990,10 +990,10 @@ class JavaDLLComponent(Component):
             out.write(t)
             if IS_WINDOWS: # On Windows, CL creates a .lib file to link against.
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %
-                          os.join.path('api', 'java', 'Native'))
+                          os.path.join('api', 'java', 'Native'))
             else:
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3java$(SO_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %
-                          os.join.path('api', 'java', 'Native'))
+                          os.path.join('api', 'java', 'Native'))
             out.write('%s.jar: libz3java$(SO_EXT) ' % self.package_name)
             deps = ''
             for jfile in get_java_files(self.src_dir):
@@ -1002,16 +1002,16 @@ class JavaDLLComponent(Component):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
             out.write(deps)
             out.write('\n')
-            t = ('\t%s %s.java -d %s\n' % (JAVAC, os.join.path(self.to_src_dir, 'enumerations', '*'), os.join.path('api', 'java', 'classes')))
+            t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
-            t = ('\t%s -cp api/java/classes %s.java -d %s\n' % (JAVAC, 
-                                                                os.join.path('api', 'java', 'classes'), 
-                                                                os.join.path(self.to_src_dir, '*'), 
-                                                                os.join.path('api', 'java', 'classes')))
+            t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
+                                                  os.path.join('api', 'java', 'classes'), 
+                                                  os.path.join(self.to_src_dir, '*'), 
+                                                  os.path.join('api', 'java', 'classes')))
             out.write(t)
             out.write('\tjar cfm %s.jar %s -C %s .\n' % (self.package_name, 
-                                                         os.join.path(self.to_src_dir, 'manifest'), 
-                                                         os.join.path('api', 'java', 'classes')))
+                                                         os.path.join(self.to_src_dir, 'manifest'), 
+                                                         os.path.join('api', 'java', 'classes')))
             out.write('java: %s.jar\n\n' % self.package_name)
     
     def main_component(self):
