@@ -23,8 +23,11 @@ Small example:
 >>> s.add(y == x + 1)
 >>> s.check()
 sat
->>> s.model()
-[y = 2, x = 1]
+>>> m = s.model()
+>>> m[x]
+1
+>>> m[y]
+2
 
 Z3 exceptions:
 
@@ -1728,10 +1731,11 @@ def Exists(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     >>> q = Exists([x, y], f(x, y) >= x, skid="foo")
     >>> q
     Exists([x, y], f(x, y) >= x)
-    >>> Tactic('nnf')(q)
-    [[f(x!foo!1, y!foo!0) >= x!foo!1]]
-    >>> Tactic('nnf')(q).as_expr()
-    f(x!foo!3, y!foo!2) >= x!foo!3
+    >>> is_quantifier(q)
+    True
+    >>> r = Tactic('nnf')(q).as_expr()
+    >>> is_quantifier(r)
+    False
     """
     return _mk_quantifier(False, vs, body, weight, qid, skid, patterns, no_patterns)
 
