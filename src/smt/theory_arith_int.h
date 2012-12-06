@@ -525,7 +525,7 @@ namespace smt {
                         }
                         // k += new_a_ij * lower_bound(x_j).get_rational();
                         k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                        lower(x_j)->push_justification(ante, numeral::zero());
+                        lower(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
                     }
                     else {
                         SASSERT(at_upper(x_j));
@@ -541,7 +541,7 @@ namespace smt {
                         }
                         // k += new_a_ij * upper_bound(x_j).get_rational();
                         k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                        upper(x_j)->push_justification(ante, numeral::zero());
+                        upper(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
                     }
                     pol.push_back(row_entry(new_a_ij, x_j));
                 }
@@ -566,7 +566,7 @@ namespace smt {
                             }
                             // k += new_a_ij * lower_bound(x_j).get_rational();
                             k.addmul(new_a_ij, lower_bound(x_j).get_rational());
-                            lower(x_j)->push_justification(ante, numeral::zero());
+                            lower(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
                         }
                         else {
                             SASSERT(at_upper(x_j));
@@ -579,7 +579,7 @@ namespace smt {
                             new_a_ij.neg(); // the upper terms are inverted
                             // k += new_a_ij * upper_bound(x_j).get_rational();
                             k.addmul(new_a_ij, upper_bound(x_j).get_rational());
-                            upper(x_j)->push_justification(ante, numeral::zero());
+                            upper(x_j)->push_justification(ante, numeral::zero(), proofs_enabled());
                         }
                         TRACE("gomory_cut_detail", tout << "new_a_ij: " << new_a_ij << "\n";);
                         pol.push_back(row_entry(new_a_ij, x_j));
@@ -772,8 +772,8 @@ namespace smt {
                         // u += ncoeff * lower_bound(v).get_rational();
                         u.addmul(ncoeff, lower_bound(v).get_rational());
                     }
-                    lower(v)->push_justification(ante, numeral::zero());
-                    upper(v)->push_justification(ante, numeral::zero());
+                    lower(v)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    upper(v)->push_justification(ante, numeral::zero(), proofs_enabled());
                 }
                 else if (gcds.is_zero()) {
                     gcds = abs_ncoeff; 

@@ -59,10 +59,10 @@ namespace smt {
                     // v >= k >= v2 => v >= v2
                     // 
 
-                    lower(v)->push_justification(ante, numeral::zero());
-                    upper(v2)->push_justification(ante, numeral::zero());
-                    lower(v2)->push_justification(ante, numeral::zero());
-                    upper(v)->push_justification(ante, numeral::zero());
+                    lower(v)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    upper(v2)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    lower(v2)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    upper(v)->push_justification(ante, numeral::zero(), proofs_enabled());
 
                     TRACE("arith_fixed_propagate_eq", tout << "propagate eq: v" << v << " = v" << v2 << "\n";
                           display_var(tout, v);
@@ -247,8 +247,8 @@ namespace smt {
                     //
                     // x1 <= k1 x1 >= k1, x2 <= x1 + k2 x2 >= x1 + k2
                     // 
-                    lower(x2)->push_justification(ante, numeral::zero());
-                    upper(x2)->push_justification(ante, numeral::zero());
+                    lower(x2)->push_justification(ante, numeral::zero(), proofs_enabled());
+                    upper(x2)->push_justification(ante, numeral::zero(), proofs_enabled());
                     m_stats.m_fixed_eqs++;
                     propagate_eq_to_core(x, x2, ante);
                 }

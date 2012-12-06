@@ -260,7 +260,7 @@ namespace smt {
             bool is_atom() const { return m_atom; }
             inf_numeral const & get_value() const { return m_value; }
             virtual bool has_justification() const { return false; }
-            virtual void push_justification(antecedents& antecedents, numeral const& coeff) {}
+            virtual void push_justification(antecedents& antecedents, numeral const& coeff, bool proofs_enabled) {}
         };
 
 

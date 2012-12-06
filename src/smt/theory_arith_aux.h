@@ -749,7 +749,7 @@ namespace smt {
     void theory_arith<Ext>::accumulate_justification(bound & b, derived_bound& new_bound, numeral const& coeff, literal_idx_set & lits, eq_set & eqs) {
         antecedents& ante = m_tmp_antecedents;
         ante.reset();
-        b.push_justification(ante, coeff);
+        b.push_justification(ante, coeff, proofs_enabled());
         unsigned num_lits = ante.lits().size();
         for (unsigned i = 0; i < num_lits; ++i) {
             literal l = ante.lits()[i];
