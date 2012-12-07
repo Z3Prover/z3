@@ -459,7 +459,7 @@ def mk_dir(d):
 
 def set_build_dir(d):
     global BUILD_DIR, REV_BUILD_DIR
-    BUILD_DIR = d
+    BUILD_DIR = norm_path(d)
     REV_BUILD_DIR = reverse_path(d)
 
 def set_z3py_dir(p):
