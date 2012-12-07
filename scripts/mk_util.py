@@ -1120,7 +1120,7 @@ class JavaExampleComponent(ExampleComponent):
             out.write('_ex_%s: %s' % (self.name, pkg))
             deps = ''
             for jfile in get_java_files(self.ex_dir):
-                out.write(os.path.join(self.to_ex_dir, jfile))
+                out.write(' %s' % os.path.join(self.to_ex_dir, jfile))
             if IS_WINDOWS:
                 deps = deps.replace('/', '\\')
             out.write('%s\n' % deps)
