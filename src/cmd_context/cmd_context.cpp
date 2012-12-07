@@ -37,6 +37,7 @@ Notes:
 #include"well_sorted.h"
 #include"model_evaluator.h"
 #include"for_each_expr.h"
+#include"scoped_timer.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -1304,9 +1305,11 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_progress_callback(this);
+        unsigned timeout     = m_params.m_timeout;
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
+        scoped_timer timer(timeout, &eh);
         lbool r;
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
