@@ -139,7 +139,9 @@ def exec_cmd(cmd):
             if e != "":
                 se = e.split(' ')
                 if len(se) > 1:
-                    new_cmd.extend(se)
+                    for e2 in se:
+                        if e2 != "":
+                            new_cmd.append(e2)
                 else:
                     new_cmd.append(e)
     cmd = new_cmd
@@ -179,10 +181,18 @@ def test_c_compiler(cc):
 def test_gmp(cc):
     if is_verbose():
         print "Testing GMP..."
-    t = TempFile('tst.cpp')
+    t = TempFile('tstgmp.cpp')
     t.add('#include<gmp.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
     t.commit()
-    return exec_compiler_cmd([cc, CPPFLAGS, CXXFLAGS, 'tst.cpp', LDFLAGS, '-lgmp']) == 0
+    return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
+
+def test_openmp(cc):
+    if is_verbose():
+        print "Testing OpenMP..."
+    t = TempFile('tstomp.cpp')
+    t.add('#include<omp.h>\nint main() { return omp_in_parallel() ? 1 : 0; }\n')
+    t.commit()
+    return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
 
 def check_java():
     t = TempFile('Hello.java')
@@ -1280,12 +1290,12 @@ def mk_config():
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         CXXFLAGS = '%s -c' % CXXFLAGS
-        if is_CXX_gpp():
+        HAS_OMP = test_openmp(CXX)
+        if HAS_OMP:
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
             SLIBEXTRAFLAGS = '-fopenmp'
         else:
-            # CLang does not support OMP
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
             SLIBEXTRAFLAGS = ''
         sysname = os.uname()[0]
@@ -1351,6 +1361,7 @@ def mk_config():
             print 'C++ Compiler:   %s' % CXX
             print 'C Compiler  :   %s' % CC
             print 'Arithmetic:     %s' % ARITH
+            print 'OpenMP:         %s' % HAS_OMP
             print 'Prefix:         %s' % PREFIX
             print '64-bit:         %s' % is64()
             if is_java_enabled():
