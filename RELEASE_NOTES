@@ -3,6 +3,8 @@ RELEASE NOTES
 Version 4.3.2
 =============
 
+- New parameter setting infrastructure. Now, it is possible to set parameter for Z3 internal modules. Several parameter names changed. Execute `z3 -p` for the new parameter list.
+
 - Added get_version() and get_version_string() to Z3Py
 
 - Added support for FreeBSD. Z3 can be compiled on FreeBSD using g++. 
@@ -19,6 +21,8 @@ Version 4.3.2
 - Java bindings. To enable them, we must use the option `--java` when executing the `mk_make.py` script. Example: `python scripts/mk_make.py --java`
 
 - Fixed crash when parsing incorrect formulas. The crash was introduced when support for "arithmetic coercions" was added in Z3 4.3.0.
+
+- Added new option to mk_make to allow users to specify where python bindings (Z3Py) will be installed. (Thanks to Dejan Jovanovic for reporting the problem).
 
 Version 4.3.1
 =============

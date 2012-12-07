@@ -341,6 +341,7 @@ def display_help(exit_code):
     print "  -s, --silent                  do not print verbose messages."
     if not IS_WINDOWS:
         print "  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX
+        print "  -y <dir>, --pydir=<dir>       installation prefix for Z3 python bindings (default: %s)." % PYTHON_PACKAGE_DIR
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
     print "  -t, --trace                   enable tracing in release mode."
@@ -371,51 +372,55 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
-    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
-                                               'b:dsxhmcvtnp:gj', 
+                                               'b:dsxhmcvtnp:gjy:', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java'])
-        for opt, arg in options:
-            if opt in ('-b', '--build'):
-                if arg == 'src':
-                    raise MKException('The src directory should not be used to host the Makefile')
-                set_build_dir(arg)
-            elif opt in ('-s', '--silent'):
-                VERBOSE = False
-            elif opt in ('-d', '--debug'):
-                DEBUG_MODE = True
-            elif opt in ('-x', '--x64'):
-                if not IS_WINDOWS:
-                    raise MKException('x64 compilation mode can only be specified when using Visual Studio')
-                VS_X64 = True
-            elif opt in ('-h', '--help'):
-                display_help(0)
-            elif opt in ('-m', '--onlymakefiles'):
-                ONLY_MAKEFILES = True
-            elif opt in ('-c', '--showcpp'):
-                SHOW_CPPS = True
-            elif opt in ('-v', '--vsproj'):
-                VS_PROJ = True
-            elif opt in ('-t', '--trace'):
-                TRACE = True
-            elif opt in ('-n', '--nodotnet'):
-                DOTNET_ENABLED = False
-            elif opt in ('--staticlib'):
-                STATIC_LIB = True
-            elif opt in ('-p', '--prefix'):
-                PREFIX = arg
-            elif opt in ('-g', '--gmp'):
-                GMP = True
-            elif opt in ('-j', '--java'):
-                JAVA_ENABLED = True
-            else:
-                print "ERROR: Invalid command line option '%s'" % opt
-                display_help(1)
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'pydir='])
     except:
         print "ERROR: Invalid command line option"
         display_help(1)
+
+    for opt, arg in options:
+        if opt in ('-b', '--build'):
+            if arg == 'src':
+                raise MKException('The src directory should not be used to host the Makefile')
+            set_build_dir(arg)
+        elif opt in ('-s', '--silent'):
+            VERBOSE = False
+        elif opt in ('-d', '--debug'):
+            DEBUG_MODE = True
+        elif opt in ('-x', '--x64'):
+            if not IS_WINDOWS:
+                raise MKException('x64 compilation mode can only be specified when using Visual Studio')
+            VS_X64 = True
+        elif opt in ('-h', '--help'):
+            display_help(0)
+        elif opt in ('-m', '--onlymakefiles'):
+            ONLY_MAKEFILES = True
+        elif opt in ('-c', '--showcpp'):
+            SHOW_CPPS = True
+        elif opt in ('-v', '--vsproj'):
+            VS_PROJ = True
+        elif opt in ('-t', '--trace'):
+            TRACE = True
+        elif opt in ('-n', '--nodotnet'):
+            DOTNET_ENABLED = False
+        elif opt in ('--staticlib'):
+            STATIC_LIB = True
+        elif opt in ('-p', '--prefix'):
+            PREFIX = arg
+        elif opt in ('-y', '--pydir'):
+            PYTHON_PACKAGE_DIR = arg
+            mk_dir(PYTHON_PACKAGE_DIR)
+        elif opt in ('-g', '--gmp'):
+            GMP = True
+        elif opt in ('-j', '--java'):
+            JAVA_ENABLED = True
+        else:
+            print "ERROR: Invalid command line option '%s'" % opt
+            display_help(1)
 
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
