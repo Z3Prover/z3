@@ -128,7 +128,7 @@ struct reduce_args_tactic::imp {
             unsigned j    = n->get_num_args();        
             while (j > 0) {
                 --j;
-                if (m_manager.is_value(n->get_arg(j)))
+                if (m_manager.is_unique_value(n->get_arg(j)))
                     return;
             }  
             m_non_cadidates.insert(d);
@@ -185,13 +185,13 @@ struct reduce_args_tactic::imp {
                 it->m_value.reserve(j);
                 while (j > 0) {
                     --j;
-                    it->m_value.set(j, m_manager.is_value(n->get_arg(j)));
+                    it->m_value.set(j, m_manager.is_unique_value(n->get_arg(j)));
                 }
             } else {
                 SASSERT(j == it->m_value.size());                        
                 while (j > 0) {
                     --j;
-                    it->m_value.set(j, it->m_value.get(j) && m_manager.is_value(n->get_arg(j)));
+                    it->m_value.set(j, it->m_value.get(j) && m_manager.is_unique_value(n->get_arg(j)));
                 }
             }
         }

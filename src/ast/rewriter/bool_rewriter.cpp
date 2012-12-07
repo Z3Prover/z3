@@ -732,7 +732,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
             return BR_DONE;
         }
         visited.mark(arg);
-        if (!m().is_value(arg))
+        if (!m().is_unique_value(arg))
             all_value = false;
     }
     if (all_value) {

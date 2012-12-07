@@ -260,8 +260,10 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned num_args, expr * const * args, sort * range);
 
-    virtual bool is_value(app* e) const;
+    virtual bool is_value(app * e) const;
     
+    virtual bool is_unique_value(app * e) const { return is_value(e); }
+
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
 
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);

@@ -355,12 +355,12 @@ struct cofactor_elim_term_ite::imp {
                 expr * lhs;
                 expr * rhs;
                 if (m.is_eq(t, lhs, rhs)) {
-                    if (m.is_value(lhs)) {
+                    if (m.is_unique_value(lhs)) {
                         m_term  = rhs;
                         m_value = to_app(lhs); 
                         TRACE("set_cofactor_atom", tout << "term:\n" << mk_ismt2_pp(m_term, m) << "\nvalue: " << mk_ismt2_pp(m_value, m) << "\n";);
                     }
-                    else if (m.is_value(rhs)) {
+                    else if (m.is_unique_value(rhs)) {
                         m_term  = lhs;
                         m_value = to_app(rhs);
                         TRACE("set_cofactor_atom", tout << "term:\n" << mk_ismt2_pp(m_term, m) << "\nvalue: " << mk_ismt2_pp(m_value, m) << "\n";);
