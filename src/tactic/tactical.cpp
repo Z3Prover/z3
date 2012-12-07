@@ -1242,8 +1242,7 @@ public:
     virtual void updt_params(params_ref const & p) {
         TRACE("using_params", 
               tout << "before p: " << p << "\n";
-              tout << "m_params: " << m_params << "\n";
-              ;);
+              tout << "m_params: " << m_params << "\n";);
         
         params_ref new_p = p;
         new_p.append(m_params);

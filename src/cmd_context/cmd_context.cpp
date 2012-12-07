@@ -1444,15 +1444,9 @@ void cmd_context::validate_model() {
 }
 
 void cmd_context::init_solver_options(solver * s) {
-    m_solver->set_produce_unsat_cores(produce_unsat_cores());
-    m_solver->set_produce_models(produce_models());
-    m_solver->set_produce_proofs(produce_proofs());
+    params_ref p;
+    m_params.init_solver_params(m(), *m_solver, p);
     m_solver->init(m(), m_logic);
-    if (!m_params.m_auto_config) {
-        params_ref p;
-        p.set_bool("auto_config", false);
-        m_solver->updt_params(p);
-    }
 }
 
 void cmd_context::set_solver(solver * s) {

@@ -36,7 +36,7 @@ tactic_cmd::~tactic_cmd() {
     dealloc(m_factory);
 }
 
-tactic * tactic_cmd::mk(ast_manager & m) { 
+tactic * tactic_cmd::mk(ast_manager & m) {
     return (*m_factory)(m, params_ref()); 
 }
 
@@ -185,7 +185,7 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-        params_ref p = ps();
+        params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
@@ -295,7 +295,7 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-        params_ref p = ps();
+        params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         {
             tactic & t = *(tref.get());

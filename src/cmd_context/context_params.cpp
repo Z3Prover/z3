@@ -20,6 +20,8 @@ Notes:
 #include"context_params.h"
 #include"gparams.h"
 #include"params.h"
+#include"ast.h"
+#include"solver.h"
 
 context_params::context_params() {
     updt_params();
@@ -112,3 +114,23 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("unsat_core", CPK_BOOL, "unsat-core generation for solvers, this parameter can be overwritten when creating a solver, not every solver in Z3 supports unsat core generation", "false");
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
 }
+
+params_ref context_params::merge_default_params(params_ref const & p) {
+    if (!m_auto_config && !p.contains("auto_config")) {
+        params_ref new_p = p;
+        new_p.set_bool("auto_config", false);
+        return new_p;
+    }
+    else {
+        return p;
+    }
+}
+
+void context_params::init_solver_params(ast_manager & m, solver & s, params_ref const & p) {
+    s.set_produce_proofs(m.proofs_enabled() && m_proof);
+    s.set_produce_models(p.get_bool("model", m_model));
+    s.set_produce_unsat_cores(p.get_bool("unsat_core", m_unsat_core));
+    s.updt_params(merge_default_params(p));
+}
+
+
