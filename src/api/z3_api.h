@@ -1080,6 +1080,7 @@ typedef enum {
     Z3_PK_INVALID
 } Z3_param_kind;
 
+#ifdef CorML3
 /**
    \mlonly {!search_failure} \endmlonly \conly \brief
    The different kinds of search failure types.
@@ -1103,6 +1104,7 @@ typedef enum {
     Z3_THEORY,        
     Z3_QUANTIFIERS
 } Z3_search_failure;
+#endif
 
 /**
    \mlonly {!ast_print_mode} \endmlonly \conly \brief
