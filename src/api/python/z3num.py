@@ -9,7 +9,7 @@ from z3 import *
 from z3core import *
 from z3printer import *
 
-def _to_algebraic(num, ctx=None):
+def _to_numeral(num, ctx=None):
     if isinstance(num, Numeral):
         return num
     else:
@@ -79,24 +79,6 @@ class Numeral:
     
     def __del__(self):
         Z3_dec_ref(self.ctx_ref(), self.as_ast())
-
-    def __str__(self):
-        if Z3_is_numeral_ast(self.ctx_ref(), self.ast):
-            return str(RatNumRef(self.ast, self.ctx))
-        else:
-            return str(AlgebraicNumRef(self.ast, self.ctx))
-
-    def __repr__(self):
-        return self.__str__()
-
-    def sexpr(self):
-        return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
-
-    def as_ast(self):
-        return self.ast
-
-    def ctx_ref(self):
-        return self.ctx.ref()
 
     def is_integer(self):
         """ Return True if the numeral is integer.
@@ -280,7 +262,7 @@ class Numeral:
         >>> Numeral("2/3") + 1
         5/3
         """
-        return Numeral(Z3_algebraic_add(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_add(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __radd__(self, other):
         """ Return the numeral `other + self`.
@@ -288,7 +270,7 @@ class Numeral:
         >>> 3 + Numeral(2)
         5
         """
-        return Numeral(Z3_algebraic_add(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_add(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __sub__(self, other):
         """ Return the numeral `self - other`.
@@ -296,7 +278,7 @@ class Numeral:
         >>> Numeral(2) - 3
         -1
         """
-        return Numeral(Z3_algebraic_sub(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_sub(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __rsub__(self, other):
         """ Return the numeral `other - self`.
@@ -304,21 +286,21 @@ class Numeral:
         >>> 3 - Numeral(2)
         1
         """
-        return Numeral(Z3_algebraic_sub(self.ctx_ref(), _to_algebraic(other, self.ctx).ast, self.ast), self.ctx)
+        return Numeral(Z3_algebraic_sub(self.ctx_ref(), _to_numeral(other, self.ctx).ast, self.ast), self.ctx)
 
     def __mul__(self, other):
         """ Return the numeral `self * other`.
         >>> Numeral(2) * 3
         6
         """
-        return Numeral(Z3_algebraic_mul(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_mul(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __rmul__(self, other):
         """ Return the numeral `other * mul`.
         >>> 3 * Numeral(2)
         6
         """
-        return Numeral(Z3_algebraic_mul(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_mul(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __div__(self, other):
         """ Return the numeral `self / other`.
@@ -329,7 +311,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) / Numeral(Sqrt(3))
         0.8164965809?
         """
-        return Numeral(Z3_algebraic_div(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast), self.ctx)
+        return Numeral(Z3_algebraic_div(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast), self.ctx)
 
     def __rdiv__(self, other):
         """ Return the numeral `other / self`.
@@ -338,7 +320,7 @@ class Numeral:
         >>> 3 / Numeral(2).root(2)
         2.1213203435?
         """
-        return Numeral(Z3_algebraic_div(self.ctx_ref(), _to_algebraic(other, self.ctx).ast, self.ast), self.ctx)
+        return Numeral(Z3_algebraic_div(self.ctx_ref(), _to_numeral(other, self.ctx).ast, self.ast), self.ctx)
 
     def root(self, k):
         """ Return the numeral `self^(1/k)`.
@@ -387,7 +369,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) < Numeral(Sqrt(2))
         False
         """
-        return Z3_algebraic_lt(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
+        return Z3_algebraic_lt(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
 
     def __rlt__(self, other):
         """ Return True if `other < self`.
@@ -407,7 +389,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) > Numeral(Sqrt(2))
         False
         """
-        return Z3_algebraic_gt(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
+        return Z3_algebraic_gt(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
 
     def __rgt__(self, other):
         """ Return True if `other > self`.
@@ -428,7 +410,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) <= Numeral(Sqrt(2))
         True
         """
-        return Z3_algebraic_le(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
+        return Z3_algebraic_le(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
 
     def __rle__(self, other):
         """ Return True if `other <= self`.
@@ -448,7 +430,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) >= Numeral(Sqrt(2))
         True
         """
-        return Z3_algebraic_ge(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
+        return Z3_algebraic_ge(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
 
     def __rge__(self, other):
         """ Return True if `other >= self`.
@@ -468,7 +450,7 @@ class Numeral:
         >>> Numeral(Sqrt(2)) == Numeral(Sqrt(2))
         True
         """
-        return Z3_algebraic_eq(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
+        return Z3_algebraic_eq(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
 
     def __ne__(self, other):
         """ Return True if `self != other`.
@@ -480,10 +462,28 @@ class Numeral:
         >>> Numeral(Sqrt(2)) != Numeral(Sqrt(2))
         False
         """
-        return Z3_algebraic_neq(self.ctx_ref(), self.ast, _to_algebraic(other, self.ctx).ast)
-        
+        return Z3_algebraic_neq(self.ctx_ref(), self.ast, _to_numeral(other, self.ctx).ast)
+
+    def __str__(self):
+        if Z3_is_numeral_ast(self.ctx_ref(), self.ast):
+            return str(RatNumRef(self.ast, self.ctx))
+        else:
+            return str(AlgebraicNumRef(self.ast, self.ctx))
+
+    def __repr__(self):
+        return self.__str__()
+
+    def sexpr(self):
+        return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
+
+    def as_ast(self):
+        return self.ast
+
+    def ctx_ref(self):
+        return self.ctx.ref()
         
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    if doctest.testmod().failed:
+        exit(1)
 
