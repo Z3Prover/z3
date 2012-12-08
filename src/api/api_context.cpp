@@ -143,6 +143,7 @@ namespace api {
         {
             if (m_interruptable)
                 (*m_interruptable)();
+            m_manager.set_cancel(true);
         }
     }
     

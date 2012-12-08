@@ -184,7 +184,7 @@ public:
 
     virtual expr * get_some_value(sort * s);
 
-    void set_cancel(bool f);
+    virtual void set_cancel(bool f);
 };
 
 class arith_util {

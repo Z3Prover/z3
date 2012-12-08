@@ -921,6 +921,8 @@ public:
     virtual ~decl_plugin() {}
     virtual void finalize() {}
 
+    virtual void set_cancel(bool f) {}
+
     virtual decl_plugin * mk_fresh() = 0;
 
     family_id get_family_id() const { return m_family_id; }
@@ -1399,6 +1401,9 @@ public:
     ast_manager(proof_gen_mode, std::fstream * trace_stream, bool is_format_manager = false);
     ast_manager(ast_manager const & src, bool disable_proofs = false);
     ~ast_manager();
+
+    // propagate cancellation signal to decl_plugins
+    void set_cancel(bool f);
 
     bool has_trace_stream() const { return m_trace_stream != 0; }
     std::ostream & trace_stream() { SASSERT(has_trace_stream()); return *m_trace_stream; }

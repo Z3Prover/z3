@@ -24,6 +24,7 @@ Notes:
 #include<stdio.h>
 #include"z3_macros.h"
 #include"z3_api.h"
+#include"z3_algebraic.h"
 
 #undef __in
 #undef __out

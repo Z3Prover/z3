@@ -59,10 +59,10 @@ def init_project_def():
     add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser'],
-            includes2install=['z3.h', 'z3_api.h', 'z3_v1.h', 'z3_macros.h'])
+            includes2install=['z3.h', 'z3_api.h', 'z3_v1.h', 'z3_macros.h', 'z3_algebraic.h'])
     add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
     add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)
-    API_files = ['z3_api.h']
+    API_files = ['z3_api.h', 'z3_algebraic.h']
     add_dll('api_dll', ['api', 'sat', 'extra_cmds'], 'api/dll', 
             reexports=['api'], 
             dll_name='libz3', 
