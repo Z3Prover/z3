@@ -210,8 +210,19 @@ extern "C" {
                 RETURN_Z3(0);
             }
         }
-        // TODO
-        return 0;
+        algebraic_numbers::manager & _am = am(c);
+        scoped_anum _r(_am);
+        if (is_rational(c, a)) {
+            scoped_anum av(_am);                                     
+            _am.set(av, get_rational(c, a).to_mpq());   
+            _am.root(av, k, _r);
+        }
+        else {
+            algebraic_numbers::anum const & av = get_irrational(c, a);
+            _am.root(av, k, _r);
+        }
+        expr * r = au(c).mk_numeral(_r, false);
+        RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
 
@@ -220,10 +231,53 @@ extern "C" {
         LOG_Z3_algebraic_power(c, a, k);
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC_X(a, 0);
-        // TODO
-        return 0;
+        algebraic_numbers::manager & _am = am(c);
+        scoped_anum _r(_am);
+        if (is_rational(c, a)) {
+            scoped_anum av(_am);                                     
+            _am.set(av, get_rational(c, a).to_mpq());   
+            _am.power(av, k, _r);
+        }
+        else {
+            algebraic_numbers::anum const & av = get_irrational(c, a);
+            _am.power(av, k, _r);
+        }
+        expr * r = au(c).mk_numeral(_r, false);
+        RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
+
+#define BIN_PRED(RAT_PRED, IRAT_PRED)                                   \
+        algebraic_numbers::manager & _am = am(c);                       \
+        bool r;                                                         \
+        if (is_rational(c, a)) {                                        \
+            rational av = get_rational(c, a);                           \
+            if (is_rational(c, b)) {                                    \
+                rational bv = get_rational(c, b);                       \
+                r = av RAT_PRED bv;                                     \
+            }                                                           \
+            else {                                                      \
+                algebraic_numbers::anum const & bv = get_irrational(c, b); \
+                scoped_anum _av(_am);                                   \
+                _am.set(_av, av.to_mpq());                              \
+                r = _am.IRAT_PRED(_av, bv);                             \
+            }                                                           \
+        }                                                               \
+        else {                                                          \
+            algebraic_numbers::anum const & av = get_irrational(c, a);  \
+            if (is_rational(c, b)) {                                    \
+                rational bv = get_rational(c, b);                       \
+                scoped_anum _bv(_am);                                   \
+                _am.set(_bv, bv.to_mpq());                              \
+                r = _am.IRAT_PRED(av, _bv);                             \
+            }                                                           \
+            else {                                                      \
+                algebraic_numbers::anum const & bv = get_irrational(c, b); \
+                r = _am.IRAT_PRED(av, bv);                              \
+            }                                                           \
+        }                                                               \
+        return r ? Z3_TRUE : Z3_FALSE;
+
 
     Z3_bool Z3_API Z3_algebraic_lt(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
@@ -231,9 +285,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC(a, 0);
         CHECK_IS_ALGEBRAIC(b, 0);
-
-        // TODO
-        return Z3_FALSE;
+        BIN_PRED(<,lt);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -255,9 +307,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_IS_ALGEBRAIC(a, 0);
         CHECK_IS_ALGEBRAIC(b, 0);
-
-        // TODO
-        return Z3_FALSE;
+        BIN_PRED(==,eq);
         Z3_CATCH_RETURN(0);
     }
 
