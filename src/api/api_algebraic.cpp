@@ -150,6 +150,7 @@ extern "C" {
                 r = au(c).mk_numeral(_r, false);                        \
             }                                                           \
         }                                                               \
+        mk_c(c)->save_ast_trail(r);                                     \
         RETURN_Z3(of_ast(r));
 
 
@@ -222,6 +223,7 @@ extern "C" {
             _am.root(av, k, _r);
         }
         expr * r = au(c).mk_numeral(_r, false);
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }
@@ -243,6 +245,7 @@ extern "C" {
             _am.power(av, k, _r);
         }
         expr * r = au(c).mk_numeral(_r, false);
+        mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
         Z3_CATCH_RETURN(0);
     }

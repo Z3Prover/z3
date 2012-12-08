@@ -260,8 +260,8 @@ public:
        \brief c <- a - b
     */
     void sub(interval const & a, interval const & b, interval & c) {
-        m().sub(a.m_lower, b.m_lower, c.m_lower);
-        m().sub(a.m_upper, b.m_upper, c.m_upper);
+        m().sub(a.m_lower, b.m_upper, c.m_lower);
+        m().sub(a.m_upper, b.m_lower, c.m_upper);
     }
 
 private:
