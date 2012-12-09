@@ -32,6 +32,7 @@ Revision History:
 #include"event_handler.h"
 #include"tactic_manager.h"
 #include"context_params.h"
+#include"api_polynomial.h"
 
 namespace smtlib {
     class parser;
@@ -81,6 +82,8 @@ namespace api {
         Z3_ast_print_mode          m_print_mode;
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
+
+        pmanager                   m_pmanager;
     public:
         // Scoped obj for setting m_interruptable
         class set_interruptable {
@@ -166,6 +169,13 @@ namespace api {
         static void out_of_memory_handler(void * _ctx);
 
         void check_sorts(ast * n);
+
+        // ------------------------
+        //
+        // Polynomial manager & caches
+        //
+        // -----------------------
+        polynomial::manager & pm() { return m_pmanager.pm(); }
 
         // ------------------------
         //

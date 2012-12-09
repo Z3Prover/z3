@@ -22,6 +22,9 @@ Notes:
 #include"api_log_macros.h"
 #include"api_context.h"
 #include"algebraic_numbers.h"
+#include"expr2polynomial.h"
+#include"cancel_eh.h"
+#include"scoped_timer.h"
 
 extern "C" {
 
@@ -318,6 +321,34 @@ extern "C" {
         return !Z3_algebraic_eq(c, a, b);
     }
 
+    static bool to_anum_vector(Z3_context c, unsigned n, Z3_ast a[], scoped_anum_vector & as) {
+        algebraic_numbers::manager & _am = am(c);
+        scoped_anum tmp(_am);
+        for (unsigned i = 0; i < n; i++) {
+            if (is_rational(c, a[i])) {
+                _am.set(tmp, get_rational(c, a[i]).to_mpq());       
+                as.push_back(tmp);
+            }
+            else if (is_irrational(c, a[i])) {
+                as.push_back(get_irrational(c, a[i]));
+            }
+            else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    class vector_var2anum : public polynomial::var2anum {
+        scoped_anum_vector const & m_as;
+    public:
+        vector_var2anum(scoped_anum_vector & as):m_as(as) {}
+        virtual ~vector_var2anum() {}
+        virtual algebraic_numbers::manager & m() const { return m_as.m(); }
+        virtual bool contains(polynomial::var x) const { return static_cast<unsigned>(x) < m_as.size(); }
+        virtual algebraic_numbers::anum const & operator()(polynomial::var x) const { return m_as.get(x); }
+    };
+
     Z3_ast_vector Z3_API Z3_algebraic_roots(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]) {
         Z3_TRY;
         LOG_Z3_algebraic_roots(c, p, n, a);
@@ -331,8 +362,30 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_eval(c, p, n, a);
         RESET_ERROR_CODE();
-        // TODO
-        return 0;
+        polynomial::manager & pm = mk_c(c)->pm();
+        polynomial_ref _p(pm);
+        polynomial::scoped_numeral d(pm.m());
+        expr2polynomial converter(mk_c(c)->m(), pm, 0, true);
+        if (!converter.to_polynomial(to_expr(p), _p, d)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        algebraic_numbers::manager & _am = am(c);
+        scoped_anum_vector as(_am);
+        if (!to_anum_vector(c, n, a, as)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        {
+            cancel_eh<algebraic_numbers::manager> eh(_am);
+            api::context::set_interruptable(*(mk_c(c)), eh);
+            scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
+            vector_var2anum v2a(as);
+            int r = _am.eval_sign_at(_p, v2a);
+            if (r > 0) return 1;
+            else if (r < 0) return -1;
+            else return 0;
+        }
         Z3_CATCH_RETURN(0);
     }
 
