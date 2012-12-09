@@ -58,6 +58,29 @@ class Numeral:
     True
     >>> Numeral(m[x])**2
     2
+    
+    We can also isolate the roots of polynomials.
+
+    >>> x0, x1, x2 = RealVarVector(3)
+    >>> r0 = isolate_roots(x0**5 - x0 - 1)
+    >>> r0
+    [1.1673039782?]
+    
+    In the following example, we are isolating the roots
+    of a univariate polynomial (on x1) obtained after substituting
+    x0 -> r0[0]
+    
+    >>> r1 = isolate_roots(x1**2 - x0 + 1, [ r0[0] ])
+    >>> r1
+    [-0.4090280898?, 0.4090280898?]
+    
+    Similarly, in the next example we isolate the roots of
+    a univariate polynomial (on x2) obtained after substituting
+    x0 -> r0[0] and x1 -> r1[0]
+
+    >>> isolate_roots(x1*x2 + x0, [ r0[0], r1[0] ])
+    [2.8538479564?]
+
     """
     def __init__(self, num, ctx=None):
         if isinstance(num, Ast):
@@ -481,6 +504,58 @@ class Numeral:
 
     def ctx_ref(self):
         return self.ctx.ref()
+
+def eval_sign_at(p, vs):
+    """ 
+    Evaluate the sign of the polynomial `p` at `vs`.  `p` is a Z3
+    Expression containing arithmetic operators: +, -, *, ^k where k is
+    an integer; and free variables x that is_var(x) is True. Moreover,
+    all variables must be real.
+    
+    The result is 1 if the polynomial is positive at the given point,
+    -1 if negative, and 0 if zero.
+
+    >>> x0, x1, x2 = RealVarVector(3)
+    >>> eval_sign_at(x0**2 + x1*x2 + 1, (Numeral(0), Numeral(1), Numeral(2)))
+    1
+    >>> eval_sign_at(x0**2 - 2, [ Numeral(Sqrt(2)) ])
+    0
+    >>> eval_sign_at((x0 + x1)*(x0 + x2), (Numeral(0), Numeral(Sqrt(2)), Numeral(Sqrt(3))))
+    1
+    """
+    num = len(vs)
+    _vs = (Ast * num)()
+    for i in range(num):
+        _vs[i] = vs[i].ast
+    return Z3_algebraic_eval(p.ctx_ref(), p.as_ast(), num, _vs)
+
+def isolate_roots(p, vs=[]):
+    """
+    Given a multivariate polynomial p(x_0, ..., x_{n-1}, x_n), returns the 
+    roots of the univariate polynomial p(vs[0], ..., vs[len(vs)-1], x_n).
+       
+    Remarks:
+    * p is a Z3 expression that contains only arithmetic terms and free variables.
+    * forall i in [0, n) vs is a numeral.
+    
+    The result is a list of numerals
+
+    >>> x0 = RealVar(0)
+    >>> isolate_roots(x0**5 - x0 - 1)
+    [1.1673039782?]
+    >>> x1 = RealVar(1)
+    >>> isolate_roots(x0**2 - x1**4 - 1, [ Numeral(Sqrt(3)) ])
+    [-1.1892071150?, 1.1892071150?]
+    >>> x2 = RealVar(2)
+    >>> isolate_roots(x2**2 + x0 - x1, [ Numeral(Sqrt(3)), Numeral(Sqrt(2)) ])
+    []
+    """
+    num = len(vs)
+    _vs = (Ast * num)()
+    for i in range(num):
+        _vs[i] = vs[i].ast
+    _roots = AstVector(Z3_algebraic_roots(p.ctx_ref(), p.as_ast(), num, _vs), p.ctx)
+    return [ Numeral(r) for r in _roots ]
         
 if __name__ == "__main__":
     import doctest

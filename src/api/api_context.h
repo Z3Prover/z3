@@ -32,6 +32,7 @@ Revision History:
 #include"event_handler.h"
 #include"tactic_manager.h"
 #include"context_params.h"
+#include"api_polynomial.h"
 
 namespace smtlib {
     class parser;
@@ -45,7 +46,7 @@ namespace api {
         struct add_plugins {  add_plugins(ast_manager & m); };
         context_params             m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
-        ast_manager                m_manager;
+        scoped_ptr<ast_manager>    m_manager;
         add_plugins                m_plugins;
 
         arith_util                 m_arith_util;
@@ -81,6 +82,8 @@ namespace api {
         Z3_ast_print_mode          m_print_mode;
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
+
+        pmanager                   m_pmanager;
     public:
         // Scoped obj for setting m_interruptable
         class set_interruptable {
@@ -98,10 +101,10 @@ namespace api {
         
         context(context_params * p, bool user_ref_count = false);
         ~context();
-        ast_manager & m() { return m_manager; }
+        ast_manager & m() const { return *(m_manager.get()); }
 
         context_params & params() { return m_params; }
-        bool produce_proofs() const { return m_manager.proofs_enabled(); }
+        bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }
@@ -166,6 +169,13 @@ namespace api {
         static void out_of_memory_handler(void * _ctx);
 
         void check_sorts(ast * n);
+
+        // ------------------------
+        //
+        // Polynomial manager & caches
+        //
+        // -----------------------
+        polynomial::manager & pm() { return m_pmanager.pm(); }
 
         // ------------------------
         //

@@ -49,21 +49,24 @@ struct expr2polynomial::imp {
     polynomial::polynomial_ref_vector  m_presult_stack;
     polynomial::scoped_numeral_vector  m_dresult_stack;
 
+    bool                               m_use_var_idxs;
+
     volatile bool                      m_cancel;
     
-    imp(expr2polynomial & w, ast_manager & am, polynomial::manager & pm, expr2var * e2v):
+    imp(expr2polynomial & w, ast_manager & am, polynomial::manager & pm, expr2var * e2v, bool use_var_idxs):
         m_wrapper(w),
         m_am(am),
         m_autil(am),
         m_pm(pm),
-        m_expr2var(e2v == 0 ? alloc(expr2var, am) : e2v),
-        m_expr2var_owner(e2v == 0),
+        m_expr2var(e2v == 0 && !use_var_idxs ? alloc(expr2var, am) : e2v),
+        m_expr2var_owner(e2v == 0 && !use_var_idxs),
         m_var2expr(am),
         m_cached_domain(am),
         m_cached_polynomials(pm),
         m_cached_denominators(pm.m()),
         m_presult_stack(pm),
         m_dresult_stack(pm.m()),
+        m_use_var_idxs(use_var_idxs),
         m_cancel(false) {
     }
 
@@ -93,6 +96,14 @@ struct expr2polynomial::imp {
         if (m_cancel)
             throw default_exception("canceled");
         cooperate("expr2polynomial");
+    }
+
+    void throw_not_polynomial() {
+        throw default_exception("the given expression is not a polynomial");
+    }
+
+    void throw_no_int_var() {
+        throw default_exception("integer variables are not allowed in the given polynomial");
     }
 
     void push_frame(app * t) {
@@ -127,14 +138,26 @@ struct expr2polynomial::imp {
     }
 
     void store_var_poly(expr * t) {
-        polynomial::var x = m_expr2var->to_var(t);
-        if (x == UINT_MAX) {
-            bool is_int = m_autil.is_int(t);
-            x = m_wrapper.mk_var(is_int);
-            m_expr2var->insert(t, x);
-            if (x >= m_var2expr.size())
-                m_var2expr.resize(x+1, 0);
-            m_var2expr.set(x, t);
+        polynomial::var x;
+        if (m_use_var_idxs) {
+            SASSERT(::is_var(t));
+            if (m_autil.is_int(t))
+                throw_no_int_var();
+            unsigned idx = to_var(t)->get_idx();
+            while (idx >= m_pm.num_vars())
+                m_pm.mk_var();
+            x = static_cast<polynomial::var>(idx);
+        }
+        else {
+            x = m_expr2var->to_var(t);
+            if (x == UINT_MAX) {
+                bool is_int = m_autil.is_int(t);
+                x = m_wrapper.mk_var(is_int);
+                m_expr2var->insert(t, x);
+                if (x >= m_var2expr.size())
+                    m_var2expr.resize(x+1, 0);
+                m_var2expr.set(x, t);
+            }
         }
         polynomial::numeral one(1);
         store_result(t, pm().mk_polynomial(x), one);
@@ -160,7 +183,10 @@ struct expr2polynomial::imp {
             rational k;
             SASSERT(t->get_num_args() == 2);
             if (!m_autil.is_numeral(t->get_arg(1), k) || !k.is_int() || !k.is_unsigned()) {
-                store_var_poly(t);
+                if (m_use_var_idxs)
+                    throw_not_polynomial();
+                else
+                    store_var_poly(t);
                 return true;
             }
             push_frame(t);
@@ -168,6 +194,8 @@ struct expr2polynomial::imp {
         }
         default:
             // can't handle operator
+            if (m_use_var_idxs)
+                throw_not_polynomial();
             store_var_poly(t);
             return true;
         }
@@ -190,6 +218,8 @@ struct expr2polynomial::imp {
         
         SASSERT(is_app(t));
         if (!m_autil.is_arith_expr(t)) {
+            if (m_use_var_idxs)
+                throw_not_polynomial();
             store_var_poly(t);
             return true;
         }
@@ -378,19 +408,25 @@ struct expr2polynomial::imp {
 
         for (unsigned i = 0; i < sz; i++) {
             margs.reset();
-            polynomial::monomial * m = pm().get_monomial(p, i);
+            polynomial::monomial * _m = pm().get_monomial(p, i);
             polynomial::numeral const & a = pm().coeff(p, i);
             if (!nm().is_one(a)) {
                 margs.push_back(m_autil.mk_numeral(rational(a), is_int));
             }
-            unsigned msz = pm().size(m);
+            unsigned msz = pm().size(_m);
             for (unsigned j = 0; j < msz; j++) {
-                polynomial::var x = pm().get_var(m, j);
-                expr * t = m_var2expr.get(x);
-                if (m_wrapper.is_int(x) && !is_int) {
-                    t = m_autil.mk_to_real(t);
+                polynomial::var x = pm().get_var(_m, j);
+                expr * t;
+                if (m_use_var_idxs) {
+                    t = m().mk_var(x, m_autil.mk_real());
                 }
-                unsigned d = pm().degree(m, j);
+                else {
+                    t = m_var2expr.get(x);
+                    if (m_wrapper.is_int(x) && !is_int) {
+                        t = m_autil.mk_to_real(t);
+                    }
+                }
+                unsigned d = pm().degree(_m, j);
                 if (use_power && d > 1) {
                     margs.push_back(m_autil.mk_power(t, m_autil.mk_numeral(rational(d), is_int)));
                 }
@@ -426,8 +462,8 @@ struct expr2polynomial::imp {
     }
 };
 
-expr2polynomial::expr2polynomial(ast_manager & am, polynomial::manager & pm, expr2var * e2v) {
-    m_imp = alloc(imp, *this, am, pm, e2v);
+expr2polynomial::expr2polynomial(ast_manager & am, polynomial::manager & pm, expr2var * e2v, bool use_var_idxs) {
+    m_imp = alloc(imp, *this, am, pm, e2v, use_var_idxs);
 }
 
 expr2polynomial::~expr2polynomial() {
@@ -451,10 +487,12 @@ void expr2polynomial::to_expr(polynomial::polynomial_ref const & p, bool use_pow
 }
 
 bool expr2polynomial::is_var(expr * t) const { 
+    SASSERT(!m_imp->m_use_var_idxs);
     return m_imp->m_expr2var->is_var(t); 
 }
     
 expr2var const & expr2polynomial::get_mapping() const { 
+    SASSERT(!m_imp->m_use_var_idxs);
     return *(m_imp->m_expr2var); 
 }
 
