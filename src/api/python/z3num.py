@@ -58,6 +58,29 @@ class Numeral:
     True
     >>> Numeral(m[x])**2
     2
+    
+    We can also isolate the roots of polynomials.
+
+    >>> x0, x1, x2 = RealVarVector(3)
+    >>> r0 = isolate_roots(x0**5 - x0 - 1)
+    >>> r0
+    [1.1673039782?]
+    
+    In the following example, we are isolating the roots
+    of a univariate polynomial (on x1) obtained after substituting
+    x0 -> r0[0]
+    
+    >>> r1 = isolate_roots(x1**2 - x0 + 1, [ r0[0] ])
+    >>> r1
+    [-0.4090280898?, 0.4090280898?]
+    
+    Similarly, in the next example we isolate the roots of
+    a univariate polynomial (on x2) obtained after substituting
+    x0 -> r0[0] and x1 -> r1[0]
+
+    >>> isolate_roots(x1*x2 + x0, [ r0[0], r1[0] ])
+    [2.8538479564?]
+
     """
     def __init__(self, num, ctx=None):
         if isinstance(num, Ast):
