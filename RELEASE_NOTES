@@ -24,6 +24,8 @@ Version 4.3.2
 
 - Added new option to mk_make to allow users to specify where python bindings (Z3Py) will be installed. (Thanks to Dejan Jovanovic for reporting the problem).
 
+- Fixed crash reported at http://z3.codeplex.com/workitem/10
+
 Version 4.3.1
 =============
 
