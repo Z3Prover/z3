@@ -82,13 +82,13 @@ namespace api {
     context::context(context_params * p, bool user_ref_count):
         m_params(p != 0 ? *p : context_params()),
         m_user_ref_count(user_ref_count),
-        m_manager(m_params.m_proof ? PGM_FINE : PGM_DISABLED, m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0), 
-        m_plugins(m_manager),
-        m_arith_util(m_manager),
-        m_bv_util(m_manager),
-        m_datalog_util(m_manager),
-        m_last_result(m_manager),
-        m_ast_trail(m_manager),
+        m_manager(m_params.mk_ast_manager()),
+        m_plugins(m()),
+        m_arith_util(m()),
+        m_bv_util(m()),
+        m_datalog_util(m()),
+        m_last_result(m()),
+        m_ast_trail(m()),
         m_replay_stack() {
 
         m_solver     = 0;
@@ -102,22 +102,16 @@ namespace api {
         m_smtlib_parser_has_decls = false;
         
         z3_bound_num_procs();
-        //
-        // Configuration parameter settings.
-        //
-        if (m_params.m_debug_ref_count) {
-            m_manager.debug_ref_count();
-        }
         
         m_error_handler = &default_error_handler;
 
-        m_basic_fid = m_manager.get_basic_family_id();
-        m_arith_fid = m_manager.get_family_id("arith");
-        m_bv_fid    = m_manager.get_family_id("bv");
-        m_array_fid = m_manager.get_family_id("array");
-        m_dt_fid    = m_manager.get_family_id("datatype");
-        m_datalog_fid = m_manager.get_family_id("datalog_relation");
-        m_dt_plugin = static_cast<datatype_decl_plugin*>(m_manager.get_plugin(m_dt_fid));
+        m_basic_fid = m().get_basic_family_id();
+        m_arith_fid = m().get_family_id("arith");
+        m_bv_fid    = m().get_family_id("bv");
+        m_array_fid = m().get_family_id("array");
+        m_dt_fid    = m().get_family_id("datatype");
+        m_datalog_fid = m().get_family_id("datalog_relation");
+        m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
 
         if (!m_user_ref_count) {
             m_replay_stack.push_back(0);
@@ -143,7 +137,7 @@ namespace api {
         {
             if (m_interruptable)
                 (*m_interruptable)();
-            m_manager.set_cancel(true);
+            m().set_cancel(true);
         }
     }
     
@@ -196,12 +190,12 @@ namespace api {
     expr * context::mk_and(unsigned num_exprs, expr * const * exprs) {
         switch(num_exprs) {
         case 0: 
-            return m_manager.mk_true(); 
+            return m().mk_true(); 
         case 1: 
             save_ast_trail(exprs[0]);
             return exprs[0];
         default: {
-            expr * a = m_manager.mk_and(num_exprs, exprs);
+            expr * a = m().mk_and(num_exprs, exprs);
             save_ast_trail(a);
             return a;
         } }
@@ -217,7 +211,7 @@ namespace api {
         SASSERT(m_replay_stack.size() > num_scopes);
         unsigned j = m_replay_stack.size() - num_scopes - 1;
         if (!m_replay_stack[j]) {
-            m_replay_stack[j] = alloc(ast_ref_vector, m_manager);
+            m_replay_stack[j] = alloc(ast_ref_vector, m());
         }
         m_replay_stack[j]->push_back(n);
     }
@@ -325,7 +319,7 @@ namespace api {
     smt::kernel & context::get_smt_kernel() {
         if (!m_solver) {
             m_fparams.updt_params(m_params);
-            m_solver = alloc(smt::kernel, m_manager, m_fparams);
+            m_solver = alloc(smt::kernel, m(), m_fparams);
         }
         return *m_solver;
     }

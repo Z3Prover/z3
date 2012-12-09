@@ -37,6 +37,7 @@ public:
     bool        m_model;
     bool        m_model_validate;
     bool        m_unsat_core;
+    bool        m_smtlib2_compliant; // it must be here because it enable/disable the use of coercions in the ast_manager.
     unsigned    m_timeout;
 
     context_params();
@@ -63,6 +64,11 @@ public:
        Example: auto_config
     */
     params_ref merge_default_params(params_ref const & p);
+    
+    /**
+       \brief Create an AST manager using this configuration.
+    */
+    ast_manager * mk_ast_manager();
 };
 
 

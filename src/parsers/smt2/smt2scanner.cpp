@@ -242,7 +242,7 @@ namespace smt2 {
         }
     }
     
-    scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive, params_ref const & _p):
+    scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive):
         m_ctx(ctx),
         m_interactive(interactive), 
         m_spos(0),
@@ -254,9 +254,8 @@ namespace smt2 {
         m_bend(0),
         m_stream(stream),
         m_cache_input(false) {
-
-        parser_params p(_p);
-        m_smtlib2_compliant = p.smt2_compliant();
+        
+        m_smtlib2_compliant = ctx.params().m_smtlib2_compliant;
 
         for (int i = 0; i < 256; ++i) {
             m_normalized[i] = (char) i;

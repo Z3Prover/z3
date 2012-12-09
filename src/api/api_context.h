@@ -46,7 +46,7 @@ namespace api {
         struct add_plugins {  add_plugins(ast_manager & m); };
         context_params             m_params;
         bool                       m_user_ref_count; //!< if true, the user is responsible for managing referenc counters.
-        ast_manager                m_manager;
+        scoped_ptr<ast_manager>    m_manager;
         add_plugins                m_plugins;
 
         arith_util                 m_arith_util;
@@ -101,10 +101,10 @@ namespace api {
         
         context(context_params * p, bool user_ref_count = false);
         ~context();
-        ast_manager & m() { return m_manager; }
+        ast_manager & m() const { return *(m_manager.get()); }
 
         context_params & params() { return m_params; }
-        bool produce_proofs() const { return m_manager.proofs_enabled(); }
+        bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }

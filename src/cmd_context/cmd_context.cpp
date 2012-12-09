@@ -592,14 +592,9 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, 
-                       produce_proofs() ? PGM_FINE : PGM_DISABLED, 
-                       m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0);
+    m_manager  = m_params.mk_ast_manager();
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
-    // PARAM-TODO
-    // if (params().m_smtlib2_compliant)
-    //    m_manager->enable_int_real_coercions(false);
 }
 
 void cmd_context::init_external_manager() {
