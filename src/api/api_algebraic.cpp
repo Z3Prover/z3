@@ -25,6 +25,7 @@ Notes:
 #include"expr2polynomial.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
+#include"api_ast_vector.h"
 
 extern "C" {
 
@@ -353,8 +354,35 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_algebraic_roots(c, p, n, a);
         RESET_ERROR_CODE();
-        // TODO
-        return 0;
+        polynomial::manager & pm = mk_c(c)->pm();
+        polynomial_ref _p(pm);
+        polynomial::scoped_numeral d(pm.m());
+        expr2polynomial converter(mk_c(c)->m(), pm, 0, true);
+        if (!converter.to_polynomial(to_expr(p), _p, d) ||
+            static_cast<unsigned>(max_var(_p)) >= n + 1) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        algebraic_numbers::manager & _am = am(c);
+        scoped_anum_vector as(_am);
+        if (!to_anum_vector(c, n, a, as)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG);
+            return 0;
+        }
+        scoped_anum_vector roots(_am);
+        {
+            cancel_eh<algebraic_numbers::manager> eh(_am);
+            api::context::set_interruptable(*(mk_c(c)), eh);
+            scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
+            vector_var2anum v2a(as);
+            _am.isolate_roots(_p, v2a, roots);
+        }
+        Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, mk_c(c)->m());
+        mk_c(c)->save_object(result);
+        for (unsigned i = 0; i < roots.size(); i++) {
+            result->m_ast_vector.push_back(au(c).mk_numeral(roots.get(i), false));
+        }
+        RETURN_Z3(of_ast_vector(result));
         Z3_CATCH_RETURN(0);
     }
 
@@ -366,7 +394,8 @@ extern "C" {
         polynomial_ref _p(pm);
         polynomial::scoped_numeral d(pm.m());
         expr2polynomial converter(mk_c(c)->m(), pm, 0, true);
-        if (!converter.to_polynomial(to_expr(p), _p, d)) {
+        if (!converter.to_polynomial(to_expr(p), _p, d) ||
+            static_cast<unsigned>(max_var(_p)) >= n) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
