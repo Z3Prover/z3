@@ -1298,6 +1298,10 @@ def mk_config():
         else:
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
             SLIBEXTRAFLAGS = ''
+        if DEBUG_MODE:
+            CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
+        else:
+            CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
         sysname = os.uname()[0]
         if sysname == 'Darwin':
             SO_EXT    = '.dylib'
@@ -1331,10 +1335,6 @@ def mk_config():
             CPPFLAGS     = '%s -DZ3DEBUG' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
-        if DEBUG_MODE:
-            CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
-        else:
-            CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
         CXXFLAGS         = '%s -msse -msse2' % CXXFLAGS
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)

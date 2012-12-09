@@ -559,10 +559,10 @@ public:
             ts.push_back(m_ts.get(i)->translate(*new_m));
         }
 
-        unsigned finished_id = UINT_MAX;
-        par_exception_kind ex_kind;
+        unsigned finished_id       = UINT_MAX;
+        par_exception_kind ex_kind = DEFAULT_EX;
         std::string        ex_msg;
-        unsigned           error_code;
+        unsigned           error_code = 0;
         
         #pragma omp parallel for
         for (int i = 0; i < static_cast<int>(sz); i++) {
@@ -734,8 +734,8 @@ public:
 
             bool found_solution = false;
             bool failed         = false;
-            par_exception_kind ex_kind;
-            unsigned error_code;
+            par_exception_kind ex_kind = DEFAULT_EX;
+            unsigned error_code = 0;
             std::string  ex_msg;
 
             #pragma omp parallel for
