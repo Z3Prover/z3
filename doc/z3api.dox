@@ -687,6 +687,7 @@ WARN_LOGFILE           =
 # with spaces.
 
 INPUT                  = ../src/api/dotnet \
+                         ../src/api/java \
                          ../src/api/c++ \
                          ./tmp
 
@@ -740,7 +741,8 @@ FILE_PATTERNS          = website.dox \
                          Util.cs \
                          Version.cs \
                          Z3Exception.cs \
-                         Z3Object.cs
+                         Z3Object.cs \
+                         *.java
 
 # The RECURSIVE tag can be used to turn specify whether or not subdirectories
 # should be searched for input files as well. Possible values are YES and NO.
