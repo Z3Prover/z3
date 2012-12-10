@@ -21,11 +21,11 @@ Notes:
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
+#include"api_ast_vector.h"
 #include"algebraic_numbers.h"
 #include"expr2polynomial.h"
 #include"cancel_eh.h"
 #include"scoped_timer.h"
-#include"api_ast_vector.h"
 
 extern "C" {
 
