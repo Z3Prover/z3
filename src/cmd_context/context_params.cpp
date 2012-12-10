@@ -41,7 +41,7 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
 
 void context_params::set(char const * param, char const * value) {
     std::string p = param;
-    unsigned n = p.size();
+    unsigned n = static_cast<unsigned>(p.size());
     for (unsigned i = 0; i < n; i++) {
         if (p[i] >= 'A' && p[i] <= 'Z')
             p[i] = p[i] - 'A' + 'a';

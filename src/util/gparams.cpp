@@ -165,7 +165,7 @@ public:
         if (*name == ':')
             name++;
         std::string tmp = name;
-        unsigned n = tmp.size();
+        unsigned n = static_cast<unsigned>(tmp.size());
         for (unsigned i = 0; i < n; i++) {
             if (tmp[i] >= 'A' && tmp[i] <= 'Z')
                 tmp[i] = tmp[i] - 'A' + 'a';

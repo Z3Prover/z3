@@ -29,7 +29,7 @@ std::string norm_param_name(char const * n) {
     if (*n == ':')
         n++;
     std::string r = n;
-    unsigned sz = r.size();
+    unsigned sz = static_cast<unsigned>(r.size());
     if (sz == 0)
         return "_";
     for (unsigned i = 0; i < sz; i++) {
@@ -135,7 +135,7 @@ struct param_descrs::imp {
             if (smt2_style)
                 out << ':';
             char const * s = it2->bare_str();
-            unsigned n = strlen(s);
+            unsigned n = static_cast<unsigned>(strlen(s));
             for (unsigned i = 0; i < n; i++) {
                 if (smt2_style && s[i] == '_')
                     out << '-';
