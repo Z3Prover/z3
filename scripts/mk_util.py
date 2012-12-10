@@ -1507,7 +1507,7 @@ def def_module_params(module_name, export, params, class_name=None, description=
     out.write('  params_ref const & p;\n')
     if export:
         out.write('  params_ref g;\n')
-    out.write('  %s(params_ref const & _p = params_ref()):\n' % class_name)
+    out.write('  %s(params_ref const & _p = params_ref::get_empty()):\n' % class_name)
     out.write('     p(_p)')
     if export:
         out.write(', g(gparams::get_module("%s"))' % module_name)

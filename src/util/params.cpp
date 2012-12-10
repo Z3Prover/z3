@@ -21,6 +21,8 @@ Notes:
 #include"symbol.h"
 #include"dictionary.h"
 
+params_ref params_ref::g_empty_params_ref;
+
 std::string norm_param_name(char const * n) {
     if (n == 0)
         return "_";
