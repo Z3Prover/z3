@@ -211,6 +211,13 @@ def check_java():
         raise MKException('Failed testing Java program. Set environment variable JAVA with the path to the Java virtual machine')
     find_java_home()
 
+def find_jni_h(path):
+    for root, dirs, files in os.walk(path): 
+        for f in files:
+            if f == 'jni.h':
+                return root
+    return False
+
 def find_java_home():
     global JAVA_HOME
     if JAVA_HOME != None:
@@ -238,9 +245,12 @@ def find_java_home():
             path = string.join(tmp[:len(tmp) - 3], os.sep)
             if is_verbose():
                 print "Checking jni.h..."
-            if not os.path.exists(os.path.join(path, 'include', 'jni.h')):
-                raise MKException("Failed to detect jni.h at '%s'" % os.path.join(path, 'include'))
-            JAVA_HOME = path
+            jni_dir = find_jni_h(path)
+            if not jni_dir:
+                raise MKException("Failed to detect jni.h at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(path, 'include'))
+            JAVA_HOME = os.path.split(jni_dir)[0]
+            if is_verbose():
+                print 'JAVA_HOME=%s' % JAVA_HOME
             return
     raise MKException('Failed to find JAVA_HOME')
 
