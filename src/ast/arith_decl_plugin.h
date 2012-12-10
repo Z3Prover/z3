@@ -141,8 +141,8 @@ public:
     virtual ~arith_decl_plugin();
     virtual void finalize();
 
-    algebraic_numbers::manager & am();
-    algebraic_numbers_wrapper & aw();
+    algebraic_numbers::manager & am() const;
+    algebraic_numbers_wrapper & aw() const;
 
     virtual void del(parameter const & p);
     virtual parameter translate(parameter const & p, decl_plugin & target);
@@ -159,9 +159,13 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned num_args, expr * const * args, sort * range);
 
-    virtual bool is_value(app* e) const;
+    virtual bool is_value(app * e) const;
 
-    virtual bool are_distinct(app* a, app* b) const;
+    virtual bool is_unique_value(app * e) const;
+
+    virtual bool are_equal(app * a, app * b) const;
+
+    virtual bool are_distinct(app * a, app * b) const;
 
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
 
@@ -180,7 +184,7 @@ public:
 
     virtual expr * get_some_value(sort * s);
 
-    void set_cancel(bool f);
+    virtual void set_cancel(bool f);
 };
 
 class arith_util {

@@ -38,13 +38,6 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
     
     unsigned mk_id(algebraic_numbers::anum const & val) {
         SASSERT(!m_amanager.is_rational(val));
-        // TODO: avoid linear scan. Use hashtable based on the floor of val
-        unsigned sz = m_nums.size();
-        for (unsigned i = 0; i < sz; i++) {
-            algebraic_numbers::anum const & other = m_nums.get(i);
-            if (m_amanager.eq(val, other))
-                return i;
-        }
         unsigned new_id = m_id_gen.mk();
         m_nums.reserve(new_id+1);
         m_amanager.set(m_nums[new_id], val);
@@ -71,13 +64,13 @@ struct arith_decl_plugin::algebraic_numbers_wrapper {
 
 };
 
-arith_decl_plugin::algebraic_numbers_wrapper & arith_decl_plugin::aw() {
+arith_decl_plugin::algebraic_numbers_wrapper & arith_decl_plugin::aw() const {
     if (m_aw == 0)
-        m_aw = alloc(algebraic_numbers_wrapper);
+        const_cast<arith_decl_plugin*>(this)->m_aw = alloc(algebraic_numbers_wrapper);
     return *m_aw;
 }
 
-algebraic_numbers::manager & arith_decl_plugin::am() {
+algebraic_numbers::manager & arith_decl_plugin::am() const {
     return aw().m_amanager;
 }
 
@@ -509,14 +502,41 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     }
 }
 
-bool arith_decl_plugin::is_value(app* e) const {
-    return is_app_of(e, m_family_id, OP_NUM);
+bool arith_decl_plugin::is_value(app * e) const {
+    return 
+        is_app_of(e, m_family_id, OP_NUM) || 
+        is_app_of(e, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) ||
+        is_app_of(e, m_family_id, OP_PI) ||
+        is_app_of(e, m_family_id, OP_E);
 }
 
-bool arith_decl_plugin::are_distinct(app* a, app* b) const {
+bool arith_decl_plugin::is_unique_value(app * e) const {
+    return 
+        is_app_of(e, m_family_id, OP_NUM) || 
+        is_app_of(e, m_family_id, OP_PI) ||
+        is_app_of(e, m_family_id, OP_E);
+}
+
+bool arith_decl_plugin::are_equal(app * a, app * b) const {
+    if (decl_plugin::are_equal(a, b)) {
+        return true;
+    }
+
+    if (is_app_of(a, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) && is_app_of(b, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM)) {
+        return am().eq(aw().to_anum(a->get_decl()), aw().to_anum(b->get_decl()));
+    }
+
+    return false;
+}
+
+bool arith_decl_plugin::are_distinct(app * a, app * b) const {
     TRACE("are_distinct_bug", tout << mk_ismt2_pp(a, *m_manager) << "\n" << mk_ismt2_pp(b, *m_manager) << "\n";);
     if (decl_plugin::are_distinct(a,b)) {
         return true;
+    }
+
+    if (is_app_of(a, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM) && is_app_of(b, m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM)) {
+        return am().neq(aw().to_anum(a->get_decl()), aw().to_anum(b->get_decl()));
     }
 
 #define is_non_zero(e) is_app_of(e,m_family_id, OP_NUM) && !to_app(e)->get_decl()->get_parameter(0).get_rational().is_zero()

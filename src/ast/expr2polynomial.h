@@ -29,7 +29,24 @@ class expr2polynomial {
     struct imp;
     imp * m_imp;
 public:
-    expr2polynomial(ast_manager & am, polynomial::manager & pm, expr2var * e2v);
+    expr2polynomial(ast_manager & am, 
+                    polynomial::manager & pm, 
+                    expr2var * e2v,
+                    /*
+                      If true, the expressions converted into 
+                      polynomials should only contain Z3 free variables.
+                      A Z3 variable x, with idx i, is converted into
+                      the variable i of the polynomial manager pm.
+                      
+                      An exception is thrown if there is a mismatch between
+                      the sorts x and the variable in the polynomial manager.
+
+                      The argument e2v is ignored when use_var_idxs is true.
+
+                      Moreover, only real variables are allowed.
+                    */
+                    bool use_var_idxs = false
+                    );
     virtual ~expr2polynomial();
 
     ast_manager & m() const;
@@ -63,6 +80,8 @@ public:
     
     /**
        \brief Return the mapping from expressions to variables
+    
+       \pre the object was created using use_var_idxs = false.
     */
     expr2var const & get_mapping() const;
 
@@ -74,10 +93,10 @@ public:
     /**
        \brief Return true if the variable is associated with an expression of integer sort.
     */
-    virtual bool is_int(polynomial::var x) const = 0;
+    virtual bool is_int(polynomial::var x) const { UNREACHABLE(); return false; }
 
 protected:
-    virtual polynomial::var mk_var(bool is_int) = 0;
+    virtual polynomial::var mk_var(bool is_int) { UNREACHABLE(); return polynomial::null_var; }
 };
 
 class default_expr2polynomial : public expr2polynomial {

@@ -62,9 +62,8 @@ tactic * mk_ufbv_preprocessor_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p(p);    
     main_p.set_bool("mbqi", true);
-    main_p.set_uint("mbqi_max_iterations", -1);
+    main_p.set_uint("mbqi.max_iterations", UINT_MAX);
     main_p.set_bool("elim_and", true);
-    main_p.set_bool("solver", true);
 
     tactic * t = and_then(repeat(mk_ufbv_preprocessor_tactic(m, main_p), 2),
                           mk_smt_tactic_using(false, main_p));

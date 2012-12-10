@@ -142,6 +142,14 @@ namespace smt {
         }
     };
 
+    struct initn : public instruction {
+        // We need that because starting at Z3 3.0, some associative
+        // operators (e.g., + and *) are represented using n-ary
+        // applications.
+        // We do not need the extra field for INIT1, ..., INIT6.
+        unsigned       m_num_args; 
+    };
+
     struct compare : public instruction {
         unsigned       m_reg1;
         unsigned       m_reg2;
@@ -608,7 +616,18 @@ namespace smt {
         instruction * mk_init(unsigned n) { 
             SASSERT(n >= 1);
             opcode op = n <= 6 ? static_cast<opcode>(INIT1 + n - 1) : INITN;
-            return mk_instr<instruction>(op, sizeof(instruction)); 
+            if (op == INITN) {
+                // We store the actual number of arguments for INITN.
+                // Starting at Z3 3.0, some associative operators
+                // (e.g., + and *) are represented using n-ary
+                // applications.
+                initn * r = mk_instr<initn>(op, sizeof(initn));
+                r->m_num_args = n;
+                return r;
+            }
+            else {
+                return mk_instr<instruction>(op, sizeof(instruction));
+            }
         }
 
     public:
@@ -2345,6 +2364,8 @@ namespace smt {
         case INITN:
             m_app      = m_registers[0];
             m_num_args = m_app->get_num_args();
+            if (m_num_args != static_cast<const initn *>(m_pc)->m_num_args)
+                goto backtrack;
             for (unsigned i = 0; i < m_num_args; i++)
                 m_registers[i+1] = m_app->get_arg(i);
             m_pc = m_pc->m_next;
@@ -3982,3 +4003,8 @@ namespace smt {
     }
 };
 
+#ifdef Z3DEBUG
+void pp(smt::code_tree * c) {
+    c->display(std::cout);
+}
+#endif

@@ -36,17 +36,7 @@ extern "C" {
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         ast_manager & m = mk_c(c)->m();
         Z3_solver_ref * s = to_solver(_s);
-        s->m_solver->set_produce_proofs(mk_c(c)->produce_proofs());
-        s->m_solver->set_produce_unsat_cores(s->m_params.get_bool("unsat_core", mk_c(c)->produce_unsat_cores()));
-        s->m_solver->set_produce_models(s->m_params.get_bool("model", mk_c(c)->produce_models()));
-        if (!mk_c(c)->use_auto_config()) {
-            params_ref p = s->m_params;
-            p.set_bool("auto_config", false);
-            s->m_solver->updt_params(p);
-        }
-        else {
-            s->m_solver->updt_params(s->m_params);
-        }
+        mk_c(c)->params().init_solver_params(mk_c(c)->m(), *(s->m_solver), s->m_params);
         s->m_solver->init(m, s->m_logic);
         s->m_initialized = true;
     }

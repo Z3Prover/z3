@@ -715,6 +715,8 @@ namespace datalog {
             check_positive_predicates(r);
             break;
         case BMC_ENGINE:
+            check_positive_predicates(r);
+            break;            
         case QBMC_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);

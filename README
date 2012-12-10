@@ -20,9 +20,10 @@ Execute:
 It will install z3 executable at /usr/bin, libraries at /usr/lib, and include files at /usr/include.
 You can change the installation p
 
-Use the following commands to install in a different prefix (e.g., /home/leo).
+Use the following commands to install in a different prefix (e.g., /home/leo), and the Z3 python
+bindings in a different python package directory.
 
-  python scripts/mk_make.py --prefix=/home/leo
+  python scripts/mk_make.py --prefix=/home/leo --pydir=/home/leo/python
   cd build
   make
   sudo make install

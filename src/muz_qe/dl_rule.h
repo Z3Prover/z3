@@ -244,7 +244,7 @@ namespace datalog {
 
         void norm_vars(rule_manager & rm);
 
-        void get_vars(sort_ref_vector& sorts) const;
+        void get_vars(ptr_vector<sort>& sorts) const;
 
         void to_formula(expr_ref& result) const;
 

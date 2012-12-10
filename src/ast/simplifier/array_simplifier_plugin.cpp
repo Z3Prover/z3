@@ -293,7 +293,7 @@ bool array_simplifier_plugin::all_const_array(unsigned num_args, expr* const* ar
 
 bool array_simplifier_plugin::all_values(unsigned num_args, expr* const* args) const {
     for (unsigned i = 0; i < num_args; ++i) {
-        if (!m_manager.is_value(args[i])) {
+        if (!m_manager.is_unique_value(args[i])) {
             return false;
         }
     }
@@ -331,7 +331,7 @@ lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned nu
         if (st[i][arity] == def) {
             continue;
         }
-        if (m_manager.is_value(st[i][arity]) && m_manager.is_value(def)) {
+        if (m_manager.is_unique_value(st[i][arity]) && m_manager.is_unique_value(def)) {
             return l_false;
         }
         return l_undef;
@@ -342,7 +342,7 @@ lbool array_simplifier_plugin::eq_default(expr* def, unsigned arity, unsigned nu
 bool array_simplifier_plugin::insert_table(expr* def, unsigned arity, unsigned num_st, expr*const* const* st, arg_table& table) {
     for (unsigned i = 0; i < num_st; ++i ) {
         for (unsigned j = 0; j < arity; ++j) {
-            if (!m_manager.is_value(st[i][j])) {
+            if (!m_manager.is_unique_value(st[i][j])) {
                 return false;
             }
         }
@@ -380,12 +380,12 @@ lbool array_simplifier_plugin::eq_stores(expr* def, unsigned arity, unsigned num
                 table2.erase(e1);
                 continue;
             }
-            if (m_manager.is_value(v1) && m_manager.is_value(v2)) {
+            if (m_manager.is_unique_value(v1) && m_manager.is_unique_value(v2)) {
                 return l_false;
             }
             return l_undef;
         }
-        else if (m_manager.is_value(v1) && m_manager.is_value(def) && v1 != def) {
+        else if (m_manager.is_unique_value(v1) && m_manager.is_unique_value(def) && v1 != def) {
             return l_false;
         }
     }
@@ -394,7 +394,7 @@ lbool array_simplifier_plugin::eq_stores(expr* def, unsigned arity, unsigned num
     for (; it != end; ++it) {
         args_entry const & e = *it;
         expr* v = e.m_args[arity];
-        if (m_manager.is_value(v) && m_manager.is_value(def) && v != def) {
+        if (m_manager.is_unique_value(v) && m_manager.is_unique_value(def) && v != def) {
             return l_false;
         }
     }
@@ -431,7 +431,7 @@ bool array_simplifier_plugin::reduce_eq(expr * lhs, expr * rhs, expr_ref & resul
                 return false;
             }
         }
-        else if (m_manager.is_value(c1) && m_manager.is_value(c2)) {
+        else if (m_manager.is_unique_value(c1) && m_manager.is_unique_value(c2)) {
             result = m_manager.mk_false();
             return true;
         }
@@ -464,7 +464,7 @@ array_simplifier_plugin::mk_select_const(expr* m, app* index, expr_ref& result) 
     // 
     // Unfold and cache the store while searching for value of index.
     //     
-    while (is_store(a) && m_manager.is_value(to_app(a)->get_arg(1))) {
+    while (is_store(a) && m_manager.is_unique_value(to_app(a)->get_arg(1))) {
         app* b = to_app(a);
         app* c = to_app(b->get_arg(1));
         
@@ -728,7 +728,7 @@ void array_simplifier_plugin::mk_select(unsigned num_args, expr * const * args, 
         return;
     }
 
-    bool is_const_select = num_args == 2 && m_manager.is_value(args[1]);
+    bool is_const_select = num_args == 2 && m_manager.is_unique_value(args[1]);
     app* const_index = is_const_select?to_app(args[1]):0;
     unsigned num_const_stores = 0;
     expr_ref tmp(m_manager);
@@ -766,7 +766,7 @@ void array_simplifier_plugin::mk_select(unsigned num_args, expr * const * args, 
             expr * else_branch  = 0;
             entry[0] = nested_array;
             if (is_const_select) {
-                if (m_manager.is_value(to_app(m)->get_arg(1))) {
+                if (m_manager.is_unique_value(to_app(m)->get_arg(1))) {
                     app* const_index2 = to_app(to_app(m)->get_arg(1));
                     //
                     // we found the value, all other stores are different.

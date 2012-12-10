@@ -3,4 +3,4 @@ def_module_params('parser',
                   params=(('ignore_user_patterns', BOOL, False, 'ignore patterns provided by the user'),
                           ('ignore_bad_patterns',  BOOL, True, 'ignore malformed patterns'),
                           ('error_for_visual_studio', BOOL, False, 'display error messages in Visual Studio format'),
-                          ('smt2_compliant', BOOL, False, 'enable/disable SMT-LIB 2.0 compliance')))
+                          ))

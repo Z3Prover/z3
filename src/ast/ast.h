@@ -921,6 +921,8 @@ public:
     virtual ~decl_plugin() {}
     virtual void finalize() {}
 
+    virtual void set_cancel(bool f) {}
+
     virtual decl_plugin * mk_fresh() = 0;
 
     family_id get_family_id() const { return m_family_id; }
@@ -933,9 +935,39 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const* parameters, 
                                      unsigned num_args, expr * const * args, sort * range);
 
-    virtual bool is_value(app*) const { return false; }
+    /**
+       \brief Return true if the plugin can decide whether two
+       interpreted constants are equal or not.
+       
+       For all a, b:
+          If is_value(a) and is_value(b)
+          Then,
+               are_equal(a, b) != are_distinct(a, b)
+          
+       The may be much more expensive than checking a pointer.
 
-    virtual bool are_distinct(app* a, app* b) const { return a != b && is_value(a) && is_value(b); }
+       We need this because some plugin values are too expensive too canonize.
+    */
+    virtual bool is_value(app * a) const { return false; }
+
+    /**
+       \brief Return true if \c a is a unique plugin value.
+       The following property should hold for unique theory values:
+       
+       For all a, b:
+          If is_unique_value(a) and is_unique_value(b)
+          Then,
+              a == b (pointer equality)
+              IFF
+              the interpretations of these theory terms are equal.
+
+       \remark This is a stronger version of is_value.
+    */
+    virtual bool is_unique_value(app * a) const { return false; }
+
+    virtual bool are_equal(app * a, app * b) const { return a == b && is_unique_value(a) && is_unique_value(b); }
+    
+    virtual bool are_distinct(app * a, app * b) const { return a != b && is_unique_value(a) && is_unique_value(b); }
     
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic = symbol()) {}
     
@@ -1080,6 +1112,8 @@ public:
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
 
     virtual bool is_value(app* a) const; 
+
+    virtual bool is_unique_value(app* a) const; 
     
     sort * mk_bool_sort() const { return m_bool_sort; }
     sort * mk_proof_sort() const { return m_proof_sort; } 
@@ -1115,7 +1149,6 @@ public:
     virtual ~label_decl_plugin();
 
     virtual decl_plugin * mk_fresh() { return alloc(label_decl_plugin); }
-
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
 
@@ -1198,6 +1231,8 @@ public:
                                      unsigned arity, sort * const * domain, sort * range);
 
     virtual bool is_value(app* n) const;
+
+    virtual bool is_unique_value(app* a) const; 
 };
 
 // -----------------------------------
@@ -1367,6 +1402,9 @@ public:
     ast_manager(ast_manager const & src, bool disable_proofs = false);
     ~ast_manager();
 
+    // propagate cancellation signal to decl_plugins
+    void set_cancel(bool f);
+
     bool has_trace_stream() const { return m_trace_stream != 0; }
     std::ostream & trace_stream() { SASSERT(has_trace_stream()); return *m_trace_stream; }
 
@@ -1442,9 +1480,13 @@ public:
     */
     void set_next_expr_id(unsigned id);
     
-    bool is_value(expr* e) const; 
+    bool is_value(expr * e) const; 
+    
+    bool is_unique_value(expr * e) const;
 
-    bool are_distinct(expr* a, expr* b) const;
+    bool are_equal(expr * a, expr * b) const;
+    
+    bool are_distinct(expr * a, expr * b) const;
     
     bool contains(ast * a) const { return m_ast_table.contains(a); }
     

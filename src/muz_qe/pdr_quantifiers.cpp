@@ -440,7 +440,7 @@ namespace pdr {
         unsigned ut_size = r.get_uninterpreted_tail_size();
         unsigned t_size  = r.get_tail_size();   
         var_subst vs(m, false);
-        sort_ref_vector vars(m);
+        ptr_vector<sort> vars;
         uint_set empty_index_set;
         qe_lite qe(m);
 

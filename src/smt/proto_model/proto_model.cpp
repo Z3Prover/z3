@@ -155,7 +155,7 @@ bool eval(func_interp & fi, simplifier & s, expr * const * args, expr_ref & resu
     basic_simplifier_plugin * bs = static_cast<basic_simplifier_plugin*>(s.get_plugin(fi.m().get_basic_family_id()));
     for (unsigned k = 0; k < fi.num_entries(); k++) {
         func_entry const * curr = fi.get_entry(k);
-        SASSERT(!curr->eq_args(fi.get_arity(), args));
+        SASSERT(!curr->eq_args(fi.m(), fi.get_arity(), args));
         if (!actuals_are_values || !curr->args_are_values()) {
             expr_ref_buffer eqs(fi.m());
             unsigned i = fi.get_arity();

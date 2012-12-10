@@ -20,6 +20,8 @@ Notes:
 #include"context_params.h"
 #include"gparams.h"
 #include"params.h"
+#include"ast.h"
+#include"solver.h"
 
 context_params::context_params() {
     updt_params();
@@ -39,7 +41,7 @@ void context_params::set_bool(bool & opt, char const * param, char const * value
 
 void context_params::set(char const * param, char const * value) {
     std::string p = param;
-    unsigned n = p.size();
+    unsigned n = static_cast<unsigned>(p.size());
     for (unsigned i = 0; i < n; i++) {
         if (p[i] >= 'A' && p[i] <= 'Z')
             p[i] = p[i] - 'A' + 'a';
@@ -77,6 +79,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "debug_ref_count") {
         set_bool(m_debug_ref_count, param, value);
     }
+    else if (p == "smtlib2_compliant") {
+        set_bool(m_smtlib2_compliant, param, value);
+    }
     else {
         throw default_exception("unknown parameter '%s'", p.c_str());
     }
@@ -97,6 +102,7 @@ void context_params::updt_params(params_ref const & p) {
     m_trace_file_name   = p.get_str("trace_file_name", "z3.log");
     m_unsat_core        = p.get_bool("unsat_core", false);
     m_debug_ref_count   = p.get_bool("debug_ref_count", false);
+    m_smtlib2_compliant = p.get_bool("smtlib2_compliant", false);
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {
@@ -111,4 +117,36 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("trace_file_name", CPK_STRING, "trace out file name (see option 'trace')", "z3.log");
     d.insert("unsat_core", CPK_BOOL, "unsat-core generation for solvers, this parameter can be overwritten when creating a solver, not every solver in Z3 supports unsat core generation", "false");
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
+    d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
 }
+
+params_ref context_params::merge_default_params(params_ref const & p) {
+    if (!m_auto_config && !p.contains("auto_config")) {
+        params_ref new_p = p;
+        new_p.set_bool("auto_config", false);
+        return new_p;
+    }
+    else {
+        return p;
+    }
+}
+
+void context_params::init_solver_params(ast_manager & m, solver & s, params_ref const & p) {
+    s.set_produce_proofs(m.proofs_enabled() && m_proof);
+    s.set_produce_models(p.get_bool("model", m_model));
+    s.set_produce_unsat_cores(p.get_bool("unsat_core", m_unsat_core));
+    s.updt_params(merge_default_params(p));
+}
+
+ast_manager * context_params::mk_ast_manager() {
+    ast_manager * r = alloc(ast_manager, 
+                            m_proof ? PGM_FINE : PGM_DISABLED, 
+                            m_trace ? m_trace_file_name.c_str() : 0);
+    if (m_smtlib2_compliant)
+        r->enable_int_real_coercions(false);
+    if (m_debug_ref_count)
+        r->debug_ref_count();
+    return r;
+}
+
+

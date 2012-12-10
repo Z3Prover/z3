@@ -43,7 +43,7 @@ Revision History:
    #define CLOCKID CLOCK_PROCESS_CPUTIME_ID
    #else
    // FreeBSD does not support CLOCK_PROCESS_CPUTIME_ID 
-   #define CLOCKID CLOCK_PROF
+   #define CLOCKID CLOCK_MONOTONIC
    #endif
 #define SIG     SIGRTMIN
 // ---------

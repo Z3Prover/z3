@@ -136,14 +136,14 @@ namespace datalog {
     expr_ref_vector rule_unifier::get_rule_subst(const rule& r, bool is_tgt) {
         SASSERT(m_ready);
         expr_ref_vector result(m);
-        sort_ref_vector sorts(m);
+        ptr_vector<sort> sorts;
         expr_ref v(m), w(m);
         r.get_vars(sorts);
         for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (!sorts[i].get()) {
+            if (!sorts[i]) {
                 sorts[i] = m.mk_bool_sort();
             }
-            v = m.mk_var(i, sorts[i].get());
+            v = m.mk_var(i, sorts[i]);
             m_subst.apply(2, m_deltas, expr_offset(v, is_tgt?0:1), w);
             result.push_back(w);            
         }        

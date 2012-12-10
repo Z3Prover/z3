@@ -146,6 +146,9 @@ public:
     virtual bool is_fully_interp(sort const * s) const;
 
     virtual bool is_value(app* e) const;
+
+    virtual bool is_unique_value(app * e) const { return is_value(e); }
+
 private:
     bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
 };

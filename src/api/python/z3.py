@@ -1126,6 +1126,27 @@ def Var(idx, s):
         _z3_assert(is_sort(s), "Z3 sort expected")
     return _to_expr_ref(Z3_mk_bound(s.ctx_ref(), idx, s.ast), s.ctx)
 
+def RealVar(idx, ctx=None):
+    """
+    Create a real free variable. Free variables are used to create quantified formulas.
+    They are also used to create polynomials.
+    
+    >>> RealVar(0)
+    Var(0)
+    """
+    return Var(idx, RealSort(ctx))
+
+def RealVarVector(n, ctx=None):
+    """
+    Create a list of Real free variables.
+    The variables have ids: 0, 1, ..., n-1
+    
+    >>> x0, x1, x2, x3 = RealVarVector(4)
+    >>> x2
+    Var(2)
+    """
+    return [ RealVar(i, ctx) for i in range(n) ]
+
 #########################################
 #
 # Booleans

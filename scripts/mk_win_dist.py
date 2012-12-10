@@ -100,7 +100,7 @@ def mk_build_dirs():
 def check_vc_cmd_prompt():
     try:
         DEVNULL = open(os.devnull, 'wb')
-        subprocess.call(['cl'], stdin=DEVNULL, stderr=DEVNULL)
+        subprocess.call(['cl'], stdout=DEVNULL, stderr=DEVNULL)
     except:
         raise MKException("You must execute the mk_win_dist.py script on a Visual Studio Command Prompt")
 

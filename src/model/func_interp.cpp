@@ -49,10 +49,10 @@ void func_entry::set_result(ast_manager & m, expr * r) {
     m_result = r;
 }
 
-bool func_entry::eq_args(unsigned arity, expr * const * args) const {
+bool func_entry::eq_args(ast_manager & m, unsigned arity, expr * const * args) const {
     unsigned i = 0;
     for (; i < arity; i++) {
-        if (m_args[i] != args[i])
+        if (!m.are_equal(m_args[i], args[i]))
             return false;
     }
     return true;
@@ -131,7 +131,7 @@ bool func_interp::is_constant() const {
 }
 
 /**
-   \brief Return a func_entry e such that e.m_args[i] == args[i] for all i in [0, m_arity).
+   \brief Return a func_entry e such that m().are_equal(e.m_args[i], args[i]) for all i in [0, m_arity).
    If such entry does not exist then return 0, and store set
    args_are_values to true if for all entries e e.args_are_values() is true.
 */
@@ -140,7 +140,7 @@ func_entry * func_interp::get_entry(expr * const * args) const {
     ptr_vector<func_entry>::const_iterator end = m_entries.end();
     for (; it != end; ++it) {
         func_entry * curr = *it;
-        if (curr->eq_args(m_arity, args))
+        if (curr->eq_args(m(), m_arity, args))
             return curr;
     }
     return 0;
