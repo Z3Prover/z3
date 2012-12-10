@@ -60,7 +60,7 @@ namespace datalog {
         obj_map<expr, unsigned> indices;
         bool_rewriter bwr(m);
         rule_ref r(const_cast<rule*>(&rl), rm);
-        sort_ref_vector sorts(m);
+        ptr_vector<sort> sorts;
         expr_ref_vector revsub(m), conjs(m);
         rl.get_vars(sorts);
         revsub.resize(sorts.size());  
@@ -72,8 +72,8 @@ namespace datalog {
             if (is_var(e)) {
                 unsigned v = to_var(e)->get_idx();
                 SASSERT(v < valid.size());
-                if (sorts[v].get()) {
-                    SASSERT(s == sorts[v].get());
+                if (sorts[v]) {
+                    SASSERT(s == sorts[v]);
                     if (valid[v]) {
                         revsub[v] = w;
                         valid[v] = false;
@@ -92,8 +92,8 @@ namespace datalog {
             }
         }
         for (unsigned i = 0; i < sorts.size(); ++i) {
-            if (valid[i] && sorts[i].get() && !revsub[i].get()) {
-                revsub[i] = m.mk_var(m_idx++, sorts[i].get());
+            if (valid[i] && sorts[i] && !revsub[i].get()) {
+                revsub[i] = m.mk_var(m_idx++, sorts[i]);
             }
         }
         var_subst vs(m, false);
@@ -112,7 +112,7 @@ namespace datalog {
         app_ref pred(m), head(m);
         expr_ref fml1(m), fml2(m), fml(m);
         app_ref_vector tail(m);
-        sort_ref_vector sorts1(m), sorts2(m);
+        ptr_vector<sort> sorts1, sorts2;
         expr_ref_vector conjs1(m), conjs(m);
         rule_ref res(rm);
         bool_rewriter bwr(m);

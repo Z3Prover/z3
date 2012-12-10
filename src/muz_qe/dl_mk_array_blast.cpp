@@ -18,7 +18,8 @@ Revision History:
 --*/
 
 #include "dl_mk_array_blast.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
+
 
 namespace datalog {
 
@@ -54,9 +55,10 @@ namespace datalog {
         unsigned tsz = r.get_tail_size();
         expr_ref_vector conjs(m), new_conjs(m);
         expr_ref tmp(m);
-        expr_substitution sub(m);
+        expr_safe_replace sub(m);
         uint_set lhs_vars, rhs_vars;
         bool change = false;
+        bool inserted = false;
 
         for (unsigned i = 0; i < utsz; ++i) {
             new_conjs.push_back(r.get_tail(i));
@@ -81,6 +83,7 @@ namespace datalog {
                 }
                 else {
                     sub.insert(x, y);
+                    inserted = true;
                 }
             }
             else {
@@ -89,7 +92,7 @@ namespace datalog {
                 new_conjs.push_back(tmp);
             }
         }
-        if (sub.empty() && !change) {
+        if (!inserted && !change) {
             rules.add_rule(&r);
             return false;
         }
@@ -99,11 +102,9 @@ namespace datalog {
         r.to_formula(fml1);
         body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
         head = r.get_head();
-        scoped_ptr<expr_replacer> replace = mk_default_expr_replacer(m);
-        replace->set_substitution(&sub);
-        (*replace)(body);
+        sub(body);
         m_rewriter(body);
-        (*replace)(head);
+        sub(head);
         m_rewriter(head);
         fml2 = m.mk_implies(body, head);
         rm.mk_rule(fml2, new_rules, r.name());
