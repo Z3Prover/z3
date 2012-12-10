@@ -1312,14 +1312,14 @@ def mk_config():
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
         else:
             CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
+        if is_CXX_clangpp():
+            CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
         sysname = os.uname()[0]
         if sysname == 'Darwin':
             SO_EXT    = '.dylib'
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
-            if is_CXX_clangpp():
-                CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
