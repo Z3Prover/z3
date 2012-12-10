@@ -27,15 +27,6 @@ Notes:
 #include"cancel_eh.h"
 #include"scoped_timer.h"
 
-extern "C" {
-
-    bool Z3_algebraic_is_value_core(Z3_context c, Z3_ast a) {
-        api::context * _c = mk_c(c);
-        return 
-            is_expr(a) && 
-            (_c->autil().is_numeral(to_expr(a)) || 
-             _c->autil().is_irrational_algebraic_numeral(to_expr(a)));
-    }
 
 #define CHECK_IS_ALGEBRAIC(ARG, RET) {          \
     if (!Z3_algebraic_is_value_core(c, ARG)) {  \
@@ -51,32 +42,42 @@ extern "C" {
     }                                           \
 }
 
-    static arith_util & au(Z3_context c) {
-        return mk_c(c)->autil();
-    }
+static arith_util & au(Z3_context c) {
+    return mk_c(c)->autil();
+}
 
-    static algebraic_numbers::manager & am(Z3_context c) {
-        return au(c).am();
-    }
+static algebraic_numbers::manager & am(Z3_context c) {
+    return au(c).am();
+}
 
-    static bool is_rational(Z3_context c, Z3_ast a) {
-        return au(c).is_numeral(to_expr(a));
-    }
+static bool is_rational(Z3_context c, Z3_ast a) {
+    return au(c).is_numeral(to_expr(a));
+}
 
-    static bool is_irrational(Z3_context c, Z3_ast a) {
-        return au(c).is_irrational_algebraic_numeral(to_expr(a));
-    }
+static bool is_irrational(Z3_context c, Z3_ast a) {
+    return au(c).is_irrational_algebraic_numeral(to_expr(a));
+}
 
-    static rational get_rational(Z3_context c, Z3_ast a) {
-        SASSERT(is_rational(c, a));
-        rational r;
-        VERIFY(au(c).is_numeral(to_expr(a), r));
-        return r;
-    }
-    
-    static algebraic_numbers::anum const & get_irrational(Z3_context c, Z3_ast a) {
-        SASSERT(is_irrational(c, a));
-        return au(c).to_irrational_algebraic_numeral(to_expr(a));
+static rational get_rational(Z3_context c, Z3_ast a) {
+    SASSERT(is_rational(c, a));
+    rational r;
+    VERIFY(au(c).is_numeral(to_expr(a), r));
+    return r;
+}
+
+static algebraic_numbers::anum const & get_irrational(Z3_context c, Z3_ast a) {
+    SASSERT(is_irrational(c, a));
+    return au(c).to_irrational_algebraic_numeral(to_expr(a));
+}
+
+extern "C" {
+
+    bool Z3_algebraic_is_value_core(Z3_context c, Z3_ast a) {
+        api::context * _c = mk_c(c);
+        return 
+            is_expr(a) && 
+            (_c->autil().is_numeral(to_expr(a)) || 
+             _c->autil().is_irrational_algebraic_numeral(to_expr(a)));
     }
 
     Z3_bool Z3_API Z3_algebraic_is_value(Z3_context c, Z3_ast a) {
