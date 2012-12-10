@@ -216,7 +216,7 @@ def find_java_home():
     if JAVA_HOME != None:
         if is_verbose():
             print "Checking jni.h..."
-        if os.path.exists('%s%sinclude%sjni.h' % (JAVA_HOME, os.sep, os.sep)):
+        if os.path.exists(os.path.join(JAVA_HOME, 'include', 'jni.h')):
             return
     if is_verbose():
         print "Finding JAVA_HOME..."
@@ -238,8 +238,8 @@ def find_java_home():
             path = string.join(tmp[:len(tmp) - 3], os.sep)
             if is_verbose():
                 print "Checking jni.h..."
-            if not os.path.exists('%s%sinclude%sjni.h' % (path, os.sep, os.sep)):
-                raise MKException("Failed to detect jni.h at '%s%sinclude'" % (path, os.sep))
+            if not os.path.exists(os.path.join(path, 'include', 'jni.h')):
+                raise MKException("Failed to detect jni.h at '%s'" % os.path.join(path, 'include'))
             JAVA_HOME = path
             return
     raise MKException('Failed to find JAVA_HOME')
