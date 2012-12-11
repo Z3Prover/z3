@@ -21,23 +21,21 @@ Revision History:
 
 #include "smt_implied_equalities.h"
 #include "union_find.h"
-#include "cmd_context.h"
-#include "parametric_cmd.h"
 #include "ast_pp.h"
-#include "arith_decl_plugin.h"
-#include "datatype_decl_plugin.h"
 #include "array_decl_plugin.h"
 #include "uint_set.h"
-#include "model_v2_pp.h"
 #include "smt_value_sort.h"
-
+#include "model_smt2_pp.h"
+#include "stopwatch.h"
+#include "model.h"
+#include "solver.h"
 
 namespace smt {
 
     class get_implied_equalities_impl {
         
         ast_manager&                       m;
-        smt::kernel&                       m_solver;
+        solver&                            m_solver;
         union_find_default_ctx             m_df;
         union_find<union_find_default_ctx> m_uf;
         array_util                         m_array_util;
@@ -98,7 +96,7 @@ namespace smt {
                     ++m_stats_calls;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
-                    bool is_eq = l_false == m_solver.check();
+                    bool is_eq = l_false == m_solver.check_sat(0,0);
                     m_solver.pop(1);
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
                     if (is_eq) {
@@ -125,7 +123,7 @@ namespace smt {
                     m_stats_timer.start();
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
-                    bool is_eq = l_false == m_solver.check();
+                    bool is_eq = l_false == m_solver.check_sat(0,0);
                     m_solver.pop(1);
                     m_stats_timer.stop();
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
@@ -168,7 +166,7 @@ namespace smt {
                     terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, 0, args.size(), args.c_ptr());
                 }
                 assert_relevant(terms);
-                lbool is_sat = m_solver.check();
+                lbool is_sat = m_solver.check_sat(0,0);
                 model_ref model1;
                 m_solver.get_model(model1);
                 SASSERT(model1.get());
@@ -218,7 +216,7 @@ namespace smt {
                     expr* s = terms[vec[j]].term;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(t, s)));
-                    lbool is_sat = m_solver.check();
+                    lbool is_sat = m_solver.check_sat(0,0);
                     m_solver.pop(1);
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << is_sat << "\n";);
                     if (is_sat == l_false) {
@@ -237,7 +235,7 @@ namespace smt {
 
 
             if (!non_values.empty()) {
-                TRACE("get_implied_equalities", model_v2_pp(tout, *model, true););
+                TRACE("get_implied_equalities", model_smt2_pp(tout, m, *model, 0););
                 get_implied_equalities_filter_basic(non_values, terms);
                 //get_implied_equalities_basic(terms);
             }
@@ -321,7 +319,7 @@ namespace smt {
 
     public:
         
-        get_implied_equalities_impl(smt::kernel& s) : m(s.m()), m_solver(s), m_uf(m_df), m_array_util(m), m_stats_calls(0) {}
+        get_implied_equalities_impl(ast_manager& m, solver& s) : m(m), m_solver(s), m_uf(m_df), m_array_util(m), m_stats_calls(0) {}
         
         lbool operator()(unsigned num_terms, expr* const* terms, unsigned* class_ids) {
             params_ref p;
@@ -338,7 +336,7 @@ namespace smt {
 
             m_solver.push();
             assert_relevant(num_terms, terms);
-            lbool is_sat = m_solver.check();
+            lbool is_sat = m_solver.check_sat(0,0);
             
             if (is_sat != l_false) {      
                 model_ref model;
@@ -374,8 +372,8 @@ namespace smt {
     stopwatch get_implied_equalities_impl::s_timer;
     stopwatch get_implied_equalities_impl::s_stats_val_eq_timer;
 
-    lbool implied_equalities(smt::kernel& solver, unsigned num_terms, expr* const* terms, unsigned* class_ids) {        
-        get_implied_equalities_impl gi(solver);
+    lbool implied_equalities(ast_manager& m, solver& solver, unsigned num_terms, expr* const* terms, unsigned* class_ids) {        
+        get_implied_equalities_impl gi(m, solver);
         return gi(num_terms, terms, class_ids);
     }
 };
@@ -552,7 +550,7 @@ namespace smt {
                 m_solver.assert_expr(m.mk_implies(eq_lit, eq));
             }
             m_solver.assert_expr(m.mk_not(m.mk_and(eqs.size(), eqs.c_ptr())));
-            lbool is_sat = m_solver.check();
+            lbool is_sat = m_solver.check_sat(0,0);
             switch(is_sat) {
             case l_false:
                 for (unsigned i = 0; i + 1 < terms.size(); ++i) {
