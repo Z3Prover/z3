@@ -1430,9 +1430,9 @@ class MLComponent(Component):
                 out.write('\n\n')
             mk_dir(os.path.join(BUILD_DIR, 'api', 'ml'))
             libfile = '%s$(LIB_EXT)' % self.lib_name
-            out.write('%s: libz3$(SO_EXT) %s\n' % (libfile, os.path.join(self.to_src_dir, 'z3_native.c')))
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3_native$(OBJ_EXT) %s/z3_native.c\n' % self.to_src_dir)
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3ml$(LIB_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  os.path.join('api', 'ml', 'z3_native'))
+            out.write('%s: libz3$(SO_EXT) %s\n' % (libfile, os.path.join(self.to_src_dir, 'native.c')))
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3_native$(OBJ_EXT) -I%s %s/native.c\n' % (get_component(API_COMPONENT).to_src_dir, self.to_src_dir))
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3ml$(LIB_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  os.path.join('api', 'ml', 'native'))
             out.write('ml: %s\n' % libfile)
             out.write('\n')
     
