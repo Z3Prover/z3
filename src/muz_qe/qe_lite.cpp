@@ -578,7 +578,7 @@ namespace eq {
         }
 
     public:
-        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m) {}
+        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m), m_cancel(false) {}
         
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
