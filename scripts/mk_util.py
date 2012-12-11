@@ -1428,6 +1428,13 @@ class MLComponent(Component):
                 if IS_WINDOWS:
                     out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
                 out.write('\n\n')
+            mk_dir(os.path.join(BUILD_DIR, 'api', 'ml'))
+            libfile = '%s$(LIB_EXT)' % self.lib_name
+            out.write('%s: libz3$(SO_EXT) %s\n' % (libfile, os.path.join(self.to_src_dir, 'z3_native.c')))
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3_native$(OBJ_EXT) %s/z3_native.c\n' % self.to_src_dir)
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3ml$(LIB_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  os.path.join('api', 'ml', 'z3_native'))
+            out.write('ml: %s\n' % libfile)
+            out.write('\n')
     
     def main_component(self):
         return is_ml_enabled()
@@ -1841,7 +1848,11 @@ def mk_config():
             if GPROF:
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())
+<<<<<<< HEAD
             print('ML API:         %s' % is_ml_enabled())
+=======
+            print 'ML API:         %s' % is_ml_enabled()
+>>>>>>> Beginnings of a new ML API
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
