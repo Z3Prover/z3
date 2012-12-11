@@ -78,5 +78,5 @@ src/api/ml/z3.mllib
 src/api/ml/z3_native.c
 src/api/ml/z3_native.ml
 src/api/ml/native.c
-src/api/ml/Z3.ml
-src/api/ml/z3_enums.ml
+src/api/ml/z3.ml
+src/api/ml/enumerations.ml

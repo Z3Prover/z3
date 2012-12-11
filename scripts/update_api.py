@@ -157,9 +157,9 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
                BOOL : 'jboolean', SYMBOL : 'jlong', PRINT_MODE : 'jint', ERROR_CODE : 'jint'}
 
 # Mapping to ML types
-Type2ML = { VOID : 'unit', VOID_PTR : 'long', INT : 'int', UINT : 'int', INT64 : 'long', UINT64 : 'long', DOUBLE : 'double',
-              STRING : 'string', STRING_PTR : 'char**', 
-              BOOL : 'lbool', SYMBOL : 'symbol', PRINT_MODE : 'ast_print_mode', ERROR_CODE : 'error_code' }
+Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
+            STRING : 'string', STRING_PTR : 'char**', 
+            BOOL : 'int', SYMBOL : 'symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
 next_type_id = FIRST_OBJ_ID
 
@@ -214,7 +214,7 @@ def type2javaw(ty):
 def type2ml(ty):
     global Type2ML
     if (ty >= FIRST_OBJ_ID):
-        return 'long'
+        return 'int'
     else:
         return Type2ML[ty]
 
@@ -330,6 +330,8 @@ def param2ml(p):
     k = param_kind(p)
     if k == OUT:
         if param_type(p) == INT or param_type(p) == UINT or param_type(p) == INT64 or param_type(p) == UINT64:
+            return "int"
+        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
             return "int"
         elif param_type(p) == STRING:
             return "string"
@@ -1075,12 +1077,12 @@ def mk_ml():
     if not is_ml_enabled():
         return
     ml_dir      = get_component('ml').src_dir
-    ml_nativef  = os.path.join(ml_dir, 'Z3.ml')
+    ml_nativef  = os.path.join(ml_dir, 'z3.ml')
     ml_wrapperf = os.path.join(ml_dir, 'native.c')
     ml_native   = open(ml_nativef, 'w')
-    ml_native.write('(* Automatically generated file *)\n')
-    ml_native.write('\n')
-    ml_native.write('module Z3Native = struct\n\n')
+    ml_native.write('(* Automatically generated file *)\n\n')
+    ml_native.write('open Enumerations\n\n')
+    ml_native.write('module Z3 = struct\n\n')
     ml_native.write('type context\n')
     ml_native.write('and symbol\n')
     ml_native.write('and ast\n')
@@ -1103,15 +1105,17 @@ def mk_ml():
     ml_native.write('and solver\n')
     ml_native.write('and stats\n')
     ml_native.write('\n')
-    ml_native.write('  exception Z3Exception of string\n\n')
+    ml_native.write('  exception Exception of string\n\n')
     for name, result, params in _dotnet_decls:
-        ml_native.write('  external native_%s : ' % ml_method_name(name))
+        ml_native.write('  external n_%s : ' % ml_method_name(name))
         i = 0;
         for param in params:
             ml_native.write('%s -> ' % param2ml(param))
             i = i + 1
+        if len(params) == 0:
+            ml_native.write(' unit -> ')
         ml_native.write('%s\n' % (type2ml(result)))
-        ml_native.write('    = "Native_Z3_%s"\n\n' % ml_method_name(name))
+        ml_native.write('    = "n_%s"\n\n' % ml_method_name(name))
     # Exception wrappers
     for name, result, params in _dotnet_decls:
         ml_native.write(' let %s ' % ml_method_name(name))
@@ -1128,25 +1132,28 @@ def mk_ml():
         ml_native.write('    ')
         if result != VOID:
             ml_native.write('let res = ')
-        ml_native.write('n_%s(' % (ml_method_name(name)))
-        first = True
-        i = 0;
-        for param in params:
-            if first:
-                first = False
-            else:
-                ml_native.write(', ')
-            ml_native.write('a%d' % i)
-            i = i + 1
-        ml_native.write(')')
+        if len(params) == 0:
+            ml_native.write('n_%s()' % (ml_method_name(name)))
+        else:
+            ml_native.write('(n_%s ' % (ml_method_name(name)))
+            first = True
+            i = 0;
+            for param in params:
+                if first:
+                    first = False
+                else:
+                    ml_native.write(' ')
+                ml_native.write('a%d' % i)
+                i = i + 1
+            ml_native.write(')')
         if result != VOID:
             ml_native.write(' in\n')
         else:
             ml_native.write(';\n')
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            ml_native.write('    let err = error_code.fromInt(n_get_error_code(a0)) in \n')
-            ml_native.write('      if err <> Z3_enums.OK then\n')
-            ml_native.write('        raise (z3_exception n_get_error_msg_ex(a0, err.toInt()))\n')
+            ml_native.write('    let err = (Enumerations.int2error_code (n_get_error_code a0)) in \n')
+            ml_native.write('      if err <> Enumerations.OK then\n')
+            ml_native.write('        raise (Exception (n_get_error_msg_ex a0 (error_code2int err)))\n')
             ml_native.write('      else\n')
         if result == VOID:
             ml_native.write('        ()\n')
