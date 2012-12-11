@@ -7123,18 +7123,19 @@ END_MLAPI_EXCLUDE
        This means that two terms map to the same class identifier if and only if
        the current context implies that they are equal.
 
-       A side-effect of the function is a satisfiability check.
+       A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
        The function return Z3_L_FALSE if the current assertions are not satisfiable.
 
        \sa Z3_check_and_get_model
        \sa Z3_check
     
-       \deprecated Subsumed by Z3_solver API
+       \deprecated To be moved outside of API.
 
-       def_API('Z3_get_implied_equalities', UINT, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _out_array(1, UINT)))
+       def_API('Z3_get_implied_equalities', UINT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
     */
     Z3_lbool Z3_API Z3_get_implied_equalities(
         __in Z3_context c, 
+        __in Z3_solver  s, 
         __in unsigned num_terms,
         __in_ecount(num_terms) Z3_ast const terms[],
         __out_ecount(num_terms) unsigned class_ids[]

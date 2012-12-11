@@ -24,6 +24,7 @@ Revision History:
 #include"api_model.h"
 #include"smt_implied_equalities.h"
 #include"cancel_eh.h"
+#include"api_solver.h"
 
 extern "C" {
 
@@ -113,14 +114,16 @@ extern "C" {
     }
 
     Z3_lbool Z3_API Z3_get_implied_equalities(Z3_context c, 
+                                              Z3_solver s,
                                               unsigned num_terms,
                                               Z3_ast const terms[],
                                               unsigned class_ids[]) {
         Z3_TRY;
-        LOG_Z3_get_implied_equalities(c, num_terms, terms, class_ids);
+        LOG_Z3_get_implied_equalities(c, s, num_terms, terms, class_ids);
+        ast_manager& m = mk_c(c)->m();
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
-        lbool result = smt::implied_equalities(mk_c(c)->get_smt_kernel(), num_terms, to_exprs(terms), class_ids);
+        lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(terms), class_ids);
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
