@@ -23,6 +23,9 @@ Revision History:
 
 #include "ast.h"
 #include "uint_set.h"
+#include "params.h"
+
+class tactic;
 
 class qe_lite {
     class impl;
@@ -56,6 +59,13 @@ public:
         \brief full rewriting based light-weight quantifier elimination round.
     */
     void operator()(expr_ref& fml, proof_ref& pr);
+
+    void set_cancel(bool f);
 };
+
+tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_tactic(m, p)")
+*/
 
 #endif 
