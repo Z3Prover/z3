@@ -2431,6 +2431,8 @@ def mk_bindings(api_files):
             mk_z3consts_ml(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
         cp_z3py_to_build()
+        if is_ml_enabled():
+            mk_z3consts_ml(api_files)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -2718,6 +2720,7 @@ def mk_z3consts_ml(api_files):
     if not os.path.exists(gendir):
         os.mkdir(gendir)
 
+<<<<<<< HEAD
     efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
@@ -2799,6 +2802,13 @@ def mk_z3consts_ml(api_files):
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
+=======
+    efile  = open('%s.ml' % os.path.join(gendir, "z3_enums"), 'w')
+    efile.write('(* Automatically generated file *)\n\n')
+    # efile.write('module z3_enums = struct\n\n');
+
+
+>>>>>>> More new ML API
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
@@ -2844,6 +2854,7 @@ def mk_z3consts_ml(api_files):
                 if m:
                     name = words[1]
                     if name not in DeprecatedEnums:
+<<<<<<< HEAD
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
                         for k, i in decls.iteritems():
@@ -2854,6 +2865,13 @@ def mk_z3consts_ml(api_files):
                         efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('\n')
+=======
+                        efile.write('\n(* %s *)\n' % name)
+                        efile.write('type %s =\n' % name[3:]) # strip Z3_
+                        efile.write
+                        for k, i in decls.iteritems():
+                            efile.write('    | %s \n' % k[3:]) # strip Z3_
+>>>>>>> More new ML API
                     mode = SEARCHING
                 else:
                     if words[2] != '':
@@ -2864,8 +2882,15 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
+<<<<<<< HEAD
     if VERBOSE:
         print "Generated '%s/z3enums.mli'" % ('%s' % gendir)
+=======
+    efile.write('\n')
+    # efile.write'end\n');
+    if VERBOSE:
+        print "Generated '%s/z3_enums.ml'" % ('%s' % gendir)
+>>>>>>> More new ML API
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id

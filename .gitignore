@@ -1,8 +1,5 @@
 *~
 *.pyc
-*.pyo
-# Ignore callgrind files
-callgrind.out.*
 # .hpp files are automatically generated
 *.hpp
 .z3-trace
@@ -45,6 +42,7 @@ bld_rel_x64/*
 # Auto generated files.
 config.log
 config.status
+configure
 install_tactic.cpp
 mem_initializer.cpp
 gparams_register_modules.cpp
@@ -56,8 +54,6 @@ src/api/api_log_macros.cpp
 src/api/dll/api_dll.def
 src/api/dotnet/Enumerations.cs
 src/api/dotnet/Native.cs
-src/api/dotnet/Properties/AssemblyInfo.cs
-src/api/dotnet/Microsoft.Z3.xml
 src/api/python/z3consts.py
 src/api/python/z3core.py
 src/ast/pattern/database.h
@@ -78,3 +74,6 @@ src/api/ml/z3native_stubs.c
 src/api/ml/z3native.ml
 src/api/ml/z3enums.ml
 src/api/ml/z3.mllib
+src/api/ml/z3_native.c
+src/api/ml/z3_native.ml
+src/api/ml/z3_enums.ml
