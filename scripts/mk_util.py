@@ -49,6 +49,7 @@ UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
 JAVA_COMPONENT='java'
+ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
 #####################
 IS_WINDOWS=False
@@ -2230,6 +2231,8 @@ def mk_bindings(api_files):
         if is_java_enabled():
             check_java()
             mk_z3consts_java(api_files)
+        if is_ml_enabled():
+            mk_z3consts_ml(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
         cp_z3py_to_build()
 
@@ -2502,6 +2505,92 @@ def mk_z3consts_java(api_files):
             linenum = linenum + 1
     if VERBOSE:
         print("Generated '%s'" % ('%s' % gendir))
+
+# Extract enumeration types from z3_api.h, and add ML definitions
+def mk_z3consts_ml(api_files):
+    blank_pat      = re.compile("^ *$")
+    comment_pat    = re.compile("^ *//.*$")
+    typedef_pat    = re.compile("typedef enum *")
+    typedef2_pat   = re.compile("typedef enum { *")
+    openbrace_pat  = re.compile("{ *")
+    closebrace_pat = re.compile("}.*;")
+
+    ml = get_component(ML_COMPONENT)
+
+    DeprecatedEnums = [ 'Z3_search_failure' ]
+    gendir = ml.src_dir
+    if not os.path.exists(gendir):
+        os.mkdir(gendir)
+
+    efile  = open('%s.ml' % os.path.join(gendir, "z3_enums"), 'w')
+    efile.write('(* Automatically generated file *)\n\n')
+    # efile.write('module z3_enums = struct\n\n');
+
+
+    for api_file in api_files:
+        api_file_c = ml.find_file(api_file, ml.name)
+        api_file   = os.path.join(api_file_c.src_dir, api_file)
+
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1 
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    if name not in DeprecatedEnums:
+                        efile.write('\n(* %s *)\n' % name)
+                        efile.write('type %s =\n' % name[3:]) # strip Z3_
+                        efile.write
+                        for k, i in decls.iteritems():
+                            efile.write('    | %s \n' % k[3:]) # strip Z3_
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+    efile.write('\n')
+    # efile.write'end\n');
+    if VERBOSE:
+        print "Generated '%s/z3_enums.ml'" % ('%s' % gendir)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id

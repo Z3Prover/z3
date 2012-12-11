@@ -67,3 +67,6 @@ src/api/java/enumerations/*.java
 *.bak
 doc/api
 doc/code
+src/api/ml/z3_native.c
+src/api/ml/z3_native.ml
+src/api/ml/z3_enums.ml
