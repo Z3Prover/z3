@@ -872,6 +872,10 @@ bool basic_decl_plugin::is_value(app* a) const {
     return a->get_decl() == m_true_decl || a->get_decl() == m_false_decl;
 }
 
+bool basic_decl_plugin::is_unique_value(app* a) const {
+    return is_value(a);
+}
+
 void basic_decl_plugin::finalize() {
 #define DEC_REF(FIELD) if (FIELD) { m_manager->dec_ref(FIELD); }
 #define DEC_ARRAY_REF(FIELD) m_manager->dec_array_ref(FIELD.size(), FIELD.begin())
@@ -1151,6 +1155,10 @@ bool model_value_decl_plugin::is_value(app* n) const {
     return is_app_of(n, m_family_id, OP_MODEL_VALUE);
 }
 
+bool model_value_decl_plugin::is_unique_value(app* n) const {
+    return is_value(n);
+}
+
 // -----------------------------------
 //
 // user_sort_plugin
@@ -1328,6 +1336,12 @@ ast_manager::~ast_manager() {
     }
 }
 
+void ast_manager::set_cancel(bool f) {
+    for (unsigned i = 0; i < m_plugins.size(); i++) {
+        m_plugins[i]->set_cancel(f);
+    }
+}
+
 void ast_manager::compact_memory() {
     m_alloc.consolidate();
     unsigned capacity = m_ast_table.capacity();
@@ -1438,6 +1452,27 @@ bool ast_manager::is_value(expr* e) const {
     if (is_app(e)) {
         p = get_plugin(to_app(e)->get_family_id());
         return p && p->is_value(to_app(e));
+    }
+    return false;
+}
+
+bool ast_manager::is_unique_value(expr* e) const {
+    decl_plugin const * p = 0;
+    if (is_app(e)) {
+        p = get_plugin(to_app(e)->get_family_id());
+        return p && p->is_unique_value(to_app(e));
+    }
+    return false;
+}
+
+bool ast_manager::are_equal(expr * a, expr * b) const {
+    if (is_app(a) && is_app(b)) {
+        app* ap = to_app(a), *bp = to_app(b);
+        decl_plugin const * p = get_plugin(ap->get_family_id());
+        if (!p) {
+            p = get_plugin(bp->get_family_id());
+        }
+        return p && p->are_equal(ap, bp);
     }
     return false;
 }

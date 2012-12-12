@@ -312,9 +312,10 @@ public:
 };
 
 void proof_utils::reduce_hypotheses(proof_ref& pr) {
-    class reduce_hypotheses reduce(pr.get_manager());
+    ast_manager& m = pr.get_manager();
+    class reduce_hypotheses reduce(m);
     reduce(pr);
-    SASSERT(is_closed(pr.get_manager(), pr));
+    CTRACE("proof_utils", !is_closed(m, pr), tout << mk_pp(pr, m) << "\n";);
 }
 
 class proof_is_closed {

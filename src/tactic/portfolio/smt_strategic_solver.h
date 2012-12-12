@@ -20,8 +20,8 @@ Notes:
 #ifndef _SMT_STRATEGIC_SOLVER_H_
 #define _SMT_STRATEGIC_SOLVER_H_
 
-class solver;
-// Create a strategic solver for the Z3 API
-solver * mk_smt_strategic_solver(bool force_tactic=false);
+class solver_factory;
+
+solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
 
 #endif

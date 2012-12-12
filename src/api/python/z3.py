@@ -1126,6 +1126,27 @@ def Var(idx, s):
         _z3_assert(is_sort(s), "Z3 sort expected")
     return _to_expr_ref(Z3_mk_bound(s.ctx_ref(), idx, s.ast), s.ctx)
 
+def RealVar(idx, ctx=None):
+    """
+    Create a real free variable. Free variables are used to create quantified formulas.
+    They are also used to create polynomials.
+    
+    >>> RealVar(0)
+    Var(0)
+    """
+    return Var(idx, RealSort(ctx))
+
+def RealVarVector(n, ctx=None):
+    """
+    Create a list of Real free variables.
+    The variables have ids: 0, 1, ..., n-1
+    
+    >>> x0, x1, x2, x3 = RealVarVector(4)
+    >>> x2
+    Var(2)
+    """
+    return [ RealVar(i, ctx) for i in range(n) ]
+
 #########################################
 #
 # Booleans
@@ -5787,8 +5808,15 @@ class Solver(Z3PPObject):
         >>> s.assert_and_track(x < 0,  p3)
         >>> print s.check()
         unsat
-        >>> print s.unsat_core()
-        [p3, p1]
+        >>> c = s.unsat_core()
+        >>> len(c)
+        2
+        >>> Bool('p1') in c
+        True
+        >>> Bool('p2') in c
+        False
+        >>> p3 in c
+        True
         """
         if isinstance(p, str):
             p = Bool(p, self.ctx)
@@ -6985,9 +7013,9 @@ def solve(*args, **keywords):
     configure it using the options in `keywords`, adds the constraints
     in `args`, and invokes check.
     
-    >>> a, b = Ints('a b')
-    >>> solve(a + b == 3, Or(a == 0, a == 1), a != 0)
-    [b = 2, a = 1]
+    >>> a = Int('a')
+    >>> solve(a > 0, a < 2)
+    [a = 1]
     """
     s = Solver()
     s.set(**keywords)

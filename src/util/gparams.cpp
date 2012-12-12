@@ -52,6 +52,7 @@ char const * g_params_renames[] = {
     "qi_cost", "smt.qi.cost",
     "qi_eager_threshold", "smt.qi.eager_threshold",
     "nl_arith", "smt.arith.nl",
+    "pull_nested_quantifiers", "smt.pull_nested_quantifiers",
     "nnf_sk_hack", "nnf.sk_hack",
     "model_v2", "model.v2",
     "pi_non_nested_arith_weight", "pi.non_nested_arith_weight",
@@ -165,7 +166,7 @@ public:
         if (*name == ':')
             name++;
         std::string tmp = name;
-        unsigned n = tmp.size();
+        unsigned n = static_cast<unsigned>(tmp.size());
         for (unsigned i = 0; i < n; i++) {
             if (tmp[i] >= 'A' && tmp[i] <= 'Z')
                 tmp[i] = tmp[i] - 'A' + 'a';

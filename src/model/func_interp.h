@@ -58,9 +58,9 @@ public:
     expr * get_arg(unsigned idx) const { return m_args[idx]; }
     expr * const * get_args() const { return m_args; }
     /**
-       \brief Return true if m_args[i] == args[i] for all i in [0, arity)
+       \brief Return true if m.are_equal(m_args[i], args[i]) for all i in [0, arity)
     */
-    bool eq_args(unsigned arity, expr * const * args) const;
+    bool eq_args(ast_manager & m, unsigned arity, expr * const * args) const;
 };
 
 class func_interp {

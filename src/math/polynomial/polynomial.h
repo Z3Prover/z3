@@ -219,6 +219,7 @@ namespace polynomial {
         void set_zp(uint64 p);
 
         void set_cancel(bool f);
+        void cancel() { set_cancel(true); }
 
         /**
            \brief Abstract event handler.

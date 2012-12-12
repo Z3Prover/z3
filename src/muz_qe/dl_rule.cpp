@@ -41,6 +41,7 @@ Revision History:
 #include"expr_replacer.h"
 #include"bool_rewriter.h"
 #include"qe_lite.h"
+#include"expr_safe_replace.h"
 
 namespace datalog {
 
@@ -130,17 +131,15 @@ namespace datalog {
             return index;
         }
         // replace vars by de-bruijn indices
-        expr_substitution sub(m);
+        expr_safe_replace rep(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             app* v = vars[i].get();
             if (names) {
                 names->push_back(v->get_decl()->get_name());
             }                
-            sub.insert(v, m.mk_var(index++,m.get_sort(v)));
+            rep.insert(v, m.mk_var(index++,m.get_sort(v)));
         }
-        scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m); 
-        rep->set_substitution(&sub);
-        (*rep)(fml);
+        rep(fml);
         return index;
     }
 
@@ -936,7 +935,7 @@ namespace datalog {
         }        
     }
 
-    void rule::get_vars(sort_ref_vector& sorts) const {
+    void rule::get_vars(ptr_vector<sort>& sorts) const {
         sorts.reset();
         used_vars used;
         get_used_vars(used);

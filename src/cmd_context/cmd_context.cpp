@@ -37,6 +37,7 @@ Notes:
 #include"well_sorted.h"
 #include"model_evaluator.h"
 #include"for_each_expr.h"
+#include"scoped_timer.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
@@ -581,8 +582,8 @@ void cmd_context::init_manager_core(bool new_manager) {
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
     }
-    if (m_solver) {
-        init_solver_options(m_solver.get());
+    if (m_solver_factory) {
+        mk_solver();
     }
     m_check_logic.set_logic(m(), m_logic);
 }
@@ -591,14 +592,9 @@ void cmd_context::init_manager() {
     SASSERT(m_manager == 0);
     SASSERT(m_pmanager == 0);
     m_check_sat_result = 0;
-    m_manager  = alloc(ast_manager, 
-                       produce_proofs() ? PGM_FINE : PGM_DISABLED, 
-                       m_params.m_trace ? m_params.m_trace_file_name.c_str() : 0);
+    m_manager  = m_params.mk_ast_manager();
     m_pmanager = alloc(pdecl_manager, *m_manager);
     init_manager_core(true);
-    // PARAM-TODO
-    // if (params().m_smtlib2_compliant)
-    //    m_manager->enable_int_real_coercions(false);
 }
 
 void cmd_context::init_external_manager() {
@@ -1123,7 +1119,7 @@ void cmd_context::reset(bool finalize) {
     reset_func_decls();
     restore_assertions(0);
     if (m_solver)
-        m_solver->reset();
+        m_solver = 0;
     m_pp_env = 0;
     m_dt_eh  = 0;
     if (m_manager) {
@@ -1304,9 +1300,11 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
     if (m_solver) {
         m_check_sat_result = m_solver.get(); // solver itself stores the result.
         m_solver->set_progress_callback(this);
+        unsigned timeout     = m_params.m_timeout;
         scoped_watch sw(*this);
         cancel_eh<solver> eh(*m_solver);
         scoped_ctrl_c ctrlc(eh);
+        scoped_timer timer(timeout, &eh);
         lbool r;
         try {
             r = m_solver->check_sat(num_assumptions, assumptions);
@@ -1443,23 +1441,18 @@ void cmd_context::validate_model() {
     }
 }
 
-void cmd_context::init_solver_options(solver * s) {
-    m_solver->set_produce_unsat_cores(produce_unsat_cores());
-    m_solver->set_produce_models(produce_models());
-    m_solver->set_produce_proofs(produce_proofs());
-    m_solver->init(m(), m_logic);
-    if (!m_params.m_auto_config) {
-        params_ref p;
-        p.set_bool("auto_config", false);
-        m_solver->updt_params(p);
-    }
+void cmd_context::mk_solver() {
+    bool proofs_enabled, models_enabled, unsat_core_enabled;
+    params_ref p;
+    m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
+    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 
-void cmd_context::set_solver(solver * s) {
+void cmd_context::set_solver_factory(solver_factory * f) {
+    m_solver_factory   = f;
     m_check_sat_result = 0;
-    m_solver = s;
-    if (has_manager() && s != 0) {
-        init_solver_options(s);
+    if (has_manager() && f != 0) {
+        mk_solver();
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
         svector<scope>::iterator it  = m_scopes.begin();

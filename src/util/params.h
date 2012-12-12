@@ -31,6 +31,8 @@ class params;
 class param_descrs;
 
 class params_ref {
+    static params_ref g_empty_params_ref;
+    
     params * m_params;
     void init();
     void copy_core(params const * p);
@@ -38,7 +40,9 @@ public:
     params_ref():m_params(0) {}
     params_ref(params_ref const & p);
     ~params_ref();
-
+    
+    static params_ref const & get_empty() { return g_empty_params_ref; }
+    
     params_ref & operator=(params_ref const & p);
     
     // copy params from src

@@ -49,6 +49,8 @@ public:
     
     virtual bool is_value(app*) const;
 
+    virtual bool is_unique_value(app * a) const { return is_value(a); }
+
     bool is_value(func_decl *) const;
     
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);

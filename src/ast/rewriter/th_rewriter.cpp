@@ -200,7 +200,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     expr * mk_eq_value(expr * lhs, expr * value) {
         SASSERT(m().is_value(value));
         if (m().is_value(lhs)) {
-            return lhs == value ? m().mk_true() : m().mk_false();
+            if (m().are_equal(lhs, value)) {
+                return m().mk_true();
+            }
+            else if (m().are_distinct(lhs, value)) {
+                return m().mk_false();
+            }
         }
         return m().mk_eq(lhs, value);
     }
@@ -483,9 +488,12 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             f = to_app(t1)->get_decl();
             return unify_core(to_app(t1), t2, new_t1, new_t2, c, first);
         }
-        else {
+        else if (is_arith_bv_app(t2)) {
             f = to_app(t2)->get_decl();
             return unify_core(to_app(t2), t1, new_t2, new_t1, c, first);
+        }
+        else {
+            return false;
         }
     }
 

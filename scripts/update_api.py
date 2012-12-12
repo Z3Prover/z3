@@ -24,11 +24,11 @@ from mk_exception import *
 api_dir     = get_component('api').src_dir
 dotnet_dir  = get_component('dotnet').src_dir
 
-log_h   = open('%s/api_log_macros.h' % api_dir, 'w')
-log_c   = open('%s/api_log_macros.cpp' % api_dir, 'w')
-exe_c   = open('%s/api_commands.cpp' % api_dir, 'w')
-core_py = open('%s/z3core.py' % get_z3py_dir(), 'w')
-dotnet_fileout = '%s/Native.cs' % dotnet_dir
+log_h   = open(os.path.join(api_dir, 'api_log_macros.h'), 'w')
+log_c   = open(os.path.join(api_dir, 'api_log_macros.cpp'), 'w')
+exe_c   = open(os.path.join(api_dir, 'api_commands.cpp'), 'w')
+core_py = open(os.path.join(get_z3py_dir(), 'z3core.py'), 'w')
+dotnet_fileout = os.path.join(dotnet_dir, 'Native.cs')
 ##
 log_h.write('// Automatically generated file\n')
 log_h.write('#include\"z3.h\"\n')
@@ -479,8 +479,8 @@ def mk_java():
     if not is_java_enabled():
         return
     java_dir      = get_component('java').src_dir
-    java_nativef  = '%s/Native.java' % java_dir
-    java_wrapperf = '%s/Native.cpp' % java_dir 
+    java_nativef  = os.path.join(java_dir, 'Native.java')
+    java_wrapperf = os.path.join(java_dir, 'Native.cpp')
     java_native   = open(java_nativef, 'w')
     java_native.write('// Automatically generated file\n')
     java_native.write('package %s;\n' % get_component('java').package_name)
@@ -981,8 +981,8 @@ exe_c.close()
 core_py.close()
 
 if is_verbose():
-    print "Generated '%s'" % ('%s/api_log_macros.h' % api_dir)
-    print "Generated '%s'" % ('%s/api_log_macros.cpp' % api_dir)
-    print "Generated '%s'" % ('%s/api_commands.cpp' % api_dir)
-    print "Generated '%s'" % ('%s/z3core.py' % get_z3py_dir())
-    print "Generated '%s'" % ('%s/Native.cs' % dotnet_dir)
+    print "Generated '%s'" % os.path.join(api_dir, 'api_log_macros.h')
+    print "Generated '%s'" % os.path.join(api_dir, 'api_log_macros.cpp')
+    print "Generated '%s'" % os.path.join(api_dir, 'api_commands.cpp')
+    print "Generated '%s'" % os.path.join(get_z3py_dir(), 'z3core.py')
+    print "Generated '%s'" % os.path.join(dotnet_dir, 'Native.cs')

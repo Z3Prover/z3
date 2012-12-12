@@ -32,6 +32,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
+    m_soft_timeout = p.soft_timeout();
     if (_p.get_bool("arith.greatest_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_GREATEST_ERROR;
     else if (_p.get_bool("arith.least_error_pivot", false))
@@ -48,7 +49,6 @@ void smt_params::updt_params(params_ref const & p) {
 
 void smt_params::updt_params(context_params const & p) {
     m_auto_config    = p.m_auto_config;
-    m_soft_timeout   = p.m_timeout;
     m_model          = p.m_model;
     m_model_validate = p.m_model_validate;
 }

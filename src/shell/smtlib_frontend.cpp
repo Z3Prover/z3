@@ -30,9 +30,6 @@ Revision History:
 #include"subpaving_cmds.h"
 #include"smt_strategic_solver.h"
 
-#include"tactic2solver.h"
-#include"qfnra_nlsat_tactic.h"
-
 extern bool g_display_statistics;
 extern void display_config();
 static clock_t             g_start_time;
@@ -98,8 +95,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     signal(SIGINT, on_ctrl_c);
     cmd_context ctx;
 
-    solver * s = mk_smt_strategic_solver(false);
-    ctx.set_solver(s);
+    ctx.set_solver_factory(mk_smt_strategic_solver_factory());
 
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);

@@ -112,7 +112,10 @@ public:
     
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
     
-    virtual bool is_value(app* e) const;
+    virtual bool is_value(app * e) const;
+
+    virtual bool is_unique_value(app * e) const { return is_value(e); }
+
     
 };
 

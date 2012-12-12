@@ -34,25 +34,15 @@ Revision History:
 extern "C" {
 
     static void init_solver_core(Z3_context c, Z3_solver _s) {
-        ast_manager & m = mk_c(c)->m();
         Z3_solver_ref * s = to_solver(_s);
-        s->m_solver->set_produce_proofs(mk_c(c)->produce_proofs());
-        s->m_solver->set_produce_unsat_cores(s->m_params.get_bool("unsat_core", mk_c(c)->produce_unsat_cores()));
-        s->m_solver->set_produce_models(s->m_params.get_bool("model", mk_c(c)->produce_models()));
-        if (!mk_c(c)->use_auto_config()) {
-            params_ref p = s->m_params;
-            p.set_bool("auto_config", false);
-            s->m_solver->updt_params(p);
-        }
-        else {
-            s->m_solver->updt_params(s->m_params);
-        }
-        s->m_solver->init(m, s->m_logic);
-        s->m_initialized = true;
+        bool proofs_enabled, models_enabled, unsat_core_enabled;
+        params_ref p = s->m_params;
+        mk_c(c)->params().get_solver_params(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
+        s->m_solver = (*(s->m_solver_factory))(mk_c(c)->m(), p, proofs_enabled, models_enabled, unsat_core_enabled, s->m_logic);
     }
 
     static void init_solver(Z3_context c, Z3_solver s) {
-        if (!to_solver(s)->m_initialized)
+        if (to_solver(s)->m_solver.get() == 0)
             init_solver_core(c, s);
     }
 
@@ -60,8 +50,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_simple_solver(c);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref);
-        s->m_solver       = mk_smt_solver();
+        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -72,8 +61,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver(c);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref);
-        s->m_solver       = mk_smt_strategic_solver();
+        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_strategic_solver_factory());
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -84,8 +72,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver_for_logic(c, logic);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref, to_symbol(logic));
-        s->m_solver       = mk_smt_strategic_solver(true /* force solver to use tactics even when auto_config is disabled */);
+        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_smt_strategic_solver_factory(to_symbol(logic)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -96,8 +83,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_solver_from_tactic(c, t);
         RESET_ERROR_CODE();
-        Z3_solver_ref * s = alloc(Z3_solver_ref);
-        s->m_solver       = alloc(tactic2solver, to_tactic_ref(t));
+        Z3_solver_ref * s = alloc(Z3_solver_ref, mk_tactic2solver_factory(to_tactic_ref(t)));
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
@@ -110,7 +96,12 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         param_descrs descrs;
+        bool initialized = to_solver(s)->m_solver.get() != 0;
+        if (!initialized)
+            init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(descrs);
+        if (!initialized)
+            to_solver(s)->m_solver = 0;
         descrs.display(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
@@ -122,7 +113,12 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref);
         mk_c(c)->save_object(d);
+        bool initialized = to_solver(s)->m_solver.get() != 0;
+        if (!initialized)
+            init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(d->m_descrs);
+        if (!initialized)
+            to_solver(s)->m_solver = 0;
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
@@ -132,7 +128,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_set_params(c, s, p);
         RESET_ERROR_CODE();
-        if (to_solver(s)->m_initialized) {
+        if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
             if (old_model != new_model)
@@ -186,8 +182,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
-        to_solver_ref(s)->reset();
-        to_solver(s)->m_initialized = false;
+        to_solver(s)->m_solver = 0;
         Z3_CATCH;
     }
     
