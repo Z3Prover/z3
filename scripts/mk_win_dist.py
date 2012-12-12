@@ -18,8 +18,8 @@ from mk_exception import *
 from mk_project import *
 
 BUILD_DIR='build-dist'
-BUILD_X64_DIR='build-dist/x64'
-BUILD_X86_DIR='build-dist/x86'
+BUILD_X64_DIR=os.path.join('build-dist', 'x64')
+BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
@@ -38,8 +38,8 @@ def mk_dir(d):
 def set_build_dir(path):
     global BUILD_DIR
     BUILD_DIR = path
-    BUILD_X86_DIR = '%s/x86' % path
-    BUILD_X64_DIR = '%s/x64' % path
+    BUILD_X86_DIR = os.path.join(path, 'x86')
+    BUILD_X64_DIR = os.path.join(path, 'x64')
     mk_dir(BUILD_X86_DIR)
     mk_dir(BUILD_X64_DIR)
 
@@ -80,12 +80,12 @@ def parse_options():
 
 # Check whether build directory already exists or not
 def check_build_dir(path):
-    return os.path.exists(path) and os.path.exists('%s/Makefile' % path)
+    return os.path.exists(path) and os.path.exists(os.path.join(path, 'Makefile'))
 
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", "scripts/mk_make.py", "-b", path]
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path]
         if x64:
             opts.append('-x')
         if subprocess.call(opts) != 0:
@@ -147,7 +147,7 @@ def mk_dist_dir_core(x64):
     else:
         platform = "x86"
         build_path = BUILD_X86_DIR
-    dist_path = '%s/z3-%s.%s.%s-%s' % (DIST_DIR, major, minor, build, platform)
+    dist_path = os.path.join(DIST_DIR, 'z3-%s.%s.%s-%s' % (major, minor, build, platform))
     mk_dir(dist_path)
     mk_win_dist(build_path, dist_path)
     if is_verbose():
@@ -225,7 +225,7 @@ def cp_vs_runtime_core(x64):
     path  = '%sredist\\%s' % (vcdir, platform)
     VS_RUNTIME_FILES = []
     os.path.walk(path, cp_vs_runtime_visitor, '*.dll')
-    bin_dist_path = '%s/%s/bin' % (DIST_DIR, get_dist_path(x64))
+    bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
     for f in VS_RUNTIME_FILES:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
@@ -236,8 +236,8 @@ def cp_vs_runtime():
     cp_vs_runtime_core(False)
 
 def cp_license():
-    shutil.copy("LICENSE.txt", "%s/%s" % (DIST_DIR, get_dist_path(True)))
-    shutil.copy("LICENSE.txt", "%s/%s" % (DIST_DIR, get_dist_path(False)))
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(True)))
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(False)))
 
 # Entry point
 def main():
