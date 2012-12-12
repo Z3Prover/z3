@@ -28,7 +28,6 @@ Revision History:
 #include"theory_datatype.h"
 #include"theory_dummy.h"
 #include"theory_dl.h"
-#include"theory_instgen.h"
 #include"theory_seq_empty.h"
 
 namespace smt {
@@ -772,11 +771,6 @@ namespace smt {
     void setup::setup_seq() {
         m_context.register_plugin(alloc(theory_seq_empty, m_manager));
     }
-    void setup::setup_instgen() {
-        if (m_params.m_instgen) {
-            m_context.register_plugin(mk_theory_instgen(m_manager, m_params));
-        }
-    }
 
     void setup::setup_unknown() {
         setup_arith();
@@ -784,7 +778,6 @@ namespace smt {
         setup_bv();
         setup_datatypes();
         setup_dl();
-        setup_instgen();
         setup_seq();
     }
 
