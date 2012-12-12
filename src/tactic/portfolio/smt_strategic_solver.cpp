@@ -87,7 +87,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
 }
 
 class smt_strategic_solver_factory : public solver_factory {
-    symbol const & m_logic;
+    symbol m_logic;
 public:
     smt_strategic_solver_factory(symbol const & logic):m_logic(logic) {}
     
@@ -99,7 +99,7 @@ public:
             l = m_logic;
         else
             l = logic;
-        tactic * t = mk_tactic_for_logic(m, p, logic);
+        tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_smt_solver(m, p, l),
                                   p);
