@@ -19,96 +19,115 @@ Author:
 Notes:
 
 --*/
-#include"tactic2solver.h"
+#include"solver_na2as.h"
+#include"tactic.h"
 #include"ast_smt2_pp.h"
 
-tactic2solver_core::ctx::ctx(ast_manager & m, symbol const & logic):
-    m_logic(logic),
+/**
+   \brief Simulates the incremental solver interface using a tactic.
+
+   Every query will be solved from scratch.  So, this is not a good
+   option for applications trying to solve many easy queries that a
+   similar to each other.
+*/
+class tactic2solver : public solver_na2as {
+    expr_ref_vector              m_assertions;
+    unsigned_vector              m_scopes;
+    ref<simple_check_sat_result> m_result;
+    tactic_ref                   m_tactic;
+    symbol                       m_logic;
+    params_ref                   m_params;
+    bool                         m_produce_models;
+    bool                         m_produce_proofs;
+    bool                         m_produce_unsat_cores;
+public:
+    tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
+    virtual ~tactic2solver();
+
+    virtual void updt_params(params_ref const & p);
+    virtual void collect_param_descrs(param_descrs & r);
+
+    virtual void set_produce_models(bool f) { m_produce_models = f; }
+
+    virtual void assert_expr(expr * t);
+
+    virtual void push_core();
+    virtual void pop_core(unsigned n);
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
+
+    virtual void set_cancel(bool f);
+
+    virtual void collect_statistics(statistics & st) const;
+    virtual void get_unsat_core(ptr_vector<expr> & r);
+    virtual void get_model(model_ref & m);
+    virtual proof * get_proof();
+    virtual std::string reason_unknown() const;
+    virtual void get_labels(svector<symbol> & r) {}
+
+    virtual void set_progress_callback(progress_callback * callback) {}
+
+    virtual unsigned get_num_assertions() const;
+    virtual expr * get_assertion(unsigned idx) const;
+
+    virtual void display(std::ostream & out) const;
+};
+
+tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic):
+    solver_na2as(m),
     m_assertions(m) {
+
+    m_tactic = t;
+    m_logic  = logic;
+    m_params = p;
+    
+    m_produce_models      = produce_models;
+    m_produce_proofs      = produce_proofs;
+    m_produce_unsat_cores = produce_unsat_cores;
 }
 
-tactic2solver_core::~tactic2solver_core() {
+tactic2solver::~tactic2solver() {
 }
 
-void tactic2solver_core::init_core(ast_manager & m, symbol const & logic) {
-    m_ctx = alloc(ctx, m, logic);
-}
-
-void tactic2solver_core::updt_params(params_ref const & p) {
+void tactic2solver::updt_params(params_ref const & p) {
     m_params = p;
 }
 
-void tactic2solver_core::collect_param_descrs(param_descrs & r) {
-    if (m_ctx) {
-        if (!m_ctx->m_tactic) {
-            #pragma omp critical (tactic2solver_core)
-            {
-                m_ctx->m_tactic = get_tactic(m_ctx->m(), m_params);
-            }
-
-            if (m_ctx->m_tactic) {
-                m_ctx->m_tactic->collect_param_descrs(r);
-            }
-
-            #pragma omp critical (tactic2solver_core)
-            {
-                m_ctx->m_tactic = 0;
-            }
-        }
-        else {
-            m_ctx->m_tactic->collect_param_descrs(r);
-        }
-    }
+void tactic2solver::collect_param_descrs(param_descrs & r) {
+    if (m_tactic.get())
+        m_tactic->collect_param_descrs(r);
 }
 
-void tactic2solver_core::reset_core() {
-    SASSERT(m_ctx);
-    m_ctx->m_assertions.reset();
-    m_ctx->m_scopes.reset();
-    m_ctx->m_result = 0;
+void tactic2solver::assert_expr(expr * t) {
+    m_assertions.push_back(t);
+    m_result = 0;
 }
 
-void tactic2solver_core::assert_expr(expr * t) {
-    SASSERT(m_ctx);
-    m_ctx->m_assertions.push_back(t);
-    m_ctx->m_result = 0;
+void tactic2solver::push_core() {
+    m_scopes.push_back(m_assertions.size());
+    m_result = 0;
 }
 
-void tactic2solver_core::push_core() {
-    SASSERT(m_ctx);
-    m_ctx->m_scopes.push_back(m_ctx->m_assertions.size());
-    m_ctx->m_result = 0;
+void tactic2solver::pop_core(unsigned n) {
+    unsigned new_lvl = m_scopes.size() - n;
+    unsigned old_sz  = m_scopes[new_lvl];
+    m_assertions.shrink(old_sz);
+    m_scopes.shrink(new_lvl);
+    m_result = 0;
 }
 
-void tactic2solver_core::pop_core(unsigned n) {
-    SASSERT(m_ctx);
-    unsigned new_lvl = m_ctx->m_scopes.size() - n;
-    unsigned old_sz  = m_ctx->m_scopes[new_lvl];
-    m_ctx->m_assertions.shrink(old_sz);
-    m_ctx->m_scopes.shrink(new_lvl);
-    m_ctx->m_result = 0;
-}
-
-lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-    SASSERT(m_ctx);
-    ast_manager & m = m_ctx->m();
-    params_ref p = m_params;
-    #pragma omp critical (tactic2solver_core)
-    {
-        m_ctx->m_tactic = get_tactic(m, p);
-        if (m_ctx->m_tactic) {
-            m_ctx->m_result = alloc(simple_check_sat_result, m);
-        }
-    }
-    if (!m_ctx->m_tactic)
-        return l_undef;
-    tactic & t                       = *(m_ctx->m_tactic);
-    simple_check_sat_result & result = *(m_ctx->m_result);
+lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    if (m_tactic.get() == 0)
+        return l_false;
+    ast_manager & m = m_assertions.m();
+    m_result = alloc(simple_check_sat_result, m);
+    m_tactic->cleanup();
+    m_tactic->updt_params(m_params);
+    m_tactic->set_logic(m_logic);
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
-    t.set_logic(m_ctx->m_logic);
-    unsigned sz = m_ctx->m_assertions.size();
+
+    unsigned sz = m_assertions.size();
     for (unsigned i = 0; i < sz; i++) {
-        g->assert_expr(m_ctx->m_assertions.get(i));
+        g->assert_expr(m_assertions.get(i));
     }
     for (unsigned i = 0; i < num_assumptions; i++) {
         g->assert_expr(assumptions[i], m.mk_asserted(assumptions[i]), m.mk_leaf(assumptions[i]));
@@ -119,17 +138,17 @@ lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const 
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     try {
-        switch (::check_sat(t, g, md, pr, core, reason_unknown)) {
+        switch (::check_sat(*m_tactic, g, md, pr, core, reason_unknown)) {
         case l_true: 
-            result.set_status(l_true);
+            m_result->set_status(l_true);
             break;
         case l_false: 
-            result.set_status(l_false);
+            m_result->set_status(l_false);
             break;
         default: 
-            result.set_status(l_undef);
+            m_result->set_status(l_undef);
             if (reason_unknown != "")
-                result.m_unknown = reason_unknown;
+                m_result->m_unknown = reason_unknown;
             break;
         }
     }
@@ -137,112 +156,115 @@ lbool tactic2solver_core::check_sat_core(unsigned num_assumptions, expr * const 
         throw ex;
     }
     catch (z3_exception & ex) {
-        TRACE("tactic2solver_core", tout << "exception: " << ex.msg() << "\n";);
-        result.set_status(l_undef);
-        result.m_unknown = ex.msg();
+        TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
+        m_result->set_status(l_undef);
+        m_result->m_unknown = ex.msg();
     }
-    t.collect_statistics(result.m_stats);
-    result.m_model = md;
-    result.m_proof = pr;
+    m_tactic->collect_statistics(m_result->m_stats);
+    m_result->m_model = md;
+    m_result->m_proof = pr;
     if (m_produce_unsat_cores) {
         ptr_vector<expr> core_elems;
         m.linearize(core, core_elems);
-        result.m_core.append(core_elems.size(), core_elems.c_ptr());
+        m_result->m_core.append(core_elems.size(), core_elems.c_ptr());
     }
-    
-    #pragma omp critical (tactic2solver_core)
-    {
-        m_ctx->m_tactic = 0;
-    }
-    return result.status();
+    m_tactic->cleanup();
+    return m_result->status();
 }
 
-void tactic2solver_core::set_cancel(bool f) {
-    #pragma omp critical (tactic2solver_core)
-    {
-        if (m_ctx && m_ctx->m_tactic)
-            m_ctx->m_tactic->set_cancel(f);
-    }
+void tactic2solver::set_cancel(bool f) {
+    if (m_tactic.get())
+        m_tactic->set_cancel(f);
 }
 
-void tactic2solver_core::collect_statistics(statistics & st) const {
-    if (m_ctx->m_result.get())
-        m_ctx->m_result->collect_statistics(st);
+void tactic2solver::collect_statistics(statistics & st) const {
+    if (m_result.get())
+        m_result->collect_statistics(st);
 }
 
-void tactic2solver_core::get_unsat_core(ptr_vector<expr> & r) {
-    if (m_ctx->m_result.get())
-        m_ctx->m_result->get_unsat_core(r);
+void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {
+    if (m_result.get())
+        m_result->get_unsat_core(r);
 }
 
-void tactic2solver_core::get_model(model_ref & m) {
-    if (m_ctx->m_result.get())
-        m_ctx->m_result->get_model(m);
+void tactic2solver::get_model(model_ref & m) {
+    if (m_result.get())
+        m_result->get_model(m);
 }
 
-proof * tactic2solver_core::get_proof() {
-    if (m_ctx->m_result.get())
-        return m_ctx->m_result->get_proof();
+proof * tactic2solver::get_proof() {
+    if (m_result.get())
+        return m_result->get_proof();
     else
         return 0;
 }
 
-std::string tactic2solver_core::reason_unknown() const {
-    if (m_ctx->m_result.get())
-        return m_ctx->m_result->reason_unknown();
+std::string tactic2solver::reason_unknown() const {
+    if (m_result.get())
+        return m_result->reason_unknown();
     else
         return std::string("unknown");
 }
 
-unsigned tactic2solver_core::get_num_assertions() const {
-    if (m_ctx) 
-        return m_ctx->m_assertions.size();
-    else
-        return 0;
+unsigned tactic2solver::get_num_assertions() const {
+    return m_assertions.size();
 }
 
-expr * tactic2solver_core::get_assertion(unsigned idx) const {
-    SASSERT(m_ctx);
-    return m_ctx->m_assertions.get(idx);
+expr * tactic2solver::get_assertion(unsigned idx) const {
+    return m_assertions.get(idx);
 }
 
-void tactic2solver_core::display(std::ostream & out) const {
-    if (m_ctx) {
-        ast_manager & m = m_ctx->m_assertions.m();
-        unsigned num = m_ctx->m_assertions.size();
-        out << "(solver";
-        for (unsigned i = 0; i < num; i++) {
-            out << "\n  " << mk_ismt2_pp(m_ctx->m_assertions.get(i), m, 2);
-        }
-        out << ")";
+void tactic2solver::display(std::ostream & out) const {
+    ast_manager & m = m_assertions.m();
+    unsigned num = m_assertions.size();
+    out << "(solver";
+    for (unsigned i = 0; i < num; i++) {
+        out << "\n  " << mk_ismt2_pp(m_assertions.get(i), m, 2);
     }
-    else {
-        out << "(solver)";
+    out << ")";
+}
+
+solver * mk_tactic2solver(ast_manager & m, 
+                          tactic * t, 
+                          params_ref const & p,
+                          bool produce_proofs,
+                          bool produce_models,
+                          bool produce_unsat_cores,
+                          symbol const & logic) {
+    return alloc(tactic2solver, m, t, p, produce_proofs, produce_models, produce_unsat_cores, logic);
+}
+
+class tactic2solver_factory : public solver_factory {
+    ref<tactic> m_tactic;
+public:
+    tactic2solver_factory(tactic * t):m_tactic(t) {
     }
+    
+    virtual ~tactic2solver_factory() {}
+    
+    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+        return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
+    }
+};
+
+class tactic_factory2solver_factory : public solver_factory {
+    scoped_ptr<tactic_factory> m_factory;
+public:
+    tactic_factory2solver_factory(tactic_factory * f):m_factory(f) {
+    }
+    
+    virtual ~tactic_factory2solver_factory() {}
+    
+    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+        tactic * t = (*m_factory)(m, p);
+        return mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
+    }
+};
+
+solver_factory * mk_tactic2solver_factory(tactic * t) {
+    return alloc(tactic2solver_factory, t);
 }
 
-tactic2solver::tactic2solver(tactic * t):
-    m_tactic(t) {
-}
-
-tactic2solver::~tactic2solver() {
-}
-
-tactic * tactic2solver::get_tactic(ast_manager & m, params_ref const & p) {
-    m_tactic->cleanup();
-    m_tactic->updt_params(p);
-    return m_tactic.get();
-}
-
-tactic_factory2solver::~tactic_factory2solver() {
-}
-
-void tactic_factory2solver::set_tactic(tactic_factory * f) {
-    m_tactic_factory = f;
-}
-
-tactic * tactic_factory2solver::get_tactic(ast_manager & m, params_ref const & p) {
-    if (m_tactic_factory == 0)
-        return 0;
-    return (*m_tactic_factory)(m, p);
+solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f) {
+    return alloc(tactic_factory2solver_factory, f);
 }

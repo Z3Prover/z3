@@ -16,6 +16,7 @@ Author:
 Notes:
 
 --*/
+#if 0
 #include"strategic_solver.h"
 #include"scoped_timer.h"
 #include"ast_smt2_pp.h"
@@ -526,6 +527,7 @@ void strategic_solver::display(std::ostream & out) const {
     }
 }
 
+#endif
 
 
 

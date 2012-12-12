@@ -21,8 +21,13 @@ Notes:
 #ifndef _SMT_SOLVER_H_
 #define _SMT_SOLVER_H_
 
-class solver;
+#include"ast.h"
+#include"params.h"
 
-solver * mk_smt_solver();
+class solver;
+class solver_factory;
+
+solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & logic);
+solver_factory * mk_smt_solver_factory();
 
 #endif

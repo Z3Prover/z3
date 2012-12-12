@@ -61,7 +61,8 @@ private:
     bool                 m_force_tactic; // use tactics even when auto_config = false
     bool                 m_inc_mode;
     bool                 m_check_sat_executed;
-    scoped_ptr<solver>   m_inc_solver;
+    scoped_ptr<solver_factory> m_inc_solver_factory;
+    ref<solver>          m_inc_solver;
     unsigned             m_inc_solver_timeout;
     inc_unknown_behavior m_inc_unknown_behavior;
     scoped_ptr<tactic_factory>  m_default_fct;
@@ -107,12 +108,12 @@ private:
     bool use_tactic_when_undef() const;
 
 public:
-    strategic_solver();
+    strategic_solver(ast_manager & m, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
     ~strategic_solver();
 
     ast_manager & m() const { SASSERT(m_manager); return *m_manager; }
 
-    void set_inc_solver(solver * s);
+    void set_inc_solver_factory(solver_factory * s);
     void set_inc_solver_timeout(unsigned timeout);
     void set_default_tactic(tactic_factory * fct);
     void set_tactic_for(symbol const & logic, tactic_factory * fct);

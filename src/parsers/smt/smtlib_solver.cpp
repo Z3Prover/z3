@@ -86,7 +86,7 @@ namespace smtlib {
             benchmark.add_formula(m_ast_manager.mk_true());
         }
         m_ctx = alloc(cmd_context, true, &m_ast_manager, benchmark.get_logic());
-        m_ctx->set_solver(mk_smt_strategic_solver(false));
+        m_ctx->set_solver_factory(mk_smt_strategic_solver_factory());
         theory::expr_iterator fit  = benchmark.begin_formulas();
         theory::expr_iterator fend = benchmark.end_formulas();
         for (; fit != fend; ++fit)

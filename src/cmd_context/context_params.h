@@ -22,7 +22,6 @@ Notes:
 
 #include"params.h"
 class ast_manager;
-class solver;
 
 class context_params {
     void set_bool(bool & opt, char const * param, char const * value);
@@ -50,13 +49,9 @@ public:
     */
     
     /**
-       \brief Goodie for updating the solver params
-       based on the configuration of the context_params object.
-
-       This method is used when creating solvers from the
-       cmd_context and API.
+       \brief Goodies for extracting parameters for creating a solver object.
     */
-    void init_solver_params(ast_manager & m, solver & s, params_ref const & p);
+    void get_solver_params(ast_manager const & m, params_ref & p, bool & proofs_enabled, bool & models_enabled, bool & unsat_core_enabled);
 
     /**
        \brief Include in p parameters derived from this context_params.
