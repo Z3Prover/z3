@@ -16,6 +16,7 @@ import subprocess
 import zipfile
 from mk_exception import *
 from mk_project import *
+import mk_util
 
 BUILD_DIR='build-dist'
 BUILD_X64_DIR=os.path.join('build-dist', 'x64')
@@ -23,6 +24,7 @@ BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
+JAVA_ENABLED=True
 
 def set_verbose(flag):
     global VERBOSE
@@ -52,16 +54,18 @@ def display_help():
     print "  -s, --silent                  do not print verbose messages."
     print "  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist)."
     print "  -f, --force                   force script to regenerate Makefiles."
+    print "  --nojava                      do not include Java bindings in the binary distribution files."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK
+    global FORCE_MK, JAVA_ENABLED
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
                                                                    'help',
                                                                    'silent',
-                                                                   'force'
+                                                                   'force',
+                                                                   'nojava'
                                                                    ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -74,6 +78,8 @@ def parse_options():
             display_help()
         elif opt in ('-f', '--force'):
             FORCE_MK = True
+        elif opt == '--nojava':
+            JAVA_ENABLED = False
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -86,6 +92,8 @@ def check_build_dir(path):
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
         opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path]
+        if JAVA_ENABLED:
+            opts.append('--java')
         if x64:
             opts.append('-x')
         if subprocess.call(opts) != 0:
@@ -149,6 +157,10 @@ def mk_dist_dir_core(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, 'z3-%s.%s.%s-%s' % (major, minor, build, platform))
     mk_dir(dist_path)
+    if JAVA_ENABLED:
+        # HACK: Propagate JAVA_ENABLED flag to mk_util
+        # TODO: fix this hack
+        mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_win_dist(build_path, dist_path)
     if is_verbose():
         print "Generated %s distribution folder at '%s'" % (platform, dist_path)
