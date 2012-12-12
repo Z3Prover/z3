@@ -2104,10 +2104,56 @@ namespace fm {
 } // namespace fm
 
 class qe_lite::impl {
+public:
+    struct elim_cfg : public default_rewriter_cfg {
+        impl& m_imp;
+        ast_manager& m;
+    public:
+        elim_cfg(impl& i): m_imp(i), m(i.m) {}
+        
+        bool reduce_quantifier(quantifier * q, 
+                               expr * new_body, 
+                               expr * const * new_patterns, 
+                               expr * const * new_no_patterns,
+                               expr_ref & result,
+                               proof_ref & result_pr) {
+            result = new_body;
+            if (is_forall(q)) {
+                result = m.mk_not(result);
+            }
+            uint_set indices;
+            for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+                indices.insert(i);
+            }
+            m_imp(indices, true, result);          
+            if (is_forall(q)) {
+                result = m.mk_not(result);
+            }
+            result = m.update_quantifier(
+                q, 
+                q->get_num_patterns(), new_patterns, 
+                q->get_num_no_patterns(), new_no_patterns, result);
+            m_imp.m_rewriter(result);
+            return true;
+        }
+    };
+
+    class elim_star : public rewriter_tpl<elim_cfg> {
+        elim_cfg m_cfg;
+    public:
+        elim_star(impl& i): 
+            rewriter_tpl<elim_cfg>(i.m, false, m_cfg),
+            m_cfg(i)
+        {}
+    };
+
+private:
     ast_manager& m;
     eq::der      m_der;
     fm::fm       m_fm;
     ar::der      m_array_der;
+    elim_star    m_elim_star;
+    th_rewriter  m_rewriter;
 
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
@@ -2126,7 +2172,13 @@ class qe_lite::impl {
     }
 
 public:
-    impl(ast_manager& m): m(m), m_der(m), m_fm(m), m_array_der(m) {}
+    impl(ast_manager& m): 
+        m(m), 
+        m_der(m), 
+        m_fm(m), 
+        m_array_der(m), 
+        m_elim_star(*this), 
+        m_rewriter(m) {}
     
     void operator()(app_ref_vector& vars, expr_ref& fml) {
         if (vars.empty()) {
@@ -2165,22 +2217,12 @@ public:
         else {
             fml = tmp;
         }
-    }
+    }    
 
     void operator()(expr_ref& fml, proof_ref& pr) {
-        if (is_exists(fml)) {
-            quantifier* q = to_quantifier(fml);
-            expr_ref body(m);
-            body = q->get_expr();
-            uint_set indices;
-            for (unsigned i = 0; i < q->get_num_decls(); ++i) {
-                indices.insert(i);
-            }
-            (*this)(indices, true, body);
-            fml = m.update_quantifier(q, body);
-            th_rewriter rewriter(m);
-            rewriter(fml);
-        }
+        expr_ref tmp(m);
+        m_elim_star(fml, tmp, pr);
+        fml = tmp;
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
@@ -2227,6 +2269,8 @@ public:
         m_der.set_cancel(f);
         m_array_der.set_cancel(f);
         m_fm.set_cancel(f);
+        m_elim_star.set_cancel(f);
+        m_rewriter.set_cancel(f);
     }
 
 };
@@ -2383,3 +2427,5 @@ public:
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
     return alloc(qe_lite_tactic, m, p);
 }
+
+template class rewriter_tpl<qe_lite::impl::elim_cfg>;

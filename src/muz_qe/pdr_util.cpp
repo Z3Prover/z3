@@ -1129,7 +1129,11 @@ namespace pdr {
             if (a.is_numeral(lhs) || a.is_numeral(rhs)) {
                 return test_ineq(e);
             }
-            return test_term(lhs) && test_term(rhs);
+            return 
+                test_term(lhs) && 
+                test_term(rhs) &&
+                !a.is_mul(lhs) &&
+                !a.is_mul(rhs);
         }
 
         bool test_term(expr* e) const {
