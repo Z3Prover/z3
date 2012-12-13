@@ -17,10 +17,63 @@ Revision History:
 
 --*/
 #include"defined_names.h"
+#include"obj_hashtable.h"
 #include"used_vars.h"
 #include"var_subst.h"
 #include"ast_smt2_pp.h"
 #include"ast_pp.h"
+
+struct defined_names::impl {
+    typedef obj_map<expr, app *>   expr2name;
+    typedef obj_map<expr, proof *> expr2proof;
+    ast_manager &    m_manager;
+    symbol           m_z3name;
+    
+    /**
+       \brief Mapping from expressions to their names. A name is an application.
+       If the expression does not have free variables, then the name is just a constant.
+    */
+    expr2name        m_expr2name;
+    /**
+       \brief Mapping from expressions to the apply-def proof.
+       That is, for each expression e, m_expr2proof[e] is the
+       proof e and m_expr2name[2] are observ. equivalent.
+       
+       This mapping is not used if proof production is disabled.
+    */
+    expr2proof       m_expr2proof;
+    
+    /**
+       \brief Domain of m_expr2name. It is used to keep the expressions
+       alive and for backtracking
+    */
+    expr_ref_vector  m_exprs; 
+    expr_ref_vector  m_names;        //!< Range of m_expr2name. It is used to keep the names alive.
+    proof_ref_vector m_apply_proofs; //!< Range of m_expr2proof. It is used to keep the def-intro proofs alive.
+    
+    
+    unsigned_vector m_lims;          //!< Backtracking support.
+    
+    impl(ast_manager & m, char const * prefix);
+    virtual ~impl();
+    
+    app * gen_name(expr * e, sort_ref_buffer & var_sorts, buffer<symbol> & var_names);
+    void cache_new_name(expr * e, app * name);
+    void cache_new_name_intro_proof(expr * e, proof * pr);
+    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref & result);
+    void bound_vars(sort_ref_buffer const & sorts, buffer<symbol> const & names, expr * def_conjunct, app * name, expr_ref_buffer & result);
+    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def);
+    bool mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr);
+    void push_scope();
+    void pop_scope(unsigned num_scopes);
+    void reset();
+};
+
+struct defined_names::pos_impl : public defined_names::impl {
+    pos_impl(ast_manager & m, char const * fresh_prefix):impl(m, fresh_prefix) {}
+    virtual void mk_definition(expr * e, app * n, sort_ref_buffer & var_sorts, buffer<symbol> const & var_names, expr_ref & new_def);
+};
+
 
 defined_names::impl::impl(ast_manager & m, char const * prefix):
     m_manager(m),
@@ -221,6 +274,41 @@ void defined_names::impl::reset() {
     m_apply_proofs.reset();
     m_lims.reset();
 }
+
+defined_names::defined_names(ast_manager & m, char const * fresh_prefix) {
+    m_impl = alloc(impl, m, fresh_prefix);
+    m_pos_impl = alloc(pos_impl, m, fresh_prefix);
+}
+
+defined_names::~defined_names() {
+    dealloc(m_impl);
+    dealloc(m_pos_impl);
+}
+
+bool defined_names::mk_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr) {
+    return m_impl->mk_name(e, new_def, new_def_pr, n, pr);
+}
+
+bool defined_names::mk_pos_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr) {
+    return m_pos_impl->mk_name(e, new_def, new_def_pr, n, pr);
+}
+
+void defined_names::push() {
+    m_impl->push_scope();
+    m_pos_impl->push_scope();
+}
+
+void defined_names::pop(unsigned num_scopes) {
+    m_impl->pop_scope(num_scopes);
+    m_pos_impl->pop_scope(num_scopes);
+}
+
+void defined_names::reset() {
+    m_impl->reset();
+    m_pos_impl->reset();
+}
+
+
 
 
 

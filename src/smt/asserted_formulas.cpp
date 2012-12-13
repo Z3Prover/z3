@@ -189,7 +189,7 @@ void asserted_formulas::push_scope() {
     s.m_asserted_formulas_lim    = m_asserted_formulas.size();
     SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead);
     s.m_inconsistent_old         = m_inconsistent;
-    m_defined_names.push_scope();
+    m_defined_names.push();
     m_bv_sharing.push_scope();
     commit();
 }
@@ -201,7 +201,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     unsigned new_lvl    = m_scopes.size() - num_scopes;
     scope & s           = m_scopes[new_lvl];
     m_inconsistent      = s.m_inconsistent_old;
-    m_defined_names.pop_scope(num_scopes);
+    m_defined_names.pop(num_scopes);
     m_asserted_formulas.shrink(s.m_asserted_formulas_lim);
     if (m_manager.proofs_enabled())
         m_asserted_formula_prs.shrink(s.m_asserted_formulas_lim);
