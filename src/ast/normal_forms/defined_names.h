@@ -80,6 +80,9 @@ public:
     void push();
     void pop(unsigned num_scopes);
     void reset();
+
+    unsigned get_num_names() const;
+    func_decl * get_name_decl(unsigned i) const;
 };
 
 #endif /* _DEFINED_NAMES_H_ */

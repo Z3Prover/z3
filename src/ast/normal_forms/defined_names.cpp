@@ -67,6 +67,9 @@ struct defined_names::impl {
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
+
+    unsigned get_num_names() const { return m_names.size(); }
+    func_decl * get_name_decl(unsigned i) const { return to_app(m_names.get(i))->get_decl(); }
 };
 
 struct defined_names::pos_impl : public defined_names::impl {
@@ -306,6 +309,16 @@ void defined_names::pop(unsigned num_scopes) {
 void defined_names::reset() {
     m_impl->reset();
     m_pos_impl->reset();
+}
+
+unsigned defined_names::get_num_names() const { 
+    return m_impl->get_num_names() + m_pos_impl->get_num_names();
+}
+
+func_decl * defined_names::get_name_decl(unsigned i) const { 
+    SASSERT(i < get_num_names());
+    unsigned n1 = m_impl->get_num_names();
+    return i < n1 ? m_impl->get_name_decl(i) : m_pos_impl->get_name_decl(i - n1);
 }
 
 

@@ -26,6 +26,8 @@ Version 4.3.2
 
 - Fixed crash reported at http://z3.codeplex.com/workitem/10
 
+- Removed auxiliary constants created by the nnf tactic from Z3 models.
+  
 Version 4.3.1
 =============
 
