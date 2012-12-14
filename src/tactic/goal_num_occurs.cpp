@@ -3,7 +3,7 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    num_occurs_goal.cpp
+    goal_num_occurs.cpp
 
 Abstract:
 
@@ -15,10 +15,10 @@ Author:
 Revision History:
 
 --*/
-#include"num_occurs_goal.h"
+#include"goal_num_occurs.h"
 #include"goal.h"
 
-void num_occurs_goal::operator()(goal const & g) {
+void goal_num_occurs::operator()(goal const & g) {
     expr_fast_mark1   visited;
     unsigned sz = g.size();
     for (unsigned i = 0; i < sz; i++) {

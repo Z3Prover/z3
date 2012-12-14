@@ -18,7 +18,7 @@ Notes:
 --*/
 #include"ctx_simplify_tactic.h"
 #include"mk_simplified_app.h"
-#include"num_occurs_goal.h"
+#include"goal_num_occurs.h"
 #include"cooperate.h"
 #include"ast_ll_pp.h"
 #include"ast_smt2_pp.h"
@@ -51,7 +51,7 @@ struct ctx_simplify_tactic::imp {
     unsigned                    m_scope_lvl;
     unsigned                    m_depth;                  
     unsigned                    m_num_steps;
-    num_occurs_goal             m_occs;
+    goal_num_occurs             m_occs;
     mk_simplified_app           m_mk_app;
     unsigned long long          m_max_memory;
     unsigned                    m_max_depth;
