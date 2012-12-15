@@ -55,13 +55,28 @@ private:
     bool                 m_use_solver1_results;
     ref<solver>          m_solver1;
     ref<solver>          m_solver2;
-    
+    // We delay sending assertions to solver 2
+    // This is relevant for big benchmarks that are meant to be solved
+    // by a non-incremental solver. 
+    bool                 m_solver2_initialized;
+
     bool                 m_ignore_solver1;
     inc_unknown_behavior m_inc_unknown_behavior;
     unsigned             m_inc_timeout;
+    
+    void init_solver2_assertions() {
+        if (m_solver2_initialized)
+            return;
+        unsigned sz = m_solver1->get_num_assertions();
+        for (unsigned i = 0; i < sz; i++) {
+            m_solver2->assert_expr(m_solver1->get_assertion(i));
+        }
+        m_solver2_initialized = true;
+    }
 
     void switch_inc_mode() {
         m_inc_mode = true;
+        init_solver2_assertions();
     }
 
     struct aux_timeout_eh : public event_handler {
@@ -106,6 +121,7 @@ public:
         m_solver1 = s1;
         m_solver2 = s2;
         updt_local_params(p);
+        m_solver2_initialized = false;
         m_inc_mode            = false;
         m_check_sat_executed  = false;
         m_use_solver1_results = true;
@@ -132,13 +148,15 @@ public:
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t);
-        m_solver2->assert_expr(t);
+        if (m_solver2_initialized)
+            m_solver2->assert_expr(t);
     }
 
     virtual void assert_expr(expr * t, expr * a) {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t, a);
+        init_solver2_assertions();
         m_solver2->assert_expr(t, a);
     }
 
