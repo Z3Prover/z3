@@ -39,7 +39,7 @@ Notes:
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
     if (logic=="QF_UF")
-        return mk_qfufbv_tactic(m, p);
+        return mk_qfuf_tactic(m, p);
     else if (logic=="QF_BV")
         return mk_qfbv_tactic(m, p);
     else if (logic=="QF_IDL")
