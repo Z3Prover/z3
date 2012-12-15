@@ -307,17 +307,18 @@ namespace datalog {
 
         bmc bmc(m_ctx);
         expr_ref_vector fmls(m);
-        bmc.compile(source, fmls, 0); // TBD: use cancel_eh to terminate without base-case.
-        bmc.compile(source, fmls, 1);
-        bmc.compile(source, fmls, 2);
-//        bmc.compile(source, fmls, 3);
-        expr_ref query = bmc.compile_query(m_query_pred, 2);
+        unsigned depth = 2;
+        // TBD: use cancel_eh to terminate without base-case.
+        for (unsigned i = 0; i <= depth; ++i) {
+            bmc.compile(source, fmls, i);
+        }
+        expr_ref query = bmc.compile_query(m_query_pred, depth);
         fmls.push_back(query);
         smt_params fparams;
         fparams.m_relevancy_lvl = 0;
         fparams.m_model = true;
         fparams.m_model_compact = true;
-        fparams.m_mbqi = true;
+        fparams.m_mbqi = false;
         smt::kernel solver(m, fparams);
         TRACE("dl", 
               for (unsigned i = 0; i < fmls.size(); ++i) {

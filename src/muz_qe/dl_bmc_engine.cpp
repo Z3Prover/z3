@@ -459,7 +459,7 @@ namespace datalog {
         void setup() {
             b.m_fparams.m_model = true;
             b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = true;
+            // b.m_fparams.m_mbqi = true;
             b.m_fparams.m_relevancy_lvl = 2;
         }
 
