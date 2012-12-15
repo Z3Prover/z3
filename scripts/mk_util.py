@@ -75,6 +75,8 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX='/usr'
 GMP=False
+VS_PAR=False
+VS_PAR_NUM=8
 
 def is_windows():
     return IS_WINDOWS
@@ -362,6 +364,8 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print "  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX
         print "  -y <dir>, --pydir=<dir>       installation prefix for Z3 python bindings (default: %s)." % PYTHON_PACKAGE_DIR
+    else:
+        print "  --parallel=num                use cl option /MP with 'num' parallel processes"
     print "  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build)."
     print "  -d, --debug                   compile Z3 in debug mode."
     print "  -t, --trace                   enable tracing in release mode."
@@ -391,13 +395,13 @@ def display_help(exit_code):
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE
+    global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
                                                'b:dsxhmcvtnp:gjy:', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'pydir='])
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'pydir=', 'parallel='])
     except:
         print "ERROR: Invalid command line option"
         display_help(1)
@@ -429,8 +433,11 @@ def parse_options():
             DOTNET_ENABLED = False
         elif opt in ('--staticlib'):
             STATIC_LIB = True
-        elif opt in ('-p', '--prefix'):
+        elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
+        elif IS_WINDOWS and opt == '--parallel':
+            VS_PAR = True
+            VS_PAR_NUM = int(arg)
         elif opt in ('-y', '--pydir'):
             PYTHON_PACKAGE_DIR = arg
             mk_dir(PYTHON_PACKAGE_DIR)
@@ -656,8 +663,32 @@ class Component:
             out.write(' -I%s' % get_component(dep).to_src_dir)
         out.write('\n')
         mk_dir(os.path.join(BUILD_DIR, self.build_dir))
-        for cppfile in get_cpp_files(self.src_dir):
-            self.add_cpp_rules(out, include_defs, cppfile)
+        if VS_PAR and IS_WINDOWS:
+            cppfiles = get_cpp_files(self.src_dir)
+            dependencies = set()
+            for cppfile in cppfiles:
+                dependencies.add(os.path.join(self.to_src_dir, cppfile))
+                self.add_rule_for_each_include(out, cppfile)
+                includes = extract_c_includes(os.path.join(self.src_dir, cppfile))
+                for include in includes:
+                    owner = self.find_file(include, cppfile)
+                    dependencies.add('%s.node' % os.path.join(owner.build_dir, include))
+            for cppfile in cppfiles:
+                out.write('%s$(OBJ_EXT) ' % os.path.join(self.build_dir, os.path.splitext(cppfile)[0]))
+            out.write(': ')
+            for dep in dependencies:
+                out.write(dep)
+                out.write(' ')
+            out.write('\n')
+            out.write('\t@$(CXX) $(CXXFLAGS) /MP%s $(%s)' % (VS_PAR_NUM, include_defs))
+            for cppfile in cppfiles:
+                out.write(' ')
+                out.write(os.path.join(self.to_src_dir, cppfile))
+            out.write('\n')
+            out.write('\tmove *.obj %s\n' % self.build_dir)
+        else:
+            for cppfile in get_cpp_files(self.src_dir):
+                self.add_cpp_rules(out, include_defs, cppfile)
 
     # Return true if the component should be included in the all: rule
     def main_component(self):
@@ -933,10 +964,8 @@ class DLLComponent(Component):
             mk_dir(os.path.join(dist_path, 'bin'))
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
-            if self.static:
-                mk_dir(os.path.join(dist_path, 'bin'))
-                shutil.copy('%s.lib' % os.path.join(build_path, self.dll_name),
-                            '%s.lib' % os.path.join(dist_path, 'bin', self.dll_name))
+            shutil.copy('%s.lib' % os.path.join(build_path, self.dll_name),
+                        '%s.lib' % os.path.join(dist_path, 'bin', self.dll_name))
 
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
@@ -1042,6 +1071,11 @@ class JavaDLLComponent(Component):
     def main_component(self):
         return is_java_enabled()
 
+    def mk_win_dist(self, build_path, dist_path):
+        if JAVA_ENABLED:
+            mk_dir(os.path.join(dist_path, 'bin'))
+            shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
+                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
 
 class ExampleComponent(Component):
     def __init__(self, name, path):
@@ -1250,12 +1284,12 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n')
             if not VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n'
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n'
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n'
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n'
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:

@@ -177,7 +177,6 @@ struct smt_params : public preprocessor_params,
     // -----------------------------------
     bool             m_model; 
     bool             m_model_compact;
-    bool             m_model_validate;
     bool             m_model_on_timeout;
     bool             m_model_on_final_check;
 
@@ -264,7 +263,6 @@ struct smt_params : public preprocessor_params,
         m_abort_after_preproc(false),
         m_model(true),
         m_model_compact(false),
-        m_model_validate(false),
         m_model_on_timeout(false),
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),

@@ -501,7 +501,12 @@ class smt2_printer {
     }
 
     format * pp_simple_attribute(char const * attr, symbol const & s) {
-        return mk_compose(m(), mk_string(m(), attr), mk_string(m(), s.str().c_str()));
+        std::string str;
+        if (is_smt2_quoted_symbol(s))
+            str = mk_smt2_quoted_symbol(s);
+        else
+            str = s.str();
+        return mk_compose(m(), mk_string(m(), attr), mk_string(m(), str.c_str()));
     }
 
     format * pp_labels(bool is_pos, buffer<symbol> const & names, format * f) {
@@ -851,7 +856,7 @@ class smt2_printer {
                 buf.push_back(pp_simple_attribute(":weight ", q->get_weight()));
             }
             if (q->get_skid() != symbol::null) {
-                buf.push_back(pp_simple_attribute(":skid ", q->get_skid()));
+                buf.push_back(pp_simple_attribute(":skolemid ", q->get_skid()));
             }
             if (q->get_qid() != symbol::null) {
 #if 0

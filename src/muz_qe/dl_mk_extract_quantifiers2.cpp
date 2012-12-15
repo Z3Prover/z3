@@ -333,7 +333,7 @@ namespace datalog {
         smt::quantifier_manager* qm = ctx.get_quantifier_manager();
         qm->get_plugin()->set_instance_plugin(alloc(instance_plugin, *this));
 #endif
-        lbool res = solver.check();
+        solver.check();
 
         for (unsigned i = 0; i < m_bindings.size(); ++i) {
             expr_ref_vector& binding = m_bindings[i];

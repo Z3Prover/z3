@@ -23,7 +23,6 @@ Revision History:
 #include"ast_smt2_pp.h"
 #include"smt_model_finder.h"
 #include"for_each_expr.h"
-#include"theory_instgen.h"
 
 namespace smt {
 
@@ -530,11 +529,6 @@ namespace smt {
         SASSERT(!b_internalized(q));
         SASSERT(q->is_forall());
         SASSERT(check_patterns(q));
-        if (m_fparams.m_instgen) {
-            theory* th = m_theories.get_plugin(m_manager.get_family_id("inst_gen"));
-            static_cast<theory_instgen*>(th)->internalize_quantifier(q);
-            return;
-        }
         bool_var v             = mk_bool_var(q);
         unsigned generation    = m_generation;
         unsigned _generation;
