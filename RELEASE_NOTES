@@ -45,6 +45,8 @@ Version 4.3.2
       unsat
   We say may because 'F' may have other unsatisfiable cores.
 
+- Fixed bug reported at http://stackoverflow.com/questions/13923316/unprintable-solver-model
+
 Version 4.3.1
 =============
 

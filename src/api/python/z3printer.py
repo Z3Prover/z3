@@ -791,7 +791,11 @@ class Formatter:
                 r.append(self.pp_ellipses())
                 break
         if sz <= self.max_args:
-            else_pp = self.pp_expr(f.else_value(), 0, [])
+            else_val = f.else_value()
+            if else_val == None:
+                else_pp  = to_format('#unspecified')
+            else:
+                else_pp  = self.pp_expr(else_val, 0, [])
             r.append(group(seq((to_format('else'), else_pp), self.pp_arrow())))
         return seq3(r, '[', ']')
 

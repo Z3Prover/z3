@@ -5122,7 +5122,10 @@ class FuncInterp(Z3PPObject):
             Z3_func_interp_dec_ref(self.ctx.ref(), self.f)
 
     def else_value(self):
-        """Return the `else` value for a function interpretation.
+        """
+        Return the `else` value for a function interpretation.
+        Return None if Z3 did not specify the `else` value for
+        this object.
 
         >>> f = Function('f', IntSort(), IntSort())
         >>> s = Solver()
@@ -5135,7 +5138,11 @@ class FuncInterp(Z3PPObject):
         >>> m[f].else_value()
         1
         """
-        return _to_expr_ref(Z3_func_interp_get_else(self.ctx.ref(), self.f), self.ctx)
+        r = Z3_func_interp_get_else(self.ctx.ref(), self.f)
+        if r:
+            return _to_expr_ref(r, self.ctx)
+        else:
+            return None
 
     def num_entries(self):
         """Return the number of entries/points in the function interpretation `self`.
