@@ -647,9 +647,9 @@ class elim_uncnstr_tactic : public tactic {
                     unsigned bv_sz = m_bv_util.get_bv_size(arg1);
                     rational MAX;
                     if (is_signed)
-                        MAX = m_bv_util.power_of_two(bv_sz - 1) - rational(1);
+                        MAX = rational::power_of_two(bv_sz - 1) - rational(1);
                     else
-                        MAX = m_bv_util.power_of_two(bv_sz) - rational(1);
+                        MAX = rational::power_of_two(bv_sz) - rational(1);
                     app * u;
                     bool is_new = mk_fresh_uncnstr_var_for(f, arg1, arg2, u);
                     app * r = m().mk_or(u, m().mk_eq(t, m_bv_util.mk_numeral(MAX, bv_sz)));
@@ -666,7 +666,7 @@ class elim_uncnstr_tactic : public tactic {
                     unsigned bv_sz = m_bv_util.get_bv_size(arg1);
                     rational MIN;
                     if (is_signed)
-                        MIN = -m_bv_util.power_of_two(bv_sz - 1);
+                        MIN = -rational::power_of_two(bv_sz - 1);
                     else
                         MIN = rational(0);
                     app * u;

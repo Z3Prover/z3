@@ -376,6 +376,31 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 
 // -----------------------------------
 //
+// Auxiliary functions
+//
+// -----------------------------------
+
+sort * get_sort(expr const * n) {
+    while (true) {
+        switch(n->get_kind()) {
+        case AST_APP: 
+            return to_app(n)->get_decl()->get_range();
+        case AST_VAR:
+            return to_var(n)->get_sort();
+        case AST_QUANTIFIER:
+            // The sort of the quantifier is the sort of the nested expression.
+            // This code assumes the given expression is well-sorted.
+            n = to_quantifier(n)->get_expr();
+            break;
+        default:
+            UNREACHABLE();
+            return 0;
+        }
+    }
+}
+
+// -----------------------------------
+//
 // AST hash-consing
 //
 // -----------------------------------
@@ -1493,20 +1518,6 @@ void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
     m_plugins.setx(id, plugin, 0);
     plugin->set_manager(this, id);
-}
-
-sort * ast_manager::get_sort(expr const * n) const {
-    switch(n->get_kind()) {
-    case AST_APP: 
-        return to_app(n)->get_decl()->get_range();
-    case AST_VAR:
-        return to_var(n)->get_sort();
-    case AST_QUANTIFIER:
-        return m_bool_sort;
-    default:
-        UNREACHABLE();
-        return 0;
-    }
 }
 
 bool ast_manager::is_bool(expr const * n) const {

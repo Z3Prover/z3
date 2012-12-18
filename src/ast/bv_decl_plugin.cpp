@@ -41,26 +41,6 @@ bv_decl_plugin::bv_decl_plugin():
     m_int_sort(0) {
 }
 
-void bv_decl_plugin::mk_table_upto(unsigned n) {
-    if (m_powers.empty()) {
-        m_powers.push_back(rational(1));
-    }
-    unsigned sz = m_powers.size();
-    rational curr = m_powers[sz - 1];
-    rational two(2);
-    for (unsigned i = sz; i <= n; i++) {
-        curr *= two;
-        m_powers.push_back(curr);
-    }
-}
-
-rational bv_decl_plugin::power_of_two(unsigned n) const {
-    if (n >= m_powers.size()) {
-        const_cast<bv_decl_plugin*>(this)->mk_table_upto(n + 1);
-    }
-    return m_powers[n];
-}
-
 void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);
 
@@ -169,7 +149,7 @@ void bv_decl_plugin::mk_bv_sort(unsigned bv_size) {
             sz = sort_size::mk_very_big();
         }
         else {
-            sz = sort_size(power_of_two(bv_size));
+            sz = sort_size(rational::power_of_two(bv_size));
         }
         m_bv_sorts[bv_size] = m_manager->mk_sort(symbol("bv"), sort_info(m_family_id, BV_SORT, sz, 1, &p));
         m_manager->inc_ref(m_bv_sorts[bv_size]);
@@ -436,7 +416,7 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     // This cannot be enforced now, since some Z3 modules try to generate these invalid numerals.
     // After SMT-COMP, I should find all offending modules.
     // For now, I will just simplify the numeral here.
-    parameter p0(mod(parameters[0].get_rational(), power_of_two(bv_size)));
+    parameter p0(mod(parameters[0].get_rational(), rational::power_of_two(bv_size)));
     parameter ps[2] = { p0, parameters[1] };
     sort * bv = get_bv_sort(bv_size);
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
@@ -621,7 +601,7 @@ void bv_decl_plugin::get_offset_term(app * a, expr * & t, rational & offset) con
         offset = decl->get_parameter(0).get_rational();
         sz     = decl->get_parameter(1).get_int();
         t      = a->get_arg(1);
-        offset = mod(offset, power_of_two(sz));
+        offset = mod(offset, rational::power_of_two(sz));
     }
     else {
         t      = a;
@@ -729,35 +709,102 @@ expr * bv_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(m_family_id, OP_BV_NUM, 2, p, 0, 0);
 }
 
-bv_util::bv_util(ast_manager & m):
-    m_manager(m) {
-    SASSERT(m.has_plugin(symbol("bv")));
-    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.get_family_id("bv")));
-}
-
-rational bv_util::norm(rational const & val, unsigned bv_size, bool is_signed) const {
-    rational r = mod(val, power_of_two(bv_size));
+rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_signed) const {
+    rational r = mod(val, rational::power_of_two(bv_size));
     SASSERT(!r.is_neg());
     if (is_signed) {
-        if (r >= power_of_two(bv_size - 1)) {
-            r -= power_of_two(bv_size);
+        if (r >= rational::power_of_two(bv_size - 1)) {
+            r -= rational::power_of_two(bv_size);
         }
-        if (r < -power_of_two(bv_size - 1)) { 
-            r += power_of_two(bv_size);
+        if (r < -rational::power_of_two(bv_size - 1)) { 
+            r += rational::power_of_two(bv_size);
         }
     }
     return r;
 }
 
-bool bv_util::has_sign_bit(rational const & n, unsigned bv_size) const {
+bool bv_recognizers::has_sign_bit(rational const & n, unsigned bv_size) const {
     SASSERT(bv_size > 0);
     rational m = norm(n, bv_size, false);
-    rational p = power_of_two(bv_size - 1);
+    rational p = rational::power_of_two(bv_size - 1);
     return m >= p;
 }
 
-bool bv_util::is_bv_sort(sort const * s) const {
+bool bv_recognizers::is_bv_sort(sort const * s) const {
     return (s->get_family_id() == get_fid() && s->get_decl_kind() == BV_SORT && s->get_num_parameters() == 1); 
+}
+
+bool bv_recognizers::is_numeral(expr const * n, rational & val, unsigned & bv_size) const {
+    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+        return false;
+    }
+    func_decl * decl = to_app(n)->get_decl();
+    val     = decl->get_parameter(0).get_rational();
+    bv_size = decl->get_parameter(1).get_int();
+    return true;
+}
+
+bool bv_recognizers::is_allone(expr const * e) const {
+    rational r;
+    unsigned bv_size;
+    if (!is_numeral(e, r, bv_size)) {
+        return false;
+    }
+    bool result = (r == rational::power_of_two(bv_size) - rational(1));
+    TRACE("is_allone", tout << r << " " << result << "\n";);
+    return result;
+}
+
+bool bv_recognizers::is_zero(expr const * n) const {
+    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
+        return false;
+    }
+    func_decl * decl = to_app(n)->get_decl();
+    return decl->get_parameter(0).get_rational().is_zero();
+}
+
+bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) {
+    if (!is_extract(e)) return false;
+    low = get_extract_low(e);
+    high = get_extract_high(e);
+    b = to_app(e)->get_arg(0);
+    return true;
+}
+
+bool bv_recognizers::is_bv2int(expr const* e, expr*& r) {
+    if (!is_bv2int(e)) return false;
+    r = to_app(e)->get_arg(0);
+    return true;
+}
+
+bool bv_recognizers::mult_inverse(rational const & n, unsigned bv_size, rational & result) {
+    if (n.is_one()) {
+        result = n;
+        return true;
+    }
+    
+    if (!mod(n, rational(2)).is_one()) {
+        return false;
+    }
+    
+    rational g;
+    rational x;
+    rational y;
+    g = gcd(n, rational::power_of_two(bv_size), x, y);
+    if (x.is_neg()) {
+        x = mod(x, rational::power_of_two(bv_size));
+    }
+    SASSERT(x.is_pos());
+    SASSERT(mod(x * n, rational::power_of_two(bv_size)).is_one());
+    result = x;
+    return true;
+}
+
+bv_util::bv_util(ast_manager & m):
+    bv_recognizers(m.get_family_id(symbol("bv"))),
+    m_manager(m) {
+    SASSERT(m.has_plugin(symbol("bv")));
+    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.get_family_id("bv")));
 }
 
 app * bv_util::mk_numeral(rational const & val, sort* s) {
@@ -774,63 +821,9 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) {
     return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, 0);
 }
 
-bool bv_util::is_numeral(expr const * n, rational & val, unsigned & bv_size) const {
-    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
-        return false;
-    }
-    func_decl * decl = to_app(n)->get_decl();
-    val     = decl->get_parameter(0).get_rational();
-    bv_size = decl->get_parameter(1).get_int();
-    return true;
-}
-
-
-bool bv_util::is_allone(expr const * e) const {
-    rational r;
-    unsigned bv_size;
-    if (!is_numeral(e, r, bv_size)) {
-        return false;
-    }
-    bool result = (r == power_of_two(bv_size) - rational(1));
-    TRACE("is_allone", tout << r << " " << result << "\n";);
-    return result;
-}
-
-bool bv_util::is_zero(expr const * n) const {
-    if (!is_app_of(n, get_fid(), OP_BV_NUM)) {
-        return false;
-    }
-    func_decl * decl = to_app(n)->get_decl();
-    return decl->get_parameter(0).get_rational().is_zero();
-}
-
 sort * bv_util::mk_sort(unsigned bv_size) {
     parameter p[1] = { parameter(bv_size) };
     return m_manager.mk_sort(get_fid(), BV_SORT, 1, p);
-}
-
-
-bool bv_util::mult_inverse(rational const & n, unsigned bv_size, rational & result) {
-    if (n.is_one()) {
-        result = n;
-        return true;
-    }
-    
-    if (!mod(n, rational(2)).is_one()) {
-        return false;
-    }
-    
-    rational g;
-    rational x;
-    rational y;
-    g = gcd(n, power_of_two(bv_size), x, y);
-    if (x.is_neg()) {
-        x = mod(x, power_of_two(bv_size));
-    }
-    SASSERT(x.is_pos());
-    SASSERT(mod(x * n, power_of_two(bv_size)).is_one());
-    result = x;
-    return true;
 }
 
 app * bv_util::mk_bv2int(expr* e) {

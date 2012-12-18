@@ -172,7 +172,7 @@ public:
     app * mk_numeral(rational const & n, unsigned bv_size);
     app * mk_numeral(uint64 n, unsigned bv_size) { return mk_numeral(numeral(n, numeral::ui64()), bv_size); }
     app* mk_bv0(unsigned bv_size) { return m_util.mk_numeral(numeral(0), bv_size); }
-    rational mk_allone(unsigned bv_size) { return m_util.power_of_two(bv_size) - numeral(1); }
+    rational mk_allone(unsigned bv_size) { return rational::power_of_two(bv_size) - numeral(1); }
     bool is_minus_one_core(expr * arg) const;
     bool is_x_minus_one(expr * arg, expr * & x);
     void mk_int2bv(expr * arg, sort* range, expr_ref & result);

@@ -1287,6 +1287,8 @@ inline bool has_labels(expr const * n) {
     else return false;
 }
 
+sort * get_sort(expr const * n);
+
 // -----------------------------------
 //
 // Get Some Value functor
@@ -1548,7 +1550,7 @@ protected:
     }
     
 public:
-    sort * get_sort(expr const * n) const;
+    sort * get_sort(expr const * n) const { return ::get_sort(n); }
     void check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const;
     void check_sorts_core(ast const * n) const;
     bool check_sorts(ast const * n) const;

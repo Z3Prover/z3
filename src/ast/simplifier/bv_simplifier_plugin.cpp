@@ -76,9 +76,9 @@ app * bv_simplifier_plugin::mk_numeral(numeral const & n) {
 }
 
 app * bv_simplifier_plugin::mk_numeral(numeral const& n, unsigned bv_size) {
-    numeral r = mod(n, m_util.power_of_two(bv_size));
+    numeral r = mod(n, rational::power_of_two(bv_size));
     SASSERT(!r.is_neg());
-    SASSERT(r < m_util.power_of_two(bv_size));
+    SASSERT(r < rational::power_of_two(bv_size));
     return m_util.mk_numeral(r, bv_size);
 }
 
@@ -225,7 +225,7 @@ inline uint64 bv_simplifier_plugin::to_uint64(const numeral & n, unsigned bv_siz
     SASSERT(bv_size <= 64);
     numeral tmp = n;
     if (tmp.is_neg()) {
-        tmp = mod(tmp, m_util.power_of_two(bv_size));
+        tmp = mod(tmp, rational::power_of_two(bv_size));
     }
     SASSERT(tmp.is_nonneg());
     SASSERT(tmp.is_uint64());
@@ -235,7 +235,7 @@ inline uint64 bv_simplifier_plugin::to_uint64(const numeral & n, unsigned bv_siz
 #define MK_BV_OP(_oper_,_binop_) \
 rational bv_simplifier_plugin::mk_bv_ ## _oper_(numeral const& a0, numeral const& b0, unsigned sz) { \
     rational r(0), a(a0), b(b0); \
-    numeral p64 = m_util.power_of_two(64); \
+    numeral p64 = rational::power_of_two(64); \
     numeral mul(1); \
     while (sz > 0) { \
         numeral a1 = a % p64; \
@@ -260,7 +260,7 @@ MK_BV_OP(xor,^)
 
 rational bv_simplifier_plugin::mk_bv_not(numeral const& a0, unsigned sz) { 
     rational r(0), a(a0), mul(1);
-    numeral p64 = m_util.power_of_two(64); 
+    numeral p64 = rational::power_of_two(64); 
     while (sz > 0) { 
         numeral a1 = a % p64; 
         uint64 u = ~a1.get_uint64();
@@ -320,12 +320,12 @@ void bv_simplifier_plugin::mk_leq_core(bool is_signed, expr * arg1, expr * arg2,
 
     if (is_num1 || is_num2) {
         if (is_signed) {
-            lower = - m_util.power_of_two(bv_size - 1);
-            upper =   m_util.power_of_two(bv_size - 1) - numeral(1);
+            lower = - rational::power_of_two(bv_size - 1);
+            upper =   rational::power_of_two(bv_size - 1) - numeral(1);
         }
         else {
             lower = numeral(0);
-            upper = m_util.power_of_two(bv_size) - numeral(1);
+            upper = rational::power_of_two(bv_size) - numeral(1);
         }
     }
 
@@ -509,7 +509,7 @@ bool bv_simplifier_plugin::try_mk_extract(unsigned high, unsigned low, expr * ar
 
     if (m_util.is_numeral(a, r, num_bits)) {
         if (r.is_neg()) {
-            r = mod(r, m_util.power_of_two(sz));
+            r = mod(r, rational::power_of_two(sz));
         }
         SASSERT(r.is_nonneg());
         if (r.is_uint64()) {
@@ -520,7 +520,7 @@ bool bv_simplifier_plugin::try_mk_extract(unsigned high, unsigned low, expr * ar
             result = mk_numeral(numeral(e, numeral::ui64()), sz);
             return true;
         }
-        result = mk_numeral(div(r, m_util.power_of_two(low)), sz);
+        result = mk_numeral(div(r, rational::power_of_two(low)), sz);
         return true;
     }
     // (extract[high:low] (extract[high2:low2] x)) == (extract[high+low2 : low+low2] x)
@@ -902,7 +902,7 @@ void bv_simplifier_plugin::mk_concat(unsigned num_args, expr * const * args, exp
         --i;
         expr * arg   = args[i];
         if (is_numeral(arg, arg_val)) {
-            arg_val    *= m_util.power_of_two(shift);
+            arg_val    *= rational::power_of_two(shift);
             val        += arg_val;
             shift      += get_bv_size(arg);
             TRACE("bv_simplifier_plugin", 
@@ -1203,7 +1203,7 @@ bool bv_simplifier_plugin::is_minus_one_core(expr * arg) const {
     unsigned bv_size;
     if (m_util.is_numeral(arg, r, bv_size)) {
         numeral minus_one(-1);
-        minus_one = mod(minus_one, m_util.power_of_two(bv_size));
+        minus_one = mod(minus_one, rational::power_of_two(bv_size));
         return r == minus_one;
     }
     return false;
@@ -1295,7 +1295,7 @@ void bv_simplifier_plugin::mk_sign_extend(unsigned n, expr * arg, expr_ref & res
     if (m_util.is_numeral(arg, r, bv_size)) {
         unsigned result_bv_size = bv_size + n;
         r = norm(r, bv_size, true);
-        r = mod(r, m_util.power_of_two(result_bv_size));
+        r = mod(r, rational::power_of_two(result_bv_size));
         result = mk_numeral(r, result_bv_size);
         TRACE("mk_sign_extend", tout << "n: " << n << "\n"; 
               ast_ll_pp(tout, m_manager, arg); tout << "====>\n"; 
@@ -1373,7 +1373,7 @@ void bv_simplifier_plugin::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result
     else if (is_num1 && is_num2) {
         SASSERT(r2 < rational(bv_size));
         SASSERT(r2.is_unsigned());
-        result = mk_numeral(r1 * m_util.power_of_two(r2.get_unsigned()), bv_size);
+        result = mk_numeral(r1 * rational::power_of_two(r2.get_unsigned()), bv_size);
     }
 
     //
@@ -1423,7 +1423,7 @@ void bv_simplifier_plugin::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & resul
     else if (is_num1 && is_num2) {
         SASSERT(r2.is_unsigned());
         unsigned sh = r2.get_unsigned();
-        r1 = div(r1, m_util.power_of_two(sh));
+        r1 = div(r1, rational::power_of_two(sh));
         result = mk_numeral(r1, bv_size);
     }
     //
@@ -1804,8 +1804,8 @@ void bv_simplifier_plugin::mk_bv_rotate_left_core(unsigned shift, numeral r, uns
         result = mk_numeral(r, bv_size);        
     }
     else {
-        rational r1 = div(r, m_util.power_of_two(bv_size - shift)); // shift right
-        rational r2 = (r * m_util.power_of_two(shift)) % m_util.power_of_two(bv_size); // shift left
+        rational r1 = div(r, rational::power_of_two(bv_size - shift)); // shift right
+        rational r2 = (r * rational::power_of_two(shift)) % rational::power_of_two(bv_size); // shift left
         result = mk_numeral(r1 + r2, bv_size);
     }
 }
@@ -1831,8 +1831,8 @@ void bv_simplifier_plugin::mk_bv_rotate_right_core(unsigned shift, numeral r, un
         result = mk_numeral(r, bv_size);
     }
     else {
-        rational r1 = div(r, m_util.power_of_two(shift)); // shift right
-        rational r2 = (r * m_util.power_of_two(bv_size - shift)) % m_util.power_of_two(bv_size); // shift left
+        rational r1 = div(r, rational::power_of_two(shift)); // shift right
+        rational r2 = (r * rational::power_of_two(bv_size - shift)) % rational::power_of_two(bv_size); // shift left
         result = mk_numeral(r1 + r2, bv_size);            
     }
 }
@@ -1935,7 +1935,7 @@ void bv_simplifier_plugin::mk_bv_ashr(expr* arg1, expr* arg2, expr_ref& result) 
     else if (is_num1 && is_num2) {
         SASSERT(r2 < rational(bv_size));
         bool   sign = has_sign_bit(r1, bv_size);
-        r1 = div(r1, m_util.power_of_two(r2.get_unsigned()));
+        r1 = div(r1, rational::power_of_two(r2.get_unsigned()));
         if (sign) {
             // pad ones.
             rational p(1);
