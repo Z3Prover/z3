@@ -1289,6 +1289,53 @@ inline bool has_labels(expr const * n) {
 
 sort * get_sort(expr const * n);
 
+class basic_recognizers {
+    family_id m_fid;
+public:
+    basic_recognizers(family_id fid):m_fid(fid) {}
+    bool is_bool(sort const * s) const { return is_sort_of(s, m_fid, BOOL_SORT); }
+    bool is_bool(expr const * n) const { return is_bool(get_sort(n)); }
+    bool is_or(expr const * n) const { return is_app_of(n, m_fid, OP_OR); }
+    bool is_implies(expr const * n) const { return is_app_of(n, m_fid, OP_IMPLIES); }
+    bool is_and(expr const * n) const { return is_app_of(n, m_fid, OP_AND); }
+    bool is_not(expr const * n) const { return is_app_of(n, m_fid, OP_NOT); }
+    bool is_eq(expr const * n) const { return is_app_of(n, m_fid, OP_EQ); }
+    bool is_oeq(expr const * n) const { return is_app_of(n, m_fid, OP_OEQ); }
+    bool is_distinct(expr const * n) const { return is_app_of(n, m_fid, OP_DISTINCT); }
+    bool is_iff(expr const * n) const { return is_app_of(n, m_fid, OP_IFF); }
+    bool is_xor(expr const * n) const { return is_app_of(n, m_fid, OP_XOR); }
+    bool is_ite(expr const * n) const { return is_app_of(n, m_fid, OP_ITE); }
+    bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
+    bool is_true(expr const * n) const { return is_app_of(n, m_fid, OP_TRUE); }
+    bool is_false(expr const * n) const { return is_app_of(n, m_fid, OP_FALSE); }
+    bool is_complement_core(expr const * n1, expr const * n2) const { 
+        return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2);
+    }
+    bool is_complement(expr const * n1, expr const * n2) const { return is_complement_core(n1, n2) || is_complement_core(n2, n1); }
+    bool is_or(func_decl const * d) const { return is_decl_of(d, m_fid, OP_OR); }
+    bool is_implies(func_decl const * d) const { return is_decl_of(d, m_fid, OP_IMPLIES); }
+    bool is_and(func_decl const * d) const { return is_decl_of(d, m_fid, OP_AND); }
+    bool is_not(func_decl const * d) const { return is_decl_of(d, m_fid, OP_NOT); }
+    bool is_eq(func_decl const * d) const { return is_decl_of(d, m_fid, OP_EQ); }
+    bool is_iff(func_decl const * d) const { return is_decl_of(d, m_fid, OP_IFF); }
+    bool is_xor(func_decl const * d) const { return is_decl_of(d, m_fid, OP_XOR); }
+    bool is_ite(func_decl const * d) const { return is_decl_of(d, m_fid, OP_ITE); }
+    bool is_term_ite(func_decl const * d) const { return is_ite(d) && !is_bool(d->get_range()); }
+    bool is_distinct(func_decl const * d) const { return is_decl_of(d, m_fid, OP_DISTINCT); }
+
+    MATCH_UNARY(is_not);
+    MATCH_BINARY(is_eq);
+    MATCH_BINARY(is_iff);
+    MATCH_BINARY(is_implies);
+    MATCH_BINARY(is_and);
+    MATCH_BINARY(is_or);
+    MATCH_BINARY(is_xor);
+    MATCH_TERNARY(is_and);
+    MATCH_TERNARY(is_or);
+
+    bool is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const;
+};
+
 // -----------------------------------
 //
 // Get Some Value functor

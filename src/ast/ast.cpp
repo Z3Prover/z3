@@ -1073,6 +1073,16 @@ expr * basic_decl_plugin::get_some_value(sort * s) {
     return 0;
 }
 
+bool basic_recognizers::is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const { 
+    if (is_ite(n)) { 
+        t1 = to_app(n)->get_arg(0); 
+        t2 = to_app(n)->get_arg(1); 
+        t3 = to_app(n)->get_arg(2);
+        return true; 
+    } 
+    return false; 
+}
+
 // -----------------------------------
 //
 // label_decl_plugin 

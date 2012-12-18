@@ -542,6 +542,16 @@ bool array_decl_plugin::is_fully_interp(sort const * s) const {
     return m_manager->is_fully_interp(get_array_range(s));
 }
 
+func_decl * array_recognizers::get_as_array_func_decl(app * n) const { 
+    SASSERT(is_as_array(n)); 
+    return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); 
+}
+
+array_util::array_util(ast_manager& m): 
+    array_recognizers(m.get_family_id("array")),
+    m_manager(m) {
+}
+
 bool array_util::is_as_array_tree(expr * n) {
     ptr_buffer<expr, 32> todo;
     todo.push_back(n);
