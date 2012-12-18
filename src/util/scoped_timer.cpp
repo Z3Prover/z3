@@ -73,9 +73,6 @@ struct scoped_timer::imp {
     pthread_cond_t   m_condition_var;
 #elif defined(_LINUX_) || defined(_FREEBSD_)
     // Linux & FreeBSD
-    static void *   g_timer;
-    void            (*m_old_handler)(int);
-    void *          m_old_timer;
     timer_t         m_timerid;
 #else
     // Other
@@ -128,8 +125,9 @@ struct scoped_timer::imp {
         return st;
     }
 #elif defined(_LINUX_) || defined(_FREEBSD_)
-    static void sig_handler(int) {
-       static_cast<imp*>(g_timer)->m_eh->operator()();
+    static void sig_handler(union sigval s) {
+        void * ptr = s.sival_ptr;
+        static_cast<imp*>(ptr)->m_eh->operator()();
     }
 #else
     // Other
@@ -156,23 +154,11 @@ struct scoped_timer::imp {
             throw default_exception("failed to start timer thread");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
 	// Linux & FreeBSD
-        if (omp_in_parallel()) {
-            // It doesn't work in with more than one thread.
-            // SIGEV_SIGNAL: the event is handled by the process not by the thread that installed the handler.
-            // SIGEV_THREAD: the event is handled by a new thread (Z3 crashes with this configuration).
-            // 
-            // It seems the way to go is SIGEV_SIGNAL, but I have to find a way to identify the thread the event is meant to.
-            return;
-        }
-	m_old_timer   = g_timer;
-	g_timer       = this;
-	m_old_handler = signal(SIG, sig_handler);
-
 	struct sigevent sev;
         memset(&sev, 0, sizeof(sigevent));
-	sev.sigev_notify = SIGEV_SIGNAL;
-	sev.sigev_signo  = SIG;
-	sev.sigev_value.sival_ptr = &m_timerid;
+	sev.sigev_notify = SIGEV_THREAD;
+        sev.sigev_value.sival_ptr = this;
+        sev.sigev_notify_function = sig_handler;
 	if (timer_create(CLOCKID, &sev, &m_timerid) == -1)
 	    throw default_exception("failed to create timer");
 
@@ -182,6 +168,7 @@ struct scoped_timer::imp {
 	its.it_value.tv_nsec = nano % 1000000000ull;
 	its.it_interval.tv_sec  = 0; // timer experies once
 	its.it_interval.tv_nsec = 0;
+        
 	if (timer_settime(m_timerid, 0, &its, NULL) == -1)
 	    throw default_exception("failed to set timer");
 #else
@@ -203,28 +190,13 @@ struct scoped_timer::imp {
             throw default_exception("failed to destroy pthread attributes object");
 #elif defined(_LINUX_) || defined(_FREEBSD_)
 	// Linux & FreeBSD
-        if (omp_in_parallel())
-            return; // see comments in the constructor.
 	timer_delete(m_timerid);
-	if (m_old_handler != SIG_ERR)
-	    signal(SIG, m_old_handler);
-	g_timer = m_old_timer;
 #else
 	// Other Platforms
 #endif
     }
 
 };
-
-#if defined(_WINDOWS) || defined(_CYGWIN)
-#elif defined(__APPLE__) && defined(__MACH__)
-// Mac OS X
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-// Linux & FreeBSD
-void * scoped_timer::imp::g_timer = 0;
-#else
-// Other platforms
-#endif
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
     if (ms != UINT_MAX)
