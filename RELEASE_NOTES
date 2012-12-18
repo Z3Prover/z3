@@ -47,6 +47,8 @@ Version 4.3.2
 
 - Fixed bug reported at http://stackoverflow.com/questions/13923316/unprintable-solver-model
 
+- Fixed timers on Linux and FreeBSD.
+
 Version 4.3.1
 =============
 
