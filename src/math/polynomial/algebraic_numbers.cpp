@@ -2796,72 +2796,58 @@ namespace algebraic_numbers {
     }
 
     void manager::del(numeral & a) {
-        set_cancel(false);
         return m_imp->del(a);
     }
         
     void manager::reset(numeral & a) {
-        set_cancel(false);
         return m_imp->reset(a);
     }
     
     bool manager::is_zero(numeral const & a) {
-        set_cancel(false);
         return m_imp->is_zero(const_cast<numeral&>(a));
     }
 
     bool manager::is_pos(numeral const & a) {
-        set_cancel(false);
         return m_imp->is_pos(const_cast<numeral&>(a));
     }
 
     bool manager::is_neg(numeral const & a) {
-        set_cancel(false);
         return m_imp->is_neg(const_cast<numeral&>(a));
     }
 
     bool manager::is_rational(numeral const & a) {
-        set_cancel(false);
         return m_imp->is_rational(const_cast<numeral&>(a));
     }
 
     bool manager::is_int(numeral const & a) {
-        set_cancel(false);
         return m_imp->is_int(const_cast<numeral&>(a));
     }
 
     unsigned manager::degree(numeral const & a) {
-        set_cancel(false);
         return m_imp->degree(const_cast<numeral&>(a));
     }
 
     void manager::to_rational(numeral const & a, mpq & r) {
-        set_cancel(false);
         return m_imp->to_rational(const_cast<numeral&>(a), r);
     }
 
     void manager::to_rational(numeral const & a, rational & r) {
-        set_cancel(false);
         return m_imp->to_rational(const_cast<numeral&>(a), r);
     }
     
     void manager::swap(numeral & a, numeral & b) {
-        set_cancel(false);
         return m_imp->swap(a, b);
     }
 
     void manager::int_lt(numeral const & a, numeral & b) {
-        set_cancel(false);
         m_imp->int_lt(const_cast<numeral&>(a), b);
     }
 
     void manager::int_gt(numeral const & a, numeral & b) {
-        set_cancel(false);
         m_imp->int_gt(const_cast<numeral&>(a), b);
     }
 
     void manager::select(numeral const & prev, numeral const & curr, numeral & result) {
-        set_cancel(false);
         m_imp->select(const_cast<numeral&>(prev), const_cast<numeral&>(curr), result);
     }
 
@@ -2878,55 +2864,45 @@ namespace algebraic_numbers {
     }
     
     void manager::set(numeral & a, mpq const & n) {
-        set_cancel(false);
         m_imp->set(a, n);
     }
 
     void manager::set(numeral & a, numeral const & n) {
-        set_cancel(false);
         m_imp->set(a, n);
     }
         
     void manager::isolate_roots(polynomial_ref const & p, numeral_vector & roots) {
-        set_cancel(false);
         m_imp->isolate_roots(p, roots);
     }
 
     void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots) {
-        set_cancel(false);
         m_imp->isolate_roots(p, x2v, roots);
     }
 
     void manager::isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<int> & signs) {
-        set_cancel(false);
         m_imp->isolate_roots(p, x2v, roots, signs);
     }
 
     void manager::mk_root(polynomial_ref const & p, unsigned i, numeral & r) {
-        set_cancel(false);
         m_imp->mk_root(p, i, r);
     }
 
     void manager::mk_root(sexpr const * p, unsigned i, numeral & r) {
-        set_cancel(false);
         m_imp->mk_root(p, i, r);
     }
         
     void manager::root(numeral const & a, unsigned k, numeral & b) {
-        set_cancel(false);
         m_imp->root(const_cast<numeral&>(a), k, b);
     }
 
     void manager::power(numeral const & a, unsigned k, numeral & b) {
         TRACE("anum_detail", display_root(tout, a); tout << "^" << k << "\n";);
-        set_cancel(false);
         m_imp->power(const_cast<numeral&>(a), k, b);
         TRACE("anum_detail", tout << "^ result: "; display_root(tout, b); tout << "\n";);
     }
 
     void manager::add(numeral const & a, numeral const & b, numeral & c) {
         TRACE("anum_detail", display_root(tout, a); tout << " + "; display_root(tout, b); tout << "\n";);
-        set_cancel(false);
         m_imp->add(const_cast<numeral&>(a), const_cast<numeral&>(b), c);
         TRACE("anum_detail", tout << "+ result: "; display_root(tout, c); tout << "\n";);
     }
@@ -2939,45 +2915,37 @@ namespace algebraic_numbers {
 
     void manager::sub(numeral const & a, numeral const & b, numeral & c) {
         TRACE("anum_detail", display_root(tout, a); tout << " - "; display_root(tout, b); tout << "\n";);
-        set_cancel(false);
         m_imp->sub(const_cast<numeral&>(a), const_cast<numeral&>(b), c);
         TRACE("anum_detail", tout << "- result: "; display_root(tout, c); tout << "\n";);
     }
 
     void manager::mul(numeral const & a, numeral const & b, numeral & c) {
         TRACE("anum_detail", display_root(tout, a); tout << " * "; display_root(tout, b); tout << "\n";);
-        set_cancel(false);
         m_imp->mul(const_cast<numeral&>(a), const_cast<numeral&>(b), c);
         TRACE("anum_detail", tout << "* result: "; display_root(tout, c); tout << "\n";);
     }
 
     void manager::div(numeral const & a, numeral const & b, numeral & c) {
-        set_cancel(false);
         m_imp->div(const_cast<numeral&>(a), const_cast<numeral&>(b), c);
     }
 
     void manager::neg(numeral & a) {
-        set_cancel(false);
         m_imp->neg(a);
     }
 
     void manager::inv(numeral & a) {
-        set_cancel(false);
         m_imp->inv(a);
     }
 
     int manager::compare(numeral const & a, numeral const & b) {
-        set_cancel(false);
         return m_imp->compare(const_cast<numeral&>(a), const_cast<numeral&>(b));
     }
 
     bool manager::eq(numeral const & a, numeral const & b) {
-        set_cancel(false);
         return m_imp->eq(const_cast<numeral&>(a), const_cast<numeral&>(b));
     }
     
     bool manager::eq(numeral const & a, mpq const & b) {
-        set_cancel(false);
         return m_imp->eq(const_cast<numeral&>(a), b);
     }
 
@@ -2988,12 +2956,10 @@ namespace algebraic_numbers {
     }
 
     bool manager::lt(numeral const & a, numeral const & b) {
-        set_cancel(false);
         return m_imp->lt(const_cast<numeral&>(a), const_cast<numeral&>(b));
     }
     
     bool manager::lt(numeral const & a, mpq const & b) {
-        set_cancel(false);
         return m_imp->lt(const_cast<numeral&>(a), b);
     }
 
@@ -3004,7 +2970,6 @@ namespace algebraic_numbers {
     }
 
     bool manager::gt(numeral const & a, mpq const & b) {
-        set_cancel(false);
         return m_imp->gt(const_cast<numeral&>(a), b);
     }
 
@@ -3073,38 +3038,31 @@ namespace algebraic_numbers {
     }
 
     int manager::eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v) {
-        set_cancel(false);
         SASSERT(&(x2v.m()) == this);
         return m_imp->eval_sign_at(p, x2v);
     }
 
     void manager::display_interval(std::ostream & out, numeral const & a) const {
-        const_cast<manager*>(this)->set_cancel(false);
         m_imp->display_interval(out, a);
     }
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
-        const_cast<manager*>(this)->set_cancel(false);
         m_imp->display_decimal(out, a, precision);
     }
 
     void manager::display_root(std::ostream & out, numeral const & a) const {
-        const_cast<manager*>(this)->set_cancel(false);
         m_imp->display_root(out, a);
     }
 
     void manager::display_mathematica(std::ostream & out, numeral const & a) const {
-        const_cast<manager*>(this)->set_cancel(false);
         m_imp->display_mathematica(out, a);
     }
 
     void manager::display_root_smt2(std::ostream & out, numeral const & a) const {
-        const_cast<manager*>(this)->set_cancel(false);
         m_imp->display_root_smt2(out, a);
     }
 
     void manager::reset_statistics() {
-        set_cancel(false);
         m_imp->reset_statistics();
     }
         

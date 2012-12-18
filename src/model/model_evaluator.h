@@ -41,7 +41,9 @@ public:
 
     void operator()(expr * t, expr_ref & r);
 
-    void cancel();
+    void set_cancel(bool f);
+    void cancel() { set_cancel(true); }
+    void reset_cancel() { set_cancel(false); }
     void cleanup(params_ref const & p = params_ref());
     void reset(params_ref const & p = params_ref());
     

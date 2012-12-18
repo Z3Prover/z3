@@ -343,6 +343,13 @@ cmd_context::~cmd_context() {
     m_check_sat_result = 0;
 }
 
+void cmd_context::set_cancel(bool f) {
+    if (m_solver)
+        m_solver->set_cancel(f);
+    if (has_manager())
+        m().set_cancel(f);
+}
+
 void cmd_context::global_params_updated() {
     m_params.updt_params();
     if (m_solver) {

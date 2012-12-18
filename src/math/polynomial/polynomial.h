@@ -220,6 +220,7 @@ namespace polynomial {
 
         void set_cancel(bool f);
         void cancel() { set_cancel(true); }
+        void reset_cancel() { set_cancel(false); }
 
         /**
            \brief Abstract event handler.
