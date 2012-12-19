@@ -1071,98 +1071,145 @@ def mk_bindings():
 def ml_method_name(name):
     return name[3:] # Remove Z3_
 
+def is_out_param(p):
+     if param_kind(p) == OUT or param_kind(p) == INOUT or param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
+         return True
+     else:
+         return False
+
+def outparams(params):
+    op = []
+    for param in params:
+        if is_out_param(param):
+            op.append(param)
+    return op
+
+def is_in_param(p):
+    if param_kind(p) == IN or param_kind(p) == INOUT or param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY:
+        return True
+    else:
+        return False
+
+def inparams(params):
+    ip = []
+    for param in params:
+        if is_in_param(param):
+            ip.append(param)
+    return ip
+
+def is_array_param(p):
+    if param_kind(p) == IN_ARRAY or param_kind(p) == INOUT_ARRAY or param_kind(p) == OUT_ARRAY:
+        return True
+    else:
+        return False
+
 def mk_ml():
     if not is_ml_enabled():
         return
     ml_dir      = get_component('ml').src_dir
-    ml_nativef  = os.path.join(ml_dir, 'z3.ml')
-    ml_wrapperf = os.path.join(ml_dir, 'native.c')
+    ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
+    ml_wrapperf = os.path.join(ml_dir, 'z3native.c')
     ml_native   = open(ml_nativef, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
-    ml_native.write('open Enumerations\n\n')
-    ml_native.write('module Z3 = struct\n\n')
-    ml_native.write('type context\n')
-    ml_native.write('and symbol\n')
-    ml_native.write('and ast\n')
-    ml_native.write('and sort = private ast\n')
-    ml_native.write('and func_decl = private ast\n')
-    ml_native.write('and app = private ast\n')
-    ml_native.write('and pattern = private ast\n')
-    ml_native.write('and params\n')
-    ml_native.write('and param_descrs\n')
-    ml_native.write('and model\n')
-    ml_native.write('and func_interp\n')
-    ml_native.write('and func_entry\n')
-    ml_native.write('and fixedpoint\n')
-    ml_native.write('and ast_vector\n')
-    ml_native.write('and ast_map\n')
-    ml_native.write('and goal\n')
-    ml_native.write('and tactic\n')
-    ml_native.write('and probe\n')
-    ml_native.write('and apply_result\n')
-    ml_native.write('and solver\n')
-    ml_native.write('and stats\n')
-    ml_native.write('\n')
+    ml_native.write('open Z3enums\n\n')
+    ml_native.write('module Z3native = struct\n\n')
+    ml_native.write('  type context\n')
+    ml_native.write('  and symbol\n')
+    ml_native.write('  and ast\n')
+    ml_native.write('  and sort = private ast\n')
+    ml_native.write('  and func_decl = private ast\n')
+    ml_native.write('  and app = private ast\n')
+    ml_native.write('  and pattern = private ast\n')
+    ml_native.write('  and params\n')
+    ml_native.write('  and param_descrs\n')
+    ml_native.write('  and model\n')
+    ml_native.write('  and func_interp\n')
+    ml_native.write('  and func_entry\n')
+    ml_native.write('  and fixedpoint\n')
+    ml_native.write('  and ast_vector\n')
+    ml_native.write('  and ast_map\n')
+    ml_native.write('  and goal\n')
+    ml_native.write('  and tactic\n')
+    ml_native.write('  and probe\n')
+    ml_native.write('  and apply_result\n')
+    ml_native.write('  and solver\n')
+    ml_native.write('  and stats\n\n')
     ml_native.write('  exception Exception of string\n\n')
+
+    # ML declarations
+    ml_native.write('  module ML2C = struct\n\n')
     for name, result, params in _dotnet_decls:
-        ml_native.write('  external n_%s : ' % ml_method_name(name))
-        i = 0;
-        for param in params:
-            ml_native.write('%s -> ' % param2ml(param))
-            i = i + 1
-        if len(params) == 0:
+        ml_native.write('    external n_%s : ' % ml_method_name(name))
+        ip = inparams(params)
+        op = outparams(params)
+        if len(ip) == 0:
             ml_native.write(' unit -> ')
-        ml_native.write('%s\n' % (type2ml(result)))
-        ml_native.write('    = "n_%s"\n\n' % ml_method_name(name))
+        for p in ip:
+            ml_native.write('%s -> ' % param2ml(p))
+        if len(op) > 0:
+            ml_native.write('(')
+        ml_native.write('%s' % type2ml(result))
+        for p in op:
+            ml_native.write(' * %s' % param2ml(p))
+        if len(op) > 0:
+            ml_native.write(')')
+        ml_native.write('\n')
+        ml_native.write('      = "n_%s"\n' % ml_method_name(name))
+        if len(ip) > 5:
+            ml_native.write('        "n_%s_bytecode"\n' % ml_method_name(name))
+        ml_native.write('\n')
+    ml_native.write('  end\n\n')
+
     # Exception wrappers
     for name, result, params in _dotnet_decls:
-        ml_native.write(' let %s ' % ml_method_name(name))
+        ip = inparams(params)
+        op = outparams(params)
+        ml_native.write('  let %s ' % ml_method_name(name))
         first = True
         i = 0;
-        for param in params:
-            if first:
-                first = False;
-            else:
-                ml_native.write(' ')
-            ml_native.write('a%d' % i)
-            i = i + 1
-        ml_native.write(' = \n')
-        ml_native.write('    ')
-        if result != VOID:
-            ml_native.write('let res = ')
-        if len(params) == 0:
-            ml_native.write('n_%s()' % (ml_method_name(name)))
-        else:
-            ml_native.write('(n_%s ' % (ml_method_name(name)))
-            first = True
-            i = 0;
-            for param in params:
+        for p in params:
+            if is_in_param(p):
                 if first:
-                    first = False
+                    first = False;
                 else:
                     ml_native.write(' ')
                 ml_native.write('a%d' % i)
-                i = i + 1
-            ml_native.write(')')
-        if result != VOID:
-            ml_native.write(' in\n')
+            i = i + 1
+        ml_native.write(' = \n')
+        ml_native.write('    ')
+        if result == VOID:
+            ml_native.write('let _ = ')
         else:
-            ml_native.write(';\n')
+            ml_native.write('let res = ')
+        ml_native.write('(ML2C.n_%s' % (ml_method_name(name)))
+        first = True
+        i = 0;
+        for p in params:
+            if is_in_param(p):
+                ml_native.write(' a%d' % i)
+            i = i + 1
+        ml_native.write(') in\n')
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            ml_native.write('    let err = (Enumerations.int2error_code (n_get_error_code a0)) in \n')
-            ml_native.write('      if err <> Enumerations.OK then\n')
-            ml_native.write('        raise (Exception (n_get_error_msg_ex a0 (error_code2int err)))\n')
+            ml_native.write('    let err = (Z3enums.int2error_code (ML2C.n_get_error_code a0)) in \n')
+            ml_native.write('      if err <> Z3enums.OK then\n')
+            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (Z3enums.error_code2int err)))\n')
             ml_native.write('      else\n')
         if result == VOID:
             ml_native.write('        ()\n')
         else:
             ml_native.write('        res\n')
         ml_native.write('\n')
-    ml_native.write('\nend\n')
+
+    ml_native.write('end\n')
+
+    # C interface
     ml_wrapper = open(ml_wrapperf, 'w')
     ml_wrapper.write('// Automatically generated file\n\n')
     ml_wrapper.write('#include <stddef.h>\n')
-    ml_wrapper.write('#include <string.h>\n')
+    ml_wrapper.write('#include <string.h>\n\n')
+    ml_wrapper.write('#ifdef __cplusplus\n')
+    ml_wrapper.write('extern "C" {\n')
+    ml_wrapper.write('#endif\n')
     ml_wrapper.write('#include <caml/mlvalues.h>\n')
     ml_wrapper.write('#include <caml/memory.h>\n')
     ml_wrapper.write('#include <caml/alloc.h>\n')
@@ -1171,61 +1218,119 @@ def mk_ml():
     ml_wrapper.write('#ifdef Custom_tag\n')
     ml_wrapper.write('#include <caml/custom.h>\n')
     ml_wrapper.write('#include <caml/bigarray.h>\n')
+    ml_wrapper.write('#endif\n')
+    ml_wrapper.write('#ifdef __cplusplus\n')
+    ml_wrapper.write('}\n')
     ml_wrapper.write('#endif\n\n')
     ml_wrapper.write('#include <z3.h>\n\n')
+    ml_wrapper.write('#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \\\n')
+    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLlocal1(X6);                                                     \n')
+    ml_wrapper.write('#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
+    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLlocal2(X6,X7);                                                  \n')
+    ml_wrapper.write('#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
+    ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLlocal3(X6,X7,X8);                                               \n')
+    ml_wrapper.write('\n')
+    ml_wrapper.write('#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
+    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLxparam2(X6,X7);                                                 \n')
+    ml_wrapper.write('#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
+    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLxparam3(X6,X7,X8);                                              \n')
+    ml_wrapper.write('#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \\\n')
+    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLxparam4(X6,X7,X8,X9);                                           \n')
+    ml_wrapper.write('#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)         \\\n')
+    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
+    ml_wrapper.write('  CAMLxparam2(X11,X12);                                               \n')
+    ml_wrapper.write('#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)     \\\n')
+    ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
+    ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
+    ml_wrapper.write('  CAMLxparam3(X11,X12,X13);                                           \n')
+    ml_wrapper.write('\n\n')
+    ml_wrapper.write('#ifdef __cplusplus\n')
+    ml_wrapper.write('extern "C" {\n')
+    ml_wrapper.write('#endif\n\n')
     for name, result, params in _dotnet_decls:
-        #return type = type2ml(result)
+        ip = inparams(params)
+        op = outparams(params)
+        ret_size = len(op)
+        if result != VOID:
+            ret_size = ret_size + 1
+            
+        # Setup frame
+        n_locals = 0
+        for p in params:
+            if is_out_param(p) or (is_in_param(p) and param_type(p) == STRING):
+                n_locals = n_locals + 1
         ml_wrapper.write('CAMLprim value n_%s(' % ml_method_name(name)) 
         first = True
         i = 0
-        for param in params:
-            if first:
-                first = False
-            else:                
-                ml_wrapper.write(', ')
-            ml_wrapper.write('value a%d' % i)
-            # param type = param2ml(param)
+        for p in params:
+            if is_in_param(p):
+                if first:
+                    first = False
+                else:                
+                    ml_wrapper.write(', ')
+                ml_wrapper.write('value a%d' % i)
             i = i + 1
         ml_wrapper.write(') {\n')
-        ml_wrapper.write('  CAMLparam%d(' % len(params))
+        ml_wrapper.write('  CAMLparam%d(' % len(ip))
         i = 0
         first = True
-        for param in params:
-            if first:
-                first = False
-            else:
-                ml_wrapper.write(', ')
-            ml_wrapper.write('a%d' % i)
+        for p in params:
+            if is_in_param(p):
+                if first:
+                    first = False
+                else:
+                    ml_wrapper.write(', ')
+                ml_wrapper.write('a%d' % i)
             i = i + 1
         ml_wrapper.write(');\n')
+        i = 0
+        first = True
+        if result != VOID:
+            n_locals = n_locals + 1
+        if ret_size > 1:
+            n_locals = n_locals + 1 
+        if n_locals > 0:
+            ml_wrapper.write('  CAMLlocal%s(' % (n_locals))
+            if ret_size > 1:
+                if result != VOID:
+                    ml_wrapper.write('result, ')
+                ml_wrapper.write('result_tuple')
+                first = False
+            elif result != VOID:
+                ml_wrapper.write('result')
+                first = False
+            for p in params:
+                if is_out_param(p) or (is_in_param(p) and param_type(p) == STRING):
+                    if first:
+                        first = False
+                    else:
+                        ml_wrapper.write(', ')
+                    ml_wrapper.write('_a%s' % i)
+                i = i + 1
+            ml_wrapper.write(');\n')
+
         # preprocess arrays, strings, in/out arguments
         i = 0
         for param in params:
-            k = param_kind(param)
-            if k == OUT or k == INOUT:
-                ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
-            elif k == IN_ARRAY or k == INOUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
-                    ml_wrapper.write('  %s * _a%s = (%s*) jenv->GetIntArrayElements(a%s, NULL);\n' % (type2str(param_type(param)), i, type2str(param_type(param)), i))
-                else:                    
-                    ml_wrapper.write('  GETLONGAELEMS(%s, a%s, _a%s);\n' % (type2str(param_type(param)), i, i))
-            elif k == OUT_ARRAY:
-                ml_wrapper.write('  %s * _a%s = (%s *) malloc(((unsigned)a%s) * sizeof(%s));\n' % (type2str(param_type(param)), 
-                                                                                                     i, 
-                                                                                                     type2str(param_type(param)), 
-                                                                                                     param_array_capacity_pos(param), 
-                                                                                                     type2str(param_type(param))))
-                if param_type(param) == INT or param_type(param) == UINT:
-                    ml_wrapper.write('  jenv->GetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
-                else:
-                    ml_wrapper.write('  GETLONGAREGION(%s, a%s, 0, a%s, _a%s);\n' % (type2str(param_type(param)), i, param_array_capacity_pos(param), i))
-            elif k == IN and param_type(param) == STRING:
-                ml_wrapper.write('  Z3_string _a%s = (Z3_string) String_val(a%s);\n' % (i, i))
+            if param_kind(param) == OUT_ARRAY:
+                ml_wrapper.write('  _a%s = (long) malloc(sizeof(%s) * ((long)a%s));\n' % (i, 
+                                                                                          type2str(param_type(param)),
+                                                                                          param_array_capacity_pos(param)))
+            elif param_kind(param) == IN and param_type(param) == STRING:
+                ml_wrapper.write('  _a%s = (value) String_val(a%s);\n' % (i, i))
             i = i + 1
+
         # invoke procedure
         ml_wrapper.write('  ')
         if result != VOID:
-            ml_wrapper.write('%s result = ' % type2str(result))
+            ml_wrapper.write('result = (value) ')
         ml_wrapper.write('%s(' % name)
         i = 0
         first = True
@@ -1236,53 +1341,74 @@ def mk_ml():
                 ml_wrapper.write(', ')
             k = param_kind(param)
             if k == OUT or k == INOUT:
-                ml_wrapper.write('&_a%s' % i)
-            elif k == OUT_ARRAY or k == IN_ARRAY or k == INOUT_ARRAY:
-                ml_wrapper.write('_a%s' % i)
+                ml_wrapper.write('(%s)&_a%s' % (param2str(param), i))
+            elif k == INOUT_ARRAY or k == IN_ARRAY:
+                ml_wrapper.write('(%s*)a%s' % (type2str(param_type(param)), i))
+            elif k == OUT_ARRAY:
+                ml_wrapper.write('(%s*)_a%s' % (type2str(param_type(param)), i))
             elif k == IN and param_type(param) == STRING:
-                ml_wrapper.write('_a%s' % i)
+                ml_wrapper.write('(Z3_string) _a%s' % i)
             else:
                 ml_wrapper.write('(%s)a%i' % (param2str(param), i))
             i = i + 1
         ml_wrapper.write(');\n')
-        # cleanup 
-        i = 0
-        for param in params:
-            k = param_kind(param)
-            if k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
-                    ml_wrapper.write('  jenv->SetIntArrayRegion(a%s, 0, (jsize)a%s, (jint*)_a%s);\n' % (i, param_array_capacity_pos(param), i))
-                else:
-                    ml_wrapper.write('  SETLONGAREGION(a%s, 0, a%s, _a%s);\n' % (i, param_array_capacity_pos(param), i))
-                ml_wrapper.write('  free(_a%s);\n' % i)
-            elif k == IN_ARRAY or k == OUT_ARRAY:
-                if param_type(param) == INT or param_type(param) == UINT:
-                    ml_wrapper.write('  jenv->ReleaseIntArrayElements(a%s, (jint*)_a%s, JNI_ABORT);\n' % (i, i))
-                else:
-                    ml_wrapper.write('  RELEASELONGAELEMS(a%s, _a%s);\n' % (i, i))
 
-            elif k == OUT or k == INOUT:
-                if param_type(param) == INT or param_type(param) == UINT:
-                    ml_wrapper.write('  {\n')
-                    ml_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
-                    ml_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "I");\n')
-                    ml_wrapper.write('     jenv->SetIntField(a%s, fid, (jint) _a%s);\n' % (i, i))
-                    ml_wrapper.write('  }\n')
+        # return tuples                
+        if len(op) > 0:
+            ml_wrapper.write('  result_tuple = caml_alloc(%s, 0);\n' % ret_size)
+            i = j = 0
+            if result != VOID:
+                if result == STRING:
+                    ml_wrapper.write('  Store_field(result_tuple, 0, caml_copy_string(result));\n')
                 else:
-                    ml_wrapper.write('  {\n')
-                    ml_wrapper.write('     jclass mc    = jenv->GetObjectClass(a%s);\n' % i)
-                    ml_wrapper.write('     jfieldID fid = jenv->GetFieldID(mc, "value", "J");\n')
-                    ml_wrapper.write('     jenv->SetLongField(a%s, fid, (jlong) _a%s);\n' % (i, i))
-                    ml_wrapper.write('  }\n')
+                    ml_wrapper.write('  Store_field(result_tuple, 0, result);\n')
+                j = j + 1
+            for p in params:
+                if param_kind(p) == OUT_ARRAY or param_kind(p) == OUT:
+                    ml_wrapper.write('  Store_field(result_tuple, %s, _a%s);\n' % (j, i))
+                    j = j + 1;                    
+                elif is_out_param(p):
+                    if param_type(p) == STRING:
+                        ml_wrapper.write('  Store_field(result_tuple, %s, caml_copy_string((const char *)_a%s));\n' % (j, i))
+                    else:
+                        ml_wrapper.write('  Store_field(result_tuple, %s, a%s);\n' % (j, i))
+                    j = j + 1;
+                i = i + 1
+
+        # local array cleanup
+        i = 0
+        for p in params:
+            if param_kind(p) == OUT_ARRAY:
+                ml_wrapper.write('  free((long*)_a%s);\n' % i)
             i = i + 1
+
         # return
-        if result == STRING:
-            ml_wrapper.write('  return caml_copy_string(result);\n')
-        elif result == VOID:
-            ml_wrapper.write('  CAMLreturn(Val_unit);\n')
-        elif result != VOID:
-            ml_wrapper.write('  return (value) result;\n')
+        if len(op) > 0:
+            ml_wrapper.write('  CAMLreturn(result_tuple);\n')
+        else:
+            if result == STRING:
+                ml_wrapper.write('  CAMLreturn(caml_copy_string((const char*) result));\n')
+            elif result == VOID:
+                ml_wrapper.write('  CAMLreturn(Val_unit);\n')
+            elif result != VOID:
+                ml_wrapper.write('  CAMLreturn(result);\n')
+
         ml_wrapper.write('}\n\n')
+        if len(ip) > 5:
+            ml_wrapper.write('CAMLprim value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 
+            ml_wrapper.write('  return n_%s(' % ml_method_name(name))
+            i = 0
+            while i < len(ip):
+                if i == 0:
+                    ml_wrapper.write('argv[0]')
+                else:
+                    ml_wrapper.write(', argv[%s]' % i)
+                i = i + 1
+            ml_wrapper.write(');\n}\n')
+            ml_wrapper.write('\n\n')
+    ml_wrapper.write('#ifdef __cplusplus\n')
+    ml_wrapper.write('}\n')
+    ml_wrapper.write('#endif\n')
     if is_verbose():
         print "Generated '%s'" % ml_nativef
 
