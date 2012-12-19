@@ -1296,10 +1296,6 @@ class MLComponent(Component):
             bld_dir = os.path.join(BUILD_DIR, 'api', 'ml')
             mk_dir(bld_dir)
             libfile = '%s$(SO_EXT)' % self.lib_name
-            # for mlfile in get_ml_files(self.src_dir):
-            #     out.write('%si: libz3$(SO_EXT) %s\n' % (os.path.join('api', 'ml', mlfile),os.path.join(self.to_src_dir, mlfile)))
-            #     out.write('\tocamlopt -I %s -i %s > %si\n' % (os.path.join('api', 'ml'), os.path.join(self.to_src_dir, mlfile), os.path.join('api', 'ml', mlfile)))
-            #     out.write('\tocamlopt -I %s -c %si \n' % (os.path.join('api', 'ml'), os.path.join('api','ml', mlfile)))
             out.write('%s: libz3$(SO_EXT) %s' % (libfile, os.path.join(self.to_src_dir, 'z3native.c')))
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
@@ -1307,11 +1303,9 @@ class MLComponent(Component):
             out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, self.to_src_dir))
             out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
             out.write('z3.cmxa: %s\n' % libfile)
-            out.write('\tcd %s && ocamlbuild -lflags -cclib,../../../%s/libz3ml.so,-cclib,../../../%s/libz3.so -build-dir ../../../%s/api/ml z3.cmxa && cd -\n' % (self.to_src_dir,BUILD_DIR,BUILD_DIR,BUILD_DIR))
-            out.write('\tcp api/ml/z3.cmxa .\n')
+            out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3.cmxa z3native$(OBJ_EXT) && cd -\n' % (self.to_src_dir,BUILD_DIR))
             out.write('z3.cma: %s\n' % libfile)
-            out.write('\tcd %s && ocamlbuild -lflags -custom,-cclib,../../../%s/libz3ml.so,-cclib,../../../%s/libz3.so -build-dir ../../../%s/api/ml z3.cma && cd -\n' % (self.to_src_dir,BUILD_DIR,BUILD_DIR,BUILD_DIR))
-            out.write('\tcp api/ml/z3.cma .\n')
+            out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -custom,-cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3native$(OBJ_EXT) z3.cma && cd -\n' % (self.to_src_dir,BUILD_DIR))
             out.write('ml: z3.cmxa z3.cma\n')
             out.write('\n')
     
@@ -1436,14 +1430,23 @@ class MLExampleComponent(ExampleComponent):
 
     def mk_makefile(self, out):
         if ML_ENABLED:
-            out.write('_ex_%s: z3.cmxa' % self.name)
-            deps = ''
+            out.write('ml_example.byte: z3.cma ')
             for mlfile in get_ml_files(self.ex_dir):
-                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
-            if IS_WINDOWS:
-                deps = deps.replace('/', '\\')
-            out.write('%s\n' % deps)
-            out.write('\tcd %s && ocamlbuild -build-dir ../../%s -lib z3 MLExample.native && cd -\n\n' % (self.to_src_dir, BUILD_DIR))
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+            out.write('\n')
+            out.write('\tocamlc -g -o ml_example.byte -I . z3.cma -I api/ml')
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s/%s' % (self.to_ex_dir, mlfile))
+            out.write('\n')
+            out.write('ml_example($EXE_EXT): z3.cmxa ')
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
+            out.write('\n')
+            out.write('\tocamlopt -g -o ml_example -I . z3.cmxa -I api/ml')
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s/%s' % (self.to_ex_dir, mlfile))
+            out.write('\n')
+            out.write('_ex_%s: ml_example.byte ml_example($EXE_EXT)\n\n' % self.name)
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):

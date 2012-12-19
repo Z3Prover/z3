@@ -5,10 +5,10 @@ To build the example execute
    make examples
 in the build directory.
 
-It will create MLExample in the build directory,
-which can be run on Windows via 
-ocaml -I . MLExample
+It will create ml_example in the build directory,
+which can be run in the build directory via 
+LD_LIBRARY_PATH=. ./ml_example
+or
+LD_LIBRARY_PATH=. ./ml_example.byte
+for the byte-code version.
 
-On Linux and FreeBSD, we must use
-?? 
-   
