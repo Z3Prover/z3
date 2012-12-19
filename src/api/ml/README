@@ -1,11 +1,8 @@
 This directory is work in progress.
 
 We are currently working on a brand new ML API.
-<<<<<<< HEAD
 
 On Windows, there are no less than four different ports of OCaml. The Z3 build 
 system assumes that either the win32 or the win64 port is installed. This means
 that OCaml will use `cl' as the underlying C compiler and not the cygwin or
 mingw compilers. 
-=======
->>>>>>> Beginnings of a new ML API

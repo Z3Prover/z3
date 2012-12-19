@@ -1597,7 +1597,14 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('_ex_%s: ml_example.byte ml_example$(EXE_EXT)\n\n' % self.name)
+            out.write('_ex_%s: z3.cmxa' % self.name)
+            deps = ''
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
+            if IS_WINDOWS:
+                deps = deps.replace('/', '\\')
+            out.write('%s\n' % deps)
+            out.write('\tcd %s && ocamlbuild -build-dir ../../%s -lib z3 MLExample.native && cd -\n\n' % (self.to_src_dir, BUILD_DIR))
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
