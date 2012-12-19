@@ -76,7 +76,7 @@ object (self)
        Disposes of the underlying native Z3 object. 
     *)
   method dispose =
-    Printf.printf "Disposing %d \n" (Oo.id self) ;
+    Printf.printf "Disposing z3object %d \n" (Oo.id self) ;
     (match m_n_obj with
       | Some (x) -> self#decref x; m_n_obj <- None
       | None -> ()
