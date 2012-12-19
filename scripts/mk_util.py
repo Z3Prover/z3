@@ -1427,6 +1427,24 @@ class JavaExampleComponent(ExampleComponent):
             out.write(' -d .\n')
             out.write('_ex_%s: JavaExample.class\n\n' % (self.name))
 
+class MLExampleComponent(ExampleComponent):
+    def __init__(self, name, path):
+        ExampleComponent.__init__(self, name, path)
+
+    def is_example(self):
+        return ML_ENABLED
+
+    def mk_makefile(self, out):
+        if ML_ENABLED:
+            out.write('_ex_%s: z3.cmxa' % self.name)
+            deps = ''
+            for mlfile in get_ml_files(self.ex_dir):
+                out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))
+            if IS_WINDOWS:
+                deps = deps.replace('/', '\\')
+            out.write('%s\n' % deps)
+            out.write('\tcd %s && ocamlbuild -build-dir ../../%s -lib z3 MLExample.native && cd -\n\n' % (self.to_src_dir, BUILD_DIR))
+
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -1498,6 +1516,10 @@ def add_dotnet_example(name, path=None):
 
 def add_java_example(name, path=None):
     c = JavaExampleComponent(name, path)
+    reg_component(name, c)
+
+def add_ml_example(name, path=None):
+    c = MLExampleComponent(name, path)
     reg_component(name, c)
 
 def add_z3py_example(name, path=None):

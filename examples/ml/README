@@ -1,0 +1,14 @@
+### This is work-in-progress and does not work yet.
+
+Small example using the Z3 ML bindings.
+To build the example execute
+   make examples
+in the build directory.
+
+It will create MLExample in the build directory,
+which can be run on Windows via 
+ocaml -I . MLExample
+
+On Linux and FreeBSD, we must use
+?? 
+   
