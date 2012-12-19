@@ -1866,11 +1866,7 @@ def mk_config():
             if GPROF:
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())
-<<<<<<< HEAD
             print('ML API:         %s' % is_ml_enabled())
-=======
-            print 'ML API:         %s' % is_ml_enabled()
->>>>>>> Beginnings of a new ML API
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -2738,9 +2734,6 @@ def mk_z3consts_ml(api_files):
     if not os.path.exists(gendir):
         os.mkdir(gendir)
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
@@ -2822,23 +2815,7 @@ def mk_z3consts_ml(api_files):
     efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
-=======
-    efile  = open('%s.ml' % os.path.join(gendir, "z3_enums"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
-    # efile.write('module z3_enums = struct\n\n');
-
-
->>>>>>> More new ML API
-=======
-    efile  = open('%s.ml' % os.path.join(gendir, "enumerations"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
-    efile.write('module Enumerations = struct\n')
->>>>>>> More ML API
-=======
-    efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
     efile.write('module Z3enums = struct\n')
->>>>>>> New native ML API layer.
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
@@ -2884,8 +2861,6 @@ def mk_z3consts_ml(api_files):
                 if m:
                     name = words[1]
                     if name not in DeprecatedEnums:
-<<<<<<< HEAD
-<<<<<<< HEAD
                         efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
                         for k, i in decls.iteritems():
@@ -2896,17 +2871,10 @@ def mk_z3consts_ml(api_files):
                         efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('\n')
-=======
                         efile.write('\n(* %s *)\n' % name)
-=======
->>>>>>> More ML API
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
                         for k, i in decls.iteritems():
-<<<<<<< HEAD
                             efile.write('    | %s \n' % k[3:]) # strip Z3_
->>>>>>> More new ML API
-=======
-                            efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('let %s2int x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
@@ -2919,7 +2887,6 @@ def mk_z3consts_ml(api_files):
                             efile.write('  | %d -> %s\n' % (i, k[3:]))
                         # use Z3.Exception?
                         efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
->>>>>>> More ML API
                     mode = SEARCHING
                 else:
                     if words[2] != '':
@@ -2930,21 +2897,9 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
-<<<<<<< HEAD
-<<<<<<< HEAD
-    if VERBOSE:
-        print "Generated '%s/z3enums.mli'" % ('%s' % gendir)
-=======
-    efile.write('\n')
-    # efile.write'end\n');
-    if VERBOSE:
-        print "Generated '%s/z3_enums.ml'" % ('%s' % gendir)
->>>>>>> More new ML API
-=======
     efile.write('end\n')
     if VERBOSE:
         print "Generated '%s/enumerations.ml'" % ('%s' % gendir)
->>>>>>> More ML API
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
