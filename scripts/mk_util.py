@@ -1428,20 +1428,30 @@ class MLComponent(Component):
                 if IS_WINDOWS:
                     out.write(' ' + get_component(Z3_DLL_COMPONENT).dll_name + '$(LIB_EXT)')
                 out.write('\n\n')
+            deffile = open('%s.mllib' % os.path.join(self.src_dir, "z3"), 'w')
+            for mlfile in get_ml_files(self.src_dir):
+                deffile.write('%s\n' % (string.upper(mlfile[0]) + mlfile[1:-3]))
+            deffile.close()
             bld_dir = os.path.join(BUILD_DIR, 'api', 'ml')
             mk_dir(bld_dir)
-            libfile = '%s$(LIB_EXT)' % self.lib_name
+            libfile = '%s$(SO_EXT)' % self.lib_name
+            # for mlfile in get_ml_files(self.src_dir):
+            #     out.write('%si: libz3$(SO_EXT) %s\n' % (os.path.join('api', 'ml', mlfile),os.path.join(self.to_src_dir, mlfile)))
+            #     out.write('\tocamlopt -I %s -i %s > %si\n' % (os.path.join('api', 'ml'), os.path.join(self.to_src_dir, mlfile), os.path.join('api', 'ml', mlfile)))
+            #     out.write('\tocamlopt -I %s -c %si \n' % (os.path.join('api', 'ml'), os.path.join('api','ml', mlfile)))
+            out.write('%s: libz3$(SO_EXT) %s' % (libfile, os.path.join(self.to_src_dir, 'z3native.c')))
             for mlfile in get_ml_files(self.src_dir):
-                out.write('%si: %s\n' % (os.path.join('api', 'ml', mlfile),os.path.join(self.to_src_dir, mlfile)))
-                out.write('\tocamlopt -I %s -i %s > %si\n' % (os.path.join('api', 'ml'), os.path.join(self.to_src_dir, mlfile), os.path.join('api', 'ml', mlfile)))
-                out.write('\tocamlopt -I %s -c %si \n' % (os.path.join('api', 'ml'), os.path.join('api','ml', mlfile)))
-            out.write('%s: libz3$(SO_EXT) %s' % (libfile, os.path.join(self.to_src_dir, 'native.c')))
-            for mlfile in get_ml_files(self.src_dir):
-                out.write(' %si' % os.path.join('api','ml', mlfile))
+                out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3_native$(OBJ_EXT) -I%s %s/native.c\n' % (get_component(API_COMPONENT).to_src_dir, self.to_src_dir))
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)libz3ml$(LIB_EXT) $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  os.path.join('api', 'ml', 'native'))
-            out.write('ml: %s\n' % libfile)
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, self.to_src_dir))
+            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
+            out.write('z3.cmxa: %s\n' % libfile)
+            out.write('\tcd %s && ocamlbuild -lflags -cclib,../../../%s/libz3ml.so,-cclib,../../../%s/libz3.so -build-dir ../../../%s/api/ml z3.cmxa && cd -\n' % (self.to_src_dir,BUILD_DIR,BUILD_DIR,BUILD_DIR))
+            out.write('\tcp api/ml/z3.cmxa .\n')
+            out.write('z3.cma: %s\n' % libfile)
+            out.write('\tcd %s && ocamlbuild -lflags -custom,-cclib,../../../%s/libz3ml.so,-cclib,../../../%s/libz3.so -build-dir ../../../%s/api/ml z3.cma && cd -\n' % (self.to_src_dir,BUILD_DIR,BUILD_DIR,BUILD_DIR))
+            out.write('\tcp api/ml/z3.cma .\n')
+            out.write('ml: z3.cmxa z3.cma\n')
             out.write('\n')
     
     def main_component(self):
@@ -2730,6 +2740,7 @@ def mk_z3consts_ml(api_files):
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('(** The enumeration types of Z3. *)\n\n')
@@ -2823,6 +2834,11 @@ def mk_z3consts_ml(api_files):
     efile.write('(* Automatically generated file *)\n\n')
     efile.write('module Enumerations = struct\n')
 >>>>>>> More ML API
+=======
+    efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
+    efile.write('(* Automatically generated file *)\n\n')
+    efile.write('module Z3enums = struct\n')
+>>>>>>> New native ML API layer.
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
