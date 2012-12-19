@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 (* File generated from z3.idl *)
 
 type context
@@ -3383,3 +3384,16 @@ let set_new_relevant_callback th cb =
 
 end
 
+=======
+(* 
+   Author: CM Wintersteiger
+   (C) Microsoft Research, 2012
+*)
+
+open Z3enums
+open Z3native
+
+module Z3 = struct
+
+end
+>>>>>>> More new ML API.
