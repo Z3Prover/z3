@@ -18,7 +18,7 @@ void tst_model_retrieval()
     ast_manager m;
     reg_decl_plugins(m);
 
-    family_id array_fid = m.get_family_id(symbol("array"));
+    family_id array_fid = m.mk_family_id(symbol("array"));
     array_util au(m);
     
     // arr_s and select_fn creation copy-pasted from z3.cpp

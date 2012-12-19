@@ -548,7 +548,7 @@ func_decl * array_recognizers::get_as_array_func_decl(app * n) const {
 }
 
 array_util::array_util(ast_manager& m): 
-    array_recognizers(m.get_family_id("array")),
+    array_recognizers(m.mk_family_id("array")),
     m_manager(m) {
 }
 

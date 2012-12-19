@@ -450,7 +450,7 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
         parameter const* params = thLemma->get_decl()->get_parameters();
         unsigned num_params = thLemma->get_decl()->get_num_parameters();
         SASSERT(params[0].is_symbol());
-        family_id tid = m.get_family_id(params[0].get_symbol());
+        family_id tid = m.mk_family_id(params[0].get_symbol());
         SASSERT(tid != null_family_id);
         prNew = m.mk_th_lemma(tid, m.get_fact(pr), 
                               premises.size(), premises.c_ptr(), num_params-1, params+1);

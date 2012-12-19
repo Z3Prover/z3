@@ -59,7 +59,7 @@ void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_xor3 = m_manager->mk_func_decl(symbol("xor3"), 3, d, b, func_decl_info(m_family_id, OP_XOR3));
     m_manager->inc_ref(m_xor3);
 
-    m_int_sort = m_manager->mk_sort(m_manager->get_family_id("arith"), INT_SORT);
+    m_int_sort = m_manager->mk_sort(m_manager->mk_family_id("arith"), INT_SORT);
     SASSERT(m_int_sort != 0); // arith_decl_plugin must be installed before bv_decl_plugin.
     m_manager->inc_ref(m_int_sort);
 }
@@ -801,10 +801,10 @@ bool bv_recognizers::mult_inverse(rational const & n, unsigned bv_size, rational
 }
 
 bv_util::bv_util(ast_manager & m):
-    bv_recognizers(m.get_family_id(symbol("bv"))),
+    bv_recognizers(m.mk_family_id(symbol("bv"))),
     m_manager(m) {
     SASSERT(m.has_plugin(symbol("bv")));
-    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.get_family_id("bv")));
+    m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.mk_family_id("bv")));
 }
 
 app * bv_util::mk_numeral(rational const & val, sort* s) {
@@ -827,7 +827,7 @@ sort * bv_util::mk_sort(unsigned bv_size) {
 }
 
 app * bv_util::mk_bv2int(expr* e) {
-    sort* s = m_manager.mk_sort(m_manager.get_family_id("arith"), INT_SORT);
+    sort* s = m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT);
     parameter p(s);
     return m_manager.mk_app(get_fid(), OP_BV2INT, 1, &p, 1, &e); 
 }

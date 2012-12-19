@@ -22,7 +22,7 @@ Revision History:
 #include"ast_ll_pp.h"
 
 datatype_factory::datatype_factory(ast_manager & m, proto_model & md):
-    struct_factory(m, m.get_family_id("datatype"), md),
+    struct_factory(m, m.mk_family_id("datatype"), md),
     m_util(m) {
 }
 

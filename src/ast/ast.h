@@ -188,10 +188,20 @@ class family_manager {
     svector<symbol>         m_names;
 public:
     family_manager():m_next_id(0) {}
+
+    /**
+       \brief Return the family_id for s, a new id is created if !has_family(s)
+       
+       If has_family(s), then this method is equivalent to get_family_id(s)
+    */
+    family_id mk_family_id(symbol const & s);
+
+    /**
+       \brief Return the family_id for s, return null_family_id if s was not registered in the manager.
+    */
+    family_id get_family_id(symbol const & s) const;
     
-    family_id get_family_id(symbol const & s);
-    
-    bool has_family(symbol const & s);
+    bool has_family(symbol const & s) const;
 
     void get_dom(svector<symbol>& dom) const { m_families.get_dom(dom); }
     
@@ -1483,8 +1493,10 @@ public:
 
     small_object_allocator & get_allocator() { return m_alloc; }
     
-    family_id get_family_id(symbol const & s) const { return const_cast<ast_manager*>(this)->m_family_manager.get_family_id(s); }
-    
+    family_id mk_family_id(symbol const & s) { return m_family_manager.mk_family_id(s); }
+    family_id mk_family_id(char const * s) { return mk_family_id(symbol(s)); }
+
+    family_id get_family_id(symbol const & s) const { return m_family_manager.get_family_id(s); }
     family_id get_family_id(char const * s) const { return get_family_id(symbol(s)); }
 
     symbol const & get_family_name(family_id fid) const { return m_family_manager.get_name(fid); }
@@ -1507,7 +1519,7 @@ public:
     
     bool has_plugin(family_id fid) const { return get_plugin(fid) != 0; }
     
-    bool has_plugin(symbol const & s) const { return has_plugin(get_family_id(s)); }
+    bool has_plugin(symbol const & s) const { return m_family_manager.has_family(s) && has_plugin(m_family_manager.get_family_id(s)); }
     
     void get_dom(svector<symbol> & dom) const { m_family_manager.get_dom(dom); }
     

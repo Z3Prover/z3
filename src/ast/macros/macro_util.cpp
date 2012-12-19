@@ -41,7 +41,7 @@ macro_util::macro_util(ast_manager & m, simplifier & s):
 
 arith_simplifier_plugin * macro_util::get_arith_simp() const {
     if (m_arith_simp == 0) {
-        const_cast<macro_util*>(this)->m_arith_simp = static_cast<arith_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.get_family_id("arith")));
+        const_cast<macro_util*>(this)->m_arith_simp = static_cast<arith_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("arith")));
     }
     SASSERT(m_arith_simp != 0);
     return m_arith_simp;
@@ -49,7 +49,7 @@ arith_simplifier_plugin * macro_util::get_arith_simp() const {
 
 bv_simplifier_plugin * macro_util::get_bv_simp() const {
     if (m_bv_simp == 0) {
-        const_cast<macro_util*>(this)->m_bv_simp = static_cast<bv_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.get_family_id("bv")));
+        const_cast<macro_util*>(this)->m_bv_simp = static_cast<bv_simplifier_plugin*>(m_simplifier.get_plugin(m_manager.mk_family_id("bv")));
     }
     SASSERT(m_bv_simp != 0);
     return m_bv_simp;

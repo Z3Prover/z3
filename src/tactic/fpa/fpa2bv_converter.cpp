@@ -32,7 +32,7 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
 	m_mpz_manager(m_mpf_manager.mpz_manager()),
     m_bv_util(m),
     extra_assertions(m) {
-    m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m.get_family_id("float")));
+    m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m.mk_family_id("float")));
 }
 
 fpa2bv_converter::~fpa2bv_converter() {

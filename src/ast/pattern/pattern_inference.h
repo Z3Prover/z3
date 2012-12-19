@@ -150,7 +150,7 @@ class pattern_inference : public simplifier {
         void save_candidate(expr * n, unsigned delta);
         void reset();
     public:
-        collect(ast_manager & m, pattern_inference & o):m_manager(m), m_owner(o), m_afid(m.get_family_id("arith")) {}
+        collect(ast_manager & m, pattern_inference & o):m_manager(m), m_owner(o), m_afid(m.mk_family_id("arith")) {}
         void operator()(expr * n, unsigned num_bindings);
     };
 

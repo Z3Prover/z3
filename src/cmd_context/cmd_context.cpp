@@ -1386,7 +1386,7 @@ void cmd_context::set_diagnostic_stream(char const * name) {
 struct contains_array_op_proc {
     struct found {};
     family_id m_array_fid;
-    contains_array_op_proc(ast_manager & m):m_array_fid(m.get_family_id("array")) {}
+    contains_array_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")) {}
     void operator()(var * n)        {}
     void operator()(app * n)        { 
         if (n->get_family_id() != m_array_fid)

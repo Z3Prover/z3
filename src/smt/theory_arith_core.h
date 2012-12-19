@@ -1294,7 +1294,7 @@ namespace smt {
     
     template<typename Ext>
     theory_arith<Ext>::theory_arith(ast_manager & m, theory_arith_params & params):
-        theory(m.get_family_id("arith")),
+        theory(m.mk_family_id("arith")),
         m_params(params),
         m_util(m),
         m_arith_eq_solver(m),

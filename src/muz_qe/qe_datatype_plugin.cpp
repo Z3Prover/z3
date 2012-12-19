@@ -422,7 +422,7 @@ namespace qe {
 
     public:
         datatype_plugin(i_solver_context& ctx, ast_manager& m) : 
-            qe_solver_plugin(m, m.get_family_id("datatype"), ctx),
+            qe_solver_plugin(m, m.mk_family_id("datatype"), ctx),
             m_datatype_util(m),
             m_replace(mk_default_expr_replacer(m)),
             m_trail(m)

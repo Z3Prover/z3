@@ -27,25 +27,25 @@ Revision History:
 #include"float_decl_plugin.h"
 
 void reg_decl_plugins(ast_manager & m) {
-    if (!m.get_plugin(m.get_family_id(symbol("arith")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("arith")))) {
         m.register_plugin(symbol("arith"), alloc(arith_decl_plugin));
     }
-    if (!m.get_plugin(m.get_family_id(symbol("bv")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("bv")))) {
         m.register_plugin(symbol("bv"), alloc(bv_decl_plugin));
     }
-    if (!m.get_plugin(m.get_family_id(symbol("array")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("array")))) {
         m.register_plugin(symbol("array"), alloc(array_decl_plugin));
     }
-    if (!m.get_plugin(m.get_family_id(symbol("datatype")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("datatype")))) {
         m.register_plugin(symbol("datatype"), alloc(datatype_decl_plugin));    
     }
-    if (!m.get_plugin(m.get_family_id(symbol("datalog_relation")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("datalog_relation")))) {
         m.register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin));
     }
-    if (!m.get_plugin(m.get_family_id(symbol("seq")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("seq")))) {
         m.register_plugin(symbol("seq"), alloc(seq_decl_plugin));
     }
-    if (!m.get_plugin(m.get_family_id(symbol("float")))) {
+    if (!m.get_plugin(m.mk_family_id(symbol("float")))) {
         m.register_plugin(symbol("float"), alloc(float_decl_plugin));
     }
 }

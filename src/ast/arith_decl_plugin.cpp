@@ -583,7 +583,7 @@ bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int
 }
 
 arith_util::arith_util(ast_manager & m):
-    arith_recognizers(m.get_family_id("arith")),
+    arith_recognizers(m.mk_family_id("arith")),
     m_manager(m),
     m_plugin(0) {
 }

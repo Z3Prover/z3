@@ -45,7 +45,7 @@ decl_collector::decl_collector(ast_manager & m, bool preds):
     m_manager(m),
     m_sep_preds(preds) {
     m_basic_fid = m_manager.get_basic_family_id();
-    m_dt_fid    = m_manager.get_family_id("datatype");
+    m_dt_fid    = m_manager.mk_family_id("datatype");
 }
 
 void decl_collector::visit(ast* n) {
