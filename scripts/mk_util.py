@@ -458,7 +458,8 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     print("  -j, --java                    generate Java bindings.")
-    print("  --staticlib                   build Z3 static library.")
+    print("  --ml                          generate Ocaml bindinds.")
+    print("  --staticlib                   build Z3 static library.")    
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
@@ -2546,7 +2547,6 @@ def mk_z3consts_ml(api_files):
 
     efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
-    efile.write('module Z3enums = struct\n')
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
@@ -2617,7 +2617,6 @@ def mk_z3consts_ml(api_files):
                     decls[words[1]] = idx
                     idx = idx + 1
             linenum = linenum + 1
-    efile.write('end\n')
     if VERBOSE:
         print "Generated '%s/enumerations.ml'" % ('%s' % gendir)
 

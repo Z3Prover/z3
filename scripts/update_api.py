@@ -158,7 +158,7 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
             STRING : 'string', STRING_PTR : 'char**', 
-            BOOL : 'int', SYMBOL : 'symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
+            BOOL : 'int', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
 next_type_id = FIRST_OBJ_ID
 
@@ -182,6 +182,7 @@ def def_Types():
         v = Type2Str[k]
         if is_obj(k):
             Type2Dotnet[k] = v
+            Type2ML[k] = v.lower()
 
 def type2str(ty):
     global Type2Str
@@ -211,10 +212,7 @@ def type2javaw(ty):
 
 def type2ml(ty):
     global Type2ML
-    if (ty >= FIRST_OBJ_ID):
-        return 'int'
-    else:
-        return Type2ML[ty]
+    return Type2ML[ty]
 
 def _in(ty):
     return (IN, ty);
@@ -327,17 +325,11 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == INT or param_type(p) == UINT:
-            return "int"
-        elif param_type(p) == INT64 or param_type(p) == UINT64 or param_type(p) >= FIRST_OBJ_ID:
-            return "int"
-        elif param_type(p) == STRING:
+        if param_type(p) == STRING:
             return "string"
         else:
-            print "ERROR: unreachable code"
-            assert(False)
-            exit(1)
-    if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
+            return "ptr"
+    elif k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
         return "%s array" % type2ml(param_type(p))
     else:
         return type2ml(param_type(p))
@@ -1104,6 +1096,7 @@ def is_array_param(p):
         return False
 
 def mk_ml():
+    global Type2Str
     if not is_ml_enabled():
         return
     ml_dir      = get_component('ml').src_dir
@@ -1112,29 +1105,12 @@ def mk_ml():
     ml_native   = open(ml_nativef, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
     ml_native.write('open Z3enums\n\n')
-    ml_native.write('module Z3native = struct\n\n')
-    ml_native.write('  type context\n')
-    ml_native.write('  and symbol\n')
-    ml_native.write('  and ast\n')
-    ml_native.write('  and sort = private ast\n')
-    ml_native.write('  and func_decl = private ast\n')
-    ml_native.write('  and app = private ast\n')
-    ml_native.write('  and pattern = private ast\n')
-    ml_native.write('  and params\n')
-    ml_native.write('  and param_descrs\n')
-    ml_native.write('  and model\n')
-    ml_native.write('  and func_interp\n')
-    ml_native.write('  and func_entry\n')
-    ml_native.write('  and fixedpoint\n')
-    ml_native.write('  and ast_vector\n')
-    ml_native.write('  and ast_map\n')
-    ml_native.write('  and goal\n')
-    ml_native.write('  and tactic\n')
-    ml_native.write('  and probe\n')
-    ml_native.write('  and apply_result\n')
-    ml_native.write('  and solver\n')
-    ml_native.write('  and stats\n\n')
-    ml_native.write('  exception Exception of string\n\n')
+    ml_native.write('type ptr\n')
+    ml_native.write('and z3_symbol = ptr\n')
+    for k, v in Type2Str.iteritems():
+        if is_obj(k):
+            ml_native.write('and %s = ptr\n' % v.lower())
+    ml_native.write('\nexception Exception of string\n\n')
 
     # ML declarations
     ml_native.write('  module ML2C = struct\n\n')
@@ -1190,17 +1166,15 @@ def mk_ml():
             i = i + 1
         ml_native.write(') in\n')
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            ml_native.write('    let err = (Z3enums.int2error_code (ML2C.n_get_error_code a0)) in \n')
-            ml_native.write('      if err <> Z3enums.OK then\n')
-            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (Z3enums.error_code2int err)))\n')
+            ml_native.write('    let err = (int2error_code (ML2C.n_get_error_code a0)) in \n')
+            ml_native.write('      if err <> OK then\n')
+            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (error_code2int err)))\n')
             ml_native.write('      else\n')
         if result == VOID:
             ml_native.write('        ()\n')
         else:
             ml_native.write('        res\n')
         ml_native.write('\n')
-
-    ml_native.write('end\n')
 
     # C interface
     ml_wrapper = open(ml_wrapperf, 'w')
