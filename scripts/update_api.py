@@ -325,7 +325,9 @@ def param2pystr(p):
 def param2ml(p):
     k = param_kind(p)
     if k == OUT:
-        if param_type(p) == STRING:
+        if param_type(p) == INT or param_type(p) == UINT or param_type(p) == INT64 or param_type(p) == UINT64:
+            return "int"
+        elif param_type(p) == STRING:
             return "string"
         else:
             return "ptr"
@@ -1124,9 +1126,16 @@ def mk_ml():
             ml_native.write('%s -> ' % param2ml(p))
         if len(op) > 0:
             ml_native.write('(')
-        ml_native.write('%s' % type2ml(result))
+        first = True
+        if result != VOID or len(op) == 0:
+            ml_native.write('%s' % type2ml(result))
+            first = False
         for p in op:
-            ml_native.write(' * %s' % param2ml(p))
+            if first:
+                first = False
+            else:
+                ml_native.write(' * ')
+            ml_native.write('%s' % param2ml(p))
         if len(op) > 0:
             ml_native.write(')')
         ml_native.write('\n')
@@ -1153,11 +1162,13 @@ def mk_ml():
             i = i + 1
         ml_native.write(' = \n')
         ml_native.write('    ')
-        if result == VOID:
+        if result == VOID and len(op) == 0:
             ml_native.write('let _ = ')
         else:
             ml_native.write('let res = ')
         ml_native.write('(ML2C.n_%s' % (ml_method_name(name)))
+        if len(ip) == 0:
+            ml_native.write(' ()')
         first = True
         i = 0;
         for p in params:
@@ -1170,7 +1181,7 @@ def mk_ml():
             ml_native.write('      if err <> OK then\n')
             ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (error_code2int err)))\n')
             ml_native.write('      else\n')
-        if result == VOID:
+        if result == VOID and len(op) == 0:
             ml_native.write('        ()\n')
         else:
             ml_native.write('        res\n')
