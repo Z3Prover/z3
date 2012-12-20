@@ -10,11 +10,9 @@ module Log =
 struct
   let m_is_open = false
   (* CMW: "open" seems to be an invalid function name*)
-  let open_ fn = let rv = (open_log fn) in
-		 Printf.printf "ol returned %d\n" rv ;
-		 ((int2lbool rv) == L_TRUE)
-  let close = close_log
-  let append s = append_log s
+  let open_ fn = int2lbool(open_log fn) == L_TRUE
+  let close = (close_log)
+  let append s = (append_log s)
 end
 
 module Version =

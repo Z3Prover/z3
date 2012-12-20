@@ -32,6 +32,10 @@ CXXFLAGS=getenv("CXXFLAGS", "")
 EXAMP_DEBUG_FLAG=''
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
+OCAMLC=getenv("OCAMLC", "ocamlc")
+OCAMLOPT=getenv("OCAMLC", "ocamlopt")
+OCAMLBUILD=getenv("OCAMLBUILD", "ocamlbuild")
+OCAML_LIB=getenv("OCAML_LIB", None)
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -335,6 +339,43 @@ def check_java():
         if JNI_HOME == None:
             raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
+def check_ml():
+    t = TempFile('hello.ml')
+    t.add('print_string "Hello world!\n";;')
+    t.commit()
+    if is_verbose():
+        print "Testing %s..." % OCAMLC
+    r = exec_cmd([OCAMLC, 'hello.ml'])
+    if r != 0:
+        raise MKException('Failed testing ocamlc compiler. Set environment variable OCAMLC with the path to the Ocaml compiler')
+    if is_verbose():
+        print "Testing %s..." % OCAMLOPT
+    r = exec_cmd([OCAMLC, 'hello.ml'])
+    if r != 0:
+        raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler')
+    r = exec_cmd([OCAMLBUILD])
+    if r != 0:
+        raise MKException('Failed testing ocamlbuild. Set environment variable OCAMLBUILD with the path to ocamlbuild')
+    find_ml_lib()
+
+def find_ml_lib():
+    global OCAML_LIB
+    if is_verbose():
+        print "Finding OCAML_LIB..."
+    t = TempFile('output')
+    null = open(os.devnull, 'wb')
+    try: 
+        subprocess.call([OCAMLC, '-where'], stdout=t.fname, stderr=null)
+        t.commit()
+    except:
+        raise MKException('Failed to find Ocaml library; please set OCAML_LIB')
+    t = open('output', 'r')
+    for line in t:
+        OCAML_LIB = line[:-1]
+    if is_verbose():
+        print 'OCAML_LIB=%s' % OCAML_LIB
+    return
+
 def is64():
     return sys.maxsize >= 2**32
 
@@ -474,6 +515,10 @@ def display_help(exit_code):
         print("  CXXFLAGS   C++ compiler flags")
     print("  JDK_HOME   JDK installation directory (only relevant if -j or --java option is provided)")
     print("  JNI_HOME   JNI bindings directory (only relevant if -j or --java option is provided)")
+    print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
+    print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
+    print("  OCAMLBUILD Ocaml build system (only relevant with --ml)")
+    print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -1300,7 +1345,7 @@ class MLComponent(Component):
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, self.to_src_dir))
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, OCAML_LIB, self.to_src_dir))
             out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
             out.write('z3.cmxa: %s\n' % libfile)
             out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3.cmxa z3native$(OBJ_EXT) && cd -\n' % (self.to_src_dir,BUILD_DIR))
@@ -1438,7 +1483,7 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('ml_example($EXE_EXT): z3.cmxa ')
+            out.write('ml_example($EXE_EXT): z3.cmxa ml_example.byte')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
@@ -1596,6 +1641,11 @@ def mk_config():
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
+            if is_ml_enabled():
+                print('Ocaml Compiler: %s' % OCAMLC)
+                print('Ocaml Native:   %s' % OCAMLOPT)
+                print('Ocamlbuild:     %s' % OCAMLBUILD)
+                print('Ocaml Library:  %s' % OCAML_LIB)
     else:
         global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
         OS_DEFINES = ""
@@ -1715,7 +1765,12 @@ def mk_config():
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
-
+            if is_ml_enabled():
+                print('Ocaml Compiler: %s' % OCAMLC)
+                print('Ocaml Native:   %s' % OCAMLOPT)
+                print('Ocamlbuild:     %s' % OCAMLBUILD)
+                print('Ocaml Library:  %s' % OCAML_LIB)
+               
 def mk_install(out):
     out.write('install: ')
     for c in get_components():
@@ -2280,6 +2335,7 @@ def mk_bindings(api_files):
             check_java()
             mk_z3consts_java(api_files)
         if is_ml_enabled():
+            check_ml()
             mk_z3consts_ml(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
         cp_z3py_to_build()
