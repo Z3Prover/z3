@@ -9,6 +9,8 @@ Version 4.3.2
 
 - Added support for FreeBSD. Z3 can be compiled on FreeBSD using g++. 
 
+- Added support for Python 3.x.
+
 - Reverted to `(set-option :global-decls false)` as the default. In Z3 4.3.0 and Z3 4.3.1, this option was set to true.
   Thanks to Julien Henry for reporting this problem.
 

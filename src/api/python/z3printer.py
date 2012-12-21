@@ -74,6 +74,15 @@ def _is_add(k):
 def _is_sub(k):
     return k == Z3_OP_SUB or k == Z3_OP_BSUB
 
+import sys
+if sys.version < '3':
+    import codecs
+    def u(x):
+        return codecs.unicode_escape_decode(x)[0]
+else:
+    def u(x):
+        return x
+
 _z3_infix_compact = [ Z3_OP_MUL, Z3_OP_BMUL, Z3_OP_POWER, Z3_OP_DIV, Z3_OP_IDIV, Z3_OP_MOD, Z3_OP_BSDIV, Z3_OP_BSMOD ]
 
 _ellipses = '...'
@@ -161,15 +170,19 @@ def _get_precedence(k):
     return _z3_precedence.get(k, 100000)
 
 _z3_html_op_to_str = {}
-for _k, _v in _z3_op_to_str.iteritems():
+for _k in _z3_op_to_str:
+    _v = _z3_op_to_str[_k]
     _z3_html_op_to_str[_k] = _v
-for _k, _v in _z3_pre_html_op_to_str.iteritems():
+for _k in _z3_pre_html_op_to_str:
+    _v = _z3_pre_html_op_to_str[_k]
     _z3_html_op_to_str[_k] = _v
 
 _z3_html_precedence = {}
-for _k, _v in _z3_precedence.iteritems():
+for _k in _z3_precedence:
+    _v = _z3_precedence[_k]
     _z3_html_precedence[_k] = _v
-for _k, _v in _z3_pre_html_precedence.iteritems():
+for _k in _z3_pre_html_precedence:
+    _v = _z3_pre_html_precedence[_k]
     _z3_html_precedence[_k] = _v
 
 _html_infix_map = {}
@@ -237,7 +250,7 @@ class FormatObject:
 
 class NAryFormatObject(FormatObject):
     def __init__(self, fs):
-        assert all(map(lambda a: isinstance(a, FormatObject), fs))
+        assert all([isinstance(a, FormatObject) for a in fs])
         self.children = fs
     def children(self):
         return self.children
@@ -246,7 +259,7 @@ class ComposeFormatObject(NAryFormatObject):
     def is_compose(sef):
         return True
     def as_tuple(self):
-        return ('compose', map(lambda a: a.as_tuple(), self.children))
+        return ('compose', [ a.as_tuple() for a in self.children ])
     def space_upto_nl(self):
         r = 0
         for child in self.children:
@@ -256,13 +269,13 @@ class ComposeFormatObject(NAryFormatObject):
                 return (r, True)
         return (r, False)
     def flat(self):
-        return compose(map(lambda a: a.flat(), self.children))
+        return compose([a.flat() for a in self.children ])
 
 class ChoiceFormatObject(NAryFormatObject):
     def is_choice(sef):
         return True
     def as_tuple(self):
-        return ('choice', map(lambda a: a.as_tuple(), self.children))
+        return ('choice', [ a.as_tuple() for a in self.children ])
     def space_upto_nl(self):
         return self.children[0].space_upto_nl()
     def flat(self):
@@ -388,11 +401,11 @@ class PP:
         if not self.bounded or self.pos <= self.max_width:
             sz = _len(f)
             if self.bounded and self.pos + sz > self.max_width:
-                self.out.write(_ellipses)
+                self.out.write(u(_ellipses))
             else:
                 self.pos = self.pos + sz
                 self.ribbon_pos = self.ribbon_pos + sz
-                self.out.write(unicode(f.string))
+                self.out.write(u(f.string))
 
     def pp_compose(self, f, indent):
         for c in f.children:
@@ -410,11 +423,11 @@ class PP:
         self.ribbon_pos = 0
         self.line = self.line + 1
         if self.line < self.max_lines: 
-            self.out.write(unicode('\n'))
+            self.out.write(u('\n'))
             for i in range(indent):
-                self.out.write(unicode(' '))
+                self.out.write(u(' '))
         else:
-            self.out.write(unicode('\n...'))
+            self.out.write(u('\n...'))
             raise StopPPException()
 
     def pp(self, f, indent):
@@ -957,23 +970,23 @@ def in_html_mode():
 
 def pp(a):
     if _support_pp(a):
-        print obj_to_string(a)
+        print(obj_to_string(a))
     else:
-        print a
+        print(a)
 
 def print_matrix(m):
     z3._z3_assert(isinstance(m, list) or isinstance(m, tuple), "matrix expected")
     if not in_html_mode():
-        print obj_to_string(m)
+        print(obj_to_string(m))
     else:
-        print '<table cellpadding="2", cellspacing="0", border="1">'
+        print('<table cellpadding="2", cellspacing="0", border="1">')
         for r in m:
             z3._z3_assert(isinstance(r, list) or isinstance(r, tuple), "matrix expected")
-            print '<tr>'
+            print('<tr>')
             for c in r:
-                print '<td>%s</td>' % c
-            print '</tr>'
-        print '</table>'
+                print('<td>%s</td>' % c)
+            print('</tr>')
+        print('</table>')
     
 def insert_line_breaks(s, width):
     """Break s in lines of size width (approx)"""
@@ -984,9 +997,9 @@ def insert_line_breaks(s, width):
     w = 0
     for i in range(sz):
         if w > width and s[i] == ' ':
-            new_str.write(u'<br />')
+            new_str.write(u('<br />'))
             w = 0
         else:
-            new_str.write(unicode(s[i]))
+            new_str.write(u(s[i]))
         w = w + 1
     return new_str.getvalue()
