@@ -2777,99 +2777,12 @@ def mk_z3consts_ml(api_files):
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])
-                        efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
-                            efile.write('  | %s -> %d\n' % (k[3:], i))
-                        efile.write('\n')
-                        efile.write('(** Convert int to %s*)\n' % name[3:])
-                        efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in decls.iteritems():
-                            efile.write('  | %d -> %s\n' % (i, k[3:]))
-                        # use Z3.Exception?
-                        efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
-                    mode = SEARCHING
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-    if VERBOSE:
-        print "Generated '%s/z3enums.ml'" % ('%s' % gendir)
-    efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
-    efile.write('(** The enumeration types of Z3. *)\n\n')
-    efile.write('module Z3enums = struct\n')
-    for api_file in api_files:
-        api_file_c = ml.find_file(api_file, ml.name)
-        api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1 
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    if name not in DeprecatedEnums:
-                        efile.write('(** %s *)\n' % name[3:])
-                        efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
-                            efile.write('  | %s \n' % k[3:]) # strip Z3_
-                        efile.write('\n')
-                        efile.write('(** Convert %s to int*)\n' % name[3:])
-                        efile.write('val int_of_%s : %s -> int\n' % (name[3:], name[3:])) # strip Z3_
-                        efile.write('(** Convert int to %s*)\n' % name[3:])
-                        efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
-                        efile.write('\n')
-                        efile.write('\n(* %s *)\n' % name)
-                        efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.iteritems():
-                            efile.write('    | %s \n' % k[3:]) # strip Z3_
-                        efile.write('\n')
                         efile.write('let %s2int x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():
                             efile.write('  | %s -> %d\n' % (k[3:], i))
                         efile.write('\n')
+                        efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('let int2%s x : %s =\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():

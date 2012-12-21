@@ -1,33 +1,17 @@
-(* 
+(**
+   The Z3 ML/Ocaml Interface.
+
    Copyright (C) 2012 Microsoft Corporation
-   Author: CM Wintersteiger (cwinter) 2012-12-17
+   @author CM Wintersteiger (cwinter) 2012-12-17
 *)
 
 open Z3enums
 open Z3native
 
-module Log = 
-struct
-  let m_is_open = false
-  (* CMW: "open" seems to be an invalid function name*)
-  let open_ fn = ((int2lbool (open_log fn)) == L_TRUE)
-  let close = close_log
-  let append s = append_log s
-end
+(**/**)
 
-module Version =
-struct
-  let major = let (x, _, _, _) = get_version in x
-  let minor = let (_, x, _, _) = get_version in x
-  let build = let (_, _, x, _) = get_version in x
-  let revision = let (_, _, _, x) = get_version in x
-  let to_string = 
-    let (mj, mn, bld, rev) = get_version in
-    string_of_int mj ^ "." ^
-      string_of_int mn ^ "." ^
-      string_of_int bld ^ "." ^
-      string_of_int rev ^ "."
-end
+(* Object definitions. These are internal and should be interacted 
+   with only via the corresponding functions from modules. *)
 
 class virtual idisposable = 
 object
@@ -61,7 +45,7 @@ object (self)
 
   method sub_one_ctx_obj = m_refCount <- m_refCount - 1
   method add_one_ctx_obj = m_refCount <- m_refCount + 1
-  method get_native = m_n_ctx
+  method gno = m_n_ctx
 end
 
 class virtual z3object ctx_init obj_init =
@@ -91,9 +75,9 @@ object (self)
       | None -> ()
     ); 
 
-  method get_native_object = m_n_obj
+  method gno = m_n_obj
 
-  method set_native_object x =
+  method sno x =
     (match x with
       | Some(x) -> self#incref x
       | None -> ()
@@ -105,11 +89,11 @@ object (self)
     m_n_obj <- x
 
   method get_context = m_ctx
-  method get_native_context = m_ctx#get_native
+  method gnc = m_ctx#gno
 
 (*
   method array_to_native a =
-    let f e = e#get_native_object in 
+    let f e = e#gno in 
     (Array.map f a) 
 
   method array_length a =
@@ -120,61 +104,145 @@ object (self)
 
 end
 
-class symbol ctx_init obj_init = 
+class symbol ctx obj = 
 object (self)
-  inherit z3object ctx_init obj_init
+  inherit z3object ctx obj
 
   method incref o = ()
   method decref o = ()
 end
 
-class int_symbol ctx_init obj_init  = 
+class int_symbol ctx = 
 object(self)
-  inherit symbol ctx_init obj_init
+  inherit symbol ctx None
+  method cnstr_obj obj = (self#sno obj) ; self
+  method cnstr_int i = (self#sno (Some (mk_int_symbol ctx#gno i))) ; self
 end
 
-class string_symbol ctx_init obj_init = 
+class string_symbol ctx = 
 object(self)
-  inherit symbol ctx_init obj_init
+  inherit symbol ctx None
+  method cnstr_obj obj = (self#sno obj) ; self
+  method cnstr_string name = (self#sno (Some (mk_string_symbol ctx#gno name))) ; self
 end
 
+(**/**)
+
+(** Interaction logging for Z3.
+    Note that this is a global, static log and if multiple Context 
+    objects are created, it logs the interaction with all of them. *)
+module Log = 
+struct
+  (** Open an interaction log file. 
+      @param filename the name of the file to open.
+      @return True if opening the log file succeeds, false otherwise.
+  *)
+  (* CMW: "open" seems to be a reserved keyword? *)
+  let open_ filename = ((int2lbool (open_log filename)) == L_TRUE)
+
+  (** Closes the interaction log. *)
+  let close = close_log
+
+  (** Appends a user-provided string to the interaction log.
+      @param s the string to append*)
+  let append s = append_log s
+end
+
+(** Version information. *)
+module Version =
+struct
+  (** The major version. *)
+  let major = let (x, _, _, _) = get_version in x
+
+  (** The minor version. *)
+  let minor = let (_, x, _, _) = get_version in x
+
+  (** The build version. *)
+  let build = let (_, _, x, _) = get_version in x
+
+  (** The revision. *)
+  let revision = let (_, _, _, x) = get_version in x
+
+  (** A string representation of the version information. *)
+  let to_string = 
+    let (mj, mn, bld, rev) = get_version in
+    string_of_int mj ^ "." ^
+      string_of_int mn ^ "." ^
+      string_of_int bld ^ "." ^
+      string_of_int rev ^ "."
+end
+
+(** Symbols are used to name several term and type constructors. *)
 module Symbol =
 struct
+(**/**)
   let create ctx obj =
     match obj with 
       | Some(x) -> (
-	match (int2symbol_kind (get_symbol_kind ctx#get_native x)) with
-	  | INT_SYMBOL -> (new int_symbol ctx obj :> symbol)
-          | STRING_SYMBOL -> (new string_symbol ctx obj :> symbol)
+	match (int2symbol_kind (get_symbol_kind ctx#gno x)) with
+	  | INT_SYMBOL -> (((new int_symbol ctx)#cnstr_obj obj) :> symbol)
+          | STRING_SYMBOL -> (((new string_symbol ctx)#cnstr_obj obj) :> symbol)
       )
       | None -> raise (Exception "Can't create null objects")
+(**/**)
 
-  let kind o = match o#m_n_obj with
-    | Some(x) -> (int2symbol_kind (get_symbol_kind o#get_native_context x))
+  (** The kind of the symbol (int or string) *)
+  let kind (o : symbol) = match o#gno with
+    | Some(x) -> (int2symbol_kind (get_symbol_kind o#gnc x))
     | _ -> raise (Exception "Underlying object lost")
 
-  let is_int_symbol o = match o#m_n_obj with
-    | Some(x) -> x#kind == INT_SYMBOL
+  (** Indicates whether the symbol is of Int kind *)
+  let is_int_symbol (o : symbol) = match o#gno with
+    | Some(x) -> (kind o) == INT_SYMBOL
     | _ -> false
 
-  let is_string_symbol o = match o#m_n_obj with
-    | Some(x) -> x#kind == STRING_SYMBOL
+  (** Indicates whether the symbol is of string kind. *)
+  let is_string_symbol (o : symbol) = match o#gno with
+    | Some(x) -> (kind o) == STRING_SYMBOL
     | _ -> false
 
-  let get_int o = match o#m_n_obj with
-    | Some(x) -> (get_symbol_int o#get_native_context x)
+  (** The int value of the symbol. *)
+  let get_int (o : int_symbol) = match o#gno with
+    | Some(x) -> (get_symbol_int o#gnc x)
     | None -> 0
 
-  let get_string o = match o#m_n_obj with
-    | Some(x) -> (get_symbol_string o#get_native_context x)
+  (** The string value of the symbol. *)
+  let get_string (o : string_symbol) = match o#gno with
+    | Some(x) -> (get_symbol_string o#gnc x)
     | None -> ""
 
-  let to_string o = match o#m_n_obj with
+  (** A string representation of the symbol. *)
+  let to_string (o : symbol) = match o#gno with
     | Some(x) -> 
       (
 	match (kind o) with
-	  | INT_SYMBOL -> (string_of_int (get_symbol_int o#get_native_context x))
-	  | STRING_SYMBOL -> (get_symbol_string o#get_native_context x)
+	  | INT_SYMBOL -> (string_of_int (get_symbol_int o#gnc x))
+	  | STRING_SYMBOL -> (get_symbol_string o#gnc x)
       )
     | None -> ""
+end
+
+(** The main interaction with Z3 happens via the Context. *)
+module Context =
+struct
+  (**
+     Creates a new symbol using an integer.
+     
+     Not all integers can be passed to this function.
+     The legal range of unsigned integers is 0 to 2^30-1.
+  *)
+  let mk_symbol_int ctx i = 
+    (new int_symbol ctx)#cnstr_int i
+    
+  (** Creates a new symbol using a string. *)
+  let mk_symbol_string ctx s =
+    (new string_symbol ctx)#cnstr_string s
+
+  (**
+     Create an array of symbols.
+  *)
+  let mk_symbols ctx names =
+    let f elem = mk_symbol_string ctx elem in
+    (Array.map f names)
+      
 end
