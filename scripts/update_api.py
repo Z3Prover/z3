@@ -1,3 +1,4 @@
+
 ############################################
 # Copyright (c) 2012 Microsoft Corporation
 # 
@@ -1097,6 +1098,45 @@ def is_array_param(p):
     else:
         return False
 
+def arrayparams(params):
+    op = []
+    for param in params:
+        if is_array_param(param):
+            op.append(param)
+    return op
+
+
+def ml_unwrap(t):
+    if t == STRING:
+        return 'String_val'
+    elif t == BOOL or t == INT or PRINT_MODE or ERROR_CODE:
+        return 'Int_val'
+    elif t == UINT:
+        return 'Unsigned_int_val'
+    elif t == INT64:
+        return 'Long_val'
+    elif t == UINT64:
+        return 'Unsigned_long_val'
+    elif t == DOUBLE:
+        return 'Double_val'
+    else:
+        return 'Data_custom_val'
+
+def ml_set_wrap(t, d, n):
+    if t == VOID:
+        return d + ' = Val_unit;'
+    elif t == BOOL or t == INT or t == UINT or PRINT_MODE or ERROR_CODE:
+        return d + ' = Val_int(' + n + ');'
+    elif t == INT64 or t == UINT64:
+        return d + ' = Val_long(' + n + ');'
+    elif t == DOUBLE:
+        return 'Store_double_val(' + d + ', ' + n + ');'
+    elif t == STRING:
+        return d + ' = caml_copy_string((const char*) ' + n + ');'
+    else:
+        ts = type2str(t)
+        return d + ' = caml_alloc_custom(0, sizeof(' + ts + '), 0, 1); memcpy( Data_custom_val(' + d + '), &' + n + ', sizeof(' + ts + '));'
+
 def mk_ml():
     global Type2Str
     if not is_ml_enabled():
@@ -1242,15 +1282,12 @@ def mk_ml():
     for name, result, params in _dotnet_decls:
         ip = inparams(params)
         op = outparams(params)
+        ap = arrayparams(params)
         ret_size = len(op)
         if result != VOID:
             ret_size = ret_size + 1
             
         # Setup frame
-        n_locals = 0
-        for p in params:
-            if is_out_param(p) or (is_in_param(p) and param_type(p) == STRING):
-                n_locals = n_locals + 1
         ml_wrapper.write('CAMLprim value n_%s(' % ml_method_name(name)) 
         first = True
         i = 0
@@ -1276,46 +1313,50 @@ def mk_ml():
             i = i + 1
         ml_wrapper.write(');\n')
         i = 0
-        first = True
-        if result != VOID:
-            n_locals = n_locals + 1
-        if ret_size > 1:
-            n_locals = n_locals + 1 
-        if n_locals > 0:
-            ml_wrapper.write('  CAMLlocal%s(' % (n_locals))
-            if ret_size > 1:
-                if result != VOID:
-                    ml_wrapper.write('result, ')
-                ml_wrapper.write('result_tuple')
-                first = False
-            elif result != VOID:
-                ml_wrapper.write('result')
-                first = False
+        if len(op) + len(ap) == 0:
+            ml_wrapper.write('  CAMLlocal1(result);\n')
+        else:
+            c = 0
             for p in params:
-                if is_out_param(p) or (is_in_param(p) and param_type(p) == STRING):
-                    if first:
-                        first = False
-                    else:
-                        ml_wrapper.write(', ')
-                    ml_wrapper.write('_a%s' % i)
+                if is_out_param(p) or is_array_param(p):
+                    c = c + 1
+            ml_wrapper.write('  CAMLlocal%s(result, res_val' % (c+2))
+            for p in params:
+                if is_out_param(p) or is_array_param(p):
+                    ml_wrapper.write(', _a%s_val' % i)
                 i = i + 1
             ml_wrapper.write(');\n')
 
         # preprocess arrays, strings, in/out arguments
         i = 0
         for param in params:
-            if param_kind(param) == OUT_ARRAY:
-                ml_wrapper.write('  _a%s = (long) malloc(sizeof(%s) * ((long)a%s));\n' % (i, 
-                                                                                          type2str(param_type(param)),
-                                                                                          param_array_capacity_pos(param)))
-            elif param_kind(param) == IN and param_type(param) == STRING:
-                ml_wrapper.write('  _a%s = (value) String_val(a%s);\n' % (i, i))
+            k = param_kind(param)
+            if k == OUT_ARRAY:
+                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * (_a%s));\n' % (
+                        type2str(param_type(param)),
+                        i, 
+                        type2str(param_type(param)),
+                        type2str(param_type(param)),
+                        param_array_capacity_pos(param)))
+            elif k == IN_ARRAY or k == INOUT_ARRAY:
+                t = param_type(param)
+                ts = type2str(t)
+                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
+                ml_wrapper.write('  for (unsigned i = 0; i < a%s; i++) _a%s[i] = (%s) %s(Field(a%s, i));\n' % (param_array_capacity_pos(param), i, ts, ml_unwrap(t), i))
+            elif k == IN:
+                t = param_type(param)
+                ml_wrapper.write('  %s _a%s = (%s) %s(a%s);\n' % (type2str(t), i, type2str(t), ml_unwrap(t), i))
+            elif k == OUT:
+                ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
+            elif k == INOUT:
+                ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
+                
             i = i + 1
 
         # invoke procedure
         ml_wrapper.write('  ')
         if result != VOID:
-            ml_wrapper.write('result = (value) ')
+            ml_wrapper.write('%s z3_result = ' % type2str(result))
         ml_wrapper.write('%s(' % name)
         i = 0
         first = True
@@ -1326,58 +1367,50 @@ def mk_ml():
                 ml_wrapper.write(', ')
             k = param_kind(param)
             if k == OUT or k == INOUT:
-                ml_wrapper.write('(%s)&_a%s' % (param2str(param), i))
-            elif k == INOUT_ARRAY or k == IN_ARRAY:
-                ml_wrapper.write('(%s*)a%s' % (type2str(param_type(param)), i))
-            elif k == OUT_ARRAY:
-                ml_wrapper.write('(%s*)_a%s' % (type2str(param_type(param)), i))
-            elif k == IN and param_type(param) == STRING:
-                ml_wrapper.write('(Z3_string) _a%s' % i)
+                ml_wrapper.write('&_a%s' %  i)
             else:
-                ml_wrapper.write('(%s)a%i' % (param2str(param), i))
+                ml_wrapper.write('_a%i' % i)
             i = i + 1
         ml_wrapper.write(');\n')
 
-        # return tuples                
+        # convert output params
         if len(op) > 0:
-            ml_wrapper.write('  result_tuple = caml_alloc(%s, 0);\n' % ret_size)
+            if result != VOID:
+                ml_wrapper.write('  %s\n' % ml_set_wrap(result, "res_val", "z3_result"))
+            i = 0;
+            for p in params:
+                if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
+                    ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
+                    ml_wrapper.write('  for (unsigned i = 0; i < _a%s; i++) { value t; %s Store_field(_a%s, i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[i]'), i))
+                elif is_out_param(p):
+                    ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
+                i = i + 1
+
+        # return tuples                
+        if len(op) == 0:
+            ml_wrapper.write('  %s\n' % ml_set_wrap(result, "result", "z3_result"))
+        else:
+            ml_wrapper.write('  result = caml_alloc(%s, 0);\n' % ret_size)
             i = j = 0
             if result != VOID:
-                if result == STRING:
-                    ml_wrapper.write('  Store_field(result_tuple, 0, caml_copy_string(result));\n')
-                else:
-                    ml_wrapper.write('  Store_field(result_tuple, 0, result);\n')
+                ml_wrapper.write('  Store_field(result, 0, res_val);\n')
                 j = j + 1
             for p in params:
-                if param_kind(p) == OUT_ARRAY or param_kind(p) == OUT:
-                    ml_wrapper.write('  Store_field(result_tuple, %s, _a%s);\n' % (j, i))
-                    j = j + 1;                    
-                elif is_out_param(p):
-                    if param_type(p) == STRING:
-                        ml_wrapper.write('  Store_field(result_tuple, %s, caml_copy_string((const char *)_a%s));\n' % (j, i))
-                    else:
-                        ml_wrapper.write('  Store_field(result_tuple, %s, a%s);\n' % (j, i))
+                if is_out_param(p):
+                    ml_wrapper.write('  Store_field(result, %s, _a%s_val);\n' % (j, i))
                     j = j + 1;
                 i = i + 1
 
         # local array cleanup
         i = 0
         for p in params:
-            if param_kind(p) == OUT_ARRAY:
-                ml_wrapper.write('  free((long*)_a%s);\n' % i)
+            k = param_kind(p)
+            if k == OUT_ARRAY or k == IN_ARRAY or k == INOUT_ARRAY:
+                ml_wrapper.write('  free(_a%s);\n' % i)
             i = i + 1
 
         # return
-        if len(op) > 0:
-            ml_wrapper.write('  CAMLreturn(result_tuple);\n')
-        else:
-            if result == STRING:
-                ml_wrapper.write('  CAMLreturn(caml_copy_string((const char*) result));\n')
-            elif result == VOID:
-                ml_wrapper.write('  CAMLreturn(Val_unit);\n')
-            elif result != VOID:
-                ml_wrapper.write('  CAMLreturn(result);\n')
-
+        ml_wrapper.write('  CAMLreturn(result);\n')
         ml_wrapper.write('}\n\n')
         if len(ip) > 5:
             ml_wrapper.write('CAMLprim value n_%s_bytecode(value * argv, int argn) {\n' % ml_method_name(name)) 

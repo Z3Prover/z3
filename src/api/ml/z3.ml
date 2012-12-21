@@ -10,11 +10,25 @@ module Log =
 struct
   let m_is_open = false
   (* CMW: "open" seems to be an invalid function name*)
-  let open_ fn = int2lbool(open_log fn) == L_TRUE
-  let close = (close_log)
-  let append s = (append_log s)
+  let open_ fn = ((int2lbool (open_log fn)) == L_TRUE)
+  let close = close_log
+  let append s = append_log s
 end
-  
+
+module Version =
+struct
+  let major = let (x, _, _, _) = get_version in x
+  let minor = let (_, x, _, _) = get_version in x
+  let build = let (_, _, x, _) = get_version in x
+  let revision = let (_, _, _, x) = get_version in x
+  let to_string = 
+    let (mj, mn, bld, rev) = get_version in
+    string_of_int mj ^ "." ^
+      string_of_int mn ^ "." ^
+      string_of_int bld ^ "." ^
+      string_of_int rev ^ "."
+end
+
 class virtual idisposable = 
 object
   method virtual dispose : unit
@@ -25,7 +39,7 @@ object (self)
   inherit idisposable
 
   val mutable m_n_ctx : Z3native.z3_context = 
-    let cfg = mk_config() in
+    let cfg = mk_config in
     let f e = (set_param_value cfg (fst e) (snd e)) in
     (List.iter f settings) ;
     let v = mk_context_rc cfg in
@@ -34,14 +48,15 @@ object (self)
 
   val mutable m_refCount : int = 0
     
-  initializer Gc.finalise (fun self -> self#dispose) self
+  initializer 
+    Gc.finalise (fun self -> self#dispose) self
     
   method dispose : unit = 
     if m_refCount == 0 then (
-      Printf.printf "Disposing %d \n" (Oo.id self) ;
+      Printf.printf "Disposing context %d \n" (Oo.id self) ;
       (del_context m_n_ctx)
     ) else (
-       (* re-queue for finalization? *)
+    (* re-queue for finalization? *)
     )
 
   method sub_one_ctx_obj = m_refCount <- m_refCount - 1
@@ -66,9 +81,9 @@ object (self)
   method virtual incref : Z3native.ptr -> unit
   method virtual decref : Z3native.ptr -> unit
     
-    (* 
-       Disposes of the underlying native Z3 object. 
-    *)
+  (* 
+     Disposes of the underlying native Z3 object. 
+  *)
   method dispose =
     Printf.printf "Disposing z3object %d \n" (Oo.id self) ;
     (match m_n_obj with
@@ -92,16 +107,17 @@ object (self)
   method get_context = m_ctx
   method get_native_context = m_ctx#get_native
 
-  (*
-    method array_to_native a =
+(*
+  method array_to_native a =
     let f e = e#get_native_object in 
     (Array.map f a) 
 
-    method array_length a =
+  method array_length a =
     match a with
-    | Some(x) -> (Array.length x)
-    | None -> 0
-  *)
+      | Some(x) -> (Array.length x)
+      | None -> 0
+*)
+
 end
 
 class symbol ctx_init obj_init = 
@@ -110,49 +126,55 @@ object (self)
 
   method incref o = ()
   method decref o = ()
+end
 
-  method kind = match m_n_obj with
-    | Some(x) -> (int2symbol_kind (get_symbol_kind self#get_native_context x))
-    | _ -> raise (Exception "Underlying object lost")
+class int_symbol ctx_init obj_init  = 
+object(self)
+  inherit symbol ctx_init obj_init
+end
 
-  method is_int_symbol = match m_n_obj with
-    | Some(x) -> self#kind == INT_SYMBOL
-    | _ -> false
+class string_symbol ctx_init obj_init = 
+object(self)
+  inherit symbol ctx_init obj_init
+end
 
-  method is_string_symbol = match m_n_obj with
-    | Some(x) -> self#kind == STRING_SYMBOL
-    | _ -> false
-
-  method to_string = match m_n_obj with
-    | Some(x) -> 
-      (
-	match self#kind with
-	  | INT_SYMBOL -> (string_of_int (get_symbol_int self#get_native_context x))
-	  | STRING_SYMBOL -> (get_symbol_string self#get_native_context x)
-      )
-    | None -> ""
-
-  method create ctx obj =
+module Symbol =
+struct
+  let create ctx obj =
     match obj with 
       | Some(x) -> (
 	match (int2symbol_kind (get_symbol_kind ctx#get_native x)) with
-	  | INT_SYMBOL -> (new intsymbol ctx obj :> symbol)
-          | STRING_SYMBOL -> (new stringsymbol ctx obj :> symbol)
+	  | INT_SYMBOL -> (new int_symbol ctx obj :> symbol)
+          | STRING_SYMBOL -> (new string_symbol ctx obj :> symbol)
       )
       | None -> raise (Exception "Can't create null objects")
 
-end
+  let kind o = match o#m_n_obj with
+    | Some(x) -> (int2symbol_kind (get_symbol_kind o#get_native_context x))
+    | _ -> raise (Exception "Underlying object lost")
 
-and intsymbol ctx_init obj_init  = 
-object(self)
-  inherit symbol ctx_init obj_init
+  let is_int_symbol o = match o#m_n_obj with
+    | Some(x) -> x#kind == INT_SYMBOL
+    | _ -> false
 
-  method get_int = match m_n_obj with
-    | Some(x) -> (get_symbol_int m_ctx#get_native x)
+  let is_string_symbol o = match o#m_n_obj with
+    | Some(x) -> x#kind == STRING_SYMBOL
+    | _ -> false
+
+  let get_int o = match o#m_n_obj with
+    | Some(x) -> (get_symbol_int o#get_native_context x)
     | None -> 0
-end
 
-and stringsymbol ctx_init obj_init = 
-object(self)
-  inherit symbol ctx_init obj_init
+  let get_string o = match o#m_n_obj with
+    | Some(x) -> (get_symbol_string o#get_native_context x)
+    | None -> ""
+
+  let to_string o = match o#m_n_obj with
+    | Some(x) -> 
+      (
+	match (kind o) with
+	  | INT_SYMBOL -> (string_of_int (get_symbol_int o#get_native_context x))
+	  | STRING_SYMBOL -> (get_symbol_string o#get_native_context x)
+      )
+    | None -> ""
 end
