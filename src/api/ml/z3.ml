@@ -22,10 +22,11 @@ struct
   let build = let (_, _, x, _) = get_version in x
   let revision = let (_, _, _, x) = get_version in x
   let to_string = 
-    string_of_int major ^ "." ^
-    string_of_int minor ^ "." ^
-    string_of_int build ^ "." ^
-    string_of_int revision ^ "."
+    let (mj, mn, bld, rev) = get_version in
+    string_of_int mj ^ "." ^
+      string_of_int mn ^ "." ^
+      string_of_int bld ^ "." ^
+      string_of_int rev ^ "."
 end
 
 class virtual idisposable = 
@@ -52,7 +53,7 @@ object (self)
     
   method dispose : unit = 
     if m_refCount == 0 then (
-      Printf.printf "Disposing %d \n" (Oo.id self) ;
+      Printf.printf "Disposing context %d \n" (Oo.id self) ;
       (del_context m_n_ctx)
     ) else (
     (* re-queue for finalization? *)

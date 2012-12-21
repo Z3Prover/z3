@@ -2699,7 +2699,7 @@ def mk_z3consts_ml(api_files):
                     idx = idx + 1
             linenum = linenum + 1
     if VERBOSE:
-        print "Generated '%s/enumerations.ml'" % ('%s' % gendir)
+        print "Generated '%s/z3enums.ml'" % ('%s' % gendir)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
