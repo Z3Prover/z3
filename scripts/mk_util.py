@@ -2628,6 +2628,7 @@ def mk_z3consts_ml(api_files):
 
     efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
     efile.write('(* Automatically generated file *)\n\n')
+    efile.write('(** The enumeration types of Z3. *)\n\n')
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
@@ -2673,15 +2674,18 @@ def mk_z3consts_ml(api_files):
                 if m:
                     name = words[1]
                     if name not in DeprecatedEnums:
+                        efile.write('(** %s *)\n' % name[3:])
                         efile.write('type %s =\n' % name[3:]) # strip Z3_
                         for k, i in decls.iteritems():
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
+                        efile.write('(** Convert %s to int*)\n' % name[3:])
                         efile.write('let %s2int x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():
                             efile.write('  | %s -> %d\n' % (k[3:], i))
                         efile.write('\n')
+                        efile.write('(** Convert int to %s*)\n' % name[3:])
                         efile.write('let int2%s x : %s =\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():

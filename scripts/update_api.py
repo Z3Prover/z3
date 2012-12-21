@@ -1106,26 +1106,26 @@ def arrayparams(params):
     return op
 
 
-def ml_unwrap(t):
+def ml_unwrap(t, ts, s):
     if t == STRING:
-        return 'String_val'
-    elif t == BOOL or t == INT or PRINT_MODE or ERROR_CODE:
-        return 'Int_val'
+        return '(' + ts + ') String_val(' + s + ')'
+    elif t == BOOL or t == INT or t == PRINT_MODE or t == ERROR_CODE:
+        return '(' + ts + ') Int_val(' + s + ')'
     elif t == UINT:
-        return 'Unsigned_int_val'
+        return '(' + ts + ') Unsigned_int_val(' + s + ')'
     elif t == INT64:
-        return 'Long_val'
+        return '(' + ts + ') Long_val(' + s + ')'
     elif t == UINT64:
-        return 'Unsigned_long_val'
+        return '(' + ts + ') Unsigned_long_val(' + s + ')'
     elif t == DOUBLE:
-        return 'Double_val'
+        return '(' + ts + ') Double_val(' + s + ')'
     else:
-        return 'Data_custom_val'
+        return '* (' + ts + '*) Data_custom_val(' + s + ')'
 
 def ml_set_wrap(t, d, n):
     if t == VOID:
         return d + ' = Val_unit;'
-    elif t == BOOL or t == INT or t == UINT or PRINT_MODE or ERROR_CODE:
+    elif t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
         return d + ' = Val_int(' + n + ');'
     elif t == INT64 or t == UINT64:
         return d + ' = Val_long(' + n + ');'
@@ -1135,7 +1135,7 @@ def ml_set_wrap(t, d, n):
         return d + ' = caml_copy_string((const char*) ' + n + ');'
     else:
         ts = type2str(t)
-        return d + ' = caml_alloc_custom(0, sizeof(' + ts + '), 0, 1); memcpy( Data_custom_val(' + d + '), &' + n + ', sizeof(' + ts + '));'
+        return d + ' = caml_alloc_custom(&default_custom_ops, sizeof(' + ts + '), 0, 1); memcpy( Data_custom_val(' + d + '), &' + n + ', sizeof(' + ts + '));'
 
 def mk_ml():
     global Type2Str
@@ -1146,7 +1146,9 @@ def mk_ml():
     ml_wrapperf = os.path.join(ml_dir, 'z3native.c')
     ml_native   = open(ml_nativef, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
+    ml_native.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
     ml_native.write('open Z3enums\n\n')
+    ml_native.write('(**/**)\n')
     ml_native.write('type ptr\n')
     ml_native.write('and z3_symbol = ptr\n')
     for k, v in Type2Str.iteritems():
@@ -1226,6 +1228,7 @@ def mk_ml():
         else:
             ml_native.write('        res\n')
         ml_native.write('\n')
+    ml_native.write('(**/**)\n')
 
     # C interface
     ml_wrapper = open(ml_wrapperf, 'w')
@@ -1276,6 +1279,14 @@ def mk_ml():
     ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
     ml_wrapper.write('  CAMLxparam3(X11,X12,X13);                                           \n')
     ml_wrapper.write('\n\n')
+    ml_wrapper.write('static struct custom_operations default_custom_ops = {\n')
+    ml_wrapper.write('  identifier: "default handling",\n')
+    ml_wrapper.write('  finalize:    custom_finalize_default,\n')
+    ml_wrapper.write('  compare:     custom_compare_default,\n')
+    ml_wrapper.write('  hash:        custom_hash_default,\n')
+    ml_wrapper.write('  serialize:   custom_serialize_default,\n')
+    ml_wrapper.write('  deserialize: custom_deserialize_default\n')
+    ml_wrapper.write('};\n\n')
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('extern "C" {\n')
     ml_wrapper.write('#endif\n\n')
@@ -1342,10 +1353,10 @@ def mk_ml():
                 t = param_type(param)
                 ts = type2str(t)
                 ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
-                ml_wrapper.write('  for (unsigned i = 0; i < a%s; i++) _a%s[i] = (%s) %s(Field(a%s, i));\n' % (param_array_capacity_pos(param), i, ts, ml_unwrap(t), i))
+                ml_wrapper.write('  for (unsigned i = 0; i < _a%s; i++) _a%s[i] = %s;\n' % (param_array_capacity_pos(param), i, ml_unwrap(t, ts, 'Field(a' + str(i) + ', i)')))
             elif k == IN:
                 t = param_type(param)
-                ml_wrapper.write('  %s _a%s = (%s) %s(a%s);\n' % (type2str(t), i, type2str(t), ml_unwrap(t), i))
+                ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
             elif k == OUT:
                 ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
             elif k == INOUT:
