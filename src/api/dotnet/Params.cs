@@ -23,7 +23,7 @@ using System.Diagnostics.Contracts;
 namespace Microsoft.Z3
 {
     /// <summary>
-    /// A ParameterSet represents a configuration in the form of Symbol/value pairs.
+    /// A Params objects represents a configuration in the form of Symbol/value pairs.
     /// </summary>
     [ContractVerification(true)]
     public class Params : Z3Object
