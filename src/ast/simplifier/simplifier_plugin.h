@@ -37,7 +37,7 @@ protected:
     void set_reduce_invoked() { m_reduce_invoked = true; }
 
 public:
-    simplifier_plugin(symbol const & fname, ast_manager & m):m_manager(m), m_fid(m.get_family_id(fname)), m_presimp(false), m_reduce_invoked(false) {}
+    simplifier_plugin(symbol const & fname, ast_manager & m):m_manager(m), m_fid(m.mk_family_id(fname)), m_presimp(false), m_reduce_invoked(false) {}
     
     bool reduce_invoked() const { return m_reduce_invoked; }
 

@@ -31,7 +31,7 @@ proto_model::proto_model(ast_manager & m, simplifier & s, params_ref const & p):
     model_core(m),
     m_asts(m),
     m_simplifier(s),
-    m_afid(m.get_family_id(symbol("array"))) {
+    m_afid(m.mk_family_id(symbol("array"))) {
     register_factory(alloc(basic_factory, m));
     m_user_sort_factory = alloc(user_sort_factory, m);
     register_factory(m_user_sort_factory);

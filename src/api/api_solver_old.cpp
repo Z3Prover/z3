@@ -22,7 +22,6 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_context.h"
 #include"api_model.h"
-#include"smt_implied_equalities.h"
 #include"cancel_eh.h"
 
 extern "C" {
@@ -109,19 +108,6 @@ extern "C" {
         CHECK_SEARCHING(c);
         Z3_lbool r = Z3_check_and_get_model(c, 0);
         return r;
-        Z3_CATCH_RETURN(Z3_L_UNDEF);
-    }
-
-    Z3_lbool Z3_API Z3_get_implied_equalities(Z3_context c, 
-                                              unsigned num_terms,
-                                              Z3_ast const terms[],
-                                              unsigned class_ids[]) {
-        Z3_TRY;
-        LOG_Z3_get_implied_equalities(c, num_terms, terms, class_ids);
-        RESET_ERROR_CODE();
-        CHECK_SEARCHING(c);
-        lbool result = smt::implied_equalities(mk_c(c)->get_smt_kernel(), num_terms, to_exprs(terms), class_ids);
-        return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 

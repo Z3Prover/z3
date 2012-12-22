@@ -85,7 +85,7 @@ proof_checker::proof_checker(ast_manager& m) : m(m), m_todo(m), m_marked(), m_pi
     if (!m.has_plugin(fam_name)) {
         m.register_plugin(fam_name, alloc(hyp_decl_plugin));
     }
-    m_hyp_fid = m.get_family_id(fam_name);
+    m_hyp_fid = m.mk_family_id(fam_name);
     // m_spc_fid = m.get_family_id("spc");
     m_nil = m.mk_const(m_hyp_fid, OP_NIL);
 }

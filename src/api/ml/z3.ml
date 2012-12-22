@@ -229,16 +229,6 @@ and param_kind =
   | PK_OTHER
   | PK_INVALID
 
-and search_failure =
-  | NO_FAILURE
-  | UNKNOWN
-  | TIMEOUT
-  | MEMOUT_WATERMARK
-  | CANCELED
-  | NUM_CONFLICTS
-  | THEORY
-  | QUANTIFIERS
-
 and ast_print_mode =
   | PRINT_SMTLIB_FULL
   | PRINT_LOW_LEVEL
@@ -1595,6 +1585,9 @@ external stats_get_uint_value : context -> stats -> int -> int
 
 external stats_get_double_value : context -> stats -> int -> float
 	= "camlidl_z3_Z3_stats_get_double_value"
+
+external get_implied_equalities : context -> solver -> ast array -> lbool * int array
+	= "camlidl_z3_Z3_get_implied_equalities"
 
 
 
@@ -3026,9 +3019,6 @@ external check : context -> lbool
 
 external check_assumptions : context -> ast array -> int -> ast array -> lbool * model * ast * int * ast array
 	= "camlidl_z3V3_Z3_check_assumptions"
-
-external get_implied_equalities : context -> ast array -> lbool * int array
-	= "camlidl_z3V3_Z3_get_implied_equalities"
 
 external del_model : context -> model -> unit
 	= "camlidl_z3V3_Z3_del_model"

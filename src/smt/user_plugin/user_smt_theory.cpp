@@ -646,7 +646,7 @@ namespace smt {
         context & ctx               = _s.get_context(); // HACK
         symbol _name(name);
         ast_manager & m             = ctx.get_manager();
-        family_id fid               = m.get_family_id(_name);
+        family_id fid               = m.mk_family_id(_name);
         user_decl_plugin * dp       = alloc(user_decl_plugin);
         m.register_plugin(fid, dp);
         simplifier & s              = ctx.get_simplifier();

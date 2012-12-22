@@ -1512,7 +1512,7 @@ public:
 
     public:
         arith_plugin(i_solver_context& ctx, ast_manager& m, smt_params& p): 
-            qe_solver_plugin(m, m.get_family_id("arith"), ctx),
+            qe_solver_plugin(m, m.mk_family_id("arith"), ctx),
             m_util(m, p, ctx),
             m_trail(m)
         {}
@@ -2403,7 +2403,7 @@ public:
         bool                         m_produce_models;
     public:
         nlarith_plugin(i_solver_context& ctx, ast_manager& m, bool produce_models) : 
-            qe_solver_plugin(m, m.get_family_id("arith"), ctx),
+            qe_solver_plugin(m, m.mk_family_id("arith"), ctx),
             m_rewriter(m),
             m_util(m),
             m_replacer(mk_default_expr_replacer(m)),

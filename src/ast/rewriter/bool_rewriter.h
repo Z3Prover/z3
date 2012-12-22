@@ -55,6 +55,7 @@ class bool_rewriter {
     bool           m_local_ctx;
     bool           m_elim_and;
     bool           m_blast_distinct;
+    unsigned       m_blast_distinct_threshold;
     bool           m_ite_extra_rules;
     unsigned       m_local_ctx_limit;
     unsigned       m_local_ctx_cost;

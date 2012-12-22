@@ -1,0 +1,9 @@
+def_module_params('combined_solver', 
+                  description='combines two solvers: non-incremental (solver1) and incremental (solver2)',
+                  export=True,
+                  params=(('solver2_timeout', UINT, UINT_MAX, "fallback to solver 1 after timeout even when in incremental model"),
+                          ('ignore_solver1', BOOL, False, "if true, solver 2 is always used"),
+                          ('solver2_unknown', UINT, 1, "what should be done when solver 2 returns unknown: 0 - just return unknown, 1 - execute solver 1 if quantifier free problem, 2 - execute solver 1")
+                          ))
+
+                

@@ -2368,7 +2368,6 @@ namespace polynomial {
 
         void checkpoint() {
             if (m_cancel) {
-                set_cancel(false);
                 throw polynomial_exception("canceled");
             }
             cooperate("polynomial");

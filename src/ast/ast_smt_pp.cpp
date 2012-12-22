@@ -795,11 +795,11 @@ public:
         m_simplify_implies(simplify_implies)
     {
         m_basic_fid = m.get_basic_family_id();
-        m_label_fid = m.get_family_id("label");
-        m_bv_fid    = m.get_family_id("bv");
-        m_arith_fid = m.get_family_id("arith");
-        m_array_fid = m.get_family_id("array");
-        m_dt_fid    = m.get_family_id("datatype");
+        m_label_fid = m.mk_family_id("label");
+        m_bv_fid    = m.mk_family_id("bv");
+        m_arith_fid = m.mk_family_id("arith");
+        m_array_fid = m.mk_family_id("array");
+        m_dt_fid    = m.mk_family_id("datatype");
     }
     
     void operator()(expr* n) {
@@ -1009,7 +1009,7 @@ ast_smt_pp::ast_smt_pp(ast_manager& m):
     m_status("unknown"),
     m_category(),
     m_logic(),
-    m_dt_fid(m.get_family_id("datatype")),
+    m_dt_fid(m.mk_family_id("datatype")),
     m_is_declared(&m_is_declared_default),
     m_simplify_implies(true)
 {}

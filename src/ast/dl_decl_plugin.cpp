@@ -629,7 +629,7 @@ namespace datalog {
         m(m), 
         m_arith(m),
         m_bv(m),
-        m_fid(m.get_family_id(symbol("datalog_relation")))
+        m_fid(m.mk_family_id(symbol("datalog_relation")))
     {}
 
     // create a constant belonging to a given finite domain.

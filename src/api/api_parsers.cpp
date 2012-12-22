@@ -252,42 +252,6 @@ extern "C" {
     // ---------------
     // Support for SMTLIB2
 
-    class z3_context_solver : public solver_na2as {
-        api::context & m_ctx;
-        smt::kernel & ctx() const { return m_ctx.get_smt_kernel(); }
-    public:
-        virtual ~z3_context_solver() {}
-        z3_context_solver(api::context& c) : m_ctx(c) {}
-        virtual void init_core(ast_manager & m, symbol const & logic) {}
-        virtual void collect_statistics(statistics & st) const {}
-        virtual void reset_core() { ctx().reset(); }
-        virtual void assert_expr(expr * t) { ctx().assert_expr(t); }
-        virtual void push_core() { ctx().push(); }
-        virtual void pop_core(unsigned n) { ctx().pop(n); }
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-            return ctx().check(num_assumptions, assumptions);
-        }
-        virtual void get_unsat_core(ptr_vector<expr> & r) {
-            unsigned sz = ctx().get_unsat_core_size();
-            for (unsigned i = 0; i < sz; i++)
-                r.push_back(ctx().get_unsat_core_expr(i));            
-        }
-        virtual void get_model(model_ref & m) { ctx().get_model(m); }
-        virtual proof * get_proof() { return ctx().get_proof(); }
-        virtual std::string reason_unknown() const { return ctx().last_failure_as_string(); }
-        virtual void get_labels(svector<symbol> & r) {
-            buffer<symbol> tmp;
-            ctx().get_relevant_labels(0, tmp);
-            r.append(tmp.size(), tmp.c_ptr());            
-        }
-        
-        // These are controlled by the main API
-        virtual void set_cancel(bool f) { }
-        void cancel() { set_cancel(true); }
-        void reset_cancel() { set_cancel(false); }        
-        virtual void set_progress_callback(progress_callback * callback) {}        
-    };
-
     Z3_ast parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
                                 unsigned num_sorts,
                                 Z3_symbol const sort_names[],
@@ -298,9 +262,6 @@ extern "C" {
         Z3_TRY;
         cmd_context ctx(false, &(mk_c(c)->m()));
         ctx.set_ignore_check(true);
-        if (exec) {
-            ctx.set_solver(alloc(z3_context_solver, *mk_c(c)));
-        }
         for (unsigned i = 0; i < num_decls; ++i) {
            ctx.insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
         }
@@ -353,39 +314,4 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
-
-    Z3_ast Z3_API Z3_exec_smtlib2_string(Z3_context c, Z3_string str,
-                                         unsigned num_sorts,
-                                         Z3_symbol sort_names[],
-                                         Z3_sort sorts[],
-                                         unsigned num_decls,
-                                         Z3_symbol decl_names[],
-                                         Z3_func_decl decls[]) { 
-        Z3_TRY;
-        cmd_context ctx(false, &(mk_c(c)->m()));
-        std::string s(str);
-        std::istringstream is(s);
-        // No logging for this one, since it private.
-        return parse_smtlib2_stream(true, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        Z3_CATCH_RETURN(0);
-    }
-
-    Z3_ast Z3_API Z3_exec_smtlib2_file(Z3_context c, Z3_string file_name,
-                                       unsigned num_sorts,
-                                       Z3_symbol sort_names[],
-                                       Z3_sort sorts[],
-                                       unsigned num_decls,
-                                       Z3_symbol decl_names[],
-                                       Z3_func_decl decls[]) { 
-        Z3_TRY;
-        std::ifstream is(file_name);
-        if (!is) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
-            return 0;
-        }
-        // No logging for this one, since it private.
-        return parse_smtlib2_stream(true, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
-        Z3_CATCH_RETURN(0);
-    }
-
 };

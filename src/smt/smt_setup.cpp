@@ -28,7 +28,6 @@ Revision History:
 #include"theory_datatype.h"
 #include"theory_dummy.h"
 #include"theory_dl.h"
-#include"theory_instgen.h"
 #include"theory_seq_empty.h"
 
 namespace smt {
@@ -693,7 +692,7 @@ namespace smt {
     void setup::setup_arith() {
         switch(m_params.m_arith_mode) {
         case AS_NO_ARITH:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.get_family_id("arith"), "no arithmetic"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
         case AS_DIFF_LOGIC:
             if (m_params.m_arith_fixnum) {
@@ -735,7 +734,7 @@ namespace smt {
     void setup::setup_bv() {
         switch(m_params.m_bv_mode) {
         case BS_NO_BV:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.get_family_id("bv"), "no bit-vector"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("bv"), "no bit-vector"));
             break;
         case BS_BLASTER:
             m_context.register_plugin(alloc(smt::theory_bv, m_manager, m_params, m_params));
@@ -746,7 +745,7 @@ namespace smt {
     void setup::setup_arrays() {
         switch(m_params.m_array_mode) {
         case AR_NO_ARRAY:
-            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.get_family_id("array"), "no array"));
+            m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("array"), "no array"));
             break;
         case AR_SIMPLE:
             m_context.register_plugin(alloc(smt::theory_array, m_manager, m_params));
@@ -772,11 +771,6 @@ namespace smt {
     void setup::setup_seq() {
         m_context.register_plugin(alloc(theory_seq_empty, m_manager));
     }
-    void setup::setup_instgen() {
-        if (m_params.m_instgen) {
-            m_context.register_plugin(mk_theory_instgen(m_manager, m_params));
-        }
-    }
 
     void setup::setup_unknown() {
         setup_arith();
@@ -784,7 +778,6 @@ namespace smt {
         setup_bv();
         setup_datatypes();
         setup_dl();
-        setup_instgen();
         setup_seq();
     }
 

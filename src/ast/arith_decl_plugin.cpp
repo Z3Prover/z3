@@ -573,24 +573,24 @@ expr * arith_decl_plugin::get_some_value(sort * s) {
     return mk_numeral(rational(0), s == m_int_decl);
 }
 
-arith_util::arith_util(ast_manager & m):
-    m_manager(m),
-    m_afid(m.get_family_id("arith")),
-    m_plugin(0) {
-}
-
-void arith_util::init_plugin() {
-    SASSERT(m_plugin == 0);
-    m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(m_afid));
-}
-
-bool arith_util::is_numeral(expr const * n, rational & val, bool & is_int) const {
+bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int) const {
     if (!is_app_of(n, m_afid, OP_NUM))
         return false;
     func_decl * decl = to_app(n)->get_decl();
     val    = decl->get_parameter(0).get_rational();
     is_int = decl->get_parameter(1).get_int() != 0;
     return true;
+}
+
+arith_util::arith_util(ast_manager & m):
+    arith_recognizers(m.mk_family_id("arith")),
+    m_manager(m),
+    m_plugin(0) {
+}
+
+void arith_util::init_plugin() {
+    SASSERT(m_plugin == 0);
+    m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(m_afid));
 }
 
 bool arith_util::is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val) {

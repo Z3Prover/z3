@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include"nnf.h"
 #include"tactical.h"
+#include"filter_model_converter.h"
 
 class nnf_tactic : public tactic {
     params_ref    m_params;
@@ -100,6 +101,13 @@ public:
         }
         g->inc_depth();
         result.push_back(g.get());
+        unsigned num_extra_names = dnames.get_num_names();
+        if (num_extra_names > 0) {
+            filter_model_converter * fmc = alloc(filter_model_converter, m);
+            mc = fmc;
+            for (unsigned i = 0; i < num_extra_names; i++)
+                fmc->insert(dnames.get_name_decl(i));
+        }
         TRACE("nnf", g->display(tout););
         SASSERT(g->is_well_sorted());
     }

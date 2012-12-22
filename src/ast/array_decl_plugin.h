@@ -129,27 +129,34 @@ class array_decl_plugin : public decl_plugin {
     virtual bool is_fully_interp(sort const * s) const;
 };
 
-class array_util {
-    ast_manager & m_manager;
-    family_id    m_fid;
+class array_recognizers {
+protected:
+    family_id m_fid;
 public:
-    array_util(ast_manager& m): m_manager(m), m_fid(m.get_family_id("array")) {}
-    ast_manager & get_manager() const { return m_manager; }
+    array_recognizers(family_id fid):m_fid(fid) {}
     family_id get_family_id() const { return m_fid; }
     bool is_array(sort* s) const { return is_sort_of(s, m_fid, ARRAY_SORT);}
-    bool is_array(expr* n) const { return is_array(m_manager.get_sort(n)); }
+    bool is_array(expr* n) const { return is_array(get_sort(n)); }
     bool is_select(expr* n) const { return is_app_of(n, m_fid, OP_SELECT); }
     bool is_store(expr* n) const { return is_app_of(n, m_fid, OP_STORE); }
     bool is_const(expr* n) const { return is_app_of(n, m_fid, OP_CONST_ARRAY); }
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
-    bool is_as_array_tree(expr * n);
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
     bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
     bool is_const(func_decl* f) const { return is_decl_of(f, m_fid, OP_CONST_ARRAY); }
     bool is_map(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
-    func_decl * get_as_array_func_decl(app * n) const { SASSERT(is_as_array(n)); return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); }
+    func_decl * get_as_array_func_decl(app * n) const;
+};
+
+class array_util : public array_recognizers {
+    ast_manager & m_manager;
+public:
+    array_util(ast_manager& m);
+    ast_manager & get_manager() const { return m_manager; }
+
+    bool is_as_array_tree(expr * n);
 
     app * mk_store(unsigned num_args, expr * const * args) {
         return m_manager.mk_app(m_fid, OP_STORE, 0, 0, num_args, args);

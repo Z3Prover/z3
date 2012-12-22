@@ -23,6 +23,14 @@ Notes:
 #include"progress_callback.h"
 #include"params.h"
 
+class solver;
+
+class solver_factory {
+public:
+    virtual ~solver_factory() {}
+    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) = 0;
+};
+
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.
@@ -34,7 +42,6 @@ Notes:
      - statistics
      - results based on check_sat_result API
      - interruption (set_cancel)
-     - resets 
 */
 class solver : public check_sat_result {
 public:
@@ -51,35 +58,13 @@ public:
     virtual void collect_param_descrs(param_descrs & r) {}
     
     /**
-       \brief Enable/Disable proof production for this solver object.
-    
-       It is invoked before init(m, logic).
-    */
-    virtual void set_produce_proofs(bool f) {}
-    /**
        \brief Enable/Disable model generation for this solver object.
 
        It is invoked before init(m, logic). 
        The user may optionally invoke it after init(m, logic).
     */
     virtual void set_produce_models(bool f) {}
-    /**
-       \brief Enable/Disable unsat core generation for this solver object.
-
-       It is invoked before init(m, logic).
-    */
-    virtual void set_produce_unsat_cores(bool f) {}
     
-    /**
-       \brief Initialize the solver object with the given ast_manager and logic.
-    */
-    virtual void init(ast_manager & m, symbol const & logic) = 0;
-    
-    /**
-       \brief Reset the solver internal state. All assertions should be removed.
-    */
-    virtual void reset() = 0;
-
     /**
        \brief Add a new formula to the assertion stack.
     */

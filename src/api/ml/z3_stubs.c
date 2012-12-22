@@ -605,30 +605,7 @@ value _v1;
   return _v1;
 }
 
-int camlidl_transl_table_z3_enum_8[8] = {
-  Z3_NO_FAILURE,
-  Z3_UNKNOWN,
-  Z3_TIMEOUT,
-  Z3_MEMOUT_WATERMARK,
-  Z3_CANCELED,
-  Z3_NUM_CONFLICTS,
-  Z3_THEORY,
-  Z3_QUANTIFIERS,
-};
-
-void camlidl_ml2c_z3_Z3_search_failure(value _v1, Z3_search_failure * _c2, camlidl_ctx _ctx)
-{
-  (*_c2) = camlidl_transl_table_z3_enum_8[Int_val(_v1)];
-}
-
-value camlidl_c2ml_z3_Z3_search_failure(Z3_search_failure * _c2, camlidl_ctx _ctx)
-{
-value _v1;
-  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3_enum_8, 8, "typedef Z3_search_failure: bad enum  value");
-  return _v1;
-}
-
-int camlidl_transl_table_z3_enum_9[4] = {
+int camlidl_transl_table_z3_enum_8[4] = {
   Z3_PRINT_SMTLIB_FULL,
   Z3_PRINT_LOW_LEVEL,
   Z3_PRINT_SMTLIB_COMPLIANT,
@@ -637,7 +614,7 @@ int camlidl_transl_table_z3_enum_9[4] = {
 
 void camlidl_ml2c_z3_Z3_ast_print_mode(value _v1, Z3_ast_print_mode * _c2, camlidl_ctx _ctx)
 {
-  (*_c2) = camlidl_transl_table_z3_enum_9[Int_val(_v1)];
+  (*_c2) = camlidl_transl_table_z3_enum_8[Int_val(_v1)];
 }
 
 value camlidl_c2ml_z3_Z3_ast_print_mode(Z3_ast_print_mode * _c2, camlidl_ctx _ctx)
@@ -653,7 +630,7 @@ value _v1;
   return _v1;
 }
 
-int camlidl_transl_table_z3_enum_10[13] = {
+int camlidl_transl_table_z3_enum_9[13] = {
   Z3_OK,
   Z3_SORT_ERROR,
   Z3_IOB,
@@ -671,13 +648,13 @@ int camlidl_transl_table_z3_enum_10[13] = {
 
 void camlidl_ml2c_z3_Z3_error_code(value _v1, Z3_error_code * _c2, camlidl_ctx _ctx)
 {
-  (*_c2) = camlidl_transl_table_z3_enum_10[Int_val(_v1)];
+  (*_c2) = camlidl_transl_table_z3_enum_9[Int_val(_v1)];
 }
 
 value camlidl_c2ml_z3_Z3_error_code(Z3_error_code * _c2, camlidl_ctx _ctx)
 {
 value _v1;
-  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3_enum_10, 13, "typedef Z3_error_code: bad enum  value");
+  _v1 = camlidl_find_enum((*_c2), camlidl_transl_table_z3_enum_9, 13, "typedef Z3_error_code: bad enum  value");
   return _v1;
 }
 
@@ -707,7 +684,7 @@ void check_error_code (Z3_context c)
 
 void* error_handler_static = NULL;
 
-int camlidl_transl_table_z3_enum_11[4] = {
+int camlidl_transl_table_z3_enum_10[4] = {
   Z3_GOAL_PRECISE,
   Z3_GOAL_UNDER,
   Z3_GOAL_OVER,
@@ -716,7 +693,7 @@ int camlidl_transl_table_z3_enum_11[4] = {
 
 void camlidl_ml2c_z3_Z3_goal_prec(value _v1, Z3_goal_prec * _c2, camlidl_ctx _ctx)
 {
-  (*_c2) = camlidl_transl_table_z3_enum_11[Int_val(_v1)];
+  (*_c2) = camlidl_transl_table_z3_enum_10[Int_val(_v1)];
 }
 
 value camlidl_c2ml_z3_Z3_goal_prec(Z3_goal_prec * _c2, camlidl_ctx _ctx)
@@ -11072,7 +11049,56 @@ check_error_code(c);
   return _vres;
 }
 
-void caml_z3_error_handler(Z3_context c, Z3_error_code e) { static char buffer[128]; char * msg = Z3_get_error_msg_ex(c, e); if (strlen(msg) > 100) { failwith("Z3: error message is too big to fit in buffer"); } else { sprintf(buffer, "Z3: %s", msg); failwith(buffer); } }
+value camlidl_z3_Z3_get_implied_equalities(
+	value _v_c,
+	value _v_s,
+	value _v_terms)
+{
+  Z3_context c; /*in*/
+  Z3_solver s; /*in*/
+  unsigned int num_terms; /*in*/
+  Z3_ast const *terms; /*in*/
+  unsigned int *class_ids; /*out*/
+  Z3_lbool _res;
+  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
+  camlidl_ctx _ctx = &_ctxs;
+  mlsize_t _c1;
+  mlsize_t _c2;
+  value _v3;
+  mlsize_t _c4;
+  value _v5;
+  value _vresult;
+  value _vres[2] = { 0, 0, };
+
+  camlidl_ml2c_z3_Z3_context(_v_c, &c, _ctx);
+  camlidl_ml2c_z3_Z3_solver(_v_s, &s, _ctx);
+  _c1 = Wosize_val(_v_terms);
+  terms = camlidl_malloc(_c1 * sizeof(Z3_ast const ), _ctx);
+  for (_c2 = 0; _c2 < _c1; _c2++) {
+    _v3 = Field(_v_terms, _c2);
+    camlidl_ml2c_z3_Z3_ast(_v3, &terms[_c2], _ctx);
+  }
+  num_terms = _c1;
+  class_ids = camlidl_malloc(num_terms * sizeof(unsigned int ), _ctx);
+  _res = Z3_get_implied_equalities(c, s, num_terms, terms, class_ids);
+  Begin_roots_block(_vres, 2)
+    _vres[0] = camlidl_c2ml_z3_Z3_lbool(&_res, _ctx);
+    _vres[1] = camlidl_alloc(num_terms, 0);
+    for (_c4 = 0; _c4 < num_terms; _c4++) {
+      _v5 = Val_int(class_ids[_c4]);
+      modify(&Field(_vres[1], _c4), _v5);
+    }
+    _vresult = camlidl_alloc_small(2, 0);
+    Field(_vresult, 0) = _vres[0];
+    Field(_vresult, 1) = _vres[1];
+  End_roots()
+  camlidl_free(_ctx);
+  /* begin user-supplied deallocation sequence */
+check_error_code(c);
+  /* end user-supplied deallocation sequence */
+  return _vresult;
+}
+
 void camlidl_ml2c_z3V3_Z3_symbol(value _v1, Z3_symbol * _c2, camlidl_ctx _ctx)
 {
   *_c2 = *((Z3_symbol *) Bp_val(_v1));
@@ -18245,50 +18271,6 @@ value camlidl_z3V3_Z3_check_assumptions(
     { mlsize_t _c12;
       for (_c12 = 0; _c12 < 5; _c12++) Field(_vresult, _c12) = _vres[_c12];
     }
-  End_roots()
-  camlidl_free(_ctx);
-  return _vresult;
-}
-
-value camlidl_z3V3_Z3_get_implied_equalities(
-	value _v_c,
-	value _v_terms)
-{
-  Z3_context c; /*in*/
-  unsigned int num_terms; /*in*/
-  Z3_ast const *terms; /*in*/
-  unsigned int *class_ids; /*out*/
-  Z3_lbool _res;
-  struct camlidl_ctx_struct _ctxs = { CAMLIDL_TRANSIENT, NULL };
-  camlidl_ctx _ctx = &_ctxs;
-  mlsize_t _c1;
-  mlsize_t _c2;
-  value _v3;
-  mlsize_t _c4;
-  value _v5;
-  value _vresult;
-  value _vres[2] = { 0, 0, };
-
-  camlidl_ml2c_z3V3_Z3_context(_v_c, &c, _ctx);
-  _c1 = Wosize_val(_v_terms);
-  terms = camlidl_malloc(_c1 * sizeof(Z3_ast const ), _ctx);
-  for (_c2 = 0; _c2 < _c1; _c2++) {
-    _v3 = Field(_v_terms, _c2);
-    camlidl_ml2c_z3V3_Z3_ast(_v3, &terms[_c2], _ctx);
-  }
-  num_terms = _c1;
-  class_ids = camlidl_malloc(num_terms * sizeof(unsigned int ), _ctx);
-  _res = Z3_get_implied_equalities(c, num_terms, terms, class_ids);
-  Begin_roots_block(_vres, 2)
-    _vres[0] = camlidl_c2ml_z3V3_Z3_lbool(&_res, _ctx);
-    _vres[1] = camlidl_alloc(num_terms, 0);
-    for (_c4 = 0; _c4 < num_terms; _c4++) {
-      _v5 = Val_int(class_ids[_c4]);
-      modify(&Field(_vres[1], _c4), _v5);
-    }
-    _vresult = camlidl_alloc_small(2, 0);
-    Field(_vresult, 0) = _vres[0];
-    Field(_vresult, 1) = _vres[1];
   End_roots()
   camlidl_free(_ctx);
   return _vresult;

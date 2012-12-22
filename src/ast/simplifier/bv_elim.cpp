@@ -15,7 +15,7 @@ void bv_elim::elim(quantifier* q, quantifier_ref& r) {
     expr_ref         new_body(m_manager);
     expr*            old_body = q->get_expr();
     unsigned num_decls = q->get_num_decls();
-    family_id bfid = m_manager.get_family_id("bv");
+    family_id bfid = m_manager.mk_family_id("bv");
 
     //
     // Traverse sequence of bound variables to eliminate

@@ -35,7 +35,7 @@ Revision History:
 #include "dl_util.h"
 #include "for_each_expr.h"
 #include "expr_safe_replace.h"
-
+#include "cooperate.h"
 
 class is_variable_proc {
 public:
@@ -91,6 +91,7 @@ namespace eq {
         expr_ref_vector  m_subst_map;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
+        volatile bool    m_cancel;
         
         void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
             order.reset();
@@ -530,6 +531,7 @@ namespace eq {
             
             // Find all definitions
             for (unsigned i = 0; i < num_args; i++) {
+                checkpoint();
                 if (is_var_def(is_exists, args[i], v, t)) {
                     unsigned idx = v->get_idx();
                     if(m_map.get(idx, 0) == 0) {
@@ -569,8 +571,14 @@ namespace eq {
             return false;
         }
 
+        void checkpoint() {
+            cooperate("der");
+            if (m_cancel)
+                throw tactic_exception(TACTIC_CANCELED_MSG);
+        }
+
     public:
-        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m) {}
+        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m), m_cancel(false) {}
         
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
@@ -588,6 +596,7 @@ namespace eq {
             r = q;
             // Keep applying reduce_quantifier1 until r doesn't change anymore
             do {
+                checkpoint();
                 proof_ref curr_pr(m);
                 q  = to_quantifier(r);
                 reduce_quantifier1(q, r, curr_pr);
@@ -605,6 +614,12 @@ namespace eq {
         }
         
         ast_manager& get_manager() const { return m; }
+
+        void set_cancel(bool f) {
+            m_rewriter.set_cancel(f);
+            m_cancel = f;
+        }
+
     };
 }; // namespace eq
 
@@ -618,6 +633,7 @@ namespace ar {
         is_variable_proc*        m_is_variable;
         ptr_vector<expr>         m_todo;
         expr_mark                m_visited;
+        volatile bool            m_cancel;
         
         bool is_variable(expr * e) const {
             return (*m_is_variable)(e);
@@ -723,13 +739,19 @@ namespace ar {
             return false;
         }
 
+        void checkpoint() {
+            cooperate("der");
+            if (m_cancel)
+                throw tactic_exception(TACTIC_CANCELED_MSG);
+        }
 
     public:
 
-        der(ast_manager& m): m(m), a(m), m_is_variable(0) {}
+        der(ast_manager& m): m(m), a(m), m_is_variable(0), m_cancel(false) {}
 
         void operator()(expr_ref_vector& fmls) {
             for (unsigned i = 0; i < fmls.size(); ++i) {
+                checkpoint();
                 solve_select(fmls, i, fmls[i].get());
                 solve_neq_select(fmls, i, fmls[i].get());
             }
@@ -738,6 +760,10 @@ namespace ar {
         void operator()(expr* e) {}
 
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
+
+        void set_cancel(bool f) {
+            m_cancel = f;
+        }
         
     };
 }; // namespace ar
@@ -866,7 +892,6 @@ namespace fm {
         unsigned                 m_fm_cutoff2;
         unsigned                 m_fm_extra;
         bool                     m_fm_occ;
-        unsigned long long       m_max_memory;
         unsigned                 m_counter;
         bool                     m_inconsistent;
         expr_dependency_ref      m_inconsistent_core;
@@ -1243,7 +1268,7 @@ namespace fm {
         //
         // ---------------------------
         
-        fm(ast_manager & _m, params_ref const & p):
+        fm(ast_manager & _m):
             m(_m),
             m_allocator("fm-elim"),
             m_util(m),
@@ -1251,7 +1276,6 @@ namespace fm {
             m_var2expr(m),
             m_new_fmls(m),
             m_inconsistent_core(m) {
-            updt_params(p);
             m_cancel = false;
         }
         
@@ -1259,14 +1283,13 @@ namespace fm {
             reset_constraints();
         }
         
-        void updt_params(params_ref const & p) {
-            m_max_memory     = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-            m_fm_real_only   = p.get_bool("fm_real_only", true);
-            m_fm_limit       = p.get_uint("fm_limit", 5000000);
-            m_fm_cutoff1     = p.get_uint("fm_cutoff1", 8);
-            m_fm_cutoff2     = p.get_uint("fm_cutoff2", 256);
-            m_fm_extra       = p.get_uint("fm_extra", 0);
-            m_fm_occ         = p.get_bool("fm_occ", false);
+        void updt_params() {
+            m_fm_real_only   = true;
+            m_fm_limit       = 5000000;
+            m_fm_cutoff1     = 8;
+            m_fm_cutoff2     = 256;
+            m_fm_extra       = 0;
+            m_fm_occ         = false;
         }
         
         void set_cancel(bool f) {
@@ -2010,11 +2033,9 @@ namespace fm {
         }
         
         void checkpoint() {
-            // cooperate("fm");
+            cooperate("fm");
             if (m_cancel)
                 throw tactic_exception(TACTIC_CANCELED_MSG);
-            if (memory::get_allocation_size() > m_max_memory)
-                throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }
     public:
 
@@ -2083,11 +2104,56 @@ namespace fm {
 } // namespace fm
 
 class qe_lite::impl {
+public:
+    struct elim_cfg : public default_rewriter_cfg {
+        impl& m_imp;
+        ast_manager& m;
+    public:
+        elim_cfg(impl& i): m_imp(i), m(i.m) {}
+        
+        bool reduce_quantifier(quantifier * q, 
+                               expr * new_body, 
+                               expr * const * new_patterns, 
+                               expr * const * new_no_patterns,
+                               expr_ref & result,
+                               proof_ref & result_pr) {
+            result = new_body;
+            if (is_forall(q)) {
+                result = m.mk_not(result);
+            }
+            uint_set indices;
+            for (unsigned i = 0; i < q->get_num_decls(); ++i) {
+                indices.insert(i);
+            }
+            m_imp(indices, true, result);          
+            if (is_forall(q)) {
+                result = m.mk_not(result);
+            }
+            result = m.update_quantifier(
+                q, 
+                q->get_num_patterns(), new_patterns, 
+                q->get_num_no_patterns(), new_no_patterns, result);
+            m_imp.m_rewriter(result);
+            return true;
+        }
+    };
+
+    class elim_star : public rewriter_tpl<elim_cfg> {
+        elim_cfg m_cfg;
+    public:
+        elim_star(impl& i): 
+            rewriter_tpl<elim_cfg>(i.m, false, m_cfg),
+            m_cfg(i)
+        {}
+    };
+
+private:
     ast_manager& m;
-    params_ref   m_params;
     eq::der      m_der;
     fm::fm       m_fm;
     ar::der      m_array_der;
+    elim_star    m_elim_star;
+    th_rewriter  m_rewriter;
 
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
@@ -2106,7 +2172,13 @@ class qe_lite::impl {
     }
 
 public:
-    impl(ast_manager& m): m(m), m_der(m), m_fm(m, m_params), m_array_der(m) {}
+    impl(ast_manager& m): 
+        m(m), 
+        m_der(m), 
+        m_fm(m), 
+        m_array_der(m), 
+        m_elim_star(*this), 
+        m_rewriter(m) {}
     
     void operator()(app_ref_vector& vars, expr_ref& fml) {
         if (vars.empty()) {
@@ -2145,14 +2217,12 @@ public:
         else {
             fml = tmp;
         }
-    }
+    }    
 
     void operator()(expr_ref& fml, proof_ref& pr) {
-        // TODO apply der everywhere as a rewriting rule.
-        // TODO add cancel method.
-        if (is_quantifier(fml)) {
-            m_der(to_quantifier(fml), fml, pr);
-        }
+        expr_ref tmp(m);
+        m_elim_star(fml, tmp, pr);
+        fml = tmp;
     }
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
@@ -2195,6 +2265,14 @@ public:
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
+    void set_cancel(bool f) {
+        m_der.set_cancel(f);
+        m_array_der.set_cancel(f);
+        m_fm.set_cancel(f);
+        m_elim_star.set_cancel(f);
+        m_rewriter.set_cancel(f);
+    }
+
 };
 
 qe_lite::qe_lite(ast_manager& m) {
@@ -2209,6 +2287,10 @@ void qe_lite::operator()(app_ref_vector& vars, expr_ref& fml) {
     (*m_impl)(vars, fml);
 }
 
+void qe_lite::set_cancel(bool f) {
+    m_impl->set_cancel(f);
+}
+
 void qe_lite::operator()(expr_ref& fml, proof_ref& pr) {
     (*m_impl)(fml, pr);
 }
@@ -2220,3 +2302,130 @@ void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_re
 void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& fmls) {
     (*m_impl)(index_set, index_of_bound, fmls);
 }
+
+class qe_lite_tactic : public tactic {
+    
+    struct imp {
+        ast_manager&             m;
+        qe_lite                  m_qe;
+        volatile bool            m_cancel;
+
+        imp(ast_manager& m, params_ref const& p): 
+            m(m),
+            m_qe(m),
+            m_cancel(false)
+        {}
+
+        void set_cancel(bool f) {
+            m_cancel = f;
+            m_qe.set_cancel(f);
+        }
+
+        void checkpoint() {
+            if (m_cancel)
+                throw tactic_exception(TACTIC_CANCELED_MSG);
+            cooperate("qe-lite");
+        }
+        
+        void operator()(goal_ref const & g, 
+                        goal_ref_buffer & result, 
+                        model_converter_ref & mc, 
+                        proof_converter_ref & pc,
+                        expr_dependency_ref & core) {
+            SASSERT(g->is_well_sorted());
+            mc = 0; pc = 0; core = 0;
+            tactic_report report("qe-lite", *g);
+            proof_ref new_pr(m);
+            expr_ref new_f(m);
+            bool produce_proofs = g->proofs_enabled();
+
+            unsigned sz = g->size();
+            for (unsigned i = 0; i < sz; i++) {
+                checkpoint();
+                if (g->inconsistent())
+                    break;
+                expr * f = g->form(i);
+                if (!has_quantifiers(f))
+                    continue;
+                new_f = f;
+                m_qe(new_f, new_pr);
+                if (produce_proofs) {
+                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                }
+                g->update(i, new_f, new_pr, g->dep(i));                
+            }
+            g->inc_depth();
+            result.push_back(g.get());
+            TRACE("qe", g->display(tout););
+            SASSERT(g->is_well_sorted());
+        }
+
+    };
+    
+    params_ref m_params;
+    imp *      m_imp;
+
+public:
+    qe_lite_tactic(ast_manager & m, params_ref const & p):
+        m_params(p) {
+        m_imp = alloc(imp, m, p);
+    }
+
+    virtual tactic * translate(ast_manager & m) {
+        return alloc(qe_lite_tactic, m, m_params);
+    }
+        
+    virtual ~qe_lite_tactic() {
+        dealloc(m_imp);
+    }
+
+    virtual void updt_params(params_ref const & p) {
+        m_params = p;
+        // m_imp->updt_params(p);
+    }
+
+   
+    virtual void collect_param_descrs(param_descrs & r) {
+        // m_imp->collect_param_descrs(r);
+    }
+    
+    virtual void operator()(goal_ref const & in, 
+                            goal_ref_buffer & result, 
+                            model_converter_ref & mc, 
+                            proof_converter_ref & pc,
+                            expr_dependency_ref & core) {
+        (*m_imp)(in, result, mc, pc, core);
+    }
+
+    
+    virtual void collect_statistics(statistics & st) const {
+        // m_imp->collect_statistics(st);
+    }
+
+    virtual void reset_statistics() {
+        // m_imp->reset_statistics();
+    }
+
+    
+    virtual void cleanup() {
+        ast_manager & m = m_imp->m;
+        imp * d = m_imp;
+        #pragma omp critical (tactic_cancel)
+        {
+            m_imp = 0;
+        }
+        dealloc(d);
+        d = alloc(imp, m, m_params);
+        #pragma omp critical (tactic_cancel)
+        {
+            m_imp = d;
+        }
+    }
+    
+};
+
+tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
+    return alloc(qe_lite_tactic, m, p);
+}
+
+template class rewriter_tpl<qe_lite::impl::elim_cfg>;

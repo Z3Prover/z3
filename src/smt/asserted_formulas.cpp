@@ -189,7 +189,7 @@ void asserted_formulas::push_scope() {
     s.m_asserted_formulas_lim    = m_asserted_formulas.size();
     SASSERT(inconsistent() || s.m_asserted_formulas_lim == m_asserted_qhead);
     s.m_inconsistent_old         = m_inconsistent;
-    m_defined_names.push_scope();
+    m_defined_names.push();
     m_bv_sharing.push_scope();
     commit();
 }
@@ -201,7 +201,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     unsigned new_lvl    = m_scopes.size() - num_scopes;
     scope & s           = m_scopes[new_lvl];
     m_inconsistent      = s.m_inconsistent_old;
-    m_defined_names.pop_scope(num_scopes);
+    m_defined_names.pop(num_scopes);
     m_asserted_formulas.shrink(s.m_asserted_formulas_lim);
     if (m_manager.proofs_enabled())
         m_asserted_formula_prs.shrink(s.m_asserted_formulas_lim);
@@ -439,6 +439,8 @@ void asserted_formulas::nnf_cnf() {
         expr_ref   r1(m_manager);
         proof_ref  pr1(m_manager);
         CASSERT("well_sorted",is_well_sorted(m_manager, n));
+        push_todo.reset();
+        push_todo_prs.reset();
         apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
         CASSERT("well_sorted",is_well_sorted(m_manager, r1));
         pr = m_manager.mk_modus_ponens(pr, pr1);
@@ -855,3 +857,8 @@ void asserted_formulas::max_bv_sharing() {
     
 }
 
+#ifdef Z3DEBUG
+void pp(asserted_formulas & f) {
+    f.display(std::cout);
+}
+#endif

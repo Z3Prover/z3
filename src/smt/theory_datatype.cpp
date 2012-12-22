@@ -454,7 +454,7 @@ namespace smt {
     }
 
     theory_datatype::theory_datatype(ast_manager & m, theory_datatype_params & p):
-        theory(m.get_family_id("datatype")),
+        theory(m.mk_family_id("datatype")),
         m_params(p),
         m_util(m),
         m_find(*this),

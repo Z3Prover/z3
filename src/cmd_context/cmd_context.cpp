@@ -343,6 +343,13 @@ cmd_context::~cmd_context() {
     m_check_sat_result = 0;
 }
 
+void cmd_context::set_cancel(bool f) {
+    if (m_solver)
+        m_solver->set_cancel(f);
+    if (has_manager())
+        m().set_cancel(f);
+}
+
 void cmd_context::global_params_updated() {
     m_params.updt_params();
     if (m_solver) {
@@ -582,8 +589,8 @@ void cmd_context::init_manager_core(bool new_manager) {
         // it prevents clashes with builtin types.
         insert(pm().mk_plist_decl());
     }
-    if (m_solver) {
-        init_solver_options(m_solver.get());
+    if (m_solver_factory) {
+        mk_solver();
     }
     m_check_logic.set_logic(m(), m_logic);
 }
@@ -1119,7 +1126,7 @@ void cmd_context::reset(bool finalize) {
     reset_func_decls();
     restore_assertions(0);
     if (m_solver)
-        m_solver->reset();
+        m_solver = 0;
     m_pp_env = 0;
     m_dt_eh  = 0;
     if (m_manager) {
@@ -1379,7 +1386,7 @@ void cmd_context::set_diagnostic_stream(char const * name) {
 struct contains_array_op_proc {
     struct found {};
     family_id m_array_fid;
-    contains_array_op_proc(ast_manager & m):m_array_fid(m.get_family_id("array")) {}
+    contains_array_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")) {}
     void operator()(var * n)        {}
     void operator()(app * n)        { 
         if (n->get_family_id() != m_array_fid)
@@ -1441,17 +1448,18 @@ void cmd_context::validate_model() {
     }
 }
 
-void cmd_context::init_solver_options(solver * s) {
+void cmd_context::mk_solver() {
+    bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
-    m_params.init_solver_params(m(), *m_solver, p);
-    m_solver->init(m(), m_logic);
+    m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
+    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 
-void cmd_context::set_solver(solver * s) {
+void cmd_context::set_solver_factory(solver_factory * f) {
+    m_solver_factory   = f;
     m_check_sat_result = 0;
-    m_solver = s;
-    if (has_manager() && s != 0) {
-        init_solver_options(s);
+    if (has_manager() && f != 0) {
+        mk_solver();
         // assert formulas and create scopes in the new solver.
         unsigned lim = 0;
         svector<scope>::iterator it  = m_scopes.begin();

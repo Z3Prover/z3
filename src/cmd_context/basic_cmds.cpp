@@ -643,7 +643,7 @@ public:
 
     family_id get_array_fid(cmd_context & ctx) {
         if (m_array_fid == null_family_id) {
-            m_array_fid = ctx.m().get_family_id("array");
+            m_array_fid = ctx.m().mk_family_id("array");
         }
         return m_array_fid;
     }

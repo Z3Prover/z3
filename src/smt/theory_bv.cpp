@@ -1239,7 +1239,7 @@ namespace smt {
     }
 
     theory_bv::theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params):
-        theory(m.get_family_id("bv")),
+        theory(m.mk_family_id("bv")),
         m_params(params),
         m_util(m),
         m_autil(m),

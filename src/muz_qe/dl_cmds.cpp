@@ -75,7 +75,7 @@ struct dl_context {
         if (!m_decl_plugin) {
             symbol name("datalog_relation");
             if (m.has_plugin(name)) {
-                m_decl_plugin = static_cast<datalog::dl_decl_plugin*>(m_cmd.m().get_plugin(m.get_family_id(name)));
+                m_decl_plugin = static_cast<datalog::dl_decl_plugin*>(m_cmd.m().get_plugin(m.mk_family_id(name)));
             }
             else {
                 m_decl_plugin = alloc(datalog::dl_decl_plugin);

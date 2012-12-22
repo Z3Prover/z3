@@ -22,8 +22,8 @@ Notes:
 #include"solver_na2as.h"
 #include"ast_smt2_pp.h"
 
-solver_na2as::solver_na2as() {
-    m_manager = 0;
+solver_na2as::solver_na2as(ast_manager & m):
+    m_manager(m) {
 }
 
 solver_na2as::~solver_na2as() {
@@ -35,22 +35,15 @@ void solver_na2as::assert_expr(expr * t, expr * a) {
         assert_expr(t);
     }
     else {
-        SASSERT(m_manager != 0);
         SASSERT(is_uninterp_const(a));
-        SASSERT(m_manager->is_bool(a));
-        TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, *m_manager) << "\n" << mk_ismt2_pp(a, *m_manager) << "\n";);
-        m_manager->inc_ref(a);
+        SASSERT(m_manager.is_bool(a));
+        TRACE("solver_na2as", tout << "asserting\n" << mk_ismt2_pp(t, m_manager) << "\n" << mk_ismt2_pp(a, m_manager) << "\n";);
+        m_manager.inc_ref(a);
         m_assumptions.push_back(a);
-        expr_ref new_t(*m_manager);
-        new_t = m_manager->mk_implies(a, t);
+        expr_ref new_t(m_manager);
+        new_t = m_manager.mk_implies(a, t);
         assert_expr(new_t);
     }
-}
-    
-void solver_na2as::init(ast_manager & m, symbol const & logic) {
-    SASSERT(m_assumptions.empty());
-    m_manager = &m;
-    init_core(m, logic);
 }
 
 struct append_assumptions {
@@ -89,9 +82,9 @@ void solver_na2as::pop(unsigned n) {
 }
 
 void solver_na2as::restore_assumptions(unsigned old_sz) {
-    SASSERT(old_sz == 0 || m_manager != 0);
+    SASSERT(old_sz == 0);
     for (unsigned i = old_sz; i < m_assumptions.size(); i++) {
-        m_manager->dec_ref(m_assumptions[i]);
+        m_manager.dec_ref(m_assumptions[i]);
     }
     m_assumptions.shrink(old_sz);
 }
@@ -100,7 +93,3 @@ unsigned solver_na2as::get_scope_level() const {
     return m_scopes.size();
 }
 
-void solver_na2as::reset() {
-    reset_core();
-    restore_assumptions(0);
-}

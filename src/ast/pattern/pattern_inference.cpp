@@ -91,7 +91,7 @@ pattern_inference::pattern_inference(ast_manager & m, pattern_inference_params &
     simplifier(m),
     m_params(params),
     m_bfid(m.get_basic_family_id()),
-    m_afid(m.get_family_id("arith")),
+    m_afid(m.mk_family_id("arith")),
     m_le(m),
     m_nested_arith_only(true),
     m_block_loop_patterns(params.m_pi_block_loop_patterns),

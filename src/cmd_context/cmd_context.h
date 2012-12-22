@@ -185,6 +185,7 @@ protected:
     };
 
     svector<scope>               m_scopes;
+    scoped_ptr<solver_factory>   m_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
 
@@ -243,11 +244,14 @@ protected:
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s) { if (s != symbol::null) diagnostic_stream() << "; " << s << std::endl;}
 
-    void init_solver_options(solver * s);
+    void mk_solver();
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
     ~cmd_context(); 
+    void set_cancel(bool f);
+    void cancel() { set_cancel(true); }
+    void reset_cancel() { set_cancel(false); }
     context_params  & params() { return m_params; }
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     void set_logic(symbol const & s);
@@ -289,8 +293,7 @@ public:
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
  
-    void set_solver(solver * s);
-    solver * get_solver() const { return m_solver.get(); }
+    void set_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;

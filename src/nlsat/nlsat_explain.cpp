@@ -981,6 +981,14 @@ namespace nlsat {
                         bool atom_val = a->get_kind() == atom::EQ;
                         bool lit_val  = l.sign() ? !atom_val : atom_val;
                         new_lit = lit_val ? true_literal : false_literal;
+                        if (!info.m_lc_const) {
+                            // We have essentially shown the current factor must be zero If the leading coefficient is not zero.
+                            // Note that, if the current factor is zero, then the whole polynomial is zero.
+                            // The atom is true if it is an equality, and false otherwise.
+                            // The sign of the leading coefficient (info.m_lc) of info.m_eq doesn't matter.
+                            // However, we have to store the fact it is not zero.
+                            info.add_lc_diseq();
+                        }
                         return;
                     }
                     else if (s == -1 && !is_even) {
@@ -1341,3 +1349,32 @@ namespace nlsat {
     }
 
 };
+
+#ifdef Z3DEBUG
+void pp(nlsat::explain::imp & ex, unsigned num, nlsat::literal const * ls) {
+    ex.display(std::cout, num, ls);
+}
+void pp(nlsat::explain::imp & ex, nlsat::scoped_literal_vector & ls) {
+    ex.display(std::cout, ls);
+}
+void pp(nlsat::explain::imp & ex, polynomial_ref const & p) {
+    ex.display(std::cout, p);
+    std::cout << std::endl;
+}
+void pp(nlsat::explain::imp & ex, polynomial::polynomial * p) {
+    polynomial_ref _p(p, ex.m_pm);
+    ex.display(std::cout, _p);
+    std::cout << std::endl;
+}
+void pp(nlsat::explain::imp & ex, polynomial_ref_vector const & ps) {
+    ex.display(std::cout, ps);
+}
+void pp_var(nlsat::explain::imp & ex, nlsat::var x) {
+    ex.display(std::cout, x);
+    std::cout << std::endl;
+}
+void pp_lit(nlsat::explain::imp & ex, nlsat::literal l) {
+    ex.display(std::cout, l);
+    std::cout << std::endl;
+}
+#endif

@@ -229,16 +229,6 @@ and param_kind =
   | PK_OTHER
   | PK_INVALID
 
-and search_failure =
-  | NO_FAILURE
-  | UNKNOWN
-  | TIMEOUT
-  | MEMOUT_WATERMARK
-  | CANCELED
-  | NUM_CONFLICTS
-  | THEORY
-  | QUANTIFIERS
-
 and ast_print_mode =
   | PRINT_SMTLIB_FULL
   | PRINT_LOW_LEVEL
@@ -1013,37 +1003,22 @@ and goal_prec =
     - PK_INVALID invalid parameter.
 *)
 (**
-    {!search_failure}  
-   The different kinds of search failure types.
-
-   - NO_FAILURE:         The last search was successful
-   - UNKNOWN:            Undocumented failure reason
-   - TIMEOUT:            Timeout
-   - MEMOUT_WATERMAK:    Search hit a memory high-watermak limit
-   - CANCELED:           External cancel flag was set
-   - NUM_CONFLICTS:      Maximum number of conflicts was reached
-   - THEORY:             Theory is incomplete
-   - QUANTIFIERS:        Logical context contains universal quantifiers
-*)
-(**
-    {!ast_print_mode}  
+    {!ast_print_mode}
    Z3 pretty printing modes (See {!set_ast_print_mode}).
-
-   - PRINT_SMTLIB_FULL:   Print AST nodes in SMTLIB verbose format.
-   - PRINT_LOW_LEVEL:     Print AST nodes using a low-level format.
+   - PRINT_SMTLIB_FULL: Print AST nodes in SMTLIB verbose format.
+   - PRINT_LOW_LEVEL: Print AST nodes using a low-level format.
    - PRINT_SMTLIB_COMPLIANT: Print AST nodes in SMTLIB 1.x compliant format.
    - PRINT_SMTLIB2_COMPLIANT: Print AST nodes in SMTLIB 2.x compliant format.
 *)
 (**
-    {!error_code}  
-   Z3 error codes 
-   
-   - OK:            No error.
-   - SORT_ERROR:    User tried to build an invalid (type incorrect) AST.
-   - IOB:           Index out of bounds.
-   - INVALID_ARG:   Invalid argument was provided.
-   - PARSER_ERROR:  An error occurred when parsing a string or file.
-   - NO_PARSER:     Parser output is not available, that is, user didn't invoke {!parse_smtlib_string} or {!parse_smtlib_file}.
+    {!error_code}
+   Z3 error codes
+   - OK: No error.
+   - SORT_ERROR: User tried to build an invalid (type incorrect) AST.
+   - IOB: Index out of bounds.
+   - INVALID_ARG: Invalid argument was provided.
+   - PARSER_ERROR: An error occurred when parsing a string or file.
+   - NO_PARSER: Parser output is not available, that is, user didn't invoke {!parse_smtlib_string} or {!parse_smtlib_file}.
    - INVALID_PATTERN: Invalid pattern was used to build a quantifier.
    - MEMOUT_FAIL:   A memory allocation failure was encountered.
    - FILE_ACCESS_ERRROR: A file could not be accessed.
@@ -1054,17 +1029,16 @@ and goal_prec =
 *)
 (**
   Definitions for update_api.py
-  
-  def_Type('CONFIG',           'config',           'Config')
-  def_Type('CONTEXT',          'context',          'ContextObj')
-  def_Type('AST',              'ast',              'Ast')
-  def_Type('APP',              'app',              'Ast')
-  def_Type('SORT',             'sort',             'Sort')
-  def_Type('FUNC_DECL',        'func_decl',        'FuncDecl')
-  def_Type('PATTERN',          'pattern',          'Pattern')
-  def_Type('MODEL',            'model',            'Model')
-  def_Type('LITERALS',         'literals',         'Literals')
-  def_Type('CONSTRUCTOR',      'constructor',      'Constructor')
+  def_Type('CONFIG', 'config', 'Config')
+  def_Type('CONTEXT', 'context', 'ContextObj')
+  def_Type('AST', 'ast', 'Ast')
+  def_Type('APP', 'app', 'Ast')
+  def_Type('SORT', 'sort', 'Sort')
+  def_Type('FUNC_DECL', 'func_decl', 'FuncDecl')
+  def_Type('PATTERN', 'pattern', 'Pattern')
+  def_Type('MODEL', 'model', 'Model')
+  def_Type('LITERALS', 'literals', 'Literals')
+  def_Type('CONSTRUCTOR', 'constructor', 'Constructor')
   def_Type('CONSTRUCTOR_LIST', 'constructor_list', 'ConstructorList')
   def_Type('THEORY',           'theory',           'ctypes.c_void_p')
   def_Type('THEORY_DATA',      'theory_data',      'ctypes.c_void_p')
@@ -6050,6 +6024,30 @@ external stats_get_uint_value : context -> stats -> int -> int
 external stats_get_double_value : context -> stats -> int -> float
 	= "camlidl_z3_Z3_stats_get_double_value"
 
+(**
+       {2 {L Deprecated Constraints API}}
+*)
+(**
+       Summary: Retrieve congruence class representatives for terms.
+       The function can be used for relying on Z3 to identify equal terms under the current
+       set of assumptions. The array of terms and array of class identifiers should have
+       the same length. The class identifiers are numerals that are assigned to the same
+       value for their corresponding terms if the current context forces the terms to be
+       equal. You cannot deduce that terms corresponding to different numerals must be all different,
+       (especially when using non-convex theories).
+       All implied equalities are returned by this call.
+       This means that two terms map to the same class identifier if and only if
+       the current context implies that they are equal.
+       A side-effect of the function is a satisfiability check on the assertions on the solver that is passed in.
+       The function return L_FALSE if the current assertions are not satisfiable.
+       - {b See also}: {!check_and_get_model}
+       - {b See also}: {!check}
+       @deprecated To be moved outside of API.
+       def_API('get_implied_equalities', UINT, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _out_array(2, UINT)))
+*)
+external get_implied_equalities : context -> solver -> ast array -> lbool * int array
+	= "camlidl_z3_Z3_get_implied_equalities"
+
 
 (** 
    {2 {L Legacy V3 API}} 
@@ -10594,32 +10592,6 @@ external check : context -> lbool
 *)
 external check_assumptions : context -> ast array -> int -> ast array -> lbool * model * ast * int * ast array
 	= "camlidl_z3V3_Z3_check_assumptions"
-
-(**
-       Summary: Retrieve congruence class representatives for terms.
-
-       The function can be used for relying on Z3 to identify equal terms under the current
-       set of assumptions. The array of terms and array of class identifiers should have
-       the same length. The class identifiers are numerals that are assigned to the same
-       value for their corresponding terms if the current context forces the terms to be
-       equal. You cannot deduce that terms corresponding to different numerals must be all different, 
-       (especially when using non-convex theories).
-       All implied equalities are returned by this call.
-       This means that two terms map to the same class identifier if and only if
-       the current context implies that they are equal.
-
-       A side-effect of the function is a satisfiability check.
-       The function return L_FALSE if the current assertions are not satisfiable.
-
-       - {b See also}: {!check_and_get_model}
-       - {b See also}: {!check}
-    
-       @deprecated Subsumed by solver API
-
-       def_API('get_implied_equalities', UINT, (_in(CONTEXT), _in(UINT), _in_array(1, AST), _out_array(1, UINT)))
-*)
-external get_implied_equalities : context -> ast array -> lbool * int array
-	= "camlidl_z3V3_Z3_get_implied_equalities"
 
 (**
        Summary: Delete a model object.

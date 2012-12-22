@@ -544,7 +544,7 @@ bool bv2int_rewriter::is_sbv2int(expr* n, expr_ref& s) {
         m_bv.is_extract(e2, lo1, hi1, e3) &&
         lo1 == 0 && hi1 == hi-1 &&
         m_arith.is_numeral(t2, k, is_int) && is_int &&
-        k == m_bv.power_of_two(hi) 
+        k == rational::power_of_two(hi) 
         ) {
         s = e3;
         return true;

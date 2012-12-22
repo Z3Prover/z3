@@ -6,4 +6,6 @@ def_module_params(module_name='rewriter',
                           ("elim_and", BOOL, False, "conjunctions are rewritten using negation and disjunctions"),
                           ("local_ctx", BOOL, False, "perform local (i.e., cheap) context simplifications"),
                           ("local_ctx_limit", UINT, UINT_MAX, "limit for applying local context simplifier"),
-                          ("blast_distinct", BOOL, False, "expand a distinct predicate into a quadratic number of disequalities")))
+                          ("blast_distinct", BOOL, False, "expand a distinct predicate into a quadratic number of disequalities"), 
+                          ("blast_distinct_threshold", UINT, UINT_MAX, "when blast_distinct is true, only distinct expressions with less than this number of arguments are blasted")  
+                          ))

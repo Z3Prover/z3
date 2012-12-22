@@ -52,8 +52,6 @@ struct qi_params {
     bool               m_mbqi_trace;
     unsigned           m_mbqi_force_template;
 
-    bool               m_instgen;
-
     qi_params(params_ref const & p = params_ref()):
         /*
           The "weight 0" performance bug
@@ -99,8 +97,7 @@ struct qi_params {
         m_mbqi_max_cexs_incr(1),
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
-        m_mbqi_force_template(10),
-        m_instgen(false) {
+        m_mbqi_force_template(10) {
         updt_params(p);
     }
 
