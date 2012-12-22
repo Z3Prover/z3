@@ -2486,8 +2486,8 @@ class RatNumRef(ArithRef):
         10000000000
         >>> v + 1
         10000000000 + 1
-        >>> v.numerator_as_long() + 1
-        10000000001
+        >>> v.numerator_as_long() + 1 == 10000000001
+        True
         """
         return self.numerator().as_long()
         
