@@ -33,11 +33,11 @@ object (self)
   val mutable m_obj_cnt : int = 0
     
   initializer 
-    (* Printf.printf "Installing finalizer on context %d \n" (Oo.id self) ; *)
-    let f = fun o -> o#dispose in
-    let v = self in
-    Gc.finalise f v
-      
+  (* Printf.printf "Installing finalizer on context %d \n" (Oo.id self) ; *)
+  let f = fun o -> o#dispose in
+  let v = self in
+  Gc.finalise f v
+    
   method dispose : unit = 
     if m_obj_cnt == 0 then (
       (* Printf.printf "Disposing context %d \n" (Oo.id self) ; *)
@@ -110,7 +110,6 @@ object (self)
   method decref ctx o = Z3native.params_dec_ref ctx o
 end
 
-
 (** Symbol objects *)
 class symbol ctx = 
 object (self)
@@ -166,6 +165,10 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
+let sortaton (a : sort array) =
+  let f (e : sort) = e#gno in 
+  Array.map f a
+
 (** Arithmetic sort objects, i.e., Int or Real. *)
 class arith_sort ctx =
 object (self)
@@ -195,20 +198,12 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
-(** Datatype sort objects *)
-class datatype_sort ctx =
-object (self)
-  inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_sc (name : symbol) constructors = (self#sno ctx (fst (Z3native.mk_datatype ctx#gno name#gno (Array.length constructors) (astaton constructors)))) ; self
-end
-
 (** Enum sort objects *)
 class enum_sort ctx =
 object (self)
   inherit sort ctx as super
-  val mutable _constdecls = None
-  val mutable _testerdecls = None
+  val mutable _constdecls : Z3native.ptr array option = None
+  val mutable _testerdecls : Z3native.ptr array option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (enum_names : symbol array) = 
     let (r, a, b) = (Z3native.mk_enumeration_sort ctx#gno name#gno (Array.length enum_names) (symbolaton enum_names)) in
@@ -267,12 +262,12 @@ end
 class list_sort ctx =
 object (self)
   inherit sort ctx as super    
-  val mutable _nildecl = None
-  val mutable _is_nildecl = None
-  val mutable _consdecl = None
-  val mutable _is_consdecl = None
-  val mutable _headdecl = None
-  val mutable _taildecl = None
+  val mutable _nildecl : Z3native.ptr option = None
+  val mutable _is_nildecl : Z3native.ptr option = None
+  val mutable _consdecl : Z3native.ptr option = None
+  val mutable _is_consdecl : Z3native.ptr option = None
+  val mutable _headdecl : Z3native.ptr option = None
+  val mutable _taildecl : Z3native.ptr option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (elem_sort : sort) =
     let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort ctx#gno name#gno elem_sort#gno) in
@@ -291,23 +286,23 @@ object (self)
 
   method is_nil_decl = match _is_nildecl with
     | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing is_nil decls")
+    | None -> raise (Z3native.Exception "Missing is_nil decl")
 
   method cons_decl = match _consdecl with
     | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing cons decls")
+    | None -> raise (Z3native.Exception "Missing cons decl")
 
   method is_cons_decl = match _is_consdecl with
     | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing is_cons decls")
+    | None -> raise (Z3native.Exception "Missing is_cons decl")
 
   method head_decl = match _headdecl with
     | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing head decls")
+    | None -> raise (Z3native.Exception "Missing head decl")
 
   method tail_decl = match _taildecl with
     | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing tail decls")
+    | None -> raise (Z3native.Exception "Missing tail decl")
 
 end
 
@@ -330,18 +325,6 @@ object (self)
     self
 end
 
-let create_sort ctx obj =
-  match (int2sort_kind (Z3native.get_sort_kind ctx#gno obj)) with
-    | ARRAY_SORT -> (((new array_sort ctx)#cnstr_obj obj) :> sort)
-    | BOOL_SORT -> (((new bool_sort ctx)#cnstr_obj obj) :> sort)
-    | BV_SORT -> (((new bitvec_sort ctx)#cnstr_obj obj) :> sort)
-    | DATATYPE_SORT -> (((new datatype_sort ctx)#cnstr_obj obj) :> sort)
-    | INT_SORT -> (((new int_sort ctx)#cnstr_obj obj) :> sort)
-    | REAL_SORT -> (((new real_sort ctx)#cnstr_obj obj) :> sort)
-    | UNINTERPRETED_SORT -> (((new uninterpreted_sort ctx)#cnstr_obj obj) :> sort)
-    | FINITE_DOMAIN_SORT -> (((new finite_domain_sort ctx)#cnstr_obj obj) :> sort)
-    | RELATION_SORT -> (((new relation_sort ctx)#cnstr_obj obj) :> sort)
-    | UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
 
 (** Function declaration objects *)
 class func_decl ctx =
@@ -391,6 +374,126 @@ object (self)
     | None -> raise (Z3native.Exception "Missing parameter func_decl")
   method rational = m_r
 end
+
+
+(** Constructor objects *)
+class constructor ctx =
+object (self)
+  inherit z3object ctx None as super
+  val mutable m_n : int = 0
+  val mutable m_tester_decl : func_decl option = None
+  val mutable m_constructor_decl : func_decl  option = None
+  val mutable m_accessor_decls : func_decl array option = None
+  method incref ctx o = ()
+  method decref ctx o = ()
+  initializer 
+  let f = fun o -> Z3native.del_constructor o#gnc o#gno in
+  let v = self in
+  Gc.finalise f v
+
+  method cnstr_ssssi (name : symbol) (recognizer : symbol) (field_names : symbol array) (sorts : sort array) (sort_refs : int array) =
+    m_n <- (Array.length field_names) ;
+    if m_n != (Array.length sorts) then
+      raise (Z3native.Exception "Number of field names does not match number of sorts")
+    else
+      if m_n != (Array.length sort_refs) then
+	raise (Z3native.Exception "Number of field names does not match number of sort refs")
+      else
+        let o = (Z3native.mk_constructor ctx#gno name#gno recognizer#gno m_n (symbolaton field_names)
+		   (sortaton sorts)
+		   sort_refs) in
+	self#sno ctx o ; 
+	self
+
+  method private init =
+    match m_tester_decl with
+      | None -> 
+	let (a, b, c) = (Z3native.query_constructor self#gnc self#gno m_n) in
+	m_constructor_decl <- Some ((new func_decl ctx)#cnstr_obj a) ;
+	m_tester_decl <- Some ((new func_decl ctx)#cnstr_obj b) ;	
+	m_accessor_decls <- Some (let f e = ((new func_decl ctx)#cnstr_obj e) in Array.map f c) ;
+	()
+      | _ -> ()
+
+  method get_n = m_n
+    
+  method tester_decl = match m_tester_decl with
+    | Some(x) -> x
+    | None -> self#init ; self#tester_decl
+
+  method constructor_decl = match m_constructor_decl with
+    | Some(x) -> x
+    | None -> self#init ; self#constructor_decl
+
+  method accessor_decls = match m_accessor_decls with
+    | Some(x) -> x
+    | None -> self#init ; self#accessor_decls
+end
+
+let constructoraton (a : constructor array) =
+  let f (e : constructor) = e#gno in 
+  Array.map f a
+
+(** Constructor list objects *)
+class constructor_list ctx =
+object (self)
+  inherit z3object ctx None
+  method incref ctx o = ()
+  method decref ctx o = ()    
+  initializer 
+  let f = fun o -> Z3native.del_constructor_list o#gnc o#gno in
+  let v = self in
+  Gc.finalise f v
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_ca ( c : constructor array ) =
+    self#sno ctx (Z3native.mk_constructor_list ctx#gno (Array.length c) (constructoraton c)) ;
+    self
+end
+
+let constructor_listaton (a : constructor_list array) =
+  let f (e : constructor_list) = e#gno in 
+  Array.map f a
+
+(** Datatype sort objects *)
+class datatype_sort ctx =
+object (self)
+  inherit sort ctx as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_sc (name : symbol) (constructors : constructor array) = (self#sno ctx (fst (Z3native.mk_datatype ctx#gno name#gno (Array.length constructors) (constructoraton constructors)))) ; self
+end
+
+let create_sort ctx obj =
+  match (int2sort_kind (Z3native.get_sort_kind ctx#gno obj)) with
+    | ARRAY_SORT -> (((new array_sort ctx)#cnstr_obj obj) :> sort)
+    | BOOL_SORT -> (((new bool_sort ctx)#cnstr_obj obj) :> sort)
+    | BV_SORT -> (((new bitvec_sort ctx)#cnstr_obj obj) :> sort)
+    | DATATYPE_SORT -> (((new datatype_sort ctx)#cnstr_obj obj) :> sort)
+    | INT_SORT -> (((new int_sort ctx)#cnstr_obj obj) :> sort)
+    | REAL_SORT -> (((new real_sort ctx)#cnstr_obj obj) :> sort)
+    | UNINTERPRETED_SORT -> (((new uninterpreted_sort ctx)#cnstr_obj obj) :> sort)
+    | FINITE_DOMAIN_SORT -> (((new finite_domain_sort ctx)#cnstr_obj obj) :> sort)
+    | RELATION_SORT -> (((new relation_sort ctx)#cnstr_obj obj) :> sort)
+    | UNKNOWN_SORT -> raise (Z3native.Exception "Unknown sort kind encountered")
+
+(** AST vector objects *)
+class ast_vector ctx =
+object (self)
+  inherit z3object ctx None
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref ctx o = Z3native.ast_vector_inc_ref ctx o
+  method decref ctx o = Z3native.ast_vector_dec_ref ctx o
+end
+
+
+(** AST map objects *)
+class ast_map ctx =
+object (self)
+  inherit z3object ctx None
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref ctx o = Z3native.ast_map_inc_ref ctx o
+  method decref ctx o = Z3native.ast_map_dec_ref ctx o
+end
+
 
 (** Expression objects *)
 class expr ctx =
@@ -492,7 +595,8 @@ end
 
 (**/**)
 
-(** Interaction logging for Z3.
+(** Interaction logging for Z3
+
     Note that this is a global, static log and if multiple Context 
     objects are created, it logs the interaction with all of them. *)
 module Log = 
@@ -512,7 +616,7 @@ struct
   let append s = Z3native.append_log s
 end
 
-(** Version information. *)
+(** Version information *)
 module Version =
 struct
   (** The major version. *)
@@ -536,7 +640,7 @@ struct
       string_of_int rev ^ "."
 end
 
-(** Symbols are used to name several term and type constructors. *)
+(** Symbols are used to name several term and type constructors *)
 module Symbol =
 struct	
   (** The kind of the symbol (int or string) *)
@@ -562,9 +666,7 @@ struct
 end
 
 
-(**
-   The Sort module implements type information for ASTs.
-*)
+(** The Sort module implements type information for ASTs *)
 module Sort =
 struct
   (**
@@ -612,13 +714,13 @@ struct
 end
 
 (** Bit-vector sorts *)
-module BitVectorSort =
+module BitVecSort =
 struct
   (** The size of the bit-vector sort. *)
   let get_size (x : bitvec_sort) = Z3native.get_bv_sort_size x#gnc x#gno
 end
 
-(** Finite domain sorts. *)
+(** Finite domain sorts *)
 module FiniteDomainSort =
 struct
   (** The size of the finite domain sort. *)
@@ -628,7 +730,7 @@ struct
     else raise (Z3native.Exception "Conversion failed.")
 end
 
-(** Relation sorts. *)
+(** Relation sorts *)
 module RelationSort =
 struct
   (** The arity of the relation sort. *)
@@ -684,60 +786,60 @@ let create_ast ctx no =
     | UNKNOWN_AST -> raise (Z3native.Exception "Cannot create asts of type unknown")
 (**/**)
 
-(** Function declarations. *)
+(** Function declarations *)
 module FuncDecl =
 struct
-(** Parameters of Func_Decls *)
+  (** Parameters of Func_Decls *)
   module Parameter =
   struct
-  (**
-     The kind of the parameter.
-  *)
+    (**
+       The kind of the parameter.
+    *)
     let get_kind (x : parameter) = x#kind
 
-  (**The int value of the parameter.*)
+    (**The int value of the parameter.*)
     let get_int (x : parameter) = 
       if (x#kind != PARAMETER_INT) then 
 	raise (Z3native.Exception "parameter is not an int") 
       else 
 	x#int
 
-  (**The double value of the parameter.*)
+    (**The double value of the parameter.*)
     let get_double (x : parameter) = 
       if (x#kind != PARAMETER_DOUBLE) then 
 	raise (Z3native.Exception "parameter is not a double") 
       else 
 	x#double
 
-  (**The Symbol value of the parameter.*)
+    (**The Symbol value of the parameter.*)
     let get_symbol (x : parameter) = 
       if (x#kind != PARAMETER_SYMBOL) then 
 	raise (Z3native.Exception "parameter is not a symbol") 
       else 
 	x#symbol
 
-  (**The Sort value of the parameter.*)
+    (**The Sort value of the parameter.*)
     let get_sort (x : parameter) = 
       if (x#kind != PARAMETER_SORT) then 
 	raise (Z3native.Exception "parameter is not a sort") 
       else 
 	x#sort
 
-  (**The AST value of the parameter.*)
+    (**The AST value of the parameter.*)
     let get_ast (x : parameter) = 
       if (x#kind != PARAMETER_AST) then 
 	raise (Z3native.Exception "parameter is not an ast") 
       else 
 	x#ast
 
-  (**The FunctionDeclaration value of the parameter.*)
+    (**The FunctionDeclaration value of the parameter.*)
     let get_ast (x : parameter) = 
       if (x#kind != PARAMETER_FUNC_DECL) then 
 	raise (Z3native.Exception "parameter is not an function declaration") 
       else 
 	x#func_decl
 
-  (**The rational string value of the parameter.*)
+    (**The rational string value of the parameter.*)
     let get_rational (x : parameter) = 
       if (x#kind != PARAMETER_RATIONAL) then 
 	raise (Z3native.Exception "parameter is not a ratinoal string") 
@@ -826,7 +928,7 @@ struct
 
   (**
      Create expression that applies function to arguments.
-     <param name="args"></param>
+     @param args The arguments
   *)	   
   let apply (x : func_decl) (args : expr array) = create_expr_fa x#gc x args
 
@@ -862,7 +964,7 @@ struct
     Array.init n f
 end
 
-(** Enumeration sorts. *)
+(** Enumeration sorts *)
 module EnumSort =
 struct
   (** The function declarations of the constants in the enumeration. *)
@@ -876,7 +978,7 @@ struct
     Array.map f x#tester_decls
 end
 
-(** List sorts. *)
+(** List sorts *)
 module ListSort =
 struct
   (** The declaration of the nil function of this list sort. *)
@@ -901,6 +1003,7 @@ struct
   let nil (x : list_sort) = create_expr_fa x#gc (get_nil_decl x) [||]
 end
 
+(** Tuple sorts *)
 module TupleSort =
 struct
   (**  The constructor function of the tuple.*)
@@ -917,7 +1020,7 @@ struct
     Array.init n f
 end
 
-(** The abstract syntax tree (AST) module. *)
+(** The abstract syntax tree (AST) module *)
 module AST =
 struct
   (**
@@ -1077,12 +1180,107 @@ struct
   let to_string (p : params) = Z3native.params_to_string p#gnc p#gno
 end
 
+(** Vectors of ASTs *)
+module ASTVector = 
+struct
+  (** The size of the vector *)
+  let get_size ( x : ast_vector ) =
+    Z3native.ast_vector_size x#gnc x#gno
+
+  (** 
+      Retrieves the i-th object in the vector.
+      @param i Index
+      @return An AST
+  *)
+  let get ( x : ast_vector ) ( i : int ) =
+    create_ast x#gc (Z3native.ast_vector_get x#gnc x#gno i)
+
+  (** Sets the i-th object in the vector. *)
+  let set ( x : ast_vector ) ( i : int ) ( value : ast ) =
+    Z3native.ast_vector_set x#gnc x#gno i value#gno
+
+  (** Resize the vector to <paramref name="newSize"/>. 
+      @param newSize The new size of the vector. *)
+  let resize ( x : ast_vector ) ( new_size : int ) =
+    Z3native.ast_vector_resize x#gnc x#gno new_size
+      
+  (**
+     Add the AST <paramref name="a"/> to the back of the vector. The size
+     is increased by 1.
+     @param a An AST
+  *)
+  let push ( x : ast_vector ) ( a : ast )  =
+    Z3native.ast_vector_push x#gnc x#gno a#gno
+      
+  (**
+     Translates all ASTs in the vector to <paramref name="to_ctx"/>.
+     @param to_ctx A context
+     @return A new ASTVector
+  *)
+  let translate ( x : ast_vector ) ( to_ctx : context ) =
+    (new ast_vector to_ctx)#cnstr_obj (Z3native.ast_vector_translate x#gnc x#gno to_ctx#gno)
+      
+  (** Retrieves a string representation of the vector. *)    
+  let to_string ( x : ast_vector ) =
+    Z3native.ast_vector_to_string x#gnc x#gno
+end
+
+(**  Map from AST to AST *)
+module ASTMap =
+struct
+  (** Checks whether the map contains the key <paramref name="k"/>.
+      @param k An AST
+      @return True if <paramref name="k"/> is a key in the map, false otherwise. *)
+  let contains ( m : ast_map ) ( key : ast ) =
+    (int2lbool (Z3native.ast_map_contains m#gnc m#gno key#gno)) == L_TRUE
+      
+  (** Finds the value associated with the key <paramref name="k"/>.
+      <remarks>
+      This function signs an error when <paramref name="k"/> is not a key in the map.
+      </remarks>
+      @param k An AST 
+  *)
+  let find ( m : ast_map ) ( key : ast ) =
+    create_ast m#gc (Z3native.ast_map_find m#gnc m#gno key#gno)
+      
+  (**
+     Stores or replaces a new key/value pair in the map.
+     @param k The key AST
+     @param v The value AST
+  *)
+  let insert ( m : ast_map ) ( key : ast ) ( value : ast) =
+    Z3native.ast_map_insert m#gnc m#gno key#gno value#gno
+
+  (**
+     Erases the key <paramref name="k"/> from the map.
+     @param k An AST
+  *)
+  let erase ( m : ast_map ) ( key : ast ) =
+    Z3native.ast_map_erase m#gnc m#gno key#gno
+      
+  (**  Removes all keys from the map. *)
+  let reset ( m : ast_map ) =
+    Z3native.ast_map_reset m#gnc m#gno
+
+  (** The size of the map *)
+  let get_size ( m : ast_map ) =
+    Z3native.ast_map_size m#gnc m#gno
+      
+  (** The keys stored in the map. *)
+  let get_keys ( m : ast_map ) =
+    (new ast_vector m#gc)#cnstr_obj (Z3native.ast_map_keys m#gnc m#gno)
+
+  (** Retrieves a string representation of the map.*)
+  let to_strnig ( m : ast_map ) =
+    Z3native.ast_map_to_string m#gnc m#gno
+end
+
 (** Expressions (terms) *)
 module Expr =
 struct
   (**
      Returns a simplified version of the expression.
-     <param name="p">A set of parameters to configure the simplifier</param>
+     @param p A set of parameters to configure the simplifier
      <seealso cref="Context.SimplifyHelp"/>
   *)
   let simplify ( x : expr ) ( p : params option ) = match p with 
@@ -1155,8 +1353,8 @@ struct
 
   (**
      Translates (copies) the term to the Context <paramref name="ctx"/>.
-     <param name="ctx">A context</param>
-     <returns>A copy of the term which is associated with <paramref name="ctx"/></returns>
+     @param ctx A context
+     @return A copy of the term which is associated with <paramref name="ctx"/>
   *)
   let translate ( x : expr ) to_ctx =
     if x#gc == to_ctx then
@@ -1176,7 +1374,7 @@ struct
     
   (**
      Indicates whether the term is well-sorted.
-     <returns>True if the term is well-sorted, false otherwise.</returns>
+     @return True if the term is well-sorted, false otherwise.
   *)   
   let is_well_sorted ( x : expr ) = int2lbool (Z3native.is_well_sorted x#gnc x#gno) == L_TRUE
 
@@ -2372,13 +2570,13 @@ struct
       Z3native.get_index_value x#gnc x#gno
 end
 
-(* Integer Numerals *)
+(** Integer Numerals *)
 module IntNum =
 struct
   (**  Retrieve the int value. *)
   let get_int ( x : int_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-		  if int2lbool(r) == L_TRUE then v
-		  else raise (Z3native.Exception "Conversion failed.")
+				if int2lbool(r) == L_TRUE then v
+				else raise (Z3native.Exception "Conversion failed.")
 
   (** Returns a string representation of the numeral. *)
   let to_string ( x : int_num ) = Z3native.get_numeral_string x#gnc x#gno		    
@@ -2410,9 +2608,9 @@ module BitVecNum =
 struct
   (**  Retrieve the int value. *)
   let get_int ( x : bitvec_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-		  if int2lbool(r) == L_TRUE then v
-		  else raise (Z3native.Exception "Conversion failed.")
-		    
+				   if int2lbool(r) == L_TRUE then v
+				   else raise (Z3native.Exception "Conversion failed.")
+				     
   (** Returns a string representation of the numeral. *)
   let to_string ( x : bitvec_num ) = Z3native.get_numeral_string x#gnc x#gno
 end
@@ -2424,9 +2622,8 @@ struct
      Return a upper bound for a given real algebraic number. 
      The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
      <seealso cref="Expr.IsAlgebraicNumber"/>   
-     </summary>
-     <param name="precision">the precision of the result</param>
-     <returns>A numeral Expr of sort Real</returns>
+     @param precision the precision of the result
+     @return A numeral Expr of sort Real
   *)
   let to_upper ( x : algebraic_num ) ( precision : int ) =
     (new rat_num x#gc)#cnstr_obj (Z3native.get_algebraic_number_upper x#gnc x#gno precision)
@@ -2435,9 +2632,8 @@ struct
      Return a lower bound for the given real algebraic number. 
      The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
      <seealso cref="Expr.IsAlgebraicNumber"/>
-     </summary>
-     <param name="precision"></param>
-     <returns>A numeral Expr of sort Real</returns>
+     @param precision the precision of the result
+     @return A numeral Expr of sort Real
   *)
   let to_lower ( x : algebraic_num ) precision =
     (new rat_num x#gc)#cnstr_obj (Z3native.get_algebraic_number_lower x#gnc x#gno precision)
@@ -2450,8 +2646,24 @@ struct
   (** Returns a string representation of the numeral. *)
   let to_string ( x : algebraic_num ) = Z3native.get_numeral_string x#gnc x#gno
 end
+
+(** Constructors are used for datatype sorts *)
+module Constructor =
+struct
+  (** The number of fields of the constructor. *)
+  let get_num_fields ( x : constructor ) = x#get_n
+
+  (** The function declaration of the constructor. *)
+  let get_constructor_decl ( x : constructor ) = x#constructor_decl
+
+  (** The function declaration of the tester. *)
+  let get_tester_decl ( x : constructor ) = x#tester_decl
+
+  (** The function declarations of the accessors *)
+  let get_accessor_decls ( x : constructor ) = x#accessor_decls
+end
   
-(** The main interaction with Z3 happens via the Context module. *)
+(** The main interaction with Z3 happens via the Context module *)
 module Context =
 struct
 
@@ -2551,151 +2763,95 @@ struct
        (Array.map f (mk_symbols_string ( ctx : context ) enum_names))
       )
 
-   (**
-      Create a new list sort.
-   *)
+  (**
+     Create a new list sort.
+  *)
   let mk_list_sort ( ctx : context ) (name : symbol) elem_sort =
-      (new list_sort ctx)#cnstr_ss name elem_sort
+    (new list_sort ctx)#cnstr_ss name elem_sort
       
-   (**
-      Create a new list sort.
-   *)
+  (**
+     Create a new list sort.
+  *)
   let mk_list_sort_s ( ctx : context ) (name : string) elem_sort =
     mk_list_sort ctx ((mk_symbol_string ctx name) :> symbol) elem_sort
 
 
-   (**
-      Create a new finite domain sort.
-   *)
+  (**
+     Create a new finite domain sort.
+  *)
   let mk_finite_domain_sort ( ctx : context ) ( name : symbol ) size =
     (new finite_domain_sort ctx)#cnstr_si name size
       
-   (**
-      Create a new finite domain sort.
-   *)
+  (**
+     Create a new finite domain sort.
+  *)
   let mk_finite_domain_sort_s ( ctx : context ) ( name : string ) size =
     (new finite_domain_sort ctx)#cnstr_si ((mk_symbol_string ctx name) :> symbol) size
 
-(**
-
-(* DATATYPES *)
-(**
-   Create a datatype constructor.
-*)
-   @param name constructor name
-   @param recognizer name of recognizer function.
-   @param fieldNames names of the constructor fields.
-   @param sorts field sorts, 0 if the field sort refers to a recursive sort.
-   @param sortRefs reference to datatype sort that is an argument to the constructor; 
-   if the corresponding sort reference is 0, then the value in sort_refs should be an index 
-   referring to one of the recursive datatypes that is declared.
-   public Constructor MkConstructor(Symbol name, Symbol recognizer, Symbol[] fieldNames = null, Sort[] sorts = null, uint[] sortRefs = null)
-   {
+  (* DATATYPES *)
+  (**
+     Create a datatype constructor.
+     @param name constructor name
+     @param recognizer name of recognizer function.
+     @param fieldNames names of the constructor fields.
+     @param sorts field sorts, 0 if the field sort refers to a recursive sort.
+     @param sortRefs reference to datatype sort that is an argument to the constructor; 
+     if the corresponding sort reference is 0, then the value in sort_refs should be an index 
+     referring to one of the recursive datatypes that is declared.
+  *)
+  let mk_constructor ( ctx : context ) ( name : symbol ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
+    (new constructor ctx)#cnstr_ssssi name recognizer field_names sorts sort_refs
 
 
+  (**
+     Create a datatype constructor.
+     @param name constructor name
+     @param recognizer name of recognizer function.
+     @param fieldNames names of the constructor fields.
+     @param sorts field sorts, 0 if the field sort refers to a recursive sort.
+     @param sortRefs reference to datatype sort that is an argument to the constructor; 
+     if the corresponding sort reference is 0, then the value in sort_refs should be an index 
+     referring to one of the recursive datatypes that is declared.
+  *)
+  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
+    mk_constructor ctx ((mk_symbol_string ctx name) :> symbol) recognizer field_names sorts sort_refs
 
 
-   return new Constructor(this, name, recognizer, fieldNames, sorts, sortRefs);
-   }
+  (**
+     Create a new datatype sort.
+  *)
+  let mk_datatype_sort ( ctx : context ) ( name : symbol ) ( constructors : constructor array) =
+    (new datatype_sort ctx)#cnstr_sc name constructors
 
-(**
-   Create a datatype constructor.
-*)
-   @param name 
-   @param recognizer 
-   @param fieldNames 
-   @param sorts 
-   @param sortRefs 
-   @return 
-   public Constructor MkConstructor(string name, string recognizer, string[] fieldNames = null, Sort[] sorts = null, uint[] sortRefs = null)
-   {
+  (**
+     Create a new datatype sort.
+  *)
+  let mk_datatype_sort_s ( ctx : context ) ( name : string ) ( constructors : constructor array) =
+    mk_datatype_sort ctx ((mk_symbol_string ctx name) :> symbol) constructors
+      
+  (**
+     Create mutually recursive datatypes.
+     @param names names of datatype sorts
+     @param c list of constructors, one list per sort.
+  *)
+  let mk_datatype_sorts ( ctx : context ) ( names : symbol array ) ( c : constructor array array ) =
+    let n = (Array.length names) in
+    let f e = ( (new constructor_list ctx)#cnstr_ca e ) in
+    let cla = (Array.map f c) in
+    let (r, a) = (Z3native.mk_datatypes ctx#gno n (symbolaton names) (constructor_listaton cla)) in
+    let g e = ( (new datatype_sort ctx)#cnstr_obj e) in
+    (Array.map g r)
 
-
-   return new Constructor(this, MkSymbol(name), MkSymbol(recognizer), MkSymbols(fieldNames), sorts, sortRefs);
-   }
-
-(**
-   Create a new datatype sort.
-*)
-   let mk_Datatype_Sort(Symbol name, Constructor[] constructors)
-   {
-
-
-
-
-
-
-   CheckContextMatch(name);
-   CheckContextMatch(constructors);
-   return new DatatypeSort(this, name, constructors);
-   }
-
-(**
-   Create a new datatype sort.
-*)
-   let mk_Datatype_Sort(string name, Constructor[] constructors)
-   {
-
-
-
-
-   CheckContextMatch(constructors);
-   return new DatatypeSort(this, MkSymbol(name), constructors);
-   }
+  (** Create mutually recursive data-types. *)
+  let mk_datatype_sorts_s ( ctx : context ) ( names : string array ) ( c : constructor array array ) =
+    mk_datatype_sorts ctx 
+      ( 
+	let f e = ((mk_symbol_string ctx e) :> symbol) in
+	Array.map f names 
+      )
+      c
 
 (**
-   Create mutually recursive datatypes.
-*)
-   @param names names of datatype sorts
-   @param c list of constructors, one list per sort.
-   let mk_Datatype_Sorts(Symbol[] names, Constructor[][] c)
-   {
-
-
-
-
-
-
-
-   CheckContextMatch(names);
-   uint n = (uint)names.Length;
-   ConstructorList[] cla = new ConstructorList[n];
-   IntPtr[] n_constr = new IntPtr[n];
-   for (uint i = 0; i < n; i++)
-   {
-   Constructor[] constructor = c[i];
-
-   CheckContextMatch(constructor);
-   cla[i] = new ConstructorList(this, constructor);
-   n_constr[i] = cla[i].x#gno;
-   }
-   IntPtr[] n_res = new IntPtr[n];
-   Z3native.mk_datatypes(nCtx, n, Symbol.ArrayToNative(names), n_res, n_constr);
-   DatatypeSort[] res = new DatatypeSort[n];
-   for (uint i = 0; i < n; i++)
-   res[i] = new DatatypeSort(this, n_res[i]);
-   return res;
-   }
-
-(**
-   Create mutually recursive data-types.
-*)
-   @param names 
-   @param c 
-   @return 
-   let mk_Datatype_Sorts(string[] names, Constructor[][] c)
-   {
-
-
-
-
-
-
-
-   return MkDatatypeSorts(MkSymbols(names), c);
-   }
-
-   
    
 
 (* FUNCTION DECLARATIONS *)
