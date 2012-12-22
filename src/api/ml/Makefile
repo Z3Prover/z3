@@ -4,3 +4,7 @@
 
 all: 
 	ocamlbuild -cflag -annot z3.cmxa
+
+doc: *.ml
+	mkdir -p doc
+	ocamldoc -html -d doc -I ../../../bld_dbg/api/ml *.ml -hide Z3
