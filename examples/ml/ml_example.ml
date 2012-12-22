@@ -18,10 +18,16 @@ let _ =
       let ctx = (new context cfg) in
       let is = (mk_symbol_int ctx 42) in
       let ss = (mk_symbol_string ctx "mySymbol") in
+      let bs = (mk_bool_sort ctx) in
+      let ints = (mk_int_sort ctx) in
+      let rs = (mk_real_sort ctx) in
       Printf.printf "int symbol: %s\n" (Symbol.to_string (is :> symbol));
       Printf.printf "string symbol: %s\n" (Symbol.to_string (ss :> symbol));
+      Printf.printf "bool sort: %s\n" (Sort.to_string bs);
+      Printf.printf "int sort: %s\n" (Sort.to_string ints);
+      Printf.printf "real sort: %s\n" (Sort.to_string rs);
       Printf.printf "Disposing...\n";
-      ctx#dispose (* can do, but we'd rather let it go out of scope *) ;
+      Gc.full_major ()
     );
   Printf.printf "Exiting.\n";
 ;;
