@@ -9,9 +9,6 @@ open Z3enums
 
 (**/**)
 
-(* Object definitions. These are internal and should be interacted 
-   with only via the corresponding functions from modules. *)
-
 class virtual idisposable = 
 object
   method virtual dispose : unit
@@ -106,8 +103,8 @@ end
 class params ctx obj = 
 object (self)
   inherit z3object ctx obj as super
-  method incref ctx o = Z3native.params_inc_ref ctx o
-  method decref ctx o = Z3native.params_dec_ref ctx o
+  method incref nc o = Z3native.params_inc_ref nc o
+  method decref nc o = Z3native.params_dec_ref nc o
 end
 
 (** Symbol objects *)
@@ -115,8 +112,8 @@ class symbol ctx =
 object (self)
   inherit z3object ctx None as super 
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref ctx o = ()
-  method decref ctx o = ()
+  method incref nc o = ()
+  method decref nc o = ()
 end
 
 let symbolaton (a : symbol array) =
@@ -140,7 +137,7 @@ object(self)
 end
 
 let create_symbol ctx no =
-  match (int2symbol_kind (Z3native.get_symbol_kind ctx#gno no)) with
+  match (symbol_kind_of_int (Z3native.get_symbol_kind ctx#gno no)) with
     | INT_SYMBOL -> (((new int_symbol ctx)#cnstr_obj no) :> symbol)
     | STRING_SYMBOL -> (((new string_symbol ctx)#cnstr_obj no) :> symbol)
       
@@ -198,29 +195,6 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
-(** Enum sort objects *)
-class enum_sort ctx =
-object (self)
-  inherit sort ctx as super
-  val mutable _constdecls : Z3native.ptr array option = None
-  val mutable _testerdecls : Z3native.ptr array option = None
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ss (name : symbol) (enum_names : symbol array) = 
-    let (r, a, b) = (Z3native.mk_enumeration_sort ctx#gno name#gno (Array.length enum_names) (symbolaton enum_names)) in
-    _constdecls <- Some a ;
-    _testerdecls <- Some b ;
-    (self#sno ctx r) ; 
-    self
-
-  method const_decls = match _constdecls with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing const decls")
-
-  method tester_decls = match _testerdecls with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing tester decls")
-end
-
 (** Int sort objects *)
 class int_sort ctx =
 object (self)
@@ -256,54 +230,6 @@ class relation_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-end
-
-(** List sort objects *)
-class list_sort ctx =
-object (self)
-  inherit sort ctx as super    
-  val mutable _nildecl : Z3native.ptr option = None
-  val mutable _is_nildecl : Z3native.ptr option = None
-  val mutable _consdecl : Z3native.ptr option = None
-  val mutable _is_consdecl : Z3native.ptr option = None
-  val mutable _headdecl : Z3native.ptr option = None
-  val mutable _taildecl : Z3native.ptr option = None
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ss (name : symbol) (elem_sort : sort) =
-    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort ctx#gno name#gno elem_sort#gno) in
-    _nildecl <- Some a ;
-    _is_nildecl <- Some b ;
-    _consdecl <- Some c ;
-    _is_consdecl <- Some d ;
-    _headdecl <- Some e ;
-    _taildecl <- Some f ;
-    (self#sno ctx r) ;
-    self
-
-  method nil_decl = match _nildecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing nil decl")
-
-  method is_nil_decl = match _is_nildecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing is_nil decl")
-
-  method cons_decl = match _consdecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing cons decl")
-
-  method is_cons_decl = match _is_consdecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing is_cons decl")
-
-  method head_decl = match _headdecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing head decl")
-
-  method tail_decl = match _taildecl with
-    | Some(x) -> x
-    | None -> raise (Z3native.Exception "Missing tail decl")
-
 end
 
 (** Set sort objects *)
@@ -376,6 +302,76 @@ object (self)
 end
 
 
+(** Enum sort objects *)
+class enum_sort ctx =
+object (self)
+  inherit sort ctx as super
+  val mutable _constdecls : func_decl array option = None
+  val mutable _testerdecls : func_decl array option = None
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_ss (name : symbol) (enum_names : symbol array) = 
+    let (r, a, b) = (Z3native.mk_enumeration_sort ctx#gno name#gno (Array.length enum_names) (symbolaton enum_names)) in
+    _constdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f a)) ;
+    _testerdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f b)) ;
+    (self#sno ctx r) ; 
+    self
+
+  method const_decls = match _constdecls with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing const decls")
+
+  method tester_decls = match _testerdecls with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing tester decls")
+end
+
+(** List sort objects *)
+class list_sort ctx =
+object (self)
+  inherit sort ctx as super    
+  val mutable _nildecl : func_decl option = None
+  val mutable _is_nildecl : func_decl option = None
+  val mutable _consdecl : func_decl option = None
+  val mutable _is_consdecl : func_decl option = None
+  val mutable _headdecl : func_decl option = None
+  val mutable _taildecl : func_decl option = None
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_ss (name : symbol) (elem_sort : sort) =
+    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort ctx#gno name#gno elem_sort#gno) in
+    _nildecl <- Some ((new func_decl ctx)#cnstr_obj a) ;
+    _is_nildecl <- Some ((new func_decl ctx)#cnstr_obj b) ;
+    _consdecl <- Some ((new func_decl ctx)#cnstr_obj c) ;
+    _is_consdecl <- Some ((new func_decl ctx)#cnstr_obj d) ;
+    _headdecl <- Some ((new func_decl ctx)#cnstr_obj e) ;
+    _taildecl <- Some ((new func_decl ctx)#cnstr_obj f) ;
+    (self#sno ctx r) ;
+    self
+
+  method nil_decl = match _nildecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing nil decl")
+
+  method is_nil_decl = match _is_nildecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing is_nil decl")
+
+  method cons_decl = match _consdecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing cons decl")
+
+  method is_cons_decl = match _is_consdecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing is_cons decl")
+
+  method head_decl = match _headdecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing head decl")
+
+  method tail_decl = match _taildecl with
+    | Some(x) -> x
+    | None -> raise (Z3native.Exception "Missing tail decl")
+end
+
 (** Constructor objects *)
 class constructor ctx =
 object (self)
@@ -384,8 +380,8 @@ object (self)
   val mutable m_tester_decl : func_decl option = None
   val mutable m_constructor_decl : func_decl  option = None
   val mutable m_accessor_decls : func_decl array option = None
-  method incref ctx o = ()
-  method decref ctx o = ()
+  method incref nc o = ()
+  method decref nc o = ()
   initializer 
   let f = fun o -> Z3native.del_constructor o#gnc o#gno in
   let v = self in
@@ -438,8 +434,8 @@ let constructoraton (a : constructor array) =
 class constructor_list ctx =
 object (self)
   inherit z3object ctx None
-  method incref ctx o = ()
-  method decref ctx o = ()    
+  method incref nc o = ()
+  method decref nc o = ()    
   initializer 
   let f = fun o -> Z3native.del_constructor_list o#gnc o#gno in
   let v = self in
@@ -463,7 +459,7 @@ object (self)
 end
 
 let create_sort ctx obj =
-  match (int2sort_kind (Z3native.get_sort_kind ctx#gno obj)) with
+  match (sort_kind_of_int (Z3native.get_sort_kind ctx#gno obj)) with
     | ARRAY_SORT -> (((new array_sort ctx)#cnstr_obj obj) :> sort)
     | BOOL_SORT -> (((new bool_sort ctx)#cnstr_obj obj) :> sort)
     | BV_SORT -> (((new bitvec_sort ctx)#cnstr_obj obj) :> sort)
@@ -480,8 +476,8 @@ class ast_vector ctx =
 object (self)
   inherit z3object ctx None
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref ctx o = Z3native.ast_vector_inc_ref ctx o
-  method decref ctx o = Z3native.ast_vector_dec_ref ctx o
+  method incref nc o = Z3native.ast_vector_inc_ref nc o
+  method decref nc o = Z3native.ast_vector_dec_ref nc o
 end
 
 
@@ -490,8 +486,8 @@ class ast_map ctx =
 object (self)
   inherit z3object ctx None
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref ctx o = Z3native.ast_map_inc_ref ctx o
-  method decref ctx o = Z3native.ast_map_dec_ref ctx o
+  method incref nc o = Z3native.ast_map_inc_ref nc o
+  method decref nc o = Z3native.ast_map_dec_ref nc o
 end
 
 
@@ -583,7 +579,6 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
-
 (** Quantifier objects *)
 class quantifier ctx =
 object (self)
@@ -591,9 +586,126 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
+(** Parameter description objects *)
+class param_descrs ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.param_descrs_inc_ref nc o
+  method decref nc o = Z3native.param_descrs_dec_ref nc o
+end
 
+(** Goal objects *)
+class goal ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.goal_inc_ref nc o
+  method decref nc o = Z3native.goal_dec_ref nc o
+end
+
+(** Tactic objects *)
+class tactic ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.tactic_inc_ref nc o
+  method decref nc o = Z3native.tactic_dec_ref nc o
+end
+
+(** Function interpretation entry objects *)
+class func_entry ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.func_entry_inc_ref nc o
+  method decref nc o = Z3native.func_entry_dec_ref nc o
+end
+
+(** Function interpretation objects *)
+class func_interp ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.func_interp_inc_ref nc o
+  method decref nc o = Z3native.func_interp_dec_ref nc o
+end
+
+(** Model objects *)
+class model ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.model_inc_ref nc o
+  method decref nc o = Z3native.model_dec_ref nc o
+end
+
+(** Tactic application result objects *)
+class apply_result ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.apply_result_inc_ref nc o
+  method decref nc o = Z3native.apply_result_dec_ref nc o
+end
+
+(** Probe objects *)
+class probe ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.probe_inc_ref nc o
+  method decref nc o = Z3native.probe_dec_ref nc o
+end
+
+(** Statistical value objects *)
+class statistics_entry =
+object (self)  
+  val mutable m_key : string = ""
+  val mutable m_is_int = false
+  val mutable m_is_float = false
+  val mutable m_int = 0
+  val mutable m_float = 0.0
+    
+  method cnstr_si k v = 
+    m_key <- k;
+    m_is_int <- true;
+    m_int <- v;
+    self
+      
+  method cnstr_sd k v = 
+    m_key <- k;
+    m_is_float <- true;
+    m_float <- v;
+    self
+
+  method key = m_key
+  method int = m_int
+  method float = m_float
+  method is_int = m_is_int
+  method is_float = m_is_float
+end
+
+(** Statistics objects *)
+class statistics ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.stats_inc_ref nc o
+  method decref nc o = Z3native.stats_dec_ref nc o
+end
+
+(** Solver objects *)
+class solver ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.solver_inc_ref nc o
+  method decref nc o = Z3native.solver_dec_ref nc o
+end
 
 (**/**)
+
 
 (** Interaction logging for Z3
 
@@ -606,7 +718,7 @@ struct
       @return True if opening the log file succeeds, false otherwise.
   *)
   (* CMW: "open" seems to be a reserved keyword? *)
-  let open_ filename = ((int2lbool (Z3native.open_log filename)) == L_TRUE)
+  let open_ filename = ((lbool_of_int (Z3native.open_log filename)) == L_TRUE)
 
   (** Closes the interaction log. *)
   let close = Z3native.close_log
@@ -644,7 +756,7 @@ end
 module Symbol =
 struct	
   (** The kind of the symbol (int or string) *)
-  let kind (o : symbol) = (int2symbol_kind (Z3native.get_symbol_kind o#gnc o#gno))
+  let kind (o : symbol) = (symbol_kind_of_int (Z3native.get_symbol_kind o#gnc o#gno))
 
   (** Indicates whether the symbol is of Int kind *)
   let is_int_symbol (o : symbol) = (kind o) == INT_SYMBOL
@@ -680,7 +792,7 @@ struct
     if a#gnc != b#gnc then 
       false 
     else 
-      ((int2lbool (Z3native.is_eq_sort a#gnc a#gno b#gno)) == L_TRUE)
+      ((lbool_of_int (Z3native.is_eq_sort a#gnc a#gno b#gno)) == L_TRUE)
 	
   (**
      Returns a unique identifier for the sort.
@@ -690,7 +802,7 @@ struct
   (**
      The kind of the sort.
   *)
-  let get_sort_kind (x : sort) = (int2sort_kind (Z3native.get_sort_kind x#gnc x#gno))
+  let get_sort_kind (x : sort) = (sort_kind_of_int (Z3native.get_sort_kind x#gnc x#gno))
 
   (**
      The name of the sort
@@ -726,7 +838,7 @@ struct
   (** The size of the finite domain sort. *)
   let get_size (x : finite_domain_sort) = 
     let (r, v) = Z3native.get_finite_domain_sort_size x#gnc x#gno in
-    if int2lbool(r) == L_TRUE then v
+    if lbool_of_int(r) == L_TRUE then v
     else raise (Z3native.Exception "Conversion failed.")
 end
 
@@ -746,15 +858,15 @@ end
 
 (**/**)
 let create_expr ctx obj =
-  if int2ast_kind (Z3native.get_ast_kind ctx#gno obj) == QUANTIFIER_AST then
+  if ast_kind_of_int (Z3native.get_ast_kind ctx#gno obj) == QUANTIFIER_AST then
     (((new quantifier ctx)#cnstr_obj obj) :> expr)
   else
     let s = Z3native.get_sort ctx#gno obj in
-    let sk = (int2sort_kind (Z3native.get_sort_kind ctx#gno s)) in    
-    if (int2lbool (Z3native.is_algebraic_number ctx#gno obj) == L_TRUE) then
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind ctx#gno s)) in    
+    if (lbool_of_int (Z3native.is_algebraic_number ctx#gno obj) == L_TRUE) then
       (((new algebraic_num ctx)#cnstr_obj obj) :> expr)
     else
-      if ((int2lbool (Z3native.is_numeral_ast ctx#gno obj)) == L_TRUE) &&
+      if ((lbool_of_int (Z3native.is_numeral_ast ctx#gno obj)) == L_TRUE) &&
 	(sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
 	match sk with
 	  | INT_SORT -> (((new int_num ctx)#cnstr_obj obj) :> expr)
@@ -776,7 +888,7 @@ let create_expr_fa (ctx : context) (f : func_decl) (args : expr array) =
   create_expr ctx o
 
 let create_ast ctx no =
-  match (int2ast_kind (Z3native.get_ast_kind ctx#gno no)) with
+  match (ast_kind_of_int (Z3native.get_ast_kind ctx#gno no)) with
     | FUNC_DECL_AST -> (((new func_decl ctx)#cnstr_obj no) :> ast)
     | QUANTIFIER_AST -> (((new quantifier ctx)#cnstr_obj no) :> ast)
     | SORT_AST -> ((create_sort ctx no) :> ast)
@@ -858,7 +970,7 @@ struct
     if a#gnc == a#gnc then 
       false 
     else 
-      ((int2lbool (Z3native.is_eq_func_decl a#gnc a#gno b#gno)) == L_TRUE)
+      ((lbool_of_int (Z3native.is_eq_func_decl a#gnc a#gno b#gno)) == L_TRUE)
   (**
      A string representations of the function declaration.
   *)
@@ -897,7 +1009,7 @@ struct
   (**
      The kind of the function declaration.
   *)
-  let get_decl_kind (x : func_decl) = (int2decl_kind (Z3native.get_decl_kind x#gnc x#gno))
+  let get_decl_kind (x : func_decl) = (decl_kind_of_int (Z3native.get_decl_kind x#gnc x#gno))
 
   (**
      The name of the function declaration
@@ -915,7 +1027,7 @@ struct
   let get_parameters (x : func_decl) = 
     let n = (get_num_parameters x) in
     let f i = (
-      match (int2parameter_kind (Z3native.get_decl_parameter_kind x#gnc x#gno i)) with
+      match (parameter_kind_of_int (Z3native.get_decl_parameter_kind x#gnc x#gno i)) with
 	| PARAMETER_INT -> (new parameter)#cnstr_int (Z3native.get_decl_int_parameter x#gnc x#gno i)
 	| PARAMETER_DOUBLE -> (new parameter)#cnstr_double (Z3native.get_decl_double_parameter x#gnc x#gno i)
 	| PARAMETER_SYMBOL-> (new parameter)#cnstr_symbol (Some (create_symbol x#gc (Z3native.get_decl_symbol_parameter x#gnc x#gno i)))
@@ -968,36 +1080,32 @@ end
 module EnumSort =
 struct
   (** The function declarations of the constants in the enumeration. *)
-  let get_const_decls (x : enum_sort) = 
-    let f e = ((new func_decl x#gc)#cnstr_obj e) in
-    Array.map f x#const_decls
+  let get_const_decls (x : enum_sort) = x#const_decls
 
   (** The test predicates for the constants in the enumeration. *)
-  let get_tester_decls (x : enum_sort) = 
-    let f e = ((new func_decl x#gc)#cnstr_obj e) in
-    Array.map f x#tester_decls
+  let get_tester_decls (x : enum_sort) = x#tester_decls
 end
 
 (** List sorts *)
 module ListSort =
 struct
   (** The declaration of the nil function of this list sort. *)
-  let get_nil_decl (x : list_sort) = (new func_decl x#gc)#cnstr_obj x#nil_decl
+  let get_nil_decl (x : list_sort) = x#nil_decl
 
   (** The declaration of the isNil function of this list sort. *)
-  let get_is_nil_decl (x : list_sort) = (new func_decl x#gc)#cnstr_obj x#is_nil_decl
+  let get_is_nil_decl (x : list_sort) = x#is_nil_decl
 
   (** The declaration of the cons function of this list sort. *)
-  let get_cons_decl (x : list_sort) = (new func_decl x#gc)#cnstr_obj x#cons_decl
+  let get_cons_decl (x : list_sort) = x#cons_decl
 
   (** The declaration of the isCons function of this list sort. *)
-  let get_is_cons_decl (x : list_sort) = (new func_decl x#gc)#cnstr_obj x#is_cons_decl
+  let get_is_cons_decl (x : list_sort) = x#is_cons_decl
 
   (** The declaration of the head function of this list sort.*)
-  let get_head_decl (x : list_sort)  = (new func_decl x#gc)#cnstr_obj x#head_decl
+  let get_head_decl (x : list_sort)  = x#head_decl
 
   (** The declaration of the tail function of this list sort. *)
-  let get_tail_decl (x : list_sort) = (new func_decl x#gc)#cnstr_obj x#tail_decl
+  let get_tail_decl (x : list_sort) = x#tail_decl
 
   (** The empty list. *)
   let nil (x : list_sort) = create_expr_fa x#gc (get_nil_decl x) [||]
@@ -1037,7 +1145,7 @@ struct
   (**
      The kind of the AST.
   *)    
-  let get_ast_kind ( x : ast) = (int2ast_kind (Z3native.get_ast_kind x#gnc x#gno))
+  let get_ast_kind ( x : ast) = (ast_kind_of_int (Z3native.get_ast_kind x#gnc x#gno))
     
   (**
      Indicates whether the AST is an Expr
@@ -1092,7 +1200,7 @@ struct
     if a#gnc == b#gnc then 
       false 
     else 
-      ((int2lbool (Z3native.is_eq_ast a#gnc a#gno b#gno)) == L_TRUE)
+      ((lbool_of_int (Z3native.is_eq_ast a#gnc a#gno b#gno)) == L_TRUE)
 	
   (**
      Object Comparison.
@@ -1130,7 +1238,7 @@ struct
      Adds a parameter setting.
   *)
   let add_bool (p : params) (name : symbol) (value : bool) =
-    Z3native.params_set_bool p#gnc p#gno name#gno (lbool2int (if value then L_TRUE else L_FALSE))
+    Z3native.params_set_bool p#gnc p#gno name#gno (int_of_lbool (if value then L_TRUE else L_FALSE))
       
   (**
      Adds a parameter setting.
@@ -1232,7 +1340,7 @@ struct
       @param k An AST
       @return True if <paramref name="k"/> is a key in the map, false otherwise. *)
   let contains ( m : ast_map ) ( key : ast ) =
-    (int2lbool (Z3native.ast_map_contains m#gnc m#gno key#gno)) == L_TRUE
+    (lbool_of_int (Z3native.ast_map_contains m#gnc m#gno key#gno)) == L_TRUE
       
   (** Finds the value associated with the key <paramref name="k"/>.
       <remarks>
@@ -1296,7 +1404,7 @@ struct
      Indicates whether the expression is the true or false expression
      or something else (Z3_L_UNDEF).
   *)
-  let get_bool_value ( x : expr ) = int2lbool (Z3native.get_bool_value x#gnc x#gno)
+  let get_bool_value ( x : expr ) = lbool_of_int (Z3native.get_bool_value x#gnc x#gno)
 
   (**
      The number of arguments of the expression.
@@ -1370,13 +1478,13 @@ struct
   (**
      Indicates whether the term is a numeral
   *)
-  let is_numeral ( x : expr ) = int2lbool (Z3native.is_numeral_ast x#gnc x#gno) == L_TRUE
+  let is_numeral ( x : expr ) = lbool_of_int (Z3native.is_numeral_ast x#gnc x#gno) == L_TRUE
     
   (**
      Indicates whether the term is well-sorted.
      @return True if the term is well-sorted, false otherwise.
   *)   
-  let is_well_sorted ( x : expr ) = int2lbool (Z3native.is_well_sorted x#gnc x#gno) == L_TRUE
+  let is_well_sorted ( x : expr ) = lbool_of_int (Z3native.is_well_sorted x#gnc x#gno) == L_TRUE
 
   (**
      The Sort of the term.
@@ -1387,7 +1495,7 @@ struct
      Indicates whether the term has Boolean sort.
   *)
   let is_bool ( x : expr ) = (AST.is_expr x) &&
-    (int2lbool (Z3native.is_eq_sort x#gnc 
+    (lbool_of_int (Z3native.is_eq_sort x#gnc 
 		  (Z3native.mk_bool_sort x#gnc)
                   (Z3native.get_sort x#gnc x#gno))) == L_TRUE
     
@@ -1395,21 +1503,21 @@ struct
      Indicates whether the term is of integer sort.
   *)
   let is_int ( x : expr ) =
-    ((int2lbool (Z3native.is_numeral_ast x#gnc x#gno)) == L_TRUE) &&
-      ((int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == INT_SORT)
+    ((lbool_of_int (Z3native.is_numeral_ast x#gnc x#gno)) == L_TRUE) &&
+      ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == INT_SORT)
       
   (**
      Indicates whether the term is of sort real.
   *)
   let is_real ( x : expr ) =
-    ((int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == REAL_SORT)
+    ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == REAL_SORT)
 
   (**
      Indicates whether the term is of an array sort.
   *)
   let is_array ( x : expr ) =
-    ((int2lbool (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
-      ((int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == ARRAY_SORT)      
+    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
+      ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == ARRAY_SORT)      
 
   (**
      Indicates whether the term represents a constant.
@@ -1431,7 +1539,7 @@ struct
   (**
      Indicates whether the term is an algebraic number
   *)
-  let is_algebraic_number ( x : expr ) = int2lbool(Z3native.is_algebraic_number x#gnc x#gno) == L_TRUE
+  let is_algebraic_number ( x : expr ) = lbool_of_int(Z3native.is_algebraic_number x#gnc x#gno) == L_TRUE
     
   (**
      Indicates whether the term is the constant true.
@@ -1634,7 +1742,7 @@ struct
      Indicates whether the terms is of bit-vector sort.
   *)
   let is_bv ( x : expr ) =
-    ((int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == BV_SORT)
+    ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == BV_SORT)
 
   (**
      Indicates whether the term is a bit-vector numeral
@@ -2422,8 +2530,8 @@ struct
      Indicates whether the term is of a relation sort.
   *)
   let is_Relation ( x : expr ) =
-    ((int2lbool (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
-      (int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == RELATION_SORT)
+    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
+      (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == RELATION_SORT)
 
   (**
      Indicates whether the term is an relation store
@@ -2536,8 +2644,8 @@ struct
      Indicates whether the term is of an array sort.
   *)
   let is_finite_domain ( x : expr ) =
-    ((int2lbool (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
-      (int2sort_kind (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == FINITE_DOMAIN_SORT)
+    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
+      (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == FINITE_DOMAIN_SORT)
 
   (**
      Indicates whether the term is a less than predicate over a finite domain.
@@ -2575,7 +2683,7 @@ module IntNum =
 struct
   (**  Retrieve the int value. *)
   let get_int ( x : int_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-				if int2lbool(r) == L_TRUE then v
+				if lbool_of_int(r) == L_TRUE then v
 				else raise (Z3native.Exception "Conversion failed.")
 
   (** Returns a string representation of the numeral. *)
@@ -2608,7 +2716,7 @@ module BitVecNum =
 struct
   (**  Retrieve the int value. *)
   let get_int ( x : bitvec_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-				   if int2lbool(r) == L_TRUE then v
+				   if lbool_of_int(r) == L_TRUE then v
 				   else raise (Z3native.Exception "Conversion failed.")
 				     
   (** Returns a string representation of the numeral. *)
@@ -2662,7 +2770,654 @@ struct
   (** The function declarations of the accessors *)
   let get_accessor_decls ( x : constructor ) = x#accessor_decls
 end
+
+
+(** ParamDescrs describe sets of parameters.*)
+module ParamDescrs =
+struct
+
+  (** Validate a set of parameters. *)
+  let validate ( x : param_descrs ) ( p : params )= Z3native.params_validate x#gnc p#gno x#gno
+    
+  (** Retrieve kind of parameter. *)
+  let get_kind ( x : param_descrs ) ( name : symbol ) = 
+    (param_kind_of_int (Z3native.param_descrs_get_kind x#gnc x#gno name#gno))
+      
+  (** Retrieve all names of parameters. *)
+  let get_names ( x : param_descrs ) =
+    let n = Z3native.param_descrs_size x#gnc x#gno in
+    let f i = create_symbol x#gc (Z3native.param_descrs_get_name x#gnc x#gno i) in
+    Array.init n f
+      
+  (** The size of the ParamDescrs. *)
+  let get_size ( x : param_descrs ) = Z3native.param_descrs_size x#gnc x#gno
+    
+  (** Retrieves a string representation of the ParamDescrs. *)
+  let to_string ( x : param_descrs ) = Z3native.param_descrs_to_string x#gnc x#gno
+    
+end
+
+(** Goals 
+
+    A goal (aka problem). A goal is essentially a 
+    of formulas, that can be solved and/or transformed using
+    tactics and solvers. *)
+module Goal =
+struct
+
+  (** The precision of the goal. 
+
+      Goals can be transformed using over and under approximations.
+      An under approximation is applied when the objective is to find a model for a given goal.
+      An over approximation is applied when the objective is to find a proof for a given goal.
+  *)
+  let get_precision ( x : goal ) =
+    goal_prec_of_int (Z3native.goal_precision x#gnc x#gno)
+      
+  (** Indicates whether the goal is precise. *)
+  let is_precise ( x : goal ) =
+    (get_precision x) == GOAL_PRECISE
+      
+  (** Indicates whether the goal is an under-approximation. *)
+  let is_underapproximation ( x : goal ) =
+    (get_precision x) == GOAL_UNDER
+
+  (** Indicates whether the goal is an over-approximation. *)
+  let is_overapproximation ( x : goal ) =
+    (get_precision x) == GOAL_OVER
+      
+  (** Indicates whether the goal is garbage (i.e., the product of over- and under-approximations). *)
+  let is_garbage ( x : goal ) = 
+    (get_precision x) == GOAL_UNDER_OVER
+      
+  (** Adds the constraints to the given goal. *)
+  (* CMW: assert seems to be a keyword. *)
+  let assert_ ( x : goal ) ( constraints : bool_expr array ) =
+    let f e = Z3native.goal_assert x#gnc x#gno e#gno in
+    Array.map f constraints
+      
+  (** Indicates whether the goal contains `false'. *)
+  let is_inconsistent ( x : goal ) =
+    (lbool_of_int (Z3native.goal_inconsistent x#gnc x#gno)) == L_TRUE
+
+  (** The depth of the goal.      
+      This tracks how many transformations were applied to it. *)
+  let get_depth ( x : goal ) = Z3native.goal_depth x#gnc x#gno
+    
+  (** Erases all formulas from the given goal. *)
+  let reset ( x : goal ) =  Z3native.goal_reset x#gnc x#gno
+    
+  (** The number of formulas in the goal. *)
+  let get_size ( x : goal ) = Z3native.goal_size x#gnc x#gno
+
+  (** The formulas in the goal. *)
+  let get_formulas ( x : goal ) =
+    let n = get_size x in 
+    let f i = (new bool_expr x#gc)#cnstr_obj (Z3native.goal_formula x#gnc x#gno i) in
+    Array.init n f
+
+  (** The number of formulas, subformulas and terms in the goal. *)
+  let get_num_exprs ( x : goal ) =  Z3native.goal_num_exprs x#gnc x#gno
+    
+  (** Indicates whether the goal is empty, and it is precise or the product of an under approximation. *)
+  let is_decided_sat ( x : goal ) = 
+    (lbool_of_int (Z3native.goal_is_decided_sat x#gnc x#gno)) == L_TRUE
+      
+  (** Indicates whether the goal contains `false', and it is precise or the product of an over approximation. *)
+  let is_decided_unsat ( x : goal ) =
+    (lbool_of_int (Z3native.goal_is_decided_unsat x#gnc x#gno)) == L_TRUE
+      
+  (**  Translates (copies) the Goal to the target Context <paramref name="to_ctx"/>. *)
+  let translate ( x : goal ) ( to_ctx : context ) =
+    (new goal to_ctx)#cnstr_obj (Z3native.goal_translate x#gnc x#gno to_ctx#gno)
+
+  (** Simplifies the goal. Essentially invokes the `simplify' tactic on the goal. *)
+  let simplify ( x : goal ) ( p : params option ) =
+    let tn = Z3native.mk_tactic x#gnc "simplify" in
+    Z3native.tactic_inc_ref x#gnc tn ;
+    let arn = match p with
+      | None -> Z3native.tactic_apply x#gnc tn x#gno 
+      | Some(pn) -> Z3native.tactic_apply_ex x#gnc tn x#gno pn#gno
+    in
+    Z3native.apply_result_inc_ref x#gnc arn ;
+    let sg = Z3native.apply_result_get_num_subgoals x#gnc arn in
+    let res = if sg == 0 then 
+	raise (Z3native.Exception "No subgoals") 
+      else 
+	Z3native.apply_result_get_subgoal x#gnc arn 0 in
+    Z3native.apply_result_dec_ref x#gnc arn ;
+    Z3native.tactic_dec_ref x#gnc tn ;
+    (new goal x#gc)#cnstr_obj res
+
+  (**  A string representation of the Goal. *)
+  let to_string ( x : goal ) = Z3native.goal_to_string x#gnc x#gno
+end  
+
+
+(** Tactics
+
+    Tactics are the basic building block for creating custom solvers for specific problem domains.
+    The complete list of tactics may be obtained using <c>Context.get_num_tactics</c> 
+    and <c>Context.get_tactic_names</c>.
+    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+*)
+module Tactic =
+struct
+  (** A string containing a description of parameters accepted by the tactic. *)
+  let get_help ( x : tactic ) = Z3native.tactic_get_help x#gnc x#gno
+
+
+  (** Retrieves parameter descriptions for Tactics. *)
+  let get_param_descrs ( x : tactic ) =
+    (new param_descrs x#gc)#cnstr_obj (Z3native.tactic_get_param_descrs x#gnc x#gno)
+      
+  (** Apply the tactic to the goal. *)
+  let apply ( x : tactic ) ( g : goal ) ( p : params option ) =
+    match p with 
+      | None -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply x#gnc x#gno g#gno)
+      | Some (pn) -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply_ex x#gnc x#gno g#gno pn#gno)
+
+  (** Creates a solver that is implemented using the given tactic.
+      <seealso cref="Context.MkSolver(Tactic)"/> *)
+  let get_solver ( x : tactic ) =
+    (new solver x#gc)#cnstr_obj (Z3native.mk_solver_from_tactic x#gnc x#gno)
+
+end
+
+
+(** Function interpretations 
+
+    A function interpretation is represented as a finite map and an 'else'.
+    Each entry in the finite map represents the value of a function given a set of arguments.  
+*)
+module FuncInterp =
+struct
+
+  (** Function interpretations entries 
+
+      An Entry object represents an element in the finite map used to a function interpretation.
+  *)
+  module FuncEntry =
+  struct
+    (**
+       Return the (symbolic) value of this entry.
+    *)
+    let get_value ( x : func_entry ) =
+      create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
+
+    (**
+       The number of arguments of the entry.
+    *)
+    let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
+      
+    (**
+       The arguments of the function entry.
+    *)
+    let get_args ( x : func_entry ) =
+      let n = (get_num_args x) in
+      let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
+      Array.init n f
+	
+    (**
+       A string representation of the function entry.
+    *)
+    let to_string ( x : func_entry ) =
+      let a = (get_args x) in
+      let f c p = (p ^ (Expr.to_string c) ^ ", ") in
+      "[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]]")
+  end
+
+  (**
+     The number of entries in the function interpretation.
+  *)
+  let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
+
+  (**
+     The entries in the function interpretation
+  *)
+  let get_entries ( x : func_interp ) =
+    let n = (get_num_entries x) in
+    let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
+    Array.init n f
+
+  (**
+     The (symbolic) `else' value of the function interpretation.
+  *)
+  let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
+
+  (**
+     The arity of the function interpretation
+  *)
+  let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
+
+  (**
+     A string representation of the function interpretation.
+  *)    
+  let to_string ( x : func_interp ) =     
+    let f c p = (
+      let n = (FuncEntry.get_num_args c) in
+      p ^ 
+	let g c p = (p ^ (Expr.to_string c) ^ ", ") in
+	(if n > 1 then "[" else "") ^
+	  (Array.fold_right 
+	     g 
+	     (FuncEntry.get_args c) 
+	     ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
+    ) in
+    Array.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
+end
+
+(** Models.
+
+    A Model contains interpretations (assignments) of constants and functions. *)
+module Model =
+struct
   
+  (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of zero arity</param>
+      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
+  let get_const_interp ( x : model ) ( f : func_decl ) =
+    if (FuncDecl.get_arity f) != 0 ||
+      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
+      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+    else
+      let np = Z3native.model_get_const_interp x#gnc x#gno f#gno in
+      if (Z3native.is_null np) then
+	None
+      else
+	Some (create_expr x#gc np)
+
+  (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
+      <param name="a">A Constant</param>
+      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
+  *)
+  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
+
+
+  (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of non-zero arity</param>
+      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
+  let rec get_func_interp ( x : model ) ( f : func_decl ) =
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_range f#gnc f#gno))) in
+    if (FuncDecl.get_arity f) == 0 then
+      let n = Z3native.model_get_const_interp x#gnc x#gno f#gno in      
+      if (Z3native.is_null n) then
+	None 
+      else 
+	match sk with
+	  | ARRAY_SORT ->	    
+	    if (lbool_of_int (Z3native.is_as_array x#gnc n)) == L_FALSE then
+	      raise (Z3native.Exception "Argument was not an array constant")
+	    else
+	      let fd = Z3native.get_as_array_func_decl x#gnc n in
+              get_func_interp x ((new func_decl f#gc)#cnstr_obj fd)
+	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
+    else
+      let n = (Z3native.model_get_func_interp x#gnc x#gno f#gno) in
+      if (Z3native.is_null n) then None else Some ((new func_interp x#gc)#cnstr_obj n)
+	
+  (** The number of constants that have an interpretation in the model. *)
+  let get_num_consts ( x : model ) = Z3native.model_get_num_consts x#gnc x#gno
+    
+  (** The function declarations of the constants in the model. *)
+  let get_const_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
+    Array.init n f
+      
+      
+  (** The number of function interpretations in the model. *)
+  let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs x#gnc x#gno
+    
+  (** The function declarations of the function interpretations in the model. *)
+  let get_func_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
+    Array.init n f
+      
+  (** All symbols that have an interpretation in the model. *)
+  let get_decls ( x : model ) =
+    let n_funcs = (get_num_funcs x) in
+    let n_consts = (get_num_consts x ) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
+    let g i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
+    Array.append (Array.init n_funcs f) (Array.init n_consts g)
+      
+  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
+  exception ModelEvaluationFailedException of string
+      
+  (**
+     Evaluates the expression <paramref name="t"/> in the current model.
+     
+     <remarks>
+     This function may fail if <paramref name="t"/> contains quantifiers, 
+     is partial (MODEL_PARTIAL enabled), or if <paramref name="t"/> is not well-sorted.
+     In this case a <c>ModelEvaluationFailedException</c> is thrown.
+     </remarks>
+     <param name="t">An expression</param>
+     <param name="completion">
+     When this flag is enabled, a model value will be assigned to any constant 
+     or function that does not have an interpretation in the model.
+     </param>
+     <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
+  *)
+  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
+    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno (int_of_lbool (if completion then L_TRUE else L_FALSE))) in
+    if (lbool_of_int r) == L_FALSE then
+      raise (ModelEvaluationFailedException "evaluation failed")
+    else
+      create_expr x#gc v
+
+  (** Alias for <c>eval</c>. *)
+  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
+    eval x t completion
+      
+  (** The number of uninterpreted sorts that the model has an interpretation for. *)
+  let get_num_sorts ( x : model ) = Z3native.model_get_num_sorts x#gnc x#gno
+    
+  (** The uninterpreted sorts that the model has an interpretation for. 
+      <remarks>
+      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+      The interpretation for a sort is a finite set of distinct values. We say this finite set is
+      the "universe" of the sort.
+      </remarks>
+      <seealso cref="NumSorts"/>
+      <seealso cref="SortUniverse"/>
+  *)
+  let get_sorts ( x : model ) =
+    let n = (get_num_sorts x) in
+    let f i = (create_sort x#gc (Z3native.model_get_sort x#gnc x#gno i)) in
+    Array.init n f
+
+
+  (** The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>. 
+      <seealso cref="Sorts"/>
+      <param name="s">An uninterpreted sort</param>
+      <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
+  *)
+  let sort_universe ( x : model ) ( s : sort ) =
+    let n_univ = (new ast_vector x#gc)#cnstr_obj (Z3native.model_get_sort_universe x#gnc x#gno s#gno) in
+    let n = (ASTVector.get_size n_univ) in
+    let f i = (ASTVector.get n_univ i) in
+    Array.init n f
+      
+  (** Conversion of models to strings. 
+      <returns>A string representation of the model.</returns>
+  *)
+  let to_string ( x : model ) = Z3native.model_to_string x#gnc x#gno 
+end
+
+(** Tactic application results 
+    
+    ApplyResult objects represent the result of an application of a 
+    tactic to a goal. It contains the subgoals that were produced. *)
+module ApplyResult =
+struct 
+  (** The number of Subgoals. *)
+  let get_num_subgoals ( x : apply_result ) =
+    Z3native.apply_result_get_num_subgoals x#gnc x#gno
+      
+  (** Retrieves the subgoals from the apply_result. *)
+  let get_subgoals ( x : apply_result ) =
+    let n = (get_num_subgoals x) in
+    let f i = (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i) in
+    Array.init n f
+      
+  (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
+      goal <c>g</c>, that the ApplyResult was obtained from. 
+      #return A model for <c>g</c>
+  *)
+  let convert_model ( x : apply_result ) ( i : int ) ( m : model ) =
+    (new model x#gc)#cnstr_obj (Z3native.apply_result_convert_model x#gnc x#gno i m#gno)
+      
+  (** A string representation of the ApplyResult. *)
+  let to_string ( x : apply_result) = Z3native.apply_result_to_string x#gnc x#gno
+end
+
+(** Objects that track statistical information about solvers. *)
+module Statistics =
+struct
+
+  (**
+     Statistical data is organized into pairs of [Key, Entry], where every
+     Entry is either a <c>DoubleEntry</c> or a <c>UIntEntry</c>
+  *)
+  module Entry =
+  struct
+    (** The key of the entry. *)
+    let get_key (x : statistics_entry) = x#key
+      
+    (** The int-value of the entry. *)
+    let get_int (x : statistics_entry) = x#int
+      
+    (** The float-value of the entry. *)
+    let get_float (x : statistics_entry) = x#float
+      
+    (** True if the entry is uint-valued. *)
+    let is_int (x : statistics_entry) = x#is_int
+      
+    (** True if the entry is double-valued. *)
+    let is_float (x : statistics_entry) = x#is_float
+      
+    (** The string representation of the the entry's value. *)
+    let to_string_value (x : statistics_entry) = 
+      if (is_int x) then
+	string_of_int (get_int x)
+      else if (is_float x) then 
+	string_of_float (get_float x)
+      else
+        raise (Z3native.Exception "Unknown statistical entry type")
+	  
+    (** The string representation of the entry (key and value) *)
+    let to_string ( x : statistics_entry ) = (get_key x) ^ ": " ^ (to_string_value x)
+  end
+
+  (** A string representation of the statistical data. *)    
+  let to_string ( x : statistics ) = Z3native.stats_to_string x#gnc x#gno
+    
+  (** The number of statistical data. *)
+  let get_size ( x : statistics ) = Z3native.stats_size x#gnc x#gno
+    
+  (** The data entries. *)
+  let get_entries ( x : statistics ) =
+    let n = (get_size x ) in
+    let f i = (
+      let k = Z3native.stats_get_key x#gnc x#gno i in
+      if (lbool_of_int (Z3native.stats_is_uint x#gnc x#gno i)) == L_TRUE then
+	((new statistics_entry)#cnstr_si k (Z3native.stats_get_uint_value x#gnc x#gno i))
+      else 
+	((new statistics_entry)#cnstr_sd k (Z3native.stats_get_double_value x#gnc x#gno i))
+    ) in
+    Array.init n f
+
+  (**
+     The statistical counters.
+  *)
+  let get_keys ( x : statistics ) =
+    let n = (get_size x) in
+    let f i = (Z3native.stats_get_key x#gnc x#gno i) in
+    Array.init n f
+      
+  (**
+     The value of a particular statistical counter.
+  *)        
+  let get ( x : statistics ) ( key : string ) =
+    let f p c = (if (Entry.get_key c) = key then (Some c) else p) in
+    Array.fold_left f None (get_entries x)
+
+end
+
+(** Solvers *)
+module Solver =
+struct
+  type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
+
+  (**
+     A string that describes all available solver parameters.
+  *)
+  let get_help ( x : solver ) = Z3native.solver_get_help x#gnc x#gno
+
+  (**
+     Sets the solver parameters.
+  *)
+  let set_parameters ( x : solver ) ( value : params )=
+    Z3native.solver_set_params x#gnc x#gno value#gno
+
+  (**
+     Retrieves parameter descriptions for solver.
+  *)
+  let get_param_descrs ( x : solver ) =
+    (new param_descrs x#gc)#cnstr_obj (Z3native.solver_get_param_descrs x#gnc x#gno)
+
+  (**
+     The current number of backtracking points (scopes).
+     <seealso cref="Pop"/>
+     <seealso cref="Push"/>
+  *)
+  let get_num_scopes ( x : solver ) = Z3native.solver_get_num_scopes x#gnc x#gno
+
+  (**
+     Creates a backtracking point.
+     <seealso cref="Pop"/>
+  *)
+  let push ( x : solver ) = Z3native.solver_push x#gnc x#gno
+
+  (**
+     Backtracks <paramref name="n"/> backtracking points.
+     <remarks>Note that an exception is thrown if <paramref name="n"/> is not smaller than <c>NumScopes</c></remarks>
+     <seealso cref="Push"/>
+  *)
+  let pop ( x : solver ) ( n : int ) = Z3native.solver_pop x#gnc x#gno n
+
+  (**
+     Resets the Solver.
+     <remarks>This removes all assertions from the solver.</remarks>
+  *)
+  let reset ( x : solver ) = Z3native.solver_reset x#gnc x#gno
+
+  (**
+     Assert a constraint (or multiple) into the solver.
+  *)        
+  let assert_ ( x : solver ) ( constraints : bool_expr array ) =
+    let f e = (Z3native.solver_assert x#gnc x#gno e#gno) in
+    Array.map f constraints
+
+  (**
+     The number of assertions in the solver.
+  *)
+  let get_num_assertions ( x : solver ) =
+    let a = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_assertions x#gnc x#gno) in
+    (ASTVector.get_size a)
+
+
+  (**
+     The set of asserted formulas.
+  *)
+  let get_assertions ( x : solver ) =
+    let a = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_assertions x#gnc x#gno) in
+    let n = (ASTVector.get_size a) in
+    let f i = ((new bool_expr x#gc)#cnstr_obj (ASTVector.get a i)#gno) in
+    Array.init n f
+
+  (**
+     Checks whether the assertions in the solver are consistent or not.
+     <remarks>
+     <seealso cref="Model"/>
+     <seealso cref="UnsatCore"/>
+     <seealso cref="Proof"/>    
+     </remarks>    
+  *)
+  let check ( x : solver ) ( assumptions : bool_expr array option) =
+    let r = 
+      match assumptions with 
+	| None -> lbool_of_int (Z3native.solver_check x#gnc x#gno)
+	| Some (ass) -> lbool_of_int (Z3native.solver_check_assumptions  x#gnc x#gno (Array.length ass) (astaton ass))
+    in
+    match r with 
+      | L_TRUE -> SATISFIABLE
+      | L_FALSE -> UNSATISFIABLE
+      | _ -> UNKNOWN
+	
+  (**
+     The model of the last <c>Check</c>.
+     <remarks>
+     The result is <c>None</c> if <c>Check</c> was not invoked before,
+     if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
+     </remarks>
+  *)
+  let get_model ( x : solver ) =
+    let q = Z3native.solver_get_model x#gnc x#gno in
+    if (Z3native.is_null q) then
+      None
+    else 
+      Some ((new model x#gc)#cnstr_obj q)
+	
+  (**
+     The proof of the last <c>Check</c>.
+     <remarks>    
+     The result is <c>null</c> if <c>Check</c> was not invoked before,
+     if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
+     </remarks>
+  *)
+  let get_proof ( x : solver ) =
+    let q = Z3native.solver_get_proof x#gnc x#gno in
+    if (Z3native.is_null q) then
+      None
+    else
+      Some (create_expr x#gc q)
+	
+  (**
+     The unsat core of the last <c>Check</c>.
+     <remarks>
+     The unsat core is a subset of <c>Assertions</c>
+     The result is empty if <c>Check</c> was not invoked before,
+     if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
+     </remarks>
+  *)
+  let get_unsat_core ( x : solver ) =
+    let cn = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_unsat_core x#gnc x#gno) in 
+    let n = (ASTVector.get_size cn) in
+    let f i = (ASTVector.get cn i) in
+    Array.init n f
+
+  (**
+     A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>.
+  *)
+  let get_reason_unknown ( x : solver ) =  Z3native.solver_get_reason_unknown x#gnc x#gno
+
+
+  (**
+     Solver statistics.
+  *)
+  let get_statistics ( x : solver ) =
+    (new statistics x#gc)#cnstr_obj (Z3native.solver_get_statistics x#gnc x#gno)
+
+  (**
+     A string representation of the solver.
+  *)
+  let to_string ( x : solver ) = Z3native.solver_to_string x#gnc x#gno
+end
+
+(** Probes 
+
+    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
+    which solver and/or preprocessing step will be used.
+    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
+    and <c>Context.ProbeNames</c>.
+    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+*)
+module Probe =
+struct
+  (**
+     Execute the probe over the goal. 
+     <returns>A probe always produce a double value.
+     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
+  *)
+  let apply ( x : probe ) (g : goal) =
+    Z3native.probe_apply x#gnc x#gno g#gno
+end
+
+
 (** The main interaction with Z3 happens via the Context module *)
 module Context =
 struct

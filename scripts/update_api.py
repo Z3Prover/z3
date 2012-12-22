@@ -1154,7 +1154,9 @@ def mk_ml():
     for k, v in Type2Str.iteritems():
         if is_obj(k):
             ml_native.write('and %s = ptr\n' % v.lower())
-    ml_native.write('\nexception Exception of string\n\n')
+    ml_native.write('\nexternal is_null : ptr -> bool\n')
+    ml_native.write('  = "n_is_null"\n\n')
+    ml_native.write('exception Exception of string\n\n')
 
     # ML declarations
     ml_native.write('  module ML2C = struct\n\n')
@@ -1219,9 +1221,9 @@ def mk_ml():
             i = i + 1
         ml_native.write(') in\n')
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            ml_native.write('    let err = (int2error_code (ML2C.n_get_error_code a0)) in \n')
+            ml_native.write('    let err = (error_code_of_int (ML2C.n_get_error_code a0)) in \n')
             ml_native.write('      if err <> OK then\n')
-            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (error_code2int err)))\n')
+            ml_native.write('        raise (Exception (ML2C.n_get_error_msg_ex a0 (int_of_error_code err)))\n')
             ml_native.write('      else\n')
         if result == VOID and len(op) == 0:
             ml_native.write('        ()\n')
@@ -1290,6 +1292,9 @@ def mk_ml():
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('extern "C" {\n')
     ml_wrapper.write('#endif\n\n')
+    ml_wrapper.write('CAMLprim value n_is_null(value p) {\n')
+    ml_wrapper.write('  return Val_bool(Data_custom_val(p) == 0);\n')
+    ml_wrapper.write('}\n\n')
     for name, result, params in _dotnet_decls:
         ip = inparams(params)
         op = outparams(params)
