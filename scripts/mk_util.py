@@ -2777,13 +2777,13 @@ def mk_z3consts_ml(api_files):
                             efile.write('  | %s \n' % k[3:]) # strip Z3_
                         efile.write('\n')
                         efile.write('(** Convert %s to int*)\n' % name[3:])
-                        efile.write('let %s2int x : int =\n' % (name[3:])) # strip Z3_
+                        efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():
                             efile.write('  | %s -> %d\n' % (k[3:], i))
                         efile.write('\n')
                         efile.write('(** Convert int to %s*)\n' % name[3:])
-                        efile.write('let int2%s x : %s =\n' % (name[3:],name[3:])) # strip Z3_
+                        efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
                         efile.write('  match x with\n')
                         for k, i in decls.iteritems():
                             efile.write('  | %d -> %s\n' % (i, k[3:]))
