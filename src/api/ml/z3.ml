@@ -30,21 +30,25 @@ object (self)
     Z3native.del_config(cfg) ;
     v
 
-  val mutable m_refCount : int = 0
+  val mutable m_obj_cnt : int = 0
     
   initializer 
-    Gc.finalise (fun self -> self#dispose) self
+    (* Printf.printf "Installing finalizer on context %d \n" (Oo.id self) ; *)
+    let f = fun o -> o#dispose in
+    let v = self in
+    Gc.finalise f v
       
   method dispose : unit = 
-    if m_refCount == 0 then (
-      Printf.printf "Disposing context %d \n" (Oo.id self) ;
+    if m_obj_cnt == 0 then (
+      (* Printf.printf "Disposing context %d \n" (Oo.id self) ; *)
       (Z3native.del_context m_n_ctx)
     ) else (
+      Printf.printf "NOT DISPOSING context %d because it still has %d objects alive\n" (Oo.id self) m_obj_cnt;
     (* re-queue for finalization? *)
     )
 
-  method sub_one_ctx_obj = m_refCount <- m_refCount - 1
-  method add_one_ctx_obj = m_refCount <- m_refCount + 1
+  method add_one_ctx_obj = m_obj_cnt <- m_obj_cnt + 1
+  method sub_one_ctx_obj = m_obj_cnt <- m_obj_cnt - 1
   method gno = m_n_ctx
 end
 
@@ -62,18 +66,21 @@ object (self)
 	m_ctx#add_one_ctx_obj
       | None -> ()
     );
-    Gc.finalise (fun self -> self#dispose) self
+    (* Printf.printf "Installing finalizer on z3object %d \n" (Oo.id self) ; *)
+    let f = fun o -> o#dispose in
+    let v = self in
+    Gc.finalise f v
 
   method virtual incref : Z3native.ptr -> Z3native.ptr -> unit
   method virtual decref : Z3native.ptr -> Z3native.ptr -> unit
     
-  (* 
-     Disposes of the underlying native Z3 object. 
-  *)
   method dispose =
-    Printf.printf "Disposing z3object %d \n" (Oo.id self) ;
+    (* Printf.printf "Disposing z3object %d \n" (Oo.id self) ; *)
     (match m_n_obj with
-      | Some (x) -> self#decref m_ctx#gno x; m_n_obj <- None; m_ctx#sub_one_ctx_obj
+      | Some (x) -> 
+	self#decref m_ctx#gno x; 
+	m_ctx#sub_one_ctx_obj ;
+	m_n_obj <- None; 
       | None -> ()
     ); 
 
@@ -81,10 +88,11 @@ object (self)
     | Some(x) -> x
     | None -> raise (Z3native.Exception "Z3 object lost")
 
-  method sno nc o =
-    self#incref nc o ;
+  method sno (ctx : context) o =
+    m_ctx#add_one_ctx_obj ;
+    self#incref ctx#gno o ;
     (match m_n_obj with
-      | Some(x) -> self#decref nc x
+      | Some(x) -> self#decref ctx#gno x ; m_ctx#sub_one_ctx_obj
       | None -> ()
     );
     m_n_obj <- Some o
@@ -107,7 +115,7 @@ end
 class symbol ctx = 
 object (self)
   inherit z3object ctx None as super 
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
   method incref ctx o = ()
   method decref ctx o = ()
 end
@@ -120,16 +128,16 @@ let symbolaton (a : symbol array) =
 class int_symbol ctx = 
 object(self)
   inherit symbol ctx as super 
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_int i = (self#sno ctx#gno (Z3native.mk_int_symbol ctx#gno i)) ; self 
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_int i = (self#sno ctx (Z3native.mk_int_symbol ctx#gno i)) ; self 
 end
 
 (** String symbol objects *)
 class string_symbol ctx = 
 object(self)
   inherit symbol ctx as super 
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_string name = (self#sno ctx#gno (Z3native.mk_string_symbol ctx#gno name)) ; self 
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_string name = (self#sno ctx (Z3native.mk_string_symbol ctx#gno name)) ; self 
 end
 
 let create_symbol ctx no =
@@ -141,7 +149,7 @@ let create_symbol ctx no =
 class ast ctx =
 object (self)
   inherit z3object ctx None as super (* CMW: derive from icomparable? *)  
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 
   method incref nc o = Z3native.inc_ref nc o
   method decref nc o = Z3native.dec_ref nc o       
@@ -155,44 +163,44 @@ let astaton (a : ast array) =
 class sort ctx =
 object (self)
   inherit ast ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Arithmetic sort objects, i.e., Int or Real. *)
 class arith_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Array sorts objects *)
 class array_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_dr (domain : sort) (range : sort) = (self#sno ctx#gno (Z3native.mk_array_sort ctx#gno domain#gno range#gno)) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_dr (domain : sort) (range : sort) = (self#sno ctx (Z3native.mk_array_sort ctx#gno domain#gno range#gno)) ; self
 end
 
 (** Bit-vector sort objects *)
 class bitvec_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Boolean sort objects *)
 class bool_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Datatype sort objects *)
 class datatype_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_sc (name : symbol) constructors = (self#sno ctx#gno (fst (Z3native.mk_datatype ctx#gno name#gno (Array.length constructors) (astaton constructors)))) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_sc (name : symbol) constructors = (self#sno ctx (fst (Z3native.mk_datatype ctx#gno name#gno (Array.length constructors) (astaton constructors)))) ; self
 end
 
 (** Enum sort objects *)
@@ -201,12 +209,12 @@ object (self)
   inherit sort ctx as super
   val mutable _constdecls = None
   val mutable _testerdecls = None
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (enum_names : symbol array) = 
     let (r, a, b) = (Z3native.mk_enumeration_sort ctx#gno name#gno (Array.length enum_names) (symbolaton enum_names)) in
     _constdecls <- Some a ;
     _testerdecls <- Some b ;
-    (self#sno ctx#gno r) ; 
+    (self#sno ctx r) ; 
     self
 
   method const_decls = match _constdecls with
@@ -222,37 +230,37 @@ end
 class int_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Real sort objects *)
 class real_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Uninterpreted sort objects *)
 class uninterpreted_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_s (s : symbol) = (self #sno ctx#gno (Z3native.mk_uninterpreted_sort ctx#gno s#gno)) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_s (s : symbol) = (self #sno ctx (Z3native.mk_uninterpreted_sort ctx#gno s#gno)) ; self
 end
 
 (** Finite domain sort objects *)
 class finite_domain_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_si (s : symbol) ( sz : int )= (self #sno ctx#gno (Z3native.mk_finite_domain_sort ctx#gno s#gno sz)) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_si (s : symbol) ( sz : int )= (self #sno ctx (Z3native.mk_finite_domain_sort ctx#gno s#gno sz)) ; self
 end
 
 (** Relation sort objects *)
 class relation_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** List sort objects *)
@@ -265,7 +273,7 @@ object (self)
   val mutable _is_consdecl = None
   val mutable _headdecl = None
   val mutable _taildecl = None
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (elem_sort : sort) =
     let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort ctx#gno name#gno elem_sort#gno) in
     _nildecl <- Some a ;
@@ -274,7 +282,7 @@ object (self)
     _is_consdecl <- Some d ;
     _headdecl <- Some e ;
     _taildecl <- Some f ;
-    (self#sno ctx#gno r) ;
+    (self#sno ctx r) ;
     self
 
   method nil_decl = match _nildecl with
@@ -307,18 +315,18 @@ end
 class set_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_s (s : sort) = (self#sno ctx#gno s#gno) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_s (s : sort) = (self#sno ctx s#gno) ; self
 end
 
 (** Tuple sort objects *)
 class tuple_sort ctx =
 object (self)
   inherit sort ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_siss (name : symbol) (num_fields: int) (field_names : symbol array) (field_sorts : sort array) =
     let (x,_,_) = (Z3native.mk_tuple_sort ctx#gno name#gno num_fields (symbolaton field_names) (astaton field_sorts)) in
-    (self#sno ctx#gno x) ;
+    (self#sno ctx x) ;
     self
 end
 
@@ -339,9 +347,9 @@ let create_sort ctx obj =
 class func_decl ctx =
 object (self)
   inherit ast ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
-  method cnstr_ndr (name : symbol) (domain : sort array) (range : sort)  = (self#sno ctx#gno (Z3native.mk_func_decl ctx#gno name#gno (Array.length domain) (astaton domain) range#gno)) ; self
-  method cnstr_pdr (prefix : string) (domain : sort array) (range : sort) = (self#sno ctx#gno (Z3native.mk_fresh_func_decl ctx#gno prefix (Array.length domain) (astaton domain) range#gno)) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_ndr (name : symbol) (domain : sort array) (range : sort)  = (self#sno ctx (Z3native.mk_func_decl ctx#gno name#gno (Array.length domain) (astaton domain) range#gno)) ; self
+  method cnstr_pdr (prefix : string) (domain : sort array) (range : sort) = (self#sno ctx (Z3native.mk_fresh_func_decl ctx#gno prefix (Array.length domain) (astaton domain) range#gno)) ; self
 
   method incref nc o = super#incref nc o
   method decref nc o = super#decref nc o
@@ -388,7 +396,7 @@ end
 class expr ctx =
 object(self)
   inherit ast ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self    
+  method cnstr_obj obj = (self#sno ctx obj) ; self    
 end
 
 let expraton (a : expr array) =
@@ -399,77 +407,77 @@ let expraton (a : expr array) =
 class bool_expr ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Arithmetic expression objects (int/real) *)
 class arith_expr ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Int expression objects *)
 class int_expr ctx =
 object (self)
   inherit arith_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Real expression objects *)
 class real_expr ctx =
 object (self)
   inherit arith_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Bit-vector expression objects *)
 class bitvec_expr ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Array expression objects *)
 class array_expr ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Datatype expression objects *)
 class datatype_expr ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Integer numeral expression objects *)
 class int_num ctx =
 object (self)
   inherit int_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Rational numeral expression objects *)
 class rat_num ctx =
 object (self)
   inherit real_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Bit-vector numeral expression objects *)
 class bitvec_num ctx =
 object (self)
   inherit bitvec_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 (** Algebraic numeral expression objects *)
 class algebraic_num ctx =
 object (self)
   inherit arith_expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 
@@ -477,7 +485,7 @@ end
 class quantifier ctx =
 object (self)
   inherit expr ctx as super
-  method cnstr_obj obj = (self#sno ctx#gno obj) ; self
+  method cnstr_obj obj = (self#sno ctx obj) ; self
 end
 
 
@@ -1112,7 +1120,7 @@ struct
     if (Array.length args <> (get_num_args x)) then
       raise (Z3native.Exception "Number of arguments does not match")
     else
-      x#sno x#gnc (Z3native.update_term x#gnc x#gno (Array.length args) (expraton args))
+      x#sno x#gc (Z3native.update_term x#gnc x#gno (Array.length args) (expraton args))
 
   (**
      Substitute every occurrence of <c>from[i]</c> in the expression with <c>to[i]</c>, for <c>i</c> smaller than <c>num_exprs</c>.
@@ -2483,7 +2491,7 @@ struct
      Create a new Boolean sort.
   *)
   let mk_bool_sort ( ctx : context ) =
-    (new bool_sort ctx)
+    (new bool_sort ctx)#cnstr_obj (Z3native.mk_bool_sort ctx#gno)
       
   (**
      Create a new uninterpreted sort.
@@ -2501,13 +2509,13 @@ struct
      Create a new integer sort.
   *)
   let mk_int_sort ( ctx : context ) =
-    (new int_sort ctx)
+    (new int_sort ctx)#cnstr_obj (Z3native.mk_int_sort ctx#gno)
 
   (**
      Create a real sort.
   *)    
   let mk_real_sort ( ctx : context ) =
-    (new real_sort ctx)
+    (new real_sort ctx)#cnstr_obj (Z3native.mk_real_sort ctx#gno)
 
   (**
      Create a new bit-vector sort.

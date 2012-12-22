@@ -1280,7 +1280,7 @@ def mk_ml():
     ml_wrapper.write('  CAMLxparam3(X11,X12,X13);                                           \n')
     ml_wrapper.write('\n\n')
     ml_wrapper.write('static struct custom_operations default_custom_ops = {\n')
-    ml_wrapper.write('  identifier: "default handling",\n')
+    ml_wrapper.write('  identifier:  (char*) "default handling",\n')
     ml_wrapper.write('  finalize:    custom_finalize_default,\n')
     ml_wrapper.write('  compare:     custom_compare_default,\n')
     ml_wrapper.write('  hash:        custom_hash_default,\n')
