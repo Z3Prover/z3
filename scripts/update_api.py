@@ -1154,8 +1154,11 @@ def mk_ml():
     for k, v in Type2Str.iteritems():
         if is_obj(k):
             ml_native.write('and %s = ptr\n' % v.lower())
-    ml_native.write('\nexternal is_null : ptr -> bool\n')
+    ml_native.write('\n')
+    ml_native.write('external is_null : ptr -> bool\n')
     ml_native.write('  = "n_is_null"\n\n')
+    ml_native.write('external mk_null : unit -> ptr\n')
+    ml_native.write('  = "n_mk_null"\n\n')
     ml_native.write('exception Exception of string\n\n')
 
     # ML declarations
@@ -1294,6 +1297,14 @@ def mk_ml():
     ml_wrapper.write('#endif\n\n')
     ml_wrapper.write('CAMLprim value n_is_null(value p) {\n')
     ml_wrapper.write('  return Val_bool(Data_custom_val(p) == 0);\n')
+    ml_wrapper.write('}\n\n')
+    ml_wrapper.write('CAMLprim value n_mk_null( void ) {\n')
+    ml_wrapper.write('  CAMLparam0();\n')
+    ml_wrapper.write('  CAMLlocal1(result);\n')
+    ml_wrapper.write('  void * z3_result = 0;\n')
+    ml_wrapper.write('  result = caml_alloc_custom(&default_custom_ops, sizeof(void*), 0, 1);\n')
+    ml_wrapper.write('  memcpy( Data_custom_val(result), &z3_result, sizeof(void*));\n')
+    ml_wrapper.write('  CAMLreturn (result);\n')
     ml_wrapper.write('}\n\n')
     for name, result, params in _dotnet_decls:
         ip = inparams(params)
