@@ -4,7 +4,7 @@
 *)
 
 open Z3
-open Z3.Context
+open Z3.Arithmetic
 
 exception ExampleException of string
 
@@ -16,9 +16,9 @@ let _ =
       Printf.printf "Running Z3 version %s\n" Version.to_string ;
       let cfg = [("model", "true"); ("proof", "false")] in
       let ctx = (new context cfg) in
-      let is = (mk_symbol_int ctx 42) in
-      let ss = (mk_symbol_string ctx "mySymbol") in
-      let bs = (mk_bool_sort ctx) in
+      let is = (Symbol.mk_int ctx 42) in
+      let ss = (Symbol.mk_string ctx "mySymbol") in
+      let bs = (Sort.mk_bool ctx) in
       let ints = (mk_int_sort ctx) in
       let rs = (mk_real_sort ctx) in
       Printf.printf "int symbol: %s\n" (Symbol.to_string (is :> symbol));
