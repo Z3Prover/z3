@@ -7,25 +7,44 @@
 
 open Z3enums
 
-(**/**)
+(** Context objects. 
 
-class virtual idisposable = 
-object
-  method virtual dispose : unit
-end
+Most interactions with Z3 are interpreted in some context; most users will only 
+require one such object, but power users may require more than one. To start using 
+Z3, do 
 
-(** Context objects *)
+<code>
+    let ctx = (new context [||]) in 
+    (...)
+</code>
+
+where <code>[||]</code> is a (possibly empty) list of pairs of strings, which can 
+be used to set options on the context, e.g., like so:
+
+<code>
+    let cfg = [("model", "true"); ("...", "...")] in
+    let ctx = (new context cfg) in 
+    (...)
+</code>
+
+*)
 class context settings  =
+(**/**)
 object (self)
-  inherit idisposable
-
   val mutable m_n_ctx : Z3native.z3_context = 
     let cfg = Z3native.mk_config in
     let f e = (Z3native.set_param_value cfg (fst e) (snd e)) in
     (List.iter f settings) ;
     let v = Z3native.mk_context_rc cfg in
     Z3native.del_config(cfg) ;
+    Z3native.set_ast_print_mode v (int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT) ;
     v
+
+(* CMW: Install error handler here! 
+   m_n_err_handler = new Z3native.error_handler(NativeErrorHandler);  keep reference so it doesn't get collected.
+   Z3native.set_error_handler(m_ctx, m_n_err_handler);
+  GC.SuppressFinalize(this);
+*)
 
   val mutable m_obj_cnt : int = 0
     
@@ -33,7 +52,7 @@ object (self)
   (* Printf.printf "Installing finalizer on context %d \n" (Oo.id self) ; *)
   let f = fun o -> o#dispose in
   let v = self in
-  Gc.finalise f v
+  Gc.finalise f v;
     
   method dispose : unit = 
     if m_obj_cnt == 0 then (
@@ -47,13 +66,14 @@ object (self)
   method add_one_ctx_obj = m_obj_cnt <- m_obj_cnt + 1
   method sub_one_ctx_obj = m_obj_cnt <- m_obj_cnt - 1
   method gno = m_n_ctx
+(**/**)
 end
 
+(**/**)
 
 (** Z3 objects *)
 class virtual z3object ctx_init obj_init =
 object (self)
-  inherit idisposable
   val mutable m_ctx : context = ctx_init
   val mutable m_n_obj : Z3native.ptr option = obj_init
     
@@ -100,9 +120,10 @@ end
 
 
 (** Parameter set objects *)
-class params ctx obj = 
+class params ctx = 
 object (self)
-  inherit z3object ctx obj as super
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
   method incref nc o = Z3native.params_inc_ref nc o
   method decref nc o = Z3native.params_dec_ref nc o
 end
@@ -263,6 +284,10 @@ object (self)
   method incref nc o = super#incref nc o
   method decref nc o = super#decref nc o
 end
+
+let func_declaton (a : func_decl array) =
+  let f (e : func_decl) = e#gno in 
+  Array.map f a
 
 class parameter =
 object (self)
@@ -624,6 +649,10 @@ object (self)
   method decref nc o = Z3native.tactic_dec_ref nc o
 end
 
+let tacticaton (a : tactic array) =
+  let f (e : tactic) = e#gno in 
+  Array.map f a
+
 (** Function interpretation entry objects *)
 class func_entry ctx =
 object (self)
@@ -713,6 +742,15 @@ object (self)
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method incref nc o = Z3native.solver_inc_ref nc o
   method decref nc o = Z3native.solver_dec_ref nc o
+end
+
+(** Fixedpoint objects *)
+class fixedpoint ctx =
+object (self)
+  inherit z3object ctx None as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method incref nc o = Z3native.fixedpoint_inc_ref nc o
+  method decref nc o = Z3native.fixedpoint_dec_ref nc o
 end
 
 (**/**)
@@ -1294,6 +1332,33 @@ struct
       x
     else
       (create_ast to_ctx (Z3native.translate x#gnc x#gno to_ctx#gno))
+
+(**
+   Wraps an AST.
+
+   <remarks>This function is used for transitions between native and 
+   managed objects. Note that <paramref name="nativeObject"/> must be a 
+   native object obtained from Z3 (e.g., through <seealso cref="UnwrapAST"/>)
+   and that it must have a correct reference count (see e.g., 
+   <seealso cref="Z3native.inc_ref"/>.
+   <seealso cref="UnwrapAST"/>
+   @param nativeObject The native pointer to wrap.
+*)
+  let wrap ( ctx : context ) ( ptr : Z3native.ptr ) =
+      create_ast ctx ptr
+
+(**
+   Unwraps an AST.
+   <remarks>This function is used for transitions between native and 
+   managed objects. It returns the native pointer to the AST. Note that 
+   AST objects are reference counted and unwrapping an AST disables automatic
+   reference counting, i.e., all references to the IntPtr that is returned 
+   must be handled externally and through native calls (see e.g., 
+   <seealso cref="Z3native.inc_ref"/>).
+   <seealso cref="WrapAST"/>
+   @param a The AST to unwrap.
+*)
+  let unwrap_ast ( a : ast ) = a#gno
 end
 
 (** General expressions (terms), including Boolean logic *)
@@ -1308,6 +1373,18 @@ struct
     | None -> create_expr x#gc (Z3native.simplify x#gnc x#gno)
     | Some pp -> create_expr x#gc (Z3native.simplify_ex x#gnc x#gno pp#gno)
       
+(**
+   a string describing all available parameters to <c>Expr.Simplify</c>.
+*)
+  let get_simplify_help ( ctx : context ) =
+    Z3native.simplify_get_help ctx#gno
+
+(**
+   Retrieves parameter descriptions for simplifier.
+*)
+   let get_simplify_parameter_descrs ( ctx : context ) = 
+     (new param_descrs ctx)#cnstr_obj (Z3native.simplify_get_param_descrs ctx#gno)
+
   (**
      The function declaration of the function that is applied in this expression.
   *)
@@ -4087,6 +4164,30 @@ end
 *)
 module Params =
 struct
+(** ParamDescrs describe sets of parameters (of Solvers, Tactics, ...) *)
+module ParamDescrs =
+struct
+
+  (** Validate a set of parameters. *)
+  let validate ( x : param_descrs ) ( p : params )= Z3native.params_validate x#gnc p#gno x#gno
+    
+  (** Retrieve kind of parameter. *)
+  let get_kind ( x : param_descrs ) ( name : symbol ) = 
+    (param_kind_of_int (Z3native.param_descrs_get_kind x#gnc x#gno name#gno))
+      
+  (** Retrieve all names of parameters. *)
+  let get_names ( x : param_descrs ) =
+    let n = Z3native.param_descrs_size x#gnc x#gno in
+    let f i = create_symbol x#gc (Z3native.param_descrs_get_name x#gnc x#gno i) in
+    Array.init n f
+      
+  (** The size of the ParamDescrs. *)
+  let get_size ( x : param_descrs ) = Z3native.param_descrs_size x#gnc x#gno
+    
+  (** Retrieves a string representation of the ParamDescrs. *)
+  let to_string ( x : param_descrs ) = Z3native.param_descrs_to_string x#gnc x#gno 
+end
+
   (**
      Adds a parameter setting.
   *)
@@ -4136,34 +4237,15 @@ struct
     add_symbol p ((new symbol p#gc)#cnstr_obj (Z3native.mk_string_symbol p#gnc name)) value
 
   (**
+     Creates a new parameter set
+  *)
+  let mk_params ( ctx : context ) =
+    (new params ctx)#cnstr_obj (Z3native.mk_params ctx#gno)
+
+  (**
      A string representation of the parameter set.
   *)
   let to_string (p : params) = Z3native.params_to_string p#gnc p#gno
-end
-
-(** ParamDescrs describe sets of parameters (of Solvers, Tactics, ...) *)
-module ParamDescrs =
-struct
-
-  (** Validate a set of parameters. *)
-  let validate ( x : param_descrs ) ( p : params )= Z3native.params_validate x#gnc p#gno x#gno
-    
-  (** Retrieve kind of parameter. *)
-  let get_kind ( x : param_descrs ) ( name : symbol ) = 
-    (param_kind_of_int (Z3native.param_descrs_get_kind x#gnc x#gno name#gno))
-      
-  (** Retrieve all names of parameters. *)
-  let get_names ( x : param_descrs ) =
-    let n = Z3native.param_descrs_size x#gnc x#gno in
-    let f i = create_symbol x#gc (Z3native.param_descrs_get_name x#gnc x#gno i) in
-    Array.init n f
-      
-  (** The size of the ParamDescrs. *)
-  let get_size ( x : param_descrs ) = Z3native.param_descrs_size x#gnc x#gno
-    
-  (** Retrieves a string representation of the ParamDescrs. *)
-  let to_string ( x : param_descrs ) = Z3native.param_descrs_to_string x#gnc x#gno
-    
 end
 
 (** Goals 
@@ -4258,6 +4340,22 @@ struct
     Z3native.tactic_dec_ref x#gnc tn ;
     (new goal x#gc)#cnstr_obj res
 
+
+  (**
+     Creates a new Goal.
+     <remarks>
+     Note that the Context must have been created with proof generation support if 
+     <paramref name="proofs"/> is set to true here.
+     @param models Indicates whether model generation should be enabled.
+     @param unsat_cores Indicates whether unsat core generation should be enabled.
+     @param proofs Indicates whether proof generation should be enabled.    
+  *)
+  let mk_goal ( ctx : context ) ( models : bool ) ( unsat_cores : bool ) ( proofs : bool ) = 
+    (new goal ctx)#cnstr_obj (Z3native.mk_goal ctx#gno
+				(int_of_lbool (if models then L_TRUE else L_FALSE))
+				(int_of_lbool (if unsat_cores then L_TRUE else L_FALSE))
+				(int_of_lbool (if proofs then L_TRUE else L_FALSE)))
+
   (**  A string representation of the Goal. *)
   let to_string ( x : goal ) = Z3native.goal_to_string x#gnc x#gno
 end  
@@ -4272,6 +4370,33 @@ end
 *)
 module Tactic =
 struct
+(** Tactic application results 
+    
+    ApplyResult objects represent the result of an application of a 
+    tactic to a goal. It contains the subgoals that were produced. *)
+module ApplyResult =
+struct 
+  (** The number of Subgoals. *)
+  let get_num_subgoals ( x : apply_result ) =
+    Z3native.apply_result_get_num_subgoals x#gnc x#gno
+      
+  (** Retrieves the subgoals from the apply_result. *)
+  let get_subgoals ( x : apply_result ) =
+    let n = (get_num_subgoals x) in
+    let f i = (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i) in
+    Array.init n f
+      
+  (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
+      goal <c>g</c>, that the ApplyResult was obtained from. 
+      #return A model for <c>g</c>
+  *)
+  let convert_model ( x : apply_result ) ( i : int ) ( m : model ) =
+    (new model x#gc)#cnstr_obj (Z3native.apply_result_convert_model x#gnc x#gno i m#gno)
+      
+  (** A string representation of the ApplyResult. *)
+  let to_string ( x : apply_result ) = Z3native.apply_result_to_string x#gnc x#gno
+end
+
   (** A string containing a description of parameters accepted by the tactic. *)
   let get_help ( x : tactic ) = Z3native.tactic_get_help x#gnc x#gno
 
@@ -4291,6 +4416,147 @@ struct
   let get_solver ( x : tactic ) =
     (new solver x#gc)#cnstr_obj (Z3native.mk_solver_from_tactic x#gnc x#gno)
 
+  (**
+     The number of supported tactics.
+  *)
+  let get_num_tactics ( ctx : context ) = Z3native.get_num_tactics ctx#gno
+
+  (**
+     The names of all supported tactics.
+  *)
+  let get_tactic_names ( ctx : context ) =
+    let n = (get_num_tactics ctx ) in
+    let f i = (Z3native.get_tactic_name ctx#gno i) in
+    Array.init n f
+
+
+  (**
+     Returns a string containing a description of the tactic with the given name.
+  *)
+  let get_tactic_description ( ctx : context ) ( name : string ) =
+    Z3native.tactic_get_descr ctx#gno name
+
+  (**
+     Creates a new Tactic.
+  *)    
+  let mk_tactic ( ctx : context ) ( name : string ) =
+    (new tactic ctx)#cnstr_obj (Z3native.mk_tactic ctx#gno name)
+
+  (**
+     Create a tactic that applies <paramref name="t1"/> to a Goal and
+     then <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.
+  *)
+  let and_then ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) ( ts : tactic array option ) =
+    match
+      match ts with 
+	| None -> None
+	| Some(rts) -> (
+	  let f p c = (match p with 
+	    | None -> (Some c#gno) 
+	    | Some(x) -> (Some (Z3native.tactic_and_then ctx#gno c#gno x))) in
+	  Array.fold_left f None rts)
+    with
+      | None -> (new tactic ctx)#cnstr_obj (Z3native.tactic_and_then ctx#gno t1#gno t2#gno)
+      | Some(x) ->
+	let o = (Z3native.tactic_and_then ctx#gno t2#gno x) in
+	(new tactic ctx)#cnstr_obj (Z3native.tactic_and_then ctx#gno t1#gno o)
+
+  (**
+     Create a tactic that first applies <paramref name="t1"/> to a Goal and
+     if it fails then returns the result of <paramref name="t2"/> applied to the Goal.
+  *)
+  let or_else ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_or_else ctx#gno t1#gno t2#gno)
+
+  (**
+     Create a tactic that applies <paramref name="t"/> to a goal for <paramref name="ms"/> milliseconds.    
+     <remarks>
+     If <paramref name="t"/> does not terminate within <paramref name="ms"/> milliseconds, then it fails.
+  *)
+  let try_for ( ctx : context ) ( t : tactic ) ( ms : int ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_try_for ctx#gno t#gno ms)
+
+  (**
+     Create a tactic that applies <paramref name="t"/> to a given goal if the probe 
+     <paramref name="p"/> evaluates to true. 
+     <remarks>
+     If <paramref name="p"/> evaluates to false, then the new tactic behaves like the <c>skip</c> tactic. 
+  *)
+  (* CMW: when is a keyword *)
+  let when_ ( ctx : context ) ( p : probe ) ( t : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_when ctx#gno p#gno t#gno)
+
+  (**
+     Create a tactic that applies <paramref name="t1"/> to a given goal if the probe 
+     <paramref name="p"/> evaluates to true and <paramref name="t2"/> otherwise.
+  *)
+  let cond ( ctx : context ) ( p : probe ) ( t1 : tactic ) ( t2 : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_cond ctx#gno p#gno t1#gno t2#gno)
+
+  (**
+     Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
+     modified anymore or the maximum number of iterations <paramref name="max"/> is reached.
+  *)
+  let repeat ( ctx : context ) ( t : tactic ) ( max : int ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_repeat ctx#gno t#gno max)
+
+  (**
+     Create a tactic that just returns the given goal.
+  *)
+  let skip ( ctx : context ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_skip ctx#gno)
+
+  (**
+     Create a tactic always fails.
+  *)
+  let fail ( ctx : context ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail ctx#gno)
+
+  (**
+     Create a tactic that fails if the probe <paramref name="p"/> evaluates to false.
+  *)
+  let fail_if ( ctx : context ) ( p : probe ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if ctx#gno p#gno)
+
+  (**
+     Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
+     or trivially unsatisfiable (i.e., contains `false').
+  *)
+  let fail_if_not_decided ( ctx : context ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if_not_decided ctx#gno)
+
+  (**
+     Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
+  *)
+  let using_params ( ctx : context ) ( t : tactic ) ( p : params ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_using_params ctx#gno t#gno p#gno)
+
+  (**
+     Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
+     <remarks>Alias for <c>UsingParams</c>*)
+  (* CMW: with is a keyword *)
+  let with_ ( ctx : context ) ( t : tactic ) ( p : params ) =
+    using_params ctx t p
+
+  (**
+     Create a tactic that applies the given tactics in parallel.
+  *)
+  let par_or ( ctx : context ) ( t : tactic array ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_or ctx#gno (Array.length t) (tacticaton t))
+
+  (**
+     Create a tactic that applies <paramref name="t1"/> to a given goal and then <paramref name="t2"/>
+     to every subgoal produced by <paramref name="t1"/>. The subgoals are processed in parallel.
+  *)
+  let par_and_then ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_and_then ctx#gno t1#gno t2#gno)
+
+  (**
+     Interrupt the execution of a Z3 procedure.        
+     <remarks>This procedure can be used to interrupt: solvers, simplifiers and tactics.
+  *)
+  let interrupt ( ctx : context ) =
+    Z3native.interrupt ctx#gno
 end
 
 (** Models
@@ -4337,7 +4603,7 @@ struct
       let to_string ( x : func_entry ) =
 	let a = (get_args x) in
 	let f c p = (p ^ (Expr.to_string c) ^ ", ") in
-	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]]")
+	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
     end
 
     (**
@@ -4513,33 +4779,6 @@ struct
   let to_string ( x : model ) = Z3native.model_to_string x#gnc x#gno 
 end
 
-(** Tactic application results 
-    
-    ApplyResult objects represent the result of an application of a 
-    tactic to a goal. It contains the subgoals that were produced. *)
-module ApplyResult =
-struct 
-  (** The number of Subgoals. *)
-  let get_num_subgoals ( x : apply_result ) =
-    Z3native.apply_result_get_num_subgoals x#gnc x#gno
-      
-  (** Retrieves the subgoals from the apply_result. *)
-  let get_subgoals ( x : apply_result ) =
-    let n = (get_num_subgoals x) in
-    let f i = (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i) in
-    Array.init n f
-      
-  (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
-      goal <c>g</c>, that the ApplyResult was obtained from. 
-      #return A model for <c>g</c>
-  *)
-  let convert_model ( x : apply_result ) ( i : int ) ( m : model ) =
-    (new model x#gc)#cnstr_obj (Z3native.apply_result_convert_model x#gnc x#gno i m#gno)
-      
-  (** A string representation of the ApplyResult. *)
-  let to_string ( x : apply_result) = Z3native.apply_result_to_string x#gnc x#gno
-end
-
 (** Solvers *)
 module Solver =
 struct
@@ -4615,9 +4854,7 @@ struct
     let get ( x : statistics ) ( key : string ) =
       let f p c = (if (Entry.get_key c) = key then (Some c) else p) in
       Array.fold_left f None (get_entries x)
-
   end
-
 
   (**
      A string that describes all available solver parameters.
@@ -4756,9 +4993,219 @@ struct
     (new statistics x#gc)#cnstr_obj (Z3native.solver_get_statistics x#gnc x#gno)
 
   (**
+     Creates a new (incremental) solver. 
+     <remarks>
+     This solver also uses a set of builtin tactics for handling the first 
+     check-sat command, and check-sat commands that take more than a given 
+     number of milliseconds to be solved. 
+  *)    
+  let mk_solver ( ctx : context ) ( logic : symbol option) =
+    match logic with
+      | None -> (new solver ctx)#cnstr_obj (Z3native.mk_solver ctx#gno)
+      | Some (x) -> (new solver ctx)#cnstr_obj (Z3native.mk_solver_for_logic ctx#gno x#gno)
+
+  (**
+     Creates a new (incremental) solver.
+     <seealso cref="MkSolver(Symbol)"/>
+  *)        
+  let mk_solver_s ( ctx : context ) ( logic : string ) =
+    mk_solver ctx (Some ((Symbol.mk_string ctx logic) :> symbol))
+
+  (**
+     Creates a new (incremental) solver. 
+  *)
+  let mk_simple_solver ( ctx : context ) =
+    (new solver ctx)#cnstr_obj (Z3native.mk_simple_solver ctx#gno)
+
+  (**
+     Creates a solver that is implemented using the given tactic.
+     <remarks>
+     The solver supports the commands <c>Push</c> and <c>Pop</c>, but it
+     will always solve each check from scratch.
+  *)
+  let mk_solver_t ( ctx : context ) ( t : tactic ) = 
+    (new solver ctx)#cnstr_obj (Z3native.mk_solver_from_tactic ctx#gno t#gno)
+
+  (**
      A string representation of the solver.
   *)
   let to_string ( x : solver ) = Z3native.solver_to_string x#gnc x#gno
+end
+
+(** Fixedpoint solving *)
+module Fixedpoints =
+struct
+  (**
+     A string that describes all available fixedpoint solver parameters.
+  *)
+  let get_help ( x : fixedpoint ) =
+    Z3native.fixedpoint_get_help x#gnc x#gno
+      
+  (**
+     Sets the fixedpoint solver parameters.
+  *)
+  let set_params ( x : fixedpoint ) ( p : params )=
+    Z3native.fixedpoint_set_params x#gnc x#gno p#gno
+      
+  (**
+     Retrieves parameter descriptions for Fixedpoint solver.
+  *)
+  let get_param_descrs ( x : fixedpoint ) =
+    (new param_descrs x#gc)#cnstr_obj (Z3native.fixedpoint_get_param_descrs x#gnc x#gno)
+      
+  (**
+     Assert a constraints into the fixedpoint solver.
+  *)        
+  let assert_ ( x : fixedpoint ) ( constraints : bool_expr array ) =
+    let f e = (Z3native.fixedpoint_assert x#gnc x#gno e#gno) in
+    Array.map f constraints
+
+  (**
+     Register predicate as recursive relation.
+  *)       
+  let register_relation ( x : fixedpoint ) ( f : func_decl ) =
+    Z3native.fixedpoint_register_relation x#gnc x#gno f#gno
+      
+  (**
+     Add rule into the fixedpoint solver.
+  *)        
+  let add_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol option ) =
+    match name with 
+      | None -> Z3native.fixedpoint_add_rule x#gnc x#gno rule#gno (Z3native.mk_null())
+      | Some(y) -> Z3native.fixedpoint_add_rule x#gnc x#gno rule#gno y#gno
+
+  (**
+     Add table fact to the fixedpoint solver.
+  *)        
+  let add_fact ( x : fixedpoint ) ( pred : func_decl ) ( args : int array ) =
+    Z3native.fixedpoint_add_fact x#gnc x#gno pred#gno (Array.length args) args
+
+  (**
+     Query the fixedpoint solver.
+     A query is a conjunction of constraints. The constraints may include the recursively defined relations.
+     The query is satisfiable if there is an instance of the query variables and a derivation for it.
+     The query is unsatisfiable if there are no derivations satisfying the query variables. 
+  *)        
+  let query ( x : fixedpoint ) ( query : bool_expr ) =
+    match (lbool_of_int (Z3native.fixedpoint_query x#gnc x#gno query#gno)) with
+      | L_TRUE -> Solver.SATISFIABLE
+      | L_FALSE -> Solver.UNSATISFIABLE
+      | _ -> Solver.UNKNOWN
+
+  (**
+     Query the fixedpoint solver.
+     A query is an array of relations.
+     The query is satisfiable if there is an instance of some relation that is non-empty.
+     The query is unsatisfiable if there are no derivations satisfying any of the relations.
+  *)        
+  let query_r ( x : fixedpoint ) ( relations : func_decl array ) =
+    match (lbool_of_int (Z3native.fixedpoint_query_relations x#gnc x#gno (Array.length relations) (func_declaton relations))) with
+      | L_TRUE -> Solver.SATISFIABLE
+      | L_FALSE -> Solver.UNSATISFIABLE
+      | _ -> Solver.UNKNOWN
+	
+  (**
+     Creates a backtracking point.
+     <seealso cref="Pop"/>
+  *)
+  let push ( x : fixedpoint ) =
+    Z3native.fixedpoint_push x#gnc x#gno
+      
+  (**
+     Backtrack one backtracking point.
+
+     <remarks>Note that an exception is thrown if Pop is called without a corresponding <c>Push</c></remarks>
+     <seealso cref="Push"/>
+  *)
+  let pop ( x : fixedpoint ) =
+    Z3native.fixedpoint_pop x#gnc x#gno
+
+  (**
+     Update named rule into in the fixedpoint solver.
+  *)        
+  let update_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol ) =
+    Z3native.fixedpoint_update_rule x#gnc x#gno rule#gno name#gno
+
+  (**
+     Retrieve satisfying instance or instances of solver, 
+     or definitions for the recursive predicates that show unsatisfiability.
+  *)                
+  let get_answer ( x : fixedpoint ) =
+    let q = (Z3native.fixedpoint_get_answer x#gnc x#gno) in
+    if (Z3native.is_null q) then
+      None
+    else
+      Some (create_expr x#gc q)
+
+  (**
+     Retrieve explanation why fixedpoint engine returned status Unknown.
+  *)                
+  let get_reason_unknown ( x : fixedpoint ) =
+    Z3native.fixedpoint_get_reason_unknown x#gnc x#gno
+
+  (**
+     Retrieve the number of levels explored for a given predicate.
+  *)                
+  let get_num_levels ( x : fixedpoint ) ( predicate : func_decl ) =
+    Z3native.fixedpoint_get_num_levels x#gnc x#gno predicate#gno
+
+  (**
+     Retrieve the cover of a predicate.
+  *)                
+  let get_cover_delta ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) =
+    let q = (Z3native.fixedpoint_get_cover_delta x#gnc x#gno level predicate#gno) in
+    if (Z3native.is_null q) then
+      None
+    else
+      Some (create_expr x#gc q)
+	
+  (**
+     Add <tt>property</tt> about the <tt>predicate</tt>.
+     The property is added at <tt>level</tt>.
+  *)                
+  let add_cover ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) ( property : expr ) =
+    Z3native.fixedpoint_add_cover x#gnc x#gno level predicate#gno, property#gno
+      
+  (**
+     Retrieve internal string representation of fixedpoint object.
+  *)                
+  let to_string ( x : fixedpoint ) = Z3native.fixedpoint_to_string x#gnc x#gno 0 [||]
+      
+  (**
+     Instrument the Datalog engine on which table representation to use for recursive predicate.
+  *)                
+  let set_predicate_representation ( x : fixedpoint ) ( f : func_decl ) ( kinds : symbol array ) =
+    Z3native.fixedpoint_set_predicate_representation x#gnc x#gno f#gno (Array.length kinds) (symbolaton kinds)
+
+  (**
+     Convert benchmark given as set of axioms, rules and queries to a string.
+  *)                
+  let to_string_q ( x : fixedpoint ) ( queries : bool_expr array ) =
+    Z3native.fixedpoint_to_string x#gnc x#gno (Array.length queries) (astaton queries)
+
+  (**
+     Retrieve set of rules added to fixedpoint context.
+  *)                
+  let get_rules ( x : fixedpoint ) = 
+    let v = ((new ast_vector x#gc)#cnstr_obj (Z3native.fixedpoint_get_rules x#gnc x#gno)) in
+    let n = (AST.ASTVector.get_size v) in
+    let f i = (new bool_expr x#gc)#cnstr_obj (AST.ASTVector.get v i)#gno in
+    Array.init n f
+
+  (**
+     Retrieve set of assertions added to fixedpoint context.
+  *)                
+  let get_assertions ( x : fixedpoint ) = 
+    let v = ((new ast_vector x#gc)#cnstr_obj (Z3native.fixedpoint_get_assertions x#gnc x#gno)) in
+    let n = (AST.ASTVector.get_size v) in
+    let f i = (new bool_expr x#gc)#cnstr_obj (AST.ASTVector.get v i)#gno in
+    Array.init n f
+
+  (**
+     Create a Fixedpoint context.
+  *)
+  let mk_fixedpoint ( ctx : context ) =
+    (new fixedpoint ctx)#cnstr_obj (Z3native.mk_fixedpoint ctx#gno) 
 end
 
 (** Probes 
@@ -4778,660 +5225,333 @@ struct
   *)
   let apply ( x : probe ) (g : goal) =
     Z3native.probe_apply x#gnc x#gno g#gno
+
+  (**
+     The number of supported Probes.
+  *)
+  let get_num_probes ( ctx : context ) =
+    Z3native.get_num_probes ctx#gno
+
+  (**
+     The names of all supported Probes.
+  *)
+  let get_probe_names ( ctx : context ) = 
+    let n = (get_num_probes ctx) in
+    let f i = (Z3native.get_probe_name ctx#gno i) in
+    Array.init n f
+
+  (**
+     Returns a string containing a description of the probe with the given name.
+  *)
+  let get_probe_description ( ctx : context ) ( name : string ) =
+    Z3native.probe_get_descr ctx#gno name
+
+  (**
+     Creates a new Probe.
+  *) 
+  let mk_probe ( ctx : context ) ( name : string ) =
+    (new probe ctx)#cnstr_obj (Z3native.mk_probe ctx#gno name)
+
+  (**
+     Create a probe that always evaluates to <paramref name="val"/>.
+  *)
+  let const ( ctx : context ) ( v : float ) = 
+    (new probe ctx)#cnstr_obj (Z3native.probe_const ctx#gno v)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than the value returned by <paramref name="p2"/>
+  *)
+  let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_lt ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than the value returned by <paramref name="p2"/>
+  *)
+  let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_gt ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than or equal the value returned by <paramref name="p2"/>
+  *)
+  let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
+    (new probe ctx)#cnstr_obj (Z3native.probe_le ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than or equal the value returned by <paramref name="p2"/>
+  *)
+  let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_ge ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is equal to the value returned by <paramref name="p2"/>
+  *)
+  let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_eq ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     and <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: and is a keyword *)
+  let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_and ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     or <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: or is a keyword *)
+  let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_or ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p"/>
+     does not evaluate to "true".
+  *)
+  (* CMW: is not a keyword? *)
+  let not_ ( ctx : context ) ( p : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_not ctx#gno p#gno)
 end
 
-
-(* STUFF FROM THE CONTEXT *)
-
-(** 
-(* OPTIONS *)
+(** Global and context options
+    
+    Note: This module contains functions that set parameters/options for context 
+    objects as well as functions that set options that are used globally, across 
+    contexts.*)
+module Options =
+struct
 
 (**
-    Selects the format used for pretty-printing expressions.
-    <remarks>
-    The default mode for pretty printing expressions is to produce
-    SMT-LIB style output where common subexpressions are printed 
-    at each occurrence. The mode is called Z3_PRINT_SMTLIB_FULL.
-    To print shared common subexpressions only once, 
-    use the Z3_PRINT_LOW_LEVEL mode.
-    To print in way that conforms to SMT-LIB standards and uses let
-    expressions to share common sub-expressions use Z3_PRINT_SMTLIB_COMPLIANT.
+   Update a mutable configuration parameter.
+   <remarks>
+   The list of all configuration parameters can be obtained using the Z3 executable:
+   <c>z3.exe -ini?</c>
+   Only a few configuration parameters are mutable once the context is created.
+   An exception is thrown when trying to modify an immutable parameter.
+   <seealso cref="GetParamValue"/>
 *)
-    <seealso cref="AST.ToString ( ctx : context ) ="/>
-    <seealso cref="Pattern.ToString ( ctx : context ) ="/>
-    <seealso cref="FuncDecl.ToString ( ctx : context ) ="/>
-    <seealso cref="Sort.ToString ( ctx : context ) ="/>
-    public Z3_ast_print_mode PrintMode
+  let update_param_value ( ctx : context ) ( id : string) ( value : string )=
+    Z3native.update_param_value ctx#gno id value
 
-    set { Z3native.set_ast_print_mode ctx#gno (uint)value); }
-
-(* SMT Files & Strings *)
 (**
-    Convert a benchmark into an SMT-LIB formatted string.
+   Get a configuration parameter.
+   <remarks>
+   Returns None if the parameter value does not exist.
+   <seealso cref="UpdateParamValue"/>
 *)
-    @param name Name of the benchmark. The argument is optional.
-    @param logic The benchmark logic. 
-    @param status The status string (sat, unsat, or unknown)
-    @param attributes Other attributes, such as source, difficulty or category.
-    @param assumptions Auxiliary assumptions.
-    @param formula Formula to be checked for consistency in conjunction with assumptions.
-    @return A string representation of the benchmark.
-    public string BenchmarkToSMTString(string name, string logic, string status, string attributes,
-    BoolExpr[] assumptions, BoolExpr formula)
+  let get_param_value ( ctx : context ) ( id : string ) =
+    let (r, v) = (Z3native.get_param_value ctx#gno id) in
+    if ((lbool_of_int r) == L_FALSE) then
+      None
+    else 
+      Some v
 
-    Z3native.benchmark_to_smtlib_string ctx#gno name, logic, status, attributes,
-    (uint)assumptions.Length, AST.ArrayToNative(assumptions),
-    formula#gno);
+  (**
+     Selects the format used for pretty-printing expressions.
+     <remarks>
+     The default mode for pretty printing expressions is to produce
+     SMT-LIB style output where common subexpressions are printed 
+     at each occurrence. The mode is called PRINT_SMTLIB_FULL.
+     To print shared common subexpressions only once, 
+     use the PRINT_LOW_LEVEL mode.
+     To print in way that conforms to SMT-LIB standards and uses let
+     expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
+     <seealso cref="AST.ToString ( ctx : context ) ="/>
+     <seealso cref="Pattern.ToString ( ctx : context ) ="/>
+     <seealso cref="FuncDecl.ToString ( ctx : context ) ="/>
+     <seealso cref="Sort.ToString ( ctx : context ) ="/>
+  *)
+  let set_print_mode ( ctx : context ) ( value : ast_print_mode ) =
+    Z3native.set_ast_print_mode ctx#gno (int_of_ast_print_mode value)
 
 (**
-    Parse the given string using the SMT-LIB parser. 
-    <remarks>
-    The symbol table of the parser can be initialized using the given sorts and declarations. 
-    The symbols in the arrays <paramref name="sortNames"/> and <paramref name="declNames"/> 
-    don't need to match the names of the sorts and declarations in the arrays <paramref name="sorts"/> 
-    and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to 
-    reference sorts and declarations.
+   Enable/disable printing of warning messages to the console.
+
+   <remarks>Note that this function is static and effects the behaviour of 
+   all contexts globally.
 *)
-    public void ParseSMTLIBString(string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, Func_Decl[] decls = null)
+  let toggle_warning_messages ( enabled: bool ) =
+    Z3native.toggle_warning_messages (int_of_lbool (if enabled then L_TRUE else L_FALSE))
+end
 
-    uint csn = Symbol.ArrayLength(sortNames);
-    uint cs = Sort.ArrayLength(sorts);
-    uint cdn = Symbol.ArrayLength(declNames);
-    uint cd = AST.ArrayLength(decls);
-    if (csn != cs || cdn != cd)
-    throw new Z3Exception("Argument size mismatch");
-    Z3native.parse_smtlib_string ctx#gno str,
-    AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-    AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)
+(** Functions for handling SMT and SMT2 expressions and files *)
+module SMT =
+struct
+  (**
+     Convert a benchmark into an SMT-LIB formatted string.
 
-(**
-    Parse the given file using the SMT-LIB parser. 
-*)
-    <seealso cref="ParseSMTLIBString"/>
-    public void ParseSMTLIBFile(string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, Func_Decl[] decls = null)
+     @param name Name of the benchmark. The argument is optional.
+     @param logic The benchmark logic. 
+     @param status The status string (sat, unsat, or unknown)
+     @param attributes Other attributes, such as source, difficulty or category.
+     @param assumptions Auxiliary assumptions.
+     @param formula Formula to be checked for consistency in conjunction with assumptions.
+     @return A string representation of the benchmark.
+  *)
+  let benchmark_to_smtstring ( ctx : context ) ( name : string ) ( logic : string ) ( status : string ) ( attributes : string ) ( assumptions : bool_expr array ) ( formula : bool_expr ) =
+    Z3native.benchmark_to_smtlib_string ctx#gno name logic status attributes
+      (Array.length assumptions) (astaton assumptions)
+      formula#gno
 
-    uint csn = Symbol.ArrayLength(sortNames);
-    uint cs = Sort.ArrayLength(sorts);
-    uint cdn = Symbol.ArrayLength(declNames);
-    uint cd = AST.ArrayLength(decls);
-    if (csn != cs || cdn != cd)
-    throw new Z3Exception("Argument size mismatch");
-    Z3native.parse_smtlib_file ctx#gno fileName,
-    AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-    AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)
-
-(**
-    The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public uint NumSMTLIBFormulas { get {Z3native.get_smtlib_num_formulas ctx#gno))
-
-(**
-    The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    let[] SMTLIBFormulas
-
-    get
-
-    uint n = NumSMTLIBFormulas;
-    BoolExpr[] res = new BoolExpr[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = (BoolExpr)create_expr ctx (Z3native.get_smtlib_formula ctx#gno i)
-    res;
-
-
-(**
-    The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public uint NumSMTLIBAssumptions { get {Z3native.get_smtlib_num_assumptions ctx#gno))
-
-(**
-    The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    let[] SMTLIBAssumptions
-
-    get
-
-    uint n = NumSMTLIBAssumptions;
-    BoolExpr[] res = new BoolExpr[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = (BoolExpr)create_expr ctx (Z3native.get_smtlib_assumption ctx#gno i)
-    res;
-
-
-(**
-    The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public uint NumSMTLIBDecls { get {Z3native.get_smtlib_num_decls ctx#gno))
-
-(**
-    The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public Func_Decl[] SMTLIBDecls
-
-    get
-
-    uint n = NumSMTLIBDecls;
-    Func_Decl[] res = new Func_Decl[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = new Func_Decl(this, Z3native.get_smtlib_decl ctx#gno i)
-    res;
-
-
-(**
-    The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public uint NumSMTLIBSorts { get {Z3native.get_smtlib_num_sorts ctx#gno))
-
-(**
-    The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
-*)
-    public Sort[] SMTLIBSorts
-
-    get
-
-    uint n = NumSMTLIBSorts;
-    Sort[] res = new Sort[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = Sort.Create(this, Z3native.get_smtlib_sort ctx#gno i)
-    res;
-
-
-(**
-    Parse the given string using the SMT-LIB2 parser. 
-*)
-    <seealso cref="ParseSMTLIBString"/>
-    @return A conjunction of assertions in the scope (up to push/pop) at the end of the string.
-    let ParseSMTLIB2String ( ctx : context ) string str, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, Func_Decl[] decls = null)
-
-    uint csn = Symbol.ArrayLength(sortNames);
-    uint cs = Sort.ArrayLength(sorts);
-    uint cdn = Symbol.ArrayLength(declNames);
-    uint cd = AST.ArrayLength(decls);
-    if (csn != cs || cdn != cd)
-    throw new Z3Exception("Argument size mismatch");
-    (BoolExpr)create_expr ctx (Z3native.parse_smtlib2_string ctx#gno str,
-    AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-    AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls))
-
-(**
-    Parse the given file using the SMT-LIB2 parser. 
-*)
-    <seealso cref="ParseSMTLIB2String"/>
-    let ParseSMTLIB2File ( ctx : context ) string fileName, Symbol[] sortNames = null, Sort[] sorts = null, Symbol[] declNames = null, Func_Decl[] decls = null)
-
-    uint csn = Symbol.ArrayLength(sortNames);
-    uint cs = Sort.ArrayLength(sorts);
-    uint cdn = Symbol.ArrayLength(declNames);
-    uint cd = AST.ArrayLength(decls);
-    if (csn != cs || cdn != cd)
-    throw new Z3Exception("Argument size mismatch");
-    (BoolExpr)create_expr ctx (Z3native.parse_smtlib2_file ctx#gno fileName,
-    AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-    AST.ArrayLength(decls), Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls))
-
-(* GOALS *)
-(**
-    Creates a new Goal.
-    <remarks>
-    Note that the Context must have been created with proof generation support if 
-    <paramref name="proofs"/> is set to true here.
-*)
-    @param models Indicates whether model generation should be enabled.
-    @param unsatCores Indicates whether unsat core generation should be enabled.
-    @param proofs Indicates whether proof generation should be enabled.    
-    public Goal MkGoal(bool models = true, bool unsatCores = false, bool proofs = false)
-
-    new Goal(this, models, unsatCores, proofs);
-
-(* PARAMETERSETS *)
-(**
-    Creates a new ParameterSet.
-*)
-    public Params MkParams ( ctx : context ) =
-
-    new Params(this);
-
-(* TACTICS *)
-(**
-    The number of supported tactics.
-*)
-    public uint NumTactics
-
-    get {Z3native.get_num_tactics ctx#gno); }
-
-(**
-    The names of all supported tactics.
-*)
-    public string[] TacticNames
-
-    get
-
-    uint n = NumTactics;
-    string[] res = new string[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = Z3native.get_tactic_name ctx#gno i);
-    res;
-
-
-(**
-    Returns a string containing a description of the tactic with the given name.
-*)
-    public string TacticDescription(string name)
-
-    Z3native.tactic_get_descr ctx#gno name);
-
-(**
-    Creates a new Tactic.
-*)    
-    public Tactic MkTactic(string name)
-
-    new Tactic(this, name);
-
-(**
-    Create a tactic that applies <paramref name="t1"/> to a Goal and
-    then <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.
-*)
-    public Tactic AndThen(Tactic t1, Tactic t2, params Tactic[] ts)
-
-    IntPtr last = IntPtr.Zero;
-    if (ts != null && ts.Length > 0)
-
-    last = ts[ts.Length - 1]#gno;
-    for (int i = ts.Length - 2; i >= 0; i--)
-    last = Z3native.tactic_and_then ctx#gno ts[i]#gno last);
-
-    if (last != IntPtr.Zero)
-
-    last = Z3native.tactic_and_then ctx#gno t2#gno last);
-    new Tactic(this, Z3native.tactic_and_then ctx#gno t1#gno last)
-
+  (**
+     Parse the given string using the SMT-LIB parser. 
+     <remarks>
+     The symbol table of the parser can be initialized using the given sorts and declarations. 
+     The symbols in the arrays <paramref name="sortNames"/> and <paramref name="declNames"/> 
+     don't need to match the names of the sorts and declarations in the arrays <paramref name="sorts"/> 
+     and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to 
+     reference sorts and declarations.
+  *)
+  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
+    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
+    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+    if (csn != cs || cdn != cd) then 
+      raise (Z3native.Exception "Argument size mismatch")
     else
-    new Tactic(this, Z3native.tactic_and_then ctx#gno t1#gno t2#gno)
-
-(**
-    Create a tactic that applies <paramref name="t1"/> to a Goal and
-    then <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.        
-    <remarks>
-    Shorthand for <c>AndThen</c>.
-*)
-    public Tactic Then(Tactic t1, Tactic t2, params Tactic[] ts)
-
-    AndThen(t1, t2, ts);
-
-(**
-    Create a tactic that first applies <paramref name="t1"/> to a Goal and
-    if it fails then returns the result of <paramref name="t2"/> applied to the Goal.
-*)
-    public Tactic OrElse(Tactic t1, Tactic t2)
-
-    new Tactic(this, Z3native.tactic_or_else ctx#gno t1#gno t2#gno)
-
-(**
-    Create a tactic that applies <paramref name="t"/> to a goal for <paramref name="ms"/> milliseconds.    
-    <remarks>
-    If <paramref name="t"/> does not terminate within <paramref name="ms"/> milliseconds, then it fails.
-*)
-    public Tactic TryFor(Tactic t, uint ms)
-
-    new Tactic(this, Z3native.tactic_try_for ctx#gno t#gno ms)
-
-(**
-    Create a tactic that applies <paramref name="t"/> to a given goal if the probe 
-    <paramref name="p"/> evaluates to true. 
-    <remarks>
-    If <paramref name="p"/> evaluates to false, then the new tactic behaves like the <c>skip</c> tactic. 
-*)
-    public Tactic When(Probe p, Tactic t)
-
-    new Tactic(this, Z3native.tactic_when ctx#gno p#gno t#gno)
-
-(**
-    Create a tactic that applies <paramref name="t1"/> to a given goal if the probe 
-    <paramref name="p"/> evaluates to true and <paramref name="t2"/> otherwise.
-*)
-    public Tactic Cond(Probe p, Tactic t1, Tactic t2)
-
-    new Tactic(this, Z3native.tactic_cond ctx#gno p#gno t1#gno t2#gno)
-
-(**
-    Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
-    modified anymore or the maximum number of iterations <paramref name="max"/> is reached.
-*)
-    public Tactic Repeat(Tactic t, uint max = uint.MaxValue)
-
-    new Tactic(this, Z3native.tactic_repeat ctx#gno t#gno max)
-
-(**
-    Create a tactic that just returns the given goal.
-*)
-    public Tactic Skip ( ctx : context ) =
-
-    new Tactic(this, Z3native.tactic_skip ctx#gno)
-
-(**
-    Create a tactic always fails.
-*)
-    public Tactic Fail ( ctx : context ) =
-
-    new Tactic(this, Z3native.tactic_fail ctx#gno)
-
-(**
-    Create a tactic that fails if the probe <paramref name="p"/> evaluates to false.
-*)
-    public Tactic FailIf(Probe p)
-
-    new Tactic(this, Z3native.tactic_fail_if ctx#gno p#gno)
-
-(**
-    Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
-    or trivially unsatisfiable (i.e., contains `false').
-*)
-    public Tactic FailIfNotDecided ( ctx : context ) =
-
-    new Tactic(this, Z3native.tactic_fail_if_not_decided ctx#gno)
-
-(**
-    Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
-*)
-    public Tactic UsingParams(Tactic t, Params p)
-
-    new Tactic(this, Z3native.tactic_using_params ctx#gno t#gno p#gno)
-
-(**
-    Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
-    <remarks>Alias for <c>UsingParams</c>*)
-    public Tactic With(Tactic t, Params p)
-
-    UsingParams(t, p);
-
-(**
-    Create a tactic that applies the given tactics in parallel.
-*)
-    public Tactic ParOr(params Tactic[] t)
-
-    new Tactic(this, Z3native.tactic_par_or ctx#gno Tactic.ArrayLength(t), Tactic.ArrayToNative(t))
-
-(**
-    Create a tactic that applies <paramref name="t1"/> to a given goal and then <paramref name="t2"/>
-    to every subgoal produced by <paramref name="t1"/>. The subgoals are processed in parallel.
-*)
-    public Tactic ParAndThen(Tactic t1, Tactic t2)
-
-    new Tactic(this, Z3native.tactic_par_and_then ctx#gno t1#gno t2#gno)
-
-(**
-    Interrupt the execution of a Z3 procedure.        
-*)
-    <remarks>This procedure can be used to interrupt: solvers, simplifiers and tactics.
-    public void Interrupt ( ctx : context ) =
-
-    Z3native.interrupt ctx#gno);
-
-(* PROBES *)
-(**
-    The number of supported Probes.
-*)
-    public uint NumProbes
-
-    get {Z3native.get_num_probes ctx#gno); }
-
-(**
-    The names of all supported Probes.
-*)
-    public string[] ProbeNames
-
-    get
-
-    uint n = NumProbes;
-    string[] res = new string[n];
-    for (uint i = 0; i < n; i++)
-    res[i] = Z3native.get_probe_name ctx#gno i);
-    res;
-
-
-(**
-    Returns a string containing a description of the probe with the given name.
-*)
-    public string ProbeDescription(string name)
-
-    Z3native.probe_get_descr ctx#gno name);
-
-(**
-    Creates a new Probe.
-*)    
-    public Probe MkProbe(string name)
-
-    new Probe(this, name);
-
-(**
-    Create a probe that always evaluates to <paramref name="val"/>.
-*)
-    public Probe Const(double val)
-
-    new Probe(this, Z3native.probe_const ctx#gno val)
-
-(**
-    Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-    is less than the value returned by <paramref name="p2"/>
-*)
-    public Probe Lt(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_lt ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-    is greater than the value returned by <paramref name="p2"/>
-*)
-    public Probe Gt(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_gt ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-    is less than or equal the value returned by <paramref name="p2"/>
-*)
-    public Probe Le(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_le ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-    is greater than or equal the value returned by <paramref name="p2"/>
-*)
-    public Probe Ge(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_ge ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-    is equal to the value returned by <paramref name="p2"/>
-*)
-    public Probe Eq(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_eq ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-    and <paramref name="p2"/> evaluate to "true".
-*)
-    public Probe And(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_and ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-    or <paramref name="p2"/> evaluate to "true".
-*)
-    public Probe Or(Probe p1, Probe p2)
-
-    new Probe(this, Z3native.probe_or ctx#gno p1#gno p2#gno)
-
-(**
-    Create a probe that evaluates to "true" when the value <paramref name="p"/>
-    does not evaluate to "true".
-*)
-    public Probe Not(Probe p)
-
-    new Probe(this, Z3native.probe_not ctx#gno p#gno)
-
-(* SOLVERS *)
-(**
-    Creates a new (incremental) solver. 
-    <remarks>
-    This solver also uses a set of builtin tactics for handling the first 
-    check-sat command, and check-sat commands that take more than a given 
-    number of milliseconds to be solved. 
-*)    
-    public Solver MkSolver(Symbol logic = null)
-
-    if (logic == null)
-    new Solver(this, Z3native.mk_solver ctx#gno)
+      Z3native.parse_smtlib_string ctx#gno str 
+	cs 
+	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	cd 
+	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+	
+  (**
+     Parse the given file using the SMT-LIB parser. 
+     <seealso cref="ParseSMTLIBString"/>
+  *)
+  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array option) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
+    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
+    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+    if (csn != cs || cdn != cd) then 
+      raise (Z3native.Exception "Argument size mismatch")
     else
-    new Solver(this, Z3native.mk_solver_for_logic ctx#gno logic#gno)
+      Z3native.parse_smtlib_file ctx#gno file_name
+	cs 
+	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	cd 
+	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+  (**
+     The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_num_smtlib_formulas ( ctx : context ) = Z3native.get_smtlib_num_formulas ctx#gno
 
-(**
-    Creates a new (incremental) solver.
-*)        
-    <seealso cref="MkSolver(Symbol)"/>
-    public Solver MkSolver(string logic)
+  (**
+     The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_smtlib_formulas ( ctx : context ) =
+    let n = (get_num_smtlib_formulas ctx ) in
+    let f i = ((create_expr ctx (Z3native.get_smtlib_formula ctx#gno i)) :> bool_expr) in
+    Array.init n f 
 
-    MkSolver(MkSymbol(logic)
 
-(**
-    Creates a new (incremental) solver. 
-*)
-    let mk_Simple_Solver( ctx : context )  ctx : context ) =
+  (**
+     The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_num_smtlib_assumptions ( ctx : context ) = Z3native.get_smtlib_num_assumptions ctx#gno
 
-    new Solver(this, Z3native.mk_simple_solver ctx#gno)
+  (**
+     The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_smtlib_assumptions ( ctx : context ) =
+    let n = (get_num_smtlib_assumptions ctx ) in
+    let f i =  ((create_expr ctx (Z3native.get_smtlib_assumption ctx#gno i)) :> bool_expr ) in
+    Array.init n f
 
-(**
-    Creates a solver that is implemented using the given tactic.
-    <remarks>
-    The solver supports the commands <c>Push</c> and <c>Pop</c>, but it
-    will always solve each check from scratch.
-*)
-    public Solver MkSolver(Tactic t)
+  (**
+     The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_num_smtlib_decls ( ctx : context ) = Z3native.get_smtlib_num_decls ctx#gno
 
-    new Solver(this, Z3native.mk_solver_from_tactic ctx#gno t#gno)
+  (**
+     The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_smtlib_decls ( ctx : context ) = 
+    let n = (get_num_smtlib_decls ctx) in
+    let f i = (new func_decl ctx)#cnstr_obj (Z3native.get_smtlib_decl ctx#gno i) in
+    Array.init n f
 
-(* FIXEDPOINTS *)
-(**
-    Create a Fixedpoint context.
-*)
-    public Fixedpoint MkFixedpoint ( ctx : context ) =
+  (**
+     The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_num_smtlib_sorts ( ctx : context )  = Z3native.get_smtlib_num_sorts ctx#gno
 
-    new Fixedpoint(this);
+  (**
+     The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
+  *)
+  let get_smtlib_sorts ( ctx : context ) = 
+    let n = (get_num_smtlib_sorts ctx) in
+    let f i = (create_sort ctx (Z3native.get_smtlib_sort ctx#gno i)) in
+    Array.init n f
 
-(* MISCELLANEOUS *)
-(**
-    Wraps an AST.
-*)
-    <remarks>This function is used for transitions between native and 
-    managed objects. Note that <paramref name="nativeObject"/> must be a 
-    native object obtained from Z3 (e.g., through <seealso cref="UnwrapAST"/>)
-    and that it must have a correct reference count (see e.g., 
-    <seealso cref="Z3native.inc_ref"/>.
-    <seealso cref="UnwrapAST"/>
-    @param nativeObject The native pointer to wrap.
-    public AST WrapAST(IntPtr nativeObject)
+  (**
+     Parse the given string using the SMT-LIB2 parser. 
 
-    AST.Create(this, nativeObject);
-
-(**
-    Unwraps an AST.
-*)
-    <remarks>This function is used for transitions between native and 
-    managed objects. It returns the native pointer to the AST. Note that 
-    AST objects are reference counted and unwrapping an AST disables automatic
-    reference counting, i.e., all references to the IntPtr that is returned 
-    must be handled externally and through native calls (see e.g., 
-    <seealso cref="Z3native.inc_ref"/>).
-    <seealso cref="WrapAST"/>
-    @param a The AST to unwrap.
-    public IntPtr UnwrapAST(AST a)
-
-    a#gno;
-
-(**
-    a string describing all available parameters to <c>Expr.Simplify</c>.
-*)
-    public string SimplifyHelp ( ctx : context ) =
-
-    Z3native.simplify_get_help ctx#gno);
-
-(**
-    Retrieves parameter descriptions for simplifier.
-*)
-    public ParamDescrs SimplifyParameterDescriptions
-
-    get {new ParamDescrs(this, Z3native.simplify_get_param_descrs ctx#gno)); }
-
-(**
-    Enable/disable printing of warning messages to the console.
-*)
-    <remarks>Note that this function is static and effects the behaviour of 
-    all contexts globally.
-    public static void ToggleWarningMessages(bool enabled)
-
-    Z3native.toggle_warning_messages((enabled) ? 1 : 0);
-
-(* ERROR HANDLING *)
-(**
-    A delegate which is executed when an error is raised.
-    <remarks>
-    Note that it is possible for memory leaks to occur if error handlers
-    throw exceptions. 
-*)
-    public delegate void ErrorHandler(Context ctx, Z3_error_code errorCode, string errorString);
-
-(**
-    The OnError event.
-*)
-    public event ErrorHandler OnError = null;
-
-(* PARAMETERS *)
-(**
-    Update a mutable configuration parameter.
-    <remarks>
-    The list of all configuration parameters can be obtained using the Z3 executable:
-    <c>z3.exe -ini?</c>
-    Only a few configuration parameters are mutable once the context is created.
-    An exception is thrown when trying to modify an immutable parameter.
-*)
-    <seealso cref="GetParamValue"/>
-    public void UpdateParamValue(string id, string value)
-
-    Z3native.update_param_value ctx#gno id, value);
-
-(**
-    Get a configuration parameter.
-    <remarks>
-    Returns null if the parameter value does not exist.
-    <seealso cref="UpdateParamValue"/>
-*)
-    public string GetParamValue(string id)
-
-    IntPtr res = IntPtr.Zero;
-    int r = Z3native.get_param_value ctx#gno id, out res);
-    if (r == (int)Z3_lbool.L_FALSE)
-    null;
+     <seealso cref="ParseSMTLIBString"/>
+     @return A conjunction of assertions in the scope (up to push/pop) at the end of the string.
+  *)
+  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
+    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
+    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+    if (csn != cs || cdn != cd) then 
+      raise (Z3native.Exception "Argument size mismatch")
     else
-    Marshal.PtrToStringAnsi(res);
+      Z3native.parse_smtlib2_string ctx#gno str 
+	cs 
+	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	cd 
+	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
 
-(* INTERNAL *)
-    internal IntPtr m_ctx = IntPtr.Zero;
-    internal Z3native.error_handler m_n_err_handler = null;
-    internal IntPtr nCtx { get {m_ctx)
+  (**
+     Parse the given file using the SMT-LIB2 parser. 
+     <seealso cref="ParseSMTLIB2String"/>
+  *)
+  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
+    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
+    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
+    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+    if (csn != cs || cdn != cd) then 
+      raise (Z3native.Exception "Argument size mismatch")
+    else
+      Z3native.parse_smtlib2_string ctx#gno file_name
+	cs 
+	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	cd 
+	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
+	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+end
 
-    internal void NativeErrorHandler(IntPtr ctx, Z3_error_code errorCode)
+(*
 
-    Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
+(**
+   A delegate which is executed when an error is raised.
+   <remarks>
+   Note that it is possible for memory leaks to occur if error handlers
+   throw exceptions. 
+*)
+   public delegate void ErrorHandler(Context ctx, error_code errorCode, string errorString);
 
-    internal void InitContext ( ctx : context ) =
+   internal Z3native.error_handler m_n_err_handler = null;
 
-    PrintMode = Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT;
-    m_n_err_handler = new Z3native.error_handler(NativeErrorHandler);  keep reference so it doesn't get collected.
-    Z3native.set_error_handler(m_ctx, m_n_err_handler);
-    GC.SuppressFinalize(this);
+   internal void NativeErrorHandler(IntPtr ctx, error_code errorCode)
+
+   Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
 
 *)
