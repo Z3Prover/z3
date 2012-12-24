@@ -874,7 +874,7 @@ struct
     if a#gnc != b#gnc then 
       false 
     else 
-      ((lbool_of_int (Z3native.is_eq_sort a#gnc a#gno b#gno)) == L_TRUE)
+      (Z3native.is_eq_sort a#gnc a#gno b#gno)
 	
   (**
      Returns a unique identifier for the sort.
@@ -922,10 +922,10 @@ let create_expr ctx obj =
   else
     let s = Z3native.get_sort ctx#gno obj in
     let sk = (sort_kind_of_int (Z3native.get_sort_kind ctx#gno s)) in    
-    if (lbool_of_int (Z3native.is_algebraic_number ctx#gno obj) == L_TRUE) then
+    if (Z3native.is_algebraic_number ctx#gno obj) then
       (((new algebraic_num ctx)#cnstr_obj obj) :> expr)
     else
-      if ((lbool_of_int (Z3native.is_numeral_ast ctx#gno obj)) == L_TRUE) &&
+      if (Z3native.is_numeral_ast ctx#gno obj) &&
 	(sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
 	match sk with
 	  | INT_SORT -> (((new int_num ctx)#cnstr_obj obj) :> expr)
@@ -1016,6 +1016,7 @@ struct
 	raise (Z3native.Exception "parameter is not a ratinoal string") 
       else 
 	x#rational
+  end
 
     (**
        Creates a new function declaration.
@@ -1058,7 +1059,6 @@ struct
     let mk_fresh_const_decl ( ctx : context ) ( prefix : string ) ( range : sort) =
       (new func_decl ctx)#cnstr_pdr prefix [||] range
 
-  end
 
   (**
      Comparison operator.
@@ -1071,7 +1071,7 @@ struct
     if a#gnc == a#gnc then 
       false 
     else 
-      ((lbool_of_int (Z3native.is_eq_func_decl a#gnc a#gno b#gno)) == L_TRUE)
+      (Z3native.is_eq_func_decl a#gnc a#gno b#gno)
   (**
      A string representations of the function declaration.
   *)
@@ -1202,7 +1202,7 @@ struct
 	@param k An AST
 	@return True if <paramref name="k"/> is a key in the map, false otherwise. *)
     let contains ( m : ast_map ) ( key : ast ) =
-      (lbool_of_int (Z3native.ast_map_contains m#gnc m#gno key#gno)) == L_TRUE
+      (Z3native.ast_map_contains m#gnc m#gno key#gno)
 	
     (** Finds the value associated with the key <paramref name="k"/>.
 	<remarks>
@@ -1313,7 +1313,7 @@ struct
     if a#gnc == b#gnc then 
       false 
     else 
-      ((lbool_of_int (Z3native.is_eq_ast a#gnc a#gno b#gno)) == L_TRUE)
+      (Z3native.is_eq_ast a#gnc a#gno b#gno)
 	
   (**
      Object Comparison.
@@ -1472,13 +1472,13 @@ struct
   (**
      Indicates whether the term is a numeral
   *)
-  let is_numeral ( x : expr ) = lbool_of_int (Z3native.is_numeral_ast x#gnc x#gno) == L_TRUE
+  let is_numeral ( x : expr ) = (Z3native.is_numeral_ast x#gnc x#gno)
     
   (**
      Indicates whether the term is well-sorted.
      @return True if the term is well-sorted, false otherwise.
   *)   
-  let is_well_sorted ( x : expr ) = lbool_of_int (Z3native.is_well_sorted x#gnc x#gno) == L_TRUE
+  let is_well_sorted ( x : expr ) = Z3native.is_well_sorted x#gnc x#gno
 
   (**
      The Sort of the term.
@@ -1489,9 +1489,9 @@ struct
      Indicates whether the term has Boolean sort.
   *)
   let is_bool ( x : expr ) = (AST.is_expr x) &&
-    (lbool_of_int (Z3native.is_eq_sort x#gnc 
-		     (Z3native.mk_bool_sort x#gnc)
-                     (Z3native.get_sort x#gnc x#gno))) == L_TRUE
+    (Z3native.is_eq_sort x#gnc 
+       (Z3native.mk_bool_sort x#gnc)
+       (Z3native.get_sort x#gnc x#gno))
 
   (**
      Indicates whether the term represents a constant.
@@ -1774,7 +1774,7 @@ struct
      Indicates whether the quantifier is universal.
   *)
   let is_universal ( x : quantifier ) =
-    lbool_of_int (Z3native.is_quantifier_forall x#gnc x#gno) == L_TRUE
+    Z3native.is_quantifier_forall x#gnc x#gno
       
   (**
      Indicates whether the quantifier is existential.
@@ -1879,7 +1879,7 @@ struct
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno (int_of_lbool L_TRUE) 
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno true 
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
 					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
@@ -1888,7 +1888,7 @@ struct
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno (int_of_lbool L_TRUE)
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
@@ -1905,7 +1905,7 @@ struct
   *)
   let mk_forall_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno (int_of_lbool L_TRUE) 
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length bound_constants) (expraton bound_constants)
 					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
@@ -1913,7 +1913,7 @@ struct
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno (int_of_lbool L_TRUE)
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
@@ -1931,7 +1931,7 @@ struct
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno (int_of_lbool L_FALSE) 
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
 					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
@@ -1940,7 +1940,7 @@ struct
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno (int_of_lbool L_FALSE)
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
@@ -1957,7 +1957,7 @@ struct
   *)
   let mk_exists_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno (int_of_lbool L_FALSE) 
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length bound_constants) (expraton bound_constants)
 					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
@@ -1965,7 +1965,7 @@ struct
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno (int_of_lbool L_FALSE)
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
@@ -2046,7 +2046,7 @@ struct
      Indicates whether the term is of an array sort.
   *)
   let is_array ( x : expr ) =
-    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
+    (Z3native.is_app x#gnc x#gno) &&
       ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == ARRAY_SORT)      
 
   (** The domain of the array sort. *)
@@ -2252,7 +2252,7 @@ struct
      Indicates whether the term is of an array sort.
   *)
   let is_finite_domain ( x : expr ) =
-    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
+    (Z3native.is_app x#gnc x#gno) &&
       (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == FINITE_DOMAIN_SORT)
 
   (**
@@ -2263,7 +2263,7 @@ struct
   (** The size of the finite domain sort. *)
   let get_size (x : finite_domain_sort) = 
     let (r, v) = Z3native.get_finite_domain_sort_size x#gnc x#gno in
-    if lbool_of_int(r) == L_TRUE then v
+    if r then v
     else raise (Z3native.Exception "Conversion failed.")
 end
 
@@ -2274,8 +2274,8 @@ struct
      Indicates whether the term is of a relation sort.
   *)
   let is_relation ( x : expr ) =
-    ((lbool_of_int (Z3native.is_app x#gnc x#gno)) == L_TRUE) &&
-      (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == RELATION_SORT)
+    ((Z3native.is_app x#gnc x#gno) &&
+	(sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno)) == RELATION_SORT))
 
   (**
      Indicates whether the term is an relation store
@@ -2604,7 +2604,7 @@ struct
      Indicates whether the term is of integer sort.
   *)
   let is_int ( x : expr ) =
-    ((lbool_of_int (Z3native.is_numeral_ast x#gnc x#gno)) == L_TRUE) &&
+    (Z3native.is_numeral_ast x#gnc x#gno) &&
       ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == INT_SORT)
       
   (**
@@ -2706,12 +2706,13 @@ struct
   (**
      Indicates whether the term is an algebraic number
   *)
-  let is_algebraic_number ( x : expr ) = lbool_of_int(Z3native.is_algebraic_number x#gnc x#gno) == L_TRUE
+  let is_algebraic_number ( x : expr ) = Z3native.is_algebraic_number x#gnc x#gno
 
   (**  Retrieve the int value. *)
-  let get_int ( x : int_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-				if lbool_of_int(r) == L_TRUE then v
-				else raise (Z3native.Exception "Conversion failed.")
+  let get_int ( x : int_num ) = 
+    let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
+    if r then v
+    else raise (Z3native.Exception "Conversion failed.")
 				  
   (** Returns a string representation of the numeral. *)
   let to_string ( x : int_num ) = Z3native.get_numeral_string x#gnc x#gno		      
@@ -3219,9 +3220,10 @@ struct
   let get_size (x : bitvec_sort) = Z3native.get_bv_sort_size x#gnc x#gno
 
   (**  Retrieve the int value. *)
-  let get_int ( x : bitvec_num ) = let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-				   if lbool_of_int(r) == L_TRUE then v
-				   else raise (Z3native.Exception "Conversion failed.")
+  let get_int ( x : bitvec_num ) = 
+    let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
+    if r then v
+    else raise (Z3native.Exception "Conversion failed.")
 				     
   (** Returns a string representation of the numeral. *)
   let to_string ( x : bitvec_num ) = Z3native.get_numeral_string x#gnc x#gno
@@ -3613,7 +3615,7 @@ struct
      The argument must be of bit-vector sort.
   *)
   let mk_bv2int  ( ctx : context ) ( t : bitvec_expr ) ( signed : bool) =
-    (new int_expr ctx)#cnstr_obj (Z3native.mk_bv2int ctx#gno t#gno (int_of_lbool (if (signed) then L_TRUE else L_FALSE)))
+    (new int_expr ctx)#cnstr_obj (Z3native.mk_bv2int ctx#gno t#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not overflow.
@@ -3621,7 +3623,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_add_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_overflow ctx#gno t1#gno t2#gno (int_of_lbool (if (signed) then L_TRUE else L_FALSE)))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_overflow ctx#gno t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not underflow.
@@ -3645,7 +3647,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sub_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_underflow ctx#gno t1#gno t2#gno (int_of_lbool (if (signed) then L_TRUE else L_FALSE)))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_underflow ctx#gno t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise signed division does not overflow.
@@ -3669,7 +3671,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_mul_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_overflow ctx#gno t1#gno t2#gno (int_of_lbool (if (signed) then L_TRUE else L_FALSE)))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_overflow ctx#gno t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise multiplication does not underflow.
@@ -4198,7 +4200,7 @@ end
      Adds a parameter setting.
   *)
   let add_bool (p : params) (name : symbol) (value : bool) =
-    Z3native.params_set_bool p#gnc p#gno name#gno (int_of_lbool (if value then L_TRUE else L_FALSE))
+    Z3native.params_set_bool p#gnc p#gno name#gno value
       
   (**
      Adds a parameter setting.
@@ -4291,11 +4293,12 @@ struct
   (* CMW: assert seems to be a keyword. *)
   let assert_ ( x : goal ) ( constraints : bool_expr array ) =
     let f e = Z3native.goal_assert x#gnc x#gno e#gno in
-    Array.map f constraints
+    ignore (Array.map f constraints) ;
+    ()
       
   (** Indicates whether the goal contains `false'. *)
   let is_inconsistent ( x : goal ) =
-    (lbool_of_int (Z3native.goal_inconsistent x#gnc x#gno)) == L_TRUE
+    Z3native.goal_inconsistent x#gnc x#gno
 
   (** The depth of the goal.      
       This tracks how many transformations were applied to it. *)
@@ -4318,11 +4321,11 @@ struct
     
   (** Indicates whether the goal is empty, and it is precise or the product of an under approximation. *)
   let is_decided_sat ( x : goal ) = 
-    (lbool_of_int (Z3native.goal_is_decided_sat x#gnc x#gno)) == L_TRUE
+    Z3native.goal_is_decided_sat x#gnc x#gno
       
   (** Indicates whether the goal contains `false', and it is precise or the product of an over approximation. *)
   let is_decided_unsat ( x : goal ) =
-    (lbool_of_int (Z3native.goal_is_decided_unsat x#gnc x#gno)) == L_TRUE
+    Z3native.goal_is_decided_unsat x#gnc x#gno
       
   (**  Translates (copies) the Goal to the target Context <paramref name="to_ctx"/>. *)
   let translate ( x : goal ) ( to_ctx : context ) =
@@ -4357,10 +4360,7 @@ struct
      @param proofs Indicates whether proof generation should be enabled.    
   *)
   let mk_goal ( ctx : context ) ( models : bool ) ( unsat_cores : bool ) ( proofs : bool ) = 
-    (new goal ctx)#cnstr_obj (Z3native.mk_goal ctx#gno
-				(int_of_lbool (if models then L_TRUE else L_FALSE))
-				(int_of_lbool (if unsat_cores then L_TRUE else L_FALSE))
-				(int_of_lbool (if proofs then L_TRUE else L_FALSE)))
+    (new goal ctx)#cnstr_obj (Z3native.mk_goal ctx#gno models unsat_cores proofs)
 
   (**  A string representation of the Goal. *)
   let to_string ( x : goal ) = Z3native.goal_to_string x#gnc x#gno
@@ -4729,7 +4729,7 @@ struct
       let n = (get_size x ) in
       let f i = (
 	let k = Z3native.stats_get_key x#gnc x#gno i in
-	if (lbool_of_int (Z3native.stats_is_uint x#gnc x#gno i)) == L_TRUE then
+	if (Z3native.stats_is_uint x#gnc x#gno i) then
 	  ((new statistics_entry)#cnstr_si k (Z3native.stats_get_uint_value x#gnc x#gno i))
 	else 
 	  ((new statistics_entry)#cnstr_sd k (Z3native.stats_get_double_value x#gnc x#gno i))
@@ -4800,7 +4800,8 @@ struct
   *)        
   let assert_ ( x : solver ) ( constraints : bool_expr array ) =
     let f e = (Z3native.solver_assert x#gnc x#gno e#gno) in
-    Array.map f constraints
+    ignore (Array.map f constraints) ;
+    ()
 
   (**
      The number of assertions in the solver.
@@ -5049,7 +5050,7 @@ struct
       else 
 	match sk with
 	  | ARRAY_SORT ->	    
-	    if (lbool_of_int (Z3native.is_as_array x#gnc n)) == L_FALSE then
+	    if not (Z3native.is_as_array x#gnc n) then
 	      raise (Z3native.Exception "Argument was not an array constant")
 	    else
 	      let fd = Z3native.get_as_array_func_decl x#gnc n in
@@ -5105,8 +5106,8 @@ struct
      <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
   *)
   let eval ( x : model ) ( t : expr ) ( completion : bool ) =
-    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno (int_of_lbool (if completion then L_TRUE else L_FALSE))) in
-    if (lbool_of_int r) == L_FALSE then
+    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno completion) in
+    if not r then
       raise (ModelEvaluationFailedException "evaluation failed")
     else
       create_expr x#gc v
@@ -5175,7 +5176,8 @@ struct
   *)        
   let assert_ ( x : fixedpoint ) ( constraints : bool_expr array ) =
     let f e = (Z3native.fixedpoint_assert x#gnc x#gno e#gno) in
-    Array.map f constraints
+    ignore (Array.map f constraints) ;
+    ()
 
   (**
      Register predicate as recursive relation.
@@ -5353,7 +5355,7 @@ struct
 *)
   let get_param_value ( ctx : context ) ( id : string ) =
     let (r, v) = (Z3native.get_param_value ctx#gno id) in
-    if ((lbool_of_int r) == L_FALSE) then
+    if not r then
       None
     else 
       Some v
@@ -5383,7 +5385,7 @@ struct
    all contexts globally.
 *)
   let toggle_warning_messages ( enabled: bool ) =
-    Z3native.toggle_warning_messages (int_of_lbool (if enabled then L_TRUE else L_FALSE))
+    Z3native.toggle_warning_messages enabled
 end
 
 (** Functions for handling SMT and SMT2 expressions and files *)
