@@ -7,29 +7,9 @@
 
 open Z3enums
 
-(** Context objects. 
-
-Most interactions with Z3 are interpreted in some context; most users will only 
-require one such object, but power users may require more than one. To start using 
-Z3, do 
-
-<code>
-    let ctx = (new context [||]) in 
-    (...)
-</code>
-
-where <code>[||]</code> is a (possibly empty) list of pairs of strings, which can 
-be used to set options on the context, e.g., like so:
-
-<code>
-    let cfg = [("model", "true"); ("...", "...")] in
-    let ctx = (new context cfg) in 
-    (...)
-</code>
-
-*)
-class context settings  =
 (**/**)
+
+class context settings  =
 object (self)
   val mutable m_n_ctx : Z3native.z3_context = 
     let cfg = Z3native.mk_config in
@@ -66,8 +46,34 @@ object (self)
   method add_one_ctx_obj = m_obj_cnt <- m_obj_cnt + 1
   method sub_one_ctx_obj = m_obj_cnt <- m_obj_cnt - 1
   method gno = m_n_ctx
-(**/**)
 end
+
+(**/**)
+
+(** Create a context object. 
+
+Most interactions with Z3 are interpreted in some context; many users will only 
+require one such object, but power users may require more than one. To start using 
+Z3, do 
+
+<code>
+    let ctx = (mk_context None) in 
+    (...)
+</code>
+
+where a list of pairs of strings may be passed to set options on
+the context, e.g., like so:
+
+<code>
+    let cfg = (Some [("model", "true"); ("...", "...")]) in
+    let ctx = (mk_context cfg) in 
+    (...)
+</code>
+*)
+let mk_context ( cfg : ( string * string ) list option ) =
+  match cfg with
+    | None -> new context []
+    | Some(x) -> new context x
 
 (**/**)
 
@@ -4559,224 +4565,114 @@ end
     Z3native.interrupt ctx#gno
 end
 
-(** Models
+(** Probes 
 
-    A Model contains interpretations (assignments) of constants and functions. *)
-module Model =
+    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
+    which solver and/or preprocessing step will be used.
+    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
+    and <c>Context.ProbeNames</c>.
+    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+*)
+module Probe =
 struct
-  (** Function interpretations 
-
-      A function interpretation is represented as a finite map and an 'else'.
-      Each entry in the finite map represents the value of a function given a set of arguments.  
-  *)
-  module FuncInterp =
-  struct
-
-    (** Function interpretations entries 
-
-	An Entry object represents an element in the finite map used to a function interpretation.
-    *)
-    module FuncEntry =
-    struct
-      (**
-	 Return the (symbolic) value of this entry.
-      *)
-      let get_value ( x : func_entry ) =
-	create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
-
-      (**
-	 The number of arguments of the entry.
-      *)
-      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
-	
-      (**
-	 The arguments of the function entry.
-      *)
-      let get_args ( x : func_entry ) =
-	let n = (get_num_args x) in
-	let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
-	Array.init n f
-	  
-      (**
-	 A string representation of the function entry.
-      *)
-      let to_string ( x : func_entry ) =
-	let a = (get_args x) in
-	let f c p = (p ^ (Expr.to_string c) ^ ", ") in
-	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
-    end
-
-    (**
-       The number of entries in the function interpretation.
-    *)
-    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
-
-    (**
-       The entries in the function interpretation
-    *)
-    let get_entries ( x : func_interp ) =
-      let n = (get_num_entries x) in
-      let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
-      Array.init n f
-
-    (**
-       The (symbolic) `else' value of the function interpretation.
-    *)
-    let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
-
-    (**
-       The arity of the function interpretation
-    *)
-    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
-
-    (**
-       A string representation of the function interpretation.
-    *)    
-    let to_string ( x : func_interp ) =     
-      let f c p = (
-	let n = (FuncEntry.get_num_args c) in
-	p ^ 
-	  let g c p = (p ^ (Expr.to_string c) ^ ", ") in
-	  (if n > 1 then "[" else "") ^
-	    (Array.fold_right 
-	       g 
-	       (FuncEntry.get_args c) 
-	       ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
-      ) in
-      Array.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
-  end
-    
-  (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
-      <param name="f">A function declaration of zero arity</param>
-      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
-  let get_const_interp ( x : model ) ( f : func_decl ) =
-    if (FuncDecl.get_arity f) != 0 ||
-      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
-      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
-    else
-      let np = Z3native.model_get_const_interp x#gnc x#gno f#gno in
-      if (Z3native.is_null np) then
-	None
-      else
-	Some (create_expr x#gc np)
-
-  (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
-      <param name="a">A Constant</param>
-      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
-  *)
-  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
-
-
-  (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
-      <param name="f">A function declaration of non-zero arity</param>
-      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
-  let rec get_func_interp ( x : model ) ( f : func_decl ) =
-    let sk = (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_range f#gnc f#gno))) in
-    if (FuncDecl.get_arity f) == 0 then
-      let n = Z3native.model_get_const_interp x#gnc x#gno f#gno in      
-      if (Z3native.is_null n) then
-	None 
-      else 
-	match sk with
-	  | ARRAY_SORT ->	    
-	    if (lbool_of_int (Z3native.is_as_array x#gnc n)) == L_FALSE then
-	      raise (Z3native.Exception "Argument was not an array constant")
-	    else
-	      let fd = Z3native.get_as_array_func_decl x#gnc n in
-              get_func_interp x ((new func_decl f#gc)#cnstr_obj fd)
-	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
-    else
-      let n = (Z3native.model_get_func_interp x#gnc x#gno f#gno) in
-      if (Z3native.is_null n) then None else Some ((new func_interp x#gc)#cnstr_obj n)
-	
-  (** The number of constants that have an interpretation in the model. *)
-  let get_num_consts ( x : model ) = Z3native.model_get_num_consts x#gnc x#gno
-    
-  (** The function declarations of the constants in the model. *)
-  let get_const_decls ( x : model ) = 
-    let n = (get_num_consts x) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
-    Array.init n f
-      
-      
-  (** The number of function interpretations in the model. *)
-  let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs x#gnc x#gno
-    
-  (** The function declarations of the function interpretations in the model. *)
-  let get_func_decls ( x : model ) = 
-    let n = (get_num_consts x) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
-    Array.init n f
-      
-  (** All symbols that have an interpretation in the model. *)
-  let get_decls ( x : model ) =
-    let n_funcs = (get_num_funcs x) in
-    let n_consts = (get_num_consts x ) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
-    let g i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
-    Array.append (Array.init n_funcs f) (Array.init n_consts g)
-      
-  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
-  exception ModelEvaluationFailedException of string
-      
   (**
-     Evaluates the expression <paramref name="t"/> in the current model.
-     
-     <remarks>
-     This function may fail if <paramref name="t"/> contains quantifiers, 
-     is partial (MODEL_PARTIAL enabled), or if <paramref name="t"/> is not well-sorted.
-     In this case a <c>ModelEvaluationFailedException</c> is thrown.
-
-     <param name="t">An expression</param>
-     <param name="completion">
-     When this flag is enabled, a model value will be assigned to any constant 
-     or function that does not have an interpretation in the model.
-     </param>
-     <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
+     Execute the probe over the goal. 
+     <returns>A probe always produce a double value.
+     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
   *)
-  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
-    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno (int_of_lbool (if completion then L_TRUE else L_FALSE))) in
-    if (lbool_of_int r) == L_FALSE then
-      raise (ModelEvaluationFailedException "evaluation failed")
-    else
-      create_expr x#gc v
+  let apply ( x : probe ) (g : goal) =
+    Z3native.probe_apply x#gnc x#gno g#gno
 
-  (** Alias for <c>eval</c>. *)
-  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
-    eval x t completion
-      
-  (** The number of uninterpreted sorts that the model has an interpretation for. *)
-  let get_num_sorts ( x : model ) = Z3native.model_get_num_sorts x#gnc x#gno
-    
-  (** The uninterpreted sorts that the model has an interpretation for. 
-      <remarks>
-      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
-      The interpretation for a sort is a finite set of distinct values. We say this finite set is
-      the "universe" of the sort.
-      <seealso cref="NumSorts"/>
-      <seealso cref="SortUniverse"/>
+  (**
+     The number of supported Probes.
   *)
-  let get_sorts ( x : model ) =
-    let n = (get_num_sorts x) in
-    let f i = (create_sort x#gc (Z3native.model_get_sort x#gnc x#gno i)) in
+  let get_num_probes ( ctx : context ) =
+    Z3native.get_num_probes ctx#gno
+
+  (**
+     The names of all supported Probes.
+  *)
+  let get_probe_names ( ctx : context ) = 
+    let n = (get_num_probes ctx) in
+    let f i = (Z3native.get_probe_name ctx#gno i) in
     Array.init n f
 
+  (**
+     Returns a string containing a description of the probe with the given name.
+  *)
+  let get_probe_description ( ctx : context ) ( name : string ) =
+    Z3native.probe_get_descr ctx#gno name
 
-  (** The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>. 
-      <seealso cref="Sorts"/>
-      <param name="s">An uninterpreted sort</param>
-      <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
+  (**
+     Creates a new Probe.
+  *) 
+  let mk_probe ( ctx : context ) ( name : string ) =
+    (new probe ctx)#cnstr_obj (Z3native.mk_probe ctx#gno name)
+
+  (**
+     Create a probe that always evaluates to <paramref name="val"/>.
   *)
-  let sort_universe ( x : model ) ( s : sort ) =
-    let n_univ = (new ast_vector x#gc)#cnstr_obj (Z3native.model_get_sort_universe x#gnc x#gno s#gno) in
-    let n = (AST.ASTVector.get_size n_univ) in
-    let f i = (AST.ASTVector.get n_univ i) in
-    Array.init n f
-      
-  (** Conversion of models to strings. 
-      <returns>A string representation of the model.</returns>
+  let const ( ctx : context ) ( v : float ) = 
+    (new probe ctx)#cnstr_obj (Z3native.probe_const ctx#gno v)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than the value returned by <paramref name="p2"/>
   *)
-  let to_string ( x : model ) = Z3native.model_to_string x#gnc x#gno 
+  let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_lt ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than the value returned by <paramref name="p2"/>
+  *)
+  let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_gt ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than or equal the value returned by <paramref name="p2"/>
+  *)
+  let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
+    (new probe ctx)#cnstr_obj (Z3native.probe_le ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than or equal the value returned by <paramref name="p2"/>
+  *)
+  let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_ge ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is equal to the value returned by <paramref name="p2"/>
+  *)
+  let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_eq ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     and <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: and is a keyword *)
+  let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_and ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     or <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: or is a keyword *)
+  let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_or ctx#gno p1#gno p2#gno)
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p"/>
+     does not evaluate to "true".
+  *)
+  (* CMW: is not a keyword? *)
+  let not_ ( ctx : context ) ( p : probe ) =
+    (new probe ctx)#cnstr_obj (Z3native.probe_not ctx#gno p#gno)
 end
 
 (** Solvers *)
@@ -5032,6 +4928,227 @@ struct
   let to_string ( x : solver ) = Z3native.solver_to_string x#gnc x#gno
 end
 
+
+(** Models
+
+    A Model contains interpretations (assignments) of constants and functions. *)
+module Model =
+struct
+  (** Function interpretations 
+
+      A function interpretation is represented as a finite map and an 'else'.
+      Each entry in the finite map represents the value of a function given a set of arguments.  
+  *)
+  module FuncInterp =
+  struct
+
+    (** Function interpretations entries 
+
+	An Entry object represents an element in the finite map used to a function interpretation.
+    *)
+    module FuncEntry =
+    struct
+      (**
+	 Return the (symbolic) value of this entry.
+      *)
+      let get_value ( x : func_entry ) =
+	create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
+
+      (**
+	 The number of arguments of the entry.
+      *)
+      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
+	
+      (**
+	 The arguments of the function entry.
+      *)
+      let get_args ( x : func_entry ) =
+	let n = (get_num_args x) in
+	let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
+	Array.init n f
+	  
+      (**
+	 A string representation of the function entry.
+      *)
+      let to_string ( x : func_entry ) =
+	let a = (get_args x) in
+	let f c p = (p ^ (Expr.to_string c) ^ ", ") in
+	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
+    end
+
+    (**
+       The number of entries in the function interpretation.
+    *)
+    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
+
+    (**
+       The entries in the function interpretation
+    *)
+    let get_entries ( x : func_interp ) =
+      let n = (get_num_entries x) in
+      let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
+      Array.init n f
+
+    (**
+       The (symbolic) `else' value of the function interpretation.
+    *)
+    let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
+
+    (**
+       The arity of the function interpretation
+    *)
+    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
+
+    (**
+       A string representation of the function interpretation.
+    *)    
+    let to_string ( x : func_interp ) =     
+      let f c p = (
+	let n = (FuncEntry.get_num_args c) in
+	p ^ 
+	  let g c p = (p ^ (Expr.to_string c) ^ ", ") in
+	  (if n > 1 then "[" else "") ^
+	    (Array.fold_right 
+	       g 
+	       (FuncEntry.get_args c) 
+	       ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
+      ) in
+      Array.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
+  end
+    
+  (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of zero arity</param>
+      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
+  let get_const_interp ( x : model ) ( f : func_decl ) =
+    if (FuncDecl.get_arity f) != 0 ||
+      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
+      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+    else
+      let np = Z3native.model_get_const_interp x#gnc x#gno f#gno in
+      if (Z3native.is_null np) then
+	None
+      else
+	Some (create_expr x#gc np)
+
+  (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
+      <param name="a">A Constant</param>
+      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
+  *)
+  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
+
+
+  (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of non-zero arity</param>
+      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
+  let rec get_func_interp ( x : model ) ( f : func_decl ) =
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_range f#gnc f#gno))) in
+    if (FuncDecl.get_arity f) == 0 then
+      let n = Z3native.model_get_const_interp x#gnc x#gno f#gno in      
+      if (Z3native.is_null n) then
+	None 
+      else 
+	match sk with
+	  | ARRAY_SORT ->	    
+	    if (lbool_of_int (Z3native.is_as_array x#gnc n)) == L_FALSE then
+	      raise (Z3native.Exception "Argument was not an array constant")
+	    else
+	      let fd = Z3native.get_as_array_func_decl x#gnc n in
+              get_func_interp x ((new func_decl f#gc)#cnstr_obj fd)
+	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
+    else
+      let n = (Z3native.model_get_func_interp x#gnc x#gno f#gno) in
+      if (Z3native.is_null n) then None else Some ((new func_interp x#gc)#cnstr_obj n)
+	
+  (** The number of constants that have an interpretation in the model. *)
+  let get_num_consts ( x : model ) = Z3native.model_get_num_consts x#gnc x#gno
+    
+  (** The function declarations of the constants in the model. *)
+  let get_const_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
+    Array.init n f
+      
+      
+  (** The number of function interpretations in the model. *)
+  let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs x#gnc x#gno
+    
+  (** The function declarations of the function interpretations in the model. *)
+  let get_func_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
+    Array.init n f
+      
+  (** All symbols that have an interpretation in the model. *)
+  let get_decls ( x : model ) =
+    let n_funcs = (get_num_funcs x) in
+    let n_consts = (get_num_consts x ) in
+    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
+    let g i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
+    Array.append (Array.init n_funcs f) (Array.init n_consts g)
+      
+  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
+  exception ModelEvaluationFailedException of string
+      
+  (**
+     Evaluates the expression <paramref name="t"/> in the current model.
+     
+     <remarks>
+     This function may fail if <paramref name="t"/> contains quantifiers, 
+     is partial (MODEL_PARTIAL enabled), or if <paramref name="t"/> is not well-sorted.
+     In this case a <c>ModelEvaluationFailedException</c> is thrown.
+
+     <param name="t">An expression</param>
+     <param name="completion">
+     When this flag is enabled, a model value will be assigned to any constant 
+     or function that does not have an interpretation in the model.
+     </param>
+     <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
+  *)
+  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
+    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno (int_of_lbool (if completion then L_TRUE else L_FALSE))) in
+    if (lbool_of_int r) == L_FALSE then
+      raise (ModelEvaluationFailedException "evaluation failed")
+    else
+      create_expr x#gc v
+
+  (** Alias for <c>eval</c>. *)
+  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
+    eval x t completion
+      
+  (** The number of uninterpreted sorts that the model has an interpretation for. *)
+  let get_num_sorts ( x : model ) = Z3native.model_get_num_sorts x#gnc x#gno
+    
+  (** The uninterpreted sorts that the model has an interpretation for. 
+      <remarks>
+      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+      The interpretation for a sort is a finite set of distinct values. We say this finite set is
+      the "universe" of the sort.
+      <seealso cref="NumSorts"/>
+      <seealso cref="SortUniverse"/>
+  *)
+  let get_sorts ( x : model ) =
+    let n = (get_num_sorts x) in
+    let f i = (create_sort x#gc (Z3native.model_get_sort x#gnc x#gno i)) in
+    Array.init n f
+
+
+  (** The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>. 
+      <seealso cref="Sorts"/>
+      <param name="s">An uninterpreted sort</param>
+      <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
+  *)
+  let sort_universe ( x : model ) ( s : sort ) =
+    let n_univ = (new ast_vector x#gc)#cnstr_obj (Z3native.model_get_sort_universe x#gnc x#gno s#gno) in
+    let n = (AST.ASTVector.get_size n_univ) in
+    let f i = (AST.ASTVector.get n_univ i) in
+    Array.init n f
+      
+  (** Conversion of models to strings. 
+      <returns>A string representation of the model.</returns>
+  *)
+  let to_string ( x : model ) = Z3native.model_to_string x#gnc x#gno 
+end
+
 (** Fixedpoint solving *)
 module Fixedpoints =
 struct
@@ -5206,116 +5323,6 @@ struct
   *)
   let mk_fixedpoint ( ctx : context ) =
     (new fixedpoint ctx)#cnstr_obj (Z3native.mk_fixedpoint ctx#gno) 
-end
-
-(** Probes 
-
-    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
-    which solver and/or preprocessing step will be used.
-    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
-    and <c>Context.ProbeNames</c>.
-    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
-*)
-module Probe =
-struct
-  (**
-     Execute the probe over the goal. 
-     <returns>A probe always produce a double value.
-     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
-  *)
-  let apply ( x : probe ) (g : goal) =
-    Z3native.probe_apply x#gnc x#gno g#gno
-
-  (**
-     The number of supported Probes.
-  *)
-  let get_num_probes ( ctx : context ) =
-    Z3native.get_num_probes ctx#gno
-
-  (**
-     The names of all supported Probes.
-  *)
-  let get_probe_names ( ctx : context ) = 
-    let n = (get_num_probes ctx) in
-    let f i = (Z3native.get_probe_name ctx#gno i) in
-    Array.init n f
-
-  (**
-     Returns a string containing a description of the probe with the given name.
-  *)
-  let get_probe_description ( ctx : context ) ( name : string ) =
-    Z3native.probe_get_descr ctx#gno name
-
-  (**
-     Creates a new Probe.
-  *) 
-  let mk_probe ( ctx : context ) ( name : string ) =
-    (new probe ctx)#cnstr_obj (Z3native.mk_probe ctx#gno name)
-
-  (**
-     Create a probe that always evaluates to <paramref name="val"/>.
-  *)
-  let const ( ctx : context ) ( v : float ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_const ctx#gno v)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is less than the value returned by <paramref name="p2"/>
-  *)
-  let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_lt ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is greater than the value returned by <paramref name="p2"/>
-  *)
-  let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_gt ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is less than or equal the value returned by <paramref name="p2"/>
-  *)
-  let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_le ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is greater than or equal the value returned by <paramref name="p2"/>
-  *)
-  let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_ge ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is equal to the value returned by <paramref name="p2"/>
-  *)
-  let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_eq ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-     and <paramref name="p2"/> evaluate to "true".
-  *)
-  (* CMW: and is a keyword *)
-  let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_and ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-     or <paramref name="p2"/> evaluate to "true".
-  *)
-  (* CMW: or is a keyword *)
-  let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_or ctx#gno p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p"/>
-     does not evaluate to "true".
-  *)
-  (* CMW: is not a keyword? *)
-  let not_ ( ctx : context ) ( p : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_not ctx#gno p#gno)
 end
 
 (** Global and context options
