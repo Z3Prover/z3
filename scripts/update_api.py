@@ -159,7 +159,7 @@ Type2JavaW = { VOID : 'void', VOID_PTR : 'jlong', INT : 'jint', UINT : 'jint', I
 # Mapping to ML types
 Type2ML = { VOID : 'unit', VOID_PTR : 'VOIDP', INT : 'int', UINT : 'int', INT64 : 'int', UINT64 : 'int', DOUBLE : 'float',
             STRING : 'string', STRING_PTR : 'char**', 
-            BOOL : 'int', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
+            BOOL : 'bool', SYMBOL : 'z3_symbol', PRINT_MODE : 'int', ERROR_CODE : 'int' }
 
 next_type_id = FIRST_OBJ_ID
 
@@ -1109,7 +1109,9 @@ def arrayparams(params):
 def ml_unwrap(t, ts, s):
     if t == STRING:
         return '(' + ts + ') String_val(' + s + ')'
-    elif t == BOOL or t == INT or t == PRINT_MODE or t == ERROR_CODE:
+    elif t == BOOL:
+        return '(' + ts + ') Bool_val(' + s + ')'
+    elif t == INT or t == PRINT_MODE or t == ERROR_CODE:
         return '(' + ts + ') Int_val(' + s + ')'
     elif t == UINT:
         return '(' + ts + ') Unsigned_int_val(' + s + ')'
@@ -1125,7 +1127,9 @@ def ml_unwrap(t, ts, s):
 def ml_set_wrap(t, d, n):
     if t == VOID:
         return d + ' = Val_unit;'
-    elif t == BOOL or t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
+    elif t == BOOL:
+        return d + ' = Val_bool(' + n + ');'
+    elif t == INT or t == UINT or t == PRINT_MODE or t == ERROR_CODE:
         return d + ' = Val_int(' + n + ');'
     elif t == INT64 or t == UINT64:
         return d + ' = Val_long(' + n + ');'
