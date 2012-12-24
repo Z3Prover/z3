@@ -14,8 +14,8 @@ let _ =
   else
     (
       Printf.printf "Running Z3 version %s\n" Version.to_string ;
-      let cfg = [("model", "true"); ("proof", "false")] in
-      let ctx = (new context cfg) in
+      let cfg = (Some [("model", "true"); ("proof", "false")]) in
+      let ctx = (mk_context cfg) in
       let is = (Symbol.mk_int ctx 42) in
       let ss = (Symbol.mk_string ctx "mySymbol") in
       let bs = (Sort.mk_bool ctx) in
