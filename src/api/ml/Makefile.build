@@ -13,7 +13,7 @@ XCDBG=-g $(CFLAGS)
 XCOPT=-ccopt -Ox -ccopt -Oy- $(CFLAGS)
 # ole32 is needed by camlidl (COM support)
 XLIB=-cclib ole32.lib
-AR=lib /nologo /LIBPATH:../../build ../../z3.lib /out:
+AR=lib /nologo /LIBPATH:../../build ../../libz3.lib /out:
 O=obj
 A=lib
 else

@@ -188,10 +188,20 @@ class family_manager {
     svector<symbol>         m_names;
 public:
     family_manager():m_next_id(0) {}
+
+    /**
+       \brief Return the family_id for s, a new id is created if !has_family(s)
+       
+       If has_family(s), then this method is equivalent to get_family_id(s)
+    */
+    family_id mk_family_id(symbol const & s);
+
+    /**
+       \brief Return the family_id for s, return null_family_id if s was not registered in the manager.
+    */
+    family_id get_family_id(symbol const & s) const;
     
-    family_id get_family_id(symbol const & s);
-    
-    bool has_family(symbol const & s);
+    bool has_family(symbol const & s) const;
 
     void get_dom(svector<symbol>& dom) const { m_families.get_dom(dom); }
     
@@ -1287,6 +1297,55 @@ inline bool has_labels(expr const * n) {
     else return false;
 }
 
+sort * get_sort(expr const * n);
+
+class basic_recognizers {
+    family_id m_fid;
+public:
+    basic_recognizers(family_id fid):m_fid(fid) {}
+    bool is_bool(sort const * s) const { return is_sort_of(s, m_fid, BOOL_SORT); }
+    bool is_bool(expr const * n) const { return is_bool(get_sort(n)); }
+    bool is_or(expr const * n) const { return is_app_of(n, m_fid, OP_OR); }
+    bool is_implies(expr const * n) const { return is_app_of(n, m_fid, OP_IMPLIES); }
+    bool is_and(expr const * n) const { return is_app_of(n, m_fid, OP_AND); }
+    bool is_not(expr const * n) const { return is_app_of(n, m_fid, OP_NOT); }
+    bool is_eq(expr const * n) const { return is_app_of(n, m_fid, OP_EQ); }
+    bool is_oeq(expr const * n) const { return is_app_of(n, m_fid, OP_OEQ); }
+    bool is_distinct(expr const * n) const { return is_app_of(n, m_fid, OP_DISTINCT); }
+    bool is_iff(expr const * n) const { return is_app_of(n, m_fid, OP_IFF); }
+    bool is_xor(expr const * n) const { return is_app_of(n, m_fid, OP_XOR); }
+    bool is_ite(expr const * n) const { return is_app_of(n, m_fid, OP_ITE); }
+    bool is_term_ite(expr const * n) const { return is_ite(n) && !is_bool(n); }
+    bool is_true(expr const * n) const { return is_app_of(n, m_fid, OP_TRUE); }
+    bool is_false(expr const * n) const { return is_app_of(n, m_fid, OP_FALSE); }
+    bool is_complement_core(expr const * n1, expr const * n2) const { 
+        return (is_true(n1) && is_false(n2)) || (is_not(n1) && to_app(n1)->get_arg(0) == n2);
+    }
+    bool is_complement(expr const * n1, expr const * n2) const { return is_complement_core(n1, n2) || is_complement_core(n2, n1); }
+    bool is_or(func_decl const * d) const { return is_decl_of(d, m_fid, OP_OR); }
+    bool is_implies(func_decl const * d) const { return is_decl_of(d, m_fid, OP_IMPLIES); }
+    bool is_and(func_decl const * d) const { return is_decl_of(d, m_fid, OP_AND); }
+    bool is_not(func_decl const * d) const { return is_decl_of(d, m_fid, OP_NOT); }
+    bool is_eq(func_decl const * d) const { return is_decl_of(d, m_fid, OP_EQ); }
+    bool is_iff(func_decl const * d) const { return is_decl_of(d, m_fid, OP_IFF); }
+    bool is_xor(func_decl const * d) const { return is_decl_of(d, m_fid, OP_XOR); }
+    bool is_ite(func_decl const * d) const { return is_decl_of(d, m_fid, OP_ITE); }
+    bool is_term_ite(func_decl const * d) const { return is_ite(d) && !is_bool(d->get_range()); }
+    bool is_distinct(func_decl const * d) const { return is_decl_of(d, m_fid, OP_DISTINCT); }
+
+    MATCH_UNARY(is_not);
+    MATCH_BINARY(is_eq);
+    MATCH_BINARY(is_iff);
+    MATCH_BINARY(is_implies);
+    MATCH_BINARY(is_and);
+    MATCH_BINARY(is_or);
+    MATCH_BINARY(is_xor);
+    MATCH_TERNARY(is_and);
+    MATCH_TERNARY(is_or);
+
+    bool is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const;
+};
+
 // -----------------------------------
 //
 // Get Some Value functor
@@ -1404,6 +1463,8 @@ public:
 
     // propagate cancellation signal to decl_plugins
     void set_cancel(bool f);
+    void cancel() { set_cancel(true); }
+    void reset_cancel() { set_cancel(false); }
 
     bool has_trace_stream() const { return m_trace_stream != 0; }
     std::ostream & trace_stream() { SASSERT(has_trace_stream()); return *m_trace_stream; }
@@ -1432,8 +1493,10 @@ public:
 
     small_object_allocator & get_allocator() { return m_alloc; }
     
-    family_id get_family_id(symbol const & s) const { return const_cast<ast_manager*>(this)->m_family_manager.get_family_id(s); }
-    
+    family_id mk_family_id(symbol const & s) { return m_family_manager.mk_family_id(s); }
+    family_id mk_family_id(char const * s) { return mk_family_id(symbol(s)); }
+
+    family_id get_family_id(symbol const & s) const { return m_family_manager.get_family_id(s); }
     family_id get_family_id(char const * s) const { return get_family_id(symbol(s)); }
 
     symbol const & get_family_name(family_id fid) const { return m_family_manager.get_name(fid); }
@@ -1456,7 +1519,7 @@ public:
     
     bool has_plugin(family_id fid) const { return get_plugin(fid) != 0; }
     
-    bool has_plugin(symbol const & s) const { return has_plugin(get_family_id(s)); }
+    bool has_plugin(symbol const & s) const { return m_family_manager.has_family(s) && has_plugin(m_family_manager.get_family_id(s)); }
     
     void get_dom(svector<symbol> & dom) const { m_family_manager.get_dom(dom); }
     
@@ -1546,7 +1609,7 @@ protected:
     }
     
 public:
-    sort * get_sort(expr const * n) const;
+    sort * get_sort(expr const * n) const { return ::get_sort(n); }
     void check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const;
     void check_sorts_core(ast const * n) const;
     bool check_sorts(ast const * n) const;

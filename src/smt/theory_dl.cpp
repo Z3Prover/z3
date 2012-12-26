@@ -88,7 +88,7 @@ namespace smt {
                 m_th.get_rep(s, r, v);
                 app_ref rep_of(m_th.m());
                 rep_of = m_th.m().mk_app(r, m_node->get_owner());
-                theory_id bv_id = m_th.m().get_family_id("bv");
+                theory_id bv_id = m_th.m().mk_family_id("bv");
                 theory_bv* th_bv = dynamic_cast<theory_bv*>(ctx.get_theory(bv_id));
                 SASSERT(th_bv);
                 rational val;
@@ -106,7 +106,7 @@ namespace smt {
         
     public:
         theory_dl(ast_manager& m):
-            theory(m.get_family_id("datalog_relation")),
+            theory(m.mk_family_id("datalog_relation")),
             m_util(m),
             m_bv(m),
             m_trail(m)

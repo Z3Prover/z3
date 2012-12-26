@@ -812,6 +812,68 @@ void tst_visit() {
     visit(f);
 }
 
+void incremental_example1() {
+    std::cout << "incremental example1\n";
+    context c;
+    expr x = c.int_const("x");
+    solver s(c);
+    s.add(x > 0);
+    std::cout << s.check() << "\n";
+    // We can add more formulas to the solver
+    s.add(x < 0);
+    // and, invoke s.check() again...
+    std::cout << s.check() << "\n";
+}
+
+void incremental_example2() {
+    // In this example, we show how push() and pop() can be used
+    // to remove formulas added to the solver.
+    std::cout << "incremental example2\n";
+    context c;
+    expr x = c.int_const("x");
+    solver s(c);
+    s.add(x > 0);
+    std::cout << s.check() << "\n";
+    // push() creates a backtracking point (aka a snapshot).
+    s.push();
+    // We can add more formulas to the solver
+    s.add(x < 0);
+    // and, invoke s.check() again...
+    std::cout << s.check() << "\n";
+    // pop() will remove all formulas added between this pop() and the matching push()
+    s.pop();
+    // The context is satisfiable again
+    std::cout << s.check() << "\n";
+    // and contains only x > 0
+    std::cout << s << "\n";
+}
+
+void incremental_example3() {
+    // In this example, we show how to use assumptions to "remove" 
+    // formulas added to a solver. Actually, we disable them.
+    std::cout << "incremental example3\n";
+    context c;
+    expr x = c.int_const("x");
+    solver s(c);
+    s.add(x > 0);
+    std::cout << s.check() << "\n";
+    // Now, suppose we want to add x < 0 to the solver, but we also want
+    // to be able to disable it later.
+    // To do that, we create an auxiliary Boolean variable
+    expr b = c.bool_const("b");
+    // and, assert (b implies x < 0)
+    s.add(implies(b, x < 0));
+    // Now, we check whether s is satisfiable under the assumption "b" is true.
+    expr_vector a1(c);
+    a1.push_back(b);
+    std::cout << s.check(a1) << "\n";
+    // To "disable" (x > 0), we may just ask with the assumption "not b" or not provide any assumption.
+    std::cout << s.check() << "\n";
+    expr_vector a2(c);
+    a2.push_back(!b);
+    std::cout << s.check(a2) << "\n";
+}
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
@@ -842,6 +904,9 @@ int main() {
         tactic_example9(); std::cout << "\n";
         tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
+	incremental_example1(); std::cout << "\n";
+	incremental_example2(); std::cout << "\n";
+	incremental_example3(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

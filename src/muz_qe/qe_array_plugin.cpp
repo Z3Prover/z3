@@ -16,7 +16,7 @@ namespace qe {
     public:
 
         array_plugin(i_solver_context& ctx, ast_manager& m) : 
-            qe_solver_plugin(m, m.get_family_id("array"), ctx),
+            qe_solver_plugin(m, m.mk_family_id("array"), ctx),
             m_replace(mk_default_expr_replacer(m))
         {
         }

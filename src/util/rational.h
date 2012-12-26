@@ -26,14 +26,13 @@ class rational {
     static rational                  m_zero;
     static rational                  m_one;
     static rational                  m_minus_one;
-
+    static vector<rational>          m_powers_of_two;
     static synch_mpq_manager *       g_mpq_manager;
-
+    
     static synch_mpq_manager & m() { return *g_mpq_manager; }
 
 public:
     static void initialize();
-
     static void finalize();
     /*
       ADD_INITIALIZER('rational::initialize();')
@@ -271,6 +270,8 @@ public:
         m().power(m_val, n, result.m_val);
         return result;
     }
+
+    static rational power_of_two(unsigned k);
 
     bool is_power_of_two(unsigned & shift) {
         return m().is_power_of_two(m_val, shift);

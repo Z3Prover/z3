@@ -9,6 +9,8 @@ Version 4.3.2
 
 - Added support for FreeBSD. Z3 can be compiled on FreeBSD using g++. 
 
+- Added support for Python 3.x.
+
 - Reverted to `(set-option :global-decls false)` as the default. In Z3 4.3.0 and Z3 4.3.1, this option was set to true.
   Thanks to Julien Henry for reporting this problem.
 
@@ -30,7 +32,7 @@ Version 4.3.2
   
 - Fixed problem in the pretty printer. It was not introducing quotes for attribute names such as |foo:10|.
 
-- Fixed bug when using assumptions (Thanks to Philippe Suter)
+- Fixed bug when using assumptions (Thanks to Philippe Suter and Etienne Kneuss)
   Consider the following example:
       (assert F)
       (check-sat a)
@@ -44,6 +46,12 @@ Version 4.3.2
       unsat
       unsat
   We say may because 'F' may have other unsatisfiable cores.
+
+- Fixed bug reported at http://stackoverflow.com/questions/13923316/unprintable-solver-model
+
+- Fixed timers on Linux and FreeBSD.
+
+- Fixed crash reported at http://z3.codeplex.com/workitem/11.
 
 Version 4.3.1
 =============

@@ -103,7 +103,7 @@ namespace format_ns {
         symbol f("format");
         if (!fm(m).has_plugin(f)) 
             fm(m).register_plugin(f, alloc(format_decl_plugin));
-        return fm(m).get_family_id(f);
+        return fm(m).mk_family_id(f);
     }
 
     static family_id fid(ast_manager & m) {

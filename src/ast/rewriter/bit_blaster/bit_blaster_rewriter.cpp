@@ -32,7 +32,7 @@ struct blaster_cfg {
     blaster_cfg(bool_rewriter & r, bv_util & u):m_rewriter(r), m_util(u) {}
     
     ast_manager & m() const { return m_util.get_manager(); }
-    numeral power(unsigned n) const { return m_util.power_of_two(n); }
+    numeral power(unsigned n) const { return rational::power_of_two(n); }
     void mk_xor(expr * a, expr * b, expr_ref & r) { m_rewriter.mk_xor(a, b, r); }
     void mk_xor3(expr * a, expr * b, expr * c, expr_ref & r) {
         expr_ref tmp(m());

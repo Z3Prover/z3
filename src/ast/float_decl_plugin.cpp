@@ -31,7 +31,7 @@ float_decl_plugin::float_decl_plugin():
 void float_decl_plugin::set_manager(ast_manager * m, family_id id) {
     decl_plugin::set_manager(m, id);
 
-    family_id aid = m_manager->get_family_id("arith");
+    family_id aid = m_manager->mk_family_id("arith");
     m_real_sort = m_manager->mk_sort(aid, REAL_SORT);
     SASSERT(m_real_sort != 0); // arith_decl_plugin must be installed before float_decl_plugin.
     m_manager->inc_ref(m_real_sort);
@@ -42,7 +42,7 @@ void float_decl_plugin::set_manager(ast_manager * m, family_id id) {
     
     if (m_manager->has_plugin(symbol("bv"))) {
         // bv plugin is optional, so m_bv_plugin may be 0
-        m_bv_fid = m_manager->get_family_id("bv");
+        m_bv_fid = m_manager->mk_family_id("bv");
         m_bv_plugin = static_cast<bv_decl_plugin*>(m_manager->get_plugin(m_bv_fid));
     }
 }
@@ -512,7 +512,7 @@ bool float_decl_plugin::is_value(app * e) const {
 
 float_util::float_util(ast_manager & m):
     m_manager(m),
-    m_fid(m.get_family_id("float")),
+    m_fid(m.mk_family_id("float")),
     m_a_util(m) {
     m_plugin = static_cast<float_decl_plugin*>(m.get_plugin(m_fid));
 }

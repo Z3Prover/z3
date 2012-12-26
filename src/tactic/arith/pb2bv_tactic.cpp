@@ -583,7 +583,7 @@ private:
                 return false; // size must be even
             // I implemented only the easy (and very common) case, where a_i = 2^{n-i-1} and c = 2^n - 1
             unsigned n = sz/2;
-            if (c != m_bv_util.power_of_two(n) - numeral(1))
+            if (c != rational::power_of_two(n) - numeral(1))
                 return false;
             for (unsigned i = 0; i < n; i++) {
                 monomial const & m1 = p[i*2];
@@ -592,7 +592,7 @@ private:
                     return false;
                 if (m1.m_a != m2.m_a)
                     return false;
-                if (m1.m_a != m_bv_util.power_of_two(n - i - 1))
+                if (m1.m_a != rational::power_of_two(n - i - 1))
                     return false;
             }
             return true;

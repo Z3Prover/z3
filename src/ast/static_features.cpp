@@ -23,8 +23,8 @@ static_features::static_features(ast_manager & m):
     m_manager(m),
     m_autil(m),
     m_bfid(m.get_basic_family_id()),
-    m_afid(m.get_family_id("arith")),
-    m_lfid(m.get_family_id("label")),
+    m_afid(m.mk_family_id("arith")),
+    m_lfid(m.mk_family_id("label")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
     m_expr_list_sym("expr-list") {

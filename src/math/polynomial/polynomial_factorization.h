@@ -16,7 +16,7 @@ Author:
 Notes:
 
    [1] Elwyn Ralph Berlekamp. Factoring Polynomials over Finite Fields. Bell System Technical Journal, 
-       46(8-10):1853–1859, 1967.
+       46(8-10):1853-1859, 1967.
    [2] Donald Ervin Knuth. The Art of Computer Programming, volume 2: Seminumerical Algorithms. Addison Wesley, third 
        edition, 1997.
    [3] Henri Cohen. A Course in Computational Algebraic Number Theory. Springer Verlag, 1993.

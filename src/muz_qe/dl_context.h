@@ -349,6 +349,7 @@ namespace datalog {
         void cancel();
 
         void cleanup();
+        void reset_cancel() { cleanup(); }
 
         /**
            \brief check if query 'q' is satisfied under asserted rules and background.
