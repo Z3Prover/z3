@@ -4391,6 +4391,10 @@ struct
     let n = (get_num_subgoals x) in
     let f i = (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i) in
     Array.init n f
+
+  (** Retrieves the subgoals from the apply_result. *)
+  let get_subgoal ( x : apply_result ) ( i : int ) =
+    (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i)
       
   (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
       goal <c>g</c>, that the ApplyResult was obtained from. 

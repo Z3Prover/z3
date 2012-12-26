@@ -10,11 +10,12 @@ open Z3.Expr
 open Z3.FuncDecl
 open Z3.Goal
 open Z3.Tactic
+open Z3.Tactic.ApplyResult
 open Z3.Probe
 open Z3.Solver
 open Z3.Arithmetic
 
-exception ExampleException of string
+exception TestFailedException of string
 
 
 (**
@@ -43,32 +44,37 @@ let basic_tests ( ctx : context ) =
   let solver = (mk_solver ctx None) in
   (Array.iter (fun a -> (Solver.assert_ solver [| a |])) (get_formulas g)) ;
   if (check solver None) != SATISFIABLE then
-    raise (ExampleException "")
+    raise (TestFailedException "")
   else
     Printf.printf "Test passed.\n" ;
-    ()
-
-(*
-    ApplyResult ar = ApplyTactic(ctx, ctx.MkTactic("simplify"), g);
-  if (ar.NumSubgoals == 1 && (ar.Subgoals[0].IsDecidedSat || ar.Subgoals[0].IsDecidedUnsat))
-    throw new TestFailedException();
-    
-    ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g);
-    if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedSat)
-      throw new TestFailedException();
-      
-            g.Assert(ctx.MkEq(ctx.MkNumeral(1, ctx.MkBitVecSort(32)),
-                                      ctx.MkNumeral(2, ctx.MkBitVecSort(32))));
-            ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g);
-            if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedUnsat)
-                throw new TestFailedException();
-
-
-            Goal g2 = ctx.MkGoal(true, true);
-            ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g2);
-            if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedSat)
-                throw new TestFailedException();
-
+    () ;
+    let ar = (Tactic.apply (mk_tactic ctx "simplify") g None) in
+    if ((get_num_subgoals ar) == 1 && 
+	  ((is_decided_sat (get_subgoal ar 0)) ||  
+	     (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
+      if ((get_num_subgoals ar) == 1 && 
+	(not (is_decided_sat (get_subgoal ar 0)))) then
+	raise (TestFailedException "")
+      else
+	(Goal.assert_ g [| (mk_eq ctx (mk_numeral_int ctx 1 (BitVectors.mk_sort ctx 32))
+			      (mk_numeral_int ctx 2 (BitVectors.mk_sort ctx 32))) |] )
+      ;
+      let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
+      if ((get_num_subgoals ar) == 1 && 
+	     (not (is_decided_unsat (get_subgoal ar 0)))) then
+	raise (TestFailedException "")
+      else 
+	let g2 = (mk_goal ctx true true false) in
+	let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
+	if ((get_num_subgoals ar) == 1 && 
+	       (not (is_decided_sat (get_subgoal ar 0)))) then
+	  raise (TestFailedException "")
+	else
+	  ()
+(*	  
             g2 = ctx.MkGoal(true, true);
             g2.Assert(ctx.MkFalse());
             ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g2);
@@ -131,7 +137,7 @@ let basic_tests ( ctx : context ) =
 
 let _ = 
   if not (Log.open_ "z3.log") then
-    raise (ExampleException "Log couldn't be opened.")
+    raise (TestFailedException "Log couldn't be opened.")
   else
     (
       Printf.printf "Running Z3 version %s\n" Version.to_string ;
