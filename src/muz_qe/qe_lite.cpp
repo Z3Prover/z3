@@ -971,15 +971,15 @@ namespace fm {
         }
         
         bool is_linear_ineq(expr * t) const {
+            bool result = false;
             m.is_not(t, t);
             expr * lhs, * rhs;
-            TRACE("is_occ_bug", tout << mk_pp(t, m) << "\n";);
             if (m_util.is_le(t, lhs, rhs) || m_util.is_ge(t, lhs, rhs)) {
-                if (!m_util.is_numeral(rhs))
-                    return false;
-                return is_linear_pol(lhs);
+                result = m_util.is_numeral(rhs) && is_linear_pol(lhs);
             }
-            return false;
+            TRACE("qe_lite", tout << mk_pp(t, m) << " " << (result?"true":"false") << "\n";);
+
+            return result;
         }
         
         bool is_occ(expr * t) {
@@ -1049,7 +1049,7 @@ namespace fm {
             cnstr->m_xs         = reinterpret_cast<var*>(mem_xs);
             cnstr->m_as         = reinterpret_cast<rational*>(mem_as);
             for (unsigned i = 0; i < num_vars; i++) {
-                TRACE("mk_constraint_bug", tout << "xs[" << i << "]: " << xs[i] << "\n";);
+                TRACE("qe_lite", tout << "xs[" << i << "]: " << xs[i] << "\n";);
                 cnstr->m_xs[i] = xs[i];
                 new (cnstr->m_as + i) rational(as[i]);
             }
@@ -1241,7 +1241,7 @@ namespace fm {
                 if (c2->m_dead)
                     continue;
                 if (subsumes(c, *c2)) {
-                    TRACE("fm_subsumption", display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
+                    TRACE("qe_lite", display(tout, c); tout << "\nsubsumed:\n"; display(tout, *c2); tout << "\n";);
                     c2->m_dead = true;
                     continue;
                 }
@@ -1284,12 +1284,12 @@ namespace fm {
         }
         
         void updt_params() {
-            m_fm_real_only   = true;
+            m_fm_real_only   = false;
             m_fm_limit       = 5000000;
             m_fm_cutoff1     = 8;
             m_fm_cutoff2     = 256;
             m_fm_extra       = 0;
-            m_fm_occ         = false;
+            m_fm_occ         = true;
         }
         
         void set_cancel(bool f) {
@@ -1318,7 +1318,7 @@ namespace fm {
                 expr * f = g[i];
                 if (is_occ(f))
                     continue;
-                TRACE("is_occ_bug", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
+                TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
         }
@@ -1447,6 +1447,7 @@ namespace fm {
             SASSERT(m_uppers.size()    == m_is_int.size());
             SASSERT(m_forbidden.size() == m_is_int.size()); 
             SASSERT(m_var2pos.size()   == m_is_int.size());
+            TRACE("qe_lite", tout << mk_pp(t,m) << " |-> " << x << " forbidden: " << forbidden << "\n";);
             return x;
         }
         
@@ -1468,7 +1469,7 @@ namespace fm {
                 x = mk_var(t);
             SASSERT(m_expr2var.contains(t));
             SASSERT(m_var2expr.get(x) == t);
-            TRACE("to_var_bug", tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
+            TRACE("qe_lite", tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
             return x;
         }
         
@@ -1488,6 +1489,7 @@ namespace fm {
         
         
         void add_constraint(expr * f, expr_dependency * dep) {
+            TRACE("qe_lite", tout << mk_pp(f, m) << "\n";);
             SASSERT(!m.is_or(f) || m_fm_occ);
             sbuffer<literal> lits;
             sbuffer<var>     xs;
@@ -1524,7 +1526,7 @@ namespace fm {
                         neg = !neg;
                     expr * lhs = to_app(l)->get_arg(0);
                     expr * rhs = to_app(l)->get_arg(1);
-                    m_util.is_numeral(rhs, c);
+                    VERIFY (m_util.is_numeral(rhs, c));
                     if (neg)
                         c.neg();
                     unsigned num_mons;
@@ -1567,7 +1569,7 @@ namespace fm {
                 }
             }
             
-            TRACE("to_var_bug", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
+            TRACE("qe_lite", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
             
             constraint * new_c = mk_constraint(lits.size(),
                                                lits.c_ptr(),
@@ -1578,7 +1580,7 @@ namespace fm {
                                                strict,
                                                dep);
             
-            TRACE("to_var_bug", tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
+            TRACE("qe_lite", tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
             VERIFY(register_constraint(new_c));
         }
         
@@ -1591,7 +1593,7 @@ namespace fm {
             if (is_false(*c)) {
                 del_constraint(c);
                 m_inconsistent = true;
-                TRACE("add_constraint_bug", tout << "is false "; display(tout, *c); tout << "\n";);
+                TRACE("qe_lite", tout << "is false "; display(tout, *c); tout << "\n";);
                 return false;
             }
             
@@ -1614,7 +1616,7 @@ namespace fm {
                 return true;
             }
             else {
-                TRACE("add_constraint_bug", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
+                TRACE("qe_lite", tout << "all variables are forbidden "; display(tout, *c); tout << "\n";);
                 m_new_fmls.push_back(to_expr(*c));
                 del_constraint(c);
                 return false;
@@ -1668,7 +1670,7 @@ namespace fm {
             }
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
-            TRACE("fm", 
+            TRACE("qe_lite", 
                   svector<x_cost>::iterator it2  = x_cost_vector.begin();
                   svector<x_cost>::iterator end2 = x_cost_vector.end();
                   for (; it2 != end2; ++it2) {
@@ -1854,7 +1856,7 @@ namespace fm {
             
             if (new_xs.empty() && (new_c.is_pos() || (!new_strict && new_c.is_zero()))) {
                 // literal is true
-                TRACE("fm", tout << "resolution " << x << " consequent literal is always true: \n";
+                TRACE("qe_lite", tout << "resolution " << x << " consequent literal is always true: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1898,7 +1900,7 @@ namespace fm {
             }
             
             if (tautology) {
-                TRACE("fm", tout << "resolution " << x << " tautology: \n";
+                TRACE("qe_lite", tout << "resolution " << x << " tautology: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1908,7 +1910,7 @@ namespace fm {
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
             
             if (new_lits.empty() && new_xs.empty() && (new_c.is_neg() || (new_strict && new_c.is_zero()))) {
-                TRACE("fm", tout << "resolution " << x << " inconsistent: \n";
+                TRACE("qe_lite", tout << "resolution " << x << " inconsistent: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
@@ -1926,7 +1928,7 @@ namespace fm {
                                                    new_strict,
                                                    new_dep);
 
-            TRACE("fm", tout << "resolution " << x << "\n";
+            TRACE("qe_lite", tout << "resolution " << x << "\n";
                   display(tout, l);
                   tout << "\n";
                   display(tout, u);
@@ -1949,7 +1951,7 @@ namespace fm {
             if (l.empty() || u.empty()) {
                 // easy case
                 mark_constraints_dead(x);
-                TRACE("fm", tout << "variable was eliminated (trivial case)\n";);
+                TRACE("qe_lite", tout << "variable was eliminated (trivial case)\n";);
                 return true;
             }
             
@@ -1967,7 +1969,7 @@ namespace fm {
             
             m_counter += num_lowers * num_uppers;
             
-            TRACE("fm_bug", tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
+            TRACE("qe_lite", tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
                   display_constraints(tout, l); tout << "uppers:\n"; display_constraints(tout, u););
             
             unsigned num_old_cnstrs = num_uppers + num_lowers;
@@ -1977,7 +1979,7 @@ namespace fm {
             for (unsigned i = 0; i < num_lowers; i++) {
                 for (unsigned j = 0; j < num_uppers; j++) {
                     if (m_inconsistent || num_new_cnstrs > limit) {
-                        TRACE("fm", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
+                        TRACE("qe_lite", tout << "too many new constraints: " << num_new_cnstrs << "\n";);
                         del_constraints(new_constraints.size(), new_constraints.c_ptr());
                         return false;
                     }
@@ -2002,7 +2004,7 @@ namespace fm {
                 backward_subsumption(*c);
                 register_constraint(c);
             }
-            TRACE("fm", tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
+            TRACE("qe_lite", tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
             return true;
         }
         
@@ -2018,7 +2020,7 @@ namespace fm {
                     if (!c->m_dead) {
                         c->m_dead = true;
                         expr * new_f = to_expr(*c);
-                        TRACE("fm_bug", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
+                        TRACE("qe_lite", tout << "asserting...\n" << mk_ismt2_pp(new_f, m) << "\nnew_dep: " << c->m_dep << "\n";);
                         m_new_fmls.push_back(new_f);
                     }
                 }
@@ -2049,7 +2051,7 @@ namespace fm {
                 m_new_fmls.push_back(m.mk_false());
             }
             else {
-                TRACE("fm", display(tout););
+                TRACE("qe_lite", display(tout););
                 
                 subsume();
                 var_vector candidates;

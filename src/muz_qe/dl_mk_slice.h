@@ -89,6 +89,8 @@ namespace datalog {
 
         void update_predicate(app* p, app_ref& q);
 
+        void filter_unique_vars(rule& r);
+
         void solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars);
 
     public:
