@@ -35,6 +35,7 @@ enum arith_sort_kind {
 enum arith_op_kind {
     OP_NUM, // rational & integers
     OP_IRRATIONAL_ALGEBRAIC_NUM,  // irrationals that are roots of polynomials with integer coefficients
+    //
     OP_LE,
     OP_GE,
     OP_LT,
@@ -67,6 +68,15 @@ enum arith_op_kind {
     // constants
     OP_PI,
     OP_E,
+    // under-specified symbols
+    OP_0_PW_0_INT,    // 0^0 for integers
+    OP_0_PW_0_REAL,   // 0^0 for reals
+    OP_NEG_ROOT,      // x^n when n is even and x is negative
+    OP_DIV_0,         // x/0
+    OP_IDIV_0,        // x div 0
+    OP_MOD_0,         // x mod 0
+    OP_U_ASIN,        // asin(x) for x < -1 or x > 1
+    OP_U_ACOS,        // acos(x) for x < -1 or x > 1
     LAST_ARITH_OP
 };
 
@@ -126,7 +136,16 @@ protected:
 
     app       * m_pi;
     app       * m_e;
-    
+ 
+    app       * m_0_pw_0_int;
+    app       * m_0_pw_0_real;
+    func_decl * m_neg_root_decl;
+    func_decl * m_div_0_decl;
+    func_decl * m_idiv_0_decl;
+    func_decl * m_mod_0_decl;
+    func_decl * m_u_asin_decl;
+    func_decl * m_u_acos_decl;
+   
     ptr_vector<app> m_small_ints;
     ptr_vector<app> m_small_reals;
 
@@ -181,6 +200,10 @@ public:
     app * mk_pi() const { return m_pi; }
     
     app * mk_e() const { return m_e; }
+
+    app * mk_0_pw_0_int() const { return m_0_pw_0_int; }
+    
+    app * mk_0_pw_0_real() const { return m_0_pw_0_real; }
 
     virtual expr * get_some_value(sort * s);
 
@@ -339,6 +362,15 @@ public:
     app * mk_pi() { return plugin().mk_pi(); }
     app * mk_e()  { return plugin().mk_e(); }
 
+    app * mk_0_pw_0_int() { return plugin().mk_0_pw_0_int(); }
+    app * mk_0_pw_0_real() { return plugin().mk_0_pw_0_real(); }
+    app * mk_div0(expr * arg) { return m_manager.mk_app(m_afid, OP_DIV_0, arg); }
+    app * mk_idiv0(expr * arg) { return m_manager.mk_app(m_afid, OP_IDIV_0, arg); }
+    app * mk_mod0(expr * arg) { return m_manager.mk_app(m_afid, OP_MOD_0, arg); }
+    app * mk_neg_root(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_NEG_ROOT, arg1, arg2); }
+    app * mk_u_asin(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ASIN, arg); }
+    app * mk_u_acos(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ACOS, arg); }
+    
     /**
        \brief Return the equality (= lhs rhs), but it makes sure that 
        if one of the arguments is a numeral, then it will be in the right-hand-side;

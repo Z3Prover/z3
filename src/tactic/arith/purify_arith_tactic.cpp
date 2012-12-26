@@ -99,93 +99,15 @@ Rules
   (mod t1 t2) --> k2 |  same constraints as above
 */
 
-struct purify_arith_decls {
-    ast_manager & m;
-    func_decl * m_int_0_pw_0_decl;    // decl for: int  0^0
-    func_decl * m_real_0_pw_0_decl;   // decl for: rel 0^0
-    func_decl * m_neg_root_decl;  // decl for: even root of negative (real) number 
-    func_decl * m_div_0_decl;     // decl for: x/0
-    func_decl * m_idiv_0_decl;    // decl for: div(x, 0)
-    func_decl * m_mod_0_decl;     // decl for: mod(x, 0)
-    func_decl * m_asin_u_decl;    // decl for: asin(x) when x < -1 or x > 1 
-    func_decl * m_acos_u_decl;    // decl for: acos(x) when x < -1 or x > 1
-    
-    void inc_refs() {
-        m.inc_ref(m_int_0_pw_0_decl);
-        m.inc_ref(m_real_0_pw_0_decl);
-        m.inc_ref(m_neg_root_decl);
-        m.inc_ref(m_div_0_decl);
-        m.inc_ref(m_idiv_0_decl);
-        m.inc_ref(m_mod_0_decl);
-        m.inc_ref(m_asin_u_decl);
-        m.inc_ref(m_acos_u_decl);
-    }
-
-    void dec_refs() {
-        m.dec_ref(m_int_0_pw_0_decl);
-        m.dec_ref(m_real_0_pw_0_decl);
-        m.dec_ref(m_neg_root_decl);
-        m.dec_ref(m_div_0_decl);
-        m.dec_ref(m_idiv_0_decl);
-        m.dec_ref(m_mod_0_decl);
-        m.dec_ref(m_asin_u_decl);
-        m.dec_ref(m_acos_u_decl);
-    }
-
-    purify_arith_decls(arith_util & u):
-        m(u.get_manager()) {
-        sort * i = u.mk_int();
-        sort * r = u.mk_real();
-        m_int_0_pw_0_decl = m.mk_const_decl(symbol("0^0-int"), i);
-        m_real_0_pw_0_decl = m.mk_const_decl(symbol("0^0-real"), r);
-        sort * rr[2] = { r, r };
-        m_neg_root_decl = m.mk_func_decl(symbol("neg-root"), 2, rr, r);
-        m_div_0_decl = m.mk_func_decl(symbol("/0"), 1, &r, r);
-        m_idiv_0_decl = m.mk_func_decl(symbol("div0"), 1, &i, i);
-        m_mod_0_decl = m.mk_func_decl(symbol("mod0"), 1, &i, i);
-        m_asin_u_decl = m.mk_func_decl(symbol("asin-u"), 1, &r, r);
-        m_acos_u_decl = m.mk_func_decl(symbol("acos-u"), 1, &r, r);
-        inc_refs();
-    }
-
-    purify_arith_decls(ast_manager & _m, 
-                       func_decl * int_0_pw_0,
-                       func_decl * real_0_pw_0,
-                       func_decl * neg_root,
-                       func_decl * div_0,
-                       func_decl * idiv_0,
-                       func_decl * mod_0,
-                       func_decl * asin_u,
-                       func_decl * acos_u
-                       ):
-        m(_m),
-        m_int_0_pw_0_decl(int_0_pw_0),
-        m_real_0_pw_0_decl(real_0_pw_0),
-        m_neg_root_decl(neg_root),
-        m_div_0_decl(div_0),
-        m_idiv_0_decl(idiv_0),
-        m_mod_0_decl(mod_0),
-        m_asin_u_decl(asin_u),
-        m_acos_u_decl(acos_u) {
-        inc_refs();
-    }
-    
-    ~purify_arith_decls() { 
-        dec_refs();
-    }
-};
-
 struct purify_arith_proc {
     arith_util &         m_util;
-    purify_arith_decls & m_aux_decls;
     bool                 m_produce_proofs;
     bool                 m_elim_root_objs;
     bool                 m_elim_inverses;
     bool                 m_complete;
 
-    purify_arith_proc(arith_util & u, purify_arith_decls & d, bool produce_proofs, bool elim_root_objs, bool elim_inverses, bool complete):
+    purify_arith_proc(arith_util & u, bool produce_proofs, bool elim_root_objs, bool elim_inverses, bool complete):
         m_util(u),
-        m_aux_decls(d),
         m_produce_proofs(produce_proofs),
         m_elim_root_objs(elim_root_objs),
         m_elim_inverses(elim_inverses),
@@ -247,15 +169,6 @@ struct purify_arith_proc {
 
         expr * mk_fresh_int_var() { return mk_fresh_var(true); }
 
-        func_decl * div0_decl() { return m_owner.m_aux_decls.m_div_0_decl; }
-        func_decl * idiv0_decl() { return m_owner.m_aux_decls.m_idiv_0_decl; }
-        func_decl * mod0_decl() { return m_owner.m_aux_decls.m_mod_0_decl; }
-        func_decl * int_0_pw_0_decl() { return m_owner.m_aux_decls.m_int_0_pw_0_decl; }
-        func_decl * real_0_pw_0_decl() { return m_owner.m_aux_decls.m_real_0_pw_0_decl; }
-        func_decl * neg_root_decl() { return m_owner.m_aux_decls.m_neg_root_decl; }
-        func_decl * asin_u_decl() { return m_owner.m_aux_decls.m_asin_u_decl; }
-        func_decl * acos_u_decl() { return m_owner.m_aux_decls.m_acos_u_decl; }
-        
         expr * mk_int_zero() { return u().mk_numeral(rational(0), true); }
 
         expr * mk_real_zero() { return u().mk_numeral(rational(0), false); }
@@ -332,7 +245,7 @@ struct purify_arith_proc {
             if (complete()) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
-                              EQ(k, m().mk_app(div0_decl(), x))));
+                              EQ(k, u().mk_div0(x))));
                 push_cnstr_pr(result_pr);
             }
         }
@@ -380,10 +293,10 @@ struct purify_arith_proc {
             push_cnstr_pr(mod_pr);
 
             if (complete()) {
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, m().mk_app(idiv0_decl(), x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv0(x))));
                 push_cnstr_pr(result_pr);
 
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, m().mk_app(mod0_decl(), x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod0(x))));
                 push_cnstr_pr(mod_pr);
             }
         }
@@ -445,8 +358,7 @@ struct purify_arith_proc {
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
                 if (complete()) {
-                    func_decl * z_pw_z = is_int ? int_0_pw_0_decl() : real_0_pw_0_decl();
-                    push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, m().mk_const(z_pw_z))));
+                    push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
                     push_cnstr_pr(result_pr);
                 }
             }
@@ -470,7 +382,7 @@ struct purify_arith_proc {
                     push_cnstr_pr(result_pr);
                     if (complete()) {
                         push_cnstr(OR(u().mk_ge(x, zero),
-                                      EQ(k, m().mk_app(neg_root_decl(), x, u().mk_numeral(n, false)))));
+                                      EQ(k, u().mk_neg_root(x, u().mk_numeral(n, false)))));
                         push_cnstr_pr(result_pr);
                     }
                 }
@@ -561,10 +473,10 @@ struct purify_arith_proc {
                 // x < -1       implies k = asin_u(x) 
                 // x >  1       implies k = asin_u(x) 
                 push_cnstr(OR(u().mk_ge(x, mone),
-                              EQ(k, m().mk_app(asin_u_decl(), x))));
+                              EQ(k, u().mk_u_asin(x))));
                 push_cnstr_pr(result_pr);
                 push_cnstr(OR(u().mk_le(x, one),
-                              EQ(k, m().mk_app(asin_u_decl(), x))));
+                              EQ(k, u().mk_u_asin(x))));
                 push_cnstr_pr(result_pr);
             }
             return BR_DONE;
@@ -603,10 +515,10 @@ struct purify_arith_proc {
                 // x < -1       implies k = acos_u(x) 
                 // x >  1       implies k = acos_u(x) 
                 push_cnstr(OR(u().mk_ge(x, mone),
-                              EQ(k, m().mk_app(acos_u_decl(), x))));
+                              EQ(k, u().mk_u_acos(x))));
                 push_cnstr_pr(result_pr);
                 push_cnstr(OR(u().mk_le(x, one),
-                              EQ(k, m().mk_app(acos_u_decl(), x))));
+                              EQ(k, u().mk_u_acos(x))));
                 push_cnstr_pr(result_pr);
             }
             return BR_DONE;
@@ -835,12 +747,10 @@ struct purify_arith_proc {
 
 class purify_arith_tactic : public tactic {
     arith_util         m_util;
-    purify_arith_decls m_aux_decls;
     params_ref         m_params;
 public:
     purify_arith_tactic(ast_manager & m, params_ref const & p):
         m_util(m),
-        m_aux_decls(m_util),
         m_params(p) {
     }
 
@@ -879,7 +789,7 @@ public:
             bool elim_root_objs = m_params.get_bool("elim_root_objects", true);
             bool elim_inverses  = m_params.get_bool("elim_inverses", true);
             bool complete       = m_params.get_bool("complete", true);
-            purify_arith_proc proc(m_util, m_aux_decls, produce_proofs, elim_root_objs, elim_inverses, complete);
+            purify_arith_proc proc(m_util, produce_proofs, elim_root_objs, elim_inverses, complete);
             
             proc(*(g.get()), mc, produce_models);
             
