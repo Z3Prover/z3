@@ -113,15 +113,14 @@ func_decl * array_decl_plugin::mk_const(sort * s, unsigned arity, sort * const *
         m_manager->raise_exception("invalid const array definition, invalid domain size");
         return 0;
     }
-    unsigned num_parameters = s->get_num_parameters();
-
-    if (num_parameters == 0) {
-        m_manager->raise_exception("parameter mismatch");
+    if (!is_array_sort(s)) {
+        m_manager->raise_exception("invalid const array definition, parameter is not an array sort");
         return 0;
     }
-
-    // TBD check that range sort corresponds to last parameter.
-        
+    if (!m_manager->compatible_sorts(get_array_range(s), domain[0])) {
+        m_manager->raise_exception("invalid const array definition, sort mismatch between array range and argument");
+        return 0;
+    }
     parameter param(s);
     func_decl_info info(m_family_id, OP_CONST_ARRAY, 1, &param);
     info.m_private_parameters = true;

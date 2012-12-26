@@ -51,6 +51,8 @@ Version 4.3.2
 
 - Fixed timers on Linux and FreeBSD.
 
+- Fixed crash reported at http://z3.codeplex.com/workitem/11.
+
 Version 4.3.1
 =============
 
