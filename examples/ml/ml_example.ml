@@ -17,6 +17,50 @@ open Z3.Arithmetic
 
 exception TestFailedException of string
 
+(**
+   Model Converter test
+*)
+let  model_converter_test ( ctx : context ) =
+  Printf.printf "ModelConverterTest\n";
+  let xr = ((mk_const ctx ((Symbol.mk_string ctx "x") :> symbol) (mk_real_sort ctx )) :> arith_expr) in
+  let yr = ((mk_const ctx ((Symbol.mk_string ctx "y") :> symbol) (mk_real_sort ctx )) :> arith_expr) in
+  let g4 = (mk_goal ctx true false false ) in
+  (Goal.assert_ g4 [| (mk_gt ctx xr (mk_real_numeral_nd ctx 10 1)) |]) ;
+  (Goal.assert_ g4 [| (mk_eq ctx yr (mk_add ctx [| xr; (mk_real_numeral_nd ctx 1 1)  |] )) |] ) ;
+  (Goal.assert_ g4 [| (mk_gt ctx yr (mk_real_numeral_nd ctx 1 1)) |]) ;
+  (
+    let  ar = (Tactic.apply (mk_tactic ctx "simplify") g4 None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   ((is_decided_sat (get_subgoal ar 0)) ||  
+	       (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let ar = (Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") None) g4 None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   ((is_decided_sat (get_subgoal ar 0)) ||  
+	       (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+    ;
+    let solver = (mk_solver ctx None) in
+    let f e = (Solver.assert_ solver [| e |]) in
+    ignore (Array.map f (get_formulas (get_subgoal ar 0))) ;
+    let q = (check solver None) in
+    if q != SATISFIABLE then 
+      raise (TestFailedException "")
+    else
+      let m = (get_model solver) in    
+      match m with 
+	| None -> raise (TestFailedException "")
+	| Some (m) -> 
+	  Printf.printf "Solver says: %s\n" (string_of_status q) ;
+	  Printf.printf "Model: \n%s\n" (Model.to_string m) ;
+	  Printf.printf "Converted Model: \n%s\n" (Model.to_string (convert_model ar 0 m))
+  )
 
 (**
  Some basic tests.
@@ -41,59 +85,78 @@ let basic_tests ( ctx : context ) =
   (Goal.assert_ g [| trivial_eq |]) ;
   (Goal.assert_ g [| nontrivial_eq |]) ;
   Printf.printf "%s\n" ("Goal: " ^ (Goal.to_string g)) ;
-  let solver = (mk_solver ctx None) in
-  (Array.iter (fun a -> (Solver.assert_ solver [| a |])) (get_formulas g)) ;
-  if (check solver None) != SATISFIABLE then
-    raise (TestFailedException "")
-  else
-    Printf.printf "Test passed.\n" ;
-    () ;
-    let ar = (Tactic.apply (mk_tactic ctx "simplify") g None) in
-    if ((get_num_subgoals ar) == 1 && 
-	  ((is_decided_sat (get_subgoal ar 0)) ||  
-	     (is_decided_unsat (get_subgoal ar 0)))) then
+  (
+    let solver = (mk_solver ctx None) in
+    (Array.iter (fun a -> (Solver.assert_ solver [| a |])) (get_formulas g)) ;
+    if (check solver None) != SATISFIABLE then
       raise (TestFailedException "")
     else
-      let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
-      if ((get_num_subgoals ar) == 1 && 
-	(not (is_decided_sat (get_subgoal ar 0)))) then
-	raise (TestFailedException "")
-      else
-	(Goal.assert_ g [| (mk_eq ctx (mk_numeral_int ctx 1 (BitVectors.mk_sort ctx 32))
-			      (mk_numeral_int ctx 2 (BitVectors.mk_sort ctx 32))) |] )
-      ;
-      let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
-      if ((get_num_subgoals ar) == 1 && 
-	     (not (is_decided_unsat (get_subgoal ar 0)))) then
-	raise (TestFailedException "")
-      else 
-	let g2 = (mk_goal ctx true true false) in
-	let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
-	if ((get_num_subgoals ar) == 1 && 
-	       (not (is_decided_sat (get_subgoal ar 0)))) then
-	  raise (TestFailedException "")
-	else
-	  ()
-(*	  
-            g2 = ctx.MkGoal(true, true);
-            g2.Assert(ctx.MkFalse());
-            ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g2);
-            if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedUnsat)
-                throw new TestFailedException();
-
-            Goal g3 = ctx.MkGoal(true, true);
-            Expr xc = ctx.MkConst(ctx.MkSymbol("x"), ctx.IntSort);
-            Expr yc = ctx.MkConst(ctx.MkSymbol("y"), ctx.IntSort);
-            g3.Assert(ctx.MkEq(xc, ctx.MkNumeral(1, ctx.IntSort)));
-            g3.Assert(ctx.MkEq(yc, ctx.MkNumeral(2, ctx.IntSort)));
-            BoolExpr constr = ctx.MkEq(xc, yc);
-            g3.Assert(constr);
-            ar = ApplyTactic(ctx, ctx.MkTactic("smt"), g3);
-            if (ar.NumSubgoals != 1 || !ar.Subgoals[0].IsDecidedUnsat)
-                throw new TestFailedException();
-
-            ModelConverterTest(ctx);
-
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let ar = (Tactic.apply (mk_tactic ctx "simplify") g None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   ((is_decided_sat (get_subgoal ar 0)) ||  
+	       (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   (not (is_decided_sat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+  );
+  (Goal.assert_ g [| (mk_eq ctx (mk_numeral_int ctx 1 (BitVectors.mk_sort ctx 32))
+			(mk_numeral_int ctx 2 (BitVectors.mk_sort ctx 32))) |] )
+  ;
+  (
+    let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   (not (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else 
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let g2 = (mk_goal ctx true true false) in
+    let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   (not (is_decided_sat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let g2 = (mk_goal ctx true true false) in
+    (Goal.assert_ g2 [| (mk_false ctx) |]) ;
+    let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   (not (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else 
+      Printf.printf "Test passed.\n"
+  );
+  (
+    let g3 = (mk_goal ctx true true false) in
+    let xc = (mk_const ctx ((Symbol.mk_string ctx "x") :> symbol) (mk_int_sort ctx)) in
+    let yc = (mk_const ctx ((Symbol.mk_string ctx "y") :> symbol) (mk_int_sort ctx)) in
+    (Goal.assert_ g3 [| (mk_eq ctx xc (mk_numeral_int ctx 1 (mk_int_sort ctx))) |]) ;
+    (Goal.assert_ g3 [| (mk_eq ctx yc (mk_numeral_int ctx 2 (mk_int_sort ctx))) |]) ;
+    let constr = (mk_eq ctx xc yc) in
+    (Goal.assert_ g3 [| constr |] ) ;
+    let ar = (Tactic.apply (mk_tactic ctx "smt") g3 None) in
+    if ((get_num_subgoals ar) == 1 && 
+	   (not (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailedException "")
+    else 
+      Printf.printf "Test passed.\n"
+  ) ;
+  model_converter_test ctx
+(*
             // Real num/den test.
             RatNum rn = ctx.MkReal(42, 43);
             Expr inum = rn.Numerator;

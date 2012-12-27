@@ -353,9 +353,13 @@ def check_ml():
     r = exec_cmd([OCAMLC, 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler')
+    os.remove('hello.cmi')
+    os.remove('hello.cmo')
+    os.remove('a.out')
     r = exec_cmd([OCAMLBUILD])
     if r != 0:
         raise MKException('Failed testing ocamlbuild. Set environment variable OCAMLBUILD with the path to ocamlbuild')
+    shutil.rmtree('_build')
     find_ml_lib()
 
 def find_ml_lib():
@@ -499,7 +503,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -n, --nodotnet                do not generate Microsoft.Z3.dll make rules.")
     print("  -j, --java                    generate Java bindings.")
-    print("  --ml                          generate Ocaml bindinds.")
+    print("  --ml                          generate OCaml bindings.")
     print("  --staticlib                   build Z3 static library.")    
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")

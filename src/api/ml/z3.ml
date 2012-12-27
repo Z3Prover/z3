@@ -4684,6 +4684,11 @@ module Solver =
 struct
   type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
 
+  let string_of_status ( s : status) = match s with
+    | UNSATISFIABLE -> "unsatisfiable"
+    | SATISFIABLE -> "satisfiable" 
+    | _ -> "unknown"
+
   (** Objects that track statistical information about solvers. *)
   module Statistics =
   struct
