@@ -1959,11 +1959,14 @@ def cp_z3py_to_build():
         if is_verbose():
             print("Generated '%s'" % pyc)
     # Python 3.x support
-    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(os.path.join(Z3PY_SRC_DIR, '__pycache__'))):
-        mk_dir(os.path.join(BUILD_DIR, '__pycache__'))
-        shutil.copyfile(os.path.join(Z3PY_SRC_DIR, '__pycache__', pyc), os.path.join(BUILD_DIR, '__pycache__', pyc))
-        if is_verbose():
-            print("Generated '%s'" % pyc)
+    src_pycache = os.path.join(Z3PY_SRC_DIR, '__pycache__')
+    if os.path.exists(src_pycache):
+        for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(src_pycache)):
+            target_pycache = os.path.join(BUILD_DIR, '__pycache__')
+            mk_dir(target_pycache)
+            shutil.copyfile(os.path.join(src_pycache, pyc), os.path.join(target_pycache, pyc))
+            if is_verbose():
+                print("Generated '%s'" % pyc)
 
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
