@@ -7,4 +7,6 @@ def_module_params(module_name='rewriter',
                           ("blast_eq_value", BOOL, False, "blast (some) Bit-vector equalities into bits"),
                           ("elim_sign_ext", BOOL, True, "expand sign-ext operator using concat and extract"),
                           ("hi_div0", BOOL, True, "use the 'hardware interpretation' for division by zero (for bit-vector terms)"),
-                          ("mul2concat", BOOL, False, "replace multiplication by a power of two into a concatenation")))
+                          ("mul2concat", BOOL, False, "replace multiplication by a power of two into a concatenation"),
+                          ("bvnot2arith", BOOL, False, "replace (bvnot x) with (bvsub -1 x)")
+                          ))
