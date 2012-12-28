@@ -44,6 +44,7 @@ from z3core import *
 from z3types import *
 from z3consts import *
 from z3printer import *
+from fractions import Fraction
 import sys
 import io
 
@@ -2522,6 +2523,15 @@ class RatNumRef(ArithRef):
         '1/2'
         """
         return Z3_get_numeral_string(self.ctx_ref(), self.as_ast())
+
+    def as_fraction(self):
+        """Return a Z3 rational as a Python Fraction object.
+        
+        >>> v = RealVal("1/5")
+        >>> v.as_fraction()
+        Fraction(1, 5)
+        """
+        return Fraction(self.numerator_as_long(), self.denominator_as_long())
 
 class AlgebraicNumRef(ArithRef):
     """Algebraic irrational values."""
