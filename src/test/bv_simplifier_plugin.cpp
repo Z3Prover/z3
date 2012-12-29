@@ -79,7 +79,7 @@ public:
         m_arith(m_manager),
         m_simp(m_manager, m_bsimp, m_bv_params), 
         m_bv_util(m_manager), 
-        m_fid(m_manager.get_family_id("bv")) {
+        m_fid(m_manager.mk_family_id("bv")) {
         reg_decl_plugins(m_manager);
     }
 
@@ -139,7 +139,7 @@ public:
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
         SASSERT(((a >> 8) | (a << 24)) == u32(e.get()));
 
-        params[0] = parameter(m_manager.mk_sort(m_manager.get_family_id("arith"), INT_SORT));
+        params[0] = parameter(m_manager.mk_sort(m_manager.mk_family_id("arith"), INT_SORT));
         ar = m_manager.mk_app(m_fid, OP_BV2INT, 1, params, 1, es);
 		expr* es2[1] = { ar.get() };
 		params[0] = parameter(32);

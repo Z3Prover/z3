@@ -175,7 +175,6 @@ tactic * mk_fail_if_undecided_tactic() {
 
 void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) {
     t.reset_statistics();
-    t.reset_cancel();
     try {
         t(in, result, mc, pc, core);
         t.cleanup();

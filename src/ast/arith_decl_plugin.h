@@ -35,6 +35,7 @@ enum arith_sort_kind {
 enum arith_op_kind {
     OP_NUM, // rational & integers
     OP_IRRATIONAL_ALGEBRAIC_NUM,  // irrationals that are roots of polynomials with integer coefficients
+    //
     OP_LE,
     OP_GE,
     OP_LT,
@@ -67,6 +68,15 @@ enum arith_op_kind {
     // constants
     OP_PI,
     OP_E,
+    // under-specified symbols
+    OP_0_PW_0_INT,    // 0^0 for integers
+    OP_0_PW_0_REAL,   // 0^0 for reals
+    OP_NEG_ROOT,      // x^n when n is even and x is negative
+    OP_DIV_0,         // x/0
+    OP_IDIV_0,        // x div 0
+    OP_MOD_0,         // x mod 0
+    OP_U_ASIN,        // asin(x) for x < -1 or x > 1
+    OP_U_ACOS,        // acos(x) for x < -1 or x > 1
     LAST_ARITH_OP
 };
 
@@ -126,7 +136,16 @@ protected:
 
     app       * m_pi;
     app       * m_e;
-    
+ 
+    app       * m_0_pw_0_int;
+    app       * m_0_pw_0_real;
+    func_decl * m_neg_root_decl;
+    func_decl * m_div_0_decl;
+    func_decl * m_idiv_0_decl;
+    func_decl * m_mod_0_decl;
+    func_decl * m_u_asin_decl;
+    func_decl * m_u_acos_decl;
+   
     ptr_vector<app> m_small_ints;
     ptr_vector<app> m_small_reals;
 
@@ -182,41 +201,33 @@ public:
     
     app * mk_e() const { return m_e; }
 
+    app * mk_0_pw_0_int() const { return m_0_pw_0_int; }
+    
+    app * mk_0_pw_0_real() const { return m_0_pw_0_real; }
+
     virtual expr * get_some_value(sort * s);
 
     virtual void set_cancel(bool f);
 };
 
-class arith_util {
-    ast_manager &       m_manager;
+/**
+   \brief Procedures for recognizing arithmetic expressions.
+   We don't need access to ast_manager, and operations can be simultaneously
+   executed in different threads.
+*/
+class arith_recognizers {
+protected:
     family_id           m_afid;
-    arith_decl_plugin * m_plugin;
-
-    void init_plugin();
-
-    arith_decl_plugin & plugin() const {
-        if (!m_plugin) const_cast<arith_util*>(this)->init_plugin();
-        SASSERT(m_plugin != 0);
-        return *m_plugin;
-    }
-    
 public:
-    arith_util(ast_manager & m);
+    arith_recognizers(family_id id):m_afid(id) {}
 
-    ast_manager & get_manager() const { return m_manager; }
     family_id get_family_id() const { return m_afid; }
 
-    algebraic_numbers::manager & am() { 
-        return plugin().am(); 
-    }
-
     bool is_arith_expr(expr const * n) const { return is_app(n) && to_app(n)->get_family_id() == m_afid; }
+    bool is_irrational_algebraic_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); }
     bool is_numeral(expr const * n, rational & val, bool & is_int) const;
     bool is_numeral(expr const * n, rational & val) const { bool is_int; return is_numeral(n, val, is_int); }
     bool is_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_NUM); }
-    bool is_irrational_algebraic_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); }
-    bool is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val);
-    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
     bool is_zero(expr const * n) const { rational val; return is_numeral(n, val) && val.is_zero(); }
     bool is_minus_one(expr * n) const { rational tmp; return is_numeral(n, tmp) && tmp.is_minus_one(); }
     // return true if \c n is a term of the form (* -1 r)
@@ -227,6 +238,7 @@ public:
         }
         return false;
     }
+
     bool is_le(expr const * n) const { return is_app_of(n, m_afid, OP_LE); }
     bool is_ge(expr const * n) const { return is_app_of(n, m_afid, OP_GE); }
     bool is_lt(expr const * n) const { return is_app_of(n, m_afid, OP_LT); }
@@ -245,14 +257,13 @@ public:
     bool is_power(expr const * n) const { return is_app_of(n, m_afid, OP_POWER); }
     
     bool is_int(sort const * s) const { return is_sort_of(s, m_afid, INT_SORT); }
-    bool is_int(expr const * n) const { return is_int(m_manager.get_sort(n)); }
+    bool is_int(expr const * n) const { return is_int(get_sort(n)); }
     bool is_real(sort const * s) const { return is_sort_of(s, m_afid, REAL_SORT); }
-    bool is_real(expr const * n) const { return is_real(m_manager.get_sort(n)); }
+    bool is_real(expr const * n) const { return is_real(get_sort(n)); }
     bool is_int_real(sort const * s) const { return s->get_family_id() == m_afid; }
-    bool is_int_real(expr const * n) const { return is_int_real(m_manager.get_sort(n)); }
+    bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
 
     MATCH_UNARY(is_uminus);
-
     MATCH_BINARY(is_sub);
     MATCH_BINARY(is_add);
     MATCH_BINARY(is_mul);
@@ -265,6 +276,34 @@ public:
     MATCH_BINARY(is_div);
     MATCH_BINARY(is_idiv);
 
+    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
+    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
+};
+
+class arith_util : public arith_recognizers {
+    ast_manager &       m_manager;
+    arith_decl_plugin * m_plugin;
+
+    void init_plugin();
+
+    arith_decl_plugin & plugin() const {
+        if (!m_plugin) const_cast<arith_util*>(this)->init_plugin();
+        SASSERT(m_plugin != 0);
+        return *m_plugin;
+    }
+    
+public:
+    arith_util(ast_manager & m);
+
+    ast_manager & get_manager() const { return m_manager; }
+
+    algebraic_numbers::manager & am() { 
+        return plugin().am(); 
+    }
+
+    bool is_irrational_algebraic_numeral(expr const * n) const { return is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); }
+    bool is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val);
+    algebraic_numbers::anum const & to_irrational_algebraic_numeral(expr const * n);
     
     sort * mk_int() { return m_manager.mk_sort(m_afid, INT_SORT); }
     sort * mk_real() { return m_manager.mk_sort(m_afid, REAL_SORT); }
@@ -320,12 +359,18 @@ public:
     app * mk_acosh(expr * arg) { return m_manager.mk_app(m_afid, OP_ACOSH, arg); }
     app * mk_atanh(expr * arg) { return m_manager.mk_app(m_afid, OP_ATANH, arg); }
 
-    bool is_pi(expr * arg) { return is_app_of(arg, m_afid, OP_PI); }
-    bool is_e(expr * arg) { return is_app_of(arg, m_afid, OP_E); }
-
     app * mk_pi() { return plugin().mk_pi(); }
     app * mk_e()  { return plugin().mk_e(); }
 
+    app * mk_0_pw_0_int() { return plugin().mk_0_pw_0_int(); }
+    app * mk_0_pw_0_real() { return plugin().mk_0_pw_0_real(); }
+    app * mk_div0(expr * arg) { return m_manager.mk_app(m_afid, OP_DIV_0, arg); }
+    app * mk_idiv0(expr * arg) { return m_manager.mk_app(m_afid, OP_IDIV_0, arg); }
+    app * mk_mod0(expr * arg) { return m_manager.mk_app(m_afid, OP_MOD_0, arg); }
+    app * mk_neg_root(expr * arg1, expr * arg2) { return m_manager.mk_app(m_afid, OP_NEG_ROOT, arg1, arg2); }
+    app * mk_u_asin(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ASIN, arg); }
+    app * mk_u_acos(expr * arg) { return m_manager.mk_app(m_afid, OP_U_ACOS, arg); }
+    
     /**
        \brief Return the equality (= lhs rhs), but it makes sure that 
        if one of the arguments is a numeral, then it will be in the right-hand-side;

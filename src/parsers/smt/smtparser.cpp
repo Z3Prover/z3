@@ -483,13 +483,13 @@ public:
 class array_sort : public builtin_sort_builder {
 public:
     array_sort(ast_manager& m) : 
-        builtin_sort_builder(m, m.get_family_id("array"), ARRAY_SORT) {}
+        builtin_sort_builder(m, m.mk_family_id("array"), ARRAY_SORT) {}
 };
 
 class bv_sort : public builtin_sort_builder {
 public:
     bv_sort(ast_manager& m) : 
-        builtin_sort_builder(m, m.get_family_id("bv"), BV_SORT) {}
+        builtin_sort_builder(m, m.mk_family_id("bv"), BV_SORT) {}
 };
 
 class user_sort : public sort_builder {    
@@ -538,7 +538,7 @@ class smtparser : public parser {
     public:
         add_plugins(ast_manager& m) {
 #define REGISTER_PLUGIN(NAME, MK) {                             \
-                family_id fid = m.get_family_id(symbol(NAME));  \
+                family_id fid = m.mk_family_id(symbol(NAME));  \
                 if (!m.has_plugin(fid)) {                       \
                     m.register_plugin(fid, MK);                 \
                 }                                                       \
@@ -681,7 +681,7 @@ public:
         smtlib::symtable* table = m_benchmark.get_symtable();
 
         symbol arith("arith");
-        family_id afid = m_manager.get_family_id(arith);
+        family_id afid = m_manager.mk_family_id(arith);
         m_arith_fid = afid;
 
         add_builtin_type("Int", afid, INT_SORT);
@@ -694,7 +694,7 @@ public:
         add_builtins(afid);
         
         symbol bv("bv");
-        family_id bfid = m_manager.get_family_id(bv);
+        family_id bfid = m_manager.mk_family_id(bv);
         m_bv_fid = bfid;        
 
         add_builtins(bfid);
@@ -702,7 +702,7 @@ public:
         add_builtin_type("BitVec", bfid, BV_SORT);
 
         symbol array("array");
-        afid = m_manager.get_family_id(array);
+        afid = m_manager.mk_family_id(array);
         m_array_fid = afid;
 
         add_builtins(afid);

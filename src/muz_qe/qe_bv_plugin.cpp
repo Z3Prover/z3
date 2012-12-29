@@ -32,7 +32,7 @@ namespace qe {
         bv_util      m_bv;
     public:
         bv_plugin(i_solver_context& ctx, ast_manager& m): 
-            qe_solver_plugin(m, m.get_family_id("bv"), ctx),
+            qe_solver_plugin(m, m.mk_family_id("bv"), ctx),
             m_replace(mk_default_expr_replacer(m)),
             m_bv(m)
         {}

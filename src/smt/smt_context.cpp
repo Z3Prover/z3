@@ -2854,7 +2854,12 @@ namespace smt {
         m_bool_var2assumption.reset();
         m_unsat_core.reset();
         if (num_assumptions > 0) {
-            propagate(); // we must give a chance to the theories to propagate before we create a new scope...
+            // We must give a chance to the theories to propagate before we create a new scope...
+            propagate(); 
+            // Internal backtracking scopes (created with push_scope()) must only be created when we are
+            // in a consistent context.
+            if (inconsistent())
+                return; 
             push_scope();
             for (unsigned i = 0; i < num_assumptions; i++) {
                 expr * curr_assumption = assumptions[i];
@@ -3987,3 +3992,8 @@ namespace smt {
 
 };
 
+#ifdef Z3DEBUG
+void pp(smt::context & c) {
+    c.display(std::cout);
+}
+#endif

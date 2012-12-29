@@ -127,9 +127,6 @@ inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
 
 class bv_decl_plugin : public decl_plugin {
 protected:
-    vector<rational> m_powers;
-    void mk_table_upto(unsigned n);
-
     symbol m_bv_sym;
     symbol m_concat_sym;
     symbol m_sign_extend_sym;
@@ -245,8 +242,6 @@ protected:
 public:
     bv_decl_plugin();
 
-    rational power_of_two(unsigned n) const;
-
     virtual ~bv_decl_plugin() {}
     virtual void finalize();
 
@@ -273,7 +268,70 @@ public:
     virtual expr * get_some_value(sort * s);
 };
 
-class bv_util {
+class bv_recognizers {
+    family_id m_afid;
+public:
+    bv_recognizers(family_id fid):m_afid(fid) {}
+
+    family_id get_fid() const { return m_afid; }
+    family_id get_family_id() const { return get_fid(); }
+
+    bool is_numeral(expr const * n, rational & val, unsigned & bv_size) const;
+    bool is_numeral(expr const * n) const { return is_app_of(n, get_fid(), OP_BV_NUM); }
+    bool is_allone(expr const * e) const;
+    bool is_zero(expr const * e) const;
+    bool is_bv_sort(sort const * s) const;
+    bool is_bv(expr const* e) const {  return is_bv_sort(get_sort(e)); }
+    
+    bool is_concat(expr const * e) const { return is_app_of(e, get_fid(), OP_CONCAT); }
+    bool is_extract(func_decl const * f) const { return is_decl_of(f, get_fid(), OP_EXTRACT); }
+    bool is_extract(expr const * e) const { return is_app_of(e, get_fid(), OP_EXTRACT); }
+    unsigned get_extract_high(func_decl const * f) const { return f->get_parameter(0).get_int(); }
+    unsigned get_extract_low(func_decl const * f) const { return f->get_parameter(1).get_int(); }
+    unsigned get_extract_high(expr const * n) { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
+    unsigned get_extract_low(expr const * n) { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
+    bool is_extract(expr const * e, unsigned & low, unsigned & high, expr * & b);
+    bool is_bv2int(expr const * e, expr * & r);
+    bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
+    bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
+    bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
+    bool is_bv_neg(expr const * e) const { return is_app_of(e, get_fid(), OP_BNEG); }
+    bool is_bv_sdiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV); }
+    bool is_bv_udiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV); }
+    bool is_bv_srem(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM); }
+    bool is_bv_urem(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM); }
+    bool is_bv_smod(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD); }
+    bool is_bv_and(expr const * e) const { return is_app_of(e, get_fid(), OP_BAND); }
+    bool is_bv_or(expr const * e) const { return is_app_of(e, get_fid(), OP_BOR); }
+    bool is_bv_xor(expr const * e) const { return is_app_of(e, get_fid(), OP_BXOR); }
+    bool is_bv_nand(expr const * e) const { return is_app_of(e, get_fid(), OP_BNAND); }
+    bool is_bv_nor(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOR); }
+    bool is_bv_not(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOT); }
+    bool is_bv_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
+    bool is_bv_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
+    bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
+    bool is_bv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_BV2INT); }
+    bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
+    bool is_mkbv(expr const * e) const { return is_app_of(e, get_fid(), OP_MKBV); }
+    bool is_bv_ashr(expr const * e) const { return is_app_of(e, get_fid(), OP_BASHR); }
+    bool is_bv_lshr(expr const * e) const { return is_app_of(e, get_fid(), OP_BLSHR); }
+    bool is_bv_shl(expr const * e) const { return is_app_of(e, get_fid(), OP_BSHL); }
+    bool is_sign_ext(expr const * e) const { return is_app_of(e, get_fid(), OP_SIGN_EXT); }
+
+    MATCH_BINARY(is_bv_add);
+    MATCH_BINARY(is_bv_mul);
+    MATCH_BINARY(is_bv_sle);
+    MATCH_BINARY(is_bv_ule);
+    MATCH_BINARY(is_bv_shl);
+
+    rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
+    rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
+    bool has_sign_bit(rational const & n, unsigned bv_size) const;
+    bool mult_inverse(rational const & n, unsigned bv_size, rational & result);
+    
+};
+
+class bv_util : public bv_recognizers {
     ast_manager &    m_manager;
     bv_decl_plugin * m_plugin;
 
@@ -282,29 +340,10 @@ public:
 
     ast_manager & get_manager() const { return m_manager; }
 
-    family_id get_fid() const { return m_plugin->get_family_id(); }
-
-    family_id get_family_id() const { return get_fid(); }
-
-    rational power_of_two(unsigned n) const { return m_plugin->power_of_two(n); }
-
-    rational norm(rational const & val, unsigned bv_size, bool is_signed) const ;
-    rational norm(rational const & val, unsigned bv_size) const { return norm(val, bv_size, false); }
-    bool has_sign_bit(rational const & n, unsigned bv_size) const;
     app * mk_numeral(rational const & val, sort* s);
     app * mk_numeral(rational const & val, unsigned bv_size);
     app * mk_numeral(uint64 u, unsigned bv_size) { return mk_numeral(rational(u, rational::ui64()), bv_size); }
     sort * mk_sort(unsigned bv_size);
-    bool is_numeral(expr const * n, rational & val, unsigned & bv_size) const;
-    bool is_numeral(expr const * n) const {
-        return is_app_of(n, get_fid(), OP_BV_NUM);
-    }
-    bool is_allone(expr const * e) const;
-    bool is_zero(expr const * e) const;
-    bool is_bv_sort(sort const * s) const;
-    bool is_bv(expr const* e) const {
-        return is_bv_sort(m_manager.get_sort(e));
-    }
     
     unsigned get_bv_size(sort const * s) const { 
         SASSERT(is_bv_sort(s));
@@ -348,59 +387,6 @@ public:
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
 
     app * mk_bv(unsigned n, expr* const* es) { return m_manager.mk_app(get_fid(), OP_MKBV, n, es); }
-
-    bool is_concat(expr const * e) const { return is_app_of(e, get_fid(), OP_CONCAT); }
-    bool is_extract(func_decl const * f) const { return is_decl_of(f, get_fid(), OP_EXTRACT); }
-    bool is_extract(expr const * e) const { return is_app_of(e, get_fid(), OP_EXTRACT); }
-    unsigned get_extract_high(func_decl const * f) const { return f->get_parameter(0).get_int(); }
-    unsigned get_extract_low(func_decl const * f) const { return f->get_parameter(1).get_int(); }
-    unsigned get_extract_high(expr const * n) { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
-    unsigned get_extract_low(expr const * n) { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
-    bool is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) {
-        if (!is_extract(e)) return false;
-        low = get_extract_low(e);
-        high = get_extract_high(e);
-        b = to_app(e)->get_arg(0);
-        return true;
-    }
-    bool is_bv2int(expr const* e, expr*& r) {
-        if (!is_bv2int(e)) return false;
-        r = to_app(e)->get_arg(0);
-        return true;
-    }
-    bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
-    bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
-    bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
-    bool is_bv_neg(expr const * e) const { return is_app_of(e, get_fid(), OP_BNEG); }
-    bool is_bv_sdiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BSDIV); }
-    bool is_bv_udiv(expr const * e) const { return is_app_of(e, get_fid(), OP_BUDIV); }
-    bool is_bv_srem(expr const * e) const { return is_app_of(e, get_fid(), OP_BSREM); }
-    bool is_bv_urem(expr const * e) const { return is_app_of(e, get_fid(), OP_BUREM); }
-    bool is_bv_smod(expr const * e) const { return is_app_of(e, get_fid(), OP_BSMOD); }
-    bool is_bv_and(expr const * e) const { return is_app_of(e, get_fid(), OP_BAND); }
-    bool is_bv_or(expr const * e) const { return is_app_of(e, get_fid(), OP_BOR); }
-    bool is_bv_xor(expr const * e) const { return is_app_of(e, get_fid(), OP_BXOR); }
-    bool is_bv_nand(expr const * e) const { return is_app_of(e, get_fid(), OP_BNAND); }
-    bool is_bv_nor(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOR); }
-    bool is_bv_not(expr const * e) const { return is_app_of(e, get_fid(), OP_BNOT); }
-    bool is_bv_ule(expr const * e) const { return is_app_of(e, get_fid(), OP_ULEQ); }
-    bool is_bv_sle(expr const * e) const { return is_app_of(e, get_fid(), OP_SLEQ); }
-    bool is_bit2bool(expr const * e) const { return is_app_of(e, get_fid(), OP_BIT2BOOL); }
-    bool is_bv2int(expr const* e) const { return is_app_of(e, get_fid(), OP_BV2INT); }
-    bool is_int2bv(expr const* e) const { return is_app_of(e, get_fid(), OP_INT2BV); }
-    bool is_mkbv(expr const * e) const { return is_app_of(e, get_fid(), OP_MKBV); }
-    bool is_bv_ashr(expr const * e) const { return is_app_of(e, get_fid(), OP_BASHR); }
-    bool is_bv_lshr(expr const * e) const { return is_app_of(e, get_fid(), OP_BLSHR); }
-    bool is_bv_shl(expr const * e) const { return is_app_of(e, get_fid(), OP_BSHL); }
-    bool is_sign_ext(expr const * e) const { return is_app_of(e, get_fid(), OP_SIGN_EXT); }
-
-    MATCH_BINARY(is_bv_add);
-    MATCH_BINARY(is_bv_mul);
-    MATCH_BINARY(is_bv_sle);
-    MATCH_BINARY(is_bv_ule);
-    MATCH_BINARY(is_bv_shl);
-
-    bool mult_inverse(rational const & n, unsigned bv_size, rational & result);
 };
     
 #endif /* _BV_DECL_PLUGIN_H_ */

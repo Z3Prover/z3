@@ -673,7 +673,7 @@ bool datatype_decl_plugin::is_value(app * e) const {
 
 datatype_util::datatype_util(ast_manager & m):
     m_manager(m),
-    m_family_id(m.get_family_id("datatype")),
+    m_family_id(m.mk_family_id("datatype")),
     m_asts(m) {
 }
 

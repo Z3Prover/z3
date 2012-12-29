@@ -55,6 +55,7 @@ namespace api {
         std::string get_last_status();
         std::string to_string(unsigned num_queries, expr*const* queries);
         void cancel() { m_context.cancel(); }
+        void reset_cancel() { m_context.reset_cancel(); }
 
         unsigned get_num_levels(func_decl* pred);
         expr_ref get_cover_delta(int level, func_decl* pred);

@@ -84,6 +84,19 @@ def lib():
         raise Z3Exception("init(Z3_LIBRARY_PATH) must be invoked before using Z3-python")
   return _lib
 
+def _to_ascii(s):
+  if isinstance(s, str):
+    return s.encode('ascii')
+  else:
+    return s
+
+if sys.version < '3':
+  def _to_pystr(s):
+     return s
+else:
+  def _to_pystr(s):
+     return s.decode('utf-8')
+
 def init(PATH):
   global _lib
   _lib = ctypes.CDLL(PATH)
@@ -146,20 +159,22 @@ next_type_id = FIRST_OBJ_ID
 
 def def_Type(var, c_type, py_type):
     global next_type_id
-    exec ('%s = %s' % (var, next_type_id)) in globals()
+    exec('%s = %s' % (var, next_type_id), globals())
     Type2Str[next_type_id]   = c_type
     Type2PyStr[next_type_id] = py_type
     next_type_id    = next_type_id + 1
 
 def def_Types():
-    pat1 = re.compile(" *def_Type.*")
+    import re
+    pat1 = re.compile(" *def_Type\(\'(.*)\',[^\']*\'(.*)\',[^\']*\'(.*)\'\)[ \t]*")
     for api_file in API_FILES:
         api = open(api_file, 'r')
         for line in api:
             m = pat1.match(line)
             if m:
-                eval(line)
-    for k, v in Type2Str.iteritems():
+                def_Type(m.group(1), m.group(2), m.group(3))
+    for k in Type2Str:
+        v = Type2Str[k]
         if is_obj(k):
             Type2Dotnet[k] = v
 
@@ -258,7 +273,7 @@ def param2java(p):
         elif param_type(p) == STRING:
             return "StringPtr"
         else:
-            print "ERROR: unreachable code"
+            print("ERROR: unreachable code")
             assert(False)
             exit(1)
     if k == IN_ARRAY or k == INOUT_ARRAY or k == OUT_ARRAY:
@@ -313,6 +328,17 @@ def display_args(num):
             core_py.write(", ")
         core_py.write("a%s" % i)
 
+def display_args_to_z3(params):
+    i = 0
+    for p in params:
+        if i > 0:
+            core_py.write(", ")
+        if param_type(p) == STRING:
+            core_py.write("_to_ascii(a%s)" % i)
+        else:
+            core_py.write("a%s" % i)
+        i = i + 1
+
 def mk_py_wrappers():
     core_py.write("\n")
     for sig in _API2PY:
@@ -327,13 +353,15 @@ def mk_py_wrappers():
             core_py.write("  r = lib().%s(" % name)
         else:
             core_py.write("  lib().%s(" % name)
-        display_args(num)
+        display_args_to_z3(params)
         core_py.write(")\n")
         if len(params) > 0 and param_type(params[0]) == CONTEXT:
             core_py.write("  err = lib().Z3_get_error_code(a0)\n")
             core_py.write("  if err != Z3_OK:\n")
             core_py.write("    raise Z3Exception(lib().Z3_get_error_msg_ex(a0, err))\n")
-        if result != VOID:
+        if result == STRING:
+            core_py.write("  return _to_pystr(r)\n")
+        elif result != VOID:
             core_py.write("  return r\n")
         core_py.write("\n")
 
@@ -356,7 +384,8 @@ def mk_dotnet():
     dotnet.write('#pragma warning disable 1591\n\n');
     dotnet.write('namespace Microsoft.Z3\n')
     dotnet.write('{\n')
-    for k, v in Type2Str.iteritems():
+    for k in Type2Str:
+        v = Type2Str[k]
         if is_obj(k):
             dotnet.write('    using %s = System.IntPtr;\n' % v)
     dotnet.write('\n');
@@ -579,7 +608,7 @@ def mk_java():
     java_wrapper.write('  }                                                                    \n\n')
     java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                   \\\n')
     java_wrapper.write('  delete [] NEW;                                                     \n\n')
-    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)				    \\\n')
+    java_wrapper.write('#define GETLONGAREGION(T,OLD,Z,SZ,NEW)                              \\\n')
     java_wrapper.write('  {                                                                 \\\n')
     java_wrapper.write('    jlong * temp = new jlong[SZ];                                   \\\n')
     java_wrapper.write('    jenv->GetLongArrayRegion(OLD,Z,(jsize)SZ,(jlong*)temp);         \\\n')
@@ -702,7 +731,7 @@ def mk_java():
     java_wrapper.write('}\n')
     java_wrapper.write('#endif\n')
     if is_verbose():
-        print "Generated '%s'" % java_nativef
+        print("Generated '%s'" % java_nativef)
 
 def mk_log_header(file, name, params):
     file.write("void log_%s(" % name)
@@ -710,7 +739,7 @@ def mk_log_header(file, name, params):
     for p in params:
         if i > 0:
             file.write(", ");
-	file.write("%s a%s" % (param2str(p), i))
+        file.write("%s a%s" % (param2str(p), i))
         i = i + 1
     file.write(")");
 
@@ -981,8 +1010,8 @@ exe_c.close()
 core_py.close()
 
 if is_verbose():
-    print "Generated '%s'" % os.path.join(api_dir, 'api_log_macros.h')
-    print "Generated '%s'" % os.path.join(api_dir, 'api_log_macros.cpp')
-    print "Generated '%s'" % os.path.join(api_dir, 'api_commands.cpp')
-    print "Generated '%s'" % os.path.join(get_z3py_dir(), 'z3core.py')
-    print "Generated '%s'" % os.path.join(dotnet_dir, 'Native.cs')
+    print("Generated '%s'" % os.path.join(api_dir, 'api_log_macros.h'))
+    print("Generated '%s'" % os.path.join(api_dir, 'api_log_macros.cpp'))
+    print("Generated '%s'" % os.path.join(api_dir, 'api_commands.cpp'))
+    print("Generated '%s'" % os.path.join(get_z3py_dir(), 'z3core.py'))
+    print("Generated '%s'" % os.path.join(dotnet_dir, 'Native.cs'))

@@ -253,7 +253,7 @@ class nla2bv_tactic : public tactic {
                 s_bv = m_arith.mk_sub(m_arith.mk_numeral(*up, true), s_bv);
             }
             else {
-                s_bv = m_arith.mk_sub(s_bv, m_arith.mk_numeral(m_bv.power_of_two(num_bits-1), true));
+                s_bv = m_arith.mk_sub(s_bv, m_arith.mk_numeral(rational::power_of_two(num_bits-1), true));
             }
             
             m_trail.push_back(s_bv);

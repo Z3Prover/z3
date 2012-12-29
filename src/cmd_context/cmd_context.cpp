@@ -343,6 +343,13 @@ cmd_context::~cmd_context() {
     m_check_sat_result = 0;
 }
 
+void cmd_context::set_cancel(bool f) {
+    if (m_solver)
+        m_solver->set_cancel(f);
+    if (has_manager())
+        m().set_cancel(f);
+}
+
 void cmd_context::global_params_updated() {
     m_params.updt_params();
     if (m_solver) {
@@ -1379,7 +1386,7 @@ void cmd_context::set_diagnostic_stream(char const * name) {
 struct contains_array_op_proc {
     struct found {};
     family_id m_array_fid;
-    contains_array_op_proc(ast_manager & m):m_array_fid(m.get_family_id("array")) {}
+    contains_array_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")) {}
     void operator()(var * n)        {}
     void operator()(app * n)        { 
         if (n->get_family_id() != m_array_fid)

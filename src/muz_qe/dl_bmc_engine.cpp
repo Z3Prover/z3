@@ -963,7 +963,7 @@ namespace datalog {
             
             
             sort_ref_vector new_sorts(m);
-            family_id dfid = m.get_family_id("datatype");
+            family_id dfid = m.mk_family_id("datatype");
             datatype_decl_plugin* dtp = static_cast<datatype_decl_plugin*>(m.get_plugin(dfid));
             VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), new_sorts));
             

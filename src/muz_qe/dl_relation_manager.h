@@ -3,7 +3,7 @@ Copyright (c) 2006 Microsoft Corporation
 
 Module Name:
 
-    dl_remation_manager.h
+    dl_relation_manager.h
 
 Abstract:
 
@@ -316,7 +316,7 @@ namespace datalog {
                 oldTgt:=tgt.clone();
                 tgt:=tgt \union src
                 if(tgt!=oldTgt) {
-                    delta:=delta \union src    //also “delta \union tgt” would work
+                    delta:=delta \union src    //also ?delta \union tgt? would work
                 }
             }
 
@@ -488,7 +488,7 @@ namespace datalog {
                 oldTgt:=tgt.clone();
                 tgt:=tgt \union src
                 if(tgt!=oldTgt) {
-                    delta:=delta \union src    //also “delta \union tgt” would work
+                    delta:=delta \union src    //also ?delta \union tgt? would work
                 }
             }
 

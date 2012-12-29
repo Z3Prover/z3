@@ -253,12 +253,10 @@ namespace smt {
     }
 
     lbool kernel::setup_and_check() {
-        set_cancel(false);
         return m_imp->setup_and_check();
     }
 
     lbool kernel::check(unsigned num_assumptions, expr * const * assumptions) {
-        set_cancel(false);
         lbool r = m_imp->check(num_assumptions, assumptions);
         TRACE("smt_kernel", tout << "check result: " << r << "\n";);
         return r;

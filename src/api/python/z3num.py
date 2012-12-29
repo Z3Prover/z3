@@ -8,6 +8,7 @@
 from z3 import *
 from z3core import *
 from z3printer import *
+from fractions import Fraction
 
 def _to_numeral(num, ctx=None):
     if isinstance(num, Numeral):
@@ -169,6 +170,14 @@ class Numeral:
         """
         assert(self.is_integer())
         return long(Z3_get_numeral_string(self.ctx_ref(), self.as_ast()))
+
+    def as_fraction(self):
+        """ Return a numeral (that is a rational) as a Python Fraction.
+        >>> Numeral("1/5").as_fraction()
+        Fraction(1, 5)
+        """
+        assert(self.is_rational())
+        return Fraction(self.numerator().as_long(), self.denominator().as_long())
 
     def approx(self, precision=10):
         """Return a numeral that approximates the numeral `self`. 

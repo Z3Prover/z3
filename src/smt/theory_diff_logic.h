@@ -306,7 +306,7 @@ namespace smt {
 
     public:    
         theory_diff_logic(ast_manager& m, smt_params & params):
-            theory(m.get_family_id("arith")),
+            theory(m.mk_family_id("arith")),
             m_params(params),
             m_util(m),
             m_arith_eq_adapter(*this, params, m_util),

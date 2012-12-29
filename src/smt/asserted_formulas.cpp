@@ -439,6 +439,8 @@ void asserted_formulas::nnf_cnf() {
         expr_ref   r1(m_manager);
         proof_ref  pr1(m_manager);
         CASSERT("well_sorted",is_well_sorted(m_manager, n));
+        push_todo.reset();
+        push_todo_prs.reset();
         apply_nnf(n, push_todo, push_todo_prs, r1, pr1);
         CASSERT("well_sorted",is_well_sorted(m_manager, r1));
         pr = m_manager.mk_modus_ponens(pr, pr1);
@@ -855,3 +857,8 @@ void asserted_formulas::max_bv_sharing() {
     
 }
 
+#ifdef Z3DEBUG
+void pp(asserted_formulas & f) {
+    f.display(std::cout);
+}
+#endif

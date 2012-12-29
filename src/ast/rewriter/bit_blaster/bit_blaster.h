@@ -36,7 +36,7 @@ public:
     bit_blaster_cfg(bv_util & u, bit_blaster_params const & p, basic_simplifier_plugin & _s);
 
     ast_manager & m() const { return m_util.get_manager(); }
-    numeral power(unsigned n) const { return m_util.power_of_two(n); }
+    numeral power(unsigned n) const { return rational::power_of_two(n); }
     void mk_xor(expr * a, expr * b, expr_ref & r) { s.mk_xor(a, b, r); }
     void mk_xor3(expr * a, expr * b, expr * c, expr_ref & r);
     void mk_carry(expr * a, expr * b, expr * c, expr_ref & r);

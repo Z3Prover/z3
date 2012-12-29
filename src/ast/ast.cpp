@@ -137,7 +137,7 @@ void display_parameters(std::ostream & out, unsigned n, parameter const * p) {
 //
 // -----------------------------------
 
-family_id family_manager::get_family_id(symbol const & s) {
+family_id family_manager::mk_family_id(symbol const & s) {
     family_id r; 
     if (m_families.find(s, r)) {
         return r;
@@ -149,7 +149,15 @@ family_id family_manager::get_family_id(symbol const & s) {
     return r;
 }
 
-bool family_manager::has_family(symbol const & s) {
+family_id family_manager::get_family_id(symbol const & s) const {
+    family_id r; 
+    if (m_families.find(s, r))
+        return r;
+    else
+        return null_family_id;
+}
+
+bool family_manager::has_family(symbol const & s) const {
     return m_families.contains(s);
 }
 
@@ -372,6 +380,31 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
     memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);
     memcpy(const_cast<expr **>(get_patterns()), patterns, sizeof(expr *) * num_patterns);
     memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
+}
+
+// -----------------------------------
+//
+// Auxiliary functions
+//
+// -----------------------------------
+
+sort * get_sort(expr const * n) {
+    while (true) {
+        switch(n->get_kind()) {
+        case AST_APP: 
+            return to_app(n)->get_decl()->get_range();
+        case AST_VAR:
+            return to_var(n)->get_sort();
+        case AST_QUANTIFIER:
+            // The sort of the quantifier is the sort of the nested expression.
+            // This code assumes the given expression is well-sorted.
+            n = to_quantifier(n)->get_expr();
+            break;
+        default:
+            UNREACHABLE();
+            return 0;
+        }
+    }
 }
 
 // -----------------------------------
@@ -1048,6 +1081,16 @@ expr * basic_decl_plugin::get_some_value(sort * s) {
     return 0;
 }
 
+bool basic_recognizers::is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const { 
+    if (is_ite(n)) { 
+        t1 = to_app(n)->get_arg(0); 
+        t2 = to_app(n)->get_arg(1); 
+        t3 = to_app(n)->get_arg(2);
+        return true; 
+    } 
+    return false; 
+}
+
 // -----------------------------------
 //
 // label_decl_plugin 
@@ -1262,12 +1305,12 @@ void ast_manager::init() {
     m_expr_id_gen.reset(0);
     m_decl_id_gen.reset(c_first_decl_id);
     m_some_value_proc = 0;
-    m_basic_family_id          = get_family_id("basic");
-    m_label_family_id          = get_family_id("label");
-    m_pattern_family_id        = get_family_id("pattern");
-    m_model_value_family_id    = get_family_id("model-value");
-    m_user_sort_family_id      = get_family_id("user-sort");
-    m_arith_family_id          = get_family_id("arith");
+    m_basic_family_id          = mk_family_id("basic");
+    m_label_family_id          = mk_family_id("label");
+    m_pattern_family_id        = mk_family_id("pattern");
+    m_model_value_family_id    = mk_family_id("model-value");
+    m_user_sort_family_id      = mk_family_id("user-sort");
+    m_arith_family_id          = mk_family_id("arith");
     basic_decl_plugin * plugin = alloc(basic_decl_plugin);
     register_plugin(m_basic_family_id, plugin);
     m_bool_sort = plugin->mk_bool_sort();
@@ -1400,7 +1443,7 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
             << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
             if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
       if (!m_family_manager.has_family(fid)) {
-          family_id new_fid = get_family_id(fid_name);          
+          family_id new_fid = mk_family_id(fid_name);          
           TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
       }
       TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
@@ -1437,7 +1480,7 @@ void ast_manager::set_next_expr_id(unsigned id) {
 unsigned ast_manager::get_node_size(ast const * n) { return ::get_node_size(n); }
 
 void ast_manager::register_plugin(symbol const & s, decl_plugin * plugin) {
-    family_id id = m_family_manager.get_family_id(s);
+    family_id id = m_family_manager.mk_family_id(s);
     SASSERT(is_format_manager() || s != symbol("format"));
     register_plugin(id, plugin);
 }
@@ -1493,20 +1536,6 @@ void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
     m_plugins.setx(id, plugin, 0);
     plugin->set_manager(this, id);
-}
-
-sort * ast_manager::get_sort(expr const * n) const {
-    switch(n->get_kind()) {
-    case AST_APP: 
-        return to_app(n)->get_decl()->get_range();
-    case AST_VAR:
-        return to_var(n)->get_sort();
-    case AST_QUANTIFIER:
-        return m_bool_sort;
-    default:
-        UNREACHABLE();
-        return 0;
-    }
 }
 
 bool ast_manager::is_bool(expr const * n) const {

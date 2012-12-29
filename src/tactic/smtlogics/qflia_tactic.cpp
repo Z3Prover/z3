@@ -172,6 +172,8 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
     main_p.set_bool("elim_and", true);
     main_p.set_bool("som", true);
+    main_p.set_bool("blast_distinct", true);
+    main_p.set_uint("blast_distinct_threshold", 128);
     // main_p.set_bool("push_ite_arith", true);
     
     params_ref pull_ite_p;

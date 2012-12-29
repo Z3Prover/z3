@@ -51,7 +51,7 @@ expr * basic_factory::get_fresh_value(sort * s) {
 }
 
 user_sort_factory::user_sort_factory(ast_manager & m): 
-    simple_factory<unsigned>(m, m.get_family_id("user-sort")) {
+    simple_factory<unsigned>(m, m.mk_family_id("user-sort")) {
 }
 
 void user_sort_factory::freeze_universe(sort * s) {

@@ -34,7 +34,7 @@ func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
 }
 
 array_factory::array_factory(ast_manager & m, proto_model & md):
-    struct_factory(m, m.get_family_id("array"), md) {
+    struct_factory(m, m.mk_family_id("array"), md) {
 }
 
 /**

@@ -429,6 +429,29 @@ namespace datalog {
         }
     }
 
+    void mk_slice::filter_unique_vars(rule& r) {
+        // 
+        // Variables that occur in multiple uinterpreted predicates are not sliceable.
+        // 
+        uint_set used_vars;
+        for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
+            app* p = r.get_tail(j);
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                expr* v = p->get_arg(i);
+                if (is_var(v)) {
+                    unsigned vi = to_var(v)->get_idx();
+                    add_var(vi);
+                    if (used_vars.contains(vi)) {
+                        m_var_is_sliceable[vi] = false;
+                    }
+                    else {
+                        used_vars.insert(vi);
+                    }
+                }
+            }
+        }
+    }
+
     void mk_slice::solve_vars(rule& r, uint_set& used_vars, uint_set& parameter_vars) {
         expr_ref_vector conjs = get_tail_conjs(r);
         for (unsigned j = 0; j < conjs.size(); ++j) {
@@ -475,6 +498,7 @@ namespace datalog {
                 }
             }
         }   
+        filter_unique_vars(r);
         //
         // Collect the set of variables that are solved.
         // Collect the occurrence count of the variables per conjunct.
@@ -750,51 +774,11 @@ namespace datalog {
             
             m_solved_vars.reset();
 
-#if 0
-            uint_set used_vars;
-            expr_ref b(m);
-
-        TBD: buggy code:
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* e = conjs[i].get();
-                if (is_eq(e, v, b)) {
-                    if (v >= m_solved_vars.size()) {
-                        m_solved_vars.resize(v+1);
-                    }
-                    if (v < sorts.size() && sorts[v]) {
-                        TRACE("dl", tout << "already bound " << mk_pp(e, m) << "\n";);
-                        add_free_vars(used_vars, e);
-                    }
-                    else if (m_solved_vars[v].get()) {
-                        TRACE("dl", tout << "already solved " << mk_pp(e, m) << "\n";);
-                        add_free_vars(used_vars, e);
-                        add_free_vars(used_vars, m_solved_vars[v].get());
-                        used_vars.insert(v);
-                    }
-                    else {
-                        TRACE("dl", tout << "new solution " << mk_pp(e, m) << "\n";);
-                        m_solved_vars[v] = b;
-                    }
-                }
-                else {
-                    TRACE("dl", tout << "not solved " << mk_pp(e, m) << "\n";);
-                    add_free_vars(used_vars, e);
-                }
+                tail.push_back(to_app(e));                
             }
-#endif
-            for (unsigned i = 0; i < conjs.size(); ++i) {
-                expr* e = conjs[i].get();
-#if 0
-                if (false && is_eq(e, v, b) && m_solved_vars[v].get() && !used_vars.contains(v)) {
-                    TRACE("dl", tout << "removing conjunct: " << mk_pp(e, m) << "\n";);
-                    // skip conjunct
-                }
-#endif
-                tail.push_back(to_app(e));
-                
-            }
-            
-            
+                        
             new_rule = rm.mk(head.get(), tail.size(), tail.c_ptr(), (const bool*) 0);        
 
             rm.fix_unbound_vars(new_rule, false);

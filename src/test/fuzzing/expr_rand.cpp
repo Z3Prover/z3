@@ -82,7 +82,7 @@ expr* expr_rand::choose_expr(sort* s) {
 
 void expr_rand::initialize_arith(unsigned num_vars) {
     arith_util u(m_manager);
-    family_id afid = m_manager.get_family_id("arith");
+    family_id afid = m_manager.mk_family_id("arith");
     sort* i_ty = m_manager.mk_sort(afid, INT_SORT, 0, 0);
     for(unsigned i = 0; i < num_vars; ++i) {
         add_var(i_ty);
@@ -106,7 +106,7 @@ void expr_rand::initialize_arith(unsigned num_vars) {
 void expr_rand::initialize_bv(unsigned num_vars) {
     bv_util u(m_manager);
     family_id bfid = m_manager.get_basic_family_id();
-    family_id bvfid = m_manager.get_family_id("bv");
+    family_id bvfid = m_manager.mk_family_id("bv");
     
 
     const unsigned num_sizes = 6;
@@ -237,7 +237,7 @@ void expr_rand::initialize_bv(unsigned num_vars) {
 }
 
 void expr_rand::initialize_array(unsigned num_vars, sort* dom, sort* rng) {
-    family_id afid = m_manager.get_family_id("array");
+    family_id afid = m_manager.mk_family_id("array");
     parameter p1(dom), p2(rng);
     parameter ps[2] = { p1, p2 };
     sort* a = m_manager.mk_sort(afid, ARRAY_SORT, 2, ps);

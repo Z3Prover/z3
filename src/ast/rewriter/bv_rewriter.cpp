@@ -63,6 +63,7 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_blast_eq_value = p.blast_eq_value();
     m_split_concat_eq = p.split_concat_eq();
     m_udiv2mul = p.udiv2mul();
+    m_bvnot2arith = p.bvnot2arith();
     m_mkbv2num = _p.get_bool("mkbv2num", false);
 }
 
@@ -283,12 +284,12 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
 
     if (is_num1 || is_num2) {
         if (is_signed) {
-            lower = - m_util.power_of_two(sz - 1);
-            upper =   m_util.power_of_two(sz - 1) - numeral(1);
+            lower = - rational::power_of_two(sz - 1);
+            upper =   rational::power_of_two(sz - 1) - numeral(1);
         }
         else {
             lower = numeral(0);
-            upper = m_util.power_of_two(sz) - numeral(1);
+            upper = rational::power_of_two(sz) - numeral(1);
         }
     }
 
@@ -387,14 +388,14 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
     if (is_numeral(arg, v, sz)) {
         sz = high - low + 1;
         if (v.is_neg())
-            mod(v, m_util.power_of_two(sz), v);
+            mod(v, rational::power_of_two(sz), v);
         if (v.is_uint64()) {
             uint64 u  = v.get_uint64();
             uint64 e  = shift_right(u, low) & (shift_left(1ull, sz) - 1ull);
             result    = mk_numeral(numeral(e, numeral::ui64()), sz);
             return BR_DONE;
         }
-        div(v, m_util.power_of_two(low), v);
+        div(v, rational::power_of_two(low), v);
         result = mk_numeral(v, sz);
         return BR_DONE;
     }
@@ -519,7 +520,7 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
             
             SASSERT(r2 < numeral(bv_size));
             SASSERT(r2.is_unsigned());
-            r1 = m_util.norm(r1 * m_util.power_of_two(r2.get_unsigned()), bv_size);
+            r1 = m_util.norm(r1 * rational::power_of_two(r2.get_unsigned()), bv_size);
             result = mk_numeral(r1, bv_size);
             return BR_DONE;
         }
@@ -567,7 +568,7 @@ br_status bv_rewriter::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result) {
 
             SASSERT(r2.is_unsigned());
             unsigned sh = r2.get_unsigned();
-            div(r1, m_util.power_of_two(sh), r1);
+            div(r1, rational::power_of_two(sh), r1);
             result = mk_numeral(r1, bv_size);
             return BR_DONE;
         }
@@ -626,7 +627,7 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
 
     if (is_num1 && is_num2 && numeral(bv_size) <= r2) {
         if (m_util.has_sign_bit(r1, bv_size))
-            result = mk_numeral(m_util.power_of_two(bv_size) - numeral(1), bv_size);
+            result = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
         else
             result = mk_numeral(0, bv_size);
         return BR_DONE;
@@ -635,7 +636,7 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
     if (is_num1 && is_num2) {
         SASSERT(r2 < numeral(bv_size));
         bool   sign = m_util.has_sign_bit(r1, bv_size);
-        div(r1, m_util.power_of_two(r2.get_unsigned()), r1);
+        div(r1, rational::power_of_two(r2.get_unsigned()), r1);
         if (sign) {
             // pad ones.
             numeral p(1);
@@ -697,7 +698,7 @@ br_status bv_rewriter::mk_bv_sdiv_core(expr * arg1, expr * arg2, bool hi_div0, e
                 // The "hardware interpretation" for (bvsdiv x 0) is (ite (bvslt x #x0000) #x0001 #xffff)
                 result = m().mk_ite(m().mk_app(get_fid(), OP_SLT, arg1, mk_numeral(0, bv_size)),
                                     mk_numeral(1, bv_size),
-                                    mk_numeral(m_util.power_of_two(bv_size) - numeral(1), bv_size));
+                                    mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size));
                 return BR_REWRITE2;
             }
         }
@@ -746,7 +747,7 @@ br_status bv_rewriter::mk_bv_udiv_core(expr * arg1, expr * arg2, bool hi_div0, e
             }
             else {
                 // The "hardware interpretation" for (bvudiv x 0) is #xffff
-                result = mk_numeral(m_util.power_of_two(bv_size) - numeral(1), bv_size);
+                result = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
                 return BR_DONE;
                 
             }
@@ -845,7 +846,7 @@ bool bv_rewriter::is_minus_one_core(expr * arg) const {
     numeral r;
     unsigned bv_size;
     if (is_numeral(arg, r, bv_size)) {
-        return r == (m_util.power_of_two(bv_size) - numeral(1));
+        return r == (rational::power_of_two(bv_size) - numeral(1));
     }
     return false;
 }
@@ -924,7 +925,7 @@ br_status bv_rewriter::mk_bv_urem_core(expr * arg1, expr * arg2, bool hi_div0, e
         if (is_x_minus_one(arg1, x) && x == arg2) {
             bv_size = get_bv_size(arg1);
             expr * x_minus_1 = arg1;
-            expr * minus_one = mk_numeral(m_util.power_of_two(bv_size) - numeral(1), bv_size);
+            expr * minus_one = mk_numeral(rational::power_of_two(bv_size) - numeral(1), bv_size);
             result = m().mk_ite(m().mk_eq(x, mk_numeral(0, bv_size)),
                                 m().mk_app(get_fid(), OP_BUREM0, minus_one),
                                 x_minus_1);
@@ -1068,7 +1069,7 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
         if (i > 0) 
             prev = new_args.back();
         if (is_numeral(arg, v1, sz1) && prev != 0 && is_numeral(prev, v2, sz2)) {
-            v2  *= m_util.power_of_two(sz1);
+            v2  *= rational::power_of_two(sz1);
             v2  += v1;
             new_args.pop_back();
             new_args.push_back(mk_numeral(v2, sz1+sz2));
@@ -1137,7 +1138,7 @@ br_status bv_rewriter::mk_sign_extend(unsigned n, expr * arg, expr_ref & result)
     if (is_numeral(arg, r, bv_size)) {
         unsigned result_bv_size = bv_size + n;
         r = m_util.norm(r, bv_size, true);
-        mod(r, m_util.power_of_two(result_bv_size), r);
+        mod(r, rational::power_of_two(result_bv_size), r);
         result = mk_numeral(r, result_bv_size);
         return BR_DONE;
     }
@@ -1213,7 +1214,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         if (m_util.is_bv_not(arg)) {
             expr * atom = to_app(arg)->get_arg(0);
             if (pos_args.is_marked(atom)) {
-                result = mk_numeral(m_util.power_of_two(sz) - numeral(1), sz);
+                result = mk_numeral(rational::power_of_two(sz) - numeral(1), sz);
                 return BR_DONE;
             }
             else if (neg_args.is_marked(atom)) {
@@ -1229,7 +1230,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
                 continue;
             }
             else if (neg_args.is_marked(arg)) {
-                result = mk_numeral(m_util.power_of_two(sz) - numeral(1), sz);
+                result = mk_numeral(rational::power_of_two(sz) - numeral(1), sz);
                 return BR_DONE;
             }
             pos_args.mark(arg, true);
@@ -1237,7 +1238,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         }
     }
 
-    if (v1 == m_util.power_of_two(sz) - numeral(1)) {
+    if (v1 == rational::power_of_two(sz) - numeral(1)) {
         result = mk_numeral(v1, sz);
         return BR_DONE;
     }
@@ -1294,7 +1295,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
             }
             if (i != low) {
                 unsigned num_sz = i - low;
-                exs.push_back(m_util.mk_numeral(m_util.power_of_two(num_sz) - numeral(1), num_sz));
+                exs.push_back(m_util.mk_numeral(rational::power_of_two(num_sz) - numeral(1), num_sz));
                 low = i;
             }
             while (i < sz && mod(v1, two).is_zero()) {
@@ -1385,7 +1386,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
             else if (pos_args.is_marked(atom)) {
                 pos_args.mark(atom, false);
                 merged = true;
-                v1 = bitwise_xor(v1, m_util.power_of_two(sz) - numeral(1));
+                v1 = bitwise_xor(v1, rational::power_of_two(sz) - numeral(1));
             }
             else {
                 neg_args.mark(atom, true);
@@ -1399,7 +1400,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
             else if (neg_args.is_marked(arg)) {
                 neg_args.mark(arg, false);
                 merged = true;
-                v1 = bitwise_xor(v1, m_util.power_of_two(sz) - numeral(1));
+                v1 = bitwise_xor(v1, rational::power_of_two(sz) - numeral(1));
             }
             else {
                 pos_args.mark(arg, true);
@@ -1455,7 +1456,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
         return BR_REWRITE3;
     } 
 
-    if (!merged && !flattened && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero() && v1 != (m_util.power_of_two(sz) - numeral(1)))))
+    if (!merged && !flattened && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero() && v1 != (rational::power_of_two(sz) - numeral(1)))))
         return BR_FAILED;
 
     ptr_buffer<expr> new_args;
@@ -1526,6 +1527,14 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
         return BR_REWRITE2;
     }
 #endif
+
+    if (m_bvnot2arith) {
+        // (bvnot x) --> (bvsub -1 x)
+        bv_size = get_bv_size(arg);
+        rational minus_one = (rational::power_of_two(bv_size) - numeral(1));
+        result = m_util.mk_bv_sub(m_util.mk_numeral(minus_one, bv_size), arg);
+        return BR_REWRITE1;
+    }
 
     return BR_FAILED;
 }
@@ -1611,7 +1620,7 @@ br_status bv_rewriter::mk_bv_redand(expr * arg, expr_ref & result) {
     numeral r;
     unsigned bv_size;
     if (is_numeral(arg, r, bv_size)) {
-        result = (r == m_util.power_of_two(bv_size) - numeral(1)) ? mk_numeral(1, 1) : mk_numeral(0, 1);
+        result = (r == rational::power_of_two(bv_size) - numeral(1)) ? mk_numeral(1, 1) : mk_numeral(0, 1);
         return BR_DONE;
     }
     return BR_FAILED;
@@ -1707,7 +1716,7 @@ bool bv_rewriter::is_zero_bit(expr * x, unsigned idx) {
     if (is_numeral(x, val, bv_size)) {
         if (val.is_zero())
             return true;
-        div(val, m_util.power_of_two(idx), val);
+        div(val, rational::power_of_two(idx), val);
         return (val % numeral(2)).is_zero();
     }
     if (m_util.is_concat(x)) {

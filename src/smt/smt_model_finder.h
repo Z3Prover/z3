@@ -33,7 +33,7 @@ Abstract:
       Lugano, Switzerland, 2010.
 
     - Bugs, Moles and Skeletons: Symbolic Reasoning for Software
-      Development, Leonardo de Moura, Nikolaj Bjørner, IJCAR,
+      Development, Leonardo de Moura, Nikolaj Bjorner, IJCAR,
       Edinburgh, Scotland, 2010.
 
 Author:

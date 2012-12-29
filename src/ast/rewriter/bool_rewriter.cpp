@@ -27,6 +27,7 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     m_local_ctx            = p.local_ctx();
     m_local_ctx_limit      = p.local_ctx_limit();
     m_blast_distinct       = p.blast_distinct();
+    m_blast_distinct_threshold = p.blast_distinct_threshold();
     m_ite_extra_rules      = p.ite_extra_rules();
 }
 
@@ -746,7 +747,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
         return BR_DONE;
     }
 
-    if (m_blast_distinct) {
+    if (m_blast_distinct && num_args < m_blast_distinct_threshold) {
         ptr_buffer<expr> new_diseqs;
         for (unsigned i = 0; i < num_args; i++) {
             for (unsigned j = i + 1; j < num_args; j++)

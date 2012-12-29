@@ -116,7 +116,6 @@ protected:
         m_t2->set_cancel(f);
     }
 
-
     template<typename T>
     tactic * translate_core(ast_manager & m) { 
         tactic * new_t1 = m_t1->translate(m);

@@ -32,11 +32,10 @@ class pattern_validator {
 public:
     pattern_validator(ast_manager const & m):
         m_bfid(m.get_basic_family_id()),
-        m_lfid(m.get_family_id("label")) {
+        m_lfid(m.get_label_family_id()) {
     }
 
     bool operator()(unsigned num_bindings, unsigned num_new_bindings, expr * n);
-
     bool operator()(unsigned num_new_bindings, expr * n) { return operator()(UINT_MAX, num_new_bindings, n); }
 };
 

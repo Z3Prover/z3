@@ -326,7 +326,7 @@ class num_consts_probe : public probe {
         unsigned      m_counter;
         proc(ast_manager & _m, bool b, char const * family):m(_m), m_bool(b), m_counter(0) {
             if (family != 0)
-                m_fid = m.get_family_id(family);
+                m_fid = m.mk_family_id(family);
             else
                 m_fid = null_family_id;
         }

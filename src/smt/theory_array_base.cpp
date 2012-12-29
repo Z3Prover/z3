@@ -27,7 +27,7 @@ Revision History:
 namespace smt {
 
     theory_array_base::theory_array_base(ast_manager & m):
-        theory(m.get_family_id("array")),
+        theory(m.mk_family_id("array")),
         m_found_unsupported_op(false)
     {
     }

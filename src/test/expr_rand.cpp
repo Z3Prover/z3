@@ -18,7 +18,7 @@ void tst_expr_arith(unsigned num_files) {
     er.seed(rand_seed);
     er.initialize_arith(20);
 
-    family_id fid = m.get_family_id("arith");
+    family_id fid = m.mk_family_id("arith");
     sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, 0);
     sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, 0);
 
@@ -56,7 +56,7 @@ void tst_expr_rand(unsigned num_files) {
     parameter p2(2);
     parameter p8(8);
     parameter p32(32);
-    family_id bvfid = m.get_family_id("bv");
+    family_id bvfid = m.mk_family_id("bv");
     sort* bv1  = m.mk_sort(bvfid, BV_SORT, 1, &p1);
     sort* bv2  = m.mk_sort(bvfid, BV_SORT, 1, &p2);
     sort* bv8  = m.mk_sort(bvfid, BV_SORT, 1, &p8);

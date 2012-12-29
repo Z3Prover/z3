@@ -765,7 +765,7 @@ pdecl_manager::pdecl_manager(ast_manager & m):
     m_allocator(m.get_allocator()),
     m_new_dt_eh(0) {
     m_list = 0;
-    m_datatype_fid = m.get_family_id("datatype");
+    m_datatype_fid = m.mk_family_id("datatype");
 }
 
 pdecl_manager::~pdecl_manager() {

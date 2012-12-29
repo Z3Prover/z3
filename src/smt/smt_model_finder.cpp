@@ -454,8 +454,8 @@ namespace smt {
                 m_model(0),
                 m_eval_cache_range(m),
                 m_new_constraints(0) {
-                m_asimp  = static_cast<arith_simplifier_plugin*>(s.get_plugin(m.get_family_id("arith")));
-                m_bvsimp = static_cast<bv_simplifier_plugin*>(s.get_plugin(m.get_family_id("bv")));
+                m_asimp  = static_cast<arith_simplifier_plugin*>(s.get_plugin(m.mk_family_id("arith")));
+                m_bvsimp = static_cast<bv_simplifier_plugin*>(s.get_plugin(m.mk_family_id("bv")));
             }
 
             ~auf_solver() {

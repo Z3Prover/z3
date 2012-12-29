@@ -32,7 +32,7 @@ namespace smt {
         virtual theory* mk_fresh(context*) { return alloc(theory_seq_empty, get_manager()); }
         virtual char const * get_name() const { return "seq-empty"; }
     public:
-        theory_seq_empty(ast_manager& m):theory(m.get_family_id("seq")), m_used(false) {}
+        theory_seq_empty(ast_manager& m):theory(m.mk_family_id("seq")), m_used(false) {}
     };
 
 };
