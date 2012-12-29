@@ -31,43 +31,16 @@ namespace datalog {
        \brief Extract universal quantifiers from rules.
     */
     class mk_extract_quantifiers2 : public rule_transformer::plugin {
-        context&        m_ctx;
-        ast_manager&    m;
-        rule_manager&   rm;
-        func_decl_ref   m_query_pred;
-        quantifier_ref_vector   m_quantifiers;
-        ptr_vector<rule>        m_qrules;
-        vector<expr_ref_vector>m_bindings;
-        vector<vector<expr_ref_vector> > m_rule_bindings;
-        vector<vector<expr_ref_vector> > m_quantifier_bindings;
-        obj_pair_map<rule,quantifier, expr_ref_vector*> m_quantifier_instantiations;
-        obj_map<rule, obj_hashtable<expr>*>  m_seen;
-        
-        bool                    m_has_quantifiers;
-        obj_map<expr,expr*>     m_map;
-        expr_ref_vector         m_refs;
-
-        class instance_plugin;
+        context&                                    m_ctx;
+        ast_manager&                                m;
+        rule_manager&                               rm;
+        func_decl_ref                               m_query_pred;        
+        bool                                        m_has_quantifiers;
+        obj_map<rule const, quantifier_ref_vector*> m_quantifiers;
 
         void reset();
 
         void extract(rule& r, rule_set& new_rules);
-
-        void apply(rule& r, rule_set& new_rules);
-
-        app_ref ensure_app(expr* e);
-
-        bool matches_signature(func_decl* head, expr_ref_vector const& binding);
-
-        bool matches_quantifier(quantifier* q, expr_ref_vector const& binding);
-
-        void match_bindings(unsigned i, unsigned j, unsigned k);
-
-        bool mk_abstract_expr(expr_ref& term);
-
-        bool mk_abstract_binding(expr_ref_vector const& binding, expr_ref_vector& result);
-
-        void mk_abstraction_map(rule& r, expr_ref_vector const& binding);
 
     public:
         /**
@@ -82,6 +55,8 @@ namespace datalog {
         rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
 
         bool has_quantifiers() { return m_has_quantifiers; }
+
+        obj_map<rule const, quantifier_ref_vector*>& quantifiers() { return m_quantifiers; }
 
     };
 

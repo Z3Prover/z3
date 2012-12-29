@@ -25,7 +25,7 @@ Revision History:
 #include "dl_mk_rule_inliner.h"
 #include "dl_rule.h"
 #include "dl_rule_transformer.h"
-#include "dl_mk_extract_quantifiers.h"
+#include "dl_mk_extract_quantifiers2.h"
 #include "smt2parser.h"
 #include "pdr_context.h"
 #include "pdr_dl_interface.h"
@@ -146,7 +146,7 @@ lbool dl_interface::query(expr * query) {
         }
     }
     // remove universal quantifiers from body.
-    datalog::mk_extract_quantifiers* extract_quantifiers = alloc(datalog::mk_extract_quantifiers, m_ctx);
+    datalog::mk_extract_quantifiers2* extract_quantifiers = alloc(datalog::mk_extract_quantifiers2, m_ctx);
     datalog::rule_transformer extract_q_tr(m_ctx);
     extract_q_tr.register_plugin(extract_quantifiers);
     m_ctx.transform_rules(extract_q_tr, mc, pc);

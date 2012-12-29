@@ -223,7 +223,7 @@ public:
                     found_false = true;
                     break;
                 }
-                // SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
+                SASSERT(m.get_fact(tmp) == m.get_fact(m.get_parent(p, i)));
                 parents.push_back(tmp);          
                 if (is_closed(tmp) && !m_units.contains(m.get_fact(tmp))) {
                     m_units.insert(m.get_fact(tmp), tmp);
@@ -235,6 +235,7 @@ public:
                 break;
             }
             tmp = m.get_parent(p, 0);
+            expr* old_clause = m.get_fact(tmp);
             elim(tmp);
             parents[0] = tmp;
             expr* clause = m.get_fact(tmp);
@@ -244,6 +245,31 @@ public:
                 pop();
                 break;
             }
+            //
+            // case where clause is a literal in the old clause.
+            //
+            if (is_literal_in_clause(clause, old_clause)) {
+                bool found = false;
+                for (unsigned i = 1; !found && i < parents.size(); ++i) {
+                    if (m.is_complement(clause, m.get_fact(parents[i].get()))) {
+                        parents[1] = parents[i];
+                        parents.resize(2);
+                        result = m.mk_unit_resolution(parents.size(), parents.c_ptr());
+                        m_refs.push_back(result);               
+                        add_hypotheses(result);
+                        found = true;
+                    }                    
+                }
+                if (!found) {
+                    result = parents[0].get();
+                }
+                pop(); 
+                break;
+            }
+            //
+            // case where new clause is a subset of old clause.
+            // the literals in clause should be a subset of literals in old_clause.
+            // 
             get_literals(clause);
             for (unsigned i = 1; i < parents.size(); ++i) {
                 bool found = false;
@@ -309,6 +335,19 @@ public:
         m_cache.insert(p, result);
         p = result;
     }        
+
+    bool is_literal_in_clause(expr* fml, expr* clause) {
+        if (!m.is_or(clause)) {
+            return false;
+        }
+        app* cl = to_app(clause);
+        for (unsigned i = 0; i < cl->get_num_args(); ++i) {
+            if (cl->get_argi(i) == fml) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 void proof_utils::reduce_hypotheses(proof_ref& pr) {
