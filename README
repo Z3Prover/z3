@@ -17,22 +17,24 @@ Execute:
    make
    sudo make install
 
-It will install z3 executable at /usr/bin, libraries at /usr/lib, and include files at /usr/include.
-You can change the installation p
+By default, it will install z3 executable at PREFIX/bin, libraries at PREFIX/lib, and include files at PREFIX/include,
+where PREFIX is the installation prefix used for installing Python in your system.
+It is usually /usr for most Linux distros, and /usr/local for FreeBSD.
+Use the following commands to install in a different prefix (e.g., /home/leo)
 
-Use the following commands to install in a different prefix (e.g., /home/leo), and the Z3 python
-bindings in a different python package directory.
-
-  python scripts/mk_make.py --prefix=/home/leo --pydir=/home/leo/python
+  python scripts/mk_make.py --prefix=/home/leo
   cd build
   make
-  sudo make install
+  make install
+
+In this example, the Z3 Python bindings will be stored at /home/leo/lib/pythonX.Y/dist-packages,
+where X.Y corresponds to the python version in your system.
 
 To uninstall Z3, use
 
   sudo make uninstall
 
-3) Building Z3 using clang and clang++ on Linux/OSX
+4) Building Z3 using clang and clang++ on Linux/OSX
 Remark: clang does not support OpenMP yet.   
 
    CXX=clang++ CC=clang python scripts/mk_make.py

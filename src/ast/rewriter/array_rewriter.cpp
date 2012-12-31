@@ -292,7 +292,14 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             }
             
             expr * fv = m().mk_app(f, values.size(), values.c_ptr());
-            parameter p(m().get_sort(args[0]));
+            sort * in_s = get_sort(args[0]);
+            ptr_vector<sort> domain;
+            unsigned domain_sz = get_array_arity(in_s);
+            for (unsigned i = 0; i < domain_sz; i++) 
+                domain.push_back(get_array_domain(in_s, i));
+            sort_ref out_s(m());
+            out_s = m_util.mk_array_sort(domain_sz, domain.c_ptr(), f->get_range());
+            parameter p(out_s.get());
             result = m().mk_app(get_fid(), OP_CONST_ARRAY, 1, &p, 1, &fv);
             return BR_REWRITE2;
         }

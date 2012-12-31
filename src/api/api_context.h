@@ -54,7 +54,7 @@ namespace api {
         datalog::dl_decl_util      m_datalog_util;
 
         // Support for old solver API
-        smt_params           m_fparams;
+        smt_params                 m_fparams;
         smt::kernel *              m_solver;     // General purpose solver for backward compatibility
         // -------------------------------
 

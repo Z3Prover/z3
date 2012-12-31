@@ -68,7 +68,7 @@ VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
 VER_REVISION=None
-PREFIX='/usr'
+PREFIX=os.path.split(os.path.split(os.path.split(PYTHON_PACKAGE_DIR)[0])[0])[0]
 GMP=False
 VS_PAR=False
 VS_PAR_NUM=8
@@ -357,7 +357,6 @@ def display_help(exit_code):
     print("  -s, --silent                  do not print verbose messages.")
     if not IS_WINDOWS:
         print("  -p <dir>, --prefix=<dir>      installation prefix (default: %s)." % PREFIX)
-        print("  -y <dir>, --pydir=<dir>       installation prefix for Z3 python bindings (default: %s)." % PYTHON_PACKAGE_DIR)
     else:
         print("  --parallel=num                use cl option /MP with 'num' parallel processes")
     print("  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
@@ -393,9 +392,9 @@ def parse_options():
     global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
-                                               'b:dsxhmcvtnp:gjy:', 
+                                               'b:dsxhmcvtnp:gj', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'pydir=', 'parallel='])
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -429,12 +428,13 @@ def parse_options():
             STATIC_LIB = True
         elif not IS_WINDOWS and opt in ('-p', '--prefix'):
             PREFIX = arg
+            PYTHON_PACKAGE_DIR = os.path.join(PREFIX, 'lib', 'python%s' % distutils.sysconfig.get_python_version(), 'dist-packages')
+            mk_dir(PYTHON_PACKAGE_DIR)
+            if sys.version >= "3":
+                mk_dir(os.path.join(PYTHON_PACKAGE_DIR, '__pycache__'))
         elif IS_WINDOWS and opt == '--parallel':
             VS_PAR = True
             VS_PAR_NUM = int(arg)
-        elif opt in ('-y', '--pydir'):
-            PYTHON_PACKAGE_DIR = arg
-            mk_dir(PYTHON_PACKAGE_DIR)
         elif opt in ('-g', '--gmp'):
             GMP = True
         elif opt in ('-j', '--java'):
@@ -1402,6 +1402,7 @@ def mk_config():
             print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
+            print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
                 print('Java Home:      %s' % JAVA_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -1414,15 +1415,30 @@ def mk_install(out):
     out.write('\t@mkdir -p %s\n' % os.path.join('$(PREFIX)', 'lib'))
     for c in get_components():
         c.mk_install(out)
-    out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
+    out.write('\t@cp z3*.py %s\n' % PYTHON_PACKAGE_DIR)
+    if sys.version >= "3":
+        out.write('\t@cp %s*.pyc %s\n' % (os.path.join('__pycache__', 'z3'),
+                                          os.path.join(PYTHON_PACKAGE_DIR, '__pycache__')))
+    else:
+        out.write('\t@cp z3*.pyc %s\n' % PYTHON_PACKAGE_DIR)
     out.write('\t@echo Z3 was successfully installed.\n')
+    if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
+        if os.uname()[0] == 'Darwin':
+            LD_LIBRARY_PATH = "DYLD_LIBRARY_PATH"
+        else:
+            LD_LIBRARY_PATH = "LD_LIBRARY_PATH"
+        out.write('\t@echo Z3 shared libraries were installed at \'%s\', make sure this directory is in your %s environment variable.\n' %
+                  (os.path.join(PREFIX, 'lib'), LD_LIBRARY_PATH))
+        out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
     out.write('\n')    
 
 def mk_uninstall(out):
     out.write('uninstall:\n')
     for c in get_components():
         c.mk_uninstall(out)
+    out.write('\t@rm -f %s*.py\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
     out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, 'z3'))
+    out.write('\t@rm -f %s*.pyc\n' % os.path.join(PYTHON_PACKAGE_DIR, '__pycache__', 'z3'))
     out.write('\t@echo Z3 was successfully uninstalled.\n')
     out.write('\n')    
 
@@ -1441,6 +1457,8 @@ def mk_makefile():
         if c.main_component():
             out.write(' %s' % c.name)
     out.write('\n\t@echo Z3 was successfully built.\n')
+    out.write("\t@echo \"Z3Py scripts can already be executed in the \'%s\' directory.\"\n" % BUILD_DIR)
+    out.write("\t@echo \"Z3Py scripts stored in arbitrary directories can be also executed if \'%s\' directory is added to the PYTHONPATH environment variable.\"\n" % BUILD_DIR)
     if not IS_WINDOWS:
         out.write("\t@echo Use the following command to install Z3 at prefix $(PREFIX).\n")
         out.write('\t@echo "    sudo make install"\n')
@@ -1920,19 +1938,35 @@ def mk_def_files():
             if c.require_def_file():
                 mk_def_file(c)
 
-def cp_z3pyc_to_build():
+def cp_z3py_to_build():
     mk_dir(BUILD_DIR)
+    # Erase existing .pyc files
+    for root, dirs, files in os.walk(Z3PY_SRC_DIR): 
+        for f in files:
+            if f.endswith('.pyc'):
+                rmf(os.path.join(root, f))
+    # Compile Z3Py files
     if compileall.compile_dir(Z3PY_SRC_DIR, force=1) != 1:
         raise MKException("failed to compile Z3Py sources")
+    # Copy sources to build
+    for py in filter(lambda f: f.endswith('.py'), os.listdir(Z3PY_SRC_DIR)):
+        shutil.copyfile(os.path.join(Z3PY_SRC_DIR, py), os.path.join(BUILD_DIR, py))
+        if is_verbose():
+            print("Copied '%s'" % py)
+    # Python 2.x support
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(Z3PY_SRC_DIR)):
-        try:
-            os.remove(os.path.join(BUILD_DIR, pyc))
-        except:
-            pass
         shutil.copyfile(os.path.join(Z3PY_SRC_DIR, pyc), os.path.join(BUILD_DIR, pyc))
-        os.remove(os.path.join(Z3PY_SRC_DIR, pyc))
         if is_verbose():
             print("Generated '%s'" % pyc)
+    # Python 3.x support
+    src_pycache = os.path.join(Z3PY_SRC_DIR, '__pycache__')
+    if os.path.exists(src_pycache):
+        for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(src_pycache)):
+            target_pycache = os.path.join(BUILD_DIR, '__pycache__')
+            mk_dir(target_pycache)
+            shutil.copyfile(os.path.join(src_pycache, pyc), os.path.join(target_pycache, pyc))
+            if is_verbose():
+                print("Generated '%s'" % pyc)
 
 def mk_bindings(api_files):
     if not ONLY_MAKEFILES:
@@ -1949,7 +1983,7 @@ def mk_bindings(api_files):
             check_java()
             mk_z3consts_java(api_files)
         _execfile(os.path.join('scripts', 'update_api.py'), g) # HACK
-        cp_z3pyc_to_build()
+        cp_z3py_to_build()
                           
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):

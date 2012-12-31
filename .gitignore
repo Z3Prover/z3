@@ -1,5 +1,8 @@
 *~
 *.pyc
+*.pyo
+# Ignore callgrind files
+callgrind.out.*
 # .hpp files are automatically generated
 *.hpp
 .z3-trace
