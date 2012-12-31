@@ -1,7 +1,7 @@
 ############################################
 # Copyright (c) 2012 Ganesh Gopalakrishnan ganesh@cs.utah.edu
 # 
-# Hamiltonian
+# Check if the given graph has a Hamiltonian cycle.
 #
 # Author: Ganesh Gopalakrishnan ganesh@cs.utah.edu
 ############################################
