@@ -1206,11 +1206,7 @@ namespace datalog {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             ptr_vector<sort> sorts;
             get_free_vars(m_rule_fmls[i].get(), sorts);
-            while (!sorts.empty() && !sorts.back()) {
-                sorts.pop_back();
-            }
             if (!sorts.empty()) {
-                std::cout << "has free vars " << mk_pp(m_rule_fmls[i].get(), m) << "\n";
                 rm.mk_rule(m_rule_fmls[i].get(), rule_refs, m_rule_names[i]);
                 m_rule_fmls[i] = m_rule_fmls.back();
                 m_rule_names[i] = m_rule_names.back();
