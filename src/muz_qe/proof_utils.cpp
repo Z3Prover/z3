@@ -342,7 +342,7 @@ public:
         }
         app* cl = to_app(clause);
         for (unsigned i = 0; i < cl->get_num_args(); ++i) {
-            if (cl->get_argi(i) == fml) {
+            if (cl->get_arg(i) == fml) {
                 return true;
             }
         }
