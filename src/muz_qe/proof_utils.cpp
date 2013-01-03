@@ -252,7 +252,7 @@ public:
                 bool found = false;
                 for (unsigned i = 1; !found && i < parents.size(); ++i) {
                     if (m.is_complement(clause, m.get_fact(parents[i].get()))) {
-                        parents.set(1, parents.get(i));
+                        parents[1] = parents[i].get();
                         parents.resize(2);
                         result = m.mk_unit_resolution(parents.size(), parents.c_ptr());
                         m_refs.push_back(result);               
