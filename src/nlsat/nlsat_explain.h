@@ -40,6 +40,7 @@ namespace nlsat {
         void set_simplify_cores(bool f);
         void set_full_dimensional(bool f);
         void set_minimize_cores(bool f);
+        void set_factor(bool f);
 
         /**
            \brief Given a set of literals ls[0], ... ls[n-1] s.t.

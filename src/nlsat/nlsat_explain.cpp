@@ -42,7 +42,8 @@ namespace nlsat {
         bool                    m_simplify_cores;
         bool                    m_full_dimensional;
         bool                    m_minimize_cores;
-        
+        bool                    m_factor;
+
         struct todo_set {
             polynomial::cache  &    m_cache;
             polynomial_ref_vector   m_set;
@@ -568,21 +569,22 @@ namespace nlsat {
             elim_vanishing(p);
             if (is_const(p))
                 return;
-#if 1
-            TRACE("nlsat_explain", tout << "adding factors of\n"; display(tout, p); tout << "\n";);
-            factor(p, m_factors);
-            polynomial_ref f(m_pm);
-            for (unsigned i = 0; i < m_factors.size(); i++) {
-                f = m_factors.get(i);
-                elim_vanishing(f);
-                if (!is_const(f)) {
-                    TRACE("nlsat_explain", tout << "adding factor:\n"; display(tout, f); tout << "\n";);
-                    m_todo.insert(f);
+            if (m_factor) {
+                TRACE("nlsat_explain", tout << "adding factors of\n"; display(tout, p); tout << "\n";);
+                factor(p, m_factors);
+                polynomial_ref f(m_pm);
+                for (unsigned i = 0; i < m_factors.size(); i++) {
+                    f = m_factors.get(i);
+                    elim_vanishing(f);
+                    if (!is_const(f)) {
+                        TRACE("nlsat_explain", tout << "adding factor:\n"; display(tout, f); tout << "\n";);
+                        m_todo.insert(f);
+                    }
                 }
             }
-#else
-            m_todo.insert(normalize(p));
-#endif
+            else {
+                m_todo.insert(p);
+            }
         }
         
         /**
@@ -1342,6 +1344,10 @@ namespace nlsat {
 
     void explain::set_minimize_cores(bool f) {
         m_imp->m_minimize_cores = f;
+    }
+
+    void explain::set_factor(bool f) {
+        m_imp->m_factor = f;
     }
 
     void explain::operator()(unsigned n, literal const * ls, scoped_literal_vector & result) {
