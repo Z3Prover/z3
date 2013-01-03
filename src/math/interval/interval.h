@@ -105,10 +105,11 @@ struct interval_deps {
 
 template<typename C>
 class interval_manager {
+public:
     typedef typename C::numeral_manager       numeral_manager;
     typedef typename numeral_manager::numeral numeral;
     typedef typename C::interval              interval;
-    
+private:
     C          m_c;
     numeral    m_result_lower;
     numeral    m_result_upper;

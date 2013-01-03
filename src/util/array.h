@@ -122,7 +122,7 @@ public:
         if (m_data) {
             if (CallDestructors)
                 destroy_elements();
-            a.deallocate(size(), raw_ptr);
+            a.deallocate(size(), raw_ptr());
             m_data = 0;
         }
     }
