@@ -110,13 +110,14 @@ namespace realclosure {
     struct value {
         unsigned m_ref_count;
         bool     m_rational;
-        value():m_ref_count(0), m_rational(false) {}
+        value(bool rat):m_ref_count(0), m_rational(rat) {}
         bool is_rational() const { return m_rational; }
     };
 
     struct rational_value : public value {
         mpq      m_value;
         mpbqi    m_interval; // approximation as a binary rational
+        rational_value():value(true) {}
     };
 
     typedef ptr_array<value> polynomial;
@@ -147,7 +148,7 @@ namespace realclosure {
         polynomial_expr * num() const { return m_numerator; }
         polynomial_expr * den() const { return m_denominator; }
         
-        rational_function_value(polynomial_expr * num, polynomial_expr * den):m_numerator(num), m_denominator(den) {
+        rational_function_value(polynomial_expr * num, polynomial_expr * den):value(false), m_numerator(num), m_denominator(den) {
             SASSERT(num != 0 || den != 0);
         }
 
@@ -231,6 +232,7 @@ namespace realclosure {
 
         polynomial const & p() const { return m_p; }
         signs const & s() const { return m_signs; }
+        bool is_real() const { return m_real; }
     };
 
     struct transcendental : public extension {
@@ -325,6 +327,7 @@ namespace realclosure {
             m_bqim(m_bqm) {
             mpq one(1);
             m_one = mk_rational(one);
+            inc_ref(m_one);
             m_cancel = false;
         }
 
@@ -484,7 +487,7 @@ namespace realclosure {
             return v->is_rational(); 
         }
 
-        bool is_one(value * v) {
+        bool is_one(value * v) const {
             return !is_zero(v) && is_nz_rational(v) && qm().is_one(to_mpq(v));
         }
 
@@ -586,6 +589,17 @@ namespace realclosure {
             return static_cast<algebraic*>(ext);
         }
 
+        bool is_real(extension * ext) {
+            switch (ext->knd()) {
+            case extension::TRANSCENDENTAL: return true;
+            case extension::INFINITESIMAL:  return false;
+            case extension::ALGEBRAIC:      return to_algebraic(ext)->is_real();
+            default:
+                UNREACHABLE();
+                return false;
+            }
+        }
+
         polynomial_expr * mk_polynomial_expr(unsigned sz, value * const * p, extension * ext, mpbqi & interval) {
             SASSERT(sz > 1);
             SASSERT(p[sz-1] != 0);
@@ -595,7 +609,7 @@ namespace realclosure {
             inc_ref_ext(ext);
             r->m_ext = ext;
             realclosure::swap(r->m_interval, interval);
-            r->m_real = true;
+            r->m_real = is_real(ext);
             for (unsigned i = 0; i < sz && r->m_real; i++) {
                 if (!is_real(p[i]))
                     r->m_real = false;
@@ -607,7 +621,7 @@ namespace realclosure {
             unsigned idx = next_infinitesimal_idx();
             infinitesimal * eps = alloc(infinitesimal, idx, n);
             m_extensions[extension::INFINITESIMAL].push_back(eps);
-            value * p[2] = { one(), 0 };
+            value * p[2] = { 0, one() };
             mpbq zero(0);
             mpbq tiny(1, m_eps_prec);
             mpbqi interval(zero, tiny);
@@ -711,9 +725,10 @@ namespace realclosure {
                 return;
             }
             
-            if (!is_unique_nz_rational(a)) {
+            if (is_zero(a) || !is_unique_nz_rational(a)) {
                 del(a);
                 a.m_value = mk_rational();
+                inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
             qm().set(to_mpq(a), n);
@@ -725,9 +740,10 @@ namespace realclosure {
                 return;
             }
 
-            if (!is_unique_nz_rational(a)) {
+            if (is_zero(a) || !is_unique_nz_rational(a)) {
                 del(a);
                 a.m_value = mk_rational();
+                inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
             qm().set(to_mpq(a), n);
@@ -739,9 +755,10 @@ namespace realclosure {
                 return;
             }
 
-            if (!is_unique_nz_rational(a)) {
+            if (is_zero(a) || !is_unique_nz_rational(a)) {
                 del(a);
                 a.m_value = mk_rational();
+                inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
             qm().set(to_mpq(a), n);
@@ -1269,6 +1286,8 @@ namespace realclosure {
             SASSERT(i > 0);
             while (i > 0) {
                 --i;
+                if (p[i] == 0)
+                    continue;
                 if (first)
                     first = false;
                 else
@@ -1276,9 +1295,11 @@ namespace realclosure {
                 if (i == 0)
                     display(out, p[i], compact);
                 else {
-                    out << "(";
-                    display(out, p[i], compact);
-                    out << ")*";
+                    if (!is_one(p[i])) {
+                        out << "(";
+                        display(out, p[i], compact);
+                        out << ")*";
+                    }
                     display_var(out, compact);
                     if (i > 1)
                         out << "^" << i;
@@ -1433,16 +1454,16 @@ namespace realclosure {
         m_imp->del(a);
     }
 
-    void manager::mk_infinitesimal(char const * p, numeral & r) {
-        m_imp->mk_infinitesimal(r);
+    void manager::mk_infinitesimal(char const * n, numeral & r) {
+        m_imp->mk_infinitesimal(n, r);
     }
 
     void manager::mk_infinitesimal(numeral & r) {
         m_imp->mk_infinitesimal(r);
     }
         
-    void manager::mk_transcendental(char const * p, mk_interval & proc, numeral & r) {
-        m_imp->mk_transcendental(p, proc, r);
+    void manager::mk_transcendental(char const * n, mk_interval & proc, numeral & r) {
+        m_imp->mk_transcendental(n, proc, r);
     }
 
     void manager::mk_transcendental(mk_interval & proc, numeral & r) {

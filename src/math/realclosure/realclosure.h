@@ -263,4 +263,97 @@ typedef rcmanager::numeral_vector        rcnumeral_vector;
 typedef rcmanager::scoped_numeral        scoped_rcnumeral;
 typedef rcmanager::scoped_numeral_vector scoped_rcnumeral_vector;
 
+
+#define RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, TYPE)                \
+inline bool EXTERNAL(scoped_rcnumeral const & a, TYPE const & b) {      \
+    rcmanager & m = a.m();                                              \
+    scoped_rcnumeral _b(m);                                             \
+    m.set(_b, b);                                                       \
+    return m.INTERNAL(a, _b);                                           \
+}
+
+#define RCF_MK_COMPARISON(EXTERNAL, INTERNAL)       \
+RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, int)     \
+RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpz)     \
+RCF_MK_COMPARISON_CORE(EXTERNAL, INTERNAL, mpq)
+
+RCF_MK_COMPARISON(operator==, eq);
+RCF_MK_COMPARISON(operator!=, neq);
+RCF_MK_COMPARISON(operator<,  lt);
+RCF_MK_COMPARISON(operator<=, le);
+RCF_MK_COMPARISON(operator>,  gt);
+RCF_MK_COMPARISON(operator>=, ge);
+
+#undef RCF_MK_COMPARISON
+#undef RCF_MK_COMPARISON_CORE
+
+#define RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, TYPE)                    \
+inline scoped_rcnumeral EXTERNAL(scoped_rcnumeral const & a, TYPE const & b) { \
+    rcmanager & m = a.m();                                              \
+    scoped_rcnumeral _b(m);                                             \
+    m.set(_b, b);                                                       \
+    scoped_rcnumeral r(m);                                              \
+    m.INTERNAL(a, _b, r);                                               \
+    return r;                                                           \
+}
+
+#define RCF_MK_BINARY(EXTERNAL, INTERNAL)        \
+RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, int)      \
+RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpz)      \
+RCF_MK_BINARY_CORE(EXTERNAL, INTERNAL, mpq)
+
+RCF_MK_BINARY(operator+, add)
+RCF_MK_BINARY(operator-, sub)
+RCF_MK_BINARY(operator*, mul)
+RCF_MK_BINARY(operator/, div)
+
+#undef RCF_MK_BINARY
+#undef RCF_MK_BINARY_CORE
+
+inline scoped_rcnumeral root(scoped_rcnumeral const & a, unsigned k) {
+    scoped_rcnumeral r(a.m());
+    a.m().root(a, k, r);
+    return r;
+}
+
+inline scoped_rcnumeral power(scoped_rcnumeral const & a, unsigned k) {
+    scoped_rcnumeral r(a.m());
+    a.m().power(a, k, r);
+    return r;
+}
+
+inline scoped_rcnumeral operator^(scoped_rcnumeral const & a, unsigned k) {
+    return power(a, k);
+}
+
+inline bool is_int(scoped_rcnumeral const & a) {
+    return a.m().is_int(a);
+}
+
+struct sym_pp {
+    rcmanager & m;
+    rcnumeral const &   n;
+    sym_pp(rcmanager & _m, rcnumeral const & _n):m(_m), n(_n) {}
+    sym_pp(scoped_rcnumeral const & _n):m(_n.m()), n(_n.get()) {}
+};
+
+inline std::ostream & operator<<(std::ostream & out, sym_pp const & n) {
+    n.m.display(out, n.n);
+    return out;
+}
+
+struct decimal_pp {
+    rcmanager & m;
+    rcnumeral const &   n;
+    unsigned       prec;
+    decimal_pp(rcmanager & _m, rcnumeral const & _n, unsigned p):m(_m), n(_n), prec(p) {}
+    decimal_pp(scoped_rcnumeral const & _n, unsigned p):m(_n.m()), n(_n.get()), prec(p) {}
+};
+
+inline std::ostream & operator<<(std::ostream & out, decimal_pp const & n) {
+    n.m.display_decimal(out, n.n, n.prec);
+    return out;
+}
+
+
 #endif
