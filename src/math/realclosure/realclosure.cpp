@@ -39,7 +39,7 @@ namespace realclosure {
     
     // ---------------------------------
     //
-    // Binary rational intervals
+    // Intervals with binary rational endpoints
     //
     // ---------------------------------
 
@@ -54,6 +54,12 @@ namespace realclosure {
             numeral   m_upper;
             unsigned  m_lower_inf:1;
             unsigned  m_upper_inf:1;
+            interval():m_lower_inf(true), m_upper_inf(true) {}
+            interval(numeral & l, numeral & u):m_lower_inf(false), m_upper_inf(false) {
+                swap(m_lower, l);
+                swap(m_upper, u);
+            }
+
         };
 
         void round_to_minus_inf() {}
@@ -83,9 +89,17 @@ namespace realclosure {
         
         mpbq_config(numeral_manager & m):m_manager(m) {}
     };
-  
+    
     typedef interval_manager<mpbq_config> mpbqi_manager;
     typedef mpbqi_manager::interval       mpbqi;
+
+    void swap(mpbqi & a, mpbqi & b) {
+        swap(a.m_lower, b.m_lower);
+        swap(a.m_upper, b.m_upper);
+        unsigned tmp;
+        tmp = a.m_lower_inf; a.m_lower_inf = b.m_lower_inf; b.m_lower_inf = tmp;
+        tmp = a.m_upper_inf; a.m_upper_inf = b.m_upper_inf; b.m_upper_inf = tmp;
+    }
 
     // ---------------------------------
     //
@@ -107,49 +121,19 @@ namespace realclosure {
 
     typedef ptr_array<value> polynomial;
     
-    /**
-       \brief Reference to a field extension element.
-       The element can be a transcendental real value, an infinitesimal, or an algebraic extension.
-    */
-    struct extension_ref {
-        enum kind {
-            TRANSCENDENTAL = 0,
-            INFINITESIMAL  = 1,
-            ALGEBRAIC      = 2
-        };
-        unsigned m_kind:2;
-        unsigned m_idx:30;
-        unsigned idx() const { return m_idx; }
-        kind knd() const { return static_cast<kind>(m_kind); }
-        bool is_algebraic() const { return knd() == ALGEBRAIC; }
-        bool is_infinitesimal() const { return knd() == INFINITESIMAL; }
-        bool is_transcendental() const { return knd() == TRANSCENDENTAL; }
-    };
-
-    bool operator==(extension_ref const & r1, extension_ref const & r2) { 
-        return r1.knd() == r2.knd() && r1.idx() == r2.idx();
-    }
+    struct extension;
+    bool rank_lt(extension * r1, extension * r2);
     
-    bool operator<(extension_ref const & r1, extension_ref const & r2) { 
-        return r1.knd() < r2.knd() || (r1.knd() == r2.knd() && r1.idx() < r2.idx()); 
-    }
-
-    bool operator<=(extension_ref const & r1, extension_ref const & r2) { 
-        return r1.knd() < r2.knd() || (r1.knd() == r2.knd() && r1.idx() <= r2.idx()); 
-    }
-
-    typedef svector<extension_ref> extension_ref_vector;
-
     struct polynomial_expr {
-        // The values occurring in this polynomial m_p may only contain extensions that are smaller than m_ext_ref.
-        // The polynomial m_p must not be the constant polynomial on m_ext_ref. That is,
-        // it contains a nonzero coefficient at position k > 0. It is not a constant polynomial on m_ext_ref.
+        // The values occurring in this polynomial m_p may only contain extensions that are smaller than m_ext.
+        // The polynomial m_p must not be the constant polynomial on m_ext. That is,
+        // it contains a nonzero coefficient at position k > 0. It is not a constant polynomial on m_ext.
         polynomial     m_p; 
-        extension_ref  m_ext_ref;
+        extension *    m_ext;
         bool           m_real;
         mpbqi          m_interval; // approximation as a binary rational
-        
-        extension_ref const & ext_ref() const { return m_ext_ref; }
+        polynomial_expr():m_ext(0), m_real(false) {}
+        extension * ext() const { return m_ext; }
         bool is_real() const { return m_real; }
         polynomial const & p() const { return m_p; }
     };
@@ -162,14 +146,18 @@ namespace realclosure {
         
         polynomial_expr * num() const { return m_numerator; }
         polynomial_expr * den() const { return m_denominator; }
+        
+        rational_function_value(polynomial_expr * num, polynomial_expr * den):m_numerator(num), m_denominator(den) {
+            SASSERT(num != 0 || den != 0);
+        }
 
-        extension_ref const & ext_ref() const {
+        extension * ext() const {
             if (den() == 0)
-                return num()->ext_ref();
-            else if (num() == 0 || num()->ext_ref() < den()->ext_ref())
-                return den()->ext_ref();
+                return num()->ext();
+            else if (num() == 0 || rank_lt(num()->ext(), den()->ext()))
+                return den()->ext();
             else
-                return num()->ext_ref();
+                return num()->ext();
         }
 
         bool is_real() const { 
@@ -197,25 +185,60 @@ namespace realclosure {
     typedef sarray<p2s> signs;
 
     struct extension {
-        unsigned      m_ref_count;
-        extension():m_ref_count(0) {}
+        enum kind {
+            TRANSCENDENTAL = 0,
+            INFINITESIMAL  = 1,
+            ALGEBRAIC      = 2
+        };
+
+        unsigned m_ref_count;
+        unsigned m_kind:2;
+        unsigned m_idx:30;
+        mpbqi    m_interval;
+
+        extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx) {}
+
+        unsigned idx() const { return m_idx; }
+        kind knd() const { return static_cast<kind>(m_kind); }
+
+        bool is_algebraic() const { return knd() == ALGEBRAIC; }
+        bool is_infinitesimal() const { return knd() == INFINITESIMAL; }
+        bool is_transcendental() const { return knd() == TRANSCENDENTAL; }
+
+        mpbqi const & interval() const { return m_interval; }
+    };
+
+    bool rank_lt(extension * r1, extension * r2) {
+        return r1->knd() < r2->knd() || (r1->knd() == r2->knd() && r1->idx() < r2->idx()); 
+    }
+
+    bool rank_eq(extension * r1, extension * r2) {
+        return r1->knd() == r2->knd() && r1->idx() == r2->idx(); 
+    }
+
+    struct rank_lt_proc {
+        bool operator()(extension * r1, extension * r2) const {
+            return rank_lt(r1, r2);
+        }
     };
 
     struct algebraic : public extension {
         polynomial   m_p;
-        mpbqi        m_interval;
         signs        m_signs;
         bool         m_real;
 
+        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_real(false) {}
+
         polynomial const & p() const { return m_p; }
-        mpbqi const & interval() const { return m_interval; }
         signs const & s() const { return m_signs; }
     };
 
     struct transcendental : public extension {
         symbol        m_name;
         mk_interval & m_proc;
-        transcendental(symbol const & n, mk_interval & p):m_name(n), m_proc(p) {}
+        
+        transcendental(unsigned idx, symbol const & n, mk_interval & p):extension(TRANSCENDENTAL, idx), m_name(n), m_proc(p) {}
+
         void display(std::ostream & out) const {
             out << m_name;
         }
@@ -223,7 +246,10 @@ namespace realclosure {
     
     struct infinitesimal : public extension {
         symbol        m_name;
-        infinitesimal(symbol const & n):m_name(n) {}
+        mpbqi         m_interval;
+
+        infinitesimal(unsigned idx, symbol const & n):extension(INFINITESIMAL, idx), m_name(n) {}
+
         void display(std::ostream & out) const {
             if (m_name.is_numerical())
                 out << "eps!" << m_name.get_num();
@@ -243,9 +269,9 @@ namespace realclosure {
         mpbq_manager                   m_bqm;
         mpqi_manager                   m_qim;
         mpbqi_manager                  m_bqim;
-        value_vector                   m_to_delete;
         ptr_vector<extension>          m_extensions[3];
         value *                        m_one;
+        unsigned                       m_eps_prec;
         volatile bool                  m_cancel;
 
         struct scoped_polynomial_seq {
@@ -323,7 +349,7 @@ namespace realclosure {
             return m_one;
         }
 
-        void cleanup(extension_ref::kind k) {
+        void cleanup(extension::kind k) {
             ptr_vector<extension> & exts = m_extensions[k];
             // keep removing unused slots
             while (!exts.empty() && exts.back() == 0) {
@@ -332,13 +358,13 @@ namespace realclosure {
         }
 
         unsigned next_transcendental_idx() {
-            cleanup(extension_ref::TRANSCENDENTAL);
-            return m_extensions[extension_ref::TRANSCENDENTAL].size();
+            cleanup(extension::TRANSCENDENTAL);
+            return m_extensions[extension::TRANSCENDENTAL].size();
         }
 
         unsigned next_infinitesimal_idx() {
-            cleanup(extension_ref::INFINITESIMAL);
-            return m_extensions[extension_ref::INFINITESIMAL].size();
+            cleanup(extension::INFINITESIMAL);
+            return m_extensions[extension::INFINITESIMAL].size();
         }
         
         void set_cancel(bool f) {
@@ -346,21 +372,19 @@ namespace realclosure {
         }
         
         void updt_params(params_ref const & p) {
+            m_eps_prec = p.get_uint("eps_prec", 24);
             // TODO
         }
 
         void finalize_polynomial(polynomial & p) {
-            unsigned sz = p.size();
-            for (unsigned i = 0; i < sz; i++) {
-                dec_ref_core(p[i]);
-            }
+            dec_ref(p.size(), p.c_ptr());
             p.finalize(allocator());
         }
 
         void del_polynomial_expr(polynomial_expr * p) {
             finalize_polynomial(p->m_p);
             bqim().del(p->m_interval);
-            dec_ref_ext(p->m_ext_ref);
+            dec_ref_ext(p->m_ext);
             allocator().deallocate(sizeof(polynomial_expr), p);
         }
 
@@ -378,15 +402,11 @@ namespace realclosure {
             allocator().deallocate(sizeof(rational_function_value), v);
         }
 
-        void flush_to_delete() {
-            while (!m_to_delete.empty()) {
-                value * v = m_to_delete.back();
-                m_to_delete.pop_back();
-                if (v->is_rational())
-                    del_rational(static_cast<rational_value*>(v));
-                else
-                    del_rational_function(static_cast<rational_function_value*>(v));
-            }
+        void del_value(value * v) {
+            if (v->is_rational())
+                del_rational(static_cast<rational_value*>(v));
+            else
+                del_rational_function(static_cast<rational_function_value*>(v));
         }
 
         void del_algebraic(algebraic * a) {
@@ -407,22 +427,21 @@ namespace realclosure {
             allocator().deallocate(sizeof(infinitesimal), i);
         }
 
-        void inc_ref_ext(extension_ref x) {
-            SASSERT(m_extensions[x.knd()][x.idx()] != 0);
-            m_extensions[x.knd()][x.idx()]->m_ref_count++;
+        void inc_ref_ext(extension * ext) {
+            SASSERT(ext != 0);
+            ext->m_ref_count++;
         }
 
-        void dec_ref_ext(extension_ref x) {
-            SASSERT(m_extensions[x.knd()][x.idx()] != 0);
-            extension * ext = m_extensions[x.knd()][x.idx()];
+        void dec_ref_ext(extension * ext) {
+            SASSERT(m_extensions[ext->knd()][ext->idx()] == ext);
             SASSERT(ext->m_ref_count > 0);
             ext->m_ref_count--;
             if (ext->m_ref_count == 0) {
-                m_extensions[x.knd()][x.idx()] = 0;
-                switch (x.knd()) {
-                case extension_ref::TRANSCENDENTAL: del_transcendental(static_cast<transcendental*>(ext)); break;
-                case extension_ref::INFINITESIMAL:  del_infinitesimal(static_cast<infinitesimal*>(ext)); break;
-                case extension_ref::ALGEBRAIC:      del_algebraic(static_cast<algebraic*>(ext)); break;
+                m_extensions[ext->knd()][ext->idx()] = 0;
+                switch (ext->knd()) {
+                case extension::TRANSCENDENTAL: del_transcendental(static_cast<transcendental*>(ext)); break;
+                case extension::INFINITESIMAL:  del_infinitesimal(static_cast<infinitesimal*>(ext)); break;
+                case extension::ALGEBRAIC:      del_algebraic(static_cast<algebraic*>(ext)); break;
                 }
             }
         }
@@ -432,18 +451,23 @@ namespace realclosure {
                 v->m_ref_count++;
         }
 
-        void dec_ref_core(value * v) {
+        void inc_ref(unsigned sz, value * const * p) {
+            for (unsigned i = 0; i < sz; i++)
+                inc_ref(p[i]);
+        }
+
+        void dec_ref(value * v) {
             if (v) {
                 SASSERT(v->m_ref_count > 0);
                 v->m_ref_count--;
                 if (v->m_ref_count == 0)
-                    m_to_delete.push_back(v);
+                    del_value(v);
             }
         }
 
-        void dec_ref(value * v) {
-            dec_ref_core(v);
-            flush_to_delete();
+        void dec_ref(unsigned sz, value * const * p) {
+            for (unsigned i = 0; i < sz; i++)
+                dec_ref(p[i]);
         }
 
         void del(numeral & a) {
@@ -541,29 +565,57 @@ namespace realclosure {
                 SASSERT(is_rational_function(a));
                 return 1;
             }
-            else if (to_rational_function(a)->ext_ref() == to_rational_function(b)->ext_ref())
+            else if (rank_eq(to_rational_function(a)->ext(), to_rational_function(b)->ext()))
                 return 0;
             else 
-                return to_rational_function(a)->ext_ref() < to_rational_function(b)->ext_ref() ? -1 : 1;
+                return rank_lt(to_rational_function(a)->ext(), to_rational_function(b)->ext()) ? -1 : 1;
         }
 
-        transcendental * to_transcendental(extension_ref const & r) const {
-            SASSERT(r.is_transcendental());
-            return static_cast<transcendental*>(m_extensions[r.knd()][r.idx()]);
+        static transcendental * to_transcendental(extension * ext) {
+            SASSERT(ext->is_transcendental());
+            return static_cast<transcendental*>(ext);
         }
 
-        infinitesimal * to_infinitesimal(extension_ref const & r) const {
-            SASSERT(r.is_infinitesimal());
-            return static_cast<infinitesimal*>(m_extensions[r.knd()][r.idx()]);
+        static infinitesimal * to_infinitesimal(extension * ext) {
+            SASSERT(ext->is_infinitesimal());
+            return static_cast<infinitesimal*>(ext);
         }
 
-        algebraic * to_algebraic(extension_ref const & r) const {
-            SASSERT(r.is_algebraic());
-            return static_cast<algebraic*>(m_extensions[r.knd()][r.idx()]);
+        static algebraic * to_algebraic(extension * ext) {
+            SASSERT(ext->is_algebraic());
+            return static_cast<algebraic*>(ext);
+        }
+
+        polynomial_expr * mk_polynomial_expr(unsigned sz, value * const * p, extension * ext, mpbqi & interval) {
+            SASSERT(sz > 1);
+            SASSERT(p[sz-1] != 0);
+            polynomial_expr * r = new (allocator()) polynomial_expr();
+            r->m_p.set(allocator(), sz, p);
+            inc_ref(sz, p);
+            inc_ref_ext(ext);
+            r->m_ext = ext;
+            realclosure::swap(r->m_interval, interval);
+            r->m_real = true;
+            for (unsigned i = 0; i < sz && r->m_real; i++) {
+                if (!is_real(p[i]))
+                    r->m_real = false;
+            }
+            return r;
         }
 
         void mk_infinitesimal(symbol const & n, numeral & r) {
-            // TODO
+            unsigned idx = next_infinitesimal_idx();
+            infinitesimal * eps = alloc(infinitesimal, idx, n);
+            m_extensions[extension::INFINITESIMAL].push_back(eps);
+            value * p[2] = { one(), 0 };
+            mpbq zero(0);
+            mpbq tiny(1, m_eps_prec);
+            mpbqi interval(zero, tiny);
+            polynomial_expr * numerator = mk_polynomial_expr(2, p, eps, interval);
+            r.m_value = alloc(rational_function_value, numerator, 0);
+            inc_ref(r.m_value);
+            SASSERT(sign(r) > 0);
+            SASSERT(!is_real(r));
         }
 
         void mk_infinitesimal(char const * n, numeral & r) {
@@ -627,6 +679,13 @@ namespace realclosure {
                 // TODO
                 return false;
             }
+        }
+
+        bool is_real(value * v) {
+            if (is_zero(v) || is_nz_rational(v))
+                return true;
+            else
+                return to_rational_function(v)->is_real();
         }
         
         bool is_real(numeral const & a) const {
@@ -1166,19 +1225,16 @@ namespace realclosure {
         }
 
         struct collect_algebraic_refs {
-            imp const &            m;
             char_vector            m_visited; // Set of visited algebraic extensions.
-            svector<extension_ref> m_found;   // vector/list of visited algebraic extensions.
+            ptr_vector<algebraic>  m_found;   // vector/list of visited algebraic extensions.
 
-            collect_algebraic_refs(imp const & _m):m(_m) {}
-
-            void mark(extension_ref const & r) {
-                if (r.is_algebraic()) {
-                    m_visited.reserve(r.idx() + 1, false);
-                    if (!m_visited[r.idx()]) {
-                        m_visited[r.idx()] = true;
-                        m_found.push_back(r);
-                        algebraic * a = m.to_algebraic(r);
+            void mark(extension * ext) {
+                if (ext->is_algebraic()) {
+                    m_visited.reserve(ext->idx() + 1, false);
+                    if (!m_visited[ext->idx()]) {
+                        m_visited[ext->idx()] = true;
+                        algebraic * a = to_algebraic(ext);
+                        m_found.push_back(a);
                         mark(a->p());
                     }
                 }
@@ -1187,7 +1243,7 @@ namespace realclosure {
             void mark(polynomial_expr * p) {
                 if (p == 0)
                     return;
-                mark(p->ext_ref());
+                mark(p->ext());
                 mark(p->p());
             }
 
@@ -1236,17 +1292,17 @@ namespace realclosure {
             }
         };
 
-        struct display_ext_ref_proc {
-            imp const &           m;
-            extension_ref const & m_ref;    
-            display_ext_ref_proc(imp const & _m, extension_ref const & r):m(_m), m_ref(r) {}
+        struct display_ext_proc {
+            imp const &  m;
+            extension *  m_ref;    
+            display_ext_proc(imp const & _m, extension * r):m(_m), m_ref(r) {}
             void operator()(std::ostream & out, bool compact) const {
-                m.display_ext_ref(out, m_ref, compact);
+                m.display_ext(out, m_ref, compact);
             }
         };
 
         void display_polynomial_expr(std::ostream & out, polynomial_expr const & p, bool compact) const {
-            display_polynomial(out, p.p(), display_ext_ref_proc(*this, p.ext_ref()), compact);
+            display_polynomial(out, p.p(), display_ext_proc(*this, p.ext()), compact);
         }
 
         static void display_poly_sign(std::ostream & out, int s) {
@@ -1274,13 +1330,13 @@ namespace realclosure {
             out << "})";
         }
 
-        void display_ext_ref(std::ostream & out, extension_ref const & r, bool compact) const {
-            switch (r.knd()) {
-            case extension_ref::TRANSCENDENTAL: to_transcendental(r)->display(out); break;
-            case extension_ref::INFINITESIMAL:  to_infinitesimal(r)->display(out); break;
-            case extension_ref::ALGEBRAIC: 
+        void display_ext(std::ostream & out, extension * r, bool compact) const {
+            switch (r->knd()) {
+            case extension::TRANSCENDENTAL: to_transcendental(r)->display(out); break;
+            case extension::INFINITESIMAL:  to_infinitesimal(r)->display(out); break;
+            case extension::ALGEBRAIC: 
                 if (compact)
-                    out << "r!" << r.idx();
+                    out << "r!" << r->idx();
                 else
                     display_algebraic_def(out, to_algebraic(r), compact);
             }
@@ -1312,19 +1368,19 @@ namespace realclosure {
         }
 
         void display_compact(std::ostream & out, numeral const & a) const {
-            collect_algebraic_refs c(*this);
+            collect_algebraic_refs c;
             c.mark(a.m_value);
             if (c.m_found.empty()) {
                 display(out, a.m_value, true);
             }
             else {
-                std::sort(c.m_found.begin(), c.m_found.end());
+                std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
                 out << "[";
                 display(out, a.m_value, true);
                 for (unsigned i = 0; i < c.m_found.size(); i++) {
-                    extension_ref const & r = c.m_found[i];
-                    out << ", r!" << r.idx() << " = ";
-                    display_algebraic_def(out, to_algebraic(r), true);
+                    algebraic * ext = c.m_found[i];
+                    out << ", r!" << ext->idx() << " = ";
+                    display_algebraic_def(out, ext, true);
                 }
                 out << "]";
             }
