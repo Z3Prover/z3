@@ -27,11 +27,13 @@ Notes:
 #include"scoped_numeral.h"
 #include"scoped_numeral_vector.h"
 #include"interval.h"
+#include"z3_exception.h"
 
 namespace realclosure {
     class num;
 
     typedef interval_manager<im_default_config> mpqi_manager;
+    typedef default_exception exception;
 
     class mk_interval {
     public:
@@ -67,8 +69,8 @@ namespace realclosure {
         /**
            \brief Add a new infinitesimal to the current field. The new infinitesimal is smaller than any positive element in the field.
         */
-        void mk_infinitesimal(char const * prefix_name, numeral & r);
-        void mk_infinitesimal(numeral & r) { mk_infinitesimal("eps", r); }
+        void mk_infinitesimal(char const * name, numeral & r);
+        void mk_infinitesimal(numeral & r);
         
         /**
            \brief Add a new transcendental real value to the field. 
@@ -80,15 +82,14 @@ namespace realclosure {
            Then, we extend the field F with 1 - Pi. 1 - Pi is transcendental with respect to algebraic real numbers, but it is NOT transcendental
            with respect to F, since F contains Pi.
         */
-        void mk_transcendental(char const * prefix_name, mk_interval & proc, numeral & r);
-        void mk_transcendental(mk_interval & proc, numeral & r) { mk_transcendental("k", proc, r); }
+        void mk_transcendental(char const * name, mk_interval & proc, numeral & r);
+        void mk_transcendental(mk_interval & proc, numeral & r);
 
         /**
            \brief Isolate the roots of the univariate polynomial as[0] + as[1]*x + ... + as[n-1]*x^{n-1}
            The roots are stored in \c roots.
         */
-        void isolate_roots(char const * prefix_name, unsigned n, numeral const * as, numeral_vector & roots);
-        void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) { isolate_roots("a", n, as, roots); }
+        void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots);
 
         /**
            \brief a <- 0
