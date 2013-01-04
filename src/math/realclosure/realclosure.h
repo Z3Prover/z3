@@ -362,6 +362,10 @@ inline std::ostream & operator<<(std::ostream & out, rc_decimal_pp const & n) {
     return out;
 }
 
+inline rc_decimal_pp decimal_pp(scoped_rcnumeral const & n, unsigned prec = 10) {
+    return rc_decimal_pp(n, prec);
+}
+
 struct rc_interval_pp {
     rcmanager & m;
     rcnumeral const &   n;
@@ -374,7 +378,7 @@ inline std::ostream & operator<<(std::ostream & out, rc_interval_pp const & n) {
     return out;
 }
 
-inline rc_interval_pp interval_pp(rc_interval_pp const & n) {
+inline rc_interval_pp interval_pp(scoped_rcnumeral const & n) {
     return rc_interval_pp(n);
 }
 

@@ -208,7 +208,7 @@ void tst_refine_mpbq(int n, int d) {
 }
 
 void tst_refine_mpbq() {
-    tst_refine_mpbq(-5, 7);
+    tst_refine_mpbq(5, 7);
 }
 
 void tst_mpbq_root() {

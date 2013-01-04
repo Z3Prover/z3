@@ -76,11 +76,23 @@ namespace realclosure {
             numeral   m_upper;
             unsigned  m_lower_inf:1;
             unsigned  m_upper_inf:1;
-            interval():m_lower_inf(true), m_upper_inf(true) {}
-            interval(numeral & l, numeral & u):m_lower_inf(false), m_upper_inf(false) {
+            unsigned  m_lower_open:1;
+            unsigned  m_upper_open:1;
+            interval():m_lower_inf(true), m_upper_inf(true), m_lower_open(true), m_upper_open(true) {}
+            interval(numeral & l, numeral & u):m_lower_inf(false), m_upper_inf(false), m_lower_open(true), m_upper_open(true) {
                 swap(m_lower, l);
                 swap(m_upper, u);
             }
+            numeral & lower() { return m_lower; }
+            numeral & upper() { return m_upper; }
+            void set_lower_is_inf(bool f) { m_lower_inf = f; }
+            void set_upper_is_inf(bool f) { m_upper_inf = f; }
+            void set_lower_is_open(bool f) { m_lower_open = f; }
+            void set_upper_is_open(bool f) { m_upper_open = f; }
+            numeral const & lower() const { return m_lower; }
+            numeral const & upper() const { return m_upper; }
+            bool lower_is_inf() const { return m_lower_inf; }
+            bool upper_is_inf() const { return m_upper_inf; }
         };
 
         void set_rounding(bool to_plus_inf) { m_manager.m_to_plus_inf = to_plus_inf; }
@@ -92,16 +104,16 @@ namespace realclosure {
         numeral const & upper(interval const & a) const { return a.m_upper; }
         numeral & lower(interval & a) { return a.m_lower; }
         numeral & upper(interval & a) { return a.m_upper; }
-        bool lower_is_open(interval const & a) const { return true; }
-        bool upper_is_open(interval const & a) const { return true; }
+        bool lower_is_open(interval const & a) const { return a.m_lower_open; }
+        bool upper_is_open(interval const & a) const { return a.m_upper_open; }
         bool lower_is_inf(interval const & a) const { return a.m_lower_inf; }
         bool upper_is_inf(interval const & a) const { return a.m_upper_inf; }
         
         // Setters
         void set_lower(interval & a, numeral const & n) { m_manager.set(a.m_lower, n); }
         void set_upper(interval & a, numeral const & n) { m_manager.set(a.m_upper, n); }
-        void set_lower_is_open(interval & a, bool v) { SASSERT(v); }
-        void set_upper_is_open(interval & a, bool v) { SASSERT(v); }
+        void set_lower_is_open(interval & a, bool v) { a.m_lower_open = v; }
+        void set_upper_is_open(interval & a, bool v) { a.m_upper_open = v; }
         void set_lower_is_inf(interval & a, bool v) { a.m_lower_inf = v; }
         void set_upper_is_inf(interval & a, bool v) { a.m_upper_inf = v; }
         
@@ -124,14 +136,16 @@ namespace realclosure {
 
     // ---------------------------------
     //
-    // Values: rational and composite
+    // Values are represented as
+    //   - arbitrary precision rationals (mpq)
+    //   - rational functions on field extensions
     //
     // ---------------------------------
 
     struct value {
-        unsigned m_ref_count;
-        bool     m_rational;
-        mpbqi    m_interval; // approximation as a binary rational
+        unsigned m_ref_count; //!< Reference counter
+        bool     m_rational;  //!< True if the value is represented as an abitrary precision rational value.
+        mpbqi    m_interval;  //!< approximation as an interval with binary rational end-points
         value(bool rat):m_ref_count(0), m_rational(rat) {}
         bool is_rational() const { return m_rational; }
         mpbqi const & interval() const { return m_interval; }
@@ -153,8 +167,8 @@ namespace realclosure {
         // it contains a nonzero coefficient at position k > 0. It is not a constant polynomial on m_ext.
         polynomial     m_p; 
         extension *    m_ext;
-        bool           m_real;
-        mpbqi          m_interval; // approximation as a binary rational
+        bool           m_real; //!< True if the polynomial expression does not depend on infinitesimal values
+        mpbqi          m_interval; //!< approximation as an interval with binary rational end-points
         polynomial_expr():m_ext(0), m_real(false) {}
         extension * ext() const { return m_ext; }
         bool is_real() const { return m_real; }
@@ -204,7 +218,7 @@ namespace realclosure {
     
     typedef int sign;
 
-    typedef std::pair<polynomial, int> p2s;
+    typedef std::pair<polynomial, sign> p2s;
 
     typedef sarray<p2s> signs;
 
@@ -249,7 +263,7 @@ namespace realclosure {
     struct algebraic : public extension {
         polynomial   m_p;
         signs        m_signs;
-        bool         m_real;
+        bool         m_real;  //!< True if the polynomial p does not depend on infinitesimal extensions.
 
         algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_real(false) {}
 
@@ -271,8 +285,7 @@ namespace realclosure {
     
     struct infinitesimal : public extension {
         symbol        m_name;
-        mpbqi         m_interval;
-
+ 
         infinitesimal(unsigned idx, symbol const & n):extension(INFINITESIMAL, idx), m_name(n) {}
 
         void display(std::ostream & out) const {
@@ -296,7 +309,7 @@ namespace realclosure {
         mpbqi_manager                  m_bqim;
         ptr_vector<extension>          m_extensions[3];
         value *                        m_one;
-        unsigned                       m_eps_prec;
+        unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
         volatile bool                  m_cancel;
 
         struct scoped_polynomial_seq {
@@ -352,6 +365,8 @@ namespace realclosure {
             m_one = mk_rational(one);
             inc_ref(m_one);
             m_cancel = false;
+            
+            updt_params(p);
         }
 
         ~imp() {
@@ -398,7 +413,7 @@ namespace realclosure {
         }
         
         void updt_params(params_ref const & p) {
-            m_eps_prec = p.get_uint("eps_prec", 24);
+            m_ini_precision = p.get_uint("initial_precision", 24);
             // TODO
         }
 
@@ -502,24 +517,48 @@ namespace realclosure {
             a.m_value = 0;
         }
 
+        /**
+           \brief Return true if the given interval is smaller than 1/2^k
+        */
+        bool check_precision(mpbqi const & interval, unsigned k) {
+            if (interval.lower_is_inf() || interval.upper_is_inf())
+                return false;
+            scoped_mpbq w(bqm());
+            bqm().sub(interval.upper(), interval.lower(), w);
+            return bqm().lt_1div2k(w, k);
+        }
+
+        /**
+           \brief Return true if v is zero.
+        */
         static bool is_zero(value * v) {
             return v == 0;
         }
 
+        /**
+           \brief Return true if v is represented using a nonzero arbitrary precision rational value.
+        */
         static bool is_nz_rational(value * v) { 
             SASSERT(v != 0);
             return v->is_rational(); 
         }
 
+        /**
+           \brief Return true if v is one.
+        */
         bool is_one(value * v) const {
+            // TODO: make the check complete
             return !is_zero(v) && is_nz_rational(v) && qm().is_one(to_mpq(v));
         }
 
+        /**
+           \brief Return true if v is a represented as a rational function of the set of field extensions.
+        */
         static bool is_rational_function(value * v) {
             SASSERT(v != 0);
             return !(v->is_rational());
         }
-
+        
         static rational_value * to_nz_rational(value * v) { 
             SASSERT(is_nz_rational(v)); 
             return static_cast<rational_value*>(v); 
@@ -659,7 +698,7 @@ namespace realclosure {
             m_extensions[extension::INFINITESIMAL].push_back(eps);
             value * p[2] = { 0, one() };
             mpbq zero(0);
-            mpbq tiny(1, m_eps_prec);
+            mpbq tiny(1, m_ini_precision);
             mpbqi interval(zero, tiny);
             polynomial_expr * numerator = mk_polynomial_expr(2, p, eps, interval);
             rational_function_value * v = alloc(rational_function_value, numerator, 0);
@@ -747,6 +786,45 @@ namespace realclosure {
                 return to_rational_function(a)->is_real();
         }
 
+        void mpq_to_mpbqi(mpq const & q, mpbqi & interval) {
+            interval.set_lower_is_inf(false);
+            interval.set_upper_is_inf(false);
+            if (bqm().to_mpbq(q, interval.lower())) {
+                bqm().set(interval.upper(), interval.lower());
+                interval.set_lower_is_open(false);
+                interval.set_upper_is_open(false);
+            }
+            else {
+                bqm().set(interval.upper(), interval.lower());
+                bqm().mul2(interval.upper());
+                interval.set_lower_is_open(true);
+                interval.set_upper_is_open(true);
+                if (qm().is_neg(q)) {
+                    ::swap(interval.lower(), interval.upper());
+                }
+                while (bqim().contains_zero(interval) || !check_precision(interval, m_ini_precision)) {
+                    checkpoint();
+                    bqm().refine_lower(q, interval.lower(), interval.upper());
+                    bqm().refine_upper(q, interval.lower(), interval.upper());
+                }
+            }
+        }
+
+        void initialize_rational_value_interval(value * a) {
+            // For rational values, we only compute the binary intervals if needed.
+            SASSERT(is_nz_rational(a));
+            mpq_to_mpbqi(to_mpq(a), a->m_interval);
+        }
+
+        mpbqi const & interval(value * a) const {
+            SASSERT(a != 0);
+            if (bqim().contains_zero(a->m_interval)) {
+                SASSERT(is_nz_rational(a));
+                const_cast<imp*>(this)->initialize_rational_value_interval(a);
+            }
+            return a->m_interval;
+        }
+
         rational_value * mk_rational() {
             return new (allocator()) rational_value();
         }
@@ -755,6 +833,18 @@ namespace realclosure {
             rational_value * r = mk_rational();
             ::swap(r->m_value, v);
             return r;
+        }
+
+        template<typename T>
+        void update_mpq_value(value * a, T & v) {
+            SASSERT(is_nz_rational(a));
+            qm().set(to_mpq(a), v);
+            bqim().reset(a->m_interval);
+        }
+
+        template<typename T>
+        void update_mpq_value(numeral & a, T & v) {
+            update_mpq_value(a.m_value, v);
         }
 
         void set(numeral & a, int n) {
@@ -769,7 +859,7 @@ namespace realclosure {
                 inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
-            qm().set(to_mpq(a), n);
+            update_mpq_value(a, n);
         }
 
         void set(numeral & a, mpz const & n) {
@@ -784,7 +874,7 @@ namespace realclosure {
                 inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
-            qm().set(to_mpq(a), n);
+            update_mpq_value(a, n);
         }
         
         void set(numeral & a, mpq const & n) {
@@ -799,7 +889,7 @@ namespace realclosure {
                 inc_ref(a.m_value);
             }
             SASSERT(is_unique_nz_rational(a));
-            qm().set(to_mpq(a), n);
+            update_mpq_value(a, n);
         }
         
         void set(numeral & a, numeral const & n) {
@@ -1448,10 +1538,24 @@ namespace realclosure {
         void display(std::ostream & out, numeral const & a) const {
             display(out, a.m_value, false);
         }
+
+        void display_non_rational_in_decimal(std::ostream & out, numeral const & a, unsigned precision) {
+            SASSERT(!is_zero(a));
+            SASSERT(!is_nz_rational(a));
+            mpbqi const & i = interval(a.m_value);
+            if (check_precision(i, precision*4)) {
+                // hack
+                if (bqm().is_int(i.lower())) 
+                    bqm().display_decimal(out, i.upper(), precision);
+                else
+                    bqm().display_decimal(out, i.lower(), precision);
+            }
+            else {
+                out << "?";
+            }
+        }
         
         void display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
-            if (!is_real(a))
-                throw exception("number cannot be printed in decimal notation because it is not a real");
             if (is_zero(a)) {
                 out << "0";
             }
@@ -1459,8 +1563,7 @@ namespace realclosure {
                 qm().display_decimal(out, to_mpq(a), precision);
             }
             else {
-                
-                // TODO
+                const_cast<imp*>(this)->display_non_rational_in_decimal(out, a, precision);
             }
         }
 
@@ -1468,7 +1571,7 @@ namespace realclosure {
             if (is_zero(a))
                 out << "[0, 0]";
             else
-                bqim().display(out, a.m_value->interval());
+                bqim().display(out, interval(a.m_value));
         }
     };
 
