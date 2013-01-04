@@ -30,10 +30,10 @@ Revision History:
    - void dec_ref(T * obj)
    - void inc_ref(T * obj)
 */
-template<typename T, typename Ref>
+template<typename T, typename Ref, unsigned INITIAL_SIZE=16>
 class ref_buffer_core : public Ref {
 protected:
-    ptr_buffer<T>  m_buffer;
+    ptr_buffer<T, INITIAL_SIZE> m_buffer;
 
     void inc_ref(T * o) { Ref::inc_ref(o); }
     void dec_ref(T * o) { Ref::dec_ref(o); }
@@ -126,6 +126,11 @@ public:
         m_buffer.resize(sz, 0);
     }
 
+    void shrink(unsigned sz) {
+        SASSERT(sz <= m_buffer.size());
+        resize(sz);
+    }
+
     // set pos idx with elem. If idx >= size, then expand. 
     void setx(unsigned idx, T * elem) {
         if (idx >= size()) {
@@ -133,19 +138,22 @@ public:
         }
         set(idx, elem);
     }
-   
-private:
-    // prevent abuse:
-    ref_buffer_core& operator=(ref_buffer_core const & other);
+
+    ref_buffer_core & operator=(ref_buffer_core const & other) {
+        if (this == &other)
+            return *this;
+        reset();
+        append(other);
+    }
 };
 
 
 /**
    \brief Buffer of managed references
 */
-template<typename T, typename TManager>
-class ref_buffer : public ref_buffer_core<T, ref_manager_wrapper<T, TManager> > {
-    typedef ref_buffer_core<T, ref_manager_wrapper<T, TManager> > super;
+template<typename T, typename TManager, unsigned INITIAL_SIZE=16>
+class ref_buffer : public ref_buffer_core<T, ref_manager_wrapper<T, TManager>, INITIAL_SIZE> {
+    typedef ref_buffer_core<T, ref_manager_wrapper<T, TManager>, INITIAL_SIZE> super;
 public:
     ref_buffer(TManager & m):
         super(ref_manager_wrapper<T, TManager>(m)) {
@@ -161,8 +169,8 @@ public:
 /**
    \brief Buffer of unmanaged references
 */
-template<typename T>
-class sref_buffer : public ref_buffer_core<T, ref_unmanaged_wrapper<T> > {
+template<typename T, unsigned INITIAL_SIZE=16>
+class sref_buffer : public ref_buffer_core<T, ref_unmanaged_wrapper<T>, INITIAL_SIZE> {
 public:
 };
 
