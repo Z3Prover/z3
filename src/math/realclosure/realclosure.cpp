@@ -35,6 +35,10 @@ Notes:
 #define REALCLOSURE_INI_SEQ_SIZE 256
 #endif
 
+#ifndef REALCLOSURE_INI_DIV_PRECISION
+#define REALCLOSURE_INI_DIV_PRECISION 24
+#endif
+
 namespace realclosure {
     
     // ---------------------------------
@@ -43,11 +47,29 @@ namespace realclosure {
     //
     // ---------------------------------
 
-    class mpbq_config {
-        mpbq_manager &       m_manager;
-    public:
-        typedef mpbq_manager numeral_manager;
+    struct mpbq_config {
+
+        struct numeral_manager : public mpbq_manager {
+            unsigned m_div_precision;
+            bool     m_to_plus_inf;
+            
+            numeral_manager(unsynch_mpq_manager & qm):mpbq_manager(qm), m_div_precision(REALCLOSURE_INI_DIV_PRECISION), m_to_plus_inf(true) {
+            }
+
+            void div(mpbq const & a, mpbq const & b, mpbq & c) {
+                approx_div(a, b, c, m_div_precision, m_to_plus_inf);
+            }
+
+            void inv(mpbq & a) {
+                mpbq one(1);
+                scoped_mpbq r(*this);
+                approx_div(one, a, r, m_div_precision, m_to_plus_inf);
+                swap(a, r);
+            }
+        };
+
         typedef mpbq         numeral;
+        numeral_manager &    m_manager;
 
         struct interval {
             numeral   m_lower;
@@ -59,12 +81,11 @@ namespace realclosure {
                 swap(m_lower, l);
                 swap(m_upper, u);
             }
-
         };
 
-        void round_to_minus_inf() {}
-        void round_to_plus_inf() {}
-        void set_rounding(bool to_plus_inf) {}
+        void set_rounding(bool to_plus_inf) { m_manager.m_to_plus_inf = to_plus_inf; }
+        void round_to_minus_inf() { set_rounding(false); }
+        void round_to_plus_inf() { set_rounding(true); }
         
         // Getters
         numeral const & lower(interval const & a) const { return a.m_lower; }
@@ -110,13 +131,14 @@ namespace realclosure {
     struct value {
         unsigned m_ref_count;
         bool     m_rational;
+        mpbqi    m_interval; // approximation as a binary rational
         value(bool rat):m_ref_count(0), m_rational(rat) {}
         bool is_rational() const { return m_rational; }
+        mpbqi const & interval() const { return m_interval; }
     };
 
     struct rational_value : public value {
         mpq      m_value;
-        mpbqi    m_interval; // approximation as a binary rational
         rational_value():value(true) {}
     };
 
@@ -137,6 +159,7 @@ namespace realclosure {
         extension * ext() const { return m_ext; }
         bool is_real() const { return m_real; }
         polynomial const & p() const { return m_p; }
+        mpbqi const & interval() const { return m_interval; }
     };
 
     struct rational_function_value : public value {
@@ -268,7 +291,7 @@ namespace realclosure {
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
         unsynch_mpq_manager &          m_qm;
-        mpbq_manager                   m_bqm;
+        mpbq_config::numeral_manager   m_bqm;
         mpqi_manager                   m_qim;
         mpbqi_manager                  m_bqim;
         ptr_vector<extension>          m_extensions[3];
@@ -398,6 +421,7 @@ namespace realclosure {
         }
 
         void del_rational_function(rational_function_value * v) {
+            bqim().del(v->m_interval);
             if (v->num())
                 del_polynomial_expr(v->num());
             if (v->den())
@@ -617,6 +641,18 @@ namespace realclosure {
             return r;
         }
 
+        void updt_interval(rational_function_value & v) {
+            if (v.den() == 0) {
+                bqim().set(v.m_interval, v.num()->interval());
+            }
+            else if (v.num() == 0) {
+                bqim().inv(v.den()->interval(), v.m_interval);
+            }
+            else {
+                bqim().div(v.num()->interval(), v.den()->interval(), v.m_interval);
+            }
+        }
+
         void mk_infinitesimal(symbol const & n, numeral & r) {
             unsigned idx = next_infinitesimal_idx();
             infinitesimal * eps = alloc(infinitesimal, idx, n);
@@ -626,8 +662,10 @@ namespace realclosure {
             mpbq tiny(1, m_eps_prec);
             mpbqi interval(zero, tiny);
             polynomial_expr * numerator = mk_polynomial_expr(2, p, eps, interval);
-            r.m_value = alloc(rational_function_value, numerator, 0);
+            rational_function_value * v = alloc(rational_function_value, numerator, 0);
+            r.m_value = v;
             inc_ref(r.m_value);
+            updt_interval(*v);
             SASSERT(sign(r) > 0);
             SASSERT(!is_real(r));
         }
@@ -1421,8 +1459,16 @@ namespace realclosure {
                 qm().display_decimal(out, to_mpq(a), precision);
             }
             else {
+                
                 // TODO
             }
+        }
+
+        void display_interval(std::ostream & out, numeral const & a) const {
+            if (is_zero(a))
+                out << "[0, 0]";
+            else
+                bqim().display(out, a.m_value->interval());
         }
     };
 
@@ -1618,6 +1664,10 @@ namespace realclosure {
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
         m_imp->display_decimal(out, a, precision);
+    }
+
+    void manager::display_interval(std::ostream & out, numeral const & a) const {
+        m_imp->display_interval(out, a);
     }
 
 };

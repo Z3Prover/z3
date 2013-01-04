@@ -27,6 +27,7 @@ static void tst1() {
     scoped_rcnumeral eps(m);
     m.mk_infinitesimal("eps", eps);
     std::cout << sym_pp(eps) << std::endl;
+    std::cout << interval_pp(eps) << std::endl;
 }
 
 void tst_rcf() {

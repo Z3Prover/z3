@@ -245,6 +245,9 @@ namespace realclosure {
            This procedure throws an exception if the \c a is not a real.
         */
         void display_decimal(std::ostream & out, numeral const & a, unsigned precision = 10) const;
+
+        
+        void display_interval(std::ostream & out, numeral const & a) const;
     };
 
     class value;
@@ -330,30 +333,49 @@ inline bool is_int(scoped_rcnumeral const & a) {
     return a.m().is_int(a);
 }
 
-struct sym_pp {
+struct rc_sym_pp {
     rcmanager & m;
     rcnumeral const &   n;
-    sym_pp(rcmanager & _m, rcnumeral const & _n):m(_m), n(_n) {}
-    sym_pp(scoped_rcnumeral const & _n):m(_n.m()), n(_n.get()) {}
+    rc_sym_pp(rcmanager & _m, rcnumeral const & _n):m(_m), n(_n) {}
+    rc_sym_pp(scoped_rcnumeral const & _n):m(_n.m()), n(_n.get()) {}
 };
 
-inline std::ostream & operator<<(std::ostream & out, sym_pp const & n) {
+inline rc_sym_pp sym_pp(scoped_rcnumeral const & _n) {
+    return rc_sym_pp(_n);
+}
+
+inline std::ostream & operator<<(std::ostream & out, rc_sym_pp const & n) {
     n.m.display(out, n.n);
     return out;
 }
 
-struct decimal_pp {
+struct rc_decimal_pp {
     rcmanager & m;
     rcnumeral const &   n;
     unsigned       prec;
-    decimal_pp(rcmanager & _m, rcnumeral const & _n, unsigned p):m(_m), n(_n), prec(p) {}
-    decimal_pp(scoped_rcnumeral const & _n, unsigned p):m(_n.m()), n(_n.get()), prec(p) {}
+    rc_decimal_pp(rcmanager & _m, rcnumeral const & _n, unsigned p):m(_m), n(_n), prec(p) {}
+    rc_decimal_pp(scoped_rcnumeral const & _n, unsigned p):m(_n.m()), n(_n.get()), prec(p) {}
 };
 
-inline std::ostream & operator<<(std::ostream & out, decimal_pp const & n) {
+inline std::ostream & operator<<(std::ostream & out, rc_decimal_pp const & n) {
     n.m.display_decimal(out, n.n, n.prec);
     return out;
 }
 
+struct rc_interval_pp {
+    rcmanager & m;
+    rcnumeral const &   n;
+    rc_interval_pp(rcmanager & _m, rcnumeral const & _n):m(_m), n(_n) {}
+    rc_interval_pp(scoped_rcnumeral const & _n):m(_n.m()), n(_n.get()) {}
+};
+
+inline std::ostream & operator<<(std::ostream & out, rc_interval_pp const & n) {
+    n.m.display_interval(out, n.n);
+    return out;
+}
+
+inline rc_interval_pp interval_pp(rc_interval_pp const & n) {
+    return rc_interval_pp(n);
+}
 
 #endif
