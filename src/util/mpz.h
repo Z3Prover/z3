@@ -374,7 +374,7 @@ public:
     }
 
 
-    // d <- a + b*c
+    // d <- a - b*c
     void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
         if (is_one(b)) {
             sub(a, c, d);
