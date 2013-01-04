@@ -137,7 +137,7 @@ public:
     void set(Allocator & a, size_t sz, T const * vs) {
         SASSERT(m_data == 0);
         allocate(a, sz);
-        init(sz, vs);
+        init(vs);
     }
 
     size_t size() const { 
