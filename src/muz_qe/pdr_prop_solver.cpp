@@ -46,7 +46,6 @@ namespace pdr {
         expr_ref_vector     m_assumptions;
         obj_map<app,expr *> m_proxies2expr;
         obj_map<expr, app*> m_expr2proxies;
-        obj_hashtable<expr> m_implies;
         unsigned            m_num_proxies;
 
         app * mk_proxy(expr* literal) {
@@ -72,7 +71,6 @@ namespace pdr {
             expr_ref implies(m.mk_or(m.mk_not(res), literal), m);
             s.m_ctx->assert_expr(implies);
             m_assumptions.push_back(implies);
-            m_implies.insert(implies);
             TRACE("pdr_verbose", tout << "name asserted " << mk_pp(implies, m) << "\n";);    
             return res;
         }
@@ -92,6 +90,19 @@ namespace pdr {
             m_assumptions.append(conjs);
         }
 
+        expr* apply_accessor(
+            ptr_vector<func_decl> const& acc,
+            unsigned j,
+            func_decl* f,
+            expr* c) {
+            if (is_app(c) && to_app(c)->get_decl() == f) {
+                return to_app(c)->get_arg(j);
+            }
+            else {
+                return m.mk_app(acc[j], c);
+            }
+        }
+
         void expand_literals(expr_ref_vector& conjs) {
             arith_util arith(m);
             datatype_util dt(m);
@@ -99,6 +110,12 @@ namespace pdr {
             expr* e1, *e2, *c, *val;
             rational r;
             unsigned bv_size;
+
+            TRACE("pdr", 
+                  tout << "begin expand\n";
+                  for (unsigned i = 0; i < conjs.size(); ++i) {
+                      tout << mk_pp(conjs[i].get(), m) << "\n";
+                  });
 
             for (unsigned i = 0; i < conjs.size(); ++i) {
                 expr* e = conjs[i].get();
@@ -117,10 +134,10 @@ namespace pdr {
                          (m.is_eq(e, val, c) && is_app(val) && dt.is_constructor(to_app(val)))){
                     func_decl* f = to_app(val)->get_decl();
                     func_decl* r = dt.get_constructor_recognizer(f);
-                    conjs[i] = m.mk_app(r,c);
+                    conjs[i] = m.mk_app(r, c);
                     ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
-                    for (unsigned i = 0; i < acc.size(); ++i) {
-                        conjs.push_back(m.mk_eq(m.mk_app(acc[i], c), to_app(val)->get_arg(i)));
+                    for (unsigned j = 0; j < acc.size(); ++j) {
+                        conjs.push_back(m.mk_eq(apply_accessor(acc, j, f, c), to_app(val)->get_arg(j)));
                     }
                 }
                 else if ((m.is_eq(e, c, val) && bv.is_numeral(val, r, bv_size)) ||
@@ -142,6 +159,11 @@ namespace pdr {
                     }
                 }
             }
+            TRACE("pdr", 
+                  tout << "end expand\n";
+                  for (unsigned i = 0; i < conjs.size(); ++i) {
+                      tout << mk_pp(conjs[i].get(), m) << "\n";
+                  });
         }
 
     public:
@@ -190,12 +212,7 @@ namespace pdr {
             expr_ref e(m);
             for (unsigned i = 0; i < es.size(); ++i) {
                 e = es[i].get();
-                if (m_implies.contains(e)) {
-                    e = m.mk_true();
-                }
-                else {
-                    rep(e);
-                }
+                rep(e);
                 es[i] = e;
                 if (m.is_true(e)) {
                     es[i] = es.back();

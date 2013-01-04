@@ -69,10 +69,6 @@ namespace smt {
             return m_kernel.get_asserted_formulas();
         }
         
-        bool reduce() {
-            return m_kernel.reduce_assertions();
-        }
-        
         void push() {
             TRACE("smt_kernel", tout << "push()\n";);
             m_kernel.push();
@@ -221,9 +217,6 @@ namespace smt {
         return m_imp->get_formulas();
     }
 
-    bool kernel::reduce() {
-        return m_imp->reduce();
-    }
 
     void kernel::push() {
         m_imp->push();

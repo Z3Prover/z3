@@ -398,6 +398,11 @@ namespace pdr {
         for (unsigned i = 0; i < r->size(); ++i) {
             lemmas.push_back(r->form(i));
         }
+        TRACE("farkas_simplify_lemmas", 
+              tout << "simplified:\n";           
+              for (unsigned i = 0; i < lemmas.size(); ++i) {
+                  tout << mk_pp(lemmas[i].get(), m) << "\n";
+              });
     }
 
 
