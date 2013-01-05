@@ -176,6 +176,10 @@ public:
     }
 
     T * c_ptr() { return m_data; }
+
+    void swap(array & other) {
+        std::swap(m_data, other.m_data);
+    }
 };
 
 template<typename T>

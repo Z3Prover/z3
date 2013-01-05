@@ -93,6 +93,8 @@ namespace realclosure {
             numeral const & upper() const { return m_upper; }
             bool lower_is_inf() const { return m_lower_inf; }
             bool upper_is_inf() const { return m_upper_inf; }
+            bool lower_is_open() const { return m_lower_open; }
+            bool upper_is_open() const { return m_upper_open; }
         };
 
         void set_rounding(bool to_plus_inf) { m_manager.m_to_plus_inf = to_plus_inf; }
@@ -149,6 +151,7 @@ namespace realclosure {
         value(bool rat):m_ref_count(0), m_rational(rat) {}
         bool is_rational() const { return m_rational; }
         mpbqi const & interval() const { return m_interval; }
+        mpbqi & interval() { return m_interval; }
     };
 
     struct rational_value : public value {
@@ -160,52 +163,22 @@ namespace realclosure {
     
     struct extension;
     bool rank_lt(extension * r1, extension * r2);
-    
-    struct polynomial_expr {
-        // The values occurring in this polynomial m_p may only contain extensions that are smaller than m_ext.
-        // The polynomial m_p must not be the constant polynomial on m_ext. That is,
-        // it contains a nonzero coefficient at position k > 0. It is not a constant polynomial on m_ext.
-        polynomial     m_p; 
-        extension *    m_ext;
-        bool           m_real; //!< True if the polynomial expression does not depend on infinitesimal values
-        mpbqi          m_interval; //!< approximation as an interval with binary rational end-points
-        polynomial_expr():m_ext(0), m_real(false) {}
-        extension * ext() const { return m_ext; }
-        bool is_real() const { return m_real; }
-        polynomial const & p() const { return m_p; }
-        mpbqi const & interval() const { return m_interval; }
-    };
 
     struct rational_function_value : public value {
-        // We assume that a null polynomial_expr denotes 1.
-        // m_numerator OR m_denominator must be different from NULL
-        polynomial_expr * m_numerator;   
-        polynomial_expr * m_denominator; 
+        polynomial   m_numerator;
+        polynomial   m_denominator;
+        extension *  m_ext;
+        bool         m_real; //!< True if the polynomial expression does not depend on infinitesimal values.
+        rational_function_value(extension * ext):value(false), m_ext(ext), m_real(false) {}
         
-        polynomial_expr * num() const { return m_numerator; }
-        polynomial_expr * den() const { return m_denominator; }
-        
-        rational_function_value(polynomial_expr * num, polynomial_expr * den):value(false), m_numerator(num), m_denominator(den) {
-            SASSERT(num != 0 || den != 0);
-        }
+        polynomial const & num() const { return m_numerator; }
+        polynomial & num() { return m_numerator; }
+        polynomial const & den() const { return m_denominator; }
+        polynomial & den() { return m_denominator; }
 
-        extension * ext() const {
-            if (den() == 0)
-                return num()->ext();
-            else if (num() == 0 || rank_lt(num()->ext(), den()->ext()))
-                return den()->ext();
-            else
-                return num()->ext();
-        }
-
-        bool is_real() const { 
-            if (den() == 0)
-                return num()->is_real();
-            else if (num() == 0)
-                return den()->is_real();
-            else
-                return num()->is_real() && den()->is_real();
-        }
+        extension * ext() const { return m_ext; }
+        bool is_real() const { return m_real; }
+        void set_real(bool f) { m_real = f; }
     };
 
     typedef ptr_vector<value> value_vector;
@@ -244,6 +217,7 @@ namespace realclosure {
         bool is_transcendental() const { return knd() == TRANSCENDENTAL; }
 
         mpbqi const & interval() const { return m_interval; }
+        mpbqi & interval() { return m_interval; }
     };
 
     bool rank_lt(extension * r1, extension * r2) {
@@ -417,16 +391,13 @@ namespace realclosure {
             // TODO
         }
 
-        void finalize_polynomial(polynomial & p) {
+        /**
+           \brief Reset the given polynomial.
+           That is, after the call p is the 0 polynomial.
+        */
+        void reset_p(polynomial & p) {
             dec_ref(p.size(), p.c_ptr());
             p.finalize(allocator());
-        }
-
-        void del_polynomial_expr(polynomial_expr * p) {
-            finalize_polynomial(p->m_p);
-            bqim().del(p->m_interval);
-            dec_ref_ext(p->m_ext);
-            allocator().deallocate(sizeof(polynomial_expr), p);
         }
 
         void del_rational(rational_value * v) {
@@ -437,10 +408,9 @@ namespace realclosure {
 
         void del_rational_function(rational_function_value * v) {
             bqim().del(v->m_interval);
-            if (v->num())
-                del_polynomial_expr(v->num());
-            if (v->den())
-                del_polynomial_expr(v->den());
+            reset_p(v->num());
+            reset_p(v->den());
+            dec_ref_ext(v->ext());
             allocator().deallocate(sizeof(rational_function_value), v);
         }
 
@@ -452,11 +422,11 @@ namespace realclosure {
         }
 
         void del_algebraic(algebraic * a) {
-            finalize_polynomial(a->m_p);
+            reset_p(a->m_p);
             bqim().del(a->m_interval);
             unsigned sz = a->m_signs.size();
             for (unsigned i = 0; i < sz; i++) {
-                finalize_polynomial(a->m_signs[i].first);
+                reset_p(a->m_signs[i].first);
             }
             allocator().deallocate(sizeof(algebraic), a);
         }
@@ -544,11 +514,20 @@ namespace realclosure {
         }
 
         /**
-           \brief Return true if v is one.
+           \brief Return true if v is represented as rational value one.
         */
-        bool is_one(value * v) const {
-            // TODO: make the check complete
+        bool is_rational_one(value * v) const {
             return !is_zero(v) && is_nz_rational(v) && qm().is_one(to_mpq(v));
+        }
+
+        /**
+           \brief Return true if v is the value one;
+         */
+        bool is_one(value * v) const {
+            if (is_rational_one(v))
+                return true;
+            // TODO: check if v is equal to one.
+            return false;
         }
 
         /**
@@ -651,7 +630,22 @@ namespace realclosure {
             SASSERT(ext->is_algebraic());
             return static_cast<algebraic*>(ext);
         }
-
+        
+        /**
+           \brief Return True if the given extension is a Real value.
+           The result is approximate for algebraic extensions.
+             For algebraic extensions, we have
+               - true result is always correct (i.e., the extension is really a real value)
+               - false result is approximate (i.e., the extension may be a real value although it is a root of a polynomial that contains non-real coefficients)
+                   Example: Assume eps is an infinitesimal, and pi is 3.14... . 
+                   Assume also that ext is the unique root between (3, 4) of the following polynomial:
+                          x^2 - (pi + eps)*x + pi*ext 
+                   Thus, x is pi, but the system will return false, since its defining polynomial has infinitesimal
+                   coefficients. In the future, to make everything precise, we should be able to factor the polynomial
+                   above as 
+                          (x - eps)*(x - pi)
+                   and then detect that x is actually the root of (x - pi).
+        */
         bool is_real(extension * ext) {
             switch (ext->knd()) {
             case extension::TRANSCENDENTAL: return true;
@@ -663,48 +657,113 @@ namespace realclosure {
             }
         }
 
-        polynomial_expr * mk_polynomial_expr(unsigned sz, value * const * p, extension * ext, mpbqi & interval) {
-            SASSERT(sz > 1);
-            SASSERT(p[sz-1] != 0);
-            polynomial_expr * r = new (allocator()) polynomial_expr();
-            r->m_p.set(allocator(), sz, p);
-            inc_ref(sz, p);
-            inc_ref_ext(ext);
-            r->m_ext = ext;
-            realclosure::swap(r->m_interval, interval);
-            r->m_real = is_real(ext);
-            for (unsigned i = 0; i < sz && r->m_real; i++) {
+        /**
+           \brief Return true if v is definitely a real value.
+        */
+        bool is_real(value * v) {
+            if (v->is_rational())
+                return true;
+            else 
+                return to_rational_function(v)->is_real();
+        }
+
+        bool is_real(unsigned sz, value * const * p) {
+            for (unsigned i = 0; i < sz; i++)
                 if (!is_real(p[i]))
-                    r->m_real = false;
-            }
-            return r;
+                    return false;
+            return true;
         }
 
-        void updt_interval(rational_function_value & v) {
-            if (v.den() == 0) {
-                bqim().set(v.m_interval, v.num()->interval());
-            }
-            else if (v.num() == 0) {
-                bqim().inv(v.den()->interval(), v.m_interval);
-            }
-            else {
-                bqim().div(v.num()->interval(), v.den()->interval(), v.m_interval);
-            }
+        /**
+           \brief Set the polynomial p with the given coefficients as[0], ..., as[n-1]
+        */
+        void set_p(polynomial & p, unsigned n, value * const * as) {
+            SASSERT(n > 0);
+            SASSERT(!is_zero(as[n - 1]));
+            reset_p(p);
+            p.set(allocator(), n, as);
+            inc_ref(n, as);
         }
 
+        /**
+           \brief Set the polynomial p as the constant polynomial 1.
+        */
+        void set_p_one(polynomial & p) {
+            set_p(p, 1, &m_one);
+        }
+
+        /**
+           \brief Set the lower bound of the given interval.
+        */
+        void set_lower_core(mpbqi & a, mpbq const & k, bool open, bool inf) {
+            bqm().set(a.lower(), k);
+            a.set_lower_is_open(open);
+            a.set_lower_is_inf(inf);
+        }
+
+        /**
+           \brief a.lower <- k
+        */
+        void set_lower(mpbqi & a, mpbq const & k, bool open = true) {
+            set_lower_core(a, k, open, false);
+        }
+
+        /**
+           \brief Set the upper bound of the given interval.
+        */
+        void set_upper_core(mpbqi & a, mpbq const & k, bool open, bool inf) {
+            bqm().set(a.upper(), k);
+            a.set_upper_is_open(open);
+            a.set_upper_is_inf(inf);
+        }
+
+        /**
+           \brief a.upper <- k
+        */
+        void set_upper(mpbqi & a, mpbq const & k, bool open = true) {
+            set_upper_core(a, k, open, false);
+        }
+
+        /**
+           \brief a <- b
+        */
+        void set_interval(mpbqi & a, mpbqi const & b) {
+            set_lower_core(a, b.lower(), b.lower_is_open(), b.lower_is_inf());
+            set_upper_core(a, b.upper(), b.upper_is_open(), b.upper_is_inf());
+        }
+
+        /**
+           \brief Create a value using the given extension.
+        */
+        rational_function_value * mk_value(extension * ext) {
+            rational_function_value * v = alloc(rational_function_value, ext);
+            inc_ref_ext(ext);
+            
+            value * num[2] = { 0, one() };
+            set_p(v->num(), 2, num); 
+            set_p_one(v->den());
+            
+            set_interval(v->interval(), ext->interval());
+            
+            v->set_real(is_real(ext));
+
+            return v;
+        }
+
+        /**
+           \brief Create a new infinitesimal.
+        */
         void mk_infinitesimal(symbol const & n, numeral & r) {
             unsigned idx = next_infinitesimal_idx();
             infinitesimal * eps = alloc(infinitesimal, idx, n);
             m_extensions[extension::INFINITESIMAL].push_back(eps);
-            value * p[2] = { 0, one() };
-            mpbq zero(0);
-            mpbq tiny(1, m_ini_precision);
-            mpbqi interval(zero, tiny);
-            polynomial_expr * numerator = mk_polynomial_expr(2, p, eps, interval);
-            rational_function_value * v = alloc(rational_function_value, numerator, 0);
-            r.m_value = v;
+
+            set_lower(eps->interval(), mpbq(0));
+            set_upper(eps->interval(), mpbq(1, m_ini_precision));
+            
+            r.m_value = mk_value(eps);
             inc_ref(r.m_value);
-            updt_interval(*v);
+
             SASSERT(sign(r) > 0);
             SASSERT(!is_real(r));
         }
@@ -738,17 +797,6 @@ namespace realclosure {
             SASSERT(is_zero(a));
         }
 
-        int sign(polynomial_expr * p) {
-            if (p == 0) {
-                // Remark: The null polynomial expression denotes 1
-                return 1;
-            }
-            else {
-                SASSERT(!bqim().contains_zero(p->m_interval));
-                return bqim().is_P(p->m_interval) ? 1 : -1;
-            }
-        }
-        
         int sign(numeral const & a) {
             if (is_zero(a))
                 return 0;
@@ -756,8 +804,9 @@ namespace realclosure {
                 return qm().is_pos(to_mpq(a)) ? 1 : -1;
             }
             else {
-                rational_function_value * v = to_rational_function(a);
-                return sign(v->num()) * sign(v->den());
+                value * v = a.m_value;
+                SASSERT(!bqim().contains_zero(v->interval()));
+                return bqim().is_P(v->interval()) ? 1 : -1;
             }
         }
         
@@ -772,7 +821,7 @@ namespace realclosure {
             }
         }
 
-        bool is_real(value * v) {
+        bool is_real(value * v) const {
             if (is_zero(v) || is_nz_rational(v))
                 return true;
             else
@@ -780,10 +829,7 @@ namespace realclosure {
         }
         
         bool is_real(numeral const & a) const {
-            if (is_zero(a) || is_nz_rational(a)) 
-                return true;
-            else 
-                return to_rational_function(a)->is_real();
+            return is_real(a.m_value);
         }
 
         void mpq_to_mpbqi(mpq const & q, mpbqi & interval) {
@@ -986,7 +1032,7 @@ namespace realclosure {
         */
         void div(value_ref_buffer & p, value * a) {
             SASSERT(!is_zero(a));
-            if (is_one(a))
+            if (is_rational_one(a))
                 return;
             unsigned sz = p.size();
             for (unsigned i = 0; i < sz; i++)
@@ -1102,12 +1148,17 @@ namespace realclosure {
         */
         void mk_monic(value_ref_buffer & p) {
             unsigned sz = p.size();
-            if (sz > 0 && !is_one(p[sz-1])) {
+            if (sz > 0) {
                 SASSERT(p[sz-1] != 0);
-                for (unsigned i = 0; i < sz - 1; i++) {
-                    p.set(i, div(p[i], p[sz-1]));
+                if (!is_one(p[sz-1])) {
+                    for (unsigned i = 0; i < sz - 1; i++) {
+                        p.set(i, div(p[i], p[sz-1]));
+                    }
                 }
-                p.set(0, one());
+                // I perform the following assignment even when is_one(p[sz-1]) returns true, 
+                // Reason: the leading coefficient may be equal to one but may not be encoded using
+                // the rational value 1.
+                p.set(sz-1, one());
             }
         }
 
@@ -1339,7 +1390,8 @@ namespace realclosure {
                 }
                 else {
                     rational_function_value * v = to_rational_function(a);
-                    std::swap(v->m_numerator, v->m_denominator);
+                    v->num().swap(v->den());
+                    // TODO: Invert interval
                 }
             }
             else { 
@@ -1385,13 +1437,6 @@ namespace realclosure {
                 }
             }
 
-            void mark(polynomial_expr * p) {
-                if (p == 0)
-                    return;
-                mark(p->ext());
-                mark(p->p());
-            }
-
             void mark(polynomial const & p) {
                 for (unsigned i = 0; i < p.size(); i++) {
                     mark(p[i]);
@@ -1402,6 +1447,7 @@ namespace realclosure {
                 if (v == 0 || is_nz_rational(v))
                     return;
                 rational_function_value * rf = to_rational_function(v);
+                mark(rf->ext());
                 mark(rf->num());
                 mark(rf->den());
             }
@@ -1423,7 +1469,7 @@ namespace realclosure {
                 if (i == 0)
                     display(out, p[i], compact);
                 else {
-                    if (!is_one(p[i])) {
+                    if (!is_rational_one(p[i])) {
                         out << "(";
                         display(out, p[i], compact);
                         out << ")*";
@@ -1450,8 +1496,8 @@ namespace realclosure {
             }
         };
 
-        void display_polynomial_expr(std::ostream & out, polynomial_expr const & p, bool compact) const {
-            display_polynomial(out, p.p(), display_ext_proc(*this, p.ext()), compact);
+        void display_polynomial_expr(std::ostream & out, polynomial const & p, extension * ext, bool compact) const {
+            display_polynomial(out, p, display_ext_proc(*this, ext), compact);
         }
 
         static void display_poly_sign(std::ostream & out, int s) {
@@ -1491,6 +1537,17 @@ namespace realclosure {
             }
         }
 
+        /**
+           \brief Return true if p is the constant polynomial where the coefficient is 
+           the rational value 1.
+
+           \remark This is NOT checking whether p is actually equal to 1.
+           That is, it is just checking the representation.
+        */
+        bool is_rational_one(polynomial const & p) const {
+            return p.size() == 1 && is_one(p[0]);
+        }
+
         void display(std::ostream & out, value * v, bool compact) const {
             if (v == 0)
                 out << "0";
@@ -1498,19 +1555,19 @@ namespace realclosure {
                 qm().display(out, to_mpq(v));
             else {
                 rational_function_value * rf = to_rational_function(v);
-                if (rf->den() == 0) {
-                    display_polynomial_expr(out, *rf->num(), compact);
+                if (is_rational_one(rf->den())) {
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
                 }
-                else if (rf->num() == 0) {
+                else if (is_rational_one(rf->num())) {
                     out << "1/(";
-                    display_polynomial_expr(out, *rf->den(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
                     out << ")";
                 }
                 else {
                     out << "(";
-                    display_polynomial_expr(out, *rf->num(), compact);
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
                     out << ")/(";
-                    display_polynomial_expr(out, *rf->den(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
                     out << ")";
                 }
             }
