@@ -44,6 +44,7 @@ namespace realclosure {
     public:
         struct imp;
     private:
+        friend class save_interval_ctx;
         imp * m_imp;
     public:
         manager(unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);

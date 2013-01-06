@@ -149,10 +149,16 @@ namespace realclosure {
     // ---------------------------------
 
     struct value {
-        unsigned m_ref_count; //!< Reference counter
-        bool     m_rational;  //!< True if the value is represented as an abitrary precision rational value.
-        mpbqi    m_interval;  //!< approximation as an interval with binary rational end-points
-        value(bool rat):m_ref_count(0), m_rational(rat) {}
+        unsigned m_ref_count;  //!< Reference counter
+        bool     m_rational;   //!< True if the value is represented as an abitrary precision rational value.
+        mpbqi    m_interval;   //!< approximation as an interval with binary rational end-points
+        // When performing an operation OP, we may have to make the width (upper - lower) of m_interval very small.
+        // The precision (i.e., a small interval) needed for executing OP is usually unnecessary for subsequent operations,
+        // This unnecessary precision will only slowdown the subsequent operations that do not need it.
+        // To cope with this issue, we cache the value m_interval in m_old_interval whenever the width of m_interval is below
+        // a give threshold. Then, after finishing OP, we restore the old_interval.
+        mpbqi *  m_old_interval; 
+        value(bool rat):m_ref_count(0), m_rational(rat), m_old_interval(0) {}
         bool is_rational() const { return m_rational; }
         mpbqi const & interval() const { return m_interval; }
         mpbqi & interval() { return m_interval; }
@@ -304,7 +310,7 @@ namespace realclosure {
         typedef ref_buffer<value, imp, REALCLOSURE_INI_BUFFER_SIZE> value_ref_buffer;
         typedef obj_ref<value, imp>    value_ref;
         typedef _scoped_interval<mpqi_manager> scoped_mpqi;
- 
+         
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
         unsynch_mpq_manager &          m_qm;
@@ -317,7 +323,12 @@ namespace realclosure {
         value *                        m_pi;
         mk_e_interval                  m_mk_e_interval;
         value *                        m_e;
+        ptr_vector<value>              m_to_restore; //!< Set of values v s.t. v->m_old_interval != 0
+        
+        // Parameters
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
+        int                            m_min_magnitude;
+
         volatile bool                  m_cancel;
 
         struct scoped_polynomial_seq {
@@ -380,6 +391,7 @@ namespace realclosure {
         }
 
         ~imp() {
+            restore_saved_intervals(); // to free memory
             dec_ref(m_one);
             dec_ref(m_pi);
             dec_ref(m_e);
@@ -402,6 +414,73 @@ namespace realclosure {
 
         value * one() const {
             return m_one;
+        }
+
+        /**
+           \brief Return the magnitude of the given interval.
+           The magnitude is an approximation of the size of the interval.
+        */
+        int magnitude(mpbq const & l, mpbq const & u) {
+            SASSERT(bqm().is_nonneg(l) || bqm().is_nonpos(u));
+            int l_k = l.k();
+            int u_k = u.k();
+            if (l_k == u_k)
+                return bqm().magnitude_ub(l);
+            if (bqm().is_nonneg(l))
+                return qm().log2(u.numerator()) - qm().log2(l.numerator()) - u_k + l_k - u_k;
+            else 
+                return qm().mlog2(u.numerator()) - qm().mlog2(l.numerator()) - u_k + l_k - u_k;
+        }
+
+        /**
+           \brief Return the magnitude of the given interval.
+           The magnitude is an approximation of the size of the interval.
+        */
+        int magnitude(mpbqi const & i) {
+            return magnitude(i.lower(), i.upper());
+        }
+        
+        /**
+           \brief Return true if the magnitude of the given interval is less than the parameter m_min_magnitude
+        */
+        bool too_small(mpbqi const & i) {
+            return magnitude(i) < m_min_magnitude;
+        }
+
+        /**
+           \brief Save the current interval (i.e., approximation) of the given value.
+        */
+        void save_interval(value * v) {
+            if (v->m_old_interval != 0)
+                return; // interval was already saved.
+            m_to_restore.push_back(v);
+            inc_ref(v);
+            v->m_old_interval = new (allocator()) mpbqi();
+            set_interval(*(v->m_old_interval), v->m_interval);
+        }
+
+        /**
+           \brief Save the current interval (i.e., approximation) of the given value IF it is too small (i.e., too_small(v) == True).
+        */
+        void save_interval_if_too_small(value * v) {
+            if (too_small(v->m_interval))
+                save_interval(v);
+        }
+
+        /**
+           \brief Restore the saved intervals (approximations) of RCF values.
+        */
+        void restore_saved_intervals() {
+            unsigned sz = m_to_restore.size();
+            for (unsigned i = 0; i < sz; i++) {
+                value * v = m_to_restore[i];
+                set_interval(v->m_interval, *(v->m_old_interval));
+                bqim().del(*(v->m_old_interval));
+                allocator().deallocate(sizeof(mpbqi), v->m_old_interval);
+                v->m_old_interval = 0;
+                dec_ref(v);
+            }
+            m_to_restore.reset();
         }
 
         void cleanup(extension::kind k) {
@@ -427,7 +506,8 @@ namespace realclosure {
         }
         
         void updt_params(params_ref const & p) {
-            m_ini_precision = p.get_uint("initial_precision", 24);
+            m_ini_precision  = p.get_uint("initial_precision", 24);
+            m_min_magnitude  = -static_cast<int>(p.get_uint("min_mag", 64));
             // TODO
         }
 
@@ -1526,7 +1606,7 @@ namespace realclosure {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_one(den[0]));
+                SASSERT(is_rational_one(den[0]));
                 return num[0];
             }
             rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
@@ -1704,7 +1784,7 @@ namespace realclosure {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_one(den[0]));
+                SASSERT(is_rational_one(den[0]));
                 return num[0];
             }
             rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
@@ -2142,6 +2222,14 @@ namespace realclosure {
         }
     };
 
+    // Helper object for restoring the value intervals.
+    class save_interval_ctx {
+        manager::imp * m;
+    public:
+        save_interval_ctx(manager const * _this):m(_this->m_imp) { SASSERT (m); }
+        ~save_interval_ctx() { m->restore_saved_intervals(); }
+    };
+
     manager::manager(unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
         m_imp = alloc(imp, m, p, a);
     }
@@ -2195,6 +2283,7 @@ namespace realclosure {
     }
 
     void manager::isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
+        save_interval_ctx ctx(this);
         m_imp->isolate_roots(n, as, roots);
     }
 
@@ -2203,6 +2292,7 @@ namespace realclosure {
     }
 
     int manager::sign(numeral const & a) {
+        save_interval_ctx ctx(this);
         return m_imp->sign(a);
     }
         
@@ -2247,14 +2337,17 @@ namespace realclosure {
     }
 
     void manager::root(numeral const & a, unsigned k, numeral & b) {
+        save_interval_ctx ctx(this);
         m_imp->root(a, k, b);
     }
       
     void manager::power(numeral const & a, unsigned k, numeral & b) {
+        save_interval_ctx ctx(this);
         m_imp->power(a, k, b);
     }
 
     void manager::add(numeral const & a, numeral const & b, numeral & c) {
+        save_interval_ctx ctx(this);
         m_imp->add(a, b, c);
     }
 
@@ -2265,26 +2358,32 @@ namespace realclosure {
     }
 
     void manager::sub(numeral const & a, numeral const & b, numeral & c) {
+        save_interval_ctx ctx(this);
         m_imp->sub(a, b, c);
     }
 
     void manager::mul(numeral const & a, numeral const & b, numeral & c) {
+        save_interval_ctx ctx(this);
         m_imp->mul(a, b, c);
     }
 
     void manager::neg(numeral & a) {
+        save_interval_ctx ctx(this);
         m_imp->neg(a);
     }
 
     void manager::inv(numeral & a) {
+        save_interval_ctx ctx(this);
         m_imp->inv(a);
     }
 
     void manager::div(numeral const & a, numeral const & b, numeral & c) {
+        save_interval_ctx ctx(this);
         m_imp->div(a, b, c);
     }
 
     int manager::compare(numeral const & a, numeral const & b) {
+        save_interval_ctx ctx(this);
         return m_imp->compare(a, b);
     }
 
@@ -2333,18 +2432,22 @@ namespace realclosure {
     }
 
     void manager::select(numeral const & prev, numeral const & next, numeral & result) {
+        save_interval_ctx ctx(this);
         m_imp->select(prev, next, result);
     }
         
     void manager::display(std::ostream & out, numeral const & a) const {
+        save_interval_ctx ctx(this);
         m_imp->display(out, a);
     }
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
+        save_interval_ctx ctx(this);
         m_imp->display_decimal(out, a, precision);
     }
 
     void manager::display_interval(std::ostream & out, numeral const & a) const {
+        save_interval_ctx ctx(this);
         m_imp->display_interval(out, a);
     }
 
