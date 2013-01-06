@@ -351,4 +351,26 @@ public:
     void e(unsigned k, interval & r);
 };
 
+template<typename Manager>
+class _scoped_interval {
+public:
+    typedef typename Manager::interval interval;
+private:
+    Manager & m_manager;
+    interval  m_interval;
+public:
+    _scoped_interval(Manager & m):m_manager(m) {}
+    ~_scoped_interval() { m_manager.del(m_interval); }
+    
+    Manager & m() const { return m_manager; }
+
+    operator interval const &() const { return m_interval; }
+    operator interval&() { return m_interval; }
+    interval const & get() const { return m_interval; }
+    interval & get() { return m_interval; }
+    interval * operator->() {
+        return &m_interval;
+    }
+};
+
 #endif

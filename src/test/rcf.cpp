@@ -52,6 +52,16 @@ static void tst1() {
     std::cout << t * (eps + 1) << std::endl;
     a = 10;
     std::cout << (a + eps > a) << std::endl;
+    scoped_rcnumeral pi(m);
+    m.mk_pi(pi);
+    std::cout << pi + 1 << std::endl;
+    std::cout << decimal_pp(pi + 1, 1) << std::endl;
+    scoped_rcnumeral e(m);
+    m.mk_e(e);
+    t = e + (pi + 1)*2;
+    std::cout << t << std::endl;
+    std::cout << decimal_pp(t, 1) << std::endl;
+
 }
 
 void tst_rcf() {

@@ -86,6 +86,16 @@ namespace realclosure {
         void mk_transcendental(mk_interval & proc, numeral & r);
 
         /**
+           \brief r <- pi
+        */
+        void mk_pi(numeral & r);
+
+        /**
+           \brief r <- e (Euler's constant)
+        */
+        void mk_e(numeral & r);
+
+        /**
            \brief Isolate the roots of the univariate polynomial as[0] + as[1]*x + ... + as[n-1]*x^{n-1}
            The roots are stored in \c roots.
         */

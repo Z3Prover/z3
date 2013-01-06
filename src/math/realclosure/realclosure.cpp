@@ -26,6 +26,7 @@ Notes:
 #include"obj_ref.h"
 #include"ref_vector.h"
 #include"ref_buffer.h"
+#include"cooperate.h"
 
 #ifndef REALCLOSURE_INI_BUFFER_SIZE
 #define REALCLOSURE_INI_BUFFER_SIZE 32
@@ -188,7 +189,7 @@ namespace realclosure {
 
     // ---------------------------------
     //
-    // Root object definition
+    // Field Extensions
     //
     // ---------------------------------
     
@@ -251,9 +252,10 @@ namespace realclosure {
 
     struct transcendental : public extension {
         symbol        m_name;
+        unsigned      m_k;
         mk_interval & m_proc;
         
-        transcendental(unsigned idx, symbol const & n, mk_interval & p):extension(TRANSCENDENTAL, idx), m_name(n), m_proc(p) {}
+        transcendental(unsigned idx, symbol const & n, mk_interval & p):extension(TRANSCENDENTAL, idx), m_name(n), m_k(0), m_proc(p) {}
 
         void display(std::ostream & out) const {
             out << m_name;
@@ -273,11 +275,36 @@ namespace realclosure {
         }
     };
 
+    // ---------------------------------
+    //
+    // Predefined transcendental mk_interval procs
+    //
+    // ---------------------------------
+    
+    struct mk_pi_interval : public mk_interval {
+        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+            im.pi(k, r);
+        }
+    };
+
+    struct mk_e_interval : public mk_interval {
+        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+            im.e(k, r);
+        }
+    };
+
+    // ---------------------------------
+    //
+    // Manager
+    //
+    // ---------------------------------
+
     struct manager::imp {
         typedef ref_vector<value, imp> value_ref_vector;
         typedef ref_buffer<value, imp, REALCLOSURE_INI_BUFFER_SIZE> value_ref_buffer;
         typedef obj_ref<value, imp>    value_ref;
-        
+        typedef _scoped_interval<mpqi_manager> scoped_mpqi;
+ 
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
         unsynch_mpq_manager &          m_qm;
@@ -286,6 +313,10 @@ namespace realclosure {
         mpbqi_manager                  m_bqim;
         ptr_vector<extension>          m_extensions[3];
         value *                        m_one;
+        mk_pi_interval                 m_mk_pi_interval;
+        value *                        m_pi;
+        mk_e_interval                  m_mk_e_interval;
+        value *                        m_e;
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
         volatile bool                  m_cancel;
 
@@ -341,6 +372,8 @@ namespace realclosure {
             mpq one(1);
             m_one = mk_rational(one);
             inc_ref(m_one);
+            m_pi = 0;
+            m_e  = 0;
             m_cancel = false;
             
             updt_params(p);
@@ -348,6 +381,8 @@ namespace realclosure {
 
         ~imp() {
             dec_ref(m_one);
+            dec_ref(m_pi);
+            dec_ref(m_e);
             if (m_own_allocator)
                 dealloc(m_allocator);
         }
@@ -360,7 +395,9 @@ namespace realclosure {
         small_object_allocator & allocator() { return *m_allocator; }
 
         void checkpoint() {
-            // TODO
+            if (m_cancel)
+                throw exception("canceled");
+            cooperate("rcf");
         }
 
         value * one() const {
@@ -690,7 +727,7 @@ namespace realclosure {
            \brief Return true if v is definitely a real value.
         */
         bool is_real(value * v) {
-            if (v->is_rational())
+            if (is_zero(v) || is_nz_rational(v))
                 return true;
             else 
                 return to_rational_function(v)->is_real();
@@ -789,8 +826,7 @@ namespace realclosure {
             set_lower(eps->interval(), mpbq(0));
             set_upper(eps->interval(), mpbq(1, m_ini_precision));
             
-            r.m_value = mk_rational_function_value(eps);
-            inc_ref(r.m_value);
+            set(r, mk_rational_function_value(eps));
 
             SASSERT(sign(r) > 0);
             SASSERT(!is_real(r));
@@ -804,8 +840,31 @@ namespace realclosure {
             mk_infinitesimal(symbol(next_infinitesimal_idx()), r);
         }
 
+        void refine_transcedental_interval(transcendental * t) {
+            scoped_mpqi i(qim());
+            t->m_k++;
+            t->m_proc(t->m_k, qim(), i);
+            unsigned k = std::max(t->m_k, m_ini_precision);
+            scoped_mpbq l(bqm());
+            mpq_to_mpbqi(i->m_lower, t->interval(), k);
+            // save lower
+            bqm().set(l, t->interval().lower()); 
+            mpq_to_mpbqi(i->m_upper, t->interval(), k);
+            bqm().set(t->interval().lower(), l);
+        }
+
         void mk_transcendental(symbol const & n, mk_interval & proc, numeral & r) {
-            // TODO
+            unsigned idx = next_transcendental_idx();
+            transcendental * t = alloc(transcendental, idx, n, proc);
+            m_extensions[extension::TRANSCENDENTAL].push_back(t);
+            
+            while (bqim().contains_zero(t->interval())) {
+                checkpoint();
+                refine_transcedental_interval(t);
+            }
+            set(r, mk_rational_function_value(t));
+
+            SASSERT(is_real(r));
         }
         
         void mk_transcendental(char const * p, mk_interval & proc, numeral & r) {
@@ -814,6 +873,28 @@ namespace realclosure {
 
         void mk_transcendental(mk_interval & proc, numeral & r) {
             mk_transcendental(symbol(next_transcendental_idx()), proc, r);
+        }
+
+        void mk_pi(numeral & r) {
+            if (m_pi) {
+                set(r, m_pi);
+            }
+            else {
+                mk_transcendental(symbol("pi"), m_mk_pi_interval, r);
+                m_pi = r.m_value;
+                inc_ref(m_pi);
+            }
+        }
+
+        void mk_e(numeral & r) {
+            if (m_e) {
+                set(r, m_e);
+            }
+            else {
+                mk_transcendental(symbol("e"), m_mk_e_interval, r);
+                m_e = r.m_value;
+                inc_ref(m_e);
+            }
         }
 
         void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
@@ -863,7 +944,7 @@ namespace realclosure {
             return is_real(a.m_value);
         }
 
-        void mpq_to_mpbqi(mpq const & q, mpbqi & interval) {
+        void mpq_to_mpbqi(mpq const & q, mpbqi & interval, unsigned k) {
             interval.set_lower_is_inf(false);
             interval.set_upper_is_inf(false);
             if (bqm().to_mpbq(q, interval.lower())) {
@@ -879,7 +960,7 @@ namespace realclosure {
                 if (qm().is_neg(q)) {
                     ::swap(interval.lower(), interval.upper());
                 }
-                while (bqim().contains_zero(interval) || !check_precision(interval, m_ini_precision)) {
+                while (bqim().contains_zero(interval) || !check_precision(interval, k)) {
                     checkpoint();
                     bqm().refine_lower(q, interval.lower(), interval.upper());
                     bqm().refine_upper(q, interval.lower(), interval.upper());
@@ -890,7 +971,7 @@ namespace realclosure {
         void initialize_rational_value_interval(value * a) {
             // For rational values, we only compute the binary intervals if needed.
             SASSERT(is_nz_rational(a));
-            mpq_to_mpbqi(to_mpq(a), a->m_interval);
+            mpq_to_mpbqi(to_mpq(a), a->m_interval, m_ini_precision);
         }
 
         mpbqi const & interval(value * a) const {
@@ -974,7 +1055,17 @@ namespace realclosure {
         }
       
         void power(numeral const & a, unsigned k, numeral & b) {
-            // TODO
+            unsigned mask = 1;
+            value_ref power(*this);
+            power = a.m_value;
+            set(b, one());
+            while (mask <= k) {
+                checkpoint();
+                if (mask & k)
+                    set(b, mul(b.m_value, power));
+                power = mul(power, power);
+                mask = mask << 1;
+            }
         }
 
         /**
@@ -2093,6 +2184,14 @@ namespace realclosure {
 
     void manager::mk_transcendental(mk_interval & proc, numeral & r) {
         m_imp->mk_transcendental(proc, r);
+    }
+
+    void manager::mk_pi(numeral & r) {
+        m_imp->mk_pi(r);
+    }
+
+    void manager::mk_e(numeral & r) {
+        m_imp->mk_e(r);
     }
 
     void manager::isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
