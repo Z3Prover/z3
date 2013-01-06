@@ -47,6 +47,7 @@ DEFINE_TYPE(Z3_func_interp);
 #define Z3_func_interp_opt Z3_func_interp
 DEFINE_TYPE(Z3_func_entry);
 DEFINE_TYPE(Z3_fixedpoint);
+DEFINE_TYPE(Z3_rcf_num);
 DEFINE_VOID(Z3_theory_data);
 #endif
 
@@ -1190,6 +1191,7 @@ typedef enum
   def_Type('FUNC_ENTRY',       'Z3_func_entry',       'FuncEntryObj')
   def_Type('FIXEDPOINT',       'Z3_fixedpoint',       'FixedpointObj')
   def_Type('PARAM_DESCRS',     'Z3_param_descrs',     'ParamDescrs')
+  def_Type('RCF_NUM',          'Z3_rcf_num',          'RCFNumObj')
 */
 
 #ifdef Conly

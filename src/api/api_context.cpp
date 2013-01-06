@@ -25,6 +25,7 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_util.h"
 #include"reg_decl_plugins.h"
+#include"realclosure.h"
 
 // The install_tactics procedure is automatically generated
 void install_tactics(tactic_manager & ctx);
@@ -391,6 +392,19 @@ namespace api {
             m_smtlib_parser_sorts.reset();
         }
     }
+
+    // ------------------------
+    //
+    // RCF manager
+    //
+    // -----------------------
+    realclosure::manager & context::rcfm() {
+        if (m_rcf_manager.get() == 0) {
+            m_rcf_manager = alloc(realclosure::manager, m_rcf_qm);
+        }
+        return *(m_rcf_manager.get());
+    }
+
 };
 
 

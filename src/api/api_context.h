@@ -38,6 +38,10 @@ namespace smtlib {
     class parser;
 };
 
+namespace realclosure {
+    class manager;
+};
+
 namespace api {
     Z3_search_failure mk_Z3_search_failure(smt::failure f);
        
@@ -83,7 +87,6 @@ namespace api {
 
         event_handler *            m_interruptable; // Reference to an object that can be interrupted by Z3_interrupt
 
-        pmanager                   m_pmanager;
     public:
         // Scoped obj for setting m_interruptable
         class set_interruptable {
@@ -175,7 +178,21 @@ namespace api {
         // Polynomial manager & caches
         //
         // -----------------------
+    private:
+        pmanager                   m_pmanager;
+    public:
         polynomial::manager & pm() { return m_pmanager.pm(); }
+
+        // ------------------------
+        //
+        // RCF manager
+        //
+        // -----------------------
+    private:
+        unsynch_mpq_manager              m_rcf_qm;
+        scoped_ptr<realclosure::manager> m_rcf_manager;
+    public:
+        realclosure::manager & rcfm();
 
         // ------------------------
         //
