@@ -22,19 +22,34 @@ static void tst1() {
     unsynch_mpq_manager qm;
     rcmanager m(qm);
     scoped_rcnumeral a(m);
+#if 0
     a = 10;
     std::cout << sym_pp(a) << std::endl;
-    scoped_rcnumeral eps(m);
-    m.mk_infinitesimal("eps", eps);
     std::cout << sym_pp(eps) << std::endl;
     std::cout << interval_pp(a) << std::endl;
     std::cout << interval_pp(eps) << std::endl;
+#endif
+
+    scoped_rcnumeral eps(m);
+    m.mk_infinitesimal("eps", eps);
     mpq aux;
     qm.set(aux, 1, 3);
     m.set(a, aux);
+
+#if 0    
     std::cout << interval_pp(a) << std::endl;
     std::cout << decimal_pp(eps, 4) << std::endl;
     std::cout << decimal_pp(a) << std::endl;
+    std::cout << a + eps << std::endl;
+    std::cout << a * eps << std::endl;
+    std::cout << (a + eps)*eps - eps << std::endl;
+#endif    
+    std::cout << interval_pp(a - eps*2) << std::endl;
+    std::cout << interval_pp(eps + 1) << std::endl;
+    scoped_rcnumeral t(m);
+    t = (a - eps*2) / (eps + 1);
+    std::cout << t << std::endl;
+    std::cout << t * (eps + 1) << std::endl;
 }
 
 void tst_rcf() {

@@ -78,11 +78,7 @@ public:
         return m_buffer.c_ptr();
     }
 
-    T const * operator[](unsigned idx) const {
-        return m_buffer[idx];
-    }
-
-    T * operator[](unsigned idx) {
+    T * operator[](unsigned idx) const {
         return m_buffer[idx];
     }
 
@@ -144,6 +140,7 @@ public:
             return *this;
         reset();
         append(other);
+        return *this;
     }
 };
 

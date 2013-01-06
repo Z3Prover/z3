@@ -175,6 +175,7 @@ public:
         return m_data + size(); 
     }
 
+    T const * c_ptr() const { return m_data; }
     T * c_ptr() { return m_data; }
 
     void swap(array & other) {
