@@ -50,6 +50,8 @@ static void tst1() {
     t = (a - eps*2) / (eps + 1);
     std::cout << t << std::endl;
     std::cout << t * (eps + 1) << std::endl;
+    a = 10;
+    std::cout << (a + eps > a) << std::endl;
 }
 
 void tst_rcf() {

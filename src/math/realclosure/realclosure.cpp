@@ -825,17 +825,20 @@ namespace realclosure {
             SASSERT(is_zero(a));
         }
 
-        int sign(numeral const & a) {
+        int sign(value * a) {
             if (is_zero(a))
                 return 0;
             else if (is_nz_rational(a)) {
                 return qm().is_pos(to_mpq(a)) ? 1 : -1;
             }
             else {
-                value * v = a.m_value;
-                SASSERT(!bqim().contains_zero(v->interval()));
-                return bqim().is_P(v->interval()) ? 1 : -1;
+                SASSERT(!bqim().contains_zero(a->interval()));
+                return bqim().is_P(a->interval()) ? 1 : -1;
             }
+        }
+
+        int sign(numeral const & a) {
+            return sign(a.m_value);
         }
         
         bool is_int(numeral const & a) {
@@ -1806,9 +1809,29 @@ namespace realclosure {
             set(c, div(a.m_value, b.m_value));
         }
 
+        int compare(value * a, value * b) {
+            if (a == 0)
+                return -sign(b);
+            else if (b == 0)
+                return sign(a);
+            else if (is_nz_rational(a) && is_nz_rational(b))
+                return qm().lt(to_mpq(a), to_mpq(b)) ? -1 : 1;
+            else {
+                // TODO: try to refine interval before switching to sub/expensive approach
+                if (bqm().lt(interval(a).upper(), interval(b).lower()))
+                    return -1;
+                else if (bqm().lt(interval(b).upper(), interval(a).lower()))
+                    return 1;
+                else {
+                    value_ref diff(*this);
+                    diff = sub(a, b);
+                    return sign(diff);
+                }
+            }
+        }
+
         int compare(numeral const & a, numeral const & b) {
-            // TODO
-            return 0;
+            return compare(a.m_value, b.m_value);
         }
 
         void select(numeral const & prev, numeral const & next, numeral & result) {
