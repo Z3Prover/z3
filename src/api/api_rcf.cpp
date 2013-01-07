@@ -251,7 +251,7 @@ extern "C" {
 
     Z3_string Z3_API Z3_rcf_num_to_decimal_string(Z3_context c, Z3_rcf_num a, unsigned prec) {
         Z3_TRY;
-        LOG_Z3_rcf_num_to_string(c, a);
+        LOG_Z3_rcf_num_to_decimal_string(c, a, prec);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         std::ostringstream buffer;
