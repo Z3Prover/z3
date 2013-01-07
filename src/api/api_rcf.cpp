@@ -133,7 +133,7 @@ extern "C" {
         for (unsigned i = 0; i < num_roots; i++) {
             roots[i] = from_rcnumeral(rs[i]);
         }
-        return num_roots;
+        RETURN_Z3_rcf_mk_roots num_roots;
         Z3_CATCH_RETURN(0);
     }
 
