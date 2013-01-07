@@ -2500,10 +2500,10 @@ namespace realclosure {
             else if (is_nz_rational(a) && is_nz_rational(b))
                 return qm().lt(to_mpq(a), to_mpq(b)) ? -1 : 1;
             else {
-                // TODO: try to refine interval before switching to sub/expensive approach
-                if (bqm().lt(interval(a).upper(), interval(b).lower()))
+                // TODO: try to refine interval before switching to sub+sign approach
+                if (bqim().before(interval(a), interval(b)))
                     return -1;
-                else if (bqm().lt(interval(b).upper(), interval(a).lower()))
+                else if (bqim().before(interval(b), interval(a)))
                     return 1;
                 else {
                     value_ref diff(*this);

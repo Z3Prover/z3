@@ -201,6 +201,11 @@ public:
     bool eq(interval const & a, interval const & b) const;
 
     /**
+       \brief Return true if all values in 'a' are less than all values in 'b'.
+    */
+    bool before(interval const & a, interval const & b) const;
+
+    /**
        \brief Set lower bound to -oo.
     */
     void reset_lower(interval & a);
