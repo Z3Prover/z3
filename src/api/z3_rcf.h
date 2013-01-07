@@ -27,18 +27,11 @@ extern "C" {
 #endif // __cplusplus
 
     /**
-       \brief Increment the reference counter of a RCF numeral.
-    
-       def_API('Z3_rcf_inc_ref', VOID, (_in(CONTEXT), _in(RCF_NUM)))
-    */
-    void Z3_API Z3_rcf_inc_ref(__in Z3_context c, __in Z3_rcf_num a);
+       \brief Delete a RCF numeral created using the RCF API.
 
-    /**
-       \brief Decrement the reference counter of a RCF numeral.
-
-       def_API('Z3_rcf_dec_ref', VOID, (_in(CONTEXT), _in(RCF_NUM)))
+       def_API('Z3_rcf_del', VOID, (_in(CONTEXT), _in(RCF_NUM)))
     */
-    void Z3_API Z3_rcf_dec_ref(__in Z3_context c, __in Z3_rcf_num a);
+    void Z3_API Z3_rcf_del(__in Z3_context c, __in Z3_rcf_num a);
 
     /**
        \brief Return a RCF rational using the given string.
@@ -74,6 +67,17 @@ extern "C" {
        def_API('Z3_rcf_mk_infinitesimal', RCF_NUM, (_in(CONTEXT), _in(STRING)))
     */
     Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(__in Z3_context c, __in Z3_string name);
+
+    /**
+       \brief Store in roots the roots of the polynomial <tt>a[n-1]*x^{n-1} + ... + a[0]</tt>.
+       The output vector \c roots must have size \c n. 
+       It returns the number of roots of the polynomial.
+
+       \pre The input polynomial is not the zero polynomial. 
+
+       def_API('Z3_rcf_mk_roots', UINT, (_in(CONTEXT), _in(UINT), _in_array(1, RCF_NUM), _out_array(1, RCF_NUM)))
+    */
+    unsigned Z3_API Z3_rcf_mk_roots(__in Z3_context c, __in unsigned n, __in_ecount(n) Z3_rcf_num const a[], __out_ecount(n) Z3_rcf_num roots[]);
 
     /**
        \brief Return the value a + b. 

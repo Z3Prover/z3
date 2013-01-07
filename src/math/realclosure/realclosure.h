@@ -278,6 +278,10 @@ namespace realclosure {
         value * m_value;
     public:
         num():m_value(0) {}
+
+        // Low level functions for implementing the C API
+        void * c_ptr() { return m_value; }
+        static num mk(void * ptr) { num r; r.m_value = reinterpret_cast<value*>(ptr); return r; }
     };
 };
 

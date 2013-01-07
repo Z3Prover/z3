@@ -1082,8 +1082,84 @@ namespace realclosure {
             }
         }
 
-        void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
+        /**
+           \brief Root isolation for polynomials that are
+                   - nonlinear (degree > 2)
+                   - zero is not a root
+                   - square free
+                   - nonconstant
+        */
+        void nl_nz_sqf_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+            SASSERT(n > 2);
+            SASSERT(!is_zero(as[0])); 
+            SASSERT(!is_zero(as[n-1]));
             // TODO
+        }
+
+        /**
+           \brief Root isolation for polynomials that are
+                   - zero is not a root
+                   - square free
+                   - nonconstant
+        */
+        void nz_sqf_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+            SASSERT(n > 1);
+            SASSERT(!is_zero(as[0])); 
+            SASSERT(!is_zero(as[n-1]));
+            if (n == 2) {
+                // we don't need a field extension for linear polynomials.
+                numeral r;
+                value_ref neg_as_0(*this);
+                neg_as_0 = neg(as[0]);
+                set(r, div(neg_as_0, as[1]));
+                roots.push_back(r);
+            }
+            else {
+                nl_nz_sqf_isolate_roots(n, as, roots); 
+            }
+        }
+        
+        /**
+           \brief Root isolation for polynomials where 0 is not a root.
+        */
+        void nz_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+            SASSERT(n > 0);
+            SASSERT(!is_zero(as[0])); 
+            SASSERT(!is_zero(as[n-1]));
+            if (n == 1) {
+                // constant polynomial
+                return; 
+            }
+            value_ref_buffer sqf(*this);
+            square_free(n, as, sqf);
+            nz_sqf_isolate_roots(sqf.size(), sqf.c_ptr(), roots);
+        }
+
+        /**
+           \brief Root isolation entry point.
+        */
+        void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
+            SASSERT(n > 0);
+            SASSERT(!is_zero(as[n-1]));
+            if (n == 1) {
+                // constant polynomial
+                return; 
+            }
+            unsigned i = 0;
+            for (; i < n; i++) {
+                if (!is_zero(as[i]))
+                    break;
+            }
+            SASSERT(i < n);
+            SASSERT(!is_zero(as[i]));
+            ptr_buffer<value> as_values;
+            for (; i < n; i++)
+                as_values.push_back(as[i].m_value);
+            nz_isolate_roots(as_values.size(), as_values.c_ptr(), roots);
+            if (as_values.size() < n) {
+                // zero is a root
+                roots.push_back(numeral());
+            }
         }
 
         void reset(numeral & a) {
