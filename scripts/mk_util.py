@@ -1439,7 +1439,7 @@ class MLComponent(Component):
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, OCAML_LIB, self.to_src_dir))
+            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I"%s" -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, OCAML_LIB, self.to_src_dir))
             if IS_WINDOWS:
                 out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
             else:
