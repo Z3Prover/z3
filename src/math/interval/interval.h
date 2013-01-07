@@ -371,6 +371,9 @@ public:
     interval * operator->() {
         return &m_interval;
     }
+    interval const * operator->() const {
+        return &m_interval;
+    }
 };
 
 #endif

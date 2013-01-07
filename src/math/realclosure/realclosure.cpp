@@ -309,7 +309,8 @@ namespace realclosure {
         typedef ref_vector<value, imp> value_ref_vector;
         typedef ref_buffer<value, imp, REALCLOSURE_INI_BUFFER_SIZE> value_ref_buffer;
         typedef obj_ref<value, imp>    value_ref;
-        typedef _scoped_interval<mpqi_manager> scoped_mpqi;
+        typedef _scoped_interval<mpqi_manager>  scoped_mpqi;
+        typedef _scoped_interval<mpbqi_manager> scoped_mpbqi;
          
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
@@ -328,6 +329,9 @@ namespace realclosure {
         // Parameters
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
         int                            m_min_magnitude;
+        unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
+        scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
+        scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
 
         volatile bool                  m_cancel;
 
@@ -379,7 +383,9 @@ namespace realclosure {
             m_qm(qm),
             m_bqm(m_qm),
             m_qim(m_qm),
-            m_bqim(m_bqm) {
+            m_bqim(m_bqm),
+            m_plus_inf_approx(m_bqm),
+            m_minus_inf_approx(m_bqm) {
             mpq one(1);
             m_one = mk_rational(one);
             inc_ref(m_one);
@@ -400,7 +406,7 @@ namespace realclosure {
         }
 
         unsynch_mpq_manager & qm() const { return m_qm; }
-        mpbq_manager & bqm() { return m_bqm; }
+        mpbq_config::numeral_manager & bqm() { return m_bqm; }
         mpqi_manager & qim() { return m_qim; }
         mpbqi_manager & bqim() { return m_bqim; }
         mpbqi_manager const & bqim() const { return m_bqim; }
@@ -421,23 +427,43 @@ namespace realclosure {
            The magnitude is an approximation of the size of the interval.
         */
         int magnitude(mpbq const & l, mpbq const & u) {
-            SASSERT(bqm().is_nonneg(l) || bqm().is_nonpos(u));
-            int l_k = l.k();
-            int u_k = u.k();
-            if (l_k == u_k)
-                return bqm().magnitude_ub(l);
-            if (bqm().is_nonneg(l))
-                return qm().log2(u.numerator()) - qm().log2(l.numerator()) - u_k + l_k - u_k;
-            else 
-                return qm().mlog2(u.numerator()) - qm().mlog2(l.numerator()) - u_k + l_k - u_k;
+            SASSERT(bqm().ge(u, l));
+            scoped_mpbq w(bqm());
+            bqm().sub(u, l, w);
+            if (bqm().is_zero(w))
+                return INT_MIN;
+            SASSERT(bqm().is_pos(w));
+            return bqm().magnitude_ub(w);
+        }
+        
+        /**
+           \brief Return the magnitude of the given interval.
+           The magnitude is an approximation of the size of the interval.
+        */
+        int magnitude(mpbqi const & i) {
+            if (i.lower_is_inf() || i.upper_is_inf())
+                return INT_MAX;
+            else
+                return magnitude(i.lower(), i.upper());
         }
 
         /**
            \brief Return the magnitude of the given interval.
            The magnitude is an approximation of the size of the interval.
         */
-        int magnitude(mpbqi const & i) {
-            return magnitude(i.lower(), i.upper());
+        int magnitude(mpq const & l, mpq const & u) {
+            SASSERT(qm().ge(u, l));
+            scoped_mpq w(qm());
+            qm().sub(u, l, w);
+            if (qm().is_zero(w))
+                return INT_MIN;
+            SASSERT(qm().is_pos(w));
+            return static_cast<int>(qm().log2(w.get().numerator())) + 1 - static_cast<int>(qm().log2(w.get().denominator()));
+        }
+
+        int magnitude(scoped_mpqi const & i) {
+            SASSERT(!i->m_lower_inf && !i->m_upper_inf);
+            return magnitude(i->m_lower, i->m_upper);
         }
         
         /**
@@ -445,6 +471,34 @@ namespace realclosure {
         */
         bool too_small(mpbqi const & i) {
             return magnitude(i) < m_min_magnitude;
+        }
+
+#define SMALL_UNSIGNED 1 << 16
+        static unsigned inc_precision(unsigned prec, unsigned inc) {
+            if (prec < SMALL_UNSIGNED)
+                return prec + inc;
+            else
+                return prec;
+        }
+
+        struct scoped_set_div_precision {
+            mpbq_config::numeral_manager & m_bqm;
+            unsigned                       m_old_precision;
+            scoped_set_div_precision(mpbq_config::numeral_manager & bqm, unsigned prec):m_bqm(bqm) {
+                m_old_precision = m_bqm.m_div_precision;
+                m_bqm.m_div_precision = prec;
+            }
+            ~scoped_set_div_precision() {
+                m_bqm.m_div_precision = m_old_precision;
+            }
+        };
+
+        /**
+           \brief c <- a/b with precision prec.
+        */
+        void div(mpbqi const & a, mpbqi const & b, unsigned prec, mpbqi & c) {
+            scoped_set_div_precision set(bqm(), prec);
+            bqim().div(a, b, c);
         }
 
         /**
@@ -507,8 +561,11 @@ namespace realclosure {
         
         void updt_params(params_ref const & p) {
             m_ini_precision  = p.get_uint("initial_precision", 24);
+            m_inf_precision  = p.get_uint("inf_precision", 24);
             m_min_magnitude  = -static_cast<int>(p.get_uint("min_mag", 64));
-            // TODO
+            bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
+            bqm().set(m_minus_inf_approx, m_plus_inf_approx);
+            bqm().neg(m_minus_inf_approx);
         }
 
         /**
@@ -832,6 +889,20 @@ namespace realclosure {
         }
 
         /**
+           \brief Return true if a is an open interval.
+        */
+        static bool is_open_interval(mpbqi const & a) {
+            return a.lower_is_inf() && a.upper_is_inf();
+        }
+
+        /**
+           \brief Return true if the interval contains zero.
+        */
+        bool contains_zero(mpbqi const & a) const {
+            return bqim().contains_zero(a);
+        }
+
+        /**
            \brief Set the lower bound of the given interval.
         */
         void set_lower_core(mpbqi & a, mpbq const & k, bool open, bool inf) {
@@ -848,6 +919,15 @@ namespace realclosure {
         }
 
         /**
+           \brief a.lower <- -oo
+        */
+        void set_lower_inf(mpbqi & a) {
+            bqm().reset(a.lower());
+            a.set_lower_is_open(true);
+            a.set_lower_is_inf(true);
+        }
+
+        /**
            \brief Set the upper bound of the given interval.
         */
         void set_upper_core(mpbqi & a, mpbq const & k, bool open, bool inf) {
@@ -861,6 +941,15 @@ namespace realclosure {
         */
         void set_upper(mpbqi & a, mpbq const & k, bool open = true) {
             set_upper_core(a, k, open, false);
+        }
+
+        /**
+           \brief a.upper <- oo
+        */
+        void set_upper_inf(mpbqi & a) {
+            bqm().reset(a.upper());
+            a.set_upper_is_open(true);
+            a.set_upper_is_inf(true);
         }
 
         /**
@@ -920,11 +1009,19 @@ namespace realclosure {
             mk_infinitesimal(symbol(next_infinitesimal_idx()), r);
         }
 
-        void refine_transcedental_interval(transcendental * t) {
+        void refine_transcendental_interval(transcendental * t) {
             scoped_mpqi i(qim());
             t->m_k++;
             t->m_proc(t->m_k, qim(), i);
-            unsigned k = std::max(t->m_k, m_ini_precision);
+            int m = magnitude(i);
+            TRACE("rcf", 
+                  tout << "refine_transcendental_interval rational: " << m << "\nrational interval: "; 
+                  qim().display(tout, i); tout << std::endl;);
+            unsigned k;
+            if (m >= 0)
+                k = m_ini_precision;
+            else
+                k = inc_precision(-m, 8);
             scoped_mpbq l(bqm());
             mpq_to_mpbqi(i->m_lower, t->interval(), k);
             // save lower
@@ -933,14 +1030,22 @@ namespace realclosure {
             bqm().set(t->interval().lower(), l);
         }
 
+        void refine_transcendental_interval(transcendental * t, unsigned prec) {
+            while (!check_precision(t->interval(), prec)) {
+                TRACE("rcf", tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
+                checkpoint();
+                refine_transcendental_interval(t);
+            }
+        }
+
         void mk_transcendental(symbol const & n, mk_interval & proc, numeral & r) {
             unsigned idx = next_transcendental_idx();
             transcendental * t = alloc(transcendental, idx, n, proc);
             m_extensions[extension::TRANSCENDENTAL].push_back(t);
             
-            while (bqim().contains_zero(t->interval())) {
+            while (contains_zero(t->interval())) {
                 checkpoint();
-                refine_transcedental_interval(t);
+                refine_transcendental_interval(t);
             }
             set(r, mk_rational_function_value(t));
 
@@ -993,7 +1098,7 @@ namespace realclosure {
                 return qm().is_pos(to_mpq(a)) ? 1 : -1;
             }
             else {
-                SASSERT(!bqim().contains_zero(a->interval()));
+                SASSERT(!contains_zero(a->interval()));
                 return bqim().is_P(a->interval()) ? 1 : -1;
             }
         }
@@ -1040,7 +1145,7 @@ namespace realclosure {
                 if (qm().is_neg(q)) {
                     ::swap(interval.lower(), interval.upper());
                 }
-                while (bqim().contains_zero(interval) || !check_precision(interval, k)) {
+                while (contains_zero(interval) || !check_precision(interval, k) || bqm().is_zero(interval.lower()) || bqm().is_zero(interval.upper())) {
                     checkpoint();
                     bqm().refine_lower(q, interval.lower(), interval.upper());
                     bqm().refine_upper(q, interval.lower(), interval.upper());
@@ -1054,9 +1159,9 @@ namespace realclosure {
             mpq_to_mpbqi(to_mpq(a), a->m_interval, m_ini_precision);
         }
 
-        mpbqi const & interval(value * a) const {
+        mpbqi & interval(value * a) const {
             SASSERT(a != 0);
-            if (bqim().contains_zero(a->m_interval)) {
+            if (contains_zero(a->m_interval)) {
                 SASSERT(is_nz_rational(a));
                 const_cast<imp*>(this)->initialize_rational_value_interval(a);
             }
@@ -1131,7 +1236,25 @@ namespace realclosure {
         }
 
         void root(numeral const & a, unsigned k, numeral & b) {
-            // TODO
+            if (k == 0)
+                throw exception("0-th root is indeterminate");
+            
+            if (k == 1 || is_zero(a)) {
+                set(b, a);
+                return;
+            }
+
+            if (sign(a) < 0 && k % 2 == 0)
+                throw exception("even root of negative number");
+            
+            // create the polynomial p of the form x^k - a
+            value_ref_buffer p(*this);
+            p.push_back(neg(a.m_value));
+            for (unsigned i = 0; i < k - 1; i++)
+                p.push_back(0);
+            p.push_back(one());
+            
+            // TODO: invoke isolate_roots
         }
       
         void power(numeral const & a, unsigned k, numeral & b) {
@@ -1530,6 +1653,379 @@ namespace realclosure {
             sturm_seq_core(seq);
         }
 
+        void refine_rational_interval(rational_value * v, unsigned prec) {
+            mpbqi & i = interval(v);
+            if (!i.lower_is_open() && !i.lower_is_open()) {
+                SASSERT(bqm().eq(i.lower(), i.upper()));
+                return;
+            }
+            while (!check_precision(i, prec)) {
+                checkpoint();
+                bqm().refine_lower(to_mpq(v), i.lower(), i.upper());
+                bqm().refine_upper(to_mpq(v), i.lower(), i.upper());
+            }
+        }
+
+        /**
+           \brief Refine the interval for each coefficient of in the polynomial p.
+        */
+        bool refine_coeffs_interval(polynomial const & p, unsigned prec) {
+            unsigned sz = p.size();
+            for (unsigned i = 0; i < sz; i++) {
+                if (p[i] != 0 && !refine_interval(p[i], prec))
+                    return false;
+            }
+            return true;
+        }
+
+        /**
+           \brief Store in r the interval p(v).
+        */
+        void polynomial_interval(polynomial const & p, mpbqi const & v, mpbqi & r) {
+            // We compute r using the Horner Sequence
+            //  ((a_n * v + a_{n-1})*v + a_{n-2})*v + a_{n-3} ...
+            // where a_i's are the coefficients of p.
+            unsigned sz = p.size();
+            if (sz == 1) {
+                bqim().set(r, interval(p[0]));
+            }
+            else {
+                SASSERT(sz > 0);
+                SASSERT(p[sz - 1] != 0);
+                // r <- a_n * v
+                bqim().mul(interval(p[sz-1]), v, r); 
+                unsigned i = sz - 1;
+                while (i > 0) {
+                    --i;
+                    if (p[i] != 0)
+                        bqim().add(r, interval(p[i]), r);
+                    if (i > 0)
+                        bqim().mul(r, v, r);
+                }
+            }
+        }
+
+        /**
+           \brief Update the interval of v by using the intervals of 
+           extension and coefficients of the rational function.
+        */
+        void update_rf_interval(rational_function_value * v, unsigned prec) {
+            if (is_rational_one(v->den())) {
+                polynomial_interval(v->num(), v->ext()->interval(), v->interval());
+            }
+            else  {
+                scoped_mpbqi num_i(bqim()), den_i(bqim());
+                polynomial_interval(v->num(), v->ext()->interval(), num_i);
+                polynomial_interval(v->den(), v->ext()->interval(), den_i);
+                div(num_i, den_i, inc_precision(prec, 2), v->interval());
+            }
+        }
+
+        void refine_transcendental_interval(rational_function_value * v, unsigned prec) {
+            SASSERT(v->ext()->is_transcendental());
+            polynomial const & n = v->num();
+            polynomial const & d = v->den();
+            unsigned _prec = prec;
+            while (true) {
+                VERIFY(refine_coeffs_interval(n, _prec)); // must return true because a transcendental never depends on an infinitesimal
+                VERIFY(refine_coeffs_interval(d, _prec)); // must return true because a transcendental never depends on an infinitesimal
+                refine_transcendental_interval(to_transcendental(v->ext()), _prec);
+                update_rf_interval(v, prec);
+                
+                TRACE("rcf", tout << "after update_rf_interval: " << magnitude(v->interval()) << " ";
+                      bqim().display(tout, v->interval()); tout << std::endl;);
+                
+                if (check_precision(v->interval(), prec))
+                    return;
+                _prec++;
+            }
+        }
+
+        bool refine_infinitesimal_interval(rational_function_value * v, unsigned prec) {
+            SASSERT(v->ext()->is_infinitesimal());
+            polynomial const & numerator   = v->num();
+            polynomial const & denominator = v->den();
+            unsigned num_idx = first_non_zero(numerator);
+            unsigned den_idx = first_non_zero(denominator);
+            if (num_idx == 0 && den_idx == 0) {
+                unsigned _prec = prec;
+                while (true) {
+                    refine_interval(numerator[num_idx],   _prec);
+                    refine_interval(denominator[num_idx], _prec);
+                    mpbqi const & num_i = interval(numerator[num_idx]);
+                    mpbqi const & den_i = interval(denominator[num_idx]);
+                    SASSERT(!contains_zero(num_i));
+                    SASSERT(!contains_zero(den_i));
+                    if (is_open_interval(num_i) && is_open_interval(den_i)) {
+                        // This case is simple because adding/subtracting infinitesimal quantities, will
+                        // not change the interval.
+                        div(num_i, den_i, inc_precision(prec, 2), v->interval());
+                    }
+                    else {
+                        // The intervals num_i and den_i may not be open.
+                        // Example: numerator[num_idx] or denominator[num_idx] are rationals
+                        // that can be precisely represented as binary rationals.
+                        scoped_mpbqi new_num_i(bqim());
+                        scoped_mpbqi new_den_i(bqim());
+                        mpbq tiny_value(1, _prec*2);
+                        if (numerator.size() > 1)
+                            add_infinitesimal(num_i, sign_of_first_non_zero(numerator, 1) > 0,   tiny_value, new_num_i);
+                        else
+                            bqim().set(new_num_i, num_i);
+                        if (denominator.size() > 1)
+                            add_infinitesimal(den_i, sign_of_first_non_zero(denominator, 1) > 0, tiny_value, new_den_i);
+                        else
+                            bqim().set(new_den_i, den_i);
+                        div(new_num_i, new_den_i, inc_precision(prec, 2), v->interval());
+                    }
+                    if (check_precision(v->interval(), prec))
+                        return true;
+                    _prec++;
+                }
+            }
+            else { 
+                // The following condition must hold because gcd(numerator, denominator) == 1
+                // If num_idx > 0 and den_idx > 0, eps^{min(num_idx, den_idx)} is a factor of gcd(numerator, denominator) 
+                SASSERT(num_idx ==  0 || den_idx == 0);
+                int s = sign(numerator[num_idx]) * sign(denominator[den_idx]);
+                // The following must hold since numerator[num_idx] and denominator[den_idx] are not zero.
+                SASSERT(s != 0); 
+                if (num_idx == 0) {
+                    SASSERT(den_idx > 0);
+                    // |v| is bigger than any binary rational
+                    // Interval can't be refined. There is no way to isolate an infinity with an interval with binary rational end points.
+                    return false;
+                }
+                else {
+                    SASSERT(num_idx > 0);
+                    SASSERT(den_idx == 0);
+                    // |v| is infinitely close to zero.
+                    if (s == 1) {
+                        // it is close from above
+                        set_lower(v->interval(), mpbq(0));
+                        set_upper(v->interval(), mpbq(1, prec));
+                    }
+                    else {
+                        // it is close from below
+                        set_lower(v->interval(), mpbq(-1, prec));
+                        set_upper(v->interval(), mpbq(0));
+                    }
+                    return true;
+                }
+            }
+        }
+
+        bool refine_algebraic_interval(rational_function_value * v, unsigned prec) {
+            // TODO
+            return false;
+        }
+
+        /**
+           \brief Refine the interval of v to the desired precision (1/2^k).
+           Return false in case of failure. A failure can only happen if v depends on infinitesimal values.
+        */
+        bool refine_interval(value * v, unsigned prec) {
+            checkpoint();
+            SASSERT(!is_zero(v));
+            int m = magnitude(interval(v));
+            if (m == INT_MIN || (m < 0 && static_cast<unsigned>(-m) > prec))
+                return true;
+            save_interval_if_too_small(v);
+            if (is_nz_rational(v)) {
+                refine_rational_interval(to_nz_rational(v), prec);
+                return true;
+            }
+            else { 
+                rational_function_value * rf = to_rational_function(v);
+                if (rf->ext()->is_transcendental()) {
+                    refine_transcendental_interval(rf, prec);
+                    return true;
+                }
+                else if (rf->ext()->is_infinitesimal())
+                    return refine_infinitesimal_interval(rf, prec);
+                else
+                    return refine_algebraic_interval(rf, prec);
+            }
+        }
+
+        /**
+           \brief Return the position of the first non-zero coefficient of p.
+         */
+        static unsigned first_non_zero(polynomial const & p) {
+            unsigned sz = p.size();
+            for (unsigned i = 0; i < sz; i++) {
+                if (p[i] != 0)
+                    return i;
+            }
+            UNREACHABLE();
+            return UINT_MAX;
+        }
+
+        /**
+           \brief Return the sign of the first non zero coefficient starting at position start_idx
+        */
+        int sign_of_first_non_zero(polynomial const & p, unsigned start_idx) {
+            unsigned sz = p.size();
+            SASSERT(start_idx < sz);
+            for (unsigned i = start_idx; i < sz; i++) {
+                if (p[i] != 0)
+                    return sign(p[i]);
+            }
+            UNREACHABLE();
+            return 0;
+        }
+        
+        /**
+           out <- in + infinitesimal (if plus_eps == true) 
+           out <- in - infinitesimal (if plus_eps == false)
+
+           We use the following rules for performing the assignment
+           
+           If plus_eps == True
+               If lower(in) == v (closed or open), then lower(out) == v and open
+               If upper(in) == v and open,         then upper(out) == v and open
+               If upper(in) == v and closed,       then upper(out) == new_v and open
+                        where new_v is v + tiny_value / 2^k, where k is the smallest natural such that sign(new_v) == sign(v)
+           If plus_eps == False
+               If lower(in) == v and open,         then lower(out) == v and open
+               If lower(in) == v and closed,       then lower(out) == new_v and open 
+               If upper(in) == v (closed or open), then upper(out) == v and open
+                        where new_v is v - tiny_value / 2^k, where k is the smallest natural such that sign(new_v) == sign(v)
+        */
+        void add_infinitesimal(mpbqi const & in, bool plus_eps, mpbq const & tiny_value, mpbqi & out) {
+            set_interval(out, in);
+            out.set_lower_is_open(true);
+            out.set_upper_is_open(true);
+            if (plus_eps) {
+                if (!in.upper_is_open()) {
+                    scoped_mpbq tval(bqm());
+                    tval = tiny_value;
+                    while (true) {
+                        bqm().add(in.upper(), tval, out.upper());
+                        if (bqm().is_pos(in.upper()) == bqm().is_pos(out.upper()))
+                            return;
+                        bqm().div2(tval);
+                        checkpoint();
+                    }
+                }
+            }
+            else {
+                if (!in.lower_is_open()) {
+                    scoped_mpbq tval(bqm());
+                    tval = tiny_value;
+                    while (true) {
+                        bqm().sub(in.lower(), tval, out.lower());
+                        if (bqm().is_pos(in.lower()) == bqm().is_pos(out.lower()))
+                            return;
+                        bqm().div2(tval);
+                        checkpoint();
+                    }
+                }
+            }
+        }
+
+        /**
+           \brief Determine the sign of an element of Q(trans_0, ..., trans_n)
+        */
+        void determine_transcendental_sign(rational_function_value * v) {
+            // Remark: the sign of a rational function value on an transcendental is never zero.
+            // Reason: The transcendental can be the root of a polynomial.
+            SASSERT(v->ext()->is_transcendental());
+            int m = magnitude(v->interval());
+            unsigned prec = 1;
+            if (m < 0)
+                prec = static_cast<unsigned>(-m) + 1;
+            while (contains_zero(v->interval())) {
+                refine_transcendental_interval(v, prec);
+                prec++;
+            }
+        }
+
+        /**
+           \brief Determine the sign of an element of Q(trans_0, ..., trans_n, eps_0, ..., eps_m)
+        */
+        void determine_infinitesimal_sign(rational_function_value * v) {
+            // Remark: the sign of a rational function value on an infinitesimal is never zero.
+            // Reason: An infinitesimal eps is transcendental in any field K. So, it can't be the root
+            // of a polynomial.
+            SASSERT(v->ext()->is_infinitesimal());
+            polynomial const & numerator   = v->num();
+            polynomial const & denominator = v->den();
+            unsigned num_idx = first_non_zero(numerator);
+            unsigned den_idx = first_non_zero(denominator);
+            if (num_idx == 0 && den_idx == 0) {
+                mpbqi const & num_i = interval(numerator[num_idx]);
+                mpbqi const & den_i = interval(denominator[num_idx]);
+                SASSERT(!contains_zero(num_i));
+                SASSERT(!contains_zero(den_i));
+                if (is_open_interval(num_i) && is_open_interval(den_i)) {
+                    // This case is simple because adding/subtracting infinitesimal quantities, will
+                    // not change the interval.
+                    div(num_i, den_i, m_ini_precision, v->interval());
+                }
+                else {
+                    // The intervals num_i and den_i may not be open.
+                    // Example: numerator[num_idx] or denominator[num_idx] are rationals
+                    // that can be precisely represented as binary rationals.
+                    scoped_mpbqi new_num_i(bqim());
+                    scoped_mpbqi new_den_i(bqim());
+                    mpbq tiny_value(1, m_ini_precision); // 1/2^{m_ini_precision}
+                    if (numerator.size() > 1)
+                        add_infinitesimal(num_i, sign_of_first_non_zero(numerator, 1) > 0,   tiny_value, new_num_i);
+                    else
+                        bqim().set(new_num_i, num_i);
+                    if (denominator.size() > 1)
+                        add_infinitesimal(den_i, sign_of_first_non_zero(denominator, 1) > 0, tiny_value, new_den_i);
+                    else
+                        bqim().set(new_den_i, den_i);
+                    div(new_num_i, new_den_i, m_ini_precision, v->interval());
+                }
+            }
+            else { 
+                // The following condition must hold because gcd(numerator, denominator) == 1
+                // If num_idx > 0 and den_idx > 0, eps^{min(num_idx, den_idx)} is a factor of gcd(numerator, denominator) 
+                SASSERT(num_idx ==  0 || den_idx == 0);
+                int s = sign(numerator[num_idx]) * sign(denominator[den_idx]);
+                // The following must hold since numerator[num_idx] and denominator[den_idx] are not zero.
+                SASSERT(s != 0); 
+                if (num_idx == 0) {
+                    SASSERT(den_idx > 0);
+                    // |v| is bigger than any binary rational
+                    if (s == 1) {
+                        // it is "oo"
+                        set_lower(v->interval(), m_plus_inf_approx);
+                        set_upper_inf(v->interval());
+                    }
+                    else {
+                        // it is "-oo"
+                        set_lower_inf(v->interval());
+                        set_upper(v->interval(), m_minus_inf_approx);
+                    }
+                }
+                else {
+                    SASSERT(num_idx > 0);
+                    SASSERT(den_idx == 0);
+                    // |v| is infinitely close to zero.
+                    if (s == 1) {
+                        // it is close from above
+                        set_lower(v->interval(), mpbq(0));
+                        set_upper(v->interval(), mpbq(1, m_ini_precision));
+                    }
+                    else {
+                        // it is close from below
+                        set_lower(v->interval(), mpbq(-1, m_ini_precision));
+                        set_upper(v->interval(), mpbq(0));
+                    }
+                }
+            }
+            SASSERT(!contains_zero(v->interval()));
+        }
+
+        bool determine_algebraic_sign(rational_function_value * v) {
+            // TODO
+            return false;
+        }
+
         /**
            \brief Determine the sign of the new rational function value.
            The idea is to keep refinining the interval until interval of v does not contain 0.
@@ -1538,8 +2034,16 @@ namespace realclosure {
            Return false if v is actually zero.
         */
         bool determine_sign(rational_function_value * v) {
-            // TODO
-            return true;
+            if (!contains_zero(v->interval()))
+                return true;
+            switch (v->ext()->knd()) {
+            case extension::TRANSCENDENTAL: determine_transcendental_sign(v); return true; // it is never zero
+            case extension::INFINITESIMAL:  determine_infinitesimal_sign(v); return true; // it is never zero
+            case extension::ALGEBRAIC:      return determine_algebraic_sign(v);
+            default:
+                UNREACHABLE();
+                return false;
+            }
         }
 
         /**
@@ -1932,7 +2436,7 @@ namespace realclosure {
             polynomial const & ad = a->den();
             rational_function_value * r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
             bqim().inv(interval(a), r->interval());
-            SASSERT(!bqim().contains_zero(r->interval()));
+            SASSERT(!contains_zero(r->interval()));
             return r;
         }
 
@@ -2190,7 +2694,7 @@ namespace realclosure {
             SASSERT(!is_zero(a));
             SASSERT(!is_nz_rational(a));
             mpbqi const & i = interval(a.m_value);
-            if (check_precision(i, precision*4)) {
+            if (refine_interval(a.m_value, precision*4)) {
                 // hack
                 if (bqm().is_int(i.lower())) 
                     bqm().display_decimal(out, i.upper(), precision);
@@ -2198,7 +2702,10 @@ namespace realclosure {
                     bqm().display_decimal(out, i.lower(), precision);
             }
             else {
-                out << "?";
+                if (sign(a.m_value) > 0)
+                    out << "?";
+                else
+                    out << "-?";
             }
         }
         
@@ -2473,3 +2980,22 @@ void pp(realclosure::manager::imp * imp, realclosure::manager::imp::value_ref_bu
         pp(imp, p[i]);
 }
 
+void pp(realclosure::manager::imp * imp, realclosure::mpbqi const & i) {
+    imp->bqim().display(std::cout, i);
+    std::cout << std::endl;
+}
+
+void pp(realclosure::manager::imp * imp, realclosure::manager::imp::scoped_mpqi const & i) {
+    imp->qim().display(std::cout, i);
+    std::cout << std::endl;
+}
+
+void pp(realclosure::manager::imp * imp, mpbq const & n) {
+    imp->bqm().display(std::cout, n);
+    std::cout << std::endl;
+}
+
+void pp(realclosure::manager::imp * imp, mpq const & n) {
+    imp->qm().display(std::cout, n);
+    std::cout << std::endl;
+}

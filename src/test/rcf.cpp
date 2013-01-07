@@ -55,13 +55,15 @@ static void tst1() {
     scoped_rcnumeral pi(m);
     m.mk_pi(pi);
     std::cout << pi + 1 << std::endl;
-    std::cout << decimal_pp(pi + 1, 1) << std::endl;
+    std::cout << decimal_pp(pi) << std::endl;
+    std::cout << decimal_pp(pi + 1) << std::endl;
     scoped_rcnumeral e(m);
     m.mk_e(e);
     t = e + (pi + 1)*2;
     std::cout << t << std::endl;
-    std::cout << decimal_pp(t, 1) << std::endl;
-
+    std::cout << decimal_pp(t, 10) << std::endl;
+    std::cout << (eps + 1 > 1) << std::endl;
+    std::cout << interval_pp((a + eps)/(a - eps)) << std::endl;
 }
 
 void tst_rcf() {
