@@ -146,11 +146,32 @@ extern "C" {
     Z3_bool Z3_API Z3_rcf_ge(__in Z3_context c, __in Z3_rcf_num a, __in Z3_rcf_num b);
 
     /**
+       \brief Return Z3_TRUE if a == b
+
+       def_API('Z3_rcf_eq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
+    */
+    Z3_bool Z3_API Z3_rcf_eq(__in Z3_context c, __in Z3_rcf_num a, __in Z3_rcf_num b);
+
+    /**
+       \brief Return Z3_TRUE if a != b
+
+       def_API('Z3_rcf_neq', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))
+    */
+    Z3_bool Z3_API Z3_rcf_neq(__in Z3_context c, __in Z3_rcf_num a, __in Z3_rcf_num b);
+
+    /**
        \brief Convert the RCF numeral into a string.
 
        def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM)))
     */
     Z3_string Z3_API Z3_rcf_num_to_string(__in Z3_context c, __in Z3_rcf_num a);
+
+    /**
+       \brief Convert the RCF numeral into a string in decimal notation.
+
+       def_API('Z3_rcf_num_to_decimal_string', STRING, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
+    */
+    Z3_string Z3_API Z3_rcf_num_to_decimal_string(__in Z3_context c, __in Z3_rcf_num a, __in unsigned prec);
 
 #ifdef __cplusplus
 };

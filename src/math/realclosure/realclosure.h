@@ -181,11 +181,21 @@ namespace realclosure {
            \brief a <- -a
         */
         void neg(numeral & a);
+        
+        /**
+           \brief b <- -a
+        */
+        void neg(numeral const & a, numeral & b);
 
         /**
            \brief a <- 1/a  if a != 0
         */
         void inv(numeral & a);
+        
+        /**
+           \brief b <- 1/a if a != 0
+        */
+        void inv(numeral const & a, numeral & b);
 
         /**
            \brief c <- a/b if b != 0

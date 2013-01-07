@@ -2464,8 +2464,16 @@ namespace realclosure {
             set(a, neg(a.m_value));
         }
 
+        void neg(numeral const & a, numeral & b) {
+            set(b, neg(a.m_value));
+        }
+
         void inv(numeral & a) {
             set(a, inv(a.m_value));
+        }
+
+        void inv(numeral const & a, numeral & b) {
+            set(b, inv(a.m_value));
         }
 
         void add(numeral const & a, numeral const & b, numeral & c) {
@@ -2879,9 +2887,19 @@ namespace realclosure {
         m_imp->neg(a);
     }
 
+    void manager::neg(numeral const & a, numeral & b) {
+        save_interval_ctx ctx(this);
+        m_imp->neg(a, b);
+    }
+
     void manager::inv(numeral & a) {
         save_interval_ctx ctx(this);
         m_imp->inv(a);
+    }
+
+    void manager::inv(numeral const & a, numeral & b) {
+        save_interval_ctx ctx(this);
+        m_imp->inv(a, b);
     }
 
     void manager::div(numeral const & a, numeral const & b, numeral & c) {
