@@ -855,16 +855,16 @@ void mpbq_manager::approx_div(mpbq const & a, mpbq const & b, mpbq & c, unsigned
     unsigned k_prime;
     if (m_manager.is_power_of_two(b.m_num, k_prime)) {
         // The division is precise, so we ignore k and to_plus_inf
-        SASSERT(b.m_k == 0); // remark: b.m_num is odd when b.m_k > 0
+        SASSERT(b.m_k == 0 || k_prime == 0); // remark: b.m_num is odd when b.m_k > 0, since b.m_num is a power of two we have that b.m_k == 0 or b.m_num == 1.
         m_manager.set(c.m_num, a.m_num);
-        if (a.m_k == 0) {
-            c.m_k = k_prime;
-            normalize(c);
+        if (b.m_k > 0) {
+            SASSERT(k_prime == 0);
+            mpz & pw2 = m_div_tmp1;
+            m_manager.power(mpz(2), b.m_k, pw2);
+            m_manager.mul(c.m_num, pw2, c.m_num);
         }
-        else {
-            c.m_k = a.m_k + k_prime;
-            // there is not need to normalize since the least significant bit of a must be 1.
-        }
+        c.m_k = a.m_k + k_prime;
+        normalize(c);
     }
     else if (m_manager.divides(b.m_num, a.m_num)) {
         // result is also precise
