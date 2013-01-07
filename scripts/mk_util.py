@@ -1349,7 +1349,10 @@ class MLComponent(Component):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
             out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I%s -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, OCAML_LIB, self.to_src_dir))
-            out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -L%s -lcamlrun\n' %  (libfile, os.path.join('api', 'ml', 'z3native'), OCAML_LIB))
+            if IS_WINDOWS:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
+            else:
+                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -L%s -lcamlrun\n' %  (libfile, os.path.join('api', 'ml', 'z3native'), OCAML_LIB))
             out.write('z3.cmxa: %s\n' % libfile)
             out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3.cmxa z3native$(OBJ_EXT) && cd -\n' % (self.to_src_dir,BUILD_DIR))
             out.write('z3.cma: %s\n' % libfile)
