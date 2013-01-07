@@ -1262,39 +1262,39 @@ def mk_ml():
     ml_wrapper.write('#include <z3.h>\n\n')
     ml_wrapper.write('#define CAMLlocal6(X1,X2,X3,X4,X5,X6)                               \\\n')
     ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal1(X6);                                                     \n')
+    ml_wrapper.write('  CAMLlocal1(X6)                                                      \n')
     ml_wrapper.write('#define CAMLlocal7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
     ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal2(X6,X7);                                                  \n')
+    ml_wrapper.write('  CAMLlocal2(X6,X7)                                                   \n')
     ml_wrapper.write('#define CAMLlocal8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
     ml_wrapper.write('  CAMLlocal5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLlocal3(X6,X7,X8);                                               \n')
+    ml_wrapper.write('  CAMLlocal3(X6,X7,X8)                                                \n')
     ml_wrapper.write('\n')
     ml_wrapper.write('#define CAMLparam7(X1,X2,X3,X4,X5,X6,X7)                            \\\n')
     ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam2(X6,X7);                                                 \n')
+    ml_wrapper.write('  CAMLxparam2(X6,X7)                                                  \n')
     ml_wrapper.write('#define CAMLparam8(X1,X2,X3,X4,X5,X6,X7,X8)                         \\\n')
     ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam3(X6,X7,X8);                                              \n')
+    ml_wrapper.write('  CAMLxparam3(X6,X7,X8)                                               \n')
     ml_wrapper.write('#define CAMLparam9(X1,X2,X3,X4,X5,X6,X7,X8,X9)                      \\\n')
     ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
-    ml_wrapper.write('  CAMLxparam4(X6,X7,X8,X9);                                           \n')
+    ml_wrapper.write('  CAMLxparam4(X6,X7,X8,X9)                                            \n')
     ml_wrapper.write('#define CAMLparam12(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12)         \\\n')
     ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
     ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
-    ml_wrapper.write('  CAMLxparam2(X11,X12);                                               \n')
+    ml_wrapper.write('  CAMLxparam2(X11,X12)                                                \n')
     ml_wrapper.write('#define CAMLparam13(X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13)     \\\n')
     ml_wrapper.write('  CAMLparam5(X1,X2,X3,X4,X5);                                       \\\n')
     ml_wrapper.write('  CAMLxparam5(X6,X7,X8,X9,X10);                                     \\\n')
-    ml_wrapper.write('  CAMLxparam3(X11,X12,X13);                                           \n')
+    ml_wrapper.write('  CAMLxparam3(X11,X12,X13)                                            \n')
     ml_wrapper.write('\n\n')
     ml_wrapper.write('static struct custom_operations default_custom_ops = {\n')
-    ml_wrapper.write('  identifier:  (char*) "default handling",\n')
-    ml_wrapper.write('  finalize:    custom_finalize_default,\n')
-    ml_wrapper.write('  compare:     custom_compare_default,\n')
-    ml_wrapper.write('  hash:        custom_hash_default,\n')
-    ml_wrapper.write('  serialize:   custom_serialize_default,\n')
-    ml_wrapper.write('  deserialize: custom_deserialize_default\n')
+    ml_wrapper.write('  (char*) "default handling",\n')
+    ml_wrapper.write('  custom_finalize_default,\n')
+    ml_wrapper.write('  custom_compare_default,\n')
+    ml_wrapper.write('  custom_hash_default,\n')
+    ml_wrapper.write('  custom_serialize_default,\n')
+    ml_wrapper.write('  custom_deserialize_default\n')
     ml_wrapper.write('};\n\n')
     ml_wrapper.write('#ifdef __cplusplus\n')
     ml_wrapper.write('extern "C" {\n')
@@ -1358,7 +1358,10 @@ def mk_ml():
                 i = i + 1
             ml_wrapper.write(');\n')
 
-        # preprocess arrays, strings, in/out arguments
+        if len(ap) != 0:
+            ml_wrapper.write('  unsigned _i;\n')
+
+        # declare locals, preprocess arrays, strings, in/out arguments
         i = 0
         for param in params:
             k = param_kind(param)
@@ -1372,22 +1375,32 @@ def mk_ml():
             elif k == IN_ARRAY or k == INOUT_ARRAY:
                 t = param_type(param)
                 ts = type2str(t)
-                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))
-                ml_wrapper.write('  for (unsigned i = 0; i < _a%s; i++) _a%s[i] = %s;\n' % (param_array_capacity_pos(param), i, ml_unwrap(t, ts, 'Field(a' + str(i) + ', i)')))
+                ml_wrapper.write('  %s * _a%s = (%s*) malloc(sizeof(%s) * _a%s);\n' % (ts, i, ts, ts, param_array_capacity_pos(param)))                
             elif k == IN:
                 t = param_type(param)
                 ml_wrapper.write('  %s _a%s = %s;\n' % (type2str(t), i, ml_unwrap(t, type2str(t), 'a' + str(i))))
             elif k == OUT:
                 ml_wrapper.write('  %s _a%s;\n' % (type2str(param_type(param)), i))
             elif k == INOUT:
-                ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))
-                
+                ml_wrapper.write('  %s _a%s = a%s;\n' % (type2str(param_type(param)), i, i))                
+            i = i + 1
+
+        if result != VOID:
+            ml_wrapper.write('  %s z3_result;\n' % type2str(result))
+
+        i = 0
+        for param in params:
+            k = param_kind(param)
+            if k == IN_ARRAY or k == INOUT_ARRAY:
+                t = param_type(param)
+                ts = type2str(t)
+                ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { _a%s[_i] = %s; }\n' % (param_array_capacity_pos(param), i, ml_unwrap(t, ts, 'Field(a' + str(i) + ', _i)')))
             i = i + 1
 
         # invoke procedure
         ml_wrapper.write('  ')
         if result != VOID:
-            ml_wrapper.write('%s z3_result = ' % type2str(result))
+            ml_wrapper.write('z3_result = ')
         ml_wrapper.write('%s(' % name)
         i = 0
         first = True
@@ -1412,7 +1425,7 @@ def mk_ml():
             for p in params:
                 if param_kind(p) == OUT_ARRAY or param_kind(p) == INOUT_ARRAY:
                     ml_wrapper.write('  _a%s_val = caml_alloc(_a%s, 0);\n' % (i, param_array_capacity_pos(p)))
-                    ml_wrapper.write('  for (unsigned i = 0; i < _a%s; i++) { value t; %s Store_field(_a%s, i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[i]'), i))
+                    ml_wrapper.write('  for (_i = 0; _i < _a%s; _i++) { value t; %s Store_field(_a%s, _i, t); }\n' % (param_array_capacity_pos(p), ml_set_wrap(param_type(p), 't', '_a' + str(i) + '[_i]'), i))
                 elif is_out_param(p):
                     ml_wrapper.write('  %s\n' % ml_set_wrap(param_type(p), "_a" + str(i) + "_val", "_a"  + str(i) ))
                 i = i + 1
