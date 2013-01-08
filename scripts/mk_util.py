@@ -33,8 +33,7 @@ EXAMP_DEBUG_FLAG=''
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
 OCAMLC=getenv("OCAMLC", "ocamlc")
-OCAMLOPT=getenv("OCAMLC", "ocamlopt")
-OCAMLBUILD=getenv("OCAMLBUILD", "ocamlbuild")
+OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 
 CXX_COMPILERS=['g++', 'clang++']
@@ -350,15 +349,12 @@ def check_ml():
         raise MKException('Failed testing ocamlc compiler. Set environment variable OCAMLC with the path to the Ocaml compiler')
     if is_verbose():
         print "Testing %s..." % OCAMLOPT
-    r = exec_cmd([OCAMLC, '-o', 'a.out', 'hello.ml'])
+    r = exec_cmd([OCAMLOPT, '-o', 'a.out', 'hello.ml'])
     if r != 0:
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler')
     os.remove('hello.cmi')
     os.remove('hello.cmo')
     os.remove('a.out')
-    r = exec_cmd([OCAMLBUILD, '-version'])
-    if r != 0:
-        raise MKException('Failed testing ocamlbuild. Set environment variable OCAMLBUILD with the path to ocamlbuild')
     find_ml_lib()
 
 def find_ml_lib():
@@ -520,7 +516,6 @@ def display_help(exit_code):
     print("  JNI_HOME   JNI bindings directory (only relevant if -j or --java option is provided)")
     print("  OCAMLC     Ocaml byte-code compiler (only relevant with --ml)")
     print("  OCAMLOPT   Ocaml native compiler (only relevant with --ml)")
-    print("  OCAMLBUILD Ocaml build system (only relevant with --ml)")
     print("  OCAML_LIB  Ocaml library directory (only relevant with --ml)")
     exit(exit_code)
 
@@ -1336,27 +1331,29 @@ class MLComponent(Component):
 
     def mk_makefile(self, out):
         if is_ml_enabled():
-            deffile = open('%s.mllib' % os.path.join(self.src_dir, "z3"), 'w')
+            src_dir = self.to_src_dir
+            sub_dir = os.path.join('api', 'ml')
+            mk_dir(os.path.join(BUILD_DIR, sub_dir))
+            for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
+                shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
+            for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
+                shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
+            out.write('z3.cmxa:')
             for mlfile in get_ml_files(self.src_dir):
-                deffile.write('%s\n' % (string.upper(mlfile[0]) + mlfile[1:-3]))
-            deffile.close()
-
-            bld_dir = os.path.join(BUILD_DIR, 'api', 'ml')
-            mk_dir(bld_dir)
-            libfile = '%s$(SO_EXT)' % self.lib_name
-            out.write('%s: libz3$(SO_EXT) %s' % (libfile, os.path.join(self.to_src_dir, 'z3native.c')))
+                out.write(' %s' % os.path.join(src_dir, mlfile))
+            out.write('\n')
+            out.write('\tpushd %s && %s ' % (sub_dir, OCAMLOPT))
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3" z3native.c z3enums.ml z3native.ml z3.ml -a -o ../../z3.cmxa -linkall && popd\n' % get_component(API_COMPONENT).to_src_dir)
+            out.write('z3.cma:')
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT) -I"%s" -I%s %s/z3native.c\n' % (get_component(API_COMPONENT).to_src_dir, OCAML_LIB, self.to_src_dir))
-            if IS_WINDOWS:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(LIB_EXT)\n' %  (libfile, os.path.join('api', 'ml', 'z3native')))
-            else:
-                out.write('\t$(SLINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS) %s$(OBJ_EXT) libz3$(SO_EXT) -L%s -lcamlrun\n' %  (libfile, os.path.join('api', 'ml', 'z3native'), OCAML_LIB))
-            out.write('z3.cmxa: %s\n' % libfile)
-            out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3.cmxa z3native$(OBJ_EXT) && cd -\n' % (self.to_src_dir,BUILD_DIR))
-            out.write('z3.cma: %s\n' % libfile)
-            out.write('\tcd %s && ocamlbuild -cflags \'-g\' -lflags -custom,-cclib,-L../..,-cclib,-lz3,-cclib,-lz3ml,-linkall -build-dir ../../../%s/api/ml z3native$(OBJ_EXT) z3.cma && cd -\n' % (self.to_src_dir,BUILD_DIR))
+            out.write('\tpushd %s && %s ' % (sub_dir, OCAMLC))
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-custom -ccopt "-I../../%s" -cclib "-L../.. -lz3" z3native.c z3enums.ml z3native.ml z3.ml -a -o ../../z3.cma -linkall && popd\n' % get_component(API_COMPONENT).to_src_dir)
             out.write('ml: z3.cmxa z3.cma\n')
             out.write('\n')
     
@@ -1485,7 +1482,10 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
-            out.write('\tocamlc -g -o ml_example.byte -I . z3.cma -I api/ml')
+            out.write('\t%s ' % OCAMLC)
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-custom -o ml_example.byte -I . z3.cma -I api/ml')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -1493,7 +1493,10 @@ class MLExampleComponent(ExampleComponent):
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
-            out.write('\tocamlopt -g -o ml_example -I . z3.cmxa -I api/ml')
+            out.write('\t%s ' % OCAMLOPT)
+            if DEBUG_MODE:
+                out.write('-g ')
+            out.write('-o ml_example($EXE_EXT) -I . z3.cmxa -I api/ml')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -1648,10 +1651,9 @@ def mk_config():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
             if is_ml_enabled():
-                print('Ocaml Compiler: %s' % OCAMLC)
-                print('Ocaml Native:   %s' % OCAMLOPT)
-                print('Ocamlbuild:     %s' % OCAMLBUILD)
-                print('Ocaml Library:  %s' % OCAML_LIB)
+                print('OCaml Compiler: %s' % OCAMLC)
+                print('OCaml Native:   %s' % OCAMLOPT)
+                print('OCaml Library:  %s' % OCAML_LIB)
     else:
         global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
         OS_DEFINES = ""
@@ -1774,9 +1776,8 @@ def mk_config():
             if is_ml_enabled():
                 print('Ocaml Compiler: %s' % OCAMLC)
                 print('Ocaml Native:   %s' % OCAMLOPT)
-                print('Ocamlbuild:     %s' % OCAMLBUILD)
                 print('Ocaml Library:  %s' % OCAML_LIB)
-               
+
 def mk_install(out):
     out.write('install: ')
     for c in get_components():
