@@ -191,8 +191,6 @@ namespace realclosure {
         void set_real(bool f) { m_real = f; }
     };
 
-    typedef ptr_vector<value> value_vector;
-
     // ---------------------------------
     //
     // Field Extensions
@@ -497,8 +495,11 @@ namespace realclosure {
            \brief c <- a/b with precision prec.
         */
         void div(mpbqi const & a, mpbqi const & b, unsigned prec, mpbqi & c) {
+            SASSERT(!contains_zero(a));
+            SASSERT(!contains_zero(b));
             scoped_set_div_precision set(bqm(), prec);
             bqim().div(a, b, c);
+            SASSERT(!contains_zero(c));
         }
 
         /**
@@ -1081,6 +1082,161 @@ namespace realclosure {
                 inc_ref(m_e);
             }
         }
+       
+        /**
+           \brief r <- magnitude of the lower bound of |i|.
+           That is, 2^r <= |i|.lower()
+           Another way to view it is:
+              2^r is smaller than the absolute value of any element in the interval i.
+
+           Return true if succeeded, and false if i contains elements that are infinitely close to 0.
+              
+           \pre !contains_zero(i)
+        */
+        bool abs_lower_magnitude(mpbqi const & i, int & r) {
+            SASSERT(!contains_zero(i));
+            if (bqim().is_P(i)) {
+                if (bqm().is_zero(i.lower()))
+                    return false;
+                r = bqm().magnitude_lb(i.lower());
+                return true;
+            }
+            else {
+                SASSERT(bqim().is_N(i));
+                if (bqm().is_zero(i.upper()))
+                    return false;
+                scoped_mpbq tmp(bqm());
+                tmp = i.upper();
+                bqm().neg(tmp);
+                r = bqm().magnitude_lb(tmp);
+                return true;
+            }
+        }
+
+        /**
+           \brief r <- magnitude of the upper bound of |i|.
+           That is, |i|.upper <= 2^r
+           Another way to view it is:
+              2^r is bigger than the absolute value of any element in the interval i.
+
+           Return true if succeeded, and false if i is unbounded.
+              
+           \pre !contains_zero(i)
+        */
+        bool abs_upper_magnitude(mpbqi const & i, int & r) {
+            SASSERT(!contains_zero(i));
+            if (bqim().is_P(i)) {
+                if (i.upper_is_inf())
+                    return false;
+                r = bqm().magnitude_ub(i.upper());
+                return true;
+            }
+            else {
+                SASSERT(bqim().is_N(i));
+                if (i.lower_is_inf())
+                    return false;
+                scoped_mpbq tmp(bqm());
+                tmp = i.lower();
+                bqm().neg(tmp);
+                r = bqm().magnitude_ub(tmp);
+                return true;
+            }
+        }
+
+        /**
+           \brief Find positive root upper bound using Knuth's approach.
+           
+           Given p(x) = a_n * x^n + a_{n-1} * x^{n-1} + ... + a_0
+       
+           If a_n is positive,
+           Let B = max({ (-a_{n-k}/a_n)^{1/k} |  1 <= k <= n,   a_{n-k} < 0 })
+           Then, 2*B is a bound for the positive roots
+       
+           Similarly, if a_n is negative
+           Let B = max({ (-a_{n-k}/a_n)^{1/k} |  1 <= k <= n,   a_{n-k} > 0 })
+           Then, 2*B is a bound for the positive roots
+           
+           This procedure returns a N s.t.  2*B <= 2^N
+           
+           The computation is performed using the intervals associated with the coefficients of 
+           the polynomial.
+
+           The procedure may fail if the interval for a_n is of the form  (l, 0) or (0, u).
+           Similarly, the procedure will fail if one of the a_{n-k} has an interval of the form (l, oo) or (-oo, u).
+           Both cases can only happen if the values of the coefficients depend on infinitesimal values.
+        */
+        bool pos_root_upper_bound(unsigned n, value * const * p, unsigned & N) {
+            SASSERT(n > 1);
+            SASSERT(!is_zero(p[n-1]));
+            int lc_sign = sign(p[n-1]);
+            SASSERT(lc_sign != 0);
+            int lc_mag;
+            if (!abs_lower_magnitude(interval(p[n-1]), lc_mag))
+                return false;
+            N = 0;
+            for (unsigned k = 2; k <= n; k++) {
+                value * a = p[n - k];
+                if (!is_zero(a) && sign(a) != lc_sign) {
+                    int a_mag;
+                    if (!abs_upper_magnitude(interval(a), a_mag))
+                        return false;
+                    int C = (a_mag - lc_mag)/k + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
+                    if (C > 0 && static_cast<unsigned>(C) > N)
+                        N = C;
+                }
+            }
+            return true;
+        }
+
+        
+        /**
+           \brief Auxiliary method for creating the intervals of the coefficients of the polynomials p(-x)
+           without actually creating p(-x).
+           
+           'a' is the interval of the i-th coefficient of a polynomial
+                a_n * x^n + ... + a_0
+        */
+        void neg_root_adjust(mpbqi const & a, unsigned i, mpbqi & r) {
+            if (i % 2 == 0)
+                bqim().neg(a, r);
+            else
+                bqim().set(r, a);
+        }
+
+        /**
+           \brief Find negative root upper bound using Knuth's approach.
+           
+           This is similar to pos_root_upper_bound. In principle, we can use 
+           the same algorithm. We just have to adjust the coefficients by using
+           the transformation p(-x).
+        */
+        bool neg_root_upper_bound(unsigned n, value * const * as, unsigned & N) {
+            SASSERT(n > 1);
+            SASSERT(!is_zero(as[n-1]));
+            scoped_mpbqi aux(bqim());
+            neg_root_adjust(interval(as[n-1]), n-1, aux);
+            int lc_sign = bqim().is_P(aux) ? 1 : -1;
+            int lc_mag;
+            if (!abs_lower_magnitude(aux, lc_mag))
+                return false;
+            N = 0;
+            for (unsigned k = 2; k <= n; k++) {
+                value * a = as[n - k];
+                if (!is_zero(a)) {
+                    neg_root_adjust(interval(as[n-k]), n-k, aux);
+                    int a_sign = bqim().is_P(aux) ? 1 : -1;
+                    if (a_sign != lc_sign) {
+                        int a_mag;
+                        if (!abs_upper_magnitude(aux, a_mag))
+                            return false;
+                        int C = (a_mag - lc_mag)/k + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
+                        if (C > 0 && static_cast<unsigned>(C) > N)
+                            N = C;
+                    }
+                }
+            }
+            return true;
+        }
 
         /**
            \brief Root isolation for polynomials that are
@@ -1093,6 +1249,14 @@ namespace realclosure {
             SASSERT(n > 2);
             SASSERT(!is_zero(as[0])); 
             SASSERT(!is_zero(as[n-1]));
+            unsigned pos_N, neg_N;
+            bool has_neg_upper = neg_root_upper_bound(n, as, neg_N);
+            bool has_pos_upper = pos_root_upper_bound(n, as, pos_N);
+            TRACE("rcf", 
+                  display_poly(tout, n, as); tout << "\n";
+                  tout << "has_neg_upper: " << has_neg_upper << " neg_N: " << neg_N << "\n";
+                  tout << "has_pos_upper: " << has_pos_upper << " pos_N: " << pos_N << "\n";);
+
             // TODO
         }
 
@@ -1528,6 +1692,10 @@ namespace realclosure {
            \brief r <- rem(p1, p2)
         */
         void rem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            TRACE("rcf", 
+                  tout << "rem\n";
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";);
             r.reset();
             SASSERT(sz2 > 0);
             if (sz2 == 1)
@@ -1537,18 +1705,20 @@ namespace realclosure {
                 return; // r is p1
             value * b_n = p2[sz2 - 1];
             value_ref ratio(*this);
+            value_ref new_a(*this);
             SASSERT(b_n != 0);
             while (true) {
                 checkpoint();
                 sz1 = r.size();
                 if (sz1 < sz2) {
+                    TRACE("rcf", tout << "rem result\n"; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
                     return;
                 }
                 unsigned m_n = sz1 - sz2;
                 ratio = div(r[sz1 - 1], b_n);
                 for (unsigned i = 0; i < sz2 - 1; i++) {
-                    ratio = mul(ratio, p2[i]);
-                    r.set(i + m_n, sub(r[i + m_n], ratio));
+                    new_a = mul(ratio, p2[i]);
+                    r.set(i + m_n, sub(r[i + m_n], new_a));
                 }
                 r.shrink(sz1 - 1);
                 adjust_size(r);
@@ -1626,13 +1796,18 @@ namespace realclosure {
             else {
                 value_ref_buffer A(*this);
                 value_ref_buffer B(*this);
-                value_ref_buffer & R = r;
+                value_ref_buffer R(*this);
                 A.append(sz1, p1);
                 B.append(sz2, p2);
                 while (true) {
+                    TRACE("rcf_gcd",
+                          tout << "A: "; display_poly(tout, A.size(), A.c_ptr()); tout << "\n";
+                          tout << "B: "; display_poly(tout, B.size(), B.c_ptr()); tout << "\n";);
                     if (B.empty()) {
                         mk_monic(A);
                         r = A;
+                        TRACE("rcf_gcd",
+                              tout << "gcd result: "; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
                         return;
                     }
                     rem(A.size(), A.c_ptr(), B.size(), B.c_ptr(), R);
@@ -2192,6 +2367,7 @@ namespace realclosure {
             rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
             bqim().add(interval(a), interval(b), r->interval());
             if (determine_sign(r)) {
+                SASSERT(!contains_zero(r->interval()));
                 return r;
             }
             else {
@@ -2339,6 +2515,7 @@ namespace realclosure {
             neg(an.size(), an.c_ptr(), new_num);
             rational_function_value * r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), ad.size(), ad.c_ptr());
             bqim().neg(interval(a), r->interval());
+            SASSERT(!contains_zero(r->interval()));
             return r;
         }
 
@@ -2370,6 +2547,7 @@ namespace realclosure {
             rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
             bqim().mul(interval(a), interval(b), r->interval());
             if (determine_sign(r)) {
+                SASSERT(!contains_zero(r->interval()));
                 return r;
             }
             else {
@@ -2637,10 +2815,13 @@ namespace realclosure {
         }
 
         template<typename DisplayVar>
-        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact) const {
-            unsigned i = p.size();
+        void display_polynomial(std::ostream & out, unsigned sz, value * const * p, DisplayVar const & display_var, bool compact) const {
+            if (sz == 0) {
+                out << "0";
+                return;
+            }
+            unsigned i = sz;
             bool first = true;
-            SASSERT(i > 0);
             while (i > 0) {
                 --i;
                 if (p[i] == 0)
@@ -2668,6 +2849,11 @@ namespace realclosure {
                         out << "^" << i;
                 }
             }
+        }
+
+        template<typename DisplayVar>
+        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact) const {
+            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact);
         }
 
         struct display_free_var_proc {
@@ -2712,6 +2898,10 @@ namespace realclosure {
                 display_poly_sign(out, s[i].second);
             }
             out << "})";
+        }
+
+        void display_poly(std::ostream & out, unsigned n, value * const * p) const {
+            display_polynomial(out, n, p, display_free_var_proc(), false);
         }
 
         void display_ext(std::ostream & out, extension * r, bool compact) const {
@@ -2769,7 +2959,7 @@ namespace realclosure {
                 out << "]";
             }
         }
-        
+
         void display(std::ostream & out, numeral const & a) const {
             display(out, a.m_value, false);
         }
