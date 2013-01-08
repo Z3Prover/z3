@@ -357,7 +357,6 @@ def check_ml():
     os.remove('hello.cmx')
     os.remove('hello.obj')
     os.remove('a.out')
-    t.__del__()
     find_ml_lib()
 
 def find_ml_lib():
