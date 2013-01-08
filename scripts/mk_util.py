@@ -357,7 +357,6 @@ def check_ml():
     rmf('hello.cmo')
     rmf('hello.cmx')
     rmf('a.out')
-    t.__del__()
     find_ml_lib()
     find_ocaml_find()
 
