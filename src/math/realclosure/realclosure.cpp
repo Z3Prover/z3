@@ -1273,9 +1273,10 @@ namespace realclosure {
             if (n == 2) {
                 // we don't need a field extension for linear polynomials.
                 numeral r;
-                value_ref neg_as_0(*this);
-                neg_as_0 = neg(as[0]);
-                set(r, div(neg_as_0, as[1]));
+                value_ref v(*this);
+                neg(as[0], v);
+                div(v, as[1], v);
+                set(r, v);
                 roots.push_back(r);
             }
             else {
@@ -1369,6 +1370,10 @@ namespace realclosure {
             return is_real(a.m_value);
         }
 
+        static void swap(mpbqi & a, mpbqi & b) {
+            realclosure::swap(a, b);
+        }
+        
         void mpq_to_mpbqi(mpq const & q, mpbqi & interval, unsigned k) {
             interval.set_lower_is_inf(false);
             interval.set_upper_is_inf(false);
@@ -1489,7 +1494,9 @@ namespace realclosure {
             
             // create the polynomial p of the form x^k - a
             value_ref_buffer p(*this);
-            p.push_back(neg(a.m_value));
+            value_ref neg_a(*this);
+            neg(a.m_value, neg_a);
+            p.push_back(neg_a);
             for (unsigned i = 0; i < k - 1; i++)
                 p.push_back(0);
             p.push_back(one());
@@ -1500,15 +1507,17 @@ namespace realclosure {
         void power(numeral const & a, unsigned k, numeral & b) {
             unsigned mask = 1;
             value_ref power(*this);
+            value_ref _b(*this);
             power = a.m_value;
-            set(b, one());
+            _b = one();
             while (mask <= k) {
                 checkpoint();
                 if (mask & k)
-                    set(b, mul(b.m_value, power));
-                power = mul(power, power);
+                    mul(_b, power, _b);
+                mul(power, power, power);
                 mask = mask << 1;
             }
+            set(b, _b);
         }
 
         /**
@@ -1525,10 +1534,13 @@ namespace realclosure {
         */
         void add(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             r.reset();
+            value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
             unsigned i = 0;
-            for (; i < min; i++)
-                r.push_back(add(p1[i], p2[i]));
+            for (; i < min; i++) {
+                add(p1[i], p2[i], a_i);
+                r.push_back(a_i);
+            }
             for (; i < sz1; i++)
                 r.push_back(p1[i]);
             for (; i < sz2; i++)
@@ -1543,7 +1555,9 @@ namespace realclosure {
         void add(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
             SASSERT(sz > 0);
             r.reset();
-            r.push_back(add(p[0], a));
+            value_ref a_0(*this);
+            add(p[0], a, a_0);
+            r.push_back(a_0);
             r.append(sz - 1, p + 1);
             adjust_size(r);
         }
@@ -1553,14 +1567,19 @@ namespace realclosure {
         */
         void sub(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
             r.reset();
+            value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
             unsigned i = 0;
-            for (; i < min; i++)
-                r.push_back(sub(p1[i], p2[i]));
+            for (; i < min; i++) {
+                sub(p1[i], p2[i], a_i);
+                r.push_back(a_i);
+            }
             for (; i < sz1; i++)
                 r.push_back(p1[i]);
-            for (; i < sz2; i++)
-                r.push_back(neg(p2[i]));
+            for (; i < sz2; i++) {
+                neg(p2[i], a_i);
+                r.push_back(a_i);
+            }
             SASSERT(r.size() == std::max(sz1, sz2));
             adjust_size(r);
         }
@@ -1571,7 +1590,9 @@ namespace realclosure {
         void sub(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
             SASSERT(sz > 0);
             r.reset();
-            r.push_back(sub(p[0], a));
+            value_ref a_0(*this);
+            sub(p[0], a, a_0);
+            r.push_back(a_0);
             r.append(sz - 1, p + 1);
             adjust_size(r);
         }
@@ -1583,8 +1604,11 @@ namespace realclosure {
             r.reset();
             if (a == 0) 
                 return;
-            for (unsigned i = 0; i < sz; i++)
-                r.push_back(mul(a, p[i]));
+            value_ref a_i(*this);
+            for (unsigned i = 0; i < sz; i++) {
+                mul(a, p[i], a_i);
+                r.push_back(a_i);
+            }
         }
 
         /**
@@ -1605,8 +1629,9 @@ namespace realclosure {
                     continue;
                 for (unsigned j = 0; j < sz2; j++) {
                     // r[i+j] <- r[i+j] + p1[i]*p2[j]
-                    tmp = mul(p1[i], p2[j]);
-                    r.set(i+j, add(r[i+j], tmp));
+                    mul(p1[i], p2[j], tmp);
+                    add(r[i+j], tmp, tmp);
+                    r.set(i+j, tmp);
                 }
             }
             adjust_size(r);
@@ -1619,9 +1644,12 @@ namespace realclosure {
             SASSERT(!is_zero(a));
             if (is_rational_one(a))
                 return;
+            value_ref a_i(*this);
             unsigned sz = p.size();
-            for (unsigned i = 0; i < sz; i++)
-                p.set(i, div(p[i], a));
+            for (unsigned i = 0; i < sz; i++) {
+                div(p[i], a, a_i);
+                p.set(i, a_i);
+            }
         }
 
         /**
@@ -1648,6 +1676,7 @@ namespace realclosure {
                     value * b_n = p2[sz2-1];
                     SASSERT(!is_zero(b_n));
                     value_ref ratio(*this);
+                    value_ref aux(*this);
                     while (true) {
                         checkpoint();
                         sz1 = r.size();
@@ -1656,13 +1685,15 @@ namespace realclosure {
                             break;
                         }
                         unsigned m_n = sz1 - sz2; // m-n            
-                        ratio = div(r[sz1 - 1], b_n);
+                        div(r[sz1 - 1], b_n, ratio);
                         // q[m_n] <- q[m_n] + r[sz1 - 1]/b_n
-                        q.set(m_n, add(q[m_n], ratio));
+                        add(q[m_n], ratio, aux);
+                        q.set(m_n, aux);
                         for (unsigned i = 0; i < sz2 - 1; i++) {
                             // r[i + m_n] <- r[i + m_n] - ratio * p2[i]
-                            ratio = mul(ratio, p2[i]);
-                            r.set(i + m_n, sub(r[i + m_n], ratio));
+                            mul(ratio, p2[i], aux);
+                            sub(r[i + m_n], aux, aux);
+                            r.set(i + m_n, aux);
                         }
                         r.shrink(sz1 - 1);
                         adjust_size(r);
@@ -1683,8 +1714,10 @@ namespace realclosure {
            \brief r <- p/a
         */
         void div(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
+            value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
-                r.push_back(div(p[i], a));
+                div(p[i], a, a_i);
+                r.push_back(a_i);
             }
         }
 
@@ -1715,10 +1748,11 @@ namespace realclosure {
                     return;
                 }
                 unsigned m_n = sz1 - sz2;
-                ratio = div(r[sz1 - 1], b_n);
+                div(r[sz1 - 1], b_n, ratio);
                 for (unsigned i = 0; i < sz2 - 1; i++) {
-                    new_a = mul(ratio, p2[i]);
-                    r.set(i + m_n, sub(r[i + m_n], new_a));
+                    mul(ratio, p2[i], new_a);
+                    sub(r[i + m_n], new_a, new_a);
+                    r.set(i + m_n, new_a);
                 }
                 r.shrink(sz1 - 1);
                 adjust_size(r);
@@ -1730,29 +1764,36 @@ namespace realclosure {
         */
         void neg(unsigned sz, value * const * p, value_ref_buffer & r) {
             r.reset();
-            for (unsigned i = 0; i < sz; i++) 
-                r.push_back(neg(p[i]));
+            value_ref a_i(*this);
+            for (unsigned i = 0; i < sz; i++) {
+                neg(p[i], a_i);
+                r.push_back(a_i);
+            }
         }
         
         /**
            \brief r <- -r
         */
         void neg(value_ref_buffer & r) {
+            value_ref a_i(*this);
             unsigned sz = r.size();
-            for (unsigned i = 0; i < sz; i++) 
-                r.set(i, neg(r[i]));
+            for (unsigned i = 0; i < sz; i++) {
+                neg(r[i], a_i);
+                r.set(i, a_i);
+            }
         }
 
         /**
            \brief p <- -p
         */
         void neg(polynomial & p) {
+            value_ref a_i(*this);
             unsigned sz = p.size();
             for (unsigned i = 0; i < sz; i++) {
-                value * v = neg(p[i]);
-                inc_ref(v);
+                neg(p[i], a_i);
+                inc_ref(a_i.get());
                 dec_ref(p[i]);
-                p[i] = v;
+                p[i] = a_i.get();
             }
         }
 
@@ -1771,10 +1812,12 @@ namespace realclosure {
         void mk_monic(value_ref_buffer & p) {
             unsigned sz = p.size();
             if (sz > 0) {
+                value_ref a_i(*this);
                 SASSERT(p[sz-1] != 0);
                 if (!is_rational_one(p[sz-1])) {
                     for (unsigned i = 0; i < sz - 1; i++) {
-                        p.set(i, div(p[i], p[sz-1]));
+                        div(p[i], p[sz-1], a_i);
+                        p.set(i, a_i);
                     }
                     p.set(sz-1, one());
                 }
@@ -1825,9 +1868,10 @@ namespace realclosure {
             if (sz > 1) {
                 for (unsigned i = 1; i < sz; i++) {
                     mpq i_mpq(i);
-                    value_ref i_value(*this);
-                    i_value = mk_rational(i_mpq);
-                    r.push_back(mul(i_value, p[i]));
+                    value_ref a_i(*this);
+                    a_i = mk_rational(i_mpq);
+                    mul(a_i, p[i], a_i);
+                    r.push_back(a_i);
                 }
                 adjust_size(r);
             }
@@ -2297,6 +2341,11 @@ namespace realclosure {
             }
         }
 
+        bool determine_sign(value_ref & r) {
+            SASSERT(is_rational_function(r.get()));
+            return determine_sign(to_rational_function(r.get()));
+        }
+
         /**
            \brief Set new_p1 and new_p2 using the following normalization rules:
            - new_p1 <- p1/p2[0];       new_p2 <- one              IF  sz2 == 1
@@ -2357,30 +2406,32 @@ namespace realclosure {
            \brief Create a new value using the a->ext(), and the given numerator and denominator.
            Use interval(a) + interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
-        value * mk_add_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den) {
+        void mk_add_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
                 SASSERT(is_rational_one(den[0]));
-                return num[0];
-            }
-            rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
-            bqim().add(interval(a), interval(b), r->interval());
-            if (determine_sign(r)) {
-                SASSERT(!contains_zero(r->interval()));
-                return r;
+                r = num[0];
             }
             else {
-                // The new value is 0
-                del_rational_function(r);
-                return 0;
+                scoped_mpbqi ri(bqim());
+                bqim().add(interval(a), interval(b), ri);
+                r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
+                swap(r->interval(), ri);
+                if (determine_sign(r)) {
+                    SASSERT(!contains_zero(r->interval()));
+                }
+                else {
+                    // The new value is 0
+                    r = 0;
+                }
             }
         }
 
         /**
            \brief Add a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
-        value * add_p_v(rational_function_value * a, value * b) {
+        void add_p_v(rational_function_value * a, value * b, value_ref & r) {
             SASSERT(is_rational_one(a->den()));
             SASSERT(compare_rank(a, b) > 0);
             polynomial const & an  = a->num();
@@ -2389,35 +2440,40 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             add(an.size(), an.c_ptr(), b, new_num);
             SASSERT(new_num.size() == an.size());
-            return mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr());
+            mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
         }
         
         /**
            \brief Add a value 'a' of the form n/d with b where rank(a) > rank(b)
         */
-        value * add_rf_v(rational_function_value * a, value * b) {
+        void add_rf_v(rational_function_value * a, value * b, value_ref & r) {
             value_ref_buffer b_ad(*this);
             value_ref_buffer num(*this);
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
-            if (is_rational_one(ad))
-                return add_p_v(a, b);
-            // b_ad <- b * ad
-            mul(b, ad.size(), ad.c_ptr(), b_ad);
-            // num <- a + b * ad
-            add(an.size(), an.c_ptr(), b_ad.size(), b_ad.c_ptr(), num);
-            if (num.empty())
-                return 0;
-            value_ref_buffer new_num(*this);
-            value_ref_buffer new_den(*this);
-            normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
-            return mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
+            if (is_rational_one(ad)) {
+                add_p_v(a, b, r);
+            }
+            else {
+                // b_ad <- b * ad
+                mul(b, ad.size(), ad.c_ptr(), b_ad);
+                // num <- a + b * ad
+                add(an.size(), an.c_ptr(), b_ad.size(), b_ad.c_ptr(), num);
+                if (num.empty())
+                    r = 0;
+                else {
+                    value_ref_buffer new_num(*this);
+                    value_ref_buffer new_den(*this);
+                    normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+                }
+            }
         }
 
         /**
            \brief Add values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
-        value * add_p_p(rational_function_value * a, rational_function_value * b) {
+        void add_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(is_rational_one(a->den()));
             SASSERT(is_rational_one(b->den()));
             SASSERT(compare_rank(a, b) == 0);
@@ -2427,109 +2483,120 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             add(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
             if (new_num.empty())
-                return 0;
-            return mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr());
+                r = 0;
+            else 
+                mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
         }
         
         /**
            \brief Add values 'a' and 'b' of the form n/d and rank(a) == rank(b)
         */
-        value * add_rf_rf(rational_function_value * a, rational_function_value * b) {
+        void add_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
             polynomial const & bn = b->num();
             polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd))
-                return add_p_p(a, b);
-            value_ref_buffer an_bd(*this);
-            value_ref_buffer bn_ad(*this);
-            mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
-            mul(bn.size(), bn.c_ptr(), ad.size(), ad.c_ptr(), bn_ad);
-            value_ref_buffer num(*this);
-            add(an_bd.size(), an_bd.c_ptr(), bn_ad.size(), bn_ad.c_ptr(), num);
-            if (num.empty())
-                return 0;
-            value_ref_buffer den(*this);
-            mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
-            value_ref_buffer new_num(*this);
-            value_ref_buffer new_den(*this);
-            normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
-            return mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
-        }
-        
-        value * add(value * a, value * b) {
-            if (a == 0)
-                return b;
-            else if (b == 0)
-                return a;
-            else if (is_nz_rational(a) && is_nz_rational(b)) {
-                scoped_mpq r(qm());
-                qm().add(to_mpq(a), to_mpq(b), r);
-                if (qm().is_zero(r))
-                    return 0;
-                else 
-                    return mk_rational(r);
+            if (is_rational_one(ad) && is_rational_one(bd)) {
+                add_p_p(a, b, r);
             }
             else {
-                switch (compare_rank(a, b)) {
-                case -1: return add_rf_v(to_rational_function(b), a); 
-                case 0:  return add_rf_rf(to_rational_function(a), to_rational_function(b));
-                case 1:  return add_rf_v(to_rational_function(a), b);
-                default: UNREACHABLE();
-                    return 0;
+                value_ref_buffer an_bd(*this);
+                value_ref_buffer bn_ad(*this);
+                mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
+                mul(bn.size(), bn.c_ptr(), ad.size(), ad.c_ptr(), bn_ad);
+                value_ref_buffer num(*this);
+                add(an_bd.size(), an_bd.c_ptr(), bn_ad.size(), bn_ad.c_ptr(), num);
+                if (num.empty()) {
+                    r = 0;
+                }
+                else {
+                    value_ref_buffer den(*this);
+                    mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
+                    value_ref_buffer new_num(*this);
+                    value_ref_buffer new_den(*this);
+                    normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
         }
         
-        value * sub(value * a, value * b) {
-            if (a == 0)
-                return neg(b);
-            else if (b == 0)
-                return a;
+        void add(value * a, value * b, value_ref & r) {
+            if (a == 0) {
+                r = b;
+            }
+            else if (b == 0) {
+                r = a;
+            }
             else if (is_nz_rational(a) && is_nz_rational(b)) {
-                scoped_mpq r(qm());
-                qm().sub(to_mpq(a), to_mpq(b), r);
-                if (qm().is_zero(r))
-                    return 0;
+                scoped_mpq v(qm());
+                qm().add(to_mpq(a), to_mpq(b), v);
+                if (qm().is_zero(v))
+                    r = 0;
                 else 
-                    return mk_rational(r);
+                    r = mk_rational(v);
+            }
+            else {
+                switch (compare_rank(a, b)) {
+                case -1: add_rf_v(to_rational_function(b), a, r); break; 
+                case 0:  add_rf_rf(to_rational_function(a), to_rational_function(b), r); break;
+                case 1:  add_rf_v(to_rational_function(a), b, r); break;
+                default: UNREACHABLE();
+                }
+            }
+        }
+        
+        void sub(value * a, value * b, value_ref & r) {
+            if (a == 0) {
+                neg(b, r);
+            }
+            else if (b == 0) {
+                r = a;
+            }
+            else if (is_nz_rational(a) && is_nz_rational(b)) {
+                scoped_mpq v(qm());
+                qm().sub(to_mpq(a), to_mpq(b), v);
+                if (qm().is_zero(v))
+                    r = 0;
+                else 
+                    r = mk_rational(v);
             }
             else {
                 value_ref neg_b(*this);
-                neg_b = neg(b);
+                neg(b, neg_b);
                 switch (compare_rank(a, neg_b)) {
-                case -1: return add_rf_v(to_rational_function(neg_b), a); 
-                case 0:  return add_rf_rf(to_rational_function(a), to_rational_function(neg_b));
-                case 1:  return add_rf_v(to_rational_function(a), b);
+                case -1: add_rf_v(to_rational_function(neg_b), a, r); break;
+                case 0:  add_rf_rf(to_rational_function(a), to_rational_function(neg_b), r); break;
+                case 1:  add_rf_v(to_rational_function(a), neg_b, r); break;
                 default: UNREACHABLE();
-                    return 0;
                 }
             }
         }
 
-        value * neg_rf(rational_function_value * a) {
+        void neg_rf(rational_function_value * a, value_ref & r) {
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
             value_ref_buffer new_num(*this);
             neg(an.size(), an.c_ptr(), new_num);
-            rational_function_value * r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), ad.size(), ad.c_ptr());
-            bqim().neg(interval(a), r->interval());
+            scoped_mpbqi ri(bqim());
+            bqim().neg(interval(a), ri);
+            r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), ad.size(), ad.c_ptr());
+            swap(r->interval(), ri);
             SASSERT(!contains_zero(r->interval()));
-            return r;
         }
 
-        value * neg(value * a) {
-            if (a == 0)
-                return 0;
+        void neg(value * a, value_ref & r) {
+            if (a == 0) {
+                r = 0;
+            }
             else if (is_nz_rational(a)) {
-                scoped_mpq r(qm());
-                qm().set(r, to_mpq(a));
-                qm().neg(r);
-                return mk_rational(r);
+                scoped_mpq v(qm());
+                qm().set(v, to_mpq(a));
+                qm().neg(v);
+                r = mk_rational(v);
             }
             else {
-                return neg_rf(to_rational_function(a));
+                neg_rf(to_rational_function(a), r);
             }
         }
 
@@ -2537,30 +2604,32 @@ namespace realclosure {
            \brief Create a new value using the a->ext(), and the given numerator and denominator.
            Use interval(a) * interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
-        value * mk_mul_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den) {
+        void mk_mul_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
                 SASSERT(is_rational_one(den[0]));
-                return num[0];
-            }
-            rational_function_value * r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
-            bqim().mul(interval(a), interval(b), r->interval());
-            if (determine_sign(r)) {
-                SASSERT(!contains_zero(r->interval()));
-                return r;
+                r = num[0];
             }
             else {
-                // The new value is 0
-                del_rational_function(r);
-                return 0;
+                scoped_mpbqi ri(bqim());
+                bqim().mul(interval(a), interval(b), ri);
+                r = mk_rational_function_value_core(a->ext(), num_sz, num, den_sz, den);
+                swap(ri, r->interval());
+                if (determine_sign(r)) {
+                    SASSERT(!contains_zero(r->interval()));
+                }
+                else {
+                    // The new value is 0
+                    r = 0;
+                }
             }
         }
 
         /**
            \brief Multiply a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
-        value * mul_p_v(rational_function_value * a, value * b) {
+        void mul_p_v(rational_function_value * a, value * b, value_ref & r) {
             SASSERT(is_rational_one(a->den()));
             SASSERT(b != 0);
             SASSERT(compare_rank(a, b) > 0);
@@ -2570,31 +2639,34 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             mul(b, an.size(), an.c_ptr(), new_num);
             SASSERT(new_num.size() == an.size());
-            return mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr());
+            mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
         }
 
         /**
            \brief Multiply a value 'a' of the form n/d with b where rank(a) > rank(b)
         */
-        value * mul_rf_v(rational_function_value * a, value * b) {
+        void mul_rf_v(rational_function_value * a, value * b, value_ref & r) {
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
-            if (is_rational_one(ad))
-                return mul_p_v(a, b);
-            value_ref_buffer num(*this);
-            // num <- b * an
-            mul(b, an.size(), an.c_ptr(), num);
-            SASSERT(num.size() == an.size());
-            value_ref_buffer new_num(*this);
-            value_ref_buffer new_den(*this);
-            normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
-            return mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
+            if (is_rational_one(ad)) {
+                mul_p_v(a, b, r);
+            }
+            else {
+                value_ref_buffer num(*this);
+                // num <- b * an
+                mul(b, an.size(), an.c_ptr(), num);
+                SASSERT(num.size() == an.size());
+                value_ref_buffer new_num(*this);
+                value_ref_buffer new_den(*this);
+                normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+            }
         }
 
         /**
            \brief Multiply values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
-        value * mul_p_p(rational_function_value * a, rational_function_value * b) {
+        void mul_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(is_rational_one(a->den()));
             SASSERT(is_rational_one(b->den()));
             SASSERT(compare_rank(a, b) == 0);
@@ -2604,107 +2676,119 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
             SASSERT(!new_num.empty());
-            return mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr());
+            mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
         }
 
         /**
            \brief Multiply values 'a' and 'b' of the form n/d and rank(a) == rank(b)
         */
-        value * mul_rf_rf(rational_function_value * a, rational_function_value * b) {
+        void mul_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
             polynomial const & bn = b->num();
             polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd))
-                return mul_p_p(a, b);
-            value_ref_buffer num(*this);
-            value_ref_buffer den(*this);
-            mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
-            mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
-            SASSERT(!num.empty()); SASSERT(!den.empty());
-            value_ref_buffer new_num(*this);
-            value_ref_buffer new_den(*this);
-            normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
-            return mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
+            if (is_rational_one(ad) && is_rational_one(bd)) {
+                mul_p_p(a, b, r);
+            }
+            else {
+                value_ref_buffer num(*this);
+                value_ref_buffer den(*this);
+                mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
+                mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
+                SASSERT(!num.empty()); SASSERT(!den.empty());
+                value_ref_buffer new_num(*this);
+                value_ref_buffer new_den(*this);
+                normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+            }
         }
 
-        value * mul(value * a, value * b) {
-            if (a == 0 || b == 0)
-                return 0;
-            else if (is_rational_one(a))
-                return b;
-            else if (is_rational_one(b))
-                return a;
-            else if (is_rational_minus_one(a))
-                return neg(b);
-            else if (is_rational_minus_one(b))
-                return neg(a);
+        void mul(value * a, value * b, value_ref & r) {
+            if (a == 0 || b == 0) {
+                r = 0;
+            }
+            else if (is_rational_one(a)) {
+                r = b;
+            }
+            else if (is_rational_one(b)) {
+                r = a;
+            }
+            else if (is_rational_minus_one(a)) {
+                neg(b, r);
+            }
+            else if (is_rational_minus_one(b)) {
+                neg(a, r);
+            }
             else if (is_nz_rational(a) && is_nz_rational(b)) {
-                scoped_mpq r(qm());
-                qm().mul(to_mpq(a), to_mpq(b), r);
-                return mk_rational(r);
+                scoped_mpq v(qm());
+                qm().mul(to_mpq(a), to_mpq(b), v);
+                r = mk_rational(v);
             }
             else {
                 switch (compare_rank(a, b)) {
-                case -1: return mul_rf_v(to_rational_function(b), a); 
-                case 0:  return mul_rf_rf(to_rational_function(a), to_rational_function(b));
-                case 1:  return mul_rf_v(to_rational_function(a), b);
+                case -1: mul_rf_v(to_rational_function(b), a, r); break; 
+                case 0:  mul_rf_rf(to_rational_function(a), to_rational_function(b), r); break;
+                case 1:  mul_rf_v(to_rational_function(a), b, r); break;
                 default: UNREACHABLE();
-                    return 0;
                 }
             }
         }
 
-        value * div(value * a, value * b) {
-            if (a == 0)
-                return 0;
-            else if (b == 0)
+        void div(value * a, value * b, value_ref & r) {
+            if (a == 0) {
+                r = 0;
+            }
+            else if (b == 0) {
                 throw exception("division by zero");
-            else if (is_rational_one(b))
-                return a;
-            else if (is_rational_one(a))
-                return inv(b);
-            else if (is_rational_minus_one(b))
-                return neg(a);
+            }
+            else if (is_rational_one(b)) {
+                r = a;
+            }
+            else if (is_rational_one(a)) {
+                inv(b, r);
+            }
+            else if (is_rational_minus_one(b)) {
+                neg(a, r);
+            }
             else if (is_nz_rational(a) && is_nz_rational(b)) {
-                scoped_mpq r(qm());
-                qm().div(to_mpq(a), to_mpq(b), r);
-                return mk_rational(r);
+                scoped_mpq v(qm());
+                qm().div(to_mpq(a), to_mpq(b), v);
+                r = mk_rational(v);
             }
             else {
                 value_ref inv_b(*this);
-                inv_b = inv(b);
+                inv(b, inv_b);
                 switch (compare_rank(a, inv_b)) {
-                case -1: return mul_rf_v(to_rational_function(inv_b), a); 
-                case 0:  return mul_rf_rf(to_rational_function(a), to_rational_function(inv_b));
-                case 1:  return mul_rf_v(to_rational_function(a), inv_b);
+                case -1: mul_rf_v(to_rational_function(inv_b), a, r);  break;
+                case 0:  mul_rf_rf(to_rational_function(a), to_rational_function(inv_b), r); break;
+                case 1:  mul_rf_v(to_rational_function(a), inv_b, r); break;
                 default: UNREACHABLE();
-                    return 0;
                 }
             }
         }
 
-        value * inv_rf(rational_function_value * a) {
+        void inv_rf(rational_function_value * a, value_ref & r) {
             polynomial const & an = a->num();
             polynomial const & ad = a->den();
-            rational_function_value * r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
-            bqim().inv(interval(a), r->interval());
+            scoped_mpbqi ri(bqim());
+            bqim().inv(interval(a), ri);
+            r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
+            swap(r->interval(), ri);
             SASSERT(!contains_zero(r->interval()));
-            return r;
         }
 
-        value * inv(value * a) {
+        void inv(value * a, value_ref & r) {
             if (a == 0) {
                 throw exception("division by zero");
             }
             if (is_nz_rational(a)) {
-                scoped_mpq r(qm());
-                qm().inv(to_mpq(a), r);
-                return mk_rational(r);
+                scoped_mpq v(qm());
+                qm().inv(to_mpq(a), v);
+                r = mk_rational(v);
             }
             else {
-                return inv_rf(to_rational_function(a));
+                inv_rf(to_rational_function(a), r);
             }
         }
 
@@ -2714,36 +2798,56 @@ namespace realclosure {
             n.m_value = v;
         }
 
+        void set(numeral & n, value_ref const & v) {
+            set(n, v.get());
+        }
+
         void neg(numeral & a) {
-            set(a, neg(a.m_value));
+            value_ref r(*this);
+            neg(a.m_value, r);
+            set(a, r);
         }
 
         void neg(numeral const & a, numeral & b) {
-            set(b, neg(a.m_value));
+            value_ref r(*this);
+            neg(a.m_value, r);
+            set(b, r);
         }
 
         void inv(numeral & a) {
-            set(a, inv(a.m_value));
+            value_ref r(*this);
+            inv(a.m_value, r);
+            set(a, r);
         }
 
         void inv(numeral const & a, numeral & b) {
-            set(b, inv(a.m_value));
+            value_ref r(*this);
+            inv(a.m_value, r);
+            set(b, r);
         }
 
         void add(numeral const & a, numeral const & b, numeral & c) {
-            set(c, add(a.m_value, b.m_value));
+            value_ref r(*this);
+            add(a.m_value, b.m_value, r);
+            set(c, r);
         }
 
         void sub(numeral const & a, numeral const & b, numeral & c) {
-            set(c, sub(a.m_value, b.m_value));
+            value_ref r(*this);
+            sub(a.m_value, b.m_value, r);
+            set(c, r);
         }
 
         void mul(numeral const & a, numeral const & b, numeral & c) {
-            set(c, mul(a.m_value, b.m_value));
+            value_ref r(*this);
+            mul(a.m_value, b.m_value, r);
+            set(c, r);
         }
         
         void div(numeral const & a, numeral const & b, numeral & c) {
-            set(c, div(a.m_value, b.m_value));
+            value_ref r(*this);
+            div(a.m_value, b.m_value, r);
+            set(c, r);
         }
 
         int compare(value * a, value * b) {
@@ -2761,7 +2865,7 @@ namespace realclosure {
                     return 1;
                 else {
                     value_ref diff(*this);
-                    diff = sub(a, b);
+                    sub(a, b, diff);
                     return sign(diff);
                 }
             }
