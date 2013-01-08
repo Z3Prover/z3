@@ -492,8 +492,11 @@ extern "C" {
     }
 
     void Z3_API Z3_enable_trace(Z3_string tag) {
+        memory::initialize(UINT_MAX);
         LOG_Z3_enable_trace(tag);
-        enable_trace(tag);
+        // Tag is a string that was probably not allocated by Z3. Create a copy using symbol.
+        symbol tag_sym(tag);
+        enable_trace(tag_sym.bare_str());
     }
 
     void Z3_API Z3_disable_trace(Z3_string tag) {
