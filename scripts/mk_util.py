@@ -354,7 +354,10 @@ def check_ml():
         raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler')
     os.remove('hello.cmi')
     os.remove('hello.cmo')
+    os.remove('hello.cmx')
+    os.remove('hello.obj')
     os.remove('a.out')
+    t.__del__()
     find_ml_lib()
 
 def find_ml_lib():
