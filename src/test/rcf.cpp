@@ -143,7 +143,7 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
 
 
 void tst_rcf() {
-    // tst1();
+    tst1();
     tst2();
     { int A[] = {0, 1, 1, 1, 0, 1, 1, 1, -1}; int c[] = {10, 4, -4}; int b[] = {-2, 4, 6}; tst_solve(3, A, b, c, true); }
     { int A[] = {1, 1, 1, 0, 1, 1, 0, 1, 1}; int c[] = {3, 2, 2}; int b[] = {1, 1, 1}; tst_solve(3, A, b, c, false); }

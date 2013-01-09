@@ -1015,7 +1015,7 @@ namespace realclosure {
             t->m_k++;
             t->m_proc(t->m_k, qim(), i);
             int m = magnitude(i);
-            TRACE("rcf", 
+            TRACE("rcf_transcendental", 
                   tout << "refine_transcendental_interval rational: " << m << "\nrational interval: "; 
                   qim().display(tout, i); tout << std::endl;);
             unsigned k;
@@ -1033,7 +1033,7 @@ namespace realclosure {
 
         void refine_transcendental_interval(transcendental * t, unsigned prec) {
             while (!check_precision(t->interval(), prec)) {
-                TRACE("rcf", tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
+                TRACE("rcf_transcendental", tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
                 checkpoint();
                 refine_transcendental_interval(t);
             }
@@ -1165,7 +1165,7 @@ namespace realclosure {
            Similarly, the procedure will fail if one of the a_{n-k} has an interval of the form (l, oo) or (-oo, u).
            Both cases can only happen if the values of the coefficients depend on infinitesimal values.
         */
-        bool pos_root_upper_bound(unsigned n, value * const * p, unsigned & N) {
+        bool pos_root_upper_bound(unsigned n, value * const * p, int & N) {
             SASSERT(n > 1);
             SASSERT(!is_zero(p[n-1]));
             int lc_sign = sign(p[n-1]);
@@ -1173,15 +1173,15 @@ namespace realclosure {
             int lc_mag;
             if (!abs_lower_magnitude(interval(p[n-1]), lc_mag))
                 return false;
-            N = 0;
+            N = -static_cast<int>(m_ini_precision);
             for (unsigned k = 2; k <= n; k++) {
                 value * a = p[n - k];
                 if (!is_zero(a) && sign(a) != lc_sign) {
                     int a_mag;
                     if (!abs_upper_magnitude(interval(a), a_mag))
                         return false;
-                    int C = (a_mag - lc_mag)/k + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
-                    if (C > 0 && static_cast<unsigned>(C) > N)
+                    int C = (a_mag - lc_mag)/static_cast<int>(k) + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
+                    if (C > N)
                         N = C;
                 }
             }
@@ -1204,13 +1204,13 @@ namespace realclosure {
         }
 
         /**
-           \brief Find negative root upper bound using Knuth's approach.
+           \brief Find negative root lower bound using Knuth's approach.
            
            This is similar to pos_root_upper_bound. In principle, we can use 
            the same algorithm. We just have to adjust the coefficients by using
            the transformation p(-x).
         */
-        bool neg_root_upper_bound(unsigned n, value * const * as, unsigned & N) {
+        bool neg_root_lower_bound(unsigned n, value * const * as, int & N) {
             SASSERT(n > 1);
             SASSERT(!is_zero(as[n-1]));
             scoped_mpbqi aux(bqim());
@@ -1219,7 +1219,7 @@ namespace realclosure {
             int lc_mag;
             if (!abs_lower_magnitude(aux, lc_mag))
                 return false;
-            N = 0;
+            N = -static_cast<int>(m_ini_precision);
             for (unsigned k = 2; k <= n; k++) {
                 value * a = as[n - k];
                 if (!is_zero(a)) {
@@ -1229,13 +1229,60 @@ namespace realclosure {
                         int a_mag;
                         if (!abs_upper_magnitude(aux, a_mag))
                             return false;
-                        int C = (a_mag - lc_mag)/k + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
-                        if (C > 0 && static_cast<unsigned>(C) > N)
+                        int C = (a_mag - lc_mag)/static_cast<int>(k) + 1 /* compensate imprecision on division */ + 1 /* Knuth's bound is 2 x Max {... } */;
+                        if (C > N)
                             N = C;
                     }
                 }
             }
             return true;
+        }
+
+        /**
+           \brief q <- x^{n-1}*p(1/x)
+
+           Given p(x) a_{n-1} * x^{n-1} + ... + a_0, this method stores
+           a_0 * x^{n-1} + ... + a_{n-1} into q.
+        */
+        void reverse(unsigned n, value * const * p, value_ref_buffer & q) {
+            unsigned i = n;
+            while (i > 0) {
+                --i;
+                q.push_back(p[i]);
+            }
+        }
+
+        /**
+           \brief To compute the lower bound for positive roots we computer the upper bound for the polynomial q(x) = x^{n-1}*p(1/x).
+           Assume U is an upper bound for roots of q(x), i.e., (r > 0 and q(r) = 0) implies r < U.
+           Note that if r is a root for q(x), then 1/r is a root for p(x) and 1/U is a lower bound for positive roots of p(x).
+           The polynomial q(x) is just p(x) "reversed".
+        */
+        bool pos_root_lower_bound(unsigned n, value * const * p, int & N) {
+            value_ref_buffer q(*this);
+            reverse(n, p, q);
+            if (pos_root_upper_bound(n, q.c_ptr(), N)) {
+                N = -N;
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        /**
+           \brief See comment on pos_root_lower_bound.
+        */
+        bool neg_root_upper_bound(unsigned n, value * const * p, int & N) {
+            value_ref_buffer q(*this);
+            reverse(n, p, q);
+            if (pos_root_lower_bound(n, q.c_ptr(), N)) {
+                N = -N;
+                return true;
+            }
+            else {
+                return false;
+            }
         }
 
         /**
@@ -1245,18 +1292,25 @@ namespace realclosure {
                    - square free
                    - nonconstant
         */
-        void nl_nz_sqf_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+        void nl_nz_sqf_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
             SASSERT(n > 2);
-            SASSERT(!is_zero(as[0])); 
-            SASSERT(!is_zero(as[n-1]));
-            unsigned pos_N, neg_N;
-            bool has_neg_upper = neg_root_upper_bound(n, as, neg_N);
-            bool has_pos_upper = pos_root_upper_bound(n, as, pos_N);
-            TRACE("rcf", 
-                  display_poly(tout, n, as); tout << "\n";
-                  tout << "has_neg_upper: " << has_neg_upper << " neg_N: " << neg_N << "\n";
-                  tout << "has_pos_upper: " << has_pos_upper << " pos_N: " << pos_N << "\n";);
-
+            SASSERT(!is_zero(p[0])); 
+            SASSERT(!is_zero(p[n-1]));
+            int pos_lower_N, pos_upper_N, neg_lower_N, neg_upper_N;
+            bool has_neg_lower = neg_root_lower_bound(n, p, neg_lower_N);
+            bool has_neg_upper = neg_root_upper_bound(n, p, neg_upper_N);
+            bool has_pos_lower = pos_root_lower_bound(n, p, pos_lower_N);
+            bool has_pos_upper = pos_root_upper_bound(n, p, pos_upper_N);
+            TRACE("rcf_isolate", 
+                  display_poly(tout, n, p); tout << "\n";
+                  if (has_neg_lower) tout << "-2^" << neg_lower_N; else tout << "-oo";
+                  tout << " < neg-roots < ";
+                  if (has_neg_upper) tout << "-2^" << neg_upper_N; else tout << "0";
+                  tout << "\n";
+                  if (has_pos_lower) tout << "2^" << pos_lower_N; else tout << "0";
+                  tout << " < pos-roots < ";
+                  if (has_pos_upper) tout << "2^" << pos_upper_N; else tout << "oo";
+                  tout << "\n";);
             // TODO
         }
 
@@ -1266,62 +1320,62 @@ namespace realclosure {
                    - square free
                    - nonconstant
         */
-        void nz_sqf_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+        void nz_sqf_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
             SASSERT(n > 1);
-            SASSERT(!is_zero(as[0])); 
-            SASSERT(!is_zero(as[n-1]));
+            SASSERT(!is_zero(p[0])); 
+            SASSERT(!is_zero(p[n-1]));
             if (n == 2) {
                 // we don't need a field extension for linear polynomials.
                 numeral r;
                 value_ref v(*this);
-                neg(as[0], v);
-                div(v, as[1], v);
+                neg(p[0], v);
+                div(v, p[1], v);
                 set(r, v);
                 roots.push_back(r);
             }
             else {
-                nl_nz_sqf_isolate_roots(n, as, roots); 
+                nl_nz_sqf_isolate_roots(n, p, roots); 
             }
         }
         
         /**
            \brief Root isolation for polynomials where 0 is not a root.
         */
-        void nz_isolate_roots(unsigned n, value * const * as, numeral_vector & roots) {
+        void nz_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
             SASSERT(n > 0);
-            SASSERT(!is_zero(as[0])); 
-            SASSERT(!is_zero(as[n-1]));
+            SASSERT(!is_zero(p[0])); 
+            SASSERT(!is_zero(p[n-1]));
             if (n == 1) {
                 // constant polynomial
                 return; 
             }
             value_ref_buffer sqf(*this);
-            square_free(n, as, sqf);
+            square_free(n, p, sqf);
             nz_sqf_isolate_roots(sqf.size(), sqf.c_ptr(), roots);
         }
 
         /**
            \brief Root isolation entry point.
         */
-        void isolate_roots(unsigned n, numeral const * as, numeral_vector & roots) {
+        void isolate_roots(unsigned n, numeral const * p, numeral_vector & roots) {
             SASSERT(n > 0);
-            SASSERT(!is_zero(as[n-1]));
+            SASSERT(!is_zero(p[n-1]));
             if (n == 1) {
                 // constant polynomial
                 return; 
             }
             unsigned i = 0;
             for (; i < n; i++) {
-                if (!is_zero(as[i]))
+                if (!is_zero(p[i]))
                     break;
             }
             SASSERT(i < n);
-            SASSERT(!is_zero(as[i]));
-            ptr_buffer<value> as_values;
+            SASSERT(!is_zero(p[i]));
+            ptr_buffer<value> nz_p;
             for (; i < n; i++)
-                as_values.push_back(as[i].m_value);
-            nz_isolate_roots(as_values.size(), as_values.c_ptr(), roots);
-            if (as_values.size() < n) {
+                nz_p.push_back(p[i].m_value);
+            nz_isolate_roots(nz_p.size(), nz_p.c_ptr(), roots);
+            if (nz_p.size() < n) {
                 // zero is a root
                 roots.push_back(numeral());
             }
@@ -1725,7 +1779,7 @@ namespace realclosure {
            \brief r <- rem(p1, p2)
         */
         void rem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
-            TRACE("rcf", 
+            TRACE("rcf_rem", 
                   tout << "rem\n";
                   display_poly(tout, sz1, p1); tout << "\n";
                   display_poly(tout, sz2, p2); tout << "\n";);
@@ -1744,7 +1798,7 @@ namespace realclosure {
                 checkpoint();
                 sz1 = r.size();
                 if (sz1 < sz2) {
-                    TRACE("rcf", tout << "rem result\n"; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
+                    TRACE("rcf_rem", tout << "rem result\n"; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
                     return;
                 }
                 unsigned m_n = sz1 - sz2;
@@ -2027,7 +2081,7 @@ namespace realclosure {
                 refine_transcendental_interval(to_transcendental(v->ext()), _prec);
                 update_rf_interval(v, prec);
                 
-                TRACE("rcf", tout << "after update_rf_interval: " << magnitude(v->interval()) << " ";
+                TRACE("rcf_transcendental", tout << "after update_rf_interval: " << magnitude(v->interval()) << " ";
                       bqim().display(tout, v->interval()); tout << std::endl;);
                 
                 if (check_precision(v->interval(), prec))
