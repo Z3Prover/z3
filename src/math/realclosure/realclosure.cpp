@@ -326,7 +326,7 @@ namespace realclosure {
         
         // Parameters
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
-        int                            m_min_magnitude;
+        unsigned                       m_max_precision; //!< Maximum precision for interval arithmetic techniques, it switches to complete methods after that
         unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
         scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
         scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
@@ -465,10 +465,10 @@ namespace realclosure {
         }
         
         /**
-           \brief Return true if the magnitude of the given interval is less than the parameter m_min_magnitude
+           \brief Return true if the magnitude of the given interval is less than the parameter m_max_precision.
         */
         bool too_small(mpbqi const & i) {
-            return magnitude(i) < m_min_magnitude;
+            return magnitude(i) < -static_cast<int>(m_max_precision);
         }
 
 #define SMALL_UNSIGNED 1 << 16
@@ -563,7 +563,7 @@ namespace realclosure {
         void updt_params(params_ref const & p) {
             m_ini_precision  = p.get_uint("initial_precision", 24);
             m_inf_precision  = p.get_uint("inf_precision", 24);
-            m_min_magnitude  = -static_cast<int>(p.get_uint("min_mag", 64));
+            m_max_precision  = p.get_uint("max_precision", 64); // == 1/2^64  for interval arithmetic methods, it switches to complete methods after that.
             bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
             bqm().set(m_minus_inf_approx, m_plus_inf_approx);
             bqm().neg(m_minus_inf_approx);
@@ -962,6 +962,14 @@ namespace realclosure {
         }
 
         /**
+           \brief a <- [b, b]
+        */
+        void set_interval(mpbqi & a, mpbq const & b) {
+            set_lower_core(a, b, false, false);
+            set_upper_core(a, b, false, false);
+        }
+
+        /**
            \brief Make a rational_function_value using the given extension, numerator and denominator.
            This method does not set the interval. It remains (-oo, oo)
         */
@@ -1286,6 +1294,53 @@ namespace realclosure {
         }
 
         /**
+           \brief Store in ds all (non-constant) derivatives of p. 
+           
+           \post d.size() == n-2
+        */
+        void mk_derivatives(unsigned n, value * const * p, scoped_polynomial_seq & ds) {
+            SASSERT(n >= 3); // p is at least quadratic
+            SASSERT(!is_zero(p[0])); 
+            SASSERT(!is_zero(p[n-1]));
+            value_ref_buffer p_prime(*this);
+            derivative(n, p, p_prime);
+            ds.push(p_prime.size(), p_prime.c_ptr());
+            SASSERT(n >= 3);
+            for (unsigned i = 0; i < n - 3; i++) {
+                SASSERT(ds.size() > 1);
+                unsigned prev = ds.size() - 1;
+                n = ds.size(prev);
+                p = ds.coeffs(prev);
+                derivative(n, p, p_prime);
+                ds.push(p_prime.size(), p_prime.c_ptr());
+            }
+        }
+
+        /**
+           \brief Isolate roots of p (first polynomial in TaQ_1) in the given interval using sign conditions to distinguish between them.
+           We need this method when the polynomial contains roots that are infinitesimally close to each other.
+           For example, given an infinitesimal eps, the polynomial (x - 1)(x - 1 - eps) == (1 + eps) + (- 2 - eps)*x + x^2 
+           has two roots 1 and 1+eps, we can't isolate these roots using intervals with binary rational end points.
+           In this case, we use the signs of (some of the) derivatives in the roots.
+           By Thom's lemma, we know we can always use the signs of the derivatives to distinguish between different roots.
+           
+           Remark: the polynomials do not need to be the derivatives of p. We use derivatives because a simple
+           sequential search can be used to find the set of polynomials that can be used to distinguish between
+           the different roots.
+        */
+        void sign_det_isolate_roots(scoped_polynomial_seq & TaQ_1, unsigned num_roots, mpbqi const & interval, numeral_vector & roots) {
+            SASSERT(num_roots >= 2);
+            SASSERT(TaQ_1.size() > 0);
+            unsigned n        = TaQ_1.size(0);
+            value * const * p = TaQ_1.coeffs(0);
+            
+            scoped_polynomial_seq ds(*this);
+            mk_derivatives(n, p, ds);
+            
+            // TODO continue
+        }
+
+        /**
            \brief Root isolation for polynomials that are
                    - nonlinear (degree > 2)
                    - zero is not a root
@@ -1475,6 +1530,12 @@ namespace realclosure {
             rational_value * r = mk_rational();
             ::swap(r->m_value, v);
             return r;
+        }
+
+        rational_value * mk_rational(mpbq const & v) {
+            scoped_mpq v_q(qm()); // v as a rational
+            ::to_mpq(qm(), v, v_q);
+            return mk_rational(v_q);
         }
 
         void reset_interval(value * a) {
@@ -2001,6 +2062,260 @@ namespace realclosure {
             seq.push(p1p2.size(), p1p2.c_ptr());
             sturm_seq_core(seq);
         }
+        
+        /**
+           \brief Return the sign of p(0)
+        */
+        int eval_sign_at_zero(unsigned n, value * const * p) {
+            if (n == 0)
+                return 0;
+            return sign(p[0]);
+        }
+
+        /**
+           \brief Return the sign of p(oo)
+        */
+        int eval_sign_at_plus_inf(unsigned n, value * const * p) {
+            if (n == 0)
+                return 0;
+            SASSERT(!is_zero(p[n-1])); // p is well formed
+            return sign(p[n-1]);
+        }
+        
+        /**
+           \brief Return the sign of p(-oo)
+        */
+        int eval_sign_at_minus_inf(unsigned n, value * const * p) {
+            if (n == 0)
+                return 0;
+            SASSERT(!is_zero(p[n-1])); // p is well formed
+            unsigned degree = n - 1;
+            if (degree % 2 == 0)
+                return sign(p[n - 1]);
+            else
+                return -sign(p[n - 1]);
+        }
+
+        /**
+           \brief Store in r an approximation (as an interval) for the interval p(b).
+           
+           \pre n >= 2
+        */
+        void eval_sign_at_approx(unsigned n, value * const * p, mpbq const & b, mpbqi & r) {
+            SASSERT(n >= 2);
+            // We compute r using the Horner Sequence
+            //  ((a_{n-1}*b + a_{n-2})*b + a_{n-3})*b + a_{n-4} ...
+            // where a_i's are the intervals associated with coefficients of p.
+            SASSERT(n > 0);
+            SASSERT(p[n - 1] != 0);
+            scoped_mpbqi bi(bqim());
+            set_interval(bi, b);  // bi <- [b, b]
+            // r <- a_n * bi
+            bqim().mul(interval(p[n - 1]), bi, r); 
+            unsigned i = n - 1;
+            while (i > 0) {
+                checkpoint();
+                --i;
+                if (p[i] != 0)
+                    bqim().add(r, interval(p[i]), r);
+                if (i > 0)
+                    bqim().mul(r, bi, r);
+            }
+        }
+
+        /**
+           \brief We say a polynomial has "refinable" approximated coefficients if the intervals 
+           approximating the coefficients do not have -oo or oo as lower/upper bounds.
+        */
+        bool has_refineable_approx_coeffs(unsigned n, value * const * p) {
+            for (unsigned i = 0; i < n; i++) {
+                if (p[i] != 0) {
+                    mpbqi & a_i = interval(p[i]);
+                    if (a_i.lower_is_inf() || a_i.upper_is_inf())
+                        return false;
+                }
+            }
+            return true;
+        }
+
+        /**
+           \brief Evaluate the sign of p(b) by computing a value object.
+        */
+        int expensive_eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
+            SASSERT(n > 0);
+            SASSERT(p[n - 1] != 0);
+            value_ref bv(*this);
+            bv = mk_rational(b);
+            // We compute the result using the Horner Sequence
+            //  ((a_{n-1}*bv + a_{n-2})*bv + a_{n-3})*bv + a_{n-4} ...
+            // where a_i's are the coefficients of p.
+            value_ref r(*this);
+            // r <- a_{n-1} * bv
+            mul(p[n - 1], bv, r);
+            unsigned i = n - 1;
+            while (i > 0) {
+                checkpoint();
+                --i;
+                if (p[i] != 0)
+                    add(r, p[i], r); // r <- r + a_i
+                if (i > 0)
+                    mul(r, bv, r); // r <- r * bv
+            }
+            return sign(r);
+        }
+
+        /**
+           \brief Find the magnitude of the biggest interval use to approximate coefficients of p.
+
+           \pre has_refineable_approx_coeffs(n, p)
+        */
+        int find_biggest_interval_magnitude(unsigned n, value * const * p) {
+            int r = INT_MIN;
+            for (unsigned i = 0; i < n; i++) {
+                if (p[i] != 0) {
+                    mpbqi & a_i = interval(p[i]);
+                    SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
+                    int m = magnitude(a_i);
+                    if (m > r)
+                        r = m;
+                }
+            }
+            return r;
+        }
+        
+        /**
+           \brief Return the sign of p(b)
+        */
+        int eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
+            scoped_mpbqi r(bqim());
+            eval_sign_at_approx(n, p, b, r);
+            if (!bqim().contains_zero(r)) {
+                // we are done
+                return bqim().is_P(r) ? 1 : -1;
+            }
+            else if (!has_refineable_approx_coeffs(n, p)) {
+                return expensive_eval_sign_at(n, p, b);
+            }
+            else {
+                int m = find_biggest_interval_magnitude(n, p);
+                unsigned prec;
+                if (m >= 0)
+                    prec = 1;
+                else 
+                    prec = -m;
+                SASSERT(prec >= 1);
+                while (prec <= m_max_precision) {
+                    if (!refine_coeffs_interval(n, p, prec)) {
+                        // Failed to refine intervals, p must depend on infinitesimal values.
+                        // This can happen even if all intervals of coefficients of p are bounded.
+                        return expensive_eval_sign_at(n, p, b);
+                    }
+                    eval_sign_at_approx(n, p, b, r);
+                    if (!bqim().contains_zero(r)) {
+                        // we are done
+                        return bqim().is_P(r) ? 1 : -1;
+                    }
+                    prec++; // increase precision and try again.
+                }
+                return expensive_eval_sign_at(n, p, b);
+            }
+        }
+
+        enum location {
+            ZERO,
+            MINUS_INF,
+            PLUS_INF,
+            MPBQ
+        };
+
+        unsigned sign_variations_at_core(scoped_polynomial_seq const & seq, location loc, mpbq const & b) {
+            unsigned sz = seq.size();
+            if (sz <= 1)
+                return 0;
+            unsigned r = 0;
+            int sign, prev_sign;
+            sign = 0;
+            prev_sign = 0;
+            unsigned i = 0;
+            for (; i < sz; i++) {
+                // find next nonzero
+                unsigned psz      = seq.size(i);
+                value * const * p = seq.coeffs(i);
+                switch (loc) {
+                case PLUS_INF:
+                    sign = eval_sign_at_plus_inf(psz, p);
+                    break;
+                case MINUS_INF:
+                    sign = eval_sign_at_minus_inf(psz, p);
+                    break;
+                case ZERO:
+                    sign  = eval_sign_at_zero(psz, p);
+                    break;
+                case MPBQ:
+                    sign = eval_sign_at(psz, p, b);
+                    break;
+                default:
+                    UNREACHABLE();
+                    break;
+                }
+                if (sign == 0)
+                    continue;
+                SASSERT(sign == 1 || sign == -1);
+                // in the first iteration prev_sign == 0, then r is never incremented.
+                if (sign != prev_sign && prev_sign != 0)
+                    r++;
+                // move to the next
+                prev_sign = sign;
+            }
+            return r;
+        }
+        
+        unsigned sign_variations_at_minus_inf(scoped_polynomial_seq const & seq) {
+            mpbq dummy(0);
+            return sign_variations_at_core(seq, MINUS_INF, dummy);
+        }
+
+        unsigned sign_variations_at_plus_inf(scoped_polynomial_seq const & seq) {
+            mpbq dummy(0);
+            return sign_variations_at_core(seq, PLUS_INF, dummy);
+        }
+        
+        unsigned sign_variations_at_zero(scoped_polynomial_seq const & seq) {
+            mpbq dummy(0);
+            return sign_variations_at_core(seq, ZERO, dummy);
+        }
+        
+        unsigned sign_variations_at(scoped_polynomial_seq const & seq, mpbq const & b) {
+            return sign_variations_at_core(seq, MPBQ, b);
+        }
+
+        /**
+           \brief Given a polynomial Sturm sequence seq for (P; P' * Q) and an interval (a, b], it returns
+                 TaQ(Q, P; a, b) = 
+                    #{ x \in (a, b] | P(x) = 0 and Q(x) > 0 }
+                    -
+                    #{ x \in (a, b] | P(x) = 0 and Q(x) < 0 }
+
+           \remark This method ignores whether the interval end-points are closed or open.
+        */
+        int TaQ(scoped_polynomial_seq & seq, mpbqi const & interval) {
+            int a, b;
+            if (interval.lower_is_inf())
+                a = sign_variations_at_minus_inf(seq);
+            else if (bqm().is_zero(interval.lower()))
+                a = sign_variations_at_zero(seq);
+            else
+                a = sign_variations_at(seq, interval.lower());
+
+            if (interval.upper_is_inf())
+                b = sign_variations_at_plus_inf(seq);
+            else if (bqm().is_zero(interval.upper()))
+                b = sign_variations_at_zero(seq);
+            else
+                b = sign_variations_at(seq, interval.upper());
+            
+            return a - b;
+        }
 
         void refine_rational_interval(rational_value * v, unsigned prec) {
             mpbqi & i = interval(v);
@@ -2018,13 +2333,19 @@ namespace realclosure {
         /**
            \brief Refine the interval for each coefficient of in the polynomial p.
         */
-        bool refine_coeffs_interval(polynomial const & p, unsigned prec) {
-            unsigned sz = p.size();
-            for (unsigned i = 0; i < sz; i++) {
+        bool refine_coeffs_interval(unsigned n, value * const * p, unsigned prec) {
+            for (unsigned i = 0; i < n; i++) {
                 if (p[i] != 0 && !refine_interval(p[i], prec))
                     return false;
             }
             return true;
+        }
+
+        /**
+           \brief Refine the interval for each coefficient of in the polynomial p.
+        */
+        bool refine_coeffs_interval(polynomial const & p, unsigned prec) {
+            return refine_coeffs_interval(p.size(), p.c_ptr(), prec);
         }
 
         /**
@@ -2170,7 +2491,7 @@ namespace realclosure {
         }
 
         /**
-           \brief Refine the interval of v to the desired precision (1/2^k).
+           \brief Refine the interval of v to the desired precision (1/2^prec).
            Return false in case of failure. A failure can only happen if v depends on infinitesimal values.
         */
         bool refine_interval(value * v, unsigned prec) {
