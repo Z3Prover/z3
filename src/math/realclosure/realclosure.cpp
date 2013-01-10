@@ -1761,8 +1761,9 @@ namespace realclosure {
                 // Solve
                 //    new_M_s * sc_cardinalities = new_taqrs
                 VERIFY(mm().solve(new_M_s, sc_cardinalities.c_ptr(), new_taqrs.c_ptr()));
+                TRACE("rcf_sign_det", tout << "solution: "; for (unsigned i = 0; i < sc_cardinalities.size(); i++) { tout << sc_cardinalities[i] << " "; } tout << "\n";);
                 // The solution must contain only positive values <= num_roots
-                DEBUG_CODE(for (unsigned j = 0; j < sc_cardinalities.size(); j++) { SASSERT(0 < sc_cardinalities[j] && sc_cardinalities[j] <= num_roots); });
+                DEBUG_CODE(for (unsigned j = 0; j < sc_cardinalities.size(); j++) { SASSERT(0 <= sc_cardinalities[j] && sc_cardinalities[j] <= num_roots); });
                 // We should keep q only if it discriminated something.
                 // That is, 
                 //   If !use_q2,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
@@ -1799,9 +1800,9 @@ namespace realclosure {
                 SASSERT(new_scs.empty());
                 // Update M_s
                 mm().filter_cols(new_M_s, cols_to_keep.size(), cols_to_keep.c_ptr(), M_s);
-                SASSERT(new_M_s.n() == cols_to_keep.size());
+                SASSERT(M_s.n() == cols_to_keep.size());
                 new_row_idxs.resize(cols_to_keep.size(), 0);
-                unsigned new_num_rows = mm().linear_independent_rows(M_s, new_row_idxs.c_ptr());
+                unsigned new_num_rows = mm().linear_independent_rows(M_s, new_row_idxs.c_ptr(), M_s);
                 SASSERT(new_num_rows == cols_to_keep.size());
                 // Update taqrs and prs
                 prs.reset();
@@ -1927,6 +1928,9 @@ namespace realclosure {
            \brief Root isolation for polynomials where 0 is not a root.
         */
         void nz_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
+            TRACE("rcf_isolate", 
+                  tout << "nz_isolate_roots\n";
+                  display_poly(tout, n, p); tout << "\n";);
             SASSERT(n > 0);
             SASSERT(!is_zero(p[0])); 
             SASSERT(!is_zero(p[n-1]));
@@ -1943,6 +1947,7 @@ namespace realclosure {
            \brief Root isolation entry point.
         */
         void isolate_roots(unsigned n, numeral const * p, numeral_vector & roots) {
+            TRACE("rcf_isolate_bug", tout << "isolate_roots: "; for (unsigned i = 0; i < n; i++) { display(tout, p[i]); tout << " "; } tout << "\n";);
             SASSERT(n > 0);
             SASSERT(!is_zero(p[n-1]));
             if (n == 1) {

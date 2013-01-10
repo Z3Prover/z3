@@ -108,8 +108,10 @@ public:
        
        \remark The vector r must have at least A.n() capacity
        The numer of linear independent rows is returned.
+
+       Store the new matrix in B.
     */
-    unsigned linear_independent_rows(mpz_matrix const & A, unsigned * r);
+    unsigned linear_independent_rows(mpz_matrix const & A, unsigned * r, mpz_matrix & B);
 
     // method for debugging purposes
     void display(std::ostream & out, mpz_matrix const & A, unsigned cell_width=4) const;

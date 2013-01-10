@@ -349,7 +349,7 @@ void mpz_matrix_manager::permute_rows(mpz_matrix const & A, unsigned const * p, 
     B.swap(C);
 }
 
-unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsigned * r) {
+unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsigned * r, mpz_matrix & B) {
     unsigned r_sz = 0;
     scoped_mpz_matrix A(*this);
     scoped_mpz g(nm());
@@ -389,6 +389,15 @@ unsigned mpz_matrix_manager::linear_independent_rows(mpz_matrix const & _A, unsi
         k2++;
     }
     std::sort(r, r + r_sz);
+    // Copy linear independent rows to B
+    mpz_matrix & C = A;
+    mk(r_sz, _A.n, C);
+    for (unsigned i = 0; i < r_sz; i++ ) {
+        for (unsigned j = 0; j < _A.n; j++) {
+            nm().set(C(i, j), _A(r[i], j));
+        }
+    }
+    B.swap(C);
     return r_sz;
 }
 
