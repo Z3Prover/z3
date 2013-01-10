@@ -351,11 +351,11 @@ def check_ml():
         print "Testing %s..." % OCAMLOPT
     r = exec_cmd([OCAMLOPT, '-o', 'a.out', 'hello.ml'])
     if r != 0:
-        raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler')
-    os.remove('hello.cmi')
-    os.remove('hello.cmo')
-    os.remove('hello.cmx')
-    os.remove('a.out')
+        raise MKException('Failed testing ocamlopt compiler. Set environment variable OCAMLOPT with the path to the Ocaml native compiler. Note that ocamlopt may require flexlink to be in your path.')
+    rmf('hello.cmi')
+    rmf('hello.cmo')
+    rmf('hello.cmx')
+    rmf('a.out')
     find_ml_lib()
 
 def find_ml_lib():
@@ -1340,8 +1340,8 @@ class MLComponent(Component):
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
             out.write('libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
-            out.write('\t$(CXX) $(CXXFLAGS) -I %s api/ml/z3native.c $(CXX_OUTFLAG) api/ml/z3native$(OBJ_EXT)\n' % get_component(API_COMPONENT).to_src_dir)
-            out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG) libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
+            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s api/ml/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, get_component(API_COMPONENT).to_src_dir))
+            out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
             out.write('api/ml/z3.cmxa: libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(src_dir, mlfile))
