@@ -3184,9 +3184,67 @@ namespace realclosure {
             }
         }
 
+        bool refine_algebraic_interval(algebraic * a, unsigned prec) {
+            if (a->sdt() != 0) {
+                // we can't bisect the interval, since it contains more than one root.
+                return false;
+            }
+            else {
+                mpbqi & a_i = a->interval();
+                SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
+                int  lower_sign = INT_MIN;
+                while (!check_precision(a_i, prec)) {
+                    checkpoint();
+                    SASSERT(!bqm().eq(a_i.lower(), a_i.upper()));
+                    scoped_mpbq m(bqm());
+                    bqm().add(a_i.lower(), a_i.upper(), m);
+                    bqm().div2(m);
+                    int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
+                    if (mid_sign == 0) {
+                        // found the actual root
+                        // set interval [m, m]
+                        set_lower(a_i, m, false);
+                        set_upper(a_i, m, false);
+                        return true;
+                    }
+                    else {
+                        SASSERT(mid_sign == 1 || mid_sign == -1);
+                        if (lower_sign == INT_MIN) {
+                            // initialize lower_sign
+                            lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
+                        }
+                        SASSERT(lower_sign == 1 || lower_sign == -1);
+                        if (mid_sign == lower_sign) {
+                            // improved lower bound
+                            set_lower(a_i, m);
+                        }
+                        else {
+                            // improved upper bound
+                            set_upper(a_i, m);
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+
         bool refine_algebraic_interval(rational_function_value * v, unsigned prec) {
-            // TODO
-            return false;
+            SASSERT(v->ext()->is_algebraic());
+            polynomial const & n = v->num();
+            polynomial const & d = v->den();
+            unsigned _prec = prec;
+            while (true) {
+                if (!refine_coeffs_interval(n, _prec) ||
+                    !refine_coeffs_interval(d, _prec) || 
+                    !refine_algebraic_interval(to_algebraic(v->ext()), _prec))
+                    return false;
+
+                update_rf_interval(v, prec);
+                TRACE("rcf_algebraic", tout << "after update_rf_interval: " << magnitude(v->interval()) << " "; bqim().display(tout, v->interval()); tout << std::endl;);
+                if (check_precision(v->interval(), prec))
+                    return true;
+                _prec++;
+            }
         }
 
         /**
