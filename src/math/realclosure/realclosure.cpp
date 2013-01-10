@@ -800,6 +800,11 @@ namespace realclosure {
             a.m_value = 0;
         }
 
+        void del(numeral_vector & v) {
+            for (unsigned i = 0; i < v.size(); i++)
+                del(v[i]);
+        }
+
         /**
            \brief Return true if the given interval is smaller than 1/2^k
         */
@@ -2261,7 +2266,18 @@ namespace realclosure {
                 p.push_back(0);
             p.push_back(one());
             
-            // TODO: invoke isolate_roots
+            numeral_vector roots;
+            nz_isolate_roots(p.size(), p.c_ptr(), roots);
+            SASSERT(roots.size() == 1 || roots.size() == 2);
+            if (roots.size() == 1 || sign(roots[0].m_value) > 0) {
+                set(b, roots[0]);
+            }
+            else {
+                SASSERT(roots.size() == 2);
+                SASSERT(sign(roots[1].m_value) > 0);
+                set(b, roots[1]);
+            }
+            del(roots);
         }
       
         /**
