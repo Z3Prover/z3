@@ -215,7 +215,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsConst
         {
-            get { return IsExpr && NumArgs == 0 && FuncDecl.DomainSize == 0; }
+            get { return IsApp && NumArgs == 0 && FuncDecl.DomainSize == 0; }
         }
         #endregion
 
