@@ -203,6 +203,17 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_rcf_num Z3_API Z3_rcf_power(Z3_context c, Z3_rcf_num a, unsigned k) {
+        Z3_TRY;
+        LOG_Z3_rcf_power(c, a, k);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        rcnumeral r;
+        rcfm(c).power(to_rcnumeral(a), k, r);
+        RETURN_Z3(from_rcnumeral(r));
+        Z3_CATCH_RETURN(0);
+    }
+
     Z3_bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_lt(c, a, b);

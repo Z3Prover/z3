@@ -122,6 +122,13 @@ extern "C" {
     Z3_rcf_num Z3_API Z3_rcf_inv(__in Z3_context c, __in Z3_rcf_num a);
 
     /**
+       \brief Return the value a^k
+
+       def_API('Z3_rcf_power', RCF_NUM, (_in(CONTEXT), _in(RCF_NUM), _in(UINT)))
+    */
+    Z3_rcf_num Z3_API Z3_rcf_power(__in Z3_context c, __in Z3_rcf_num a, __in unsigned k);
+
+    /**
        \brief Return Z3_TRUE if a < b
 
        def_API('Z3_rcf_lt', BOOL, (_in(CONTEXT), _in(RCF_NUM), _in(RCF_NUM)))

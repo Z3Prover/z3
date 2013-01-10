@@ -102,6 +102,12 @@ class RCFNum:
     def __neg__(self):
         return self.__rsub__(0)
 
+    def power(self, k):
+        return RCFNum(Z3_rcf_power(self.ctx_ref(), self.num, k), self.ctx)
+
+    def __pow__(self, k):
+        return self.power(k)
+ 
     def decimal(self, prec=5):
         return Z3_rcf_num_to_decimal_string(self.ctx_ref(), self.num, prec)
     
