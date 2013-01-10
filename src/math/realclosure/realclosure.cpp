@@ -3580,7 +3580,7 @@ namespace realclosure {
            - new_p1 <- one;            new_p2 <- p2/p1[0];        IF  sz1 == 1
            - new_p1 <- p1/gcd(p1, p2); new_p2 <- p2/gcd(p1, p2);  Otherwise
         */
-        void normalize(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
+        void normalize_fraction(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
             SASSERT(sz1 > 0 && sz2 > 0);
             if (sz2 == 1) {
                 // - new_p1 <- p1/p2[0];       new_p2 <- one              IF  sz2 == 1
@@ -3627,6 +3627,40 @@ namespace realclosure {
                     SASSERT(new_p1.size() > 1);
                     SASSERT(new_p2.size() > 1);
                 }
+            }
+        }
+
+        /**
+           \brief Simplify p1(x) using x's defining polynomial.
+           
+           By definition of polynomial division, we have:
+           
+           new_p1(x) == quotient(p1,p)(x) * p(x) + rem(p1,p)(x)
+           
+           Since p(x) == 0, we have that 
+
+           new_p1(x) = rem(p1,p)(x)
+        */
+        void normalize_algebraic(algebraic * x, unsigned sz1, value * const * p1, value_ref_buffer & new_p1) {
+            polynomial const & p = x->p();
+            rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
+        }
+        
+        /**
+           \brief Apply normalize_algebraic (if applicable) & normalize_fraction.
+        */
+        void normalize_all(extension * x, unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
+            if (x->is_algebraic()) {
+                value_ref_buffer p1_norm(*this);
+                value_ref_buffer p2_norm(*this);
+                // FUTURE: we don't need to invoke normalize_algebraic if degree of p1 < degree x->p()
+                normalize_algebraic(to_algebraic(x), sz1, p1, p1_norm);
+                // FUTURE: we don't need to invoke normalize_algebraic if degree of p2 < degree x->p()
+                normalize_algebraic(to_algebraic(x), sz2, p2, p2_norm);
+                normalize_fraction(p1_norm.size(), p1_norm.c_ptr(), p2_norm.size(), p2_norm.c_ptr(), new_p1, new_p2);
+            }
+            else {
+                normalize_fraction(sz1, p1, sz2, p2, new_p1, new_p2);
             }
         }
 
@@ -3692,7 +3726,7 @@ namespace realclosure {
                 else {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                    normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
                     mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
@@ -3712,8 +3746,14 @@ namespace realclosure {
             add(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
             if (new_num.empty())
                 r = 0;
-            else 
+            else {
+                // We don't need to invoke normalize_algebraic even if x (== a->ext()) is algebraic.
+                // Reason: by construction the polynomials a->num() and b->num() are "normalized".
+                // That is, their degrees are < degree of the polynomial defining x. 
+                // Moreover, when we add polynomials, the degree can only decrease.
+                // So, degree of new_num must be < degree of x's defining polynomial.
                 mk_add_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+            }
         }
         
         /**
@@ -3743,7 +3783,7 @@ namespace realclosure {
                     mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                    normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
                     mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
@@ -3886,7 +3926,7 @@ namespace realclosure {
                 SASSERT(num.size() == an.size());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
         }
@@ -3904,7 +3944,16 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
             SASSERT(!new_num.empty());
-            mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+            extension * x = a->ext();
+            if (x->is_algebraic()) {
+                // FUTURE: we don't need to invoke normalize_algebraic if degree of new_num < degree x->p()
+                value_ref_buffer new_num2(*this);
+                normalize_algebraic(to_algebraic(x), new_num.size(), new_num.c_ptr(), new_num2);
+                mk_mul_value(a, b, new_num2.size(), new_num2.c_ptr(), one.size(), one.c_ptr(), r);
+            }
+            else {
+                mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), one.size(), one.c_ptr(), r);
+            }
         }
 
         /**
@@ -3927,7 +3976,7 @@ namespace realclosure {
                 SASSERT(!num.empty()); SASSERT(!den.empty());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
         }
