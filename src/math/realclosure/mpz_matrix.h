@@ -105,8 +105,11 @@ public:
        
        \remark If there is an option between rows i and j, 
        this method will give preference to the row that occurs first.
+       
+       \remark The vector r must have at least A.n() capacity
+       The numer of linear independent rows is returned.
     */
-    void linear_independent_rows(mpz_matrix const & A, unsigned_vector & r);
+    unsigned linear_independent_rows(mpz_matrix const & A, unsigned * r);
 
     // method for debugging purposes
     void display(std::ostream & out, mpz_matrix const & A, unsigned cell_width=4) const;

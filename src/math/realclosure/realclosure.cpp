@@ -22,6 +22,7 @@ Notes:
 #include"realclosure.h"
 #include"array.h"
 #include"mpbq.h"
+#include"mpz_matrix.h"
 #include"interval_def.h"
 #include"obj_ref.h"
 #include"ref_vector.h"
@@ -241,17 +242,48 @@ namespace realclosure {
             return rank_lt(r1, r2);
         }
     };
+    
+    /**
+       \brief Sign condition object, it encodes one conjunct of a sign assignment.
+       If has to keep following m_prev to obtain the whole sign condition
+    */
+    struct sign_condition {
+        unsigned         m_q_idx:31; // Sign condition for the polynomial at position m_q_idx in the field m_qs of sign_det structure
+        unsigned         m_mark:1;   // auxiliary mark used during deletion
+        int              m_sign;     // Sign of the polynomial associated with m_q_idx
+        sign_condition * m_prev;     // Antecedent
+        sign_condition():m_q_idx(0), m_mark(false), m_sign(0), m_prev(0) {}
+        sign_condition(unsigned qidx, int sign, sign_condition * prev):m_q_idx(qidx), m_mark(false), m_sign(sign), m_prev(prev) {}
+
+        sign_condition * prev() const { return m_prev; }
+        unsigned qidx() const { return m_q_idx; }
+        int sign() const { return m_sign; }
+    };
+
+    struct sign_det {
+        unsigned                m_ref_count;  // sign_det objects may be  shared between different roots of the same polynomial.
+        mpz_matrix              M;            // Matrix used in the sign determination
+        array<polynomial>       m_prs;        // Polynomials associated with the rows of M
+        array<sign_condition *> m_sign_conditions; // Sign conditions associated with the columns of M
+        array<polynomial>       m_qs;     // Polynomials used in the sign conditions.
+        sign_det():m_ref_count(0) {}
+        
+        array<polynomial> const & qs() const { return m_qs; }
+        sign_condition * sc(unsigned idx) const { return m_sign_conditions[idx]; }
+    };
 
     struct algebraic : public extension {
         polynomial   m_p;
-        signs        m_signs;
-        bool         m_real;  //!< True if the polynomial p does not depend on infinitesimal extensions.
+        sign_det *   m_sign_det; //!< != 0         if m_interval constains more than one root of m_p.
+        unsigned     m_idx;      //!< != UINT_MAX  if m_sign_det != 0, in this case m_idx < m_sign_det->m_sign_conditions.size()
+        bool         m_real;     //!< True if the polynomial p does not depend on infinitesimal extensions.
 
-        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_real(false) {}
+        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_idx(0), m_real(false) {}
 
         polynomial const & p() const { return m_p; }
-        signs const & s() const { return m_signs; }
         bool is_real() const { return m_real; }
+        sign_det * sdt() const { return m_sign_det; }
+        unsigned sdt_idx() const { return m_idx; }
     };
 
     struct transcendental : public extension {
@@ -309,10 +341,13 @@ namespace realclosure {
         typedef obj_ref<value, imp>    value_ref;
         typedef _scoped_interval<mpqi_manager>  scoped_mpqi;
         typedef _scoped_interval<mpbqi_manager> scoped_mpbqi;
-         
+        typedef sbuffer<int, REALCLOSURE_INI_BUFFER_SIZE> int_buffer;
+        typedef sbuffer<unsigned, REALCLOSURE_INI_BUFFER_SIZE> unsigned_buffer;
+        
         small_object_allocator *       m_allocator;
         bool                           m_own_allocator;
         unsynch_mpq_manager &          m_qm;
+        mpz_matrix_manager             m_mm;
         mpbq_config::numeral_manager   m_bqm;
         mpqi_manager                   m_qim;
         mpbqi_manager                  m_bqim;
@@ -340,6 +375,8 @@ namespace realclosure {
             sbuffer<unsigned>  m_szs;        // size of each polynomial in the sequence 
         public:
             scoped_polynomial_seq(imp & m):m_seq_coeffs(m) {}
+            ~scoped_polynomial_seq() {
+            }
             
             /**
                \brief Add a new polynomial to the sequence.
@@ -373,12 +410,48 @@ namespace realclosure {
                 m_begins.reset();
                 m_szs.reset();
             }
+
+            scoped_polynomial_seq & operator=(scoped_polynomial_seq & s) {
+                if (this == &s)
+                    return *this;
+                reset();
+                m_seq_coeffs.append(s.m_seq_coeffs);
+                m_begins.append(s.m_begins);
+                m_szs.append(s.m_szs);
+                return *this;
+            }
+        };
+
+        struct scoped_sign_conditions {
+            imp &                                                   m_imp;
+            ptr_buffer<sign_condition, REALCLOSURE_INI_BUFFER_SIZE> m_scs;
+
+            scoped_sign_conditions(imp & m):m_imp(m) {}
+            ~scoped_sign_conditions() {
+                m_imp.del_sign_conditions(m_scs.size(), m_scs.c_ptr());
+            }
+            
+            sign_condition * & operator[](unsigned idx) { return m_scs[idx]; }
+            unsigned size() const { return m_scs.size(); }
+            bool empty() const { return m_scs.empty(); }
+            void push_back(sign_condition * sc) { m_scs.push_back(sc); }
+            void release() {
+                // release ownership
+                m_scs.reset();
+            }
+            void copy_from(scoped_sign_conditions & scs) {
+                SASSERT(this != &scs);
+                release();
+                m_scs.append(scs.m_scs.size(), scs.m_scs.c_ptr());
+                scs.release();
+            }
         };
         
         imp(unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
             m_allocator(a == 0 ? alloc(small_object_allocator, "realclosure") : a),
             m_own_allocator(a == 0),
             m_qm(qm),
+            m_mm(m_qm, *m_allocator),
             m_bqm(m_qm),
             m_qim(m_qm),
             m_bqim(m_bqm),
@@ -403,11 +476,22 @@ namespace realclosure {
                 dealloc(m_allocator);
         }
 
+        // Rational number manager
         unsynch_mpq_manager & qm() const { return m_qm; }
+
+        // Binary rational number manager
         mpbq_config::numeral_manager & bqm() { return m_bqm; }
+
+        // Rational interval manager
         mpqi_manager & qim() { return m_qim; }
+
+        // Binary rational interval manager
         mpbqi_manager & bqim() { return m_bqim; }
         mpbqi_manager const & bqim() const { return m_bqim; }
+
+        // Integer matrix manager
+        mpz_matrix_manager & mm() { return m_mm; }
+
         small_object_allocator & allocator() { return *m_allocator; }
 
         void checkpoint() {
@@ -599,13 +683,58 @@ namespace realclosure {
                 del_rational_function(static_cast<rational_function_value*>(v));
         }
 
+        void finalize(array<polynomial> & ps) {
+            for (unsigned i = 0; i < ps.size(); i++)
+                reset_p(ps[i]);
+            ps.finalize(allocator());
+        }
+
+        void del_sign_condition(sign_condition * sc) {
+            allocator().deallocate(sizeof(sign_condition), sc);
+        }
+
+        void del_sign_conditions(unsigned sz, sign_condition * const * to_delete) {
+            ptr_buffer<sign_condition> all_to_delete;
+            for (unsigned i = 0; i < sz; i++) {
+                sign_condition * sc = to_delete[i];
+                while (sc && sc->m_mark == false) {
+                    sc->m_mark = true;
+                    all_to_delete.push_back(sc);
+                    sc = sc->m_prev;
+                }
+            }
+            for (unsigned i = 0; i < all_to_delete.size(); i++) {
+                del_sign_condition(all_to_delete[i]);
+            }
+        }
+
+        void del_sign_det(sign_det * sd) {
+            mm().del(sd->M);
+            del_sign_conditions(sd->m_sign_conditions.size(), sd->m_sign_conditions.c_ptr());
+            sd->m_sign_conditions.finalize(allocator());
+            finalize(sd->m_prs);
+            finalize(sd->m_qs);
+            allocator().deallocate(sizeof(sign_det), sd);
+        }
+
+        void inc_ref_sign_det(sign_det * sd) {
+            if (sd != 0)
+                sd->m_ref_count++;
+        }
+
+        void dec_ref_sign_det(sign_det * sd) {
+            if (sd != 0) {
+                sd->m_ref_count--;
+                if (sd->m_ref_count == 0) {
+                    del_sign_det(sd);
+                }
+            }
+        }
+
         void del_algebraic(algebraic * a) {
             reset_p(a->m_p);
             bqim().del(a->m_interval);
-            unsigned sz = a->m_signs.size();
-            for (unsigned i = 0; i < sz; i++) {
-                reset_p(a->m_signs[i].first);
-            }
+            dec_ref_sign_det(a->m_sign_det);
             allocator().deallocate(sizeof(algebraic), a);
         }
 
@@ -929,6 +1058,15 @@ namespace realclosure {
         }
 
         /**
+           \brief a.lower <- 0
+        */
+        void set_lower_zero(mpbqi & a) {
+            bqm().reset(a.lower());
+            a.set_lower_is_open(true);
+            a.set_lower_is_inf(false);
+        }
+
+        /**
            \brief Set the upper bound of the given interval.
         */
         void set_upper_core(mpbqi & a, mpbq const & k, bool open, bool inf) {
@@ -954,6 +1092,15 @@ namespace realclosure {
         }
 
         /**
+           \brief a.upper <- 0
+        */
+        void set_upper_zero(mpbqi & a) {
+            bqm().reset(a.upper());
+            a.set_upper_is_open(true);
+            a.set_upper_is_inf(false);
+        }
+
+        /**
            \brief a <- b
         */
         void set_interval(mpbqi & a, mpbqi const & b) {
@@ -967,6 +1114,10 @@ namespace realclosure {
         void set_interval(mpbqi & a, mpbq const & b) {
             set_lower_core(a, b, false, false);
             set_upper_core(a, b, false, false);
+        }
+
+        sign_condition * mk_sign_condition(unsigned qidx, int sign, sign_condition * prev_sc) {
+            return new (allocator()) sign_condition(qidx, sign, prev_sc);
         }
 
         /**
@@ -1306,8 +1457,8 @@ namespace realclosure {
             derivative(n, p, p_prime);
             ds.push(p_prime.size(), p_prime.c_ptr());
             SASSERT(n >= 3);
-            for (unsigned i = 0; i < n - 3; i++) {
-                SASSERT(ds.size() > 1);
+            for (unsigned i = 0; i < n - 2; i++) {
+                SASSERT(ds.size() > 0);
                 unsigned prev = ds.size() - 1;
                 n = ds.size(prev);
                 p = ds.coeffs(prev);
@@ -1315,9 +1466,162 @@ namespace realclosure {
                 ds.push(p_prime.size(), p_prime.c_ptr());
             }
         }
+        
+        /**
+           \brief Given polynomials p and q, and an interval, compute the number of 
+           roots of p in the interval such that:
+              - q is zero
+              - q is positive
+              - q is negative
+
+           \pre num_roots is the number of roots of p in the given interval.
+           
+           \remark num_roots == q_eq_0 + q_gt_0 + q_lt_0
+        */
+        void count_signs_at_zeros(// Input values
+                                  unsigned p_sz, value * const * p,  // polynomial p
+                                  unsigned q_sz, value * const * q,  // polynomial q
+                                  mpbqi const & interval,
+                                  int num_roots,                     // number of roots of p in the given interval    
+                                  // Output values
+                                  int & q_eq_0, int & q_gt_0, int & q_lt_0,
+                                  value_ref_buffer & q2) {
+            TRACE("rcf_count_signs", 
+                  tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";
+                  tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";);
+            SASSERT(num_roots > 0);
+            int r1 = TaQ(p_sz, p, q_sz, q, interval);
+            // r1 == q_gt_0 - q_lt_0
+            SASSERT(-num_roots <= r1 && r1 <= num_roots);
+            if (r1 == num_roots) {
+                // q is positive in all roots of p
+                q_eq_0 = 0;
+                q_gt_0 = num_roots;
+                q_lt_0 = 0;
+            }
+            else if (r1 == -num_roots) {
+                // q is negative in all roots of p
+                q_eq_0 = 0;
+                q_gt_0 = 0;
+                q_lt_0 = num_roots;
+            }
+            else if (r1 == num_roots - 1) {
+                // The following assignment is the only possibility
+                q_eq_0 = 1;
+                q_gt_0 = num_roots - 1;
+                q_lt_0 = 0;
+            }
+            else if (r1 == -(num_roots - 1)) {
+                // The following assignment is the only possibility
+                q_eq_0 = 1;
+                q_gt_0 = 0;
+                q_lt_0 = num_roots - 1;
+            }
+            else {
+                // Expensive case
+                // q2 <- q^2
+                mul(q_sz, q, q_sz, q, q2);
+                int r2 = TaQ(p_sz, p, q2.size(), q2.c_ptr(), interval);
+                SASSERT(0 <= r2 && r2 <= num_roots);
+                // r2 == q_gt_0 + q_lt_0
+                SASSERT((r2 + r1) % 2 == 0);
+                SASSERT((r2 - r1) % 2 == 0);
+                q_eq_0 = num_roots - r2;
+                q_gt_0 = (r2 + r1)/2;
+                q_lt_0 = (r2 - r1)/2;
+            }
+            SASSERT(q_eq_0 + q_gt_0 + q_lt_0 == num_roots);
+        }
 
         /**
-           \brief Isolate roots of p (first polynomial in TaQ_1) in the given interval using sign conditions to distinguish between them.
+           \brief Expand the set of Tarski Queries used in the sign determination algorithm.
+
+           taqrs contains the results of TaQ(p, prs[i]; interval)
+           We have that taqrs.size() == prs.size()
+           
+           We produce a new_taqrs and new_prs
+           For each pr in new_prs we have
+                pr      in new_prs,  TaQ(p, pr; interval) in new_taqrs
+                pr*q    in new_prs,  TaQ(p, pr*q; interval) in new_taqrs
+                if q2_sz != 0, we also have
+                pr*q^2  in new_prs,  TaQ(p, pr*q^2; interval) in new_taqrs
+           
+        */
+        void expand_taqrs(// Input values
+                          int_buffer const &              taqrs, 
+                          scoped_polynomial_seq const &   prs,
+                          unsigned p_sz, value * const *  p,
+                          unsigned q_sz, value * const *  q, 
+                          bool use_q2, unsigned q2_sz, value * const * q2,
+                          mpbqi const &                   interval,
+                          // Output values
+                          int_buffer &                    new_taqrs,
+                          scoped_polynomial_seq &         new_prs
+                          ) {
+            SASSERT(taqrs.size() == prs.size());
+            new_taqrs.reset(); new_prs.reset();
+            for (unsigned i = 0; i < taqrs.size(); i++) {
+                // Add prs * 1
+                new_taqrs.push_back(taqrs[i]);
+                new_prs.push(prs.size(i), prs.coeffs(i));
+                // Add prs * q
+                value_ref_buffer prq(*this);
+                mul(prs.size(i), prs.coeffs(i), q_sz, q, prq);
+                new_taqrs.push_back(TaQ(p_sz, p, prq.size(), prq.c_ptr(), interval));
+                new_prs.push(prq.size(), prq.c_ptr());
+                // If use_q2,
+                // Add prs * q^2
+                if (use_q2) {
+                    value_ref_buffer prq2(*this);
+                    mul(prs.size(i), prs.coeffs(i), q2_sz, q2, prq2);
+                    new_taqrs.push_back(TaQ(p_sz, p, prq2.size(), prq2.c_ptr(), interval));
+                    new_prs.push(prq2.size(), prq2.c_ptr());
+                }
+            }
+            SASSERT(new_prs.size() == new_taqrs.size());
+            SASSERT(use_q2  || new_prs.size() == 2*prs.size());
+            SASSERT(!use_q2 || new_prs.size() == 3*prs.size());
+        }
+
+        /**
+           \brief In the sign determination algorithm main loop, we keep processing polynomials q,
+           and checking whether they discriminate the roots of the target polynomial.
+           
+           The vectors sc_cardinalities contains the cardinalites of the new realizable sign conditions.
+           That is, we started we a sequence of sign conditions 
+                     sc_1, ..., sc_n, 
+           If q2_used is true, then we expanded this sequence as
+                     sc1_1 and q == 0, sc_1 and q > 0, sc_1 and q < 0, ..., sc_n and q == 0, sc_n and q > 0, sc_n and q < 0
+           If q2_used is false, then we considered only two possible signs of q.
+
+           Thus, q is useful (i.e., it is a discriminator for the roots of p) IF 
+                If !q2_used,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
+                If q2_used,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+        */
+        bool keep_new_sc_assignment(unsigned sz, int const * sc_cardinalities, bool q2_used) {
+            SASSERT(q2_used  || sz % 2 == 0);
+            SASSERT(!q2_used || sz % 3 == 0);
+            if (q2_used) {
+                for (unsigned i = 0; i < sz; i += 3) {
+                    unsigned c = 0;
+                    if (sc_cardinalities[i] > 0)   c++;
+                    if (sc_cardinalities[i+1] > 0) c++;
+                    if (sc_cardinalities[i+2] > 0) c++;
+                    if (c >= 2)
+                        return true;
+                }
+            }
+            else {
+                for (unsigned i = 0; i < sz; i += 2) {
+                    if (sc_cardinalities[i] > 0 && sc_cardinalities[i+1] > 0)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+           \brief Isolate roots of p in the given interval using sign conditions to distinguish between them.
            We need this method when the polynomial contains roots that are infinitesimally close to each other.
            For example, given an infinitesimal eps, the polynomial (x - 1)(x - 1 - eps) == (1 + eps) + (- 2 - eps)*x + x^2 
            has two roots 1 and 1+eps, we can't isolate these roots using intervals with binary rational end points.
@@ -1327,19 +1631,225 @@ namespace realclosure {
            Remark: the polynomials do not need to be the derivatives of p. We use derivatives because a simple
            sequential search can be used to find the set of polynomials that can be used to distinguish between
            the different roots.
+
+           \pre num_roots is the number of roots in the given interval
         */
-        void sign_det_isolate_roots(scoped_polynomial_seq & TaQ_1, unsigned num_roots, mpbqi const & interval, numeral_vector & roots) {
+        void sign_det_isolate_roots(unsigned p_sz, value * const * p, int num_roots, mpbqi const & interval, numeral_vector & roots) {
             SASSERT(num_roots >= 2);
-            SASSERT(TaQ_1.size() > 0);
-            unsigned n        = TaQ_1.size(0);
-            value * const * p = TaQ_1.coeffs(0);
+            scoped_polynomial_seq der_seq(*this);
+            mk_derivatives(p_sz, p, der_seq);
             
-            scoped_polynomial_seq ds(*this);
-            mk_derivatives(n, p, ds);
+            CASSERT("rcf_isolate_roots", TaQ_1(p_sz, p, interval) == num_roots);
+            scoped_mpz_matrix M_s(mm());
+            mm().mk(1, 1, M_s);
+            M_s.set(0, 0, 1);
             
-            // TODO continue
+            // Sequence of polynomials associated with each row of M_s
+            scoped_polynomial_seq prs(*this); 
+            value * one_p[] = { one() };
+            prs.push(1, one_p); // start with the polynomial one
+
+            // For i in [0, poly_rows.size()), taqrs[i] == TaQ(prs[i], p; interval)
+            int_buffer taqrs;
+            taqrs.push_back(num_roots);
+
+            // Sequence of polynomials used to discriminate the roots of p
+            scoped_polynomial_seq qs(*this);
+
+            // Sequence of sign conditions associated with the columns of M_s
+            // These are sign conditions on the polynomials in qs.
+            scoped_sign_conditions scs(*this);
+            scs.push_back(0);
+
+            // Starting configuration
+            // 
+            // M_s   = {{1}}         Matrix of size 1x1 containing the value 1
+            // prs   = [1]           Sequence of size 1 containing the constant polynomial 1 (one is always the first element of this sequence)
+            // taqrs = [num_roots]   Sequence of size 1 containing the integer num_roots
+            // scs   = [0]           Sequence of size 1 with the empty sign condition (i.e., NULL pointer)
+            // qs    = {}            Empty set
+            //
+
+            scoped_mpz_matrix      new_M_s(mm());
+            int_buffer             new_taqrs;
+            scoped_polynomial_seq  new_prs(*this);
+            scoped_sign_conditions new_scs(*this);
+            
+            int_buffer            sc_cardinalities;
+            unsigned_buffer       cols_to_keep;
+            unsigned_buffer       new_row_idxs;
+
+            unsigned i = der_seq.size();
+            // We perform the search backwards because the degrees are in decreasing order.
+            while (i > 0) {
+                --i;
+                checkpoint();
+                SASSERT(M_s.m() == M_s.n());
+                SASSERT(M_s.m() == taqrs.size());
+                SASSERT(M_s.m() == scs.size());
+                TRACE("rcf_sign_det",
+                      tout << M_s;
+                      for (unsigned j = 0; j < scs.size(); j++) {
+                          display_sign_conditions(tout, scs[j]); 
+                          tout << " = " << taqrs[j] << "\n";
+                      }
+                      tout << "qs:\n";
+                      for (unsigned j = 0; j < qs.size(); j++) {
+                          display_poly(tout, qs.size(j), qs.coeffs(j)); tout << "\n";
+                      });
+                // We keep executing this loop until we have only one root for each sign condition in scs.
+                // When this happens the polynomials in qs are the ones used to discriminate the roots of p.
+                unsigned q_sz     = der_seq.size(i);
+                value * const * q = der_seq.coeffs(i);
+                // q is a derivative of p.
+                int q_eq_0, q_gt_0, q_lt_0;
+                value_ref_buffer q2(*this);
+                count_signs_at_zeros(p_sz, p, q_sz, q, interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                TRACE("rcf_sign_det",
+                      tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
+                      tout << "#(q == 0): " << q_eq_0 << ", #(q > 0): " << q_gt_0 << ", #(q < 0): " << q_lt_0 << "\n";);
+                bool use_q2;
+                scoped_mpz_matrix M(mm());
+                if      (q_eq_0 > 0  && q_gt_0 > 0  && q_lt_0 == 0) {
+                    // M <- {{1, 1}, 
+                    //       {0, 1}}
+                    mm().mk(2,2,M);
+                    M.set(0,0, 1); M.set(0,1, 1); 
+                    M.set(1,0, 0); M.set(1,1, 1);
+                    use_q2 = false;
+                }
+                else if (q_eq_0 > 0  && q_gt_0 == 0 && q_lt_0 > 0)  {
+                    // M <- {{1, 1}, 
+                    //       {0, -1}}
+                    mm().mk(2,2,M);
+                    M.set(0,0, 1); M.set(0,1,  1); 
+                    M.set(1,0, 0); M.set(1,1, -1);
+                    use_q2 = false;
+                }
+                else if (q_eq_0 == 0 && q_gt_0 > 0  && q_lt_0 > 0)  {
+                    // M <- {{1, 1}, 
+                    //       {1, -1}}
+                    mm().mk(2,2,M);
+                    M.set(0,0, 1); M.set(0,1,  1); 
+                    M.set(1,0, 1); M.set(1,1, -1);
+                    use_q2 = false;
+                }
+                else if (q_eq_0 > 0  && q_gt_0 > 0  && q_lt_0 > 0)  {
+                    // M <- {{1, 1,  1}, 
+                    //       {0, 1, -1},
+                    //       {0, 1,  1}}
+                    mm().mk(3,3,M);
+                    M.set(0,0, 1); M.set(0,1, 1); M.set(0,2,  1); 
+                    M.set(1,0, 0); M.set(1,1, 1); M.set(1,2, -1);
+                    M.set(2,0, 0); M.set(2,1, 1); M.set(2,2,  1);
+                    use_q2 = true;
+                    SASSERT(q2.size() > 0);
+                }
+                else {
+                    // skip q since its sign does not discriminate the roots of p
+                    continue;
+                }
+                mm().tensor_product(M_s, M, new_M_s);
+                expand_taqrs(taqrs, prs, p_sz, p, q_sz, q, use_q2, q2.size(), q2.c_ptr(), interval,
+                             // --->
+                             new_taqrs, new_prs);
+                SASSERT(new_M_s.n() == new_M_s.m());           // it is a square matrix
+                SASSERT(new_M_s.m() == new_taqrs.size());  
+                SASSERT(new_M_s.m() == new_prs.size());
+                // The system must have a solution
+                sc_cardinalities.resize(new_taqrs.size());
+                // Solve
+                //    new_M_s * sc_cardinalities = new_taqrs
+                VERIFY(mm().solve(new_M_s, sc_cardinalities.c_ptr(), new_taqrs.c_ptr()));
+                // The solution must contain only positive values <= num_roots
+                DEBUG_CODE(for (unsigned j = 0; j < sc_cardinalities.size(); j++) { SASSERT(0 < sc_cardinalities[j] && sc_cardinalities[j] <= num_roots); });
+                // We should keep q only if it discriminated something.
+                // That is, 
+                //   If !use_q2,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
+                //   If use_q2,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+                if (!keep_new_sc_assignment(sc_cardinalities.size(), sc_cardinalities.c_ptr(), use_q2)) {
+                    // skip q since it did not reduced the cardinality of the existing sign conditions.
+                    continue; 
+                }
+                // keep q
+                unsigned q_idx = qs.size();
+                qs.push(q_sz, q);
+                // We remove the columns associated with sign conditions that have cardinality zero, 
+                // and create new extended sign condition objects for the ones that have cardinality > 0.
+                cols_to_keep.reset();
+                unsigned j = 0; unsigned k = 0;
+                unsigned step_sz = use_q2 ? 3 : 2;
+                bool all_one = true;
+                while (j < sc_cardinalities.size()) {
+                    sign_condition * sc = scs[k];
+                    k++;
+                    for (unsigned s = 0; s < step_sz; s++) {
+                        // Remark: the second row of M contains the sign for q
+                        if (sc_cardinalities[j] > 0) {
+                            new_scs.push_back(mk_sign_condition(q_idx, M.get_int(1, s), sc)); 
+                            cols_to_keep.push_back(j);
+                        }
+                        if (sc_cardinalities[j] > 1) 
+                            all_one = false;
+                        j++;
+                    }
+                }
+                // Update scs with new_scs
+                scs.copy_from(new_scs); 
+                SASSERT(new_scs.empty());
+                // Update M_s
+                mm().filter_cols(new_M_s, cols_to_keep.size(), cols_to_keep.c_ptr(), M_s);
+                SASSERT(new_M_s.n() == cols_to_keep.size());
+                new_row_idxs.resize(cols_to_keep.size(), 0);
+                unsigned new_num_rows = mm().linear_independent_rows(M_s, new_row_idxs.c_ptr());
+                SASSERT(new_num_rows == cols_to_keep.size());
+                // Update taqrs and prs
+                prs.reset();
+                taqrs.reset();
+                for (unsigned j = 0; j < new_num_rows; j++) {
+                    unsigned rid = new_row_idxs[j];
+                    prs.push(new_prs.size(rid), new_prs.coeffs(rid));
+                    taqrs.push_back(new_taqrs[rid]);
+                }
+                if (all_one)  {
+                    // Stop each remaining sign condition in scs has cardinality one
+                    // So, they are discriminating the roots of p.
+                    break; 
+                }
+            }
+            TRACE("rcf_sign_det",
+                  tout << "Final state\n";
+                  tout << M_s;
+                  for (unsigned j = 0; j < scs.size(); j++) {
+                      display_sign_conditions(tout, scs[j]); 
+                      tout << " = " << taqrs[j] << "\n";
+                  }
+                  tout << "qs:\n";
+                  for (unsigned j = 0; j < qs.size(); j++) {
+                      display_poly(tout, qs.size(j), qs.coeffs(j)); tout << "\n";
+                  });
+
+            // TODO: create the extension objects using
+            // M_s, prs, scs, qs
+            // Remark: scs and qs are only for pretty printing
+            // For determining the signs of other polynomials in the new extension objects,
+            // we only need M_s and prs
         }
 
+        /**
+           \brief Return true if p is a polynomial of the form a_{n-1}*x^{n-1} + a_0
+        */
+        bool is_nz_binomial(unsigned n, value * const * p) {
+            SASSERT(n >= 2);
+            SASSERT(!is_zero(p[0]));
+            SASSERT(!is_zero(p[n-1]));
+            for (unsigned i = 1; i < n - 1; i++) {
+                if (!is_zero(p[i]))
+                    return false;
+            }
+            return true;
+        }
+        
         /**
            \brief Root isolation for polynomials that are
                    - nonlinear (degree > 2)
@@ -1366,7 +1876,27 @@ namespace realclosure {
                   tout << " < pos-roots < ";
                   if (has_pos_upper) tout << "2^" << pos_upper_N; else tout << "oo";
                   tout << "\n";);
+            // Compute the number of positive and negative roots
+            scoped_polynomial_seq seq(*this);
+            sturm_seq(n, p, seq);
+            scoped_mpbqi minf_zero(bqim());
+            set_lower_inf(minf_zero);
+            set_upper_zero(minf_zero);
+            int num_neg_roots = TaQ(seq, minf_zero);
+            scoped_mpbqi zero_inf(bqim());
+            set_lower_zero(zero_inf);
+            set_upper_inf(zero_inf);
+            int num_pos_roots = TaQ(seq, zero_inf);
+            TRACE("rcf_isolate", 
+                  tout << "num_neg_roots: " << num_neg_roots << "\n";
+                  tout << "num_pos_roots: " << num_pos_roots << "\n";);
             // TODO
+
+            // Test sign_det_isolate_roots
+            if (num_neg_roots > 1)
+                sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+            if (num_pos_roots > 1)
+                sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
         }
 
         /**
@@ -1457,17 +1987,45 @@ namespace realclosure {
             return sign(a.m_value);
         }
         
+        /**
+           \brief Return true the given rational function value is actually an integer.
+
+           \pre a is a rational function (algebraic) extension.
+
+           \remark If a is actually an integer, this method is also update its representation.
+        */
+        bool is_algebraic_int(numeral const & a) {
+            SASSERT(is_rational_function(a));
+            SASSERT(to_rational_function(a)->ext()->is_algebraic());
+            
+            // TODO
+            return false;
+        }
+
+        /**
+           \brief Return true if a is an integer
+        */
         bool is_int(numeral const & a) {
             if (is_zero(a))
                 return true;
             else if (is_nz_rational(a)) 
                 return qm().is_int(to_mpq(a));
             else {
-                // TODO
-                return false;
+                rational_function_value * rf = to_rational_function(a);
+                switch (rf->ext()->knd()) {
+                case extension::TRANSCENDENTAL: return false;
+                case extension::INFINITESIMAL:  return false;
+                case extension::ALGEBRAIC: return is_algebraic_int(a);
+                default:
+                    UNREACHABLE();
+                    return false;
+                }
             }
         }
 
+        /**
+           \brief Return true if v does not depend on infinitesimal extensions.
+        */
         bool is_real(value * v) const {
             if (is_zero(v) || is_nz_rational(v))
                 return true;
@@ -1475,6 +2033,9 @@ namespace realclosure {
                 return to_rational_function(v)->is_real();
         }
         
+        /**
+           \brief Return true if a does not depend on infinitesimal extensions.
+        */
         bool is_real(numeral const & a) const {
             return is_real(a.m_value);
         }
@@ -1482,7 +2043,11 @@ namespace realclosure {
         static void swap(mpbqi & a, mpbqi & b) {
             realclosure::swap(a, b);
         }
-        
+
+        /**
+           \brief Store in interval an approximation of the rational number q with precision k.
+           interval has binary rational end-points and the width is <= 1/2^k
+        */
         void mpq_to_mpbqi(mpq const & q, mpbqi & interval, unsigned k) {
             interval.set_lower_is_inf(false);
             interval.set_upper_is_inf(false);
@@ -1554,6 +2119,9 @@ namespace realclosure {
             update_mpq_value(a.m_value, v);
         }
 
+        /**
+           \brief a <- n
+        */
         void set(numeral & a, int n) {
             if (n == 0) {
                 reset(a);
@@ -1566,6 +2134,9 @@ namespace realclosure {
             update_mpq_value(a, n);
         }
 
+        /**
+           \brief a <- n
+        */
         void set(numeral & a, mpz const & n) {
             if (qm().is_zero(n)) {
                 reset(a);
@@ -1578,6 +2149,9 @@ namespace realclosure {
             update_mpq_value(a, n);
         }
         
+        /**
+           \brief a <- n
+        */
         void set(numeral & a, mpq const & n) {
             if (qm().is_zero(n)) {
                 reset(a);
@@ -1589,12 +2163,18 @@ namespace realclosure {
             update_mpq_value(a, n);
         }
         
+        /**
+           \brief a <- n
+        */
         void set(numeral & a, numeral const & n) {
             inc_ref(n.m_value);
             dec_ref(a.m_value);
             a.m_value = n.m_value;
         }
 
+        /**
+           \brief a <- b^{1/k}
+        */
         void root(numeral const & a, unsigned k, numeral & b) {
             if (k == 0)
                 throw exception("0-th root is indeterminate");
@@ -1619,6 +2199,9 @@ namespace realclosure {
             // TODO: invoke isolate_roots
         }
       
+        /**
+           \brief a <- b^k
+        */
         void power(numeral const & a, unsigned k, numeral & b) {
             unsigned mask = 1;
             value_ref power(*this);
@@ -1648,6 +2231,8 @@ namespace realclosure {
            \brief r <- p1 + p2
         */
         void add(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
             r.reset();
             value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
@@ -1668,6 +2253,7 @@ namespace realclosure {
            \brief r <- p + a
         */
         void add(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
+            SASSERT(p != r.c_ptr());
             SASSERT(sz > 0);
             r.reset();
             value_ref a_0(*this);
@@ -1681,6 +2267,8 @@ namespace realclosure {
            \brief r <- p1 - p2
         */
         void sub(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
             r.reset();
             value_ref a_i(*this);
             unsigned min = std::min(sz1, sz2);
@@ -1703,6 +2291,7 @@ namespace realclosure {
            \brief r <- p - a
         */
         void sub(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
+            SASSERT(p != r.c_ptr());
             SASSERT(sz > 0);
             r.reset();
             value_ref a_0(*this);
@@ -1716,6 +2305,7 @@ namespace realclosure {
            \brief r <- a * p
         */
         void mul(value * a, unsigned sz, value * const * p, value_ref_buffer & r) {
+            SASSERT(p != r.c_ptr());
             r.reset();
             if (a == 0) 
                 return;
@@ -1730,6 +2320,8 @@ namespace realclosure {
            \brief r <- p1 * p2
         */
         void mul(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
             r.reset();
             unsigned sz = sz1*sz2;
             r.resize(sz);
@@ -1840,6 +2432,8 @@ namespace realclosure {
            \brief r <- rem(p1, p2)
         */
         void rem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
             TRACE("rcf_rem", 
                   tout << "rem\n";
                   display_poly(tout, sz1, p1); tout << "\n";
@@ -1878,6 +2472,7 @@ namespace realclosure {
            \brief r <- -p
         */
         void neg(unsigned sz, value * const * p, value_ref_buffer & r) {
+            SASSERT(p != r.c_ptr());
             r.reset();
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
@@ -1917,6 +2512,8 @@ namespace realclosure {
            Signed remainder
         */
         void srem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
             rem(sz1, p1, sz2, p2, r);
             neg(r);
         }
@@ -2055,11 +2652,12 @@ namespace realclosure {
         */
         void sturm_tarski_seq(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, scoped_polynomial_seq & seq) {
             seq.reset();
-            value_ref_buffer p1p2(*this);
+            value_ref_buffer p1_prime(*this);
+            value_ref_buffer p1_prime_p2(*this);
             seq.push(sz1, p1);
-            derivative(sz1, p1, p1p2);
-            mul(p1p2.size(), p1p2.c_ptr(), sz2, p2, p1p2);
-            seq.push(p1p2.size(), p1p2.c_ptr());
+            derivative(sz1, p1, p1_prime);
+            mul(p1_prime.size(), p1_prime.c_ptr(), sz2, p2, p1_prime_p2);
+            seq.push(p1_prime_p2.size(), p1_prime_p2.c_ptr());
             sturm_seq_core(seq);
         }
         
@@ -2205,6 +2803,7 @@ namespace realclosure {
                     prec = -m;
                 SASSERT(prec >= 1);
                 while (prec <= m_max_precision) {
+                    checkpoint();
                     if (!refine_coeffs_interval(n, p, prec)) {
                         // Failed to refine intervals, p must depend on infinitesimal values.
                         // This can happen even if all intervals of coefficients of p are bounded.
@@ -2227,7 +2826,16 @@ namespace realclosure {
             PLUS_INF,
             MPBQ
         };
-
+        
+        /**
+           \brief Compute the number of sign variations at position (loc, b) in the given polynomial sequence.
+           The position (loc, b) should be interpreted in the following way:
+           
+           - (ZERO, *)      -> number of sign variations at 0.
+           - (MINUS_INF, *) -> number of sign variations at -oo.
+           - (PLUS_INF, *)  -> number of sign variations at oo.
+           - (MPBQ, b)      -> number of sign variations at binary rational b.
+        */
         unsigned sign_variations_at_core(scoped_polynomial_seq const & seq, location loc, mpbq const & b) {
             unsigned sz = seq.size();
             if (sz <= 1)
@@ -2316,7 +2924,33 @@ namespace realclosure {
             
             return a - b;
         }
+        
+        /**
+           \brief Return TaQ(Q, P; a, b) = 
+                    #{ x \in (a, b] | P(x) = 0 and Q(x) > 0 }
+                    -
+                    #{ x \in (a, b] | P(x) = 0 and Q(x) < 0 }
 
+           \remark This method ignores whether the interval end-points are closed or open.
+        */
+        int TaQ(unsigned p_sz, value * const * p, unsigned q_sz, value * const * q, mpbqi const & interval) {
+            scoped_polynomial_seq seq(*this);
+            sturm_tarski_seq(p_sz, p, q_sz, q, seq);
+            return TaQ(seq, interval);
+        }
+
+        /**
+           \brief Return TaQ(1, P; a, b) = 
+                    #{ x \in (a, b] | P(x) = 0 }
+                    
+           \remark This method ignores whether the interval end-points are closed or open.
+        */
+        int TaQ_1(unsigned p_sz, value * const * p, mpbqi const & interval) {
+            scoped_polynomial_seq seq(*this);
+            sturm_seq(p_sz, p, seq);
+            return TaQ(seq, interval);
+        }
+            
         void refine_rational_interval(rational_value * v, unsigned prec) {
             mpbqi & i = interval(v);
             if (!i.lower_is_open() && !i.lower_is_open()) {
@@ -3362,21 +3996,48 @@ namespace realclosure {
             else
                 out << " > 0";
         }
+        
+        void display_sign_conditions(std::ostream & out, sign_condition * sc) const {
+            bool first = true;
+            out << "{";
+            while (sc) {
+                if (first)
+                    first = false;
+                else
+                    out << ", ";
+                out << "q(" << sc->qidx() << ")";
+                display_poly_sign(out, sc->sign());
+                sc = sc->prev();
+            }
+            out << "}";
+        }
+
+        void display_sign_conditions(std::ostream & out, sign_condition * sc, array<polynomial> const & qs, bool compact) const {
+            bool first = true;
+            out << "{";
+            while (sc) {
+                if (first)
+                    first = false;
+                else
+                    out << ", ";
+                display_polynomial(out, qs[sc->qidx()], display_free_var_proc(), compact);
+                display_poly_sign(out, sc->sign());
+                sc = sc->prev();
+            }
+            out << "}";
+        }
 
         void display_algebraic_def(std::ostream & out, algebraic * a, bool compact) const {
             out << "root(";
             display_polynomial(out, a->p(), display_free_var_proc(), compact);
             out << ", ";
             bqim().display(out, a->interval());
-            out << ", {";
-            signs const & s = a->s();
-            for (unsigned i = 0; i < s.size(); i++) {
-                if (i > 0)
-                    out << ", ";
-                display_polynomial(out, s[i].first, display_free_var_proc(), compact);
-                display_poly_sign(out, s[i].second);
-            }
-            out << "})";
+            out << ", ";
+            if (a->sdt() != 0) 
+                display_sign_conditions(out, a->sdt()->sc(a->sdt_idx()), a->sdt()->qs(), compact);
+            else
+                out << "{}";
+            out << ")";
         }
 
         void display_poly(std::ostream & out, unsigned n, value * const * p) const {
