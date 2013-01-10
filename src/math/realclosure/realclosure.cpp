@@ -1820,6 +1820,7 @@ namespace realclosure {
             }
             TRACE("rcf_sign_det",
                   tout << "Final state\n";
+                  display_poly(tout, p_sz, p); tout << "\n";
                   tout << M_s;
                   for (unsigned j = 0; j < scs.size(); j++) {
                       display_sign_conditions(tout, scs[j]); 
@@ -1828,6 +1829,10 @@ namespace realclosure {
                   tout << "qs:\n";
                   for (unsigned j = 0; j < qs.size(); j++) {
                       display_poly(tout, qs.size(j), qs.coeffs(j)); tout << "\n";
+                  }
+                  tout << "prs:\n";
+                  for (unsigned j = 0; j < prs.size(); j++) {
+                      display_poly(tout, prs.size(j), prs.coeffs(j)); tout << "\n";
                   });
 
             // TODO: create the extension objects using
