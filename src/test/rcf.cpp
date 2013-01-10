@@ -134,7 +134,8 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
         for (unsigned j = 0; j < n; j++)
             A.set(i, j, _A[i*n + j]);
     unsigned_vector r;
-    mm.linear_independent_rows(A, r);
+    r.resize(A.n());
+    mm.linear_independent_rows(A, r.c_ptr());
     SASSERT(r.size() == ex_sz);
     for (unsigned i = 0; i < ex_sz; i++) {
         SASSERT(r[i] == ex_r[i]);
