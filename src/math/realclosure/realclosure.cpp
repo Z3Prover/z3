@@ -1446,7 +1446,7 @@ namespace realclosure {
         bool neg_root_upper_bound(unsigned n, value * const * p, int & N) {
             value_ref_buffer q(*this);
             reverse(n, p, q);
-            if (pos_root_lower_bound(n, q.c_ptr(), N)) {
+            if (neg_root_lower_bound(n, q.c_ptr(), N)) {
                 N = -N;
                 return true;
             }
@@ -1679,6 +1679,16 @@ namespace realclosure {
         }
 
         /**
+           \brief Add a new root of p that is isolated by (interval, sd, sdt_idx) to roots.
+        */
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sdt_idx, numeral_vector & roots) {
+            algebraic * a = mk_algebraic(p_sz, p, interval, sd, sdt_idx);
+            numeral r;
+            set(r, mk_rational_function_value(a));
+            roots.push_back(r);
+        }
+
+        /**
            \brief Isolate roots of p in the given interval using sign conditions to distinguish between them.
            We need this method when the polynomial contains roots that are infinitesimally close to each other.
            For example, given an infinitesimal eps, the polynomial (x - 1)(x - 1 - eps) == (1 + eps) + (- 2 - eps)*x + x^2 
@@ -1895,10 +1905,7 @@ namespace realclosure {
             SASSERT(M_s.n() == M_s.m()); SASSERT(M_s.n() == static_cast<unsigned>(num_roots));
             sign_det * sd = mk_sign_det(M_s, prs, qs, scs);
             for (unsigned idx = 0; idx < static_cast<unsigned>(num_roots); idx++) {
-                algebraic * a = mk_algebraic(p_sz, p, interval, sd, idx);
-                numeral r;
-                set(r, mk_rational_function_value(a));
-                roots.push_back(r);
+                add_root(p_sz, p, interval, sd, idx, roots);
             }
         }
 
@@ -1914,6 +1921,63 @@ namespace realclosure {
                     return false;
             }
             return true;
+        }
+
+        /**
+           \brief magnitude -> mpbq
+        */
+        void magnitude_to_mpbq(int mag, bool sign, mpbq & r) {
+            if (mag < 0) {
+                bqm().set(r, mpbq(1, -mag));
+            }
+            else {
+                bqm().set(r, mpbq(2));
+                bqm().power(r, mag);
+            }
+            if (sign)
+                bqm().neg(r);
+        }
+
+        /**
+           \brief Convert magnitudes for negative roots lower and upper bounds into an interval.
+        */
+        void mk_neg_interval(bool has_neg_lower, int neg_lower_N, bool has_neg_upper, int neg_upper_N, mpbqi & r) {
+            scoped_mpbq aux(bqm());
+            if (!has_neg_lower) {
+                set_lower_inf(r);
+            }
+            else {
+                magnitude_to_mpbq(neg_lower_N, true, aux);
+                set_lower(r, aux);
+            }
+            if (!has_neg_upper) {
+                set_upper_zero(r);
+            }
+            else {
+                magnitude_to_mpbq(neg_upper_N, true, aux);
+                set_upper(r, aux);
+            }
+        }
+
+        /**
+           \brief Convert magnitudes for negative roots lower and upper bounds into an interval.
+        */
+        void mk_pos_interval(bool has_pos_lower, int pos_lower_N, bool has_pos_upper, int pos_upper_N, mpbqi & r) {
+            scoped_mpbq aux(bqm());
+            if (!has_pos_lower) {
+                set_lower_zero(r);
+            }
+            else {
+                magnitude_to_mpbq(pos_lower_N, false, aux);
+                set_lower(r, aux);
+            }
+            if (!has_pos_upper) {
+                set_upper_inf(r);
+            }
+            else {
+                magnitude_to_mpbq(pos_upper_N, false, aux);
+                set_upper(r, aux);
+            }
         }
         
         /**
@@ -1956,13 +2020,29 @@ namespace realclosure {
             TRACE("rcf_isolate", 
                   tout << "num_neg_roots: " << num_neg_roots << "\n";
                   tout << "num_pos_roots: " << num_pos_roots << "\n";);
-            // TODO
-
-            // Test sign_det_isolate_roots
-            if (num_neg_roots > 1)
-                sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
-            if (num_pos_roots > 1)
-                sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+            scoped_mpbqi pos_interval(bqim());
+            scoped_mpbqi neg_interval(bqim());
+            mk_neg_interval(has_neg_lower, neg_lower_N, has_neg_upper, neg_upper_N, neg_interval);
+            mk_pos_interval(has_pos_lower, pos_lower_N, has_pos_upper, pos_upper_N, pos_interval);
+            if (num_neg_roots > 0) {
+                if (num_neg_roots == 1) {
+                    add_root(n, p, neg_interval, 0, UINT_MAX, roots);
+                }
+                else {
+                    // TODO bisection
+                    sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+                }
+            }
+            
+            if (num_pos_roots > 0) {
+                if (num_pos_roots == 1) {
+                    add_root(n, p, pos_interval, 0, UINT_MAX, roots);
+                }
+                else {
+                    // TODO bisection
+                    sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+                }
+            }
         }
 
         /**
