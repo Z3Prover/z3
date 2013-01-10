@@ -1339,23 +1339,26 @@ class MLComponent(Component):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
-            out.write('z3.cmxa:')
+            out.write('libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('\t$(CXX) $(CXXFLAGS) -I %s api/ml/z3native.c $(CXX_OUTFLAG) api/ml/z3native$(OBJ_EXT)\n' % get_component(API_COMPONENT).to_src_dir)
+            out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG) libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
+            out.write('api/ml/z3.cmxa: libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(src_dir, mlfile))
             out.write('\n')
-            out.write('\tpushd %s && %s ' % (sub_dir, OCAMLOPT))
+            out.write('\tcd %s && %s ' % (sub_dir, OCAMLOPT))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3" z3native.c z3enums.ml z3native.ml z3.ml -a -o ../../z3.cmxa -linkall && popd\n' % get_component(API_COMPONENT).to_src_dir)
-            out.write('z3.cma:')
+            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" z3enums.ml z3native.ml z3.ml -a -o z3.cmxa -linkall && cd ../..\n' % get_component(API_COMPONENT).to_src_dir)
+            out.write('api/ml/z3.cma: libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\tpushd %s && %s ' % (sub_dir, OCAMLC))
+            out.write('\tcd %s && %s ' % (sub_dir, OCAMLC))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-custom -ccopt "-I../../%s" -cclib "-L../.. -lz3" z3native.c z3enums.ml z3native.ml z3.ml -a -o ../../z3.cma -linkall && popd\n' % get_component(API_COMPONENT).to_src_dir)
-            out.write('ml: z3.cmxa z3.cma\n')
+            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" z3enums.ml z3native.ml z3.ml -a -o z3.cma -linkall && cd ../..\n' % get_component(API_COMPONENT).to_src_dir)
+            out.write('ml: api/ml/z3.cmxa api/ml/z3.cma\n')
             out.write('\n')
     
     def main_component(self):
@@ -1479,29 +1482,29 @@ class MLExampleComponent(ExampleComponent):
 
     def mk_makefile(self, out):
         if ML_ENABLED:
-            out.write('ml_example.byte: z3.cma ')
+            out.write('ml_example.byte: api/ml/z3.cma ')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
             out.write('\t%s ' % OCAMLC)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-custom -o ml_example.byte -I . z3.cma -I api/ml')
+            out.write('-custom -o ml_example.byte -I api/ml -cclib "-L. -lz3" z3.cma')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('ml_example($EXE_EXT): z3.cmxa ml_example.byte')
+            out.write('ml_example$(EXE_EXT): api/ml/z3.cmxa ml_example.byte')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, mlfile))                
             out.write('\n')
             out.write('\t%s ' % OCAMLOPT)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-o ml_example($EXE_EXT) -I . z3.cmxa -I api/ml')
+            out.write('-o ml_example$(EXE_EXT) -I api/ml -cclib "-L. -lz3" z3.cmxa')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
-            out.write('_ex_%s: ml_example.byte ml_example($EXE_EXT)\n\n' % self.name)
+            out.write('_ex_%s: ml_example.byte ml_example$(EXE_EXT)\n\n' % self.name)
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
