@@ -275,15 +275,15 @@ namespace realclosure {
     struct algebraic : public extension {
         polynomial   m_p;
         sign_det *   m_sign_det; //!< != 0         if m_interval constains more than one root of m_p.
-        unsigned     m_idx;      //!< != UINT_MAX  if m_sign_det != 0, in this case m_idx < m_sign_det->m_sign_conditions.size()
+        unsigned     m_sdt_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sdt_idx < m_sign_det->m_sign_conditions.size()
         bool         m_real;     //!< True if the polynomial p does not depend on infinitesimal extensions.
 
-        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_idx(0), m_real(false) {}
+        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_sdt_idx(0), m_real(false) {}
 
         polynomial const & p() const { return m_p; }
         bool is_real() const { return m_real; }
         sign_det * sdt() const { return m_sign_det; }
-        unsigned sdt_idx() const { return m_idx; }
+        unsigned sdt_idx() const { return m_sdt_idx; }
     };
 
     struct transcendental : public extension {
@@ -445,6 +445,7 @@ namespace realclosure {
                 m_scs.append(scs.m_scs.size(), scs.m_scs.c_ptr());
                 scs.release();
             }
+            sign_condition * const * c_ptr() { return m_scs.c_ptr(); }
         };
         
         imp(unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
@@ -638,6 +639,11 @@ namespace realclosure {
         unsigned next_infinitesimal_idx() {
             cleanup(extension::INFINITESIMAL);
             return m_extensions[extension::INFINITESIMAL].size();
+        }
+
+        unsigned next_algebraic_idx() {
+            cleanup(extension::ALGEBRAIC);
+            return m_extensions[extension::ALGEBRAIC].size();
         }
         
         void set_cancel(bool f) {
@@ -1621,6 +1627,53 @@ namespace realclosure {
         }
 
         /**
+           \brief Store the polynomials in prs into the array of polynomials ps.
+        */
+        void set_array_p(array<polynomial> & ps, scoped_polynomial_seq const & prs) {
+            unsigned sz = prs.size();
+            ps.set(allocator(), sz, polynomial());
+            for (unsigned i = 0; i < sz; i++) {
+                unsigned pi_sz     = prs.size(i);
+                value * const * pi = prs.coeffs(i);
+                set_p(ps[i], pi_sz, pi);
+            }
+        }
+
+        /**
+           \brief Create a "sign determination" data-structure for an algebraic extension.
+           
+           The new object will assume the ownership of the elements stored in M and scs. 
+           M and scs will be empty after this operation.
+        */
+        sign_det * mk_sign_det(mpz_matrix & M, scoped_polynomial_seq const & prs, scoped_polynomial_seq const & qs, scoped_sign_conditions & scs) {
+            sign_det * r = new (allocator()) sign_det();
+            r->M.swap(M);
+            set_array_p(r->m_prs, prs);
+            set_array_p(r->m_qs,  qs);
+            r->m_sign_conditions.set(allocator(), scs.size(), scs.c_ptr());
+            scs.release();
+            return r;
+        }
+
+        /**
+           \brief Create a new algebraic extension
+         */
+        algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sdt_idx) {
+            unsigned idx = next_algebraic_idx();
+            algebraic * r = new (allocator()) algebraic(idx);
+            m_extensions[extension::ALGEBRAIC].push_back(r);
+            
+            set_p(r->m_p, p_sz, p);
+            set_interval(r->m_interval, interval);
+            r->m_sign_det = sd;
+            inc_ref_sign_det(sd);
+            r->m_sdt_idx  = sdt_idx;
+            r->m_real     = is_real(p_sz, p);
+
+            return r;
+        }
+
+        /**
            \brief Isolate roots of p in the given interval using sign conditions to distinguish between them.
            We need this method when the polynomial contains roots that are infinitesimally close to each other.
            For example, given an infinitesimal eps, the polynomial (x - 1)(x - 1 - eps) == (1 + eps) + (- 2 - eps)*x + x^2 
@@ -1834,12 +1887,14 @@ namespace realclosure {
                   for (unsigned j = 0; j < prs.size(); j++) {
                       display_poly(tout, prs.size(j), prs.coeffs(j)); tout << "\n";
                   });
-
-            // TODO: create the extension objects using
-            // M_s, prs, scs, qs
-            // Remark: scs and qs are only for pretty printing
-            // For determining the signs of other polynomials in the new extension objects,
-            // we only need M_s and prs
+            SASSERT(M_s.n() == M_s.m()); SASSERT(M_s.n() == static_cast<unsigned>(num_roots));
+            sign_det * sd = mk_sign_det(M_s, prs, qs, scs);
+            for (unsigned idx = 0; idx < static_cast<unsigned>(num_roots); idx++) {
+                algebraic * a = mk_algebraic(p_sz, p, interval, sd, idx);
+                numeral r;
+                set(r, mk_rational_function_value(a));
+                roots.push_back(r);
+            }
         }
 
         /**
