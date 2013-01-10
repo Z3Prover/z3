@@ -243,6 +243,10 @@ public:
         m_ptr = 0;
         return tmp;
     }
+
+    void swap(scoped_ptr & p) {
+        std::swap(m_ptr, p.m_ptr);
+    }
 };
 
 template<typename T1, typename T2>
