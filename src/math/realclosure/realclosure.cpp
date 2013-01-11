@@ -270,6 +270,7 @@ namespace realclosure {
         
         array<polynomial> const & qs() const { return m_qs; }
         sign_condition * sc(unsigned idx) const { return m_sign_conditions[idx]; }
+        unsigned num_roots() const { return m_prs.size(); }
     };
 
     struct algebraic : public extension {
@@ -284,6 +285,7 @@ namespace realclosure {
         bool is_real() const { return m_real; }
         sign_det * sdt() const { return m_sign_det; }
         unsigned sdt_idx() const { return m_sdt_idx; }
+        unsigned num_roots_inside_interval() const { return m_sign_det == 0 ? 1 : m_sign_det->num_roots(); }
     };
 
     struct transcendental : public extension {
@@ -2946,38 +2948,44 @@ namespace realclosure {
            \brief Return the sign of p(b)
         */
         int eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
-            scoped_mpbqi r(bqim());
-            eval_sign_at_approx(n, p, b, r);
-            if (!bqim().contains_zero(r)) {
-                // we are done
-                return bqim().is_P(r) ? 1 : -1;
-            }
-            else if (!has_refineable_approx_coeffs(n, p)) {
-                return expensive_eval_sign_at(n, p, b);
-            }
+            if (n == 0)
+                return 0;
+            else if (n == 1)
+                return sign(p[0]);
             else {
-                int m = find_biggest_interval_magnitude(n, p);
-                unsigned prec;
-                if (m >= 0)
-                    prec = 1;
-                else 
-                    prec = -m;
-                SASSERT(prec >= 1);
-                while (prec <= m_max_precision) {
-                    checkpoint();
-                    if (!refine_coeffs_interval(n, p, prec)) {
-                        // Failed to refine intervals, p must depend on infinitesimal values.
-                        // This can happen even if all intervals of coefficients of p are bounded.
-                        return expensive_eval_sign_at(n, p, b);
-                    }
-                    eval_sign_at_approx(n, p, b, r);
-                    if (!bqim().contains_zero(r)) {
-                        // we are done
-                        return bqim().is_P(r) ? 1 : -1;
-                    }
-                    prec++; // increase precision and try again.
+                scoped_mpbqi r(bqim());
+                eval_sign_at_approx(n, p, b, r);
+                if (!contains_zero(r)) {
+                    // we are done
+                    return bqim().is_P(r) ? 1 : -1;
                 }
-                return expensive_eval_sign_at(n, p, b);
+                else if (!has_refineable_approx_coeffs(n, p)) {
+                    return expensive_eval_sign_at(n, p, b);
+                }
+                else {
+                    int m = find_biggest_interval_magnitude(n, p);
+                    unsigned prec;
+                    if (m >= 0)
+                        prec = 1;
+                    else 
+                        prec = -m;
+                    SASSERT(prec >= 1);
+                    while (prec <= m_max_precision) {
+                        checkpoint();
+                        if (!refine_coeffs_interval(n, p, prec)) {
+                            // Failed to refine intervals, p must depend on infinitesimal values.
+                            // This can happen even if all intervals of coefficients of p are bounded.
+                            return expensive_eval_sign_at(n, p, b);
+                        }
+                        eval_sign_at_approx(n, p, b, r);
+                        if (!contains_zero(r)) {
+                            // we are done
+                            return bqim().is_P(r) ? 1 : -1;
+                        }
+                        prec++; // increase precision and try again.
+                    }
+                    return expensive_eval_sign_at(n, p, b);
+                }
             }
         }
 
@@ -3544,9 +3552,144 @@ namespace realclosure {
             SASSERT(!contains_zero(v->interval()));
         }
 
+        /**
+           \brief Return true if x and q do not depend on infinitesimal values.
+           That is, q(x) does not depend on infinitesimal values.
+        */
+        bool is_real(polynomial const & q, algebraic * x) {
+            return x->is_real() and is_real(q.size(), q.c_ptr());
+        }
+
+        /**
+           \brief This method is invoked when we know that q(x) is not zero and q(x) does not depend on infinitesimal values.
+           The procedure will keep refining the intervals associated with x and coefficients of q until
+           the interval of q(x) is of the form
+              (l > 0, u)
+              OR
+              (l, u < 0)
+        */
+        void refine_until_sign_determined(polynomial const & q, algebraic * x, mpbqi & r) {
+            SASSERT(is_real(q, x));
+            // If x and q do not depend on infinitesimals, must make sure that r satisfies our invariant
+            // for intervals of polynomial values that do not depend on infinitesimals.
+            // that is,
+            //     Given r == (l, u), l != 0 and u != 0
+            int m = magnitude(r);
+            unsigned prec;
+            if (m >= 0)
+                prec = m_ini_precision;
+            else
+                prec = -m;
+            while (true) {
+                checkpoint();
+                VERIFY(refine_coeffs_interval(q, prec)); // can't fail because q does not depend on infinitesimals
+                VERIFY(refine_algebraic_interval(x, prec)); // can't fail because x does not depend on infinitesimals
+                // Update r
+                polynomial_interval(q, x->interval(), r);
+                // Since q and r do not depend on infinitesimals -oo and +oo will never be end-points.
+                SASSERT(!r.lower_is_inf());
+                SASSERT(!r.upper_is_inf());
+                if (!contains_zero(r) && !bqm().is_zero(r.lower()) && !bqm().is_zero(r.upper()))
+                    return; // the interval r satisfies our requirements.
+                prec++;
+            }
+        }
+
+        /**
+           \brief If q(x) != 0, return true and store in r an interval that contains the value q(x), but does not contain 0.
+                  If q(x) == 0, return false
+        */
+        bool expensive_algebraic_poly_interval(polynomial const & q, algebraic * x, mpbqi & r) {
+            polynomial_interval(q, x->interval(), r);
+            if (!contains_zero(r)) {
+                if (is_real(q, x) && (bqm().is_zero(r.lower()) || bqm().is_zero(r.upper()))) {
+                    // we don't want intervals of the form (l, 0) and (0, u) when
+                    // q(x) does not depend on infinitesimals.
+                    refine_until_sign_determined(q, x, r);
+                }
+                return true;
+            }
+            int num_roots = x->num_roots_inside_interval();
+            SASSERT(x->sdt() != 0 || num_roots == 1);
+            scoped_polynomial_seq seq(*this);
+            polynomial const & p = x->p();
+            int taq = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->interval());
+            if (num_roots == 1 && taq == 0)
+                return false; // q(x) is zero
+            if (taq == num_roots) {
+                // q(x) is positive
+                if (is_real(q, x))
+                    refine_until_sign_determined(q, x, r);
+                else
+                    set_lower_zero(r);
+                SASSERT(!contains_zero(r));
+                return true;
+            }
+            else if (taq == -num_roots) {
+                // q(x) is negative
+                if (is_real(q, x))
+                    refine_until_sign_determined(q, x, r);
+                else
+                    set_upper_zero(r);
+                SASSERT(!contains_zero(r));
+                return true;
+            }
+            else {
+                SASSERT(num_roots > 1);
+                SASSERT(x->sdt() != 0);
+                
+                // TODO use sign_det data structure
+                
+                std::cout << "TODO\n";
+
+                return false;
+            }
+        }
+
+        bool expensive_determine_algebraic_sign(rational_function_value * v) {
+            SASSERT(contains_zero(v->interval()));
+            SASSERT(v->ext()->is_algebraic());
+            TRACE("rcf_algebraic_sign", 
+                  tout << "expensive_determine_algebraic_sign\n"; display(tout, v, false); 
+                  tout << "\ninterval: ";  bqim().display(tout, v->interval()); tout << "\n";);
+            algebraic * x = to_algebraic(v->ext());
+            scoped_mpbqi num_interval(bqim());
+            if (!expensive_algebraic_poly_interval(v->num(), x, num_interval))
+                return false; // it is zero
+            SASSERT(!contains_zero(num_interval));
+            scoped_mpbqi den_interval(bqim());
+            VERIFY(expensive_algebraic_poly_interval(v->den(), x, den_interval));
+            SASSERT(!contains_zero(den_interval));
+            div(num_interval, den_interval, m_ini_precision, v->interval());
+            SASSERT(!contains_zero(v->interval()));
+            return true; // it is not zero
+        }
+
+        /**
+           \brief Determine the sign of an rational function value
+           p(x)/q(x) when x is an algebraic extension.
+        */
         bool determine_algebraic_sign(rational_function_value * v) {
-            // TODO
-            return false;
+            SASSERT(v->ext()->is_algebraic());
+            mpbqi & interval = v->interval();
+            if (interval.lower_is_inf() || interval.upper_is_inf()) {
+                return expensive_determine_algebraic_sign(v);
+            }
+            else {
+                int m = magnitude(v->interval());
+                unsigned prec = 1;
+                if (m < 0)
+                    prec = static_cast<unsigned>(-m) + 1;
+                while (contains_zero(v->interval())) {
+                    if (!refine_algebraic_interval(v, prec))
+                        return expensive_determine_algebraic_sign(v);
+                    prec++;
+                    if (prec > m_max_precision)
+                        return expensive_determine_algebraic_sign(v);
+                }
+                SASSERT(!contains_zero(v->interval()));
+                return true; 
+            }
         }
 
         /**
@@ -3655,9 +3798,14 @@ namespace realclosure {
                 value_ref_buffer p2_norm(*this);
                 // FUTURE: we don't need to invoke normalize_algebraic if degree of p1 < degree x->p()
                 normalize_algebraic(to_algebraic(x), sz1, p1, p1_norm);
-                // FUTURE: we don't need to invoke normalize_algebraic if degree of p2 < degree x->p()
-                normalize_algebraic(to_algebraic(x), sz2, p2, p2_norm);
-                normalize_fraction(p1_norm.size(), p1_norm.c_ptr(), p2_norm.size(), p2_norm.c_ptr(), new_p1, new_p2);
+                if (p1_norm.empty()) {
+                    new_p1.reset(); // result is 0
+                }
+                else {
+                    // FUTURE: we don't need to invoke normalize_algebraic if degree of p2 < degree x->p()
+                    normalize_algebraic(to_algebraic(x), sz2, p2, p2_norm);
+                    normalize_fraction(p1_norm.size(), p1_norm.c_ptr(), p2_norm.size(), p2_norm.c_ptr(), new_p1, new_p2);
+                }
             }
             else {
                 normalize_fraction(sz1, p1, sz2, p2, new_p1, new_p2);
@@ -3727,7 +3875,10 @@ namespace realclosure {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
                     normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
-                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+                    if (new_num.empty())
+                        r = 0;
+                    else
+                        mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
         }
@@ -3784,7 +3935,10 @@ namespace realclosure {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
                     normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
-                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+                    if (new_num.empty())
+                        r = 0;
+                    else
+                        mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
         }
@@ -3927,6 +4081,7 @@ namespace realclosure {
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
                 normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
         }
@@ -3949,6 +4104,7 @@ namespace realclosure {
                 // FUTURE: we don't need to invoke normalize_algebraic if degree of new_num < degree x->p()
                 value_ref_buffer new_num2(*this);
                 normalize_algebraic(to_algebraic(x), new_num.size(), new_num.c_ptr(), new_num2);
+                SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num2.size(), new_num2.c_ptr(), one.size(), one.c_ptr(), r);
             }
             else {
@@ -3977,6 +4133,7 @@ namespace realclosure {
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
                 normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
         }
@@ -4135,7 +4292,7 @@ namespace realclosure {
             else if (is_nz_rational(a) && is_nz_rational(b))
                 return qm().lt(to_mpq(a), to_mpq(b)) ? -1 : 1;
             else {
-                // TODO: try to refine interval before switching to sub+sign approach
+                // FUTURE: try to refine interval before switching to sub+sign approach
                 if (bqim().before(interval(a), interval(b)))
                     return -1;
                 else if (bqim().before(interval(b), interval(a)))
