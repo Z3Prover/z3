@@ -179,8 +179,8 @@ namespace realclosure {
         polynomial   m_numerator;
         polynomial   m_denominator;
         extension *  m_ext;
-        bool         m_real; //!< True if the polynomial expression does not depend on infinitesimal values.
-        rational_function_value(extension * ext):value(false), m_ext(ext), m_real(false) {}
+        bool         m_depends_on_infinitesimals; //!< True if the polynomial expression depends on infinitesimal values.
+        rational_function_value(extension * ext):value(false), m_ext(ext), m_depends_on_infinitesimals(false) {}
         
         polynomial const & num() const { return m_numerator; }
         polynomial & num() { return m_numerator; }
@@ -188,8 +188,8 @@ namespace realclosure {
         polynomial & den() { return m_denominator; }
 
         extension * ext() const { return m_ext; }
-        bool is_real() const { return m_real; }
-        void set_real(bool f) { m_real = f; }
+        bool depends_on_infinitesimals() const { return m_depends_on_infinitesimals; }
+        void set_depends_on_infinitesimals(bool f) { m_depends_on_infinitesimals = f; }
     };
 
     // ---------------------------------
@@ -280,12 +280,12 @@ namespace realclosure {
         polynomial   m_p;
         sign_det *   m_sign_det; //!< != 0         if m_interval constains more than one root of m_p.
         unsigned     m_sc_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sc_idx < m_sign_det->m_sign_conditions.size()
-        bool         m_real;     //!< True if the polynomial p does not depend on infinitesimal extensions.
+        bool         m_depends_on_infinitesimals;  //!< True if the polynomial p depends on infinitesimal extensions.
 
-        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_sc_idx(0), m_real(false) {}
+        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_sc_idx(0), m_depends_on_infinitesimals(false) {}
 
         polynomial const & p() const { return m_p; }
-        bool is_real() const { return m_real; }
+        bool depends_on_infinitesimals() const { return m_depends_on_infinitesimals; }
         sign_det * sdt() const { return m_sign_det; }
         unsigned sc_idx() const { return m_sc_idx; }
         unsigned num_roots_inside_interval() const { return m_sign_det == 0 ? 1 : m_sign_det->num_roots(); }
@@ -1000,25 +1000,24 @@ namespace realclosure {
         }
         
         /**
-           \brief Return True if the given extension is a Real value.
-           The result is approximate for algebraic extensions.
-             For algebraic extensions, we have
-               - true result is always correct (i.e., the extension is really a real value)
-               - false result is approximate (i.e., the extension may be a real value although it is a root of a polynomial that contains non-real coefficients)
+           \brief Return True if the given extension depends on infinitesimal extensions.
+           If it doesn't, then it is definitely a real value.
+           
+           If it does, then it may or may not be a real value.
                    Example: Assume eps is an infinitesimal, and pi is 3.14... . 
                    Assume also that ext is the unique root between (3, 4) of the following polynomial:
                           x^2 - (pi + eps)*x + pi*ext 
-                   Thus, x is pi, but the system will return false, since its defining polynomial has infinitesimal
-                   coefficients. In the future, to make everything precise, we should be able to factor the polynomial
+                   Thus, x is pi, but the system will return true, since its defining polynomial has infinitesimal
+                   coefficients. In the future, we should be able to factor the polynomial
                    above as 
                           (x - eps)*(x - pi)
                    and then detect that x is actually the root of (x - pi).
         */
-        bool is_real(extension * ext) {
+        bool depends_on_infinitesimals(extension * ext) {
             switch (ext->knd()) {
-            case extension::TRANSCENDENTAL: return true;
-            case extension::INFINITESIMAL:  return false;
-            case extension::ALGEBRAIC:      return to_algebraic(ext)->is_real();
+            case extension::TRANSCENDENTAL: return false;
+            case extension::INFINITESIMAL:  return true;
+            case extension::ALGEBRAIC:      return to_algebraic(ext)->depends_on_infinitesimals();
             default:
                 UNREACHABLE();
                 return false;
@@ -1028,18 +1027,18 @@ namespace realclosure {
         /**
            \brief Return true if v is definitely a real value.
         */
-        bool is_real(value * v) {
+        bool depends_on_infinitesimals(value * v) const {
             if (is_zero(v) || is_nz_rational(v))
-                return true;
+                return false;
             else 
-                return to_rational_function(v)->is_real();
+                return to_rational_function(v)->depends_on_infinitesimals();
         }
 
-        bool is_real(unsigned sz, value * const * p) {
+        bool depends_on_infinitesimals(unsigned sz, value * const * p) const {
             for (unsigned i = 0; i < sz; i++)
-                if (!is_real(p[i]))
-                    return false;
-            return true;
+                if (depends_on_infinitesimals(p[i]))
+                    return true;
+            return false;
         }
 
         /**
@@ -1164,7 +1163,7 @@ namespace realclosure {
             inc_ref_ext(ext);
             set_p(r->num(), num_sz, num);
             set_p(r->den(), den_sz, den);
-            r->set_real(is_real(ext) && is_real(num_sz, num) && is_real(den_sz, den));
+            r->set_depends_on_infinitesimals(depends_on_infinitesimals(ext) || depends_on_infinitesimals(num_sz, num) || depends_on_infinitesimals(den_sz, den));
             return r;
         }         
 
@@ -1193,7 +1192,7 @@ namespace realclosure {
             set(r, mk_rational_function_value(eps));
 
             SASSERT(sign(r) > 0);
-            SASSERT(!is_real(r));
+            SASSERT(depends_on_infinitesimals(r));
         }
 
         void mk_infinitesimal(char const * n, numeral & r) {
@@ -1244,7 +1243,7 @@ namespace realclosure {
             }
             set(r, mk_rational_function_value(t));
 
-            SASSERT(is_real(r));
+            SASSERT(!depends_on_infinitesimals(r));
         }
         
         void mk_transcendental(char const * p, mk_interval & proc, numeral & r) {
@@ -1715,7 +1714,7 @@ namespace realclosure {
             r->m_sign_det = sd;
             inc_ref_sign_det(sd);
             r->m_sc_idx   = sc_idx;
-            r->m_real     = is_real(p_sz, p);
+            r->m_depends_on_infinitesimals = depends_on_infinitesimals(p_sz, p);
 
             return r;
         }
@@ -2266,20 +2265,10 @@ namespace realclosure {
         }
 
         /**
-           \brief Return true if v does not depend on infinitesimal extensions.
+           \brief Return true if a depends on infinitesimal extensions.
         */
-        bool is_real(value * v) const {
-            if (is_zero(v) || is_nz_rational(v))
-                return true;
-            else
-                return to_rational_function(v)->is_real();
-        }
-        
-        /**
-           \brief Return true if a does not depend on infinitesimal extensions.
-        */
-        bool is_real(numeral const & a) const {
-            return is_real(a.m_value);
+        bool depends_on_infinitesimals(numeral const & a) const {
+            return depends_on_infinitesimals(a.m_value);
         }
 
         static void swap(mpbqi & a, mpbqi & b) {
@@ -3660,11 +3649,11 @@ namespace realclosure {
         }
 
         /**
-           \brief Return true if x and q do not depend on infinitesimal values.
+           \brief Return true if x and q depend on infinitesimal values.
            That is, q(x) does not depend on infinitesimal values.
         */
-        bool is_real(polynomial const & q, algebraic * x) {
-            return x->is_real() and is_real(q.size(), q.c_ptr());
+        bool depends_on_infinitesimals(polynomial const & q, algebraic * x) {
+            return x->depends_on_infinitesimals() || depends_on_infinitesimals(q.size(), q.c_ptr());
         }
 
         /**
@@ -3676,7 +3665,7 @@ namespace realclosure {
               (l, u < 0)
         */
         void refine_until_sign_determined(polynomial const & q, algebraic * x, mpbqi & r) {
-            SASSERT(is_real(q, x));
+            SASSERT(!depends_on_infinitesimals(q, x));
             // If x and q do not depend on infinitesimals, must make sure that r satisfies our invariant
             // for intervals of polynomial values that do not depend on infinitesimals.
             // that is,
@@ -3709,7 +3698,7 @@ namespace realclosure {
         bool expensive_algebraic_poly_interval(polynomial const & q, algebraic * x, mpbqi & r) {
             polynomial_interval(q, x->interval(), r);
             if (!contains_zero(r)) {
-                if (is_real(q, x) && (bqm().is_zero(r.lower()) || bqm().is_zero(r.upper()))) {
+                if (!depends_on_infinitesimals(q, x) && (bqm().is_zero(r.lower()) || bqm().is_zero(r.upper()))) {
                     // we don't want intervals of the form (l, 0) and (0, u) when
                     // q(x) does not depend on infinitesimals.
                     refine_until_sign_determined(q, x, r);
@@ -3724,7 +3713,7 @@ namespace realclosure {
                 return false; // q(x) is zero
             if (taq_p_q == num_roots) {
                 // q(x) is positive
-                if (is_real(q, x))
+                if (!depends_on_infinitesimals(q, x))
                     refine_until_sign_determined(q, x, r);
                 else
                     set_lower_zero(r);
@@ -3733,7 +3722,7 @@ namespace realclosure {
             }
             else if (taq_p_q == -num_roots) {
                 // q(x) is negative
-                if (is_real(q, x))
+                if (!depends_on_infinitesimals(q, x))
                     refine_until_sign_determined(q, x, r);
                 else
                     set_upper_zero(r);
@@ -4896,8 +4885,8 @@ namespace realclosure {
         return m_imp->is_int(a);
     }
         
-    bool manager::is_real(numeral const & a) {
-        return m_imp->is_real(a);
+    bool manager::depends_on_infinitesimals(numeral const & a) {
+        return m_imp->depends_on_infinitesimals(a);
     }
         
     void manager::set(numeral & a, int n) {

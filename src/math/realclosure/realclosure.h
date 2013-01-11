@@ -133,9 +133,10 @@ namespace realclosure {
         bool is_int(numeral const & a);
         
         /**
-           \brief Return true if a is a real number.
+           \brief Return true if the representation of \c a depends on
+           infinitesimal extensions.
         */
-        bool is_real(numeral const & a);
+        bool depends_on_infinitesimals(numeral const & a);
         
         /**
            \brief a <- n
