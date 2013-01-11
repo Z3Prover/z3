@@ -38,7 +38,7 @@ let  model_converter_test ( ctx : context ) =
       Printf.printf "Test passed.\n"
   );
   (
-    let ar = (Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") None) g4 None) in
+    let ar = (Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") [||]) g4 None) in
     if ((get_num_subgoals ar) == 1 && 
 	   ((is_decided_sat (get_subgoal ar 0)) ||  
 	       (is_decided_unsat (get_subgoal ar 0)))) then
@@ -49,7 +49,7 @@ let  model_converter_test ( ctx : context ) =
     let solver = (mk_solver ctx None) in
     let f e = (Solver.assert_ solver [| e |]) in
     ignore (Array.map f (get_formulas (get_subgoal ar 0))) ;
-    let q = (check solver None) in
+    let q = (check solver [||]) in
     if q != SATISFIABLE then 
       raise (TestFailedException "")
     else
@@ -88,7 +88,7 @@ let basic_tests ( ctx : context ) =
   (
     let solver = (mk_solver ctx None) in
     (Array.iter (fun a -> (Solver.assert_ solver [| a |])) (get_formulas g)) ;
-    if (check solver None) != SATISFIABLE then
+    if (check solver [||]) != SATISFIABLE then
       raise (TestFailedException "")
     else
       Printf.printf "Test passed.\n"
@@ -204,7 +204,7 @@ let _ =
   else
     (
       Printf.printf "Running Z3 version %s\n" Version.to_string ;
-      let cfg = (Some [("model", "true"); ("proof", "false")]) in
+      let cfg = [("model", "true"); ("proof", "false")] in
       let ctx = (mk_context cfg) in
       let is = (Symbol.mk_int ctx 42) in
       let ss = (Symbol.mk_string ctx "mySymbol") in
