@@ -7,46 +7,39 @@
 
 open Z3enums
 
+type context = { m_n_ctx : Z3native.z3_context; m_n_obj_cnt: int; }
+
 (**/**)
+let context_dispose ctx = 
+  if ctx.m_n_obj_cnt == 0 then (
+    (* Printf.printf "Disposing context \n" ; *)
+    (Z3native.del_context ctx.m_n_ctx)
+  ) else (
+    Printf.printf "NOT DISPOSING context because it still has %d objects alive\n" ctx.m_n_obj_cnt;
+    (* re-queue for finalization? *)
+  )
 
-class context settings  =
-object (self)
-  val mutable m_n_ctx : Z3native.z3_context = 
-    let cfg = Z3native.mk_config in
-    let f e = (Z3native.set_param_value cfg (fst e) (snd e)) in
-    (List.iter f settings) ;
-    let v = Z3native.mk_context_rc cfg in
-    Z3native.del_config(cfg) ;
-    Z3native.set_ast_print_mode v (int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT) ;
-    v
-
+let context_init settings =
+  let cfg = Z3native.mk_config in
+  let f e = (Z3native.set_param_value cfg (fst e) (snd e)) in
+  (List.iter f settings) ;
+  let v = Z3native.mk_context_rc cfg in
+  Z3native.del_config(cfg) ;
+  Z3native.set_ast_print_mode v (int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT) ;
+  (* Printf.printf "Installing finalizer on context \n" ; *)
+  let res = { m_n_ctx = v; m_n_obj_cnt = 0 } in
+  let f = fun o -> context_dispose o in
+  Gc.finalise f res;
+  res
 (* CMW: Install error handler here! 
    m_n_err_handler = new Z3native.error_handler(NativeErrorHandler);  keep reference so it doesn't get collected.
    Z3native.set_error_handler(m_ctx, m_n_err_handler);
   GC.SuppressFinalize(this);
 *)
 
-  val mutable m_obj_cnt : int = 0
-    
-  initializer 
-  (* Printf.printf "Installing finalizer on context %d \n" (Oo.id self) ; *)
-  let f = fun o -> o#dispose in
-  let v = self in
-  Gc.finalise f v;
-    
-  method dispose : unit = 
-    if m_obj_cnt == 0 then (
-      (* Printf.printf "Disposing context %d \n" (Oo.id self) ; *)
-      (Z3native.del_context m_n_ctx)
-    ) else (
-      Printf.printf "NOT DISPOSING context %d because it still has %d objects alive\n" (Oo.id self) m_obj_cnt;
-    (* re-queue for finalization? *)
-    )
-
-  method add_one_ctx_obj = m_obj_cnt <- m_obj_cnt + 1
-  method sub_one_ctx_obj = m_obj_cnt <- m_obj_cnt - 1
-  method gno = m_n_ctx
-end
+let context_add1 ctx = ignore (ctx.m_n_obj_cnt = ctx.m_n_obj_cnt + 1)
+let context_sub1 ctx = ignore (ctx.m_n_obj_cnt = ctx.m_n_obj_cnt - 1)
+let context_gno ctx = ctx.m_n_ctx
 
 (**/**)
 
@@ -70,10 +63,8 @@ the context, e.g., like so:
     (...)
 </code>
 *)
-let mk_context ( cfg : ( string * string ) list option ) =
-  match cfg with
-    | None -> new context []
-    | Some(x) -> new context x
+let mk_context ( cfg : ( string * string ) list ) =
+  context_init cfg
 
 (**/**)
 
@@ -85,8 +76,8 @@ object (self)
     
   initializer 
     (match m_n_obj with 
-      | Some (x) -> self#incref m_ctx#gno x;
-	m_ctx#add_one_ctx_obj
+      | Some (x) -> self#incref (context_gno m_ctx) x;
+	(context_add1 m_ctx)
       | None -> ()
     );
     (* Printf.printf "Installing finalizer on z3object %d \n" (Oo.id self) ; *)
@@ -101,8 +92,8 @@ object (self)
     (* Printf.printf "Disposing z3object %d \n" (Oo.id self) ; *)
     (match m_n_obj with
       | Some (x) -> 
-	self#decref m_ctx#gno x; 
-	m_ctx#sub_one_ctx_obj ;
+	self#decref (context_gno m_ctx) x; 
+	(context_sub1 m_ctx) ;
 	m_n_obj <- None; 
       | None -> ()
     ); 
@@ -112,16 +103,16 @@ object (self)
     | None -> raise (Z3native.Exception "Z3 object lost")
 
   method sno (ctx : context) o =
-    m_ctx#add_one_ctx_obj ;
-    self#incref ctx#gno o ;
+    (context_add1 m_ctx) ;
+    self#incref (context_gno ctx) o ;
     (match m_n_obj with
-      | Some(x) -> self#decref ctx#gno x ; m_ctx#sub_one_ctx_obj
+      | Some(x) -> self#decref (context_gno ctx) x ; (context_sub1 m_ctx)
       | None -> ()
     );
     m_n_obj <- Some o
 
   method gc = m_ctx
-  method gnc = m_ctx#gno
+  method gnc = (context_gno m_ctx)
 end
 
 
@@ -134,37 +125,38 @@ object (self)
   method decref nc o = Z3native.params_dec_ref nc o
 end
 
+
 (** Symbol objects *)
-class symbol ctx = 
+class symbol ctx =
 object (self)
-  inherit z3object ctx None as super 
+  inherit z3object ctx None as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method incref nc o = ()
   method decref nc o = ()
+end
+
+(** Int symbol objects *)
+class int_symbol ctx =
+object(self)
+  inherit symbol ctx as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_int i = (self#sno ctx (Z3native.mk_int_symbol (context_gno ctx) i)) ; self
+end
+
+(** String symbol objects *)
+class string_symbol ctx =
+object(self)
+  inherit symbol ctx as super
+  method cnstr_obj obj = (self#sno ctx obj) ; self
+  method cnstr_string name = (self#sno ctx (Z3native.mk_string_symbol (context_gno ctx) name)) ; self
 end
 
 let symbolaton (a : symbol array) =
   let f (e : symbol) = e#gno in 
   Array.map f a
 
-(** Int symbol objects *)
-class int_symbol ctx = 
-object(self)
-  inherit symbol ctx as super 
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_int i = (self#sno ctx (Z3native.mk_int_symbol ctx#gno i)) ; self 
-end
-
-(** String symbol objects *)
-class string_symbol ctx = 
-object(self)
-  inherit symbol ctx as super 
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_string name = (self#sno ctx (Z3native.mk_string_symbol ctx#gno name)) ; self 
-end
-
 let create_symbol ctx no =
-  match (symbol_kind_of_int (Z3native.get_symbol_kind ctx#gno no)) with
+  match (symbol_kind_of_int (Z3native.get_symbol_kind (context_gno ctx) no)) with
     | INT_SYMBOL -> (((new int_symbol ctx)#cnstr_obj no) :> symbol)
     | STRING_SYMBOL -> (((new string_symbol ctx)#cnstr_obj no) :> symbol)
       
@@ -205,7 +197,7 @@ class array_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_dr (domain : sort) (range : sort) = (self#sno ctx (Z3native.mk_array_sort ctx#gno domain#gno range#gno)) ; self
+  method cnstr_dr (domain : sort) (range : sort) = (self#sno ctx (Z3native.mk_array_sort (context_gno ctx) domain#gno range#gno)) ; self
 end
 
 (** Bit-vector sort objects *)
@@ -241,7 +233,7 @@ class uninterpreted_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_s (s : symbol) = (self #sno ctx (Z3native.mk_uninterpreted_sort ctx#gno s#gno)) ; self
+  method cnstr_s (s : symbol) = (self #sno ctx (Z3native.mk_uninterpreted_sort (context_gno ctx) s#gno)) ; self
 end
 
 (** Finite domain sort objects *)
@@ -249,7 +241,7 @@ class finite_domain_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_si (s : symbol) ( sz : int )= (self #sno ctx (Z3native.mk_finite_domain_sort ctx#gno s#gno sz)) ; self
+  method cnstr_si (s : symbol) ( sz : int )= (self #sno ctx (Z3native.mk_finite_domain_sort (context_gno ctx) s#gno sz)) ; self
 end
 
 (** Relation sort objects *)
@@ -273,7 +265,7 @@ object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_siss (name : symbol) (num_fields: int) (field_names : symbol array) (field_sorts : sort array) =
-    let (x,_,_) = (Z3native.mk_tuple_sort ctx#gno name#gno num_fields (symbolaton field_names) (astaton field_sorts)) in
+    let (x,_,_) = (Z3native.mk_tuple_sort (context_gno ctx) name#gno num_fields (symbolaton field_names) (astaton field_sorts)) in
     (self#sno ctx x) ;
     self
 end
@@ -284,8 +276,8 @@ class func_decl ctx =
 object (self)
   inherit ast ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ndr (name : symbol) (domain : sort array) (range : sort)  = (self#sno ctx (Z3native.mk_func_decl ctx#gno name#gno (Array.length domain) (astaton domain) range#gno)) ; self
-  method cnstr_pdr (prefix : string) (domain : sort array) (range : sort) = (self#sno ctx (Z3native.mk_fresh_func_decl ctx#gno prefix (Array.length domain) (astaton domain) range#gno)) ; self
+  method cnstr_ndr (name : symbol) (domain : sort array) (range : sort)  = (self#sno ctx (Z3native.mk_func_decl (context_gno ctx) name#gno (Array.length domain) (astaton domain) range#gno)) ; self
+  method cnstr_pdr (prefix : string) (domain : sort array) (range : sort) = (self#sno ctx (Z3native.mk_fresh_func_decl (context_gno ctx) prefix (Array.length domain) (astaton domain) range#gno)) ; self
 
   method incref nc o = super#incref nc o
   method decref nc o = super#decref nc o
@@ -341,7 +333,7 @@ object (self)
   val mutable _testerdecls : func_decl array option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (enum_names : symbol array) = 
-    let (r, a, b) = (Z3native.mk_enumeration_sort ctx#gno name#gno (Array.length enum_names) (symbolaton enum_names)) in
+    let (r, a, b) = (Z3native.mk_enumeration_sort (context_gno ctx) name#gno (Array.length enum_names) (symbolaton enum_names)) in
     _constdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f a)) ;
     _testerdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f b)) ;
     (self#sno ctx r) ; 
@@ -368,7 +360,7 @@ object (self)
   val mutable _taildecl : func_decl option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ss (name : symbol) (elem_sort : sort) =
-    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort ctx#gno name#gno elem_sort#gno) in
+    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort (context_gno ctx) name#gno elem_sort#gno) in
     _nildecl <- Some ((new func_decl ctx)#cnstr_obj a) ;
     _is_nildecl <- Some ((new func_decl ctx)#cnstr_obj b) ;
     _consdecl <- Some ((new func_decl ctx)#cnstr_obj c) ;
@@ -426,7 +418,7 @@ object (self)
       if m_n != (Array.length sort_refs) then
 	raise (Z3native.Exception "Number of field names does not match number of sort refs")
       else
-        let o = (Z3native.mk_constructor ctx#gno name#gno recognizer#gno m_n (symbolaton field_names)
+        let o = (Z3native.mk_constructor (context_gno ctx) name#gno recognizer#gno m_n (symbolaton field_names)
 		   (sortaton sorts)
 		   sort_refs) in
 	self#sno ctx o ; 
@@ -473,7 +465,7 @@ object (self)
   Gc.finalise f v
   method cnstr_obj obj = (self#sno ctx obj) ; self
   method cnstr_ca ( c : constructor array ) =
-    self#sno ctx (Z3native.mk_constructor_list ctx#gno (Array.length c) (constructoraton c)) ;
+    self#sno ctx (Z3native.mk_constructor_list (context_gno ctx) (Array.length c) (constructoraton c)) ;
     self
 end
 
@@ -486,11 +478,11 @@ class datatype_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_sc (name : symbol) (constructors : constructor array) = (self#sno ctx (fst (Z3native.mk_datatype ctx#gno name#gno (Array.length constructors) (constructoraton constructors)))) ; self
+  method cnstr_sc (name : symbol) (constructors : constructor array) = (self#sno ctx (fst (Z3native.mk_datatype (context_gno ctx) name#gno (Array.length constructors) (constructoraton constructors)))) ; self
 end
 
 let create_sort ctx obj =
-  match (sort_kind_of_int (Z3native.get_sort_kind ctx#gno obj)) with
+  match (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) obj)) with
     | ARRAY_SORT -> (((new array_sort ctx)#cnstr_obj obj) :> sort)
     | BOOL_SORT -> (((new bool_sort ctx)#cnstr_obj obj) :> sort)
     | BV_SORT -> (((new bitvec_sort ctx)#cnstr_obj obj) :> sort)
@@ -900,7 +892,7 @@ struct
      Create a new Boolean sort.
   *)
   let mk_bool ( ctx : context ) =
-    (new bool_sort ctx)#cnstr_obj (Z3native.mk_bool_sort ctx#gno)
+    (new bool_sort ctx)#cnstr_obj (Z3native.mk_bool_sort (context_gno ctx))
       
   (**
      Create a new uninterpreted sort.
@@ -917,15 +909,15 @@ end
 
 (**/**)
 let create_expr ctx obj =
-  if ast_kind_of_int (Z3native.get_ast_kind ctx#gno obj) == QUANTIFIER_AST then
+  if ast_kind_of_int (Z3native.get_ast_kind (context_gno ctx) obj) == QUANTIFIER_AST then
     (((new quantifier ctx)#cnstr_obj obj) :> expr)
   else
-    let s = Z3native.get_sort ctx#gno obj in
-    let sk = (sort_kind_of_int (Z3native.get_sort_kind ctx#gno s)) in    
-    if (Z3native.is_algebraic_number ctx#gno obj) then
+    let s = Z3native.get_sort (context_gno ctx) obj in
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in    
+    if (Z3native.is_algebraic_number (context_gno ctx) obj) then
       (((new algebraic_num ctx)#cnstr_obj obj) :> expr)
     else
-      if (Z3native.is_numeral_ast ctx#gno obj) &&
+      if (Z3native.is_numeral_ast (context_gno ctx) obj) &&
 	(sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
 	match sk with
 	  | INT_SORT -> (((new int_num ctx)#cnstr_obj obj) :> expr)
@@ -943,11 +935,11 @@ let create_expr ctx obj =
           | _ -> (new expr ctx)#cnstr_obj obj
 
 let create_expr_fa (ctx : context) (f : func_decl) (args : expr array) =
-  let o = Z3native.mk_app ctx#gno f#gno (Array.length args) (astaton args) in
+  let o = Z3native.mk_app (context_gno ctx) f#gno (Array.length args) (astaton args) in
   create_expr ctx o
 
 let create_ast ctx no =
-  match (ast_kind_of_int (Z3native.get_ast_kind ctx#gno no)) with
+  match (ast_kind_of_int (Z3native.get_ast_kind (context_gno ctx) no)) with
     | FUNC_DECL_AST -> (((new func_decl ctx)#cnstr_obj no) :> ast)
     | QUANTIFIER_AST -> (((new quantifier ctx)#cnstr_obj no) :> ast)
     | SORT_AST -> ((create_sort ctx no) :> ast)
@@ -1188,7 +1180,7 @@ struct
        @return A new ASTVector
     *)
     let translate ( x : ast_vector ) ( to_ctx : context ) =
-      (new ast_vector to_ctx)#cnstr_obj (Z3native.ast_vector_translate x#gnc x#gno to_ctx#gno)
+      (new ast_vector to_ctx)#cnstr_obj (Z3native.ast_vector_translate x#gnc x#gno (context_gno to_ctx))
 	
     (** Retrieves a string representation of the vector. *)    
     let to_string ( x : ast_vector ) =
@@ -1337,7 +1329,7 @@ struct
     if x#gc == to_ctx then 
       x
     else
-      (create_ast to_ctx (Z3native.translate x#gnc x#gno to_ctx#gno))
+      (create_ast to_ctx (Z3native.translate x#gnc x#gno (context_gno to_ctx)))
 
 (**
    Wraps an AST.
@@ -1383,13 +1375,13 @@ struct
    a string describing all available parameters to <c>Expr.Simplify</c>.
 *)
   let get_simplify_help ( ctx : context ) =
-    Z3native.simplify_get_help ctx#gno
+    Z3native.simplify_get_help (context_gno ctx)
 
 (**
    Retrieves parameter descriptions for simplifier.
 *)
    let get_simplify_parameter_descrs ( ctx : context ) = 
-     (new param_descrs ctx)#cnstr_obj (Z3native.simplify_get_param_descrs ctx#gno)
+     (new param_descrs ctx)#cnstr_obj (Z3native.simplify_get_param_descrs (context_gno ctx))
 
   (**
      The function declaration of the function that is applied in this expression.
@@ -1462,7 +1454,7 @@ struct
     if x#gc == to_ctx then
       x
     else
-      create_expr to_ctx (Z3native.translate x#gnc x#gno to_ctx#gno)
+      create_expr to_ctx (Z3native.translate x#gnc x#gno (context_gno to_ctx))
 
   (**
      Returns a string representation of the expression.
@@ -1578,7 +1570,7 @@ struct
      Creates a new Constant of sort <paramref name="range"/> and named <paramref name="name"/>.
   *)
   let mk_const ( ctx : context ) ( name : symbol ) ( range : sort ) =
-    create_expr ctx (Z3native.mk_const ctx#gno name#gno range#gno)
+    create_expr ctx (Z3native.mk_const (context_gno ctx) name#gno range#gno)
       
 
   (**
@@ -1600,7 +1592,7 @@ struct
      name prefixed with <paramref name="prefix"/>.
   *)
   let mk_fresh_const ( ctx : context ) ( prefix : string ) ( range : sort) =
-    create_expr ctx (Z3native.mk_fresh_const ctx#gno prefix range#gno)
+    create_expr ctx (Z3native.mk_fresh_const (context_gno ctx) prefix range#gno)
 
   (**
      Create a Boolean constant.
@@ -1624,13 +1616,13 @@ struct
      The true Term.
   *)    
   let mk_true ( ctx : context ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_true ctx#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_true (context_gno ctx))
 
   (**
      The false Term.
   *)    
   let mk_false ( ctx : context ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_false ctx#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_false (context_gno ctx))
 
   (**
      Creates a Boolean value.
@@ -1642,19 +1634,19 @@ struct
      Creates the equality <paramref name="x"/> = <paramref name="y"/>.
   *)
   let mk_eq ( ctx : context ) ( x : expr ) ( y : expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_eq ctx#gno x#gno y#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_eq (context_gno ctx) x#gno y#gno)
 
   (**
      Creates a <c>distinct</c> term.
   *)
   let mk_distinct ( ctx : context ) ( args : expr array ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_distinct ctx#gno (Array.length args) (astaton args))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_distinct (context_gno ctx) (Array.length args) (astaton args))
       
   (**
      Mk an expression representing <c>not(a)</c>.
   *)    
   let mk_not ( ctx : context ) ( a : bool_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_not ctx#gno a#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_not (context_gno ctx) a#gno)
 
   (**    
 	 Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>.
@@ -1663,37 +1655,37 @@ struct
 	 @param t3 An expression with the same sort as <paramref name="t2"/>
   *)
   let mk_ite ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) ( t3 : bool_expr ) =
-    create_expr ctx (Z3native.mk_ite ctx#gno t1#gno t2#gno t3#gno)
+    create_expr ctx (Z3native.mk_ite (context_gno ctx) t1#gno t2#gno t3#gno)
       
   (**
      Create an expression representing <c>t1 iff t2</c>.
   *)
   let mk_iff ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_iff ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_iff (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 -> t2</c>.
   *)
   let mk_implies ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_implies ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_implies (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 xor t2</c>.
   *)
   let mk_xor ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_xor ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_xor (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing the AND of args
   *)
   let mk_and ( ctx : context ) ( args : bool_expr array ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_and ctx#gno (Array.length args) (astaton args))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_and (context_gno ctx) (Array.length args) (astaton args))
 
   (**
      Create an expression representing the OR of args
   *)
   let mk_or ( ctx : context ) ( args : bool_expr array ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_or ctx#gno (Array.length args) (astaton args))
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_or (context_gno ctx) (Array.length args) (astaton args))
 
   (**
      Create a numeral of a given sort.         
@@ -1702,7 +1694,7 @@ struct
      @return A Term with value <paramref name="v"/> and sort <paramref name="ty"/> 
   *)
   let mk_numeral_string ( ctx : context ) ( v : string ) ( ty : sort ) =
-    create_expr ctx (Z3native.mk_numeral ctx#gno v ty#gno)
+    create_expr ctx (Z3native.mk_numeral (context_gno ctx) v ty#gno)
 
   (**
      Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
@@ -1712,7 +1704,7 @@ struct
      @return A Term with value <paramref name="v"/> and type <paramref name="ty"/>
   *)
   let mk_numeral_int ( ctx : context ) ( v : int ) ( ty : sort ) =
-    create_expr ctx (Z3native.mk_int ctx#gno v ty#gno)
+    create_expr ctx (Z3native.mk_int (context_gno ctx) v ty#gno)
 end
 
 (** Quantifier expressions *)
@@ -1845,7 +1837,7 @@ struct
      @param ty The sort of the variable
   *)
   let mk_bound ( ctx : context ) ( index : int ) ( ty : sort ) =
-    create_expr ctx (Z3native.mk_bound ctx#gno index ty#gno)
+    create_expr ctx (Z3native.mk_bound (context_gno ctx) index ty#gno)
 
   (**
      Create a quantifier pattern.
@@ -1854,7 +1846,7 @@ struct
     if (Array.length terms) == 0 then
       raise (Z3native.Exception "Cannot create a pattern from zero terms")
     else
-      (new pattern ctx)#cnstr_obj (Z3native.mk_pattern ctx#gno (Array.length terms) (astaton terms))
+      (new pattern ctx)#cnstr_obj (Z3native.mk_pattern (context_gno ctx) (Array.length terms) (astaton terms))
 
   (**
      Create a universal Quantifier.
@@ -1875,27 +1867,24 @@ struct
      @param quantifierID optional symbol to track quantifier.
      @param skolemID optional symbol to track skolem constants.
   *)
-  let mk_forall ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_forall ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
-    else if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno true 
+    else if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier (context_gno ctx) true 
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
 					(Array.length sorts) (astaton sorts)
 					(astaton names)
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno true
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
-					(match nopatterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match nopatterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
+					(Array.length nopatterns) (patternaton nopatterns)
 					(Array.length sorts) (astaton sorts)
 					(astaton names)
 					body#gno)
@@ -1903,51 +1892,45 @@ struct
   (**
      Create a universal Quantifier.
   *)
-  let mk_forall_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
-    if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno true
+  let mk_forall_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+    if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length bound_constants) (expraton bound_constants)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno true
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
 					(Array.length bound_constants) (expraton bound_constants)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
-					(match nopatterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match nopatterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
+					(Array.length nopatterns) (patternaton nopatterns)
 					body#gno)
   (**
      Create an existential Quantifier.
      <seealso cref="MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
   *)
-  let mk_exists ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_exists ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
-    else if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier ctx#gno false
+    else if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
 					(Array.length sorts) (astaton sorts)
 					(astaton names)
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex ctx#gno false
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
-					(match nopatterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match nopatterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
+					(Array.length nopatterns) (patternaton nopatterns)
 					(Array.length sorts) (astaton sorts)
 					(astaton names)
 					body#gno)
@@ -1955,31 +1938,28 @@ struct
   (**
      Create an existential Quantifier.
   *)
-  let mk_exists_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
-    if (nopatterns == None && quantifier_id == None && skolem_id == None) then
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const ctx#gno false
+  let mk_exists_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+    if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length bound_constants) (expraton bound_constants)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
 					body#gno)
     else
       let null = Z3native.mk_null() in
-      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex ctx#gno false
+      (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
 					(match skolem_id with | None -> null | Some(x) -> x#gno)
 					(Array.length bound_constants) (expraton bound_constants)
-					(match patterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match patterns with | None -> [||] | Some(x) -> (patternaton x))
-					(match nopatterns with | None -> 0 | Some(x) -> (Array.length x))
-					(match nopatterns with | None -> [||] | Some(x) -> (patternaton x))
+					(Array.length patterns) (patternaton patterns)
+					(Array.length nopatterns) (patternaton nopatterns)
 					body#gno)
 
   (**
      Create a Quantifier.
   *)
-  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (universal) then
       (mk_forall ctx sorts names body weight patterns nopatterns quantifier_id skolem_id)
     else
@@ -1989,7 +1969,7 @@ struct
   (**
      Create a Quantifier.
   *)
-  let mk_quantifier ( ctx : context ) ( universal : bool ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array option ) ( nopatterns : pattern array option ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_quantifier ( ctx : context ) ( universal : bool ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
     if (universal) then
       mk_forall_const ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id
     else
@@ -2081,7 +2061,7 @@ struct
      <seealso cref="MkStore"/>
   *)
   let mk_select ( ctx : context ) ( a : array_expr ) ( i : expr ) =
-    ((create_expr ctx (Z3native.mk_select ctx#gno a#gno i#gno)) :> array_expr)
+    ((create_expr ctx (Z3native.mk_select (context_gno ctx) a#gno i#gno)) :> array_expr)
       
   (**
      Array update.       
@@ -2100,7 +2080,7 @@ struct
      <seealso cref="MkSelect"/>
   *)
   let mk_select ( ctx : context ) ( a : array_expr ) ( i : expr ) ( v : expr) =
-    (new array_expr ctx)#cnstr_obj (Z3native.mk_store ctx#gno a#gno i#gno v#gno)
+    (new array_expr ctx)#cnstr_obj (Z3native.mk_store (context_gno ctx) a#gno i#gno v#gno)
 
   (**
      Create a constant array.
@@ -2111,7 +2091,7 @@ struct
      <seealso cref="MkSelect"/>
   *)
   let mk_const_array ( ctx : context ) ( domain : sort ) ( v : expr ) =
-    (new array_expr ctx)#cnstr_obj (Z3native.mk_const_array ctx#gno domain#gno v#gno)
+    (new array_expr ctx)#cnstr_obj (Z3native.mk_const_array (context_gno ctx) domain#gno v#gno)
 
   (**
      Maps f on the argument arrays.
@@ -2124,7 +2104,7 @@ struct
      <seealso cref="MkStore"/>
   *)
   let mk_map ( ctx : context ) ( f : func_decl ) ( args : array_expr array ) =
-    ((create_expr ctx (Z3native.mk_map ctx#gno f#gno (Array.length args) (astaton args))) :> array_expr)
+    ((create_expr ctx (Z3native.mk_map (context_gno ctx) f#gno (Array.length args) (astaton args))) :> array_expr)
 
   (**
      Access the array default value.
@@ -2133,7 +2113,7 @@ struct
      finite maps with a default range value.    
   *)
   let mk_term_array  ( ctx : context ) ( arg : array_expr ) =
-    ((create_expr ctx (Z3native.mk_array_default ctx#gno arg#gno)) :> array_expr)
+    ((create_expr ctx (Z3native.mk_array_default (context_gno ctx) arg#gno)) :> array_expr)
 end
 
 (** Functions to manipulate Set expressions *)
@@ -2174,61 +2154,61 @@ struct
      Create an empty set.
   *)
   let mk_empty ( ctx : context ) ( domain : sort ) =
-    (create_expr ctx (Z3native.mk_empty_set ctx#gno domain#gno))
+    (create_expr ctx (Z3native.mk_empty_set (context_gno ctx) domain#gno))
       
   (**
      Create the full set.
   *)
   let mk_full ( ctx : context ) ( domain : sort ) =
-    create_expr ctx (Z3native.mk_full_set ctx#gno domain#gno)
+    create_expr ctx (Z3native.mk_full_set (context_gno ctx) domain#gno)
 
   (**
      Add an element to the set.
   *)
   let mk_set_add  ( ctx : context ) ( set : expr ) ( element : expr ) =
-    create_expr ctx (Z3native.mk_set_add ctx#gno set#gno element#gno)
+    create_expr ctx (Z3native.mk_set_add (context_gno ctx) set#gno element#gno)
       
   (**
      Remove an element from a set.
   *)
   let mk_del  ( ctx : context ) ( set : expr ) ( element : expr ) =
-    create_expr ctx (Z3native.mk_set_del ctx#gno set#gno element#gno)
+    create_expr ctx (Z3native.mk_set_del (context_gno ctx) set#gno element#gno)
       
   (**
      Take the union of a list of sets.
   *)
   let mk_union  ( ctx : context ) ( args : expr array ) =
-    create_expr ctx (Z3native.mk_set_union ctx#gno (Array.length args) (astaton args))
+    create_expr ctx (Z3native.mk_set_union (context_gno ctx) (Array.length args) (astaton args))
       
   (**
      Take the intersection of a list of sets.
   *)
   let mk_intersection  ( ctx : context ) ( args : expr array ) =
-    create_expr ctx (Z3native.mk_set_intersect ctx#gno (Array.length args) (astaton args))
+    create_expr ctx (Z3native.mk_set_intersect (context_gno ctx) (Array.length args) (astaton args))
 
   (**
      Take the difference between two sets.
   *)
   let mk_difference  ( ctx : context ) ( arg1 : expr ) ( arg2 : expr) =
-    create_expr ctx (Z3native.mk_set_difference ctx#gno arg1#gno arg2#gno)
+    create_expr ctx (Z3native.mk_set_difference (context_gno ctx) arg1#gno arg2#gno)
 
   (**
      Take the complement of a set.
   *)
   let mk_complement  ( ctx : context ) ( arg : expr ) =
-    create_expr ctx (Z3native.mk_set_complement ctx#gno arg#gno)
+    create_expr ctx (Z3native.mk_set_complement (context_gno ctx) arg#gno)
 
   (**
      Check for set membership.
   *)
   let mk_membership  ( ctx : context ) ( elem : expr ) ( set : expr ) =
-    create_expr ctx (Z3native.mk_set_member ctx#gno elem#gno set#gno)
+    create_expr ctx (Z3native.mk_set_member (context_gno ctx) elem#gno set#gno)
 
   (**
      Check for subsetness of sets.
   *)
   let mk_subset  ( ctx : context ) ( arg1 : expr ) ( arg2 : expr) =
-    create_expr ctx (Z3native.mk_set_subset ctx#gno arg1#gno arg2#gno)
+    create_expr ctx (Z3native.mk_set_subset (context_gno ctx) arg1#gno arg2#gno)
 
 end
 
@@ -2458,7 +2438,7 @@ struct
     let n = (Array.length names) in
     let f e = ( (new constructor_list ctx)#cnstr_ca e ) in
     let cla = (Array.map f c) in
-    let (r, a) = (Z3native.mk_datatypes ctx#gno n (symbolaton names) (constructor_listaton cla)) in
+    let (r, a) = (Z3native.mk_datatypes (context_gno ctx) n (symbolaton names) (constructor_listaton cla)) in
     let g e = ( (new datatype_sort ctx)#cnstr_obj e) in
     (Array.map g r)
 
@@ -2592,13 +2572,13 @@ struct
      Create a new integer sort.
   *)
   let mk_int_sort ( ctx : context ) =
-    (new int_sort ctx)#cnstr_obj (Z3native.mk_int_sort ctx#gno)
+    (new int_sort ctx)#cnstr_obj (Z3native.mk_int_sort (context_gno ctx))
 
   (**
      Create a real sort.
   *)    
   let mk_real_sort ( ctx : context ) =
-    (new real_sort ctx)#cnstr_obj (Z3native.mk_real_sort ctx#gno)
+    (new real_sort ctx)#cnstr_obj (Z3native.mk_real_sort (context_gno ctx))
 
   (**
      Indicates whether the term is of integer sort.
@@ -2761,75 +2741,75 @@ struct
      Create an expression representing <c>t[0] + t[1] + ...</c>.
   *)    
   let mk_add ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_add ctx#gno (Array.length t) (astaton t)) :> arith_expr)
+    (create_expr ctx (Z3native.mk_add (context_gno ctx) (Array.length t) (astaton t)) :> arith_expr)
 
   (**
      Create an expression representing <c>t[0] * t[1] * ...</c>.
   *)    
   let mk_mul ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_mul ctx#gno (Array.length t) (astaton t)) :> arith_expr)
+    (create_expr ctx (Z3native.mk_mul (context_gno ctx) (Array.length t) (astaton t)) :> arith_expr)
 
   (**
      Create an expression representing <c>t[0] - t[1] - ...</c>.
   *)    
   let mk_sub ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_sub ctx#gno (Array.length t) (astaton t)) :> arith_expr)
+    (create_expr ctx (Z3native.mk_sub (context_gno ctx) (Array.length t) (astaton t)) :> arith_expr)
       
   (**
      Create an expression representing <c>-t</c>.
   *)    
   let mk_unary_minus ( ctx : context ) ( t : arith_expr ) =     
-    (create_expr ctx (Z3native.mk_unary_minus ctx#gno t#gno) :> arith_expr)
+    (create_expr ctx (Z3native.mk_unary_minus (context_gno ctx) t#gno) :> arith_expr)
 
   (**
      Create an expression representing <c>t1 / t2</c>.
   *)    
   let mk_div ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
-    (create_expr ctx (Z3native.mk_div ctx#gno t1#gno t2#gno) :> arith_expr)
+    (create_expr ctx (Z3native.mk_div (context_gno ctx) t1#gno t2#gno) :> arith_expr)
 
   (**
      Create an expression representing <c>t1 mod t2</c>.
      <remarks>The arguments must have int type.
   *)
   let mk_mod ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =    
-    (new int_expr ctx)#cnstr_obj (Z3native.mk_mod ctx#gno t1#gno t2#gno)
+    (new int_expr ctx)#cnstr_obj (Z3native.mk_mod (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 rem t2</c>.
      <remarks>The arguments must have int type.
   *)
   let mk_rem ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    (new int_expr ctx)#cnstr_obj (Z3native.mk_rem ctx#gno t1#gno t2#gno)
+    (new int_expr ctx)#cnstr_obj (Z3native.mk_rem (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 ^ t2</c>.
   *)    
   let mk_Power ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =     
-    (create_expr ctx (Z3native.mk_power ctx#gno t1#gno t2#gno) :> arith_expr)
+    (create_expr ctx (Z3native.mk_power (context_gno ctx) t1#gno t2#gno) :> arith_expr)
 
   (**
      Create an expression representing <c>t1 < t2</c>
   *)    
   let mk_lt ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_lt ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_lt (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 <= t2</c>
   *)    
   let mk_le ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_le ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_le (context_gno ctx) t1#gno t2#gno)
       
   (**
      Create an expression representing <c>t1 > t2</c>
   *)    
   let mk_gt ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_gt ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_gt (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an expression representing <c>t1 >= t2</c>
   *)    
   let mk_ge ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_ge ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_ge (context_gno ctx) t1#gno t2#gno)
 
   (**
      Coerce an integer to a real.
@@ -2842,7 +2822,7 @@ struct
      The argument must be of integer sort.
   *)
   let mk_int2real ( ctx : context ) ( t : int_expr ) =
-    (new real_expr ctx)#cnstr_obj (Z3native.mk_int2real ctx#gno t#gno)
+    (new real_expr ctx)#cnstr_obj (Z3native.mk_int2real (context_gno ctx) t#gno)
 
   (**
      Coerce a real to an integer.
@@ -2852,13 +2832,13 @@ struct
      The argument must be of real sort.
   *)
   let mk_real2int ( ctx : context ) ( t : real_expr ) =
-    (new int_expr ctx)#cnstr_obj (Z3native.mk_real2int ctx#gno t#gno)
+    (new int_expr ctx)#cnstr_obj (Z3native.mk_real2int (context_gno ctx) t#gno)
 
   (**
      Creates an expression that checks whether a real number is an integer.
   *)
   let mk_is_integer ( ctx : context ) ( t : real_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_is_int ctx#gno t#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_is_int (context_gno ctx) t#gno)
 
   (**
      Return a upper bound for a given real algebraic number. 
@@ -2898,7 +2878,7 @@ struct
       raise (Z3native.Exception "Denominator is zero")
     else
       
-      (new rat_num ctx)#cnstr_obj (Z3native.mk_real ctx#gno num den)
+      (new rat_num ctx)#cnstr_obj (Z3native.mk_real (context_gno ctx) num den)
 	
   (**
      Create a real numeral.
@@ -2906,7 +2886,7 @@ struct
      @return A Term with value <paramref name="v"/> and sort Real
   *)
   let mk_real_numeral_s ( ctx : context ) ( v : string ) =
-    (new rat_num ctx)#cnstr_obj (Z3native.mk_numeral ctx#gno v (mk_real_sort ctx)#gno)
+    (new rat_num ctx)#cnstr_obj (Z3native.mk_numeral (context_gno ctx) v (mk_real_sort ctx)#gno)
 
   (**
      Create a real numeral.
@@ -2915,14 +2895,14 @@ struct
      @return A Term with value <paramref name="v"/> and sort Real
   *)
   let mk_real_numeral_i ( ctx : context ) ( v : int ) =
-    (new rat_num ctx)#cnstr_obj (Z3native.mk_int ctx#gno v (mk_real_sort ctx)#gno)
+    (new rat_num ctx)#cnstr_obj (Z3native.mk_int (context_gno ctx) v (mk_real_sort ctx)#gno)
 
   (**
      Create an integer numeral.
      @param v A string representing the Term value in decimal notation.
   *)
   let mk_int_numeral_s ( ctx : context ) ( v : string ) =
-    (new int_num ctx)#cnstr_obj (Z3native.mk_numeral ctx#gno v (mk_int_sort ctx)#gno)
+    (new int_num ctx)#cnstr_obj (Z3native.mk_numeral (context_gno ctx) v (mk_int_sort ctx)#gno)
 
   (**
      Create an integer numeral.
@@ -2930,7 +2910,7 @@ struct
      @return A Term with value <paramref name="v"/> and sort Integer
   *)
   let mk_int_numeral_i ( ctx : context ) ( v : int ) =
-    (new int_num ctx)#cnstr_obj (Z3native.mk_int ctx#gno v (mk_int_sort ctx)#gno)
+    (new int_num ctx)#cnstr_obj (Z3native.mk_int (context_gno ctx) v (mk_int_sort ctx)#gno)
 
   (** Returns a string representation of the numeral. *)
   let to_string ( x : algebraic_num ) = Z3native.get_numeral_string x#gnc x#gno
@@ -2944,7 +2924,7 @@ struct
      Create a new bit-vector sort.
   *)
   let mk_sort ( ctx : context ) size =
-    (new bitvec_sort ctx)#cnstr_obj (Z3native.mk_bv_sort ctx#gno size)
+    (new bitvec_sort ctx)#cnstr_obj (Z3native.mk_bv_sort (context_gno ctx) size)
 
   (**
      Indicates whether the terms is of bit-vector sort.
@@ -3245,91 +3225,91 @@ struct
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_not  ( ctx : context ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnot ctx#gno t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnot (context_gno ctx) t#gno)
 
   (**
      Take conjunction of bits in a vector,vector of length 1.
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_redand  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvredand ctx#gno t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvredand (context_gno ctx) t#gno)
 
   (**
      Take disjunction of bits in a vector,vector of length 1.
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_redor  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvredor ctx#gno t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvredor (context_gno ctx) t#gno)
 
   (**
      Bitwise conjunction.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_and  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvand ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvand (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bitwise disjunction.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_or  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvor ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvor (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bitwise XOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_xor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvxor ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvxor (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bitwise NAND.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_nand  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnand ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnand (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bitwise NOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_nor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnor ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvnor (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bitwise XNOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_xnor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvxnor ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvxnor (context_gno ctx) t1#gno t2#gno)
 
   (**
      Standard two's complement unary minus.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_neg  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvneg ctx#gno t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvneg (context_gno ctx) t#gno)
 
   (**
      Two's complement addition.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_add  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvadd ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvadd (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement subtraction.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_sub  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsub ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsub (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement multiplication.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_mul  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvmul ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvmul (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned division.
@@ -3341,7 +3321,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_udiv  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvudiv ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvudiv (context_gno ctx) t1#gno t2#gno)
 
   (**
      Signed division.
@@ -3356,7 +3336,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sdiv  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsdiv ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsdiv (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned remainder.
@@ -3366,7 +3346,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_urem  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvurem ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvurem (context_gno ctx) t1#gno t2#gno)
 
   (**
      Signed remainder.
@@ -3378,7 +3358,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_srem  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsrem ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsrem (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement signed remainder (sign follows divisor).
@@ -3387,7 +3367,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_smod  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsmod ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvsmod (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned less-than
@@ -3395,7 +3375,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ult  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvult ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvult (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement signed less-than
@@ -3403,7 +3383,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_slt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvslt ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvslt (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned less-than or equal to.
@@ -3411,7 +3391,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ule  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvule ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvule (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement signed less-than or equal to.
@@ -3419,7 +3399,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sle  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsle ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsle (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned greater than or equal to.
@@ -3427,7 +3407,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_uge  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvuge ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvuge (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement signed greater than or equal to.
@@ -3435,7 +3415,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_SGE  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsge ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsge (context_gno ctx) t1#gno t2#gno)
 
   (**
      Unsigned greater-than.
@@ -3443,7 +3423,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ugt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvugt ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvugt (context_gno ctx) t1#gno t2#gno)
 
   (**
      Two's complement signed greater-than.
@@ -3451,7 +3431,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sgt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsgt ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsgt (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bit-vector concatenation.
@@ -3462,7 +3442,7 @@ struct
      is the size of <c>t1</c> (<c>t2</c>).
   *)
   let mk_concat ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_concat ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_concat (context_gno ctx) t1#gno t2#gno)
 
   (**
      Bit-vector extraction.
@@ -3473,7 +3453,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_extract ( ctx : context ) ( high : int ) ( low : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_extract ctx#gno high low t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_extract (context_gno ctx) high low t#gno)
 
   (**
      Bit-vector sign extension.
@@ -3483,7 +3463,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_sign_ext  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_sign_ext ctx#gno i t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_sign_ext (context_gno ctx) i t#gno)
 
   (**
      Bit-vector zero extension.
@@ -3494,7 +3474,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_zero_ext  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_zero_ext ctx#gno i t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_zero_ext (context_gno ctx) i t#gno)
 
   (**
      Bit-vector repetition.
@@ -3502,7 +3482,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_repeat  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_repeat ctx#gno i t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_repeat (context_gno ctx) i t#gno)
 
   (**
      Shift left.
@@ -3517,7 +3497,7 @@ struct
      The arguments must have a bit-vector sort.
   *)
   let mk_shl  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvshl ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvshl (context_gno ctx) t1#gno t2#gno)
 
   (**
      Logical shift right
@@ -3531,7 +3511,7 @@ struct
      The arguments must have a bit-vector sort.
   *)
   let mk_lshr  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvlshr ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvlshr (context_gno ctx) t1#gno t2#gno)
 
   (**
      Arithmetic shift right
@@ -3547,7 +3527,7 @@ struct
      The arguments must have a bit-vector sort.
   *)
   let mk_ashr  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =    
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvashr ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_bvashr (context_gno ctx) t1#gno t2#gno)
 
   (**
      Rotate Left.
@@ -3556,7 +3536,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_rotate_left  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_rotate_left ctx#gno i t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_rotate_left (context_gno ctx) i t#gno)
 
   (**
      Rotate Right.
@@ -3565,7 +3545,7 @@ struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_rotate_right ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_rotate_right ctx#gno i t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_rotate_right (context_gno ctx) i t#gno)
 
   (**
      Rotate Left.
@@ -3574,7 +3554,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_rotate_left ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_ext_rotate_left ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_ext_rotate_left (context_gno ctx) t1#gno t2#gno)
 
   (**
      Rotate Right.
@@ -3584,7 +3564,7 @@ struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_rotate_right ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_ext_rotate_right ctx#gno t1#gno t2#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_ext_rotate_right (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create an <paramref name="n"/> bit bit-vector from the integer argument <paramref name="t"/>.
@@ -3597,7 +3577,7 @@ struct
      The argument must be of integer sort.
   *)
   let mk_int2bv ( ctx : context ) ( n : int ) ( t : int_expr ) =
-    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_int2bv ctx#gno n t#gno)
+    (new bitvec_expr ctx)#cnstr_obj (Z3native.mk_int2bv (context_gno ctx) n t#gno)
 
   (**
      Create an integer from the bit-vector argument <paramref name="t"/>.
@@ -3615,7 +3595,7 @@ struct
      The argument must be of bit-vector sort.
   *)
   let mk_bv2int  ( ctx : context ) ( t : bitvec_expr ) ( signed : bool) =
-    (new int_expr ctx)#cnstr_obj (Z3native.mk_bv2int ctx#gno t#gno signed)
+    (new int_expr ctx)#cnstr_obj (Z3native.mk_bv2int (context_gno ctx) t#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not overflow.
@@ -3623,7 +3603,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_add_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_overflow ctx#gno t1#gno t2#gno signed)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_overflow (context_gno ctx) t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not underflow.
@@ -3631,7 +3611,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_add_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_underflow ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvadd_no_underflow (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create a predicate that checks that the bit-wise subtraction does not overflow.
@@ -3639,7 +3619,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sub_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_overflow ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_overflow (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create a predicate that checks that the bit-wise subtraction does not underflow.
@@ -3647,7 +3627,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sub_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_underflow ctx#gno t1#gno t2#gno signed)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsub_no_underflow (context_gno ctx) t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise signed division does not overflow.
@@ -3655,7 +3635,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sdiv_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsdiv_no_overflow ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvsdiv_no_overflow (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create a predicate that checks that the bit-wise negation does not overflow.
@@ -3663,7 +3643,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_neg_no_overflow  ( ctx : context ) ( t : bitvec_expr) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvneg_no_overflow ctx#gno t#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvneg_no_overflow (context_gno ctx) t#gno)
 
   (**
      Create a predicate that checks that the bit-wise multiplication does not overflow.
@@ -3671,7 +3651,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_mul_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_overflow ctx#gno t1#gno t2#gno signed)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_overflow (context_gno ctx) t1#gno t2#gno signed)
 
   (**
      Create a predicate that checks that the bit-wise multiplication does not underflow.
@@ -3679,7 +3659,7 @@ struct
      The arguments must be of bit-vector sort.
   *)
   let mk_mul_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_underflow ctx#gno t1#gno t2#gno)
+    (new bool_expr ctx)#cnstr_obj (Z3native.mk_bvmul_no_underflow (context_gno ctx) t1#gno t2#gno)
       
   (**
      Create a bit-vector numeral.
@@ -3688,7 +3668,7 @@ struct
      @param size the size of the bit-vector
   *)
   let mk_numeral ( ctx : context ) ( ctx : context ) ( v : string ) ( size : int) =
-    (new bitvec_num ctx)#cnstr_obj (Z3native.mk_numeral ctx#gno v (mk_sort ctx size)#gno)
+    (new bitvec_num ctx)#cnstr_obj (Z3native.mk_numeral (context_gno ctx) v (mk_sort ctx size)#gno)
 end
 
 (** Functions to manipulate proof expressions *)
@@ -4248,7 +4228,7 @@ end
      Creates a new parameter set
   *)
   let mk_params ( ctx : context ) =
-    (new params ctx)#cnstr_obj (Z3native.mk_params ctx#gno)
+    (new params ctx)#cnstr_obj (Z3native.mk_params (context_gno ctx))
 
   (**
      A string representation of the parameter set.
@@ -4329,7 +4309,7 @@ struct
       
   (**  Translates (copies) the Goal to the target Context <paramref name="to_ctx"/>. *)
   let translate ( x : goal ) ( to_ctx : context ) =
-    (new goal to_ctx)#cnstr_obj (Z3native.goal_translate x#gnc x#gno to_ctx#gno)
+    (new goal to_ctx)#cnstr_obj (Z3native.goal_translate x#gnc x#gno (context_gno to_ctx))
 
   (** Simplifies the goal. Essentially invokes the `simplify' tactic on the goal. *)
   let simplify ( x : goal ) ( p : params option ) =
@@ -4360,7 +4340,7 @@ struct
      @param proofs Indicates whether proof generation should be enabled.    
   *)
   let mk_goal ( ctx : context ) ( models : bool ) ( unsat_cores : bool ) ( proofs : bool ) = 
-    (new goal ctx)#cnstr_obj (Z3native.mk_goal ctx#gno models unsat_cores proofs)
+    (new goal ctx)#cnstr_obj (Z3native.mk_goal (context_gno ctx) models unsat_cores proofs)
 
   (**  A string representation of the Goal. *)
   let to_string ( x : goal ) = Z3native.goal_to_string x#gnc x#gno
@@ -4429,14 +4409,14 @@ end
   (**
      The number of supported tactics.
   *)
-  let get_num_tactics ( ctx : context ) = Z3native.get_num_tactics ctx#gno
+  let get_num_tactics ( ctx : context ) = Z3native.get_num_tactics (context_gno ctx)
 
   (**
      The names of all supported tactics.
   *)
   let get_tactic_names ( ctx : context ) =
     let n = (get_num_tactics ctx ) in
-    let f i = (Z3native.get_tactic_name ctx#gno i) in
+    let f i = (Z3native.get_tactic_name (context_gno ctx) i) in
     Array.init n f
 
 
@@ -4444,39 +4424,34 @@ end
      Returns a string containing a description of the tactic with the given name.
   *)
   let get_tactic_description ( ctx : context ) ( name : string ) =
-    Z3native.tactic_get_descr ctx#gno name
+    Z3native.tactic_get_descr (context_gno ctx) name
 
   (**
      Creates a new Tactic.
   *)    
   let mk_tactic ( ctx : context ) ( name : string ) =
-    (new tactic ctx)#cnstr_obj (Z3native.mk_tactic ctx#gno name)
+    (new tactic ctx)#cnstr_obj (Z3native.mk_tactic (context_gno ctx) name)
 
   (**
      Create a tactic that applies <paramref name="t1"/> to a Goal and
      then <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.
   *)
-  let and_then ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) ( ts : tactic array option ) =
-    match
-      match ts with 
-	| None -> None
-	| Some(rts) -> (
-	  let f p c = (match p with 
-	    | None -> (Some c#gno) 
-	    | Some(x) -> (Some (Z3native.tactic_and_then ctx#gno c#gno x))) in
-	  Array.fold_left f None rts)
-    with
-      | None -> (new tactic ctx)#cnstr_obj (Z3native.tactic_and_then ctx#gno t1#gno t2#gno)
+  let and_then ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) ( ts : tactic array ) =
+    let f p c = (match p with 
+      | None -> (Some c#gno) 
+      | Some(x) -> (Some (Z3native.tactic_and_then (context_gno ctx) c#gno x))) in
+    match (Array.fold_left f None ts) with
+      | None -> (new tactic ctx)#cnstr_obj (Z3native.tactic_and_then (context_gno ctx) t1#gno t2#gno)
       | Some(x) ->
-	let o = (Z3native.tactic_and_then ctx#gno t2#gno x) in
-	(new tactic ctx)#cnstr_obj (Z3native.tactic_and_then ctx#gno t1#gno o)
+	let o = (Z3native.tactic_and_then (context_gno ctx) t2#gno x) in
+	(new tactic ctx)#cnstr_obj (Z3native.tactic_and_then (context_gno ctx) t1#gno o)
 
   (**
      Create a tactic that first applies <paramref name="t1"/> to a Goal and
      if it fails then returns the result of <paramref name="t2"/> applied to the Goal.
   *)
   let or_else ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_or_else ctx#gno t1#gno t2#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_or_else (context_gno ctx) t1#gno t2#gno)
 
   (**
      Create a tactic that applies <paramref name="t"/> to a goal for <paramref name="ms"/> milliseconds.    
@@ -4484,7 +4459,7 @@ end
      If <paramref name="t"/> does not terminate within <paramref name="ms"/> milliseconds, then it fails.
   *)
   let try_for ( ctx : context ) ( t : tactic ) ( ms : int ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_try_for ctx#gno t#gno ms)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_try_for (context_gno ctx) t#gno ms)
 
   (**
      Create a tactic that applies <paramref name="t"/> to a given goal if the probe 
@@ -4494,52 +4469,52 @@ end
   *)
   (* CMW: when is a keyword *)
   let when_ ( ctx : context ) ( p : probe ) ( t : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_when ctx#gno p#gno t#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_when (context_gno ctx) p#gno t#gno)
 
   (**
      Create a tactic that applies <paramref name="t1"/> to a given goal if the probe 
      <paramref name="p"/> evaluates to true and <paramref name="t2"/> otherwise.
   *)
   let cond ( ctx : context ) ( p : probe ) ( t1 : tactic ) ( t2 : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_cond ctx#gno p#gno t1#gno t2#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_cond (context_gno ctx) p#gno t1#gno t2#gno)
 
   (**
      Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
      modified anymore or the maximum number of iterations <paramref name="max"/> is reached.
   *)
   let repeat ( ctx : context ) ( t : tactic ) ( max : int ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_repeat ctx#gno t#gno max)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_repeat (context_gno ctx) t#gno max)
 
   (**
      Create a tactic that just returns the given goal.
   *)
   let skip ( ctx : context ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_skip ctx#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_skip (context_gno ctx))
 
   (**
      Create a tactic always fails.
   *)
   let fail ( ctx : context ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail ctx#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail (context_gno ctx))
 
   (**
      Create a tactic that fails if the probe <paramref name="p"/> evaluates to false.
   *)
   let fail_if ( ctx : context ) ( p : probe ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if ctx#gno p#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if (context_gno ctx) p#gno)
 
   (**
      Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
      or trivially unsatisfiable (i.e., contains `false').
   *)
   let fail_if_not_decided ( ctx : context ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if_not_decided ctx#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if_not_decided (context_gno ctx))
 
   (**
      Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
   *)
   let using_params ( ctx : context ) ( t : tactic ) ( p : params ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_using_params ctx#gno t#gno p#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_using_params (context_gno ctx) t#gno p#gno)
 
   (**
      Create a tactic that applies <paramref name="t"/> using the given set of parameters <paramref name="p"/>.
@@ -4552,21 +4527,21 @@ end
      Create a tactic that applies the given tactics in parallel.
   *)
   let par_or ( ctx : context ) ( t : tactic array ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_or ctx#gno (Array.length t) (tacticaton t))
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_or (context_gno ctx) (Array.length t) (tacticaton t))
 
   (**
      Create a tactic that applies <paramref name="t1"/> to a given goal and then <paramref name="t2"/>
      to every subgoal produced by <paramref name="t1"/>. The subgoals are processed in parallel.
   *)
   let par_and_then ( ctx : context ) ( t1 : tactic ) ( t2 : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_and_then ctx#gno t1#gno t2#gno)
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_par_and_then (context_gno ctx) t1#gno t2#gno)
 
   (**
      Interrupt the execution of a Z3 procedure.        
      <remarks>This procedure can be used to interrupt: solvers, simplifiers and tactics.
   *)
   let interrupt ( ctx : context ) =
-    Z3native.interrupt ctx#gno
+    Z3native.interrupt (context_gno ctx)
 end
 
 (** Probes 
@@ -4591,68 +4566,68 @@ struct
      The number of supported Probes.
   *)
   let get_num_probes ( ctx : context ) =
-    Z3native.get_num_probes ctx#gno
+    Z3native.get_num_probes (context_gno ctx)
 
   (**
      The names of all supported Probes.
   *)
   let get_probe_names ( ctx : context ) = 
     let n = (get_num_probes ctx) in
-    let f i = (Z3native.get_probe_name ctx#gno i) in
+    let f i = (Z3native.get_probe_name (context_gno ctx) i) in
     Array.init n f
 
   (**
      Returns a string containing a description of the probe with the given name.
   *)
   let get_probe_description ( ctx : context ) ( name : string ) =
-    Z3native.probe_get_descr ctx#gno name
+    Z3native.probe_get_descr (context_gno ctx) name
 
   (**
      Creates a new Probe.
   *) 
   let mk_probe ( ctx : context ) ( name : string ) =
-    (new probe ctx)#cnstr_obj (Z3native.mk_probe ctx#gno name)
+    (new probe ctx)#cnstr_obj (Z3native.mk_probe (context_gno ctx) name)
 
   (**
      Create a probe that always evaluates to <paramref name="val"/>.
   *)
   let const ( ctx : context ) ( v : float ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_const ctx#gno v)
+    (new probe ctx)#cnstr_obj (Z3native.probe_const (context_gno ctx) v)
 
   (**
      Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
      is less than the value returned by <paramref name="p2"/>
   *)
   let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_lt ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_lt (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
      is greater than the value returned by <paramref name="p2"/>
   *)
   let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_gt ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_gt (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
      is less than or equal the value returned by <paramref name="p2"/>
   *)
   let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_le ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_le (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
      is greater than or equal the value returned by <paramref name="p2"/>
   *)
   let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_ge ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_ge (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
      is equal to the value returned by <paramref name="p2"/>
   *)
   let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_eq ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_eq (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value <paramref name="p1"/>
@@ -4660,7 +4635,7 @@ struct
   *)
   (* CMW: and is a keyword *)
   let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_and ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_and (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value <paramref name="p1"/>
@@ -4668,7 +4643,7 @@ struct
   *)
   (* CMW: or is a keyword *)
   let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_or ctx#gno p1#gno p2#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_or (context_gno ctx) p1#gno p2#gno)
 
   (**
      Create a probe that evaluates to "true" when the value <paramref name="p"/>
@@ -4676,7 +4651,7 @@ struct
   *)
   (* CMW: is not a keyword? *)
   let not_ ( ctx : context ) ( p : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_not ctx#gno p#gno)
+    (new probe ctx)#cnstr_obj (Z3native.probe_not (context_gno ctx) p#gno)
 end
 
 (** Solvers *)
@@ -4836,11 +4811,12 @@ struct
      <seealso cref="UnsatCore"/>
      <seealso cref="Proof"/>    
   *)
-  let check ( x : solver ) ( assumptions : bool_expr array option) =
+  let check ( x : solver ) ( assumptions : bool_expr array) =
     let r = 
-      match assumptions with 
-	| None -> lbool_of_int (Z3native.solver_check x#gnc x#gno)
-	| Some (ass) -> lbool_of_int (Z3native.solver_check_assumptions  x#gnc x#gno (Array.length ass) (astaton ass))
+      if ((Array.length assumptions) == 0) then
+	lbool_of_int (Z3native.solver_check x#gnc x#gno)
+      else
+	lbool_of_int (Z3native.solver_check_assumptions x#gnc x#gno (Array.length assumptions) (astaton assumptions))
     in
     match r with 
       | L_TRUE -> SATISFIABLE
@@ -4907,8 +4883,8 @@ struct
   *)    
   let mk_solver ( ctx : context ) ( logic : symbol option) =
     match logic with
-      | None -> (new solver ctx)#cnstr_obj (Z3native.mk_solver ctx#gno)
-      | Some (x) -> (new solver ctx)#cnstr_obj (Z3native.mk_solver_for_logic ctx#gno x#gno)
+      | None -> (new solver ctx)#cnstr_obj (Z3native.mk_solver (context_gno ctx))
+      | Some (x) -> (new solver ctx)#cnstr_obj (Z3native.mk_solver_for_logic (context_gno ctx) x#gno)
 
   (**
      Creates a new (incremental) solver.
@@ -4921,7 +4897,7 @@ struct
      Creates a new (incremental) solver. 
   *)
   let mk_simple_solver ( ctx : context ) =
-    (new solver ctx)#cnstr_obj (Z3native.mk_simple_solver ctx#gno)
+    (new solver ctx)#cnstr_obj (Z3native.mk_simple_solver (context_gno ctx))
 
   (**
      Creates a solver that is implemented using the given tactic.
@@ -4930,7 +4906,7 @@ struct
      will always solve each check from scratch.
   *)
   let mk_solver_t ( ctx : context ) ( t : tactic ) = 
-    (new solver ctx)#cnstr_obj (Z3native.mk_solver_from_tactic ctx#gno t#gno)
+    (new solver ctx)#cnstr_obj (Z3native.mk_solver_from_tactic (context_gno ctx) t#gno)
 
   (**
      A string representation of the solver.
@@ -5333,7 +5309,7 @@ struct
      Create a Fixedpoint context.
   *)
   let mk_fixedpoint ( ctx : context ) =
-    (new fixedpoint ctx)#cnstr_obj (Z3native.mk_fixedpoint ctx#gno) 
+    (new fixedpoint ctx)#cnstr_obj (Z3native.mk_fixedpoint (context_gno ctx)) 
 end
 
 (** Global and context options
@@ -5354,7 +5330,7 @@ struct
    <seealso cref="GetParamValue"/>
 *)
   let update_param_value ( ctx : context ) ( id : string) ( value : string )=
-    Z3native.update_param_value ctx#gno id value
+    Z3native.update_param_value (context_gno ctx) id value
 
 (**
    Get a configuration parameter.
@@ -5363,7 +5339,7 @@ struct
    <seealso cref="UpdateParamValue"/>
 *)
   let get_param_value ( ctx : context ) ( id : string ) =
-    let (r, v) = (Z3native.get_param_value ctx#gno id) in
+    let (r, v) = (Z3native.get_param_value (context_gno ctx) id) in
     if not r then
       None
     else 
@@ -5385,7 +5361,7 @@ struct
      <seealso cref="Sort.ToString ( ctx : context ) ="/>
   *)
   let set_print_mode ( ctx : context ) ( value : ast_print_mode ) =
-    Z3native.set_ast_print_mode ctx#gno (int_of_ast_print_mode value)
+    Z3native.set_ast_print_mode (context_gno ctx) (int_of_ast_print_mode value)
 
 (**
    Enable/disable printing of warning messages to the console.
@@ -5412,7 +5388,7 @@ struct
      @return A string representation of the benchmark.
   *)
   let benchmark_to_smtstring ( ctx : context ) ( name : string ) ( logic : string ) ( status : string ) ( attributes : string ) ( assumptions : bool_expr array ) ( formula : bool_expr ) =
-    Z3native.benchmark_to_smtlib_string ctx#gno name logic status attributes
+    Z3native.benchmark_to_smtlib_string (context_gno ctx) name logic status attributes
       (Array.length assumptions) (astaton assumptions)
       formula#gno
 
@@ -5425,92 +5401,93 @@ struct
      and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to 
      reference sorts and declarations.
   *)
-  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
-    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
-    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+    let csn = (Array.length sort_names) in
+    let cs = (Array.length sorts) in
+    let cdn = (Array.length decl_names) in
+    let cd = (Array.length decls) in
     if (csn != cs || cdn != cd) then 
       raise (Z3native.Exception "Argument size mismatch")
     else
-      Z3native.parse_smtlib_string ctx#gno str 
+      Z3native.parse_smtlib_string (context_gno ctx) str 
 	cs 
-	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	(symbolaton sort_names)
+	(astaton sorts)
 	cd 
-	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+	(symbolaton decl_names)
+	(func_declaton decls)
 	
   (**
      Parse the given file using the SMT-LIB parser. 
      <seealso cref="ParseSMTLIBString"/>
   *)
-  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array option) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
-    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
-    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+    let csn = (Array.length sort_names) in
+    let cs = (Array.length sorts) in
+    let cdn = (Array.length decl_names) in
+    let cd = (Array.length decls) in
     if (csn != cs || cdn != cd) then 
       raise (Z3native.Exception "Argument size mismatch")
     else
-      Z3native.parse_smtlib_file ctx#gno file_name
+      Z3native.parse_smtlib_file (context_gno ctx) file_name
 	cs 
-	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	(symbolaton sort_names)
+	(astaton sorts)
 	cd 
-	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+	(symbolaton decl_names)
+	(func_declaton decls)
+
   (**
      The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
-  let get_num_smtlib_formulas ( ctx : context ) = Z3native.get_smtlib_num_formulas ctx#gno
+  let get_num_smtlib_formulas ( ctx : context ) = Z3native.get_smtlib_num_formulas (context_gno ctx)
 
   (**
      The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
   let get_smtlib_formulas ( ctx : context ) =
     let n = (get_num_smtlib_formulas ctx ) in
-    let f i = ((create_expr ctx (Z3native.get_smtlib_formula ctx#gno i)) :> bool_expr) in
+    let f i = ((create_expr ctx (Z3native.get_smtlib_formula (context_gno ctx) i)) :> bool_expr) in
     Array.init n f 
 
 
   (**
      The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
-  let get_num_smtlib_assumptions ( ctx : context ) = Z3native.get_smtlib_num_assumptions ctx#gno
+  let get_num_smtlib_assumptions ( ctx : context ) = Z3native.get_smtlib_num_assumptions (context_gno ctx)
 
   (**
      The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
   let get_smtlib_assumptions ( ctx : context ) =
     let n = (get_num_smtlib_assumptions ctx ) in
-    let f i =  ((create_expr ctx (Z3native.get_smtlib_assumption ctx#gno i)) :> bool_expr ) in
+    let f i =  ((create_expr ctx (Z3native.get_smtlib_assumption (context_gno ctx) i)) :> bool_expr ) in
     Array.init n f
 
   (**
      The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
-  let get_num_smtlib_decls ( ctx : context ) = Z3native.get_smtlib_num_decls ctx#gno
+  let get_num_smtlib_decls ( ctx : context ) = Z3native.get_smtlib_num_decls (context_gno ctx)
 
   (**
      The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
   let get_smtlib_decls ( ctx : context ) = 
     let n = (get_num_smtlib_decls ctx) in
-    let f i = (new func_decl ctx)#cnstr_obj (Z3native.get_smtlib_decl ctx#gno i) in
+    let f i = (new func_decl ctx)#cnstr_obj (Z3native.get_smtlib_decl (context_gno ctx) i) in
     Array.init n f
 
   (**
      The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
-  let get_num_smtlib_sorts ( ctx : context )  = Z3native.get_smtlib_num_sorts ctx#gno
+  let get_num_smtlib_sorts ( ctx : context )  = Z3native.get_smtlib_num_sorts (context_gno ctx)
 
   (**
      The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
   *)
   let get_smtlib_sorts ( ctx : context ) = 
     let n = (get_num_smtlib_sorts ctx) in
-    let f i = (create_sort ctx (Z3native.get_smtlib_sort ctx#gno i)) in
+    let f i = (create_sort ctx (Z3native.get_smtlib_sort (context_gno ctx) i)) in
     Array.init n f
 
   (**
@@ -5519,41 +5496,41 @@ struct
      <seealso cref="ParseSMTLIBString"/>
      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string.
   *)
-  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
-    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
-    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+    let csn = (Array.length sort_names) in
+    let cs = (Array.length sorts) in
+    let cdn = (Array.length decl_names) in
+    let cd = (Array.length decls) in
     if (csn != cs || cdn != cd) then 
       raise (Z3native.Exception "Argument size mismatch")
     else
-      Z3native.parse_smtlib2_string ctx#gno str 
+      Z3native.parse_smtlib2_string (context_gno ctx) str 
 	cs 
-	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	(symbolaton sort_names)
+	(astaton sorts)
 	cd 
-	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+	(symbolaton decl_names)
+	(func_declaton decls)
 
   (**
      Parse the given file using the SMT-LIB2 parser. 
      <seealso cref="ParseSMTLIB2String"/>
   *)
-  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array option ) ( sorts : sort array option ) ( decl_names : symbol array option ) ( decls : func_decl array option ) =
-    let csn = (match sort_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cs = (match sorts with | None -> 0 | Some(x) -> Array.length x) in
-    let cdn = (match decl_names with | None -> 0 | Some(x) -> Array.length x) in
-    let cd = (match decls with | None -> 0 | Some(x) -> Array.length x) in
+  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+    let csn = (Array.length sort_names) in
+    let cs = (Array.length sorts) in
+    let cdn = (Array.length decl_names) in
+    let cd = (Array.length decls) in
     if (csn != cs || cdn != cd) then 
       raise (Z3native.Exception "Argument size mismatch")
     else
-      Z3native.parse_smtlib2_string ctx#gno file_name
+      Z3native.parse_smtlib2_string (context_gno ctx) file_name
 	cs 
-	(match sort_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match sorts with | None -> [||] | Some(x) -> (astaton x))
+	(symbolaton sort_names)
+	(astaton sorts)
 	cd 
-	(match decl_names with | None -> [||] | Some(x) -> (symbolaton x))
-	(match decls with | None -> [||] | Some(x) -> (func_declaton x))
+	(symbolaton decl_names)
+	(func_declaton decls)
 end
 
 (*
