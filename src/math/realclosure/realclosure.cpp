@@ -368,6 +368,9 @@ namespace realclosure {
         scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
         scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
 
+        // Tracing
+        unsigned                       m_exec_depth;
+
         volatile bool                  m_cancel;
 
         struct scoped_polynomial_seq {
@@ -450,6 +453,18 @@ namespace realclosure {
             sign_condition * const * c_ptr() { return m_scs.c_ptr(); }
         };
         
+        struct scoped_inc_depth {
+            imp & m_imp;
+            scoped_inc_depth(imp & m):m_imp(m) { m_imp.m_exec_depth++; }
+            ~scoped_inc_depth() { m_imp.m_exec_depth--; }
+        };
+
+        #ifdef _TRACE
+        #define INC_DEPTH() scoped_inc_depth __inc(*this)
+        #else
+        #define INC_DEPTH() ((void) 0)
+        #endif
+
         imp(unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
             m_allocator(a == 0 ? alloc(small_object_allocator, "realclosure") : a),
             m_own_allocator(a == 0),
@@ -465,6 +480,9 @@ namespace realclosure {
             inc_ref(m_one);
             m_pi = 0;
             m_e  = 0;
+
+            m_exec_depth = 0;
+
             m_cancel = false;
             
             updt_params(p);
@@ -3103,6 +3121,10 @@ namespace realclosure {
            \remark This method ignores whether the interval end-points are closed or open.
         */
         int TaQ(unsigned p_sz, value * const * p, unsigned q_sz, value * const * q, mpbqi const & interval) {
+            INC_DEPTH();
+            TRACE("rcf_TaQ", tout << "TaQ [" << m_exec_depth << "]\n"; 
+                  display_poly(tout, p_sz, p); tout << "\n";
+                  display_poly(tout, q_sz, q); tout << "\n";);
             scoped_polynomial_seq seq(*this);
             sturm_tarski_seq(p_sz, p, q_sz, q, seq);
             return TaQ(seq, interval);
@@ -3115,6 +3137,9 @@ namespace realclosure {
            \remark This method ignores whether the interval end-points are closed or open.
         */
         int TaQ_1(unsigned p_sz, value * const * p, mpbqi const & interval) {
+            INC_DEPTH();
+            TRACE("rcf_TaQ", tout << "TaQ_1 [" << m_exec_depth << "]\n"; 
+                  display_poly(tout, p_sz, p); tout << "\n";);
             scoped_polynomial_seq seq(*this);
             sturm_seq(p_sz, p, seq);
             return TaQ(seq, interval);
