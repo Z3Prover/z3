@@ -20,7 +20,7 @@ let context_dispose ctx =
     (Z3native.del_context ctx.m_n_ctx)
   ) else (
     Printf.printf "NOT DISPOSING context because it still has %d objects alive\n" ctx.m_n_obj_cnt;
-    (* re-queue for finalization? *)
+  (* re-queue for finalization? *)
   )
 
 let context_cnstr settings =
@@ -38,7 +38,7 @@ let context_cnstr settings =
 (* CMW: Install error handler here! 
    m_n_err_handler = new Z3native.error_handler(NativeErrorHandler);  keep reference so it doesn't get collected.
    Z3native.set_error_handler(m_ctx, m_n_err_handler);
-  GC.SuppressFinalize(this);
+   GC.SuppressFinalize(this);
 *)
 
 let context_add1 ctx = ignore (ctx.m_n_obj_cnt = ctx.m_n_obj_cnt + 1)
@@ -49,23 +49,23 @@ let context_gno ctx = ctx.m_n_ctx
 
 (** Create a context object. 
 
-Most interactions with Z3 are interpreted in some context; many users will only 
-require one such object, but power users may require more than one. To start using 
-Z3, do 
+    Most interactions with Z3 are interpreted in some context; many users will only 
+    require one such object, but power users may require more than one. To start using 
+    Z3, do 
 
-<code>
+    <code>
     let ctx = (mk_context []) in 
     (...)
-</code>
+    </code>
 
-where a list of pairs of strings may be passed to set options on
-the context, e.g., like so:
+    where a list of pairs of strings may be passed to set options on
+    the context, e.g., like so:
 
-<code>
+    <code>
     let cfg = [("model", "true"); ("...", "...")] in
     let ctx = (mk_context cfg) in 
     (...)
-</code>
+    </code>
 *)
 let mk_context ( cfg : ( string * string ) list ) =
   context_cnstr cfg
@@ -656,70 +656,6 @@ let tacticaton (a : tactic array) =
   let f (e : tactic) = e#gno in 
   Array.map f a
 
-(** Function interpretation entry objects *)
-class func_entry ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.func_entry_inc_ref nc o
-  method decref nc o = Z3native.func_entry_dec_ref nc o
-end
-
-(** Function interpretation objects *)
-class func_interp ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.func_interp_inc_ref nc o
-  method decref nc o = Z3native.func_interp_dec_ref nc o
-end
-
-(** Tactic application result objects *)
-class apply_result ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.apply_result_inc_ref nc o
-  method decref nc o = Z3native.apply_result_dec_ref nc o
-end
-
-(** Probe objects *)
-class probe ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.probe_inc_ref nc o
-  method decref nc o = Z3native.probe_dec_ref nc o
-end
-
-(** Statistical value objects *)
-class statistics_entry =
-object (self)  
-  val mutable m_key : string = ""
-  val mutable m_is_int = false
-  val mutable m_is_float = false
-  val mutable m_int = 0
-  val mutable m_float = 0.0
-    
-  method cnstr_si k v = 
-    m_key <- k;
-    m_is_int <- true;
-    m_int <- v;
-    self
-      
-  method cnstr_sd k v = 
-    m_key <- k;
-    m_is_float <- true;
-    m_float <- v;
-    self
-
-  method key = m_key
-  method int = m_int
-  method float = m_float
-  method is_int = m_is_int
-  method is_float = m_is_float
-end
-
 
 type z3_native_object = { 
   m_ctx : context ; 
@@ -1012,46 +948,46 @@ struct
 	x#rational
   end
 
-    (**
-       Creates a new function declaration.
-    *)
-    let mk_func_decl ( ctx : context ) ( name : symbol ) ( domain : sort array ) ( range : sort) =
-      (new func_decl ctx)#cnstr_ndr name domain range
+  (**
+     Creates a new function declaration.
+  *)
+  let mk_func_decl ( ctx : context ) ( name : symbol ) ( domain : sort array ) ( range : sort) =
+    (new func_decl ctx)#cnstr_ndr name domain range
 
-    (**
-       Creates a new function declaration.
-    *)
-    let mk_func_decl_s ( ctx : context ) ( name : string ) ( domain : sort array ) ( range : sort) =
-      mk_func_decl ctx ((Symbol.mk_string ctx name) :> symbol) domain range
+  (**
+     Creates a new function declaration.
+  *)
+  let mk_func_decl_s ( ctx : context ) ( name : string ) ( domain : sort array ) ( range : sort) =
+    mk_func_decl ctx ((Symbol.mk_string ctx name) :> symbol) domain range
 
-    (**
-       Creates a fresh function declaration with a name prefixed with <paramref name="prefix"/>.
-       <seealso cref="MkFunc_Decl(string,Sort,Sort)"/>
-       <seealso cref="MkFunc_Decl(string,Sort[],Sort)"/>
-    *)
-    let mk_fresh_func_decl ( ctx : context ) ( prefix : string ) ( domain : sort array ) ( range : sort) =
-      (new func_decl ctx)#cnstr_pdr prefix domain range
+  (**
+     Creates a fresh function declaration with a name prefixed with <paramref name="prefix"/>.
+     <seealso cref="MkFunc_Decl(string,Sort,Sort)"/>
+     <seealso cref="MkFunc_Decl(string,Sort[],Sort)"/>
+  *)
+  let mk_fresh_func_decl ( ctx : context ) ( prefix : string ) ( domain : sort array ) ( range : sort) =
+    (new func_decl ctx)#cnstr_pdr prefix domain range
 
-    (**
-       Creates a new constant function declaration.
-    *)
-    let mk_const_decl ( ctx : context ) ( name : symbol ) ( range : sort) =
-      (new func_decl ctx)#cnstr_ndr name [||]  range
+  (**
+     Creates a new constant function declaration.
+  *)
+  let mk_const_decl ( ctx : context ) ( name : symbol ) ( range : sort) =
+    (new func_decl ctx)#cnstr_ndr name [||]  range
 
 
-    (**
-       Creates a new constant function declaration.
-    *)
-    let mk_const_decl_s ( ctx : context ) ( name : string ) ( range : sort) =
-      (new func_decl ctx)#cnstr_ndr ((Symbol.mk_string ctx name) :> symbol) [||]  range
+  (**
+     Creates a new constant function declaration.
+  *)
+  let mk_const_decl_s ( ctx : context ) ( name : string ) ( range : sort) =
+    (new func_decl ctx)#cnstr_ndr ((Symbol.mk_string ctx name) :> symbol) [||]  range
 
-    (**
-       Creates a fresh constant function declaration with a name prefixed with <paramref name="prefix"/>.
-       <seealso cref="MkFunc_Decl(string,Sort,Sort)"/>
-       <seealso cref="MkFunc_Decl(string,Sort[],Sort)"/>
-    *)
-    let mk_fresh_const_decl ( ctx : context ) ( prefix : string ) ( range : sort) =
-      (new func_decl ctx)#cnstr_pdr prefix [||] range
+  (**
+     Creates a fresh constant function declaration with a name prefixed with <paramref name="prefix"/>.
+     <seealso cref="MkFunc_Decl(string,Sort,Sort)"/>
+     <seealso cref="MkFunc_Decl(string,Sort[],Sort)"/>
+  *)
+  let mk_fresh_const_decl ( ctx : context ) ( prefix : string ) ( range : sort) =
+    (new func_decl ctx)#cnstr_pdr prefix [||] range
 
 
   (**
@@ -1333,31 +1269,31 @@ struct
     else
       (create_ast to_ctx (Z3native.translate x#gnc x#gno (context_gno to_ctx)))
 
-(**
-   Wraps an AST.
+  (**
+     Wraps an AST.
 
-   <remarks>This function is used for transitions between native and 
-   managed objects. Note that <paramref name="nativeObject"/> must be a 
-   native object obtained from Z3 (e.g., through <seealso cref="UnwrapAST"/>)
-   and that it must have a correct reference count (see e.g., 
-   <seealso cref="Z3native.inc_ref"/>.
-   <seealso cref="UnwrapAST"/>
-   @param nativeObject The native pointer to wrap.
-*)
+     <remarks>This function is used for transitions between native and 
+     managed objects. Note that <paramref name="nativeObject"/> must be a 
+     native object obtained from Z3 (e.g., through <seealso cref="UnwrapAST"/>)
+     and that it must have a correct reference count (see e.g., 
+     <seealso cref="Z3native.inc_ref"/>.
+     <seealso cref="UnwrapAST"/>
+     @param nativeObject The native pointer to wrap.
+  *)
   let wrap ( ctx : context ) ( ptr : Z3native.ptr ) =
-      create_ast ctx ptr
+    create_ast ctx ptr
 
-(**
-   Unwraps an AST.
-   <remarks>This function is used for transitions between native and 
-   managed objects. It returns the native pointer to the AST. Note that 
-   AST objects are reference counted and unwrapping an AST disables automatic
-   reference counting, i.e., all references to the IntPtr that is returned 
-   must be handled externally and through native calls (see e.g., 
-   <seealso cref="Z3native.inc_ref"/>).
-   <seealso cref="WrapAST"/>
-   @param a The AST to unwrap.
-*)
+  (**
+     Unwraps an AST.
+     <remarks>This function is used for transitions between native and 
+     managed objects. It returns the native pointer to the AST. Note that 
+     AST objects are reference counted and unwrapping an AST disables automatic
+     reference counting, i.e., all references to the IntPtr that is returned 
+     must be handled externally and through native calls (see e.g., 
+     <seealso cref="Z3native.inc_ref"/>).
+     <seealso cref="WrapAST"/>
+     @param a The AST to unwrap.
+  *)
   let unwrap_ast ( a : ast ) = a#gno
 end
 
@@ -1373,17 +1309,17 @@ struct
     | None -> create_expr x#gc (Z3native.simplify x#gnc x#gno)
     | Some pp -> create_expr x#gc (Z3native.simplify_ex x#gnc x#gno pp#gno)
       
-(**
-   a string describing all available parameters to <c>Expr.Simplify</c>.
-*)
+  (**
+     a string describing all available parameters to <c>Expr.Simplify</c>.
+  *)
   let get_simplify_help ( ctx : context ) =
     Z3native.simplify_get_help (context_gno ctx)
 
-(**
-   Retrieves parameter descriptions for simplifier.
-*)
-   let get_simplify_parameter_descrs ( ctx : context ) = 
-     (new param_descrs ctx)#cnstr_obj (Z3native.simplify_get_param_descrs (context_gno ctx))
+  (**
+     Retrieves parameter descriptions for simplifier.
+  *)
+  let get_simplify_parameter_descrs ( ctx : context ) = 
+    (new param_descrs ctx)#cnstr_obj (Z3native.simplify_get_param_descrs (context_gno ctx))
 
   (**
      The function declaration of the function that is applied in this expression.
@@ -2691,7 +2627,7 @@ struct
     let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
     if r then v
     else raise (Z3native.Exception "Conversion failed.")
-				  
+      
   (** Returns a string representation of the numeral. *)
   let to_string ( x : int_num ) = Z3native.get_numeral_string x#gnc x#gno		      
 
@@ -3202,7 +3138,7 @@ struct
     let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
     if r then v
     else raise (Z3native.Exception "Conversion failed.")
-				     
+      
   (** Returns a string representation of the numeral. *)
   let to_string ( x : bitvec_num ) = Z3native.get_numeral_string x#gnc x#gno
 
@@ -4150,29 +4086,29 @@ end
 *)
 module Params =
 struct
-(** ParamDescrs describe sets of parameters (of Solvers, Tactics, ...) *)
-module ParamDescrs =
-struct
+  (** ParamDescrs describe sets of parameters (of Solvers, Tactics, ...) *)
+  module ParamDescrs =
+  struct
 
-  (** Validate a set of parameters. *)
-  let validate ( x : param_descrs ) ( p : params )= Z3native.params_validate x#gnc p#gno x#gno
-    
-  (** Retrieve kind of parameter. *)
-  let get_kind ( x : param_descrs ) ( name : symbol ) = 
-    (param_kind_of_int (Z3native.param_descrs_get_kind x#gnc x#gno name#gno))
+    (** Validate a set of parameters. *)
+    let validate ( x : param_descrs ) ( p : params )= Z3native.params_validate x#gnc p#gno x#gno
       
-  (** Retrieve all names of parameters. *)
-  let get_names ( x : param_descrs ) =
-    let n = Z3native.param_descrs_size x#gnc x#gno in
-    let f i = create_symbol x#gc (Z3native.param_descrs_get_name x#gnc x#gno i) in
-    Array.init n f
+    (** Retrieve kind of parameter. *)
+    let get_kind ( x : param_descrs ) ( name : symbol ) = 
+      (param_kind_of_int (Z3native.param_descrs_get_kind x#gnc x#gno name#gno))
+	
+    (** Retrieve all names of parameters. *)
+    let get_names ( x : param_descrs ) =
+      let n = Z3native.param_descrs_size x#gnc x#gno in
+      let f i = create_symbol x#gc (Z3native.param_descrs_get_name x#gnc x#gno i) in
+      Array.init n f
+	
+    (** The size of the ParamDescrs. *)
+    let get_size ( x : param_descrs ) = Z3native.param_descrs_size x#gnc x#gno
       
-  (** The size of the ParamDescrs. *)
-  let get_size ( x : param_descrs ) = Z3native.param_descrs_size x#gnc x#gno
-    
-  (** Retrieves a string representation of the ParamDescrs. *)
-  let to_string ( x : param_descrs ) = Z3native.param_descrs_to_string x#gnc x#gno 
-end
+    (** Retrieves a string representation of the ParamDescrs. *)
+    let to_string ( x : param_descrs ) = Z3native.param_descrs_to_string x#gnc x#gno 
+  end
 
   (**
      Adds a parameter setting.
@@ -4353,11 +4289,11 @@ struct
   type model = z3_native_object
       
   (**/**)
-  let model_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+  let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
     let res : model = { m_ctx = ctx ;
-			 m_n_obj = null ;
-			 inc_ref = Z3native.model_inc_ref ;
-			 dec_ref = Z3native.model_dec_ref } in
+			m_n_obj = null ;
+			inc_ref = Z3native.model_inc_ref ;
+			dec_ref = Z3native.model_dec_ref } in
     (z3obj_sno res ctx no) ;
     (z3obj_cnstr res) ;
     res
@@ -4370,6 +4306,18 @@ struct
   *)
   module FuncInterp =
   struct
+    type func_interp = z3_native_object
+	
+    (**/**)
+    let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+      let res : func_interp = { m_ctx = ctx ;
+				m_n_obj = null ;
+				inc_ref = Z3native.func_interp_inc_ref ;
+				dec_ref = Z3native.func_interp_dec_ref } in
+      (z3obj_sno res ctx no) ;
+      (z3obj_cnstr res) ;
+      res
+    (**/**)
 
     (** Function interpretations entries 
 
@@ -4377,23 +4325,36 @@ struct
     *)
     module FuncEntry =
     struct
+      type func_entry = z3_native_object
+	
+      (**/**)
+      let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+	let res : func_entry = { m_ctx = ctx ;
+				 m_n_obj = null ;
+				 inc_ref = Z3native.func_entry_inc_ref ;
+				 dec_ref = Z3native.func_entry_dec_ref } in
+	(z3obj_sno res ctx no) ;
+	(z3obj_cnstr res) ;
+	res
+      (**/**)
+
       (**
 	 Return the (symbolic) value of this entry.
       *)
       let get_value ( x : func_entry ) =
-	create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
+	create_expr (z3obj_gc x) (Z3native.func_entry_get_value (z3obj_gnc x) (z3obj_gno x))
 
       (**
 	 The number of arguments of the entry.
       *)
-      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
+      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args (z3obj_gnc x) (z3obj_gno x)
 	
       (**
 	 The arguments of the function entry.
       *)
       let get_args ( x : func_entry ) =
 	let n = (get_num_args x) in
-	let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
+	let f i = (create_expr (z3obj_gc x) (Z3native.func_entry_get_arg (z3obj_gnc x) (z3obj_gno x) i)) in
 	Array.init n f
 	  
       (**
@@ -4408,25 +4369,25 @@ struct
     (**
        The number of entries in the function interpretation.
     *)
-    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
+    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries (z3obj_gnc x) (z3obj_gno x)
 
     (**
        The entries in the function interpretation
     *)
     let get_entries ( x : func_interp ) =
       let n = (get_num_entries x) in
-      let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
+      let f i = (FuncEntry.cnstr (z3obj_gc x) (Z3native.func_interp_get_entry (z3obj_gnc x) (z3obj_gno x) i)) in
       Array.init n f
 
     (**
        The (symbolic) `else' value of the function interpretation.
     *)
-    let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
+    let get_else ( x : func_interp ) = create_expr (z3obj_gc x) (Z3native.func_interp_get_else (z3obj_gnc x) (z3obj_gno x))
 
     (**
        The arity of the function interpretation
     *)
-    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
+    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity (z3obj_gnc x) (z3obj_gno x)
 
     (**
        A string representation of the function interpretation.
@@ -4486,7 +4447,7 @@ struct
 	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
     else
       let n = (Z3native.model_get_func_interp (z3obj_gnc x) (z3obj_gno x) f#gno) in
-      if (Z3native.is_null n) then None else Some ((new func_interp (z3obj_gc x))#cnstr_obj n)
+      if (Z3native.is_null n) then None else Some (FuncInterp.cnstr (z3obj_gc x) n)
 	
   (** The number of constants that have an interpretation in the model. *)
   let get_num_consts ( x : model ) = Z3native.model_get_num_consts (z3obj_gnc x) (z3obj_gno x)
@@ -4579,6 +4540,130 @@ struct
 end
 
 
+(** Probes 
+
+    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
+    which solver and/or preprocessing step will be used.
+    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
+    and <c>Context.ProbeNames</c>.
+    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
+*)
+module Probe =
+struct
+  type probe = z3_native_object
+      
+  (**/**)
+  let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : probe = { m_ctx = ctx ;
+			m_n_obj = null ;
+			inc_ref = Z3native.probe_inc_ref ;
+			dec_ref = Z3native.probe_dec_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_cnstr res) ;
+    res
+  (**/**)
+
+  (**
+     Execute the probe over the goal. 
+     <returns>A probe always produce a double value.
+     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
+  *)
+  let apply ( x : probe ) (g : goal) =
+    Z3native.probe_apply (z3obj_gnc x) (z3obj_gno x) g#gno
+
+  (**
+     The number of supported Probes.
+  *)
+  let get_num_probes ( ctx : context ) =
+    Z3native.get_num_probes (context_gno ctx)
+
+  (**
+     The names of all supported Probes.
+  *)
+  let get_probe_names ( ctx : context ) = 
+    let n = (get_num_probes ctx) in
+    let f i = (Z3native.get_probe_name (context_gno ctx) i) in
+    Array.init n f
+
+  (**
+     Returns a string containing a description of the probe with the given name.
+  *)
+  let get_probe_description ( ctx : context ) ( name : string ) =
+    Z3native.probe_get_descr (context_gno ctx) name
+
+  (**
+     Creates a new Probe.
+  *) 
+  let mk_probe ( ctx : context ) ( name : string ) =
+    (cnstr ctx (Z3native.mk_probe (context_gno ctx) name))
+
+  (**
+     Create a probe that always evaluates to <paramref name="val"/>.
+  *)
+  let const ( ctx : context ) ( v : float ) = 
+    (cnstr ctx (Z3native.probe_const (context_gno ctx) v))
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than the value returned by <paramref name="p2"/>
+  *)
+  let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_lt (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than the value returned by <paramref name="p2"/>
+  *)
+  let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_gt (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is less than or equal the value returned by <paramref name="p2"/>
+  *)
+  let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
+    (cnstr ctx (Z3native.probe_le (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is greater than or equal the value returned by <paramref name="p2"/>
+  *)
+  let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_ge (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
+     is equal to the value returned by <paramref name="p2"/>
+  *)
+  let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_eq (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     and <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: and is a keyword *)
+  let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_and (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
+     or <paramref name="p2"/> evaluate to "true".
+  *)
+  (* CMW: or is a keyword *)
+  let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
+    (cnstr ctx (Z3native.probe_or (context_gno ctx) (z3obj_gno p1) (z3obj_gno p2)))
+
+  (**
+     Create a probe that evaluates to "true" when the value <paramref name="p"/>
+     does not evaluate to "true".
+  *)
+  (* CMW: is not a keyword? *)
+  let not_ ( ctx : context ) ( p : probe ) =
+    (cnstr ctx (Z3native.probe_not (context_gno ctx) (z3obj_gno p)))
+end
+
+
 (** Tactics
 
     Tactics are the basic building block for creating custom solvers for specific problem domains.
@@ -4588,36 +4673,49 @@ end
 *)
 module Tactic =
 struct
-(** Tactic application results 
-    
-    ApplyResult objects represent the result of an application of a 
-    tactic to a goal. It contains the subgoals that were produced. *)
-module ApplyResult =
-struct 
-  (** The number of Subgoals. *)
-  let get_num_subgoals ( x : apply_result ) =
-    Z3native.apply_result_get_num_subgoals x#gnc x#gno
+  (** Tactic application results 
       
-  (** Retrieves the subgoals from the apply_result. *)
-  let get_subgoals ( x : apply_result ) =
-    let n = (get_num_subgoals x) in
-    let f i = (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i) in
-    Array.init n f
-
-  (** Retrieves the subgoals from the apply_result. *)
-  let get_subgoal ( x : apply_result ) ( i : int ) =
-    (new goal x#gc)#cnstr_obj (Z3native.apply_result_get_subgoal x#gnc x#gno i)
-      
-  (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
-      goal <c>g</c>, that the ApplyResult was obtained from. 
-      #return A model for <c>g</c>
-  *)
-  let convert_model ( x : apply_result ) ( i : int ) ( m : Model.model ) =
-    Model.model_cnstr x#gc (Z3native.apply_result_convert_model x#gnc x#gno i (z3obj_gno m))
-      
-  (** A string representation of the ApplyResult. *)
-  let to_string ( x : apply_result ) = Z3native.apply_result_to_string x#gnc x#gno
-end
+      ApplyResult objects represent the result of an application of a 
+      tactic to a goal. It contains the subgoals that were produced. *)
+  module ApplyResult =
+  struct 
+    type apply_result = z3_native_object
+	
+    (**/**)
+    let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+      let res : apply_result = { m_ctx = ctx ;
+				 m_n_obj = null ;
+				 inc_ref = Z3native.apply_result_inc_ref ;
+				 dec_ref = Z3native.apply_result_dec_ref } in
+      (z3obj_sno res ctx no) ;
+      (z3obj_cnstr res) ;
+      res
+    (**/**)
+	
+    (** The number of Subgoals. *)
+    let get_num_subgoals ( x : apply_result ) =
+      Z3native.apply_result_get_num_subgoals (z3obj_gnc x) (z3obj_gno x)
+	
+    (** Retrieves the subgoals from the apply_result. *)
+    let get_subgoals ( x : apply_result ) =
+      let n = (get_num_subgoals x) in
+      let f i = (new goal (z3obj_gc x))#cnstr_obj (Z3native.apply_result_get_subgoal (z3obj_gnc x) (z3obj_gno x) i) in
+      Array.init n f
+	
+    (** Retrieves the subgoals from the apply_result. *)
+    let get_subgoal ( x : apply_result ) ( i : int ) =
+      (new goal (z3obj_gc x))#cnstr_obj (Z3native.apply_result_get_subgoal (z3obj_gnc x) (z3obj_gno x) i)
+	
+    (** Convert a model for the subgoal <paramref name="i"/> into a model for the original 
+	goal <c>g</c>, that the ApplyResult was obtained from. 
+	#return A model for <c>g</c>
+    *)
+    let convert_model ( x : apply_result ) ( i : int ) ( m : Model.model ) =
+      Model.cnstr (z3obj_gc x) (Z3native.apply_result_convert_model (z3obj_gnc x) (z3obj_gno x) i (z3obj_gno m))
+	
+    (** A string representation of the ApplyResult. *)
+    let to_string ( x : apply_result ) = Z3native.apply_result_to_string (z3obj_gnc x) (z3obj_gno x)
+  end
 
   (** A string containing a description of parameters accepted by the tactic. *)
   let get_help ( x : tactic ) = Z3native.tactic_get_help x#gnc x#gno
@@ -4630,8 +4728,8 @@ end
   (** Apply the tactic to the goal. *)
   let apply ( x : tactic ) ( g : goal ) ( p : params option ) =
     match p with 
-      | None -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply x#gnc x#gno g#gno)
-      | Some (pn) -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply_ex x#gnc x#gno g#gno pn#gno)
+      | None -> (ApplyResult.cnstr x#gc (Z3native.tactic_apply x#gnc x#gno g#gno))
+      | Some (pn) -> (ApplyResult.cnstr x#gc (Z3native.tactic_apply_ex x#gnc x#gno g#gno pn#gno))
 
   (**
      The number of supported tactics.
@@ -4695,15 +4793,15 @@ end
      If <paramref name="p"/> evaluates to false, then the new tactic behaves like the <c>skip</c> tactic. 
   *)
   (* CMW: when is a keyword *)
-  let when_ ( ctx : context ) ( p : probe ) ( t : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_when (context_gno ctx) p#gno t#gno)
+  let when_ ( ctx : context ) ( p : Probe.probe ) ( t : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_when (context_gno ctx) (z3obj_gno p) t#gno)
 
   (**
      Create a tactic that applies <paramref name="t1"/> to a given goal if the probe 
      <paramref name="p"/> evaluates to true and <paramref name="t2"/> otherwise.
   *)
-  let cond ( ctx : context ) ( p : probe ) ( t1 : tactic ) ( t2 : tactic ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_cond (context_gno ctx) p#gno t1#gno t2#gno)
+  let cond ( ctx : context ) ( p : Probe.probe ) ( t1 : tactic ) ( t2 : tactic ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_cond (context_gno ctx) (z3obj_gno p) t1#gno t2#gno)
 
   (**
      Create a tactic that keeps applying <paramref name="t"/> until the goal is not 
@@ -4727,8 +4825,8 @@ end
   (**
      Create a tactic that fails if the probe <paramref name="p"/> evaluates to false.
   *)
-  let fail_if ( ctx : context ) ( p : probe ) =
-    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if (context_gno ctx) p#gno)
+  let fail_if ( ctx : context ) ( p : Probe.probe ) =
+    (new tactic ctx)#cnstr_obj (Z3native.tactic_fail_if (context_gno ctx) (z3obj_gno p))
 
   (**
      Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
@@ -4771,124 +4869,14 @@ end
     Z3native.interrupt (context_gno ctx)
 end
 
-(** Probes 
-
-    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
-    which solver and/or preprocessing step will be used.
-    The complete list of probes may be obtained using the procedures <c>Context.NumProbes</c>
-    and <c>Context.ProbeNames</c>.
-    It may also be obtained using the command <c>(help-tactics)</c> in the SMT 2.0 front-end.
-*)
-module Probe =
-struct
-  (**
-     Execute the probe over the goal. 
-     <returns>A probe always produce a double value.
-     "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
-  *)
-  let apply ( x : probe ) (g : goal) =
-    Z3native.probe_apply x#gnc x#gno g#gno
-
-  (**
-     The number of supported Probes.
-  *)
-  let get_num_probes ( ctx : context ) =
-    Z3native.get_num_probes (context_gno ctx)
-
-  (**
-     The names of all supported Probes.
-  *)
-  let get_probe_names ( ctx : context ) = 
-    let n = (get_num_probes ctx) in
-    let f i = (Z3native.get_probe_name (context_gno ctx) i) in
-    Array.init n f
-
-  (**
-     Returns a string containing a description of the probe with the given name.
-  *)
-  let get_probe_description ( ctx : context ) ( name : string ) =
-    Z3native.probe_get_descr (context_gno ctx) name
-
-  (**
-     Creates a new Probe.
-  *) 
-  let mk_probe ( ctx : context ) ( name : string ) =
-    (new probe ctx)#cnstr_obj (Z3native.mk_probe (context_gno ctx) name)
-
-  (**
-     Create a probe that always evaluates to <paramref name="val"/>.
-  *)
-  let const ( ctx : context ) ( v : float ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_const (context_gno ctx) v)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is less than the value returned by <paramref name="p2"/>
-  *)
-  let lt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_lt (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is greater than the value returned by <paramref name="p2"/>
-  *)
-  let gt ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_gt (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is less than or equal the value returned by <paramref name="p2"/>
-  *)
-  let le ( ctx : context ) ( p1 : probe ) ( p2 : probe ) = 
-    (new probe ctx)#cnstr_obj (Z3native.probe_le (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is greater than or equal the value returned by <paramref name="p2"/>
-  *)
-  let ge ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_ge (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value returned by <paramref name="p1"/>
-     is equal to the value returned by <paramref name="p2"/>
-  *)
-  let eq ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_eq (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-     and <paramref name="p2"/> evaluate to "true".
-  *)
-  (* CMW: and is a keyword *)
-  let and_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_and (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p1"/>
-     or <paramref name="p2"/> evaluate to "true".
-  *)
-  (* CMW: or is a keyword *)
-  let or_ ( ctx : context ) ( p1 : probe ) ( p2 : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_or (context_gno ctx) p1#gno p2#gno)
-
-  (**
-     Create a probe that evaluates to "true" when the value <paramref name="p"/>
-     does not evaluate to "true".
-  *)
-  (* CMW: is not a keyword? *)
-  let not_ ( ctx : context ) ( p : probe ) =
-    (new probe ctx)#cnstr_obj (Z3native.probe_not (context_gno ctx) p#gno)
-end
-
 
 (** Solvers *)
 module Solver =
 struct
   type solver = z3_native_object
       
-(**/**)
-  let solver_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+  (**/**)
+  let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
     let res : solver = { m_ctx = ctx ;
 			 m_n_obj = null ;
 			 inc_ref = Z3native.solver_inc_ref ;
@@ -4896,7 +4884,7 @@ struct
     (z3obj_sno res ctx no) ;
     (z3obj_cnstr res) ;
     res
-(**/**)
+  (**/**)
 
   type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
 
@@ -4911,7 +4899,7 @@ struct
     type statistics = z3_native_object
 	
     (**/**)
-    let statistics_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+    let cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
       let res : statistics = { m_ctx = ctx ;
 			       m_n_obj = null ;
 			       inc_ref = Z3native.stats_inc_ref ;
@@ -4919,28 +4907,58 @@ struct
       (z3obj_sno res ctx no) ;
       (z3obj_cnstr res) ;
       res
-    (**/**)
+    (**/**)    
 
     (**
-       Statistical data is organized into pairs of [Key, Entry], where every
-       Entry is either a <c>DoubleEntry</c> or a <c>UIntEntry</c>
+       Statistical data is organized into pairs of \[Key, Entry\], where every
+       Entry is either a floating point or integer value.
+
     *)
     module Entry =
     struct
+      type statistics_entry = { 
+	mutable m_key : string; 
+	mutable m_is_int : bool ; 
+	mutable m_is_float : bool ; 
+	mutable m_int : int ; 
+	mutable m_float : float }
+	  
+      (**/**)
+      let cnstr_si k v = 
+	let res : statistics_entry = { 
+	  m_key = k ;
+	  m_is_int = true ;
+	  m_is_float = false ;
+	  m_int = v ;
+	  m_float = 0.0
+	} in
+	res
+
+      let cnstr_sd k v = 
+	let res : statistics_entry = { 
+	  m_key = k ;
+	  m_is_int = false ;
+	  m_is_float = true ;
+	  m_int = 0 ;
+	  m_float = v
+	} in
+	res
+      (**/**)
+
       (** The key of the entry. *)
-      let get_key (x : statistics_entry) = x#key
+      let get_key (x : statistics_entry) = x.m_key
 	
       (** The int-value of the entry. *)
-      let get_int (x : statistics_entry) = x#int
+      let get_int (x : statistics_entry) = x.m_int
 	
       (** The float-value of the entry. *)
-      let get_float (x : statistics_entry) = x#float
+      let get_float (x : statistics_entry) = x.m_float
 	
       (** True if the entry is uint-valued. *)
-      let is_int (x : statistics_entry) = x#is_int
+      let is_int (x : statistics_entry) = x.m_is_int
 	
       (** True if the entry is double-valued. *)
-      let is_float (x : statistics_entry) = x#is_float
+      let is_float (x : statistics_entry) = x.m_is_float
 	
       (** The string representation of the the entry's value. *)
       let to_string_value (x : statistics_entry) = 
@@ -4967,9 +4985,9 @@ struct
       let f i = (
 	let k = Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i in
 	if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
-	  ((new statistics_entry)#cnstr_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
+	  (Entry.cnstr_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
 	else 
-	  ((new statistics_entry)#cnstr_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
+	  (Entry.cnstr_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
       ) in
       Array.init n f
 
@@ -5087,7 +5105,7 @@ struct
     if (Z3native.is_null q) then
       None
     else 
-      Some (Model.model_cnstr (z3obj_gc x) q)
+      Some (Model.cnstr (z3obj_gc x) q)
 	
   (**
      The proof of the last <c>Check</c>.
@@ -5125,7 +5143,7 @@ struct
      Solver statistics.
   *)
   let get_statistics ( x : solver ) =
-    (Statistics.statistics_cnstr (z3obj_gc x) (Z3native.solver_get_statistics (z3obj_gnc x) (z3obj_gno x)))
+    (Statistics.cnstr (z3obj_gc x) (Z3native.solver_get_statistics (z3obj_gnc x) (z3obj_gno x)))
 
   (**
      Creates a new (incremental) solver. 
@@ -5136,8 +5154,8 @@ struct
   *)    
   let mk_solver ( ctx : context ) ( logic : symbol option) =
     match logic with
-      | None -> (solver_cnstr ctx (Z3native.mk_solver (context_gno ctx)))
-      | Some (x) -> (solver_cnstr ctx (Z3native.mk_solver_for_logic (context_gno ctx) x#gno))
+      | None -> (cnstr ctx (Z3native.mk_solver (context_gno ctx)))
+      | Some (x) -> (cnstr ctx (Z3native.mk_solver_for_logic (context_gno ctx) x#gno))
 
   (**
      Creates a new (incremental) solver.
@@ -5150,7 +5168,7 @@ struct
      Creates a new (incremental) solver. 
   *)
   let mk_simple_solver ( ctx : context ) =
-    (solver_cnstr ctx (Z3native.mk_simple_solver (context_gno ctx)))
+    (cnstr ctx (Z3native.mk_simple_solver (context_gno ctx)))
 
   (**
      Creates a solver that is implemented using the given tactic.
@@ -5159,7 +5177,7 @@ struct
      will always solve each check from scratch.
   *)
   let mk_solver_t ( ctx : context ) ( t : tactic ) = 
-    (solver_cnstr ctx (Z3native.mk_solver_from_tactic (context_gno ctx) t#gno))
+    (cnstr ctx (Z3native.mk_solver_from_tactic (context_gno ctx) t#gno))
 
   (**
      A string representation of the solver.
@@ -5169,12 +5187,12 @@ end
 
 
 (** Fixedpoint solving *)
-module Fixedpoints =
+module Fixedpoint =
 struct
   type fixedpoint = z3_native_object
       
-(**/**)
-  let fixedpoint_cnstr ( ctx : context ) = 
+  (**/**)
+  let cnstr ( ctx : context ) = 
     let res : fixedpoint = { m_ctx = ctx ;
 			     m_n_obj = null ;
 			     inc_ref = Z3native.fixedpoint_inc_ref ;
@@ -5182,7 +5200,7 @@ struct
     (z3obj_sno res ctx (Z3native.mk_fixedpoint (context_gno ctx))) ;
     (z3obj_cnstr res) ;
     res
-(**/**)
+  (**/**)
 
   (**
      A string that describes all available fixedpoint solver parameters.
@@ -5320,7 +5338,7 @@ struct
      Retrieve internal string representation of fixedpoint object.
   *)                
   let to_string ( x : fixedpoint ) = Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) 0 [||]
-      
+    
   (**
      Instrument the Datalog engine on which table representation to use for recursive predicate.
   *)                
@@ -5354,7 +5372,7 @@ struct
   (**
      Create a Fixedpoint context.
   *)
-  let mk_fixedpoint ( ctx : context ) = fixedpoint_cnstr ctx
+  let mk_fixedpoint ( ctx : context ) = cnstr ctx
 end
 
 (** Global and context options
@@ -5365,24 +5383,24 @@ end
 module Options =
 struct
 
-(**
-   Update a mutable configuration parameter.
-   <remarks>
-   The list of all configuration parameters can be obtained using the Z3 executable:
-   <c>z3.exe -ini?</c>
-   Only a few configuration parameters are mutable once the context is created.
-   An exception is thrown when trying to modify an immutable parameter.
-   <seealso cref="GetParamValue"/>
-*)
+  (**
+     Update a mutable configuration parameter.
+     <remarks>
+     The list of all configuration parameters can be obtained using the Z3 executable:
+     <c>z3.exe -ini?</c>
+     Only a few configuration parameters are mutable once the context is created.
+     An exception is thrown when trying to modify an immutable parameter.
+     <seealso cref="GetParamValue"/>
+  *)
   let update_param_value ( ctx : context ) ( id : string) ( value : string )=
     Z3native.update_param_value (context_gno ctx) id value
 
-(**
-   Get a configuration parameter.
-   <remarks>
-   Returns None if the parameter value does not exist.
-   <seealso cref="UpdateParamValue"/>
-*)
+  (**
+     Get a configuration parameter.
+     <remarks>
+     Returns None if the parameter value does not exist.
+     <seealso cref="UpdateParamValue"/>
+  *)
   let get_param_value ( ctx : context ) ( id : string ) =
     let (r, v) = (Z3native.get_param_value (context_gno ctx) id) in
     if not r then
@@ -5408,12 +5426,12 @@ struct
   let set_print_mode ( ctx : context ) ( value : ast_print_mode ) =
     Z3native.set_ast_print_mode (context_gno ctx) (int_of_ast_print_mode value)
 
-(**
-   Enable/disable printing of warning messages to the console.
+  (**
+     Enable/disable printing of warning messages to the console.
 
-   <remarks>Note that this function is static and effects the behaviour of 
-   all contexts globally.
-*)
+     <remarks>Note that this function is static and effects the behaviour of 
+     all contexts globally.
+  *)
   let toggle_warning_messages ( enabled: bool ) =
     Z3native.toggle_warning_messages enabled
 end
@@ -5581,17 +5599,17 @@ end
 (*
 
 (**
-   A delegate which is executed when an error is raised.
-   <remarks>
-   Note that it is possible for memory leaks to occur if error handlers
-   throw exceptions. 
+  A delegate which is executed when an error is raised.
+  <remarks>
+  Note that it is possible for memory leaks to occur if error handlers
+  throw exceptions. 
 *)
-   public delegate void ErrorHandler(Context ctx, error_code errorCode, string errorString);
+  public delegate void ErrorHandler(Context ctx, error_code errorCode, string errorString);
 
-   internal Z3native.error_handler m_n_err_handler = null;
+  internal Z3native.error_handler m_n_err_handler = null;
 
-   internal void NativeErrorHandler(IntPtr ctx, error_code errorCode)
+  internal void NativeErrorHandler(IntPtr ctx, error_code errorCode)
 
-   Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
+  Do-nothing error handler. The wrappers in Z3.Native will throw exceptions upon errors.            
 
 *)
