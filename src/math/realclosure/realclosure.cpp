@@ -79,10 +79,10 @@ namespace realclosure {
         struct interval {
             numeral   m_lower;
             numeral   m_upper;
-            unsigned  m_lower_inf:1;
-            unsigned  m_upper_inf:1;
-            unsigned  m_lower_open:1;
-            unsigned  m_upper_open:1;
+            unsigned char m_lower_inf;
+            unsigned char m_upper_inf;
+            unsigned char m_lower_open;
+            unsigned char m_upper_open;
             interval():m_lower_inf(true), m_upper_inf(true), m_lower_open(true), m_upper_open(true) {}
             interval(numeral & l, numeral & u):m_lower_inf(false), m_upper_inf(false), m_lower_open(true), m_upper_open(true) {
                 swap(m_lower, l);
@@ -136,9 +136,10 @@ namespace realclosure {
     void swap(mpbqi & a, mpbqi & b) {
         swap(a.m_lower, b.m_lower);
         swap(a.m_upper, b.m_upper);
-        unsigned tmp;
-        tmp = a.m_lower_inf; a.m_lower_inf = b.m_lower_inf; b.m_lower_inf = tmp;
-        tmp = a.m_upper_inf; a.m_upper_inf = b.m_upper_inf; b.m_upper_inf = tmp;
+        std::swap(a.m_lower_inf, b.m_lower_inf);
+        std::swap(a.m_upper_inf, b.m_upper_inf);
+        std::swap(a.m_lower_open, b.m_lower_open);
+        std::swap(a.m_upper_open, b.m_upper_open);
     }
 
     // ---------------------------------
@@ -1730,6 +1731,14 @@ namespace realclosure {
         }
 
         /**
+           \brief Simpler version of add_root that does not use sign_det data-structure. That is,
+           interval contains only one root of p.
+        */
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, numeral_vector & roots) {
+            add_root(p_sz, p, interval, 0, UINT_MAX, roots);
+        }
+
+        /**
            \brief Create (the square) matrix for sign determination of q on the roots of p.
            It builds matrix based on the number of root of p where 
                 q is == 0, > 0 and < 0.  
@@ -2070,7 +2079,80 @@ namespace realclosure {
                 set_upper(r, aux);
             }
         }
+
+        struct bisect_ctx {
+            unsigned                m_p_sz;
+            value * const *         m_p;
+            bool                    m_depends_on_infinitesimals;
+            scoped_polynomial_seq & m_sturm_seq;
+            numeral_vector &        m_result_roots;
+            bisect_ctx(unsigned p_sz, value * const * p, bool dinf, scoped_polynomial_seq & seq, numeral_vector & roots):
+                m_p_sz(p_sz), m_p(p), m_depends_on_infinitesimals(dinf), m_sturm_seq(seq), m_result_roots(roots) {}
+        };
         
+        void bisect_isolate_roots(mpbqi & interval, int lower_sv, int upper_sv, bisect_ctx & ctx) {
+            SASSERT(lower_sv >= upper_sv);
+            int num_roots = lower_sv - upper_sv;
+            if (num_roots == 0) {
+                // interval does not contain roots
+            }
+            else if (num_roots == 1) {
+                // Sturm sequences are for half-open intervals (a, b]
+                // We must check if upper is the root
+                if (eval_sign_at(ctx.m_p_sz, ctx.m_p, interval.upper()) == 0) {
+                    // found precise root
+                    numeral r;
+                    set(r, mk_rational(interval.upper()));
+                    ctx.m_result_roots.push_back(r);
+                }                                                              
+                else {                                                         
+                    // interval is an isolating interval
+                    add_root(ctx.m_p_sz, ctx.m_p, interval, ctx.m_result_roots);
+                }
+            }
+            else if (ctx.m_depends_on_infinitesimals && check_precision(interval, m_max_precision)) {
+                // IF
+                //   - The polynomial depends on infinitesimals
+                //   - The interval contains more than one root
+                //   - The size of the interval is less than 1/2^m_max_precision
+                // THEN 
+                //   - We switch to expensive sign determination procedure, since
+                //     the roots may be infinitely close to each other.
+                //
+                sign_det_isolate_roots(ctx.m_p_sz, ctx.m_p, num_roots, interval, ctx.m_result_roots);
+            }
+            else {
+                scoped_mpbq mid(bqm());
+                bqm().add(interval.lower(), interval.upper(), mid);
+                bqm().div2(mid);
+                int mid_sv = sign_variations_at(ctx.m_sturm_seq, mid);
+                scoped_mpbqi left_interval(bqim());
+                scoped_mpbqi right_interval(bqim());
+                set_lower(left_interval, interval.lower());
+                set_upper(left_interval, mid);
+                set_lower(right_interval, mid);
+                set_upper(right_interval, interval.upper());
+                bisect_isolate_roots(left_interval, lower_sv, mid_sv, ctx);
+                bisect_isolate_roots(right_interval, mid_sv, upper_sv, ctx);
+            }
+        }
+
+        /**
+           \brief Entry point for the root isolation procedure based on bisection.
+        */
+        void bisect_isolate_roots(// Input values
+                                  unsigned p_sz, value * const * p, mpbqi & interval,
+                                  // Extra Input values with already computed information
+                                  scoped_polynomial_seq & sturm_seq, // sturm sequence for p
+                                  int lower_sv,                      // number of sign variations at the lower bound of interval
+                                  int upper_sv,                      // number of sign variations at the upper bound of interval
+                                  // Output values
+                                  numeral_vector & roots) {
+            bool dinf = depends_on_infinitesimals(p_sz, p);
+            bisect_ctx ctx(p_sz, p, dinf, sturm_seq, roots);
+            bisect_isolate_roots(interval, lower_sv, upper_sv, ctx);
+        }
+
         /**
            \brief Root isolation for polynomials that are
                    - nonlinear (degree > 2)
@@ -2100,14 +2182,11 @@ namespace realclosure {
             // Compute the number of positive and negative roots
             scoped_polynomial_seq seq(*this);
             sturm_seq(n, p, seq);
-            scoped_mpbqi minf_zero(bqim());
-            set_lower_inf(minf_zero);
-            set_upper_zero(minf_zero);
-            int num_neg_roots = TaQ(seq, minf_zero);
-            scoped_mpbqi zero_inf(bqim());
-            set_lower_zero(zero_inf);
-            set_upper_inf(zero_inf);
-            int num_pos_roots = TaQ(seq, zero_inf);
+            int num_sv_minus_inf = sign_variations_at_minus_inf(seq);
+            int num_sv_zero      = sign_variations_at_zero(seq);
+            int num_sv_plus_inf  = sign_variations_at_plus_inf(seq);
+            int num_neg_roots    = num_sv_minus_inf - num_sv_zero;
+            int num_pos_roots    = num_sv_zero      - num_sv_plus_inf;
             TRACE("rcf_isolate", 
                   tout << "num_neg_roots: " << num_neg_roots << "\n";
                   tout << "num_pos_roots: " << num_pos_roots << "\n";);
@@ -2115,13 +2194,21 @@ namespace realclosure {
             scoped_mpbqi neg_interval(bqim());
             mk_neg_interval(has_neg_lower, neg_lower_N, has_neg_upper, neg_upper_N, neg_interval);
             mk_pos_interval(has_pos_lower, pos_lower_N, has_pos_upper, pos_upper_N, pos_interval);
+
             if (num_neg_roots > 0) {
                 if (num_neg_roots == 1) {
                     add_root(n, p, neg_interval, 0, UINT_MAX, roots);
                 }
                 else {
-                    // TODO bisection
-                    sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+                    if (has_neg_lower) {
+                        bisect_isolate_roots(n, p, neg_interval, seq, num_sv_minus_inf, num_sv_zero, roots);
+                    }
+                    else {
+                        scoped_mpbqi minf_zero(bqim());
+                        set_lower_inf(minf_zero);
+                        set_upper_zero(minf_zero);
+                        sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+                    }
                 }
             }
             
@@ -2130,8 +2217,15 @@ namespace realclosure {
                     add_root(n, p, pos_interval, 0, UINT_MAX, roots);
                 }
                 else {
-                    // TODO bisection
-                    sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+                    if (has_pos_upper) {
+                        bisect_isolate_roots(n, p, pos_interval, seq, num_sv_zero, num_sv_plus_inf, roots);
+                    }
+                    else {
+                        scoped_mpbqi zero_inf(bqim());
+                        set_lower_zero(zero_inf);
+                        set_upper_inf(zero_inf);
+                        sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+                    }
                 }
             }
         }
@@ -3155,6 +3249,24 @@ namespace realclosure {
             return sign_variations_at_core(seq, MPBQ, b);
         }
 
+        int sign_variations_at_lower(scoped_polynomial_seq & seq, mpbqi const & interval) {
+            if (interval.lower_is_inf())
+                return sign_variations_at_minus_inf(seq);
+            else if (bqm().is_zero(interval.lower()))
+                return sign_variations_at_zero(seq);
+            else
+                return sign_variations_at(seq, interval.lower());
+        }
+
+        int sign_variations_at_upper(scoped_polynomial_seq & seq, mpbqi const & interval) {
+            if (interval.upper_is_inf())
+                return sign_variations_at_plus_inf(seq);
+            else if (bqm().is_zero(interval.upper()))
+                return sign_variations_at_zero(seq);
+            else
+                return sign_variations_at(seq, interval.upper());
+        }
+
         /**
            \brief Given a polynomial Sturm sequence seq for (P; P' * Q) and an interval (a, b], it returns
                  TaQ(Q, P; a, b) = 
@@ -3165,22 +3277,7 @@ namespace realclosure {
            \remark This method ignores whether the interval end-points are closed or open.
         */
         int TaQ(scoped_polynomial_seq & seq, mpbqi const & interval) {
-            int a, b;
-            if (interval.lower_is_inf())
-                a = sign_variations_at_minus_inf(seq);
-            else if (bqm().is_zero(interval.lower()))
-                a = sign_variations_at_zero(seq);
-            else
-                a = sign_variations_at(seq, interval.lower());
-
-            if (interval.upper_is_inf())
-                b = sign_variations_at_plus_inf(seq);
-            else if (bqm().is_zero(interval.upper()))
-                b = sign_variations_at_zero(seq);
-            else
-                b = sign_variations_at(seq, interval.upper());
-            
-            return a - b;
+            return sign_variations_at_lower(seq, interval) - sign_variations_at_upper(seq, interval);
         }
         
         /**
@@ -5073,5 +5170,10 @@ void pp(realclosure::manager::imp * imp, mpbq const & n) {
 
 void pp(realclosure::manager::imp * imp, mpq const & n) {
     imp->qm().display(std::cout, n);
+    std::cout << std::endl;
+}
+
+void pp(realclosure::manager::imp * imp, realclosure::extension * x) {
+    imp->display_ext(std::cout, x, false);
     std::cout << std::endl;
 }
