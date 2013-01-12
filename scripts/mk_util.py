@@ -1320,11 +1320,13 @@ def mk_config():
         check_ar()
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
+        SLIBEXTRAFLAGS = ''
         if GMP:
             test_gmp(CXX)
             ARITH = "gmp"
             CPPFLAGS = '%s -D_MP_GMP' % CPPFLAGS
             LDFLAGS  = '%s -lgmp' % LDFLAGS
+            SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         CXXFLAGS = '%s -c' % CXXFLAGS
@@ -1332,10 +1334,9 @@ def mk_config():
         if HAS_OMP:
             CXXFLAGS = '%s -fopenmp -mfpmath=sse' % CXXFLAGS
             LDFLAGS  = '%s -fopenmp' % LDFLAGS
-            SLIBEXTRAFLAGS = '-fopenmp'
+            SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
         else:
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
-            SLIBEXTRAFLAGS = ''
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
         else:
