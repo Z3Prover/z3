@@ -770,10 +770,12 @@ namespace realclosure {
         }
 
         void del_transcendental(transcendental * t) {
+            bqim().del(t->m_interval);
             allocator().deallocate(sizeof(transcendental), t);
         }
         
         void del_infinitesimal(infinitesimal * i) {
+            bqim().del(i->m_interval);
             allocator().deallocate(sizeof(infinitesimal), i);
         }
 
