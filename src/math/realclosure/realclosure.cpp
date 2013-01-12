@@ -2876,6 +2876,10 @@ namespace realclosure {
            \brief r <- gcd(p1, p2)
         */
         void gcd(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            INC_DEPTH();
+            TRACE("rcf_gcd", tout << "GCD [" << m_exec_depth << "]\n";
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";);
             if (sz1 == 0) {
                 r.append(sz2, p2);
                 mk_monic(r);
@@ -4050,6 +4054,10 @@ namespace realclosure {
            - new_p1 <- p1/gcd(p1, p2); new_p2 <- p2/gcd(p1, p2);  Otherwise
         */
         void normalize_fraction(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
+            INC_DEPTH();
+            TRACE("rcf_arith", tout << "normalize [" << m_exec_depth << "]\n";
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";);
             SASSERT(sz1 > 0 && sz2 > 0);
             if (sz2 == 1) {
                 // - new_p1 <- p1/p2[0];       new_p2 <- one              IF  sz2 == 1
@@ -4285,6 +4293,10 @@ namespace realclosure {
                     r = mk_rational(v);
             }
             else {
+                INC_DEPTH();
+                TRACE("rcf_arith", tout << "add [" << m_exec_depth << "]\n";
+                      display(tout, a, false); tout << "\n";
+                      display(tout, b, false); tout << "\n";);
                 switch (compare_rank(a, b)) {
                 case -1: add_rf_v(to_rational_function(b), a, r); break; 
                 case 0:  add_rf_rf(to_rational_function(a), to_rational_function(b), r); break;
@@ -4486,6 +4498,10 @@ namespace realclosure {
                 r = mk_rational(v);
             }
             else {
+                INC_DEPTH();
+                TRACE("rcf_arith", tout << "mul [" << m_exec_depth << "]\n";
+                      display(tout, a, false); tout << "\n";
+                      display(tout, b, false); tout << "\n";);
                 switch (compare_rank(a, b)) {
                 case -1: mul_rf_v(to_rational_function(b), a, r); break; 
                 case 0:  mul_rf_rf(to_rational_function(a), to_rational_function(b), r); break;
