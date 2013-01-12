@@ -263,6 +263,8 @@ namespace realclosure {
 
         
         void display_interval(std::ostream & out, numeral const & a) const;
+    
+        void clean_denominators(numeral const & a, numeral & p, numeral & q);
     };
 
     class value;

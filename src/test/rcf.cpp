@@ -135,15 +135,36 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
             A.set(i, j, _A[i*n + j]);
     unsigned_vector r;
     r.resize(A.n());
-    mm.linear_independent_rows(A, r.c_ptr());
+    scoped_mpz_matrix B(mm);
+    mm.linear_independent_rows(A, r.c_ptr(), B);
     SASSERT(r.size() == ex_sz);
     for (unsigned i = 0; i < ex_sz; i++) {
         SASSERT(r[i] == ex_r[i]);
     }
 }
 
+static void tst_denominators() {
+    unsynch_mpq_manager qm;
+    rcmanager m(qm);
+    scoped_rcnumeral a(m);
+    scoped_rcnumeral t(m);
+    scoped_rcnumeral eps(m);
+    m.mk_pi(a);
+    m.inv(a);
+    m.mk_infinitesimal("eps", eps);
+    t = (a - eps*2) / (a*eps + 1);
+    // t = t + a * 2;
+    scoped_rcnumeral n(m), d(m);
+    std::cout << t << "\n";
+    m.clean_denominators(t, n, d);
+    std::cout << "---->\n" << n << "\n" << d << "\n";
+}
 
 void tst_rcf() {
+    enable_trace("rcf_clean");
+    enable_trace("rcf_clean_bug");
+    tst_denominators();
+    return;
     tst1();
     tst2();
     { int A[] = {0, 1, 1, 1, 0, 1, 1, 1, -1}; int c[] = {10, 4, -4}; int b[] = {-2, 4, 6}; tst_solve(3, A, b, c, true); }
