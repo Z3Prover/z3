@@ -251,8 +251,10 @@ class mpz_manager {
     }
     
     void mk_big(mpz & a) {
-        if (a.m_ptr == 0)
+        if (a.m_ptr == 0) {
+            a.m_val = 0;
             a.m_ptr = allocate();
+        }
     }
 #endif 
 
@@ -687,7 +689,7 @@ public:
     double get_double(mpz const & a) const;
 
     std::string to_string(mpz const & a) const; 
-    
+
     void display(std::ostream & out, mpz const & a) const;
 
     /**
