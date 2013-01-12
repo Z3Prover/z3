@@ -14,6 +14,7 @@ open Z3.Tactic.ApplyResult
 open Z3.Probe
 open Z3.Solver
 open Z3.Arithmetic
+open Z3.Fixedpoints
 
 exception TestFailedException of string
 
@@ -216,8 +217,8 @@ let _ =
       Printf.printf "bool sort: %s\n" (Sort.to_string bs);
       Printf.printf "int sort: %s\n" (Sort.to_string ints);
       Printf.printf "real sort: %s\n" (Sort.to_string rs);
-      Printf.printf "Disposing...\n";
       basic_tests ctx ;
+      Printf.printf "Disposing...\n";
       Gc.full_major ()
     );
   Printf.printf "Exiting.\n";

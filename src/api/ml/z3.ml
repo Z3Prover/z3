@@ -7,9 +7,13 @@
 
 open Z3enums
 
-type context = { m_n_ctx : Z3native.z3_context; m_n_obj_cnt: int; }
+type context = { m_n_ctx : Z3native.z3_context; m_n_obj_cnt: int; } 
 
-(**/**)
+(**/**) 
+
+let null = Z3native.mk_null()
+let is_null o = (Z3native.is_null o)
+
 let context_dispose ctx = 
   if ctx.m_n_obj_cnt == 0 then (
     (* Printf.printf "Disposing context \n" ; *)
@@ -19,7 +23,7 @@ let context_dispose ctx =
     (* re-queue for finalization? *)
   )
 
-let context_init settings =
+let context_cnstr settings =
   let cfg = Z3native.mk_config in
   let f e = (Z3native.set_param_value cfg (fst e) (snd e)) in
   (List.iter f settings) ;
@@ -50,7 +54,7 @@ require one such object, but power users may require more than one. To start usi
 Z3, do 
 
 <code>
-    let ctx = (mk_context None) in 
+    let ctx = (mk_context []) in 
     (...)
 </code>
 
@@ -58,17 +62,18 @@ where a list of pairs of strings may be passed to set options on
 the context, e.g., like so:
 
 <code>
-    let cfg = (Some [("model", "true"); ("...", "...")]) in
+    let cfg = [("model", "true"); ("...", "...")] in
     let ctx = (mk_context cfg) in 
     (...)
 </code>
 *)
 let mk_context ( cfg : ( string * string ) list ) =
-  context_init cfg
+  context_cnstr cfg
+
+
+(* type z3object = { m_ctx : context; m_n_obj : Z3native.ptr option; } *)
 
 (**/**)
-
-(** Z3 objects *)
 class virtual z3object ctx_init obj_init =
 object (self)
   val mutable m_ctx : context = ctx_init
@@ -669,15 +674,6 @@ object (self)
   method decref nc o = Z3native.func_interp_dec_ref nc o
 end
 
-(** Model objects *)
-class model ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.model_inc_ref nc o
-  method decref nc o = Z3native.model_dec_ref nc o
-end
-
 (** Tactic application result objects *)
 class apply_result ctx =
 object (self)
@@ -724,32 +720,38 @@ object (self)
   method is_float = m_is_float
 end
 
-(** Statistics objects *)
-class statistics ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.stats_inc_ref nc o
-  method decref nc o = Z3native.stats_dec_ref nc o
-end
 
-(** Solver objects *)
-class solver ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.solver_inc_ref nc o
-  method decref nc o = Z3native.solver_dec_ref nc o
-end
+type z3_native_object = { 
+  m_ctx : context ; 
+  mutable m_n_obj : Z3native.ptr ; 
+  inc_ref : Z3native.z3_context -> Z3native.ptr -> unit;
+  dec_ref : Z3native.z3_context -> Z3native.ptr -> unit }
 
-(** Fixedpoint objects *)
-class fixedpoint ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = Z3native.fixedpoint_inc_ref nc o
-  method decref nc o = Z3native.fixedpoint_dec_ref nc o
-end
+let z3obj_gc o = o.m_ctx
+let z3obj_gnc o = (context_gno o.m_ctx)
+
+let z3obj_gno o = o.m_n_obj
+let z3obj_sno o ctx no =
+  (context_add1 ctx) ;
+  o.inc_ref (context_gno ctx) no ;
+  (
+    if not (is_null o.m_n_obj) then
+      o.dec_ref (context_gno ctx) o.m_n_obj ; 
+    (context_sub1 ctx)
+  ) ;
+  o.m_n_obj <- no
+
+let z3obj_dispose o =
+  if not (is_null o.m_n_obj) then
+    (
+      o.dec_ref (z3obj_gnc o) o.m_n_obj ;
+      (context_sub1 (z3obj_gc o))
+    ) ;
+  o.m_n_obj <- null
+    
+let z3obj_cnstr o = 
+  let f = fun o -> (z3obj_dispose o) in
+  Gc.finalise f o
 
 (**/**)
 
@@ -1878,7 +1880,6 @@ struct
 					(astaton names)
 					body#gno)
     else
-      let null = Z3native.mk_null() in
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
@@ -1900,7 +1901,6 @@ struct
 					(Array.length patterns) (patternaton patterns)
 					body#gno)
     else
-      let null = Z3native.mk_null() in
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
@@ -1924,7 +1924,6 @@ struct
 					(astaton names)
 					body#gno)
     else
-      let null = Z3native.mk_null() in
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
@@ -1946,7 +1945,6 @@ struct
 					(Array.length patterns) (patternaton patterns)
 					body#gno)
     else
-      let null = Z3native.mk_null() in
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
 					(match quantifier_id with | None -> null | Some(x) -> x#gno)
@@ -4347,6 +4345,240 @@ struct
 end  
 
 
+(** Models
+
+    A Model contains interpretations (assignments) of constants and functions. *)
+module Model =
+struct
+  type model = z3_native_object
+      
+  (**/**)
+  let model_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : model = { m_ctx = ctx ;
+			 m_n_obj = null ;
+			 inc_ref = Z3native.model_inc_ref ;
+			 dec_ref = Z3native.model_dec_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_cnstr res) ;
+    res
+  (**/**)
+
+  (** Function interpretations 
+
+      A function interpretation is represented as a finite map and an 'else'.
+      Each entry in the finite map represents the value of a function given a set of arguments.  
+  *)
+  module FuncInterp =
+  struct
+
+    (** Function interpretations entries 
+
+	An Entry object represents an element in the finite map used to a function interpretation.
+    *)
+    module FuncEntry =
+    struct
+      (**
+	 Return the (symbolic) value of this entry.
+      *)
+      let get_value ( x : func_entry ) =
+	create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
+
+      (**
+	 The number of arguments of the entry.
+      *)
+      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
+	
+      (**
+	 The arguments of the function entry.
+      *)
+      let get_args ( x : func_entry ) =
+	let n = (get_num_args x) in
+	let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
+	Array.init n f
+	  
+      (**
+	 A string representation of the function entry.
+      *)
+      let to_string ( x : func_entry ) =
+	let a = (get_args x) in
+	let f c p = (p ^ (Expr.to_string c) ^ ", ") in
+	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
+    end
+
+    (**
+       The number of entries in the function interpretation.
+    *)
+    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
+
+    (**
+       The entries in the function interpretation
+    *)
+    let get_entries ( x : func_interp ) =
+      let n = (get_num_entries x) in
+      let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
+      Array.init n f
+
+    (**
+       The (symbolic) `else' value of the function interpretation.
+    *)
+    let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
+
+    (**
+       The arity of the function interpretation
+    *)
+    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
+
+    (**
+       A string representation of the function interpretation.
+    *)    
+    let to_string ( x : func_interp ) =     
+      let f c p = (
+	let n = (FuncEntry.get_num_args c) in
+	p ^ 
+	  let g c p = (p ^ (Expr.to_string c) ^ ", ") in
+	  (if n > 1 then "[" else "") ^
+	    (Array.fold_right 
+	       g 
+	       (FuncEntry.get_args c) 
+	       ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
+      ) in
+      Array.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
+  end
+    
+  (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of zero arity</param>
+      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
+  let get_const_interp ( x : model ) ( f : func_decl ) =
+    if (FuncDecl.get_arity f) != 0 ||
+      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
+      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+    else
+      let np = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) f#gno in
+      if (Z3native.is_null np) then
+	None
+      else
+	Some (create_expr (z3obj_gc x) np)
+
+  (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
+      <param name="a">A Constant</param>
+      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
+  *)
+  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
+
+
+  (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
+      <param name="f">A function declaration of non-zero arity</param>
+      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
+  let rec get_func_interp ( x : model ) ( f : func_decl ) =
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc x) (Z3native.get_range f#gnc f#gno))) in
+    if (FuncDecl.get_arity f) == 0 then
+      let n = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) f#gno in      
+      if (Z3native.is_null n) then
+	None 
+      else 
+	match sk with
+	  | ARRAY_SORT ->	    
+	    if not (Z3native.is_as_array (z3obj_gnc x) n) then
+	      raise (Z3native.Exception "Argument was not an array constant")
+	    else
+	      let fd = Z3native.get_as_array_func_decl (z3obj_gnc x) n in
+              get_func_interp x ((new func_decl f#gc)#cnstr_obj fd)
+	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
+    else
+      let n = (Z3native.model_get_func_interp (z3obj_gnc x) (z3obj_gno x) f#gno) in
+      if (Z3native.is_null n) then None else Some ((new func_interp (z3obj_gc x))#cnstr_obj n)
+	
+  (** The number of constants that have an interpretation in the model. *)
+  let get_num_consts ( x : model ) = Z3native.model_get_num_consts (z3obj_gnc x) (z3obj_gno x)
+    
+  (** The function declarations of the constants in the model. *)
+  let get_const_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl (z3obj_gc x))#cnstr_obj (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    Array.init n f
+      
+      
+  (** The number of function interpretations in the model. *)
+  let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs (z3obj_gnc x) (z3obj_gno x)
+    
+  (** The function declarations of the function interpretations in the model. *)
+  let get_func_decls ( x : model ) = 
+    let n = (get_num_consts x) in
+    let f i = (new func_decl (z3obj_gc x))#cnstr_obj (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    Array.init n f
+      
+  (** All symbols that have an interpretation in the model. *)
+  let get_decls ( x : model ) =
+    let n_funcs = (get_num_funcs x) in
+    let n_consts = (get_num_consts x ) in
+    let f i = (new func_decl (z3obj_gc x))#cnstr_obj (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    let g i = (new func_decl (z3obj_gc x))#cnstr_obj (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    Array.append (Array.init n_funcs f) (Array.init n_consts g)
+      
+  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
+  exception ModelEvaluationFailedException of string
+      
+  (**
+     Evaluates the expression <paramref name="t"/> in the current model.
+     
+     <remarks>
+     This function may fail if <paramref name="t"/> contains quantifiers, 
+     is partial (MODEL_PARTIAL enabled), or if <paramref name="t"/> is not well-sorted.
+     In this case a <c>ModelEvaluationFailedException</c> is thrown.
+
+     <param name="t">An expression</param>
+     <param name="completion">
+     When this flag is enabled, a model value will be assigned to any constant 
+     or function that does not have an interpretation in the model.
+     </param>
+     <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
+  *)
+  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
+    let (r, v) = (Z3native.model_eval (z3obj_gnc x) (z3obj_gno x) t#gno completion) in
+    if not r then
+      raise (ModelEvaluationFailedException "evaluation failed")
+    else
+      create_expr (z3obj_gc x) v
+
+  (** Alias for <c>eval</c>. *)
+  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
+    eval x t completion
+      
+  (** The number of uninterpreted sorts that the model has an interpretation for. *)
+  let get_num_sorts ( x : model ) = Z3native.model_get_num_sorts (z3obj_gnc x) (z3obj_gno x)
+    
+  (** The uninterpreted sorts that the model has an interpretation for. 
+      <remarks>
+      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+      The interpretation for a sort is a finite set of distinct values. We say this finite set is
+      the "universe" of the sort.
+      <seealso cref="NumSorts"/>
+      <seealso cref="SortUniverse"/>
+  *)
+  let get_sorts ( x : model ) =
+    let n = (get_num_sorts x) in
+    let f i = (create_sort (z3obj_gc x) (Z3native.model_get_sort (z3obj_gnc x) (z3obj_gno x) i)) in
+    Array.init n f
+
+
+  (** The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>. 
+      <seealso cref="Sorts"/>
+      <param name="s">An uninterpreted sort</param>
+      <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
+  *)
+  let sort_universe ( x : model ) ( s : sort ) =
+    let n_univ = (new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) s#gno) in
+    let n = (AST.ASTVector.get_size n_univ) in
+    let f i = (AST.ASTVector.get n_univ i) in
+    Array.init n f
+      
+  (** Conversion of models to strings. 
+      <returns>A string representation of the model.</returns>
+  *)
+  let to_string ( x : model ) = Z3native.model_to_string (z3obj_gnc x) (z3obj_gno x) 
+end
+
+
 (** Tactics
 
     Tactics are the basic building block for creating custom solvers for specific problem domains.
@@ -4380,8 +4612,8 @@ struct
       goal <c>g</c>, that the ApplyResult was obtained from. 
       #return A model for <c>g</c>
   *)
-  let convert_model ( x : apply_result ) ( i : int ) ( m : model ) =
-    (new model x#gc)#cnstr_obj (Z3native.apply_result_convert_model x#gnc x#gno i m#gno)
+  let convert_model ( x : apply_result ) ( i : int ) ( m : Model.model ) =
+    Model.model_cnstr x#gc (Z3native.apply_result_convert_model x#gnc x#gno i (z3obj_gno m))
       
   (** A string representation of the ApplyResult. *)
   let to_string ( x : apply_result ) = Z3native.apply_result_to_string x#gnc x#gno
@@ -4400,11 +4632,6 @@ end
     match p with 
       | None -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply x#gnc x#gno g#gno)
       | Some (pn) -> (new apply_result x#gc)#cnstr_obj (Z3native.tactic_apply_ex x#gnc x#gno g#gno pn#gno)
-
-  (** creates a solver that is implemented using the given tactic.
-      <seealso cref="Context.MkSolver(Tactic)"/> *)
-  let get_solver ( x : tactic ) =
-    (new solver x#gc)#cnstr_obj (Z3native.mk_solver_from_tactic x#gnc x#gno)
 
   (**
      The number of supported tactics.
@@ -4654,9 +4881,23 @@ struct
     (new probe ctx)#cnstr_obj (Z3native.probe_not (context_gno ctx) p#gno)
 end
 
+
 (** Solvers *)
 module Solver =
 struct
+  type solver = z3_native_object
+      
+(**/**)
+  let solver_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : solver = { m_ctx = ctx ;
+			 m_n_obj = null ;
+			 inc_ref = Z3native.solver_inc_ref ;
+			 dec_ref = Z3native.solver_dec_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_cnstr res) ;
+    res
+(**/**)
+
   type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
 
   let string_of_status ( s : status) = match s with
@@ -4667,6 +4908,18 @@ struct
   (** Objects that track statistical information about solvers. *)
   module Statistics =
   struct
+    type statistics = z3_native_object
+	
+    (**/**)
+    let statistics_cnstr ( ctx : context ) ( no : Z3native.ptr ) = 
+      let res : statistics = { m_ctx = ctx ;
+			       m_n_obj = null ;
+			       inc_ref = Z3native.stats_inc_ref ;
+			       dec_ref = Z3native.stats_dec_ref } in
+      (z3obj_sno res ctx no) ;
+      (z3obj_cnstr res) ;
+      res
+    (**/**)
 
     (**
        Statistical data is organized into pairs of [Key, Entry], where every
@@ -4703,20 +4956,20 @@ struct
     end
 
     (** A string representation of the statistical data. *)    
-    let to_string ( x : statistics ) = Z3native.stats_to_string x#gnc x#gno
+    let to_string ( x : statistics ) = Z3native.stats_to_string (z3obj_gnc x) (z3obj_gno x)
       
     (** The number of statistical data. *)
-    let get_size ( x : statistics ) = Z3native.stats_size x#gnc x#gno
+    let get_size ( x : statistics ) = Z3native.stats_size (z3obj_gnc x) (z3obj_gno x)
       
     (** The data entries. *)
     let get_entries ( x : statistics ) =
       let n = (get_size x ) in
       let f i = (
-	let k = Z3native.stats_get_key x#gnc x#gno i in
-	if (Z3native.stats_is_uint x#gnc x#gno i) then
-	  ((new statistics_entry)#cnstr_si k (Z3native.stats_get_uint_value x#gnc x#gno i))
+	let k = Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i in
+	if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
+	  ((new statistics_entry)#cnstr_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
 	else 
-	  ((new statistics_entry)#cnstr_sd k (Z3native.stats_get_double_value x#gnc x#gno i))
+	  ((new statistics_entry)#cnstr_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
       ) in
       Array.init n f
 
@@ -4725,7 +4978,7 @@ struct
     *)
     let get_keys ( x : statistics ) =
       let n = (get_size x) in
-      let f i = (Z3native.stats_get_key x#gnc x#gno i) in
+      let f i = (Z3native.stats_get_key (z3obj_gnc x) (z3obj_gno x) i) in
       Array.init n f
 	
     (**
@@ -4739,51 +4992,51 @@ struct
   (**
      A string that describes all available solver parameters.
   *)
-  let get_help ( x : solver ) = Z3native.solver_get_help x#gnc x#gno
+  let get_help ( x : solver ) = Z3native.solver_get_help (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Sets the solver parameters.
   *)
   let set_parameters ( x : solver ) ( value : params )=
-    Z3native.solver_set_params x#gnc x#gno value#gno
+    Z3native.solver_set_params (z3obj_gnc x) (z3obj_gno x) value#gno
 
   (**
      Retrieves parameter descriptions for solver.
   *)
   let get_param_descrs ( x : solver ) =
-    (new param_descrs x#gc)#cnstr_obj (Z3native.solver_get_param_descrs x#gnc x#gno)
+    (new param_descrs (z3obj_gc x))#cnstr_obj (Z3native.solver_get_param_descrs (z3obj_gnc x) (z3obj_gno x))
 
   (**
      The current number of backtracking points (scopes).
      <seealso cref="Pop"/>
      <seealso cref="Push"/>
   *)
-  let get_num_scopes ( x : solver ) = Z3native.solver_get_num_scopes x#gnc x#gno
+  let get_num_scopes ( x : solver ) = Z3native.solver_get_num_scopes (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Creates a backtracking point.
      <seealso cref="Pop"/>
   *)
-  let push ( x : solver ) = Z3native.solver_push x#gnc x#gno
+  let push ( x : solver ) = Z3native.solver_push (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Backtracks <paramref name="n"/> backtracking points.
      <remarks>Note that an exception is thrown if <paramref name="n"/> is not smaller than <c>NumScopes</c>
      <seealso cref="Push"/>
   *)
-  let pop ( x : solver ) ( n : int ) = Z3native.solver_pop x#gnc x#gno n
+  let pop ( x : solver ) ( n : int ) = Z3native.solver_pop (z3obj_gnc x) (z3obj_gno x) n
 
   (**
      Resets the Solver.
      <remarks>This removes all assertions from the solver.
   *)
-  let reset ( x : solver ) = Z3native.solver_reset x#gnc x#gno
+  let reset ( x : solver ) = Z3native.solver_reset (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Assert a constraint (or multiple) into the solver.
   *)        
   let assert_ ( x : solver ) ( constraints : bool_expr array ) =
-    let f e = (Z3native.solver_assert x#gnc x#gno e#gno) in
+    let f e = (Z3native.solver_assert (z3obj_gnc x) (z3obj_gno x) e#gno) in
     ignore (Array.map f constraints) ;
     ()
 
@@ -4791,7 +5044,7 @@ struct
      The number of assertions in the solver.
   *)
   let get_num_assertions ( x : solver ) =
-    let a = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_assertions x#gnc x#gno) in
+    let a = (new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
     (AST.ASTVector.get_size a)
 
 
@@ -4799,9 +5052,9 @@ struct
      The set of asserted formulas.
   *)
   let get_assertions ( x : solver ) =
-    let a = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_assertions x#gnc x#gno) in
+    let a = (new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
     let n = (AST.ASTVector.get_size a) in
-    let f i = ((new bool_expr x#gc)#cnstr_obj (AST.ASTVector.get a i)#gno) in
+    let f i = ((new bool_expr (z3obj_gc x))#cnstr_obj (AST.ASTVector.get a i)#gno) in
     Array.init n f
 
   (**
@@ -4814,9 +5067,9 @@ struct
   let check ( x : solver ) ( assumptions : bool_expr array) =
     let r = 
       if ((Array.length assumptions) == 0) then
-	lbool_of_int (Z3native.solver_check x#gnc x#gno)
+	lbool_of_int (Z3native.solver_check (z3obj_gnc x) (z3obj_gno x))
       else
-	lbool_of_int (Z3native.solver_check_assumptions x#gnc x#gno (Array.length assumptions) (astaton assumptions))
+	lbool_of_int (Z3native.solver_check_assumptions (z3obj_gnc x) (z3obj_gno x) (Array.length assumptions) (astaton assumptions))
     in
     match r with 
       | L_TRUE -> SATISFIABLE
@@ -4830,11 +5083,11 @@ struct
      if its results was not <c>SATISFIABLE</c>, or if model production is not enabled.
   *)
   let get_model ( x : solver ) =
-    let q = Z3native.solver_get_model x#gnc x#gno in
+    let q = Z3native.solver_get_model (z3obj_gnc x) (z3obj_gno x) in
     if (Z3native.is_null q) then
       None
     else 
-      Some ((new model x#gc)#cnstr_obj q)
+      Some (Model.model_cnstr (z3obj_gc x) q)
 	
   (**
      The proof of the last <c>Check</c>.
@@ -4843,11 +5096,11 @@ struct
      if its results was not <c>UNSATISFIABLE</c>, or if proof production is disabled.
   *)
   let get_proof ( x : solver ) =
-    let q = Z3native.solver_get_proof x#gnc x#gno in
+    let q = Z3native.solver_get_proof (z3obj_gnc x) (z3obj_gno x) in
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr x#gc q)
+      Some (create_expr (z3obj_gc x) q)
 	
   (**
      The unsat core of the last <c>Check</c>.
@@ -4857,7 +5110,7 @@ struct
      if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
   *)
   let get_unsat_core ( x : solver ) =
-    let cn = (new ast_vector x#gc)#cnstr_obj (Z3native.solver_get_unsat_core x#gnc x#gno) in 
+    let cn = (new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
     let n = (AST.ASTVector.get_size cn) in
     let f i = (AST.ASTVector.get cn i) in
     Array.init n f
@@ -4865,14 +5118,14 @@ struct
   (**
      A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>.
   *)
-  let get_reason_unknown ( x : solver ) =  Z3native.solver_get_reason_unknown x#gnc x#gno
+  let get_reason_unknown ( x : solver ) =  Z3native.solver_get_reason_unknown (z3obj_gnc x) (z3obj_gno x)
 
 
   (**
      Solver statistics.
   *)
   let get_statistics ( x : solver ) =
-    (new statistics x#gc)#cnstr_obj (Z3native.solver_get_statistics x#gnc x#gno)
+    (Statistics.statistics_cnstr (z3obj_gc x) (Z3native.solver_get_statistics (z3obj_gnc x) (z3obj_gno x)))
 
   (**
      Creates a new (incremental) solver. 
@@ -4883,8 +5136,8 @@ struct
   *)    
   let mk_solver ( ctx : context ) ( logic : symbol option) =
     match logic with
-      | None -> (new solver ctx)#cnstr_obj (Z3native.mk_solver (context_gno ctx))
-      | Some (x) -> (new solver ctx)#cnstr_obj (Z3native.mk_solver_for_logic (context_gno ctx) x#gno)
+      | None -> (solver_cnstr ctx (Z3native.mk_solver (context_gno ctx)))
+      | Some (x) -> (solver_cnstr ctx (Z3native.mk_solver_for_logic (context_gno ctx) x#gno))
 
   (**
      Creates a new (incremental) solver.
@@ -4897,7 +5150,7 @@ struct
      Creates a new (incremental) solver. 
   *)
   let mk_simple_solver ( ctx : context ) =
-    (new solver ctx)#cnstr_obj (Z3native.mk_simple_solver (context_gno ctx))
+    (solver_cnstr ctx (Z3native.mk_simple_solver (context_gno ctx)))
 
   (**
      Creates a solver that is implemented using the given tactic.
@@ -4906,261 +5159,54 @@ struct
      will always solve each check from scratch.
   *)
   let mk_solver_t ( ctx : context ) ( t : tactic ) = 
-    (new solver ctx)#cnstr_obj (Z3native.mk_solver_from_tactic (context_gno ctx) t#gno)
+    (solver_cnstr ctx (Z3native.mk_solver_from_tactic (context_gno ctx) t#gno))
 
   (**
      A string representation of the solver.
   *)
-  let to_string ( x : solver ) = Z3native.solver_to_string x#gnc x#gno
+  let to_string ( x : solver ) = Z3native.solver_to_string (z3obj_gnc x) (z3obj_gno x)
 end
 
-
-(** Models
-
-    A Model contains interpretations (assignments) of constants and functions. *)
-module Model =
-struct
-  (** Function interpretations 
-
-      A function interpretation is represented as a finite map and an 'else'.
-      Each entry in the finite map represents the value of a function given a set of arguments.  
-  *)
-  module FuncInterp =
-  struct
-
-    (** Function interpretations entries 
-
-	An Entry object represents an element in the finite map used to a function interpretation.
-    *)
-    module FuncEntry =
-    struct
-      (**
-	 Return the (symbolic) value of this entry.
-      *)
-      let get_value ( x : func_entry ) =
-	create_expr x#gc (Z3native.func_entry_get_value x#gnc x#gno)
-
-      (**
-	 The number of arguments of the entry.
-      *)
-      let get_num_args ( x : func_entry ) = Z3native.func_entry_get_num_args x#gnc x#gno
-	
-      (**
-	 The arguments of the function entry.
-      *)
-      let get_args ( x : func_entry ) =
-	let n = (get_num_args x) in
-	let f i = (create_expr x#gc (Z3native.func_entry_get_arg x#gnc x#gno i)) in
-	Array.init n f
-	  
-      (**
-	 A string representation of the function entry.
-      *)
-      let to_string ( x : func_entry ) =
-	let a = (get_args x) in
-	let f c p = (p ^ (Expr.to_string c) ^ ", ") in
-	"[" ^ Array.fold_right f a ((Expr.to_string (get_value x)) ^ "]")
-    end
-
-    (**
-       The number of entries in the function interpretation.
-    *)
-    let get_num_entries ( x: func_interp ) = Z3native.func_interp_get_num_entries x#gnc x#gno
-
-    (**
-       The entries in the function interpretation
-    *)
-    let get_entries ( x : func_interp ) =
-      let n = (get_num_entries x) in
-      let f i = ((new func_entry x#gc)#cnstr_obj (Z3native.func_interp_get_entry x#gnc x#gno i)) in
-      Array.init n f
-
-    (**
-       The (symbolic) `else' value of the function interpretation.
-    *)
-    let get_else ( x : func_interp ) = create_expr x#gc (Z3native.func_interp_get_else x#gnc x#gno)
-
-    (**
-       The arity of the function interpretation
-    *)
-    let get_arity ( x : func_interp ) = Z3native.func_interp_get_arity x#gnc x#gno
-
-    (**
-       A string representation of the function interpretation.
-    *)    
-    let to_string ( x : func_interp ) =     
-      let f c p = (
-	let n = (FuncEntry.get_num_args c) in
-	p ^ 
-	  let g c p = (p ^ (Expr.to_string c) ^ ", ") in
-	  (if n > 1 then "[" else "") ^
-	    (Array.fold_right 
-	       g 
-	       (FuncEntry.get_args c) 
-	       ((if n > 1 then "]" else "") ^ " -> " ^ (Expr.to_string (FuncEntry.get_value c)) ^ ", "))
-      ) in
-      Array.fold_right f (get_entries x) ("else -> " ^ (Expr.to_string (get_else x)) ^ "]")
-  end
-    
-  (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
-      <param name="f">A function declaration of zero arity</param>
-      <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
-  let get_const_interp ( x : model ) ( f : func_decl ) =
-    if (FuncDecl.get_arity f) != 0 ||
-      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
-      raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
-    else
-      let np = Z3native.model_get_const_interp x#gnc x#gno f#gno in
-      if (Z3native.is_null np) then
-	None
-      else
-	Some (create_expr x#gc np)
-
-  (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
-      <param name="a">A Constant</param>
-      <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
-  *)
-  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
-
-
-  (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
-      <param name="f">A function declaration of non-zero arity</param>
-      <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
-  let rec get_func_interp ( x : model ) ( f : func_decl ) =
-    let sk = (sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_range f#gnc f#gno))) in
-    if (FuncDecl.get_arity f) == 0 then
-      let n = Z3native.model_get_const_interp x#gnc x#gno f#gno in      
-      if (Z3native.is_null n) then
-	None 
-      else 
-	match sk with
-	  | ARRAY_SORT ->	    
-	    if not (Z3native.is_as_array x#gnc n) then
-	      raise (Z3native.Exception "Argument was not an array constant")
-	    else
-	      let fd = Z3native.get_as_array_func_decl x#gnc n in
-              get_func_interp x ((new func_decl f#gc)#cnstr_obj fd)
-	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
-    else
-      let n = (Z3native.model_get_func_interp x#gnc x#gno f#gno) in
-      if (Z3native.is_null n) then None else Some ((new func_interp x#gc)#cnstr_obj n)
-	
-  (** The number of constants that have an interpretation in the model. *)
-  let get_num_consts ( x : model ) = Z3native.model_get_num_consts x#gnc x#gno
-    
-  (** The function declarations of the constants in the model. *)
-  let get_const_decls ( x : model ) = 
-    let n = (get_num_consts x) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
-    Array.init n f
-      
-      
-  (** The number of function interpretations in the model. *)
-  let get_num_funcs ( x : model ) = Z3native.model_get_num_funcs x#gnc x#gno
-    
-  (** The function declarations of the function interpretations in the model. *)
-  let get_func_decls ( x : model ) = 
-    let n = (get_num_consts x) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
-    Array.init n f
-      
-  (** All symbols that have an interpretation in the model. *)
-  let get_decls ( x : model ) =
-    let n_funcs = (get_num_funcs x) in
-    let n_consts = (get_num_consts x ) in
-    let f i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_func_decl x#gnc x#gno i) in
-    let g i = (new func_decl x#gc)#cnstr_obj (Z3native.model_get_const_decl x#gnc x#gno i) in
-    Array.append (Array.init n_funcs f) (Array.init n_consts g)
-      
-  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
-  exception ModelEvaluationFailedException of string
-      
-  (**
-     Evaluates the expression <paramref name="t"/> in the current model.
-     
-     <remarks>
-     This function may fail if <paramref name="t"/> contains quantifiers, 
-     is partial (MODEL_PARTIAL enabled), or if <paramref name="t"/> is not well-sorted.
-     In this case a <c>ModelEvaluationFailedException</c> is thrown.
-
-     <param name="t">An expression</param>
-     <param name="completion">
-     When this flag is enabled, a model value will be assigned to any constant 
-     or function that does not have an interpretation in the model.
-     </param>
-     <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
-  *)
-  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
-    let (r, v) = (Z3native.model_eval x#gnc x#gno t#gno completion) in
-    if not r then
-      raise (ModelEvaluationFailedException "evaluation failed")
-    else
-      create_expr x#gc v
-
-  (** Alias for <c>eval</c>. *)
-  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
-    eval x t completion
-      
-  (** The number of uninterpreted sorts that the model has an interpretation for. *)
-  let get_num_sorts ( x : model ) = Z3native.model_get_num_sorts x#gnc x#gno
-    
-  (** The uninterpreted sorts that the model has an interpretation for. 
-      <remarks>
-      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
-      The interpretation for a sort is a finite set of distinct values. We say this finite set is
-      the "universe" of the sort.
-      <seealso cref="NumSorts"/>
-      <seealso cref="SortUniverse"/>
-  *)
-  let get_sorts ( x : model ) =
-    let n = (get_num_sorts x) in
-    let f i = (create_sort x#gc (Z3native.model_get_sort x#gnc x#gno i)) in
-    Array.init n f
-
-
-  (** The finite set of distinct values that represent the interpretation for sort <paramref name="s"/>. 
-      <seealso cref="Sorts"/>
-      <param name="s">An uninterpreted sort</param>
-      <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
-  *)
-  let sort_universe ( x : model ) ( s : sort ) =
-    let n_univ = (new ast_vector x#gc)#cnstr_obj (Z3native.model_get_sort_universe x#gnc x#gno s#gno) in
-    let n = (AST.ASTVector.get_size n_univ) in
-    let f i = (AST.ASTVector.get n_univ i) in
-    Array.init n f
-      
-  (** Conversion of models to strings. 
-      <returns>A string representation of the model.</returns>
-  *)
-  let to_string ( x : model ) = Z3native.model_to_string x#gnc x#gno 
-end
 
 (** Fixedpoint solving *)
 module Fixedpoints =
 struct
+  type fixedpoint = z3_native_object
+      
+(**/**)
+  let fixedpoint_cnstr ( ctx : context ) = 
+    let res : fixedpoint = { m_ctx = ctx ;
+			     m_n_obj = null ;
+			     inc_ref = Z3native.fixedpoint_inc_ref ;
+			     dec_ref = Z3native.fixedpoint_dec_ref } in
+    (z3obj_sno res ctx (Z3native.mk_fixedpoint (context_gno ctx))) ;
+    (z3obj_cnstr res) ;
+    res
+(**/**)
+
   (**
      A string that describes all available fixedpoint solver parameters.
   *)
   let get_help ( x : fixedpoint ) =
-    Z3native.fixedpoint_get_help x#gnc x#gno
+    Z3native.fixedpoint_get_help (z3obj_gnc x) (z3obj_gno x)
       
   (**
      Sets the fixedpoint solver parameters.
   *)
   let set_params ( x : fixedpoint ) ( p : params )=
-    Z3native.fixedpoint_set_params x#gnc x#gno p#gno
+    Z3native.fixedpoint_set_params (z3obj_gnc x) (z3obj_gno x) p#gno
       
   (**
      Retrieves parameter descriptions for Fixedpoint solver.
   *)
   let get_param_descrs ( x : fixedpoint ) =
-    (new param_descrs x#gc)#cnstr_obj (Z3native.fixedpoint_get_param_descrs x#gnc x#gno)
+    (new param_descrs (z3obj_gc x))#cnstr_obj (Z3native.fixedpoint_get_param_descrs (z3obj_gnc x) (z3obj_gno x))
       
   (**
      Assert a constraints into the fixedpoint solver.
   *)        
   let assert_ ( x : fixedpoint ) ( constraints : bool_expr array ) =
-    let f e = (Z3native.fixedpoint_assert x#gnc x#gno e#gno) in
+    let f e = (Z3native.fixedpoint_assert (z3obj_gnc x) (z3obj_gno x) e#gno) in
     ignore (Array.map f constraints) ;
     ()
 
@@ -5168,21 +5214,21 @@ struct
      Register predicate as recursive relation.
   *)       
   let register_relation ( x : fixedpoint ) ( f : func_decl ) =
-    Z3native.fixedpoint_register_relation x#gnc x#gno f#gno
+    Z3native.fixedpoint_register_relation (z3obj_gnc x) (z3obj_gno x) f#gno
       
   (**
      Add rule into the fixedpoint solver.
   *)        
   let add_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol option ) =
     match name with 
-      | None -> Z3native.fixedpoint_add_rule x#gnc x#gno rule#gno (Z3native.mk_null())
-      | Some(y) -> Z3native.fixedpoint_add_rule x#gnc x#gno rule#gno y#gno
+      | None -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno null
+      | Some(y) -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno y#gno
 
   (**
      Add table fact to the fixedpoint solver.
   *)        
   let add_fact ( x : fixedpoint ) ( pred : func_decl ) ( args : int array ) =
-    Z3native.fixedpoint_add_fact x#gnc x#gno pred#gno (Array.length args) args
+    Z3native.fixedpoint_add_fact (z3obj_gnc x) (z3obj_gno x) pred#gno (Array.length args) args
 
   (**
      Query the fixedpoint solver.
@@ -5191,7 +5237,7 @@ struct
      The query is unsatisfiable if there are no derivations satisfying the query variables. 
   *)        
   let query ( x : fixedpoint ) ( query : bool_expr ) =
-    match (lbool_of_int (Z3native.fixedpoint_query x#gnc x#gno query#gno)) with
+    match (lbool_of_int (Z3native.fixedpoint_query (z3obj_gnc x) (z3obj_gno x) query#gno)) with
       | L_TRUE -> Solver.SATISFIABLE
       | L_FALSE -> Solver.UNSATISFIABLE
       | _ -> Solver.UNKNOWN
@@ -5203,7 +5249,7 @@ struct
      The query is unsatisfiable if there are no derivations satisfying any of the relations.
   *)        
   let query_r ( x : fixedpoint ) ( relations : func_decl array ) =
-    match (lbool_of_int (Z3native.fixedpoint_query_relations x#gnc x#gno (Array.length relations) (func_declaton relations))) with
+    match (lbool_of_int (Z3native.fixedpoint_query_relations (z3obj_gnc x) (z3obj_gno x) (Array.length relations) (func_declaton relations))) with
       | L_TRUE -> Solver.SATISFIABLE
       | L_FALSE -> Solver.UNSATISFIABLE
       | _ -> Solver.UNKNOWN
@@ -5213,7 +5259,7 @@ struct
      <seealso cref="Pop"/>
   *)
   let push ( x : fixedpoint ) =
-    Z3native.fixedpoint_push x#gnc x#gno
+    Z3native.fixedpoint_push (z3obj_gnc x) (z3obj_gno x)
       
   (**
      Backtrack one backtracking point.
@@ -5222,94 +5268,93 @@ struct
      <seealso cref="Push"/>
   *)
   let pop ( x : fixedpoint ) =
-    Z3native.fixedpoint_pop x#gnc x#gno
+    Z3native.fixedpoint_pop (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Update named rule into in the fixedpoint solver.
   *)        
   let update_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol ) =
-    Z3native.fixedpoint_update_rule x#gnc x#gno rule#gno name#gno
+    Z3native.fixedpoint_update_rule (z3obj_gnc x) (z3obj_gno x) rule#gno name#gno
 
   (**
      Retrieve satisfying instance or instances of solver, 
      or definitions for the recursive predicates that show unsatisfiability.
   *)                
   let get_answer ( x : fixedpoint ) =
-    let q = (Z3native.fixedpoint_get_answer x#gnc x#gno) in
+    let q = (Z3native.fixedpoint_get_answer (z3obj_gnc x) (z3obj_gno x)) in
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr x#gc q)
+      Some (create_expr (z3obj_gc x) q)
 
   (**
      Retrieve explanation why fixedpoint engine returned status Unknown.
   *)                
   let get_reason_unknown ( x : fixedpoint ) =
-    Z3native.fixedpoint_get_reason_unknown x#gnc x#gno
+    Z3native.fixedpoint_get_reason_unknown (z3obj_gnc x) (z3obj_gno x)
 
   (**
      Retrieve the number of levels explored for a given predicate.
   *)                
   let get_num_levels ( x : fixedpoint ) ( predicate : func_decl ) =
-    Z3native.fixedpoint_get_num_levels x#gnc x#gno predicate#gno
+    Z3native.fixedpoint_get_num_levels (z3obj_gnc x) (z3obj_gno x) predicate#gno
 
   (**
      Retrieve the cover of a predicate.
   *)                
   let get_cover_delta ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) =
-    let q = (Z3native.fixedpoint_get_cover_delta x#gnc x#gno level predicate#gno) in
+    let q = (Z3native.fixedpoint_get_cover_delta (z3obj_gnc x) (z3obj_gno x) level predicate#gno) in
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr x#gc q)
+      Some (create_expr (z3obj_gc x) q)
 	
   (**
      Add <tt>property</tt> about the <tt>predicate</tt>.
      The property is added at <tt>level</tt>.
   *)                
   let add_cover ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) ( property : expr ) =
-    Z3native.fixedpoint_add_cover x#gnc x#gno level predicate#gno, property#gno
+    Z3native.fixedpoint_add_cover (z3obj_gnc x) (z3obj_gno x) level predicate#gno property#gno
       
   (**
      Retrieve internal string representation of fixedpoint object.
   *)                
-  let to_string ( x : fixedpoint ) = Z3native.fixedpoint_to_string x#gnc x#gno 0 [||]
+  let to_string ( x : fixedpoint ) = Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) 0 [||]
       
   (**
      Instrument the Datalog engine on which table representation to use for recursive predicate.
   *)                
   let set_predicate_representation ( x : fixedpoint ) ( f : func_decl ) ( kinds : symbol array ) =
-    Z3native.fixedpoint_set_predicate_representation x#gnc x#gno f#gno (Array.length kinds) (symbolaton kinds)
+    Z3native.fixedpoint_set_predicate_representation (z3obj_gnc x) (z3obj_gno x) f#gno (Array.length kinds) (symbolaton kinds)
 
   (**
      Convert benchmark given as set of axioms, rules and queries to a string.
   *)                
   let to_string_q ( x : fixedpoint ) ( queries : bool_expr array ) =
-    Z3native.fixedpoint_to_string x#gnc x#gno (Array.length queries) (astaton queries)
+    Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) (Array.length queries) (astaton queries)
 
   (**
      Retrieve set of rules added to fixedpoint context.
   *)                
   let get_rules ( x : fixedpoint ) = 
-    let v = ((new ast_vector x#gc)#cnstr_obj (Z3native.fixedpoint_get_rules x#gnc x#gno)) in
+    let v = ((new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
     let n = (AST.ASTVector.get_size v) in
-    let f i = (new bool_expr x#gc)#cnstr_obj (AST.ASTVector.get v i)#gno in
+    let f i = (new bool_expr (z3obj_gc x))#cnstr_obj (AST.ASTVector.get v i)#gno in
     Array.init n f
 
   (**
      Retrieve set of assertions added to fixedpoint context.
   *)                
   let get_assertions ( x : fixedpoint ) = 
-    let v = ((new ast_vector x#gc)#cnstr_obj (Z3native.fixedpoint_get_assertions x#gnc x#gno)) in
+    let v = ((new ast_vector (z3obj_gc x))#cnstr_obj (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
     let n = (AST.ASTVector.get_size v) in
-    let f i = (new bool_expr x#gc)#cnstr_obj (AST.ASTVector.get v i)#gno in
+    let f i = (new bool_expr (z3obj_gc x))#cnstr_obj (AST.ASTVector.get v i)#gno in
     Array.init n f
 
   (**
      Create a Fixedpoint context.
   *)
-  let mk_fixedpoint ( ctx : context ) =
-    (new fixedpoint ctx)#cnstr_obj (Z3native.mk_fixedpoint (context_gno ctx)) 
+  let mk_fixedpoint ( ctx : context ) = fixedpoint_cnstr ctx
 end
 
 (** Global and context options
