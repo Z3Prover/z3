@@ -4651,10 +4651,6 @@ namespace realclosure {
             return compare(a.m_value, b.m_value);
         }
 
-        void select(numeral const & prev, numeral const & next, numeral & result) {
-            // TODO
-        }
-
         struct collect_algebraic_refs {
             char_vector            m_visited; // Set of visited algebraic extensions.
             ptr_vector<algebraic>  m_found;   // vector/list of visited algebraic extensions.
@@ -5129,11 +5125,6 @@ namespace realclosure {
         return gt(a, _b);
     }
 
-    void manager::select(numeral const & prev, numeral const & next, numeral & result) {
-        save_interval_ctx ctx(this);
-        m_imp->select(prev, next, result);
-    }
-        
     void manager::display(std::ostream & out, numeral const & a) const {
         save_interval_ctx ctx(this);
         m_imp->display(out, a);

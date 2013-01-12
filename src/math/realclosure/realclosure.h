@@ -251,13 +251,6 @@ namespace realclosure {
         bool ge(numeral const & a, numeral const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpq const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpz const & b) { return !lt(a, b); }
-
-        /**
-           \brief Store in result a value in the interval (prev, next)
-           
-           \pre lt(pre, next)
-        */
-        void select(numeral const & prev, numeral const & next, numeral & result);
         
         void display(std::ostream & out, numeral const & a) const;
 
