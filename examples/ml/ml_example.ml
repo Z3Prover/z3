@@ -14,7 +14,6 @@ open Z3.Tactic.ApplyResult
 open Z3.Probe
 open Z3.Solver
 open Z3.Arithmetic
-open Z3.Fixedpoints
 
 exception TestFailedException of string
 
