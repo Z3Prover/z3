@@ -1925,7 +1925,7 @@ namespace realclosure {
                 SASSERT(new_M_s.m() == new_taqrs.size());  
                 SASSERT(new_M_s.m() == new_prs.size());
                 // The system must have a solution
-                sc_cardinalities.resize(new_taqrs.size());
+                sc_cardinalities.resize(new_taqrs.size(), 0);
                 // Solve
                 //    new_M_s * sc_cardinalities = new_taqrs
                 VERIFY(mm().solve(new_M_s, sc_cardinalities.c_ptr(), new_taqrs.c_ptr()));
@@ -3383,7 +3383,9 @@ namespace realclosure {
                 scoped_mpbqi num_i(bqim()), den_i(bqim());
                 polynomial_interval(v->num(), v->ext()->interval(), num_i);
                 polynomial_interval(v->den(), v->ext()->interval(), den_i);
-                div(num_i, den_i, inc_precision(prec, 2), v->interval());
+                if (!contains_zero(num_i) && !contains_zero(den_i)) {
+                    div(num_i, den_i, inc_precision(prec, 2), v->interval());
+                }
             }
         }
 
@@ -3883,7 +3885,7 @@ namespace realclosure {
                         }
                     }
                     int_buffer   sc_cardinalities;
-                    sc_cardinalities.resize(new_taqrs.size());
+                    sc_cardinalities.resize(new_taqrs.size(), 0);
                     // Solve
                     //    new_M_s * sc_cardinalities = new_taqrs
                     VERIFY(mm().solve(new_M_s, sc_cardinalities.c_ptr(), new_taqrs.c_ptr()));
