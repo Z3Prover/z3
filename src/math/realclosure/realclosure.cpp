@@ -3475,12 +3475,17 @@ namespace realclosure {
                 value_ref_buffer p_prime(*this);
                 value_ref_buffer g(*this);
                 derivative(sz, p, p_prime);
-                gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
+                if (m_use_prem)
+                    prem_gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
+                else
+                    gcd(sz, p, p_prime.size(), p_prime.c_ptr(), g);
                 if (g.size() <= 1) {
                     r.append(sz, p);
                 }
                 else {
                     div(sz, p, g.size(), g.c_ptr(), r);
+                    if (m_use_prem)
+                        normalize_int_coeffs(r);
                 }
             }
         }
