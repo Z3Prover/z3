@@ -231,8 +231,13 @@ public:
         SASSERT(size() == nsz);
     }
 
-private:
-    buffer& operator=(buffer const&);
+    buffer & operator=(buffer const & other) {
+        if (this == &other)
+            return *this;
+        reset();
+        append(other);
+        return *this;
+    }
 };
 
 template<typename T, unsigned INITIAL_SIZE=16>

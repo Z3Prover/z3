@@ -251,8 +251,10 @@ class mpz_manager {
     }
     
     void mk_big(mpz & a) {
-        if (a.m_ptr == 0)
+        if (a.m_ptr == 0) {
+            a.m_val = 0;
             a.m_ptr = allocate();
+        }
     }
 #endif 
 
@@ -374,7 +376,7 @@ public:
     }
 
 
-    // d <- a + b*c
+    // d <- a - b*c
     void submul(mpz const & a, mpz const & b, mpz const & c, mpz & d) {
         if (is_one(b)) {
             sub(a, c, d);
@@ -676,10 +678,18 @@ public:
 
     int64 get_int64(mpz const & a) const;
 
+    bool is_uint(mpz const & a) const { return is_uint64(a) && get_uint64(a) < UINT_MAX; }
+    
+    unsigned get_uint(mpz const & a) const { SASSERT(is_uint(a)); return static_cast<unsigned>(get_uint64(a)); }
+
+    bool is_int(mpz const & a) const { return is_int64(a) && INT_MIN < get_int64(a) && get_int64(a) < INT_MAX; }
+    
+    int get_int(mpz const & a) const { SASSERT(is_int(a)); return static_cast<int>(get_int64(a)); }
+
     double get_double(mpz const & a) const;
 
     std::string to_string(mpz const & a) const; 
-    
+
     void display(std::ostream & out, mpz const & a) const;
 
     /**

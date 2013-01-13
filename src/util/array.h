@@ -53,11 +53,11 @@ private:
         set_data(mem, sz);
     }
 
-    void init() {
+    void init(T const & v) {
         iterator it = begin();
         iterator e  = end();
         for (; it != e; ++it) {
-            new (it) T();
+            new (it) T(v);
         }
     }
     
@@ -122,7 +122,7 @@ public:
         if (m_data) {
             if (CallDestructors)
                 destroy_elements();
-            a.deallocate(size(), raw_ptr);
+            a.deallocate(size(), raw_ptr());
             m_data = 0;
         }
     }
@@ -137,7 +137,14 @@ public:
     void set(Allocator & a, size_t sz, T const * vs) {
         SASSERT(m_data == 0);
         allocate(a, sz);
-        init(sz, vs);
+        init(vs);
+    }
+
+    template<typename Allocator>
+    void set(Allocator & a, size_t sz, T const & v = T()) {
+        SASSERT(m_data == 0);
+        allocate(a, sz);
+        init(v);
     }
 
     size_t size() const { 
@@ -175,7 +182,13 @@ public:
         return m_data + size(); 
     }
 
+    T const * c_ptr() const { return m_data; }
     T * c_ptr() { return m_data; }
+
+    void swap(array & other) {
+        std::swap(m_data, other.m_data);
+    }
+
 };
 
 template<typename T>

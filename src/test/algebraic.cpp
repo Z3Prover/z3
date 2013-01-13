@@ -176,11 +176,11 @@ static void tst1() {
     display_anums(std::cout, rs1);
 }
 
-void tst_refine_mpbq() {
+void tst_refine_mpbq(int n, int d) {
     unsynch_mpq_manager qm;
     mpbq_manager        bqm(qm);
     scoped_mpq q1(qm);
-    qm.set(q1, 5, 7);
+    qm.set(q1, n, d);
     scoped_mpbq l(bqm);
     scoped_mpbq u(bqm);
     std::cout << "using refine upper...\n";
@@ -205,6 +205,10 @@ void tst_refine_mpbq() {
         bqm.display_decimal(std::cout, u, 20); std::cout << std::endl;
         bqm.refine_lower(q1, l, u);
     }
+}
+
+void tst_refine_mpbq() {
+    tst_refine_mpbq(5, 7);
 }
 
 void tst_mpbq_root() {

@@ -37,6 +37,7 @@ namespace api {
     public:
         object():m_ref_count(0) {}
         virtual ~object() {}
+        unsigned ref_count() const { return m_ref_count; }
         void inc_ref() { m_ref_count++; }
         void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
     };
