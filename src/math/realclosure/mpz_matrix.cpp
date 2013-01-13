@@ -44,7 +44,8 @@ void mpz_matrix_manager::mk(unsigned m, unsigned n, mpz_matrix & A) {
     del(A);
     A.m = m;
     A.n = n;
-    A.a_ij = new (m_allocator) mpz[m*n];
+    void * mem = m_allocator.allocate(sizeof(mpz)*m*n);
+    A.a_ij = new (mem) mpz[m*n];
 }
 
 void mpz_matrix_manager::del(mpz_matrix & A) {
@@ -409,7 +410,7 @@ void mpz_matrix_manager::display(std::ostream & out, mpz_matrix const & A, unsig
                 out << " ";
             std::string s = nm().to_string(A(i, j));
             if (s.size() < cell_width) {
-                unsigned space = cell_width - s.size();
+                unsigned space = cell_width - static_cast<unsigned>(s.size());
                 for (unsigned k = 0; k < space; k++) 
                     out << " ";
             }

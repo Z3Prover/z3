@@ -267,10 +267,10 @@ namespace realclosure {
         void clean_denominators(numeral const & a, numeral & p, numeral & q);
     };
 
-    class value;
+    struct value;
     class num {
         friend class manager;
-        friend class manager::imp;
+        friend struct manager::imp;
         value * m_value;
     public:
         num():m_value(0) {}

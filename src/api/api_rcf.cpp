@@ -25,23 +25,23 @@ Notes:
 #include"api_context.h"
 #include"realclosure.h"
 
+static rcmanager & rcfm(Z3_context c) {
+    return mk_c(c)->rcfm();
+}
+
+static void reset_rcf_cancel(Z3_context c) {
+    rcfm(c).reset_cancel();
+}
+
+static Z3_rcf_num from_rcnumeral(rcnumeral a) { 
+    return reinterpret_cast<Z3_rcf_num>(a.c_ptr()); 
+}
+
+static rcnumeral to_rcnumeral(Z3_rcf_num a) { 
+    return rcnumeral::mk(a); 
+}
+
 extern "C" {
-
-    static rcmanager & rcfm(Z3_context c) {
-        return mk_c(c)->rcfm();
-    }
-
-    static void reset_rcf_cancel(Z3_context c) {
-        rcfm(c).reset_cancel();
-    }
-
-    static rcnumeral to_rcnumeral(Z3_rcf_num a) { 
-        return rcnumeral::mk(a); 
-    }
-
-    static Z3_rcf_num from_rcnumeral(rcnumeral a) { 
-        return reinterpret_cast<Z3_rcf_num>(a.c_ptr()); 
-    }
 
     void Z3_API Z3_rcf_del(Z3_context c, Z3_rcf_num a) {
         Z3_TRY;

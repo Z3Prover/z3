@@ -97,10 +97,10 @@ namespace realclosure {
             void set_upper_is_open(bool f) { m_upper_open = f; }
             numeral const & lower() const { return m_lower; }
             numeral const & upper() const { return m_upper; }
-            bool lower_is_inf() const { return m_lower_inf; }
-            bool upper_is_inf() const { return m_upper_inf; }
-            bool lower_is_open() const { return m_lower_open; }
-            bool upper_is_open() const { return m_upper_open; }
+            bool lower_is_inf() const { return m_lower_inf != 0; }
+            bool upper_is_inf() const { return m_upper_inf != 0; }
+            bool lower_is_open() const { return m_lower_open != 0; }
+            bool upper_is_open() const { return m_upper_open != 0; }
         };
 
         void set_rounding(bool to_plus_inf) { m_manager.m_to_plus_inf = to_plus_inf; }
@@ -112,10 +112,10 @@ namespace realclosure {
         numeral const & upper(interval const & a) const { return a.m_upper; }
         numeral & lower(interval & a) { return a.m_lower; }
         numeral & upper(interval & a) { return a.m_upper; }
-        bool lower_is_open(interval const & a) const { return a.m_lower_open; }
-        bool upper_is_open(interval const & a) const { return a.m_upper_open; }
-        bool lower_is_inf(interval const & a) const { return a.m_lower_inf; }
-        bool upper_is_inf(interval const & a) const { return a.m_upper_inf; }
+        bool lower_is_open(interval const & a) const { return a.lower_is_open(); }
+        bool upper_is_open(interval const & a) const { return a.upper_is_open(); }
+        bool lower_is_inf(interval const & a) const { return a.lower_is_inf(); }
+        bool upper_is_inf(interval const & a) const { return a.upper_is_inf(); }
         
         // Setters
         void set_lower(interval & a, numeral const & n) { m_manager.set(a.m_lower, n); }
@@ -637,7 +637,8 @@ namespace realclosure {
                 return; // interval was already saved.
             to_restore.push_back(v);
             inc_ref(v);
-            v->m_old_interval = new (allocator()) mpbqi();
+	    void * mem = allocator().allocate(sizeof(mpbqi));
+            v->m_old_interval = new (mem) mpbqi();
             set_interval(*(v->m_old_interval), v->m_interval);
         }
         void save_interval(value * v) {
@@ -1201,7 +1202,8 @@ namespace realclosure {
         }
 
         sign_condition * mk_sign_condition(unsigned qidx, int sign, sign_condition * prev_sc) {
-            return new (allocator()) sign_condition(qidx, sign, prev_sc);
+	    void * mem = allocator().allocate(sizeof(sign_condition));
+            return new (mem) sign_condition(qidx, sign, prev_sc);
         }
 
         /**
@@ -1748,7 +1750,8 @@ namespace realclosure {
            M and scs will be empty after this operation.
         */
         sign_det * mk_sign_det(mpz_matrix & M_s, scoped_polynomial_seq const & prs, int_buffer const & taqrs, scoped_polynomial_seq const & qs, scoped_sign_conditions & scs) {
-            sign_det * r = new (allocator()) sign_det();
+	    void * mem = allocator().allocate(sizeof(sign_det));
+            sign_det * r = new (mem) sign_det();
             r->M_s.swap(M_s);
             set_array_p(r->m_prs, prs);
             r->m_taqrs.set(allocator(), taqrs.size(), taqrs.c_ptr());
@@ -1763,7 +1766,8 @@ namespace realclosure {
          */
         algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sc_idx) {
             unsigned idx = next_algebraic_idx();
-            algebraic * r = new (allocator()) algebraic(idx);
+	    void * mem = allocator().allocate(sizeof(algebraic));
+            algebraic * r = new (mem) algebraic(idx);
             m_extensions[extension::ALGEBRAIC].push_back(r);
             
             set_p(r->m_p, p_sz, p);
@@ -2495,7 +2499,8 @@ namespace realclosure {
         }
 
         rational_value * mk_rational() {
-            return new (allocator()) rational_value();
+	    void * mem = allocator().allocate(sizeof(rational_value));
+            return new (mem) rational_value();
         }
 
         /**
