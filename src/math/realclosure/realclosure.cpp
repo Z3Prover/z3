@@ -1280,6 +1280,12 @@ namespace realclosure {
                 inc_ref(m_e);
             }
         }
+
+        // ---------------------------------
+        //
+        // Root isolation
+        //
+        // ---------------------------------
        
         /**
            \brief r <- magnitude of the lower bound of |i|.
@@ -2305,6 +2311,12 @@ namespace realclosure {
             }
         }
 
+        // ---------------------------------
+        //
+        // Basic operations
+        //
+        // ---------------------------------
+
         void reset(numeral & a) {
             del(a);
             SASSERT(is_zero(a));
@@ -2520,62 +2532,11 @@ namespace realclosure {
             a.m_value = n.m_value;
         }
 
-        /**
-           \brief a <- b^{1/k}
-        */
-        void root(numeral const & a, unsigned k, numeral & b) {
-            if (k == 0)
-                throw exception("0-th root is indeterminate");
-            
-            if (k == 1 || is_zero(a)) {
-                set(b, a);
-                return;
-            }
-
-            if (sign(a) < 0 && k % 2 == 0)
-                throw exception("even root of negative number");
-            
-            // create the polynomial p of the form x^k - a
-            value_ref_buffer p(*this);
-            value_ref neg_a(*this);
-            neg(a.m_value, neg_a);
-            p.push_back(neg_a);
-            for (unsigned i = 0; i < k - 1; i++)
-                p.push_back(0);
-            p.push_back(one());
-            
-            numeral_vector roots;
-            nz_isolate_roots(p.size(), p.c_ptr(), roots);
-            SASSERT(roots.size() == 1 || roots.size() == 2);
-            if (roots.size() == 1 || sign(roots[0].m_value) > 0) {
-                set(b, roots[0]);
-            }
-            else {
-                SASSERT(roots.size() == 2);
-                SASSERT(sign(roots[1].m_value) > 0);
-                set(b, roots[1]);
-            }
-            del(roots);
-        }
-      
-        /**
-           \brief a <- b^k
-        */
-        void power(numeral const & a, unsigned k, numeral & b) {
-            unsigned mask = 1;
-            value_ref power(*this);
-            value_ref _b(*this);
-            power = a.m_value;
-            _b = one();
-            while (mask <= k) {
-                checkpoint();
-                if (mask & k)
-                    mul(_b, power, _b);
-                mul(power, power, power);
-                mask = mask << 1;
-            }
-            set(b, _b);
-        }
+        // ---------------------------------
+        //
+        // Polynomial arithmetic in RCF
+        //
+        // ---------------------------------
 
         /**
            \brief Remove 0s
@@ -2947,6 +2908,12 @@ namespace realclosure {
             if (d % 2 == 0 || (sz2 > 0 && sign(p2[sz2-1]) < 0))
                 neg(r);
         }
+
+        // ---------------------------------
+        //
+        // GCD
+        //
+        // ---------------------------------
         
         /**
            \brief Force the leading coefficient of p to be 1.
@@ -3005,6 +2972,12 @@ namespace realclosure {
                 }
             }
         }
+
+        // ---------------------------------
+        //
+        // Derivatives and Sturm-Tarski Sequences
+        //
+        // ---------------------------------
 
         /**
            \brief r <- dp/dx
@@ -3107,6 +3080,13 @@ namespace realclosure {
             seq.push(p1_prime_p2.size(), p1_prime_p2.c_ptr());
             sturm_seq_core(seq);
         }
+
+        // ---------------------------------
+        //
+        // Sign evaluation for polynomials
+        // That is, sign of p(x) at b
+        //
+        // ---------------------------------
         
         /**
            \brief Return the sign of p(0)
@@ -3285,6 +3265,12 @@ namespace realclosure {
             }
         }
 
+        // ---------------------------------
+        //
+        // Sign variations in polynomial sequences.
+        //
+        // ---------------------------------
+
         enum location {
             ZERO,
             MINUS_INF,
@@ -3380,6 +3366,12 @@ namespace realclosure {
                 return sign_variations_at(seq, interval.upper());
         }
 
+        // ---------------------------------
+        //
+        // Tarski-Queries (see BPR book)
+        //
+        // ---------------------------------
+
         /**
            \brief Given a polynomial Sturm sequence seq for (P; P' * Q) and an interval (a, b], it returns
                  TaQ(Q, P; a, b) = 
@@ -3425,6 +3417,12 @@ namespace realclosure {
             sturm_seq(p_sz, p, seq);
             return TaQ(seq, interval);
         }
+
+        // ---------------------------------
+        //
+        // Interval refinement
+        //
+        // ---------------------------------
             
         void refine_rational_interval(rational_value * v, unsigned prec) {
             mpbqi & i = interval(v);
@@ -3686,6 +3684,12 @@ namespace realclosure {
                     return refine_algebraic_interval(rf, prec);
             }
         }
+
+        // ---------------------------------
+        //
+        // Sign determination
+        //
+        // ---------------------------------
 
         /**
            \brief Return the position of the first non-zero coefficient of p.
@@ -4155,6 +4159,12 @@ namespace realclosure {
             SASSERT(is_rational_function(r.get()));
             return determine_sign(to_rational_function(r.get()));
         }
+
+        // ---------------------------------
+        //
+        // Arithmetic operations
+        //
+        // ---------------------------------
 
         /**
            \brief Set new_p1 and new_p2 using the following normalization rules:
@@ -4734,6 +4744,69 @@ namespace realclosure {
             div(a.m_value, b.m_value, r);
             set(c, r);
         }
+
+        /**
+           \brief a <- b^{1/k}
+        */
+        void root(numeral const & a, unsigned k, numeral & b) {
+            if (k == 0)
+                throw exception("0-th root is indeterminate");
+            
+            if (k == 1 || is_zero(a)) {
+                set(b, a);
+                return;
+            }
+
+            if (sign(a) < 0 && k % 2 == 0)
+                throw exception("even root of negative number");
+            
+            // create the polynomial p of the form x^k - a
+            value_ref_buffer p(*this);
+            value_ref neg_a(*this);
+            neg(a.m_value, neg_a);
+            p.push_back(neg_a);
+            for (unsigned i = 0; i < k - 1; i++)
+                p.push_back(0);
+            p.push_back(one());
+            
+            numeral_vector roots;
+            nz_isolate_roots(p.size(), p.c_ptr(), roots);
+            SASSERT(roots.size() == 1 || roots.size() == 2);
+            if (roots.size() == 1 || sign(roots[0].m_value) > 0) {
+                set(b, roots[0]);
+            }
+            else {
+                SASSERT(roots.size() == 2);
+                SASSERT(sign(roots[1].m_value) > 0);
+                set(b, roots[1]);
+            }
+            del(roots);
+        }
+      
+        /**
+           \brief a <- b^k
+        */
+        void power(numeral const & a, unsigned k, numeral & b) {
+            unsigned mask = 1;
+            value_ref power(*this);
+            value_ref _b(*this);
+            power = a.m_value;
+            _b = one();
+            while (mask <= k) {
+                checkpoint();
+                if (mask & k)
+                    mul(_b, power, _b);
+                mul(power, power, power);
+                mask = mask << 1;
+            }
+            set(b, _b);
+        }
+
+        // ---------------------------------
+        //
+        // Comparison
+        //
+        // ---------------------------------
 
         int compare(value * a, value * b) {
             if (a == 0)
