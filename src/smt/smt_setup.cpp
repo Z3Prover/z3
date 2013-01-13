@@ -275,7 +275,8 @@ namespace smt {
                 m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
         }
         else {
-            if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants) {
+            if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
+                || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {
                 // if (!st.m_has_rational && !m_params.m_model && st.m_arith_k_sum < rational(INT_MAX / 8)) {
                 //   TRACE("rdl_bug", tout << "using theory_smi_arith\n";);
                 //    m_context.register_plugin(alloc(smt::theory_smi_arith, m_manager, m_params));

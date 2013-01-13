@@ -53,6 +53,8 @@ Version 4.3.2
 
 - Fixed crash reported at http://z3.codeplex.com/workitem/11.
 
+- Fixed bug reported at http://stackoverflow.com/questions/14307692/unknown-when-using-defs
+
 Version 4.3.1
 =============
 
