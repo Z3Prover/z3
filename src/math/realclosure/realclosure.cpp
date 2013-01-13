@@ -366,11 +366,13 @@ namespace realclosure {
         ptr_vector<value>              m_to_restore; //!< Set of values v s.t. v->m_old_interval != 0
         
         // Parameters
+        bool                           m_use_prem; //!< use pseudo-remainder when computing sturm sequences
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
         unsigned                       m_max_precision; //!< Maximum precision for interval arithmetic techniques, it switches to complete methods after that
         unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
         scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
         scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
+        
 
         // Tracing
         unsigned                       m_exec_depth;
@@ -675,6 +677,7 @@ namespace realclosure {
         }
         
         void updt_params(params_ref const & p) {
+            m_use_prem       = p.get_bool("use_prem", true);
             m_ini_precision  = p.get_uint("initial_precision", 24);
             m_inf_precision  = p.get_uint("inf_precision", 24);
             m_max_precision  = p.get_uint("max_precision", 64); // == 1/2^64  for interval arithmetic methods, it switches to complete methods after that.
@@ -2826,6 +2829,63 @@ namespace realclosure {
         }
 
         /**
+           \brief r <- prem(p1, p2) Pseudo-remainder
+           
+           We are working on a field, but it is useful to use the pseudo-remainder algorithm because
+           it does not create rational function values.
+           That is, if has_clean_denominators(p1) and has_clean_denominators(p2) then has_clean_denominators(r).
+        */
+        void prem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, unsigned & d, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
+            TRACE("rcf_prem", 
+                  tout << "prem\n";
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";);
+            d = 0;
+            r.reset();
+            SASSERT(sz2 > 0);
+            if (sz2 == 1)
+                return;
+            r.append(sz1, p1);
+            if (sz1 <= 1)
+                return; // r is p1
+            value * b_n = p2[sz2 - 1];
+            SASSERT(b_n != 0);
+            value_ref a_m(*this);
+            value_ref new_a(*this);
+            while (true) {
+                checkpoint();
+                sz1 = r.size();
+                if (sz1 < sz2) {
+                    TRACE("rcf_prem", tout << "prem result\n"; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
+                    return;
+                }
+                unsigned m_n = sz1 - sz2;
+                // r:  a_m * x^m + a_{m-1} * x^{m-1} + ... + a_0
+                // p2: b_n * x^n + b_{n-1} * x^{n-1} + ... + b_0
+                d++;
+                a_m = r[sz1 - 1];
+                // don't need to update position sz1 - 1, since it will become 0
+                if (!is_rational_one(b_n)) {
+                    for (unsigned i = 0; i < sz1 - 1; i++) {
+                        mul(r[i], b_n, new_a);
+                        r.set(i, new_a);
+                    }
+                }
+                // buffer: a_m * x^m + b_n * a_{m-1} * x^{m-1} + ... + b_n * a_0
+                // don't need to process i = sz2 - 1, because r[sz1 - 1] will become 0.
+                for (unsigned i = 0; i < sz2 - 1; i++) {
+                    mul(a_m, p2[i], new_a);
+                    sub(r[i + m_n], new_a, new_a);
+                    r.set(i + m_n, new_a);
+                }
+                r.shrink(sz1 - 1);
+                adjust_size(r);
+            }
+        }
+
+        /**
            \brief r <- -p
         */
         void neg(unsigned sz, value * const * p, value_ref_buffer & r) {
@@ -2873,6 +2933,20 @@ namespace realclosure {
             SASSERT(p2 != r.c_ptr());
             rem(sz1, p1, sz2, p2, r);
             neg(r);
+        }
+
+        /**
+           \brief r <- sprem(p1, p2)  
+           Signed pseudo remainder
+        */
+        void sprem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
+            unsigned d;
+            prem(sz1, p1, sz2, p2, d, r);
+            // We should not flip the sign if d is odd and leading coefficient of p2 is negative.
+            if (d % 2 == 0 || (sz2 > 0 && sign(p2[sz2-1]) < 0))
+                neg(r);
         }
         
         /**
@@ -2986,7 +3060,10 @@ namespace realclosure {
             value_ref_buffer r(*this);
             while (true) {
                 unsigned sz = seq.size();
-                srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
+                if (m_use_prem)
+                    sprem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
+                else
+                    srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
                 TRACE("rcf_sturm_seq",
                       tout << "sturm_seq_core [" << m_exec_depth << "], new polynomial\n";
                       display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
