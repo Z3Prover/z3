@@ -2931,7 +2931,7 @@ namespace realclosure {
             unsigned d;
             prem(sz1, p1, sz2, p2, d, r);
             // We should not flip the sign if d is odd and leading coefficient of p2 is negative.
-            if (d % 2 == 0 || (sz2 > 0 && sign(p2[sz2-1]) < 0))
+            if (d % 2 == 0 || (sz2 > 0 && sign(p2[sz2-1]) > 0))
                 neg(r);
         }
 
