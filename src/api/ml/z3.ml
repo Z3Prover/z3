@@ -135,39 +135,145 @@ object (self)
   method gnc = (context_gno m_ctx)
 end
 
-(** Symbol objects *)
-class symbol ctx =
-object (self)
-  inherit z3object ctx None as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method incref nc o = ()
-  method decref nc o = ()
-end
 
-(** Int symbol objects *)
-class int_symbol ctx =
-object(self)
-  inherit symbol ctx as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_int i = (self#sno ctx (Z3native.mk_int_symbol (context_gno ctx) i)) ; self
-end
 
-(** String symbol objects *)
-class string_symbol ctx =
-object(self)
-  inherit symbol ctx as super
-  method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_string name = (self#sno ctx (Z3native.mk_string_symbol (context_gno ctx) name)) ; self
-end
+type z3_native_object = { 
+  m_ctx : context ; 
+  mutable m_n_obj : Z3native.ptr ; 
+  inc_ref : Z3native.z3_context -> Z3native.ptr -> unit;
+  dec_ref : Z3native.z3_context -> Z3native.ptr -> unit }
 
-let symbolaton (a : symbol array) =
-  let f (e : symbol) = e#gno in 
+let z3obj_gc o = o.m_ctx
+let z3obj_gnc o = (context_gno o.m_ctx)
+
+let z3obj_gno o = o.m_n_obj
+let z3obj_sno o ctx no =
+  (context_add1 ctx) ;
+  o.inc_ref (context_gno ctx) no ;
+  (
+    if not (is_null o.m_n_obj) then
+      o.dec_ref (context_gno ctx) o.m_n_obj ; 
+    (context_sub1 ctx)
+  ) ;
+  o.m_n_obj <- no
+
+let z3obj_dispose o =
+  if not (is_null o.m_n_obj) then
+    (
+      o.dec_ref (z3obj_gnc o) o.m_n_obj ;
+      (context_sub1 (z3obj_gc o))
+    ) ;
+  o.m_n_obj <- null
+    
+let z3obj_cnstr o = 
+  let f = fun o -> (z3obj_dispose o) in
+  Gc.finalise f o
+
+let z3obj_nil_ref x y = ()
+
+let array_to_native a =
+  let f e = (z3obj_gno e) in 
   Array.map f a
+(**/**)
 
-let create_symbol ctx no =
-  match (symbol_kind_of_int (Z3native.get_symbol_kind (context_gno ctx) no)) with
-    | INT_SYMBOL -> (((new int_symbol ctx)#cnstr_obj no) :> symbol)
-    | STRING_SYMBOL -> (((new string_symbol ctx)#cnstr_obj no) :> symbol)
+
+(** Symbols are used to name several term and type constructors *)
+module Symbol =
+struct
+  (** Int symbol objects *)
+  type int_symbol = z3_native_object
+      
+  (** String symbol objects *)
+  and string_symbol = z3_native_object
+
+  and symbol = 
+    | IntSymbol of int_symbol
+    | StringSymbol of string_symbol 
+	
+  (**/**)
+  let cnstr_i ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : int_symbol = { m_ctx = ctx ;
+			     m_n_obj = null ;
+			     inc_ref = z3obj_nil_ref ;
+			     dec_ref = z3obj_nil_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_cnstr res) ;
+    res
+  let cnstr_s ( ctx : context ) ( no : Z3native.ptr ) = 
+    let res : string_symbol = { m_ctx = ctx ;
+				m_n_obj = null ;
+				inc_ref = z3obj_nil_ref ;
+				dec_ref = z3obj_nil_ref } in
+    (z3obj_sno res ctx no) ;
+    (z3obj_cnstr res) ;
+    res
+      
+  let gnc ( x : symbol ) = 
+    match x with
+      | IntSymbol(n) -> (z3obj_gnc n)
+      | StringSymbol(n) -> (z3obj_gnc n)
+	
+  let gno ( x : symbol ) = 
+    match x with
+      | IntSymbol(n) -> (z3obj_gno n)
+      | StringSymbol(n) -> (z3obj_gno n)
+	
+  let create ( ctx : context ) ( no : Z3native.ptr ) =
+    match (symbol_kind_of_int (Z3native.get_symbol_kind (context_gno ctx) no)) with
+      | INT_SYMBOL -> IntSymbol (cnstr_i ctx no)
+      | STRING_SYMBOL -> StringSymbol (cnstr_s ctx no)
+	
+  let aton a =
+    let f e = (gno e) in 
+    Array.map f a     
+  (**/**)
+
+  (** The kind of the symbol (int or string) *)
+  let kind ( o : symbol ) = (symbol_kind_of_int (Z3native.get_symbol_kind (gnc o) (gno o)))
+    
+  (** Indicates whether the symbol is of Int kind *)
+  let is_int_symbol ( o : symbol ) = (kind o) == INT_SYMBOL
+
+  (** Indicates whether the symbol is of string kind. *)
+  let is_string_symbol ( o : symbol ) = (kind o) == STRING_SYMBOL
+
+  (** The int value of the symbol. *)
+  let get_int (o : int_symbol) = Z3native.get_symbol_int (z3obj_gnc o) (z3obj_gno o)
+
+  (** The string value of the symbol. *)
+  let get_string (o : string_symbol) = Z3native.get_symbol_string (z3obj_gnc o) (z3obj_gno o)
+
+  (** A string representation of the symbol. *)
+  let to_string ( o : symbol ) = 
+    match (kind o) with
+      | INT_SYMBOL -> (string_of_int (Z3native.get_symbol_int (gnc o) (gno o)))
+      | STRING_SYMBOL -> (Z3native.get_symbol_string (gnc o) (gno o))
+
+  (**
+     Creates a new symbol using an integer.
+     
+     Not all integers can be passed to this function.
+     The legal range of unsigned integers is 0 to 2^30-1.
+  *)
+  let mk_int ( ctx : context ) ( i : int ) = 
+    IntSymbol (cnstr_i ctx (Z3native.mk_int_symbol (context_gno ctx) i))
+      
+  (** Creates a new symbol using a string. *)
+  let mk_string ( ctx : context ) ( s : string ) =
+    StringSymbol (cnstr_s ctx (Z3native.mk_string_symbol (context_gno ctx) s))
+
+  (** Create an array of symbols. *)
+  let mk_ints ( ctx : context ) ( names : int array ) =
+    let f elem = mk_int ( ctx : context ) elem in
+    (Array.map f names)
+
+  (** Create an array of symbols. *)
+  let mk_strings ( ctx : context ) ( names : string array ) =
+    let f elem = mk_string ( ctx : context ) elem in
+    (Array.map f names)      
+end
+
+(**/**)
       
 (** AST objects *)
 class ast ctx =
@@ -242,7 +348,7 @@ class uninterpreted_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_s (s : symbol) = (self #sno ctx (Z3native.mk_uninterpreted_sort (context_gno ctx) s#gno)) ; self
+  method cnstr_s (s : Symbol.symbol) = (self #sno ctx (Z3native.mk_uninterpreted_sort (context_gno ctx) (Symbol.gno s))) ; self
 end
 
 (** Finite domain sort objects *)
@@ -250,7 +356,7 @@ class finite_domain_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_si (s : symbol) ( sz : int )= (self #sno ctx (Z3native.mk_finite_domain_sort (context_gno ctx) s#gno sz)) ; self
+  method cnstr_si (s : Symbol.symbol) ( sz : int )= (self #sno ctx (Z3native.mk_finite_domain_sort (context_gno ctx) (Symbol.gno s) sz)) ; self
 end
 
 (** Relation sort objects *)
@@ -273,8 +379,8 @@ class tuple_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_siss (name : symbol) (num_fields: int) (field_names : symbol array) (field_sorts : sort array) =
-    let (x,_,_) = (Z3native.mk_tuple_sort (context_gno ctx) name#gno num_fields (symbolaton field_names) (astaton field_sorts)) in
+  method cnstr_siss (name : Symbol.symbol) (num_fields: int) (field_names : Symbol.symbol array) (field_sorts : sort array) =
+    let (x,_,_) = (Z3native.mk_tuple_sort (context_gno ctx) (Symbol.gno name) num_fields (Symbol.aton field_names) (astaton field_sorts)) in
     (self#sno ctx x) ;
     self
 end
@@ -285,7 +391,7 @@ class func_decl ctx =
 object (self)
   inherit ast ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ndr (name : symbol) (domain : sort array) (range : sort)  = (self#sno ctx (Z3native.mk_func_decl (context_gno ctx) name#gno (Array.length domain) (astaton domain) range#gno)) ; self
+  method cnstr_ndr (name : Symbol.symbol) (domain : sort array) (range : sort)  = (self#sno ctx (Z3native.mk_func_decl (context_gno ctx) (Symbol.gno name) (Array.length domain) (astaton domain) range#gno)) ; self
   method cnstr_pdr (prefix : string) (domain : sort array) (range : sort) = (self#sno ctx (Z3native.mk_fresh_func_decl (context_gno ctx) prefix (Array.length domain) (astaton domain) range#gno)) ; self
 
   method incref nc o = super#incref nc o
@@ -303,8 +409,8 @@ object (self)
   val mutable _constdecls : func_decl array option = None
   val mutable _testerdecls : func_decl array option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ss (name : symbol) (enum_names : symbol array) = 
-    let (r, a, b) = (Z3native.mk_enumeration_sort (context_gno ctx) name#gno (Array.length enum_names) (symbolaton enum_names)) in
+  method cnstr_ss (name : Symbol.symbol) (enum_names : Symbol.symbol array) = 
+    let (r, a, b) = (Z3native.mk_enumeration_sort (context_gno ctx) (Symbol.gno name) (Array.length enum_names) (Symbol.aton enum_names)) in
     _constdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f a)) ;
     _testerdecls <- Some (let f e = (new func_decl ctx)#cnstr_obj e in (Array.map f b)) ;
     (self#sno ctx r) ; 
@@ -330,8 +436,8 @@ object (self)
   val mutable _headdecl : func_decl option = None
   val mutable _taildecl : func_decl option = None
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_ss (name : symbol) (elem_sort : sort) =
-    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort (context_gno ctx) name#gno elem_sort#gno) in
+  method cnstr_ss (name : Symbol.symbol) (elem_sort : sort) =
+    let (r, a, b, c, d, e, f) = (Z3native.mk_list_sort (context_gno ctx) (Symbol.gno name) elem_sort#gno) in
     _nildecl <- Some ((new func_decl ctx)#cnstr_obj a) ;
     _is_nildecl <- Some ((new func_decl ctx)#cnstr_obj b) ;
     _consdecl <- Some ((new func_decl ctx)#cnstr_obj c) ;
@@ -381,7 +487,7 @@ object (self)
   let v = self in
   Gc.finalise f v
 
-  method cnstr_ssssi (name : symbol) (recognizer : symbol) (field_names : symbol array) (sorts : sort array) (sort_refs : int array) =
+  method cnstr_ssssi (name : Symbol.symbol) (recognizer : Symbol.symbol) (field_names : Symbol.symbol array) (sorts : sort array) (sort_refs : int array) =
     m_n <- (Array.length field_names) ;
     if m_n != (Array.length sorts) then
       raise (Z3native.Exception "Number of field names does not match number of sorts")
@@ -389,7 +495,7 @@ object (self)
       if m_n != (Array.length sort_refs) then
 	raise (Z3native.Exception "Number of field names does not match number of sort refs")
       else
-        let o = (Z3native.mk_constructor (context_gno ctx) name#gno recognizer#gno m_n (symbolaton field_names)
+        let o = (Z3native.mk_constructor (context_gno ctx) (Symbol.gno name) (Symbol.gno recognizer) m_n (Symbol.aton field_names)
 		   (sortaton sorts)
 		   sort_refs) in
 	self#sno ctx o ; 
@@ -449,7 +555,7 @@ class datatype_sort ctx =
 object (self)
   inherit sort ctx as super
   method cnstr_obj obj = (self#sno ctx obj) ; self
-  method cnstr_sc (name : symbol) (constructors : constructor array) = (self#sno ctx (fst (Z3native.mk_datatype (context_gno ctx) name#gno (Array.length constructors) (constructoraton constructors)))) ; self
+  method cnstr_sc (name : Symbol.symbol) (constructors : constructor array) = (self#sno ctx (fst (Z3native.mk_datatype (context_gno ctx) (Symbol.gno name) (Array.length constructors) (constructoraton constructors)))) ; self
 end
 
 let create_sort ctx obj =
@@ -571,43 +677,6 @@ let patternaton (a : pattern array) =
   let f (e : pattern) = e#gno in 
   Array.map f a
 
-
-type z3_native_object = { 
-  m_ctx : context ; 
-  mutable m_n_obj : Z3native.ptr ; 
-  inc_ref : Z3native.z3_context -> Z3native.ptr -> unit;
-  dec_ref : Z3native.z3_context -> Z3native.ptr -> unit }
-
-let z3obj_gc o = o.m_ctx
-let z3obj_gnc o = (context_gno o.m_ctx)
-
-let z3obj_gno o = o.m_n_obj
-let z3obj_sno o ctx no =
-  (context_add1 ctx) ;
-  o.inc_ref (context_gno ctx) no ;
-  (
-    if not (is_null o.m_n_obj) then
-      o.dec_ref (context_gno ctx) o.m_n_obj ; 
-    (context_sub1 ctx)
-  ) ;
-  o.m_n_obj <- no
-
-let z3obj_dispose o =
-  if not (is_null o.m_n_obj) then
-    (
-      o.dec_ref (z3obj_gnc o) o.m_n_obj ;
-      (context_sub1 (z3obj_gc o))
-    ) ;
-  o.m_n_obj <- null
-    
-let z3obj_cnstr o = 
-  let f = fun o -> (z3obj_dispose o) in
-  Gc.finalise f o
-
-let array_to_native a =
-  let f e = (z3obj_gno e) in 
-  Array.map f a
-
 (**/**)
 
 
@@ -656,58 +725,6 @@ struct
       string_of_int rev ^ "."
 end
 
-(** Symbols are used to name several term and type constructors *)
-module Symbol =
-struct	
-  (** The kind of the symbol (int or string) *)
-  let kind (o : symbol) = (symbol_kind_of_int (Z3native.get_symbol_kind o#gnc o#gno))
-
-  (** Indicates whether the symbol is of Int kind *)
-  let is_int_symbol (o : symbol) = (kind o) == INT_SYMBOL
-
-  (** Indicates whether the symbol is of string kind. *)
-  let is_string_symbol (o : symbol) = (kind o) == STRING_SYMBOL
-
-  (** The int value of the symbol. *)
-  let get_int (o : int_symbol) = Z3native.get_symbol_int o#gnc o#gno
-
-  (** The string value of the symbol. *)
-  let get_string (o : string_symbol) = Z3native.get_symbol_string o#gnc o#gno
-
-  (** A string representation of the symbol. *)
-  let to_string (o : symbol) = 
-    match (kind o) with
-      | INT_SYMBOL -> (string_of_int (Z3native.get_symbol_int o#gnc o#gno))
-      | STRING_SYMBOL -> (Z3native.get_symbol_string o#gnc o#gno)
-
-  (**
-     Creates a new symbol using an integer.
-     
-     Not all integers can be passed to this function.
-     The legal range of unsigned integers is 0 to 2^30-1.
-  *)
-  let mk_int ( ctx : context ) i = 
-    (new int_symbol ctx)#cnstr_int i
-      
-  (** Creates a new symbol using a string. *)
-  let mk_string ( ctx : context ) s =
-    (new string_symbol ctx)#cnstr_string s
-
-  (**
-     Create an array of symbols.
-  *)
-  let mk_ints ( ctx : context ) ( names : int array ) =
-    let f elem = mk_int ( ctx : context ) elem in
-    (Array.map f names)
-
-  (**
-     Create an array of symbols.
-  *)
-  let mk_strings ( ctx : context ) ( names : string array ) =
-    let f elem = mk_string ( ctx : context ) elem in
-    (Array.map f names)      
-end
-
 
 (** The Sort module implements type information for ASTs *)
 module Sort =
@@ -738,7 +755,7 @@ struct
   (**
      The name of the sort
   *)
-  let get_name (x : sort) = (create_symbol x#gc (Z3native.get_sort_name x#gnc x#gno))    
+  let get_name (x : sort) = (Symbol.create x#gc (Z3native.get_sort_name x#gnc x#gno))    
     
   (**
      A string representation of the sort.
@@ -754,14 +771,14 @@ struct
   (**
      Create a new uninterpreted sort.
   *)
-  let mk_uninterpreted ( ctx : context ) (s : symbol) =
+  let mk_uninterpreted ( ctx : context ) ( s : Symbol.symbol ) =
     (new uninterpreted_sort ctx)#cnstr_s s
 
   (**
      Create a new uninterpreted sort.
   *)
-  let mk_uninterpreted_s ( ctx : context ) (s : string) =
-    mk_uninterpreted ctx ((Symbol.mk_string ( ctx : context ) s) :> symbol)
+  let mk_uninterpreted_s ( ctx : context ) ( s : string ) =
+    mk_uninterpreted ctx (Symbol.mk_string ( ctx : context ) s)
 end 
 
 (**/**)
@@ -817,7 +834,7 @@ struct
       m_kind : parameter_kind ;
       m_i : int ;
       m_d : float ;
-      m_sym : symbol option ;
+      m_sym : Symbol.symbol option ;
       m_srt : sort option ;
       m_ast : ast option ;
       m_fd : func_decl option ;
@@ -961,14 +978,14 @@ struct
   (**
      Creates a new function declaration.
   *)
-  let mk_func_decl ( ctx : context ) ( name : symbol ) ( domain : sort array ) ( range : sort) =
+  let mk_func_decl ( ctx : context ) ( name : Symbol.symbol ) ( domain : sort array ) ( range : sort) =
     (new func_decl ctx)#cnstr_ndr name domain range
 
   (**
      Creates a new function declaration.
   *)
   let mk_func_decl_s ( ctx : context ) ( name : string ) ( domain : sort array ) ( range : sort) =
-    mk_func_decl ctx ((Symbol.mk_string ctx name) :> symbol) domain range
+    mk_func_decl ctx (Symbol.mk_string ctx name) domain range
 
   (**
      Creates a fresh function declaration with a name prefixed with <paramref name="prefix"/>.
@@ -981,7 +998,7 @@ struct
   (**
      Creates a new constant function declaration.
   *)
-  let mk_const_decl ( ctx : context ) ( name : symbol ) ( range : sort) =
+  let mk_const_decl ( ctx : context ) ( name : Symbol.symbol ) ( range : sort) =
     (new func_decl ctx)#cnstr_ndr name [||]  range
 
 
@@ -989,7 +1006,7 @@ struct
      Creates a new constant function declaration.
   *)
   let mk_const_decl_s ( ctx : context ) ( name : string ) ( range : sort) =
-    (new func_decl ctx)#cnstr_ndr ((Symbol.mk_string ctx name) :> symbol) [||]  range
+    (new func_decl ctx)#cnstr_ndr (Symbol.mk_string ctx name) [||]  range
 
   (**
      Creates a fresh constant function declaration with a name prefixed with <paramref name="prefix"/>.
@@ -1055,7 +1072,7 @@ struct
   (**
      The name of the function declaration
   *)
-  let get_name (x : func_decl) = (create_symbol x#gc (Z3native.get_decl_name x#gnc x#gno))
+  let get_name (x : func_decl) = (Symbol.create x#gc (Z3native.get_decl_name x#gnc x#gno))
 
   (**
      The number of parameters of the function declaration
@@ -1071,7 +1088,7 @@ struct
       match (parameter_kind_of_int (Z3native.get_decl_parameter_kind x#gnc x#gno i)) with
 	| PARAMETER_INT -> Parameter.cnstr_int (Z3native.get_decl_int_parameter x#gnc x#gno i)
 	| PARAMETER_DOUBLE -> Parameter.cnstr_double (Z3native.get_decl_double_parameter x#gnc x#gno i)
-	| PARAMETER_SYMBOL-> Parameter.cnstr_symbol (Some (create_symbol x#gc (Z3native.get_decl_symbol_parameter x#gnc x#gno i)))
+	| PARAMETER_SYMBOL-> Parameter.cnstr_symbol (Some (Symbol.create x#gc (Z3native.get_decl_symbol_parameter x#gnc x#gno i)))
         | PARAMETER_SORT -> Parameter.cnstr_sort (Some (create_sort x#gc (Z3native.get_decl_sort_parameter x#gnc x#gno i)))
 	| PARAMETER_AST -> Parameter.cnstr_ast (Some (create_ast x#gc (Z3native.get_decl_ast_parameter x#gnc x#gno i)))
         | PARAMETER_FUNC_DECL -> Parameter.cnstr_func_decl (Some ((new func_decl x#gc)#cnstr_obj (Z3native.get_decl_func_decl_parameter x#gnc x#gno i)))
@@ -1375,13 +1392,13 @@ struct
       Z3native.params_validate (z3obj_gnc x) (z3obj_gno p) (z3obj_gno x)
 	
     (** Retrieve kind of parameter. *)
-    let get_kind ( x : param_descrs ) ( name : symbol ) = 
-      (param_kind_of_int (Z3native.param_descrs_get_kind (z3obj_gnc x) (z3obj_gno x) name#gno))
+    let get_kind ( x : param_descrs ) ( name : Symbol.symbol ) = 
+      (param_kind_of_int (Z3native.param_descrs_get_kind (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name)))
 	
     (** Retrieve all names of parameters. *)
     let get_names ( x : param_descrs ) =
       let n = Z3native.param_descrs_size (z3obj_gnc x) (z3obj_gno x) in
-      let f i = create_symbol (z3obj_gc x) (Z3native.param_descrs_get_name (z3obj_gnc x) (z3obj_gno x) i) in
+      let f i = Symbol.create (z3obj_gc x) (Z3native.param_descrs_get_name (z3obj_gnc x) (z3obj_gno x) i) in
       Array.init n f
 	
     (** The size of the ParamDescrs. *)
@@ -1394,50 +1411,50 @@ struct
   (**
      Adds a parameter setting.
   *)
-  let add_bool ( x : params ) ( name : symbol ) ( value : bool ) =
-    Z3native.params_set_bool (z3obj_gnc x) (z3obj_gno x) name#gno value
+  let add_bool ( x : params ) ( name : Symbol.symbol ) ( value : bool ) =
+    Z3native.params_set_bool (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) value
       
   (**
      Adds a parameter setting.
   *)
-  let add_int ( x : params )  (name : symbol ) ( value : int ) =
-    Z3native.params_set_uint (z3obj_gnc x) (z3obj_gno x) name#gno value
+  let add_int ( x : params )  (name : Symbol.symbol ) ( value : int ) =
+    Z3native.params_set_uint (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) value
       
   (**
      Adds a parameter setting.
   *)
-  let add_double ( x : params ) ( name : symbol ) ( value : float ) =
-    Z3native.params_set_double (z3obj_gnc x) (z3obj_gno x) name#gno value
+  let add_double ( x : params ) ( name : Symbol.symbol ) ( value : float ) =
+    Z3native.params_set_double (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) value
 
   (**
      Adds a parameter setting.
   *)
-  let add_symbol ( x : params ) ( name : symbol ) ( value : symbol ) =
-    Z3native.params_set_symbol (z3obj_gnc x) (z3obj_gno x) name#gno value#gno
+  let add_symbol ( x : params ) ( name : Symbol.symbol ) ( value : Symbol.symbol ) =
+    Z3native.params_set_symbol (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) (Symbol.gno value)
 
   (**
      Adds a parameter setting.
   *)
-  let add_s_bool ( x : params ) ( name : string) ( value : bool ) =
-    add_bool x ((new symbol (z3obj_gc x))#cnstr_obj (Z3native.mk_string_symbol (z3obj_gnc x) name)) value
+  let add_s_bool ( x : params ) ( name : string ) ( value : bool ) =
+    add_bool x (Symbol.mk_string (z3obj_gc x) name) value
       
   (**
      Adds a parameter setting.
   *)
   let add_s_int ( x : params) ( name : string ) ( value : int ) =
-    add_int x ((new symbol (z3obj_gc x))#cnstr_obj (Z3native.mk_string_symbol (z3obj_gnc x) name)) value
+    add_int x (Symbol.mk_string (z3obj_gc x) name) value
       
   (**
      Adds a parameter setting.
   *)
   let add_s_double ( x : params ) ( name : string ) ( value : float ) =
-    add_double x ((new symbol (z3obj_gc x))#cnstr_obj (Z3native.mk_string_symbol (z3obj_gnc x) name)) value
+    add_double x (Symbol.mk_string (z3obj_gc x) name) value
 
   (**
      Adds a parameter setting.
   *)
-  let add_s_symbol ( x : params ) ( name : string ) ( value : symbol ) =
-    add_symbol x ((new symbol (z3obj_gc x))#cnstr_obj (Z3native.mk_string_symbol (z3obj_gnc x) name)) value
+  let add_s_symbol ( x : params ) ( name : string ) ( value : Symbol.symbol ) =
+    add_symbol x (Symbol.mk_string (z3obj_gc x) name) value
 
   (**
      Creates a new parameter set
@@ -1662,15 +1679,15 @@ struct
   (**
      Creates a new Constant of sort <paramref name="range"/> and named <paramref name="name"/>.
   *)
-  let mk_const ( ctx : context ) ( name : symbol ) ( range : sort ) =
-    create_expr ctx (Z3native.mk_const (context_gno ctx) name#gno range#gno)
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
+    create_expr ctx (Z3native.mk_const (context_gno ctx) (Symbol.gno name) range#gno)
       
 
   (**
      Creates a new Constant of sort <paramref name="range"/> and named <paramref name="name"/>.
   *)
   let mk_const_s ( ctx : context ) ( name : string ) ( range : sort ) =
-    mk_const ctx ((Symbol.mk_string ctx name) :> symbol) range
+    mk_const ctx (Symbol.mk_string ctx name)range
 
 
   (**
@@ -1690,14 +1707,14 @@ struct
   (**
      Create a Boolean constant.
   *)        
-  let mk_bool_const ( ctx : context ) ( name : symbol ) =
+  let mk_bool_const ( ctx : context ) ( name : Symbol.symbol ) =
     ((mk_const ctx name (Sort.mk_bool ctx)) :> bool_expr)
       
   (**
      Create a Boolean constant.
   *)        
   let mk_bool_const_s ( ctx : context ) ( name : string ) =
-    mk_bool_const ctx ((Symbol.mk_string ctx name) :> symbol)
+    mk_bool_const ctx (Symbol.mk_string ctx name)
 
   (**
      Create a new function application.
@@ -1907,7 +1924,7 @@ struct
   *)
   let get_bound_variable_names ( x : quantifier ) =
     let n = (get_num_bound x) in
-    let f i = (create_symbol x#gc (Z3native.get_quantifier_bound_name x#gnc x#gno i)) in
+    let f i = (Symbol.create x#gc (Z3native.get_quantifier_bound_name x#gnc x#gno i)) in
     Array.init n f
       
   (**
@@ -1960,7 +1977,7 @@ struct
      @param quantifierID optional symbol to track quantifier.
      @param skolemID optional symbol to track skolem constants.
   *)
-  let mk_forall ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_forall ( ctx : context ) ( sorts : sort array ) ( names : Symbol.symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
@@ -1968,23 +1985,23 @@ struct
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length patterns) (patternaton patterns)
 					(Array.length sorts) (astaton sorts)
-					(astaton names)
+					(Symbol.aton names)
 					body#gno)
     else
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match quantifier_id with | None -> null | Some(x) -> x#gno)
-					(match skolem_id with | None -> null | Some(x) -> x#gno)
+					(match quantifier_id with | None -> null | Some(x) -> (Symbol.gno x))
+					(match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 					(Array.length patterns) (patternaton patterns)
 					(Array.length nopatterns) (patternaton nopatterns)
 					(Array.length sorts) (astaton sorts)
-					(astaton names)
+					(Symbol.aton names)
 					body#gno)
 
   (**
      Create a universal Quantifier.
   *)
-  let mk_forall_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_forall_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
@@ -1994,8 +2011,8 @@ struct
     else
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) true
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match quantifier_id with | None -> null | Some(x) -> x#gno)
-					(match skolem_id with | None -> null | Some(x) -> x#gno)
+					(match quantifier_id with | None -> null | Some(x) -> (Symbol.gno x))
+					(match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 					(Array.length bound_constants) (expraton bound_constants)
 					(Array.length patterns) (patternaton patterns)
 					(Array.length nopatterns) (patternaton nopatterns)
@@ -2004,7 +2021,7 @@ struct
      Create an existential Quantifier.
      <seealso cref="MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
   *)
-  let mk_exists ( ctx : context ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_exists ( ctx : context ) ( sorts : sort array ) ( names : Symbol.symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (Array.length sorts) != (Array.length names) then
       raise (Z3native.Exception "Number of sorts does not match number of names")
     else if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
@@ -2012,23 +2029,23 @@ struct
 					(match weight with | None -> 1 | Some(x) -> x)
 					(Array.length patterns) (patternaton patterns)
 					(Array.length sorts) (astaton sorts)
-					(astaton names)
+					(Symbol.aton names)
 					body#gno)
     else
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match quantifier_id with | None -> null | Some(x) -> x#gno)
-					(match skolem_id with | None -> null | Some(x) -> x#gno)
+					(match quantifier_id with | None -> null | Some(x) -> (Symbol.gno x))
+					(match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 					(Array.length patterns) (patternaton patterns)
 					(Array.length nopatterns) (patternaton nopatterns)
 					(Array.length sorts) (astaton sorts)
-					(astaton names)
+					(Symbol.aton names)
 					body#gno)
 
   (**
      Create an existential Quantifier.
   *)
-  let mk_exists_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_exists_const ( ctx : context ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if ((Array.length nopatterns) == 0 && quantifier_id == None && skolem_id == None) then
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
@@ -2038,8 +2055,8 @@ struct
     else
       (new quantifier ctx)#cnstr_obj (Z3native.mk_quantifier_const_ex (context_gno ctx) false
 					(match weight with | None -> 1 | Some(x) -> x)
-					(match quantifier_id with | None -> null | Some(x) -> x#gno)
-					(match skolem_id with | None -> null | Some(x) -> x#gno)
+					(match quantifier_id with | None -> null | Some(x) -> (Symbol.gno x))
+					(match skolem_id with | None -> null | Some(x) -> (Symbol.gno x))
 					(Array.length bound_constants) (expraton bound_constants)
 					(Array.length patterns) (patternaton patterns)
 					(Array.length nopatterns) (patternaton nopatterns)
@@ -2048,7 +2065,7 @@ struct
   (**
      Create a Quantifier.
   *)
-  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : sort array ) ( names : symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_quantifier ( ctx : context ) ( universal : bool ) ( sorts : sort array ) ( names : Symbol.symbol array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (universal) then
       (mk_forall ctx sorts names body weight patterns nopatterns quantifier_id skolem_id)
     else
@@ -2058,7 +2075,7 @@ struct
   (**
      Create a Quantifier.
   *)
-  let mk_quantifier ( ctx : context ) ( universal : bool ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : symbol option ) ( skolem_id : symbol option ) =
+  let mk_quantifier ( ctx : context ) ( universal : bool ) ( bound_constants : expr array ) ( body : expr) ( weight : int option ) ( patterns : pattern array ) ( nopatterns : pattern array ) ( quantifier_id : Symbol.symbol option ) ( skolem_id : Symbol.symbol option ) =
     if (universal) then
       mk_forall_const ctx bound_constants body weight patterns nopatterns quantifier_id skolem_id
     else
@@ -2128,14 +2145,14 @@ struct
   (**
      Create an array constant.
   *)        
-  let mk_const ( ctx : context ) ( name : symbol ) ( domain : sort ) ( range : sort ) =	
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( domain : sort ) ( range : sort ) =	
     ((Expr.mk_const ctx name ((mk_sort ctx domain range) :> sort)) :> array_expr)
       
   (**
      Create an array constant.
   *)        
   let mk_const_s ( ctx : context ) ( name : string ) ( domain : sort ) ( range : sort ) =	
-    mk_const ctx ((Symbol.mk_string ctx name) :> symbol) domain range
+    mk_const ctx (Symbol.mk_string ctx name) domain range
       
   (**
      Array read.       
@@ -2307,14 +2324,14 @@ struct
   (**
      Create a new finite domain sort.
   *)
-  let mk_sort ( ctx : context ) ( name : symbol ) size =
+  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) size =
     (new finite_domain_sort ctx)#cnstr_si name size
       
   (**
      Create a new finite domain sort.
   *)
   let mk_sort_s ( ctx : context ) ( name : string ) size =
-    (new finite_domain_sort ctx)#cnstr_si ((Symbol.mk_string ctx name) :> symbol) size
+    (new finite_domain_sort ctx)#cnstr_si (Symbol.mk_string ctx name) size
 
 
   (**
@@ -2488,7 +2505,7 @@ struct
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared.
   *)
-  let mk_constructor ( ctx : context ) ( name : symbol ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
+  let mk_constructor ( ctx : context ) ( name : Symbol.symbol ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
     (new constructor ctx)#cnstr_ssssi name recognizer field_names sorts sort_refs
 
 
@@ -2502,32 +2519,32 @@ struct
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared.
   *)
-  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
-    mk_constructor ctx ((Symbol.mk_string ctx name) :> symbol) recognizer field_names sorts sort_refs
+  let mk_constructor_s ( ctx : context ) ( name : string ) ( recognizer : Symbol.symbol ) ( field_names : Symbol.symbol array ) ( sorts : sort array ) ( sort_refs : int array ) =
+    mk_constructor ctx (Symbol.mk_string ctx name) recognizer field_names sorts sort_refs
 
 
   (**
      Create a new datatype sort.
   *)
-  let mk_sort ( ctx : context ) ( name : symbol ) ( constructors : constructor array) =
+  let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( constructors : constructor array) =
     (new datatype_sort ctx)#cnstr_sc name constructors
 
   (**
      Create a new datatype sort.
   *)
   let mk_sort_s ( ctx : context ) ( name : string ) ( constructors : constructor array) =
-    mk_sort ctx ((Symbol.mk_string ctx name) :> symbol) constructors
+    mk_sort ctx (Symbol.mk_string ctx name) constructors
       
   (**
      Create mutually recursive datatypes.
      @param names names of datatype sorts
      @param c list of constructors, one list per sort.
   *)
-  let mk_sorts ( ctx : context ) ( names : symbol array ) ( c : constructor array array ) =
+  let mk_sorts ( ctx : context ) ( names : Symbol.symbol array ) ( c : constructor array array ) =
     let n = (Array.length names) in
     let f e = ( (new constructor_list ctx)#cnstr_ca e ) in
     let cla = (Array.map f c) in
-    let (r, a) = (Z3native.mk_datatypes (context_gno ctx) n (symbolaton names) (constructor_listaton cla)) in
+    let (r, a) = (Z3native.mk_datatypes (context_gno ctx) n (Symbol.aton names) (constructor_listaton cla)) in
     let g e = ( (new datatype_sort ctx)#cnstr_obj e) in
     (Array.map g r)
 
@@ -2535,7 +2552,7 @@ struct
   let mk_sorts_s ( ctx : context ) ( names : string array ) ( c : constructor array array ) =
     mk_sorts ctx 
       ( 
-	let f e = ((Symbol.mk_string ctx e) :> symbol) in
+	let f e = (Symbol.mk_string ctx e) in
 	Array.map f names 
       )
       c
@@ -2581,10 +2598,8 @@ struct
   *)
   let mk_sort_s ( ctx : context ) name enum_names =
     (new enum_sort ctx)#cnstr_ss 
-      ((Symbol.mk_string ( ctx : context ) name) :> symbol) 
-      (let f e = (e :> symbol) in
-       (Array.map f (Symbol.mk_strings ( ctx : context ) enum_names))
-      )
+      (Symbol.mk_string ctx name)
+      (Symbol.mk_strings ctx enum_names)
 
   (** The function declarations of the constants in the enumeration. *)
   let get_const_decls (x : enum_sort) = x#const_decls
@@ -2599,15 +2614,14 @@ struct
   (**
      Create a new list sort.
   *)
-  let mk_sort ( ctx : context ) (name : symbol) elem_sort =
+  let mk_sort ( ctx : context ) (name : Symbol.symbol) elem_sort =
     (new list_sort ctx)#cnstr_ss name elem_sort
       
   (**
      Create a new list sort.
   *)
   let mk_list_s ( ctx : context ) (name : string) elem_sort =
-    mk_sort ctx ((Symbol.mk_string ctx name) :> symbol) elem_sort
-
+    mk_sort ctx (Symbol.mk_string ctx name) elem_sort
 
   (** The declaration of the nil function of this list sort. *)
   let get_nil_decl (x : list_sort) = x#nil_decl
@@ -2805,26 +2819,26 @@ struct
   (**
      Creates an integer constant.
   *)        
-  let mk_int_const ( ctx : context ) ( name : symbol ) =
+  let mk_int_const ( ctx : context ) ( name : Symbol.symbol ) =
     ((Expr.mk_const ctx name (mk_int_sort ctx)) :> int_expr)
 
   (**
      Creates an integer constant.
   *)
   let mk_int_const_s ( ctx : context ) ( name : string )  =
-    mk_int_const ctx ((Symbol.mk_string ctx name) :> symbol)
+    mk_int_const ctx (Symbol.mk_string ctx name)
 
   (**
      Creates a real constant.
   *)
-  let mk_real_const ( ctx : context ) ( name : symbol )  =
+  let mk_real_const ( ctx : context ) ( name : Symbol.symbol )  =
     ((Expr.mk_const ctx name (mk_real_sort ctx)) :> real_expr)
       
   (**
      Creates a real constant.
   *)
   let mk_real_const_s ( ctx : context ) ( name : string )  =
-    mk_real_const ctx ((Symbol.mk_string ctx name) :> symbol)
+    mk_real_const ctx (Symbol.mk_string ctx name)
 
   (**
      Create an expression representing <c>t[0] + t[1] + ...</c>.
@@ -3300,14 +3314,14 @@ struct
   (**
      Creates a bit-vector constant.
   *)
-  let mk_const ( ctx : context ) ( name : symbol ) ( size : int ) =
+  let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( size : int ) =
     ((Expr.mk_const ctx name (mk_sort ctx size)) :> bitvec_expr)
 
   (**
      Creates a bit-vector constant.
   *)
   let mk_const_s ( ctx : context ) ( name : string ) ( size : int ) =
-    mk_const ctx ((Symbol.mk_string ctx name) :> symbol) size
+    mk_const ctx (Symbol.mk_string ctx name) size
 
   (**
      Bitwise negation.
@@ -5242,17 +5256,17 @@ struct
      check-sat command, and check-sat commands that take more than a given 
      number of milliseconds to be solved. 
   *)    
-  let mk_solver ( ctx : context ) ( logic : symbol option) =
+  let mk_solver ( ctx : context ) ( logic : Symbol.symbol option ) =
     match logic with
       | None -> (cnstr ctx (Z3native.mk_solver (context_gno ctx)))
-      | Some (x) -> (cnstr ctx (Z3native.mk_solver_for_logic (context_gno ctx) x#gno))
+      | Some (x) -> (cnstr ctx (Z3native.mk_solver_for_logic (context_gno ctx) (Symbol.gno x)))
 
   (**
      Creates a new (incremental) solver.
      <seealso cref="MkSolver(Symbol)"/>
   *)        
   let mk_solver_s ( ctx : context ) ( logic : string ) =
-    mk_solver ctx (Some ((Symbol.mk_string ctx logic) :> symbol))
+    mk_solver ctx (Some (Symbol.mk_string ctx logic))
 
   (**
      Creates a new (incremental) solver. 
@@ -5327,10 +5341,10 @@ struct
   (**
      Add rule into the fixedpoint solver.
   *)        
-  let add_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol option ) =
+  let add_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : Symbol.symbol option ) =
     match name with 
       | None -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno null
-      | Some(y) -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno y#gno
+      | Some(y) -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno (Symbol.gno y)
 
   (**
      Add table fact to the fixedpoint solver.
@@ -5381,8 +5395,8 @@ struct
   (**
      Update named rule into in the fixedpoint solver.
   *)        
-  let update_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : symbol ) =
-    Z3native.fixedpoint_update_rule (z3obj_gnc x) (z3obj_gno x) rule#gno name#gno
+  let update_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : Symbol.symbol ) =
+    Z3native.fixedpoint_update_rule (z3obj_gnc x) (z3obj_gno x) rule#gno (Symbol.gno name)
 
   (**
      Retrieve satisfying instance or instances of solver, 
@@ -5432,8 +5446,8 @@ struct
   (**
      Instrument the Datalog engine on which table representation to use for recursive predicate.
   *)                
-  let set_predicate_representation ( x : fixedpoint ) ( f : func_decl ) ( kinds : symbol array ) =
-    Z3native.fixedpoint_set_predicate_representation (z3obj_gnc x) (z3obj_gno x) f#gno (Array.length kinds) (symbolaton kinds)
+  let set_predicate_representation ( x : fixedpoint ) ( f : func_decl ) ( kinds : Symbol.symbol array ) =
+    Z3native.fixedpoint_set_predicate_representation (z3obj_gnc x) (z3obj_gno x) f#gno (Array.length kinds) (Symbol.aton kinds)
 
   (**
      Convert benchmark given as set of axioms, rules and queries to a string.
@@ -5554,7 +5568,7 @@ struct
      and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to 
      reference sorts and declarations.
   *)
-  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5564,17 +5578,17 @@ struct
     else
       Z3native.parse_smtlib_string (context_gno ctx) str 
 	cs 
-	(symbolaton sort_names)
+	(Symbol.aton sort_names)
 	(astaton sorts)
 	cd 
-	(symbolaton decl_names)
+	(Symbol.aton decl_names)
 	(func_declaton decls)
 	
   (**
      Parse the given file using the SMT-LIB parser. 
      <seealso cref="ParseSMTLIBString"/>
   *)
-  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5584,10 +5598,10 @@ struct
     else
       Z3native.parse_smtlib_file (context_gno ctx) file_name
 	cs 
-	(symbolaton sort_names)
+	(Symbol.aton sort_names)
 	(astaton sorts)
 	cd 
-	(symbolaton decl_names)
+	(Symbol.aton decl_names)
 	(func_declaton decls)
 
   (**
@@ -5649,7 +5663,7 @@ struct
      <seealso cref="ParseSMTLIBString"/>
      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string.
   *)
-  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5659,17 +5673,17 @@ struct
     else
       Z3native.parse_smtlib2_string (context_gno ctx) str 
 	cs 
-	(symbolaton sort_names)
+	(Symbol.aton sort_names)
 	(astaton sorts)
 	cd 
-	(symbolaton decl_names)
+	(Symbol.aton decl_names)
 	(func_declaton decls)
 
   (**
      Parse the given file using the SMT-LIB2 parser. 
      <seealso cref="ParseSMTLIB2String"/>
   *)
-  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : symbol array ) ( sorts : sort array ) ( decl_names : symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5679,10 +5693,10 @@ struct
     else
       Z3native.parse_smtlib2_string (context_gno ctx) file_name
 	cs 
-	(symbolaton sort_names)
+	(Symbol.aton sort_names)
 	(astaton sorts)
 	cd 
-	(symbolaton decl_names)
+	(Symbol.aton decl_names)
 	(func_declaton decls)
 end
 
