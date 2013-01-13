@@ -881,10 +881,7 @@ namespace realclosure {
            \brief Return true if v is the value one;
          */
         bool is_one(value * v) const {
-            if (is_rational_one(v))
-                return true;
-            // TODO: check if v is equal to one.
-            return false;
+            return const_cast<imp*>(this)->compare(v, one()) == 0;
         }
 
         /**
@@ -4743,8 +4740,12 @@ namespace realclosure {
                 return -sign(b);
             else if (b == 0)
                 return sign(a);
-            else if (is_nz_rational(a) && is_nz_rational(b))
-                return qm().lt(to_mpq(a), to_mpq(b)) ? -1 : 1;
+            else if (is_nz_rational(a) && is_nz_rational(b)) {
+                if (qm().eq(to_mpq(a), to_mpq(b)))
+                    return 0;
+                else
+                    return qm().lt(to_mpq(a), to_mpq(b)) ? -1 : 1;
+            }
             else {
                 // FUTURE: try to refine interval before switching to sub+sign approach
                 if (bqim().before(interval(a), interval(b)))
