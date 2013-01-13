@@ -2866,6 +2866,11 @@ namespace realclosure {
             }
         }
 
+        void prem(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            unsigned d;
+            prem(sz1, p1, sz2, p2, d, r);
+        }
+
         /**
            \brief r <- -p
         */
@@ -3380,6 +3385,55 @@ namespace realclosure {
                         return;
                     }
                     rem(A.size(), A.c_ptr(), B.size(), B.c_ptr(), R);
+                    A = B;
+                    B = R;
+                }
+            }
+        }
+
+        void flip_sign_if_lc_neg(value_ref_buffer & r) {
+            unsigned sz = r.size();
+            if (sz == 0)
+                return;
+            if (sign(r[sz - 1]) < 0)
+                neg(r);
+        }
+
+        void prem_gcd(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & r) {
+            INC_DEPTH();
+            TRACE("rcf_gcd", tout << "prem-GCD [" << m_exec_depth << "]\n";
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";);
+            SASSERT(p1 != r.c_ptr());
+            SASSERT(p2 != r.c_ptr());
+            if (sz1 == 0) {
+                r.append(sz2, p2);
+                flip_sign_if_lc_neg(r);
+            }
+            else if (sz2 == 0) {
+                r.append(sz1, p1);
+                flip_sign_if_lc_neg(r);
+            }
+            else {
+                value_ref_buffer A(*this);
+                value_ref_buffer B(*this);
+                value_ref_buffer R(*this);
+                A.append(sz1, p1);
+                B.append(sz2, p2);
+                while (true) {
+                    TRACE("rcf_gcd",
+                          tout << "A: "; display_poly(tout, A.size(), A.c_ptr()); tout << "\n";
+                          tout << "B: "; display_poly(tout, B.size(), B.c_ptr()); tout << "\n";);
+                    if (B.empty()) {
+                        normalize_int_coeffs(A);
+                        flip_sign_if_lc_neg(A);
+                        r = A;
+                        TRACE("rcf_gcd",
+                              tout << "gcd result: "; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
+                        return;
+                    }
+                    prem(A.size(), A.c_ptr(), B.size(), B.c_ptr(), R);
+                    normalize_int_coeffs(R);
                     A = B;
                     B = R;
                 }
