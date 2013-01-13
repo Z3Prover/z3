@@ -139,6 +139,14 @@ public class AST extends Z3Object
     }
 
     /**
+     * Indicates whether the AST is an application
+     **/
+    public boolean IsApp() throws Z3Exception
+    {
+        return this.ASTKind() == Z3_ast_kind.Z3_APP_AST;
+    }
+
+    /**
      * Indicates whether the AST is a BoundVariable
      **/
     public boolean IsVar() throws Z3Exception

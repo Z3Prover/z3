@@ -237,15 +237,14 @@ void fpa2bv_converter::mk_pzero(func_decl *f, expr_ref & result) {
 void fpa2bv_converter::add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
     expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
     expr_ref & res_sgn, expr_ref & res_sig, expr_ref & res_exp)
-{
+{        
     // c/d are now such that c_exp >= d_exp.
-
     expr_ref exp_delta(m);
     exp_delta = m_bv_util.mk_bv_sub(c_exp, d_exp);
 
     dbg_decouple("fpa2bv_add_exp_delta", exp_delta);
 
-    // cap the delta
+    // cap the delta    
     expr_ref cap(m);
     cap = m_bv_util.mk_numeral(sbits+2, ebits);
     m_simp.mk_ite(m_bv_util.mk_ule(cap, exp_delta), cap, exp_delta, exp_delta);
@@ -404,8 +403,7 @@ void fpa2bv_converter::mk_add(func_decl * f, unsigned num, expr * const * args, 
 
     // Actual addition.
     unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    SASSERT(ebits <= sbits);
+    unsigned sbits = m_util.get_sbits(f->get_range());    
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), b_sgn(m), b_sig(m), b_exp(m);
     unpack(x, a_sgn, a_sig, a_exp, true);
@@ -1636,7 +1634,6 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
     mk_unbias(denormal_exp, denormal_exp);
 
     if (normalize) {
-        SASSERT(ebits <= sbits);
         expr_ref is_sig_zero(m), shift(m), lz(m);
         m_simp.mk_eq(m_bv_util.mk_numeral(0, sbits-1), sig, is_sig_zero);
         mk_leading_zeros(sig, ebits, lz);
@@ -1644,9 +1641,14 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
         SASSERT(is_well_sorted(m, is_sig_zero));
         SASSERT(is_well_sorted(m, lz));
         SASSERT(is_well_sorted(m, shift));
-        denormal_sig = m_bv_util.mk_bv_shl(denormal_sig, m_bv_util.mk_zero_extend(sbits-ebits, shift));
-        // CMW: The book says we don't need this, but it feels wrong not to do that.
-        //denormal_exp = m_bv_util.mk_bv_sub(denormal_exp, shift);
+        if (ebits > sbits) {        
+            expr_ref q(m);
+            q = m_bv_util.mk_zero_extend(sbits-ebits, shift);            
+            denormal_sig = m_bv_util.mk_bv_shl(denormal_sig, q);
+        } 
+        else {
+            denormal_sig = m_bv_util.mk_bv_shl(denormal_sig, shift);
+        }
     }
 
     SASSERT(is_well_sorted(m, normal_sig));

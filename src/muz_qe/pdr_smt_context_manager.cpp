@@ -20,6 +20,7 @@ Revision History:
 #include "pdr_smt_context_manager.h"
 #include "has_free_vars.h"
 #include "ast_pp.h"
+#include "ast_smt_pp.h"
 #include <sstream>
 #include "smt_params.h"
 
@@ -78,6 +79,25 @@ namespace pdr {
         if (!m.is_true(m_pred)) {
             assumptions.push_back(m_pred);
         }
+        TRACE("pdr_check", 
+              {
+                  ast_smt_pp pp(m);
+                  for (unsigned i = 0; i < m_context.size(); ++i) {
+                      pp.add_assumption(m_context.get_formulas()[i]);
+                  }
+                  for (unsigned i = 0; i < assumptions.size(); ++i) {
+                      pp.add_assumption(assumptions[i].get());
+                  }
+                  pp.display_smt2(tout, m.mk_true());
+
+                  static unsigned lemma_id = 0;
+                  std::ostringstream strm;
+                  strm << "pdr-lemma-" << lemma_id << ".smt2";
+                  std::ofstream out(strm.str().c_str());
+                  pp.display_smt2(out, m.mk_true());
+                  out.close();
+                  lemma_id++;
+              });
         lbool result = m_context.check(assumptions.size(), assumptions.c_ptr());
         if (!m.is_true(m_pred)) {
             assumptions.pop_back();

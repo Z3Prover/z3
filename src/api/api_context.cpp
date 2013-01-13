@@ -25,6 +25,7 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_util.h"
 #include"reg_decl_plugins.h"
+#include"realclosure.h"
 
 // The install_tactics procedure is automatically generated
 void install_tactics(tactic_manager & ctx);
@@ -138,6 +139,8 @@ namespace api {
             if (m_interruptable)
                 (*m_interruptable)();
             m().set_cancel(true);
+            if (m_rcf_manager.get() == 0)
+                m_rcf_manager->set_cancel(true);
         }
     }
     
@@ -391,6 +394,19 @@ namespace api {
             m_smtlib_parser_sorts.reset();
         }
     }
+
+    // ------------------------
+    //
+    // RCF manager
+    //
+    // -----------------------
+    realclosure::manager & context::rcfm() {
+        if (m_rcf_manager.get() == 0) {
+            m_rcf_manager = alloc(realclosure::manager, m_rcf_qm);
+        }
+        return *(m_rcf_manager.get());
+    }
+
 };
 
 
@@ -476,8 +492,11 @@ extern "C" {
     }
 
     void Z3_API Z3_enable_trace(Z3_string tag) {
+        memory::initialize(UINT_MAX);
         LOG_Z3_enable_trace(tag);
-        enable_trace(tag);
+        // Tag is a string that was probably not allocated by Z3. Create a copy using symbol.
+        symbol tag_sym(tag);
+        enable_trace(tag_sym.bare_str());
     }
 
     void Z3_API Z3_disable_trace(Z3_string tag) {

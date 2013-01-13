@@ -177,8 +177,9 @@ lbool dl_interface::query(expr * query) {
     while (true) {
         result = m_context->solve();
         if (result == l_true && extract_quantifiers->has_quantifiers()) {
-            if (quantifier_mc.check()) {
-                return l_true;
+            result = quantifier_mc.check();
+            if (result != l_false) {
+                return result;
             }
             // else continue
         }

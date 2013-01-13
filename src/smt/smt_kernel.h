@@ -85,15 +85,6 @@ namespace smt {
         expr * const * get_formulas() const;
         
         /**
-           \brief Reduce the set of asserted formulas using preprocessors.
-           Return true if an inconsistency is detected.
-           
-           \remark This is mainly used by dl_smt_relation. This method 
-           seens to be misplaced. This is not the right place.
-        */
-        bool reduce();
-
-        /**
            \brief Create a backtracking point (aka scope level).
         */
         void push();

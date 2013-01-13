@@ -150,6 +150,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Indicates whether the AST is an application
+        /// </summary>
+        public bool IsApp
+        {
+            get { return this.ASTKind == Z3_ast_kind.Z3_APP_AST; }
+        }
+
+        /// <summary>
         /// Indicates whether the AST is a BoundVariable
         /// </summary>
         public bool IsVar

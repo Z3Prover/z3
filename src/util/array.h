@@ -40,7 +40,7 @@ private:
 
     array & operator=(array const & source);
 
-    void set_data(void * mem, size_t sz) {
+    void set_data(void * mem, unsigned sz) {
         size_t * _mem = static_cast<size_t*>(mem);
         *_mem = sz; 
         _mem ++;
@@ -48,16 +48,16 @@ private:
     }
 
     template<typename Allocator>
-    void allocate(Allocator & a, size_t sz) {
+    void allocate(Allocator & a, unsigned sz) {
         size_t * mem  = reinterpret_cast<size_t*>(a.allocate(space(sz)));
         set_data(mem, sz);
     }
 
-    void init() {
+    void init(T const & v) {
         iterator it = begin();
         iterator e  = end();
         for (; it != e; ++it) {
-            new (it) T();
+            new (it) T(v);
         }
     }
     
@@ -80,13 +80,13 @@ public:
        \brief Store the array in the given chunk of memory (mem).
        This chunck should be big enough to store space(sz) bytes.
     */
-    array(void * mem, size_t sz, T const * vs) {
+    array(void * mem, unsigned sz, T const * vs) {
         DEBUG_CODE(m_data = 0;);
         set(mem, sz, vs);
     }
 
     // WARNING: the memory allocated will not be automatically freed.
-    array(void * mem, size_t sz, bool init_mem) {
+    array(void * mem, unsigned sz, bool init_mem) {
         DEBUG_CODE(m_data = 0;);
         set_data(mem, sz);
         if (init_mem)
@@ -95,14 +95,14 @@ public:
 
     // WARNING: the memory allocated will not be automatically freed.
     template<typename Allocator>
-    array(Allocator & a, size_t sz, T const * vs) {
+    array(Allocator & a, unsigned sz, T const * vs) {
         DEBUG_CODE(m_data = 0;);
         set(a, sz, vs);
     }
 
     // WARNING: the memory allocated will not be automatically freed.
     template<typename Allocator>
-    array(Allocator & a, size_t sz, bool init_mem) {
+    array(Allocator & a, unsigned sz, bool init_mem) {
         DEBUG_CODE(m_data = 0;);
         allocate(a, sz);
         if (init_mem)
@@ -122,39 +122,46 @@ public:
         if (m_data) {
             if (CallDestructors)
                 destroy_elements();
-            a.deallocate(size(), raw_ptr);
+            a.deallocate(size(), raw_ptr());
             m_data = 0;
         }
     }
 
-    void set(void * mem, size_t sz, T const * vs) {
+    void set(void * mem, unsigned sz, T const * vs) {
         SASSERT(m_data == 0);
         set_data(mem, sz);
         init(vs);
     }
     
     template<typename Allocator>
-    void set(Allocator & a, size_t sz, T const * vs) {
+    void set(Allocator & a, unsigned sz, T const * vs) {
         SASSERT(m_data == 0);
         allocate(a, sz);
-        init(sz, vs);
+        init(vs);
     }
 
-    size_t size() const { 
+    template<typename Allocator>
+    void set(Allocator & a, unsigned sz, T const & v = T()) {
+        SASSERT(m_data == 0);
+        allocate(a, sz);
+        init(v);
+    }
+
+    unsigned size() const { 
         if (m_data == 0) {
             return 0;  
         }
-        return reinterpret_cast<size_t *>(m_data)[SIZE_IDX]; 
+        return static_cast<unsigned>(reinterpret_cast<size_t *>(m_data)[SIZE_IDX]); 
     }
     
     bool empty() const { return m_data == 0; }
 
-    T & operator[](size_t idx) { 
+    T & operator[](unsigned idx) { 
         SASSERT(idx < size()); 
         return m_data[idx]; 
     }
 
-    T const & operator[](size_t idx) const { 
+    T const & operator[](unsigned idx) const { 
         SASSERT(idx < size()); 
         return m_data[idx];
     }
@@ -175,31 +182,37 @@ public:
         return m_data + size(); 
     }
 
+    T const * c_ptr() const { return m_data; }
     T * c_ptr() { return m_data; }
+
+    void swap(array & other) {
+        std::swap(m_data, other.m_data);
+    }
+
 };
 
 template<typename T>
 class ptr_array : public array<T *, false> {
 public:
     ptr_array() {}
-    ptr_array(void * mem, size_t sz, T * const * vs):array<T*, false>(mem, sz, vs) {}
+    ptr_array(void * mem, unsigned sz, T * const * vs):array<T*, false>(mem, sz, vs) {}
     template<typename Allocator>
-    ptr_array(Allocator & a, size_t sz, T * const * vs):array<T*, false>(a, sz, vs) {}
-    ptr_array(void * mem, size_t sz, bool init_mem):array<T*, false>(mem, sz, init_mem) {}
+    ptr_array(Allocator & a, unsigned sz, T * const * vs):array<T*, false>(a, sz, vs) {}
+    ptr_array(void * mem, unsigned sz, bool init_mem):array<T*, false>(mem, sz, init_mem) {}
     template<typename Allocator>
-    ptr_array(Allocator & a, size_t sz, bool init_mem):array<T*, false>(a, sz, init_mem) {}
+    ptr_array(Allocator & a, unsigned sz, bool init_mem):array<T*, false>(a, sz, init_mem) {}
 };
 
 template<typename T>
 class sarray : public array<T, false> {
 public:
     sarray() {}
-    sarray(void * mem, size_t sz, T const * vs):array<T, false>(mem, sz, vs) {}
+    sarray(void * mem, unsigned sz, T const * vs):array<T, false>(mem, sz, vs) {}
     template<typename Allocator>
-    sarray(Allocator & a, size_t sz, T const * vs):array<T, false>(a, sz, vs) {}
-    sarray(void * mem, size_t sz, bool init_mem):array<T, false>(mem, sz, init_mem) {}
+    sarray(Allocator & a, unsigned sz, T const * vs):array<T, false>(a, sz, vs) {}
+    sarray(void * mem, unsigned sz, bool init_mem):array<T, false>(mem, sz, init_mem) {}
     template<typename Allocator>
-    sarray(Allocator & a, size_t sz, bool init_mem):array<T, false>(a, sz, init_mem) {}
+    sarray(Allocator & a, unsigned sz, bool init_mem):array<T, false>(a, sz, init_mem) {}
 };
 
 #endif

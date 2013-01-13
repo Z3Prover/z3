@@ -337,6 +337,15 @@ void ite_example() {
     std::cout << "term: " << ite << "\n";
 }
 
+void ite_example2() {
+    std::cout << "if-then-else example2\n";
+    context c;
+    expr b = c.bool_const("b");
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    std::cout << (ite(b, x, y) > 0) << "\n";
+}
+
 /**
    \brief Small example using quantifiers.
 */
@@ -889,6 +898,7 @@ int main() {
         error_example(); std::cout << "\n";
         numeral_example(); std::cout << "\n";
         ite_example(); std::cout << "\n";
+        ite_example2(); std::cout << "\n";
         quantifier_example(); std::cout << "\n";
         unsat_core_example1(); std::cout << "\n";
         unsat_core_example2(); std::cout << "\n";

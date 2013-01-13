@@ -105,10 +105,11 @@ struct interval_deps {
 
 template<typename C>
 class interval_manager {
+public:
     typedef typename C::numeral_manager       numeral_manager;
     typedef typename numeral_manager::numeral numeral;
     typedef typename C::interval              interval;
-    
+private:
     C          m_c;
     numeral    m_result_lower;
     numeral    m_result_upper;
@@ -198,6 +199,11 @@ public:
     void set(interval & t, interval const & s);
 
     bool eq(interval const & a, interval const & b) const;
+
+    /**
+       \brief Return true if all values in 'a' are less than all values in 'b'.
+    */
+    bool before(interval const & a, interval const & b) const;
 
     /**
        \brief Set lower bound to -oo.
@@ -348,6 +354,31 @@ public:
        The size of the interval is 4/(k+1)!
     */
     void e(unsigned k, interval & r);
+};
+
+template<typename Manager>
+class _scoped_interval {
+public:
+    typedef typename Manager::interval interval;
+private:
+    Manager & m_manager;
+    interval  m_interval;
+public:
+    _scoped_interval(Manager & m):m_manager(m) {}
+    ~_scoped_interval() { m_manager.del(m_interval); }
+    
+    Manager & m() const { return m_manager; }
+
+    operator interval const &() const { return m_interval; }
+    operator interval&() { return m_interval; }
+    interval const & get() const { return m_interval; }
+    interval & get() { return m_interval; }
+    interval * operator->() {
+        return &m_interval;
+    }
+    interval const * operator->() const {
+        return &m_interval;
+    }
 };
 
 #endif

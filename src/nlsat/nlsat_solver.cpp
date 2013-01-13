@@ -212,6 +212,7 @@ namespace nlsat {
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
+            m_explain.set_factor(p.factor());
             m_am.updt_params(p.p);
         }
 

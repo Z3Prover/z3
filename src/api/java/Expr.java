@@ -204,7 +204,7 @@ public class Expr extends AST
 	 **/
 	public boolean IsConst() throws Z3Exception
 	{
-		return IsExpr() && NumArgs() == 0 && FuncDecl().DomainSize() == 0;
+		return IsApp() && NumArgs() == 0 && FuncDecl().DomainSize() == 0;
 	}
 
 	/**

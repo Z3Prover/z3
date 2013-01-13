@@ -688,6 +688,13 @@ bool interval_manager<C>::eq(interval const & a, interval const & b) const {
 }
 
 template<typename C>
+bool interval_manager<C>::before(interval const & a, interval const & b) const {
+    if (upper_is_inf(a) || lower_is_inf(b))
+        return false;
+    return m().lt(upper(a), lower(b)) || (upper_is_open(a) && m().eq(upper(a), lower(b)));
+}
+
+template<typename C>
 void interval_manager<C>::neg_jst(interval const & a, interval_deps & b_deps) {
     if (lower_is_inf(a)) {
         if (upper_is_inf(a)) {

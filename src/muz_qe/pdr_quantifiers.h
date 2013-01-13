@@ -21,6 +21,7 @@ Revision History:
 #define _PDR_QUANTIFIERS_H_
  
 #include "ast.h"
+#include "lbool.h"
 #include "dl_rule.h"
 #include "obj_pair_hashtable.h"
 
@@ -46,7 +47,7 @@ namespace pdr {
         pred_transformer*             m_current_pt;
         datalog::rule const*          m_current_rule;
         model_node*                   m_current_node;
-        bool                            m_rules_model_check;
+        lbool                           m_rules_model_check;
         app_ref_vector                  m_instantiations;
         ptr_vector<datalog::rule const> m_instantiated_rules;
 
@@ -54,13 +55,9 @@ namespace pdr {
 
         void weaken_under_approximation();
 
-        bool find_instantiations(quantifier_ref_vector const& qs, unsigned level); 
+        void find_instantiations(quantifier_ref_vector const& qs, unsigned level); 
 
-        bool find_instantiations_model_based(quantifier_ref_vector const& qs, unsigned level);
-
-        bool find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level);
-
-        bool find_instantiations_qe_based(quantifier_ref_vector const& qs, unsigned level);
+        void find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level);
 
         void add_binding(quantifier* q, expr_ref_vector& binding);
 
@@ -80,7 +77,7 @@ namespace pdr {
            'false' and a set of instantiations that contradict the current model.
         */
         
-        bool model_check(model_node& root);
+        lbool model_check(model_node& root);
 
         void add_over_approximations(quantifier_ref_vector& qis, model_node& n);
 
@@ -113,7 +110,7 @@ namespace pdr {
 
         ~quantifier_model_checker();
 
-        bool check();
+        lbool check();
     };
 
 };

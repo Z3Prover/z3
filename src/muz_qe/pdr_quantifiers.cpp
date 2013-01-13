@@ -154,12 +154,9 @@ namespace pdr {
     // As & not Body_i is satisfiable 
     // then instantiate with model for parameters to Body_i
 
-    bool quantifier_model_checker::find_instantiations(quantifier_ref_vector const& qs, unsigned level) {
-        return 
-            find_instantiations_proof_based(qs, level); // ||
-            // find_instantiations_qe_based(qs, level);
+    void quantifier_model_checker::find_instantiations(quantifier_ref_vector const& qs, unsigned level) {
+        find_instantiations_proof_based(qs, level); 
     }
-
 
     class collect_insts {
         ast_manager&     m;
@@ -207,7 +204,7 @@ namespace pdr {
         
     };
 
-    bool quantifier_model_checker::find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level) {
+    void quantifier_model_checker::find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level) {
         bool found_instance = false;
  
         datalog::scoped_fine_proof _scp(m);
@@ -233,10 +230,13 @@ namespace pdr {
 
         TRACE("pdr", tout << result << "\n";);
 
-        if (result != l_false) {
-            return false;
+        if (m_rules_model_check != l_false) {
+            m_rules_model_check = result;
         }
-        m_rules_model_check = false;
+
+        if (result != l_false) {
+            return;
+        }
 
         map<symbol, quantifier*, symbol_hash_proc, symbol_eq_proc> qid_map;
         quantifier* q;
@@ -272,7 +272,12 @@ namespace pdr {
             add_binding(q, new_binding);
             found_instance = true;
         }
-        return found_instance;
+        if (found_instance) {
+            m_rules_model_check = l_false;
+        }
+        else if (m_rules_model_check != l_false) {
+            m_rules_model_check = l_undef;
+        }
     }
 
 
@@ -445,7 +450,7 @@ namespace pdr {
         qe_lite qe(m);
 
         r.get_vars(vars);
-#if 1
+
         if (qis) {
             quantifier_ref_vector const& qi = *qis;
             for (unsigned i = 0; i < qi.size(); ++i) {
@@ -471,7 +476,7 @@ namespace pdr {
                 body.push_back(m.update_quantifier(q, fml));
             }
         }
-#endif
+
         a = r.get_head();
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             v = m.mk_var(vars.size()+i, m.get_sort(a->get_arg(i)));
@@ -584,17 +589,17 @@ namespace pdr {
         find_instantiations(*qis, level);
     }
 
-    bool quantifier_model_checker::model_check(model_node& root) {
+    lbool quantifier_model_checker::model_check(model_node& root) {
         m_instantiations.reset();
         m_instantiated_rules.reset();
-        m_rules_model_check = true;
+        m_rules_model_check = l_true;
         ptr_vector<model_node> nodes;
         get_nodes(root, nodes);
         for (unsigned i = nodes.size(); i > 0; ) {
             --i;
             model_check_node(*nodes[i]);
         }
-        if (!m_rules_model_check) {
+        if (m_rules_model_check == l_false) {
             weaken_under_approximation();
         }
         return m_rules_model_check;
@@ -644,12 +649,12 @@ namespace pdr {
         TRACE("pdr", m_rules.display(tout););
     }
 
-    bool quantifier_model_checker::check() {
-        if (model_check(m_ctx.get_root())) {
-            return true;
+    lbool quantifier_model_checker::check() {
+        lbool result = model_check(m_ctx.get_root());
+        if (result == l_false) {
+            refine();
         }
-        refine();
-        return false;
+        return result;
     }
 };
 
