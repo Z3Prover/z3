@@ -615,6 +615,17 @@ namespace realclosure {
         }
 
         /**
+           \brief c <- a/b with precision prec.
+        */
+        void div(mpbqi const & a, mpz const & b, unsigned prec, mpbqi & c) {
+            SASSERT(!contains_zero(a));
+            SASSERT(!qm().is_zero(b));
+            scoped_mpbqi bi(bqim());
+            set_interval(bi, b);
+            div(a, bi, prec, c);
+        }
+
+        /**
            \brief Save the current interval (i.e., approximation) of the given value.
         */
         void save_interval(value * v) {
@@ -1153,6 +1164,16 @@ namespace realclosure {
         void set_interval(mpbqi & a, mpbq const & b) {
             set_lower_core(a, b, false, false);
             set_upper_core(a, b, false, false);
+        }
+
+        /**
+           \brief a <- [b, b]
+        */
+        void set_interval(mpbqi & a, mpz const & b) {
+            scoped_mpbq _b(bqm());
+            bqm().set(_b, b);
+            set_lower_core(a, _b, false, false);
+            set_upper_core(a, _b, false, false);
         }
 
         sign_condition * mk_sign_condition(unsigned qidx, int sign, sign_condition * prev_sc) {
@@ -3177,6 +3198,129 @@ namespace realclosure {
             set(q, _q);
         }
 
+        // ---------------------------------
+        //
+        // GCD of integer coefficients
+        //
+        // ---------------------------------
+        
+        /**
+           \brief If has_clean_denominators(a), then this method store the gcd of the integer coefficients in g.
+           If !has_clean_denominators(a) it returns false.
+           
+           If g != 0, then it will compute the gcd of g and the coefficients in a.
+        */
+        bool gcd_int_coeffs(value * a, mpz & g) {
+            if (a == 0) {
+                return false; 
+            }
+            else if (is_nz_rational(a)) {
+                if (!qm().is_int(to_mpq(a)))
+                    return false;
+                else if (qm().is_zero(g)) {
+                    qm().set(g, to_mpq(a).numerator());
+                    qm().abs(g);
+                }
+                else {
+                    qm().gcd(g, to_mpq(a).numerator(), g);
+                }
+                return true;
+            }
+            else {
+                rational_function_value * rf_a = to_rational_function(a);
+                if (is_rational_one(rf_a->den()))
+                    return false;
+                else
+                    return gcd_int_coeffs(rf_a->num(), g);
+            }
+        }
+
+        /**
+           \brief See comment in gcd_int_coeffs(value * a, mpz & g)
+        */
+        bool gcd_int_coeffs(unsigned p_sz, value * const * p, mpz & g) {
+            if (p_sz == 0) {
+                return false;
+            }
+            else {
+                for (unsigned i = 0; i < p_sz; i++) {
+                    if (p[i]) {
+                        if (!gcd_int_coeffs(p[i], g))
+                            return false;
+                        if (qm().is_one(g))
+                            return true;
+                    }
+                }
+                return true;
+            }
+        }
+
+        /**
+           \brief See comment in gcd_int_coeffs(value * a, mpz & g)
+        */
+        bool gcd_int_coeffs(polynomial const & p, mpz & g) {
+            return gcd_int_coeffs(p.size(), p.c_ptr(), g);
+        }
+        
+        /**
+           \brief Compute gcd_int_coeffs and divide p by it (if applicable).
+        */
+        void normalize_int_coeffs(value_ref_buffer & p) {
+            scoped_mpz g(qm());
+            if (gcd_int_coeffs(p.size(), p.c_ptr(), g) && !qm().is_one(g)) {
+                SASSERT(qm().is_pos(g));
+                value_ref a(*this);
+                for (unsigned i = 0; i < p.size(); i++) {
+                    if (p[i]) {
+                        a = p[i];
+                        p.set(i, 0);
+                        exact_div_z(a, g);
+                        p.set(i, a);
+                    }
+                }
+            }
+        }
+
+        /**
+           \brief a <- a/b where b > 0
+           Auxiliary function for normalize_int_coeffs.
+           It assumes has_clean_denominators(a), and that b divides all integer coefficients.
+           
+           FUTURE: perform the operation using destructive updates when a is not shared.
+        */
+        void exact_div_z(value_ref & a, mpz const & b) {
+            if (a == 0) {
+                return;
+            }
+            else if (is_nz_rational(a)) {
+                scoped_mpq r(qm());
+                SASSERT(qm().is_int(to_mpq(a)));
+                qm().div(to_mpq(a), b, r);
+                a = mk_rational_and_swap(r);
+            }
+            else {
+                rational_function_value * rf = to_rational_function(a);
+                SASSERT(is_rational_one(rf->den()));
+                value_ref_buffer new_ais(*this);
+                value_ref ai(*this);
+                polynomial const & p = rf->num();
+                for (unsigned i = 0; i < p.size(); i++) {
+                    if (p[i]) {
+                        ai = p[i];
+                        exact_div_z(ai, b);
+                        new_ais.push_back(ai);
+                    }
+                    else {
+                        new_ais.push_back(0);
+                    }
+                }
+                rational_function_value * r = mk_rational_function_value_core(rf->ext(), new_ais.size(), new_ais.c_ptr(), 1, &m_one);
+                set_interval(r->m_interval, rf->m_interval);
+                a = r;
+                // divide upper and lower by b
+                div(r->m_interval, b, m_ini_precision, r->m_interval);
+            }
+        }
 
         // ---------------------------------
         //
@@ -3301,10 +3445,13 @@ namespace realclosure {
             value_ref_buffer r(*this);
             while (true) {
                 unsigned sz = seq.size();
-                if (m_use_prem)
+                if (m_use_prem) {
                     sprem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
-                else
+                    normalize_int_coeffs(r);
+                }
+                else {
                     srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
+                }
                 TRACE("rcf_sturm_seq",
                       tout << "sturm_seq_core [" << m_exec_depth << "], new polynomial\n";
                       display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
