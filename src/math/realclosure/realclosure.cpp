@@ -368,6 +368,7 @@ namespace realclosure {
         
         // Parameters
         bool                           m_use_prem; //!< use pseudo-remainder when computing sturm sequences
+        bool                           m_clean_denominators; 
         unsigned                       m_ini_precision; //!< initial precision for transcendentals, infinitesimals, etc.
         unsigned                       m_max_precision; //!< Maximum precision for interval arithmetic techniques, it switches to complete methods after that
         unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
@@ -690,10 +691,11 @@ namespace realclosure {
         
         void updt_params(params_ref const & _p) {
             rcf_params p(_p);
-            m_use_prem       = p.use_prem();
-            m_ini_precision  = p.initial_precision();
-            m_inf_precision  = p.inf_precision();
-            m_max_precision  = p.max_precision();
+            m_use_prem           = p.use_prem();
+            m_clean_denominators = p.clean_denominators();
+            m_ini_precision      = p.initial_precision();
+            m_inf_precision      = p.inf_precision();
+            m_max_precision      = p.max_precision();
             bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
             bqm().set(m_minus_inf_approx, m_plus_inf_approx);
             bqm().neg(m_minus_inf_approx);
@@ -2286,15 +2288,15 @@ namespace realclosure {
         }
         
         /**
-           \brief Root isolation for polynomials where 0 is not a root.
+           \brief Root isolation for polynomials where 0 is not a root, and the denominators have been cleaned
+           when m_clean_denominators == true
+           
         */
-        void nz_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
-            TRACE("rcf_isolate", 
-                  tout << "nz_isolate_roots\n";
-                  display_poly(tout, n, p); tout << "\n";);
+        void nz_cd_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
             SASSERT(n > 0);
             SASSERT(!is_zero(p[0])); 
             SASSERT(!is_zero(p[n-1]));
+            SASSERT(!m_clean_denominators || has_clean_denominators(n, p));
             if (n == 1) {
                 // constant polynomial
                 return; 
@@ -2302,6 +2304,26 @@ namespace realclosure {
             value_ref_buffer sqf(*this);
             square_free(n, p, sqf);
             nz_sqf_isolate_roots(sqf.size(), sqf.c_ptr(), roots);
+        }
+
+        /**
+           \brief Root isolation for polynomials where 0 is not a root.
+        */
+        void nz_isolate_roots(unsigned n, value * const * p, numeral_vector & roots) {
+            TRACE("rcf_isolate", 
+                  tout << "nz_isolate_roots\n";
+                  display_poly(tout, n, p); tout << "\n";);
+            if (m_clean_denominators) {
+                value_ref d(*this);
+                value_ref_buffer norm_p(*this);
+                clean_denominators(n, p, norm_p, d);
+                if (sign(d) < 0)
+                    neg(norm_p);
+                nz_cd_isolate_roots(norm_p.size(), norm_p.c_ptr(), roots);
+            }
+            else {
+                nz_cd_isolate_roots(n, p, roots);
+            }
         }
 
         /**
@@ -3019,13 +3041,19 @@ namespace realclosure {
         /**
            \brief See comment at has_clean_denominators(value * a)
          */
-        bool has_clean_denominators(polynomial const & p) const {
-            unsigned sz = p.size();
+        bool has_clean_denominators(unsigned sz, value * const * p) const {
             for (unsigned i = 0; i < sz; i++) {
                 if (!has_clean_denominators(p[i]))
                     return false;
             }
             return true;
+        }
+        
+        /**
+           \brief See comment at has_clean_denominators(value * a)
+         */
+        bool has_clean_denominators(polynomial const & p) const {
+            return has_clean_denominators(p.size(), p.c_ptr());
         }
 
         /**
@@ -3068,11 +3096,11 @@ namespace realclosure {
                       p = clean_p/d
                   and has_clean_denominators(clean_p) && has_clean_denominators(d)
         */
-        void clean_denominators_core(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
+        void clean_denominators_core(unsigned p_sz, value * const * p, value_ref_buffer & norm_p, value_ref & d) {
             value_ref_buffer nums(*this), dens(*this);
             value_ref a_n(*this), a_d(*this);
             bool all_one = true;
-            for (unsigned i = 0; i < p.size(); i++) {
+            for (unsigned i = 0; i < p_sz; i++) {
                 if (p[i]) {
                     clean_denominators_core(p[i], a_n, a_d);
                     nums.push_back(a_n);
@@ -3095,9 +3123,9 @@ namespace realclosure {
                 // We don't compute lcm of the other elements of dens because it is too expensive.
                 scoped_mpq lcm_z(qm()); 
                 bool found_z = false;
-                SASSERT(nums.size() == p.size());
-                SASSERT(dens.size() == p.size());
-                for (unsigned i = 0; i < p.size(); i++) {
+                SASSERT(nums.size() == p_sz);
+                SASSERT(dens.size() == p_sz);
+                for (unsigned i = 0; i < p_sz; i++) {
                     if (!dens[i])
                         continue;
                     if (is_nz_rational(dens[i])) {
@@ -3132,7 +3160,7 @@ namespace realclosure {
                 d = lcm;
                 value_ref_buffer multipliers(*this);
                 value_ref m(*this);
-                for (unsigned i = 0; i < p.size(); i++) {
+                for (unsigned i = 0; i < p_sz; i++) {
                     if (!nums[i]) {
                         norm_p.push_back(0);
                     }
@@ -3151,7 +3179,7 @@ namespace realclosure {
                             is_z = true;
                         }
                         bool found_lt_eq = false;
-                        for (unsigned j = 0; j < p.size(); j++) {
+                        for (unsigned j = 0; j < p_sz; j++) {
                             TRACE("rcf_clean_bug", tout << "j: " << j << " "; display(tout, m, false); tout << "\n";);
                             if (!dens[j])
                                 continue;
@@ -3173,7 +3201,11 @@ namespace realclosure {
                     }
                 }
             }
-            SASSERT(norm_p.size() == p.size());
+            SASSERT(norm_p.size() == p_sz);
+        }
+
+        void clean_denominators_core(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
+            clean_denominators_core(p.size(), p.c_ptr(), norm_p, d);
         }
 
         void clean_denominators(value * a, value_ref & p, value_ref & q) {
@@ -3186,14 +3218,18 @@ namespace realclosure {
             }
         }
         
-        void clean_denominators(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
-            if (has_clean_denominators(p)) {
-                norm_p.append(p.size(), p.c_ptr());
+        void clean_denominators(unsigned sz, value * const * p, value_ref_buffer & norm_p, value_ref & d) {
+            if (has_clean_denominators(sz, p)) {
+                norm_p.append(sz, p);
                 d = one();
             }
             else {
-                clean_denominators_core(p, norm_p, d);
+                clean_denominators_core(sz, p, norm_p, d);
             }
+        }
+
+        void clean_denominators(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
+            clean_denominators(p.size(), p.c_ptr(), norm_p, d);
         }
 
         void clean_denominators(numeral const & a, numeral & p, numeral & q) {
