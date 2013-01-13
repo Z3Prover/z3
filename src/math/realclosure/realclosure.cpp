@@ -2911,6 +2911,275 @@ namespace realclosure {
 
         // ---------------------------------
         //
+        // Structural equality
+        //
+        // ---------------------------------
+
+        /**
+           \brief Values a and b are said to be "structurally" equal if:
+           - a and b are 0.
+           - a and b are rationals and compare(a, b) == 0
+           - a and b are rational function values p_a(x)/q_a(x) and p_b(y)/q_b(y) where x and y are field extensions, and
+                  * x == y (pointer equality, i.e., they are the same field extension object).
+                  * Every coefficient of p_a is structurally equal to every coefficient of p_b
+                  * Every coefficient of q_a is structurally equal to every coefficient of q_b
+           Clearly structural equality implies equality, but the reverse is not true.
+        */
+        bool struct_eq(value * a, value * b) const {
+            if (a == b)
+                return true;
+            else if (a == 0 || b == 0)
+                return false;
+            else if (is_nz_rational(a) && is_nz_rational(b))
+                return qm().eq(to_mpq(a), to_mpq(b));
+            else if (is_nz_rational(a) || is_nz_rational(b))
+                return false;
+            else {
+                SASSERT(is_rational_function(a));
+                SASSERT(is_rational_function(b));
+                rational_function_value * rf_a = to_rational_function(a);
+                rational_function_value * rf_b = to_rational_function(b);
+                if (rf_a->ext() != rf_b->ext())
+                    return false;
+                return struct_eq(rf_a->num(), rf_b->num()) && struct_eq(rf_a->den(), rf_b->den());
+            }
+        }
+
+        /**
+           Auxiliary method for 
+                bool struct_eq(value * a, value * b)
+        */
+        bool struct_eq(unsigned sz_a, value * const * p_a, unsigned sz_b, value * const * p_b) const {
+            if (sz_a != sz_b)
+                return false;
+            for (unsigned i = 0; i < sz_a; i++) {
+                if (!struct_eq(p_a[i], p_b[i]))
+                    return false;
+            }
+            return true;
+        }
+
+        /**
+           Auxiliary method for 
+                bool struct_eq(value * a, value * b)
+        */
+        bool struct_eq(polynomial const & p_a, polynomial const & p_b) const {
+            return struct_eq(p_a.size(), p_a.c_ptr(), p_b.size(), p_b.c_ptr());
+        }
+
+        // ---------------------------------
+        //
+        // Clean denominators
+        //
+        // ---------------------------------
+
+        /**
+           \brief We say 'a' has "clean" denominators if
+           - a is 0
+           - a is a rational_value that is an integer
+           - a is a rational_function_value of the form p_a(x)/1 where the coefficients of p_a also have clean denominators.
+        */
+        bool has_clean_denominators(value * a) const {
+            if (a == 0)
+                return true;
+            else if (is_nz_rational(a))
+                return qm().is_int(to_mpq(a));
+            else {
+                rational_function_value * rf_a = to_rational_function(a);
+                return is_rational_one(rf_a->den()) && has_clean_denominators(rf_a->num());
+            }
+        }
+
+        /**
+           \brief See comment at has_clean_denominators(value * a)
+         */
+        bool has_clean_denominators(polynomial const & p) const {
+            unsigned sz = p.size();
+            for (unsigned i = 0; i < sz; i++) {
+                if (!has_clean_denominators(p[i]))
+                    return false;
+            }
+            return true;
+        }
+
+        /**
+           \brief "Clean" the denominators of 'a'. That is, return p and q s.t.
+                     a == p/q
+                  and 
+                     has_clean_denominators(p) and has_clean_denominators(q)
+        */
+        void clean_denominators_core(value * a, value_ref & p, value_ref & q) {
+            INC_DEPTH();
+            TRACE("rcf_clean", tout << "clean_denominators_core [" << m_exec_depth << "]\na: "; display(tout, a, false); tout << "\n";);
+            p.reset(); q.reset();
+            if (a == 0) {
+                p = a; 
+                q = one();
+            }
+            else if (is_nz_rational(a)) {
+                p = mk_rational(to_mpq(a).numerator());
+                q = mk_rational(to_mpq(a).denominator());
+            }
+            else {
+                rational_function_value * rf_a = to_rational_function(a);
+                value_ref_buffer p_num(*this), p_den(*this);
+                value_ref d_num(*this), d_den(*this);
+                clean_denominators_core(rf_a->num(), p_num, d_num);
+                clean_denominators_core(rf_a->den(), p_den, d_den);
+                value_ref x(*this);
+                x = mk_rational_function_value(rf_a->ext());
+                mk_polynomial_value(p_num.size(), p_num.c_ptr(), x, p);
+                mk_polynomial_value(p_den.size(), p_den.c_ptr(), x, q);
+                if (!struct_eq(d_den, d_num)) {
+                    mul(p, d_den, p);
+                    mul(q, d_num, q);
+                }
+            }
+        }
+
+        /**
+           \brief Clean the denominators of the polynomial p, it returns clean_p and d s.t.
+                      p = clean_p/d
+                  and has_clean_denominators(clean_p) && has_clean_denominators(d)
+        */
+        void clean_denominators_core(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
+            value_ref_buffer nums(*this), dens(*this);
+            value_ref a_n(*this), a_d(*this);
+            bool all_one = true;
+            for (unsigned i = 0; i < p.size(); i++) {
+                if (p[i]) {
+                    clean_denominators_core(p[i], a_n, a_d);
+                    nums.push_back(a_n);
+                    if (!is_rational_one(a_d))
+                        all_one = false;
+                    dens.push_back(a_d);
+                }
+                else {
+                    nums.push_back(0);
+                    dens.push_back(0);
+                }
+            }
+            if (all_one) {
+                norm_p = nums;
+                d      = one();
+            }
+            else {
+                // Compute lcm of the integer elements in dens.
+                // This is a little trick to control the coefficient growth.
+                // We don't compute lcm of the other elements of dens because it is too expensive.
+                scoped_mpq lcm_z(qm()); 
+                bool found_z = false;
+                SASSERT(nums.size() == p.size());
+                SASSERT(dens.size() == p.size());
+                for (unsigned i = 0; i < p.size(); i++) {
+                    if (!dens[i])
+                        continue;
+                    if (is_nz_rational(dens[i])) {
+                        mpq const & _d = to_mpq(dens[i]);
+                        SASSERT(qm().is_int(_d));
+                        if (!found_z) {
+                            found_z = true;
+                            qm().set(lcm_z, _d);
+                        }
+                        else {
+                            qm().lcm(lcm_z, _d, lcm_z);
+                        }
+                    }
+                }
+            
+                value_ref lcm(*this);
+                if (found_z) {
+                    lcm = mk_rational(lcm_z);
+                }
+                else {
+                    lcm = one();
+                }
+            
+                // Compute the multipliers for nums.
+                // Compute norm_p and d 
+                // 
+                // We do NOT use GCD to compute the LCM of the denominators of non-rational values.
+                // However, we detect structurally equivalent denominators.
+                //
+                //   Thus   a/(b+1) + c/(b+1)  is converted into a*c/(b+1) instead of (a*(b+1) + c*(b+1))/(b+1)^2
+                norm_p.reset();
+                d = lcm;
+                value_ref_buffer multipliers(*this);
+                value_ref m(*this);
+                for (unsigned i = 0; i < p.size(); i++) {
+                    if (!nums[i]) {
+                        norm_p.push_back(0);
+                    }
+                    else {
+                        SASSERT(dens[i]);
+                        bool is_z;
+                        if (!is_nz_rational(dens[i])) {
+                            m = lcm;
+                            is_z = false;
+                        }
+                        else {
+                            scoped_mpq num_z(qm());
+                            qm().div(lcm_z, to_mpq(dens[i]), num_z);
+                            SASSERT(qm().is_int(num_z));
+                            m = mk_rational_and_swap(num_z);
+                            is_z = true;
+                        }
+                        bool found_lt_eq = false;
+                        for (unsigned j = 0; j < p.size(); j++) {
+                            TRACE("rcf_clean_bug", tout << "j: " << j << " "; display(tout, m, false); tout << "\n";);
+                            if (!dens[j])
+                                continue;
+                            if (i != j && !is_nz_rational(dens[j])) {
+                                if (struct_eq(dens[i], dens[j])) {
+                                    if (j < i) 
+                                        found_lt_eq = true;
+                                }
+                                else {
+                                    mul(m, dens[j], m);
+                                }
+                            }
+                        }
+                        if (!is_z && !found_lt_eq) {
+                            mul(dens[i], d, d);
+                        }
+                        mul(m, nums[i], m);
+                        norm_p.push_back(m);
+                    }
+                }
+            }
+            SASSERT(norm_p.size() == p.size());
+        }
+
+        void clean_denominators(value * a, value_ref & p, value_ref & q) {
+            if (has_clean_denominators(a)) {
+                p = a;
+                q = one();
+            }
+            else {
+                clean_denominators_core(a, p, q);
+            }
+        }
+        
+        void clean_denominators(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
+            if (has_clean_denominators(p)) {
+                norm_p.append(p.size(), p.c_ptr());
+                d = one();
+            }
+            else {
+                clean_denominators_core(p, norm_p, d);
+            }
+        }
+
+        void clean_denominators(numeral const & a, numeral & p, numeral & q) {
+            value_ref _p(*this), _q(*this);
+            clean_denominators(a.m_value, _p, _q);
+            set(p, _p);
+            set(q, _q);
+        }
+
+
+        // ---------------------------------
+        //
         // GCD
         //
         // ---------------------------------
@@ -4835,274 +5104,6 @@ namespace realclosure {
 
         int compare(numeral const & a, numeral const & b) {
             return compare(a.m_value, b.m_value);
-        }
-
-        // ---------------------------------
-        //
-        // Structural equality
-        //
-        // ---------------------------------
-
-        /**
-           \brief Values a and b are said to be "structurally" equal if:
-           - a and b are 0.
-           - a and b are rationals and compare(a, b) == 0
-           - a and b are rational function values p_a(x)/q_a(x) and p_b(y)/q_b(y) where x and y are field extensions, and
-                  * x == y (pointer equality, i.e., they are the same field extension object).
-                  * Every coefficient of p_a is structurally equal to every coefficient of p_b
-                  * Every coefficient of q_a is structurally equal to every coefficient of q_b
-           Clearly structural equality implies equality, but the reverse is not true.
-        */
-        bool struct_eq(value * a, value * b) const {
-            if (a == b)
-                return true;
-            else if (a == 0 || b == 0)
-                return false;
-            else if (is_nz_rational(a) && is_nz_rational(b))
-                return qm().eq(to_mpq(a), to_mpq(b));
-            else if (is_nz_rational(a) || is_nz_rational(b))
-                return false;
-            else {
-                SASSERT(is_rational_function(a));
-                SASSERT(is_rational_function(b));
-                rational_function_value * rf_a = to_rational_function(a);
-                rational_function_value * rf_b = to_rational_function(b);
-                if (rf_a->ext() != rf_b->ext())
-                    return false;
-                return struct_eq(rf_a->num(), rf_b->num()) && struct_eq(rf_a->den(), rf_b->den());
-            }
-        }
-
-        /**
-           Auxiliary method for 
-                bool struct_eq(value * a, value * b)
-        */
-        bool struct_eq(unsigned sz_a, value * const * p_a, unsigned sz_b, value * const * p_b) const {
-            if (sz_a != sz_b)
-                return false;
-            for (unsigned i = 0; i < sz_a; i++) {
-                if (!struct_eq(p_a[i], p_b[i]))
-                    return false;
-            }
-            return true;
-        }
-
-        /**
-           Auxiliary method for 
-                bool struct_eq(value * a, value * b)
-        */
-        bool struct_eq(polynomial const & p_a, polynomial const & p_b) const {
-            return struct_eq(p_a.size(), p_a.c_ptr(), p_b.size(), p_b.c_ptr());
-        }
-
-        // ---------------------------------
-        //
-        // Clean denominators
-        //
-        // ---------------------------------
-
-        /**
-           \brief We say 'a' has "clean" denominators if
-           - a is 0
-           - a is a rational_value that is an integer
-           - a is a rational_function_value of the form p_a(x)/1 where the coefficients of p_a also have clean denominators.
-        */
-        bool has_clean_denominators(value * a) const {
-            if (a == 0)
-                return true;
-            else if (is_nz_rational(a))
-                return qm().is_int(to_mpq(a));
-            else {
-                rational_function_value * rf_a = to_rational_function(a);
-                return is_rational_one(rf_a->den()) && has_clean_denominators(rf_a->num());
-            }
-        }
-
-        /**
-           \brief See comment at has_clean_denominators(value * a)
-         */
-        bool has_clean_denominators(polynomial const & p) const {
-            unsigned sz = p.size();
-            for (unsigned i = 0; i < sz; i++) {
-                if (!has_clean_denominators(p[i]))
-                    return false;
-            }
-            return true;
-        }
-
-        /**
-           \brief "Clean" the denominators of 'a'. That is, return p and q s.t.
-                     a == p/q
-                  and 
-                     has_clean_denominators(p) and has_clean_denominators(q)
-        */
-        void clean_denominators_core(value * a, value_ref & p, value_ref & q) {
-            INC_DEPTH();
-            TRACE("rcf_clean", tout << "clean_denominators_core [" << m_exec_depth << "]\na: "; display(tout, a, false); tout << "\n";);
-            p.reset(); q.reset();
-            if (a == 0) {
-                p = a; 
-                q = one();
-            }
-            else if (is_nz_rational(a)) {
-                p = mk_rational(to_mpq(a).numerator());
-                q = mk_rational(to_mpq(a).denominator());
-            }
-            else {
-                rational_function_value * rf_a = to_rational_function(a);
-                value_ref_buffer p_num(*this), p_den(*this);
-                value_ref d_num(*this), d_den(*this);
-                clean_denominators_core(rf_a->num(), p_num, d_num);
-                clean_denominators_core(rf_a->den(), p_den, d_den);
-                value_ref x(*this);
-                x = mk_rational_function_value(rf_a->ext());
-                mk_polynomial_value(p_num.size(), p_num.c_ptr(), x, p);
-                mk_polynomial_value(p_den.size(), p_den.c_ptr(), x, q);
-                if (!struct_eq(d_den, d_num)) {
-                    mul(p, d_den, p);
-                    mul(q, d_num, q);
-                }
-            }
-        }
-
-        /**
-           \brief Clean the denominators of the polynomial p, it returns clean_p and d s.t.
-                      p = clean_p/d
-                  and has_clean_denominators(clean_p) && has_clean_denominators(d)
-        */
-        void clean_denominators_core(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
-            value_ref_buffer nums(*this), dens(*this);
-            value_ref a_n(*this), a_d(*this);
-            bool all_one = true;
-            for (unsigned i = 0; i < p.size(); i++) {
-                if (p[i]) {
-                    clean_denominators_core(p[i], a_n, a_d);
-                    nums.push_back(a_n);
-                    if (!is_rational_one(a_d))
-                        all_one = false;
-                    dens.push_back(a_d);
-                }
-                else {
-                    nums.push_back(0);
-                    dens.push_back(0);
-                }
-            }
-            if (all_one) {
-                norm_p = nums;
-                d      = one();
-            }
-            else {
-                // Compute lcm of the integer elements in dens.
-                // This is a little trick to control the coefficient growth.
-                // We don't compute lcm of the other elements of dens because it is too expensive.
-                scoped_mpq lcm_z(qm()); 
-                bool found_z = false;
-                SASSERT(nums.size() == p.size());
-                SASSERT(dens.size() == p.size());
-                for (unsigned i = 0; i < p.size(); i++) {
-                    if (!dens[i])
-                        continue;
-                    if (is_nz_rational(dens[i])) {
-                        mpq const & _d = to_mpq(dens[i]);
-                        SASSERT(qm().is_int(_d));
-                        if (!found_z) {
-                            found_z = true;
-                            qm().set(lcm_z, _d);
-                        }
-                        else {
-                            qm().lcm(lcm_z, _d, lcm_z);
-                        }
-                    }
-                }
-            
-                value_ref lcm(*this);
-                if (found_z) {
-                    lcm = mk_rational(lcm_z);
-                }
-                else {
-                    lcm = one();
-                }
-            
-                // Compute the multipliers for nums.
-                // Compute norm_p and d 
-                // 
-                // We do NOT use GCD to compute the LCM of the denominators of non-rational values.
-                // However, we detect structurally equivalent denominators.
-                //
-                //   Thus   a/(b+1) + c/(b+1)  is converted into a*c/(b+1) instead of (a*(b+1) + c*(b+1))/(b+1)^2
-                norm_p.reset();
-                d = lcm;
-                value_ref_buffer multipliers(*this);
-                value_ref m(*this);
-                for (unsigned i = 0; i < p.size(); i++) {
-                    if (!nums[i]) {
-                        norm_p.push_back(0);
-                    }
-                    else {
-                        SASSERT(dens[i]);
-                        bool is_z;
-                        if (!is_nz_rational(dens[i])) {
-                            m = lcm;
-                            is_z = false;
-                        }
-                        else {
-                            scoped_mpq num_z(qm());
-                            qm().div(lcm_z, to_mpq(dens[i]), num_z);
-                            SASSERT(qm().is_int(num_z));
-                            m = mk_rational_and_swap(num_z);
-                            is_z = true;
-                        }
-                        bool found_lt_eq = false;
-                        for (unsigned j = 0; j < p.size(); j++) {
-                            TRACE("rcf_clean_bug", tout << "j: " << j << " "; display(tout, m, false); tout << "\n";);
-                            if (!dens[j])
-                                continue;
-                            if (i != j && !is_nz_rational(dens[j])) {
-                                if (struct_eq(dens[i], dens[j])) {
-                                    if (j < i) 
-                                        found_lt_eq = true;
-                                }
-                                else {
-                                    mul(m, dens[j], m);
-                                }
-                            }
-                        }
-                        if (!is_z && !found_lt_eq) {
-                            mul(dens[i], d, d);
-                        }
-                        mul(m, nums[i], m);
-                        norm_p.push_back(m);
-                    }
-                }
-            }
-            SASSERT(norm_p.size() == p.size());
-        }
-
-        void clean_denominators(value * a, value_ref & p, value_ref & q) {
-            if (has_clean_denominators(a)) {
-                p = a;
-                q = one();
-            }
-            else {
-                clean_denominators_core(a, p, q);
-            }
-        }
-        
-        void clean_denominators(polynomial const & p, value_ref_buffer & norm_p, value_ref & d) {
-            if (has_clean_denominators(p)) {
-                norm_p.append(p.size(), p.c_ptr());
-                d = one();
-            }
-            else {
-                clean_denominators_core(p, norm_p, d);
-            }
-        }
-
-        void clean_denominators(numeral const & a, numeral & p, numeral & q) {
-            value_ref _p(*this), _q(*this);
-            clean_denominators(a.m_value, _p, _q);
-            set(p, _p);
-            set(q, _q);
         }
 
         // ---------------------------------
