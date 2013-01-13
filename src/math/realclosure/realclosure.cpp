@@ -217,8 +217,9 @@ namespace realclosure {
         unsigned m_kind:2;
         unsigned m_idx:30;
         mpbqi    m_interval;
+        mpbqi *  m_old_interval; 
 
-        extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx) {}
+        extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx), m_old_interval(0) {}
 
         unsigned idx() const { return m_idx; }
         kind knd() const { return static_cast<kind>(m_kind); }
@@ -365,6 +366,7 @@ namespace realclosure {
         mk_e_interval                  m_mk_e_interval;
         value *                        m_e;
         ptr_vector<value>              m_to_restore; //!< Set of values v s.t. v->m_old_interval != 0
+        ptr_vector<extension>          m_ex_to_restore;
         
         // Parameters
         bool                           m_use_prem; //!< use pseudo-remainder when computing sturm sequences
@@ -627,39 +629,59 @@ namespace realclosure {
         }
 
         /**
-           \brief Save the current interval (i.e., approximation) of the given value.
+           \brief Save the current interval (i.e., approximation) of the given value or extension.
         */
-        void save_interval(value * v) {
+        template<typename T>
+        void save_interval(T * v, ptr_vector<T> & to_restore) {
             if (v->m_old_interval != 0)
                 return; // interval was already saved.
-            m_to_restore.push_back(v);
+            to_restore.push_back(v);
             inc_ref(v);
             v->m_old_interval = new (allocator()) mpbqi();
             set_interval(*(v->m_old_interval), v->m_interval);
         }
+        void save_interval(value * v) {
+            save_interval(v, m_to_restore);
+        }
+        void save_interval(extension * x) {
+            save_interval(x, m_ex_to_restore);
+        }
 
         /**
-           \brief Save the current interval (i.e., approximation) of the given value IF it is too small (i.e., too_small(v) == True).
+           \brief Save the current interval (i.e., approximation) of the given value IF it is too small.
         */
-        void save_interval_if_too_small(value * v) {
-            if (too_small(v->m_interval))
+        void save_interval_if_too_small(value * v, unsigned new_prec) {
+            if (new_prec > m_max_precision && !contains_zero(interval(v)))
                 save_interval(v);
         }
 
         /**
-           \brief Restore the saved intervals (approximations) of RCF values.
+           \brief Save the current interval (i.e., approximation) of the given value IF it is too small.
         */
-        void restore_saved_intervals() {
-            unsigned sz = m_to_restore.size();
+        void save_interval_if_too_small(extension * x, unsigned new_prec) {
+            if (new_prec > m_max_precision && !contains_zero(x->m_interval))
+                save_interval(x);
+        }
+
+        /**
+           \brief Restore the saved intervals (approximations) of RCF values and extensions
+        */
+        template<typename T>
+        void restore_saved_intervals(ptr_vector<T> & to_restore) {
+            unsigned sz = to_restore.size();
             for (unsigned i = 0; i < sz; i++) {
-                value * v = m_to_restore[i];
+                T * v = to_restore[i];
                 set_interval(v->m_interval, *(v->m_old_interval));
                 bqim().del(*(v->m_old_interval));
                 allocator().deallocate(sizeof(mpbqi), v->m_old_interval);
                 v->m_old_interval = 0;
                 dec_ref(v);
             }
-            m_to_restore.reset();
+            to_restore.reset();
+        }
+        void restore_saved_intervals() {
+            restore_saved_intervals(m_to_restore);
+            restore_saved_intervals(m_ex_to_restore);
         }
 
         void cleanup(extension::kind k) {
@@ -720,7 +742,7 @@ namespace realclosure {
             bqim().del(v->m_interval);
             reset_p(v->num());
             reset_p(v->den());
-            dec_ref_ext(v->ext());
+            dec_ref(v->ext());
             allocator().deallocate(sizeof(rational_function_value), v);
         }
 
@@ -797,12 +819,12 @@ namespace realclosure {
             allocator().deallocate(sizeof(infinitesimal), i);
         }
 
-        void inc_ref_ext(extension * ext) {
+        void inc_ref(extension * ext) {
             SASSERT(ext != 0);
             ext->m_ref_count++;
         }
 
-        void dec_ref_ext(extension * ext) {
+        void dec_ref(extension * ext) {
             SASSERT(m_extensions[ext->knd()][ext->idx()] == ext);
             SASSERT(ext->m_ref_count > 0);
             ext->m_ref_count--;
@@ -1188,7 +1210,7 @@ namespace realclosure {
         */
         rational_function_value * mk_rational_function_value_core(extension * ext, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den) {
             rational_function_value * r = alloc(rational_function_value, ext);
-            inc_ref_ext(ext);
+            inc_ref(ext);
             set_p(r->num(), num_sz, num);
             set_p(r->den(), den_sz, den);
             r->set_depends_on_infinitesimals(depends_on_infinitesimals(ext) || depends_on_infinitesimals(num_sz, num) || depends_on_infinitesimals(den_sz, den));
@@ -1256,6 +1278,7 @@ namespace realclosure {
             while (!check_precision(t->interval(), prec)) {
                 TRACE("rcf_transcendental", tout << "refine_transcendental_interval: " << magnitude(t->interval()) << std::endl;);
                 checkpoint();
+                save_interval_if_too_small(t, prec);
                 refine_transcendental_interval(t);
             }
         }
@@ -4106,6 +4129,7 @@ namespace realclosure {
         }
 
         bool refine_algebraic_interval(algebraic * a, unsigned prec) {
+            save_interval_if_too_small(a, prec);
             if (a->sdt() != 0) {
                 // we can't bisect the interval, since it contains more than one root.
                 return false;
@@ -4178,7 +4202,7 @@ namespace realclosure {
             int m = magnitude(interval(v));
             if (m == INT_MIN || (m < 0 && static_cast<unsigned>(-m) > prec))
                 return true;
-            save_interval_if_too_small(v);
+            save_interval_if_too_small(v, prec);
             if (is_nz_rational(v)) {
                 refine_rational_interval(to_nz_rational(v), prec);
                 return true;
