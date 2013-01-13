@@ -20,6 +20,7 @@ Notes:
 
 --*/
 #include"realclosure.h"
+#include"rcf_params.hpp"
 #include"array.h"
 #include"mpbq.h"
 #include"mpz_matrix.h"
@@ -676,11 +677,12 @@ namespace realclosure {
             m_cancel = f;
         }
         
-        void updt_params(params_ref const & p) {
-            m_use_prem       = p.get_bool("use_prem", true);
-            m_ini_precision  = p.get_uint("initial_precision", 24);
-            m_inf_precision  = p.get_uint("inf_precision", 24);
-            m_max_precision  = p.get_uint("max_precision", 64); // == 1/2^64  for interval arithmetic methods, it switches to complete methods after that.
+        void updt_params(params_ref const & _p) {
+            rcf_params p(_p);
+            m_use_prem       = p.use_prem();
+            m_ini_precision  = p.initial_precision();
+            m_inf_precision  = p.inf_precision();
+            m_max_precision  = p.max_precision();
             bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
             bqm().set(m_minus_inf_approx, m_plus_inf_approx);
             bqm().neg(m_minus_inf_approx);
@@ -5316,7 +5318,7 @@ namespace realclosure {
     }
 
     void manager::get_param_descrs(param_descrs & r) {
-        // TODO
+        rcf_params::collect_param_descrs(r);
     }
 
     void manager::set_cancel(bool f) {

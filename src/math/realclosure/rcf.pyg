@@ -1,0 +1,7 @@
+def_module_params('rcf',
+                  description='real closed fields', 
+                  export=True,
+                  params=(('use_prem', BOOL, True, "use pseudo-remainder instead of remainder when computing GCDs and Sturm-Tarski sequences"),
+                          ('initial_precision', UINT, 24, "a value k that is the initial interval size (as 1/2^k) when creating transcendentals and approximated division"),
+                          ('inf_precision', UINT, 24, "a value k that is the initial interval size (i.e., (0, 1/2^l)) used as an approximation for infinitesimal values"),
+                          ('max_precision', UINT, 64, "during sign determination we switch from interval arithmetic to complete methods when the interval size is less than 1/2^k, where k is the max_precision")))
