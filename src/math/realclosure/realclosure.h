@@ -252,7 +252,7 @@ namespace realclosure {
         bool ge(numeral const & a, mpq const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpz const & b) { return !lt(a, b); }
         
-        void display(std::ostream & out, numeral const & a) const;
+        void display(std::ostream & out, numeral const & a, bool compact=false) const;
 
         /**
            \brief Display a real number in decimal notation.

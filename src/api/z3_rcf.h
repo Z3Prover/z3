@@ -173,9 +173,9 @@ extern "C" {
     /**
        \brief Convert the RCF numeral into a string.
 
-       def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM)))
+       def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_rcf_num_to_string(__in Z3_context c, __in Z3_rcf_num a);
+    Z3_string Z3_API Z3_rcf_num_to_string(__in Z3_context c, __in Z3_rcf_num a, __in Z3_bool compact);
 
     /**
        \brief Convert the RCF numeral into a string in decimal notation.

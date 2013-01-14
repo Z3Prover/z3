@@ -268,13 +268,13 @@ extern "C" {
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a) {
+    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact) {
         Z3_TRY;
-        LOG_Z3_rcf_num_to_string(c, a);
+        LOG_Z3_rcf_num_to_string(c, a, compact);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         std::ostringstream buffer;
-        rcfm(c).display(buffer, to_rcnumeral(a));
+        rcfm(c).display(buffer, to_rcnumeral(a), compact != 0);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }

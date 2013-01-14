@@ -5658,15 +5658,18 @@ namespace realclosure {
                 display(out, a.m_value, true);
                 for (unsigned i = 0; i < c.m_found.size(); i++) {
                     algebraic * ext = c.m_found[i];
-                    out << ", r!" << ext->idx() << " = ";
+                    out << "; r!" << ext->idx() << " := ";
                     display_algebraic_def(out, ext, true);
                 }
                 out << "]";
             }
         }
 
-        void display(std::ostream & out, numeral const & a) const {
-            display(out, a.m_value, false);
+        void display(std::ostream & out, numeral const & a, bool compact=false) const {
+            if (compact)
+                display_compact(out, a);
+            else
+                display(out, a.m_value, false);
         }
 
         void display_non_rational_in_decimal(std::ostream & out, numeral const & a, unsigned precision) {
@@ -5927,9 +5930,9 @@ namespace realclosure {
         return gt(a, _b);
     }
 
-    void manager::display(std::ostream & out, numeral const & a) const {
+    void manager::display(std::ostream & out, numeral const & a, bool compact) const {
         save_interval_ctx ctx(this);
-        m_imp->display(out, a);
+        m_imp->display(out, a, compact);
     }
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
