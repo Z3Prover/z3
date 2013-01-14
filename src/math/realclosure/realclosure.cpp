@@ -179,7 +179,7 @@ namespace realclosure {
 
     struct rational_function_value : public value {
         polynomial   m_numerator;
-        polynomial   m_denominator;
+        polynomial   m_denominator; // it is only needed if the extension is not algebraic.
         extension *  m_ext;
         bool         m_depends_on_infinitesimals; //!< True if the polynomial expression depends on infinitesimal values.
         rational_function_value(extension * ext):value(false), m_ext(ext), m_depends_on_infinitesimals(false) {}
@@ -2413,12 +2413,11 @@ namespace realclosure {
 
            \pre a is a rational function (algebraic) extension.
 
-           \remark If a is actually an integer, this method is also update its representation.
+           \remark If a is actually an integer, this method also updates its representation.
         */
         bool is_algebraic_int(numeral const & a) {
             SASSERT(is_rational_function(a));
             SASSERT(to_rational_function(a)->ext()->is_algebraic());
-            
             // TODO
             return false;
         }
@@ -2812,6 +2811,7 @@ namespace realclosure {
            \brief r <- p/a
         */
         void div(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
+            r.reset();
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
                 div(p[i], a, a_i);
@@ -4182,10 +4182,10 @@ namespace realclosure {
             SASSERT(v->ext()->is_algebraic());
             polynomial const & n = v->num();
             polynomial const & d = v->den();
+            SASSERT(is_rational_one(d)); 
             unsigned _prec = prec;
             while (true) {
                 if (!refine_coeffs_interval(n, _prec) ||
-                    !refine_coeffs_interval(d, _prec) || 
                     !refine_algebraic_interval(to_algebraic(v->ext()), _prec))
                     return false;
 
@@ -4637,13 +4637,11 @@ namespace realclosure {
                   tout << "\ninterval: ";  bqim().display(tout, v->interval()); tout << "\n";);
             algebraic * x = to_algebraic(v->ext());
             scoped_mpbqi num_interval(bqim());
+            SASSERT(is_rational_one(v->den()));
             if (!expensive_algebraic_poly_interval(v->num(), x, num_interval))
                 return false; // it is zero
             SASSERT(!contains_zero(num_interval));
-            scoped_mpbqi den_interval(bqim());
-            VERIFY(expensive_algebraic_poly_interval(v->den(), x, den_interval));
-            SASSERT(!contains_zero(den_interval));
-            div(num_interval, den_interval, m_ini_precision, v->interval());
+            set_interval(v->interval(), num_interval);
             SASSERT(!contains_zero(v->interval()));
             return true; // it is not zero
         }
@@ -4787,18 +4785,11 @@ namespace realclosure {
         */
         void normalize_all(extension * x, unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
             if (x->is_algebraic()) {
+                SASSERT(sz2 == 1);
+                SASSERT(is_rational_one(p2[0]));
                 value_ref_buffer p1_norm(*this);
-                value_ref_buffer p2_norm(*this);
-                // FUTURE: we don't need to invoke normalize_algebraic if degree of p1 < degree x->p()
-                normalize_algebraic(to_algebraic(x), sz1, p1, p1_norm);
-                if (p1_norm.empty()) {
-                    new_p1.reset(); // result is 0
-                }
-                else {
-                    // FUTURE: we don't need to invoke normalize_algebraic if degree of p2 < degree x->p()
-                    normalize_algebraic(to_algebraic(x), sz2, p2, p2_norm);
-                    normalize_fraction(p1_norm.size(), p1_norm.c_ptr(), p2_norm.size(), p2_norm.c_ptr(), new_p1, new_p2);
-                }
+                normalize_algebraic(to_algebraic(x), sz1, p1, new_p1);
+                new_p2.reset(); new_p2.push_back(one());
             }
             else {
                 normalize_fraction(sz1, p1, sz2, p2, new_p1, new_p2);
@@ -4858,6 +4849,7 @@ namespace realclosure {
                 add_p_v(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
                 // b_ad <- b * ad
                 mul(b, ad.size(), ad.c_ptr(), b_ad);
                 // num <- a + b * ad
@@ -4913,6 +4905,7 @@ namespace realclosure {
                 add_p_p(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
                 value_ref_buffer an_bd(*this);
                 value_ref_buffer bn_ad(*this);
                 mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
@@ -5071,6 +5064,7 @@ namespace realclosure {
                 mul_p_v(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
                 value_ref_buffer num(*this);
                 // num <- b * an
                 mul(b, an.size(), an.c_ptr(), num);
@@ -5122,6 +5116,7 @@ namespace realclosure {
                 mul_p_p(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
                 value_ref_buffer num(*this);
                 value_ref_buffer den(*this);
                 mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
@@ -5203,14 +5198,80 @@ namespace realclosure {
             }
         }
 
-        void inv_rf(rational_function_value * a, value_ref & r) {
-            polynomial const & an = a->num();
-            polynomial const & ad = a->den();
+        /**
+           \brief Auxiliary function for inverting values of algebraic extensions.
+           p is the defining polynomial for the algebraic extension alpha.
+           q is the polynomial representing the value q(alpha).
+           
+           The procedure will store a polynomial in r that represents the value 1/q(a)
+        */
+        void inv_algebraic(unsigned q_sz, value * const * q, unsigned p_sz, value * const * p, value_ref_buffer & r) {
+            TRACE("inv_algebraic", 
+                  tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
+                  tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";);
+            SASSERT(q_sz > 0);
+            SASSERT(q_sz < p_sz);
+            value_ref_buffer A(*this);
+            A.append(q_sz, q);
+            value_ref_buffer R(*this);
+            R.push_back(one());
+            value_ref_buffer Quo(*this), Rem(*this);
+            while (true) {
+                TRACE("inv_algebraic", 
+                      tout << "A: "; display_poly(tout, A.size(), A.c_ptr()); tout << "\n";
+                      tout << "R: "; display_poly(tout, R.size(), R.c_ptr()); tout << "\n";);
+                if (A.size() == 1) {
+                    div(R.size(), R.c_ptr(), A[0], r);
+                    TRACE("inv_algebraic", tout << "r: "; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
+                    return;
+                }
+                div_rem(p_sz, p, A.size(), A.c_ptr(), Quo, Rem);
+                // p == Quo * A + Rem
+                // since p = 0
+                // Quo * A = -Rem
+                // thus, we update
+                // A <- -Rem
+                neg(Rem.size(), Rem.c_ptr(), A);
+                // R <- rem(Quo * R, p)
+                mul(R.size(), R.c_ptr(), Quo.size(), Quo.c_ptr(), r);
+                rem(r.size(), r.c_ptr(), p_sz, p, R);
+                SASSERT(R.size() < p_sz);
+            }
+        }
+
+        /**
+           \brief r <- 1/a  specialized version when a->ext() is algebraic.
+           It avoids the use of rational functions.
+         */
+        void inv_algebraic(rational_function_value * a, value_ref & r) {
+            SASSERT(a->ext()->is_algebraic());
+            SASSERT(is_rational_one(a->den()));
+            algebraic * x = to_algebraic(a->ext());
+            polynomial const & q = a->num();
+            value_ref_buffer new_num(*this);
+            SASSERT(q.size() < x->p().size());
+            inv_algebraic(q.size(), q.c_ptr(), x->p().size(), x->p().c_ptr(), new_num);
             scoped_mpbqi ri(bqim());
             bqim().inv(interval(a), ri);
-            r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
+            r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), a->den().size(), a->den().c_ptr());
             swap(r->interval(), ri);
             SASSERT(!contains_zero(r->interval()));
+        }
+
+        void inv_rf(rational_function_value * a, value_ref & r) {
+            if (a->ext()->is_algebraic()) {
+                inv_algebraic(a, r);
+            }
+            else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & an = a->num();
+                polynomial const & ad = a->den();
+                scoped_mpbqi ri(bqim());
+                bqim().inv(interval(a), ri);
+                r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
+                swap(r->interval(), ri);
+                SASSERT(!contains_zero(r->interval()));
+            }
         }
 
         void inv(value * a, value_ref & r) {
