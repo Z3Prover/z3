@@ -938,7 +938,7 @@ namespace realclosure {
         
         bool is_denominator_one(rational_function_value * v) const {
             if (v->ext()->is_algebraic()) {
-                // TODO: add assertion
+                SASSERT(v->den().size() == 0); // we do not use denominator for algebraic extensions
                 return true;
             }
             else {
@@ -1226,7 +1226,16 @@ namespace realclosure {
             rational_function_value * r = alloc(rational_function_value, ext);
             inc_ref(ext);
             set_p(r->num(), num_sz, num);
-            set_p(r->den(), den_sz, den);
+            if (ext->is_algebraic()) {
+                // Avoiding wasteful allocation...
+                // We do not use the denominator for algebraic extensions
+                SASSERT(den_sz == 0 || (den_sz == 1 && is_rational_one(den[0])));
+                
+                SASSERT(r->den().size() == 0);
+            }
+            else {
+                set_p(r->den(), den_sz, den);
+            }
             r->set_depends_on_infinitesimals(depends_on_infinitesimals(ext) || depends_on_infinitesimals(num_sz, num) || depends_on_infinitesimals(den_sz, den));
             return r;
         }         
@@ -4796,10 +4805,12 @@ namespace realclosure {
            Use interval(a) + interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
         void mk_add_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
-            SASSERT(num_sz > 0 && den_sz > 0);
-            if (num_sz == 1 && den_sz == 1) {
+            SASSERT(num_sz > 0);
+            // den_sz may be zero for algebraic extensions. 
+            // We do not use denominators for algebraic extensions.
+            if (num_sz == 1 && den_sz <= 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(a->ext()->is_algebraic() || is_rational_one(den[0]));
+                SASSERT(den_sz == 0 || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
@@ -5012,10 +5023,12 @@ namespace realclosure {
            Use interval(a) * interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
         void mk_mul_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
-            SASSERT(num_sz > 0 && den_sz > 0);
-            if (num_sz == 1 && den_sz == 1) {
+            SASSERT(num_sz > 0);
+            if (num_sz == 1 && den_sz <= 1) {
+                // den_sz may be zero for algebraic extensions. 
+                // We do not use denominators for algebraic extensions.
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(a->ext()->is_algebraic() || is_rational_one(den[0]));
+                SASSERT(den_sz == 0 || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
