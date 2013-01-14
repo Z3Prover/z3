@@ -290,4 +290,17 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    void Z3_API Z3_rcf_get_numerator_denominator(Z3_context c, Z3_rcf_num a, Z3_rcf_num * n, Z3_rcf_num * d) {
+        Z3_TRY;
+        LOG_Z3_rcf_get_numerator_denominator(c, a, n, d);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        rcnumeral _n, _d;
+        rcfm(c).clean_denominators(to_rcnumeral(a), _n, _d);
+        *n = from_rcnumeral(_n);
+        *d = from_rcnumeral(_d);
+        RETURN_Z3_rcf_get_numerator_denominator;
+        Z3_CATCH;
+    }
+
 };

@@ -1788,7 +1788,7 @@ namespace realclosure {
         /**
            \brief Create a new algebraic extension
          */
-        algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sc_idx) {
+        algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, sign_det * sd, unsigned sc_idx) {
             unsigned idx = next_algebraic_idx();
 	    void * mem = allocator().allocate(sizeof(algebraic));
             algebraic * r = new (mem) algebraic(idx);
@@ -1796,7 +1796,7 @@ namespace realclosure {
             
             set_p(r->m_p, p_sz, p);
             set_interval(r->m_interval, interval);
-            set_interval(r->m_iso_interval, interval);
+            set_interval(r->m_iso_interval, iso_interval);
             r->m_sign_det = sd;
             inc_ref_sign_det(sd);
             r->m_sc_idx   = sc_idx;
@@ -1808,8 +1808,8 @@ namespace realclosure {
         /**
            \brief Add a new root of p that is isolated by (interval, sd, sc_idx) to roots.
         */
-        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sc_idx, numeral_vector & roots) {
-            algebraic * a = mk_algebraic(p_sz, p, interval, sd, sc_idx);
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, sign_det * sd, unsigned sc_idx, numeral_vector & roots) {
+            algebraic * a = mk_algebraic(p_sz, p, interval, iso_interval, sd, sc_idx);
             numeral r;
             set(r, mk_rational_function_value(a));
             roots.push_back(r);
@@ -1819,8 +1819,8 @@ namespace realclosure {
            \brief Simpler version of add_root that does not use sign_det data-structure. That is,
            interval contains only one root of p.
         */
-        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, numeral_vector & roots) {
-            add_root(p_sz, p, interval, 0, UINT_MAX, roots);
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, numeral_vector & roots) {
+            add_root(p_sz, p, interval, iso_interval, 0, UINT_MAX, roots);
         }
 
         /**
@@ -1922,7 +1922,7 @@ namespace realclosure {
 
            \pre num_roots is the number of roots in the given interval
         */
-        void sign_det_isolate_roots(unsigned p_sz, value * const * p, int num_roots, mpbqi const & interval, numeral_vector & roots) {
+        void sign_det_isolate_roots(unsigned p_sz, value * const * p, int num_roots, mpbqi const & interval, mpbqi const & iso_interval, numeral_vector & roots) {
             SASSERT(num_roots >= 2);
             scoped_polynomial_seq der_seq(*this);
             mk_derivatives(p_sz, p, der_seq);
@@ -1992,7 +1992,7 @@ namespace realclosure {
                 // q is a derivative of p.
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
-                count_signs_at_zeros(p_sz, p, q_sz, q, interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                count_signs_at_zeros(p_sz, p, q_sz, q, iso_interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
                 TRACE("rcf_sign_det",
                       tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
                       tout << "#(q == 0): " << q_eq_0 << ", #(q > 0): " << q_gt_0 << ", #(q < 0): " << q_lt_0 << "\n";);
@@ -2003,7 +2003,7 @@ namespace realclosure {
                 }
                 bool use_q2 = M.n() == 3;
                 mm().tensor_product(M_s, M, new_M_s);
-                expand_taqrs(taqrs, prs, p_sz, p, q_sz, q, use_q2, q2.size(), q2.c_ptr(), interval,
+                expand_taqrs(taqrs, prs, p_sz, p, q_sz, q, use_q2, q2.size(), q2.c_ptr(), iso_interval,
                              // --->
                              new_taqrs, new_prs);
                 SASSERT(new_M_s.n() == new_M_s.m());           // it is a square matrix
@@ -2090,7 +2090,7 @@ namespace realclosure {
             SASSERT(M_s.n() == M_s.m()); SASSERT(M_s.n() == static_cast<unsigned>(num_roots));
             sign_det * sd = mk_sign_det(M_s, prs, taqrs, qs, scs);
             for (unsigned idx = 0; idx < static_cast<unsigned>(num_roots); idx++) {
-                add_root(p_sz, p, interval, sd, idx, roots);
+                add_root(p_sz, p, interval, iso_interval, sd, idx, roots);
             }
         }
 
@@ -2175,7 +2175,7 @@ namespace realclosure {
                 m_p_sz(p_sz), m_p(p), m_depends_on_infinitesimals(dinf), m_sturm_seq(seq), m_result_roots(roots) {}
         };
         
-        void bisect_isolate_roots(mpbqi & interval, int lower_sv, int upper_sv, bisect_ctx & ctx) {
+        void bisect_isolate_roots(mpbqi & interval, mpbqi & iso_interval, int lower_sv, int upper_sv, bisect_ctx & ctx) {
             SASSERT(lower_sv >= upper_sv);
             int num_roots = lower_sv - upper_sv;
             if (num_roots == 0) {
@@ -2192,7 +2192,7 @@ namespace realclosure {
                 }                                                              
                 else {                                                         
                     // interval is an isolating interval
-                    add_root(ctx.m_p_sz, ctx.m_p, interval, ctx.m_result_roots);
+                    add_root(ctx.m_p_sz, ctx.m_p, interval, iso_interval, ctx.m_result_roots);
                 }
             }
             else if (ctx.m_depends_on_infinitesimals && check_precision(interval, m_max_precision)) {
@@ -2204,21 +2204,37 @@ namespace realclosure {
                 //   - We switch to expensive sign determination procedure, since
                 //     the roots may be infinitely close to each other.
                 //
-                sign_det_isolate_roots(ctx.m_p_sz, ctx.m_p, num_roots, interval, ctx.m_result_roots);
+                sign_det_isolate_roots(ctx.m_p_sz, ctx.m_p, num_roots, interval, iso_interval, ctx.m_result_roots);
             }
             else {
                 scoped_mpbq mid(bqm());
                 bqm().add(interval.lower(), interval.upper(), mid);
                 bqm().div2(mid);
                 int mid_sv = sign_variations_at(ctx.m_sturm_seq, mid);
-                scoped_mpbqi left_interval(bqim());
-                scoped_mpbqi right_interval(bqim());
-                set_lower(left_interval, interval.lower());
-                set_upper(left_interval, mid);
-                set_lower(right_interval, mid);
-                set_upper(right_interval, interval.upper());
-                bisect_isolate_roots(left_interval, lower_sv, mid_sv, ctx);
-                bisect_isolate_roots(right_interval, mid_sv, upper_sv, ctx);
+                int num_left_roots  = lower_sv - mid_sv;
+                int num_right_roots = mid_sv - upper_sv;
+                if (num_left_roots == 0) {
+                    scoped_mpbqi right_interval(bqim());
+                    set_lower(right_interval, mid);
+                    set_upper(right_interval, interval.upper());
+                    bisect_isolate_roots(right_interval, iso_interval, mid_sv, upper_sv, ctx);
+                }
+                else if (num_right_roots == 0) {
+                    scoped_mpbqi left_interval(bqim());
+                    set_lower(left_interval, interval.lower());
+                    set_upper(left_interval, mid);
+                    bisect_isolate_roots(left_interval, iso_interval,   lower_sv, mid_sv, ctx);
+                }
+                else {
+                    scoped_mpbqi left_interval(bqim());
+                    scoped_mpbqi right_interval(bqim());
+                    set_lower(left_interval, interval.lower());
+                    set_upper(left_interval, mid);
+                    set_lower(right_interval, mid);
+                    set_upper(right_interval, interval.upper());
+                    bisect_isolate_roots(left_interval, left_interval,   lower_sv, mid_sv, ctx);
+                    bisect_isolate_roots(right_interval, right_interval, mid_sv, upper_sv, ctx);
+                }
             }
         }
 
@@ -2226,7 +2242,7 @@ namespace realclosure {
            \brief Entry point for the root isolation procedure based on bisection.
         */
         void bisect_isolate_roots(// Input values
-                                  unsigned p_sz, value * const * p, mpbqi & interval,
+                                  unsigned p_sz, value * const * p, mpbqi & interval, mpbqi & iso_interval,
                                   // Extra Input values with already computed information
                                   scoped_polynomial_seq & sturm_seq, // sturm sequence for p
                                   int lower_sv,                      // number of sign variations at the lower bound of interval
@@ -2235,7 +2251,7 @@ namespace realclosure {
                                   numeral_vector & roots) {
             bool dinf = depends_on_infinitesimals(p_sz, p);
             bisect_ctx ctx(p_sz, p, dinf, sturm_seq, roots);
-            bisect_isolate_roots(interval, lower_sv, upper_sv, ctx);
+            bisect_isolate_roots(interval, iso_interval, lower_sv, upper_sv, ctx);
         }
 
         /**
@@ -2279,37 +2295,37 @@ namespace realclosure {
             scoped_mpbqi neg_interval(bqim());
             mk_neg_interval(has_neg_lower, neg_lower_N, has_neg_upper, neg_upper_N, neg_interval);
             mk_pos_interval(has_pos_lower, pos_lower_N, has_pos_upper, pos_upper_N, pos_interval);
-
+            scoped_mpbqi minf_zero(bqim());
+            set_lower_inf(minf_zero);
+            set_upper_zero(minf_zero);
+            scoped_mpbqi zero_inf(bqim());
+            set_lower_zero(zero_inf);
+            set_upper_inf(zero_inf);
+            
             if (num_neg_roots > 0) {
                 if (num_neg_roots == 1) {
-                    add_root(n, p, neg_interval, 0, UINT_MAX, roots);
+                    add_root(n, p, neg_interval, minf_zero, 0, UINT_MAX, roots);
                 }
                 else {
                     if (has_neg_lower) {
-                        bisect_isolate_roots(n, p, neg_interval, seq, num_sv_minus_inf, num_sv_zero, roots);
+                        bisect_isolate_roots(n, p, neg_interval, minf_zero, seq, num_sv_minus_inf, num_sv_zero, roots);
                     }
                     else {
-                        scoped_mpbqi minf_zero(bqim());
-                        set_lower_inf(minf_zero);
-                        set_upper_zero(minf_zero);
-                        sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+                        sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, minf_zero, roots);
                     }
                 }
             }
             
             if (num_pos_roots > 0) {
                 if (num_pos_roots == 1) {
-                    add_root(n, p, pos_interval, 0, UINT_MAX, roots);
+                    add_root(n, p, pos_interval, zero_inf, 0, UINT_MAX, roots);
                 }
                 else {
                     if (has_pos_upper) {
-                        bisect_isolate_roots(n, p, pos_interval, seq, num_sv_zero, num_sv_plus_inf, roots);
+                        bisect_isolate_roots(n, p, pos_interval, zero_inf, seq, num_sv_zero, num_sv_plus_inf, roots);
                     }
                     else {
-                        scoped_mpbqi zero_inf(bqim());
-                        set_lower_zero(zero_inf);
-                        set_upper_inf(zero_inf);
-                        sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+                        sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, zero_inf, roots);
                     }
                 }
             }
@@ -3132,7 +3148,13 @@ namespace realclosure {
                 value_ref_buffer p_num(*this), p_den(*this);
                 value_ref d_num(*this), d_den(*this);
                 clean_denominators_core(rf_a->num(), p_num, d_num);
-                clean_denominators_core(rf_a->den(), p_den, d_den);
+                if (is_denominator_one(rf_a)) {
+                    p_den.push_back(one());
+                    d_den = one();
+                }
+                else {
+                    clean_denominators_core(rf_a->den(), p_den, d_den);
+                }
                 value_ref x(*this);
                 x = mk_rational_function_value(rf_a->ext());
                 mk_polynomial_value(p_num.size(), p_num.c_ptr(), x, p);
@@ -3140,6 +3162,11 @@ namespace realclosure {
                 if (!struct_eq(d_den, d_num)) {
                     mul(p, d_den, p);
                     mul(q, d_num, q);
+                }
+                if (sign(q) < 0) {
+                    // make sure the denominator is positive
+                    neg(p, p);
+                    neg(q, q);
                 }
             }
         }
@@ -3150,6 +3177,7 @@ namespace realclosure {
                   and has_clean_denominators(clean_p) && has_clean_denominators(d)
         */
         void clean_denominators_core(unsigned p_sz, value * const * p, value_ref_buffer & norm_p, value_ref & d) {
+            SASSERT(p_sz >= 1);
             value_ref_buffer nums(*this), dens(*this);
             value_ref a_n(*this), a_d(*this);
             bool all_one = true;
@@ -4488,7 +4516,7 @@ namespace realclosure {
             int num_roots = x->num_roots_inside_interval();
             SASSERT(x->sdt() != 0 || num_roots == 1);
             polynomial const & p = x->p();
-            int taq_p_q = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->interval());
+            int taq_p_q = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval());
             if (num_roots == 1 && taq_p_q == 0)
                 return false; // q(x) is zero
             if (taq_p_q == num_roots) {
@@ -4514,7 +4542,7 @@ namespace realclosure {
                 SASSERT(x->sdt() != 0);
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
-                count_signs_at_zeros_core(taq_p_q, p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                count_signs_at_zeros_core(taq_p_q, p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
                 if (q_eq_0 > 0 && q_gt_0 == 0 && q_lt_0 == 0) {
                     // q(x) is zero
                     return false; 
@@ -4536,7 +4564,7 @@ namespace realclosure {
                     //   sdt.M_s * [1, ..., 1]^t = sdt.taqrs()^t 
                     // That is,
                     //   [1, ..., 1]^t = sdt.M_s^-1 * sdt.taqrs()^t
-                    // Moreover the number of roots in x->interval() is equal to the number of rows and columns in sdt.M_s.
+                    // Moreover the number of roots in x->iso_interval() is equal to the number of rows and columns in sdt.M_s.
                     // The column j of std.M_s is associated with the sign condition sdt.m_scs[j].
                     // The row i of sdt.M_s is associated with the polynomial sdt.prs()[i].
                     //
@@ -4548,21 +4576,21 @@ namespace realclosure {
                     scoped_mpz_matrix new_M_s(mm());
                     mm().tensor_product(sdt.M_s, M, new_M_s);
                     array<polynomial> const & prs = sdt.prs(); // polynomials associated with the rows of M_s
-                    array<int> const & taqrs      = sdt.taqrs(); // For each i in [0, taqrs.size())  TaQ(p, prs[i]; x->interval()) == taqrs[i]
+                    array<int> const & taqrs      = sdt.taqrs(); // For each i in [0, taqrs.size())  TaQ(p, prs[i]; x->iso_interval()) == taqrs[i]
                     SASSERT(prs.size() == taqrs.size());
                     int_buffer   new_taqrs;
                     value_ref_buffer prq(*this);
                     // fill new_taqrs using taqrs and the new tarski queries containing q (and q^2 when use_q2 == true).
                     for (unsigned i = 0; i < taqrs.size(); i++) {
-                        // Add TaQ(p, prs[i] * 1; x->interval())
+                        // Add TaQ(p, prs[i] * 1; x->iso_interval())
                         new_taqrs.push_back(taqrs[i]);
-                        // Add TaQ(p, prs[i] * q; x->interval())
+                        // Add TaQ(p, prs[i] * q; x->iso_interval())
                         mul(prs[i].size(), prs[i].c_ptr(), q.size(), q.c_ptr(), prq);
-                        new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->interval()));
+                        new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         if (use_q2) {
-                            // Add TaQ(p, prs[i] * q^2; x->interval())
+                            // Add TaQ(p, prs[i] * q^2; x->iso_interval())
                             mul(prs[i].size(), prs[i].c_ptr(), q2.size(), q2.c_ptr(), prq);
-                            new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->interval()));
+                            new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         }
                     }
                     int_buffer   sc_cardinalities;
@@ -4590,7 +4618,7 @@ namespace realclosure {
                             }
                         });
                     // Remark:
-                    //   Note that we found the sign of q for every root of p in the interval x->interval() :)
+                    //   Note that we found the sign of q for every root of p in the interval x->iso_interval() :)
                     unsigned sc_idx = x->sc_idx();
                     if (use_q2) {
                         if (sc_cardinalities[3*sc_idx] == 1) {
