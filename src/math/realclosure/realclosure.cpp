@@ -281,7 +281,8 @@ namespace realclosure {
 
     struct algebraic : public extension {
         polynomial   m_p;
-        sign_det *   m_sign_det; //!< != 0         if m_interval constains more than one root of m_p.
+        mpbqi        m_iso_interval;                
+        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constains more than one root of m_p.
         unsigned     m_sc_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sc_idx < m_sign_det->m_sign_conditions.size()
         bool         m_depends_on_infinitesimals;  //!< True if the polynomial p depends on infinitesimal extensions.
 
@@ -292,6 +293,7 @@ namespace realclosure {
         sign_det * sdt() const { return m_sign_det; }
         unsigned sc_idx() const { return m_sc_idx; }
         unsigned num_roots_inside_interval() const { return m_sign_det == 0 ? 1 : m_sign_det->num_roots(); }
+        mpbqi & iso_interval() { return m_iso_interval; }
     };
 
     struct transcendental : public extension {
@@ -808,6 +810,7 @@ namespace realclosure {
         void del_algebraic(algebraic * a) {
             reset_p(a->m_p);
             bqim().del(a->m_interval);
+            bqim().del(a->m_iso_interval);
             dec_ref_sign_det(a->m_sign_det);
             allocator().deallocate(sizeof(algebraic), a);
         }
@@ -1793,6 +1796,7 @@ namespace realclosure {
             
             set_p(r->m_p, p_sz, p);
             set_interval(r->m_interval, interval);
+            set_interval(r->m_iso_interval, interval);
             r->m_sign_det = sd;
             inc_ref_sign_det(sd);
             r->m_sc_idx   = sc_idx;
@@ -5603,7 +5607,7 @@ namespace realclosure {
             out << "root(";
             display_polynomial(out, a->p(), display_free_var_proc(), compact);
             out << ", ";
-            bqim().display(out, a->interval());
+            bqim().display(out, a->iso_interval());
             out << ", ";
             if (a->sdt() != 0) 
                 display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact);
