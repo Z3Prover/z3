@@ -625,7 +625,9 @@ namespace realclosure {
             SASSERT(!qm().is_zero(b));
             scoped_mpbqi bi(bqim());
             set_interval(bi, b);
-            div(a, bi, prec, c);
+            scoped_mpbqi r(bqim());
+            div(a, bi, prec, r);
+            swap(c, r);
         }
 
         /**
@@ -932,6 +934,16 @@ namespace realclosure {
         }
         bool is_rational_one(value_ref_buffer const & p) const {
             return p.size() == 1 && is_rational_one(p[0]);
+        }
+        
+        bool is_denominator_one(rational_function_value * v) const {
+            if (v->ext()->is_algebraic()) {
+                // TODO: add assertion
+                return true;
+            }
+            else {
+                return is_rational_one(v->den());
+            }
         }
 
         template<typename T>
@@ -3062,7 +3074,7 @@ namespace realclosure {
                 return qm().is_int(to_mpq(a));
             else {
                 rational_function_value * rf_a = to_rational_function(a);
-                return is_rational_one(rf_a->den()) && has_clean_denominators(rf_a->num());
+                return is_denominator_one(rf_a) && has_clean_denominators(rf_a->num());
             }
         }
 
@@ -3297,7 +3309,7 @@ namespace realclosure {
             }
             else {
                 rational_function_value * rf_a = to_rational_function(a);
-                if (is_rational_one(rf_a->den()))
+                if (!is_denominator_one(rf_a))
                     return false;
                 else
                     return gcd_int_coeffs(rf_a->num(), g);
@@ -3369,7 +3381,7 @@ namespace realclosure {
             }
             else {
                 rational_function_value * rf = to_rational_function(a);
-                SASSERT(is_rational_one(rf->den()));
+                SASSERT(is_denominator_one(rf));
                 value_ref_buffer new_ais(*this);
                 value_ref ai(*this);
                 polynomial const & p = rf->num();
@@ -4026,7 +4038,7 @@ namespace realclosure {
            extension and coefficients of the rational function.
         */
         void update_rf_interval(rational_function_value * v, unsigned prec) {
-            if (is_rational_one(v->den())) {
+            if (is_denominator_one(v)) {
                 polynomial_interval(v->num(), v->ext()->interval(), v->interval());
             }
             else  {
@@ -4181,8 +4193,7 @@ namespace realclosure {
         bool refine_algebraic_interval(rational_function_value * v, unsigned prec) {
             SASSERT(v->ext()->is_algebraic());
             polynomial const & n = v->num();
-            polynomial const & d = v->den();
-            SASSERT(is_rational_one(d)); 
+            SASSERT(is_denominator_one(v)); 
             unsigned _prec = prec;
             while (true) {
                 if (!refine_coeffs_interval(n, _prec) ||
@@ -4637,7 +4648,7 @@ namespace realclosure {
                   tout << "\ninterval: ";  bqim().display(tout, v->interval()); tout << "\n";);
             algebraic * x = to_algebraic(v->ext());
             scoped_mpbqi num_interval(bqim());
-            SASSERT(is_rational_one(v->den()));
+            SASSERT(is_denominator_one(v));
             if (!expensive_algebraic_poly_interval(v->num(), x, num_interval))
                 return false; // it is zero
             SASSERT(!contains_zero(num_interval));
@@ -4781,22 +4792,6 @@ namespace realclosure {
         }
         
         /**
-           \brief Apply normalize_algebraic (if applicable) & normalize_fraction.
-        */
-        void normalize_all(extension * x, unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
-            if (x->is_algebraic()) {
-                SASSERT(sz2 == 1);
-                SASSERT(is_rational_one(p2[0]));
-                value_ref_buffer p1_norm(*this);
-                normalize_algebraic(to_algebraic(x), sz1, p1, new_p1);
-                new_p2.reset(); new_p2.push_back(one());
-            }
-            else {
-                normalize_fraction(sz1, p1, sz2, p2, new_p1, new_p2);
-            }
-        }
-
-        /**
            \brief Create a new value using the a->ext(), and the given numerator and denominator.
            Use interval(a) + interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
@@ -4804,7 +4799,7 @@ namespace realclosure {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_rational_one(den[0]));
+                SASSERT(a->ext()->is_algebraic() || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
@@ -4826,7 +4821,7 @@ namespace realclosure {
            \brief Add a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
         void add_p_v(rational_function_value * a, value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
+            SASSERT(is_denominator_one(a));
             SASSERT(compare_rank(a, b) > 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -4844,12 +4839,12 @@ namespace realclosure {
             value_ref_buffer b_ad(*this);
             value_ref_buffer num(*this);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
-            if (is_rational_one(ad)) {
+            if (is_denominator_one(a)) {
                 add_p_v(a, b, r);
             }
             else {
                 SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
                 // b_ad <- b * ad
                 mul(b, ad.size(), ad.c_ptr(), b_ad);
                 // num <- a + b * ad
@@ -4859,7 +4854,7 @@ namespace realclosure {
                 else {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                    normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
                     if (new_num.empty())
                         r = 0;
                     else
@@ -4872,8 +4867,8 @@ namespace realclosure {
            \brief Add values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
         void add_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
-            SASSERT(is_rational_one(b->den()));
+            SASSERT(is_denominator_one(a));
+            SASSERT(is_denominator_one(b));
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -4898,14 +4893,14 @@ namespace realclosure {
         void add_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
             polynomial const & bn = b->num();
-            polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd)) {
+            if (is_denominator_one(a) && is_denominator_one(b)) {
                 add_p_p(a, b, r);
             }
             else {
                 SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
+                polynomial const & bd = b->den();
                 value_ref_buffer an_bd(*this);
                 value_ref_buffer bn_ad(*this);
                 mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
@@ -4920,7 +4915,7 @@ namespace realclosure {
                     mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                    normalize_fraction(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
                     if (new_num.empty())
                         r = 0;
                     else
@@ -5020,7 +5015,7 @@ namespace realclosure {
             SASSERT(num_sz > 0 && den_sz > 0);
             if (num_sz == 1 && den_sz == 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_rational_one(den[0]));
+                SASSERT(a->ext()->is_algebraic() || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
@@ -5042,7 +5037,7 @@ namespace realclosure {
            \brief Multiply a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
         void mul_p_v(rational_function_value * a, value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
+            SASSERT(is_denominator_one(a));
             SASSERT(b != 0);
             SASSERT(compare_rank(a, b) > 0);
             polynomial const & an  = a->num();
@@ -5059,19 +5054,19 @@ namespace realclosure {
         */
         void mul_rf_v(rational_function_value * a, value * b, value_ref & r) {
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
-            if (is_rational_one(ad)) {
+            if (is_denominator_one(a)) {
                 mul_p_v(a, b, r);
             }
             else {
                 SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
                 value_ref_buffer num(*this);
                 // num <- b * an
                 mul(b, an.size(), an.c_ptr(), num);
                 SASSERT(num.size() == an.size());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
                 SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
@@ -5081,8 +5076,8 @@ namespace realclosure {
            \brief Multiply values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
         void mul_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
-            SASSERT(is_rational_one(b->den()));
+            SASSERT(is_denominator_one(a));
+            SASSERT(is_denominator_one(b));
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -5092,7 +5087,6 @@ namespace realclosure {
             SASSERT(!new_num.empty());
             extension * x = a->ext();
             if (x->is_algebraic()) {
-                // FUTURE: we don't need to invoke normalize_algebraic if degree of new_num < degree x->p()
                 value_ref_buffer new_num2(*this);
                 normalize_algebraic(to_algebraic(x), new_num.size(), new_num.c_ptr(), new_num2);
                 SASSERT(!new_num.empty());
@@ -5109,14 +5103,14 @@ namespace realclosure {
         void mul_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
             polynomial const & bn = b->num();
-            polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd)) {
+            if (is_denominator_one(a) && is_denominator_one(b)) {
                 mul_p_p(a, b, r);
             }
             else {
                 SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
+                polynomial const & bd = b->den();
                 value_ref_buffer num(*this);
                 value_ref_buffer den(*this);
                 mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
@@ -5124,7 +5118,7 @@ namespace realclosure {
                 SASSERT(!num.empty()); SASSERT(!den.empty());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                normalize_fraction(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
                 SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
@@ -5245,7 +5239,7 @@ namespace realclosure {
          */
         void inv_algebraic(rational_function_value * a, value_ref & r) {
             SASSERT(a->ext()->is_algebraic());
-            SASSERT(is_rational_one(a->den()));
+            SASSERT(is_denominator_one(a));
             algebraic * x = to_algebraic(a->ext());
             polynomial const & q = a->num();
             value_ref_buffer new_num(*this);
@@ -5489,7 +5483,7 @@ namespace realclosure {
             if (is_zero(v) || is_nz_rational(v)) 
                 return false;
             rational_function_value * rf = to_rational_function(v);
-            return num_nz_coeffs(rf->num()) > 1 || !is_rational_one(rf->den());
+            return num_nz_coeffs(rf->num()) > 1 || !is_denominator_one(rf);
         }
 
         template<typename DisplayVar>
@@ -5628,7 +5622,7 @@ namespace realclosure {
                 qm().display(out, to_mpq(v));
             else {
                 rational_function_value * rf = to_rational_function(v);
-                if (is_rational_one(rf->den())) {
+                if (is_denominator_one(rf)) {
                     display_polynomial_expr(out, rf->num(), rf->ext(), compact);
                 }
                 else if (is_rational_one(rf->num())) {
