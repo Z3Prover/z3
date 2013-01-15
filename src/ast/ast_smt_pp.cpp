@@ -401,7 +401,12 @@ class smt_printer {
         if (m_autil.is_numeral(n, val, is_int)) {
             if (val.is_neg()) {
                 val.neg();
-                m_out << "(~ ";
+                if (m_is_smt2) {
+                    m_out << "(- ";
+                }
+                else {
+                    m_out << "(~ ";
+                }
                 display_rational(val, is_int);
                 m_out << ")";
             }
