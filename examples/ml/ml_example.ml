@@ -22,8 +22,8 @@ exception TestFailedException of string
 *)
 let  model_converter_test ( ctx : context ) =
   Printf.printf "ModelConverterTest\n";
-  let xr = ((mk_const ctx ((Symbol.mk_string ctx "x") :> symbol) (mk_real_sort ctx )) :> arith_expr) in
-  let yr = ((mk_const ctx ((Symbol.mk_string ctx "y") :> symbol) (mk_real_sort ctx )) :> arith_expr) in
+  let xr = ((mk_const ctx (Symbol.mk_string ctx "x") (mk_real_sort ctx )) :> arith_expr) in
+  let yr = ((mk_const ctx (Symbol.mk_string ctx "y") (mk_real_sort ctx )) :> arith_expr) in
   let g4 = (mk_goal ctx true false false ) in
   (Goal.assert_ g4 [| (mk_gt ctx xr (mk_real_numeral_nd ctx 10 1)) |]) ;
   (Goal.assert_ g4 [| (mk_eq ctx yr (mk_add ctx [| xr; (mk_real_numeral_nd ctx 1 1)  |] )) |] ) ;
@@ -68,9 +68,9 @@ let  model_converter_test ( ctx : context ) =
 let basic_tests ( ctx : context ) =
   Printf.printf "BasicTests\n" ;
   let qi = (mk_int ctx 1) in
-  let fname = ((mk_string ctx "f") :> symbol) in
-  let x = ((mk_string ctx "x") :> symbol) in
-  let y = ((mk_string ctx "y") :> symbol) in
+  let fname = (mk_string ctx "f") in
+  let x = (mk_string ctx "x") in
+  let y = (mk_string ctx "y") in
   let bs = (Sort.mk_bool ctx) in
   let domain = [| bs; bs |] in
   let f = (FuncDecl.mk_func_decl ctx fname domain bs) in
@@ -142,8 +142,8 @@ let basic_tests ( ctx : context ) =
   );
   (
     let g3 = (mk_goal ctx true true false) in
-    let xc = (mk_const ctx ((Symbol.mk_string ctx "x") :> symbol) (mk_int_sort ctx)) in
-    let yc = (mk_const ctx ((Symbol.mk_string ctx "y") :> symbol) (mk_int_sort ctx)) in
+    let xc = (mk_const ctx (Symbol.mk_string ctx "x") (mk_int_sort ctx)) in
+    let yc = (mk_const ctx (Symbol.mk_string ctx "y") (mk_int_sort ctx)) in
     (Goal.assert_ g3 [| (mk_eq ctx xc (mk_numeral_int ctx 1 (mk_int_sort ctx))) |]) ;
     (Goal.assert_ g3 [| (mk_eq ctx yc (mk_numeral_int ctx 2 (mk_int_sort ctx))) |]) ;
     let constr = (mk_eq ctx xc yc) in
@@ -211,8 +211,8 @@ let _ =
       let bs = (Sort.mk_bool ctx) in
       let ints = (mk_int_sort ctx) in
       let rs = (mk_real_sort ctx) in
-      Printf.printf "int symbol: %s\n" (Symbol.to_string (is :> symbol));
-      Printf.printf "string symbol: %s\n" (Symbol.to_string (ss :> symbol));
+      Printf.printf "int symbol: %s\n" (Symbol.to_string is);
+      Printf.printf "string symbol: %s\n" (Symbol.to_string ss);
       Printf.printf "bool sort: %s\n" (Sort.to_string bs);
       Printf.printf "int sort: %s\n" (Sort.to_string ints);
       Printf.printf "real sort: %s\n" (Sort.to_string rs);
