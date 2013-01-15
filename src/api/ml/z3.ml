@@ -5700,6 +5700,53 @@ struct
 	(func_declaton decls)
 end
 
+
+(* Global functions *)
+
+(**
+   * Set a global (or module) parameter, which is shared by all Z3 contexts.
+   * <remarks>
+   * When a Z3 module is initialized it will use the value of these parameters
+   * when Z3_params objects are not provided.
+   * The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
+   * The character '.' is a delimiter (more later).
+   * The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
+   * Thus, the following parameter names are considered equivalent: "pp.decimal-precision"  and "PP.DECIMAL_PRECISION".
+   * This function can be used to set parameters for a specific Z3 module.
+   * This can be done by using <module-name>.<parameter-name>.
+   * For example:
+   * (set_global_param "pp.decimal" "true")
+   * will set the parameter "decimal" in the module "pp" to true.
+*)
+let set_global_param ( id : string ) ( value : string ) =
+  (Z3native.global_param_set id value)
+
+(**
+   * Get a global (or module) parameter.
+   * <remarks>               
+   * Returns None if the parameter <param name="id"/> does not exist.
+   * The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
+   * This function cannot be invoked simultaneously from different threads without synchronization.
+   * The result string stored in param_value is stored in a shared location.
+*)
+let get_global_param ( id : string ) =
+  let (r, v) = (Z3native.global_param_get id) in
+  if not r then
+    None
+  else 
+    Some v
+
+(**
+   * Restore the value of all global (and module) parameters.
+   * <remarks>
+   * This command will not affect already created objects (such as tactics and solvers)
+   * <seealso cref="set_global_param"/>
+*)
+let global_param_reset_all =
+  Z3native.global_param_reset_all
+
+
+
 (*
 
 (**
