@@ -3784,13 +3784,40 @@ namespace realclosure {
            \brief Evaluate the sign of p(b) by computing a value object.
         */
         int expensive_eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
-            SASSERT(n > 0);
+            SASSERT(n > 1);
             SASSERT(p[n - 1] != 0);
-            value_ref _b(*this);
-            _b = mk_rational(b);
-            value_ref pb(*this);
-            mk_polynomial_value(n, p, _b, pb);
-            return sign(pb);
+            // Actually, given b = c/2^k, we compute the sign of (2^k)^n*p(c)
+            // Original Horner Sequence
+            //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
+            // Variation of the Horner Sequence for (2^k)^n*p(b)
+            //     ((a_n * c + a_{n-1}*2_k)*c + a_{n-2}*(2_k)^2)*c + a_{n-3}*(2_k)^3 ... + a_0*(2_k)^n 
+            scoped_mpz mpz_twok(qm());
+            qm().mul2k(mpz(1), b.k(), mpz_twok);
+            value_ref twok(*this), twok_i(*this);
+            twok = mk_rational(mpz_twok);
+            twok_i = twok;
+            value_ref c(*this);
+            c = mk_rational(b.numerator());
+
+            value_ref r(*this), ak(*this), rc(*this);
+
+            r = p[n-1];
+            unsigned i = n-1;
+            while (i > 0) {
+                --i;
+                if (is_zero(p[i])) {
+                    mul(r, c, r);
+                }
+                else {
+                    // ak <- a_i * (2^k)^(n-i)
+                    mul(p[i], twok_i, ak);
+                    // r <- r * c + a_i * (2^k)^(n-i)
+                    mul(r, c, rc);
+                    add(ak, rc, r);
+                }
+                mul(twok_i, twok, twok_i);
+            }
+            return sign(r);
         }
 
         /**
