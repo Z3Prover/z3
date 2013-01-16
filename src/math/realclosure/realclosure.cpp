@@ -1248,6 +1248,10 @@ namespace realclosure {
             return r;
         }         
 
+        rational_function_value * mk_rational_function_value_core(algebraic * ext, unsigned num_sz, value * const * num) {
+            return mk_rational_function_value_core(ext, num_sz, num, 0, 0);
+        }
+
         /**
            \brief Create a value using the given extension.
         */
@@ -2390,8 +2394,6 @@ namespace realclosure {
                 value_ref d(*this);
                 value_ref_buffer norm_p(*this);
                 clean_denominators(n, p, norm_p, d);
-                if (sign(d) < 0)
-                    neg(norm_p);
                 nz_cd_isolate_roots(norm_p.size(), norm_p.c_ptr(), roots);
             }
             else {
@@ -5302,63 +5304,215 @@ namespace realclosure {
         }
 
         /**
-           \brief Auxiliary function for inverting values of algebraic extensions.
-           p is the defining polynomial for the algebraic extension alpha.
-           q is the polynomial representing the value q(alpha).
+           \brief Invert 1/q(alpha) given that p(alpha) = 0. That is, we find h s.t.
+
+           q(alpha) * h(alpha) = 1
+
+           The procedure succeeds (and returns true) if the GCD(q, p) = 1.
            
-           The procedure will store a polynomial in r that represents the value 1/q(a)
+           If the GCD(q, p) != 1, then it returns false, and store the GCD in g.
+        
+           The following procedure is essentially a special case of the extended polynomial GCD algorithm.
         */
-        void inv_algebraic(unsigned q_sz, value * const * q, unsigned p_sz, value * const * p, value_ref_buffer & r) {
+        bool inv_algebraic(unsigned q_sz, value * const * q, unsigned p_sz, value * const * p, value_ref_buffer & g, value_ref_buffer & h) {
             TRACE("inv_algebraic", 
                   tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
                   tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";);
             SASSERT(q_sz > 0);
             SASSERT(q_sz < p_sz);
-            value_ref_buffer A(*this);
-            A.append(q_sz, q);
+            // Q <- q
+            value_ref_buffer Q(*this);
+            Q.append(q_sz, q);
+            // R <- 1
             value_ref_buffer R(*this);
             R.push_back(one());
-            value_ref_buffer Quo(*this), Rem(*this);
+            value_ref_buffer Quo(*this), Rem(*this), aux(*this);
+            
+            // We find h(alpha), by rewriting the equation
+            //    q(alpha) * h(alpha) = 1
+            // until we have 
+            //    1 * h(alpha) = R(alpha)
             while (true) {
+                // In every iteration of the loop we have
+                //   Q(alpha) * h(alpha) = R(alpha) 
                 TRACE("inv_algebraic", 
-                      tout << "A: "; display_poly(tout, A.size(), A.c_ptr()); tout << "\n";
+                      tout << "Q: "; display_poly(tout, Q.size(), Q.c_ptr()); tout << "\n";
                       tout << "R: "; display_poly(tout, R.size(), R.c_ptr()); tout << "\n";);
-                if (A.size() == 1) {
-                    div(R.size(), R.c_ptr(), A[0], r);
-                    TRACE("inv_algebraic", tout << "r: "; display_poly(tout, r.size(), r.c_ptr()); tout << "\n";);
-                    return;
+                if (Q.size() == 1) {
+                    // If the new Q is the constant polynomial, they we are done.
+                    // We just divide R by Q[0].
+                    // h(alpha) = R(alpha) / Q[0]
+                    div(R.size(), R.c_ptr(), Q[0], h);
+                    TRACE("inv_algebraic", tout << "h: "; display_poly(tout, h.size(), h.c_ptr()); tout << "\n";);
+                    // g <- 1
+                    g.reset(); g.push_back(one());
+                    return true;
                 }
-                div_rem(p_sz, p, A.size(), A.c_ptr(), Quo, Rem);
-                // p == Quo * A + Rem
-                // since p = 0
-                // Quo * A = -Rem
-                // thus, we update
-                // A <- -Rem
-                neg(Rem.size(), Rem.c_ptr(), A);
-                // R <- rem(Quo * R, p)
-                mul(R.size(), R.c_ptr(), Quo.size(), Quo.c_ptr(), r);
-                rem(r.size(), r.c_ptr(), p_sz, p, R);
-                SASSERT(R.size() < p_sz);
+                else {
+                    div_rem(p_sz, p, Q.size(), Q.c_ptr(), Quo, Rem);
+                    if (Rem.empty()) {
+                        // failed
+                        // GCD(q, p) != 1
+                        g = Q;
+                        mk_monic(g);
+                        return false;
+                    }
+                    else {
+                        // By the definition of polynomial division, we have
+                        //     p == Quo * Q + Rem
+                        // Since, we have p(alpha) = 0 
+                        //     Quo(alpha) * Q(alpha) = -Rem(alpha)    (*)
+                        // Now, if we multiply the equation
+                        //     Q(alpha) * h(alpha) = R(alpha)
+                        // by Quo(alpha) and apply (*), we get
+                        //     -Rem(alpha) * h(alpha) = R(alpha) * Quo(alpha)
+                        // Thus, we update Q, and R for the next iteration, as 
+                        //    Q <- -REM
+                        //    R <- R * Quo
+                        // Q <- -Rem
+                        neg(Rem.size(), Rem.c_ptr(), Q);
+                        mul(R.size(), R.c_ptr(), Quo.size(), Quo.c_ptr(), aux);
+                        // Moreover since p(alpha) = 0, we can simplify Q, by using
+                        // Q(alpha) = REM(Q, p)(alpha)
+                        rem(aux.size(), aux.c_ptr(), p_sz, p, R);
+                        SASSERT(R.size() < p_sz);
+                        //
+                    }
+                }
             }
         }
 
         /**
            \brief r <- 1/a  specialized version when a->ext() is algebraic.
            It avoids the use of rational functions.
-         */
+        */
         void inv_algebraic(rational_function_value * a, value_ref & r) {
             SASSERT(a->ext()->is_algebraic());
             SASSERT(is_denominator_one(a));
-            algebraic * x = to_algebraic(a->ext());
-            polynomial const & q = a->num();
-            value_ref_buffer new_num(*this);
-            SASSERT(q.size() < x->p().size());
-            inv_algebraic(q.size(), q.c_ptr(), x->p().size(), x->p().c_ptr(), new_num);
             scoped_mpbqi ri(bqim());
             bqim().inv(interval(a), ri);
-            r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), a->den().size(), a->den().c_ptr());
-            swap(r->interval(), ri);
-            SASSERT(!contains_zero(r->interval()));
+            algebraic * alpha = to_algebraic(a->ext());
+            polynomial const & q = a->num();
+            polynomial const & p = alpha->p();
+            value_ref_buffer norm_q(*this);
+            // since p(alpha) = 0, we have that q(alpha) = rem(q, p)(alpha) 
+            rem(q.size(), q.c_ptr(), p.size(), p.c_ptr(), norm_q);
+            SASSERT(norm_q.size() < p.size());
+            value_ref_buffer new_num(*this), g(*this);
+            if (inv_algebraic(norm_q.size(), norm_q.c_ptr(), p.size(), p.c_ptr(), g, new_num)) {
+                if (new_num.size() == 1) {
+                    r = new_num[0];
+                }
+                else {
+                    r = mk_rational_function_value_core(alpha, new_num.size(), new_num.c_ptr());
+                    swap(r->interval(), ri);
+                    SASSERT(!contains_zero(r->interval()));
+                }
+            }
+            else {
+                // We failed to compute 1/a
+                // because q and p are not co-prime
+                // This can happen because we don't use minimal
+                // polynomials to represent algebraic extensions such
+                // as alpha.
+                
+                // We recover from the failure by refining the defining polynomial of alpha
+                // with p/gcd(p, q)
+                // Remark: g contains the gcd of p, q
+                // And try again :)
+
+                value_ref_buffer new_p(*this);
+                div(p.size(), p.c_ptr(), g.size(), g.c_ptr(), new_p);
+                if (m_clean_denominators) {
+                    value_ref_buffer tmp(*this);
+                    value_ref d(*this);
+                    clean_denominators(new_p.size(), new_p.c_ptr(), tmp, d);
+                    new_p = tmp;
+                }
+                SASSERT(new_p.size() >= 2);
+
+                if (new_p.size() == 2) {
+                    // Easy case: alpha is actually equal to 
+                    //    -new_p[0]/new_p[1]
+                    value_ref alpha_val(*this);
+                    alpha_val = new_p[0];
+                    neg(alpha_val, alpha_val);
+                    div(alpha_val, new_p[1], alpha_val);
+                    // Thus, a is equal to q(alpha_val)
+                    value_ref new_a(*this);
+                    mk_polynomial_value(q.size(), q.c_ptr(), alpha_val, new_a);
+                    // Remark new_a does not depend on alpha anymore
+                    // r == 1/inv(new_a)
+                    inv(new_a, r);
+                }
+                else if (alpha->sdt() == 0) {
+                    // Another easy case: we just have to replace
+                    //    alpha->p() with new_p.
+                    // The m_iso_interval for p() is also an isolating interval for new_p,
+                    // since the roots of new_p() are a subset of the roots of p
+                    reset_p(alpha->m_p);
+                    set_p(alpha->m_p, new_p.size(), new_p.c_ptr());
+
+                    // The new call will succeed because q and new_p are co-prime
+                    inv_algebraic(a, r);
+                }
+                else {
+                    // Let sdt be alpha->sdt();
+                    // In pricipal, the signs of the polynomials sdt->qs can be used
+                    // to discriminate the roots of new_p. The signs of this polynomials 
+                    // depend only on alpha, and not on the polynomial used to define alpha
+                    // So, in principle, we can reuse m_qs and m_sign_conditions.
+                    // However, we have to recompute the tarski queries with respect to new_p.
+                    // This values will be different, since new_p has less roots than p.
+                    //
+                    // Instead of trying to reuse the information in sdt, we simply
+                    // isolate the roots of new_p, and check the one that is equal to alpha.
+                    // and copy all the information from them.
+                    SASSERT(new_p.size() > 2);
+                    // we can invoke nl_nz_sqf_isolate_roots, because we know
+                    //   - new_p is not linear
+                    //   - new_p is square free (it is a factor of the square free polynomial p)
+                    //   - 0 is not a root of new_p (it is a factor of p, and 0 is not a root of p)
+                    numeral_vector roots;
+                    nl_nz_sqf_isolate_roots(new_p.size(), new_p.c_ptr(), roots);
+                    SASSERT(roots.size() > 0);
+                    algebraic * new_alpha;
+                    if (roots.size() == 1) {
+                        new_alpha = to_algebraic(to_rational_function(roots[0].m_value)->ext());
+                    }
+                    else {
+                        value_ref alpha_val(*this);
+                        alpha_val = mk_rational_function_value(alpha);
+                        // search for the root that is equal to alpha
+                        unsigned i = 0;
+                        for (i = 0; i < roots.size(); i++) {
+                            if (compare(alpha_val, roots[i].m_value) == 0) {
+                                // found it;
+                                break;
+                            }
+                        }
+                        new_alpha = to_algebraic(to_rational_function(roots[i].m_value)->ext());
+                    }
+                    SASSERT(new_alpha->p().size() == new_p.size());
+                    // We now that alpha and new_alpha represent the same value.
+                    // Thus, we update alpha fields with the fields from new_alpha.
+
+                    // copy new_alpha->m_p
+                    reset_p(alpha->m_p);
+                    set_p(alpha->m_p, new_alpha->m_p.size(), new_alpha->m_p.c_ptr());
+                    // copy new_alpha->m_sign_det
+                    inc_ref_sign_det(new_alpha->m_sign_det);
+                    dec_ref_sign_det(alpha->m_sign_det);
+                    alpha->m_sign_det = new_alpha->m_sign_det;
+                    // copy remaining fields
+                    set_interval(alpha->m_iso_interval, new_alpha->m_iso_interval);
+                    alpha->m_sc_idx = new_alpha->m_sc_idx;
+                    alpha->m_depends_on_infinitesimals = new_alpha->m_depends_on_infinitesimals;
+                    
+                    // The new call will succeed because q and new_p are co-prime
+                    inv_algebraic(a, r);
+                }
+            }
         }
 
         void inv_rf(rational_function_value * a, value_ref & r) {
