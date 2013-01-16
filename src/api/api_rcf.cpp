@@ -264,7 +264,7 @@ extern "C" {
         LOG_Z3_rcf_neq(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
-        return rcfm(c).eq(to_rcnumeral(a), to_rcnumeral(b));
+        return rcfm(c).neq(to_rcnumeral(a), to_rcnumeral(b));
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
