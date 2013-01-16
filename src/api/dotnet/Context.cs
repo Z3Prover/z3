@@ -3518,8 +3518,7 @@ namespace Microsoft.Z3
         public string GetParamValue(string id)
         {
             IntPtr res = IntPtr.Zero;
-            int r = Native.Z3_get_param_value(nCtx, id, out res);
-            if (r == (int)Z3_lbool.Z3_L_FALSE)
+            if (Native.Z3_get_param_value(nCtx, id, out res) == 0)
                 return null;
             else
                 return Marshal.PtrToStringAnsi(res);

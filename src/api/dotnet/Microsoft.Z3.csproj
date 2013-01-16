@@ -341,6 +341,7 @@
     <Compile Include="ConstructorList.cs" />
     <Compile Include="DatatypeExpr.cs" />
     <Compile Include="DatatypeSort.cs" />
+    <Compile Include="Global.cs" />
     <Compile Include="IDecRefQueue.cs" />
     <Compile Include="Enumerations.cs" />
     <Compile Include="EnumSort.cs" />
