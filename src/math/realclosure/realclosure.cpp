@@ -378,10 +378,12 @@ namespace realclosure {
         unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
         scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
         scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
-        
+        bool                           m_lazy_algebraic_normalization;
 
         // Tracing
         unsigned                       m_exec_depth;
+
+        bool                           m_in_aux_values; // True if we are computing SquareFree polynomials or Sturm sequences. That is, the values being computed will be discarded.
 
         volatile bool                  m_cancel;
 
@@ -494,6 +496,8 @@ namespace realclosure {
             m_e  = 0;
 
             m_exec_depth = 0;
+
+            m_in_aux_values = false;
 
             m_cancel = false;
             
@@ -723,6 +727,7 @@ namespace realclosure {
             m_ini_precision      = p.initial_precision();
             m_inf_precision      = p.inf_precision();
             m_max_precision      = p.max_precision();
+            m_lazy_algebraic_normalization = p.lazy_algebraic_normalization();
             bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
             bqm().set(m_minus_inf_approx, m_plus_inf_approx);
             bqm().neg(m_minus_inf_approx);
@@ -3454,6 +3459,10 @@ namespace realclosure {
             return p.size() > 0 && is_rational_one(p[p.size() - 1]);
         }
 
+        bool is_monic(polynomial const & p) {
+            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+        }
+
         /**
            \brief Force the leading coefficient of p to be 1.
         */
@@ -3589,6 +3598,7 @@ namespace realclosure {
            Store in r the square free factors of p.
         */
         void square_free(unsigned sz, value * const * p, value_ref_buffer & r) {
+            flet<bool> set(m_in_aux_values, true);
             if (sz <= 1) {
                 r.append(sz, p);
             }
@@ -3616,6 +3626,8 @@ namespace realclosure {
         */
         void sturm_seq_core(scoped_polynomial_seq & seq) {
             INC_DEPTH();
+            flet<bool> set(m_in_aux_values, true);
+
             SASSERT(seq.size() >= 2);
             TRACE("rcf_sturm_seq", 
                   unsigned sz = seq.size();
@@ -3788,6 +3800,8 @@ namespace realclosure {
            \brief Evaluate the sign of p(b) by computing a value object.
         */
         int expensive_eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
+            flet<bool> set(m_in_aux_values, true);
+
             SASSERT(n > 1);
             SASSERT(p[n - 1] != 0);
             // Actually, given b = c/2^k, we compute the sign of (2^k)^n*p(c)
@@ -4877,7 +4891,13 @@ namespace realclosure {
         */
         void normalize_algebraic(algebraic * x, unsigned sz1, value * const * p1, value_ref_buffer & new_p1) {
             polynomial const & p = x->p();
-            rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
+            if (!m_lazy_algebraic_normalization || !m_in_aux_values || is_monic(p)) {
+                rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
+            }
+            else {
+                new_p1.reset();
+                new_p1.append(sz1, p1);
+            }
         }
         
         /**
@@ -5693,7 +5713,16 @@ namespace realclosure {
         }
 
         void display_poly(std::ostream & out, unsigned n, value * const * p) const {
-            display_polynomial(out, n, p, display_free_var_proc(), false);
+            collect_algebraic_refs c;
+            for (unsigned i = 0; i < n; i++)
+                c.mark(p[i]);
+            display_polynomial(out, n, p, display_free_var_proc(), true);
+            std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
+            for (unsigned i = 0; i < c.m_found.size(); i++) {
+                algebraic * ext = c.m_found[i];
+                out << "\n   r!" << ext->idx() << " := ";
+                display_algebraic_def(out, ext, true);
+            }
         }
 
         void display_ext(std::ostream & out, extension * r, bool compact) const {
