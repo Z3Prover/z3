@@ -5159,8 +5159,42 @@ struct
   *)        
   let assert_ ( x : solver ) ( constraints : bool_expr array ) =
     let f e = (Z3native.solver_assert (z3obj_gnc x) (z3obj_gno x) e#gno) in
-    ignore (Array.map f constraints) ;
-    ()
+    ignore (Array.map f constraints)
+
+  (**
+     * Assert multiple constraints (cs) into the solver, and track them (in the
+     * unsat) core
+     * using the Boolean constants in ps.
+     *
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+  *)
+  let assert_and_track ( x : solver ) ( cs : bool_expr array ) ( ps : bool_expr array ) =
+    if ((Array.length cs) != (Array.length ps)) then
+      raise (Z3native.Exception "Argument size mismatch")
+    else
+      let f i e = (Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) e#gno (Array.get ps i)#gno) in
+      ignore (Array.iteri f cs)
+	
+  (**
+     * Assert a constraint (c) into the solver, and track it (in the unsat) core
+     * using the Boolean constant p.
+     * 
+     * This API is an alternative to <see cref="Check"/> with assumptions for
+     * extracting unsat cores.
+     * Both APIs can be used in the same solver. The unsat core will contain a
+     * combination
+     * of the Boolean variables provided using <see cref="AssertAndTrack"/>
+     * and the Boolean literals
+     * provided using <see cref="Check"/> with assumptions.
+  *)
+  let assert_and_track ( x : solver ) ( c : bool_expr ) ( p : bool_expr ) =    
+    Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) c#gno p#gno
 
   (**
      The number of assertions in the solver.
