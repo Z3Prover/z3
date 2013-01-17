@@ -16,7 +16,7 @@ public class ConstructorList extends Z3Object
 	 **/
 	protected void finalize() throws Z3Exception
 	{
-		Native.delConstructorList(Context().nCtx(), NativeObject());
+		Native.delConstructorList(getContext().nCtx(), getNativeObject());
 	}
 
 	ConstructorList(Context ctx, long obj) throws Z3Exception
@@ -28,8 +28,8 @@ public class ConstructorList extends Z3Object
 	{
 		super(ctx);
 
-		setNativeObject(Native.mkConstructorList(Context().nCtx(),
+		setNativeObject(Native.mkConstructorList(getContext().nCtx(),
 				(int) constructors.length,
-				Constructor.ArrayToNative(constructors)));
+				Constructor.arrayToNative(constructors)));
 	}
 }

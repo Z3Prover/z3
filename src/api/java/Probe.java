@@ -23,20 +23,11 @@ public class Probe extends Z3Object
      *         0.0 for false, and a value different from 0.0 for true.
      * @throws Z3Exception 
      **/
-    public double Apply(Goal g) throws Z3Exception
+    public double apply(Goal g) throws Z3Exception
     {
-        Context().CheckContextMatch(g);
-        return Native.probeApply(Context().nCtx(), NativeObject(),
-                g.NativeObject());
-    }
-
-    /**
-     * Apply the probe to a goal.
-     * @throws Z3Exception 
-     **/
-    public double get(Goal g) throws Z3Exception
-    {
-        return Apply(g);
+        getContext().checkContextMatch(g);
+        return Native.probeApply(getContext().nCtx(), getNativeObject(),
+                g.getNativeObject());
     }
 
     Probe(Context ctx, long obj) throws Z3Exception
@@ -49,15 +40,15 @@ public class Probe extends Z3Object
         super(ctx, Native.mkProbe(ctx.nCtx(), name));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Probe_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().probe_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Probe_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().probe_DRQ().add(o);
+        super.decRef(o);
     }
 }

@@ -18,58 +18,47 @@ public class Tactic extends Z3Object
     /**
      * A string containing a description of parameters accepted by the tactic.
      **/
-    public String Help() throws Z3Exception
+    public String getHelp() throws Z3Exception
     {
-        return Native.tacticGetHelp(Context().nCtx(), NativeObject());
+        return Native.tacticGetHelp(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Retrieves parameter descriptions for Tactics.
      * @throws Z3Exception 
      **/
-    public ParamDescrs ParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions() throws Z3Exception
     {
-        return new ParamDescrs(Context(), Native.tacticGetParamDescrs(Context()
-                .nCtx(), NativeObject()));
+        return new ParamDescrs(getContext(), Native.tacticGetParamDescrs(getContext()
+                .nCtx(), getNativeObject()));
     }
 
     /**
      * Execute the tactic over the goal.
      * @throws Z3Exception 
      **/
-    public ApplyResult Apply(Goal g) throws Z3Exception
+    public ApplyResult apply(Goal g) throws Z3Exception
     {	
-        return Apply(g, null);
+        return apply(g, null);
     }
 
     /**
      * Execute the tactic over the goal.
      * @throws Z3Exception 
      **/
-    public ApplyResult Apply(Goal g, Params p) throws Z3Exception
+    public ApplyResult apply(Goal g, Params p) throws Z3Exception
     {
-
-        Context().CheckContextMatch(g);
+        getContext().checkContextMatch(g);
         if (p == null)
-            return new ApplyResult(Context(), Native.tacticApply(Context()
-                    .nCtx(), NativeObject(), g.NativeObject()));
+            return new ApplyResult(getContext(), Native.tacticApply(getContext()
+                    .nCtx(), getNativeObject(), g.getNativeObject()));
         else
         {
-            Context().CheckContextMatch(p);
-            return new ApplyResult(Context(),
-                    Native.tacticApplyEx(Context().nCtx(), NativeObject(),
-                            g.NativeObject(), p.NativeObject()));
+            getContext().checkContextMatch(p);
+            return new ApplyResult(getContext(),
+                    Native.tacticApplyEx(getContext().nCtx(), getNativeObject(),
+                            g.getNativeObject(), p.getNativeObject()));
         }
-    }
-
-    /**
-     * Apply the tactic to a goal.
-     * @throws Z3Exception 
-     **/
-    public ApplyResult get(Goal g) throws Z3Exception
-    {
-
-        return Apply(g, null);
     }
 
     /**
@@ -77,10 +66,9 @@ public class Tactic extends Z3Object
      * cref="Context.MkSolver(Tactic)"/>
      * @throws Z3Exception 
      **/
-    public Solver Solver() throws Z3Exception
+    public Solver getSolver() throws Z3Exception
     {
-
-        return Context().MkSolver(this);
+        return getContext().mkSolver(this);
     }
 
     Tactic(Context ctx, long obj) throws Z3Exception
@@ -93,15 +81,15 @@ public class Tactic extends Z3Object
         super(ctx, Native.mkTactic(ctx.nCtx(), name));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Tactic_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().tactic_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Tactic_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().tactic_DRQ().add(o);
+        super.decRef(o);
     }
 }

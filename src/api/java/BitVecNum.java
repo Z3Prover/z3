@@ -18,10 +18,10 @@ public class BitVecNum extends BitVecExpr
      * 
      * @throws Z3Exception
      **/
-    public int Int() throws Z3Exception
+    public int getInt() throws Z3Exception
     {
         Native.IntPtr res = new Native.IntPtr();
-        if (Native.getNumeralInt(Context().nCtx(), NativeObject(), res) ^ true)
+        if (Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res) ^ true)
             throw new Z3Exception("Numeral is not an int");
         return res.value;
     }
@@ -31,10 +31,10 @@ public class BitVecNum extends BitVecExpr
      * 
      * @throws Z3Exception
      **/
-    public long Long() throws Z3Exception
+    public long getLong() throws Z3Exception
     {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.getNumeralInt64(Context().nCtx(), NativeObject(), res) ^ true)
+        if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
             throw new Z3Exception("Numeral is not an int64");
         return res.value;
     }
@@ -42,7 +42,7 @@ public class BitVecNum extends BitVecExpr
     /**
      * Retrieve the BigInteger value.
      **/
-    public BigInteger BigInteger()
+    public BigInteger getBigInteger()
     {
         return new BigInteger(this.toString());
     }
@@ -54,7 +54,7 @@ public class BitVecNum extends BitVecExpr
     {
         try
         {
-            return Native.getNumeralString(Context().nCtx(), NativeObject());
+            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();

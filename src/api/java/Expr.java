@@ -6,7 +6,10 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_ast_kind;
+import com.microsoft.z3.enumerations.Z3_decl_kind;
+import com.microsoft.z3.enumerations.Z3_lbool;
+import com.microsoft.z3.enumerations.Z3_sort_kind;
 
 /* using System; */
 
@@ -18,9 +21,9 @@ public class Expr extends AST
 	/**
 	 * Returns a simplified version of the expression
 	 **/
-	public Expr Simplify() throws Z3Exception
+	public Expr simplify() throws Z3Exception
 	{
-	    return Simplify(null);
+	    return simplify(null);
 	}
 
 	/**
@@ -29,59 +32,57 @@ public class Expr extends AST
 	 * parameters <param name="p" /> to configure the simplifier 
 	 * <seealso cref="Context.SimplifyHelp"/>
 	 **/
-	public Expr Simplify(Params p) throws Z3Exception
+	public Expr simplify(Params p) throws Z3Exception
 	{
 
 		if (p == null)
-			return Expr.Create(Context(),
-					Native.simplify(Context().nCtx(), NativeObject()));
+			return Expr.create(getContext(),
+					Native.simplify(getContext().nCtx(), getNativeObject()));
 		else
-			return Expr.Create(
-					Context(),
-					Native.simplifyEx(Context().nCtx(), NativeObject(),
-							p.NativeObject()));
+			return Expr.create(
+					getContext(),
+					Native.simplifyEx(getContext().nCtx(), getNativeObject(),
+							p.getNativeObject()));
 	}
 
 	/**
 	 * The function declaration of the function that is applied in this
 	 * expression.
 	 **/
-	public FuncDecl FuncDecl() throws Z3Exception
+	public FuncDecl getFuncDecl() throws Z3Exception
 	{
-
-		return new FuncDecl(Context(), Native.getAppDecl(Context().nCtx(),
-				NativeObject()));
+		return new FuncDecl(getContext(), Native.getAppDecl(getContext().nCtx(),
+				getNativeObject()));
 	}
 
 	/**
 	 * Indicates whether the expression is the true or false expression or
 	 * something else (Z3_L_UNDEF).
 	 **/
-	public Z3_lbool BoolValue() throws Z3Exception
+	public Z3_lbool getBoolValue() throws Z3Exception
 	{
-		return Z3_lbool.fromInt(Native.getBoolValue(Context().nCtx(),
-				NativeObject()));
+		return Z3_lbool.fromInt(Native.getBoolValue(getContext().nCtx(),
+				getNativeObject()));
 	}
 
 	/**
 	 * The number of arguments of the expression.
 	 **/
-	public int NumArgs() throws Z3Exception
+	public int getNumArgs() throws Z3Exception
 	{
-		return Native.getAppNumArgs(Context().nCtx(), NativeObject());
+		return Native.getAppNumArgs(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
 	 * The arguments of the expression.
 	 **/
-	public Expr[] Args() throws Z3Exception
+	public Expr[] getArgs() throws Z3Exception
 	{
-
-		int n = NumArgs();
+		int n = getNumArgs();
 		Expr[] res = new Expr[n];
 		for (int i = 0; i < n; i++)
-			res[i] = Expr.Create(Context(),
-					Native.getAppArg(Context().nCtx(), NativeObject(), i));
+			res[i] = Expr.create(getContext(),
+					Native.getAppArg(getContext().nCtx(), getNativeObject(), i));
 		return res;
 	}
 
@@ -90,14 +91,13 @@ public class Expr extends AST
 	 * name="args"/> The number of new arguments should coincide with the
 	 * current number of arguments.
 	 **/
-	public void Update(Expr[] args) throws Z3Exception
+	public void update(Expr[] args) throws Z3Exception
 	{
-
-		Context().CheckContextMatch(args);
-		if (args.length != NumArgs())
+		getContext().checkContextMatch(args);
+		if (args.length != getNumArgs())
 			throw new Z3Exception("Number of arguments does not match");
-		setNativeObject(Native.updateTerm(Context().nCtx(), NativeObject(),
-				(int) args.length, Expr.ArrayToNative(args)));
+		setNativeObject(Native.updateTerm(getContext().nCtx(), getNativeObject(),
+				(int) args.length, Expr.arrayToNative(args)));
 	}
 
 	/**
@@ -109,26 +109,25 @@ public class Expr extends AST
 	 * <code>num_exprs</code>, we must have that sort of <code>from[i]</code>
 	 * must be equal to sort of <code>to[i]</code>. </remarks>
 	 **/
-	public Expr Substitute(Expr[] from, Expr[] to) throws Z3Exception
+	public Expr substitute(Expr[] from, Expr[] to) throws Z3Exception
 	{
-
-		Context().CheckContextMatch(from);
-		Context().CheckContextMatch(to);
+		getContext().checkContextMatch(from);
+		getContext().checkContextMatch(to);
 		if (from.length != to.length)
 			throw new Z3Exception("Argument sizes do not match");
-		return Expr.Create(Context(), Native.substitute(Context().nCtx(),
-				NativeObject(), (int) from.length, Expr.ArrayToNative(from),
-				Expr.ArrayToNative(to)));
+		return Expr.create(getContext(), Native.substitute(getContext().nCtx(),
+				getNativeObject(), (int) from.length, Expr.arrayToNative(from),
+				Expr.arrayToNative(to)));
 	}
 
 	/**
 	 * Substitute every occurrence of <code>from</code> in the expression with
 	 * <code>to</code>. <seealso cref="Substitute(Expr[],Expr[])"/>
 	 **/
-	public Expr Substitute(Expr from, Expr to) throws Z3Exception
+	public Expr substitute(Expr from, Expr to) throws Z3Exception
 	{
 
-		return Substitute(new Expr[] { from }, new Expr[] { to });
+		return substitute(new Expr[] { from }, new Expr[] { to });
 	}
 
 	/**
@@ -137,12 +136,12 @@ public class Expr extends AST
 	 * <code>num_exprs</code>, the variable with de-Bruijn index <code>i</code>
 	 * is replaced with term <code>to[i]</code>. </remarks>
 	 **/
-	public Expr SubstituteVars(Expr[] to) throws Z3Exception
+	public Expr substituteVars(Expr[] to) throws Z3Exception
 	{
 
-		Context().CheckContextMatch(to);
-		return Expr.Create(Context(), Native.substituteVars(Context().nCtx(),
-				NativeObject(), (int) to.length, Expr.ArrayToNative(to)));
+		getContext().checkContextMatch(to);
+		return Expr.create(getContext(), Native.substituteVars(getContext().nCtx(),
+				getNativeObject(), (int) to.length, Expr.arrayToNative(to)));
 	}
 
 	/**
@@ -152,15 +151,15 @@ public class Expr extends AST
 	 * @return A copy of the term which is associated with <paramref
 	 *         name="ctx"/>
 	 **/
-	public Expr Translate(Context ctx) throws Z3Exception
+	public Expr translate(Context ctx) throws Z3Exception
 	{
 
-		if (Context() == ctx)
+		if (getContext() == ctx)
 			return this;
 		else
-			return Expr.Create(
+			return Expr.create(
 					ctx,
-					Native.translate(Context().nCtx(), NativeObject(),
+					Native.translate(getContext().nCtx(), getNativeObject(),
 							ctx.nCtx()));
 	}
 
@@ -175,9 +174,9 @@ public class Expr extends AST
 	/**
 	 * Indicates whether the term is a numeral
 	 **/
-	public boolean IsNumeral() throws Z3Exception
+	public boolean isNumeral() throws Z3Exception
 	{
-		return Native.isNumeralAst(Context().nCtx(), NativeObject());
+		return Native.isNumeralAst(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
@@ -185,310 +184,310 @@ public class Expr extends AST
 	 * 
 	 * @return True if the term is well-sorted, false otherwise.
 	 **/
-	public boolean IsWellSorted() throws Z3Exception
+	public boolean isWellSorted() throws Z3Exception
 	{
-		return Native.isWellSorted(Context().nCtx(), NativeObject());
+		return Native.isWellSorted(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
 	 * The Sort of the term.
 	 **/
-	public Sort Sort() throws Z3Exception
+	public Sort getSort() throws Z3Exception
 	{
-		return Sort.Create(Context(),
-				Native.getSort(Context().nCtx(), NativeObject()));
+		return Sort.create(getContext(),
+				Native.getSort(getContext().nCtx(), getNativeObject()));
 	}
 
 	/**
 	 * Indicates whether the term represents a constant.
 	 **/
-	public boolean IsConst() throws Z3Exception
+	public boolean isConst() throws Z3Exception
 	{
-		return IsApp() && NumArgs() == 0 && FuncDecl().DomainSize() == 0;
+		return isApp() && getNumArgs() == 0 && getFuncDecl().getDomainSize() == 0;
 	}
 
 	/**
 	 * Indicates whether the term is an integer numeral.
 	 **/
-	public boolean IsIntNum() throws Z3Exception
+	public boolean isIntNum() throws Z3Exception
 	{
-		return IsNumeral() && IsInt();
+		return isNumeral() && isInt();
 	}
 
 	/**
 	 * Indicates whether the term is a real numeral.
 	 **/
-	public boolean IsRatNum() throws Z3Exception
+	public boolean isRatNum() throws Z3Exception
 	{
-		return IsNumeral() && IsReal();
+		return isNumeral() && isReal();
 	}
 
 	/**
 	 * Indicates whether the term is an algebraic number
 	 **/
-	public boolean IsAlgebraicNumber() throws Z3Exception
+	public boolean isAlgebraicNumber() throws Z3Exception
 	{
-		return Native.isAlgebraicNumber(Context().nCtx(), NativeObject());
+		return Native.isAlgebraicNumber(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
 	 * Indicates whether the term has Boolean sort.
 	 **/
-	public boolean IsBool() throws Z3Exception
+	public boolean isBool() throws Z3Exception
 	{
-		return (IsExpr() && Native.isEqSort(Context().nCtx(),
-				Native.mkBoolSort(Context().nCtx()),
-				Native.getSort(Context().nCtx(), NativeObject())));
+		return (isExpr() && Native.isEqSort(getContext().nCtx(),
+				Native.mkBoolSort(getContext().nCtx()),
+				Native.getSort(getContext().nCtx(), getNativeObject())));
 	}
 
 	/**
 	 * Indicates whether the term is the constant true.
 	 **/
-	public boolean IsTrue() throws Z3Exception
+	public boolean isTrue() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TRUE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TRUE;
 	}
 
 	/**
 	 * Indicates whether the term is the constant false.
 	 **/
-	public boolean IsFalse() throws Z3Exception
+	public boolean isFalse() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_FALSE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FALSE;
 	}
 
 	/**
 	 * Indicates whether the term is an equality predicate.
 	 **/
-	public boolean IsEq() throws Z3Exception
+	public boolean isEq() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EQ;
 	}
 
 	/**
 	 * Indicates whether the term is an n-ary distinct predicate (every argument
 	 * is mutually distinct).
 	 **/
-	public boolean IsDistinct() throws Z3Exception
+	public boolean isDistinct() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_DISTINCT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DISTINCT;
 	}
 
 	/**
 	 * Indicates whether the term is a ternary if-then-else term
 	 **/
-	public boolean IsITE() throws Z3Exception
+	public boolean isITE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ITE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ITE;
 	}
 
 	/**
 	 * Indicates whether the term is an n-ary conjunction
 	 **/
-	public boolean IsAnd() throws Z3Exception
+	public boolean isAnd() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_AND;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AND;
 	}
 
 	/**
 	 * Indicates whether the term is an n-ary disjunction
 	 **/
-	public boolean IsOr() throws Z3Exception
+	public boolean isOr() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_OR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OR;
 	}
 
 	/**
 	 * Indicates whether the term is an if-and-only-if (Boolean equivalence,
 	 * binary)
 	 **/
-	public boolean IsIff() throws Z3Exception
+	public boolean isIff() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IFF;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IFF;
 	}
 
 	/**
 	 * Indicates whether the term is an exclusive or
 	 **/
-	public boolean IsXor() throws Z3Exception
+	public boolean isXor() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_XOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR;
 	}
 
 	/**
 	 * Indicates whether the term is a negation
 	 **/
-	public boolean IsNot() throws Z3Exception
+	public boolean isNot() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_NOT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_NOT;
 	}
 
 	/**
 	 * Indicates whether the term is an implication
 	 **/
-	public boolean IsImplies() throws Z3Exception
+	public boolean isImplies() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IMPLIES;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IMPLIES;
 	}
 
 	/**
 	 * Indicates whether the term is of integer sort.
 	 **/
-	public boolean IsInt() throws Z3Exception
+	public boolean isInt() throws Z3Exception
 	{
-		return (Native.isNumeralAst(Context().nCtx(), NativeObject()) && Native
-				.getSortKind(Context().nCtx(),
-						Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_INT_SORT
+		return (Native.isNumeralAst(getContext().nCtx(), getNativeObject()) && Native
+				.getSortKind(getContext().nCtx(),
+						Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_INT_SORT
 				.toInt());
 	}
 
 	/**
 	 * Indicates whether the term is of sort real.
 	 **/
-	public boolean IsReal() throws Z3Exception
+	public boolean isReal() throws Z3Exception
 	{
-		return Native.getSortKind(Context().nCtx(),
-				Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_REAL_SORT
+		return Native.getSortKind(getContext().nCtx(),
+				Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_REAL_SORT
 				.toInt();
 	}
 
 	/**
 	 * Indicates whether the term is an arithmetic numeral.
 	 **/
-	public boolean IsArithmeticNumeral() throws Z3Exception
+	public boolean isArithmeticNumeral() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ANUM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ANUM;
 	}
 
 	/**
 	 * Indicates whether the term is a less-than-or-equal
 	 **/
-	public boolean IsLE() throws Z3Exception
+	public boolean isLE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LE;
 	}
 
 	/**
 	 * Indicates whether the term is a greater-than-or-equal
 	 **/
-	public boolean IsGE() throws Z3Exception
+	public boolean isGE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_GE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GE;
 	}
 
 	/**
 	 * Indicates whether the term is a less-than
 	 **/
-	public boolean IsLT() throws Z3Exception
+	public boolean isLT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LT;
 	}
 
 	/**
 	 * Indicates whether the term is a greater-than
 	 **/
-	public boolean IsGT() throws Z3Exception
+	public boolean isGT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_GT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_GT;
 	}
 
 	/**
 	 * Indicates whether the term is addition (binary)
 	 **/
-	public boolean IsAdd() throws Z3Exception
+	public boolean isAdd() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ADD;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ADD;
 	}
 
 	/**
 	 * Indicates whether the term is subtraction (binary)
 	 **/
-	public boolean IsSub() throws Z3Exception
+	public boolean isSub() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SUB;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SUB;
 	}
 
 	/**
 	 * Indicates whether the term is a unary minus
 	 **/
-	public boolean IsUMinus() throws Z3Exception
+	public boolean isUMinus() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UMINUS;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UMINUS;
 	}
 
 	/**
 	 * Indicates whether the term is multiplication (binary)
 	 **/
-	public boolean IsMul() throws Z3Exception
+	public boolean isMul() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_MUL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MUL;
 	}
 
 	/**
 	 * Indicates whether the term is division (binary)
 	 **/
-	public boolean IsDiv() throws Z3Exception
+	public boolean isDiv() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_DIV;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_DIV;
 	}
 
 	/**
 	 * Indicates whether the term is integer division (binary)
 	 **/
-	public boolean IsIDiv() throws Z3Exception
+	public boolean isIDiv() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IDIV;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IDIV;
 	}
 
 	/**
 	 * Indicates whether the term is remainder (binary)
 	 **/
-	public boolean IsRemainder() throws Z3Exception
+	public boolean isRemainder() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_REM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REM;
 	}
 
 	/**
 	 * Indicates whether the term is modulus (binary)
 	 **/
-	public boolean IsModulus() throws Z3Exception
+	public boolean isModulus() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_MOD;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_MOD;
 	}
 
 	/**
 	 * Indicates whether the term is a coercion of integer to real (unary)
 	 **/
-	public boolean IsIntToReal() throws Z3Exception
+	public boolean isIntToReal() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TO_REAL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_REAL;
 	}
 
 	/**
 	 * Indicates whether the term is a coercion of real to integer (unary)
 	 **/
-	public boolean IsRealToInt() throws Z3Exception
+	public boolean isRealToInt() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_TO_INT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_TO_INT;
 	}
 
 	/**
 	 * Indicates whether the term is a check that tests whether a real is
 	 * integral (unary)
 	 **/
-	public boolean IsRealIsInt() throws Z3Exception
+	public boolean isRealIsInt() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_IS_INT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_IS_INT;
 	}
 
 	/**
 	 * Indicates whether the term is of an array sort.
 	 **/
-	public boolean IsArray() throws Z3Exception
+	public boolean isArray() throws Z3Exception
 	{
-		return (Native.isApp(Context().nCtx(), NativeObject()) && Z3_sort_kind
-				.fromInt(Native.getSortKind(Context().nCtx(),
-						Native.getSort(Context().nCtx(), NativeObject()))) == Z3_sort_kind.Z3_ARRAY_SORT);
+		return (Native.isApp(getContext().nCtx(), getNativeObject()) && Z3_sort_kind
+				.fromInt(Native.getSortKind(getContext().nCtx(),
+						Native.getSort(getContext().nCtx(), getNativeObject()))) == Z3_sort_kind.Z3_ARRAY_SORT);
 	}
 
 	/**
@@ -496,17 +495,17 @@ public class Expr extends AST
 	 * select(store(a,i,v),j) = if i = j then v else select(a,j). Array store
 	 * takes at least 3 arguments. </remarks>
 	 **/
-	public boolean IsStore() throws Z3Exception
+	public boolean isStore() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_STORE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_STORE;
 	}
 
 	/**
 	 * Indicates whether the term is an array select.
 	 **/
-	public boolean IsSelect() throws Z3Exception
+	public boolean isSelect() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SELECT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SELECT;
 	}
 
 	/**
@@ -514,27 +513,27 @@ public class Expr extends AST
 	 * select(const(v),i) = v holds for every v and i. The function is
 	 * unary.</remarks>
 	 **/
-	public boolean IsConstantArray() throws Z3Exception
+	public boolean isConstantArray() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONST_ARRAY;
 	}
 
 	/**
 	 * Indicates whether the term is a default array. <remarks>For example
 	 * default(const(v)) = v. The function is unary.</remarks>
 	 **/
-	public boolean IsDefaultArray() throws Z3Exception
+	public boolean isDefaultArray() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_DEFAULT;
 	}
 
 	/**
 	 * Indicates whether the term is an array map. <remarks>It satisfies
 	 * map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i.</remarks>
 	 **/
-	public boolean IsArrayMap() throws Z3Exception
+	public boolean isArrayMap() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ARRAY_MAP;
 	}
 
 	/**
@@ -542,155 +541,155 @@ public class Expr extends AST
 	 * is n array value that behaves as the function graph of the function
 	 * passed as parameter.</remarks>
 	 **/
-	public boolean IsAsArray() throws Z3Exception
+	public boolean isAsArray() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_AS_ARRAY;
 	}
 
 	/**
 	 * Indicates whether the term is set union
 	 **/
-	public boolean IsSetUnion() throws Z3Exception
+	public boolean isSetUnion() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_UNION;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_UNION;
 	}
 
 	/**
 	 * Indicates whether the term is set intersection
 	 **/
-	public boolean IsSetIntersect() throws Z3Exception
+	public boolean isSetIntersect() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_INTERSECT;
 	}
 
 	/**
 	 * Indicates whether the term is set difference
 	 **/
-	public boolean IsSetDifference() throws Z3Exception
+	public boolean isSetDifference() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_DIFFERENCE;
 	}
 
 	/**
 	 * Indicates whether the term is set complement
 	 **/
-	public boolean IsSetComplement() throws Z3Exception
+	public boolean isSetComplement() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_COMPLEMENT;
 	}
 
 	/**
 	 * Indicates whether the term is set subset
 	 **/
-	public boolean IsSetSubset() throws Z3Exception
+	public boolean isSetSubset() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SET_SUBSET;
 	}
 
 	/**
 	 * Indicates whether the terms is of bit-vector sort.
 	 **/
-	public boolean IsBV() throws Z3Exception
+	public boolean isBV() throws Z3Exception
 	{
-		return Native.getSortKind(Context().nCtx(),
-				Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_BV_SORT
+		return Native.getSortKind(getContext().nCtx(),
+				Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_BV_SORT
 				.toInt();
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector numeral
 	 **/
-	public boolean IsBVNumeral() throws Z3Exception
+	public boolean isBVNumeral() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNUM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNUM;
 	}
 
 	/**
 	 * Indicates whether the term is a one-bit bit-vector with value one
 	 **/
-	public boolean IsBVBitOne() throws Z3Exception
+	public boolean isBVBitOne() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BIT1;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT1;
 	}
 
 	/**
 	 * Indicates whether the term is a one-bit bit-vector with value zero
 	 **/
-	public boolean IsBVBitZero() throws Z3Exception
+	public boolean isBVBitZero() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BIT0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BIT0;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector unary minus
 	 **/
-	public boolean IsBVUMinus() throws Z3Exception
+	public boolean isBVUMinus() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNEG;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNEG;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector addition (binary)
 	 **/
-	public boolean IsBVAdd() throws Z3Exception
+	public boolean isBVAdd() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BADD;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BADD;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector subtraction (binary)
 	 **/
-	public boolean IsBVSub() throws Z3Exception
+	public boolean isBVSub() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSUB;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSUB;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector multiplication (binary)
 	 **/
-	public boolean IsBVMul() throws Z3Exception
+	public boolean isBVMul() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BMUL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BMUL;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector signed division (binary)
 	 **/
-	public boolean IsBVSDiv() throws Z3Exception
+	public boolean isBVSDiv() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSDIV;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector unsigned division (binary)
 	 **/
-	public boolean IsBVUDiv() throws Z3Exception
+	public boolean isBVUDiv() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUDIV;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector signed remainder (binary)
 	 **/
-	public boolean IsBVSRem() throws Z3Exception
+	public boolean isBVSRem() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSREM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector unsigned remainder (binary)
 	 **/
-	public boolean IsBVURem() throws Z3Exception
+	public boolean isBVURem() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUREM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector signed modulus
 	 **/
-	public boolean IsBVSMod() throws Z3Exception
+	public boolean isBVSMod() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSMOD;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD;
 	}
 
 	/**
@@ -698,7 +697,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSDiv0() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSDIV0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSDIV0;
 	}
 
 	/**
@@ -706,7 +705,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVUDiv0() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUDIV0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUDIV0;
 	}
 
 	/**
@@ -714,7 +713,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSRem0() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSREM0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSREM0;
 	}
 
 	/**
@@ -722,7 +721,7 @@ public class Expr extends AST
 	 **/
 	boolean IsBVURem0() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BUREM0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BUREM0;
 	}
 
 	/**
@@ -730,232 +729,232 @@ public class Expr extends AST
 	 **/
 	boolean IsBVSMod0() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSMOD0;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSMOD0;
 	}
 
 	/**
 	 * Indicates whether the term is an unsigned bit-vector less-than-or-equal
 	 **/
-	public boolean IsBVULE() throws Z3Exception
+	public boolean isBVULE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ULEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULEQ;
 	}
 
 	/**
 	 * Indicates whether the term is a signed bit-vector less-than-or-equal
 	 **/
-	public boolean IsBVSLE() throws Z3Exception
+	public boolean isBVSLE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SLEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLEQ;
 	}
 
 	/**
 	 * Indicates whether the term is an unsigned bit-vector
 	 * greater-than-or-equal
 	 **/
-	public boolean IsBVUGE() throws Z3Exception
+	public boolean isBVUGE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UGEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGEQ;
 	}
 
 	/**
 	 * Indicates whether the term is a signed bit-vector greater-than-or-equal
 	 **/
-	public boolean IsBVSGE() throws Z3Exception
+	public boolean isBVSGE() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SGEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGEQ;
 	}
 
 	/**
 	 * Indicates whether the term is an unsigned bit-vector less-than
 	 **/
-	public boolean IsBVULT() throws Z3Exception
+	public boolean isBVULT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ULT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ULT;
 	}
 
 	/**
 	 * Indicates whether the term is a signed bit-vector less-than
 	 **/
-	public boolean IsBVSLT() throws Z3Exception
+	public boolean isBVSLT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SLT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SLT;
 	}
 
 	/**
 	 * Indicates whether the term is an unsigned bit-vector greater-than
 	 **/
-	public boolean IsBVUGT() throws Z3Exception
+	public boolean isBVUGT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_UGT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UGT;
 	}
 
 	/**
 	 * Indicates whether the term is a signed bit-vector greater-than
 	 **/
-	public boolean IsBVSGT() throws Z3Exception
+	public boolean isBVSGT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SGT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SGT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise AND
 	 **/
-	public boolean IsBVAND() throws Z3Exception
+	public boolean isBVAND() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BAND;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BAND;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise OR
 	 **/
-	public boolean IsBVOR() throws Z3Exception
+	public boolean isBVOR() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BOR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise NOT
 	 **/
-	public boolean IsBVNOT() throws Z3Exception
+	public boolean isBVNOT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNOT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise XOR
 	 **/
-	public boolean IsBVXOR() throws Z3Exception
+	public boolean isBVXOR() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BXOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXOR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise NAND
 	 **/
-	public boolean IsBVNAND() throws Z3Exception
+	public boolean isBVNAND() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNAND;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNAND;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise NOR
 	 **/
-	public boolean IsBVNOR() throws Z3Exception
+	public boolean isBVNOR() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BNOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BNOR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-wise XNOR
 	 **/
-	public boolean IsBVXNOR() throws Z3Exception
+	public boolean isBVXNOR() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BXNOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BXNOR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector concatenation (binary)
 	 **/
-	public boolean IsBVConcat() throws Z3Exception
+	public boolean isBVConcat() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CONCAT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CONCAT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector sign extension
 	 **/
-	public boolean IsBVSignExtension() throws Z3Exception
+	public boolean isBVSignExtension() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_SIGN_EXT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector zero extension
 	 **/
-	public boolean IsBVZeroExtension() throws Z3Exception
+	public boolean isBVZeroExtension() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ZERO_EXT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector extraction
 	 **/
-	public boolean IsBVExtract() throws Z3Exception
+	public boolean isBVExtract() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXTRACT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXTRACT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector repetition
 	 **/
-	public boolean IsBVRepeat() throws Z3Exception
+	public boolean isBVRepeat() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_REPEAT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_REPEAT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector reduce OR
 	 **/
-	public boolean IsBVReduceOR() throws Z3Exception
+	public boolean isBVReduceOR() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BREDOR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDOR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector reduce AND
 	 **/
-	public boolean IsBVReduceAND() throws Z3Exception
+	public boolean isBVReduceAND() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BREDAND;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BREDAND;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector comparison
 	 **/
-	public boolean IsBVComp() throws Z3Exception
+	public boolean isBVComp() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BCOMP;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BCOMP;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector shift left
 	 **/
-	public boolean IsBVShiftLeft() throws Z3Exception
+	public boolean isBVShiftLeft() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BSHL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BSHL;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector logical shift right
 	 **/
-	public boolean IsBVShiftRightLogical() throws Z3Exception
+	public boolean isBVShiftRightLogical() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BLSHR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BLSHR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector arithmetic shift left
 	 **/
-	public boolean IsBVShiftRightArithmetic() throws Z3Exception
+	public boolean isBVShiftRightArithmetic() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BASHR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BASHR;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector rotate left
 	 **/
-	public boolean IsBVRotateLeft() throws Z3Exception
+	public boolean isBVRotateLeft() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_LEFT;
 	}
 
 	/**
 	 * Indicates whether the term is a bit-vector rotate right
 	 **/
-	public boolean IsBVRotateRight() throws Z3Exception
+	public boolean isBVRotateRight() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_ROTATE_RIGHT;
 	}
 
 	/**
@@ -963,9 +962,9 @@ public class Expr extends AST
 	 * <remarks>Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator
 	 * instead of a parametric one.</remarks>
 	 **/
-	public boolean IsBVRotateLeftExtended() throws Z3Exception
+	public boolean isBVRotateLeftExtended() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_LEFT;
 	}
 
 	/**
@@ -973,9 +972,9 @@ public class Expr extends AST
 	 * <remarks>Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator
 	 * instead of a parametric one.</remarks>
 	 **/
-	public boolean IsBVRotateRightExtended() throws Z3Exception
+	public boolean isBVRotateRightExtended() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_EXT_ROTATE_RIGHT;
 	}
 
 	/**
@@ -984,9 +983,9 @@ public class Expr extends AST
 	 * the most rudimentary simplification rules are applied to this
 	 * function.</remarks>
 	 **/
-	public boolean IsIntToBV() throws Z3Exception
+	public boolean isIntToBV() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_INT2BV;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_INT2BV;
 	}
 
 	/**
@@ -995,9 +994,9 @@ public class Expr extends AST
 	 * the most rudimentary simplification rules are applied to this
 	 * function.</remarks>
 	 **/
-	public boolean IsBVToInt() throws Z3Exception
+	public boolean isBVToInt() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_BV2INT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_BV2INT;
 	}
 
 	/**
@@ -1005,9 +1004,9 @@ public class Expr extends AST
 	 * carry bit in a full-adder. The meaning is given by the equivalence (carry
 	 * l1 l2 l3) &lt;=&gt; (or (and l1 l2) (and l1 l3) (and l2 l3)))</remarks>
 	 **/
-	public boolean IsBVCarry() throws Z3Exception
+	public boolean isBVCarry() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_CARRY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_CARRY;
 	}
 
 	/**
@@ -1015,9 +1014,9 @@ public class Expr extends AST
 	 * meaning is given by the equivalence (xor3 l1 l2 l3) &lt;=&gt; (xor (xor
 	 * l1 l2) l3)</remarks>
 	 **/
-	public boolean IsBVXOR3() throws Z3Exception
+	public boolean isBVXOR3() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_XOR3;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_XOR3;
 	}
 
 	/**
@@ -1025,9 +1024,9 @@ public class Expr extends AST
 	 * condition generator). <remarks>The label has two parameters, a string and
 	 * a Boolean polarity. It takes one argument, a formula.</remarks>
 	 **/
-	public boolean IsLabel() throws Z3Exception
+	public boolean isLabel() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LABEL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL;
 	}
 
 	/**
@@ -1035,9 +1034,9 @@ public class Expr extends AST
 	 * Verification condition generator). <remarks>A label literal has a set of
 	 * string parameters. It takes no arguments.</remarks>
 	 **/
-	public boolean IsLabelLit() throws Z3Exception
+	public boolean isLabelLit() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_LABEL_LIT;
 	}
 
 	/**
@@ -1045,34 +1044,34 @@ public class Expr extends AST
 	 * <remarks>This binary predicate is used in proof terms. It captures
 	 * equisatisfiability and equivalence modulo renamings.</remarks>
 	 **/
-	public boolean IsOEQ() throws Z3Exception
+	public boolean isOEQ() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_OEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_OEQ;
 	}
 
 	/**
 	 * Indicates whether the term is a Proof for the expression 'true'.
 	 **/
-	public boolean IsProofTrue() throws Z3Exception
+	public boolean isProofTrue() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRUE;
 	}
 
 	/**
 	 * Indicates whether the term is a proof for a fact asserted by the user.
 	 **/
-	public boolean IsProofAsserted() throws Z3Exception
+	public boolean isProofAsserted() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ASSERTED;
 	}
 
 	/**
 	 * Indicates whether the term is a proof for a fact (tagged as goal)
 	 * asserted by the user.
 	 **/
-	public boolean IsProofGoal() throws Z3Exception
+	public boolean isProofGoal() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_GOAL;
 	}
 
 	/**
@@ -1081,9 +1080,9 @@ public class Expr extends AST
 	 * T2: (implies p q) [mp T1 T2]: q The second antecedents may also be a
 	 * proof for (iff p q).</remarks>
 	 **/
-	public boolean IsProofModusPonens() throws Z3Exception
+	public boolean isProofModusPonens() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS;
 	}
 
 	/**
@@ -1093,9 +1092,9 @@ public class Expr extends AST
 	 * equality and equivalence. That is, R is either '~', '=' or
 	 * 'iff'.</remarks>
 	 **/
-	public boolean IsProofReflexivity() throws Z3Exception
+	public boolean isProofReflexivity() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REFLEXIVITY;
 	}
 
 	/**
@@ -1104,9 +1103,9 @@ public class Expr extends AST
 	 * a proof for (R s t). T1: (R t s) [symmetry T1]: (R s t) T1 is the
 	 * antecedent of this proof object. </remarks>
 	 **/
-	public boolean IsProofSymmetry() throws Z3Exception
+	public boolean isProofSymmetry() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SYMMETRY;
 	}
 
 	/**
@@ -1115,9 +1114,9 @@ public class Expr extends AST
 	 * u), produces a proof for (R t u). T1: (R t s) T2: (R s u) [trans T1 T2]:
 	 * (R t u) </remarks>
 	 **/
-	public boolean IsProofTransitivity() throws Z3Exception
+	public boolean isProofTransitivity() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY;
 	}
 
 	/**
@@ -1133,9 +1132,9 @@ public class Expr extends AST
 	 * s to t, if we view every antecedent (R a b) as an edge between a and b.
 	 * </remarks>
 	 **/
-	public boolean IsProofTransitivityStar() throws Z3Exception
+	public boolean isProofTransitivityStar() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TRANSITIVITY_STAR;
 	}
 
 	/**
@@ -1145,9 +1144,9 @@ public class Expr extends AST
 	 * suppressed. That is, reflexivity proofs are supressed to save space.
 	 * </remarks>
 	 **/
-	public boolean IsProofMonotonicity() throws Z3Exception
+	public boolean isProofMonotonicity() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MONOTONICITY;
 	}
 
 	/**
@@ -1155,9 +1154,9 @@ public class Expr extends AST
 	 * for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)). T1:
 	 * (~ p q) [quant-intro T1]: (~ (forall (x) p) (forall (x) q)) </remarks>
 	 **/
-	public boolean IsProofQuantIntro() throws Z3Exception
+	public boolean isProofQuantIntro() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INTRO;
 	}
 
 	/**
@@ -1171,9 +1170,9 @@ public class Expr extends AST
 	 * This proof object has no antecedents. Remark. This rule is used by the
 	 * CNF conversion pass and instantiated by f = or, and g = and. </remarks>
 	 **/
-	public boolean IsProofDistributivity() throws Z3Exception
+	public boolean isProofDistributivity() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DISTRIBUTIVITY;
 	}
 
 	/**
@@ -1181,9 +1180,9 @@ public class Expr extends AST
 	 * Given a proof for (and l_1 ... l_n), produces a proof for l_i T1: (and
 	 * l_1 ... l_n) [and-elim T1]: l_i </remarks>
 	 **/
-	public boolean IsProofAndElimination() throws Z3Exception
+	public boolean isProofAndElimination() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_AND_ELIM;
 	}
 
 	/**
@@ -1191,9 +1190,9 @@ public class Expr extends AST
 	 * Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
 	 * T1: (not (or l_1 ... l_n)) [not-or-elim T1]: (not l_i) </remarks>
 	 **/
-	public boolean IsProofOrElimination() throws Z3Exception
+	public boolean isProofOrElimination() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NOT_OR_ELIM;
 	}
 
 	/**
@@ -1208,9 +1207,9 @@ public class Expr extends AST
 	 * Examples: (= (+ x 0) x) (= (+ x 1 2) (+ 3 x)) (iff (or x false) x)
 	 * </remarks>
 	 **/
-	public boolean IsProofRewrite() throws Z3Exception
+	public boolean isProofRewrite() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE;
 	}
 
 	/**
@@ -1224,9 +1223,9 @@ public class Expr extends AST
 	 * Booleans (BIT2BOOL=true) - When pulling ite expression up
 	 * (PULL_CHEAP_ITE_TREES=true) </remarks>
 	 **/
-	public boolean IsProofRewriteStar() throws Z3Exception
+	public boolean isProofRewriteStar() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR;
 	}
 
 	/**
@@ -1234,9 +1233,9 @@ public class Expr extends AST
 	 * <remarks> A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x)
 	 * r))). This proof object has no antecedents. </remarks>
 	 **/
-	public boolean IsProofPullQuant() throws Z3Exception
+	public boolean isProofPullQuant() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
 	}
 
 	/**
@@ -1245,9 +1244,9 @@ public class Expr extends AST
 	 * proof object is only used if the parameter PROOF_MODE is 1. This proof
 	 * object has no antecedents </remarks>
 	 **/
-	public boolean IsProofPullQuantStar() throws Z3Exception
+	public boolean isProofPullQuantStar() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
 	}
 
 	/**
@@ -1257,9 +1256,9 @@ public class Expr extends AST
 	 * (forall (x_1 ... x_m) p_n[x_1 ... x_m]))) This proof object has no
 	 * antecedents </remarks>
 	 **/
-	public boolean IsProofPushQuant() throws Z3Exception
+	public boolean isProofPushQuant() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PUSH_QUANT;
 	}
 
 	/**
@@ -1270,9 +1269,9 @@ public class Expr extends AST
 	 * It is used to justify the elimination of unused variables. This proof
 	 * object has no antecedents. </remarks>
 	 **/
-	public boolean IsProofElimUnusedVars() throws Z3Exception
+	public boolean isProofElimUnusedVars() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_ELIM_UNUSED_VARS;
 	}
 
 	/**
@@ -1284,27 +1283,27 @@ public class Expr extends AST
 	 * 
 	 * Several variables can be eliminated simultaneously. </remarks>
 	 **/
-	public boolean IsProofDER() throws Z3Exception
+	public boolean isProofDER() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DER;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DER;
 	}
 
 	/**
 	 * Indicates whether the term is a proof for quantifier instantiation
 	 * <remarks> A proof of (or (not (forall (x) (P x))) (P a)) </remarks>
 	 **/
-	public boolean IsProofQuantInst() throws Z3Exception
+	public boolean isProofQuantInst() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_QUANT_INST;
 	}
 
 	/**
 	 * Indicates whether the term is a hypthesis marker. <remarks>Mark a
 	 * hypothesis in a natural deduction style proof.</remarks>
 	 **/
-	public boolean IsProofHypothesis() throws Z3Exception
+	public boolean isProofHypothesis() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_HYPOTHESIS;
 	}
 
 	/**
@@ -1315,9 +1314,9 @@ public class Expr extends AST
 	 * converts the proof in a proof for (or (not l_1) ... (not l_n)), when T1
 	 * contains the hypotheses: l_1, ..., l_n. </remarks>
 	 **/
-	public boolean IsProofLemma() throws Z3Exception
+	public boolean isProofLemma() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_LEMMA;
 	}
 
 	/**
@@ -1325,27 +1324,27 @@ public class Expr extends AST
 	 * (or l_1 ... l_n l_1' ... l_m') T2: (not l_1) ... T(n+1): (not l_n)
 	 * [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m') </remarks>
 	 **/
-	public boolean IsProofUnitResolution() throws Z3Exception
+	public boolean isProofUnitResolution() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_UNIT_RESOLUTION;
 	}
 
 	/**
 	 * Indicates whether the term is a proof by iff-true <remarks> T1: p
 	 * [iff-true T1]: (iff p true) </remarks>
 	 **/
-	public boolean IsProofIFFTrue() throws Z3Exception
+	public boolean isProofIFFTrue() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_TRUE;
 	}
 
 	/**
 	 * Indicates whether the term is a proof by iff-false <remarks> T1: (not p)
 	 * [iff-false T1]: (iff p false) </remarks>
 	 **/
-	public boolean IsProofIFFFalse() throws Z3Exception
+	public boolean isProofIFFFalse() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_FALSE;
 	}
 
 	/**
@@ -1357,9 +1356,9 @@ public class Expr extends AST
 	 * This proof object has no antecedents. Remark: if f is bool, then = is
 	 * iff. </remarks>
 	 **/
-	public boolean IsProofCommutativity() throws Z3Exception
+	public boolean isProofCommutativity() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_COMMUTATIVITY;
 	}
 
 	/**
@@ -1380,9 +1379,9 @@ public class Expr extends AST
 	 * connectives in the axioms a small bounded number of steps (=3).
 	 * </remarks>
 	 **/
-	public boolean IsProofDefAxiom() throws Z3Exception
+	public boolean isProofDefAxiom() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_AXIOM;
 	}
 
 	/**
@@ -1401,9 +1400,9 @@ public class Expr extends AST
 	 * 
 	 * Otherwise: [def-intro]: (= n e) </remarks>
 	 **/
-	public boolean IsProofDefIntro() throws Z3Exception
+	public boolean isProofDefIntro() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_DEF_INTRO;
 	}
 
 	/**
@@ -1411,18 +1410,18 @@ public class Expr extends AST
 	 * <remarks> [apply-def T1]: F ~ n F is 'equivalent' to n, given that T1 is
 	 * a proof that n is a name for F. </remarks>
 	 **/
-	public boolean IsProofApplyDef() throws Z3Exception
+	public boolean isProofApplyDef() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_APPLY_DEF;
 	}
 
 	/**
 	 * Indicates whether the term is a proof iff-oeq <remarks> T1: (iff p q)
 	 * [iff~ T1]: (~ p q) </remarks>
 	 **/
-	public boolean IsProofIFFOEQ() throws Z3Exception
+	public boolean isProofIFFOEQ() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_IFF_OEQ;
 	}
 
 	/**
@@ -1445,9 +1444,9 @@ public class Expr extends AST
 	 * NNF_NEG furthermore handles the case where negation is pushed over
 	 * Boolean connectives 'and' and 'or'. </remarks>
 	 **/
-	public boolean IsProofNNFPos() throws Z3Exception
+	public boolean isProofNNFPos() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_POS;
 	}
 
 	/**
@@ -1461,9 +1460,9 @@ public class Expr extends AST
 	 * s_2 ~ r_2' [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2)) (and (or r_1
 	 * r_2) (or r_1' r_2'))) </remarks>
 	 **/
-	public boolean IsProofNNFNeg() throws Z3Exception
+	public boolean isProofNNFNeg() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
 	}
 
 	/**
@@ -1476,9 +1475,9 @@ public class Expr extends AST
 	 * This proof object may have n antecedents. Each antecedent is a
 	 * PR_DEF_INTRO. </remarks>
 	 **/
-	public boolean IsProofNNFStar() throws Z3Exception
+	public boolean isProofNNFStar() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
 	}
 
 	/**
@@ -1488,9 +1487,9 @@ public class Expr extends AST
 	 * PROOF_MODE is 1. This proof object may have n antecedents. Each
 	 * antecedent is a PR_DEF_INTRO. </remarks>
 	 **/
-	public boolean IsProofCNFStar() throws Z3Exception
+	public boolean isProofCNFStar() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
 	}
 
 	/**
@@ -1502,9 +1501,9 @@ public class Expr extends AST
 	 * 
 	 * This proof object has no antecedents. </remarks>
 	 **/
-	public boolean IsProofSkolemize() throws Z3Exception
+	public boolean isProofSkolemize() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_SKOLEMIZE;
 	}
 
 	/**
@@ -1512,9 +1511,9 @@ public class Expr extends AST
 	 * equi-satisfiability. <remarks> Modus ponens style rule for
 	 * equi-satisfiability. T1: p T2: (~ p q) [mp~ T1 T2]: q </remarks>
 	 **/
-	public boolean IsProofModusPonensOEQ() throws Z3Exception
+	public boolean isProofModusPonensOEQ() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_MODUS_PONENS_OEQ;
 	}
 
 	/**
@@ -1531,19 +1530,19 @@ public class Expr extends AST
 	 * t1 t2) (&lt;= t2 t1))) - gcd-test - Indicates an integer linear
 	 * arithmetic lemma that uses a gcd test. </remarks>
 	 **/
-	public boolean IsProofTheoryLemma() throws Z3Exception
+	public boolean isProofTheoryLemma() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_TH_LEMMA;
 	}
 
 	/**
 	 * Indicates whether the term is of an array sort.
 	 **/
-	public boolean IsRelation() throws Z3Exception
+	public boolean isRelation() throws Z3Exception
 	{
-		return (Native.isApp(Context().nCtx(), NativeObject()) && Native
-				.getSortKind(Context().nCtx(),
-						Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_RELATION_SORT
+		return (Native.isApp(getContext().nCtx(), getNativeObject()) && Native
+				.getSortKind(getContext().nCtx(),
+						Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_RELATION_SORT
 				.toInt());
 	}
 
@@ -1553,51 +1552,51 @@ public class Expr extends AST
 	 * first argument is the relation and the remaining <code>n</code> elements
 	 * correspond to the <code>n</code> columns of the relation. </remarks>
 	 **/
-	public boolean IsRelationStore() throws Z3Exception
+	public boolean isRelationStore() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_STORE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_STORE;
 	}
 
 	/**
 	 * Indicates whether the term is an empty relation
 	 **/
-	public boolean IsEmptyRelation() throws Z3Exception
+	public boolean isEmptyRelation() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_EMPTY;
 	}
 
 	/**
 	 * Indicates whether the term is a test for the emptiness of a relation
 	 **/
-	public boolean IsIsEmptyRelation() throws Z3Exception
+	public boolean isIsEmptyRelation() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_IS_EMPTY;
 	}
 
 	/**
 	 * Indicates whether the term is a relational join
 	 **/
-	public boolean IsRelationalJoin() throws Z3Exception
+	public boolean isRelationalJoin() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_JOIN;
 	}
 
 	/**
 	 * Indicates whether the term is the union or convex hull of two relations.
 	 * <remarks>The function takes two arguments.</remarks>
 	 **/
-	public boolean IsRelationUnion() throws Z3Exception
+	public boolean isRelationUnion() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_UNION;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_UNION;
 	}
 
 	/**
 	 * Indicates whether the term is the widening of two relations <remarks>The
 	 * function takes two arguments.</remarks>
 	 **/
-	public boolean IsRelationWiden() throws Z3Exception
+	public boolean isRelationWiden() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_WIDEN;
 	}
 
 	/**
@@ -1605,9 +1604,9 @@ public class Expr extends AST
 	 * numbers in the parameters). <remarks>The function takes one
 	 * argument.</remarks>
 	 **/
-	public boolean IsRelationProject() throws Z3Exception
+	public boolean isRelationProject() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_PROJECT;
 	}
 
 	/**
@@ -1617,9 +1616,9 @@ public class Expr extends AST
 	 * indices corresponding to the columns of the relation. So the first column
 	 * in the relation has index 0. </remarks>
 	 **/
-	public boolean IsRelationFilter() throws Z3Exception
+	public boolean isRelationFilter() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_FILTER;
 	}
 
 	/**
@@ -1634,9 +1633,9 @@ public class Expr extends AST
 	 * such that target are elements in x in pos, such that there is no y in neg
 	 * that agrees with x on the columns c1, d1, .., cN, dN. </remarks>
 	 **/
-	public boolean IsRelationNegationFilter() throws Z3Exception
+	public boolean isRelationNegationFilter() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_NEGATION_FILTER;
 	}
 
 	/**
@@ -1644,17 +1643,17 @@ public class Expr extends AST
 	 * <remarks> The function takes one argument. The parameters contain the
 	 * renaming as a cycle. </remarks>
 	 **/
-	public boolean IsRelationRename() throws Z3Exception
+	public boolean isRelationRename() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_RENAME;
 	}
 
 	/**
 	 * Indicates whether the term is the complement of a relation
 	 **/
-	public boolean IsRelationComplement() throws Z3Exception
+	public boolean isRelationComplement() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_COMPLEMENT;
 	}
 
 	/**
@@ -1663,9 +1662,9 @@ public class Expr extends AST
 	 * arguments, where the first argument is a relation, and the remaining
 	 * <code>n</code> arguments correspond to a record. </remarks>
 	 **/
-	public boolean IsRelationSelect() throws Z3Exception
+	public boolean isRelationSelect() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_SELECT;
 	}
 
 	/**
@@ -1675,28 +1674,28 @@ public class Expr extends AST
 	 * kind <seealso cref="IsRelationUnion"/> to perform destructive updates to
 	 * the first argument. </remarks>
 	 **/
-	public boolean IsRelationClone() throws Z3Exception
+	public boolean isRelationClone() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_RA_CLONE;
 	}
 
 	/**
 	 * Indicates whether the term is of an array sort.
 	 **/
-	public boolean IsFiniteDomain() throws Z3Exception
+	public boolean isFiniteDomain() throws Z3Exception
 	{
-		return (Native.isApp(Context().nCtx(), NativeObject()) && Native
-				.getSortKind(Context().nCtx(),
-						Native.getSort(Context().nCtx(), NativeObject())) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT
+		return (Native.isApp(getContext().nCtx(), getNativeObject()) && Native
+				.getSortKind(getContext().nCtx(),
+						Native.getSort(getContext().nCtx(), getNativeObject())) == Z3_sort_kind.Z3_FINITE_DOMAIN_SORT
 				.toInt());
 	}
 
 	/**
 	 * Indicates whether the term is a less than predicate over a finite domain.
 	 **/
-	public boolean IsFiniteDomainLT() throws Z3Exception
+	public boolean isFiniteDomainLT() throws Z3Exception
 	{
-		return FuncDecl().DeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
+		return getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_FD_LT;
 	}
 
 	/**
@@ -1714,12 +1713,12 @@ public class Expr extends AST
 	 * different depending on the scope in which it appears. The deeper x
 	 * appears, the higher is its index. </remarks>
 	 **/
-	public int Index() throws Z3Exception
+	public int getIndex() throws Z3Exception
 	{
-		if (!IsVar())
+		if (!isVar())
 			throw new Z3Exception("Term is not a bound variable.");
 
-		return Native.getIndexValue(Context().nCtx(), NativeObject());
+		return Native.getIndexValue(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
@@ -1742,30 +1741,25 @@ public class Expr extends AST
 		}
 	}
 
-	void CheckNativeObject(long obj) throws Z3Exception
+	void checkNativeObject(long obj) throws Z3Exception
 	{
-		if (Native.isApp(Context().nCtx(), obj)
-				^ true
-				&& Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST
-						.toInt()
-				&& Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST
-						.toInt())
-			throw new Z3Exception("Underlying object is not a term");
-		super.CheckNativeObject(obj);
+		if (!Native.isApp(getContext().nCtx(), obj) && 
+		    Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_VAR_AST.toInt() &&
+		    Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST.toInt())
+		    throw new Z3Exception("Underlying object is not a term");
+		super.checkNativeObject(obj);
 	}
 
-	static Expr Create(Context ctx, FuncDecl f, Expr[] arguments)
+	static Expr create(Context ctx, FuncDecl f, Expr ... arguments)
 			throws Z3Exception
 	{
-
-		long obj = Native.mkApp(ctx.nCtx(), f.NativeObject(),
-				AST.ArrayLength(arguments), AST.ArrayToNative(arguments));
-		return Create(ctx, obj);
+		long obj = Native.mkApp(ctx.nCtx(), f.getNativeObject(),
+				AST.arrayLength(arguments), AST.arrayToNative(arguments));
+		return create(ctx, obj);
 	}
 
-	static Expr Create(Context ctx, long obj) throws Z3Exception
+	static Expr create(Context ctx, long obj) throws Z3Exception
 	{
-
 		Z3_ast_kind k = Z3_ast_kind.fromInt(Native.getAstKind(ctx.nCtx(), obj));
 		if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
 			return new Quantifier(ctx, obj);

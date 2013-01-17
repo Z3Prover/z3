@@ -30,7 +30,7 @@ public final class Global
      * will set the parameter "decimal" in the module "pp" to true.
      * </remarks>
      **/
-    public static void SetParameter(String id, String value)
+    public static void setParameter(String id, String value)
     {
 	Native.globalParamSet(id, value);
     }
@@ -44,7 +44,7 @@ public final class Global
      * The result string stored in param_value is stored in a shared location.
      * </remarks>
      **/
-    public static String GetParameter(String id)
+    public static String getParameter(String id)
     {
         Native.StringPtr res = new Native.StringPtr();
         if (!Native.globalParamGet(id, res))
@@ -60,7 +60,7 @@ public final class Global
      * </remarks>
      * @seealso SetParameter
      **/
-    public static void ResetParameters()
+    public static void resetParameters()
     {
 	Native.globalParamResetAll();
     }   

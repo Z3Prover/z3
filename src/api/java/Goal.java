@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_goal_prec;
 
 /**
  * A goal (aka problem). A goal is essentially a set of formulas, that can be
@@ -21,43 +21,43 @@ public class Goal extends Z3Object
      * applied when the objective is to find a proof for a given goal.
      * </remarks>
      **/
-    public Z3_goal_prec Precision() throws Z3Exception
+    public Z3_goal_prec getPrecision() throws Z3Exception
     {
-        return Z3_goal_prec.fromInt(Native.goalPrecision(Context().nCtx(),
-                NativeObject()));
+        return Z3_goal_prec.fromInt(Native.goalPrecision(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
      * Indicates whether the goal is precise.
      **/
-    public boolean IsPrecise() throws Z3Exception
+    public boolean isPrecise() throws Z3Exception
     {
-        return Precision() == Z3_goal_prec.Z3_GOAL_PRECISE;
+        return getPrecision() == Z3_goal_prec.Z3_GOAL_PRECISE;
     }
 
     /**
      * Indicates whether the goal is an under-approximation.
      **/
-    public boolean IsUnderApproximation() throws Z3Exception
+    public boolean isUnderApproximation() throws Z3Exception
     {
-        return Precision() == Z3_goal_prec.Z3_GOAL_UNDER;
+        return getPrecision() == Z3_goal_prec.Z3_GOAL_UNDER;
     }
 
     /**
      * Indicates whether the goal is an over-approximation.
      **/
-    public boolean IsOverApproximation() throws Z3Exception
+    public boolean isOverApproximation() throws Z3Exception
     {
-        return Precision() == Z3_goal_prec.Z3_GOAL_OVER;
+        return getPrecision() == Z3_goal_prec.Z3_GOAL_OVER;
     }
 
     /**
      * Indicates whether the goal is garbage (i.e., the product of over- and
      * under-approximations).
      **/
-    public boolean IsGarbage() throws Z3Exception
+    public boolean isGarbage() throws Z3Exception
     {
-        return Precision() == Z3_goal_prec.Z3_GOAL_UNDER_OVER;
+        return getPrecision() == Z3_goal_prec.Z3_GOAL_UNDER_OVER;
     }
 
     /**
@@ -65,59 +65,47 @@ public class Goal extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void Assert(BoolExpr[] constraints) throws Z3Exception
+    public void assert_(BoolExpr ... constraints) throws Z3Exception
     {
-        Context().CheckContextMatch(constraints);
+        getContext().checkContextMatch(constraints);
         for (BoolExpr c : constraints)
         {
-            Native.goalAssert(Context().nCtx(), NativeObject(),
-                    c.NativeObject());
+            Native.goalAssert(getContext().nCtx(), getNativeObject(),
+                    c.getNativeObject());
         }
-    }
-
-    /**
-     * Adds a <paramref name="constraint"/> to the given goal.
-     * 
-     * @throws Z3Exception
-     **/
-    public void Assert(BoolExpr constraint) throws Z3Exception
-    {
-        Context().CheckContextMatch(constraint);
-        Native.goalAssert(Context().nCtx(), NativeObject(),
-                constraint.NativeObject());
     }
 
     /**
      * Indicates whether the goal contains `false'.
      **/
-    public boolean Inconsistent() throws Z3Exception
+    public boolean inconsistent() throws Z3Exception
     {
-        return Native.goalInconsistent(Context().nCtx(), NativeObject());
+        return Native.goalInconsistent(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The depth of the goal. <remarks> This tracks how many transformations
      * were applied to it. </remarks>
      **/
-    public int Depth() throws Z3Exception
+    public int getDepth() throws Z3Exception
     {
-        return Native.goalDepth(Context().nCtx(), NativeObject());
+        return Native.goalDepth(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Erases all formulas from the given goal.
      **/
-    public void Reset() throws Z3Exception
+    public void reset() throws Z3Exception
     {
-        Native.goalReset(Context().nCtx(), NativeObject());
+        Native.goalReset(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The number of formulas in the goal.
      **/
-    public int Size() throws Z3Exception
+    public int size() throws Z3Exception
     {
-        return Native.goalSize(Context().nCtx(), NativeObject());
+        return Native.goalSize(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -125,40 +113,41 @@ public class Goal extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] Formulas() throws Z3Exception
+    public BoolExpr[] getFormulas() throws Z3Exception
     {
-        int n = Size();
+        int n = size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(Context(), Native.goalFormula(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = new BoolExpr(getContext(), Native.goalFormula(getContext()
+                    .nCtx(), getNativeObject(), i));
         return res;
     }
 
     /**
      * The number of formulas, subformulas and terms in the goal.
      **/
-    public int NumExprs() throws Z3Exception
+    public int getNumExprs() throws Z3Exception
     {
-        return Native.goalNumExprs(Context().nCtx(), NativeObject());
+        return Native.goalNumExprs(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Indicates whether the goal is empty, and it is precise or the product of
      * an under approximation.
      **/
-    public boolean IsDecidedSat() throws Z3Exception
+    public boolean isDecidedSat() throws Z3Exception
     {
-        return Native.goalIsDecidedSat(Context().nCtx(), NativeObject());
+        return Native.goalIsDecidedSat(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Indicates whether the goal contains `false', and it is precise or the
      * product of an over approximation.
      **/
-    public boolean IsDecidedUnsat() throws Z3Exception
+    public boolean isDecidedUnsat() throws Z3Exception
     {
-        return Native.goalIsDecidedUnsat(Context().nCtx(), NativeObject());
+        return Native
+                .goalIsDecidedUnsat(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -167,25 +156,40 @@ public class Goal extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Goal Translate(Context ctx) throws Z3Exception
+    public Goal translate(Context ctx) throws Z3Exception
     {
-        return new Goal(ctx, Native.goalTranslate(Context().nCtx(),
-                NativeObject(), ctx.nCtx()));
+        return new Goal(ctx, Native.goalTranslate(getContext().nCtx(),
+                getNativeObject(), ctx.nCtx()));
     }
 
     /**
      * Simplifies the goal. <remarks>Essentially invokes the `simplify' tactic
      * on the goal.</remarks>
      **/
-    public Goal Simplify(Params p) throws Z3Exception
+    public Goal simplify() throws Z3Exception
     {
-        Tactic t = Context().MkTactic("simplify");
-        ApplyResult res = t.Apply(this, p);
+        Tactic t = getContext().mkTactic("simplify");
+        ApplyResult res = t.apply(this);
 
-        if (res.NumSubgoals() == 0)
+        if (res.getNumSubgoals() == 0)
             throw new Z3Exception("No subgoals");
         else
-            return res.Subgoals()[0];
+            return res.getSubgoals()[0];
+    }
+    
+    /**
+     * Simplifies the goal. <remarks>Essentially invokes the `simplify' tactic
+     * on the goal.</remarks>
+     **/
+    public Goal simplify(Params p) throws Z3Exception
+    {
+        Tactic t = getContext().mkTactic("simplify");
+        ApplyResult res = t.apply(this, p);
+
+        if (res.getNumSubgoals() == 0)
+            throw new Z3Exception("No subgoals");
+        else
+            return res.getSubgoals()[0];
     }
 
     /**
@@ -197,7 +201,7 @@ public class Goal extends Z3Object
     {
         try
         {
-            return Native.goalToString(Context().nCtx(), NativeObject());
+            return Native.goalToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -216,16 +220,16 @@ public class Goal extends Z3Object
                 (unsatCores) ? true : false, (proofs) ? true : false));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Goal_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().goal_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Goal_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().goal_DRQ().add(o);
+        super.decRef(o);
     }
 
 }

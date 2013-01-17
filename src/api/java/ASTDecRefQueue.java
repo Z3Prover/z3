@@ -5,9 +5,9 @@
 
 package com.microsoft.z3;
 
-public class ASTDecRefQueue extends IDecRefQueue
+class ASTDecRefQueue extends IDecRefQueue
 {
-    public void IncRef(Context ctx, long obj)
+    protected void incRef(Context ctx, long obj)
     {
         try
         {
@@ -18,7 +18,7 @@ public class ASTDecRefQueue extends IDecRefQueue
         }
     }
 
-    public void DecRef(Context ctx, long obj)
+    protected void decRef(Context ctx, long obj)
     {
         try
         {

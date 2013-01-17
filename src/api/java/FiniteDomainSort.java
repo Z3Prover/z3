@@ -14,10 +14,10 @@ public class FiniteDomainSort extends Sort
 	/**
 	 * The size of the finite domain sort.
 	 **/
-	public long Size() throws Z3Exception
+	public long getSize() throws Z3Exception
 	{
 		Native.LongPtr res = new Native.LongPtr();
-		Native.getFiniteDomainSortSize(Context().nCtx(), NativeObject(), res);
+		Native.getFiniteDomainSortSize(getContext().nCtx(), getNativeObject(), res);
 		return res.value;
 	}
 
@@ -28,7 +28,7 @@ public class FiniteDomainSort extends Sort
 
 	FiniteDomainSort(Context ctx, Symbol name, long size) throws Z3Exception
 	{
-		super(ctx, Native.mkFiniteDomainSort(ctx.nCtx(), name.NativeObject(),
+		super(ctx, Native.mkFiniteDomainSort(ctx.nCtx(), name.getNativeObject(),
 				size));
 	}
 }

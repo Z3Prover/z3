@@ -19,11 +19,11 @@ public class AlgebraicNum extends ArithExpr
 	 * 
 	 * @return A numeral Expr of sort Real
 	 **/
-	public RatNum ToUpper(int precision) throws Z3Exception
+	public RatNum toUpper(int precision) throws Z3Exception
 	{
 
-		return new RatNum(Context(), Native.getAlgebraicNumberUpper(Context()
-				.nCtx(), NativeObject(), precision));
+		return new RatNum(getContext(), Native.getAlgebraicNumberUpper(getContext()
+				.nCtx(), getNativeObject(), precision));
 	}
 
 	/**
@@ -33,21 +33,21 @@ public class AlgebraicNum extends ArithExpr
 	 * 
 	 * @return A numeral Expr of sort Real
 	 **/
-	public RatNum ToLower(int precision) throws Z3Exception
+	public RatNum toLower(int precision) throws Z3Exception
 	{
 
-		return new RatNum(Context(), Native.getAlgebraicNumberLower(Context()
-				.nCtx(), NativeObject(), precision));
+		return new RatNum(getContext(), Native.getAlgebraicNumberLower(getContext()
+				.nCtx(), getNativeObject(), precision));
 	}
 
 	/**
 	 * Returns a string representation in decimal notation. <remarks>The result
 	 * has at most <paramref name="precision"/> decimal places.</remarks>
 	 **/
-	public String ToDecimal(int precision) throws Z3Exception
+	public String toDecimal(int precision) throws Z3Exception
 	{
 
-		return Native.getNumeralDecimalString(Context().nCtx(), NativeObject(),
+		return Native.getNumeralDecimalString(getContext().nCtx(), getNativeObject(),
 				precision);
 	}
 

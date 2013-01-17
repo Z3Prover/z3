@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_ast_kind;
 
 /**
  * Quantifier expressions.
@@ -16,34 +16,34 @@ public class Quantifier extends BoolExpr
     /**
      * Indicates whether the quantifier is universal.
      **/
-    public boolean IsUniversal() throws Z3Exception
+    public boolean isUniversal() throws Z3Exception
     {
-        return Native.isQuantifierForall(Context().nCtx(), NativeObject());
+        return Native.isQuantifierForall(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Indicates whether the quantifier is existential.
      **/
-    public boolean IsExistential() throws Z3Exception
+    public boolean isExistential() throws Z3Exception
     {
-        return !IsUniversal();
+        return !isUniversal();
     }
 
     /**
      * The weight of the quantifier.
      **/
-    public int Weight() throws Z3Exception
+    public int getWeight() throws Z3Exception
     {
-        return Native.getQuantifierWeight(Context().nCtx(), NativeObject());
+        return Native.getQuantifierWeight(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The number of patterns.
      **/
-    public int NumPatterns() throws Z3Exception
+    public int getNumPatterns() throws Z3Exception
     {
         return Native
-                .getQuantifierNumPatterns(Context().nCtx(), NativeObject());
+                .getQuantifierNumPatterns(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -51,23 +51,23 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public Pattern[] Patterns() throws Z3Exception
+    public Pattern[] getPatterns() throws Z3Exception
     {
-        int n = NumPatterns();
+        int n = getNumPatterns();
         Pattern[] res = new Pattern[n];
         for (int i = 0; i < n; i++)
-            res[i] = new Pattern(Context(), Native.getQuantifierPatternAst(
-                    Context().nCtx(), NativeObject(), i));
+            res[i] = new Pattern(getContext(), Native.getQuantifierPatternAst(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
     /**
      * The number of no-patterns.
      **/
-    public int NumNoPatterns() throws Z3Exception
+    public int getNumNoPatterns() throws Z3Exception
     {
-        return Native.getQuantifierNumNoPatterns(Context().nCtx(),
-                NativeObject());
+        return Native.getQuantifierNumNoPatterns(getContext().nCtx(),
+                getNativeObject());
     }
 
     /**
@@ -75,22 +75,22 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public Pattern[] NoPatterns() throws Z3Exception
+    public Pattern[] getNoPatterns() throws Z3Exception
     {
-        int n = NumNoPatterns();
+        int n = getNumNoPatterns();
         Pattern[] res = new Pattern[n];
         for (int i = 0; i < n; i++)
-            res[i] = new Pattern(Context(), Native.getQuantifierNoPatternAst(
-                    Context().nCtx(), NativeObject(), i));
+            res[i] = new Pattern(getContext(), Native.getQuantifierNoPatternAst(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
     /**
      * The number of bound variables.
      **/
-    public int NumBound() throws Z3Exception
+    public int getNumBound() throws Z3Exception
     {
-        return Native.getQuantifierNumBound(Context().nCtx(), NativeObject());
+        return Native.getQuantifierNumBound(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -98,13 +98,13 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public Symbol[] BoundVariableNames() throws Z3Exception
+    public Symbol[] getBoundVariableNames() throws Z3Exception
     {
-        int n = NumBound();
+        int n = getNumBound();
         Symbol[] res = new Symbol[n];
         for (int i = 0; i < n; i++)
-            res[i] = Symbol.Create(Context(), Native.getQuantifierBoundName(
-                    Context().nCtx(), NativeObject(), i));
+            res[i] = Symbol.create(getContext(), Native.getQuantifierBoundName(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -113,13 +113,13 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public Sort[] BoundVariableSorts() throws Z3Exception
+    public Sort[] getBoundVariableSorts() throws Z3Exception
     {
-        int n = NumBound();
+        int n = getNumBound();
         Sort[] res = new Sort[n];
         for (int i = 0; i < n; i++)
-            res[i] = Sort.Create(Context(), Native.getQuantifierBoundSort(
-                    Context().nCtx(), NativeObject(), i));
+            res[i] = Sort.create(getContext(), Native.getQuantifierBoundSort(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -128,10 +128,10 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr Body() throws Z3Exception
+    public BoolExpr getBody() throws Z3Exception
     {
-        return new BoolExpr(Context(), Native.getQuantifierBody(Context()
-                .nCtx(), NativeObject()));
+        return new BoolExpr(getContext(), Native.getQuantifierBody(getContext()
+                .nCtx(), getNativeObject()));
     }
 
     Quantifier(Context ctx, boolean isForall, Sort[] sorts, Symbol[] names,
@@ -140,11 +140,11 @@ public class Quantifier extends BoolExpr
     {
         super(ctx);
 
-        Context().CheckContextMatch(patterns);
-        Context().CheckContextMatch(noPatterns);
-        Context().CheckContextMatch(sorts);
-        Context().CheckContextMatch(names);
-        Context().CheckContextMatch(body);
+        getContext().checkContextMatch(patterns);
+        getContext().checkContextMatch(noPatterns);
+        getContext().checkContextMatch(sorts);
+        getContext().checkContextMatch(names);
+        getContext().checkContextMatch(body);
 
         if (sorts.length != names.length)
             throw new Z3Exception(
@@ -153,20 +153,20 @@ public class Quantifier extends BoolExpr
         if (noPatterns == null && quantifierID == null && skolemID == null)
         {
             setNativeObject(Native.mkQuantifier(ctx.nCtx(), (isForall) ? true
-                    : false, weight, AST.ArrayLength(patterns), AST
-                    .ArrayToNative(patterns), AST.ArrayLength(sorts), AST
-                    .ArrayToNative(sorts), Symbol.ArrayToNative(names), body
-                    .NativeObject()));
+                    : false, weight, AST.arrayLength(patterns), AST
+                    .arrayToNative(patterns), AST.arrayLength(sorts), AST
+                    .arrayToNative(sorts), Symbol.arrayToNative(names), body
+                    .getNativeObject()));
         } else
         {
             setNativeObject(Native.mkQuantifierEx(ctx.nCtx(), 
-		    (isForall) ? true : false, weight, AST.GetNativeObject(quantifierID), 
-		     AST.GetNativeObject(skolemID), 
-		     AST.ArrayLength(patterns), AST.ArrayToNative(patterns), 
-		     AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns), 
-		     AST.ArrayLength(sorts), AST.ArrayToNative(sorts), 
-		     Symbol.ArrayToNative(names), 
-		     body.NativeObject()));
+		    (isForall) ? true : false, weight, AST.getNativeObject(quantifierID), 
+		     AST.getNativeObject(skolemID), 
+		     AST.arrayLength(patterns), AST.arrayToNative(patterns), 
+		     AST.arrayLength(noPatterns), AST.arrayToNative(noPatterns), 
+		     AST.arrayLength(sorts), AST.arrayToNative(sorts), 
+		     Symbol.arrayToNative(names), 
+		     body.getNativeObject()));
         }
     }
 
@@ -176,26 +176,26 @@ public class Quantifier extends BoolExpr
     {
         super(ctx);
 
-        Context().CheckContextMatch(noPatterns);
-        Context().CheckContextMatch(patterns);
+        getContext().checkContextMatch(noPatterns);
+        getContext().checkContextMatch(patterns);
         // Context().CheckContextMatch(bound);
-        Context().CheckContextMatch(body);
+        getContext().checkContextMatch(body);
 
         if (noPatterns == null && quantifierID == null && skolemID == null)
         {
             setNativeObject(Native.mkQuantifierConst(ctx.nCtx(),
-                    (isForall) ? true : false, weight, AST.ArrayLength(bound),
-                    AST.ArrayToNative(bound), AST.ArrayLength(patterns),
-                    AST.ArrayToNative(patterns), body.NativeObject()));
+                    (isForall) ? true : false, weight, AST.arrayLength(bound),
+                    AST.arrayToNative(bound), AST.arrayLength(patterns),
+                    AST.arrayToNative(patterns), body.getNativeObject()));
         } else
         {
             setNativeObject(Native.mkQuantifierConstEx(ctx.nCtx(),
                     (isForall) ? true : false, weight,
-                    AST.GetNativeObject(quantifierID),
-                    AST.GetNativeObject(skolemID), AST.ArrayLength(bound),
-                    AST.ArrayToNative(bound), AST.ArrayLength(patterns),
-                    AST.ArrayToNative(patterns), AST.ArrayLength(noPatterns),
-                    AST.ArrayToNative(noPatterns), body.NativeObject()));
+                    AST.getNativeObject(quantifierID),
+                    AST.getNativeObject(skolemID), AST.arrayLength(bound),
+                    AST.arrayToNative(bound), AST.arrayLength(patterns),
+                    AST.arrayToNative(patterns), AST.arrayLength(noPatterns),
+                    AST.arrayToNative(noPatterns), body.getNativeObject()));
         }
     }
 
@@ -204,11 +204,11 @@ public class Quantifier extends BoolExpr
         super(ctx, obj);
     }
 
-    void CheckNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj) throws Z3Exception
     {
-        if (Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST
+        if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_QUANTIFIER_AST
                 .toInt())
             throw new Z3Exception("Underlying object is not a quantifier");
-        super.CheckNativeObject(obj);
+        super.checkNativeObject(obj);
     }
 }

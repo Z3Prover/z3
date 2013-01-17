@@ -15,7 +15,7 @@ public class Constructor extends Z3Object
 	 * The number of fields of the constructor.
 	 * @throws Z3Exception 
 	 **/
-	public int NumFields() throws Z3Exception
+	public int getNumFields() throws Z3Exception
 	{
 		init();
 		return n;
@@ -35,7 +35,7 @@ public class Constructor extends Z3Object
 	 * The function declaration of the tester.
 	 * @throws Z3Exception 
 	 **/
-	public FuncDecl TesterDecl() throws Z3Exception
+	public FuncDecl getTesterDecl() throws Z3Exception
 	{
 		init();
 		return m_testerDecl;
@@ -45,7 +45,7 @@ public class Constructor extends Z3Object
 	 * The function declarations of the accessors
 	 * @throws Z3Exception 
 	 **/
-	public FuncDecl[] AccessorDecls() throws Z3Exception
+	public FuncDecl[] getAccessorDecls() throws Z3Exception
 	{
 		init();
 		return m_accessorDecls;
@@ -56,7 +56,7 @@ public class Constructor extends Z3Object
 	 **/
 	protected void finalize() throws Z3Exception
 	{
-		Native.delConstructor(Context().nCtx(), NativeObject());
+		Native.delConstructor(getContext().nCtx(), getNativeObject());
 	}
 
 	private int n = 0;
@@ -70,9 +70,9 @@ public class Constructor extends Z3Object
 	{
 		super(ctx);
 
-		n = AST.ArrayLength(fieldNames);
+		n = AST.arrayLength(fieldNames);
 
-		if (n != AST.ArrayLength(sorts))
+		if (n != AST.arrayLength(sorts))
 			throw new Z3Exception(
 					"Number of field names does not match number of sorts");
 		if (sortRefs != null && sortRefs.length != n)
@@ -82,9 +82,9 @@ public class Constructor extends Z3Object
 		if (sortRefs == null)
 			sortRefs = new int[n];
 
-		setNativeObject(Native.mkConstructor(ctx.nCtx(), name.NativeObject(),
-				recognizer.NativeObject(), n, Symbol.ArrayToNative(fieldNames),
-				Sort.ArrayToNative(sorts), sortRefs));
+		setNativeObject(Native.mkConstructor(ctx.nCtx(), name.getNativeObject(),
+				recognizer.getNativeObject(), n, Symbol.arrayToNative(fieldNames),
+				Sort.arrayToNative(sorts), sortRefs));
 
 	}
 
@@ -95,13 +95,13 @@ public class Constructor extends Z3Object
 		Native.LongPtr constructor = new Native.LongPtr();
 		Native.LongPtr tester = new Native.LongPtr();
 		long[] accessors = new long[n];
-		Native.queryConstructor(Context().nCtx(), NativeObject(), n,
+		Native.queryConstructor(getContext().nCtx(), getNativeObject(), n,
 				constructor, tester, accessors);
-		m_constructorDecl = new FuncDecl(Context(), constructor.value);
-		m_testerDecl = new FuncDecl(Context(), tester.value);
+		m_constructorDecl = new FuncDecl(getContext(), constructor.value);
+		m_testerDecl = new FuncDecl(getContext(), tester.value);
 		m_accessorDecls = new FuncDecl[n];
 		for (int i = 0; i < n; i++)
-			m_accessorDecls[i] = new FuncDecl(Context(), accessors[i]);
+			m_accessorDecls[i] = new FuncDecl(getContext(), accessors[i]);
 	}
 
 }

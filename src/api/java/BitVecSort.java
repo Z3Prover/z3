@@ -13,9 +13,9 @@ public class BitVecSort extends Sort
 	/**
 	 * The size of the bit-vector sort.
 	 **/
-	public int Size() throws Z3Exception
+	public int getSize() throws Z3Exception
 	{
-		return Native.getBvSortSize(Context().nCtx(), NativeObject());
+		return Native.getBvSortSize(getContext().nCtx(), getNativeObject());
 	}
 
 	BitVecSort(Context ctx, long obj) throws Z3Exception

@@ -15,33 +15,33 @@ public class TupleSort extends Sort
      * The constructor function of the tuple.
      * @throws Z3Exception 
      **/
-    public FuncDecl MkDecl() throws Z3Exception
+    public FuncDecl mkDecl() throws Z3Exception
     {
 
-        return new FuncDecl(Context(), Native.getTupleSortMkDecl(Context()
-                .nCtx(), NativeObject()));
+        return new FuncDecl(getContext(), Native.getTupleSortMkDecl(getContext()
+                .nCtx(), getNativeObject()));
     }
 
     /**
      * The number of fields in the tuple.
      **/
-    public int NumFields() throws Z3Exception
+    public int getNumFields() throws Z3Exception
     {
-        return Native.getTupleSortNumFields(Context().nCtx(), NativeObject());
+        return Native.getTupleSortNumFields(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The field declarations.
      * @throws Z3Exception 
      **/
-    public FuncDecl[] FieldDecls() throws Z3Exception
+    public FuncDecl[] getFieldDecls() throws Z3Exception
     {
 
-        int n = NumFields();
+        int n = getNumFields();
         FuncDecl[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(Context(), Native.getTupleSortFieldDecl(
-                    Context().nCtx(), NativeObject(), i));
+            res[i] = new FuncDecl(getContext(), Native.getTupleSortFieldDecl(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -51,8 +51,8 @@ public class TupleSort extends Sort
         super(ctx);
 
         Native.LongPtr t = new Native.LongPtr();
-        setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.NativeObject(),
-                numFields, Symbol.ArrayToNative(fieldNames),
-                AST.ArrayToNative(fieldSorts), t, new long[numFields]));
+        setNativeObject(Native.mkTupleSort(ctx.nCtx(), name.getNativeObject(),
+                numFields, Symbol.arrayToNative(fieldNames),
+                AST.arrayToNative(fieldSorts), t, new long[numFields]));
     }
 };
