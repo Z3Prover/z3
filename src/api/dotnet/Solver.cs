@@ -118,6 +118,50 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Assert multiple constraints into the solver, and track them (in the unsat) core 
+        /// using the Boolean constants in ps. 
+        /// </summary>
+        /// <remarks>
+        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// Both APIs can be used in the same solver. The unsat core will contain a combination
+        /// of the Boolean variables provided using <see cref="AssertAndTrack"/> and the Boolean literals
+        /// provided using <see cref="Check"/> with assumptions.
+        /// </remarks>        
+        public void AssertAndTrack(BoolExpr[] constraints, BoolExpr[] ps)
+        {
+            Contract.Requires(constraints != null);
+            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+            Contract.Requires(Contract.ForAll(ps, c => c != null));
+            Context.CheckContextMatch(constraints);
+            Context.CheckContextMatch(ps);
+            if (constraints.Length != ps.Length)
+                throw new Z3Exception("Argument size mismatch");
+            
+            for (int i = 0 ; i < constraints.Length; i++)
+                Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraints[i].NativeObject, ps[i].NativeObject);
+        }
+
+        /// <summary>
+        /// Assert a constraint into the solver, and track it (in the unsat) core 
+        /// using the Boolean constant p. 
+        /// </summary>
+        /// <remarks>
+        /// This API is an alternative to <see cref="Check"/> with assumptions for extracting unsat cores.
+        /// Both APIs can be used in the same solver. The unsat core will contain a combination
+        /// of the Boolean variables provided using <see cref="AssertAndTrack"/> and the Boolean literals
+        /// provided using <see cref="Check"/> with assumptions.
+        /// </remarks>        
+        public void AssertAndTrack(BoolExpr constraint, BoolExpr p)
+        {
+            Contract.Requires(constraint != null);
+            Contract.Requires(p != null);
+            Context.CheckContextMatch(constraint);
+            Context.CheckContextMatch(p);
+                        
+            Native.Z3_solver_assert_and_track(Context.nCtx, NativeObject, constraint.NativeObject, p.NativeObject);
+        }
+
+        /// <summary>
         /// The number of assertions in the solver.
         /// </summary>
         public uint NumAssertions
