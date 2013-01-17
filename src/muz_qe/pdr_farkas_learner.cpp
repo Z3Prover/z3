@@ -860,38 +860,5 @@ namespace pdr {
     }
 
 
-    void farkas_learner::test(char const* filename)  {
-#if 0
-        // [Leo]: disabled because it uses an external component: SMT 1.0 parser
-        if (!filename) {
-            test();
-            return;
-        }
-        ast_manager m;
-        reg_decl_plugins(m);  
-        scoped_ptr<smtlib::parser> p = smtlib::parser::create(m);
-        p->initialize_smtlib();
-
-        if (!p->parse_file(filename)) {
-            warning_msg("Failed to parse file %s\n", filename);
-            return;
-        }
-        expr_ref A(m), B(m);
-
-        smtlib::theory::expr_iterator it = p->get_benchmark()->begin_axioms();
-        smtlib::theory::expr_iterator end = p->get_benchmark()->end_axioms();
-        A = m.mk_and(static_cast<unsigned>(end-it), it);
-
-        it = p->get_benchmark()->begin_formulas();
-        end = p->get_benchmark()->end_formulas();
-        B = m.mk_and(static_cast<unsigned>(end-it), it);
-
-        smt_params params;
-        pdr::farkas_learner fl(params, m);
-        expr_ref_vector lemmas(m);
-        bool res = fl.get_lemma_guesses(A, B, lemmas);        
-        std::cout << "lemmas: " << pp_cube(lemmas, m) << "\n";
-#endif
-    }
 };
 

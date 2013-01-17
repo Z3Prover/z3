@@ -30,7 +30,9 @@ namespace datalog {
         rule_ref_vector& m_rules;
         rule_ref&        m_rule;
         
-        restore_rule(rule_ref_vector& rules, rule_ref& rule): m_rules(rules), m_rule(rule) {
+        restore_rule(rule_ref_vector& rules, rule_ref& rule): 
+            m_rules(rules),
+            m_rule(rule) {
             m_rules.push_back(m_rule);
         }
         
@@ -40,28 +42,51 @@ namespace datalog {
         }
     };
 
+    enum tab_instruction {
+        SELECT_RULE,
+        SELECT_PREDICATE,
+        BACKTRACK,
+        NEXT_RULE,
+        SATISFIABLE,
+        UNSATISFIABLE,
+        CANCEL
+    };
+
+    std::ostream& operator<<(std::ostream& out, tab_instruction i) {
+        switch(i) {
+        case SELECT_RULE: return out << "select-rule";
+        case SELECT_PREDICATE: return out << "select-predicate";
+        case BACKTRACK: return out << "backtrack";
+        case NEXT_RULE: return out << "next-rule";
+        case SATISFIABLE: return out << "sat";
+        case UNSATISFIABLE: return out << "unsat";
+        case CANCEL: return out << "cancel";
+        }
+        return out << "unmatched instruction";
+    }
+
     class tab::imp {
-        enum instruction {
-            SELECT_RULE,
-            SELECT_PREDICATE,
-            BACKTRACK,
-            NEXT_RULE,
-            SATISFIABLE,
-            UNSATISFIABLE,
-            CANCEL
+        struct stats {
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+            unsigned m_num_unfold;
+            unsigned m_num_no_unfold;
+            unsigned m_num_subsume;
         };
+
         context&           m_ctx;
         ast_manager&       m;
         rule_manager&      rm;
         rule_unifier       m_unifier;
         rule_set           m_rules;
         trail_stack<imp>   m_trail;
-        instruction        m_instruction;
+        tab_instruction    m_instruction;
         rule_ref           m_query;
         rule_ref_vector    m_query_trail;
         unsigned           m_predicate_index;
         unsigned           m_rule_index;
         volatile bool      m_cancel;
+        stats              m_stats;
     public:
         imp(context& ctx):
             m_ctx(ctx), 
@@ -99,10 +124,12 @@ namespace datalog {
             m_query_trail.reset();
         }
         void reset_statistics() {
-            // TBD
+            m_stats.reset();
         }
         void collect_statistics(statistics& st) const {
-            // TBD
+            st.update("tab.num_unfold", m_stats.m_num_unfold);
+            st.update("tab.num_unfold_fail", m_stats.m_num_no_unfold);
+            st.update("tab.num_subsume", m_stats.m_num_subsume);
         }
         void display_certificate(std::ostream& out) const {
             // TBD
@@ -111,12 +138,13 @@ namespace datalog {
             // TBD
             return expr_ref(0, m);
         }
-private:
+    private:
     
         void select_predicate() {
             unsigned num_predicates = m_query->get_uninterpreted_tail_size();
             if (num_predicates == 0) {
                 m_instruction = UNSATISFIABLE;
+                IF_VERBOSE(1, m_query->display(m_ctx, verbose_stream()); );
             }
             else {
                 m_instruction = SELECT_RULE;
@@ -125,37 +153,47 @@ private:
             }
         }
         
-    void apply_rule(rule const& r) {
+        void apply_rule(rule const& r) {
+            m_rule_index++;
             bool can_unify = m_unifier.unify_rules(*m_query, m_predicate_index, r);
             if (can_unify) {
+                m_stats.m_num_unfold++;
+                m_trail.push_scope();
+                m_trail.push(value_trail<imp,unsigned>(m_rule_index));
+                m_trail.push(value_trail<imp,unsigned>(m_predicate_index));
                 rule_ref new_query(rm);
                 m_unifier.apply(*m_query, m_predicate_index, r, new_query);
                 m_trail.push(restore_rule<imp>(m_query_trail, m_query));
                 m_query = new_query;
                 TRACE("dl", m_query->display(m_ctx, tout););
+                if (l_false == query_is_sat()) {
+                    m_instruction = BACKTRACK;
+                }
+                else if (l_true == query_is_subsumed()) {
+                    NOT_IMPLEMENTED_YET();
+                }
+                else {
+                    m_instruction = SELECT_PREDICATE;
+                }
             }
             else {
-                m_instruction = NEXT_RULE;
+                m_stats.m_num_no_unfold++;
+                m_instruction = SELECT_RULE;
             }
         }
 
         void select_rule() {
             func_decl* p = m_query->get_decl(m_predicate_index);
             rule_vector const& rules = m_rules.get_predicate_rules(p);
-            if (rules.size() >= m_rule_index) {
+            if (rules.size() <= m_rule_index) {
                 m_instruction = BACKTRACK;
             }
             else {
-                rule* r = rules[m_rule_index];
-                m_trail.push_scope();
-                m_rule_index++;
-                m_trail.push(value_trail<imp,unsigned>(m_rule_index));
-                m_trail.push(value_trail<imp,unsigned>(m_predicate_index));
-                apply_rule(*r);
+                apply_rule(*rules[m_rule_index]);
             }
         }
 
-    void backtrack() {
+        void backtrack() {
             if (m_trail.get_num_scopes() == 0) {
                 m_instruction = SATISFIABLE;
             }
@@ -174,8 +212,9 @@ private:
         lbool run() {
             m_instruction = SELECT_PREDICATE;
             while (true) {
+                IF_VERBOSE(1, verbose_stream() << "run " << m_instruction << "\n";);                
                 if (m_cancel) {
-                    m_cancel = false;
+                    cleanup();
                     return l_undef;
                 }
                 switch(m_instruction) {
@@ -192,15 +231,25 @@ private:
                     next_rule();
                     break;
                 case SATISFIABLE: 
-                    return l_true;
-                case UNSATISFIABLE:
                     return l_false;
+                case UNSATISFIABLE:
+                    return l_true;
                 case CANCEL:
                     m_cancel = false;
                     return l_undef;
                 }
             }
-        }       
+        }    
+
+        lbool query_is_sat() {
+            expr_ref_vector fmls(m);
+
+            return l_undef;
+        }
+
+        lbool query_is_subsumed() {
+            return l_undef;
+        }
 
     };
 

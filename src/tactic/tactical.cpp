@@ -19,7 +19,6 @@ Notes:
 #include"tactical.h"
 #include"scoped_timer.h"
 #include"cancel_eh.h"
-#include"cooperate.h"
 #include"scoped_ptr_vector.h"
 #include"z3_omp.h"
 
