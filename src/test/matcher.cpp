@@ -19,6 +19,8 @@ Revision History:
 #ifdef _WINDOWS
 #include"matcher.h"
 #include"ast_pp.h"
+#include "reg_decl_plugins.h"
+
 
 void tst_match(ast_manager & m, app * t, app * i) {
     substitution s(m);
@@ -72,6 +74,7 @@ void tst_match(ast_manager & m, app * t, app * i) {
 
 void tst1() {
     ast_manager m;
+    reg_decl_plugins(m);
     sort_ref s(          m.mk_sort(symbol("S")),    m);
     func_decl_ref g(     m.mk_func_decl(symbol("g"), s, s), m);
     func_decl_ref h(     m.mk_func_decl(symbol("h"), s, s), m);

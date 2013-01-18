@@ -49,6 +49,10 @@ bool matcher::operator()(expr * e1, expr * e2, substitution & s) {
 
         if (is_var(p.second))
             return false;
+        if (!is_app(p.first))
+            return false;
+        if (!is_app(p.second))
+            return false;
 
         app * n1 = to_app(p.first);
         app * n2 = to_app(p.second);
