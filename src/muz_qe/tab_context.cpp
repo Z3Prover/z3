@@ -24,6 +24,8 @@ Revision History:
 #include "dl_mk_rule_inliner.h"
 #include "smt_kernel.h"
 #include "matcher.h"
+#include "qe_lite.h"
+#include "bool_rewriter.h"
 
 namespace datalog {
 
@@ -46,16 +48,19 @@ namespace datalog {
 
     // subsumption index structure.
     class tab_index {
-        ast_manager&   m;
-        rule_manager&  rm;
-        context&       m_ctx;
-        app_ref_vector m_preds;
-        expr_ref       m_precond;
-        rule_ref_vector    m_rules;
-        svector<unsigned>  m_num_vars;
-        unsigned       m_index;
-        matcher        m_matcher;
-        substitution   m_subst;
+        ast_manager&      m;
+        rule_manager&     rm;
+        context&          m_ctx;
+        app_ref_vector    m_preds;
+        expr_ref          m_precond;
+        rule_ref_vector   m_rules;
+        svector<unsigned> m_num_vars;
+        unsigned          m_idx1;
+        matcher           m_matcher;
+        substitution      m_subst;
+        qe_lite           m_qe;
+        uint_set          m_empty_set;
+        bool_rewriter     m_rw;
         
     public:
         tab_index(ast_manager& m, rule_manager& rm, context& ctx): 
@@ -66,7 +71,9 @@ namespace datalog {
             m_precond(m),
             m_rules(rm),
             m_matcher(m),
-            m_subst(m) {}
+            m_subst(m),
+            m_qe(m),
+            m_rw(m) {}
 
         void insert(rule* r) {
             m_rules.push_back(r);
@@ -75,7 +82,7 @@ namespace datalog {
         
         void setup(rule const& r) {
             m_preds.reset();
-            m_index = 0;
+            m_idx1 = 0;
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
             expr_ref fml(m);
@@ -104,10 +111,13 @@ namespace datalog {
             IF_VERBOSE(1, r.display(m_ctx, verbose_stream() << "setup-match\n"););
         }
 
+        expr* get_precond() { return m_precond; }
+
         // extract pre_cond => post_cond validation obligation from match.
-        bool next_match(expr_ref& pre_cond, expr_ref& post_cond) {            
-            for (; m_index < m_rules.size(); ++m_index) {
-                if (try_match(pre_cond, post_cond)) {
+        bool next_match(expr_ref& post_cond) {
+            for (; m_idx1 < m_rules.size(); ++m_idx1) {
+                if (try_match(post_cond)) {
+                    ++m_idx1;
                     return true;
                 }
             }
@@ -118,9 +128,9 @@ namespace datalog {
         // check that each predicate in r is matched by some predicate in premise.
         // for now: skip multiple matches within the same rule (incomplete).
         //
-        bool try_match(expr_ref& pre_cond, expr_ref& post_cond) {
-            rule const& r = *m_rules[m_index];
-            unsigned num_vars = m_num_vars[m_index];
+        bool try_match(expr_ref& post_cond) {
+            rule const& r = *m_rules[m_idx1];
+            unsigned num_vars = m_num_vars[m_idx1];
             m_subst.reset();
             m_subst.reserve(2, num_vars);
             unsigned deltas[2] = {0, 0};
@@ -129,7 +139,7 @@ namespace datalog {
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();
             
-            IF_VERBOSE(1, r.display(m_ctx, verbose_stream() << "try-match\n"););
+            // IF_VERBOSE(1, r.display(m_ctx, verbose_stream() << "try-match\n"););
 
             for (unsigned i = 0; i < utsz; ++i) {
                 m_subst.push_scope();
@@ -143,13 +153,15 @@ namespace datalog {
                 fmls.push_back(q);
             }
 
-            pre_cond = m_precond;
-            post_cond = m.mk_and(fmls.size(), fmls.c_ptr());
-            IF_VERBOSE(1, verbose_stream() << "match: " << mk_pp(post_cond, m) << "\n";);
-            // TBD: 
-            // - existential closure of post_cond
-            // - eliminate variables from post_cond
-            return true;
+            m_qe(m_empty_set, false, fmls);
+            m_rw.mk_and(fmls.size(), fmls.c_ptr(), post_cond);
+            if (m.is_false(post_cond)) {
+                return false;
+            }
+            else {
+                IF_VERBOSE(1, verbose_stream() << "match: " << mk_pp(post_cond, m) << "\n";);
+                return true;
+            }
         }
 
         bool try_match(expr* q) {
@@ -416,18 +428,21 @@ namespace datalog {
         lbool query_is_subsumed(rule const& query) {
             lbool is_subsumed = l_false;
             m_subsumption_index.setup(query);
-            expr_ref precond(m), postcond(m);
-            while (m_subsumption_index.next_match(precond, postcond)) {
+            expr_ref postcond(m);
+            while (m_subsumption_index.next_match(postcond)) {
                 if (is_ground(postcond)) {
                     postcond = m.mk_not(postcond);
                     m_solver.push();
-                    m_solver.assert_expr(precond);
+                    m_solver.assert_expr(m_subsumption_index.get_precond());
                     m_solver.assert_expr(postcond);
                     lbool is_sat = m_solver.check();
                     m_solver.pop(1);
                     if (is_sat == l_false) {
                         return l_true;
                     }
+                }
+                else {
+                    IF_VERBOSE(1, verbose_stream() << "non-ground: " << mk_pp(postcond, m) << "\n";);
                 }
             }
             return is_subsumed;
