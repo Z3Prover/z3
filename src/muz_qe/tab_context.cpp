@@ -29,22 +29,30 @@ Revision History:
 
 namespace datalog {
 
-    template<typename Ctx>
-    struct restore_rule : trail<Ctx> {
-        rule_ref_vector& m_rules;
-        rule_ref&        m_rule;
+#if 0
+    // semantic matcher.
+    class tab_matcher {
+        typedef std::pair<expr *, expr *> expr_pair;
+        svector<expr_pair>    m_todo;
+
+    public:
+        matcher(ast_manager& m): m(m) {}
         
-        restore_rule(rule_ref_vector& rules, rule_ref& rule): 
-            m_rules(rules),
-            m_rule(rule) {
-            m_rules.push_back(m_rule);
+        bool operator()(expr* pat, expr* term, substitution& s, expr_ref_vector& side_conds) {
+            m_todo.reset();
+            m_todo.push_back(expr_pair(pat, term));
+            while (!m_todo.empty()) {
+                expr_pair const& p = m_todo.back();
+                pat = p.first;
+                term = p.second;
+                if (is_var(pat)) {
+                    
+                }
+            }
         }
         
-        virtual void undo(Ctx & ctx) {
-            m_rule = m_rules.back();
-            m_rules.pop_back();
-        }
     };
+#endif
 
     // subsumption index structure.
     class tab_index {
@@ -55,12 +63,13 @@ namespace datalog {
         expr_ref          m_precond;
         rule_ref_vector   m_rules;
         svector<unsigned> m_num_vars;
-        unsigned          m_idx1;
         matcher           m_matcher;
         substitution      m_subst;
         qe_lite           m_qe;
         uint_set          m_empty_set;
         bool_rewriter     m_rw;
+        smt_params        m_fparams;
+        smt::kernel       m_solver;
         
     public:
         tab_index(ast_manager& m, rule_manager& rm, context& ctx): 
@@ -73,16 +82,27 @@ namespace datalog {
             m_matcher(m),
             m_subst(m),
             m_qe(m),
-            m_rw(m) {}
+            m_rw(m),
+            m_solver(m, m_fparams) {}
 
         void insert(rule* r) {
             m_rules.push_back(r);
             m_num_vars.push_back(1+rm.get_var_counter().get_max_var(*r));
         }
+
+        bool is_subsumed(rule const& r) {            
+            setup(r);
+            m_solver.push();
+            m_solver.assert_expr(m_precond);
+            bool found = find_match();
+            m_solver.pop(1);
+            return found;
+        }
+
+    private:
         
         void setup(rule const& r) {
             m_preds.reset();
-            m_idx1 = 0;
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
             expr_ref fml(m);
@@ -108,45 +128,56 @@ namespace datalog {
                 fmls.push_back(fml);
             }            
             m_precond = m.mk_and(fmls.size(), fmls.c_ptr());            
-            IF_VERBOSE(1, r.display(m_ctx, verbose_stream() << "setup-match\n"););
         }
 
-        expr* get_precond() { return m_precond; }
 
         // extract pre_cond => post_cond validation obligation from match.
-        bool next_match(expr_ref& post_cond) {
-            for (; m_idx1 < m_rules.size(); ++m_idx1) {
-                if (try_match(post_cond)) {
-                    ++m_idx1;
+        bool find_match() {
+            for (unsigned i = 0; i < m_rules.size(); ++i) {
+                if (match_rule(i)) {
                     return true;
                 }
             }
             return false;            
         }
-    private:
         //
         // check that each predicate in r is matched by some predicate in premise.
         // for now: skip multiple matches within the same rule (incomplete).
         //
-        bool try_match(expr_ref& post_cond) {
-            rule const& r = *m_rules[m_idx1];
-            unsigned num_vars = m_num_vars[m_idx1];
+        bool match_rule(unsigned rule_index) {
+            rule const& r = *m_rules[rule_index];
+            unsigned num_vars = m_num_vars[rule_index];
             m_subst.reset();
             m_subst.reserve(2, num_vars);
-            unsigned deltas[2] = {0, 0};
-            expr_ref_vector fmls(m);
-            expr_ref q(m);
-            unsigned utsz = r.get_uninterpreted_tail_size();
-            unsigned tsz = r.get_tail_size();
             
             // IF_VERBOSE(1, r.display(m_ctx, verbose_stream() << "try-match\n"););
 
-            for (unsigned i = 0; i < utsz; ++i) {
-                m_subst.push_scope();
-                if (!try_match(r.get_tail(i))) {
-                    return false;
-                }
+            return match_predicates(0, r);
+        }
+
+        bool match_predicates(unsigned predicate_index, rule const& r) {
+            if (predicate_index == r.get_uninterpreted_tail_size()) {
+                return check_substitution(r);
             }
+            app* p = r.get_tail(predicate_index);
+            for (unsigned i = 0; i < m_preds.size(); ++i) {
+                m_subst.push_scope();
+                if (m_matcher(p, m_preds[i].get(), m_subst) &&
+                    match_predicates(predicate_index + 1, r)) {
+                    return true;
+                }
+                m_subst.pop_scope();
+            }
+            return false;
+        }
+
+        bool check_substitution(rule const& r) {
+            unsigned utsz = r.get_uninterpreted_tail_size();
+            unsigned tsz  = r.get_tail_size();
+            unsigned deltas[2] = {0, 0};
+            expr_ref_vector fmls(m);
+            expr_ref q(m), postcond(m);
+
             for (unsigned i = utsz; i < tsz; ++i) {
                 app* p = r.get_tail(i);
                 m_subst.apply(2, deltas, expr_offset(p, 0), q);
@@ -154,28 +185,23 @@ namespace datalog {
             }
 
             m_qe(m_empty_set, false, fmls);
-            m_rw.mk_and(fmls.size(), fmls.c_ptr(), post_cond);
-            if (m.is_false(post_cond)) {
+            m_rw.mk_and(fmls.size(), fmls.c_ptr(), postcond);
+            if (m.is_false(postcond)) {
                 return false;
             }
-            else {
-                IF_VERBOSE(1, verbose_stream() << "match: " << mk_pp(post_cond, m) << "\n";);
+            if (m.is_true(postcond)) {
                 return true;
             }
-        }
-
-        bool try_match(expr* q) {
-            for (unsigned i = 0; i < m_preds.size(); ++i) {
-                if (m_matcher(q, m_preds[i].get(), m_subst)) {
-                    return true;
-                }
-                else {
-                    // undo effect of failed match attempt.
-                    m_subst.pop_scope();
-                    m_subst.push_scope();
-                }
+            if (!is_ground(postcond)) {
+                IF_VERBOSE(1, verbose_stream() << "TBD: non-ground\n" << mk_pp(postcond, m) << "\n";);
+                return false;
             }
-            return false;
+            postcond = m.mk_not(postcond);
+            m_solver.push();
+            m_solver.assert_expr(postcond);
+            lbool is_sat = m_solver.check();
+            m_solver.pop(1);
+            return is_sat == l_false;
         }
     };
 
@@ -183,7 +209,6 @@ namespace datalog {
         SELECT_RULE,
         SELECT_PREDICATE,
         BACKTRACK,
-        NEXT_RULE,
         SATISFIABLE,
         UNSATISFIABLE,
         CANCEL
@@ -194,13 +219,14 @@ namespace datalog {
         case SELECT_RULE:      return out << "select-rule";
         case SELECT_PREDICATE: return out << "select-predicate";
         case BACKTRACK:        return out << "backtrack";
-        case NEXT_RULE:        return out << "next-rule";
         case SATISFIABLE:      return out << "sat";
         case UNSATISFIABLE:    return out << "unsat";
         case CANCEL:           return out << "cancel";
         }
         return out << "unmatched instruction";
     }
+
+
 
     class tab::imp {
         struct stats {
@@ -211,6 +237,44 @@ namespace datalog {
             unsigned m_num_subsume;
         };
 
+        class goal {
+        public:
+            rule_ref m_goal;
+//            app_ref  m_head;
+//            app_ref_vector m_predicates;
+//            expr_ref m_constraint;
+            unsigned m_index;
+            unsigned m_predicate_index;
+            unsigned m_rule_index;
+
+            goal(rule_manager& rm): 
+                m_goal(rm), 
+//                m_head(m),
+//                m_predicates(m),
+//                m_constraint(m),
+                m_index(0), 
+                m_predicate_index(0), 
+                m_rule_index(0) {
+            }
+
+#if 0
+        private:
+            void init() {
+                m_head = m_goal.get_head();
+                unsigned utsz = m_goal->get_uninterpreted_tail_size();
+                unsigned tsz  = m_goal->get_tail_size();
+                for (unsigned i = 0; i < utsz; ++i) {
+                    m_predicates.push_back(m_goal->get_tail(i));
+                }
+                expr_ref fmls(m);
+                for (unsigned i = utsz; i < tsz; ++i) {
+                    fmls.push_back(m_goal->get_tail(i));
+                }
+                bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), m_constraint);
+            }
+#endif
+        };        
+
         context&           m_ctx;
         ast_manager&       m;
         rule_manager&      rm;
@@ -219,12 +283,10 @@ namespace datalog {
         smt::kernel        m_solver;
         rule_unifier       m_unifier;
         rule_set           m_rules;
-        trail_stack<imp>   m_trail;
+        vector<goal>       m_goals;
+        goal               m_goal;
         tab_instruction    m_instruction;
-        rule_ref           m_query;
-        rule_ref_vector    m_query_trail;
-        unsigned           m_predicate_index;
-        unsigned           m_rule_index;
+        unsigned           m_goal_index;
         volatile bool      m_cancel;
         stats              m_stats;
     public:
@@ -236,13 +298,10 @@ namespace datalog {
             m_solver(m, m_fparams),
             m_unifier(ctx),
             m_rules(ctx),
-            m_trail(*this),
+            m_goal(rm),
             m_instruction(SELECT_PREDICATE),
-            m_query(rm),
-            m_query_trail(rm),
-            m_predicate_index(0),
-            m_rule_index(0),
-            m_cancel(false)
+            m_cancel(false),
+            m_goal_index(0)
         {
             // m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_mbqi = false;
@@ -256,8 +315,11 @@ namespace datalog {
             m_rules.reset();
             m_rules.add_rules(m_ctx.get_rules());
             rule_ref_vector query_rules(rm);
+            rule_ref goal(rm);
             func_decl_ref query_pred(m);
-            rm.mk_query(query, query_pred, query_rules, m_query);            
+            rm.mk_query(query, query_pred, query_rules, goal);
+            init_goal(goal);
+            IF_VERBOSE(1, display_goal(m_goal, verbose_stream()););
             return run();
         }
     
@@ -266,8 +328,7 @@ namespace datalog {
         }
         void cleanup() {
             m_cancel = false;
-            m_trail.reset();
-            m_query_trail.reset();
+            m_goals.reset();
         }
         void reset_statistics() {
             m_stats.reset();
@@ -287,86 +348,70 @@ namespace datalog {
     private:
     
         void select_predicate() {
-            unsigned num_predicates = m_query->get_uninterpreted_tail_size();
+            rule_ref& query = m_goal.m_goal;
+            unsigned num_predicates = query->get_uninterpreted_tail_size();
             if (num_predicates == 0) {
                 m_instruction = UNSATISFIABLE;
-                IF_VERBOSE(1, m_query->display(m_ctx, verbose_stream()); );
+                IF_VERBOSE(2, query->display(m_ctx, verbose_stream()); );
             }
             else {
                 m_instruction = SELECT_RULE;
-                m_predicate_index = 0; // TBD replace by better selection function.                
-                m_rule_index = 0;
-                IF_VERBOSE(1, verbose_stream() << mk_pp(m_query->get_tail(m_predicate_index), m) << "\n";);
+                unsigned pi = 0; // TBD replace by better selection function.                
+                m_goal.m_predicate_index = pi; 
+                m_goal.m_rule_index = 0;
+                IF_VERBOSE(2, verbose_stream() << mk_pp(query->get_tail(pi), m) << "\n";);
             }
         }
         
         void apply_rule(rule const& r) {
-            m_rule_index++;
-            IF_VERBOSE(1, r.display(m_ctx, verbose_stream()););
-            bool can_unify = m_unifier.unify_rules(*m_query, m_predicate_index, r);
-            if (can_unify) {
+            rule_ref& query = m_goal.m_goal;
+            rule_ref new_query(rm);
+            if (m_unifier.unify_rules(*query, m_goal.m_predicate_index, r) &&
+                m_unifier.apply(*query, m_goal.m_predicate_index, r, new_query) &&
+                l_false != query_is_sat(*new_query.get()) &&
+                !query_is_subsumed(*new_query.get())) {
                 m_stats.m_num_unfold++;
-                m_trail.push_scope();
-                m_trail.push(value_trail<imp,unsigned>(m_rule_index));
-                m_trail.push(value_trail<imp,unsigned>(m_predicate_index));
-                rule_ref new_query(rm);
-                bool is_feasible = m_unifier.apply(*m_query, m_predicate_index, r, new_query);
-                if (is_feasible) {
-                    TRACE("dl", m_query->display(m_ctx, tout););
-                    if (l_false == query_is_sat(*new_query.get())) {
-                        m_instruction = BACKTRACK;
-                    }
-                    else if (l_true == query_is_subsumed(*new_query.get())) {
-                        m_instruction = BACKTRACK;
-                    }
-                    else {
-                        m_subsumption_index.insert(m_query.get());
-                        m_trail.push(restore_rule<imp>(m_query_trail, m_query));
-                        m_query = new_query;
-                        m_instruction = SELECT_PREDICATE;
-                    }
-                }
-                else {
-                    m_instruction = BACKTRACK;
-                }
+                m_subsumption_index.insert(query.get());
+                m_goals.push_back(m_goal);
+                init_goal(new_query);
+                IF_VERBOSE(1, 
+                           display_premise(m_goals.back(), verbose_stream());
+                           display_goal(m_goal, verbose_stream()););
+                m_instruction = SELECT_PREDICATE;
             }
             else {
                 m_stats.m_num_no_unfold++;
                 m_instruction = SELECT_RULE;
             }
         }
+        
 
         void select_rule() {
-            func_decl* p = m_query->get_decl(m_predicate_index);
+            
+            func_decl* p = m_goal.m_goal->get_decl(m_goal.m_predicate_index);
             rule_vector const& rules = m_rules.get_predicate_rules(p);
-            if (rules.size() <= m_rule_index) {
+            if (rules.size() <= m_goal.m_rule_index) {
                 m_instruction = BACKTRACK;
             }
             else {
-                apply_rule(*rules[m_rule_index]);
+                apply_rule(*rules[m_goal.m_rule_index++]);
             }
         }
 
         void backtrack() {
-            if (m_trail.get_num_scopes() == 0) {
+            if (m_goals.empty()) {
                 m_instruction = SATISFIABLE;
             }
             else {
-                m_trail.pop_scope(1);
+                m_goal = m_goals.back();
+                m_goals.pop_back();
                 m_instruction = SELECT_RULE;
             }
-        }
-
-        void next_rule() {
-            SASSERT(m_trail.get_num_scopes() > 0);
-            m_trail.pop_scope(1);
-            m_instruction = SELECT_RULE;
         }
 
         lbool run() {
             m_instruction = SELECT_PREDICATE;
             while (true) {
-                IF_VERBOSE(1, verbose_stream() << "run " << m_trail.get_num_scopes() << " " << m_instruction << "\n";);                
                 if (m_cancel) {
                     cleanup();
                     return l_undef;
@@ -380,9 +425,6 @@ namespace datalog {
                     break;
                 case BACKTRACK:
                     backtrack();
-                    break;
-                case NEXT_RULE: // just use BACTRACK?
-                    next_rule();
                     break;
                 case SATISFIABLE: 
                     return l_false;
@@ -425,27 +467,24 @@ namespace datalog {
             return is_sat;
         }
 
-        lbool query_is_subsumed(rule const& query) {
-            lbool is_subsumed = l_false;
-            m_subsumption_index.setup(query);
-            expr_ref postcond(m);
-            while (m_subsumption_index.next_match(postcond)) {
-                if (is_ground(postcond)) {
-                    postcond = m.mk_not(postcond);
-                    m_solver.push();
-                    m_solver.assert_expr(m_subsumption_index.get_precond());
-                    m_solver.assert_expr(postcond);
-                    lbool is_sat = m_solver.check();
-                    m_solver.pop(1);
-                    if (is_sat == l_false) {
-                        return l_true;
-                    }
-                }
-                else {
-                    IF_VERBOSE(1, verbose_stream() << "non-ground: " << mk_pp(postcond, m) << "\n";);
-                }
-            }
-            return is_subsumed;
+        bool query_is_subsumed(rule const& query) {
+            return m_subsumption_index.is_subsumed(query);
+        }
+
+        void init_goal(rule_ref& new_query) {
+            m_goal.m_goal  = new_query;
+            m_goal.m_index = m_goal_index++;
+            m_goal.m_predicate_index = 0;
+            m_goal.m_rule_index = 0;
+        }
+
+
+        void display_premise(goal& p, std::ostream& out) {
+            out << "[" << p.m_index << "]: " << p.m_predicate_index << ":" << p.m_rule_index << "\n";
+        }
+        void display_goal(goal& g, std::ostream& out) {
+            out << g.m_index << " ";
+            g.m_goal->display(m_ctx, out);
         }
     };
 
