@@ -58,6 +58,7 @@ void substitution::pop_scope(unsigned num_scopes) {
     }
     m_vars.shrink(old_sz);
     m_scopes.shrink(new_lvl);
+    m_apply_cache.reset();
 }
 
 inline void substitution::apply_visit(expr_offset const & n, bool & visited) {
