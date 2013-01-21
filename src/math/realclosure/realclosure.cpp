@@ -4236,45 +4236,53 @@ namespace realclosure {
         bool refine_algebraic_interval(algebraic * a, unsigned prec) {
             save_interval_if_too_small(a, prec);
             if (a->sdt() != 0) {
-                // we can't bisect the interval, since it contains more than one root.
+                // We don't bisect the interval, since it contains more than one root.
+                // To bisect this kind of interval we would have to use Tarski queries.
                 return false;
             }
             else {
                 mpbqi & a_i = a->interval();
-                SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
-                int  lower_sign = INT_MIN;
-                while (!check_precision(a_i, prec)) {
-                    checkpoint();
-                    SASSERT(!bqm().eq(a_i.lower(), a_i.upper()));
-                    scoped_mpbq m(bqm());
-                    bqm().add(a_i.lower(), a_i.upper(), m);
-                    bqm().div2(m);
-                    int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
-                    if (mid_sign == 0) {
-                        // found the actual root
-                        // set interval [m, m]
-                        set_lower(a_i, m, false);
-                        set_upper(a_i, m, false);
-                        return true;
-                    }
-                    else {
-                        SASSERT(mid_sign == 1 || mid_sign == -1);
-                        if (lower_sign == INT_MIN) {
-                            // initialize lower_sign
-                            lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
-                        }
-                        SASSERT(lower_sign == 1 || lower_sign == -1);
-                        if (mid_sign == lower_sign) {
-                            // improved lower bound
-                            set_lower(a_i, m);
+                if (a_i.lower_is_inf() || a_i.upper_is_inf()) {
+                    // we can't bisect the infinite intervals
+                    return false;
+                }
+                else {
+                    mpbqi & a_i = a->interval();
+                    SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
+                    int  lower_sign = INT_MIN;
+                    while (!check_precision(a_i, prec)) {
+                        checkpoint();
+                        SASSERT(!bqm().eq(a_i.lower(), a_i.upper()));
+                        scoped_mpbq m(bqm());
+                        bqm().add(a_i.lower(), a_i.upper(), m);
+                        bqm().div2(m);
+                        int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
+                        if (mid_sign == 0) {
+                            // found the actual root
+                            // set interval [m, m]
+                            set_lower(a_i, m, false);
+                            set_upper(a_i, m, false);
+                            return true;
                         }
                         else {
-                            // improved upper bound
-                            set_upper(a_i, m);
+                            SASSERT(mid_sign == 1 || mid_sign == -1);
+                            if (lower_sign == INT_MIN) {
+                                // initialize lower_sign
+                                lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
+                            }
+                            SASSERT(lower_sign == 1 || lower_sign == -1);
+                            if (mid_sign == lower_sign) {
+                                // improved lower bound
+                                set_lower(a_i, m);
+                            }
+                            else {
+                                // improved upper bound
+                                set_upper(a_i, m);
+                            }
                         }
                     }
+                    return true;
                 }
-                return true;
             }
         }
 
