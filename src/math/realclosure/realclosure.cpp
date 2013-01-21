@@ -5797,7 +5797,7 @@ namespace realclosure {
 
         struct display_free_var_proc {
             void operator()(std::ostream & out, bool compact) const {
-                out << "#";
+                out << "x";
             }
         };
 
