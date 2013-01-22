@@ -172,14 +172,14 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             unsigned num_vars = q->get_num_decls();
             substitution subst(m_manager);
             expr_ref er(m_manager);
-            subst.reserve(m_subst.offsets_capacity(), m_subst.vars_capacity());
+            subst.reserve(m_subst.offsets_capacity(), m_subst.vars_capacity() + num_vars);
             var_shifter var_sh(m_manager);
             expr_offset r;
             for (unsigned i = 0; i < m_subst.offsets_capacity(); i++) {
                 for (unsigned j = 0; j < m_subst.vars_capacity(); j++) {
                     if (find(j, i, r)) {
                         var_sh(r.get_expr(), num_vars, er);
-                        subst.insert(j, i, expr_offset(er, r.get_offset()));
+                        subst.insert(j + num_vars, i, expr_offset(er, r.get_offset()));
                     }
                 }
             }
