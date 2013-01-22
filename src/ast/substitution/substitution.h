@@ -16,6 +16,19 @@ Author:
 
 Revision History:
 
+    nbjorner 2013-01-21:
+      - reset the apply cache on pop_scope to make sure that popped
+        substitutions are invalidated.
+      - reset_cache if a new binding was added after application
+        of a substitution.
+      - Add m_refs to make sure terms in the range of the 
+        substitution have the same life-time as the substitution.
+      - Remove reset_subst() function. If called without resetting the cache, then
+        results of applying substitutions are incoherent.
+      - Replace UNREACHABLE segment for quantifiers by recursive invocation of substitution
+        that updates expressions within quantifiers. It shifts all variables in the domain
+        of the current substitution by the number of quantified variables.
+
 --*/
 #ifndef _SUBSTITUTION_H_
 #define _SUBSTITUTION_H_
@@ -34,6 +47,7 @@ class substitution {
     // field for backtracking
     typedef std::pair<unsigned, unsigned> var_offset;
     svector<var_offset>         m_vars;
+    expr_ref_vector             m_refs;
     unsigned_vector             m_scopes;
 
     // fields for applying substitutions
@@ -44,6 +58,11 @@ class substitution {
     // fields for checking for cycles
     enum color { White, Grey, Black };
     expr_offset_map<color>      m_color;
+
+
+    // keep track of how substitution state was last updated.
+    enum state { CLEAN, APPLY, INSERT };
+    state                       m_state;
 
 #ifdef Z3DEBUG
     unsigned                    m_max_offset_since_reset;
@@ -81,8 +100,6 @@ public:
 
     // reset everything
     void reset();
-    // reset only the mapping from variables to expressions
-    void reset_subst();
     // reset only the substitution application cache
     void reset_cache();
 
@@ -119,7 +136,9 @@ public:
         TRACE("subst_insert", tout << "inserting: #" << v_idx << ":" << offset << " --> " << mk_pp(t.get_expr(), m_manager)
               << ":" << t.get_offset() << "\n";);
         m_vars.push_back(var_offset(v_idx, offset));
+        m_refs.push_back(t.get_expr());
         m_subst.insert(v_idx, offset, t);
+        m_state = INSERT;
     }
     void insert(var * v, unsigned offset, expr_offset const & t) { insert(v->get_idx(), offset, t); }
     void insert(expr_offset v, expr_offset const & t) {
