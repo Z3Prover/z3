@@ -98,23 +98,14 @@ namespace tb {
         }
 
         bool match_app(app* p, app* t, substitution& s, expr_ref_vector& conds) {
-            if (p->get_decl() == t->get_decl() &&
-                p->get_num_args() == t->get_num_args()) {
-                for (unsigned i = 0; i < p->get_num_args(); ++i) {
-                    m_todo.push_back(expr_pair(p->get_arg(i), t->get_arg(i)));
-                }                
+            switch(is_eq(p, t)) {
+            case l_true:
                 return true;
-            }
-            else {
-                switch(is_eq(p, t)) {
-                case l_true:
-                    return true;
-                case l_false:
-                    return false;
-                default:
-                    conds.push_back(m.mk_eq(p, t));                        
-                    return true;
-                }
+            case l_false:
+                return false;
+            default:
+                conds.push_back(m.mk_eq(p, t));                        
+                return true;
             }
         }
 
@@ -122,32 +113,38 @@ namespace tb {
     public:
         matcher(ast_manager& m): m(m), m_dt(m) {}
         
-        bool operator()(expr* pat, expr* term, substitution& s, expr_ref_vector& conds) {
+        bool operator()(app* pat, app* term, substitution& s, expr_ref_vector& conds) {
+            // top-most term to match is a predicate. The predicates should be the same.
+            if (pat->get_decl() != term->get_decl() ||
+                pat->get_num_args() != term->get_num_args()) {
+                return false;
+            }
             m_todo.reset();
-            m_todo.push_back(expr_pair(pat, term));
+            for (unsigned i = 0; i < pat->get_num_args(); ++i) {
+                m_todo.push_back(expr_pair(pat->get_arg(i), term->get_arg(i)));
+            }
             while (!m_todo.empty()) {
-                expr_pair const& p = m_todo.back();
-                pat  = p.first;
-                term = p.second;
+                expr_pair const& pr = m_todo.back();
+                expr* p  = pr.first;
+                expr* t = pr.second;
                 m_todo.pop_back();
-                if (!is_app(term)) {
+                if (!is_app(t)) {
                     IF_VERBOSE(2, verbose_stream() << "term is not app\n";);
                     return false;
                 }
-                else if (is_var(pat) && match_var(to_var(pat), to_app(term), s, conds)) {
+                else if (is_var(p) && match_var(to_var(p), to_app(t), s, conds)) {
                     continue;
                 }
-                else if (!is_app(pat)) {
+                else if (!is_app(p)) {
                     IF_VERBOSE(2, verbose_stream() << "pattern is not app\n";);
                     return false;
                 }
-                else if (!match_app(to_app(pat), to_app(term), s, conds)) {
+                else if (!match_app(to_app(p), to_app(t), s, conds)) {
                     return false;
                 }
             }
             return true;
-        }
-        
+        }        
     };
 
     class goal {
@@ -248,18 +245,28 @@ namespace tb {
             }
             datalog::flatten_and(fmls);
             for (unsigned i = 0; i < fmls.size(); ++i) {
-                expr* e = fmls[i].get();
+                expr_ref e(m);
                 expr* t, *v;
-                if ((m.is_eq(e, v, t) && is_var(v) && !subst.contains(to_var(v), 0)) ||
-                    (m.is_eq(e, t, v) && is_var(v) && !subst.contains(to_var(v), 0))) {
+                subst.apply(1, delta, expr_offset(fmls[i].get(), 0), e);
+                m_rw(e);
+                fmls[i] = e;
+                if (m.is_eq(e, v, t) && (is_var(v) || is_var(t))) {
+                    if (!is_var(v)) {
+                        std::swap(v, t);
+                    }
+                    SASSERT(!subst.contains(to_var(v), 0));
                     subst.push_scope();
                     subst.insert(to_var(v)->get_idx(), 0, expr_offset(t, 0));
-                    if (!subst.acyclic()) {
+                    subst.reset_cache();
+                    if (subst.acyclic()) {
+                        fmls[i] = m.mk_true();
+                    }
+                    else {
                         subst.pop_scope();
                     }
                 }
             }
-            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), m_constraint);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(),  m_constraint);
             subst.apply(1, delta, expr_offset(m_constraint, 0), m_constraint);
             subst.apply(1, delta, expr_offset(m_goal->get_head(), 0), tmp);
             m_head = to_app(tmp);
@@ -380,6 +387,7 @@ namespace tb {
         //
         bool match_rule(unsigned rule_index) {
             goal const& g = *m_index[rule_index];            
+            m_sideconds.reset();
             m_subst.reset();
             m_subst.reserve(2, g.get_num_vars());
             
@@ -401,7 +409,9 @@ namespace tb {
                 m_subst.push_scope();
                 unsigned limit = m_sideconds.size();
                 IF_VERBOSE(2,
-                           for (unsigned j = 0; j < predicate_index; ++j) verbose_stream() << " ";
+                           for (unsigned j = 0; j < predicate_index; ++j) {
+                               verbose_stream() << " ";
+                           }
                            verbose_stream() << mk_pp(q, m) << " = " << mk_pp(p, m) << "\n";
                            );
                            
@@ -421,6 +431,7 @@ namespace tb {
             unsigned deltas[2] = {0, 0};
             expr_ref q(m), postcond(m);
             expr_ref_vector fmls(m_sideconds);
+            m_subst.reset_cache();
 
             for (unsigned i = 0; i < fmls.size(); ++i) {
                 m_subst.apply(2, deltas, expr_offset(fmls[i].get(), 0), q);
@@ -445,7 +456,8 @@ namespace tb {
                 return true;
             }
             if (!is_ground(postcond)) {
-                IF_VERBOSE(1, verbose_stream() << "TBD: non-ground\n" << mk_pp(postcond, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "TBD: non-ground\n" 
+                           << mk_pp(postcond, m) << "\n";);
                 return false;
             }
             postcond = m.mk_not(postcond);
@@ -492,35 +504,38 @@ namespace tb {
         }
 
         unsigned select(goal const& g) {
-            unsigned min_distance = UINT_MAX;
+            return 0;
+#if 0
+            unsigned max_score = 0;
             unsigned result = 0;
             unsigned_vector& scores = m_score_values;
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
                 scores.reset();
-                score_predicate(g.get_predicate(i), scores);
-                unsigned dist = compute_distance(g.get_predicate(i)->get_decl(), scores);
-                if (dist < min_distance) {
-                    min_distance = dist;
+                app* p = g.get_predicate(i);
+                score_predicate(p, scores);
+                unsigned score = compute_score(p->get_decl(), scores);
+                if (score > max_score) {
+                    max_score = score;
                     result = i;
                 }
             }
             return result;
+#endif
         }
 
     private:
 
-        unsigned compute_distance(func_decl* f, unsigned_vector const& scores) {
+        unsigned compute_score(func_decl* f, unsigned_vector const& scores) {
             unsigned_vector f_scores;
-            unsigned dist = 0;
+            unsigned score = 0;
             if (m_scores.find(f, f_scores)) {
                 SASSERT(f_scores.size() == scores.size());
                 for (unsigned i = 0; i < scores.size(); ++i) {
-                    unsigned d1 = scores[i] - f_scores[i];
-                    dist += d1*d1;
+                    score += scores[i]*f_scores[i];
                 }
             }
             // else there is no rule.
-            return dist;
+            return score;
         }
         
         void score_predicate(app* p, unsigned_vector& scores) {
@@ -543,7 +558,8 @@ namespace tb {
         }
 
         void insert_score(func_decl* f, unsigned_vector const& scores) {
-            obj_map<func_decl, unsigned_vector>::obj_map_entry* e = m_scores.find_core(f);
+            obj_map<func_decl, unsigned_vector>::obj_map_entry* e;
+            e = m_scores.find_core(f);
             if (e) {
                 unsigned_vector & old_scores = e->get_data().m_value;
                 SASSERT(scores.size() == old_scores.size());
@@ -669,17 +685,18 @@ namespace datalog {
     private:
     
         void select_predicate() {
-            unsigned num_predicates = get_goal()->get_num_predicates();
+            tb::goal & g = *get_goal();
+            unsigned num_predicates = g.get_num_predicates();
             if (num_predicates == 0) {
                 m_instruction = tb::UNSATISFIABLE;
-                IF_VERBOSE(2, get_goal()->display(verbose_stream()); );
+                IF_VERBOSE(2, g.display(verbose_stream()); );
             }
             else {
                 m_instruction = tb::SELECT_RULE;
-                unsigned pi = m_selection.select(*get_goal());
-                get_goal()->set_predicate_index(pi);
-                get_goal()->set_rule_index(0);
-                IF_VERBOSE(2, verbose_stream() << mk_pp(get_goal()->get_predicate(pi), m) << "\n";);
+                unsigned pi = m_selection.select(g);
+                g.set_predicate_index(pi);
+                g.set_rule_index(0);
+                IF_VERBOSE(2, verbose_stream() << mk_pp(g.get_predicate(pi), m) << "\n";);
             }
         }
         
@@ -693,10 +710,12 @@ namespace datalog {
                 ref<tb::goal> next_goal = init_goal(new_query);     
                 unsigned subsumer = 0;
                 IF_VERBOSE(1, 
-                           display_premise(*goal,   verbose_stream() << "g" << next_goal->get_index() << " ");
+                           display_rule(*goal, verbose_stream());
+                           display_premise(*goal,   
+                                           verbose_stream() << "g" << next_goal->get_index() << " ");
                            display_goal(*next_goal, verbose_stream()););
                 if (m_index.is_subsumed(*next_goal, subsumer)) {
-                    IF_VERBOSE(1, verbose_stream() << "subsumed by " << subsumer << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << "subsumed by g" << subsumer << "\n";);
                     m_stats.m_num_subsumed++;
                     m_goals.pop_back();
                     m_instruction = tb::SELECT_RULE;
@@ -713,17 +732,17 @@ namespace datalog {
             }
         }
         
-
-        void select_rule() {
-            
-            func_decl* p = get_goal()->get_predicate(get_goal()->get_predicate_index())->get_decl();
+        void select_rule() {   
+            tb::goal& g  = *get_goal();
+            unsigned pi  = g.get_predicate_index();
+            func_decl* p = g.get_predicate(pi)->get_decl();
             rule_vector const& rules = m_rules.get_predicate_rules(p);
-            if (rules.size() <= get_goal()->get_rule_index()) {
+            if (rules.size() <= g.get_rule_index()) {
                 m_instruction = tb::BACKTRACK;
             }
             else {
-                unsigned index = get_goal()->get_rule_index();
-                get_goal()->inc_rule_index();
+                unsigned index = g.get_rule_index();
+                g.inc_rule_index();
                 apply_rule(*rules[index]);
             }
         }
@@ -810,8 +829,21 @@ namespace datalog {
 
         ref<tb::goal> get_goal() const { return m_goals.back(); }
 
+        hashtable<rule*, rule_hash_proc, rule_eq_proc> m_displayed_rules;
+
+        void display_rule(tb::goal const& p, std::ostream& out) {
+            func_decl* f = p.get_predicate(p.get_predicate_index())->get_decl();
+            rule_vector const& rules = m_rules.get_predicate_rules(f);
+            rule* r = rules[p.get_rule_index()-1];
+            if (!m_displayed_rules.contains(r)) {
+                m_displayed_rules.insert(r);
+                r->display(m_ctx, out << p.get_rule_index() << ":");
+            }
+        }
+
         void display_premise(tb::goal& p, std::ostream& out) {
-            out << "{g" << p.get_index() << " p" << p.get_predicate_index() << " r" << p.get_rule_index() << "}\n";
+            func_decl* f = p.get_predicate(p.get_predicate_index())->get_decl();
+            out << "{g" << p.get_index() << " " << f->get_name() << " pos: " << p.get_predicate_index() << " rule: " << p.get_rule_index() << "}\n";
         }
         void display_goal(tb::goal& g, std::ostream& out) {
             g.display(out);
