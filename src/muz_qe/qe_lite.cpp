@@ -636,10 +636,43 @@ namespace eq {
                 }
             }
         }
+
+        bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
+            bool occ = occurs(x, t);
+            for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
+                occ = (i != j) && occurs(x, conjs[j]);
+            }
+            return !occ;
+        }
+
+        bool remove_unconstrained(expr_ref_vector& conjs) {
+            bool reduced = false, change = true;
+            expr* r, *l, *ne;           
+            while (change) {
+                change = false;
+                for (unsigned i = 0; i < conjs.size(); ++i) {
+                    if (m.is_not(conjs[i].get(), ne) && m.is_eq(ne, l, r)) {
+                        TRACE("qe_lite", tout << mk_pp(conjs[i].get(), m) << " " << is_variable(l) << " " << is_variable(r) << "\n";);
+                        if (is_variable(l) && ::is_var(l) && is_unconstrained(::to_var(l), r, i, conjs)) {
+                            conjs[i] = m.mk_true();
+                            reduced = true;
+                            change = true;
+                        }
+                        else if (is_variable(r) && ::is_var(r) && is_unconstrained(::to_var(r), l, i, conjs)) {
+                            conjs[i] = m.mk_true();
+                            reduced = true;
+                            change = true;
+                        }
+                    }
+                }
+            }
+            return reduced;
+        }
         
         bool reduce_var_set(expr_ref_vector& conjs) {
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
+            bool reduced = false;
 
             flatten_definitions(conjs);
             
@@ -657,10 +690,15 @@ namespace eq {
                     m_rewriter(new_r);
                     conjs.reset();
                     datalog::flatten_and(new_r, conjs);
-                    return true;
+                    reduced = true;
                 }
             }
-            return false;
+
+            if (remove_unconstrained(conjs)) {
+                reduced = true;
+            }
+
+            return reduced;
         }
 
         void checkpoint() {

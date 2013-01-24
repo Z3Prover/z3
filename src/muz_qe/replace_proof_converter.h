@@ -42,6 +42,9 @@ public:
 
     ast_manager& get_manager() { return m; }
 
+    // run the replacements the inverse direction.
+    void invert() { m_proofs.reverse(); }
+
 };
 
 #endif

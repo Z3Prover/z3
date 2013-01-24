@@ -207,7 +207,7 @@ namespace pdr {
     void quantifier_model_checker::find_instantiations_proof_based(quantifier_ref_vector const& qs, unsigned level) {
         bool found_instance = false;
  
-        datalog::scoped_fine_proof _scp(m);
+        datalog::scoped_proof _scp(m);
 
         expr_ref_vector fmls(m);
         smt_params fparams;

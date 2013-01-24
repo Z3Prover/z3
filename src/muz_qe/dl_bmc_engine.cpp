@@ -305,7 +305,7 @@ namespace datalog {
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
                     r1->to_formula(concl);
-                    scoped_coarse_proof _sp(m);
+                    scoped_proof _sp(m);
                     
                     proof* p = m.mk_asserted(fml);
                     proof* premises[2] = { pr, p };
@@ -319,7 +319,7 @@ namespace datalog {
                 }
                 else {
                     r2->to_formula(concl);
-                    scoped_coarse_proof _sp(m);
+                    scoped_proof _sp(m);
                     proof* p = m.mk_asserted(fml);
                     if (sub.empty()) {
                         pr = p;
@@ -339,7 +339,7 @@ namespace datalog {
                 SASSERT(r->get_uninterpreted_tail_size() == 1);
                 pred = r->get_decl(0);
             }
-            scoped_coarse_proof _sp(m);
+            scoped_proof _sp(m);
             apply(m, b.m_pc.get(), pr);
             b.m_answer = pr;
             return l_true;
@@ -531,7 +531,7 @@ namespace datalog {
         }
 
         void get_model(unsigned level) {
-            scoped_coarse_proof _sp(m);
+            scoped_proof _sp(m);
             expr_ref level_query = compile_query(b.m_query_pred, level);
             model_ref md;
             b.m_solver.get_model(md);
@@ -1023,7 +1023,7 @@ namespace datalog {
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 if (trace->get_decl() == cnstrs[i]) {
                     svector<std::pair<unsigned, unsigned> > positions;
-                    scoped_coarse_proof _sc(m);
+                    scoped_proof _sc(m);
                     proof_ref_vector prs(m);
                     expr_ref_vector sub(m);
                     vector<expr_ref_vector> substs;
@@ -1210,7 +1210,7 @@ namespace datalog {
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
                     r1->to_formula(concl);
-                    scoped_coarse_proof _sp(m);
+                    scoped_proof _sp(m);
                     
                     proof* p = m.mk_asserted(fml);
                     proof* premises[2] = { pr, p };
@@ -1224,7 +1224,7 @@ namespace datalog {
                 }
                 else {
                     r2->to_formula(concl);
-                    scoped_coarse_proof _sp(m);
+                    scoped_proof _sp(m);
                     proof* p = m.mk_asserted(fml);
                     if (sub.empty()) {
                         pr = p;
@@ -1244,7 +1244,7 @@ namespace datalog {
                 SASSERT(r->get_uninterpreted_tail_size() == 1);
                 pred = r->get_decl(0);
             }
-            scoped_coarse_proof _sp(m);
+            scoped_proof _sp(m);
             apply(m, b.m_pc.get(), pr);
             b.m_answer = pr;
         }
