@@ -1012,8 +1012,7 @@ namespace datalog {
         for (; it != end; ++it) {
             r = *it;
             check_rule(r);
-        }
-        
+        }        
         switch(get_engine()) {
         case DATALOG_ENGINE:
             return rel_query(query);

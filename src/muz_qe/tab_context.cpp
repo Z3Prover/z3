@@ -171,9 +171,9 @@ namespace tb {
             m_index(0), 
             m_num_vars(0),
             m_predicate_index(0), 
-            m_next_rule(static_cast<unsigned>(-1)),
             m_parent_rule(0),
             m_parent_index(0),
+            m_next_rule(static_cast<unsigned>(-1)),
             m_ref(0) {
         }
         
@@ -190,6 +190,7 @@ namespace tb {
         unsigned get_index() const            { return m_index; }
         void set_index(unsigned index)        { m_index = index; }
         app* get_head() const                 { return m_head; }
+        void set_head(app* h)                 { m_head = h; }
         unsigned get_parent_index() const     { return m_parent_index; }
         unsigned get_parent_rule() const      { return m_parent_rule; }
         void set_parent(ref<tb::clause>& parent) { 
@@ -200,12 +201,14 @@ namespace tb {
         expr_ref get_body() const {
             ast_manager& m = get_manager();
             expr_ref_vector fmls(m);
+            expr_ref fml(m);
             for (unsigned i = 0; i < m_predicates.size(); ++i) {
                 fmls.push_back(m_predicates[i]);
             }
             fmls.push_back(m_constraint);
             datalog::flatten_and(fmls);
-            return expr_ref(m.mk_and(fmls.size(), fmls.c_ptr()), m);
+            bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
+            return fml;
         }
 
         void get_free_vars(ptr_vector<sort>& vars) const {
@@ -219,7 +222,12 @@ namespace tb {
         expr_ref to_formula() const {
             ast_manager& m = get_manager();
             expr_ref body = get_body();
-            body = m.mk_implies(body, m_head);
+            if (m.is_true(body)) {
+                body = m_head;
+            }
+            else {
+                body = m.mk_implies(body, m_head);
+            }
             ptr_vector<sort> vars;
             svector<symbol> names;
             get_free_vars(vars);
@@ -233,7 +241,7 @@ namespace tb {
             vars.reverse();
             if (!vars.empty()) {
                 body = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), body);
-            }
+            }            
             return body;
         }
 
@@ -280,6 +288,14 @@ namespace tb {
             }
             fmls.push_back(m_constraint);
             bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(), fml);
+            if (!m.is_false(m_head)) {
+                if (m.is_true(fml)) {
+                    fml = m_head;
+                }
+                else {
+                    fml = m.mk_implies(fml, m_head);
+                }
+            }
             out << mk_pp(fml, m) << "\n";
         }
         
@@ -420,10 +436,11 @@ namespace tb {
             datalog::rule_ref r(rm);
             datalog::rule_set::iterator it  = rules.begin();
             datalog::rule_set::iterator end = rules.end();
-            for (; it != end; ++it) {
+            for (unsigned i = 0; it != end; ++it) {
                 r = *it;
                 ref<clause> g = alloc(clause, rm);
                 g->init(r);
+                g->set_index(i++);
                 insert(g);
             }
         }
@@ -764,7 +781,8 @@ namespace tb {
         datalog::context&     m_ctx;
         ::unifier             m_unifier;
         substitution          m_S1;
-        substitution          m_S2;
+        var_subst             m_S2;
+        expr_ref_vector       m_rename;
         expr_ref_vector       m_sub1;
         expr_ref_vector       m_sub2;
     public:
@@ -773,13 +791,13 @@ namespace tb {
             m_ctx(ctx), 
             m_unifier(m),
             m_S1(m),
-            m_S2(m),
+            m_S2(m, false),
+            m_rename(m),
             m_sub1(m), 
             m_sub2(m) {}
         
         bool operator()(ref<clause>& tgt, ref<clause>& src, bool compute_subst, ref<clause>& result) {
-            unsigned idx = tgt->get_predicate_index();
-            return new_unify(*tgt, *src, compute_subst, result);
+            return unify(*tgt, *src, compute_subst, result);
         }
 
         expr_ref_vector get_rule_subst(bool is_tgt) {
@@ -791,8 +809,7 @@ namespace tb {
             }
         }
 
-        bool new_unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {
-            
+        bool unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {            
             qe_lite qe(m);
             reset();
             unsigned idx = tgt.get_predicate_index();
@@ -844,27 +861,26 @@ namespace tb {
             result->init(head, predicates, constraint);
             vars.reset();
             result->get_free_vars(vars);
-            m_S2.reserve(1, vars.size());
             bool change = false;
+            var_ref w(m);
             for (unsigned i = 0, j = 0; i < vars.size(); ++i) {
                 if (vars[i]) {
-                    if (i != j) {
-                        var_ref v(m), w(m);
-                        v = m.mk_var(i, vars[i]);
-                        w = m.mk_var(j, vars[i]);
-                        m_S2.insert(v.get(), 0, expr_offset(w, 0));
-                        change = true;
-                    }
+                    w = m.mk_var(j, vars[i]);
+                    m_rename.push_back(w);
                     ++j;
+                }
+                else {
+                    change = true;
+                    m_rename.push_back(0);
                 }
             }
             if (change) {
-                m_S2.apply(1, delta, expr_offset(result->get_constraint(), 0), constraint);
+                m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr(), constraint);
                 for (unsigned i = 0; i < result->get_num_predicates(); ++i) {
-                    m_S2.apply(1, delta, expr_offset(result->get_predicate(i), 0), tmp);
+                    m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr(), tmp);
                     predicates[i] = to_app(tmp);
                 }
-                m_S2.apply(1, delta, expr_offset(result->get_head(), 0), tmp);
+                m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr(), tmp);
                 head = to_app(tmp);
                 result->init(head, predicates, constraint);
             }
@@ -872,11 +888,6 @@ namespace tb {
                 extract_subst(delta, tgt, 0);
                 extract_subst(delta, src, 1);
             }
-
-            IF_VERBOSE(1, 
-                       verbose_stream() << "New unify:\n";
-                       result->display(verbose_stream()););
-
             // init result using head, predicates, constraint
             return true;            
         }
@@ -886,6 +897,7 @@ namespace tb {
         void reset() {
             m_S1.reset();
             m_S2.reset();
+            m_rename.reset();
             m_sub1.reset();
             m_sub2.reset();
         }
@@ -899,7 +911,7 @@ namespace tb {
                 if (vars[i]) {
                     v = m.mk_var(i, vars[i]);
                     m_S1.apply(2, delta, expr_offset(v, offset), tmp);
-                    m_S2.apply(1, delta, expr_offset(tmp, 0), tmp);     
+                    m_S2(tmp, m_rename.size(), m_rename.c_ptr(), tmp);
                     insert_subst(offset, tmp);
                 }
                 else {
@@ -1001,19 +1013,9 @@ namespace datalog {
             func_decl_ref query_pred(m);
             rm.mk_query(query, query_pred, query_rules, clause);
 
-            // ensure clause predicate does not take free variables.
-            ptr_vector<app> tail;
-            svector<bool> is_neg;
-            for (unsigned i = 0; i < clause->get_tail_size(); ++i) {
-                tail.push_back(clause->get_tail(i));
-                is_neg.push_back(clause->is_neg_tail(i));
-            }
-            app_ref query_app(m);
-            query_app = m.mk_const(symbol("query"), m.mk_bool_sort());
-            m_ctx.register_predicate(query_app->get_decl());
-            clause = rm.mk(query_app, tail.size(), tail.c_ptr(), is_neg.c_ptr()); 
             ref<tb::clause> g = alloc(tb::clause, rm);
             g->init(clause);
+            g->set_head(m.mk_false());
             init_clause(g);
             IF_VERBOSE(1, display_clause(*get_clause(), verbose_stream() << "g" << get_clause()->get_seqno() << " "););
             return run();
@@ -1214,7 +1216,7 @@ namespace datalog {
             unsigned idx = rl->get_index();
             if (!m_displayed_rules.contains(idx)) {
                 m_displayed_rules.insert(idx);
-                rl->display(out << p.get_next_rule() << ":");
+                rl->display(out << "r" << p.get_next_rule() << ": ");
             }
         }
 
@@ -1242,6 +1244,7 @@ namespace datalog {
             SASSERT(clause->get_num_predicates() == 0); 
             expr_ref root = clause->to_formula();
 
+            vector<expr_ref_vector> substs;
             while (0 != clause->get_index()) {         
                 SASSERT(clause->get_parent_index() < clause->get_index());       
                 unsigned p_index  = clause->get_parent_index();
@@ -1255,21 +1258,19 @@ namespace datalog {
                 expr_ref_vector s2(m_unifier.get_rule_subst(false));
                 resolve_rule(pc, *parent, *rl, s1, s2, *clause);
                 clause = parent;
-                IF_VERBOSE(1000, 
-                           verbose_stream() << "substitution\n";
-                           for (unsigned i = 0; i < s1.size(); ++i) {
-                               verbose_stream() << mk_pp(s1[i].get(), m) << "\n";
-                           });
-                // apply_subst(subst, s1);
+                substs.push_back(s1);
             }
+            for (unsigned i = substs.size(); i > 0; ) {
+                --i;
+                apply_subst(subst, substs[i]);
+            }
+            expr_ref body = clause->get_body();
+            var_subst vs(m, false);
+            vs(body, subst.size(), subst.c_ptr(), body);
+            IF_VERBOSE(1, verbose_stream() << mk_pp(body, m) << "\n";);
             pc.invert();
             prs.push_back(m.mk_asserted(root));
             pc(m, 1, prs.c_ptr(), pr);
-            IF_VERBOSE(1000, 
-                       verbose_stream() << "substitution\n";
-                       for (unsigned i = 0; i < subst.size(); ++i) {
-                           verbose_stream() << mk_pp(subst[i].get(), m) << "\n";
-                       });
             return pr;
         }
 
