@@ -618,7 +618,6 @@ namespace datalog {
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res) {
         if (!pc) return;
         ast_manager& m = s1.get_manager();
-        dl_decl_util util(m);
         expr_ref fml1(m), fml2(m), fml3(m);
         r1.to_formula(fml1);
         r2.to_formula(fml2);

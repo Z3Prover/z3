@@ -148,8 +148,7 @@ namespace tb {
         }        
     };
 
-    class goal {
-        datalog::rule_ref m_goal;             // goal as rule
+    class clause {
         app_ref           m_head;             // head predicate
         app_ref_vector    m_predicates;       // predicates used in goal
         expr_ref          m_constraint;       // side constraint
@@ -164,8 +163,7 @@ namespace tb {
 
     public:            
         
-        goal(datalog::rule_manager& rm): 
-            m_goal(rm), 
+        clause(datalog::rule_manager& rm): 
             m_head(rm.get_manager()),
             m_predicates(rm.get_manager()),
             m_constraint(rm.get_manager()),
@@ -188,14 +186,13 @@ namespace tb {
         unsigned get_num_predicates() const   { return m_predicates.size(); }
         app* get_predicate(unsigned i) const  { return m_predicates[i]; }
         expr* get_constraint() const          { return m_constraint; }
-        datalog::rule const& get_rule() const { return *m_goal; }
         unsigned get_num_vars() const         { return m_num_vars; }
         unsigned get_index() const            { return m_index; }
         void set_index(unsigned index)        { m_index = index; }
         app* get_head() const                 { return m_head; }
         unsigned get_parent_index() const     { return m_parent_index; }
         unsigned get_parent_rule() const      { return m_parent_rule; }
-        void set_parent(ref<tb::goal>& parent) { 
+        void set_parent(ref<tb::clause>& parent) { 
             m_parent_index = parent->get_index();
             m_parent_rule  = parent->get_next_rule();
         }        
@@ -219,8 +216,28 @@ namespace tb {
             ::get_free_vars(m_constraint, vars);
         }
 
+        expr_ref to_formula() const {
+            ast_manager& m = get_manager();
+            expr_ref body = get_body();
+            body = m.mk_implies(body, m_head);
+            ptr_vector<sort> vars;
+            svector<symbol> names;
+            get_free_vars(vars);
+            mk_fresh_name fresh;
+            fresh.add(body);
+            vars.reverse();
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                names.push_back(fresh.next());
+                if (!vars[i]) vars[i] = m.mk_bool_sort();
+            }
+            vars.reverse();
+            if (!vars.empty()) {
+                body = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), body);
+            }
+            return body;
+        }
+
         void init(app* head, app_ref_vector const& predicates, expr* constraint) {
-            m_goal  = 0;
             m_index = 0;
             m_predicate_index = 0;
             m_next_rule       = static_cast<unsigned>(-1);
@@ -235,7 +252,6 @@ namespace tb {
         }
 
         void init(datalog::rule_ref& g) {
-            m_goal  = g;
             m_index = 0;
             m_predicate_index = 0;
             m_next_rule       = static_cast<unsigned>(-1);
@@ -294,7 +310,7 @@ namespace tb {
             bool_rewriter(m).mk_and(fmls.size(), fmls.c_ptr(),  m_constraint);
         }
 
-        // Simplify a goal by applying equalities as substitutions on predicates.
+        // Simplify a clause by applying equalities as substitutions on predicates.
         // x = t[y], if x does not occur in t[y], then add t[y] to subst.
         void reduce_equalities() {
             ast_manager& m = get_manager();
@@ -388,11 +404,11 @@ namespace tb {
     // rules
     class rules {
         typedef obj_map<func_decl, unsigned_vector> map;
-        vector<ref<goal> >  m_rules;
+        vector<ref<clause> >  m_rules;
         map                 m_index;
     public:
 
-        typedef vector<ref<goal> >::const_iterator iterator;
+        typedef vector<ref<clause> >::const_iterator iterator;
 
         iterator begin() const { return m_rules.begin(); }
         iterator end() const { return m_rules.end(); }
@@ -406,13 +422,13 @@ namespace tb {
             datalog::rule_set::iterator end = rules.end();
             for (; it != end; ++it) {
                 r = *it;
-                ref<goal> g = alloc(goal, rm);
+                ref<clause> g = alloc(clause, rm);
                 g->init(r);
                 insert(g);
             }
         }
 
-        void insert(ref<goal>& g) {
+        void insert(ref<clause>& g) {
             unsigned idx = m_rules.size();
             m_rules.push_back(g);
             func_decl* f = g->get_head()->get_decl();
@@ -431,7 +447,7 @@ namespace tb {
             }
         }
 
-        ref<goal> get_rule(func_decl* p, unsigned idx) const {
+        ref<clause> get_rule(func_decl* p, unsigned idx) const {
             map::obj_map_entry* e = m_index.find_core(p);
             SASSERT(p);
             unsigned rule_id = e->get_data().get_value()[idx];
@@ -448,8 +464,8 @@ namespace tb {
         app_ref_vector     m_preds;
         expr_ref           m_precond;
         expr_ref_vector    m_sideconds;
-        ref<goal>          m_goal;
-        vector<ref<goal> > m_index;
+        ref<clause>          m_clause;
+        vector<ref<clause> > m_index;
         matcher            m_matcher;
         substitution       m_subst;
         qe_lite            m_qe;
@@ -474,13 +490,13 @@ namespace tb {
             m_solver(m, m_fparams),
             m_cancel(false) {}
 
-        void insert(ref<goal>& g) {
+        void insert(ref<clause>& g) {
             m_index.push_back(g);
         }
 
-        bool is_subsumed(ref<tb::goal>& g, unsigned& subsumer) {
+        bool is_subsumed(ref<tb::clause>& g, unsigned& subsumer) {
             setup(*g);
-            m_goal = g;
+            m_clause = g;
             m_solver.push();
             m_solver.assert_expr(m_precond);
             bool found = find_match(subsumer);
@@ -506,7 +522,7 @@ namespace tb {
 
     private:
         
-        void setup(goal const& g) {
+        void setup(clause const& g) {
             m_preds.reset();
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
@@ -551,7 +567,7 @@ namespace tb {
         // for now: skip multiple matches within the same rule (incomplete).
         //
         bool match_rule(unsigned rule_index) {
-            goal const& g = *m_index[rule_index];            
+            clause const& g = *m_index[rule_index];            
             m_sideconds.reset();
             m_subst.reset();
             m_subst.reserve(2, g.get_num_vars());
@@ -562,7 +578,7 @@ namespace tb {
         }
 
 
-        bool match_predicates(unsigned predicate_index, goal const& g) {
+        bool match_predicates(unsigned predicate_index, clause const& g) {
             if (predicate_index == g.get_num_predicates()) {
                 return check_substitution(g);
             }
@@ -592,14 +608,12 @@ namespace tb {
             return false;
         }
 
-        bool check_substitution(goal const& g) {
+        bool check_substitution(clause const& g) {
             unsigned deltas[2] = {0, 0};
             expr_ref q(m), postcond(m);
             expr_ref_vector fmls(m_sideconds);
             m_subst.reset_cache();
-
             
-
             for (unsigned i = 0; !m_cancel && i < fmls.size(); ++i) {
                 m_subst.apply(2, deltas, expr_offset(fmls[i].get(), 0), q);
                 fmls[i] = q;
@@ -628,7 +642,7 @@ namespace tb {
             if (!is_ground(postcond)) {
                 IF_VERBOSE(1, verbose_stream() << "TBD: non-ground\n" 
                            << mk_pp(postcond, m) << "\n";
-                           m_goal->display(verbose_stream());
+                           m_clause->display(verbose_stream());
                            verbose_stream() << "\n=>\n";
                            g.display(verbose_stream());
                            verbose_stream() << "\n";);
@@ -662,7 +676,7 @@ namespace tb {
             m_scores.reset();
             rules::iterator it = rs.begin(), end = rs.end();
             for (; it != end; ++it) {
-                ref<goal> g = *it;
+                ref<clause> g = *it;
                 app* p = g->get_head();
                 unsigned_vector scores;
                 score_predicate(p, scores);
@@ -670,7 +684,7 @@ namespace tb {
             }            
         }
 
-        unsigned select(goal const& g) {
+        unsigned select(clause const& g) {
             return 0;
 #if 0
             unsigned max_score = 0;
@@ -748,87 +762,89 @@ namespace tb {
     class unifier {
         ast_manager&          m;
         datalog::context&     m_ctx;
-        datalog::rule_unifier m_unif;
         ::unifier             m_unifier;
-        substitution          m_subst;
-        ref<goal>             m_tgt;
-        ref<goal>             m_src;
+        substitution          m_S1;
+        substitution          m_S2;
+        expr_ref_vector       m_sub1;
+        expr_ref_vector       m_sub2;
     public:
         unifier(ast_manager& m, datalog::context& ctx): 
             m(m), 
             m_ctx(ctx), 
-            m_unif(ctx), 
             m_unifier(m),
-            m_subst(m) {}
+            m_S1(m),
+            m_S2(m),
+            m_sub1(m), 
+            m_sub2(m) {}
         
-        bool operator()(ref<goal>& tgt, ref<goal>& src, bool compute_subst, ref<goal>& result) {
+        bool operator()(ref<clause>& tgt, ref<clause>& src, bool compute_subst, ref<clause>& result) {
             unsigned idx = tgt->get_predicate_index();
-            datalog::rule_ref res(m_ctx.get_rule_manager());
-            datalog::rule const& t = tgt->get_rule();
-            datalog::rule const& s = src->get_rule();
-            SASSERT(t.get_decl(idx) == s.get_decl());
-
-            m_src = src;
-            m_tgt = tgt;
-            (void) compute_subst;
-
-            if (m_unif.unify_rules(t, idx, s) &&
-                m_unif.apply(t, idx, s, res)) {
-                result = alloc(goal, m_ctx.get_rule_manager());
-                result->init(res);
-
-                {
-                    ref<goal> result2;
-                    new_unify(*tgt, *src, compute_subst, result2);
-                }
-                return true;
-            }
-            else {
-                return false;
-            }
+            return new_unify(*tgt, *src, compute_subst, result);
         }
 
         expr_ref_vector get_rule_subst(bool is_tgt) {
-            return m_unif.get_rule_subst(is_tgt?m_tgt->get_rule():m_src->get_rule(), is_tgt);            
+            if (is_tgt) {
+                return m_sub1;
+            }
+            else {
+                return m_sub2;
+            }
         }
 
-
-        bool new_unify(goal const& tgt, goal const& src, bool compute_subst, ref<goal>& result) {
+        bool new_unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {
             
+            qe_lite qe(m);
             reset();
             unsigned idx = tgt.get_predicate_index();
+            SASSERT(tgt.get_predicate(idx)->get_decl() == src.get_head()->get_decl());
             unsigned var_cnt = std::max(tgt.get_num_vars(), src.get_num_vars());
-            m_subst.reserve(2, var_cnt);
-            
-            if (!m_unifier(tgt.get_predicate(idx), src.get_head(), m_subst)) {
+            m_S1.reserve(2, var_cnt);            
+            if (!m_unifier(tgt.get_predicate(idx), src.get_head(), m_S1)) {
                 return false;
             }
-
             app_ref_vector predicates(m);
             expr_ref tmp(m), tmp2(m), constraint(m);
             app_ref head(m);
-            result = alloc(goal, m_ctx.get_rule_manager());
+            result = alloc(clause, m_ctx.get_rule_manager());
             unsigned delta[2] = { 0, var_cnt };
-            m_subst.apply(2, delta, expr_offset(tgt.get_head(), 0), tmp);   
+            m_S1.apply(2, delta, expr_offset(tgt.get_head(), 0), tmp);   
             head = to_app(tmp);
             for (unsigned i = 0; i < tgt.get_num_predicates(); ++i) {
                 if (i != idx) {
-                    m_subst.apply(2, delta, expr_offset(tgt.get_predicate(i), 0), tmp);
+                    m_S1.apply(2, delta, expr_offset(tgt.get_predicate(i), 0), tmp);
                     predicates.push_back(to_app(tmp));
                 }
             }
             for (unsigned i = 0; i < src.get_num_predicates(); ++i) {
-                m_subst.apply(2, delta, expr_offset(src.get_predicate(i), 1), tmp);
+                m_S1.apply(2, delta, expr_offset(src.get_predicate(i), 1), tmp);
                 predicates.push_back(to_app(tmp));
             }
-            m_subst.apply(2, delta, expr_offset(tgt.get_constraint(), 0), tmp);
-            m_subst.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
-            constraint = m.mk_and(tmp, tmp2);
+            m_S1.apply(2, delta, expr_offset(tgt.get_constraint(), 0), tmp);
+            m_S1.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
+            constraint = m.mk_and(tmp, tmp2);            
             ptr_vector<sort> vars;
+
+            // perform trival quantifier-elimination:
+            uint_set index_set;
+            get_free_vars(head, vars);
+            for (unsigned i = 0; i < predicates.size(); ++i) {
+                get_free_vars(predicates[i].get(), vars);
+            }
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                if (vars[i]) {
+                    index_set.insert(i);
+                }
+            }
+            qe(index_set, false, constraint);
+            if (m.is_false(constraint)) {
+                return false;
+            }
+            
+            // initialize rule.
             result->init(head, predicates, constraint);
+            vars.reset();
             result->get_free_vars(vars);
-            substitution S2(m);
-            S2.reserve(1, vars.size());
+            m_S2.reserve(1, vars.size());
             bool change = false;
             for (unsigned i = 0, j = 0; i < vars.size(); ++i) {
                 if (vars[i]) {
@@ -836,29 +852,25 @@ namespace tb {
                         var_ref v(m), w(m);
                         v = m.mk_var(i, vars[i]);
                         w = m.mk_var(j, vars[i]);
-                        S2.insert(v, 0, expr_offset(w, 0));
+                        m_S2.insert(v, 0, expr_offset(w, 0));
                         change = true;
                     }
                     ++j;
                 }
             }
             if (change) {
-                S2.apply(1, delta, expr_offset(result->get_constraint(), 0), constraint);
+                m_S2.apply(1, delta, expr_offset(result->get_constraint(), 0), constraint);
                 for (unsigned i = 0; i < result->get_num_predicates(); ++i) {
-                    S2.apply(1, delta, expr_offset(result->get_predicate(i), 0), tmp);
+                    m_S2.apply(1, delta, expr_offset(result->get_predicate(i), 0), tmp);
                     predicates[i] = to_app(tmp);
                 }
-                S2.apply(1, delta, expr_offset(result->get_head(), 0), tmp);
+                m_S2.apply(1, delta, expr_offset(result->get_head(), 0), tmp);
                 head = to_app(tmp);
                 result->init(head, predicates, constraint);
             }
             if (compute_subst) {
-                ptr_vector<sort> vars1;
-                tgt.get_free_vars(vars1);
-                for (unsigned i = 0; i < vars1.size(); ++i) {
-                    // TBD:
-                    // apply the two substitutions after each-other.
-                }
+                extract_subst(delta, tgt, 0);
+                extract_subst(delta, src, 1);
             }
 
             IF_VERBOSE(1, 
@@ -872,7 +884,37 @@ namespace tb {
         
     private:
         void reset() {
-            m_subst.reset();
+            m_S1.reset();
+            m_S2.reset();
+            m_sub1.reset();
+            m_sub2.reset();
+        }
+
+        void extract_subst(unsigned const* delta, clause const& g, unsigned offset) {
+            ptr_vector<sort> vars;
+            var_ref v(m);
+            expr_ref tmp(m);
+            g.get_free_vars(vars);
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                if (vars[i]) {
+                    v = m.mk_var(i, vars[i]);
+                    m_S1.apply(2, delta, expr_offset(v, offset), tmp);
+                    m_S2.apply(1, delta, expr_offset(tmp, 0), tmp);     
+                    insert_subst(offset, tmp);
+                }
+                else {
+                    insert_subst(offset, m.mk_true());
+                }
+            }            
+        }
+        
+        void insert_subst(unsigned offset, expr* e) {
+            if (offset == 0) {
+                m_sub1.push_back(e);
+            }
+            else {
+                m_sub2.push_back(e);
+            }
         }
     };
 
@@ -918,7 +960,7 @@ namespace datalog {
         smt::kernel            m_solver;
         mutable tb::unifier    m_unifier;
         tb::rules              m_rules;
-        vector<ref<tb::goal> > m_goals;
+        vector<ref<tb::clause> > m_clauses;
         unsigned               m_seqno;
         tb::instruction        m_instruction;
         lbool                  m_status;
@@ -955,25 +997,25 @@ namespace datalog {
             m_rules.init(m_ctx.get_rules());
             m_selection.init(m_rules);
             rule_ref_vector query_rules(rm);
-            rule_ref goal(rm);
+            rule_ref clause(rm);
             func_decl_ref query_pred(m);
-            rm.mk_query(query, query_pred, query_rules, goal);
+            rm.mk_query(query, query_pred, query_rules, clause);
 
-            // ensure goal predicate does not take free variables.
+            // ensure clause predicate does not take free variables.
             ptr_vector<app> tail;
             svector<bool> is_neg;
-            for (unsigned i = 0; i < goal->get_tail_size(); ++i) {
-                tail.push_back(goal->get_tail(i));
-                is_neg.push_back(goal->is_neg_tail(i));
+            for (unsigned i = 0; i < clause->get_tail_size(); ++i) {
+                tail.push_back(clause->get_tail(i));
+                is_neg.push_back(clause->is_neg_tail(i));
             }
             app_ref query_app(m);
             query_app = m.mk_const(symbol("query"), m.mk_bool_sort());
             m_ctx.register_predicate(query_app->get_decl());
-            goal = rm.mk(query_app, tail.size(), tail.c_ptr(), is_neg.c_ptr()); 
-            ref<tb::goal> g = alloc(tb::goal, rm);
-            g->init(goal);
-            init_goal(g);
-            IF_VERBOSE(1, display_goal(*get_goal(), verbose_stream() << "g" << get_goal()->get_seqno() << " "););
+            clause = rm.mk(query_app, tail.size(), tail.c_ptr(), is_neg.c_ptr()); 
+            ref<tb::clause> g = alloc(tb::clause, rm);
+            g->init(clause);
+            init_clause(g);
+            IF_VERBOSE(1, display_clause(*get_clause(), verbose_stream() << "g" << get_clause()->get_seqno() << " "););
             return run();
         }
     
@@ -985,7 +1027,7 @@ namespace datalog {
         
         void cleanup() {
             m_cancel = false;
-            m_goals.reset();
+            m_clauses.reset();
             m_index.cleanup();
             m_solver.reset_cancel();
         }
@@ -1024,7 +1066,7 @@ namespace datalog {
     private:
     
         void select_predicate() {
-            tb::goal & g = *get_goal();
+            tb::clause & g = *get_clause();
             unsigned num_predicates = g.get_num_predicates();
             if (num_predicates == 0) {
                 m_instruction = tb::UNSATISFIABLE;
@@ -1038,29 +1080,29 @@ namespace datalog {
             }
         }
         
-        void apply_rule(ref<tb::goal>& r) {
-            ref<tb::goal> goal = get_goal();
-            ref<tb::goal> next_goal;
-            if (m_unifier(goal, r, false, next_goal) &&
-                l_false != query_is_sat(*next_goal)) {
-                init_goal(next_goal);
+        void apply_rule(ref<tb::clause>& r) {
+            ref<tb::clause> clause = get_clause();
+            ref<tb::clause> next_clause;
+            if (m_unifier(clause, r, false, next_clause) &&
+                l_false != query_is_sat(*next_clause)) {
+                init_clause(next_clause);
                 unsigned subsumer = 0;
                 IF_VERBOSE(1, 
-                           display_rule(*goal, verbose_stream());
-                           display_premise(*goal,   
-                                           verbose_stream() << "g" << next_goal->get_seqno() << " ");
-                           display_goal(*next_goal, verbose_stream());
+                           display_rule(*clause, verbose_stream());
+                           display_premise(*clause,   
+                                           verbose_stream() << "g" << next_clause->get_seqno() << " ");
+                           display_clause(*next_clause, verbose_stream());
                            );
-                if (m_index.is_subsumed(next_goal, subsumer)) {
+                if (m_index.is_subsumed(next_clause, subsumer)) {
                     IF_VERBOSE(1, verbose_stream() << "subsumed by g" << subsumer << "\n";);
                     m_stats.m_num_subsumed++;
-                    m_goals.pop_back();
+                    m_clauses.pop_back();
                     m_instruction = tb::SELECT_RULE;
                 }
                 else {
                     m_stats.m_num_unfold++;
-                    next_goal->set_parent(goal);
-                    m_index.insert(next_goal);
+                    next_clause->set_parent(clause);
+                    m_index.insert(next_clause);
                     m_instruction = tb::SELECT_PREDICATE;
                 }
             }
@@ -1071,7 +1113,7 @@ namespace datalog {
         }
         
         void select_rule() {   
-            tb::goal& g  = *get_goal();
+            tb::clause& g  = *get_clause();
             g.inc_next_rule();
             unsigned pi  = g.get_predicate_index();
             func_decl* p = g.get_predicate(pi)->get_decl();
@@ -1081,15 +1123,15 @@ namespace datalog {
                 m_instruction = tb::BACKTRACK;
             }
             else {
-                ref<tb::goal> rl = m_rules.get_rule(p, index);
+                ref<tb::clause> rl = m_rules.get_rule(p, index);
                 apply_rule(rl);
             }
         }
 
         void backtrack() {
-            SASSERT(!m_goals.empty());
-            m_goals.pop_back();            
-            if (m_goals.empty()) {
+            SASSERT(!m_clauses.empty());
+            m_clauses.pop_back();            
+            if (m_clauses.empty()) {
                 m_instruction = tb::SATISFIABLE;
             }
             else {
@@ -1131,7 +1173,7 @@ namespace datalog {
             }
         }    
 
-        lbool query_is_sat(tb::goal const& g) {
+        lbool query_is_sat(tb::clause const& g) {
             ptr_vector<sort> sorts;
             svector<symbol> names;
             expr_ref fml = g.get_body();
@@ -1157,18 +1199,18 @@ namespace datalog {
         }
 
 
-        void init_goal(ref<tb::goal>& goal) {
-            goal->set_index(m_goals.size());
-            goal->set_seqno(m_seqno++);
-            m_goals.push_back(goal);
+        void init_clause(ref<tb::clause>& clause) {
+            clause->set_index(m_clauses.size());
+            clause->set_seqno(m_seqno++);
+            m_clauses.push_back(clause);
         }
 
-        ref<tb::goal> get_goal() const { return m_goals.back(); }
+        ref<tb::clause> get_clause() const { return m_clauses.back(); }
 
 
-        void display_rule(tb::goal const& p, std::ostream& out) {
+        void display_rule(tb::clause const& p, std::ostream& out) {
             func_decl* f = p.get_predicate(p.get_predicate_index())->get_decl();
-            ref<tb::goal> rl = m_rules.get_rule(f, p.get_next_rule());
+            ref<tb::clause> rl = m_rules.get_rule(f, p.get_next_rule());
             unsigned idx = rl->get_index();
             if (!m_displayed_rules.contains(idx)) {
                 m_displayed_rules.insert(idx);
@@ -1176,44 +1218,43 @@ namespace datalog {
             }
         }
 
-        void display_premise(tb::goal& p, std::ostream& out) {
+        void display_premise(tb::clause& p, std::ostream& out) {
             func_decl* f = p.get_predicate(p.get_predicate_index())->get_decl();
             out << "{g" << p.get_seqno() << " " << f->get_name() << " pos: " << p.get_predicate_index() << " rule: " << p.get_next_rule() << "}\n";
         }
 
-        void display_goal(tb::goal& g, std::ostream& out) {
+        void display_clause(tb::clause& g, std::ostream& out) {
             g.display(out);
         }
 
         proof_ref get_proof() const {
             scoped_proof sp(m);
-            expr_ref root(m);
             proof_ref pr(m);
             proof_ref_vector prs(m);
             expr_ref_vector subst(m);
-            ref<tb::goal> goal = get_goal();
-            ref<tb::goal> replayed_goal;
+            ref<tb::clause> clause = get_clause();
+            ref<tb::clause> replayed_clause;
             replace_proof_converter pc(m);
 
-            // goal is a empty clause. 
+            // clause is a empty clause. 
             // Pretend it is asserted.
             // It gets replaced by premises.
-            SASSERT(goal->get_num_predicates() == 0); 
-            goal->get_rule().to_formula(root);
+            SASSERT(clause->get_num_predicates() == 0); 
+            expr_ref root = clause->to_formula();
 
-            while (0 != goal->get_index()) {         
-                SASSERT(goal->get_parent_index() < goal->get_index());       
-                unsigned p_index  = goal->get_parent_index();
-                unsigned p_rule   = goal->get_parent_rule();
-                ref<tb::goal> parent = m_goals[p_index];
+            while (0 != clause->get_index()) {         
+                SASSERT(clause->get_parent_index() < clause->get_index());       
+                unsigned p_index  = clause->get_parent_index();
+                unsigned p_rule   = clause->get_parent_rule();
+                ref<tb::clause> parent = m_clauses[p_index];
                 unsigned pi = parent->get_predicate_index();
                 func_decl* pred = parent->get_predicate(pi)->get_decl();
-                ref<tb::goal> rl = m_rules.get_rule(pred, p_rule); 
-                VERIFY(m_unifier(parent, rl, true, replayed_goal));
+                ref<tb::clause> rl = m_rules.get_rule(pred, p_rule); 
+                VERIFY(m_unifier(parent, rl, true, replayed_clause));
                 expr_ref_vector s1(m_unifier.get_rule_subst(true));
                 expr_ref_vector s2(m_unifier.get_rule_subst(false));
-                resolve_rule(&pc, parent->get_rule(), rl->get_rule(), pi, s1, s2, goal->get_rule());                
-                goal = parent;
+                resolve_rule(pc, *parent, *rl, s1, s2, *clause);
+                clause = parent;
                 IF_VERBOSE(1000, 
                            verbose_stream() << "substitution\n";
                            for (unsigned i = 0; i < s1.size(); ++i) {
@@ -1230,6 +1271,26 @@ namespace datalog {
                            verbose_stream() << mk_pp(subst[i].get(), m) << "\n";
                        });
             return pr;
+        }
+
+        void resolve_rule(replace_proof_converter& pc, tb::clause const& r1, tb::clause const& r2, 
+                          expr_ref_vector const& s1, expr_ref_vector const& s2, tb::clause const& res) const {
+            unsigned idx = r1.get_predicate_index();
+            expr_ref fml1 = r1.to_formula();
+            expr_ref fml2 = r2.to_formula();
+            expr_ref fml3 = res.to_formula();
+            vector<expr_ref_vector> substs;
+            svector<std::pair<unsigned, unsigned> > positions;
+            substs.push_back(s1);
+            substs.push_back(s2);            
+            scoped_proof _sc(m);
+            proof_ref pr(m);
+            proof_ref_vector premises(m);
+            premises.push_back(m.mk_asserted(fml1));
+            premises.push_back(m.mk_asserted(fml2));
+            positions.push_back(std::make_pair(idx+1, 0));            
+            pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml3, positions, substs);
+            pc.insert(pr);
         }
             
     };
