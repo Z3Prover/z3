@@ -278,6 +278,7 @@ namespace tb {
         }
     };        
 
+
     // subsumption index structure.
     class index {
         ast_manager&           m;
