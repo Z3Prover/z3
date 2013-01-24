@@ -628,7 +628,7 @@ namespace datalog {
         substs.push_back(s1);
         substs.push_back(s2);
 
-        scoped_coarse_proof _sc(m);
+        scoped_proof _sc(m);
         proof_ref pr(m);
         proof_ref_vector premises(m);
         premises.push_back(m.mk_asserted(fml1));

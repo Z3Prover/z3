@@ -1565,7 +1565,7 @@ namespace pdr {
     }
     
     proof_ref context::get_proof() const {
-        datalog::scoped_coarse_proof _sc(m);
+        datalog::scoped_proof _sc(m);
         proof_ref proof(m);
         SASSERT(m_last_result == l_true);
         proof = m_search.get_proof_trace(*this);
