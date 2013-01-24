@@ -852,7 +852,7 @@ namespace tb {
                         var_ref v(m), w(m);
                         v = m.mk_var(i, vars[i]);
                         w = m.mk_var(j, vars[i]);
-                        m_S2.insert(v, 0, expr_offset(w, 0));
+                        m_S2.insert(v.get(), 0, expr_offset(w, 0));
                         change = true;
                     }
                     ++j;
