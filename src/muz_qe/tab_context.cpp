@@ -171,9 +171,9 @@ namespace tb {
             m_index(0), 
             m_num_vars(0),
             m_predicate_index(0), 
-            m_next_rule(static_cast<unsigned>(-1)),
             m_parent_rule(0),
             m_parent_index(0),
+            m_next_rule(static_cast<unsigned>(-1)),
             m_ref(0) {
         }
         
@@ -797,8 +797,7 @@ namespace tb {
             m_sub2(m) {}
         
         bool operator()(ref<clause>& tgt, ref<clause>& src, bool compute_subst, ref<clause>& result) {
-            unsigned idx = tgt->get_predicate_index();
-            return new_unify(*tgt, *src, compute_subst, result);
+            return unify(*tgt, *src, compute_subst, result);
         }
 
         expr_ref_vector get_rule_subst(bool is_tgt) {
@@ -810,8 +809,7 @@ namespace tb {
             }
         }
 
-        bool new_unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {
-            
+        bool unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {            
             qe_lite qe(m);
             reset();
             unsigned idx = tgt.get_predicate_index();
