@@ -1644,11 +1644,6 @@ namespace z3 {
 
 };
 
-template class z3::ast_vector_tpl<z3::ast>;
-template class z3::ast_vector_tpl<z3::expr>;
-template class z3::ast_vector_tpl<z3::sort>;
-template class z3::ast_vector_tpl<z3::func_decl>;
-
 /*@}*/
 /*@}*/
 
