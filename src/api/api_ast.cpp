@@ -38,6 +38,8 @@ Revision History:
 #include"scoped_timer.h"
 #include"pp_params.hpp"
 
+extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
+
 extern "C" {
 
     Z3_symbol Z3_API Z3_mk_int_symbol(Z3_context c, int i) {
@@ -313,8 +315,6 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
-    
     Z3_ast_kind Z3_API Z3_get_ast_kind(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_get_ast_kind(c, a);

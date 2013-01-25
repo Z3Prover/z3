@@ -228,6 +228,9 @@ struct check_logic::imp {
     bool is_int(expr * t) {
         if (m_a_util.is_uminus(t))
             t = to_app(t)->get_arg(0);
+        // Take care of coercions automatically added by Z3
+        if (m_a_util.is_to_real(t))
+            t = to_app(t)->get_arg(0);
         return m_a_util.is_numeral(t);
     }
 
