@@ -238,7 +238,6 @@ namespace tb {
                 names.push_back(fresh.next());
                 if (!vars[i]) vars[i] = m.mk_bool_sort();
             }
-            vars.reverse();
             if (!vars.empty()) {
                 body = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), body);
             }            
@@ -478,19 +477,22 @@ namespace tb {
         ast_manager&           m;
         datalog::rule_manager& rm;
         datalog::context&      m_ctx;
-        app_ref_vector     m_preds;
-        expr_ref           m_precond;
-        expr_ref_vector    m_sideconds;
-        ref<clause>          m_clause;
-        vector<ref<clause> > m_index;
-        matcher            m_matcher;
-        substitution       m_subst;
-        qe_lite            m_qe;
-        uint_set           m_empty_set;
-        bool_rewriter      m_rw;
-        smt_params         m_fparams;
-        smt::kernel        m_solver;
-        volatile bool      m_cancel;
+        app_ref_vector         m_preds;
+        app_ref                m_head;
+        expr_ref               m_precond;
+        expr_ref_vector        m_sideconds;
+        ref<clause>            m_clause;
+        vector<ref<clause> >   m_index;
+        matcher                m_matcher;
+        expr_ref_vector        m_refs;
+        obj_hashtable<expr>    m_sat_lits;
+        substitution           m_subst;
+        qe_lite                m_qe;
+        uint_set               m_empty_set;
+        bool_rewriter          m_rw;
+        smt_params             m_fparams;
+        smt::kernel            m_solver;
+        volatile bool          m_cancel;
         
     public:
         index(datalog::context& ctx): 
@@ -498,9 +500,11 @@ namespace tb {
             rm(ctx.get_rule_manager()),
             m_ctx(ctx),
             m_preds(m),
+            m_head(m),
             m_precond(m),
             m_sideconds(m),
             m_matcher(m),
+            m_refs(m),
             m_subst(m),
             m_qe(m),
             m_rw(m),
@@ -541,6 +545,8 @@ namespace tb {
         
         void setup(clause const& g) {
             m_preds.reset();
+            m_refs.reset();
+            m_sat_lits.reset();
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
             expr_ref fml(m);
@@ -553,6 +559,8 @@ namespace tb {
                 }
                 vars.push_back(m.mk_const(symbol(i), sorts[i]));
             }
+            vs(g.get_head(), vars.size(), vars.c_ptr(), fml);
+            m_head = to_app(fml);
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
                 vs(g.get_predicate(i), vars.size(), vars.c_ptr(), fml);
                 m_preds.push_back(to_app(fml));
@@ -591,9 +599,15 @@ namespace tb {
             
             IF_VERBOSE(2, g.display(verbose_stream() << "try-match\n"););
 
-            return match_predicates(0, g);
+            return match_head(g);
         }
 
+        bool match_head(clause const& g) {
+            return
+                m_head->get_decl() == g.get_head()->get_decl() &&
+                m_matcher(m_head, g.get_head(), m_subst, m_sideconds) &&
+                match_predicates(0, g);
+        }
 
         bool match_predicates(unsigned predicate_index, clause const& g) {
             if (predicate_index == g.get_num_predicates()) {
@@ -638,14 +652,15 @@ namespace tb {
             m_subst.apply(2, deltas, expr_offset(g.get_constraint(), 0), q);
             fmls.push_back(q);
 
-            IF_VERBOSE(2,
-                       for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                           verbose_stream() << " ";
-                       }
-                       q = m.mk_and(fmls.size(), fmls.c_ptr());
-                       verbose_stream() << "check: " << mk_pp(q, m) << "\n";);
 
             m_qe(m_empty_set, false, fmls);
+            datalog::flatten_and(fmls);
+            for (unsigned i = 0; i < fmls.size(); ++i) {
+                expr_ref n = normalize(fmls[i].get());
+                if (m_sat_lits.contains(n)) {
+                    return false;
+                }
+            }
             m_rw.mk_and(fmls.size(), fmls.c_ptr(), postcond);
             if (m_cancel) {
                 return false;
@@ -656,6 +671,12 @@ namespace tb {
             if (m.is_true(postcond)) {
                 return true;
             }
+            IF_VERBOSE(2,
+                       for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
+                           verbose_stream() << " ";
+                       }
+                       verbose_stream() << "check: " << mk_pp(postcond, m, 7 + g.get_num_predicates()) << "\n";);
+
             if (!is_ground(postcond)) {
                 IF_VERBOSE(1, verbose_stream() << "TBD: non-ground\n" 
                            << mk_pp(postcond, m) << "\n";
@@ -669,8 +690,31 @@ namespace tb {
             m_solver.push();
             m_solver.assert_expr(postcond);
             lbool is_sat = m_solver.check();
+            if (is_sat == l_true) {
+                expr_ref tmp(m);
+                expr* n;
+                model_ref mdl;
+                m_solver.get_model(mdl);
+                for (unsigned i = 0; i < fmls.size(); ++i) {
+                    n = fmls[i].get();
+                    if (mdl->eval(n, tmp) && m.is_false(tmp)) {
+                        m_refs.push_back(normalize(n));
+                        m_sat_lits.insert(m_refs.back());
+                    }
+                }
+            }
             m_solver.pop(1);
             return is_sat == l_false;
+        }
+
+        expr_ref normalize(expr* e) {
+            expr* x, *y;
+            if (m.is_eq(e, x, y) && x->get_id() > y->get_id()) {
+                return expr_ref(m.mk_eq(y, x), m);
+            }
+            else {
+                return expr_ref(e, m);
+            }
         }
     };
 
@@ -1086,7 +1130,7 @@ namespace datalog {
             ref<tb::clause> clause = get_clause();
             ref<tb::clause> next_clause;
             if (m_unifier(clause, r, false, next_clause) &&
-                l_false != query_is_sat(*next_clause)) {
+                !query_is_tautology(*next_clause)) {
                 init_clause(next_clause);
                 unsigned subsumer = 0;
                 IF_VERBOSE(1, 
@@ -1175,21 +1219,9 @@ namespace datalog {
             }
         }    
 
-        lbool query_is_sat(tb::clause const& g) {
-            ptr_vector<sort> sorts;
-            svector<symbol> names;
-            expr_ref fml = g.get_body();
-            get_free_vars(fml, sorts);
-            sorts.reverse();
-            for (unsigned i = 0; i < sorts.size(); ++i) {
-                if (!sorts[i]) {
-                    sorts[i] = m.mk_bool_sort();
-                }
-                names.push_back(symbol(i));
-            }
-            if (!sorts.empty()) {
-                fml = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), fml);
-            }
+        bool query_is_tautology(tb::clause const& g) {
+            expr_ref fml = g.to_formula();
+            fml = m.mk_not(fml);
             m_solver.push();
             m_solver.assert_expr(fml);
             lbool is_sat = m_solver.check();            
@@ -1197,7 +1229,8 @@ namespace datalog {
 
             TRACE("dl", tout << is_sat << ":\n" << mk_pp(fml, m) << "\n";);
             
-            return is_sat;
+            return l_false == is_sat;
+
         }
 
 
