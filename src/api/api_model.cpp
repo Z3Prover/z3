@@ -26,6 +26,7 @@ Revision History:
 #include"model_v2_pp.h"
 #include"model_smt2_pp.h"
 #include"model_params.hpp"
+#include"model_evaluator_params.hpp"
 
 extern "C" {
 
@@ -489,7 +490,7 @@ extern "C" {
                            Z3_model m,
                            Z3_ast t,
                            Z3_ast * v) {
-        model_params p;
+        model_evaluator_params p;
         return Z3_model_eval(c, m, t, p.completion(), v);
     }
 

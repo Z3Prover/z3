@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include"model.h"
+#include"model_evaluator_params.hpp"
 #include"rewriter_types.h"
 #include"model_evaluator.h"
 #include"bool_rewriter.h"
@@ -59,11 +60,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
         updt_params(p);
     }
 
-    void updt_params(params_ref const & p) {
-        m_max_memory       = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-        m_max_steps        = p.get_uint("max_steps", UINT_MAX);
-        m_model_completion = p.get_bool("model_completion", false);
-        m_cache            = p.get_bool("cache", true);
+    void updt_params(params_ref const & _p) {
+        model_evaluator_params p(_p);
+        m_max_memory       = megabytes_to_bytes(p.max_memory());
+        m_max_steps        = p.max_steps();
+        m_model_completion = p.completion();
+        m_cache            = p.cache();
     }
         
     ast_manager & m() const { return m_model.get_manager(); }
@@ -230,10 +232,7 @@ void model_evaluator::updt_params(params_ref const & p) {
 }
 
 void model_evaluator::get_param_descrs(param_descrs & r) {
-    insert_max_memory(r);
-    insert_max_steps(r);
-    r.insert("model_completion", CPK_BOOL, "(default: false) assigns an interpretation to symbols that are not intepreted by the model.");
-    r.insert("cache", CPK_BOOL, "(default: true) cache intermediate results.");
+    model_evaluator_params::collect_param_descrs(r);
 }
 
 void model_evaluator::set_model_completion(bool f) {
