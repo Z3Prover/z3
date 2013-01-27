@@ -231,6 +231,7 @@ public:
     bool contains(interval const & n, numeral const & v) const;
     
     void display(std::ostream & out, interval const & n) const;
+    void display_pp(std::ostream & out, interval const & n) const;
 
     bool check_invariant(interval const & n) const;
 

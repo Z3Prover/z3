@@ -298,26 +298,41 @@ namespace realclosure {
 
     struct transcendental : public extension {
         symbol        m_name;
+        symbol        m_pp_name;
         unsigned      m_k;
         mk_interval & m_proc;
         
-        transcendental(unsigned idx, symbol const & n, mk_interval & p):extension(TRANSCENDENTAL, idx), m_name(n), m_k(0), m_proc(p) {}
+        transcendental(unsigned idx, symbol const & n, symbol const & pp_n, mk_interval & p):
+            extension(TRANSCENDENTAL, idx), m_name(n), m_pp_name(pp_n), m_k(0), m_proc(p) {}
 
-        void display(std::ostream & out) const {
-            out << m_name;
+        void display(std::ostream & out, bool pp = false) const {
+            if (pp) 
+                out << m_pp_name;
+            else
+                out << m_name;
         }
     };
     
     struct infinitesimal : public extension {
         symbol        m_name;
+        symbol        m_pp_name;
  
-        infinitesimal(unsigned idx, symbol const & n):extension(INFINITESIMAL, idx), m_name(n) {}
+        infinitesimal(unsigned idx, symbol const & n, symbol const & pp_n):extension(INFINITESIMAL, idx), m_name(n), m_pp_name(pp_n) {}
 
-        void display(std::ostream & out) const {
-            if (m_name.is_numerical())
-                out << "eps!" << m_name.get_num();
-            else
-                out << m_name;
+        void display(std::ostream & out, bool pp = false) const {
+            if (pp) {
+                if (m_pp_name.is_numerical())
+                    out << "&epsilon;<sub>" << m_pp_name.get_num() << "</sub>";
+                else
+                    out << m_pp_name;
+                
+            }
+            else {
+                if (m_name.is_numerical())
+                    out << "eps!" << m_name.get_num();
+                else
+                    out << m_name;
+            }
         }
     };
 
@@ -1266,9 +1281,9 @@ namespace realclosure {
         /**
            \brief Create a new infinitesimal.
         */
-        void mk_infinitesimal(symbol const & n, numeral & r) {
+        void mk_infinitesimal(symbol const & n, symbol const & pp_n, numeral & r) {
             unsigned idx = next_infinitesimal_idx();
-            infinitesimal * eps = alloc(infinitesimal, idx, n);
+            infinitesimal * eps = alloc(infinitesimal, idx, n, pp_n);
             m_extensions[extension::INFINITESIMAL].push_back(eps);
 
             set_lower(eps->interval(), mpbq(0));
@@ -1280,12 +1295,12 @@ namespace realclosure {
             SASSERT(depends_on_infinitesimals(r));
         }
 
-        void mk_infinitesimal(char const * n, numeral & r) {
-            mk_infinitesimal(symbol(n), r);
+        void mk_infinitesimal(char const * n, char const * pp_n, numeral & r) {
+            mk_infinitesimal(symbol(n), symbol(pp_n), r);
         }
 
         void mk_infinitesimal(numeral & r) {
-            mk_infinitesimal(symbol(next_infinitesimal_idx()), r);
+            mk_infinitesimal(symbol(next_infinitesimal_idx()), symbol(next_infinitesimal_idx()), r);
         }
 
         void refine_transcendental_interval(transcendental * t) {
@@ -1318,9 +1333,9 @@ namespace realclosure {
             }
         }
 
-        void mk_transcendental(symbol const & n, mk_interval & proc, numeral & r) {
+        void mk_transcendental(symbol const & n, symbol const & pp_n, mk_interval & proc, numeral & r) {
             unsigned idx = next_transcendental_idx();
-            transcendental * t = alloc(transcendental, idx, n, proc);
+            transcendental * t = alloc(transcendental, idx, n, pp_n, proc);
             m_extensions[extension::TRANSCENDENTAL].push_back(t);
             
             while (contains_zero(t->interval())) {
@@ -1332,12 +1347,12 @@ namespace realclosure {
             SASSERT(!depends_on_infinitesimals(r));
         }
         
-        void mk_transcendental(char const * p, mk_interval & proc, numeral & r) {
-            mk_transcendental(symbol(p), proc, r);
+        void mk_transcendental(char const * p, char const * pp_n, mk_interval & proc, numeral & r) {
+            mk_transcendental(symbol(p), symbol(pp_n), proc, r);
         }
 
         void mk_transcendental(mk_interval & proc, numeral & r) {
-            mk_transcendental(symbol(next_transcendental_idx()), proc, r);
+            mk_transcendental(symbol(next_transcendental_idx()), symbol(next_transcendental_idx()), proc, r);
         }
 
         void mk_pi(numeral & r) {
@@ -1345,7 +1360,7 @@ namespace realclosure {
                 set(r, m_pi);
             }
             else {
-                mk_transcendental(symbol("pi"), m_mk_pi_interval, r);
+                mk_transcendental(symbol("pi"), symbol("&pi;"), m_mk_pi_interval, r);
                 m_pi = r.m_value;
                 inc_ref(m_pi);
             }
@@ -1356,7 +1371,7 @@ namespace realclosure {
                 set(r, m_e);
             }
             else {
-                mk_transcendental(symbol("e"), m_mk_e_interval, r);
+                mk_transcendental(symbol("e"), symbol("e"), m_mk_e_interval, r);
                 m_e = r.m_value;
                 inc_ref(m_e);
             }
@@ -5762,7 +5777,7 @@ namespace realclosure {
         }
 
         template<typename DisplayVar>
-        void display_polynomial(std::ostream & out, unsigned sz, value * const * p, DisplayVar const & display_var, bool compact) const {
+        void display_polynomial(std::ostream & out, unsigned sz, value * const * p, DisplayVar const & display_var, bool compact, bool pp) const {
             if (sz == 0) {
                 out << "0";
                 return;
@@ -5778,33 +5793,44 @@ namespace realclosure {
                 else
                     out << " + ";
                 if (i == 0)
-                    display(out, p[i], compact);
+                    display(out, p[i], compact, pp);
                 else {
                     if (!is_rational_one(p[i])) {
                         if (use_parenthesis(p[i])) {
                             out << "(";
-                            display(out, p[i], compact);
-                            out << ")*";
+                            display(out, p[i], compact, pp);
+                            out << ")";
+                            if (pp)
+                                out << " ";
+                            else
+                                out << "*";
                         }
                         else {
-                            display(out, p[i], compact);
-                            out << "*";
+                            display(out, p[i], compact, pp);
+                            if (pp)
+                                out << " ";
+                            else
+                                out << "*";
                         }
                     }
-                    display_var(out, compact);
-                    if (i > 1)
-                        out << "^" << i;
+                    display_var(out, compact, pp);
+                    if (i > 1) {
+                        if (pp)
+                            out << "<sup>" << i << "</sup>";
+                        else
+                            out << "^" << i;
+                    }
                 }
             }
         }
 
         template<typename DisplayVar>
-        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact) const {
-            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact);
+        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact, bool pp) const {
+            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact, pp);
         }
 
         struct display_free_var_proc {
-            void operator()(std::ostream & out, bool compact) const {
+            void operator()(std::ostream & out, bool compact, bool pp) const {
                 out << "x";
             }
         };
@@ -5813,13 +5839,13 @@ namespace realclosure {
             imp const &  m;
             extension *  m_ref;    
             display_ext_proc(imp const & _m, extension * r):m(_m), m_ref(r) {}
-            void operator()(std::ostream & out, bool compact) const {
-                m.display_ext(out, m_ref, compact);
+            void operator()(std::ostream & out, bool compact, bool pp) const {
+                m.display_ext(out, m_ref, compact, pp);
             }
         };
 
-        void display_polynomial_expr(std::ostream & out, polynomial const & p, extension * ext, bool compact) const {
-            display_polynomial(out, p, display_ext_proc(*this, ext), compact);
+        void display_polynomial_expr(std::ostream & out, polynomial const & p, extension * ext, bool compact, bool pp) const {
+            display_polynomial(out, p, display_ext_proc(*this, ext), compact, pp);
         }
 
         static void display_poly_sign(std::ostream & out, int s) {
@@ -5846,7 +5872,7 @@ namespace realclosure {
             out << "}";
         }
 
-        void display_sign_conditions(std::ostream & out, sign_condition * sc, array<polynomial> const & qs, bool compact) const {
+        void display_sign_conditions(std::ostream & out, sign_condition * sc, array<polynomial> const & qs, bool compact, bool pp) const {
             bool first = true;
             out << "{";
             while (sc) {
@@ -5854,21 +5880,28 @@ namespace realclosure {
                     first = false;
                 else
                     out << ", ";
-                display_polynomial(out, qs[sc->qidx()], display_free_var_proc(), compact);
+                display_polynomial(out, qs[sc->qidx()], display_free_var_proc(), compact, pp);
                 display_poly_sign(out, sc->sign());
                 sc = sc->prev();
             }
             out << "}";
         }
 
-        void display_algebraic_def(std::ostream & out, algebraic * a, bool compact) const {
+        void display_interval(std::ostream & out, mpbqi const & i, bool pp) const {
+            if (pp)
+                bqim().display_pp(out, i);
+            else
+                bqim().display(out, i);
+        }
+
+        void display_algebraic_def(std::ostream & out, algebraic * a, bool compact, bool pp) const {
             out << "root(";
-            display_polynomial(out, a->p(), display_free_var_proc(), compact);
+            display_polynomial(out, a->p(), display_free_var_proc(), compact, pp);
             out << ", ";
-            bqim().display(out, a->iso_interval());
+            display_interval(out, a->iso_interval(), pp);
             out << ", ";
             if (a->sdt() != 0) 
-                display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact);
+                display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact, pp);
             else
                 out << "{}";
             out << ")";
@@ -5878,28 +5911,33 @@ namespace realclosure {
             collect_algebraic_refs c;
             for (unsigned i = 0; i < n; i++)
                 c.mark(p[i]);
-            display_polynomial(out, n, p, display_free_var_proc(), true);
+            display_polynomial(out, n, p, display_free_var_proc(), true, false);
             std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
             for (unsigned i = 0; i < c.m_found.size(); i++) {
                 algebraic * ext = c.m_found[i];
                 out << "\n   r!" << ext->idx() << " := ";
-                display_algebraic_def(out, ext, true);
+                display_algebraic_def(out, ext, true, false);
             }
         }
 
-        void display_ext(std::ostream & out, extension * r, bool compact) const {
+        void display_ext(std::ostream & out, extension * r, bool compact, bool pp) const {
             switch (r->knd()) {
-            case extension::TRANSCENDENTAL: to_transcendental(r)->display(out); break;
-            case extension::INFINITESIMAL:  to_infinitesimal(r)->display(out); break;
+            case extension::TRANSCENDENTAL: to_transcendental(r)->display(out, pp); break;
+            case extension::INFINITESIMAL:  to_infinitesimal(r)->display(out, pp); break;
             case extension::ALGEBRAIC: 
-                if (compact)
-                    out << "r!" << r->idx();
-                else
-                    display_algebraic_def(out, to_algebraic(r), compact);
+                if (compact) {
+                    if (pp) 
+                        out << "&alpha;<sub>" << r->idx() << "</sub>";
+                    else
+                        out << "r!" << r->idx();
+                }
+                else {
+                    display_algebraic_def(out, to_algebraic(r), compact, pp);
+                }
             }
         }
 
-        void display(std::ostream & out, value * v, bool compact) const {
+        void display(std::ostream & out, value * v, bool compact, bool pp=false) const {
             if (v == 0)
                 out << "0";
             else if (is_nz_rational(v)) 
@@ -5907,51 +5945,50 @@ namespace realclosure {
             else {
                 rational_function_value * rf = to_rational_function(v);
                 if (is_denominator_one(rf)) {
-                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact, pp);
                 }
                 else if (is_rational_one(rf->num())) {
                     out << "1/(";
-                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact, pp);
                     out << ")";
                 }
                 else {
                     out << "(";
-                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact, pp);
                     out << ")/(";
-                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact, pp);
                     out << ")";
                 }
             }
         }
 
-        void display_compact(std::ostream & out, value * a) const {
+        void display_compact(std::ostream & out, value * a, bool pp=false) const {
             collect_algebraic_refs c;
             c.mark(a);
             if (c.m_found.empty()) {
-                display(out, a, true);
+                display(out, a, true, pp);
             }
             else {
                 std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
                 out << "[";
-                display(out, a, true);
+                display(out, a, true, pp);
                 for (unsigned i = 0; i < c.m_found.size(); i++) {
                     algebraic * ext = c.m_found[i];
-                    out << "; r!" << ext->idx() << " := ";
-                    display_algebraic_def(out, ext, true);
+                    if (pp)
+                        out << "; &alpha;<sub>" << ext->idx() << "</sub> := ";
+                    else
+                        out << "; r!" << ext->idx() << " := ";
+                    display_algebraic_def(out, ext, true, pp);
                 }
                 out << "]";
             }
         }
 
-        void display_compact(std::ostream & out, numeral const & a) const {
-            display_compact(out, a.m_value);
-        }
-
-        void display(std::ostream & out, numeral const & a, bool compact=false) const {
+        void display(std::ostream & out, numeral const & a, bool compact=false, bool pp=false) const {
             if (compact)
-                display_compact(out, a);
+                display_compact(out, a.m_value, pp);
             else
-                display(out, a.m_value, false);
+                display(out, a.m_value, false, pp);
         }
 
         void display_non_rational_in_decimal(std::ostream & out, numeral const & a, unsigned precision) {
@@ -5989,7 +6026,7 @@ namespace realclosure {
             if (is_zero(a))
                 out << "[0, 0]";
             else
-                bqim().display(out, interval(a.m_value));
+                display_interval(out, interval(a.m_value), false);
         }
     };
 
@@ -6029,16 +6066,16 @@ namespace realclosure {
         m_imp->del(a);
     }
 
-    void manager::mk_infinitesimal(char const * n, numeral & r) {
-        m_imp->mk_infinitesimal(n, r);
+    void manager::mk_infinitesimal(char const * n, char const * pp_n, numeral & r) {
+        m_imp->mk_infinitesimal(n, pp_n, r);
     }
 
     void manager::mk_infinitesimal(numeral & r) {
         m_imp->mk_infinitesimal(r);
     }
         
-    void manager::mk_transcendental(char const * n, mk_interval & proc, numeral & r) {
-        m_imp->mk_transcendental(n, proc, r);
+    void manager::mk_transcendental(char const * n, char const * pp_n, mk_interval & proc, numeral & r) {
+        m_imp->mk_transcendental(n, pp_n, proc, r);
     }
 
     void manager::mk_transcendental(mk_interval & proc, numeral & r) {
@@ -6212,9 +6249,9 @@ namespace realclosure {
         return gt(a, _b);
     }
 
-    void manager::display(std::ostream & out, numeral const & a, bool compact) const {
+    void manager::display(std::ostream & out, numeral const & a, bool compact, bool pp) const {
         save_interval_ctx ctx(this);
-        m_imp->display(out, a, compact);
+        m_imp->display(out, a, compact, pp);
     }
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
@@ -6234,7 +6271,7 @@ namespace realclosure {
 };
 
 void pp(realclosure::manager::imp * imp, realclosure::polynomial const & p, realclosure::extension * ext) {
-    imp->display_polynomial_expr(std::cout, p, ext, false);
+    imp->display_polynomial_expr(std::cout, p, ext, false, false);
     std::cout << std::endl;
 }
 
@@ -6278,6 +6315,6 @@ void pp(realclosure::manager::imp * imp, mpq const & n) {
 }
 
 void pp(realclosure::manager::imp * imp, realclosure::extension * x) {
-    imp->display_ext(std::cout, x, false);
+    imp->display_ext(std::cout, x, false, false);
     std::cout << std::endl;
 }

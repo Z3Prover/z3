@@ -644,6 +644,15 @@ void interval_manager<C>::display(std::ostream & out, interval const & n) const 
 }
 
 template<typename C>
+void interval_manager<C>::display_pp(std::ostream & out, interval const & n) const {
+    out << (lower_is_open(n) ? "(" : "[");
+    ::display_pp(out, m(), lower(n), lower_kind(n));
+    out << ", ";
+    ::display_pp(out, m(), upper(n), upper_kind(n));
+    out << (upper_is_open(n) ? ")" : "]");
+}
+
+template<typename C>
 bool interval_manager<C>::check_invariant(interval const & n) const {
     if (::eq(m(), lower(n), lower_kind(n), upper(n), upper_kind(n))) {
         SASSERT(!lower_is_open(n));

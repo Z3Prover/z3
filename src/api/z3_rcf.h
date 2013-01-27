@@ -64,9 +64,9 @@ extern "C" {
     /**
        \brief Return a new infinitesimal that is smaller than all elements in the Z3 field.
 
-       def_API('Z3_rcf_mk_infinitesimal', RCF_NUM, (_in(CONTEXT), _in(STRING)))
+       def_API('Z3_rcf_mk_infinitesimal', RCF_NUM, (_in(CONTEXT),))
     */
-    Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(__in Z3_context c, __in Z3_string name);
+    Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(__in Z3_context c);
 
     /**
        \brief Store in roots the roots of the polynomial <tt>a[n-1]*x^{n-1} + ... + a[0]</tt>.
@@ -173,9 +173,9 @@ extern "C" {
     /**
        \brief Convert the RCF numeral into a string.
 
-       def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM), _in(BOOL)))
+       def_API('Z3_rcf_num_to_string', STRING, (_in(CONTEXT), _in(RCF_NUM), _in(BOOL), _in(BOOL)))
     */
-    Z3_string Z3_API Z3_rcf_num_to_string(__in Z3_context c, __in Z3_rcf_num a, __in Z3_bool compact);
+    Z3_string Z3_API Z3_rcf_num_to_string(__in Z3_context c, __in Z3_rcf_num a, __in Z3_bool compact, __in Z3_bool html);
 
     /**
        \brief Convert the RCF numeral into a string in decimal notation.
