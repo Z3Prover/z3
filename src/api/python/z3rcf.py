@@ -51,7 +51,6 @@ def MkRoots(p, ctx=None):
     return r
 
 class RCFNum:
-    html = False
     def __init__(self, num, ctx=None):
         # TODO: add support for converting AST numeral values into RCFNum
         if isinstance(num, RCFNumObj):
@@ -68,10 +67,10 @@ class RCFNum:
         return self.ctx.ref()
                   
     def __repr__(self):
-        return Z3_rcf_num_to_string(self.ctx_ref(), self.num, False, RCFNum.html)
+        return Z3_rcf_num_to_string(self.ctx_ref(), self.num, False, in_html_mode())
 
     def compact_str(self):
-        return Z3_rcf_num_to_string(self.ctx_ref(), self.num, True, RCFNum.html)
+        return Z3_rcf_num_to_string(self.ctx_ref(), self.num, True, in_html_mode())
 
     def __add__(self, other):
         v = _to_rcfnum(other, self.ctx)

@@ -399,6 +399,14 @@ void mpbq_manager::display(std::ostream & out, mpbq const & a) {
         out << "^" << a.m_k;
 }
 
+void mpbq_manager::display_pp(std::ostream & out, mpbq const & a) {
+    out << m_manager.to_string(a.m_num);
+    if (a.m_k > 0)
+        out << "/2";
+    if (a.m_k > 1)
+        out << "<sup>" << a.m_k << "</sup>";
+}
+
 void mpbq_manager::display_smt2(std::ostream & out, mpbq const & a, bool decimal) {
     if (a.m_k == 0) {
         m_manager.display_smt2(out, a.m_num, decimal);

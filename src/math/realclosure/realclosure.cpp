@@ -1300,7 +1300,7 @@ namespace realclosure {
         }
 
         void mk_infinitesimal(numeral & r) {
-            mk_infinitesimal(symbol(next_infinitesimal_idx()), symbol(next_infinitesimal_idx()), r);
+            mk_infinitesimal(symbol(next_infinitesimal_idx()+1), symbol(next_infinitesimal_idx()+1), r);
         }
 
         void refine_transcendental_interval(transcendental * t) {
@@ -1352,7 +1352,7 @@ namespace realclosure {
         }
 
         void mk_transcendental(mk_interval & proc, numeral & r) {
-            mk_transcendental(symbol(next_transcendental_idx()), symbol(next_transcendental_idx()), proc, r);
+            mk_transcendental(symbol(next_transcendental_idx()+1), symbol(next_transcendental_idx()+1), proc, r);
         }
 
         void mk_pi(numeral & r) {
