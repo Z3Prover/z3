@@ -1415,7 +1415,7 @@ void cmd_context::validate_model() {
     params_ref p;
     p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
     p.set_uint("sort_store", true); 
-    p.set_bool("model_completion", true); 
+    p.set_bool("completion", true); 
     model_evaluator evaluator(*(md.get()), p);
     contains_array_op_proc contains_array(m());
     {
