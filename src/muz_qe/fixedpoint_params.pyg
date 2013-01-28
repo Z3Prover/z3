@@ -54,8 +54,9 @@ def_module_params('fixedpoint',
                                      "if true, finite_product_relation will attempt to avoid creating inner relation with empty signature "
                                      "by putting in half of the table columns, if it would have been empty otherwise"),
                           ('print_answer', BOOL, False, 'print answer instance(s) to query'),
-                          ('print_certificate', BOOL, False, 'print certificate for reacahbility or non-reachability'),
+                          ('print_certificate', BOOL, False, 'print certificate for reachability or non-reachability'),
                           ('print_statistics',  BOOL, False, 'print statistics'),
+	                  ('tab_selection', SYMBOL, 'weight', 'selection method for tabular strategy: weight (default), first, var-use'),
                           ))
 
 

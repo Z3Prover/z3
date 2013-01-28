@@ -28,6 +28,7 @@ Revision History:
 #include "th_rewriter.h"
 #include "datatype_decl_plugin.h"
 #include "for_each_expr.h"
+#include "matcher.h"
 
 namespace tb {
 
@@ -420,8 +421,9 @@ namespace tb {
     class rules {
         typedef obj_map<func_decl, unsigned_vector> map;
         vector<ref<clause> >  m_rules;
-        map                 m_index;
+        map                   m_index;
     public:
+
 
         typedef vector<ref<clause> >::const_iterator iterator;
 
@@ -429,8 +431,7 @@ namespace tb {
         iterator end() const { return m_rules.end(); }
 
         void init(datalog::rule_set const& rules) {
-            m_rules.reset();
-            m_index.reset();
+            reset();
             datalog::rule_manager& rm = rules.get_rule_manager();
             datalog::rule_ref r(rm);
             datalog::rule_set::iterator it  = rules.begin();
@@ -453,7 +454,7 @@ namespace tb {
             e->get_data().m_value.push_back(idx);            
         }
 
-        unsigned get_num_rules(func_decl* p) {
+        unsigned get_num_rules(func_decl* p) const {
             map::obj_map_entry* e = m_index.find_core(p);
             if (p) {
                 return e->get_data().get_value().size();
@@ -463,12 +464,25 @@ namespace tb {
             }
         }
 
+        void get_decls(ptr_vector<func_decl>& decls) const {
+            map::iterator it  = m_index.begin();
+            map::iterator end = m_index.end();
+            for (; it != end; ++it) {
+                decls.push_back(it->m_key);
+            }
+        }        
+
         ref<clause> get_rule(func_decl* p, unsigned idx) const {
             map::obj_map_entry* e = m_index.find_core(p);
             SASSERT(p);
             unsigned rule_id = e->get_data().get_value()[idx];
             return m_rules[rule_id];
         }        
+    private:
+        void reset() {
+            m_rules.reset();
+            m_index.reset();
+        }
     };
 
 
@@ -720,102 +734,240 @@ namespace tb {
 
     // predicate selection strategy.
     class selection {
+        enum strategy {
+            WEIGHT_SELECT,
+            FIRST_SELECT,
+            VAR_USE_SELECT
+        };
+        typedef svector<double>                   double_vector;
+        typedef obj_map<func_decl, double_vector> score_map;
         datalog::context&  m_ctx;
         ast_manager&       m;
         datatype_util      dt;
-        obj_map<func_decl, unsigned_vector> m_scores;
-        unsigned_vector    m_score_values;
+        score_map          m_score_map;
+        double_vector      m_scores;
+        double_vector      m_var_scores;
+        strategy           m_strategy;
 
     public:
         selection(datalog::context& ctx):
             m_ctx(ctx),
             m(ctx.get_manager()),
             dt(m) {
+            set_strategy(ctx.get_params().tab_selection());
         }
 
         void init(rules const& rs) {
-            m_scores.reset();
+            reset();
+            double_vector& scores = m_scores;
             rules::iterator it = rs.begin(), end = rs.end();
             for (; it != end; ++it) {
                 ref<clause> g = *it;
                 app* p = g->get_head();
-                unsigned_vector scores;
+                scores.reset();
                 score_predicate(p, scores);
                 insert_score(p->get_decl(), scores);
             }            
+            normalize_scores(rs);
         }
 
         unsigned select(clause const& g) {
+            switch(m_strategy) {
+            case WEIGHT_SELECT:
+                return weight_select(g);
+            case FIRST_SELECT:
+                return trivial_select(g);
+            case VAR_USE_SELECT:
+                return andrei_select(g);
+            default:
+                return weight_select(g);
+
+            }            
+        }
+
+
+        void reset() {
+            m_score_map.reset();
+            m_scores.reset();
+            m_var_scores.reset();
+        }
+
+    private:
+
+        // determine if constructors in p are matches by rules.
+        bool is_reductive(app* p, double_vector const& p_scores) {
+            func_decl* f = p->get_decl();
+            score_map::obj_map_entry* e = m_score_map.find_core(p->get_decl());
+            if (!e) {
+                return false;
+            }
+            double_vector const& scores = e->get_data().m_value;
+            SASSERT(scores.size() == p->get_num_args());
+            bool has_reductive = false;
+            bool is_red = true;
+            for (unsigned i = 0; is_red && i < scores.size(); ++i) {
+                if (scores[i] >= 1) {
+                    has_reductive = true;
+                    is_red &= p_scores[i] >= 1;
+                }
+            }
+            return has_reductive && is_red;
+        }
+
+        void set_strategy(symbol const& str) {
+            if (str == symbol("weight")) {
+                m_strategy = WEIGHT_SELECT;
+            }
+            else if (str == symbol("first")) {
+                m_strategy = FIRST_SELECT;
+            }
+            else if (str == symbol("var-use")) {
+                m_strategy = VAR_USE_SELECT;
+            }
+            else {
+                m_strategy = WEIGHT_SELECT;
+            }
+        }
+
+        unsigned trivial_select(clause const& g) {
             return 0;
-#if 0
-            unsigned max_score = 0;
+        }
+
+        unsigned andrei_select(clause const& g) {
+            score_variables(g);
+            double_vector& scores = m_scores;
+            double max_score = 0;
             unsigned result = 0;
-            unsigned_vector& scores = m_score_values;
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
                 scores.reset();
+                double_vector p_scores;
+                double score = 0;
                 app* p = g.get_predicate(i);
                 score_predicate(p, scores);
-                unsigned score = compute_score(p->get_decl(), scores);
+                m_score_map.find(p->get_decl(), p_scores);
+                SASSERT(p_scores.empty() || p->get_num_args() == p_scores.size());
+                p_scores.resize(p->get_num_args());
+                for (unsigned j = 0; j < p->get_num_args(); ++j) {
+                    if (is_var(p->get_arg(j))) {
+                        unsigned idx = to_var(p->get_arg(j))->get_idx();
+                        score += m_var_scores[idx];
+                    }
+                    else {
+                        IF_VERBOSE(1, verbose_stream() << p_scores[j] << " " << scores[j] << "\n";);
+                        score += p_scores[j]*scores[j];
+                    }
+                }
+                IF_VERBOSE(1, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
                 if (score > max_score) {
                     max_score = score;
                     result = i;
                 }
             }
-            return result;
-#endif
+            IF_VERBOSE(1, verbose_stream() << "select:" << result << "\n";);
+                       
+            return result;            
         }
 
-        void reset() {
-            m_scores.reset();
-            m_score_values.reset();
-        }
-
-    private:
-
-        unsigned compute_score(func_decl* f, unsigned_vector const& scores) {
-            unsigned_vector f_scores;
-            unsigned score = 0;
-            if (m_scores.find(f, f_scores)) {
-                SASSERT(f_scores.size() == scores.size());
-                for (unsigned i = 0; i < scores.size(); ++i) {
-                    score += scores[i]*f_scores[i];
+        unsigned weight_select(clause const& g) {
+            double_vector& scores = m_scores;
+            double max_score = 0;
+            unsigned result = 0;
+            for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
+                scores.reset();
+                double score = 0;
+                app* p = g.get_predicate(i);
+                score_predicate(p, scores);
+                for (unsigned j = 0; j < scores.size(); ++j) {
+                    score += scores[j];
+                }
+                IF_VERBOSE(1, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
+                if (score > max_score) {
+                    max_score = score;
+                    result = i;
                 }
             }
-            // else there is no rule.
-            return score;
+            IF_VERBOSE(1, verbose_stream() << "select " << result << "\n";);
+            return result;
         }
+
+
+        void score_variables(clause const& g) {
+            m_var_scores.reset();
+            for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
+                app* p = g.get_predicate(i);
+                score_variables(p);
+            }
+        }
+
+        void score_variables(app* p) {
+            score_map::obj_map_entry* e = m_score_map.find_core(p->get_decl());
+            if (!e) {
+                return;
+            }
+            double_vector& scores = e->get_data().m_value;
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                if (is_var(p->get_arg(i))) {
+                    unsigned idx = to_var(p->get_arg(i))->get_idx();
+                    if (m_var_scores.size() <= idx) {
+                        m_var_scores.resize(idx+1);
+                    }
+                    m_var_scores[idx] += scores[i];
+                }
+            }
+        }
+
+        void normalize_scores(rules const& rs) {
+            ptr_vector<func_decl> decls;
+            rs.get_decls(decls);
+            for (unsigned i = 0; i < decls.size(); ++i) {
+                unsigned nr = rs.get_num_rules(decls[i]);
+                score_map::obj_map_entry& e = *m_score_map.find_core(decls[i]);
+                double_vector& scores = e.get_data().m_value;
+                for (unsigned j = 0; j < scores.size(); ++j) {
+                    scores[j] = scores[j]/nr;
+                }
+            }
+        }
+
         
-        void score_predicate(app* p, unsigned_vector& scores) {
+        void score_predicate(app* p, double_vector& scores) {
             for (unsigned i = 0; i < p->get_num_args(); ++i) {
                 scores.push_back(score_argument(p->get_arg(i)));
             }
         }
 
         unsigned score_argument(expr* arg) {
-            if (is_var(arg)) {
-                return 0;
-            }
-            if (m.is_value(arg)) {
-                return 3;
-            }
-            if (is_app(arg) && dt.is_constructor(to_app(arg)->get_decl())) {
-                return 2;
-            }
-            return 1;
+            unsigned score = 0;
+            score_argument(arg, score, 20);
+            return score;
         }
 
-        void insert_score(func_decl* f, unsigned_vector const& scores) {
-            obj_map<func_decl, unsigned_vector>::obj_map_entry* e;
-            e = m_scores.find_core(f);
+        void score_argument(expr* arg, unsigned& score, unsigned max_score) {
+            if (score < max_score && is_app(arg)) {
+                app* a = to_app(arg);
+                if (dt.is_constructor(a->get_decl())) {
+                    score += 1;
+                    for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                        score_argument(a->get_arg(i), score, max_score);
+                    }
+                }
+                else if (m.is_value(a)) {
+                    ++score;
+                }
+            }
+        }
+
+        void insert_score(func_decl* f, double_vector const& scores) {
+            score_map::obj_map_entry* e = m_score_map.find_core(f);
             if (e) {
-                unsigned_vector & old_scores = e->get_data().m_value;
+                double_vector & old_scores = e->get_data().m_value;
                 SASSERT(scores.size() == old_scores.size());
                 for (unsigned i = 0; i < scores.size(); ++i) {
                     old_scores[i] += scores[i];
                 }
             }
             else {
-                m_scores.insert(f, scores);
+                m_score_map.insert(f, scores);
             }            
         }
     };
@@ -1255,7 +1407,8 @@ namespace datalog {
 
         void display_premise(tb::clause& p, std::ostream& out) {
             func_decl* f = p.get_predicate(p.get_predicate_index())->get_decl();
-            out << "{g" << p.get_seqno() << " " << f->get_name() << " pos: " << p.get_predicate_index() << " rule: " << p.get_next_rule() << "}\n";
+            out << "{g" << p.get_seqno() << " " << f->get_name() << " pos: " 
+                << p.get_predicate_index() << " rule: " << p.get_next_rule() << "}\n";
         }
 
         void display_clause(tb::clause& g, std::ostream& out) {
@@ -1266,7 +1419,6 @@ namespace datalog {
             scoped_proof sp(m);
             proof_ref pr(m);
             proof_ref_vector prs(m);
-            expr_ref_vector subst(m);
             ref<tb::clause> clause = get_clause();
             ref<tb::clause> replayed_clause;
             replace_proof_converter pc(m);
@@ -1293,18 +1445,24 @@ namespace datalog {
                 clause = parent;
                 substs.push_back(s1);
             }
-            for (unsigned i = substs.size(); i > 0; ) {
-                --i;
-                apply_subst(subst, substs[i]);
-            }
-            expr_ref body = clause->get_body();
-            var_subst vs(m, false);
-            vs(body, subst.size(), subst.c_ptr(), body);
-            IF_VERBOSE(1, verbose_stream() << mk_pp(body, m) << "\n";);
+            IF_VERBOSE(1, display_body_insts(substs, *clause, verbose_stream()););
+
             pc.invert();
             prs.push_back(m.mk_asserted(root));
             pc(m, 1, prs.c_ptr(), pr);
             return pr;
+        }
+
+        void display_body_insts(vector<expr_ref_vector> const& substs, tb::clause const& clause, std::ostream& out) const {
+            expr_ref_vector subst(m);
+            for (unsigned i = substs.size(); i > 0; ) {
+                --i;
+                apply_subst(subst, substs[i]);
+            }
+            expr_ref body = clause.get_body();
+            var_subst vs(m, false);
+            vs(body, subst.size(), subst.c_ptr(), body);            
+            out << mk_pp(body, m) << "\n";
         }
 
         void resolve_rule(replace_proof_converter& pc, tb::clause const& r1, tb::clause const& r2, 
