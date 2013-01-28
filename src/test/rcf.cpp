@@ -32,7 +32,7 @@ static void tst1() {
 #endif
 
     scoped_rcnumeral eps(m);
-    m.mk_infinitesimal("eps", eps);
+    m.mk_infinitesimal(eps);
     mpq aux;
     qm.set(aux, 1, 3);
     m.set(a, aux);
@@ -151,7 +151,7 @@ static void tst_denominators() {
     scoped_rcnumeral eps(m);
     m.mk_pi(a);
     m.inv(a);
-    m.mk_infinitesimal("eps", eps);
+    m.mk_infinitesimal(eps);
     t = (a - eps*2) / (a*eps + 1);
     // t = t + a * 2;
     scoped_rcnumeral n(m), d(m);
