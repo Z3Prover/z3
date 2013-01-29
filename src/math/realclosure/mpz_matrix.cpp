@@ -75,14 +75,14 @@ void mpz_matrix_manager::set(mpz_matrix & A, mpz_matrix const & B) {
 }
 
 void mpz_matrix_manager::tensor_product(mpz_matrix const & A, mpz_matrix const & B, mpz_matrix & C) {
-    scoped_mpz_matrix _C(*this);
-    mk(A.m * B.m, A.n * B.n, _C);
-    for (unsigned i = 0; i < _C.m(); i++)
-        for (unsigned j = 0; j < _C.n(); j++)
+    scoped_mpz_matrix CC(*this);
+    mk(A.m * B.m, A.n * B.n, CC);
+    for (unsigned i = 0; i < CC.m(); i++)
+        for (unsigned j = 0; j < CC.n(); j++)
             nm().mul(A(i / B.m, j / B.n), 
                      B(i % B.m, j % B.n), 
-                     _C(i, j));
-    C.swap(_C);
+                     CC(i, j));
+    C.swap(CC);
 }
 
 void mpz_matrix_manager::swap_rows(mpz_matrix & A, unsigned i, unsigned j) {

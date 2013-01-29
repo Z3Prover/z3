@@ -1617,8 +1617,11 @@ PYG_GLOBALS = { 'UINT' : UINT, 'BOOL' : BOOL, 'DOUBLE' : DOUBLE, 'STRING' : STRI
                 'def_module_params' : def_module_params }
 
 def _execfile(file, globals=globals(), locals=locals()):
-    with open(file, "r") as fh:
-        exec(fh.read()+"\n", globals, locals)
+    if sys.version < "2.7":
+        execfile(file, globals, locals)
+    else:
+        with open(file, "r") as fh:
+            exec(fh.read()+"\n", globals, locals)
 
 # Execute python auxiliary scripts that generate extra code for Z3.
 def exec_pyg_scripts():
