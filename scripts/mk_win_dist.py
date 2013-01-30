@@ -25,6 +25,7 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 JAVA_ENABLED=True
+GIT_HASH=False
 
 def set_verbose(flag):
     global VERBOSE
@@ -55,17 +56,19 @@ def display_help():
     print "  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist)."
     print "  -f, --force                   force script to regenerate Makefiles."
     print "  --nojava                      do not include Java bindings in the binary distribution files."
+    print "  --githash                     include git hash in the Zip file."
     exit(0)
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=', 
                                                                    'help',
                                                                    'silent',
                                                                    'force',
-                                                                   'nojava'
+                                                                   'nojava',
+                                                                   'githash'
                                                                    ])
     for opt, arg in options:
         if opt in ('-b', '--build'):
@@ -80,6 +83,8 @@ def parse_options():
             FORCE_MK = True
         elif opt == '--nojava':
             JAVA_ENABLED = False
+        elif opt == '--githash':
+            GIT_HASH = True
         else:
             raise MKException("Invalid command line option '%s'" % opt)
     set_build_dir(path)
@@ -91,7 +96,7 @@ def check_build_dir(path):
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path]
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), "--parallel=24", "-b", path]
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
@@ -147,15 +152,25 @@ def mk_z3():
     mk_z3_core(False)
     mk_z3_core(True)
 
-def mk_dist_dir_core(x64):
+def get_z3_name(x64):
     major, minor, build, revision = get_version()
+    if x64:
+        platform = "x64"
+    else:
+        platform = "x86"
+    if GIT_HASH:
+        return 'z3-win-%s.%s.%s.%s-%s' % (major, minor, build, mk_util.git_hash(), platform)
+    else:
+        return 'z3-win-%s.%s.%s-%s' % (major, minor, build, platform)
+
+def mk_dist_dir_core(x64):
     if x64:
         platform = "x64"
         build_path = BUILD_X64_DIR
     else:
         platform = "x86"
         build_path = BUILD_X86_DIR
-    dist_path = os.path.join(DIST_DIR, 'z3-%s.%s.%s-%s' % (major, minor, build, platform))
+    dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
     if JAVA_ENABLED:
         # HACK: Propagate JAVA_ENABLED flag to mk_util
@@ -179,12 +194,7 @@ def mk_zip_visitor(pattern, dir, files):
                 ZIPOUT.write(fname)
 
 def get_dist_path(x64):
-    major, minor, build, revision = get_version()
-    if x64:
-        platform = "x64"
-    else:
-        platform = "x86"
-    return 'z3-%s.%s.%s-%s' % (major, minor, build, platform)
+    return get_z3_name(x64)
 
 def mk_zip_core(x64):
     global ZIPOUT

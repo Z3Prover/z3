@@ -74,6 +74,16 @@ VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
 
+def git_hash():
+    try:
+        r = subprocess.check_output(['git', 'show-ref', '--abbrev=12', 'HEAD'], shell=True).rstrip('\r\n')
+    except:
+        raise MKException("Failed to retrieve git hash")
+    ls = r.split(' ')
+    if len(ls) != 2:
+        raise MKException("Unexpected git output")
+    return ls[0]
+
 def is_windows():
     return IS_WINDOWS
 
