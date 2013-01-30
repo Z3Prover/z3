@@ -159,9 +159,9 @@ def get_z3_name(x64):
     else:
         platform = "x86"
     if GIT_HASH:
-        return 'z3-%s.%s.%s.%s-%s' % (major, minor, build, mk_util.git_hash(), platform)
+        return 'z3-win-%s.%s.%s.%s-%s' % (major, minor, build, mk_util.git_hash(), platform)
     else:
-        return 'z3-%s.%s.%s-%s' % (major, minor, build, platform)
+        return 'z3-win-%s.%s.%s-%s' % (major, minor, build, platform)
 
 def mk_dist_dir_core(x64):
     if x64:
