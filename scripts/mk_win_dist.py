@@ -91,7 +91,7 @@ def check_build_dir(path):
 # Create a build directory using mk_make.py
 def mk_build_dir(path, x64):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path]
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), "--parallel=24", "-b", path]
         if JAVA_ENABLED:
             opts.append('--java')
         if x64:
