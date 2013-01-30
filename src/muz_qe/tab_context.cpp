@@ -424,7 +424,6 @@ namespace tb {
         map                   m_index;
     public:
 
-
         typedef vector<ref<clause> >::const_iterator iterator;
 
         iterator begin() const { return m_rules.begin(); }
@@ -489,8 +488,6 @@ namespace tb {
     // subsumption index structure.
     class index {
         ast_manager&           m;
-        datalog::rule_manager& rm;
-        datalog::context&      m_ctx;
         app_ref_vector         m_preds;
         app_ref                m_head;
         expr_ref               m_precond;
@@ -509,10 +506,8 @@ namespace tb {
         volatile bool          m_cancel;
         
     public:
-        index(datalog::context& ctx): 
-            m(ctx.get_manager()),
-            rm(ctx.get_rule_manager()),
-            m_ctx(ctx),
+        index(ast_manager& m):
+            m(m),
             m_preds(m),
             m_head(m),
             m_precond(m),
@@ -736,11 +731,13 @@ namespace tb {
     class selection {
         enum strategy {
             WEIGHT_SELECT,
+            BASIC_WEIGHT_SELECT,
             FIRST_SELECT,
             VAR_USE_SELECT
         };
         typedef svector<double>                   double_vector;
         typedef obj_map<func_decl, double_vector> score_map;
+        typedef obj_map<app, double>              pred_map;
         datalog::context&  m_ctx;
         ast_manager&       m;
         datatype_util      dt;
@@ -748,12 +745,24 @@ namespace tb {
         double_vector      m_scores;
         double_vector      m_var_scores;
         strategy           m_strategy;
+        pred_map           m_pred_map;
+        expr_ref_vector    m_refs;
+        double             m_weight_multiply;
+        unsigned           m_num_invocations;
+        unsigned           m_update_frequency;
+        unsigned           m_next_update;
+        
 
     public:
         selection(datalog::context& ctx):
             m_ctx(ctx),
             m(ctx.get_manager()),
-            dt(m) {
+            dt(m),
+            m_refs(m),
+            m_weight_multiply(1.0),
+            m_num_invocations(0),
+            m_update_frequency(20),
+            m_next_update(20) {
             set_strategy(ctx.get_params().tab_selection());
         }
 
@@ -765,7 +774,7 @@ namespace tb {
                 ref<clause> g = *it;
                 app* p = g->get_head();
                 scores.reset();
-                score_predicate(p, scores);
+                basic_score_predicate(p, scores);
                 insert_score(p->get_decl(), scores);
             }            
             normalize_scores(rs);
@@ -775,6 +784,8 @@ namespace tb {
             switch(m_strategy) {
             case WEIGHT_SELECT:
                 return weight_select(g);
+            case BASIC_WEIGHT_SELECT:
+                return basic_weight_select(g);
             case FIRST_SELECT:
                 return trivial_select(g);
             case VAR_USE_SELECT:
@@ -784,7 +795,6 @@ namespace tb {
 
             }            
         }
-
 
         void reset() {
             m_score_map.reset();
@@ -797,7 +807,7 @@ namespace tb {
         // determine if constructors in p are matches by rules.
         bool is_reductive(app* p, double_vector const& p_scores) {
             func_decl* f = p->get_decl();
-            score_map::obj_map_entry* e = m_score_map.find_core(p->get_decl());
+            score_map::obj_map_entry* e = m_score_map.find_core(f);
             if (!e) {
                 return false;
             }
@@ -817,6 +827,9 @@ namespace tb {
         void set_strategy(symbol const& str) {
             if (str == symbol("weight")) {
                 m_strategy = WEIGHT_SELECT;
+            }
+            if (str == symbol("basic-weight")) {
+                m_strategy = BASIC_WEIGHT_SELECT;
             }
             else if (str == symbol("first")) {
                 m_strategy = FIRST_SELECT;
@@ -843,7 +856,7 @@ namespace tb {
                 double_vector p_scores;
                 double score = 0;
                 app* p = g.get_predicate(i);
-                score_predicate(p, scores);
+                basic_score_predicate(p, scores);
                 m_score_map.find(p->get_decl(), p_scores);
                 SASSERT(p_scores.empty() || p->get_num_args() == p_scores.size());
                 p_scores.resize(p->get_num_args());
@@ -853,11 +866,11 @@ namespace tb {
                         score += m_var_scores[idx];
                     }
                     else {
-                        IF_VERBOSE(1, verbose_stream() << p_scores[j] << " " << scores[j] << "\n";);
+                        IF_VERBOSE(2, verbose_stream() << p_scores[j] << " " << scores[j] << "\n";);
                         score += p_scores[j]*scores[j];
                     }
                 }
-                IF_VERBOSE(1, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
+                IF_VERBOSE(2, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
                 if (score > max_score) {
                     max_score = score;
                     result = i;
@@ -868,25 +881,36 @@ namespace tb {
             return result;            
         }
 
-        unsigned weight_select(clause const& g) {
-            double_vector& scores = m_scores;
+        unsigned basic_weight_select(clause const& g) {
             double max_score = 0;
             unsigned result = 0;
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                scores.reset();
-                double score = 0;
                 app* p = g.get_predicate(i);
-                score_predicate(p, scores);
-                for (unsigned j = 0; j < scores.size(); ++j) {
-                    score += scores[j];
-                }
-                IF_VERBOSE(1, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
+                double score = basic_score_predicate(p);
+                IF_VERBOSE(2, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
                 if (score > max_score) {
                     max_score = score;
                     result = i;
                 }
             }
-            IF_VERBOSE(1, verbose_stream() << "select " << result << "\n";);
+            IF_VERBOSE(2, verbose_stream() << "select " << result << "\n";);
+            return result;
+        }
+
+        unsigned weight_select(clause const& g) {
+            prepare_weight_select();
+            double max_score = 0;
+            unsigned result = 0;
+            for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
+                app* p = g.get_predicate(i);
+                double score = score_predicate(p);
+                IF_VERBOSE(2, verbose_stream() << "score: " << mk_pp(p, m) << " " << score << "\n";);
+                if (score > max_score) {
+                    max_score = score;
+                    result = i;
+                }
+            }
+            IF_VERBOSE(2, verbose_stream() << "select " << result << "\n";);
             return result;
         }
 
@@ -929,11 +953,32 @@ namespace tb {
             }
         }
 
-        
-        void score_predicate(app* p, double_vector& scores) {
+        double basic_score_predicate(app* p) {
+            double score = 1;
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                score += score_argument(p->get_arg(i));
+            }
+            return score;
+        }
+
+        void basic_score_predicate(app* p, double_vector& scores) {
             for (unsigned i = 0; i < p->get_num_args(); ++i) {
                 scores.push_back(score_argument(p->get_arg(i)));
             }
+        }
+
+        
+        double score_predicate(app* p) {
+            double score = 1;
+            if (find_score(p, score)) {
+                return score;
+            }
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                score += score_argument(p->get_arg(i));
+            }
+            score = adjust_score(score);
+            insert_score(p, score);
+            return score;
         }
 
         unsigned score_argument(expr* arg) {
@@ -955,6 +1000,34 @@ namespace tb {
                     ++score;
                 }
             }
+        }
+
+        void prepare_weight_select() {
+            SASSERT(m_next_update > 0);
+            --m_next_update;
+            if (m_next_update == 0) {
+                if (m_update_frequency >= (1 << 16)) {
+                    m_update_frequency = 20;
+                    m_weight_multiply = 1.0;
+                }
+                m_update_frequency *= 11;
+                m_update_frequency /= 10;
+                m_next_update = m_update_frequency;
+                m_weight_multiply *= 1.1;
+            }
+        }
+
+        bool find_score(app* p, double& score) {
+            return m_pred_map.find(p, score);
+        }
+
+        double adjust_score(double score) {
+            return score/m_weight_multiply;
+        }
+
+        void insert_score(app* p, double score) {
+            m_pred_map.insert(p, score);
+            m_refs.push_back(p);
         }
 
         void insert_score(func_decl* f, double_vector const& scores) {
@@ -1180,7 +1253,7 @@ namespace datalog {
             m_ctx(ctx), 
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
-            m_index(ctx),
+            m_index(m),
             m_selection(ctx),
             m_solver(m, m_fparams),
             m_unifier(m, ctx),
