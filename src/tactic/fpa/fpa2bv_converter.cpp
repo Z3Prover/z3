@@ -1641,7 +1641,7 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
         SASSERT(is_well_sorted(m, is_sig_zero));
         SASSERT(is_well_sorted(m, lz));
         SASSERT(is_well_sorted(m, shift));
-        if (ebits > sbits) {        
+        if (ebits < sbits) {        
             expr_ref q(m);
             q = m_bv_util.mk_zero_extend(sbits-ebits, shift);            
             denormal_sig = m_bv_util.mk_bv_shl(denormal_sig, q);
