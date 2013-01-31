@@ -1335,29 +1335,30 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             sub_dir = os.path.join('api', 'ml')
             mk_dir(os.path.join(BUILD_DIR, sub_dir))
+            api_src = get_component(API_COMPONENT).to_src_dir
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
-            out.write('libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
-            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s api/ml/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, get_component(API_COMPONENT).to_src_dir))
-            out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
-            out.write('api/ml/z3.cmxa: libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('api/ml/libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, api_src, src_dir))
+            out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
+            out.write('api/ml/z3.cmxa: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(src_dir, mlfile))
             out.write('\n')
-            out.write('\tcd %s && %s ' % (sub_dir, OCAMLOPT))
+            out.write('\t%s ' % (OCAMLOPT))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" z3enums.ml z3native.ml z3.ml -a -o z3.cmxa -linkall && cd ../..\n' % get_component(API_COMPONENT).to_src_dir)
-            out.write('api/ml/z3.cma: libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (api_src,src_dir,src_dir,src_dir,src_dir))
+            out.write('api/ml/z3.cma: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
-            out.write('\tcd %s && %s ' % (sub_dir, OCAMLC))
+            out.write('\t%s ' % (OCAMLC))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" z3enums.ml z3native.ml z3.ml -a -o z3.cma -linkall && cd ../..\n' % get_component(API_COMPONENT).to_src_dir)
+                out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (api_src,src_dir,src_dir,src_dir,src_dir))
             out.write('ml: api/ml/z3.cmxa api/ml/z3.cma\n')
             out.write('\n')
     
