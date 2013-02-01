@@ -164,10 +164,10 @@ namespace tb {
 
     public:            
         
-        clause(datalog::rule_manager& rm): 
-            m_head(rm.get_manager()),
-            m_predicates(rm.get_manager()),
-            m_constraint(rm.get_manager()),
+        clause(ast_manager& m):
+            m_head(m),
+            m_predicates(m),
+            m_constraint(m),
             m_seqno(0),
             m_index(0), 
             m_num_vars(0),
@@ -437,7 +437,7 @@ namespace tb {
             datalog::rule_set::iterator end = rules.end();
             for (unsigned i = 0; it != end; ++it) {
                 r = *it;
-                ref<clause> g = alloc(clause, rm);
+                ref<clause> g = alloc(clause, rm.get_manager());
                 g->init(r);
                 g->set_index(i++);
                 insert(g);
@@ -455,7 +455,7 @@ namespace tb {
 
         unsigned get_num_rules(func_decl* p) const {
             map::obj_map_entry* e = m_index.find_core(p);
-            if (p) {
+            if (e) {
                 return e->get_data().get_value().size();
             }
             else {
@@ -726,6 +726,7 @@ namespace tb {
             }
         }
     };
+
 
     // predicate selection strategy.
     class selection {
@@ -1091,7 +1092,7 @@ namespace tb {
             app_ref_vector predicates(m);
             expr_ref tmp(m), tmp2(m), constraint(m);
             app_ref head(m);
-            result = alloc(clause, m_ctx.get_rule_manager());
+            result = alloc(clause, m);
             unsigned delta[2] = { 0, var_cnt };
             m_S1.apply(2, delta, expr_offset(tgt.get_head(), 0), tmp);   
             head = to_app(tmp);
@@ -1199,6 +1200,79 @@ namespace tb {
         }
     };
 
+    //
+    // Given a clause 
+    //  P(s) :- P(t), Phi(x).
+    // Compute the clauses:
+    //  acc:    P(s) :- Delta(z,t), P(z), Phi(x).
+    //  delta1: Delta(z,z).
+    //  delta2: Delta(z,s) :- Delta(z,t), Phi(x).
+    //
+
+    class extract_delta {
+        ast_manager& m;
+    public:
+        extract_delta(ast_manager& m):
+            m(m)
+        {}
+
+        void operator()(clause const& g, ref<clause>& acc, ref<clause>& delta1, ref<clause>& delta2) {
+            SASSERT(g.get_num_predicates() > 0);
+            app* p = g.get_head();
+            app* q = g.get_predicate(0);
+            SASSERT(p->get_decl() == q->get_decl());
+            expr_ref_vector zs = mk_fresh_vars(g);
+            expr_ref_vector zszs(m);
+            func_decl_ref delta(m);
+            sort_ref_vector dom(m);
+            for (unsigned j = 0; j < 1; ++j) {
+                for (unsigned i = 0; i < zs.size(); ++i) {
+                    dom.push_back(m.get_sort(zs[i].get()));
+                    zszs.push_back(zs[i].get());
+                }
+            }
+            app_ref_vector preds(m);
+            delta = m.mk_fresh_func_decl("Delta", dom.size(), dom.c_ptr(), m.mk_bool_sort());
+            acc    = alloc(clause, m);
+            delta1 = alloc(clause, m);
+            delta2 = alloc(clause, m);
+            delta1->init(m.mk_app(delta, zszs.size(), zszs.c_ptr()), preds, m.mk_true());
+            for (unsigned i = 0; i < zs.size(); ++i) {
+                zszs[i+zs.size()] = p->get_arg(i);
+            }
+            app_ref head(m), pred(m);
+            head = m.mk_app(delta, zszs.size(), zszs.c_ptr());
+            for (unsigned i = 0; i < zs.size(); ++i) {
+                zszs[i+zs.size()] = q->get_arg(i);
+            }            
+            pred = m.mk_app(delta, zszs.size(), zszs.c_ptr());
+            preds.push_back(pred);
+            for (unsigned i = 1; i < g.get_num_predicates(); ++i) {
+                preds.push_back(g.get_predicate(i));
+            }
+            delta2->init(head, preds, g.get_constraint());
+            preds.push_back(m.mk_app(q->get_decl(), zs.size(), zs.c_ptr()));
+            acc->init(p, preds, g.get_constraint());
+
+            IF_VERBOSE(1, 
+                       delta1->display(verbose_stream() << "delta1:\n");
+                       delta2->display(verbose_stream() << "delta2:\n");
+                       acc->display(verbose_stream() << "acc:\n"););
+        }
+
+    private:
+
+        expr_ref_vector mk_fresh_vars(clause const& g) {
+            expr_ref_vector result(m);
+            app* p = g.get_head();
+            unsigned num_vars = g.get_num_vars();
+            for (unsigned i = 0; i < p->get_num_args(); ++i) {
+                result.push_back(m.mk_var(num_vars+i, m.get_sort(p->get_arg(i))));
+            }            
+            return result;
+        }
+    };
+
     enum instruction {
         SELECT_RULE,
         SELECT_PREDICATE,
@@ -1282,7 +1356,7 @@ namespace datalog {
             func_decl_ref query_pred(m);
             rm.mk_query(query, query_pred, query_rules, clause);
 
-            ref<tb::clause> g = alloc(tb::clause, rm);
+            ref<tb::clause> g = alloc(tb::clause, m);
             g->init(clause);
             g->set_head(m.mk_false());
             init_clause(g);
