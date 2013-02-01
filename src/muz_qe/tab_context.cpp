@@ -1048,7 +1048,6 @@ namespace tb {
 
     class unifier {
         ast_manager&          m;
-        datalog::context&     m_ctx;
         ::unifier             m_unifier;
         substitution          m_S1;
         var_subst             m_S2;
@@ -1056,9 +1055,8 @@ namespace tb {
         expr_ref_vector       m_sub1;
         expr_ref_vector       m_sub2;
     public:
-        unifier(ast_manager& m, datalog::context& ctx): 
+        unifier(ast_manager& m): 
             m(m), 
-            m_ctx(ctx), 
             m_unifier(m),
             m_S1(m),
             m_S2(m, false),
@@ -1066,8 +1064,8 @@ namespace tb {
             m_sub1(m), 
             m_sub2(m) {}
         
-        bool operator()(ref<clause>& tgt, ref<clause>& src, bool compute_subst, ref<clause>& result) {
-            return unify(*tgt, *src, compute_subst, result);
+        bool operator()(ref<clause>& tgt, unsigned idx, ref<clause>& src, bool compute_subst, ref<clause>& result) {
+            return unify(*tgt, idx, *src, compute_subst, result);
         }
 
         expr_ref_vector get_rule_subst(bool is_tgt) {
@@ -1079,10 +1077,9 @@ namespace tb {
             }
         }
 
-        bool unify(clause const& tgt, clause const& src, bool compute_subst, ref<clause>& result) {            
+        bool unify(clause const& tgt, unsigned idx, clause const& src, bool compute_subst, ref<clause>& result) {            
             qe_lite qe(m);
             reset();
-            unsigned idx = tgt.get_predicate_index();
             SASSERT(tgt.get_predicate(idx)->get_decl() == src.get_head()->get_decl());
             unsigned var_cnt = std::max(tgt.get_num_vars(), src.get_num_vars());
             m_S1.reserve(2, var_cnt);            
@@ -1101,10 +1098,12 @@ namespace tb {
                     m_S1.apply(2, delta, expr_offset(tgt.get_predicate(i), 0), tmp);
                     predicates.push_back(to_app(tmp));
                 }
-            }
-            for (unsigned i = 0; i < src.get_num_predicates(); ++i) {
-                m_S1.apply(2, delta, expr_offset(src.get_predicate(i), 1), tmp);
-                predicates.push_back(to_app(tmp));
+                else {
+                    for (unsigned j = 0; j < src.get_num_predicates(); ++j) {
+                        m_S1.apply(2, delta, expr_offset(src.get_predicate(j), 1), tmp);
+                        predicates.push_back(to_app(tmp));
+                    }
+                }
             }
             m_S1.apply(2, delta, expr_offset(tgt.get_constraint(), 0), tmp);
             m_S1.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
@@ -1200,23 +1199,28 @@ namespace tb {
         }
     };
 
-    //
-    // Given a clause 
-    //  P(s) :- P(t), Phi(x).
-    // Compute the clauses:
-    //  acc:    P(s) :- Delta(z,t), P(z), Phi(x).
-    //  delta1: Delta(z,z).
-    //  delta2: Delta(z,s) :- Delta(z,t), Phi(x).
-    //
+
 
     class extract_delta {
         ast_manager& m;
+        unifier      m_unifier;
     public:
         extract_delta(ast_manager& m):
-            m(m)
+            m(m),
+            m_unifier(m)
         {}
 
-        void operator()(clause const& g, ref<clause>& acc, ref<clause>& delta1, ref<clause>& delta2) {
+
+        //
+        // Given a clause 
+        //  P(s) :- P(t), Phi(x).
+        // Compute the clauses:
+        //  acc:    P(s) :- Delta(z,t), P(z), Phi(x).
+        //  delta1: Delta(z,z).
+        //  delta2: Delta(z,s) :- Delta(z,t), Phi(x).
+        //
+
+        void mk_delta_clauses(clause const& g, ref<clause>& acc, ref<clause>& delta1, ref<clause>& delta2) {
             SASSERT(g.get_num_predicates() > 0);
             app* p = g.get_head();
             app* q = g.get_predicate(0);
@@ -1259,6 +1263,31 @@ namespace tb {
                        delta2->display(verbose_stream() << "delta2:\n");
                        acc->display(verbose_stream() << "acc:\n"););
         }
+
+        // 
+        // Given a sequence of clauses and inference rules
+        // compute a super-predicate and auxiliary clauses.
+        //   
+        //   P1(x) :- P2(y), R(z)
+        //   P2(y) :- P3(z), T(u)
+        //   P3(z) :- P1(x), U(v)
+        // =>
+        //   P1(x) :- P1(x), R(z), T(u), U(v)
+        //   
+
+        ref<clause> resolve_rules(unsigned num_clauses, clause*const* clauses, unsigned const* positions) {
+            ref<clause> result = clauses[0];
+            ref<clause> tmp;
+            unsigned offset = 0;
+            for (unsigned i = 0; i + 1 < num_clauses; ++i) {                
+                clause const& cl = *clauses[i+1];
+                offset += positions[i];
+                VERIFY (m_unifier.unify(*result, offset, cl, false, tmp));
+                result = tmp;
+            }
+            return result;
+        }
+        
 
     private:
 
@@ -1330,7 +1359,7 @@ namespace datalog {
             m_index(m),
             m_selection(ctx),
             m_solver(m, m_fparams),
-            m_unifier(m, ctx),
+            m_unifier(m),
             m_rules(),
             m_seqno(0),
             m_instruction(tb::SELECT_PREDICATE),
@@ -1427,8 +1456,8 @@ namespace datalog {
         
         void apply_rule(ref<tb::clause>& r) {
             ref<tb::clause> clause = get_clause();
-            ref<tb::clause> next_clause;
-            if (m_unifier(clause, r, false, next_clause) &&
+            ref<tb::clause> next_clause;            
+            if (m_unifier(clause, clause->get_predicate_index(), r, false, next_clause) &&
                 !query_is_tautology(*next_clause)) {
                 init_clause(next_clause);
                 unsigned subsumer = 0;
@@ -1585,7 +1614,7 @@ namespace datalog {
                 unsigned pi = parent->get_predicate_index();
                 func_decl* pred = parent->get_predicate(pi)->get_decl();
                 ref<tb::clause> rl = m_rules.get_rule(pred, p_rule); 
-                VERIFY(m_unifier(parent, rl, true, replayed_clause));
+                VERIFY(m_unifier(parent, parent->get_predicate_index(), rl, true, replayed_clause));
                 expr_ref_vector s1(m_unifier.get_rule_subst(true));
                 expr_ref_vector s2(m_unifier.get_rule_subst(false));
                 resolve_rule(pc, *parent, *rl, s1, s2, *clause);
