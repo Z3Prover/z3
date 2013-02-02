@@ -304,8 +304,8 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
     m_logic(l),
     m_interactive_mode(false),
-    m_global_decls(false),  // :global-decls is false by default.
-    m_print_success(false), // params.m_smtlib2_compliant), 
+    m_global_decls(false),  
+    m_print_success(m_params.m_smtlib2_compliant),
     m_random_seed(0),
     m_produce_unsat_cores(false),
     m_produce_assignments(false),
@@ -352,6 +352,8 @@ void cmd_context::set_cancel(bool f) {
 
 void cmd_context::global_params_updated() {
     m_params.updt_params();
+    if (m_params.m_smtlib2_compliant)
+        m_print_success = true;
     if (m_solver) {
         params_ref p;
         if (!m_params.m_auto_config)
