@@ -131,6 +131,8 @@ public:
     }
     void mk_gt(expr * arg1, expr * arg2, expr_ref & result) { mk_gt_core(arg1, arg2, result); }
 
+    br_status mk_abs_core(expr * arg, expr_ref & result);
+
     br_status mk_div_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_mod_core(expr * arg1, expr * arg2, expr_ref & result);

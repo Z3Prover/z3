@@ -82,6 +82,7 @@ public:
     void mk_to_real(expr * arg, expr_ref & result);
     void mk_to_int(expr * arg, expr_ref & result);
     void mk_is_int(expr * arg, expr_ref & result);
+    void mk_abs(expr * arg, expr_ref & result);
 
     virtual bool reduce(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);
     virtual bool reduce_eq(expr * lhs, expr * rhs, expr_ref & result);

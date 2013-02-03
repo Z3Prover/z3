@@ -70,6 +70,7 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_TO_INT: SASSERT(num_args == 1);  st = mk_to_int_core(args[0], result); break;
     case OP_IS_INT: SASSERT(num_args == 1);  st = mk_is_int(args[0], result); break;
     case OP_POWER:  SASSERT(num_args == 2);  st = mk_power_core(args[0], args[1], result); break;
+    case OP_ABS:    SASSERT(num_args == 1);  st = mk_abs_core(args[0], result); break;
     case OP_SIN: SASSERT(num_args == 1); st = mk_sin_core(args[0], result); break;
     case OP_COS: SASSERT(num_args == 1); st = mk_cos_core(args[0], result); break;
     case OP_TAN: SASSERT(num_args == 1); st = mk_tan_core(args[0], result); break;
@@ -1022,6 +1023,11 @@ br_status arith_rewriter::mk_is_int(expr * arg, expr_ref & result) {
                            arg);
         return BR_REWRITE3;
     }
+}
+
+br_status arith_rewriter::mk_abs_core(expr * arg, expr_ref & result) {
+    result = m().mk_ite(m_util.mk_ge(arg, m_util.mk_numeral(rational(0), m_util.is_int(arg))), arg, m_util.mk_uminus(arg));
+    return BR_REWRITE2;
 }
 
 void arith_rewriter::set_cancel(bool f) {

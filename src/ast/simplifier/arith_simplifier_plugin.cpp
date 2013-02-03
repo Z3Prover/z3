@@ -404,6 +404,7 @@ bool arith_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     case OP_TO_INT:   SASSERT(num_args == 1); mk_to_int(args[0], result); break;
     case OP_IS_INT:   SASSERT(num_args == 1); mk_is_int(args[0], result); break;
     case OP_POWER:                    return false;
+    case OP_ABS:      SASSERT(num_args == 1); mk_abs(args[0], result); break;
     case OP_IRRATIONAL_ALGEBRAIC_NUM: return false;
     default:
         UNREACHABLE();
@@ -411,6 +412,14 @@ bool arith_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * co
     }
     TRACE("arith_simplifier_plugin", tout << mk_pp(result.get(), m_manager) << "\n";);
     return true;
+}
+
+void arith_simplifier_plugin::mk_abs(expr * arg, expr_ref & result) {
+    expr_ref c(m_manager);
+    expr_ref m_arg(m_manager);
+    mk_uminus(arg, m_arg);
+    mk_ge(arg, m_util.mk_numeral(rational(0), m_util.is_int(arg)), c);
+    m_bsimp.mk_ite(c, arg, m_arg, result);
 }
 
 bool arith_simplifier_plugin::is_arith_term(expr * n) const {

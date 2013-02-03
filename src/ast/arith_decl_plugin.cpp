@@ -194,6 +194,9 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     MK_OP(m_r_power_decl, "^", OP_POWER, r);
     MK_OP(m_i_power_decl, "^", OP_POWER, i);
 
+    MK_UNARY(m_i_abs_decl, "abs", OP_ABS, i);
+    MK_UNARY(m_r_abs_decl, "abs", OP_ABS, r);
+
     MK_UNARY(m_sin_decl, "sin", OP_SIN, r);
     MK_UNARY(m_cos_decl, "cos", OP_COS, r);
     MK_UNARY(m_tan_decl, "tan", OP_TAN, r);
@@ -263,6 +266,8 @@ arith_decl_plugin::arith_decl_plugin():
     m_is_int_decl(0),
     m_r_power_decl(0),
     m_i_power_decl(0),
+    m_r_abs_decl(0),
+    m_i_abs_decl(0),
     m_sin_decl(0),
     m_cos_decl(0),
     m_tan_decl(0),
@@ -320,6 +325,8 @@ void arith_decl_plugin::finalize() {
     DEC_REF(m_is_int_decl);
     DEC_REF(m_i_power_decl);
     DEC_REF(m_r_power_decl);
+    DEC_REF(m_i_abs_decl);
+    DEC_REF(m_r_abs_decl);
     DEC_REF(m_sin_decl);
     DEC_REF(m_cos_decl);
     DEC_REF(m_tan_decl);
@@ -372,6 +379,7 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_TO_INT:  return m_to_int_decl;
     case OP_IS_INT:  return m_is_int_decl;
     case OP_POWER:   return is_real ? m_r_power_decl : m_i_power_decl;
+    case OP_ABS:     return is_real ? m_r_abs_decl : m_i_abs_decl;
     case OP_SIN:     return m_sin_decl;
     case OP_COS:     return m_cos_decl;
     case OP_TAN:     return m_tan_decl;
@@ -538,6 +546,7 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("to_real",OP_TO_REAL));
     op_names.push_back(builtin_name("to_int",OP_TO_INT));
     op_names.push_back(builtin_name("is_int",OP_IS_INT));
+    op_names.push_back(builtin_name("abs", OP_ABS));
     if (logic == symbol::null) {
         op_names.push_back(builtin_name("^", OP_POWER));
         op_names.push_back(builtin_name("sin", OP_SIN));
