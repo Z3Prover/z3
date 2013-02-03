@@ -154,6 +154,14 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
         m->inc_ref(FIELD);                                              \
     }
 
+#define MK_LEFT_ASSOC_OP(FIELD, NAME, KIND, SORT) {                     \
+        func_decl_info info(id, KIND);                                  \
+        info.set_left_associative();                                    \
+        FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, info);  \
+        m->inc_ref(FIELD);                                              \
+    }
+
+
 #define MK_OP(FIELD, NAME, KIND, SORT)                                                  \
     FIELD = m->mk_func_decl(symbol(NAME), SORT, SORT, SORT, func_decl_info(id, KIND));  \
     m->inc_ref(FIELD)
@@ -163,15 +171,15 @@ void arith_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m->inc_ref(FIELD)
 
     MK_AC_OP(m_r_add_decl, "+", OP_ADD, r);
-    MK_OP(m_r_sub_decl, "-", OP_SUB, r);
+    MK_LEFT_ASSOC_OP(m_r_sub_decl, "-", OP_SUB, r);
     MK_AC_OP(m_r_mul_decl, "*", OP_MUL, r);
-    MK_OP(m_r_div_decl, "/", OP_DIV, r);
+    MK_LEFT_ASSOC_OP(m_r_div_decl, "/", OP_DIV, r);
     MK_UNARY(m_r_uminus_decl, "-", OP_UMINUS, r);
 
     MK_AC_OP(m_i_add_decl, "+", OP_ADD, i);
-    MK_OP(m_i_sub_decl, "-", OP_SUB, i);
+    MK_LEFT_ASSOC_OP(m_i_sub_decl, "-", OP_SUB, i);
     MK_AC_OP(m_i_mul_decl, "*", OP_MUL, i);
-    MK_OP(m_i_div_decl, "div", OP_IDIV, i);
+    MK_LEFT_ASSOC_OP(m_i_div_decl, "div", OP_IDIV, i);
     MK_OP(m_i_rem_decl, "rem", OP_REM, i);
     MK_OP(m_i_mod_decl, "mod", OP_MOD, i);
     MK_UNARY(m_i_uminus_decl, "-", OP_UMINUS, i);
