@@ -670,7 +670,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";
         msg += s.str();
-        msg += "' (whith the given signature) already declared";
+        msg += "' (with the given signature) already declared";
         throw cmd_exception(msg.c_str());
     }
     if (s != f->get_name()) {
