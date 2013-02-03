@@ -621,14 +621,19 @@ bool cmd_context::supported_logic(symbol const & s) const {
         s == "QF_FPA" || s == "QF_FPABV";
 }
 
-void cmd_context::set_logic(symbol const & s) {
+bool cmd_context::set_logic(symbol const & s) {
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_manager() && m_main_ctx) 
         throw cmd_exception("logic must be set before initialization");    
     if (!supported_logic(s)) {
-        warning_msg("unknown logic, ignoring set-logic command");
-        return; 
+        if (m_params.m_smtlib2_compliant) {
+            return false; 
+        }
+        else {
+            warning_msg("unknown logic, ignoring set-logic command");
+            return true;
+        }
     }
     m_logic = s;
     if (is_logic("QF_RDL") ||
@@ -640,6 +645,7 @@ void cmd_context::set_logic(symbol const & s) {
         is_logic("QF_UFNRA") ||
         is_logic("QF_UFLRA"))
         m_numeral_as_real = true;
+    return true;
 }
 
 std::string cmd_context::reason_unknown() const { 

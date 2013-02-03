@@ -214,8 +214,11 @@ ATOMIC_CMD(labels_cmd, "labels", "retrieve Simplify-like labels", {
 ATOMIC_CMD(get_assertions_cmd, "get-assertions", "retrieve asserted terms when in interactive mode", ctx.display_assertions(););
 
 UNARY_CMD(set_logic_cmd, "set-logic", "<symbol>", "set the background logic.", CPK_SYMBOL, symbol const &, 
-          ctx.set_logic(arg); 
-          ctx.print_success(););
+          if (ctx.set_logic(arg))
+              ctx.print_success();
+          else
+              ctx.print_unsupported(symbol::null);
+          );
 
 UNARY_CMD(pp_cmd, "display", "<term>", "display the given term.", CPK_EXPR, expr *, { 
     ctx.display(ctx.regular_stream(), arg);
