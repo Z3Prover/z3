@@ -1010,6 +1010,13 @@ func_decl * basic_decl_plugin::mk_ite_decl(sort * s) {
 
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
+    if (range != 0) {
+        if (is_sort_of(range, m_family_id, BOOL_SORT))
+            m_manager->raise_exception("unneeded disambiguation");
+        else
+            m_manager->raise_exception("incorrect disambiguation");
+        return 0;
+    }
     switch (static_cast<basic_op_kind>(k)) {
     case OP_TRUE:    return m_true_decl;
     case OP_FALSE:   return m_false_decl;
@@ -1044,7 +1051,14 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 }
 
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                          unsigned num_args, expr * const * args, sort * range) {
+                                            unsigned num_args, expr * const * args, sort * range) {
+    if (range != 0) {
+        if (is_sort_of(range, m_family_id, BOOL_SORT))
+            m_manager->raise_exception("unneeded disambiguation");
+        else
+            m_manager->raise_exception("incorrect disambiguation");
+        return 0;
+    }
     switch (static_cast<basic_op_kind>(k)) {
     case OP_TRUE:    return m_true_decl;
     case OP_FALSE:   return m_false_decl;

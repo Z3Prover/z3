@@ -492,6 +492,13 @@ static bool is_const_op(decl_kind k) {
     
 func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                           unsigned arity, sort * const * domain, sort * range) {
+    if (range != 0) {
+        if (is_sort_of(range, m_family_id, REAL_SORT) || is_sort_of(range, m_family_id, INT_SORT))
+            m_manager->raise_exception("unneeded disambiguation");
+        else
+            m_manager->raise_exception("incorrect disambiguation");
+        return 0;
+    }
     if (k == OP_NUM)
         return mk_num_decl(num_parameters, parameters, arity);
     if (arity == 0 && !is_const_op(k)) {
@@ -509,6 +516,13 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
 func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                           unsigned num_args, expr * const * args, sort * range) {
+    if (range != 0) {
+        if (is_sort_of(range, m_family_id, REAL_SORT) || is_sort_of(range, m_family_id, INT_SORT))
+            m_manager->raise_exception("unneeded disambiguation");
+        else
+            m_manager->raise_exception("incorrect disambiguation");
+        return 0;
+    }
     if (k == OP_NUM)
         return mk_num_decl(num_parameters, parameters, num_args);
     if (num_args == 0 && !is_const_op(k)) {
