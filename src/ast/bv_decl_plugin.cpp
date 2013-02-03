@@ -171,6 +171,9 @@ sort * bv_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter c
         m_manager->raise_exception("expecting one integer parameter to bit-vector sort");
     }
     unsigned bv_size = parameters[0].get_int();
+    if (bv_size == 0) {
+        m_manager->raise_exception("bit-vector size must be greater than zero");
+    }
     mk_bv_sort(bv_size);
     return m_bv_sorts[bv_size];
 }
