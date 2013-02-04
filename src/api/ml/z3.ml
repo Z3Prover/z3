@@ -1097,6 +1097,7 @@ sig
 
   val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
   val get_func_decl : expr -> FuncDecl.func_decl 
+  val is_numeral : expr -> bool
 end = struct
   type expr = Expr of AST.ast
 
@@ -1107,20 +1108,20 @@ end = struct
       let s = Z3native.get_sort (context_gno ctx) obj in
       let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in    
       if (Z3native.is_algebraic_number (context_gno ctx) obj) then
-	(match (Arithmetic.create_algebraic_num ctx obj) with Arithmetic.AlgebraicNum(Arithmetic.Expr(e)) -> e)
+	(match (Arithmetic.AlgebraicNumbers.create_num ctx obj) with Arithmetic.AlgebraicNumbers.AlgebraicNum(Arithmetic.Expr(e)) -> e)
       else
 	if (Z3native.is_numeral_ast (context_gno ctx) obj) &&
 	  (sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
 	  match sk with
-	    | INT_SORT -> (match (Arithmetic.create_int_num ctx obj) with Arithmetic.IntNum(Arithmetic.IntExpr(Arithmetic.Expr(e))) -> e)
-            | REAL_SORT -> (match (Arithmetic.create_rat_num ctx obj) with Arithmetic.RatNum(Arithmetic.RealExpr(Arithmetic.Expr(e))) -> e)
+	    | INT_SORT -> (match (Arithmetic.Integers.create_num ctx obj) with Arithmetic.Integers.IntNum(Arithmetic.Integers.IntExpr(Arithmetic.Expr(e))) -> e)
+            | REAL_SORT -> (match (Arithmetic.Reals.create_num ctx obj) with Arithmetic.Reals.RatNum(Arithmetic.Reals.RealExpr(Arithmetic.Expr(e))) -> e)
             | BV_SORT -> (match (BitVectors.create_num ctx obj) with BitVectors.BitVecNum(BitVectors.BitVecExpr(e)) -> e)
 	    | _ -> raise (Z3native.Exception "Unsupported numeral object")
 	else
 	  match sk with
-	    | BOOL_SORT -> (match (Booleans.create ctx obj) with Booleans.BoolExpr(e) -> e)
-            | INT_SORT -> (match (Arithmetic.create_int_expr ctx obj) with Arithmetic.IntExpr(Arithmetic.Expr(e)) -> e)
-            | REAL_SORT -> (match (Arithmetic.create_real_expr ctx obj) with Arithmetic.RealExpr(Arithmetic.Expr(e)) -> e)
+	    | BOOL_SORT -> (match (Booleans.create_expr ctx obj) with Booleans.BoolExpr(e) -> e)
+            | INT_SORT -> (match (Arithmetic.Integers.create_expr ctx obj) with Arithmetic.Integers.IntExpr(Arithmetic.Expr(e)) -> e)
+            | REAL_SORT -> (match (Arithmetic.Reals.create_expr ctx obj) with Arithmetic.Reals.RealExpr(Arithmetic.Expr(e)) -> e)
 	    | BV_SORT -> (match (BitVectors.create_expr ctx obj) with BitVectors.BitVecExpr(e) -> e)
             | ARRAY_SORT -> (match (Arrays.create_expr ctx obj) with Arrays.ArrayExpr(e) -> e)
             | DATATYPE_SORT -> (match (Datatypes.create_expr ctx obj) with Datatypes.DatatypeExpr(e) -> e)
@@ -1406,15 +1407,19 @@ sig
   type bool_expr = BoolExpr of Expr.expr
   type bool_sort = BoolSort of Sort.sort
 
-  val create : context -> Z3native.ptr -> bool_expr
+  val create_expr : context -> Z3native.ptr -> bool_expr
+  val create_sort : context -> Z3native.ptr -> bool_sort
   val aton : bool_expr array -> Z3native.ptr array
 end = struct
   type bool_expr = BoolExpr of Expr.expr
   type bool_sort = BoolSort of Sort.sort
       
-  let create ( ctx : context ) ( no : Z3native.ptr ) =
+  let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
     let a = (AST.create ctx no) in
     BoolExpr(Expr.Expr(a))
+
+  let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
+    BoolSort(Sort.create ctx no)
 
   let gc ( x : bool_expr ) = match x with BoolExpr(e) -> (Expr.gc e)
   let gnc ( x : bool_expr ) = match x with BoolExpr(e) -> (Expr.gnc e)
@@ -1444,13 +1449,13 @@ end = struct
      The true Term.
   *)    
   let mk_true ( ctx : context ) =
-    create ctx (Z3native.mk_true (context_gno ctx))
+    create_expr ctx (Z3native.mk_true (context_gno ctx))
 
   (**
      The false Term.
   *)    
   let mk_false ( ctx : context ) =
-    create ctx (Z3native.mk_false (context_gno ctx))
+    create_expr ctx (Z3native.mk_false (context_gno ctx))
 
   (**
      Creates a Boolean value.
@@ -1462,19 +1467,19 @@ end = struct
      Creates the equality <paramref name="x"/> = <paramref name="y"/>.
   *)
   let mk_eq ( ctx : context ) ( x : Expr.expr ) ( y : Expr.expr ) =
-    create ctx (Z3native.mk_eq (context_gno ctx) (Expr.gno x) (Expr.gno y))
+    create_expr ctx (Z3native.mk_eq (context_gno ctx) (Expr.gno x) (Expr.gno y))
 
   (**
      Creates a <c>distinct</c> term.
   *)
   let mk_distinct ( ctx : context ) ( args : Expr.expr array ) =
-    create ctx (Z3native.mk_distinct (context_gno ctx) (Array.length args) (Expr.aton args))
+    create_expr ctx (Z3native.mk_distinct (context_gno ctx) (Array.length args) (Expr.aton args))
       
   (**
      Mk an expression representing <c>not(a)</c>.
   *)    
   let mk_not ( ctx : context ) ( a : bool_expr ) =
-    create ctx (Z3native.mk_not (context_gno ctx) (gno a))
+    create_expr ctx (Z3native.mk_not (context_gno ctx) (gno a))
 
   (**    
 	 Create an expression representing an if-then-else: <c>ite(t1, t2, t3)</c>.
@@ -1483,36 +1488,36 @@ end = struct
 	 @param t3 An expression with the same sort as <paramref name="t2"/>
   *)
   let mk_ite ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) ( t3 : bool_expr ) =
-    create ctx (Z3native.mk_ite (context_gno ctx) (gno t1) (gno t2) (gno t3))
+    create_expr ctx (Z3native.mk_ite (context_gno ctx) (gno t1) (gno t2) (gno t3))
       
   (**
      Create an expression representing <c>t1 iff t2</c>.
   *)
   let mk_iff ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    create ctx (Z3native.mk_iff (context_gno ctx) (gno t1) (gno t2))
+    create_expr ctx (Z3native.mk_iff (context_gno ctx) (gno t1) (gno t2))
 
   (**
      Create an expression representing <c>t1 -> t2</c>.
   *)
   let mk_implies ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    create ctx (Z3native.mk_implies (context_gno ctx) (gno t1) (gno t2))
+    create_expr ctx (Z3native.mk_implies (context_gno ctx) (gno t1) (gno t2))
   (**
      Create an expression representing <c>t1 xor t2</c>.
   *)
   let mk_xor ( ctx : context ) ( t1 : bool_expr ) ( t2 : bool_expr ) =
-    create ctx (Z3native.mk_xor (context_gno ctx) (gno t1) (gno t2))
+    create_expr ctx (Z3native.mk_xor (context_gno ctx) (gno t1) (gno t2))
 
   (**
      Create an expression representing the AND of args
   *)
   let mk_and ( ctx : context ) ( args : bool_expr array ) =
-    create ctx (Z3native.mk_and (context_gno ctx) (Array.length args) (aton args))
+    create_expr ctx (Z3native.mk_and (context_gno ctx) (Array.length args) (aton args))
 
   (**
      Create an expression representing the OR of args
   *)
   let mk_or ( ctx : context ) ( args : bool_expr array ) =
-    create ctx (Z3native.mk_or (context_gno ctx) (Array.length args) (aton args))
+    create_expr ctx (Z3native.mk_or (context_gno ctx) (Array.length args) (aton args))
 end
 
 (** Quantifier expressions *)
@@ -1676,7 +1681,7 @@ end = struct
      The body of the quantifier.
   *)
   let get_body ( x : quantifier ) =
-    Booleans.create (gc x) (Z3native.get_quantifier_body (gnc x) (gno x))  
+    Booleans.create_expr (gc x) (Z3native.get_quantifier_body (gnc x) (gno x))  
 
   (**
      Creates a new bound variable.
@@ -2643,416 +2648,478 @@ end
 and Arithmetic :
 sig 
   type arith_sort = ArithSort of Sort.sort
-  type int_sort = IntSort of Sort.sort
-  type real_sort = RealSort of Sort.sort
-
   type arith_expr = Expr of Expr.expr
-  type int_expr = IntExpr of arith_expr
-  type real_expr = RealExpr of arith_expr
-
-  type int_num = IntNum of int_expr
-  type rat_num = RatNum of real_expr
-  type algebraic_num = AlgebraicNum of arith_expr
-
       
-  val create_arith_expr : context -> Z3native.ptr -> arith_expr
-  val create_int_expr : context -> Z3native.ptr -> int_expr
-  val create_real_expr : context -> Z3native.ptr -> real_expr
-  val create_int_num : context -> Z3native.ptr -> int_num
-  val create_rat_num : context -> Z3native.ptr -> rat_num
-  val create_algebraic_num : context -> Z3native.ptr -> algebraic_num
+  val create_expr : context -> Z3native.ptr -> arith_expr
+  val aton : arith_expr array -> Z3native.ptr array
+
+  module Integers : sig
+    type int_sort = IntSort of arith_sort
+    type int_expr = IntExpr of arith_expr
+    type int_num = IntNum of int_expr
+
+    val create_sort : context -> Z3native.ptr -> int_sort
+    val create_expr : context -> Z3native.ptr -> int_expr
+    val create_num : context -> Z3native.ptr -> int_num
+  end
+
+  module Reals : sig
+    type real_sort = RealSort of arith_sort
+    type real_expr = RealExpr of arith_expr
+    type rat_num = RatNum of real_expr	
+
+    val create_sort : context -> Z3native.ptr -> real_sort
+    val create_expr : context -> Z3native.ptr -> real_expr
+    val create_num : context -> Z3native.ptr -> rat_num
+  end
+
+  module AlgebraicNumbers : sig
+    type algebraic_num = AlgebraicNum of arith_expr
+	
+    val create_num : context -> Z3native.ptr -> algebraic_num
+  end
+
 end = struct
   type arith_sort = ArithSort of Sort.sort
-  type int_sort = IntSort of Sort.sort
-  type real_sort = RealSort of Sort.sort
-
   type arith_expr = ArithExpr of Expr.expr
-  type int_expr = IntExpr of arith_expr
-  type real_expr = RealExpr of arith_expr
-
-  type int_num = IntNum of int_expr
-  type rat_num = RatNum of real_expr
-  type algebraic_num = AlgebraicNum of arith_expr
 
   let create_arith_expr ( ctx : context ) ( no : Z3native.ptr ) =
     ArithExpr(Expr.create ctx no)
 
-  let create_int_expr ( ctx : context ) ( no : Z3native.ptr ) =
-    IntExpr(create_arith_expr ctx no)
+  let create_arith_sort ( ctx : context ) ( no : Z3native.ptr ) =
+    ArithSort(Sort.create ctx no)
 
-  let create_real_expr ( ctx : context ) ( no : Z3native.ptr ) =
-    RealExpr(create_arith_expr ctx no)
+  let sgc ( x : arith_sort ) = match (x) with ArithSort(Sort.Sort(s)) -> (z3obj_gc s)
+  let sgnc ( x : arith_sort ) = match (x) with ArithSort(Sort.Sort(s)) -> (z3obj_gnc s)
+  let sgno ( x : arith_sort ) = match (x) with ArithSort(Sort.Sort(s)) -> (z3obj_gno s)
+  let egc ( x : arith_expr ) = match (x) with ArithExpr(e) -> (Expr.gc e)
+  let egnc ( x : arith_expr ) = match (x) with ArithExpr(e) -> (Expr.gnc e)
+  let egno ( x : arith_expr ) = match (x) with ArithExpr(e) -> (Expr.gno e)
 
-  let create_int_num ( ctx : context ) ( no : Z3native.ptr ) =
-    IntNum(create_int_expr ctx no)
 
-  let create_rat_num ( ctx : context ) ( no : Z3native.ptr ) =
-    RatNum(create_real_expr ctx no)
-      
-  (**
-     Create a new integer sort.
-  *)
-  let mk_int_sort ( ctx : context ) =
-    (new int_sort ctx)#create_obj (Z3native.mk_int_sort (context_gno ctx))
+  module rec Integers : 
+  sig 
+    type int_sort = IntSort of arith_sort
+    type int_expr = IntExpr of arith_expr
+    type int_num = IntNum of int_expr
 
-  (**
-     Create a real sort.
-  *)    
-  let mk_real_sort ( ctx : context ) =
-    (new real_sort ctx)#create_obj (Z3native.mk_real_sort (context_gno ctx))
+    val create_sort : context -> Z3native.ptr -> int_sort
+    val create_expr : context -> Z3native.ptr -> int_expr
+    val create_num : context -> Z3native.ptr -> int_num
+  end = struct 
+    type int_sort = IntSort of arith_sort
+    type int_expr = IntExpr of arith_expr
+    type int_num = IntNum of int_expr
+
+    let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
+      IntSort(create_arith_sort ctx no)      
+	
+    let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
+      IntExpr(create_arith_expr ctx no)   
+
+    let create_num ( ctx : context ) ( no : Z3native.ptr ) =
+      IntNum(create_expr ctx no)      
+
+    let sgc ( x : int_sort ) = match (x) with IntSort(s) -> (sgc s)
+    let sgnc ( x : int_sort ) = match (x) with IntSort(s) -> (sgnc s)
+    let sgno ( x : int_sort ) = match (x) with IntSort(s) -> (sgno s)      
+    let egc ( x : int_expr ) = match (x) with IntExpr(e) -> (egc e)
+    let egnc ( x : int_expr ) = match (x) with IntExpr(e) -> (egnc e)
+    let egno ( x : int_expr ) = match (x) with IntExpr(e) -> (egno e)
+    let ngc ( x : int_num ) = match (x) with IntNum(e) -> (egc e)
+    let ngnc ( x : int_num ) = match (x) with IntNum(e) -> (egnc e)
+    let ngno ( x : int_num ) = match (x) with IntNum(e) -> (egno e)      
+
+    (** Create a new integer sort. *)
+    let mk_sort ( ctx : context ) =
+      create_sort ctx (Z3native.mk_int_sort (context_gno ctx))
+
+    (**  Retrieve the int value. *)
+    let get_int ( x : int_num ) = 
+      let (r, v) = Z3native.get_numeral_int (ngnc x) (ngno x) in
+      if r then v
+      else raise (Z3native.Exception "Conversion failed.")
+	
+    (** Returns a string representation of the numeral. *)
+    let to_string ( x : int_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)
+
+    (**
+       Creates an integer constant.
+    *)        
+    let mk_int_const ( ctx : context ) ( name : Symbol.symbol ) =
+      IntExpr(ArithExpr(Expr.mk_const ctx name (match (mk_sort ctx) with IntSort(ArithSort(s)) -> s)))
+	
+    (**
+       Creates an integer constant.
+    *)
+    let mk_int_const_s ( ctx : context ) ( name : string )  =
+      mk_int_const ctx (Symbol.mk_string ctx name)
+	
+    (**
+       Create an expression representing <c>t1 mod t2</c>.
+       <remarks>The arguments must have int type.
+    *)
+    let mk_mod ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =    
+      create_expr ctx (Z3native.mk_mod (context_gno ctx) (egno t1) (egno t2))
+	
+    (**
+       Create an expression representing <c>t1 rem t2</c>.
+       <remarks>The arguments must have int type.
+    *)
+    let mk_rem ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
+      create_expr  ctx (Z3native.mk_rem (context_gno ctx) (egno t1) (egno t2))
+
+    (**
+       Create an integer numeral.
+       @param v A string representing the Term value in decimal notation.
+    *)
+    let mk_int_numeral_s ( ctx : context ) ( v : string ) =
+      create_num ctx (Z3native.mk_numeral (context_gno ctx) v (sgno (mk_sort ctx)))
+	
+    (**
+       Create an integer numeral.
+       @param v value of the numeral.    
+       @return A Term with value <paramref name="v"/> and sort Integer
+    *)
+    let mk_int_numeral_i ( ctx : context ) ( v : int ) =
+      create_num ctx (Z3native.mk_int (context_gno ctx) v (sgno (mk_sort ctx)))
+
+    (**
+       Coerce an integer to a real.
+       
+       <remarks>
+       There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
+       
+       You can take the floor of a real by creating an auxiliary integer Term <c>k</c> and
+       and asserting <c>MakeInt2Real(k) <= t1 < MkInt2Real(k)+1</c>.
+       The argument must be of integer sort.
+    *)
+    let mk_int2real ( ctx : context ) ( t : int_expr ) =
+      Reals.create_expr ctx (Z3native.mk_int2real (context_gno ctx) (egno t))
+  end
+
+  and Reals : 
+  sig 
+    type real_sort = RealSort of arith_sort
+    type real_expr = RealExpr of arith_expr
+    type rat_num = RatNum of real_expr
+
+    val create_sort : context -> Z3native.ptr -> real_sort
+    val create_expr : context -> Z3native.ptr -> real_expr
+    val create_num : context -> Z3native.ptr -> rat_num
+  end = struct
+    type real_sort = RealSort of arith_sort
+    type real_expr = RealExpr of arith_expr
+    type rat_num = RatNum of real_expr
+
+    let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
+      RealSort(create_arith_sort ctx no)
+	
+    let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
+      RealExpr(create_arith_expr ctx no)
+	
+    let create_num ( ctx : context ) ( no : Z3native.ptr ) =
+      RatNum(create_expr ctx no)
+	
+    let sgc ( x : real_sort ) = match (x) with RealSort(s) -> (sgc s)
+    let sgnc ( x : real_sort ) = match (x) with RealSort(s) -> (sgnc s)
+    let sgno ( x : real_sort ) = match (x) with RealSort(s) -> (sgno s)
+    let egc ( x : real_expr ) = match (x) with RealExpr(e) -> (egc e)
+    let egnc ( x : real_expr ) = match (x) with RealExpr(e) -> (egnc e)
+    let egno ( x : real_expr ) = match (x) with RealExpr(e) -> (egno e)
+    let ngc ( x : rat_num ) = match (x) with RatNum(e) -> (egc e)
+    let ngnc ( x : rat_num ) = match (x) with RatNum(e) -> (egnc e)
+    let ngno ( x : rat_num ) = match (x) with RatNum(e) -> (egno e)
+
+    (** Create a real sort. *)    
+    let mk_sort ( ctx : context ) =
+      create_sort ctx (Z3native.mk_real_sort (context_gno ctx))	
+
+    (** The numerator of a rational numeral. *)
+    let get_numerator ( x : rat_num ) =
+      Integers.create_num (ngc x) (Z3native.get_numerator (ngnc x) (ngno x))
+	
+    (** The denominator of a rational numeral. *)
+    let get_denominator ( x : rat_num ) =
+      Integers.create_num (ngc x) (Z3native.get_denominator (ngnc x) (ngno x))
+	
+    (** Returns a string representation in decimal notation. 
+	<remarks>The result has at most <paramref name="precision"/> decimal places.*)
+    let to_decimal_string ( x : rat_num ) ( precision : int ) = 
+      Z3native.get_numeral_decimal_string (ngnc x) (ngno x) precision
+	
+    (** Returns a string representation of the numeral. *)
+    let to_string ( x : rat_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)
+
+    (** Creates a real constant. *)
+    let mk_real_const ( ctx : context ) ( name : Symbol.symbol )  =
+      RealExpr(ArithExpr(Expr.mk_const ctx name (match (mk_sort ctx) with RealSort(ArithSort(s)) -> s)))
+	
+    (** Creates a real constant. *)
+    let mk_real_const_s ( ctx : context ) ( name : string )  =
+      mk_real_const ctx (Symbol.mk_string ctx name)
+
+    (**
+       Create a real from a fraction.
+       
+       @param num numerator of rational.
+       @param den denominator of rational.
+       @return A Term with value <paramref name="num"/>/<paramref name="den"/> and sort Real
+       <seealso cref="MkNumeral(string, Sort)"/>
+    *)
+    let mk_numeral_nd ( ctx : context ) ( num : int ) ( den : int) =
+      if (den == 0) then 
+	raise (Z3native.Exception "Denominator is zero")
+      else      
+	create_num ctx (Z3native.mk_real (context_gno ctx) num den)
+	  
+    (**
+       Create a real numeral.
+       @param v A string representing the Term value in decimal notation.
+       @return A Term with value <paramref name="v"/> and sort Real
+    *)
+    let mk_numeral_s ( ctx : context ) ( v : string ) =
+      create_num ctx (Z3native.mk_numeral (context_gno ctx) v (sgno (mk_sort ctx)))
+	
+    (**
+       Create a real numeral.
+       
+       @param v value of the numeral.    
+       @return A Term with value <paramref name="v"/> and sort Real
+    *)
+    let mk_numeral_i ( ctx : context ) ( v : int ) =
+      create_num ctx (Z3native.mk_int (context_gno ctx) v (sgno (mk_sort ctx)))
+	
+    (** Creates an expression that checks whether a real number is an integer. *)
+    let mk_is_integer ( ctx : context ) ( t : real_expr ) =
+      Booleans.create_expr ctx (Z3native.mk_is_int (context_gno ctx) (egno t))
+	
+    (**
+       Coerce a real to an integer.
+       
+       <remarks>
+       The semantics of this function follows the SMT-LIB standard for the function to_int.
+       The argument must be of real sort.
+    *)
+    let mk_real2int ( ctx : context ) ( t : real_expr ) =
+      Integers.create_expr ctx (Z3native.mk_real2int (context_gno ctx) (egno t))
+  end
+
+  and AlgebraicNumbers : 
+  sig 
+    type algebraic_num = AlgebraicNum of arith_expr
+
+    val create_num : context -> Z3native.ptr -> algebraic_num
+  end = struct
+    type algebraic_num = AlgebraicNum of arith_expr
+
+    let create_num ( ctx : context ) ( no : Z3native.ptr ) =
+      AlgebraicNum(create_arith_expr ctx no)
+
+    let ngc ( x : algebraic_num ) = match (x) with AlgebraicNum(e) -> (egc e)
+    let ngnc ( x : algebraic_num ) = match (x) with AlgebraicNum(e) -> (egnc e)
+    let ngno ( x : algebraic_num ) = match (x) with AlgebraicNum(e) -> (egno e)
+
+    (**
+       Return a upper bound for a given real algebraic number. 
+       The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
+       <seealso cref="Expr.IsAlgebraicNumber"/>   
+       @param precision the precision of the result
+       @return A numeral Expr of sort Real
+    *)
+    let to_upper ( x : algebraic_num ) ( precision : int ) =
+      Reals.create_num (ngc x) (Z3native.get_algebraic_number_upper (ngnc x) (ngno x) precision)
+	
+    (**
+       Return a lower bound for the given real algebraic number. 
+       The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
+       <seealso cref="Expr.IsAlgebraicNumber"/>
+       @param precision the precision of the result
+       @return A numeral Expr of sort Real
+    *)
+    let to_lower ( x : algebraic_num ) precision =
+      Reals.create_num (ngc x) (Z3native.get_algebraic_number_lower (ngnc x) (ngno x) precision)
+	
+    (** Returns a string representation in decimal notation. 
+	<remarks>The result has at most <paramref name="precision"/> decimal places.*)
+    let to_decimal_string ( x : algebraic_num ) ( precision : int ) = 
+      Z3native.get_numeral_decimal_string (ngnc x) (ngno x) precision	
+
+    (** Returns a string representation of the numeral. *)
+    let to_string ( x : algebraic_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)      
+  end
+
+  let aton (a : arith_expr array) =
+    let f (e : arith_expr) = (egno e) in 
+    Array.map f a
 
   (**
      Indicates whether the term is of integer sort.
   *)
-  let is_int ( x : expr ) =
-    (Z3native.is_numeral_ast x#gnc x#gno) &&
-      ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == INT_SORT)
+  let is_int ( x : Expr.expr ) =
+    (Z3native.is_numeral_ast (Expr.gnc x) (Expr.gno x)) &&
+      ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == INT_SORT)
       
   (**
      Indicates whether the term is an arithmetic numeral.
   *)
-  let is_arithmetic_numeral ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
+  let is_arithmetic_numeral ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ANUM)
 
   (**
      Indicates whether the term is a less-than-or-equal
   *)
-  let is_le ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
+  let is_le ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LE)
 
   (**
      Indicates whether the term is a greater-than-or-equal
   *)
-  let is_ge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
+  let is_ge ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GE)
 
   (**
      Indicates whether the term is a less-than
   *)
-  let is_lt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
+  let is_lt ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_LT)
 
   (**
      Indicates whether the term is a greater-than
   *)
-  let is_gt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
+  let is_gt ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_GT)
 
   (**
      Indicates whether the term is addition (binary)
   *)
-  let is_add ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
+  let is_add ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ADD)
 
   (**
      Indicates whether the term is subtraction (binary)
   *)
-  let is_sub ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
+  let is_sub ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SUB)
 
   (**
      Indicates whether the term is a unary minus
   *)
-  let is_uminus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
+  let is_uminus ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UMINUS)
 
   (**
      Indicates whether the term is multiplication (binary)
   *)
-  let is_mul ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
+  let is_mul ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MUL)
 
   (**
      Indicates whether the term is division (binary)
   *)
-  let is_div ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
+  let is_div ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_DIV)
 
   (**
      Indicates whether the term is integer division (binary)
   *)
-  let is_idiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
+  let is_idiv ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IDIV)
 
   (**
      Indicates whether the term is remainder (binary)
   *)
-  let is_remainder ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
+  let is_remainder ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REM)
 
   (**
      Indicates whether the term is modulus (binary)
   *)
-  let is_modulus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
+  let is_modulus ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_MOD)
 
   (**
      Indicates whether the term is a coercion of integer to real (unary)
   *)
-  let is_inttoreal ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
+  let is_inttoreal ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_REAL)
 
   (**
      Indicates whether the term is a coercion of real to integer (unary)
   *)
-  let is_real_to_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
+  let is_real_to_int ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_TO_INT)
 
   (**
      Indicates whether the term is a check that tests whether a real is integral (unary)
   *)
-  let is_real_is_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
+  let is_real_is_int ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_IS_INT)
 
   (**
      Indicates whether the term is of sort real.
   *)
-  let is_real ( x : expr ) =
-    ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == REAL_SORT)
+  let is_real ( x : Expr.expr ) =
+    ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == REAL_SORT)
 
   (**
      Indicates whether the term is an integer numeral.
   *)
-  let is_int_numeral ( x : expr ) = (Expr.is_numeral x) && (is_int x)
+  let is_int_numeral ( x : Expr.expr ) = (Expr.is_numeral x) && (is_int x)
 
   (**
      Indicates whether the term is a real numeral.
   *)
-  let is_rat_num ( x : expr ) = (Expr.is_numeral x) && (is_real x)
+  let is_rat_num ( x : Expr.expr ) = (Expr.is_numeral x) && (is_real x)
     
   (**
      Indicates whether the term is an algebraic number
   *)
-  let is_algebraic_number ( x : expr ) = Z3native.is_algebraic_number x#gnc x#gno
-
-  (**  Retrieve the int value. *)
-  let get_int ( x : int_num ) = 
-    let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
-    if r then v
-    else raise (Z3native.Exception "Conversion failed.")
-      
-  (** Returns a string representation of the numeral. *)
-  let to_string ( x : int_num ) = Z3native.get_numeral_string x#gnc x#gno		      
-
-  (** The numerator of a rational numeral. *)
-  let get_numerator ( x : rat_num ) =
-    (new int_num x#gc)#create_obj (Z3native.get_numerator x#gnc x#gno)
-      
-  (** The denominator of a rational numeral. *)
-  let get_denominator ( x : rat_num ) =
-    (new int_num x#gc)#create_obj (Z3native.get_denominator x#gnc x#gno)
-      
-  (** Returns a string representation in decimal notation. 
-      <remarks>The result has at most <paramref name="precision"/> decimal places.*)
-  let to_decimal_string ( x : rat_num ) (precision : int) = 
-    Z3native.get_numeral_decimal_string x#gnc x#gno precision
-      
-  (** Returns a string representation of the numeral. *)
-  let to_string ( x : rat_num ) = Z3native.get_numeral_string x#gnc x#gno
-
-  (**
-     Creates an integer constant.
-  *)        
-  let mk_int_const ( ctx : context ) ( name : Symbol.symbol ) =
-    ((Expr.mk_const ctx name (mk_int_sort ctx)) :> int_expr)
-
-  (**
-     Creates an integer constant.
-  *)
-  let mk_int_const_s ( ctx : context ) ( name : string )  =
-    mk_int_const ctx (Symbol.mk_string ctx name)
-
-  (**
-     Creates a real constant.
-  *)
-  let mk_real_const ( ctx : context ) ( name : Symbol.symbol )  =
-    ((Expr.mk_const ctx name (mk_real_sort ctx)) :> real_expr)
-      
-  (**
-     Creates a real constant.
-  *)
-  let mk_real_const_s ( ctx : context ) ( name : string )  =
-    mk_real_const ctx (Symbol.mk_string ctx name)
+  let is_algebraic_number ( x : Expr.expr ) = Z3native.is_algebraic_number (Expr.gnc x) (Expr.gno x)
 
   (**
      Create an expression representing <c>t[0] + t[1] + ...</c>.
   *)    
   let mk_add ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_add (context_gno ctx) (Array.length t) (AST.aton t)) :> arith_expr)
+    Arithmetic.create_expr ctx (Z3native.mk_add (context_gno ctx) (Array.length t) (Arithmetic.aton t))
 
   (**
      Create an expression representing <c>t[0] * t[1] * ...</c>.
   *)    
   let mk_mul ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_mul (context_gno ctx) (Array.length t) (AST.aton t)) :> arith_expr)
+    Arithmetic.create_expr ctx (Z3native.mk_mul (context_gno ctx) (Array.length t) (Arithmetic.aton t))
 
   (**
      Create an expression representing <c>t[0] - t[1] - ...</c>.
   *)    
   let mk_sub ( ctx : context ) ( t : arith_expr array ) =
-    (create_expr ctx (Z3native.mk_sub (context_gno ctx) (Array.length t) (AST.aton t)) :> arith_expr)
+    Arithmetic.create_expr ctx (Z3native.mk_sub (context_gno ctx) (Array.length t) (Arithmetic.aton t))
       
   (**
      Create an expression representing <c>-t</c>.
   *)    
   let mk_unary_minus ( ctx : context ) ( t : arith_expr ) =     
-    ArithExpr(create ctx (Z3native.mk_unary_minus (context_gno ctx)
-			    (gno (match t with ArithExpr(b) -> b))))
+    Arithmetic.create_expr ctx (Z3native.mk_unary_minus (context_gno ctx) (egno t))
 
   (**
      Create an expression representing <c>t1 / t2</c>.
   *)    
   let mk_div ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
-    ArithExpr(create ctx (Z3native.mk_div (context_gno ctx)
-			    (gno (match t1 with BoolExpr(b) -> b))
-			    (gno (match t2 with BoolExpr(b) -> b))))
-
-  (**
-     Create an expression representing <c>t1 mod t2</c>.
-     <remarks>The arguments must have int type.
-  *)
-  let mk_mod ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =    
-    IntExpr(create ctx (Z3native.mk_mod (context_gno ctx)
-			  (gno (match t1 with BoolExpr(b) -> b))
-			  (gno (match t2 with BoolExpr(b) -> b))))
-
-  (**
-     Create an expression representing <c>t1 rem t2</c>.
-     <remarks>The arguments must have int type.
-  *)
-  let mk_rem ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    IntExpr(create ctx (Z3native.mk_rem (context_gno ctx)
-			  (gno (match t1 with BoolExpr(b) -> b))
-			  (gno (match t2 with BoolExpr(b) -> b))))
+    Arithmetic.create_expr ctx (Z3native.mk_div (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Create an expression representing <c>t1 ^ t2</c>.
   *)    
-  let mk_power ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =     
-    ArithExpr(create_expr ctx (Z3native.mk_power (context_gno ctx) 
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))
+  let mk_power ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =     
+    Arithmetic.create_expr ctx (Z3native.mk_power (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Create an expression representing <c>t1 < t2</c>
   *)    
-  let mk_lt ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    BoolExpr(create ctx (Z3native.mk_lt (context_gno ctx) 
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))		        
+  let mk_lt ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_lt (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Create an expression representing <c>t1 <= t2</c>
   *)    
-  let mk_le ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    BoolExpr(create ctx (Z3native.mk_le (context_gno ctx) 
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))		  
+  let mk_le ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_le (context_gno ctx) (egno t1) (egno t2))
       
   (**
      Create an expression representing <c>t1 > t2</c>
   *)    
-  let mk_gt ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    BoolExpr(create ctx (Z3native.mk_gt (context_gno ctx)
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))
+  let mk_gt ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_gt (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Create an expression representing <c>t1 >= t2</c>
   *)    
-  let mk_ge ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
-    BoolExpr(create ctx (Z3native.mk_ge (context_gno ctx) 
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))
-
-  (**
-     Coerce an integer to a real.
-
-     <remarks>
-     There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
-
-     You can take the floor of a real by creating an auxiliary integer Term <c>k</c> and
-     and asserting <c>MakeInt2Real(k) <= t1 < MkInt2Real(k)+1</c>.
-     The argument must be of integer sort.
-  *)
-  let mk_int2real ( ctx : context ) ( t : int_expr ) =
-    RealExpr(create (Z3native.mk_int2real (context_gno ctx) 
-		       (gno (match t with BoolExpr(b) -> b))))
-
-  (**
-     Coerce a real to an integer.
-
-     <remarks>
-     The semantics of this function follows the SMT-LIB standard for the function to_int.
-     The argument must be of real sort.
-  *)
-  let mk_real2int ( ctx : context ) ( t : real_expr ) =
-    (new int_expr ctx)#create_obj (Z3native.mk_real2int (context_gno ctx) t#gno)
-
-  (**
-     Creates an expression that checks whether a real number is an integer.
-  *)
-  let mk_is_integer ( ctx : context ) ( t : real_expr ) =
-    BoolExpr(create ctx (Z3native.mk_is_int (context_gno ctx) 
-			   (gno (match t with BoolExpr(b) -> b))))
-  (**
-     Return a upper bound for a given real algebraic number. 
-     The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
-     <seealso cref="Expr.IsAlgebraicNumber"/>   
-     @param precision the precision of the result
-     @return A numeral Expr of sort Real
-  *)
-  let to_upper ( x : algebraic_num ) ( precision : int ) =
-    (new rat_num x#gc)#create_obj (Z3native.get_algebraic_number_upper x#gnc x#gno precision)
-
-  (**
-     Return a lower bound for the given real algebraic number. 
-     The interval isolating the number is smaller than 1/10^<paramref name="precision"/>.    
-     <seealso cref="Expr.IsAlgebraicNumber"/>
-     @param precision the precision of the result
-     @return A numeral Expr of sort Real
-  *)
-  let to_lower ( x : algebraic_num ) precision =
-    (new rat_num x#gc)#create_obj (Z3native.get_algebraic_number_lower x#gnc x#gno precision)
-      
-  (** Returns a string representation in decimal notation. 
-      <remarks>The result has at most <paramref name="precision"/> decimal places.*)
-  let to_decimal_string ( x : algebraic_num ) ( precision : int ) = 
-    Z3native.get_numeral_decimal_string x#gnc x#gno precision
-
-  (**
-     Create a real from a fraction.
-
-     @param num numerator of rational.
-     @param den denominator of rational.
-     @return A Term with value <paramref name="num"/>/<paramref name="den"/> and sort Real
-     <seealso cref="MkNumeral(string, Sort)"/>
-  *)
-  let mk_real_numeral_nd ( ctx : context ) ( num : int ) ( den : int) =
-    if (den == 0) then 
-      raise (Z3native.Exception "Denominator is zero")
-    else
-      
-      (new rat_num ctx)#create_obj (Z3native.mk_real (context_gno ctx) num den)
-	
-  (**
-     Create a real numeral.
-     @param v A string representing the Term value in decimal notation.
-     @return A Term with value <paramref name="v"/> and sort Real
-  *)
-  let mk_real_numeral_s ( ctx : context ) ( v : string ) =
-    (new rat_num ctx)#create_obj (Z3native.mk_numeral (context_gno ctx) v (mk_real_sort ctx)#gno)
-
-  (**
-     Create a real numeral.
-
-     @param v value of the numeral.    
-     @return A Term with value <paramref name="v"/> and sort Real
-  *)
-  let mk_real_numeral_i ( ctx : context ) ( v : int ) =
-    (new rat_num ctx)#create_obj (Z3native.mk_int (context_gno ctx) v (mk_real_sort ctx)#gno)
-
-  (**
-     Create an integer numeral.
-     @param v A string representing the Term value in decimal notation.
-  *)
-  let mk_int_numeral_s ( ctx : context ) ( v : string ) =
-    (new int_num ctx)#create_obj (Z3native.mk_numeral (context_gno ctx) v (mk_int_sort ctx)#gno)
-
-  (**
-     Create an integer numeral.
-     @param v value of the numeral.    
-     @return A Term with value <paramref name="v"/> and sort Integer
-  *)
-  let mk_int_numeral_i ( ctx : context ) ( v : int ) =
-    (new int_num ctx)#create_obj (Z3native.mk_int (context_gno ctx) v (mk_int_sort ctx)#gno)
-
-  (** Returns a string representation of the numeral. *)
-  let to_string ( x : algebraic_num ) = Z3native.get_numeral_string x#gnc x#gno
+  let mk_ge ( ctx : context ) ( t1 : arith_expr ) ( t2 : arith_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_ge (context_gno ctx) (egno t1) (egno t2))
 end
 
 
