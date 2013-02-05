@@ -334,6 +334,13 @@ sig
   val create : context -> Z3native.ptr -> ast
   val aton : ast array -> Z3native.ptr array
 
+  module ASTVectors : sig
+    type ast_vector
+    val create : context -> Z3native.ptr -> ast_vector
+    val get_size : ast_vector -> int
+    val get : ast_vector -> int -> ast
+  end
+
   val is_expr : ast -> bool
   val is_var : ast -> bool
 end = struct
@@ -354,7 +361,7 @@ end = struct
 
 
   (** Vectors of ASTs *)
-  module ASTVector = 
+  module ASTVectors = 
   struct
     type ast_vector = z3_native_object
 	
@@ -401,7 +408,7 @@ end = struct
     (**
        Translates all ASTs in the vector to <paramref name="to_ctx"/>.
        @param to_ctx A context
-       @return A new ASTVector
+       @return A new ASTVectors
     *)
     let translate ( x : ast_vector ) ( to_ctx : context ) =
       create to_ctx (Z3native.ast_vector_translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
@@ -466,7 +473,7 @@ end = struct
 	
     (** The keys stored in the map. *)
     let get_keys ( x : ast_map ) =
-      ASTVector.create (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x))
+      ASTVectors.create (z3obj_gc x) (Z3native.ast_map_keys (z3obj_gnc x) (z3obj_gno x))
 
     (** Retrieves a string representation of the map.*)
     let to_string ( x : ast_map ) =
@@ -613,16 +620,15 @@ end
 and Sort :
 sig
   type sort = Sort of AST.ast
-  type bitvec_sort = BitvecSort of sort
   type uninterpreted_sort = UninterpretedSort of sort
 
   val create : context -> Z3native.ptr -> sort
-  val gno : sort -> Z3native.ptr
+  val gc : sort -> context
   val gnc : sort -> Z3native.ptr
+  val gno : sort -> Z3native.ptr
   val aton : sort array -> Z3native.ptr array  
 end = struct
   type sort = Sort of AST.ast
-  type bitvec_sort = BitvecSort of sort
   type uninterpreted_sort = UninterpretedSort of sort
 
   let gc ( x : sort ) = (match x with Sort(a) -> (z3obj_gc a))
@@ -713,11 +719,14 @@ sig
   type func_decl = FuncDecl of AST.ast
 
   val create : context -> Z3native.ptr -> func_decl
+  val gc : func_decl -> context
   val gno : func_decl -> Z3native.ptr
   val gnc : func_decl -> Z3native.ptr
+  val aton : func_decl array -> Z3native.ptr array
 
   val get_domain_size : func_decl -> int
   val get_decl_kind : func_decl -> Z3enums.decl_kind
+  val get_arity : func_decl -> int
 end = struct
   open Sort
 
@@ -1098,6 +1107,7 @@ sig
   val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
   val get_func_decl : expr -> FuncDecl.func_decl 
   val is_numeral : expr -> bool
+  val to_string : expr -> string
 end = struct
   type expr = Expr of AST.ast
 
@@ -1108,20 +1118,20 @@ end = struct
       let s = Z3native.get_sort (context_gno ctx) obj in
       let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in    
       if (Z3native.is_algebraic_number (context_gno ctx) obj) then
-	(match (Arithmetic.AlgebraicNumbers.create_num ctx obj) with Arithmetic.AlgebraicNumbers.AlgebraicNum(Arithmetic.Expr(e)) -> e)
+	(match (Arithmetic.AlgebraicNumbers.create_num ctx obj) with Arithmetic.AlgebraicNumbers.AlgebraicNum(Arithmetic.ArithExpr(e)) -> e)
       else
 	if (Z3native.is_numeral_ast (context_gno ctx) obj) &&
 	  (sk == INT_SORT or sk == REAL_SORT or sk == BV_SORT) then
 	  match sk with
-	    | INT_SORT -> (match (Arithmetic.Integers.create_num ctx obj) with Arithmetic.Integers.IntNum(Arithmetic.Integers.IntExpr(Arithmetic.Expr(e))) -> e)
-            | REAL_SORT -> (match (Arithmetic.Reals.create_num ctx obj) with Arithmetic.Reals.RatNum(Arithmetic.Reals.RealExpr(Arithmetic.Expr(e))) -> e)
+	    | INT_SORT -> (match (Arithmetic.Integers.create_num ctx obj) with Arithmetic.Integers.IntNum(Arithmetic.Integers.IntExpr(Arithmetic.ArithExpr(e))) -> e)
+            | REAL_SORT -> (match (Arithmetic.Reals.create_num ctx obj) with Arithmetic.Reals.RatNum(Arithmetic.Reals.RealExpr(Arithmetic.ArithExpr(e))) -> e)
             | BV_SORT -> (match (BitVectors.create_num ctx obj) with BitVectors.BitVecNum(BitVectors.BitVecExpr(e)) -> e)
 	    | _ -> raise (Z3native.Exception "Unsupported numeral object")
 	else
 	  match sk with
 	    | BOOL_SORT -> (match (Booleans.create_expr ctx obj) with Booleans.BoolExpr(e) -> e)
-            | INT_SORT -> (match (Arithmetic.Integers.create_expr ctx obj) with Arithmetic.Integers.IntExpr(Arithmetic.Expr(e)) -> e)
-            | REAL_SORT -> (match (Arithmetic.Reals.create_expr ctx obj) with Arithmetic.Reals.RealExpr(Arithmetic.Expr(e)) -> e)
+            | INT_SORT -> (match (Arithmetic.Integers.create_expr ctx obj) with Arithmetic.Integers.IntExpr(Arithmetic.ArithExpr(e)) -> e)
+            | REAL_SORT -> (match (Arithmetic.Reals.create_expr ctx obj) with Arithmetic.Reals.RealExpr(Arithmetic.ArithExpr(e)) -> e)
 	    | BV_SORT -> (match (BitVectors.create_expr ctx obj) with BitVectors.BitVecExpr(e) -> e)
             | ARRAY_SORT -> (match (Arrays.create_expr ctx obj) with Arrays.ArrayExpr(e) -> e)
             | DATATYPE_SORT -> (match (Datatypes.create_expr ctx obj) with Datatypes.DatatypeExpr(e) -> e)
@@ -1409,6 +1419,9 @@ sig
 
   val create_expr : context -> Z3native.ptr -> bool_expr
   val create_sort : context -> Z3native.ptr -> bool_sort
+  val gc : bool_expr -> context
+  val gnc : bool_expr -> Z3native.ptr
+  val gno : bool_expr -> Z3native.ptr
   val aton : bool_expr array -> Z3native.ptr array
 end = struct
   type bool_expr = BoolExpr of Expr.expr
@@ -2648,9 +2661,10 @@ end
 and Arithmetic :
 sig 
   type arith_sort = ArithSort of Sort.sort
-  type arith_expr = Expr of Expr.expr
+  type arith_expr = ArithExpr of Expr.expr
       
   val create_expr : context -> Z3native.ptr -> arith_expr
+  val create_sort : context -> Z3native.ptr -> arith_sort
   val aton : arith_expr array -> Z3native.ptr array
 
   module Integers : sig
@@ -2679,14 +2693,53 @@ sig
     val create_num : context -> Z3native.ptr -> algebraic_num
   end
 
+  val is_int : Expr.expr -> bool
+  val is_arithmetic_numeral : Expr.expr -> bool
+  val is_le : Expr.expr -> bool
+  val is_ge : Expr.expr -> bool
+  val is_lt : Expr.expr -> bool
+  val is_gt : Expr.expr -> bool
+  val is_add : Expr.expr -> bool
+  val is_sub : Expr.expr -> bool
+  val is_uminus : Expr.expr -> bool
+  val is_mul : Expr.expr -> bool
+  val is_div : Expr.expr -> bool
+  val is_idiv : Expr.expr -> bool
+  val is_remainder : Expr.expr -> bool
+  val is_modulus : Expr.expr -> bool
+  val is_inttoreal : Expr.expr -> bool
+  val is_real_to_int : Expr.expr -> bool
+  val is_real_is_int : Expr.expr -> bool
+  val is_real : Expr.expr -> bool
+  val is_int_numeral : Expr.expr -> bool
+  val is_rat_num : Expr.expr -> bool
+  val is_algebraic_number : Expr.expr -> bool
+  val mk_add : context -> arith_expr array -> Arithmetic.arith_expr
+  val mk_mul : context -> arith_expr array -> Arithmetic.arith_expr
+  val mk_sub : context -> arith_expr array -> Arithmetic.arith_expr
+  val mk_unary_minus :
+    context -> arith_expr -> Arithmetic.arith_expr
+  val mk_div :
+    context -> arith_expr -> arith_expr -> Arithmetic.arith_expr
+  val mk_power :
+    context -> arith_expr -> arith_expr -> Arithmetic.arith_expr
+  val mk_lt :
+    context -> arith_expr -> arith_expr -> Booleans.bool_expr
+  val mk_le :
+    context -> arith_expr -> arith_expr -> Booleans.bool_expr
+  val mk_gt :
+    context -> arith_expr -> arith_expr -> Booleans.bool_expr
+  val mk_ge :
+    context -> arith_expr -> arith_expr -> Booleans.bool_expr
+
 end = struct
   type arith_sort = ArithSort of Sort.sort
   type arith_expr = ArithExpr of Expr.expr
 
-  let create_arith_expr ( ctx : context ) ( no : Z3native.ptr ) =
+  let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
     ArithExpr(Expr.create ctx no)
 
-  let create_arith_sort ( ctx : context ) ( no : Z3native.ptr ) =
+  let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
     ArithSort(Sort.create ctx no)
 
   let sgc ( x : arith_sort ) = match (x) with ArithSort(Sort.Sort(s)) -> (z3obj_gc s)
@@ -2712,10 +2765,10 @@ end = struct
     type int_num = IntNum of int_expr
 
     let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
-      IntSort(create_arith_sort ctx no)      
+      IntSort(Arithmetic.create_sort ctx no)      
 	
     let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
-      IntExpr(create_arith_expr ctx no)   
+      IntExpr(Arithmetic.create_expr ctx no)   
 
     let create_num ( ctx : context ) ( no : Z3native.ptr ) =
       IntNum(create_expr ctx no)      
@@ -2796,6 +2849,19 @@ end = struct
     *)
     let mk_int2real ( ctx : context ) ( t : int_expr ) =
       Reals.create_expr ctx (Z3native.mk_int2real (context_gno ctx) (egno t))
+
+    (**
+       Create an <paramref name="n"/> bit bit-vector from the integer argument <paramref name="t"/>.
+       
+       <remarks>
+       NB. This function is essentially treated as uninterpreted. 
+       So you cannot expect Z3 to precisely reflect the semantics of this function
+       when solving constraints with this function.
+       
+       The argument must be of integer sort.
+    *)
+    let mk_int2bv ( ctx : context ) ( n : int ) ( t : int_expr ) =
+      BitVectors.create_expr ctx (Z3native.mk_int2bv (context_gno ctx) n (egno t))
   end
 
   and Reals : 
@@ -2813,10 +2879,10 @@ end = struct
     type rat_num = RatNum of real_expr
 
     let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
-      RealSort(create_arith_sort ctx no)
+      RealSort(Arithmetic.create_sort ctx no)
 	
     let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
-      RealExpr(create_arith_expr ctx no)
+      RealExpr(Arithmetic.create_expr ctx no)
 	
     let create_num ( ctx : context ) ( no : Z3native.ptr ) =
       RatNum(create_expr ctx no)
@@ -2914,7 +2980,7 @@ end = struct
     type algebraic_num = AlgebraicNum of arith_expr
 
     let create_num ( ctx : context ) ( no : Z3native.ptr ) =
-      AlgebraicNum(create_arith_expr ctx no)
+      AlgebraicNum(Arithmetic.create_expr ctx no)
 
     let ngc ( x : algebraic_num ) = match (x) with AlgebraicNum(e) -> (egc e)
     let ngnc ( x : algebraic_num ) = match (x) with AlgebraicNum(e) -> (egnc e)
@@ -3126,316 +3192,330 @@ end
 (** Functions to manipulate bit-vector expressions *)
 and BitVectors :
 sig
+  type bitvec_sort = BitVecSort of Sort.sort
   type bitvec_expr = BitVecExpr of Expr.expr
   type bitvec_num = BitVecNum of bitvec_expr
 
+  val create_sort : context -> Z3native.ptr -> bitvec_sort
   val create_expr : context -> Z3native.ptr -> bitvec_expr
   val create_num : context -> Z3native.ptr -> bitvec_num
 end = struct
-  type bitvec_expr = Expr of Expr.expr
-  type bitvec_num = BitVecExpr of bitvec_expr
+  type bitvec_sort = BitVecSort of Sort.sort
+  type bitvec_expr = BitVecExpr of Expr.expr
+  type bitvec_num = BitVecNum of bitvec_expr
+
+  let create_sort ( ctx : context ) ( no : Z3native.ptr ) =
+    BitVecSort(Sort.create ctx no)
 
   let create_expr ( ctx : context ) ( no : Z3native.ptr ) =
-    let e = (Expr.create ctx no) in
-    BitVecExpr(e)
+    BitVecExpr(Expr.create ctx no)
 
   let create_num ( ctx : context ) ( no : Z3native.ptr ) =
-    let e = (create_expr ctx no) in
-    BitVecNum(e)
+    BitVecNum(create_expr ctx no)
+
+  let sgc ( x : bitvec_sort ) = match (x) with BitVecSort(s) -> (Sort.gc s)
+  let sgnc ( x : bitvec_sort ) = match (x) with BitVecSort(s) -> (Sort.gnc s)
+  let sgno ( x : bitvec_sort ) = match (x) with BitVecSort(s) -> (Sort.gno s)
+  let egc ( x : bitvec_expr ) = match (x) with BitVecExpr(e) -> (Expr.gc e)
+  let egnc ( x : bitvec_expr ) = match (x) with BitVecExpr(e) -> (Expr.gnc e)
+  let egno ( x : bitvec_expr ) = match (x) with BitVecExpr(e) -> (Expr.gno e)
+  let ngc ( x : bitvec_num ) = match (x) with BitVecNum(e) -> (egc e)
+  let ngnc ( x : bitvec_num ) = match (x) with BitVecNum(e) -> (egnc e)
+  let ngno ( x : bitvec_num ) = match (x) with BitVecNum(e) -> (egno e)
 
   (**
      Create a new bit-vector sort.
   *)
   let mk_sort ( ctx : context ) size =
-    (new bitvec_sort ctx)#create_obj (Z3native.mk_bv_sort (context_gno ctx) size)
+    create_sort ctx (Z3native.mk_bv_sort (context_gno ctx) size)
 
   (**
      Indicates whether the terms is of bit-vector sort.
   *)
-  let is_bv ( x : expr ) =
-    ((sort_kind_of_int (Z3native.get_sort_kind x#gnc (Z3native.get_sort x#gnc x#gno))) == BV_SORT)
+  let is_bv ( x : Expr.expr ) =
+    ((sort_kind_of_int (Z3native.get_sort_kind (Expr.gnc x) (Z3native.get_sort (Expr.gnc x) (Expr.gno x)))) == BV_SORT)
 
   (**
      Indicates whether the term is a bit-vector numeral
   *)
-  let is_bv_numeral ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNUM)
+  let is_bv_numeral ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNUM)
 
   (**
      Indicates whether the term is a one-bit bit-vector with value one
   *)
-  let is_bv_bit1 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT1)
+  let is_bv_bit1 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT1)
 
   (**
      Indicates whether the term is a one-bit bit-vector with value zero
   *)
-  let is_bv_bit0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT0)
+  let is_bv_bit0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BIT0)
 
   (**
      Indicates whether the term is a bit-vector unary minus
   *)
-  let is_bv_uminus ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNEG)
+  let is_bv_uminus ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNEG)
 
   (**
      Indicates whether the term is a bit-vector addition (binary)
   *)
-  let is_bv_add ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BADD)
+  let is_bv_add ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BADD)
 
   (**
      Indicates whether the term is a bit-vector subtraction (binary)
   *)
-  let is_bv_sub ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSUB)
+  let is_bv_sub ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSUB)
 
   (**
      Indicates whether the term is a bit-vector multiplication (binary)
   *)
-  let is_bv_mul ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BMUL)
+  let is_bv_mul ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BMUL)
 
   (**
      Indicates whether the term is a bit-vector signed division (binary)
   *)
-  let is_bv_sdiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV)
+  let is_bv_sdiv ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV)
 
   (**
      Indicates whether the term is a bit-vector unsigned division (binary)
   *)
-  let is_bv_udiv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV)
+  let is_bv_udiv ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV)
 
   (**
      Indicates whether the term is a bit-vector signed remainder (binary)
   *)
-  let is_bv_SRem ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM)
+  let is_bv_SRem ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM)
 
   (**
      Indicates whether the term is a bit-vector unsigned remainder (binary)
   *)
-  let is_bv_urem ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM)
+  let is_bv_urem ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM)
 
   (**
      Indicates whether the term is a bit-vector signed modulus
   *)
-  let is_bv_smod ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD)
+  let is_bv_smod ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD)
 
   (**
      Indicates whether the term is a bit-vector signed division by zero
   *)
-  let is_bv_sdiv0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV0)
+  let is_bv_sdiv0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSDIV0)
 
   (**
      Indicates whether the term is a bit-vector unsigned division by zero
   *)
-  let is_bv_udiv0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV0)
+  let is_bv_udiv0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUDIV0)
 
   (**
      Indicates whether the term is a bit-vector signed remainder by zero
   *)
-  let is_bv_srem0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM0)
+  let is_bv_srem0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSREM0)
 
   (**
      Indicates whether the term is a bit-vector unsigned remainder by zero
   *)
-  let is_bv_urem0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM0)
+  let is_bv_urem0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BUREM0)
 
   (**
      Indicates whether the term is a bit-vector signed modulus by zero
   *)
-  let is_bv_smod0 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD0)
+  let is_bv_smod0 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSMOD0)
 
   (**
      Indicates whether the term is an unsigned bit-vector less-than-or-equal
   *)
-  let is_bv_ule ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULEQ)
+  let is_bv_ule ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULEQ)
 
   (**
      Indicates whether the term is a signed bit-vector less-than-or-equal
   *)
-  let is_bv_sle ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLEQ)
+  let is_bv_sle ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLEQ)
 
   (**
      Indicates whether the term is an unsigned bit-vector greater-than-or-equal
   *)
-  let is_bv_uge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGEQ)
+  let is_bv_uge ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGEQ)
 
   (**
      Indicates whether the term is a signed bit-vector greater-than-or-equal
   *)
-  let is_bv_sge ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGEQ)
+  let is_bv_sge ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGEQ)
 
   (**
      Indicates whether the term is an unsigned bit-vector less-than
   *)
-  let is_bv_ult ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULT)
+  let is_bv_ult ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ULT)
 
   (**
      Indicates whether the term is a signed bit-vector less-than
   *)
-  let is_bv_slt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLT)
+  let is_bv_slt ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SLT)
 
   (**
      Indicates whether the term is an unsigned bit-vector greater-than
   *)
-  let is_bv_ugt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGT)
+  let is_bv_ugt ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_UGT)
 
   (**
      Indicates whether the term is a signed bit-vector greater-than
   *)
-  let is_bv_sgt ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGT)
+  let is_bv_sgt ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SGT)
 
   (**
      Indicates whether the term is a bit-wise AND
   *)
-  let is_bv_and ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BAND)
+  let is_bv_and ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BAND)
 
   (**
      Indicates whether the term is a bit-wise OR
   *)
-  let is_bv_or ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BOR)
+  let is_bv_or ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BOR)
 
   (**
      Indicates whether the term is a bit-wise NOT
   *)
-  let is_bv_not ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOT)
+  let is_bv_not ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOT)
 
   (**
      Indicates whether the term is a bit-wise XOR
   *)
-  let is_bv_xor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXOR)
+  let is_bv_xor ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXOR)
 
   (**
      Indicates whether the term is a bit-wise NAND
   *)
-  let is_bv_nand ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNAND)
+  let is_bv_nand ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNAND)
 
   (**
      Indicates whether the term is a bit-wise NOR
   *)
-  let is_bv_nor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOR)
+  let is_bv_nor ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BNOR)
 
   (**
      Indicates whether the term is a bit-wise XNOR
   *)
-  let is_bv_xnor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXNOR)
+  let is_bv_xnor ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BXNOR)
 
   (**
      Indicates whether the term is a bit-vector concatenation (binary)
   *)
-  let is_bv_concat ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONCAT)
+  let is_bv_concat ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CONCAT)
 
   (**
      Indicates whether the term is a bit-vector sign extension
   *)
-  let is_bv_signextension ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SIGN_EXT)
+  let is_bv_signextension ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_SIGN_EXT)
 
   (**
      Indicates whether the term is a bit-vector zero extension
   *)
-  let is_bv_zeroextension ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ZERO_EXT)
+  let is_bv_zeroextension ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ZERO_EXT)
 
   (**
      Indicates whether the term is a bit-vector extraction
   *)
-  let is_bv_extract ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXTRACT)
+  let is_bv_extract ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXTRACT)
 
   (**
      Indicates whether the term is a bit-vector repetition
   *)
-  let is_bv_repeat ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REPEAT)
+  let is_bv_repeat ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_REPEAT)
 
   (**
      Indicates whether the term is a bit-vector reduce OR
   *)
-  let is_bv_reduceor ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDOR)
+  let is_bv_reduceor ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDOR)
 
   (**
      Indicates whether the term is a bit-vector reduce AND
   *)
-  let is_bv_reduceand ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDAND)
+  let is_bv_reduceand ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BREDAND)
 
   (**
      Indicates whether the term is a bit-vector comparison
   *)
-  let is_bv_comp ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BCOMP)
+  let is_bv_comp ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BCOMP)
 
   (**
      Indicates whether the term is a bit-vector shift left
   *)
-  let is_bv_shiftleft ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSHL)
+  let is_bv_shiftleft ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BSHL)
 
   (**
      Indicates whether the term is a bit-vector logical shift right
   *)
-  let is_bv_shiftrightlogical ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BLSHR)
+  let is_bv_shiftrightlogical ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BLSHR)
 
   (**
      Indicates whether the term is a bit-vector arithmetic shift left
   *)
-  let is_bv_shiftrightarithmetic ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BASHR)
+  let is_bv_shiftrightarithmetic ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BASHR)
 
   (**
      Indicates whether the term is a bit-vector rotate left
   *)
-  let is_bv_rotateleft ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_LEFT)
+  let is_bv_rotateleft ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_LEFT)
 
   (**
      Indicates whether the term is a bit-vector rotate right
   *)
-  let is_bv_rotateright ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_RIGHT)
+  let is_bv_rotateright ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_ROTATE_RIGHT)
 
   (**
      Indicates whether the term is a bit-vector rotate left (extended)
      <remarks>Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one.
   *)
-  let is_bv_rotateleftextended ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_LEFT)
+  let is_bv_rotateleftextended ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_LEFT)
 
   (**
      Indicates whether the term is a bit-vector rotate right (extended)
      <remarks>Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one.
   *)
-  let is_bv_rotaterightextended ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_RIGHT)
+  let is_bv_rotaterightextended ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_EXT_ROTATE_RIGHT)
 
   (**
      Indicates whether the term is a coercion from integer to bit-vector
      <remarks>This function is not supported by the decision procedures. Only the most 
      rudimentary simplification rules are applied to this function.
   *)
-  let is_int_to_bv ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
+  let is_int_to_bv ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_INT2BV)
 
   (**
      Indicates whether the term is a coercion from bit-vector to integer
      <remarks>This function is not supported by the decision procedures. Only the most 
      rudimentary simplification rules are applied to this function.
   *)
-  let is_bv_to_int ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
+  let is_bv_to_int ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_BV2INT)
 
   (**
      Indicates whether the term is a bit-vector carry
      <remarks>Compute the carry bit in a full-adder.  The meaning is given by the 
      equivalence (carry l1 l2 l3) <=> (or (and l1 l2) (and l1 l3) (and l2 l3)))
   *)
-  let is_bv_carry ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
+  let is_bv_carry ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_CARRY)
 
   (**
      Indicates whether the term is a bit-vector ternary XOR
      <remarks>The meaning is given by the equivalence (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3)
   *)
-  let is_bv_xor3 ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
+  let is_bv_xor3 ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_XOR3)
 
   (** The size of a bit-vector sort. *)
-  let get_size (x : bitvec_sort) = Z3native.get_bv_sort_size x#gnc x#gno
+  let get_size (x : bitvec_sort ) = Z3native.get_bv_sort_size (sgnc x) (sgno x)
 
   (**  Retrieve the int value. *)
   let get_int ( x : bitvec_num ) = 
-    let (r, v) = Z3native.get_numeral_int x#gnc x#gno in
+    let (r, v) = Z3native.get_numeral_int (ngnc x) (ngno x) in
     if r then v
     else raise (Z3native.Exception "Conversion failed.")
       
   (** Returns a string representation of the numeral. *)
-  let to_string ( x : bitvec_num ) = Z3native.get_numeral_string x#gnc x#gno
+  let to_string ( x : bitvec_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)
 
   (**
      Creates a bit-vector constant.
   *)
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( size : int ) =
-    ((Expr.mk_const ctx name (mk_sort ctx size)) :> bitvec_expr)
+    BitVecExpr(Expr.mk_const ctx name (match (mk_sort ctx size) with BitVecSort(s) -> s))
 
   (**
      Creates a bit-vector constant.
@@ -3448,91 +3528,91 @@ end = struct
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_not  ( ctx : context ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvnot (context_gno ctx) t#gno)
+    create_expr ctx (Z3native.mk_bvnot (context_gno ctx) (egno t))
 
   (**
      Take conjunction of bits in a vector,vector of length 1.
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_redand  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvredand (context_gno ctx) t#gno)
+    create_expr ctx (Z3native.mk_bvredand (context_gno ctx) (egno t))
 
   (**
      Take disjunction of bits in a vector,vector of length 1.
      <remarks>The argument must have a bit-vector sort.
   *)
   let mk_redor  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvredor (context_gno ctx) t#gno)
+    create_expr ctx (Z3native.mk_bvredor (context_gno ctx) (egno t))
 
   (**
      Bitwise conjunction.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_and  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvand (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvand (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bitwise disjunction.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_or  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvor (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvor (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bitwise XOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_xor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvxor (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvxor (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bitwise NAND.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_nand  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvnand (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvnand (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bitwise NOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_nor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvnor (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvnor (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bitwise XNOR.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_xnor  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvxnor (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvxnor (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Standard two's complement unary minus.
      <remarks>The arguments must have a bit-vector sort.
   *)
   let mk_neg  ( ctx : context ) ( t : bitvec_expr) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvneg (context_gno ctx) t#gno)
+    create_expr ctx (Z3native.mk_bvneg (context_gno ctx) (egno t))
 
   (**
      Two's complement addition.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_add  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvadd (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvadd (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Two's complement subtraction.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_sub  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvsub (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvsub (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Two's complement multiplication.
      <remarks>The arguments must have the same bit-vector sort.
   *)
   let mk_mul  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvmul (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvmul (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Unsigned division.
@@ -3544,7 +3624,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_udiv  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvudiv (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvudiv (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Signed division.
@@ -3559,7 +3639,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sdiv  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvsdiv (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvsdiv (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Unsigned remainder.
@@ -3569,7 +3649,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_urem  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvurem (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvurem (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Signed remainder.
@@ -3581,7 +3661,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_srem  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvsrem (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvsrem (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Two's complement signed remainder (sign follows divisor).
@@ -3590,7 +3670,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_smod  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_bvsmod (context_gno ctx) t1#gno t2#gno)
+    create_expr ctx (Z3native.mk_bvsmod (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Unsigned less-than
@@ -3598,9 +3678,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ult  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvult (context_gno ctx) 
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))      
+    Booleans.create_expr ctx (Z3native.mk_bvult (context_gno ctx) (egno t1) (egno t2))   
 
   (**
      Two's complement signed less-than
@@ -3608,9 +3686,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_slt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvslt (context_gno ctx)
-		  (gno (match t1 with BoolExpr(b) -> b))
-		  (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvslt (context_gno ctx) (egno t1) (egno t2))   
 
   (**
      Unsigned less-than or equal to.
@@ -3618,9 +3694,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ule  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvule (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))    
+    Booleans.create_expr ctx (Z3native.mk_bvule (context_gno ctx) (egno t1) (egno t2))   
 
   (**
      Two's complement signed less-than or equal to.
@@ -3628,9 +3702,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sle  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvsle (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvsle (context_gno ctx) (egno t1) (egno t2))     
 
   (**
      Unsigned greater than or equal to.
@@ -3638,19 +3710,15 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_uge  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvuge (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvuge (context_gno ctx) (egno t1) (egno t2))   
 
   (**
      Two's complement signed greater than or equal to.
      <remarks>    
      The arguments must have the same bit-vector sort.
   *)
-  let mk_SGE  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvsge (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+  let mk_sge  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_bvsge (context_gno ctx) (egno t1) (egno t2))   		  
 
   (**
      Unsigned greater-than.
@@ -3658,9 +3726,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_ugt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvugt (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvugt (context_gno ctx) (egno t1) (egno t2))   		  
 
   (**
      Two's complement signed greater-than.
@@ -3668,9 +3734,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_sgt  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvsgt (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvsgt (context_gno ctx) (egno t1) (egno t2))   		  
 
   (**
      Bit-vector concatenation.
@@ -3681,9 +3745,7 @@ end = struct
      is the size of <c>t1</c> (<c>t2</c>).
   *)
   let mk_concat ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BitVectors.BitVecExpr(create ctx (Z3native.mk_concat (context_gno ctx) 		  
-					(gno (match t1 with BitVecExpr(b) -> b))
-					(gno (match t2 with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_concat (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Bit-vector extraction.
@@ -3694,7 +3756,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_extract ( ctx : context ) ( high : int ) ( low : int ) ( t : bitvec_expr ) =
-    (new bitvec_expr ctx)#create_obj (Z3native.mk_extract (context_gno ctx) high low t#gno)
+    create_expr ctx (Z3native.mk_extract (context_gno ctx) high low (egno t))
 
   (**
      Bit-vector sign extension.
@@ -3704,7 +3766,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_sign_ext  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_sign_ext (context_gno ctx) i (gno (match t with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_sign_ext (context_gno ctx) i (egno t))
 
   (**
      Bit-vector zero extension.
@@ -3715,7 +3777,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_zero_ext  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_zero_ext (context_gno ctx) i (gno (match t with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_zero_ext (context_gno ctx) i (egno t))
 
   (**
      Bit-vector repetition.
@@ -3723,7 +3785,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_repeat  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_repeat (context_gno ctx) i (gno (match t with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_repeat (context_gno ctx) i (egno t))
 
   (**
      Shift left.
@@ -3738,9 +3800,8 @@ end = struct
      The arguments must have a bit-vector sort.
   *)
   let mk_shl  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_bvshl (context_gno ctx) 		  
-		 (gno (match t1 with BitVecExpr(b) -> b))
-		 (gno (match t2 with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_bvshl (context_gno ctx) (egno t1) (egno t2))	  
+	
 
   (**
      Logical shift right
@@ -3754,9 +3815,7 @@ end = struct
      The arguments must have a bit-vector sort.
   *)
   let mk_lshr  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_bvlshr (context_gno ctx) 		  
-			     (gno (match t1 with BitVecExpr(b) -> b))
-			     (gno (match t2 with BitVecExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_bvlshr (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Arithmetic shift right
@@ -3772,9 +3831,7 @@ end = struct
      The arguments must have a bit-vector sort.
   *)
   let mk_ashr  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =    
-    BitVecExpr(create ctx  (Z3native.mk_bvashr (context_gno ctx) 		  
-			      (gno (match t1 with BoolExpr(b) -> b))
-			      (gno (match t2 with BoolExpr(b) -> b))))
+    create_expr ctx  (Z3native.mk_bvashr (context_gno ctx) (egno t1) (egno t2))  
 
   (**
      Rotate Left.
@@ -3783,7 +3840,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_rotate_left  ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_rotate_left (context_gno ctx) i (gno (match t with BoolExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_rotate_left (context_gno ctx) i (egno t))
 
   (**
      Rotate Right.
@@ -3792,7 +3849,7 @@ end = struct
      The argument <paramref name="t"/> must have a bit-vector sort.
   *)
   let mk_rotate_right ( ctx : context ) ( i : int ) ( t : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_rotate_right (context_gno ctx) i (gno (match t with BoolExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_rotate_right (context_gno ctx) i (egno t))
 
   (**
      Rotate Left.
@@ -3801,9 +3858,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_rotate_left ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_ext_rotate_left (context_gno ctx) 		  
-			     (gno (match t1 with BoolExpr(b) -> b))
-			     (gno (match t2 with BoolExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_ext_rotate_left (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Rotate Right.
@@ -3813,22 +3868,7 @@ end = struct
      The arguments must have the same bit-vector sort.
   *)
   let mk_rotate_right ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_ext_rotate_right (context_gno ctx) 		  
-			     (gno (match t1 with BoolExpr(b) -> b))
-			     (gno (match t2 with BoolExpr(b) -> b))))
-
-  (**
-     Create an <paramref name="n"/> bit bit-vector from the integer argument <paramref name="t"/>.
-
-     <remarks>
-     NB. This function is essentially treated as uninterpreted. 
-     So you cannot expect Z3 to precisely reflect the semantics of this function
-     when solving constraints with this function.
-
-     The argument must be of integer sort.
-  *)
-  let mk_int2bv ( ctx : context ) ( n : int ) ( t : int_expr ) =
-    BitVecExpr(create ctx (Z3native.mk_int2bv (context_gno ctx) n (gno (match t with IntExpr(b) -> b))))
+    create_expr ctx (Z3native.mk_ext_rotate_right (context_gno ctx) (egno t1) (egno t2))	  
 
   (**
      Create an integer from the bit-vector argument <paramref name="t"/>.
@@ -3845,8 +3885,8 @@ end = struct
 
      The argument must be of bit-vector sort.
   *)
-  let mk_bv2int  ( ctx : context ) ( t : bitvec_expr ) ( signed : bool) =
-    (new int_expr ctx)#create_obj (Z3native.mk_bv2int (context_gno ctx) t#gno signed)
+  let mk_bv2int  ( ctx : context ) ( t : bitvec_expr ) ( signed : bool ) =
+    Arithmetic.Integers.create_expr ctx (Z3native.mk_bv2int (context_gno ctx) (egno t) signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not overflow.
@@ -3854,10 +3894,7 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_add_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    BoolExpr(create ctx (Z3native.mk_bvadd_no_overflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))
-			   signed))
+    Booleans.create_expr ctx (Z3native.mk_bvadd_no_overflow (context_gno ctx) (egno t1) (egno t2) signed)
 
   (**
      Create a predicate that checks that the bit-wise addition does not underflow.
@@ -3865,19 +3902,15 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_add_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvadd_no_underflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
-      
+    Booleans.create_expr ctx (Z3native.mk_bvadd_no_underflow (context_gno ctx) (egno t1) (egno t2))	  
+
   (**
      Create a predicate that checks that the bit-wise subtraction does not overflow.
      <remarks>
      The arguments must be of bit-vector sort.
   *)
   let mk_sub_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvsub_no_overflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvsub_no_overflow (context_gno ctx) (egno t1) (egno t2))		  
       
   (**
      Create a predicate that checks that the bit-wise subtraction does not underflow.
@@ -3885,10 +3918,7 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sub_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    BoolExpr(create ctx (Z3native.mk_bvsub_no_underflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))
-			   signed))
+    Booleans.create_expr ctx (Z3native.mk_bvsub_no_underflow (context_gno ctx) (egno t1) (egno t2) signed)
 
   (**
      Create a predicate that checks that the bit-wise signed division does not overflow.
@@ -3896,17 +3926,15 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_sdiv_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvsdiv_no_overflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvsdiv_no_overflow (context_gno ctx) (egno t1) (egno t2))
 
   (**
      Create a predicate that checks that the bit-wise negation does not overflow.
      <remarks>
      The arguments must be of bit-vector sort.
   *)
-  let mk_neg_no_overflow  ( ctx : context ) ( t : bitvec_expr) =
-    BoolExpr(create ctx (Z3native.mk_bvneg_no_overflow (context_gno ctx) (gno (match t with BitVecExpr(b) -> b))))
+  let mk_neg_no_overflow  ( ctx : context ) ( t : bitvec_expr ) =
+    Booleans.create_expr ctx (Z3native.mk_bvneg_no_overflow (context_gno ctx) (egno t))
 
   (**
      Create a predicate that checks that the bit-wise multiplication does not overflow.
@@ -3914,10 +3942,7 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_mul_no_overflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) ( signed : bool) =
-    BoolExpr(create ctx (Z3native.mk_bvmul_no_overflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))
-			   signed))
+    Booleans.create_expr ctx (Z3native.mk_bvmul_no_overflow (context_gno ctx) (egno t1) (egno t2) signed)
 
   (**
      Create a predicate that checks that the bit-wise multiplication does not underflow.
@@ -3925,9 +3950,7 @@ end = struct
      The arguments must be of bit-vector sort.
   *)
   let mk_mul_no_underflow  ( ctx : context ) ( t1 : bitvec_expr ) ( t2 : bitvec_expr ) =
-    BoolExpr(create ctx (Z3native.mk_bvmul_no_underflow (context_gno ctx) 		  
-			   (gno (match t1 with BoolExpr(b) -> b))
-			   (gno (match t2 with BoolExpr(b) -> b))))
+    Booleans.create_expr ctx (Z3native.mk_bvmul_no_underflow (context_gno ctx) (egno t1) (egno t2))	  
       
   (**
      Create a bit-vector numeral.
@@ -3936,7 +3959,7 @@ end = struct
      @param size the size of the bit-vector
   *)
   let mk_numeral ( ctx : context ) ( ctx : context ) ( v : string ) ( size : int) =
-    (new bitvec_num ctx)#create_obj (Z3native.mk_numeral (context_gno ctx) v (mk_sort ctx size)#gno)
+    create_num ctx (Z3native.mk_numeral (context_gno ctx) v (sgno (mk_sort ctx size)))
 end
 
 (** Functions to manipulate proof expressions *)
@@ -3946,17 +3969,17 @@ end = struct
   (**
      Indicates whether the term is a Proof for the expression 'true'.
   *)
-  let is_true ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRUE)
+  let is_true ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRUE)
 
   (**
      Indicates whether the term is a proof for a fact asserted by the user.
   *)
-  let is_asserted ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ASSERTED)
+  let is_asserted ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ASSERTED)
 
   (**
      Indicates whether the term is a proof for a fact (tagged as goal) asserted by the user.
   *)
-  let is_goal ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_GOAL)
+  let is_goal ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_GOAL)
 
   (**
      Indicates whether the term is proof via modus ponens
@@ -3967,7 +3990,7 @@ end = struct
      [mp T1 T2]: q
      The second antecedents may also be a proof for (iff p q).
   *)
-  let is_modus_ponens ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS)
+  let is_modus_ponens ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS)
 
   (**
      Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
@@ -3976,7 +3999,7 @@ end = struct
      equivalence modulo namings, equality and equivalence.
      That is, R is either '~', '=' or 'iff'.
   *)
-  let is_reflexivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REFLEXIVITY)
+  let is_reflexivity ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REFLEXIVITY)
 
   (**
      Indicates whether the term is proof by symmetricity of a relation
@@ -3986,7 +4009,7 @@ end = struct
      [symmetry T1]: (R s t)
      T1 is the antecedent of this proof object.
   *)
-  let is_symmetry ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SYMMETRY)
+  let is_symmetry ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SYMMETRY)
 
   (**
      Indicates whether the term is a proof by transitivity of a relation
@@ -3997,7 +4020,7 @@ end = struct
      T2: (R s u)
      [trans T1 T2]: (R t u)
   *)
-  let is_transitivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY)
+  let is_transitivity ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY)
 
   (**
      Indicates whether the term is a proof by condensed transitivity of a relation
@@ -4017,7 +4040,7 @@ end = struct
      if there is a path from s to t, if we view every
      antecedent (R a b) as an edge between a and b.
   *)
-  let is_Transitivity_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY_STAR)
+  let is_Transitivity_star ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TRANSITIVITY_STAR)
 
 
   (**
@@ -4030,7 +4053,7 @@ end = struct
      Remark: if t_i == s_i, then the antecedent Ti is suppressed.
      That is, reflexivity proofs are supressed to save space.
   *)
-  let is_monotonicity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MONOTONICITY)
+  let is_monotonicity ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MONOTONICITY)
 
   (**
      Indicates whether the term is a quant-intro proof 
@@ -4039,7 +4062,7 @@ end = struct
      T1: (~ p q)
      [quant-intro T1]: (~ (forall (x) p) (forall (x) q))
   *)
-  let is_quant_intro ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INTRO)
+  let is_quant_intro ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INTRO)
 
   (**
      Indicates whether the term is a distributivity proof object.  
@@ -4056,7 +4079,7 @@ end = struct
      Remark. This rule is used by the CNF conversion pass and 
      instantiated by f = or, and g = and.
   *)
-  let is_distributivity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DISTRIBUTIVITY)
+  let is_distributivity ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DISTRIBUTIVITY)
 
   (**
      Indicates whether the term is a proof by elimination of AND
@@ -4065,7 +4088,7 @@ end = struct
      T1: (and l_1 ... l_n)
      [and-elim T1]: l_i
   *)
-  let is_and_elimination ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_AND_ELIM)
+  let is_and_elimination ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_AND_ELIM)
 
   (**
      Indicates whether the term is a proof by eliminiation of not-or
@@ -4074,7 +4097,7 @@ end = struct
      T1: (not (or l_1 ... l_n))
      [not-or-elim T1]: (not l_i)       
   *)
-  let is_or_elimination ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NOT_OR_ELIM)
+  let is_or_elimination ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NOT_OR_ELIM)
 
   (**
      Indicates whether the term is a proof by rewriting
@@ -4088,11 +4111,11 @@ end = struct
      Remark: if f is bool, then = is iff.
      
      Examples:
-     (= (+ ( x : expr ) 0) x)
-     (= (+ ( x : expr ) 1 2) (+ 3 x))
-     (iff (or ( x : expr ) false) x)          
+     (= (+ ( x : Expr.expr ) 0) x)
+     (= (+ ( x : Expr.expr ) 1 2) (+ 3 x))
+     (iff (or ( x : Expr.expr ) false) x)          
   *)
-  let is_rewrite ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE)
+  let is_rewrite ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE)
 
   (**
      Indicates whether the term is a proof by rewriting
@@ -4107,14 +4130,14 @@ end = struct
      - When converting bit-vectors to Booleans (BIT2BOOL=true)
      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
   *)
-  let is_rewrite_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE_STAR)
+  let is_rewrite_star ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_REWRITE_STAR)
 
   (**
      Indicates whether the term is a proof for pulling quantifiers out.
      <remarks>
      A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents.
   *)
-  let is_pull_quant ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT)
+  let is_pull_quant ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT)
 
   (**
      Indicates whether the term is a proof for pulling quantifiers out.
@@ -4123,7 +4146,7 @@ end = struct
      This proof object is only used if the parameter PROOF_MODE is 1.       
      This proof object has no antecedents
   *)
-  let is_pull_quant_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT_STAR)
+  let is_pull_quant_star ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PULL_QUANT_STAR)
 
   (**
      Indicates whether the term is a proof for pushing quantifiers in.
@@ -4136,7 +4159,7 @@ end = struct
      This proof object has no antecedents
   *)
 
-  let is_push_quant ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PUSH_QUANT)
+  let is_push_quant ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_PUSH_QUANT)
 
   (**
      Indicates whether the term is a proof for elimination of unused variables.
@@ -4148,34 +4171,34 @@ end = struct
      This proof object has no antecedents.
   *)
 
-  let is_elim_unused_vars ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ELIM_UNUSED_VARS)
+  let is_elim_unused_vars ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_ELIM_UNUSED_VARS)
 
   (**
      Indicates whether the term is a proof for destructive equality resolution
      <remarks>
      A proof for destructive equality resolution:
-     (iff (forall (x) (or (not (= ( x : expr ) t)) P[x])) P[t])
-     if ( x : expr ) does not occur in t.
+     (iff (forall (x) (or (not (= ( x : Expr.expr ) t)) P[x])) P[t])
+     if ( x : Expr.expr ) does not occur in t.
      
      This proof object has no antecedents.
      
      Several variables can be eliminated simultaneously.
   *)
 
-  let is_der ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DER)
+  let is_der ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DER)
 
   (**
      Indicates whether the term is a proof for quantifier instantiation
      <remarks>
      A proof of (or (not (forall (x) (P x))) (P a))
   *)
-  let is_quant_inst ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INST)
+  let is_quant_inst ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_QUANT_INST)
 
   (**
      Indicates whether the term is a hypthesis marker.
      <remarks>Mark a hypothesis in a natural deduction style proof.
   *)
-  let is_hypothesis ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_HYPOTHESIS)
+  let is_hypothesis ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_HYPOTHESIS)
 
   (**
      Indicates whether the term is a proof by lemma
@@ -4187,7 +4210,7 @@ end = struct
      It converts the proof in a proof for (or (not l_1) ... (not l_n)),
      when T1 contains the hypotheses: l_1, ..., l_n.
   *)
-  let is_lemma ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_LEMMA)
+  let is_lemma ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_LEMMA)
 
   (**
      Indicates whether the term is a proof by unit resolution
@@ -4198,7 +4221,7 @@ end = struct
      T(n+1):  (not l_n)
      [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m')
   *)
-  let is_unit_resolution ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_UNIT_RESOLUTION)
+  let is_unit_resolution ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_UNIT_RESOLUTION)
 
   (**
      Indicates whether the term is a proof by iff-true
@@ -4206,7 +4229,7 @@ end = struct
      T1: p
      [iff-true T1]: (iff p true)
   *)
-  let is_iff_true ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_TRUE)
+  let is_iff_true ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_TRUE)
 
   (**
      Indicates whether the term is a proof by iff-false
@@ -4214,7 +4237,7 @@ end = struct
      T1: (not p)
      [iff-false T1]: (iff p false)
   *)
-  let is_iff_false ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_FALSE)
+  let is_iff_false ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_FALSE)
 
   (**
      Indicates whether the term is a proof by commutativity
@@ -4226,7 +4249,7 @@ end = struct
      This proof object has no antecedents.
      Remark: if f is bool, then = is iff.
   *)
-  let is_commutativity ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_COMMUTATIVITY) (*  *)
+  let is_commutativity ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_COMMUTATIVITY) (*  *)
 
   (**
      Indicates whether the term is a proof for Tseitin-like axioms
@@ -4261,7 +4284,7 @@ end = struct
      unfolding the Boolean connectives in the axioms a small
      bounded number of steps (=3).
   *)
-  let is_def_axiom ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_AXIOM)
+  let is_def_axiom ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_AXIOM)
 
   (**
      Indicates whether the term is a proof for introduction of a name
@@ -4283,7 +4306,7 @@ end = struct
      Otherwise:
      [def-intro]: (= n e)       
   *)
-  let is_def_intro ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_INTRO)
+  let is_def_intro ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_DEF_INTRO)
 
   (**
      Indicates whether the term is a proof for application of a definition
@@ -4292,7 +4315,7 @@ end = struct
      F is 'equivalent' to n, given that T1 is a proof that
      n is a name for F.
   *)
-  let is_apply_def ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_APPLY_DEF)
+  let is_apply_def ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_APPLY_DEF)
 
   (**
      Indicates whether the term is a proof iff-oeq
@@ -4300,7 +4323,7 @@ end = struct
      T1: (iff p q)
      [iff~ T1]: (~ p q)
   *)
-  let is_iff_oeq ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_OEQ)
+  let is_iff_oeq ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_IFF_OEQ)
 
   (**
      Indicates whether the term is a proof for a positive NNF step
@@ -4327,7 +4350,7 @@ end = struct
      NNF_NEG furthermore handles the case where negation is pushed
      over Boolean connectives 'and' and 'or'.
   *)
-  let is_nnf_pos ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_POS)
+  let is_nnf_pos ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_POS)
 
   (**
      Indicates whether the term is a proof for a negative NNF step
@@ -4351,7 +4374,7 @@ end = struct
      [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
      (and (or r_1 r_2) (or r_1' r_2')))
   *)
-  let is_nnf_neg ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_NEG)
+  let is_nnf_neg ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_NEG)
 
   (**
      Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
@@ -4362,7 +4385,7 @@ end = struct
      
      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
   *)
-  let is_nnf_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_STAR)
+  let is_nnf_star ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_NNF_STAR)
 
   (**
      Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
@@ -4371,19 +4394,19 @@ end = struct
      This proof object is only used if the parameter PROOF_MODE is 1.       
      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.          
   *)
-  let is_cnf_star ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_CNF_STAR)
+  let is_cnf_star ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_CNF_STAR)
 
   (**
      Indicates whether the term is a proof for a Skolemization step
      <remarks>
      Proof for: 
      
-     [sk]: (~ (not (forall ( x : expr ) (p ( x : expr ) y))) (not (p (sk y) y)))
-     [sk]: (~ (exists ( x : expr ) (p ( x : expr ) y)) (p (sk y) y))
+     [sk]: (~ (not (forall ( x : Expr.expr ) (p ( x : Expr.expr ) y))) (not (p (sk y) y)))
+     [sk]: (~ (exists ( x : Expr.expr ) (p ( x : Expr.expr ) y)) (p (sk y) y))
      
      This proof object has no antecedents.
   *)
-  let is_skolemize ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SKOLEMIZE)
+  let is_skolemize ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_SKOLEMIZE)
 
   (**
      Indicates whether the term is a proof by modus ponens for equi-satisfiability.
@@ -4393,7 +4416,7 @@ end = struct
      T2: (~ p q)
      [mp~ T1 T2]: q  
   *)
-  let is_modus_ponens_oeq ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS_OEQ)
+  let is_modus_ponens_oeq ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_MODUS_PONENS_OEQ)
 
   (**
      Indicates whether the term is a proof for theory lemma
@@ -4411,7 +4434,7 @@ end = struct
      (iff (= t1 t2) (and (<= t1 t2) (<= t2 t1)))
      - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test.
   *)
-  let is_theory_lemma ( x : expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TH_LEMMA)
+  let is_theory_lemma ( x : Expr.expr ) = (FuncDecl.get_decl_kind (Expr.get_func_decl x) == OP_PR_TH_LEMMA)
 end
 
 
@@ -4462,8 +4485,8 @@ struct
       
   (** Adds the constraints to the given goal. *)
   (* CMW: assert seems to be a keyword. *)
-  let assert_ ( x : goal ) ( constraints : bool_expr array ) =
-    let f e = Z3native.goal_assert (z3obj_gnc x) (z3obj_gno x) e#gno in
+  let assert_ ( x : goal ) ( constraints : Booleans.bool_expr array ) =
+    let f e = Z3native.goal_assert (z3obj_gnc x) (z3obj_gno x) (Booleans.gno e) in
     ignore (Array.map f constraints) ;
     ()
       
@@ -4484,7 +4507,7 @@ struct
   (** The formulas in the goal. *)
   let get_formulas ( x : goal ) =
     let n = get_size x in 
-    let f i = (new bool_expr (z3obj_gc x))#create_obj (Z3native.goal_formula (z3obj_gnc x) (z3obj_gno x) i) in
+    let f i = Booleans.create_expr (z3obj_gc x) (Z3native.goal_formula (z3obj_gnc x) (z3obj_gno x) i) in
     Array.init n f
 
   (** The number of formulas, subformulas and terms in the goal. *)
@@ -4599,7 +4622,7 @@ struct
 	 Return the (symbolic) value of this entry.
       *)
       let get_value ( x : func_entry ) =
-	create_expr (z3obj_gc x) (Z3native.func_entry_get_value (z3obj_gnc x) (z3obj_gno x))
+	Expr.create (z3obj_gc x) (Z3native.func_entry_get_value (z3obj_gnc x) (z3obj_gno x))
 
       (**
 	 The number of arguments of the entry.
@@ -4611,7 +4634,7 @@ struct
       *)
       let get_args ( x : func_entry ) =
 	let n = (get_num_args x) in
-	let f i = (create_expr (z3obj_gc x) (Z3native.func_entry_get_arg (z3obj_gnc x) (z3obj_gno x) i)) in
+	let f i = (Expr.create (z3obj_gc x) (Z3native.func_entry_get_arg (z3obj_gnc x) (z3obj_gno x) i)) in
 	Array.init n f
 	  
       (**
@@ -4639,7 +4662,7 @@ struct
     (**
        The (symbolic) `else' value of the function interpretation.
     *)
-    let get_else ( x : func_interp ) = create_expr (z3obj_gc x) (Z3native.func_interp_get_else (z3obj_gnc x) (z3obj_gno x))
+    let get_else ( x : func_interp ) = Expr.create (z3obj_gc x) (Z3native.func_interp_get_else (z3obj_gnc x) (z3obj_gno x))
 
     (**
        The arity of the function interpretation
@@ -4666,31 +4689,31 @@ struct
   (** Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
       <param name="f">A function declaration of zero arity</param>
       <returns>An expression if the function has an interpretation in the model, null otherwise.</returns> *)
-  let get_const_interp ( x : model ) ( f : func_decl ) =
+  let get_const_interp ( x : model ) ( f : FuncDecl.func_decl ) =
     if (FuncDecl.get_arity f) != 0 ||
-      (sort_kind_of_int (Z3native.get_sort_kind f#gnc (Z3native.get_range f#gnc f#gno))) == ARRAY_SORT then
+      (sort_kind_of_int (Z3native.get_sort_kind (FuncDecl.gnc f) (Z3native.get_range (FuncDecl.gnc f) (FuncDecl.gno f)))) == ARRAY_SORT then
       raise (Z3native.Exception "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
     else
-      let np = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) f#gno in
+      let np = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno f) in
       if (Z3native.is_null np) then
 	None
       else
-	Some (create_expr (z3obj_gc x) np)
+	Some (Expr.create (z3obj_gc x) np)
 
   (** Retrieves the interpretation (the assignment) of <paramref name="a"/> in the model. 
       <param name="a">A Constant</param>
       <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
   *)
-  let get_const_interp_e ( x : model ) ( a : expr ) = get_const_interp x (Expr.get_func_decl a)
+  let get_const_interp_e ( x : model ) ( a : Expr.expr ) = get_const_interp x (Expr.get_func_decl a)
 
 
   (** Retrieves the interpretation (the assignment) of a non-constant <paramref name="f"/> in the model. 
       <param name="f">A function declaration of non-zero arity</param>
       <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> *)
-  let rec get_func_interp ( x : model ) ( f : func_decl ) =
-    let sk = (sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc x) (Z3native.get_range f#gnc f#gno))) in
+  let rec get_func_interp ( x : model ) ( f : FuncDecl.func_decl ) =
+    let sk = (sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc x) (Z3native.get_range (FuncDecl.gnc f) (FuncDecl.gno f)))) in
     if (FuncDecl.get_arity f) == 0 then
-      let n = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) f#gno in      
+      let n = Z3native.model_get_const_interp (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno f) in      
       if (Z3native.is_null n) then
 	None 
       else 
@@ -4700,10 +4723,10 @@ struct
 	      raise (Z3native.Exception "Argument was not an array constant")
 	    else
 	      let fd = Z3native.get_as_array_func_decl (z3obj_gnc x) n in
-              get_func_interp x ((new func_decl f#gc)#create_obj fd)
+              get_func_interp x (FuncDecl.create (z3obj_gc x) fd)
 	  | _ -> raise (Z3native.Exception "Constant functions do not have a function interpretation; use ConstInterp");
     else
-      let n = (Z3native.model_get_func_interp (z3obj_gnc x) (z3obj_gno x) f#gno) in
+      let n = (Z3native.model_get_func_interp (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno f)) in
       if (Z3native.is_null n) then None else Some (FuncInterp.create (z3obj_gc x) n)
 	
   (** The number of constants that have an interpretation in the model. *)
@@ -4712,7 +4735,7 @@ struct
   (** The function declarations of the constants in the model. *)
   let get_const_decls ( x : model ) = 
     let n = (get_num_consts x) in
-    let f i = (new func_decl (z3obj_gc x))#create_obj (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    let f i = FuncDecl.create (z3obj_gc x) (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
     Array.init n f
       
       
@@ -4722,15 +4745,15 @@ struct
   (** The function declarations of the function interpretations in the model. *)
   let get_func_decls ( x : model ) = 
     let n = (get_num_consts x) in
-    let f i = (new func_decl (z3obj_gc x))#create_obj (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    let f i = FuncDecl.create (z3obj_gc x) (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
     Array.init n f
       
   (** All symbols that have an interpretation in the model. *)
   let get_decls ( x : model ) =
     let n_funcs = (get_num_funcs x) in
     let n_consts = (get_num_consts x ) in
-    let f i = (new func_decl (z3obj_gc x))#create_obj (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
-    let g i = (new func_decl (z3obj_gc x))#create_obj (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    let f i = FuncDecl.create (z3obj_gc x) (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
+    let g i = FuncDecl.create (z3obj_gc x) (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
     Array.append (Array.init n_funcs f) (Array.init n_consts g)
       
   (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
@@ -4751,15 +4774,15 @@ struct
      </param>
      <returns>The evaluation of <paramref name="t"/> in the model.</returns>        
   *)
-  let eval ( x : model ) ( t : expr ) ( completion : bool ) =
-    let (r, v) = (Z3native.model_eval (z3obj_gnc x) (z3obj_gno x) t#gno completion) in
+  let eval ( x : model ) ( t : Expr.expr ) ( completion : bool ) =
+    let (r, v) = (Z3native.model_eval (z3obj_gnc x) (z3obj_gno x) (Expr.gno t) completion) in
     if not r then
       raise (ModelEvaluationFailedException "evaluation failed")
     else
-      create_expr (z3obj_gc x) v
+      Expr.create (z3obj_gc x) v
 
   (** Alias for <c>eval</c>. *)
-  let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
+  let evaluate ( x : model ) ( t : Expr.expr ) ( completion : bool ) =
     eval x t completion
       
   (** The number of uninterpreted sorts that the model has an interpretation for. *)
@@ -4775,7 +4798,7 @@ struct
   *)
   let get_sorts ( x : model ) =
     let n = (get_num_sorts x) in
-    let f i = (create_sort (z3obj_gc x) (Z3native.model_get_sort (z3obj_gnc x) (z3obj_gno x) i)) in
+    let f i = (Sort.create (z3obj_gc x) (Z3native.model_get_sort (z3obj_gnc x) (z3obj_gno x) i)) in
     Array.init n f
 
 
@@ -4784,10 +4807,10 @@ struct
       <param name="s">An uninterpreted sort</param>
       <returns>An array of expressions, where each is an element of the universe of <paramref name="s"/></returns>
   *)
-  let sort_universe ( x : model ) ( s : sort ) =
-    let n_univ = AST.ASTVector.create (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) s#gno) in
-    let n = (AST.ASTVector.get_size n_univ) in
-    let f i = (AST.ASTVector.get n_univ i) in
+  let sort_universe ( x : model ) ( s : Sort.sort ) =
+    let n_univ = AST.ASTVectors.create (z3obj_gc x) (Z3native.model_get_sort_universe (z3obj_gnc x) (z3obj_gno x) (Sort.gno s)) in
+    let n = (AST.ASTVectors.get_size n_univ) in
+    let f i = (AST.ASTVectors.get n_univ i) in
     Array.init n f
       
   (** Conversion of models to strings. 
@@ -5323,8 +5346,8 @@ struct
   (**
      Assert a constraint (or multiple) into the solver.
   *)        
-  let assert_ ( x : solver ) ( constraints : bool_expr array ) =
-    let f e = (Z3native.solver_assert (z3obj_gnc x) (z3obj_gno x) e#gno) in
+  let assert_ ( x : solver ) ( constraints : Booleans.bool_expr array ) =
+    let f e = (Z3native.solver_assert (z3obj_gnc x) (z3obj_gno x) (Booleans.gno e)) in
     ignore (Array.map f constraints)
 
   (**
@@ -5340,11 +5363,11 @@ struct
      * and the Boolean literals
      * provided using <see cref="Check"/> with assumptions.
   *)
-  let assert_and_track ( x : solver ) ( cs : bool_expr array ) ( ps : bool_expr array ) =
+  let assert_and_track ( x : solver ) ( cs : Booleans.bool_expr array ) ( ps : Booleans.bool_expr array ) =
     if ((Array.length cs) != (Array.length ps)) then
       raise (Z3native.Exception "Argument size mismatch")
     else
-      let f i e = (Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) e#gno (Array.get ps i)#gno) in
+      let f i e = (Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) (Booleans.gno e) (Booleans.gno (Array.get ps i))) in
       ignore (Array.iteri f cs)
 	
   (**
@@ -5359,24 +5382,24 @@ struct
      * and the Boolean literals
      * provided using <see cref="Check"/> with assumptions.
   *)
-  let assert_and_track ( x : solver ) ( c : bool_expr ) ( p : bool_expr ) =    
-    Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) c#gno p#gno
+  let assert_and_track ( x : solver ) ( c : Booleans.bool_expr ) ( p : Booleans.bool_expr ) =    
+    Z3native.solver_assert_and_track (z3obj_gnc x) (z3obj_gno x) (Booleans.gno c) (Booleans.gno p)
 
   (**
      The number of assertions in the solver.
   *)
   let get_num_assertions ( x : solver ) =
-    let a = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
-    (AST.ASTVector.get_size a)
+    let a = AST.ASTVectors.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
+    (AST.ASTVectors.get_size a)
 
 
   (**
      The set of asserted formulas.
   *)
   let get_assertions ( x : solver ) =
-    let a = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
-    let n = (AST.ASTVector.get_size a) in
-    let f i = ((new bool_expr (z3obj_gc x))#create_obj (AST.ASTVector.get a i)#gno) in
+    let a = AST.ASTVectors.create (z3obj_gc x) (Z3native.solver_get_assertions (z3obj_gnc x) (z3obj_gno x)) in
+    let n = (AST.ASTVectors.get_size a) in
+    let f i = Booleans.create_expr (z3obj_gc x) (z3obj_gno (AST.ASTVectors.get a i)) in
     Array.init n f
 
   (**
@@ -5386,12 +5409,12 @@ struct
      <seealso cref="UnsatCore"/>
      <seealso cref="Proof"/>    
   *)
-  let check ( x : solver ) ( assumptions : bool_expr array) =
+  let check ( x : solver ) ( assumptions : Booleans.bool_expr array) =
     let r = 
       if ((Array.length assumptions) == 0) then
 	lbool_of_int (Z3native.solver_check (z3obj_gnc x) (z3obj_gno x))
       else
-	lbool_of_int (Z3native.solver_check_assumptions (z3obj_gnc x) (z3obj_gno x) (Array.length assumptions) (AST.aton assumptions))
+	lbool_of_int (Z3native.solver_check_assumptions (z3obj_gnc x) (z3obj_gno x) (Array.length assumptions) (Booleans.aton assumptions))
     in
     match r with 
       | L_TRUE -> SATISFIABLE
@@ -5422,7 +5445,7 @@ struct
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr (z3obj_gc x) q)
+      Some (Expr.create (z3obj_gc x) q)
 	
   (**
      The unsat core of the last <c>Check</c>.
@@ -5432,9 +5455,9 @@ struct
      if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled.
   *)
   let get_unsat_core ( x : solver ) =
-    let cn = AST.ASTVector.create (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
-    let n = (AST.ASTVector.get_size cn) in
-    let f i = (AST.ASTVector.get cn i) in
+    let cn = AST.ASTVectors.create (z3obj_gc x) (Z3native.solver_get_unsat_core (z3obj_gnc x) (z3obj_gno x)) in 
+    let n = (AST.ASTVectors.get_size cn) in
+    let f i = (AST.ASTVectors.get cn i) in
     Array.init n f
 
   (**
@@ -5527,30 +5550,30 @@ struct
   (**
      Assert a constraints into the fixedpoint solver.
   *)        
-  let assert_ ( x : fixedpoint ) ( constraints : bool_expr array ) =
-    let f e = (Z3native.fixedpoint_assert (z3obj_gnc x) (z3obj_gno x) e#gno) in
+  let assert_ ( x : fixedpoint ) ( constraints : Booleans.bool_expr array ) =
+    let f e = (Z3native.fixedpoint_assert (z3obj_gnc x) (z3obj_gno x) (Booleans.gno e)) in
     ignore (Array.map f constraints) ;
     ()
 
   (**
      Register predicate as recursive relation.
   *)       
-  let register_relation ( x : fixedpoint ) ( f : func_decl ) =
-    Z3native.fixedpoint_register_relation (z3obj_gnc x) (z3obj_gno x) f#gno
+  let register_relation ( x : fixedpoint ) ( f : FuncDecl.func_decl ) =
+    Z3native.fixedpoint_register_relation (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno f)
       
   (**
      Add rule into the fixedpoint solver.
   *)        
-  let add_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : Symbol.symbol option ) =
+  let add_rule ( x : fixedpoint ) ( rule : Booleans.bool_expr ) ( name : Symbol.symbol option ) =
     match name with 
-      | None -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno null
-      | Some(y) -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) rule#gno (Symbol.gno y)
+      | None -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) (Booleans.gno rule) null
+      | Some(y) -> Z3native.fixedpoint_add_rule (z3obj_gnc x) (z3obj_gno x) (Booleans.gno rule) (Symbol.gno y)
 
   (**
      Add table fact to the fixedpoint solver.
   *)        
-  let add_fact ( x : fixedpoint ) ( pred : func_decl ) ( args : int array ) =
-    Z3native.fixedpoint_add_fact (z3obj_gnc x) (z3obj_gno x) pred#gno (Array.length args) args
+  let add_fact ( x : fixedpoint ) ( pred : FuncDecl.func_decl ) ( args : int array ) =
+    Z3native.fixedpoint_add_fact (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno pred) (Array.length args) args
 
   (**
      Query the fixedpoint solver.
@@ -5558,8 +5581,8 @@ struct
      The query is satisfiable if there is an instance of the query variables and a derivation for it.
      The query is unsatisfiable if there are no derivations satisfying the query variables. 
   *)        
-  let query ( x : fixedpoint ) ( query : bool_expr ) =
-    match (lbool_of_int (Z3native.fixedpoint_query (z3obj_gnc x) (z3obj_gno x) query#gno)) with
+  let query ( x : fixedpoint ) ( query : Booleans.bool_expr ) =
+    match (lbool_of_int (Z3native.fixedpoint_query (z3obj_gnc x) (z3obj_gno x) (Booleans.gno query))) with
       | L_TRUE -> Solver.SATISFIABLE
       | L_FALSE -> Solver.UNSATISFIABLE
       | _ -> Solver.UNKNOWN
@@ -5570,8 +5593,8 @@ struct
      The query is satisfiable if there is an instance of some relation that is non-empty.
      The query is unsatisfiable if there are no derivations satisfying any of the relations.
   *)        
-  let query_r ( x : fixedpoint ) ( relations : func_decl array ) =
-    match (lbool_of_int (Z3native.fixedpoint_query_relations (z3obj_gnc x) (z3obj_gno x) (Array.length relations) (func_declaton relations))) with
+  let query_r ( x : fixedpoint ) ( relations : FuncDecl.func_decl array ) =
+    match (lbool_of_int (Z3native.fixedpoint_query_relations (z3obj_gnc x) (z3obj_gno x) (Array.length relations) (FuncDecl.aton relations))) with
       | L_TRUE -> Solver.SATISFIABLE
       | L_FALSE -> Solver.UNSATISFIABLE
       | _ -> Solver.UNKNOWN
@@ -5595,8 +5618,8 @@ struct
   (**
      Update named rule into in the fixedpoint solver.
   *)        
-  let update_rule ( x : fixedpoint ) ( rule : bool_expr ) ( name : Symbol.symbol ) =
-    Z3native.fixedpoint_update_rule (z3obj_gnc x) (z3obj_gno x) rule#gno (Symbol.gno name)
+  let update_rule ( x : fixedpoint ) ( rule : Booleans.bool_expr ) ( name : Symbol.symbol ) =
+    Z3native.fixedpoint_update_rule (z3obj_gnc x) (z3obj_gno x) (Booleans.gno rule) (Symbol.gno name)
 
   (**
      Retrieve satisfying instance or instances of solver, 
@@ -5607,7 +5630,7 @@ struct
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr (z3obj_gc x) q)
+      Some (Expr.create (z3obj_gc x) q)
 
   (**
      Retrieve explanation why fixedpoint engine returned status Unknown.
@@ -5618,25 +5641,25 @@ struct
   (**
      Retrieve the number of levels explored for a given predicate.
   *)                
-  let get_num_levels ( x : fixedpoint ) ( predicate : func_decl ) =
-    Z3native.fixedpoint_get_num_levels (z3obj_gnc x) (z3obj_gno x) predicate#gno
+  let get_num_levels ( x : fixedpoint ) ( predicate : FuncDecl.func_decl ) =
+    Z3native.fixedpoint_get_num_levels (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno predicate)
 
   (**
      Retrieve the cover of a predicate.
   *)                
-  let get_cover_delta ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) =
-    let q = (Z3native.fixedpoint_get_cover_delta (z3obj_gnc x) (z3obj_gno x) level predicate#gno) in
+  let get_cover_delta ( x : fixedpoint ) ( level : int ) ( predicate : FuncDecl.func_decl ) =
+    let q = (Z3native.fixedpoint_get_cover_delta (z3obj_gnc x) (z3obj_gno x) level (FuncDecl.gno predicate)) in
     if (Z3native.is_null q) then
       None
     else
-      Some (create_expr (z3obj_gc x) q)
+      Some (Expr.create (z3obj_gc x) q)
 	
   (**
      Add <tt>property</tt> about the <tt>predicate</tt>.
      The property is added at <tt>level</tt>.
   *)                
-  let add_cover ( x : fixedpoint ) ( level : int ) ( predicate : func_decl ) ( property : expr ) =
-    Z3native.fixedpoint_add_cover (z3obj_gnc x) (z3obj_gno x) level predicate#gno property#gno
+  let add_cover ( x : fixedpoint ) ( level : int ) ( predicate : FuncDecl.func_decl ) ( property : Expr.expr ) =
+    Z3native.fixedpoint_add_cover (z3obj_gnc x) (z3obj_gno x) level (FuncDecl.gno predicate) (Expr.gno property)
       
   (**
      Retrieve internal string representation of fixedpoint object.
@@ -5646,31 +5669,31 @@ struct
   (**
      Instrument the Datalog engine on which table representation to use for recursive predicate.
   *)                
-  let set_predicate_representation ( x : fixedpoint ) ( f : func_decl ) ( kinds : Symbol.symbol array ) =
-    Z3native.fixedpoint_set_predicate_representation (z3obj_gnc x) (z3obj_gno x) f#gno (Array.length kinds) (Symbol.aton kinds)
+  let set_predicate_representation ( x : fixedpoint ) ( f : FuncDecl.func_decl ) ( kinds : Symbol.symbol array ) =
+    Z3native.fixedpoint_set_predicate_representation (z3obj_gnc x) (z3obj_gno x) (FuncDecl.gno f) (Array.length kinds) (Symbol.aton kinds)
 
   (**
      Convert benchmark given as set of axioms, rules and queries to a string.
   *)                
-  let to_string_q ( x : fixedpoint ) ( queries : bool_expr array ) =
-    Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) (Array.length queries) (AST.aton queries)
+  let to_string_q ( x : fixedpoint ) ( queries : Booleans.bool_expr array ) =
+    Z3native.fixedpoint_to_string (z3obj_gnc x) (z3obj_gno x) (Array.length queries) (Booleans.aton queries)
 
   (**
      Retrieve set of rules added to fixedpoint context.
   *)                
   let get_rules ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
-    let n = (AST.ASTVector.get_size v) in
-    let f i = (new bool_expr (z3obj_gc x))#create_obj (AST.ASTVector.get v i)#gno in
+    let v = (AST.ASTVectors.create (z3obj_gc x) (Z3native.fixedpoint_get_rules (z3obj_gnc x) (z3obj_gno x))) in
+    let n = (AST.ASTVectors.get_size v) in
+    let f i = Booleans.create_expr (z3obj_gc x) (z3obj_gno (AST.ASTVectors.get v i)) in
     Array.init n f
 
   (**
      Retrieve set of assertions added to fixedpoint context.
   *)                
   let get_assertions ( x : fixedpoint ) = 
-    let v = (AST.ASTVector.create (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
-    let n = (AST.ASTVector.get_size v) in
-    let f i = (new bool_expr (z3obj_gc x))#create_obj (AST.ASTVector.get v i)#gno in
+    let v = (AST.ASTVectors.create (z3obj_gc x) (Z3native.fixedpoint_get_assertions (z3obj_gnc x) (z3obj_gno x))) in
+    let n = (AST.ASTVectors.get_size v) in
+    let f i = Booleans.create_expr (z3obj_gc x) (z3obj_gno (AST.ASTVectors.get v i)) in
     Array.init n f
 
   (**
@@ -5754,10 +5777,10 @@ struct
      @param formula Formula to be checked for consistency in conjunction with assumptions.
      @return A string representation of the benchmark.
   *)
-  let benchmark_to_smtstring ( ctx : context ) ( name : string ) ( logic : string ) ( status : string ) ( attributes : string ) ( assumptions : bool_expr array ) ( formula : bool_expr ) =
+  let benchmark_to_smtstring ( ctx : context ) ( name : string ) ( logic : string ) ( status : string ) ( attributes : string ) ( assumptions : Booleans.bool_expr array ) ( formula : Booleans.bool_expr ) =
     Z3native.benchmark_to_smtlib_string (context_gno ctx) name logic status attributes
-      (Array.length assumptions) (AST.aton assumptions)
-      formula#gno
+      (Array.length assumptions) (Booleans.aton assumptions)
+      (Booleans.gno formula)
 
   (**
      Parse the given string using the SMT-LIB parser. 
@@ -5768,7 +5791,7 @@ struct
      and <paramref name="decls"/>. This is a useful feature since we can use arbitrary names to 
      reference sorts and declarations.
   *)
-  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : Sort.sort array ) ( decl_names : Symbol.symbol array ) ( decls : FuncDecl.func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5779,16 +5802,16 @@ struct
       Z3native.parse_smtlib_string (context_gno ctx) str 
 	cs 
 	(Symbol.aton sort_names)
-	(AST.aton sorts)
+	(Sort.aton sorts)
 	cd 
 	(Symbol.aton decl_names)
-	(func_declaton decls)
+	(FuncDecl.aton decls)
 	
   (**
      Parse the given file using the SMT-LIB parser. 
      <seealso cref="ParseSMTLIBString"/>
   *)
-  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : Sort.sort array ) ( decl_names : Symbol.symbol array ) ( decls : FuncDecl.func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5799,10 +5822,10 @@ struct
       Z3native.parse_smtlib_file (context_gno ctx) file_name
 	cs 
 	(Symbol.aton sort_names)
-	(AST.aton sorts)
+	(Sort.aton sorts)
 	cd 
 	(Symbol.aton decl_names)
-	(func_declaton decls)
+	(FuncDecl.aton decls)
 
   (**
      The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>.
@@ -5814,7 +5837,7 @@ struct
   *)
   let get_smtlib_formulas ( ctx : context ) =
     let n = (get_num_smtlib_formulas ctx ) in
-    let f i = ((create_expr ctx (Z3native.get_smtlib_formula (context_gno ctx) i)) :> bool_expr) in
+    let f i = Booleans.create_expr ctx (Z3native.get_smtlib_formula (context_gno ctx) i) in
     Array.init n f 
 
 
@@ -5828,7 +5851,7 @@ struct
   *)
   let get_smtlib_assumptions ( ctx : context ) =
     let n = (get_num_smtlib_assumptions ctx ) in
-    let f i =  ((create_expr ctx (Z3native.get_smtlib_assumption (context_gno ctx) i)) :> bool_expr ) in
+    let f i =  Booleans.create_expr ctx (Z3native.get_smtlib_assumption (context_gno ctx) i) in
     Array.init n f
 
   (**
@@ -5841,7 +5864,7 @@ struct
   *)
   let get_smtlib_decls ( ctx : context ) = 
     let n = (get_num_smtlib_decls ctx) in
-    let f i = (new func_decl ctx)#create_obj (Z3native.get_smtlib_decl (context_gno ctx) i) in
+    let f i = FuncDecl.create ctx (Z3native.get_smtlib_decl (context_gno ctx) i) in
     Array.init n f
 
   (**
@@ -5854,7 +5877,7 @@ struct
   *)
   let get_smtlib_sorts ( ctx : context ) = 
     let n = (get_num_smtlib_sorts ctx) in
-    let f i = (create_sort ctx (Z3native.get_smtlib_sort (context_gno ctx) i)) in
+    let f i = (Sort.create ctx (Z3native.get_smtlib_sort (context_gno ctx) i)) in
     Array.init n f
 
   (**
@@ -5863,7 +5886,7 @@ struct
      <seealso cref="ParseSMTLIBString"/>
      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string.
   *)
-  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib2_string ( ctx : context ) ( str : string ) ( sort_names : Symbol.symbol array ) ( sorts : Sort.sort array ) ( decl_names : Symbol.symbol array ) ( decls : FuncDecl.func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5877,13 +5900,13 @@ struct
 	(Sort.aton sorts)
 	cd 
 	(Symbol.aton decl_names)
-	(func_declaton decls)
+	(FuncDecl.aton decls)
 
   (**
      Parse the given file using the SMT-LIB2 parser. 
      <seealso cref="ParseSMTLIB2String"/>
   *)
-  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : sort array ) ( decl_names : Symbol.symbol array ) ( decls : func_decl array ) =
+  let parse_smtlib2_file ( ctx : context ) ( file_name : string ) ( sort_names : Symbol.symbol array ) ( sorts : Sort.sort array ) ( decl_names : Symbol.symbol array ) ( decls : FuncDecl.func_decl array ) =
     let csn = (Array.length sort_names) in
     let cs = (Array.length sorts) in
     let cdn = (Array.length decl_names) in
@@ -5897,7 +5920,7 @@ struct
 	(Sort.aton sorts)
 	cd 
 	(Symbol.aton decl_names)
-	(func_declaton decls)
+	(FuncDecl.aton decls)
 end
 
 
