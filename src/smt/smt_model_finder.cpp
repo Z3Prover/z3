@@ -1535,8 +1535,23 @@ namespace smt {
                 n1->insert_exception(m_t);
             }
 
-            virtual void populate_inst_sets(quantifier * q, auf_solver & s, context * ctx) {
-                // do nothing... 
+            virtual void populate_inst_sets(quantifier * q, auf_solver & slv, context * ctx) {
+                unsigned num_vars = q->get_num_decls();
+                ast_manager & m = ctx->get_manager();
+                sort * s = q->get_decl_sort(num_vars - m_var_i - 1);
+                if (m.is_uninterp(s)) {
+                    // For uninterpreted sorst, we add all terms in the context.
+                    // See Section 4.1 in the paper "Complete Quantifier Instantiation"
+                    node * S_q_i = slv.get_uvar(q, m_var_i);
+                    ptr_vector<enode>::const_iterator it  = ctx->begin_enodes();
+                    ptr_vector<enode>::const_iterator end = ctx->end_enodes();
+                    for (; it != end; ++it) {
+                        enode * n = *it;
+                        if (ctx->is_relevant(n) && get_sort(n->get_owner()) == s) {
+                            S_q_i->insert(n->get_owner(), n->get_generation());
+                        }
+                    }
+                }
             }
         };
 
