@@ -39,9 +39,13 @@ namespace datalog {
         th_rewriter     m_rewriter;
         equiv_proof_converter* m_pc;
 
+        typedef obj_map<app, var*> defs_t;
+
         bool blast(rule& r, rule_set& new_rules);
 
         bool is_store_def(expr* e, expr*& x, expr*& y);
+
+        bool ackermanize(expr_ref& body, expr_ref& head);
 
     public:
         /**
