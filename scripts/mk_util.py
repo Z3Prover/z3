@@ -1084,6 +1084,10 @@ class JavaDLLComponent(Component):
             mk_dir(os.path.join(dist_path, 'bin'))
             shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
                         '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+            shutil.copy(os.path.join(build_path, 'libz3java.dll'), 
+                        os.path.join(dist_path, 'bin', 'libz3java.dll'))
+            shutil.copy(os.path.join(build_path, 'libz3java.lib'),
+                        os.path.join(dist_path, 'bin', 'libz3java.lib'))
 
 class ExampleComponent(Component):
     def __init__(self, name, path):
