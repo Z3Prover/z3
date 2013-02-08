@@ -2155,7 +2155,7 @@ class JavaExample
         // But you cannot mix numerals of different sorts
         // even if the size of their domains are the same:
         // System.out.println(ctx.mkEq(s1, t1));
-    }
+    }    
 
     public static void main(String[] args)
     {
@@ -2226,7 +2226,7 @@ class JavaExample
                 Context ctx = new Context(cfg);
                 p.quantifierExample3(ctx);
                 p.quantifierExample4(ctx);
-            }
+            }            
 
             Log.close();
             if (Log.isOpen())

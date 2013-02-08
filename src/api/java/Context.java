@@ -3053,10 +3053,10 @@ public class Context extends IDisposable
                 // OK.
             }
             m_ctx = 0;
-        } else
-            /* re-queue the finalizer */
-            /* BUG: DRQ's need to be taken over too! */
-            new Context(m_ctx, m_refCount);
+        } 
+        /*
+        else
+            CMW: re-queue the finalizer? */
     }
 
     /**
