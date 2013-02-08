@@ -28,7 +28,9 @@ Revision History:
 namespace pdr {
 
 
-    //
+    // ------------------------
+    // core_bool_inductive_generalizer
+
     // main propositional induction generalizer.
     // drop literals one by one from the core and check if the core is still inductive.
     //    
@@ -97,6 +99,9 @@ namespace pdr {
         }
     }
 
+    // ------------------------
+    // core_farkas_generalizer 
+
     // 
     // for each disjunct of core:
     //     weaken predecessor.
@@ -142,6 +147,158 @@ namespace pdr {
     }
 
 
+    // -----------------------------
+    // core_arith_inductive_generalizer 
+
+    core_arith_inductive_generalizer::core_arith_inductive_generalizer(context& ctx):
+        core_generalizer(ctx), 
+        m(ctx.get_manager()),
+        a(m),
+        m_refs(m) {}
+
+    void core_arith_inductive_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
+        if (core.size() <= 1) {
+            return;
+        }
+        reset();
+        expr_ref e(m), t1(m), t2(m), t3(m);
+        rational r;
+        
+        TRACE("pdr", for (unsigned i = 0; i < core.size(); ++i) { tout << mk_pp(core[i].get(), m) << "\n"; });
+
+        svector<eq> eqs;
+        get_eqs(core, eqs);
+        
+        for (unsigned eq = 0; eq < eqs.size(); ++eq) {
+            rational r = eqs[eq].m_value;
+            expr* x = eqs[eq].m_term;
+            unsigned k = eqs[eq].m_i;
+            unsigned l = eqs[eq].m_j;
+
+            expr_ref_vector new_core(m);
+            for (unsigned i = 0; i < core.size(); ++i) {
+                if (i == k || k == l) {
+                    new_core.push_back(m.mk_true());
+                }
+                else {
+                    if (!substitute_alias(r, x, core[i].get(), e)) {
+                        e = core[i].get();
+                    }
+                    new_core.push_back(e);
+                }
+            }
+            if (abs(r) >= rational(2) && a.is_int(x)) {
+                new_core[k] = m.mk_eq(a.mk_mod(x, a.mk_numeral(abs(r), true)), a.mk_numeral(rational(0), true));
+                new_core[l] = a.mk_ge(x, a.mk_numeral(r, true));
+            }
+
+            bool inductive = n.pt().check_inductive(n.level(), new_core, uses_level);
+
+            IF_VERBOSE(1, 
+                       verbose_stream() << (inductive?"":"non") << "inductive\n";
+                       for (unsigned j = 0; j < new_core.size(); ++j) { 
+                           verbose_stream() << mk_pp(new_core[j].get(), m) << "\n"; 
+                       });
+
+            if (inductive) {
+                core.reset();
+                core.append(new_core);
+            }
+        }
+    }    
+
+    void core_arith_inductive_generalizer::insert_bound(bool is_lower, expr* x, rational const& r, unsigned i) {
+        if (r.is_neg()) {
+            expr_ref e(m);
+            e = a.mk_uminus(x);
+            m_refs.push_back(e);
+            x = e;
+            is_lower = !is_lower;
+        }
+
+        if (is_lower) {
+            m_lb.insert(abs(r), std::make_pair(x, i));
+        }
+        else {
+            m_ub.insert(abs(r), std::make_pair(x, i));
+        }
+    }
+
+    void core_arith_inductive_generalizer::reset() {
+        m_refs.reset();
+        m_lb.reset();
+        m_ub.reset();
+    }
+
+    void core_arith_inductive_generalizer::get_eqs(expr_ref_vector const& core, svector<eq>& eqs) {
+        expr* e1, *x, *y;
+        expr_ref e(m);
+        rational r;
+
+        for (unsigned i = 0; i < core.size(); ++i) {
+            e = core[i];
+            if (m.is_not(e, e1) && a.is_le(e1, x, y) && a.is_numeral(y, r) && a.is_int(x)) {
+                // not (<= x r) <=> x >= r + 1
+                insert_bound(true, x, r + rational(1), i);
+            }
+            else if (m.is_not(e, e1) && a.is_ge(e1, x, y) && a.is_numeral(y, r) && a.is_int(x)) {
+                // not (>= x r) <=> x <= r - 1
+                insert_bound(false, x, r - rational(1), i);
+            }
+            else if (a.is_le(e, x, y) && a.is_numeral(y, r)) {
+                insert_bound(false, x, r, i);
+            }
+            else if (a.is_ge(e, x, y) && a.is_numeral(y, r)) {
+                insert_bound(true, x, r, i);
+            }
+        }
+        bounds_t::iterator it = m_lb.begin(), end = m_lb.end();
+        for (; it != end; ++it) {
+            rational r = it->m_key;
+            vector<term_loc_t> & terms1 = it->m_value;
+            vector<term_loc_t> terms2;
+            if (r >= rational(2) && m_ub.find(r, terms2)) {
+                bool done = false;
+                for (unsigned i = 0; !done && i < terms1.size(); ++i) {
+                    for (unsigned j = 0; !done && j < terms2.size(); ++j) {
+                        expr* t1 = terms1[i].first;
+                        expr* t2 = terms2[j].first;
+                        if (t1 == t2) {
+                            eqs.push_back(eq(t1, r, terms1[i].second, terms2[j].second));
+                            done = true;
+                        }
+                        else {
+                            e = m.mk_eq(t1, t2);
+                            th_rewriter rw(m);
+                            rw(e);
+                            if (m.is_true(e)) {
+                                eqs.push_back(eq(t1, r, terms1[i].second, terms2[j].second));
+                                done = true;                                
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    bool core_arith_inductive_generalizer::substitute_alias(rational const& r, expr* x, expr* e, expr_ref& result) {
+        rational r2;
+        expr* y, *z, *e1;
+        if (m.is_not(e, e1) && substitute_alias(r, x, e1, result)) {
+            result = m.mk_not(result);
+            return true;
+        }
+        if (a.is_le(e, y, z) && a.is_numeral(z, r2) && r == r2) {
+            result = a.mk_le(y, x);
+            return true;
+        }
+        if (a.is_ge(e, y, z) && a.is_numeral(z, r2) && r == r2) {
+            result = a.mk_ge(y, x);
+            return true;
+        }
+        return false;
+    }
 
 
     // 

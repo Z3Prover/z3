@@ -1477,6 +1477,10 @@ namespace pdr {
         if (m_params.inductive_reachability_check()) {
             m_core_generalizers.push_back(alloc(core_induction_generalizer, *this));
         }
+        if (m_params.use_arith_inductive_generalizer()) {
+            m_core_generalizers.push_back(alloc(core_arith_inductive_generalizer, *this));
+        }
+        
     }
 
     void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const {

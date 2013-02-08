@@ -44,6 +44,7 @@ def_module_params('fixedpoint',
                           ('coalesce_rules', BOOL, False, "BMC: coalesce rules"),
                           ('use_multicore_generalizer', BOOL, False, "PDR: extract multiple cores for blocking states"),
                           ('use_inductive_generalizer', BOOL, True, "PDR: generalize lemmas using induction strengthening"),
+                          ('use_arith_inductive_generalizer', BOOL, False, "PDR: generalize lemmas using arithmetic heuristics for induction strengthening"),
                           ('cache_mode', UINT, 0, "PDR: use no (0), symbolic (1) or explicit cache (2) for model search"),
                           ('inductive_reachability_check', BOOL, False, "PDR: assume negation of the cube on the previous level when "
                                                                         "checking for reachability (not only during cube weakening)"),
