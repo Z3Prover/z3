@@ -188,8 +188,8 @@ namespace pdr {
                 }
             }
             if (abs(r) >= rational(2) && a.is_int(x)) {
-                new_core[k] = m.mk_eq(a.mk_mod(x, a.mk_numeral(abs(r), true)), a.mk_numeral(rational(0), true));
-                new_core[l] = a.mk_ge(x, a.mk_numeral(r, true));
+                new_core[k] = m.mk_eq(a.mk_mod(x, a.mk_numeral(rational(2), true)), a.mk_numeral(rational(0), true));
+                new_core[l] = a.mk_le(x, a.mk_numeral(r, true));
             }
 
             bool inductive = n.pt().check_inductive(n.level(), new_core, uses_level);
@@ -258,8 +258,8 @@ namespace pdr {
             vector<term_loc_t> & terms1 = it->m_value;
             vector<term_loc_t> terms2;
             if (r >= rational(2) && m_ub.find(r, terms2)) {
-                bool done = false;
-                for (unsigned i = 0; !done && i < terms1.size(); ++i) {
+                for (unsigned i = 0; i < terms1.size(); ++i) {
+                    bool done = false;
                     for (unsigned j = 0; !done && j < terms2.size(); ++j) {
                         expr* t1 = terms1[i].first;
                         expr* t2 = terms2[j].first;

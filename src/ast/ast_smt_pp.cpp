@@ -537,7 +537,7 @@ class smt_printer {
     }
 
     void print_bound(symbol const& name) {
-        if (name.is_numerical() || '?' != name.bare_str()[0]) {
+        if (!m_is_smt2 && (name.is_numerical() || '?' != name.bare_str()[0])) {
             m_out << "?";
         }
         m_out << name;
@@ -561,7 +561,7 @@ class smt_printer {
             m_out << "(";
             print_bound(m_renaming.get_symbol(q->get_decl_name(i)));
             m_out << " ";
-            visit_sort(s, true);
+            visit_sort(s, !m_is-smt2);
             m_out << ") ";
         }
         if (m_is_smt2) {
@@ -642,7 +642,9 @@ class smt_printer {
             m_out << m_var_names[m_num_var_names - idx - 1];
         }
         else {
-            m_out << "?" << idx;
+            if (!m_is_smt2) {
+                m_out << "?" << idx;
+            }
         }
     }
 
