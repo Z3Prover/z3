@@ -147,8 +147,12 @@ namespace pdr {
     }
 
 
-    // -----------------------------
+    // ---------------------------------
     // core_arith_inductive_generalizer 
+    // NB. this is trying out some ideas for generalization in
+    // an ad hoc specialized way. arith_inductive_generalizer should
+    // not be used by default. It is a place-holder for a general purpose
+    // extrapolator of a lattice basis.
 
     core_arith_inductive_generalizer::core_arith_inductive_generalizer(context& ctx):
         core_generalizer(ctx), 
@@ -168,42 +172,50 @@ namespace pdr {
 
         svector<eq> eqs;
         get_eqs(core, eqs);
-        
+
+        if (eqs.empty()) {
+            return;
+        }
+
+        expr_ref_vector new_core(m);
+        new_core.append(core);
+
         for (unsigned eq = 0; eq < eqs.size(); ++eq) {
             rational r = eqs[eq].m_value;
             expr* x = eqs[eq].m_term;
             unsigned k = eqs[eq].m_i;
             unsigned l = eqs[eq].m_j;
 
-            expr_ref_vector new_core(m);
-            for (unsigned i = 0; i < core.size(); ++i) {
-                if (i == k || k == l) {
-                    new_core.push_back(m.mk_true());
-                }
-                else {
-                    if (!substitute_alias(r, x, core[i].get(), e)) {
-                        e = core[i].get();
-                    }
-                    new_core.push_back(e);
+            new_core[l] = m.mk_true();
+            new_core[k] = m.mk_true();
+            
+            for (unsigned i = 0; i < new_core.size(); ++i) {
+                if (substitute_alias(r, x, new_core[i].get(), e)) {
+                    new_core[i] = e;
                 }
             }
             if (abs(r) >= rational(2) && a.is_int(x)) {
-                new_core[k] = m.mk_eq(a.mk_mod(x, a.mk_numeral(abs(r), true)), a.mk_numeral(rational(0), true));
-                new_core[l] = a.mk_ge(x, a.mk_numeral(r, true));
+                new_core[k] = m.mk_eq(a.mk_mod(x, a.mk_numeral(rational(2), true)), a.mk_numeral(rational(0), true));
+                new_core[l] = a.mk_le(x, a.mk_numeral(rational(0), true));
             }
+        }
 
-            bool inductive = n.pt().check_inductive(n.level(), new_core, uses_level);
+        bool inductive = n.pt().check_inductive(n.level(), new_core, uses_level);
 
-            IF_VERBOSE(1, 
-                       verbose_stream() << (inductive?"":"non") << "inductive\n";
-                       for (unsigned j = 0; j < new_core.size(); ++j) { 
-                           verbose_stream() << mk_pp(new_core[j].get(), m) << "\n"; 
-                       });
-
-            if (inductive) {
-                core.reset();
-                core.append(new_core);
-            }
+        IF_VERBOSE(1, 
+                   verbose_stream() << (inductive?"":"non") << "inductive\n";
+                   verbose_stream() << "old\n";
+                   for (unsigned j = 0; j < core.size(); ++j) { 
+                       verbose_stream() << mk_pp(core[j].get(), m) << "\n"; 
+                   }
+                   verbose_stream() << "new\n";
+                   for (unsigned j = 0; j < new_core.size(); ++j) { 
+                       verbose_stream() << mk_pp(new_core[j].get(), m) << "\n"; 
+                   });
+        
+        if (inductive) {
+            core.reset();
+            core.append(new_core);
         }
     }    
 
@@ -289,13 +301,34 @@ namespace pdr {
             result = m.mk_not(result);
             return true;
         }
-        if (a.is_le(e, y, z) && a.is_numeral(z, r2) && r == r2) {
-            result = a.mk_le(y, x);
-            return true;
+        if (a.is_le(e, y, z) && a.is_numeral(z, r2)) {
+            if (r == r2) {
+                result = a.mk_le(y, x);
+                return true;
+            }
+            if (r == r2 + rational(1)) {
+                result = a.mk_lt(y, x);
+                return true;
+            }
+            if (r == r2 - rational(1)) {
+                result = a.mk_le(y, a.mk_sub(x, a.mk_numeral(rational(1), a.is_int(x))));
+                return true;
+            }
+            
         }
-        if (a.is_ge(e, y, z) && a.is_numeral(z, r2) && r == r2) {
-            result = a.mk_ge(y, x);
-            return true;
+        if (a.is_ge(e, y, z) && a.is_numeral(z, r2)) {
+            if (r == r2) {
+                result = a.mk_ge(y, x);
+                return true;
+            }
+            if (r2 == r + rational(1)) {
+                result = a.mk_gt(y, x);
+                return true;
+            }
+            if (r2 == r - rational(1)) {
+                result = a.mk_ge(y, a.mk_sub(x, a.mk_numeral(rational(1), a.is_int(x))));
+                return true;
+            }
         }
         return false;
     }

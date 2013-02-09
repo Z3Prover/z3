@@ -1836,14 +1836,17 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 }
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
+    ast_manager& m = const_cast<ast_manager&>(*this);
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
             sort * given = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
-                string_buffer<> buff;
-                buff << "invalid function application, sort mismatch on argument at position " << (i+1);
-                throw ast_exception(buff.c_str());
+                std::ostringstream buff;
+                buff << "Invalid function application for " << decl->get_name() << ". ";
+                buff << "Sort mismatch on argument at position " << (i+1) << ". ";
+                buff << "Expected: " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                throw ast_exception(buff.str().c_str());
             }
         }
     }
@@ -1855,9 +1858,11 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
             sort * expected = decl->get_domain(i);
             sort * given    = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
-                string_buffer<> buff;
-                buff << "invalid function application, sort mismatch on argument at position " << (i+1);
-                throw ast_exception(buff.c_str());
+                std::ostringstream buff;
+                buff << "Invalid function application for " << decl->get_name() << ". ";
+                buff << "Sort mismatch on argument at position " << (i+1) << ". ";
+                buff << "Expected: " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                throw ast_exception(buff.str().c_str());
             }
         }
     }

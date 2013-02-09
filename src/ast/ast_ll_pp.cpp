@@ -126,7 +126,21 @@ public:
         m_autil(m) {
     }
 
-    void operator()(sort * n) {
+    void pp(ast* n) {
+        ast_mark visited;
+        pp(n, visited);
+    }
+
+    void pp(ast* n, ast_mark& visited) {
+        if (is_sort(n)) {
+            display_sort(to_sort(n));
+        }
+        else {
+            for_each_ast(*this, visited, n, true);
+        }
+    }
+
+    void operator()(sort* n) {
     }
 
     void operator()(func_decl * n) {
@@ -296,17 +310,17 @@ public:
 
 void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, bool only_exprs, bool compact) {
     ll_printer p(out, m, n, only_exprs, compact);
-    for_each_ast(p, n, true);
+    p.pp(n);
 }
 
 void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited, bool only_exprs, bool compact) {
     ll_printer p(out, m, n, only_exprs, compact);
-    for_each_ast(p, visited, n, true);
+    p.pp(n, visited);
 }
 
 void ast_def_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited, bool only_exprs, bool compact) {
     ll_printer p(out, m, 0, only_exprs, compact);
-    for_each_ast(p, visited, n, true);
+    p.pp(n, visited);
 }
 
 void ast_ll_bounded_pp(std::ostream & out, ast_manager & m, ast * n, unsigned depth) {
