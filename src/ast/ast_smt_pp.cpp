@@ -537,7 +537,7 @@ class smt_printer {
     }
 
     void print_bound(symbol const& name) {
-        if (!is_smt2 && (name.is_numerical() || '?' != name.bare_str()[0])) {
+        if (!m_is_smt2 && (name.is_numerical() || '?' != name.bare_str()[0])) {
             m_out << "?";
         }
         m_out << name;
