@@ -87,12 +87,12 @@ namespace datalog {
         acc.push_back(instruction::mk_clone(src, result));
     }
 
-    void compiler::make_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widening, 
+    void compiler::make_union(reg_idx src, reg_idx tgt, reg_idx delta, bool use_widening, 
             instruction_block & acc) {
         SASSERT(m_reg_signatures[src]==m_reg_signatures[tgt]);
         SASSERT(delta==execution_context::void_register || m_reg_signatures[src]==m_reg_signatures[delta]);
 
-        if(widening) {
+        if (use_widening) {
             acc.push_back(instruction::mk_widen(src, tgt, delta));
         }
         else {
@@ -129,8 +129,7 @@ namespace datalog {
         func_decl_set::iterator pend = preds.end();
         for(; pit!=pend; ++pit) {
             func_decl * pred = *pit;
-            reg_idx reg;
-            TRUSTME( m_pred_regs.find(pred, reg) );
+            reg_idx reg = m_pred_regs.find(pred);
 
             SASSERT(!regs.contains(pred));
             relation_signature sig = m_reg_signatures[reg];
@@ -576,8 +575,7 @@ namespace datalog {
             }
             SASSERT(t_cols.size()==neg_cols.size());
 
-            reg_idx neg_reg;
-            TRUSTME( m_pred_regs.find(neg_pred, neg_reg) );
+            reg_idx neg_reg = m_pred_regs.find(neg_pred);
             acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
                 t_cols.c_ptr(), neg_cols.c_ptr()));
         }
@@ -762,15 +760,13 @@ namespace datalog {
         typedef svector<tail_delta_info> tail_delta_infos;
 
         unsigned rule_len = r->get_uninterpreted_tail_size();
-        reg_idx head_reg;
-        TRUSTME( m_pred_regs.find(r->get_head()->get_decl(), head_reg) );
+        reg_idx head_reg = m_pred_regs.find(r->get_head()->get_decl());
 
         svector<reg_idx> tail_regs;
         tail_delta_infos tail_deltas;
         for(unsigned j=0;j<rule_len;j++) {
             func_decl * tail_pred = r->get_tail(j)->get_decl();
-            reg_idx tail_reg;
-            TRUSTME( m_pred_regs.find(tail_pred, tail_reg) );
+            reg_idx tail_reg = m_pred_regs.find(tail_pred);
             tail_regs.push_back(tail_reg);
 
             if(input_deltas && !all_or_nothing_deltas()) {
@@ -858,7 +854,7 @@ namespace datalog {
         rule_dependencies deps(m_rule_set.get_dependencies());
         deps.restrict(preds);
         cycle_breaker(deps, global_deltas)();
-        TRUSTME( deps.sort_deps(ordered_preds) );
+        VERIFY( deps.sort_deps(ordered_preds) );
 
         //the predicates that were removed to get acyclic induced subgraph are put last
         //so that all their local input deltas are already populated
@@ -903,8 +899,7 @@ namespace datalog {
         for(; gdit!=gend; ++gdit) {
             func_decl * pred = gdit->m_key;
             reg_idx head_reg = gdit->m_value;
-            reg_idx tail_reg;
-            TRUSTME( global_tail_deltas.find(pred, tail_reg) );
+            reg_idx tail_reg = global_tail_deltas.find(pred);
             acc.push_back(instruction::mk_move(head_reg, tail_reg));
         }
         //empty local deltas
@@ -939,7 +934,7 @@ namespace datalog {
 
         loop_body->set_observer(0);
         acc.push_back(instruction::mk_while_loop(loop_control_regs.size(),
-            loop_control_regs.c_ptr(),loop_body));
+            loop_control_regs.c_ptr(), loop_body));
     }
 
     void compiler::compile_dependent_rules(const func_decl_set & head_preds,
@@ -985,50 +980,11 @@ namespace datalog {
         //generate code for the initial run
         compile_preds(preds_vector, empty_func_decl_set, input_deltas, d_global_src, acc);
 
-        if(!compile_with_widening()) {
-            compile_loop(preds_vector, empty_func_decl_set, d_global_tgt, d_global_src,
-                d_local, acc);
+        if (compile_with_widening()) {
+            compile_loop(preds_vector, global_deltas, d_global_tgt, d_global_src, d_local, acc);
         }
         else {
-            //do the part where we zero the global predicates and run the loop saturation loop again
-            if(global_deltas.size()<head_preds.size()) {
-
-                pred2idx globals_backup;
-                get_fresh_registers(global_deltas, globals_backup); //these actually are not deltas
-
-                {
-                    //make backup copy of relations that will be widened
-                    func_decl_set::iterator it = global_deltas.begin();
-                    func_decl_set::iterator end = global_deltas.end();
-                    for(; it!=end; ++it) {
-                        reg_idx rel_idx;
-                        TRUSTME( m_pred_regs.find(*it, rel_idx) );
-                        reg_idx backup_idx;
-                        TRUSTME( globals_backup.find(*it, backup_idx) );
-
-                        make_clone(rel_idx, backup_idx, acc);
-                    }
-                }
-
-                compile_loop(preds_vector, global_deltas, d_global_tgt, d_global_src,
-                    d_local, acc);
-
-                {
-                    //restore the original values of widened relations before we rerun the loop
-                    func_decl_set::iterator it = global_deltas.begin();
-                    func_decl_set::iterator end = global_deltas.end();
-                    for(; it!=end; ++it) {
-                        reg_idx rel_idx;
-                        TRUSTME( m_pred_regs.find(*it, rel_idx) );
-                        reg_idx backup_idx;
-                        TRUSTME( globals_backup.find(*it, backup_idx) );
-
-                        acc.push_back(instruction::mk_move(backup_idx, rel_idx));
-                    }
-                }
-            }
-            compile_loop(preds_vector, global_deltas, d_global_tgt, d_global_src,
-                d_local, acc);
+            compile_loop(preds_vector, empty_func_decl_set, d_global_tgt, d_global_src, d_local, acc);
         }
 
 

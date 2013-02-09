@@ -52,6 +52,20 @@ namespace pdr {
     static bool is_infty_level(unsigned lvl) { return lvl == infty_level; }
 
     static unsigned next_level(unsigned lvl) { return is_infty_level(lvl)?lvl:(lvl+1); }
+
+    struct pp_level {
+        unsigned m_level;
+        pp_level(unsigned l): m_level(l) {}        
+    };
+
+    static std::ostream& operator<<(std::ostream& out, pp_level const& p) {
+        if (is_infty_level(p.m_level)) {
+            return out << "oo";
+        }
+        else {
+            return out << p.m_level;
+        }
+    }
     
     // ----------------
     // pred_tansformer
@@ -263,7 +277,7 @@ namespace pdr {
             else if (is_invariant(tgt_level, curr, false, assumes_level)) {
                 
                 add_property(curr, assumes_level?tgt_level:infty_level);
-                TRACE("pdr", tout << "is invariant: "<< tgt_level << " " << mk_pp(curr, m) << "\n";);              
+                TRACE("pdr", tout << "is invariant: "<< pp_level(tgt_level) << " " << mk_pp(curr, m) << "\n";);              
                 src[i] = src.back();
                 src.pop_back();
                 ++m_stats.m_num_propagations;
@@ -273,14 +287,7 @@ namespace pdr {
                 ++i;
             }
         }        
-        IF_VERBOSE(2, verbose_stream() << "propagate: ";
-                   if (is_infty_level(src_level)) {
-                       verbose_stream() << "infty"; 
-                   }
-                   else {
-                       verbose_stream() << src_level;
-                   }
-                   verbose_stream() << "\n";
+        IF_VERBOSE(3, verbose_stream() << "propagate: " << pp_level(src_level) << "\n";
                    for (unsigned i = 0; i < src.size(); ++i) {
                        verbose_stream() << mk_pp(src[i].get(), m) << "\n";   
                    });
@@ -304,14 +311,14 @@ namespace pdr {
         ensure_level(lvl);        
         unsigned old_level;
         if (!m_prop2level.find(lemma, old_level) || old_level < lvl) {
-            TRACE("pdr", tout << "property1: " << lvl << " " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
+            TRACE("pdr", tout << "property1: " << pp_level(lvl) << " " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
             m_levels[lvl].push_back(lemma);
             m_prop2level.insert(lemma, lvl);
             m_solver.add_level_formula(lemma, lvl);
             return true;
         }
         else {
-            TRACE("pdr", tout << "old-level: " << old_level << " " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
+            TRACE("pdr", tout << "old-level: " << pp_level(old_level) << " " << head()->get_name() << " " << mk_pp(lemma, m) << "\n";);
             return false;
         }
     }
@@ -337,7 +344,7 @@ namespace pdr {
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             expr* lemma_i = lemmas[i].get();
             if (add_property1(lemma_i, lvl)) {
-                IF_VERBOSE(2, verbose_stream() << lvl << " " << mk_pp(lemma_i, m) << "\n";);
+                IF_VERBOSE(2, verbose_stream() << pp_level(lvl) << " " << mk_pp(lemma_i, m) << "\n";);
                 for (unsigned j = 0; j < m_use.size(); ++j) {
                     m_use[j]->add_child_property(*this, lemma_i, next_level(lvl));
                 }
@@ -1470,6 +1477,10 @@ namespace pdr {
         if (m_params.inductive_reachability_check()) {
             m_core_generalizers.push_back(alloc(core_induction_generalizer, *this));
         }
+        if (m_params.use_arith_inductive_generalizer()) {
+            m_core_generalizers.push_back(alloc(core_arith_inductive_generalizer, *this));
+        }
+        
     }
 
     void context::get_level_property(unsigned lvl, expr_ref_vector& res, vector<relation_info>& rs) const {
@@ -1914,7 +1925,7 @@ namespace pdr {
             model_node* child = alloc(model_node, &n, n_cube, pt, n.level()-1);
             ++m_stats.m_num_nodes;
             m_search.add_leaf(*child); 
-            IF_VERBOSE(2, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
+            IF_VERBOSE(3, verbose_stream() << "Predecessor: " << mk_pp(o_cube, m) << "\n";);
             m_stats.m_max_depth = std::max(m_stats.m_max_depth, child->depth());
         }
         check_pre_closed(n);

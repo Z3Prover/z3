@@ -419,17 +419,21 @@ namespace api {
 extern "C" {
     
     Z3_context Z3_API Z3_mk_context(Z3_config c) {
+        Z3_TRY;
         LOG_Z3_mk_context(c);
         memory::initialize(UINT_MAX);
         Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), false));
         RETURN_Z3(r);
+        Z3_CATCH_RETURN_NO_HANDLE(0);
     }
 
     Z3_context Z3_API Z3_mk_context_rc(Z3_config c) {
+        Z3_TRY;
         LOG_Z3_mk_context_rc(c);
         memory::initialize(UINT_MAX);
         Z3_context r = reinterpret_cast<Z3_context>(alloc(api::context, reinterpret_cast<context_params*>(c), true));
         RETURN_Z3(r);
+        Z3_CATCH_RETURN_NO_HANDLE(0);
     }
 
     void Z3_API Z3_del_context(Z3_context c) {

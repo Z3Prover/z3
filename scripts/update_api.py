@@ -395,8 +395,7 @@ def mk_dotnet():
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
     dotnet.write('        public unsafe class LIB\n')
     dotnet.write('        {\n')
-    dotnet.write('           '
-                 '            const string Z3_DLL_NAME = \"libz3.dll\";\n'
+    dotnet.write('            const string Z3_DLL_NAME = \"libz3.dll\";\n'
                  '            \n');
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
@@ -420,7 +419,8 @@ def mk_dotnet():
     dotnet.write('        }\n')
 
 
-DotnetUnwrapped = [ 'Z3_del_context' ]
+NULLWrapped = [ 'Z3_mk_context', 'Z3_mk_context_rc' ]
+Unwrapped = [ 'Z3_del_context' ]
 
 def mk_dotnet_wrappers():
     global Type2Str
@@ -469,11 +469,15 @@ def mk_dotnet_wrappers():
             dotnet.write('a%d' % i)
             i = i + 1
         dotnet.write(');\n');
-        if name not in DotnetUnwrapped:
-            if len(params) > 0 and param_type(params[0]) == CONTEXT:
-                dotnet.write("            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);\n")
-                dotnet.write("            if (err != Z3_error_code.Z3_OK)\n")
-                dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));\n")
+        if name not in Unwrapped:
+            if name in NULLWrapped:
+                dotnet.write("            if (r == IntPtr.Zero)\n")
+                dotnet.write("                throw new Z3Exception(\"Object allocation failed.\");\n")
+            else:
+                if len(params) > 0 and param_type(params[0]) == CONTEXT:
+                    dotnet.write("            Z3_error_code err = (Z3_error_code)LIB.Z3_get_error_code(a0);\n")
+                    dotnet.write("            if (err != Z3_error_code.Z3_OK)\n")
+                    dotnet.write("                throw new Z3Exception(Marshal.PtrToStringAnsi(LIB.Z3_get_error_msg_ex(a0, (uint)err)));\n")
         if result == STRING:
             dotnet.write("            return Marshal.PtrToStringAnsi(r);\n")
         elif result != VOID:
@@ -550,7 +554,7 @@ def mk_java():
             java_native.write('%s a%d' % (param2java(param), i))
             i = i + 1
         java_native.write(')')
-        if len(params) > 0 and param_type(params[0]) == CONTEXT:
+        if (len(params) > 0 and param_type(params[0]) == CONTEXT) or name in NULLWrapped:
             java_native.write(' throws Z3Exception')
         java_native.write('\n')
         java_native.write('  {\n')
@@ -568,10 +572,15 @@ def mk_java():
             java_native.write('a%d' % i)
             i = i + 1
         java_native.write(');\n')
-        if len(params) > 0 and param_type(params[0]) == CONTEXT:
-            java_native.write('      Z3_error_code err = Z3_error_code.fromInt(INTERNALgetErrorCode(a0));\n')
-            java_native.write('      if (err != Z3_error_code.Z3_OK)\n')
-            java_native.write('          throw new Z3Exception(INTERNALgetErrorMsgEx(a0, err.toInt()));\n')
+        if name not in Unwrapped:
+            if name in NULLWrapped:
+                java_native.write("      if (res == 0)\n")
+                java_native.write("          throw new Z3Exception(\"Object allocation failed.\");\n")
+            else:
+                if len(params) > 0 and param_type(params[0]) == CONTEXT:
+                    java_native.write('      Z3_error_code err = Z3_error_code.fromInt(INTERNALgetErrorCode(a0));\n')
+                    java_native.write('      if (err != Z3_error_code.Z3_OK)\n')
+                    java_native.write('          throw new Z3Exception(INTERNALgetErrorMsgEx(a0, err.toInt()));\n')
         if result != VOID:
             java_native.write('      return res;\n')
         java_native.write('  }\n\n')

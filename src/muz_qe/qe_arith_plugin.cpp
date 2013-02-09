@@ -524,7 +524,8 @@ namespace qe {
                 expr_ref as_bt_le_0(result, m), tmp2(m), tmp3(m), tmp4(m);
                 
                 // a*s + b*t + (a-1)(b-1) <= 0
-                mk_le(m_arith.mk_add(as_bt, slack), result1);
+                tmp2 = m_arith.mk_add(as_bt, slack);
+                mk_le(tmp2, result1);
                 
                 rational a1 = a, b1 = b;
                 if (abs_a < abs_b) {
