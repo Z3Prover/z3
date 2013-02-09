@@ -537,7 +537,7 @@ class smt_printer {
     }
 
     void print_bound(symbol const& name) {
-        if (name.is_numerical() || '?' != name.bare_str()[0]) {
+        if (!is_smt2 && (name.is_numerical() || '?' != name.bare_str()[0])) {
             m_out << "?";
         }
         m_out << name;
@@ -642,7 +642,9 @@ class smt_printer {
             m_out << m_var_names[m_num_var_names - idx - 1];
         }
         else {
-            m_out << "?" << idx;
+            if (!m_is_smt2) {
+                m_out << "?" << idx;
+            }
         }
     }
 

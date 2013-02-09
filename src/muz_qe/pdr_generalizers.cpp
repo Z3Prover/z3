@@ -270,8 +270,8 @@ namespace pdr {
             vector<term_loc_t> & terms1 = it->m_value;
             vector<term_loc_t> terms2;
             if (r >= rational(2) && m_ub.find(r, terms2)) {
-                bool done = false;
-                for (unsigned i = 0; !done && i < terms1.size(); ++i) {
+                for (unsigned i = 0; i < terms1.size(); ++i) {
+                    bool done = false;
                     for (unsigned j = 0; !done && j < terms2.size(); ++j) {
                         expr* t1 = terms1[i].first;
                         expr* t2 = terms2[j].first;
