@@ -26,6 +26,7 @@ Revision History:
 #define Z3_CATCH_CORE(CODE) } catch (z3_exception & ex) { mk_c(c)->handle_exception(ex); CODE }
 #define Z3_CATCH Z3_CATCH_CORE(return;)
 #define Z3_CATCH_RETURN(VAL) Z3_CATCH_CORE(return VAL;)
+#define Z3_CATCH_RETURN_NO_HANDLE(VAL) } catch (z3_exception &) { return VAL; }
 
 #define CHECK_REF_COUNT(a) (reinterpret_cast<ast const*>(a)->get_ref_count() > 0)
 #define VALIDATE(a) SASSERT(!a || CHECK_REF_COUNT(a))
