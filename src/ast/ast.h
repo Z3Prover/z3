@@ -1622,11 +1622,13 @@ private:
     sort * mk_sort(symbol const & name, sort_info * info);
     
 public:
-    sort * mk_sort(symbol const & name) { return mk_sort(name, 0); }
+    sort * mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters);
+
+    sort * mk_uninterpreted_sort(symbol const & name) { return mk_uninterpreted_sort(name, 0, 0); }
     
     sort * mk_sort(symbol const & name, sort_info const & info) {
         if (info.get_family_id() == null_family_id) {
-            return mk_sort(name, 0);
+            return mk_uninterpreted_sort(name);
         }
         else {
             return mk_sort(name, &const_cast<sort_info &>(info));
