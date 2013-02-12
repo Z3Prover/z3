@@ -238,6 +238,24 @@ public:
         m_values.swap(other.m_values);
         m_value2indices.swap(other.m_value2indices);
     }
+
+    /**
+       \brief return set of values in heap that are less or equal to val.
+     */
+    void find_le(int val, int_vector& result) {
+        int_vector todo;
+        todo.push_back(1);
+        while (!todo.empty()) {
+            int index = todo.back();
+            todo.pop_back();
+            if (index < static_cast<int>(m_values.size()) &&
+                !less_than(val, m_values[index])) {
+                result.push_back(m_values[index]);
+                todo.push_back(left(index));
+                todo.push_back(right(index));
+            }
+        }
+    }
   
 };
 

@@ -62,7 +62,7 @@ static void tst1() {
 //     SASSERT(foo_foo_x2 == foo_foo_x);
 }
 
-void tst2() {
+static void tst2() {
 //     ast_manager m;
 //     ast_vector<ast> m_nodes(m);
 

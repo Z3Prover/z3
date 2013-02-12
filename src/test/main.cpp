@@ -207,6 +207,7 @@ int main(int argc, char ** argv) {
     TST(horn_subsume_model_converter);
     TST(model2expr);
     TST(rcf);
+    TST(hilbert_basis);
 }
 
 void initialize_mam() {}
