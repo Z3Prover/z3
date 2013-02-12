@@ -880,8 +880,8 @@ private:
 
                 if (name == symbol("QF_AX")) {
                     // Hack for supporting new QF_AX theory...
-                    sort * index   = m_manager.mk_sort(symbol("Index"));
-                    sort * element = m_manager.mk_sort(symbol("Element"));
+                    sort * index   = m_manager.mk_uninterpreted_sort(symbol("Index"));
+                    sort * element = m_manager.mk_uninterpreted_sort(symbol("Element"));
                     parameter params[2] = { parameter(index), parameter(element) };
                     sort * array   = m_manager.mk_sort(m_array_fid, ARRAY_SORT, 2, params);
                     smtlib::symtable* table = m_benchmark.get_symtable();

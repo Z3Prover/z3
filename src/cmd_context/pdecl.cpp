@@ -303,12 +303,10 @@ sort * psort_user_decl::instantiate(pdecl_manager & m, unsigned n, sort * const 
     if (r)
         return r;
     if (m_def == 0) {
-        user_sort_plugin * plugin = m.m().get_user_sort_plugin();
         buffer<parameter> ps;
         for (unsigned i = 0; i < n; i++)
             ps.push_back(parameter(s[i]));
-        decl_kind kind = plugin->register_name(m_name);
-        r  = plugin->mk_sort(kind, ps.size(), ps.c_ptr());
+        r  = m.m().mk_uninterpreted_sort(m_name, ps.size(), ps.c_ptr());
     }
     else {
         r = m_def->instantiate(m, s);

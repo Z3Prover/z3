@@ -117,8 +117,8 @@ void seq_decl_plugin::init() {
     if(m_init) return;
     ast_manager& m = *m_manager;
     m_init = true;
-    sort* A = m.mk_sort(symbol((unsigned)0));
-    sort* B = m.mk_sort(symbol((unsigned)1));
+    sort* A = m.mk_uninterpreted_sort(symbol((unsigned)0));
+    sort* B = m.mk_uninterpreted_sort(symbol((unsigned)1));
     parameter paramA(A);
     sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
     sort* reA  = m.mk_sort(m_family_id, RE_SORT, 1, &paramA);

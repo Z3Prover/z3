@@ -1816,6 +1816,12 @@ sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     return register_node(new_node);
 }
 
+sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters) {
+    user_sort_plugin * plugin = get_user_sort_plugin();
+    decl_kind kind = plugin->register_name(name);
+    return plugin->mk_sort(kind, num_parameters, parameters);
+}
+
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, 
                                       bool assoc, bool comm, bool inj) {
     func_decl_info info(null_family_id, null_decl_kind);
@@ -2063,7 +2069,7 @@ sort * ast_manager::mk_fresh_sort(char const * prefix) {
     string_buffer<32> buffer;
     buffer << prefix << "!" << m_fresh_id;
     m_fresh_id++;
-    return mk_sort(symbol(buffer.c_str()));
+    return mk_uninterpreted_sort(symbol(buffer.c_str()));
 }
 
 symbol ast_manager::mk_fresh_var_name(char const * prefix) {

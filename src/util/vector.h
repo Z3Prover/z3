@@ -179,6 +179,9 @@ public:
     }
 
     vector & operator=(vector const & source) {
+        if (this == &source) {
+            return *this;
+        }
         destroy();
         if (source.m_data) {
             copy_core(source);
