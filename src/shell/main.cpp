@@ -50,6 +50,9 @@ void error(const char * msg) {
     exit(ERR_CMD_LINE);
 }
 
+#define STRINGIZE(x) #x
+#define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
+
 void display_usage() {
     std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
     std::cout << " - ";
@@ -60,7 +63,7 @@ void display_usage() {
 #endif
     std::cout << " bit";
 #ifdef Z3GITHASH
-    std::cout << " - build hashcode " << Z3GITHASH;
+    std::cout << " - build hashcode " << STRINGIZE_VALUE_OF(Z3GITHASH);
 #endif
     std::cout << "]. (C) Copyright 2006-2013 Microsoft Corp.\n";
     std::cout << "Usage: z3 [options] [-file:]file\n";
