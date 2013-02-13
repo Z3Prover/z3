@@ -52,7 +52,7 @@ void tst_match(ast_manager & m, app * t, app * i) {
             s.display(std::cout);
             
             // create some dummy term to test for applying the substitution.
-            sort_ref S(          m.mk_sort(symbol("S")),    m);
+            sort_ref S(          m.mk_uninterpreted_sort(symbol("S")),    m);
             sort * domain[3]   = {S, S, S};
             func_decl_ref r(     m.mk_func_decl(symbol("r"), 3, domain, S), m);
             expr_ref x1(         m.mk_var(0, S), m);
@@ -75,7 +75,7 @@ void tst_match(ast_manager & m, app * t, app * i) {
 void tst1() {
     ast_manager m;
     reg_decl_plugins(m);
-    sort_ref s(          m.mk_sort(symbol("S")),    m);
+    sort_ref s(          m.mk_uninterpreted_sort(symbol("S")),    m);
     func_decl_ref g(     m.mk_func_decl(symbol("g"), s, s), m);
     func_decl_ref h(     m.mk_func_decl(symbol("h"), s, s), m);
     sort * domain[2]   = {s, s};

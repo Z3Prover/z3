@@ -101,6 +101,8 @@ def mk_build_dir(path, x64):
             opts.append('--java')
         if x64:
             opts.append('-x')
+        if GIT_HASH:
+            opts.append('--githash=%s' % mk_util.git_hash())
         if subprocess.call(opts) != 0:
             raise MKException("Failed to generate build directory at '%s'" % path)
     

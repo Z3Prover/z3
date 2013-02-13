@@ -128,7 +128,8 @@ public class Sort extends AST
 
     static Sort create(Context ctx, long obj) throws Z3Exception
     {
-        switch (Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj)))
+        Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj));
+        switch (sk)
         {
         case Z3_ARRAY_SORT:
             return new ArraySort(ctx, obj);
