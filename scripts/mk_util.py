@@ -1298,7 +1298,7 @@ def mk_config():
             'SLINK_OUT_FLAG=/Fe\n')
         extra_opt = ''
         if GIT_HASH:
-            extra_opt = '%s /D Z3GITHASH="%s"' % (extra_opt, GIT_HASH)
+            extra_opt = '%s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if DEBUG_MODE:
             config.write(
                 'LINK_FLAGS=/nologo /MDd\n'
@@ -1361,7 +1361,7 @@ def mk_config():
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if GIT_HASH:
-            CPPFLAGS = '%s -DZ3GITHASH="%s"' % (CPPFLAGS, GIT_HASH)
+            CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -c' % CXXFLAGS
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
