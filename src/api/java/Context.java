@@ -39,13 +39,6 @@ public class Context extends IDisposable
         initContext();
     }
 
-    private Context(long ctx, long refCount)
-    {
-        super();
-        this.m_ctx = ctx;
-        this.m_refCount = refCount;
-    }
-
     /**
      * Creates a new symbol using an integer. <remarks> Not all integers can be
      * passed to this function. The legal range of unsigned integers is 0 to
