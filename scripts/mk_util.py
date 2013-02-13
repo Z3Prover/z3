@@ -73,6 +73,7 @@ GMP=False
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
+GIT_HASH=False
 
 def git_hash():
     try:
@@ -372,6 +373,7 @@ def display_help(exit_code):
     else:
         print("  --parallel=num                use cl option /MP with 'num' parallel processes")
     print("  -b <sudir>, --build=<subdir>  subdirectory where Z3 will be built (default: build).")
+    print("  --githash=hash                include the given hash in the binaries.")
     print("  -d, --debug                   compile Z3 in debug mode.")
     print("  -t, --trace                   enable tracing in release mode.")
     if IS_WINDOWS:
@@ -402,12 +404,13 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
                                                'b:dsxhmcvtnp:gj', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof'])
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
+                                                'githash='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -454,6 +457,8 @@ def parse_options():
             JAVA_ENABLED = True
         elif opt == '--gprof':
             GPROF = True
+        elif opt == '--githash':
+            GIT_HASH=arg            
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
@@ -1291,18 +1296,23 @@ def mk_config():
             'SO_EXT=.dll\n'
             'SLINK=cl\n'
             'SLINK_OUT_FLAG=/Fe\n')
+        extra_opt = ''
+        if GIT_HASH:
+            extra_opt = '%s /D Z3GITHASH="%s"' % (extra_opt, GIT_HASH)
         if DEBUG_MODE:
             config.write(
                 'LINK_FLAGS=/nologo /MDd\n'
                 'SLINK_FLAGS=/nologo /LDd\n')
             if not VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n'
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
+                config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n'
+                    'CXXFLAGS=/c /Zi /nologo /openmp /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG %s /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze-\n' % extra_opt)
+                config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
         else:
@@ -1310,9 +1320,8 @@ def mk_config():
             config.write(
                 'LINK_FLAGS=/nologo /MD\n'
                 'SLINK_FLAGS=/nologo /LD\n')
-            extra_opt = ''
             if TRACE:
-                extra_opt = '/D _TRACE'
+                extra_opt = '%s /D _TRACE' % extra_opt
             if not VS_X64:
                 config.write(
                     'CXXFLAGS=/nologo /c /Zi /openmp /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG %s /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2\n' % extra_opt)
@@ -1351,6 +1360,8 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
+        if GIT_HASH:
+            CPPFLAGS = '%s -DZ3GITHASH="%s"' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -c' % CXXFLAGS
         HAS_OMP = test_openmp(CXX)
         if HAS_OMP:
