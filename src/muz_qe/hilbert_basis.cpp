@@ -82,10 +82,20 @@ public:
 };
 
 class hilbert_basis::weight_map {
+    struct stats {
+        unsigned m_num_comparisons;
+        stats() { reset(); }
+        void reset() { memset(this, 0, sizeof(*this)); }
+    };    
+
     rational_heap            m_heap;         
     vector<unsigned_vector>  m_offsets;      // [index |-> offset-list]
     int_vector               m_le;           // recycled set of indices with lesser weights
-    
+    stats                    m_stats;
+    svector<offset_t>&       m_found;
+    offset_refs_t&           m_refs;
+    unsigned                 m_cost;
+
     unsigned get_value(numeral const& w) {
         unsigned val;
         if (!m_heap.is_declared(w, val)) {
@@ -99,7 +109,7 @@ class hilbert_basis::weight_map {
         return val;
     }
 public:
-    weight_map() {}
+    weight_map(svector<offset_t>& found, offset_refs_t& refs): m_found(found), m_refs(refs) {}
     
     void insert(offset_t idx, numeral const& w) {
         unsigned val = get_value(w);
@@ -117,9 +127,12 @@ public:
         m_le.reset();
     }
     
-    bool init_find(offset_refs_t& refs, numeral const& w, offset_t idx, offset_t& found_idx, unsigned& cost) {
-        //std::cout << "init find: " << w << "\n";
+    unsigned get_cost() const { return m_cost; }
+
+    bool init_find(numeral const& w, offset_t idx) {
         m_le.reset();
+        m_found.reset();
+        m_cost = 0;
         unsigned val = get_value(w);
         // for positive values, the weights should be less or equal.
         // for non-positive values, the weights have to be the same.
@@ -129,48 +142,54 @@ public:
         else {
             m_le.push_back(val);
         }
-        bool found = false;
         for (unsigned i = 0; i < m_le.size(); ++i) {
             if (m_heap.u2r()[m_le[i]].is_zero() && w.is_pos()) {
                 continue;
             } 
-            //std::cout << "insert init find: " << m_weights[m_le[i]] << "\n";
             unsigned_vector const& offsets = m_offsets[m_le[i]];
             for (unsigned j = 0; j < offsets.size(); ++j) {
                 unsigned offs = offsets[j];
-                ++cost;
+                ++m_stats.m_num_comparisons;
+                ++m_cost;
                 if (offs != idx.m_offset) {
-                    refs.insert(offs, 0);
-                    found_idx = offset_t(offs);
-                    found = true;
+                    m_refs.insert(offs, 0);
+                    m_found.push_back(offset_t(offs));
                 }
             }
         }
-        return found;
+        return !m_found.empty();
     }
     
-    bool update_find(offset_refs_t& refs, unsigned round, numeral const& w, 
-                     offset_t idx, offset_t& found_idx, unsigned& cost) {
+    bool update_find(unsigned round, numeral const& w, offset_t idx) {
         //std::cout << "update find: " << w << "\n";
+        m_found.reset();
         m_le.reset();
+        m_cost = 0;
         m_heap.find_le(w, m_le);
-        bool found = false;
         unsigned vl;
         for (unsigned i = 0; i < m_le.size(); ++i) {
             //std::cout << "insert update find: " << m_weights[m_le[i]] << "\n";
             unsigned_vector const& offsets = m_offsets[m_le[i]];
             for (unsigned j = 0; j < offsets.size(); ++j) {
                 unsigned offs = offsets[j];
-                ++cost;
-                if (offs != idx.m_offset && refs.find(offs, vl) && vl == round) {
-                    refs.insert(offs, round + 1);
-                    found_idx = offset_t(offs);
-                    found = true;
+                ++m_stats.m_num_comparisons;
+                ++m_cost;
+                if (offs != idx.m_offset && m_refs.find(offs, vl) && vl == round) {
+                    m_refs.insert(offs, round + 1);
+                    m_found.push_back(offset_t(offs));
                 }
             }
         }
-        return found;
+        return !m_found.empty();
     }    
+
+    void collect_statistics(statistics& st) const {
+        st.update("hb.index.num_comparisons", m_stats.m_num_comparisons);
+    }
+
+    void reset_statistics() {
+        m_stats.reset();
+    }
 };
 
 
@@ -185,12 +204,17 @@ class hilbert_basis::index {
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };    
+    
+    hilbert_basis&     hb;
+    offset_refs_t      m_refs;
+    svector<offset_t>  m_found;
     ptr_vector<weight_map> m_values;
     weight_map         m_weight;
-    offset_refs_t      m_refs;
     stats              m_stats;
 
 public:
+
+    index(hilbert_basis& hb): hb(hb), m_weight(m_found, m_refs) {}
 
     ~index() {
         for (unsigned i = 0; i < m_values.size(); ++i) {
@@ -201,34 +225,53 @@ public:
     void init(unsigned num_vars) {
         if (m_values.empty()) {
             for (unsigned i = 0; i < num_vars; ++i) {
-                m_values.push_back(alloc(weight_map));
+                m_values.push_back(alloc(weight_map, m_found, m_refs));
             }
         }
         SASSERT(m_values.size() == num_vars);
     }
     
-    void insert(offset_t idx, values vs, numeral const& weight) {
+    void insert(offset_t idx, values const& vs) {
         ++m_stats.m_num_insert;
+#if 0
         for (unsigned i = 0; i < m_values.size(); ++i) {
             m_values[i]->insert(idx, vs[i]);
         }
-        m_weight.insert(idx, weight);
+#endif
+        m_weight.insert(idx, vs.value());
     }
 
-    void remove(offset_t idx, values vs, numeral const& weight) {
+    void remove(offset_t idx, values const& vs) {
+#if 0
         for (unsigned i = 0; i < m_values.size(); ++i) {
             m_values[i]->remove(idx, vs[i]);
         }
-        m_weight.remove(idx, weight);
+#endif
+        m_weight.remove(idx, vs.value());
     }
 
-    bool find(values vs, numeral const& weight, offset_t idx, offset_t& found_idx) {
+    bool find(values const& vs, offset_t idx, offset_t& found_idx) {
         ++m_stats.m_num_find;
-        bool found = m_weight.init_find(m_refs, weight, idx, found_idx, m_stats.m_num_comparisons);
-        for (unsigned i = 0; found && i < m_values.size(); ++i) {
-            found = m_values[i]->update_find(m_refs, i, vs[i], idx, found_idx, m_stats.m_num_comparisons);
-        }        
         m_refs.reset();
+        bool found = m_weight.init_find(vs.value(), idx);
+        TRACE("hilbert_basis", tout << "init: " << m_found.size() << " cost: " << m_weight.get_cost() << "\n";);
+#if 0
+        for (unsigned i = 0; found && i < m_values.size(); ++i) {
+            found = m_values[i]->update_find(i, vs[i], idx);
+            TRACE("hilbert_basis", tout << "update " << i << ": " << m_found.size() << " cost: " << m_values[i]->get_cost() << "\n";);
+        }
+#else
+        for (unsigned i = 0; i < m_found.size(); ++i) {
+            if (is_subsumed(idx, m_found[i])) {
+                found_idx = m_found[i];
+                return true;
+            }
+        }
+        return false;
+#endif
+        if (found) {
+            found_idx = m_found[0];
+        }
         return found;
     }
 
@@ -241,42 +284,77 @@ public:
     }
 
     void collect_statistics(statistics& st) const {
-        st.update("hb.index.num_comparisons", m_stats.m_num_comparisons);
+        m_weight.collect_statistics(st);
+        for (unsigned i = 0; i < m_values.size(); ++i) {
+            m_values[i]->collect_statistics(st);
+        }        
         st.update("hb.index.num_find", m_stats.m_num_find);
         st.update("hb.index.num_insert", m_stats.m_num_insert);
     }
 
     void reset_statistics() {
         m_stats.reset();
+        m_weight.reset_statistics();
+        for (unsigned i = 0; i < m_values.size(); ++i) {
+            m_values[i]->reset_statistics();
+        }        
     }
 
-#if 0
-    // remains of a simpler index strucure:
-    if (eval(idx).is_zero()) {
-        for (unsigned i = 0; i < m_zero.size(); ++i) {
-            if (is_subsumed(idx, m_zero[i])) {
-                ++m_stats.m_num_subsumptions;
-                return true;
+
+    /**
+       Vector v is subsumed by vector w if
+       
+       v[i] >= w[i] for each index i.
+       
+       a*v >= a*w  for the evaluation of vectors with respect to a.
+       
+       a*v < 0 => a*v = a*w
+       
+
+       Justification:
+       
+       let u := v - w, then
+       
+       u[i] >= 0  for each index i
+       
+       a*u = a*(v-w) >= 0
+       
+       So v = u + w, where a*u >= 0, a*w >= 0.
+       
+       If a*v >= a*w >= 0 then v and w are linear 
+       solutions of e_i, and also v-w is a solution.
+
+       If a*v = a*w < 0, then a*(v-w) = 0, so v can be obtained from w + (v - w).
+       
+    */
+
+    bool is_subsumed(offset_t i, offset_t j) const {
+        values v = hb.vec(i);
+        values w = hb.vec(j);
+        numeral const& n = v.value();
+        numeral const& m = w.value();
+        bool r = 
+            i.m_offset != j.m_offset &&         
+            n >= m && (!m.is_neg() || n == m) &&
+            is_geq(v, w);
+        CTRACE("hilbert_basis", r, 
+               hb.display(tout, i);
+               tout << " <= \n";
+               hb.display(tout, j);
+               tout << "\n";);
+        return r;
+    }
+
+    bool is_geq(values v, values w) const {
+        unsigned nv = hb.get_num_vars();
+        for (unsigned i = 0; i < nv; ++i) {
+            if (v[i] < w[i]) {
+                return false;
             }
         }
-        return false;
+        return true;
     }
-    for (unsigned i = 0; i < m_active.size(); ++i) {
-        if (is_subsumed(idx, m_active[i])) {
-            ++m_stats.m_num_subsumptions;
-            return true;
-        }
-    }
-    passive::iterator it = m_passive->begin();
-    passive::iterator end = m_passive->end();
 
-    for (; it != end; ++it) {
-        if (is_subsumed(idx, *it)) {
-            ++m_stats.m_num_subsumptions;
-            return true;
-        }
-    }    
-#endif
 
 };
 
@@ -377,7 +455,7 @@ public:
 hilbert_basis::hilbert_basis(): 
     m_cancel(false) 
 {
-    m_index = alloc(index);
+    m_index = alloc(index, *this);
     m_passive = alloc(passive, *this);
 }
 
@@ -399,7 +477,6 @@ void hilbert_basis::reset() {
     m_basis.reset();
     m_store.reset();
     m_free_list.reset();
-    m_eval.reset();
     m_active.reset();
     m_passive->reset();
     m_zero.reset();
@@ -418,20 +495,36 @@ void hilbert_basis::reset_statistics() {
     m_index->reset_statistics();
 }
 
-void hilbert_basis::add_ge(num_vector const& v) {
-    SASSERT(m_ineqs.empty() || v.size() == get_num_vars());
+void hilbert_basis::add_ge(num_vector const& v, numeral const& b) {
+    SASSERT(m_ineqs.empty() || v.size() + 1 == get_num_vars());
+    num_vector w;
+    w.push_back(-b);
+    w.append(v);
     if (m_ineqs.empty()) {
-        m_index->init(v.size());
+        m_index->init(w.size());
     }
-    m_ineqs.push_back(v);
+    m_ineqs.push_back(w);
 }
 
-void hilbert_basis::add_le(num_vector const& v) {
+void hilbert_basis::add_le(num_vector const& v, numeral const& b) {
     num_vector w(v);
     for (unsigned i = 0; i < w.size(); ++i) {
         w[i].neg();
     }
-    add_ge(w);
+    add_ge(w, -b);
+}
+
+void hilbert_basis::add_eq(num_vector const& v, numeral const& b) {
+    add_le(v, b);
+    add_ge(v, b);
+}
+
+void hilbert_basis::add_ge(num_vector const& v) {
+    add_ge(v, numeral(0));
+}
+
+void hilbert_basis::add_le(num_vector const& v) {
+    add_le(v, numeral(0));
 }
 
 void hilbert_basis::add_eq(num_vector const& v) {
@@ -449,24 +542,22 @@ unsigned hilbert_basis::get_num_vars() const {
 }
 
 hilbert_basis::values hilbert_basis::vec(offset_t offs) const {
-    return m_store.c_ptr() + offs.m_offset;
-}
-
-hilbert_basis::values_ref hilbert_basis::vec(offset_t offs) {
-    return m_store.c_ptr() + offs.m_offset;
+    return values(m_store.c_ptr() + offs.m_offset);
 }
 
 void hilbert_basis::init_basis() {
     m_basis.reset();
     m_store.reset();
-    m_eval.reset();
     m_free_list.reset();
     unsigned num_vars = get_num_vars();
     for (unsigned i = 0; i < num_vars; ++i) {
         num_vector w(num_vars, numeral(0));
         w[i] = numeral(1);
         offset_t idx = alloc_vector();
-        set_value(idx, w.c_ptr());
+        values v = vec(idx);
+        for (unsigned i = 0; i < num_vars; ++i) {
+            v[i] = w[i];
+        }
         m_basis.push_back(idx);
     }
 }
@@ -494,10 +585,10 @@ lbool hilbert_basis::saturate(num_vector const& ineq) {
     bool has_non_negative = false;
     iterator it = begin();
     for (; it != end(); ++it) {
-        numeral n = eval(vec(*it), ineq);
-        eval(*it) = n;
+        values v = vec(*it);
+        set_eval(v, ineq);
         add_goal(*it);
-        if (n.is_nonneg()) {
+        if (v.value().is_nonneg()) {
             has_non_negative = true;
         }
     }
@@ -517,7 +608,7 @@ lbool hilbert_basis::saturate(num_vector const& ineq) {
             continue;
         }
         for (unsigned i = 0; !m_cancel && i < m_active.size(); ++i) {
-            if (get_sign(idx) != get_sign(m_active[i])) {
+            if (can_resolve(idx, m_active[i])) {
                 offset_t j = alloc_vector();
                 resolve(idx, m_active[i], j);
                 add_goal(j);
@@ -530,7 +621,7 @@ lbool hilbert_basis::saturate(num_vector const& ineq) {
     m_basis.append(m_zero);
     for (unsigned i = 0; i < m_active.size(); ++i) {
         offset_t idx = m_active[i];
-        if (eval(idx).is_pos()) {
+        if (vec(idx).value().is_pos()) {
             m_basis.push_back(idx);
         }
         else {
@@ -544,16 +635,8 @@ lbool hilbert_basis::saturate(num_vector const& ineq) {
     return l_true;
 }
 
-
-void hilbert_basis::set_value(offset_t offs, values v) {
-    unsigned nv = get_num_vars();
-    for (unsigned i = 0; i < nv; ++i) {
-        m_store[offs.m_offset+i] = v[i];
-    }
-}
-
 void hilbert_basis::recycle(offset_t idx) {
-    m_index->remove(idx, vec(idx), eval(idx));
+    m_index->remove(idx, vec(idx));
     m_free_list.push_back(idx);
 }
 
@@ -561,26 +644,25 @@ void hilbert_basis::resolve(offset_t i, offset_t j, offset_t r) {
     ++m_stats.m_num_resolves;
     values v = vec(i);
     values w = vec(j);
-    values_ref u = vec(r);
+    values u = vec(r);
     unsigned nv = get_num_vars();
     for (unsigned k = 0; k < nv; ++k) {
         u[k] = v[k] + w[k];
     }
-    eval(r) = eval(i) + eval(j);
+    u.value() = v.value() + w.value();
     TRACE("hilbert_basis_verbose",
           display(tout, i); 
           display(tout, j); 
           display(tout, r); 
           );
-
 }
+
 
 hilbert_basis::offset_t hilbert_basis::alloc_vector() {
     if (m_free_list.empty()) {
         unsigned num_vars = get_num_vars();
         unsigned idx =  m_store.size();
-        m_store.resize(idx + get_num_vars());
-        m_eval.push_back(numeral(0));
+        m_store.resize(idx + 1 + get_num_vars());
         return offset_t(idx);
     }
     else {
@@ -590,10 +672,10 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
     }
 }
 
-
 void hilbert_basis::add_goal(offset_t idx) {
-    m_index->insert(idx, vec(idx), eval(idx));
-    if (eval(idx).is_zero()) {
+    values v = vec(idx);
+    m_index->insert(idx, v);
+    if (v.value().is_zero()) {
         if (!is_subsumed(idx)) {
             m_zero.push_back(idx);
         }
@@ -606,7 +688,7 @@ void hilbert_basis::add_goal(offset_t idx) {
 bool hilbert_basis::is_subsumed(offset_t idx)  {
 
     offset_t found_idx;
-    if (m_index->find(vec(idx), eval(idx), idx, found_idx)) {        
+    if (m_index->find(vec(idx), idx, found_idx)) {        
         TRACE("hilbert_basis",  
            display(tout, idx);
            tout << " <= \n";
@@ -618,77 +700,30 @@ bool hilbert_basis::is_subsumed(offset_t idx)  {
     return false;
 }
 
-/**
-   Vector v is subsumed by vector w if
-
-      v[i] >= w[i] for each index i.
-
-      a*v >= a*w  for the evaluation of vectors with respect to a.
-
-      a*v < 0 => a*v = a*w
-
-
-   Justification:
-   
-      let u := v - w, then
-         
-      u[i] >= 0  for each index i
-
-      a*u = a*(v-w) >= 0
-     
-      So v = u + w, where a*u >= 0, a*w >= 0.
-
-      If a*v >= a*w >= 0 then v and w are linear 
-      solutions of e_i, and also v-w is a solution.
-
-      If a*v = a*w < 0, then a*(v-w) = 0, so v can be obtained from w + (v - w).
-      
- */
-
-bool hilbert_basis::is_subsumed(offset_t i, offset_t j) const {
-    values v = vec(i);
-    values w = vec(j);
-    numeral const& n = eval(i);
-    numeral const& m = eval(j);
-    bool r = 
-        i.m_offset != j.m_offset &&         
-        n >= m && (!m.is_neg() || n == m) &&
-        is_geq(v, w);
-    CTRACE("hilbert_basis", r, 
-           display(tout, i);
-           tout << " <= \n";
-           display(tout, j);
-           tout << "\n";);
-    return r;
-}
-
-bool hilbert_basis::is_geq(values v, values w) const {
-    unsigned nv = get_num_vars();
-    for (unsigned i = 0; i < nv; ++i) {
-        if (v[i] < w[i]) {
-            return false;
-        }
-    }
-    return true;
+bool hilbert_basis::can_resolve(offset_t i, offset_t j) const {
+    sign_t s1 = get_sign(i);
+    sign_t s2 = get_sign(j);
+    return s1 != s2 && abs(vec(i)[0] + vec(j)[0]) <= numeral(1);
 }
 
 hilbert_basis::sign_t hilbert_basis::get_sign(offset_t idx) const {
-    if (eval(idx).is_pos()) {
+    numeral val = vec(idx).value();
+    if (val.is_pos()) {
         return pos;
     }
-    if (eval(idx).is_neg()) {
+    if (val.is_neg()) {
         return neg;
     }
     return zero;
 }
 
-hilbert_basis::numeral hilbert_basis::eval(values val, num_vector const& ineq) const {
+void hilbert_basis::set_eval(values& val, num_vector const& ineq) const {
     numeral result(0);
     unsigned num_vars = get_num_vars();
     for (unsigned i = 0; i < num_vars; ++i) {
         result += val[i]*ineq[i];
     }
-    return result;
+    val.value() = result;
 }
 
 void hilbert_basis::display(std::ostream& out) const {
@@ -728,10 +763,10 @@ void hilbert_basis::display(std::ostream& out) const {
 
 void hilbert_basis::display(std::ostream& out, offset_t o) const {
     display(out, vec(o));
-    out << " -> " << eval(o) << "\n";    
+    out << " -> " << vec(o).value() << "\n";    
 }
 
-void hilbert_basis::display(std::ostream& out, values v) const {
+void hilbert_basis::display(std::ostream& out, values const& v) const {
     unsigned nv = get_num_vars();
     for (unsigned j = 0; j < nv; ++j) {            
         out << v[j] << " ";
@@ -762,21 +797,15 @@ void hilbert_basis::display_ineq(std::ostream& out, num_vector const& v) const {
     out << " >= 0\n";
 }
 
-void hilbert_sl_basis::add_le(num_vector const& v, numeral bound) {
-    num_vector w;
-    w.push_back(-bound);
-    w.append(v);
-    m_basis.add_le(w);
-}
 
 void hilbert_isl_basis::add_le(num_vector const& v, numeral bound) {
     unsigned sz = v.size();
     num_vector w;
+    w.push_back(-bound);
+    w.push_back(bound);
     for (unsigned i = 0; i < sz; ++i) {
         w.push_back(v[i]);
         w.push_back(-v[i]);
     }
-    w.push_back(-bound);
-    w.push_back(bound);
     m_basis.add_le(w);
 }
