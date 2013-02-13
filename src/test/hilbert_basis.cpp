@@ -20,6 +20,17 @@ static vector<rational> vec(int i, int j, int k, int l) {
     return nv;
 }
 
+static vector<rational> vec(int i, int j, int k, int l, int m) {
+    vector<rational> nv;
+    nv.resize(5);
+    nv[0] = rational(i);
+    nv[1] = rational(j);
+    nv[2] = rational(k);
+    nv[3] = rational(l);
+    nv[4] = rational(m);
+    return nv;
+}
+
 static vector<rational> vec(int i, int j, int k, int l, int x, int y, int z) {
     vector<rational> nv;
     nv.resize(7);
@@ -163,6 +174,40 @@ static void tst7() {
     saturate_basis(hb);
 }
 
+
+// Sigma_5 table 1,  Ajili, Contejean
+static void tst8() {
+    hilbert_sl_basis hb;
+    hb.add_le(vec( 2, 1, 1), R(2));
+    hb.add_le(vec( 1, 2, 3), R(5));
+    hb.add_le(vec( 2, 2, 3), R(6));
+    hb.add_le(vec( 1,-1,-3), R(-2));
+    saturate_basis(hb);
+}
+
+// Sigma_6 table 1,  Ajili, Contejean
+static void tst9() {
+    hilbert_sl_basis hb;
+    hb.add_le(vec( 1, 2, 3), R(11));
+    hb.add_le(vec( 2, 2, 5), R(13));
+    hb.add_le(vec( 1,-1,-11), R(3));
+    saturate_basis(hb);
+}
+
+// Sigma_7 table 1,  Ajili, Contejean
+static void tst10() {
+    hilbert_sl_basis hb;
+    hb.add_le(vec( 1,-1,-1,-3), R(2));
+    hb.add_le(vec(-2, 3, 3, 5), R(3));
+    saturate_basis(hb);
+}
+
+// Sigma_8 table 1,  Ajili, Contejean
+static void tst11() {
+    hilbert_sl_basis hb;
+    hb.add_le(vec( 7,-2,11, 3, -5), R(5));
+    saturate_basis(hb);
+}
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";

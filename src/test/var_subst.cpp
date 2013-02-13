@@ -62,7 +62,7 @@ void tst_subst(ast_manager& m) {
     obj_ref<var, ast_manager> x(m), y(m), z(m), u(m), v(m);
     expr_ref e1(m), e2(m), e3(m);
     expr_ref t1(m), t2(m), t3(m);
-    s = m.mk_sort(symbol("S"));
+    s = m.mk_uninterpreted_sort(symbol("S"));
     sort* ss[2] = { s.get(), s.get() };
     symbol names[2] = { symbol("y"), symbol("x") };
     p = m.mk_func_decl(symbol("p"), 2, ss, m.mk_bool_sort());
