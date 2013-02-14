@@ -211,30 +211,17 @@ public:
 };
 
 
-class hilbert_basis::index {
-    // for each index, a heap of weights.
-    // for each weight a list of offsets
-
-    struct stats {
-        unsigned m_num_comparisons;
-        unsigned m_num_find;
-        unsigned m_num_insert;
-        stats() { reset(); }
-        void reset() { memset(this, 0, sizeof(*this)); }
-    };    
-    
-    hilbert_basis&     hb;
-    offset_refs_t      m_refs;
-    svector<offset_t>  m_found;
+class hilbert_basis::value_index {
+    hilbert_basis&         hb;
     ptr_vector<weight_map> m_values;
-    weight_map         m_weight;
-    stats              m_stats;
+    offset_refs_t          m_refs;
+    svector<offset_t>      m_found;
+    weight_map             m_weight;
 
 public:
+    value_index(hilbert_basis& hb): hb(hb) {}
 
-    index(hilbert_basis& hb): hb(hb), m_weight(m_found, m_refs) {}
-
-    ~index() {
+    ~value_index() {
         for (unsigned i = 0; i < m_values.size(); ++i) {
             dealloc(m_values[i]);
         }
@@ -248,24 +235,81 @@ public:
         }
         SASSERT(m_values.size() == num_vars);
     }
-    
+
     void insert(offset_t idx, values const& vs) {
-        ++m_stats.m_num_insert;
-#if 0
         for (unsigned i = 0; i < m_values.size(); ++i) {
             m_values[i]->insert(idx, vs[i]);
         }
-#endif
-        m_weight.insert(idx, vs.value());
     }
 
     void remove(offset_t idx, values const& vs) {
-#if 0
         for (unsigned i = 0; i < m_values.size(); ++i) {
             m_values[i]->remove(idx, vs[i]);
         }
-#endif
-        m_weight.remove(idx, vs.value());
+    }
+};
+
+class hilbert_basis::index {
+    // for each index, a heap of weights.
+    // for each weight a list of offsets
+
+    struct stats {
+        unsigned m_num_comparisons;
+        unsigned m_num_find;
+        unsigned m_num_insert;
+        stats() { reset(); }
+        void reset() { memset(this, 0, sizeof(*this)); }
+    };    
+    
+    hilbert_basis&     hb;
+    value_index        m_values;
+    rational_map<value_index*> m_negative;
+    stats              m_stats;
+
+public:
+
+    index(hilbert_basis& hb): 
+        hb(hb), 
+        m_weight(m_found, m_refs),
+        m_values(hb) {}
+
+    ~index() {
+        rational_map<weight_map*>::iterator it = m_negative.begin(), end = m_negative.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
+        }
+    }
+
+    void init(unsigned num_vars) {
+        m_values.init(num_vars);
+        m_num_vars = num_vars;
+        SASSERT(m_negative.empty());
+    }
+    
+    void insert(offset_t idx, values const& vs) {
+        ++m_stats.m_num_insert;
+        if (vs.value().is_neg()) {
+            weight_map* w = 0;
+            if (!m_negative.find(vs.value(), w)) {
+                w = alloc(weight_map, m_found, m_refs);
+            }
+            w->insert(idx, vs);
+        }
+        else {
+            m_weight.insert(idx, vs.value());
+            m_values.insert(idx, vs);
+        }
+    }
+
+    void remove(offset_t idx, values const& vs) {
+        if (vs.value().is_neg()) {
+            weight_map* w = m_negative.find(vs.value());
+            w->remove(idx, vs);
+        }
+        else {
+            m_weight.remove(idx, vs.value());
+            m_values.remove(idx, vs);
+        }
     }
 
     bool find(values const& vs, offset_t idx, offset_t& found_idx) {

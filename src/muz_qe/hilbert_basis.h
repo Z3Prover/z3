@@ -35,6 +35,7 @@ public:
     typedef vector<numeral> num_vector;
 private:
     class rational_heap;
+    class value_index;
     class index;
     class passive;
     class weight_map;
