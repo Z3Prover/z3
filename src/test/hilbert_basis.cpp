@@ -245,23 +245,28 @@ static void tst11() {
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
-#if 0
-    tst1();
-    tst2();
-    tst3();
     tst4();
-    tst5();
-    tst6();
-    tst7();
-    tst8();
-    tst9();
-    tst10();
-    tst11();
-    gorrila_test(0, 4, 3, 20, 5);
-    gorrila_test(1, 4, 3, 20, 5);
-    gorrila_test(2, 4, 3, 20, 5);
-    gorrila_test(0, 4, 2, 20, 5);
-    gorrila_test(0, 4, 2, 20, 5);
-#endif
-    gorrila_test(0, 10, 7, 20, 11);
+    return;
+
+    if (true) {
+        tst1();
+        tst2();
+        tst3();
+        tst4();
+        tst5();
+        tst6();
+        tst7();
+        tst8();
+        tst9();
+        tst10();
+        tst11();
+        gorrila_test(0, 4, 3, 20, 5);
+        gorrila_test(1, 4, 3, 20, 5);
+        gorrila_test(2, 4, 3, 20, 5);
+        gorrila_test(0, 4, 2, 20, 5);
+        gorrila_test(0, 4, 2, 20, 5);
+    }
+    else {
+        gorrila_test(0, 10, 7, 20, 11);
+    }
 }
