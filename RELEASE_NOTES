@@ -59,6 +59,8 @@ Version 4.3.2
 
 - Fixed http://stackoverflow.com/questions/14524316/z3-4-3-get-complete-model.
 
+- Fixed bugs in the C++ API (Thanks to Andrey Kupriyanov).
+
 Version 4.3.1
 =============
 
