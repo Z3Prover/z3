@@ -50,6 +50,7 @@ private:
     struct stats {
         unsigned m_num_subsumptions;
         unsigned m_num_resolves;
+        unsigned m_num_saturations;
         stats() { reset(); }
         void reset() { memset(this, 0, sizeof(*this)); }
     };

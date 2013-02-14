@@ -26,10 +26,10 @@ typedef u_map<unsigned> offset_refs_t;
 template<typename Value>
 class rational_map : public map<rational, Value, rational::hash_proc, rational::eq_proc> {};
 
-class rational_lt {
+class rational_abs_lt {
     vector<rational> & m_values;
 public:
-    rational_lt(vector<rational> & values):
+    rational_abs_lt(vector<rational> & values):
         m_values(values) {
     }
     bool operator()(int v1, int v2) const {
@@ -41,8 +41,8 @@ public:
 class hilbert_basis::rational_heap {
     vector<numeral>          m_u2r;     // [index |-> weight]
     rational_map<unsigned>   m_r2u;     // [weight |-> index]
-    rational_lt              m_lt;      // less_than on indices
-    heap<rational_lt>        m_heap;    // binary heap over weights
+    rational_abs_lt          m_lt;      // less_than on indices
+    heap<rational_abs_lt>    m_heap;    // binary heap over weights
 public:
 
     rational_heap(): m_lt(m_u2r), m_heap(10, m_lt) {}
@@ -76,9 +76,6 @@ public:
         m_heap.find_le(val, result);
     }
 
-    void find_le(numeral const& r, int_vector& result) {
-        find_le(m_r2u.find(r), result);
-    }
 };
 
 class hilbert_basis::weight_map {
@@ -97,11 +94,12 @@ class hilbert_basis::weight_map {
     unsigned                 m_cost;
 
     unsigned get_value(numeral const& w) {
+        numeral r = abs(w);
         unsigned val;
-        if (!m_heap.is_declared(w, val)) {
-            val = m_heap.declare(w);
+        if (!m_heap.is_declared(r, val)) {
+            val = m_heap.declare(r);
             SASSERT(val == m_offsets.size());
-            if (w.is_nonneg()) {
+            if (r.is_nonneg()) {
                 m_heap.insert(val);
             }
             m_offsets.push_back(unsigned_vector());
@@ -121,6 +119,14 @@ public:
         m_offsets[val].erase(idx.m_offset);
     }
 
+    unsigned get_size() const {
+        unsigned sz = 0;
+        for (unsigned i = 0; i < m_offsets.size(); ++i) {
+            sz += m_offsets[i].size();
+        }
+        return sz;
+    }
+
     void reset() {
         m_offsets.reset();
         m_heap.reset();
@@ -129,6 +135,9 @@ public:
     
     unsigned get_cost() const { return m_cost; }
 
+    /**
+       retrieve 
+     */
     bool init_find(numeral const& w, offset_t idx) {
         m_le.reset();
         m_found.reset();
@@ -143,7 +152,7 @@ public:
             m_le.push_back(val);
         }
         for (unsigned i = 0; i < m_le.size(); ++i) {
-            if (m_heap.u2r()[m_le[i]].is_zero() && w.is_pos()) {
+            if (m_heap.u2r()[m_le[i]].is_zero() && !w.is_zero()) {
                 continue;
             } 
             unsigned_vector const& offsets = m_offsets[m_le[i]];
@@ -159,16 +168,25 @@ public:
         }
         return !m_found.empty();
     }
+
+    unsigned get_find_cost(numeral const& w) {
+        m_le.reset();
+        unsigned cost = 0;
+        unsigned val = get_value(w);
+        m_heap.find_le(val, m_le);
+        for (unsigned i = 0; i < m_le.size(); ++i) {
+            cost += m_offsets[m_le[i]].size();
+        }
+        return cost;        
+    }
     
     bool update_find(unsigned round, numeral const& w, offset_t idx) {
-        //std::cout << "update find: " << w << "\n";
         m_found.reset();
         m_le.reset();
         m_cost = 0;
-        m_heap.find_le(w, m_le);
-        unsigned vl;
+        unsigned vl = get_value(w);
+        m_heap.find_le(vl, m_le);
         for (unsigned i = 0; i < m_le.size(); ++i) {
-            //std::cout << "insert update find: " << m_weights[m_le[i]] << "\n";
             unsigned_vector const& offsets = m_offsets[m_le[i]];
             for (unsigned j = 0; j < offsets.size(); ++j) {
                 unsigned offs = offsets[j];
@@ -256,8 +274,16 @@ public:
         bool found = m_weight.init_find(vs.value(), idx);
         TRACE("hilbert_basis", tout << "init: " << m_found.size() << " cost: " << m_weight.get_cost() << "\n";);
 #if 0
+        std::cout << vs.value() << " " << m_found.size() << " ";
+        for (unsigned i = 0; i < m_values.size(); ++i) {
+            std::cout << vs[i] << ": " << m_values[i]->get_find_cost(vs[i]) << " ";
+        }
+        std::cout << "\n";
+#endif
+#if 0
         for (unsigned i = 0; found && i < m_values.size(); ++i) {
             found = m_values[i]->update_find(i, vs[i], idx);
+            std::cout << vs[i] << ": " << m_found.size() << " ";
             TRACE("hilbert_basis", tout << "update " << i << ": " << m_found.size() << " cost: " << m_values[i]->get_cost() << "\n";);
         }
 #else
@@ -269,6 +295,7 @@ public:
         }
         return false;
 #endif
+
         if (found) {
             found_idx = m_found[0];
         }
@@ -290,6 +317,7 @@ public:
         }        
         st.update("hb.index.num_find", m_stats.m_num_find);
         st.update("hb.index.num_insert", m_stats.m_num_insert);
+        st.update("hb.index.size", m_weight.get_size());
     }
 
     void reset_statistics() {
@@ -363,12 +391,12 @@ public:
 */
 
 class hilbert_basis::passive {
-    hilbert_basis&        hb;
-    svector<offset_t>     m_passive;
-    vector<numeral>       m_weights;
-    unsigned_vector       m_free_list;
-    rational_lt           m_lt;      // less_than on indices
-    heap<rational_lt>     m_heap;    // binary heap over weights
+    hilbert_basis&         hb;
+    svector<offset_t>      m_passive;
+    vector<numeral>        m_weights;
+    unsigned_vector        m_free_list;
+    rational_abs_lt        m_lt;      // less_than on indices
+    heap<rational_abs_lt>  m_heap;    // binary heap over weights
 
     numeral get_weight(offset_t idx) {
         numeral w(0);
@@ -487,6 +515,7 @@ void hilbert_basis::reset() {
 void hilbert_basis::collect_statistics(statistics& st) const {
     st.update("hb.num_subsumptions", m_stats.m_num_subsumptions);
     st.update("hb.num_resolves", m_stats.m_num_resolves);
+    st.update("hb.num_saturations", m_stats.m_num_saturations);
     m_index->collect_statistics(st);
 }
 
@@ -566,9 +595,11 @@ lbool hilbert_basis::saturate() {
     init_basis();    
     for (unsigned i = 0; !m_cancel && i < m_ineqs.size(); ++i) {
         lbool r = saturate(m_ineqs[i]);
+        ++m_stats.m_num_saturations;
         if (r != l_true) {
             return r;
         }
+        
     }
     if (m_cancel) {
         return l_undef;
@@ -650,6 +681,7 @@ void hilbert_basis::resolve(offset_t i, offset_t j, offset_t r) {
         u[k] = v[k] + w[k];
     }
     u.value() = v.value() + w.value();
+    // std::cout << "resolve: " << v.value() << " + " << w.value() << " = " << u.value() << "\n";
     TRACE("hilbert_basis_verbose",
           display(tout, i); 
           display(tout, j); 
@@ -674,11 +706,12 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
 
 void hilbert_basis::add_goal(offset_t idx) {
     values v = vec(idx);
+    if (is_subsumed(idx)) {
+        return;
+    }
     m_index->insert(idx, v);
     if (v.value().is_zero()) {
-        if (!is_subsumed(idx)) {
-            m_zero.push_back(idx);
-        }
+        m_zero.push_back(idx);
     }
     else {
         m_passive->insert(idx);

@@ -1,5 +1,78 @@
 #include "hilbert_basis.h"
+#include<signal.h>
+#include<time.h>
 
+hilbert_basis* g_hb = 0;
+static double  g_start_time;
+
+static void display_statistics(hilbert_basis& hb) {
+    double time = static_cast<double>(clock()) - g_start_time;
+    statistics st;
+    hb.collect_statistics(st);
+    st.display(std::cout);
+    std::cout << "time: " << (time / CLOCKS_PER_SEC) << " secs\n";
+}
+
+static void on_ctrl_c(int) {
+    signal (SIGINT, SIG_DFL);    
+    display_statistics(*g_hb);
+    raise(SIGINT);
+}
+
+static void saturate_basis(hilbert_basis& hb) {
+    signal(SIGINT, on_ctrl_c);
+    g_hb = &hb;
+    g_start_time = static_cast<double>(clock());
+    lbool is_sat = hb.saturate();
+
+    switch(is_sat) {
+    case l_true:  
+        std::cout << "sat\n"; 
+        hb.display(std::cout);
+        break;
+    case l_false: 
+        std::cout << "unsat\n"; 
+        break;
+    case l_undef: 
+        std::cout << "undef\n"; 
+        break;       
+    }
+    display_statistics(hb);
+}
+
+/**
+   n         - number of variables.
+   k         - subset of variables to be non-zero
+   bound     - numeric value of upper and lower bound
+   num_ineqs - number of inequalities to create
+*/
+static void gorrila_test(unsigned seed, unsigned n, unsigned k, unsigned bound, unsigned num_ineqs) {
+    std::cout << "Gorrila test\n";
+    random_gen rand(seed);
+    hilbert_basis hb;
+    SASSERT(0 < bound);
+    SASSERT(k <= n);
+    int ibound = static_cast<int>(bound);
+    for (unsigned i = 0; i < num_ineqs; ++i) {
+        vector<rational> nv;
+        nv.resize(n);
+        rational a0;
+        unsigned num_selected = 0;
+        while (num_selected < k) {
+            unsigned s = rand(n);
+            if (nv[s].is_zero()) {
+                nv[s] = rational(ibound - static_cast<int>(rand(2*bound+1)));
+                if (!nv[s].is_zero()) {
+                    ++num_selected;
+                }
+            }
+        }
+        a0 = rational(ibound - static_cast<int>(rand(2*bound+1)));
+        hb.add_ge(nv, a0);
+    }    
+    hb.display(std::cout << "Saturate\n");
+    saturate_basis(hb);
+}
 
 static vector<rational> vec(int i, int j, int k) {
     vector<rational> nv;
@@ -45,25 +118,6 @@ static vector<rational> vec(int i, int j, int k, int l, int x, int y, int z) {
 }
 
 
-static void saturate_basis(hilbert_basis& hb) {
-    lbool is_sat = hb.saturate();
-
-    switch(is_sat) {
-    case l_true:  
-        std::cout << "sat\n"; 
-        hb.display(std::cout);
-        break;
-    case l_false: 
-        std::cout << "unsat\n"; 
-        break;
-    case l_undef: 
-        std::cout << "undef\n"; 
-        break;       
-    }
-    statistics st;
-    hb.collect_statistics(st);
-    st.display(std::cout);
-}
 
 
 // example 9, Ajili, Contenjean
@@ -191,6 +245,7 @@ static void tst11() {
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
+#if 0
     tst1();
     tst2();
     tst3();
@@ -202,4 +257,11 @@ void tst_hilbert_basis() {
     tst9();
     tst10();
     tst11();
+    gorrila_test(0, 4, 3, 20, 5);
+    gorrila_test(1, 4, 3, 20, 5);
+    gorrila_test(2, 4, 3, 20, 5);
+    gorrila_test(0, 4, 2, 20, 5);
+    gorrila_test(0, 4, 2, 20, 5);
+#endif
+    gorrila_test(0, 10, 7, 20, 11);
 }
