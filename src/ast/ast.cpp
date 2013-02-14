@@ -1849,9 +1849,9 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
             sort * given = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
                 std::ostringstream buff;
-                buff << "Invalid function application for " << decl->get_name() << ". ";
-                buff << "Sort mismatch on argument at position " << (i+1) << ". ";
-                buff << "Expected: " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                buff << "invalid function application for " << decl->get_name() << ", ";
+                buff << "sort mismatch on argument at position " << (i+1) << ", ";
+                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
                 throw ast_exception(buff.str().c_str());
             }
         }
@@ -1865,9 +1865,9 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
             sort * given    = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
                 std::ostringstream buff;
-                buff << "Invalid function application for " << decl->get_name() << ". ";
-                buff << "Sort mismatch on argument at position " << (i+1) << ". ";
-                buff << "Expected: " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                buff << "invalid function application for " << decl->get_name() << ", ";
+                buff << "sort mismatch on argument at position " << (i+1) << ", ";
+                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
                 throw ast_exception(buff.str().c_str());
             }
         }
