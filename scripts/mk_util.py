@@ -75,10 +75,16 @@ VS_PAR_NUM=8
 GPROF=False
 GIT_HASH=False
 
+def check_output(cmd):
+    try:
+        return subprocess.check_output(cmd, shell=True).rstrip('\r\n')
+    except:
+        return subprocess.check_output(cmd).rstrip('\r\n')
+
 def git_hash():
     try:
-        branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], shell=True).rstrip('\r\n')
-        r = subprocess.check_output(['git', 'show-ref', '--abbrev=12', 'refs/heads/%s' % branch], shell=True).rstrip('\r\n')
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        r = check_output(['git', 'show-ref', '--abbrev=12', 'refs/heads/%s' % branch])
     except:
         raise MKException("Failed to retrieve git hash")
     ls = r.split(' ')
@@ -738,6 +744,8 @@ class Component:
     def mk_win_dist(self, build_path, dist_path):
         return
 
+    def mk_unix_dist(self, build_path, dist_path):
+        return
 
 class LibComponent(Component):
     def __init__(self, name, path, deps, includes2install):
@@ -778,6 +786,9 @@ class LibComponent(Component):
         for include in self.includes2install:
             shutil.copy(os.path.join(self.src_dir, include),
                         os.path.join(dist_path, 'include', include))        
+
+    def mk_unix_dist(self, build_path, dist_path):
+        self.mk_win_dist(build_path, dist_path)
 
 # "Library" containing only .h files. This is just a placeholder for includes files to be installed.
 class HLibComponent(LibComponent):
@@ -858,6 +869,12 @@ class ExeComponent(Component):
             shutil.copy('%s.exe' % os.path.join(build_path, self.exe_name),
                         '%s.exe' % os.path.join(dist_path, 'bin', self.exe_name))
 
+    def mk_unix_dist(self, build_path, dist_path):
+        if self.install:
+            mk_dir(os.path.join(dist_path, 'bin'))
+            shutil.copy(os.path.join(build_path, self.exe_name),
+                        os.path.join(dist_path, 'bin', self.exe_name))
+
 
 class ExtraExeComponent(ExeComponent):
     def __init__(self, name, exe_name, path, deps, install):
@@ -865,6 +882,18 @@ class ExtraExeComponent(ExeComponent):
 
     def main_component(self):
         return False
+
+def get_so_ext():
+    sysname = os.uname()[0]
+    if sysname == 'Darwin':
+        return 'dylib'
+    elif sysname == 'Linux' or sysname == 'FreeBSD':
+        return 'so'
+    elif sysname == 'CYGWIN':
+        return 'dll'
+    else:
+        assert(False)
+        return 'dll'
 
 class DLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, export_files, reexports, install, static):
@@ -981,6 +1010,15 @@ class DLLComponent(Component):
             shutil.copy('%s.lib' % os.path.join(build_path, self.dll_name),
                         '%s.lib' % os.path.join(dist_path, 'bin', self.dll_name))
 
+    def mk_unix_dist(self, build_path, dist_path):
+        if self.install:
+            mk_dir(os.path.join(dist_path, 'bin'))
+            so = get_so_ext()
+            shutil.copy('%s.%s' % (os.path.join(build_path, self.dll_name), so),
+                        '%s.%s' % (os.path.join(dist_path, 'bin', self.dll_name), so))
+            shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
+                        '%s.a' % os.path.join(dist_path, 'bin', self.dll_name))
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir):
         Component.__init__(self, name, path, deps)
@@ -1033,6 +1071,9 @@ class DotNetDLLComponent(Component):
             shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
                         '%s.dll' % os.path.join(dist_path, 'bin', self.dll_name))
 
+    def mk_unix_dist(self, build_path, dist_path):
+        # Do nothing
+        return
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
@@ -1094,6 +1135,15 @@ class JavaDLLComponent(Component):
                         os.path.join(dist_path, 'bin', 'libz3java.dll'))
             shutil.copy(os.path.join(build_path, 'libz3java.lib'),
                         os.path.join(dist_path, 'bin', 'libz3java.lib'))
+
+    def mk_unix_dist(self, build_path, dist_path):
+        if JAVA_ENABLED:
+            mk_dir(os.path.join(dist_path, 'bin'))
+            shutil.copy('%s.jar' % os.path.join(build_path, self.package_name),
+                        '%s.jar' % os.path.join(dist_path, 'bin', self.package_name))
+            so = get_so_ext()
+            shutil.copy(os.path.join(build_path, 'libz3java.%s' % so), 
+                        os.path.join(dist_path, 'bin', 'libz3java.%s' % so))
 
 class ExampleComponent(Component):
     def __init__(self, name, path):
@@ -2428,6 +2478,14 @@ def mk_vs_proj(name, components):
 def mk_win_dist(build_path, dist_path):
     for c in get_components():
         c.mk_win_dist(build_path, dist_path)
+    # Add Z3Py to lib directory
+    for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
+        shutil.copy(os.path.join(build_path, pyc),
+                    os.path.join(dist_path, 'bin', pyc))
+
+def mk_unix_dist(build_path, dist_path):
+    for c in get_components():
+        c.mk_unix_dist(build_path, dist_path)
     # Add Z3Py to lib directory
     for pyc in filter(lambda f: f.endswith('.pyc'), os.listdir(build_path)):
         shutil.copy(os.path.join(build_path, pyc),

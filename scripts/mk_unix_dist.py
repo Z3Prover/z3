@@ -1,8 +1,8 @@
 ############################################
-# Copyright (c) 2012 Microsoft Corporation
+# Copyright (c) 2013 Microsoft Corporation
 # 
 # Scripts for automatically generating 
-# Window distribution zip files.
+# Linux/OSX/BSD distribution zip files.
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
@@ -19,8 +19,6 @@ from mk_project import *
 import mk_util
 
 BUILD_DIR='build-dist'
-BUILD_X64_DIR=os.path.join('build-dist', 'x64')
-BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
@@ -41,14 +39,11 @@ def mk_dir(d):
 def set_build_dir(path):
     global BUILD_DIR
     BUILD_DIR = path
-    BUILD_X86_DIR = os.path.join(path, 'x86')
-    BUILD_X64_DIR = os.path.join(path, 'x64')
-    mk_dir(BUILD_X86_DIR)
-    mk_dir(BUILD_X64_DIR)
+    mk_dir(BUILD_DIR)
 
 def display_help():
-    print "mk_win_dist.py: Z3 Windows distribution generator\n"
-    print "This script generates the zip files containing executables, dlls, header files for Windows."
+    print "mk_unix_dist.py: Z3 Linux/OSX/BSD distribution generator\n"
+    print "This script generates the zip files containing executables, shared objects, header files for Linux/OSX/BSD."
     print "It must be executed from the Z3 root directory."
     print "\nOptions:"
     print "  -h, --help                    display this message."
@@ -94,13 +89,11 @@ def check_build_dir(path):
     return os.path.exists(path) and os.path.exists(os.path.join(path, 'Makefile'))
 
 # Create a build directory using mk_make.py
-def mk_build_dir(path, x64):
+def mk_build_dir(path):
     if not check_build_dir(path) or FORCE_MK:
-        opts = ["python", os.path.join('scripts', 'mk_make.py'), "--parallel=24", "-b", path]
+        opts = ["python", os.path.join('scripts', 'mk_make.py'), "-b", path, "--static"]
         if JAVA_ENABLED:
             opts.append('--java')
-        if x64:
-            opts.append('-x')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
         if subprocess.call(opts) != 0:
@@ -108,83 +101,75 @@ def mk_build_dir(path, x64):
     
 # Create build directories
 def mk_build_dirs():
-    mk_build_dir(BUILD_X86_DIR, False)
-    mk_build_dir(BUILD_X64_DIR, True)
+    mk_build_dir(BUILD_DIR)
 
-# Check if on Visual Studio command prompt
-def check_vc_cmd_prompt():
-    try:
-        DEVNULL = open(os.devnull, 'wb')
-        subprocess.call(['cl'], stdout=DEVNULL, stderr=DEVNULL)
-    except:
-        raise MKException("You must execute the mk_win_dist.py script on a Visual Studio Command Prompt")
+class cd:
+    def __init__(self, newPath):
+        self.newPath = newPath
 
-def exec_cmds(cmds):
-    cmd_file = 'z3_tmp.cmd'
-    f = open(cmd_file, 'w')
-    for cmd in cmds:
-        f.write(cmd)
-        f.write('\n')
-    f.close()
-    res = 0
-    try:
-        res = subprocess.call(cmd_file, shell=True)
-    except:
-        res = 1
-    try:
-        os.erase(cmd_file)
-    except:
-        pass
-    return res
+    def __enter__(self):
+        self.savedPath = os.getcwd()
+        os.chdir(self.newPath)
 
-# Compile Z3 (if x64 == True, then it builds it in x64 mode).
-def mk_z3_core(x64):
-    cmds = []
-    if x64:
-        cmds.append('call "%VCINSTALLDIR%vcvarsall.bat" amd64')
-        cmds.append('cd %s' % BUILD_X64_DIR)    
-    else:
-        cmds.append('"call %VCINSTALLDIR%vcvarsall.bat" x86')
-        cmds.append('cd %s' % BUILD_X86_DIR)
-    cmds.append('nmake')
-    if exec_cmds(cmds) != 0:
-        raise MKException("Failed to make z3, x64: %s" % x64)
+    def __exit__(self, etype, value, traceback):
+        os.chdir(self.savedPath)
 
 def mk_z3():
-    mk_z3_core(False)
-    mk_z3_core(True)
+    with cd(BUILD_DIR):
+        try:
+            return subprocess.call(['make', '-j', '8'])
+        except:
+            return 1
 
-def get_z3_name(x64):
+def get_os_name():
+    import platform
+    basic = os.uname()[0].lower()
+    if basic == 'linux':
+        dist = platform.linux_distribution()
+        if len(dist) == 3 and len(dist[0]) > 0 and len(dist[1]) > 0:
+            return '%s-%s' % (dist[0].lower(), dist[1].lower())
+        else:
+            return basic
+    elif basic == 'darwin':
+        ver = platform.mac_ver()
+        if len(ver) == 3 and len(ver[0]) > 0:
+            return 'osx-%s' % ver[0]
+        else:
+            return 'osx'
+    elif basic == 'freebsd':
+        ver = platform.version()
+        idx1 = ver.find(' ')
+        idx2 = ver.find('-')
+        if idx1 < 0 or idx2 < 0 or idx1 >= idx2:
+            return basic
+        else:
+            return 'freebsd-%s' % ver[(idx1+1):idx2]
+    else:
+        return basic
+
+def get_z3_name():
     major, minor, build, revision = get_version()
-    if x64:
+    if sys.maxsize >= 2**32:
         platform = "x64"
     else:
         platform = "x86"
+    osname = get_os_name()
     if GIT_HASH:
-        return 'z3-%s.%s.%s.%s-%s-win' % (major, minor, build, mk_util.git_hash(), platform)
+        return 'z3-%s.%s.%s.%s-%s-%s' % (major, minor, build, mk_util.git_hash(), platform, osname)
     else:
-        return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
+        return 'z3-%s.%s.%s-%s-%s' % (major, minor, build, platform, osname)
 
-def mk_dist_dir_core(x64):
-    if x64:
-        platform = "x64"
-        build_path = BUILD_X64_DIR
-    else:
-        platform = "x86"
-        build_path = BUILD_X86_DIR
-    dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
+def mk_dist_dir():
+    build_path = BUILD_DIR
+    dist_path = os.path.join(DIST_DIR, get_z3_name())
     mk_dir(dist_path)
     if JAVA_ENABLED:
         # HACK: Propagate JAVA_ENABLED flag to mk_util
         # TODO: fix this hack
         mk_util.JAVA_ENABLED = JAVA_ENABLED
-    mk_win_dist(build_path, dist_path)
+    mk_unix_dist(build_path, dist_path)
     if is_verbose():
-        print "Generated %s distribution folder at '%s'" % (platform, dist_path)
-
-def mk_dist_dir():
-    mk_dist_dir_core(False)
-    mk_dist_dir_core(True)
+        print "Generated distribution folder at '%s'" % dist_path
 
 ZIPOUT = None
 
@@ -195,12 +180,12 @@ def mk_zip_visitor(pattern, dir, files):
             if not os.path.isdir(fname):
                 ZIPOUT.write(fname)
 
-def get_dist_path(x64):
-    return get_z3_name(x64)
+def get_dist_path():
+    return get_z3_name()
 
-def mk_zip_core(x64):
+def mk_zip():
     global ZIPOUT
-    dist_path = get_dist_path(x64)
+    dist_path = get_dist_path()
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
@@ -214,67 +199,17 @@ def mk_zip_core(x64):
     ZIPOUT = None
     os.chdir(old)
 
-# Create a zip file for each platform
-def mk_zip():
-    mk_zip_core(False)
-    mk_zip_core(True)
-
-
-VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
-                   re.compile('msvcp.*\.dll'),
-                   re.compile('msvcr.*\.dll')]
-
-VS_RUNTIME_FILES = []
-                              
-def cp_vs_runtime_visitor(pattern, dir, files):
-    global VS_RUNTIME_FILES
-    for filename in files:
-        for pat in VS_RUNTIME_PATS:
-            if pat.match(filename):
-                if fnmatch(filename, pattern):
-                    fname = os.path.join(dir, filename)
-                    if not os.path.isdir(fname):
-                        VS_RUNTIME_FILES.append(fname)
-                break
-
-# Copy Visual Studio Runtime libraries
-def cp_vs_runtime_core(x64):
-    global VS_RUNTIME_FILES
-    if x64:
-        platform = "x64"
-        
-    else:
-        platform = "x86"
-    vcdir = subprocess.check_output(['echo', '%VCINSTALLDIR%'], shell=True).rstrip('\r\n')
-    path  = '%sredist\\%s' % (vcdir, platform)
-    VS_RUNTIME_FILES = []
-    os.path.walk(path, cp_vs_runtime_visitor, '*.dll')
-    bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
-    for f in VS_RUNTIME_FILES:
-        shutil.copy(f, bin_dist_path)
-        if is_verbose():
-            print "Copied '%s' to '%s'" % (f, bin_dist_path)
-
-def cp_vs_runtime():
-    cp_vs_runtime_core(True)
-    cp_vs_runtime_core(False)
-
 def cp_license():
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(True)))
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(False)))
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path()))
 
 # Entry point
 def main():
-    if os.name != 'nt':
-        raise MKException("This script is for Windows only")
     parse_options()
-    check_vc_cmd_prompt()
     mk_build_dirs()
     mk_z3()
     init_project_def()
     mk_dist_dir()
     cp_license()
-    cp_vs_runtime()
     mk_zip()
 
 main()
