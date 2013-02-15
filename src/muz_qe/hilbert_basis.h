@@ -11,8 +11,6 @@ Abstract:
 
     hilbert_basis computes a Hilbert basis for linear
     homogeneous inequalities over naturals.
-    hilbert_sl_basis  computes a semi-linear set over naturals.
-    hilbert_isl_basis computes semi-linear sets over integers.
 
 Author:
 
@@ -140,8 +138,15 @@ public:
     void add_eq(num_vector const& v, numeral const& b);
 
     void set_is_int(unsigned var_index);
+    bool get_is_int(unsigned var_index) const;
 
     lbool saturate();
+
+    unsigned get_basis_size() const { return m_basis.size(); }
+    void get_basis_solution(unsigned i, num_vector& v, bool& is_initial);
+
+    unsigned get_num_ineqs() const { return m_ineqs.size(); }
+    void get_ge(unsigned i, num_vector& v, numeral& b, bool& is_eq);    
 
     void set_cancel(bool f) { m_cancel = f; }
 
@@ -149,24 +154,8 @@ public:
 
     void collect_statistics(statistics& st) const;
     void reset_statistics();     
+
 };
 
-
-class hilbert_isl_basis {
-public:
-    typedef rational        numeral;
-    typedef vector<numeral> num_vector;
-private:
-    hilbert_basis m_basis;    
-public:
-    hilbert_isl_basis() {}    
-    void reset() { m_basis.reset(); }
-
-    // add inequality v*x >= bound, x ranges over integers
-    void add_le(num_vector const& v, numeral bound);
-    lbool saturate() { return m_basis.saturate(); }
-    void set_cancel(bool f) { m_basis.set_cancel(f); }
-    void display(std::ostream& out) const { m_basis.display(out); }    
-};
 
 #endif 

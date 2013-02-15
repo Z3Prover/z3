@@ -410,6 +410,7 @@ void hilbert_basis::collect_statistics(statistics& st) const {
     st.update("hb.num_subsumptions", m_stats.m_num_subsumptions);
     st.update("hb.num_resolves", m_stats.m_num_resolves);
     st.update("hb.num_saturations", m_stats.m_num_saturations);
+    st.update("hb.basis_size", get_basis_size());
     m_index->collect_statistics(st);
 }
 
@@ -462,6 +463,10 @@ void hilbert_basis::set_is_int(unsigned var_index) {
     // coefficient. Shift indices by 1.
     //
     m_ints.push_back(var_index+1);
+}
+
+bool hilbert_basis::get_is_int(unsigned var_index) const {    
+    return m_ints.contains(var_index+1);
 }
 
 unsigned hilbert_basis::get_num_vars() const {
@@ -578,6 +583,23 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
     TRACE("hilbert_basis", display(tout););
     return l_true;
 }
+
+void hilbert_basis::get_basis_solution(unsigned i, num_vector& v, bool& is_initial) {
+    offset_t offs = m_basis[i];
+    v.reset();
+    for (unsigned i = 1; i < get_num_vars(); ++i) {
+        v.push_back(vec(offs)[i]);
+    }
+    is_initial = !vec(offs)[0].is_zero();
+}
+
+void hilbert_basis::get_ge(unsigned i, num_vector& v, numeral& b, bool& is_eq) {
+    v.reset();
+    v.append(get_num_vars()-1, m_ineqs[i].c_ptr() + 1);
+    b = -m_ineqs[i][0];
+    is_eq = m_iseq[i];
+}
+
 
 void hilbert_basis::select_inequality() {
     SASSERT(m_current_ineq < m_ineqs.size());
@@ -803,19 +825,6 @@ void hilbert_basis::display_ineq(std::ostream& out, num_vector const& v, bool is
     else {
         out << " >= 0\n";
     }
-}
-
-
-void hilbert_isl_basis::add_le(num_vector const& v, numeral bound) {
-    unsigned sz = v.size();
-    num_vector w;
-    w.push_back(-bound);
-    w.push_back(bound);
-    for (unsigned i = 0; i < sz; ++i) {
-        w.push_back(v[i]);
-        w.push_back(-v[i]);
-    }
-    m_basis.add_le(w);
 }
 
 
