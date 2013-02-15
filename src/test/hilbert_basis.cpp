@@ -74,6 +74,14 @@ static void gorrila_test(unsigned seed, unsigned n, unsigned k, unsigned bound, 
     saturate_basis(hb);
 }
 
+static vector<rational> vec(int i, int j) {
+    vector<rational> nv;
+    nv.resize(2);
+    nv[0] = rational(i);
+    nv[1] = rational(j);
+    return nv;
+}
+
 static vector<rational> vec(int i, int j, int k) {
     vector<rational> nv;
     nv.resize(3);
@@ -243,25 +251,37 @@ static void tst11() {
     saturate_basis(hb);
 }
 
+static void tst12() {
+    hilbert_basis hb;
+    hb.add_le(vec(1, 0), R(1));
+    hb.add_le(vec(0, 1), R(1));
+    saturate_basis(hb);
+}
+
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
-#if 0
-    tst1();
-    tst2();
-    tst3();
-    tst4();
-    tst5();
-    tst6();
-    tst7();
-    tst8();
-    tst9();
-    tst10();
-    tst11();
-    gorrila_test(0, 4, 3, 20, 5);
-    gorrila_test(1, 4, 3, 20, 5);
-    gorrila_test(2, 4, 3, 20, 5);
-    gorrila_test(0, 4, 2, 20, 5);
-    gorrila_test(0, 4, 2, 20, 5);
-#endif
-    gorrila_test(0, 10, 7, 20, 11);
+    tst12();
+    return;
+
+    if (true) {
+        tst1();
+        tst2();
+        tst3();
+        tst4();
+        tst5();
+        tst6();
+        tst7();
+        tst8();
+        tst9();
+        tst10();
+        tst11();
+        gorrila_test(0, 4, 3, 20, 5);
+        gorrila_test(1, 4, 3, 20, 5);
+        gorrila_test(2, 4, 3, 20, 5);
+        gorrila_test(0, 4, 2, 20, 5);
+        gorrila_test(0, 4, 2, 20, 5);
+    }
+    else {
+        gorrila_test(0, 10, 7, 20, 11);
+    }
 }

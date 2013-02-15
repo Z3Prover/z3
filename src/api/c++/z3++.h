@@ -619,6 +619,8 @@ namespace z3 {
             a.check_error();
             return expr(a.ctx(), r);
         }
+        friend expr implies(expr const & a, bool b) { return implies(a, a.ctx().bool_val(b)); }
+        friend expr implies(bool a, expr const & b) { return implies(b.ctx().bool_val(a), b); }
 
         /**
            \brief Create the if-then-else expression <tt>ite(c, t, e)</tt>
@@ -758,7 +760,7 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
         friend expr operator-(expr const & a, int b) { return a - a.ctx().num_val(b, a.get_sort()); }
-        friend expr operator-(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) - a; }
+        friend expr operator-(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) - b; }
 
         friend expr operator<=(expr const & a, expr const & b) {
             check_context(a, b);
@@ -777,7 +779,7 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
         friend expr operator<=(expr const & a, int b) { return a <= a.ctx().num_val(b, a.get_sort()); }
-        friend expr operator<=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) <= a; }
+        friend expr operator<=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) <= b; }
 
         friend expr operator>=(expr const & a, expr const & b) {
             check_context(a, b);
@@ -796,7 +798,7 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
         friend expr operator>=(expr const & a, int b) { return a >= a.ctx().num_val(b, a.get_sort()); }
-        friend expr operator>=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) >= a; }
+        friend expr operator>=(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) >= b; }
 
         friend expr operator<(expr const & a, expr const & b) {
             check_context(a, b);
@@ -815,7 +817,7 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
         friend expr operator<(expr const & a, int b) { return a < a.ctx().num_val(b, a.get_sort()); }
-        friend expr operator<(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) < a; }
+        friend expr operator<(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) < b; }
         
         friend expr operator>(expr const & a, expr const & b) {
             check_context(a, b);
@@ -834,7 +836,7 @@ namespace z3 {
             return expr(a.ctx(), r);
         }
         friend expr operator>(expr const & a, int b) { return a > a.ctx().num_val(b, a.get_sort()); }
-        friend expr operator>(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) > a; }
+        friend expr operator>(int a, expr const & b) { return b.ctx().num_val(a, b.get_sort()) > b; }
 
         friend expr operator&(expr const & a, expr const & b) { check_context(a, b); Z3_ast r = Z3_mk_bvand(a.ctx(), a, b); return expr(a.ctx(), r); }
         friend expr operator&(expr const & a, int b) { return a & a.ctx().num_val(b, a.get_sort()); }
@@ -888,31 +890,31 @@ namespace z3 {
     */
     inline expr ule(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvule(a.ctx(), a, b)); }
     inline expr ule(expr const & a, int b) { return ule(a, a.ctx().num_val(b, a.get_sort())); }
-    inline expr ule(int a, expr const & b) { return ule(b.ctx().num_val(a, b.get_sort()), a); }
+    inline expr ule(int a, expr const & b) { return ule(b.ctx().num_val(a, b.get_sort()), b); }
     /**
        \brief unsigned less than operator for bitvectors.
     */
     inline expr ult(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvult(a.ctx(), a, b)); }
     inline expr ult(expr const & a, int b) { return ult(a, a.ctx().num_val(b, a.get_sort())); }
-    inline expr ult(int a, expr const & b) { return ult(b.ctx().num_val(a, b.get_sort()), a); }
+    inline expr ult(int a, expr const & b) { return ult(b.ctx().num_val(a, b.get_sort()), b); }
     /**
        \brief unsigned greater than or equal to operator for bitvectors.
     */
     inline expr uge(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvuge(a.ctx(), a, b)); }
     inline expr uge(expr const & a, int b) { return uge(a, a.ctx().num_val(b, a.get_sort())); }
-    inline expr uge(int a, expr const & b) { return uge(b.ctx().num_val(a, b.get_sort()), a); }
+    inline expr uge(int a, expr const & b) { return uge(b.ctx().num_val(a, b.get_sort()), b); }
     /**
        \brief unsigned greater than operator for bitvectors.
     */
     inline expr ugt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvugt(a.ctx(), a, b)); }
     inline expr ugt(expr const & a, int b) { return ugt(a, a.ctx().num_val(b, a.get_sort())); }
-    inline expr ugt(int a, expr const & b) { return ugt(b.ctx().num_val(a, b.get_sort()), a); }
+    inline expr ugt(int a, expr const & b) { return ugt(b.ctx().num_val(a, b.get_sort()), b); }
     /**
        \brief unsigned division operator for bitvectors.
     */
     inline expr udiv(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvudiv(a.ctx(), a, b)); }
     inline expr udiv(expr const & a, int b) { return udiv(a, a.ctx().num_val(b, a.get_sort())); }
-    inline expr udiv(int a, expr const & b) { return udiv(b.ctx().num_val(a, b.get_sort()), a); }
+    inline expr udiv(int a, expr const & b) { return udiv(b.ctx().num_val(a, b.get_sort()), b); }
 
     // Basic functions for creating quantified formulas.
     // The C API should be used for creating quantifiers with patterns, weights, many variables, etc.

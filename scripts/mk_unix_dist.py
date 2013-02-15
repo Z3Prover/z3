@@ -190,7 +190,7 @@ def mk_zip():
     try:
         os.chdir(DIST_DIR)
         zfname = '%s.zip' % dist_path
-        ZIPOUT = zipfile.ZipFile(zfname, 'w')
+        ZIPOUT = zipfile.ZipFile(zfname, 'w', zipfile.ZIP_DEFLATED)
         os.path.walk(dist_path, mk_zip_visitor, '*')
         if is_verbose():
             print "Generated '%s'" % zfname

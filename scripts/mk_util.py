@@ -76,10 +76,7 @@ GPROF=False
 GIT_HASH=False
 
 def check_output(cmd):
-    try:
-        return subprocess.check_output(cmd, shell=True).rstrip('\r\n')
-    except:
-        return subprocess.check_output(cmd).rstrip('\r\n')
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0].rstrip('\r\n')
 
 def git_hash():
     try:
