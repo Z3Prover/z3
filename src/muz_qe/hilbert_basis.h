@@ -96,7 +96,7 @@ private:
 
     void add_unit_vector(unsigned i, numeral const& e);
     unsigned get_num_vars() const;
-    numeral get_weight(values& val, num_vector const& ineq) const;
+    numeral get_weight(values const & val, num_vector const& ineq) const;
     bool is_geq(values const& v, values const& w) const;
     bool is_abs_geq(numeral const& v, numeral const& w) const;
     bool is_subsumed(offset_t idx);

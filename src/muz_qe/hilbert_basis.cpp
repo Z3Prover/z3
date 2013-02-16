@@ -63,7 +63,7 @@ public:
         for (; it != end; ++it) {
             offset_t offs(*it);
             ++m_stats.m_num_comparisons;
-            if (*it != idx.m_offset && hb.is_subsumed(idx, offs)) {
+            if (*it != static_cast<int>(idx.m_offset) && hb.is_subsumed(idx, offs)) {
                 found_idx = offs;
                 ++m_stats.m_num_hit;
                 return true;
@@ -743,7 +743,7 @@ hilbert_basis::sign_t hilbert_basis::get_sign(offset_t idx) const {
     return zero;
 }
 
-hilbert_basis::numeral hilbert_basis::get_weight(values& val, num_vector const& ineq) const {
+hilbert_basis::numeral hilbert_basis::get_weight(values const & val, num_vector const& ineq) const {
     numeral result(0);
     unsigned num_vars = get_num_vars();
     for (unsigned i = 0; i < num_vars; ++i) {
@@ -753,7 +753,6 @@ hilbert_basis::numeral hilbert_basis::get_weight(values& val, num_vector const& 
 }
 
 void hilbert_basis::display(std::ostream& out) const {
-    unsigned nv = get_num_vars();
     out << "inequalities:\n";
     for (unsigned i = 0; i < m_ineqs.size(); ++i) {
         display_ineq(out, m_ineqs[i], m_iseq[i]);
