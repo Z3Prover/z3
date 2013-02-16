@@ -11,8 +11,6 @@ Abstract:
 
     hilbert_basis computes a Hilbert basis for linear
     homogeneous inequalities over naturals.
-    hilbert_sl_basis  computes a semi-linear set over naturals.
-    hilbert_isl_basis computes semi-linear sets over integers.
 
 Author:
 
@@ -64,6 +62,7 @@ private:
     };
 
     vector<num_vector> m_ineqs;      // set of asserted inequalities
+    svector<bool>      m_iseq;       // inequalities that are equalities
     num_vector         m_store;      // store of vectors
     svector<offset_t>  m_basis;      // vector of current basis
     svector<offset_t>  m_free_list;  // free list of unused storage
@@ -74,6 +73,7 @@ private:
     stats              m_stats;
     index*             m_index;      // index of generated vectors
     unsigned_vector    m_ints;       // indices that can be both positive and negative
+    unsigned           m_current_ineq;
     class iterator {
         hilbert_basis const& hb;
         unsigned             m_idx;
@@ -88,15 +88,15 @@ private:
 
     static offset_t mk_invalid_offset();
     static bool     is_invalid_offset(offset_t offs);
-    lbool saturate(num_vector const& ineq);
+    lbool saturate(num_vector const& ineq, bool is_eq);
     void init_basis();
-    void select_inequality(unsigned i);
+    void select_inequality();
     unsigned get_num_nonzeros(num_vector const& ineq);
     unsigned get_ineq_product(num_vector const& ineq);
 
     void add_unit_vector(unsigned i, numeral const& e);
     unsigned get_num_vars() const;
-    void set_eval(values& val, num_vector const& ineq) const;
+    numeral get_weight(values& val, num_vector const& ineq) const;
     bool is_geq(values const& v, values const& w) const;
     bool is_abs_geq(numeral const& v, numeral const& w) const;
     bool is_subsumed(offset_t idx);
@@ -114,7 +114,7 @@ private:
     
     void display(std::ostream& out, offset_t o) const;
     void display(std::ostream& out, values const & v) const;
-    void display_ineq(std::ostream& out, num_vector const& v) const;
+    void display_ineq(std::ostream& out, num_vector const& v, bool is_eq) const;
 
 public:
         
@@ -138,8 +138,15 @@ public:
     void add_eq(num_vector const& v, numeral const& b);
 
     void set_is_int(unsigned var_index);
+    bool get_is_int(unsigned var_index) const;
 
     lbool saturate();
+
+    unsigned get_basis_size() const { return m_basis.size(); }
+    void get_basis_solution(unsigned i, num_vector& v, bool& is_initial);
+
+    unsigned get_num_ineqs() const { return m_ineqs.size(); }
+    void get_ge(unsigned i, num_vector& v, numeral& b, bool& is_eq);    
 
     void set_cancel(bool f) { m_cancel = f; }
 
@@ -147,24 +154,8 @@ public:
 
     void collect_statistics(statistics& st) const;
     void reset_statistics();     
+
 };
 
-
-class hilbert_isl_basis {
-public:
-    typedef rational        numeral;
-    typedef vector<numeral> num_vector;
-private:
-    hilbert_basis m_basis;    
-public:
-    hilbert_isl_basis() {}    
-    void reset() { m_basis.reset(); }
-
-    // add inequality v*x >= bound, x ranges over integers
-    void add_le(num_vector const& v, numeral bound);
-    lbool saturate() { return m_basis.saturate(); }
-    void set_cancel(bool f) { m_basis.set_cancel(f); }
-    void display(std::ostream& out) const { m_basis.display(out); }    
-};
 
 #endif 

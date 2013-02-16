@@ -1,4 +1,12 @@
 #include "hilbert_basis.h"
+#include "hilbert_basis_validate.h"
+#include "ast_pp.h"
+#include "reg_decl_plugins.h"
+#include "quant_tactics.h"
+#include "tactic.h"
+#include "tactic2solver.h"
+#include "solver.h"
+
 #include<signal.h>
 #include<time.h>
 
@@ -19,6 +27,24 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+static void validate_sat(hilbert_basis& hb) {
+    ast_manager m;
+    reg_decl_plugins(m);
+    hilbert_basis_validate val(m);
+
+    expr_ref fml = val.mk_validate(hb);
+
+    std::cout << mk_pp(fml, m) << "\n";
+
+    fml = m.mk_not(fml);
+    params_ref p;
+    tactic_ref tac = mk_lra_tactic(m, p);
+    ref<solver> sol = mk_tactic2solver(m, tac.get(), p);
+    sol->assert_expr(fml);
+    lbool r = sol->check_sat(0,0);
+    std::cout << r << "\n";
+}
+
 static void saturate_basis(hilbert_basis& hb) {
     signal(SIGINT, on_ctrl_c);
     g_hb = &hb;
@@ -29,6 +55,7 @@ static void saturate_basis(hilbert_basis& hb) {
     case l_true:  
         std::cout << "sat\n"; 
         hb.display(std::cout);
+        // validate_sat(hb);
         break;
     case l_false: 
         std::cout << "unsat\n"; 
@@ -39,6 +66,7 @@ static void saturate_basis(hilbert_basis& hb) {
     }
     display_statistics(hb);
 }
+
 
 /**
    n         - number of variables.
@@ -72,6 +100,14 @@ static void gorrila_test(unsigned seed, unsigned n, unsigned k, unsigned bound, 
     }    
     hb.display(std::cout << "Saturate\n");
     saturate_basis(hb);
+}
+
+static vector<rational> vec(int i, int j) {
+    vector<rational> nv;
+    nv.resize(2);
+    nv[0] = rational(i);
+    nv[1] = rational(j);
+    return nv;
 }
 
 static vector<rational> vec(int i, int j, int k) {
@@ -243,16 +279,44 @@ static void tst11() {
     saturate_basis(hb);
 }
 
+static void tst12() {
+    hilbert_basis hb;
+    hb.add_le(vec(1, 0), R(1));
+    hb.add_le(vec(0, 1), R(1));
+    saturate_basis(hb);
+}
+
+// Sigma_9 table 1,  Ajili, Contejean
+static void tst13() {
+    hilbert_basis hb;
+    hb.add_eq(vec( 1,-2,-4,4), R(0));
+    hb.add_le(vec(100,45,-78,-67), R(0));
+    saturate_basis(hb);
+}
+
+// Sigma_10 table 1,  Ajili, Contejean
+static void tst14() {
+    hilbert_basis hb;
+    hb.add_le(vec( 23, -56, -34, 12, 11), R(0));
+    saturate_basis(hb);
+}
+
+// Sigma_11 table 1,  Ajili, Contejean
+static void tst15() {
+//    hilbert_basis hb;
+//    hb.add_le(vec( 23, -56, -34, 12, 11), R(0));
+//    saturate_basis(hb);
+}
+
+
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
-    tst4();
-    return;
 
     if (true) {
         tst1();
         tst2();
         tst3();
-        tst4();
+        // tst4();
         tst5();
         tst6();
         tst7();
@@ -260,11 +324,15 @@ void tst_hilbert_basis() {
         tst9();
         tst10();
         tst11();
+        tst12();
+        tst13();
+        tst14();
+        tst15();
         gorrila_test(0, 4, 3, 20, 5);
         gorrila_test(1, 4, 3, 20, 5);
-        gorrila_test(2, 4, 3, 20, 5);
-        gorrila_test(0, 4, 2, 20, 5);
-        gorrila_test(0, 4, 2, 20, 5);
+        //gorrila_test(2, 4, 3, 20, 5);
+        //gorrila_test(0, 4, 2, 20, 5);
+        //gorrila_test(0, 4, 2, 20, 5);
     }
     else {
         gorrila_test(0, 10, 7, 20, 11);
