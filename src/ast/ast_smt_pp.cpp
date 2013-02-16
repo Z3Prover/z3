@@ -869,7 +869,7 @@ public:
                 for (unsigned j = 0; j < f->get_arity(); ++j) {
                     sort* s2 = f->get_domain(j);
                     if (!mark.is_marked(s2)) {
-                        if (s2->get_family_id() == null_family_id) {
+                        if (m_manager.is_uninterp(s2)) {
                             pp_sort_decl(mark, s2);
                         }
                         else if (!util.is_datatype(s2)) {
