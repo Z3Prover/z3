@@ -208,6 +208,7 @@ int main(int argc, char ** argv) {
     TST(model2expr);
     TST(rcf);
     TST(hilbert_basis);
+    TST(heap_trie);
 }
 
 void initialize_mam() {}

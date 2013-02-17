@@ -32,7 +32,8 @@ public:
     typedef rational numeral;
     typedef vector<numeral> num_vector;
 private:
-    class value_index;
+    class value_index1;
+    class value_index2;
     class index;
     class passive;
     struct offset_t { 
@@ -59,6 +60,7 @@ private:
         numeral& operator[](unsigned i) { return m_values[i+1]; } // value of x_i
         numeral const& weight() const { return m_values[0]; } // value of a*x 
         numeral const& operator[](unsigned i) const { return m_values[i+1]; } // value of x_i
+        numeral const* operator()() const { return m_values + 1; }
     };
 
     vector<num_vector> m_ineqs;      // set of asserted inequalities

@@ -16,6 +16,18 @@ class hilbert_basis_validate {
 
     void validate_solution(hilbert_basis& hb, vector<rational> const& v, bool is_initial);
 
+    rational eval_ineq(hilbert_basis& hb, unsigned idx, vector<rational> const& v, bool& is_eq) {
+        vector<rational> w;
+        rational bound;
+        hb.get_ge(idx, w, bound, is_eq);
+        rational sum(0);
+        for (unsigned j = 0; j < v.size(); ++j) {
+            sum += w[j]*v[j];
+        }
+        sum -= bound;
+        return sum;
+    }
+
 public:
         
     hilbert_basis_validate(ast_manager& m);
@@ -35,37 +47,47 @@ void hilbert_basis_validate::validate_solution(hilbert_basis& hb, vector<rationa
     for (unsigned i = 0; i < sz; ++i) {
         bool is_eq;
         vector<rational> w;
+        rational bound;
         hb.get_ge(i, w, bound, is_eq);
         rational sum(0);
         for (unsigned j = 0; j < v.size(); ++j) {
             sum += w[j]*v[j];
         }
-        if (bound > sum || 
-            (is_eq && bound != sum)) {
-            // validation failed.
-            std::cout << "validation failed for inequality\n";
-            for (unsigned j = 0; j < v.size(); ++j) {
-                std::cout << v[j] << " ";
-            }
-            std::cout << "\n";
-            for (unsigned j = 0; j < w.size(); ++j) {
-                std::cout << w[j] << " ";
-            }
-            std::cout << (is_eq?" = ":" >= ") << bound << "\n";
-            std::cout << "is initial: " << (is_initial?"true":"false") << "\n";
-            std::cout << "sum: " << sum << "\n";
-        }        
-    }
+        if (sum >= bound && !is_eq) {
+            continue;
+        }
+        if (sum == bound && is_eq) {
+            continue;
+        }
+        // homogeneous solutions should be non-negative.
+        if (!is_initial && sum.is_nonneg()) {
+            continue;
+        }
+
+        // validation failed.
+        std::cout << "validation failed\n";
+        std::cout << "constraint: ";
+        for (unsigned j = 0; j < v.size(); ++j) {
+            std::cout << v[j] << " ";
+        }
+        std::cout << (is_eq?" = ":" >= ") << bound << "\n";
+        std::cout << "vector:     ";
+        for (unsigned j = 0; j < w.size(); ++j) {
+            std::cout << w[j] << " ";
+        }
+        std::cout << "\n";
+        std::cout << "sum: " << sum << "\n";
+    }        
 }
 
 expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
     arith_util a(m);
     unsigned sz = hb.get_basis_size();
     vector<rational> v;
-    bool is_initial;
 
     // check that claimed solution really satisfies inequalities:        
     for (unsigned i = 0; i < sz; ++i) {
+        bool is_initial;
         hb.get_basis_solution(i, v, is_initial);
         validate_solution(hb, v, is_initial);
     }
@@ -83,11 +105,13 @@ expr_ref hilbert_basis_validate::mk_validate(hilbert_basis& hb) {
     
 
     for (unsigned i = 0; i < sz; ++i) {
+        bool is_initial;
         hb.get_basis_solution(i, v, is_initial);
 
         for (unsigned j = 0; xs.size() < v.size(); ++j) {
             xs.push_back(m.mk_fresh_const("x", a.mk_int()));
         }
+
 
         if (is_initial) {
             expr_ref_vector tmp(m);
@@ -200,6 +224,8 @@ static void validate_sat(hilbert_basis& hb) {
 
     expr_ref fml = val.mk_validate(hb);
 
+    return;
+
     std::cout << mk_pp(fml, m) << "\n";
 
     fml = m.mk_not(fml);
@@ -221,7 +247,7 @@ static void saturate_basis(hilbert_basis& hb) {
     case l_true:  
         std::cout << "sat\n"; 
         hb.display(std::cout);
-        // validate_sat(hb);
+        validate_sat(hb);
         break;
     case l_false: 
         std::cout << "unsat\n"; 
@@ -449,7 +475,7 @@ static void tst11() {
 // Sigma_9 table 1,  Ajili, Contejean
 static void tst12() {
     hilbert_basis hb;
-    hb.add_eq(vec( 1,-2,-4,4), R(0));
+    hb.add_eq(vec( 1,-2,-3,4), R(0));
     hb.add_le(vec(100,45,-78,-67), R(0));
     saturate_basis(hb);
 }
@@ -465,7 +491,7 @@ static void tst13() {
 static void tst14() {
     hilbert_basis hb;
     hb.add_eq(vec(1, 0, -4, 8), R(2));
-    hb.add_le(vec(12,19,-11,7), R(-7));
+    hb.add_le(vec(12,19,-11,-7), R(-7));
     saturate_basis(hb);
 }
 
