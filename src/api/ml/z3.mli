@@ -1,3001 +1,978 @@
 (**
-   The Z3 ML/OCaml Interface.
+   The Z3 ML/Ocaml Interface.
 
    Copyright (C) 2012 Microsoft Corporation
    @author CM Wintersteiger (cwinter) 2012-12-17
 *)
 
-(** General Z3 exceptions 
-
-    Many functions in this API may throw an exception; if they do, it is this one.*)
-exception Error of string
-
-(** Context objects.
-
-    Most interactions with Z3 are interpreted in some context; many users will only 
-    require one such object, but power users may require more than one. To start using 
-    Z3, do 
-
-    <code>
-    let ctx = (mk_context []) in 
-    (...)
-    </code>
-
-    where a list of pairs of strings may be passed to set options on
-    the context, e.g., like so:
-
-    <code>
-    let cfg = [("model", "true"); ("...", "...")] in
-    let ctx = (mk_context cfg) in 
-    (...)
-    </code>
-*)
 type context
 
-(** Create a context object 
-    The following parameters can be set:
-    
-    - proof  (Boolean)           Enable proof generation
-    - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
-    - trace  (Boolean)           Tracing support for VCC
-    - trace_file_name (String)   Trace out file for VCC traces
-    - timeout (unsigned)         default timeout (in milliseconds) used for solvers
-    - well_sorted_check          type checker
-    - auto_config                use heuristics to automatically select solver and configure it
-    - model                      model generation for solvers, this parameter can be overwritten when creating a solver
-    - model_validate             validate models produced by solvers
-    - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver    
-*)
-val mk_context : (string * string) list -> context
+type int_symbol
+type string_symbol
+type symbol = S_Int of int_symbol | S_Str of string_symbol
 
-(** Interaction logging for Z3
-    Note that this is a global, static log and if multiple Context 
-    objects are created, it logs the interaction with all of them. *)
+type ast 
+type ast_vector 
+type ast_map 
+
+type sort = Sort of ast
+
+type uninterpreted_sort = UninterpretedSort of sort
+type bool_sort = BoolSort of sort
+type array_sort = ArraySort of sort
+type set_sort = SetSort of sort
+type datatype_sort = DatatypeSort of sort
+type relation_sort = RelationSort of sort
+type finite_domain_sort = FiniteDomainSort of sort
+type enum_sort = EnumSort of sort
+type list_sort = ListSort of sort
+type tuple_sort = TupleSort of sort
+type arith_sort = ArithSort of sort
+type bitvec_sort = BitVecSort of sort
+type int_sort = IntSort of arith_sort
+type real_sort = RealSort of arith_sort
+
+type func_decl = FuncDecl of ast
+
+type parameter =
+    P_Int of int
+  | P_Dbl of float
+  | P_Sym of symbol
+  | P_Srt of sort
+  | P_Ast of ast
+  | P_Fdl of func_decl
+  | P_Rat of string
+
+type params 
+type param_descrs 
+
+type expr = Expr of ast
+type bool_expr = BoolExpr of expr
+type arith_expr = ArithExpr of expr
+type int_expr = IntExpr of arith_expr
+type real_expr = RealExpr of arith_expr
+type bitvec_expr = BitVecExpr of expr
+type array_expr = ArrayExpr of expr
+type datatype_expr = DatatypeExpr of expr
+type int_num = IntNum of int_expr
+type rat_num = RatNum of real_expr
+type algebraic_num = AlgebraicNum of arith_expr
+type bitvec_num = BitVecNum of bitvec_expr
+type quantifier = Quantifier of expr
+type pattern = Pattern of ast
+
+type constructor 
+
+type goal 
+
+type model 
+type func_interp 
+type func_entry 
+
+type probe 
+
+type tactic 
+type apply_result 
+
+type solver 
+type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
+
+type statistics 
+type statistics_entry
+
+type fixedpoint 
+
+val ast_of_sort : sort -> ast
+val sort_of_uninterpreted_sort : uninterpreted_sort -> sort
+val sort_of_bool_sort : bool_sort -> sort
+val sort_of_array_sort : array_sort -> sort
+val sort_of_set_sort : set_sort -> sort
+val sort_of_datatype_sort : datatype_sort -> sort
+val sort_of_relation_sort : relation_sort -> sort
+val sort_of_finite_domain_sort : finite_domain_sort -> sort
+val sort_of_enum_sort : enum_sort -> sort
+val sort_of_list_sort : list_sort -> sort
+val sort_of_tuple_sort : tuple_sort -> sort
+val sort_of_arith_sort : arith_sort -> sort
+val sort_of_bitvec_sort : bitvec_sort -> sort
+val arith_sort_of_int_sort : int_sort -> arith_sort
+val arith_sort_of_real_sort : real_sort -> arith_sort
+val uninterpreted_sort_of_sort : sort -> uninterpreted_sort
+val bool_sort_of_sort : sort -> bool_sort
+val array_sort_of_sort : sort -> array_sort
+val datatype_sort_of_sort : sort -> datatype_sort
+val relation_sort_of_sort : sort -> relation_sort
+val finite_domain_sort_of_sort : sort -> finite_domain_sort
+val arith_sort_of_sort : sort -> arith_sort
+val bitvec_sort_of_sort : sort -> bitvec_sort
+val int_sort_of_arith_sort : arith_sort -> int_sort
+val real_sort_of_arith_sort : arith_sort -> real_sort
+val ast_of_func_decl : func_decl -> ast
+val ast_of_expr : expr -> ast
+val expr_of_bool_expr : bool_expr -> expr
+val expr_of_arith_expr : arith_expr -> expr
+val expr_of_bitvec_expr : bitvec_expr -> expr
+val expr_of_array_expr : array_expr -> expr
+val expr_of_datatype_expr : datatype_expr -> expr
+val arith_expr_of_int_expr : int_expr -> arith_expr
+val arith_expr_of_real_expr : real_expr -> arith_expr
+val int_expr_of_int_num : int_num -> int_expr
+val real_expr_of_rat_num : rat_num -> real_expr
+val arith_expr_of_algebraic_num : algebraic_num -> arith_expr
+val bitvec_expr_of_bitvec_num : bitvec_num -> bitvec_expr
+val expr_of_quantifier : quantifier -> expr
+val ast_of_pattern : pattern -> ast
+val expr_of_ast : ast -> expr
+val bool_expr_of_expr : expr -> bool_expr
+val arith_expr_of_expr : expr -> arith_expr
+val bitvec_expr_of_expr : expr -> bitvec_expr
+val array_expr_of_expr : expr -> array_expr
+val datatype_expr_of_expr : expr -> datatype_expr
+val int_expr_of_arith_expr : arith_expr -> int_expr
+val real_expr_of_arith_expr : arith_expr -> real_expr
+val int_num_of_int_expr : int_expr -> int_num
+val rat_num_of_real_expr : real_expr -> rat_num
+val algebraic_num_of_arith_expr : arith_expr -> algebraic_num
+val bitvec_num_of_bitvec_expr : bitvec_expr -> bitvec_num
+val quantifier_of_expr : expr -> quantifier
+val pattern_of_ast : ast -> pattern
+
 module Log :
 sig
-  (** Open an interaction log file. 
-      @return True if opening the log file succeeds, false otherwise. *)
-  (* CMW: "open" is a reserved keyword. *)
   val open_ : string -> bool
-
-  (** Closes the interaction log. *)
-  val close : unit -> unit
-
-  (** Appends a user-provided string to the interaction log. *)
+  val close : unit
   val append : string -> unit
 end
 
-(** Version information *)
 module Version :
 sig
-  (** The major version. *)
   val major : int
-
-  (** The minor version. *)
   val minor : int
-
-  (** The build version. *)
   val build : int
-
-  (** The revision. *)
   val revision : int
-
-  (** A string representation of the version information. *)
   val to_string : string
 end
 
-(** Symbols are used to name several term and type constructors *)
+val mk_context : (string * string) list -> context
+
 module Symbol :
 sig
-  type symbol
-
-  (** The kind of the symbol (int or string) *)
   val kind : symbol -> Z3enums.symbol_kind
-
-  (** Indicates whether the symbol is of Int kind *)
   val is_int_symbol : symbol -> bool
-
-  (** Indicates whether the symbol is of string kind. *)
   val is_string_symbol : symbol -> bool
-
-  (** The int value of the symbol. *)
-  val get_int : symbol -> int
-
-  (** The string value of the symbol. *)
-  val get_string : symbol -> string
-
-  (** A string representation of the symbol. *)
+  val get_int : int_symbol -> int
+  val get_string : string_symbol -> string
   val to_string : symbol -> string
-
-  (** Creates a new symbol using an integer.     
-      Not all integers can be passed to this function.
-      The legal range of unsigned integers is 0 to 2^30-1. *)
   val mk_int : context -> int -> symbol
-
-  (** Creates a new symbol using a string. *)
   val mk_string : context -> string -> symbol
-
-  (** Create a list of symbols. *)
-  val mk_ints : context -> int list -> symbol list
-
-  (** Create a list of symbols. *)
-  val mk_strings : context -> string list -> symbol list
+  val mk_ints : context -> int array -> symbol array
+  val mk_strings : context -> string array -> symbol array
 end
 
-(** The abstract syntax tree (AST) module *)
 module AST :
 sig
-  type ast 
 
-  (** Vectors of ASTs *)
   module ASTVector :
   sig
-    type ast_vector 
-
-    (** Create an empty AST vector *)
-    val mk_ast_vector : context -> ast_vector
-      
-    (** The size of the vector *)
     val get_size : ast_vector -> int
-
-    (** Retrieves the i-th object in the vector.
-	@return An AST *)
-    val get : ast_vector -> int -> ast
-
-    (** Sets the i-th object in the vector. *)
+    val get : ast_vector -> int -> ast_vector
     val set : ast_vector -> int -> ast -> unit
-
-    (** Resize the vector to a new size. *)
     val resize : ast_vector -> int -> unit
-
-    (** Add an ast to the back of the vector. The size
-	is increased by 1. *)
     val push : ast_vector -> ast -> unit
-
-    (** Translates all ASTs in the vector to another context.
-	@return A new ASTVector *)
     val translate : ast_vector -> context -> ast_vector
-
-    (** Retrieves a string representation of the vector. *)
     val to_string : ast_vector -> string
   end
 
-  (** Map from AST to AST *)
   module ASTMap :
   sig
-    type ast_map
-
-    (** Create an empty mapping from AST to AST *)
-    val mk_ast_map : context -> ast_map
-      
-    (** Checks whether the map contains a key.
-	@return True if the key in the map, false otherwise. *)
     val contains : ast_map -> ast -> bool
-
-    (** Finds the value associated with the key.
-	This function signs an error when the key is not a key in the map. *)
-    val find : ast_map -> ast -> ast
-
-    (**   Stores or replaces a new key/value pair in the map. *)
+    val find : ast_map -> ast -> ast_map
     val insert : ast_map -> ast -> ast -> unit
-
-    (**   Erases the key from the map.*)
     val erase : ast_map -> ast -> unit
-
-    (**  Removes all keys from the map. *)
     val reset : ast_map -> unit
-
-    (** The size of the map *)
     val get_size : ast_map -> int
-
-    (** The keys stored in the map. *)
-    val get_keys : ast_map -> ast list
-
-    (** Retrieves a string representation of the map.*)
+    val get_keys : ast_map -> ast_vector
     val to_string : ast_map -> string
   end
 
-  (** The AST's hash code.
-      @return A hash code *)
-  val hash : ast -> int
-
-  (** A unique identifier for the AST (unique among all ASTs). *)
+  val get_hash_code : ast -> int
   val get_id : ast -> int
-
-  (** The kind of the AST.  *)    
   val get_ast_kind : ast -> Z3enums.ast_kind
-
-  (** Indicates whether the AST is an Expr *)
   val is_expr : ast -> bool
-
-  (** Indicates whether the AST is a bound variable*)
   val is_var : ast -> bool
-
-  (** Indicates whether the AST is a Quantifier  *)
   val is_quantifier : ast -> bool
-
-  (** Indicates whether the AST is a Sort *)
   val is_sort : ast -> bool
-
-  (** Indicates whether the AST is a func_decl  *)
   val is_func_decl : ast -> bool
-
-  (** A string representation of the AST. *)
   val to_string : ast -> string
-
-  (** A string representation of the AST in s-expression notation. *)
   val to_sexpr : ast -> string
-
-  (** Comparison operator.
-      @return True if the two ast's are from the same context 
-      and represent the same sort; false otherwise. *)
-  val equal : ast -> ast -> bool
-
-  (** Object Comparison.
-      @return Negative if the first ast should be sorted before the second, positive if after else zero. *)
+  val ( = ) : ast -> ast -> bool
   val compare : ast -> ast -> int
-
-  (** Translates (copies) the AST to another context.
-      @return A copy of the AST which is associated with the other context.  *)
+  val ( < ) : ast -> ast -> int
   val translate : ast -> context -> ast
-
-  (** Unwraps an AST.
-      This function is used for transitions between native and 
-      managed objects. It returns the native pointer to the AST. Note that 
-      AST objects are reference counted and unwrapping an AST disables automatic
-      reference counting, i.e., all references to the IntPtr that is returned 
-      must be handled externally and through native calls (see e.g., 
-      [Z3native.inc_ref]).
-      {!wrap_ast} *)
+  val wrap : context -> Z3native.z3_ast -> ast
   val unwrap_ast : ast -> Z3native.ptr
-
-  (** Wraps an AST.
-
-      This function is used for transitions between native and 
-      managed objects. Note that the native ast that is passed must be a 
-      native object obtained from Z3 (e.g., through {!unwrap_ast})
-      and that it must have a correct reference count (see e.g., 
-      [Z3native.inc_ref]). *)
-  val wrap_ast : context -> Z3native.z3_ast -> ast
 end
 
-(** The Sort module implements type information for ASTs *)
 module Sort :
 sig
-  type sort = Sort of AST.ast
-
-  val ast_of_sort : sort -> AST.ast
-
-  (** Comparison operator.
-      @return True if the two sorts are from the same context 
-      and represent the same sort; false otherwise. *)
-  val equal : sort -> sort -> bool
-
-  (** Returns a unique identifier for the sort. *)
+  val ( = ) : sort -> sort -> bool
   val get_id : sort -> int
-
-  (** The kind of the sort. *)
   val get_sort_kind : sort -> Z3enums.sort_kind
-
-  (** The name of the sort *)
-  val get_name : sort -> Symbol.symbol
-
-  (** A string representation of the sort. *)
+  val get_name : sort -> symbol
   val to_string : sort -> string
-
-  (** Create a new uninterpreted sort. *)
-  val mk_uninterpreted : context -> Symbol.symbol -> sort
-
-  (** Create a new uninterpreted sort. *)
-  val mk_uninterpreted_s : context -> string -> sort
+  val mk_uninterpreted : context -> symbol -> uninterpreted_sort
+  val mk_uninterpreted_s : context -> string -> uninterpreted_sort
 end
 
-(** Function declarations *)
-module rec FuncDecl :
+module FuncDecl :
 sig
-  type func_decl = FuncDecl of AST.ast
 
-  val ast_of_func_decl : FuncDecl.func_decl -> AST.ast
-
-  (** Parameters of Func_Decls *)
   module Parameter :
   sig
-    (** Parameters of func_decls *)
-    type parameter =
-	P_Int of int
-      | P_Dbl of float
-      | P_Sym of Symbol.symbol
-      | P_Srt of Sort.sort
-      | P_Ast of AST.ast
-      | P_Fdl of func_decl
-      | P_Rat of string
-	  
-    (** The kind of the parameter. *)
     val get_kind : parameter -> Z3enums.parameter_kind
-
-    (** The int value of the parameter.*)
     val get_int : parameter -> int
-
-    (** The float value of the parameter.*)
     val get_float : parameter -> float
-
-    (** The Symbol.Symbol value of the parameter.*)
-    val get_symbol : parameter -> Symbol.symbol
-
-    (** The Sort value of the parameter.*)
-    val get_sort : parameter -> Sort.sort
-
-    (** The AST value of the parameter.*)
-    val get_ast : parameter -> AST.ast
-
-    (** The FunctionDeclaration value of the parameter.*)
-    val get_func_decl : parameter -> func_decl
-
-    (** The rational string value of the parameter.*)
-    val get_rational : parameter -> string
+    val get_symbol : parameter -> symbol
+    val get_sort : parameter -> sort
+    val get_ast : parameter -> ast
+    val get_func_decl : parameter -> string
   end
 
-  (** Creates a new function declaration. *)
-  val mk_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
-
-  (** Creates a new function declaration. *)
-  val mk_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
-  (** Creates a fresh function declaration with a name prefixed with a prefix string. *)
-
-  val mk_fresh_func_decl : context -> string -> Sort.sort list -> Sort.sort -> func_decl
-
-  (** Creates a new constant function declaration. *)
-  val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
-
-  (** Creates a new constant function declaration. *)
-  val mk_const_decl_s : context -> string -> Sort.sort -> func_decl
-
-  (** Creates a fresh constant function declaration with a name prefixed with a prefix string.
-      {!mk_func_decl}
-      {!mk_func_decl} *)
-  val mk_fresh_const_decl : context -> string -> Sort.sort -> func_decl
-
-  (** Comparison operator.
-      @return True if a and b are from the same context and represent the same func_decl; false otherwise. *)
-  val equal : func_decl -> func_decl -> bool
-
-  (** A string representations of the function declaration. *)
+  val mk_func_decl : context -> symbol -> sort array -> sort -> func_decl
+  val mk_func_decl_s : context -> string -> sort array -> sort -> func_decl
+  val mk_fresh_func_decl : context -> string -> sort array -> sort -> func_decl
+  val mk_const_decl : context -> symbol -> sort -> func_decl
+  val mk_const_decl_s : context -> string -> sort -> func_decl
+  val mk_fresh_const_decl : context -> string -> sort -> func_decl
+  val ( = ) : func_decl -> func_decl -> bool
   val to_string : func_decl -> string
-
-  (** Returns a unique identifier for the function declaration. *)
   val get_id : func_decl -> int
-
-  (** The arity of the function declaration *)
   val get_arity : func_decl -> int
-
-  (** The size of the domain of the function declaration
-      {!get_arity} *)
   val get_domain_size : func_decl -> int
-    
-  (** The domain of the function declaration *)
-  val get_domain : func_decl -> Sort.sort list
-    
-  (** The range of the function declaration *)
-  val get_range : func_decl -> Sort.sort
-
-  (** The kind of the function declaration. *)
+  val get_domain : func_decl -> sort array
+  val get_range : func_decl -> sort
   val get_decl_kind : func_decl -> Z3enums.decl_kind
-
-  (** The name of the function declaration*)
-  val get_name : func_decl -> Symbol.symbol
-
-  (** The number of parameters of the function declaration *)
+  val get_name : func_decl -> symbol
   val get_num_parameters : func_decl -> int
-
-  (** The parameters of the function declaration *)
-  val get_parameters : func_decl -> Parameter.parameter list
-
-  (** Create expression that applies function to arguments. *)	   
-  val apply : func_decl -> Expr.expr list -> Expr.expr
+  val get_parameters : func_decl -> parameter list
+  val apply : func_decl -> expr array -> expr
 end
 
-(** Parameter sets (of Solvers, Tactics, ...)
-
-    A Params objects represents a configuration in the form of Symbol.symbol/value pairs. *)
-and Params :
+module Params :
 sig
-  type params
 
-  (** ParamDescrs describe sets of parameters (of Solvers, Tactics, ...) *)
   module ParamDescrs :
   sig
-    type param_descrs 
-
-    (** Validate a set of parameters. *)
     val validate : param_descrs -> params -> unit
-
-    (** Retrieve kind of parameter. *)
-    val get_kind : param_descrs -> Symbol.symbol -> Z3enums.param_kind
-
-    (** Retrieve all names of parameters. *)
-    val get_names : param_descrs -> Symbol.symbol list
-
-    (** The size of the ParamDescrs. *)
+    val get_kind : param_descrs -> symbol -> Z3enums.param_kind
+    val get_names : param_descrs -> symbol array
     val get_size : param_descrs -> int
-
-    (** Retrieves a string representation of the ParamDescrs. *)
     val to_string : param_descrs -> string
   end
 
-  (** Adds a parameter setting. *)
-  val add_bool : params -> Symbol.symbol -> bool -> unit
-
-  (** Adds a parameter setting. *)
-  val add_int : params -> Symbol.symbol -> int -> unit
-
-  (** Adds a parameter setting. *)
-  val add_float : params -> Symbol.symbol -> float -> unit
-
-  (** Adds a parameter setting. *)
-  val add_symbol : params -> Symbol.symbol -> Symbol.symbol -> unit
-
-  (** Creates a new parameter set *)
+  val add_bool : params -> symbol -> bool -> unit
+  val add_int : params -> symbol -> int -> unit
+  val add_double : params -> symbol -> float -> unit
+  val add_symbol : params -> symbol -> symbol -> unit
+  val add_s_bool : params -> string -> bool -> unit
+  val add_s_int : params -> string -> int -> unit
+  val add_s_double : params -> string -> float -> unit
+  val add_s_symbol : params -> string -> symbol -> unit
   val mk_params : context -> params
-
-  (** A string representation of the parameter set. *)
   val to_string : params -> string
-
-  (** Update a mutable configuration parameter.
-      
-      The list of all configuration parameters can be obtained using the Z3 executable:
-      [z3.exe -p]
-      Only a few configuration parameters are mutable once the context is created.
-      An exception is thrown when trying to modify an immutable parameter. *)
-  val update_param_value : context -> string -> string -> unit
-    
-  (** Selects the format used for pretty-printing expressions.
-      
-      The default mode for pretty printing expressions is to produce
-      SMT-LIB style output where common subexpressions are printed 
-      at each occurrence. The mode is called PRINT_SMTLIB_FULL.
-      To print shared common subexpressions only once, 
-      use the PRINT_LOW_LEVEL mode.
-      To print in way that conforms to SMT-LIB standards and uses let
-      expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
-      {!AST.to_string}
-      {!Quantifier.Pattern.to_string}
-      {!FuncDecl.to_string}
-      {!Sort.to_string} *)
-  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
 end
 
-(** General Expressions (terms) *)
-and Expr :
+module Expr :
 sig
-  type expr = Expr of AST.ast
-
-  val ast_of_expr : Expr.expr -> AST.ast
-  val expr_of_ast : AST.ast -> Expr.expr
-
-  (** Returns a simplified version of the expression.
-      {!get_simplify_help} *)
-  val simplify : Expr.expr -> Params.params option -> expr
-
-  (** A string describing all available parameters to [Expr.Simplify]. *)
+  val simplify : expr -> params option -> expr
   val get_simplify_help : context -> string
-
-  (** Retrieves parameter descriptions for simplifier. *)
-  val get_simplify_parameter_descrs : context -> Params.ParamDescrs.param_descrs
-
-  (** The function declaration of the function that is applied in this expression. *)
-  val get_func_decl : Expr.expr -> FuncDecl.func_decl
-
-  (** The number of arguments of the expression. *)
-  val get_num_args : Expr.expr -> int
-
-  (** The arguments of the expression. *)        
-  val get_args : Expr.expr -> Expr.expr list
-
-  (** Update the arguments of the expression using an array of expressions.
-      The number of new arguments should coincide with the current number of arguments. *)
-  val update : Expr.expr -> Expr.expr list -> expr
-
-  (** Substitute every occurrence of [from[i]] in the expression with [to[i]], for [i] smaller than [num_exprs].
-      
-      The result is the new expression. The arrays [from] and [to] must have size [num_exprs].
-      For every [i] smaller than [num_exprs], we must have that 
-      sort of [from[i]] must be equal to sort of [to[i]]. *)
-  val substitute : Expr.expr -> Expr.expr list -> Expr.expr list -> expr
-
-  (** Substitute every occurrence of [from] in the expression with [to].
-      {!substitute} *)
-  val substitute_one : Expr.expr -> Expr.expr -> Expr.expr -> expr
-
-  (** Substitute the free variables in the expression with the expressions in the expr array
-
-      For every [i] smaller than [num_exprs], the variable with de-Bruijn index [i] is replaced with term [to[i]]. *)
-  val substitute_vars : Expr.expr -> Expr.expr list -> expr
-
-  (** Translates (copies) the term to another context.
-      @return A copy of the term which is associated with the other context *)
-  val translate : Expr.expr -> context -> expr
-
-  (** Returns a string representation of the expression. *)    
-  val to_string : Expr.expr -> string
-
-  (** Indicates whether the term is a numeral *)
-  val is_numeral : Expr.expr -> bool
-
-  (** Indicates whether the term is well-sorted.
-      @return True if the term is well-sorted, false otherwise. *)   
-  val is_well_sorted : Expr.expr -> bool
-
-  (** The Sort of the term. *)
-  val get_sort : Expr.expr -> Sort.sort
-
-  (** Indicates whether the term represents a constant. *)
-  val is_const : Expr.expr -> bool
-    
-  (** Creates a new constant. *)
-  val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
-    
-  (** Creates a new constant. *)
-  val mk_const_s : context -> string -> Sort.sort -> expr
-    
-  (** Creates a  constant from the func_decl. *)
-  val mk_const_f : context -> FuncDecl.func_decl -> expr
-    
-  (** Creates a fresh constant with a name prefixed with a string. *)
-  val mk_fresh_const : context -> string -> Sort.sort -> expr
-    
-  (** Create a new function application. *)
-  val mk_app : context -> FuncDecl.func_decl -> Expr.expr list -> expr
-    
-  (** Create a numeral of a given sort.         
-      @return A Term with the given value and sort *)
-  val mk_numeral_string : context -> string -> Sort.sort -> expr
-    
-  (** Create a numeral of a given sort. This function can be use to create numerals that fit in a machine integer.
-      It is slightly faster than [MakeNumeral] since it is not necessary to parse a string.       
-      @return A Term with the given value and sort *)
-  val mk_numeral_int : context -> int -> Sort.sort -> expr
-    
-  (** Comparison operator.
-      @return True if the two expr's are equal; false otherwise. *)
-  val equal : expr -> expr -> bool
-
-  (** Object Comparison.
-      @return Negative if the first expr should be sorted before the second, positive if after, else zero. *)
-  val compare : expr -> expr -> int
+  val get_simplify_parameter_descrs : context -> param_descrs
+  val get_func_decl : expr -> func_decl
+  val get_bool_value : expr -> Z3enums.lbool
+  val get_num_args : expr -> int
+  val get_args : expr -> expr array
+  val update : expr -> expr array -> expr
+  val substitute : expr -> expr array -> expr array -> expr
+  val substitute_one : expr -> expr -> expr -> expr
+  val substitute_vars : expr -> expr array -> expr
+  val translate : expr -> context -> expr
+  val to_string : expr -> string
+  val is_numeral : expr -> bool
+  val is_well_sorted : expr -> bool
+  val get_sort : expr -> sort
+  val is_bool : expr -> bool
+  val is_const : expr -> bool
+  val is_true : expr -> bool
+  val is_false : expr -> bool
+  val is_eq : expr -> bool
+  val is_distinct : expr -> bool
+  val is_ite : expr -> bool
+  val is_and : expr -> bool
+  val is_or : expr -> bool
+  val is_iff : expr -> bool
+  val is_xor : expr -> bool
+  val is_not : expr -> bool
+  val is_implies : expr -> bool
+  val is_label : expr -> bool
+  val is_oeq : expr -> bool
+  val mk_const : context -> symbol -> sort -> expr
+  val mk_const_s : context -> string -> sort -> expr
+  val mk_const_f : context -> func_decl -> expr
+  val mk_fresh_const : context -> string -> sort -> expr
+  val mk_app : context -> func_decl -> expr array -> expr
+  val mk_numeral_string : context -> string -> sort -> expr
+  val mk_numeral_int : context -> int -> sort -> expr
 end
 
-(** Boolean expressions; Propositional logic and equality *)
 module Boolean :
 sig
-  (** Create a Boolean sort *)
-  val mk_sort : context -> Sort.sort
-
-  (** Create a Boolean constant. *)        
-  val mk_const : context -> Symbol.symbol -> Expr.expr
-
-  (** Create a Boolean constant. *)        
-  val mk_const_s : context -> string -> Expr.expr
-
-  (** The true Term. *)    
-  val mk_true : context -> Expr.expr
-
-  (** The false Term. *)    
-  val mk_false : context -> Expr.expr
-
-  (** Creates a Boolean value. *)        
-  val mk_val : context -> bool -> Expr.expr
-
-  (** Mk an expression representing [not(a)]. *)    
-  val mk_not : context -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing an if-then-else: [ite(t1, t2, t3)]. *)
-  val mk_ite : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 iff t2]. *)
-  val mk_iff : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 -> t2]. *)
-  val mk_implies : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 xor t2]. *)
-  val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing the AND of args *)
-  val mk_and : context -> Expr.expr list -> Expr.expr
-
-  (** Create an expression representing the OR of args *)
-  val mk_or : context -> Expr.expr list -> Expr.expr
-
-  (** Creates the equality between two expr's. *)
-  val mk_eq : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Creates a [distinct] term. *)
-  val mk_distinct : context -> Expr.expr list -> Expr.expr
-
-  (** Indicates whether the expression is the true or false expression
-      or something else (L_UNDEF). *)
-  val get_bool_value : Expr.expr -> Z3enums.lbool
-
-  (** Indicates whether the term has Boolean sort. *)
-  val is_bool : Expr.expr -> bool
-
-  (** Indicates whether the term is the constant true. *)
-  val is_true : Expr.expr -> bool
-
-  (** Indicates whether the term is the constant false. *)
-  val is_false : Expr.expr -> bool
-
-  (** Indicates whether the term is an equality predicate. *)
-  val is_eq : Expr.expr -> bool
-
-  (** Indicates whether the term is an n-ary distinct predicate (every argument is mutually distinct). *)
-  val is_distinct : Expr.expr -> bool
-
-  (** Indicates whether the term is a ternary if-then-else term *)
-  val is_ite : Expr.expr -> bool
-
-  (** Indicates whether the term is an n-ary conjunction *)
-  val is_and : Expr.expr -> bool
-
-  (** Indicates whether the term is an n-ary disjunction *)
-  val is_or : Expr.expr -> bool
-
-  (** Indicates whether the term is an if-and-only-if (Boolean equivalence, binary) *)
-  val is_iff : Expr.expr -> bool
-
-  (** Indicates whether the term is an exclusive or *)
-  val is_xor : Expr.expr -> bool
-
-  (** Indicates whether the term is a negation *)
-  val is_not : Expr.expr -> bool
-
-  (** Indicates whether the term is an implication *)
-  val is_implies : Expr.expr -> bool
+  val mk_sort : context -> bool_sort
+  val mk_const : context -> symbol -> bool_expr
+  val mk_const_s : context -> string -> bool_expr
+  val mk_true : context -> bool_expr
+  val mk_false : context -> bool_expr
+  val mk_val : context -> bool -> bool_expr
+  val mk_eq : context -> expr -> expr -> bool_expr
+  val mk_distinct : context -> expr array -> bool_expr
+  val mk_not : context -> bool_expr -> bool_expr
+  val mk_ite : context -> bool_expr -> bool_expr -> bool_expr -> bool_expr
+  val mk_iff : context -> bool_expr -> bool_expr -> bool_expr
+  val mk_implies : context -> bool_expr -> bool_expr -> bool_expr
+  val mk_xor : context -> bool_expr -> bool_expr -> bool_expr
+  val mk_and : context -> bool_expr array -> bool_expr
+  val mk_or : context -> bool_expr array -> bool_expr
 end
 
-(** Quantifier expressions *)
 module Quantifier :
 sig
-  type quantifier = Quantifier of Expr.expr
 
-  val expr_of_quantifier : quantifier -> Expr.expr
-  val quantifier_of_expr : Expr.expr -> quantifier
-
-  (** Quantifier patterns
-
-      Patterns comprise a list of terms. The list should be
-      non-empty.  If the list comprises of more than one term, it is
-      also called a multi-pattern. *)
   module Pattern :
   sig
-    type pattern = Pattern of AST.ast
-
-    val ast_of_pattern : pattern -> AST.ast
-    val pattern_of_ast : AST.ast -> pattern
-
-    (** The number of terms in the pattern. *)
     val get_num_terms : pattern -> int
-
-    (** The terms in the pattern. *)
-    val get_terms : pattern -> Expr.expr list
-
-    (** A string representation of the pattern. *)
+    val get_terms : pattern -> expr array
     val to_string : pattern -> string
   end
 
-
-  (** The de-Burijn index of a bound variable.
-      
-      Bound variables are indexed by de-Bruijn indices. It is perhaps easiest to explain
-      the meaning of de-Bruijn indices by indicating the compilation process from
-      non-de-Bruijn formulas to de-Bruijn format.
-      <code>
-      abs(forall (x1) phi) = forall (x1) abs1(phi, x1, 0)
-      abs(forall (x1, x2) phi) = abs(forall (x1) abs(forall (x2) phi))
-      abs1(x, x, n) = b_n
-      abs1(y, x, n) = y
-      abs1(f(t1,...,tn), x, n) = f(abs1(t1,x,n), ..., abs1(tn,x,n))
-      abs1(forall (x1) phi, x, n) = forall (x1) (abs1(phi, x, n+1))
-      </code>
-      The last line is significant: the index of a bound variable is different depending
-      on the scope in which it appears. The deeper ( x : expr ) appears, the higher is its
-      index. *)
-  val get_index : Expr.expr -> int
-
-  (** Indicates whether the quantifier is universal. *)
+  val get_index : expr -> int
   val is_universal : quantifier -> bool
-
-  (** Indicates whether the quantifier is existential. *)
   val is_existential : quantifier -> bool
-
-  (** The weight of the quantifier. *)
   val get_weight : quantifier -> int
-
-  (** The number of patterns. *)
   val get_num_patterns : quantifier -> int
-
-  (** The patterns. *)
-  val get_patterns : quantifier -> Pattern.pattern list
-    
-  (** The number of no-patterns. *)
+  val get_patterns : quantifier -> pattern array
   val get_num_no_patterns : quantifier -> int
-    
-  (** The no-patterns. *)
-  val get_no_patterns : quantifier -> Pattern.pattern list
-
-   (** The number of bound variables. *)
+  val get_no_patterns : quantifier -> pattern array
   val get_num_bound : quantifier -> int
-    
-  (** The symbols for the bound variables. *)
-  val get_bound_variable_names : quantifier -> Symbol.symbol list
-    
-  (** The sorts of the bound variables. *)
-  val get_bound_variable_sorts : quantifier -> Sort.sort list
-
-  (** The body of the quantifier. *)
-  val get_body : quantifier -> Expr.expr
-
-  (** Creates a new bound variable. *)
-  val mk_bound : context -> int -> Sort.sort -> Expr.expr
-
-  (** Create a quantifier pattern. *)
-  val mk_pattern : context -> Expr.expr list -> Pattern.pattern
-
-  (** Create a universal Quantifier. *)
-  val mk_forall : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-
-  (** Create a universal Quantifier. *)
-  val mk_forall_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-
-  (** Create an existential Quantifier. *)
-  val mk_exists : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-
-  (** Create an existential Quantifier. *)
-  val mk_exists_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-
-  (** Create a Quantifier. *)
-  val mk_quantifier : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-    
-  (** Create a Quantifier. *)
-  val mk_quantifier : context -> bool -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
-
-    (** A string representation of the quantifier. *)
-  val to_string : quantifier -> string
+  val get_bound_variable_names : quantifier -> symbol array
+  val get_bound_variable_sorts : quantifier -> sort array
+  val get_body : quantifier -> bool_expr
+  val mk_bound : context -> int -> sort -> expr
+  val mk_pattern : context -> expr array -> pattern
+  val mk_forall :
+    context ->
+    sort array ->
+    symbol array ->
+    expr ->
+    int option ->
+    pattern array ->
+    expr array -> symbol option -> symbol option -> quantifier
+  val mk_forall_const :
+    context ->
+    expr array ->
+    expr ->
+    int option ->
+    pattern array ->
+    expr array -> symbol option -> symbol option -> quantifier
+  val mk_exists :
+    context ->
+    sort array ->
+    symbol array ->
+    expr ->
+    int option ->
+    pattern array ->
+    expr array -> symbol option -> symbol option -> quantifier
+  val mk_exists_const :
+    context ->
+    expr array ->
+    expr ->
+    int option ->
+    pattern array ->
+    expr array -> symbol option -> symbol option -> quantifier
+  val mk_quantifier :
+    context ->
+    bool ->
+    expr array ->
+    expr ->
+    int option ->
+    pattern array ->
+    expr array -> symbol option -> symbol option -> quantifier
 end
 
-(** Functions to manipulate Array expressions *)
-module Z3Array :
+module Array_ :
 sig
-  (** Create a new array sort. *)
-  val mk_sort : context -> Sort.sort -> Sort.sort -> Sort.sort
-
-  (** Indicates whether the term is an array store.        
-      It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
-      Array store takes at least 3 arguments.  *)
-  val is_store : Expr.expr -> bool
-
-  (** Indicates whether the term is an array select. *)
-  val is_select : Expr.expr -> bool
-
-  (** Indicates whether the term is a constant array.        
-      For example, select(const(v),i) = v holds for every v and i. The function is unary. *)
-  val is_constant_array : Expr.expr -> bool
-
-  (** Indicates whether the term is a default array.        
-      For example default(const(v)) = v. The function is unary. *)
-  val is_default_array : Expr.expr -> bool
-
-  (** Indicates whether the term is an array map.     
-      It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i. *)
-  val is_array_map : Expr.expr -> bool
-
-  (** Indicates whether the term is an as-array term.        
-      An as-array term is n array value that behaves as the function graph of the 
-      function passed as parameter. *)
-  val is_as_array : Expr.expr -> bool
-
-  (** Indicates whether the term is of an array sort. *)
-  val is_array : Expr.expr -> bool
-
-  (** The domain of the array sort. *)
-  val get_domain : Sort.sort -> Sort.sort
-    
-  (** The range of the array sort. *)
-  val get_range : Sort.sort -> Sort.sort
-    
-  (** Create an array constant. *)        
-  val mk_const : context -> Symbol.symbol -> Sort.sort -> Sort.sort -> Expr.expr
-    
-  (** Create an array constant. *)        
-  val mk_const_s : context -> string -> Sort.sort -> Sort.sort -> Expr.expr
-    
-  (** Array read.       
-      
-      The argument [a] is the array and [i] is the index 
-      of the array that gets read.      
-      
-      The node [a] must have an array sort [[domain -> range]], 
-      and [i] must have the sort [domain].
-      The sort of the result is [range].
-      {!Z3Array.mk_sort}
-      {!mk_store} *)
-  val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Array update.       
-      
-      The node [a] must have an array sort [[domain -> range]], 
-      [i] must have sort [domain],
-      [v] must have sort range. The sort of the result is [[domain -> range]].
-      The semantics of this function is given by the theory of arrays described in the SMT-LIB
-      standard. See http://smtlib.org for more details.
-      The result of this function is an array that is equal to [a] 
-      (with respect to [select])
-      on all indices except for [i], where it maps to [v] 
-      (and the [select] of [a] with 
-      respect to [i] may be a different value).
-      {!Z3Array.mk_sort}
-      {!mk_select} *)
-  val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create a constant array.
-      
-      The resulting term is an array, such that a [select]on an arbitrary index 
-      produces the value [v].
-      {!Z3Array.mk_sort}
-      {!mk_select} *)
-  val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
-
-  (** Maps f on the argument arrays.
-      
-      Eeach element of [args] must be of an array sort [[domain_i -> range_i]].
-      The function declaration [f] must have type [ range_1 .. range_n -> range].
-      [v] must have sort range. The sort of the result is [[domain_i -> range]].
-      {!Z3Array.mk_sort}
-      {!mk_select}
-      {!mk_store} *)
-  val mk_map : context -> FuncDecl.func_decl -> Expr.expr list -> Expr.expr
-
-  (** Access the array default value.
-      
-      Produces the default range value, for arrays that can be represented as 
-      finite maps with a default range value.     *)
-  val mk_term_array : context -> Expr.expr -> Expr.expr
+  val mk_sort : context -> sort -> sort -> array_sort
+  val is_store : expr -> bool
+  val is_select : expr -> bool
+  val is_constant_array : expr -> bool
+  val is_default_array : expr -> bool
+  val is_array_map : expr -> bool
+  val is_as_array : expr -> bool
+  val is_array : expr -> bool
+  val get_domain : array_sort -> sort
+  val get_range : array_sort -> sort
+  val mk_const : context -> symbol -> sort -> sort -> array_expr
+  val mk_const_s : context -> string -> sort -> sort -> array_expr
+  val mk_select : context -> array_expr -> expr -> expr -> expr
+  val mk_const_array : context -> sort -> expr -> expr
+  val mk_map : context -> func_decl -> array_expr array -> expr
+  val mk_term_array : context -> array_expr -> expr
 end
 
-(** Functions to manipulate Set expressions *)
 module Set :
 sig
-  (** Create a set type. *)
-  val mk_sort : context -> Sort.sort -> Sort.sort
-
-  (** Indicates whether the term is set union *)
-  val is_union : Expr.expr -> bool
-
-  (** Indicates whether the term is set intersection *)
-  val is_intersect : Expr.expr -> bool
-
-  (** Indicates whether the term is set difference *)
-  val is_difference : Expr.expr -> bool
-
-  (** Indicates whether the term is set complement *)
-  val is_complement : Expr.expr -> bool
-
-  (** Indicates whether the term is set subset *)
-  val is_subset : Expr.expr -> bool
-
-  (** Create an empty set. *)
-  val mk_empty : context -> Sort.sort -> Expr.expr
-
-  (** Create the full set. *)
-  val mk_full : context -> Sort.sort -> Expr.expr
-
-  (** Add an element to the set. *)
-  val mk_set_add : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Remove an element from a set. *)
-  val mk_del : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Take the union of a list of sets. *)
-  val mk_union : context -> Expr.expr list -> Expr.expr
-
-  (** Take the intersection of a list of sets. *)
-  val mk_intersection : context -> Expr.expr list -> Expr.expr
-
-  (** Take the difference between two sets. *)
-  val mk_difference : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Take the complement of a set. *)
-  val mk_complement : context -> Expr.expr -> Expr.expr
-
-  (** Check for set membership. *)
-  val mk_membership : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Check for subsetness of sets. *)
-  val mk_subset : context -> Expr.expr -> Expr.expr -> Expr.expr
+  val is_union : expr -> bool
+  val is_intersect : expr -> bool
+  val is_difference : expr -> bool
+  val is_complement : expr -> bool
+  val is_subset : expr -> bool
+  val mk_sort : context -> sort -> set_sort
+  val mk_empty : context -> sort -> expr
+  val mk_full : context -> sort -> expr
+  val mk_set_add : context -> expr -> expr -> expr
+  val mk_del : context -> expr -> expr -> expr
+  val mk_union : context -> expr array -> expr
+  val mk_intersection : context -> expr array -> expr
+  val mk_difference : context -> expr -> expr -> expr
+  val mk_complement : context -> expr -> expr
+  val mk_membership : context -> expr -> expr -> expr
+  val mk_subset : context -> expr -> expr -> expr
 end
 
-(** Functions to manipulate Finite Domain expressions *)
 module FiniteDomain :
 sig
-  (** Create a new finite domain sort. *)
-  val mk_sort : context -> Symbol.symbol -> int -> Sort.sort
-
-  (** Create a new finite domain sort. *)
-  val mk_sort_s : context -> string -> int -> Sort.sort
-
-  (** Indicates whether the term is of an array sort. *)
-  val is_finite_domain : Expr.expr -> bool
-
-  (** Indicates whether the term is a less than predicate over a finite domain. *)
-  val is_lt : Expr.expr -> bool
-
-  (** The size of the finite domain sort. *)
-  val get_size : Sort.sort -> int
+  val mk_sort : context -> symbol -> int -> finite_domain_sort
+  val mk_sort_s : context -> string -> int -> finite_domain_sort
+  val is_finite_domain : expr -> bool
+  val is_lt : expr -> bool
+  val get_size : finite_domain_sort -> int
 end
 
-
-(** Functions to manipulate Relation expressions *)
 module Relation :
 sig
-  (** Indicates whether the term is of a relation sort. *)
-  val is_relation : Expr.expr -> bool
-
-  (** Indicates whether the term is an relation store
-      
-      Insert a record into a relation.
-      The function takes [n+1] arguments, where the first argument is the relation and the remaining [n] elements 
-      correspond to the [n] columns of the relation. *)
-  val is_store : Expr.expr -> bool
-
-  (** Indicates whether the term is an empty relation *)
-  val is_empty : Expr.expr -> bool
-
-  (** Indicates whether the term is a test for the emptiness of a relation *)
-  val is_is_empty : Expr.expr -> bool
-
-  (** Indicates whether the term is a relational join *)
-  val is_join : Expr.expr -> bool
-
-  (** Indicates whether the term is the union or convex hull of two relations. 
-      The function takes two arguments. *)
-  val is_union : Expr.expr -> bool
-
-  (** Indicates whether the term is the widening of two relations
-      The function takes two arguments. *)
-  val is_widen : Expr.expr -> bool
-
-  (** Indicates whether the term is a projection of columns (provided as numbers in the parameters).
-      The function takes one argument. *)
-  val is_project : Expr.expr -> bool
-
-  (** Indicates whether the term is a relation filter
-      
-      Filter (restrict) a relation with respect to a predicate.
-      The first argument is a relation. 
-      The second argument is a predicate with free de-Brujin indices
-      corresponding to the columns of the relation.
-      So the first column in the relation has index 0. *)
-  val is_filter : Expr.expr -> bool
-
-  (** Indicates whether the term is an intersection of a relation with the negation of another.
-      
-      Intersect the first relation with respect to negation
-      of the second relation (the function takes two arguments).
-      Logically, the specification can be described by a function
-      
-      target = filter_by_negation(pos, neg, columns)
-      
-      where columns are pairs c1, d1, .., cN, dN of columns from pos and neg, such that
-      target are elements in ( x : expr ) in pos, such that there is no y in neg that agrees with
-      ( x : expr ) on the columns c1, d1, .., cN, dN. *)
-  val is_negation_filter : Expr.expr -> bool
-
-  (** Indicates whether the term is the renaming of a column in a relation
-      
-      The function takes one argument.
-      The parameters contain the renaming as a cycle. *)
-  val is_rename : Expr.expr -> bool
-
-  (** Indicates whether the term is the complement of a relation *)
-  val is_complement : Expr.expr -> bool
-
-  (** Indicates whether the term is a relational select
-      
-      Check if a record is an element of the relation.
-      The function takes [n+1] arguments, where the first argument is a relation,
-      and the remaining [n] arguments correspond to a record. *)
-  val is_select : Expr.expr -> bool
-
-  (** Indicates whether the term is a relational clone (copy)
-      
-      Create a fresh copy (clone) of a relation. 
-      The function is logically the identity, but
-      in the context of a register machine allows 
-      for terms of kind {!is_union} 
-      to perform destructive updates to the first argument. *)
-  val is_clone : Expr.expr -> bool
-
-  (** The arity of the relation sort. *)
-  val get_arity : Sort.sort -> int
-
-  (** The sorts of the columns of the relation sort. *)
-  val get_column_sorts : Sort.sort -> Sort.sort list
+  val is_relation : expr -> bool
+  val is_store : expr -> bool
+  val is_empty : expr -> bool
+  val is_is_empty : expr -> bool
+  val is_join : expr -> bool
+  val is_union : expr -> bool
+  val is_widen : expr -> bool
+  val is_project : expr -> bool
+  val is_filter : expr -> bool
+  val is_negation_filter : expr -> bool
+  val is_rename : expr -> bool
+  val is_complement : expr -> bool
+  val is_select : expr -> bool
+  val is_clone : expr -> bool
+  val get_arity : relation_sort -> int
+  val get_column_sorts : relation_sort -> relation_sort array
 end
 
-(** Functions to manipulate Datatype expressions *)
 module Datatype :
 sig
-  (** Datatype Constructors *)
+
   module Constructor :
   sig
-    type constructor
-
-    (** The number of fields of the constructor. *)
+    val get_n : constructor -> int
+    val tester_decl : constructor -> func_decl
+    val constructor_decl : constructor -> func_decl
+    val accessor_decls : constructor -> func_decl array
     val get_num_fields : constructor -> int
-      
-    (** The function declaration of the constructor. *)
-    val get_constructor_decl : constructor -> FuncDecl.func_decl
-
-    (** The function declaration of the tester. *)
-    val get_tester_decl : constructor -> FuncDecl.func_decl
-      
-    (** The function declarations of the accessors *)
-    val get_accessor_decls : constructor -> FuncDecl.func_decl list
+    val get_constructor_decl : constructor -> func_decl
+    val get_tester_decl : constructor -> func_decl
+    val get_accessor_decls : constructor -> func_decl array
   end
 
-  (** Create a datatype constructor.
-      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
-      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
-
-  (** Create a datatype constructor.
-      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
-      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
-
-  (** Create a new datatype sort. *)
-  val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> Sort.sort
-
-  (** Create a new datatype sort. *)
-  val mk_sort_s : context -> string -> Constructor.constructor list -> Sort.sort
-
-  (** Create mutually recursive datatypes. *)
-  val mk_sorts : context -> Symbol.symbol list -> Constructor.constructor list list -> Sort.sort list
-
-  (** Create mutually recursive data-types. *)
-  val mk_sorts_s : context -> string list -> Constructor.constructor list list -> Sort.sort list
-
-
-  (** The number of constructors of the datatype sort. *)
-  val get_num_constructors : Sort.sort -> int
-
-  (** The constructors. *)
-  val get_constructors : Sort.sort -> FuncDecl.func_decl list
-    
-  (** The recognizers. *)
-  val get_recognizers : Sort.sort -> FuncDecl.func_decl list
-
-  (** The constructor accessors. *)
-  val get_accessors : Sort.sort -> FuncDecl.func_decl list list
+  val mk_constructor : context -> symbol -> symbol -> symbol array -> sort array -> int array -> constructor
+  val mk_constructor_s : context -> string -> symbol -> symbol array -> sort array -> int array -> constructor
+  val mk_sort : context -> symbol -> constructor array -> datatype_sort
+  val mk_sort_s : context -> string -> constructor array -> datatype_sort
+  val mk_sorts : context -> symbol array -> constructor array array -> datatype_sort array
+  val mk_sorts_s : context -> string array -> constructor array array -> datatype_sort array
+  val get_num_constructors : datatype_sort -> int
+  val get_constructors : datatype_sort -> func_decl array
+  val get_recognizers : datatype_sort -> func_decl array
+  val get_accessors : datatype_sort -> func_decl array array
 end
 
-(** Functions to manipulate Enumeration expressions *)
 module Enumeration :
 sig
-  (** Create a new enumeration sort. *)
-  val mk_sort : context -> Symbol.symbol -> Symbol.symbol list -> Sort.sort
-
-  (** Create a new enumeration sort. *)
-  val mk_sort_s : context -> string -> string list -> Sort.sort
-
-  (** The function declarations of the constants in the enumeration. *)
-  val get_const_decls : Sort.sort -> FuncDecl.func_decl list
-
-  (** The test predicates for the constants in the enumeration. *)
-  val get_tester_decls : Sort.sort -> FuncDecl.func_decl list
+  val mk_sort : context -> symbol -> symbol array -> enum_sort
+  val mk_sort_s : context -> string -> string array -> enum_sort
+  val get_const_decls : enum_sort -> func_decl array
+  val get_tester_decls : enum_sort -> func_decl array
 end
 
-(** Functions to manipulate List expressions *)
-module Z3List :
+module List_ :
 sig
-  (** Create a new list sort. *)
-  val mk_sort : context -> Symbol.symbol -> Sort.sort -> Sort.sort
-
-  (** Create a new list sort. *)
-  val mk_list_s : context -> string -> Sort.sort -> Sort.sort
-
-  (** The declaration of the nil function of this list sort. *)
-  val get_nil_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The declaration of the isNil function of this list sort. *)
-  val get_is_nil_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The declaration of the cons function of this list sort. *)
-  val get_cons_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The declaration of the isCons function of this list sort. *)
-  val get_is_cons_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The declaration of the head function of this list sort. *)
-  val get_head_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The declaration of the tail function of this list sort. *)
-  val get_tail_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The empty list. *)
-  val nil : Sort.sort -> Expr.expr
+  val mk_sort : context -> symbol -> sort -> list_sort
+  val mk_list_s : context -> string -> sort -> list_sort
+  val get_nil_decl : list_sort -> func_decl
+  val get_is_nil_decl : list_sort -> func_decl
+  val get_cons_decl : list_sort -> func_decl
+  val get_is_cons_decl : list_sort -> func_decl
+  val get_head_decl : list_sort -> func_decl
+  val get_tail_decl : list_sort -> func_decl
+  val nil : list_sort -> expr
 end
 
-(** Functions to manipulate Tuple expressions *)
 module Tuple :
 sig
-  (** Create a new tuple sort. *)    
-  val mk_sort : context -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> Sort.sort
-
-  (**  The constructor function of the tuple. *)
-  val get_mk_decl : Sort.sort -> FuncDecl.func_decl
-
-  (** The number of fields in the tuple. *)
-  val get_num_fields : Sort.sort -> int
-
-  (** The field declarations. *)
-  val get_field_decls : Sort.sort -> FuncDecl.func_decl list
+  val mk_sort :
+    context -> symbol -> symbol array -> sort array -> tuple_sort
+  val get_mk_decl : tuple_sort -> func_decl
+  val get_num_fields : tuple_sort -> int
+  val get_field_decls : tuple_sort -> func_decl array
 end
 
-(** Functions to manipulate arithmetic expressions *)
 module Arithmetic :
 sig
-  (** Integer Arithmetic *)
+
   module Integer :
   sig
-    (** Create a new integer sort. *)      
-    val mk_sort : context -> Sort.sort
-
-    (** Retrieve the int value. *)
-    val get_int : Expr.expr -> int
-
-    (** Get a big_int from an integer numeral *)
-    val get_big_int : Expr.expr -> Big_int.big_int
-
-    (** Returns a string representation of the numeral. *)
-    val to_string : Expr.expr -> string
-
-    (** Creates an integer constant. *)        
-    val mk_const : context -> Symbol.symbol -> Expr.expr
-
-    (** Creates an integer constant. *)
-    val mk_const_s : context -> string -> Expr.expr
-
-    (** Create an expression representing [t1 mod t2].
-	The arguments must have int type. *)
-    val mk_mod : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-    (** Create an expression representing [t1 rem t2].
-	The arguments must have int type. *)
-    val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-    (** Create an integer numeral. *)
-    val mk_numeral_s : context -> string -> Expr.expr
-
-    (** Create an integer numeral.
-	@return A Term with the given value and sort Integer *)
-    val mk_numeral_i : context -> int -> Expr.expr
-
-    (** Coerce an integer to a real.
-	
-	
-	There is also a converse operation exposed. It follows the semantics prescribed by the SMT-LIB standard.
-	
-	You can take the floor of a real by creating an auxiliary integer Term [k] and
-	and asserting [MakeInt2Real(k) <= t1 < MkInt2Real(k)+1].
-	The argument must be of integer sort. *)
-    val mk_int2real : context -> Expr.expr -> Expr.expr
-
-    (**   Create an n-bit bit-vector from an integer argument.
-	  
-	  
-	  NB. This function is essentially treated as uninterpreted. 
-	  So you cannot expect Z3 to precisely reflect the semantics of this function
-	  when solving constraints with this function.
-	  
-	  The argument must be of integer sort. *)
-    val mk_int2bv : context -> int -> Expr.expr -> Expr.expr
+    val mk_sort : context -> int_sort
+    val get_int : int_num -> int
+    val to_string : int_num -> string
+    val mk_int_const : context -> symbol -> int_expr
+    val mk_int_const_s : context -> string -> int_expr
+    val mk_mod : context -> int_expr -> int_expr -> expr
+    val mk_rem : context -> int_expr -> int_expr -> expr
+    val mk_int_numeral_s : context -> string -> int_num
+    val mk_int_numeral_i : context -> int -> int_num
+    val mk_int2real : context -> int_expr -> real_expr
+    val mk_int2bv : context -> int -> int_expr -> bitvec_expr
   end
 
-  (** Real Arithmetic *)
   module Real :
   sig
-    (** Create a real sort. *)    
-    val mk_sort : context -> Sort.sort
-
-    (** The numerator of a rational numeral. *)
-    val get_numerator : Expr.expr -> Expr.expr
-
-    (** The denominator of a rational numeral. *)
-    val get_denominator : Expr.expr -> Expr.expr
-
-    (** Get a ratio from a real numeral *)
-    val get_ratio : Expr.expr -> Ratio.ratio
-
-    (** Returns a string representation in decimal notation. 
-	The result has at most as many decimal places as indicated by the int argument.*)
-    val to_decimal_string : Expr.expr-> int -> string
-
-    (** Returns a string representation of the numeral. *)
-    val to_string : Expr.expr-> string
-
-    (** Creates a real constant. *)
-    val mk_const : context -> Symbol.symbol -> Expr.expr
-
-    (** Creates a real constant. *)
-    val mk_const_s : context -> string -> Expr.expr
-
-    (** Create a real numeral from a fraction.       
-	@return A Term with rational value and sort Real
-	{!mk_numeral_s} *)
-    val mk_numeral_nd : context -> int -> int -> Expr.expr
-
-    (** Create a real numeral.
-	@return A Term with the given value and sort Real *)
-    val mk_numeral_s : context -> string -> Expr.expr
-
-    (** Create a real numeral.
-	@return A Term with the given value and sort Real *)
-    val mk_numeral_i : context -> int -> Expr.expr
-
-    (** Creates an expression that checks whether a real number is an integer. *)
-    val mk_is_integer : context -> Expr.expr -> Expr.expr
-
-    (** Coerce a real to an integer.
-
-	The semantics of this function follows the SMT-LIB standard for the function to_int.
-	The argument must be of real sort. *)
-    val mk_real2int : context -> Expr.expr -> Expr.expr
-      
-    (** Algebraic Numbers *)
-    module AlgebraicNumber :
-    sig
-      (** Return a upper bound for a given real algebraic number. 
-	  The interval isolating the number is smaller than 1/10^precision.
-	  {!is_algebraic_number}   
-	  @return A numeral Expr of sort Real *)
-      val to_upper : Expr.expr -> int -> Expr.expr
-	
-      (** Return a lower bound for the given real algebraic number. 
-	  The interval isolating the number is smaller than 1/10^precision.
-	  {!is_algebraic_number}
-	  @return A numeral Expr of sort Real *)
-      val to_lower : Expr.expr -> int -> Expr.expr
-	
-      (** Returns a string representation in decimal notation. 
-	  The result has at most as many decimal places as the int argument provided.*)
-      val to_decimal_string : Expr.expr -> int -> string
-	
-      (** Returns a string representation of the numeral. *)
-      val to_string : Expr.expr -> string
-    end
+    val mk_sort : context -> real_sort
+    val get_numerator : rat_num -> int_num
+    val get_denominator : rat_num -> int_num
+    val to_decimal_string : rat_num -> int -> string
+    val to_string : rat_num -> string
+    val mk_real_const : context -> symbol -> real_expr
+    val mk_real_const_s : context -> string -> real_expr
+    val mk_numeral_nd : context -> int -> int -> rat_num
+    val mk_numeral_s : context -> string -> rat_num
+    val mk_numeral_i : context -> int -> rat_num
+    val mk_is_integer : context -> real_expr -> bool_expr
+    val mk_real2int : context -> real_expr -> int_expr
   end
 
-  (** Indicates whether the term is of integer sort. *)
-  val is_int : Expr.expr -> bool
+  module AlgebraicNumber :
+  sig
+    val to_upper : algebraic_num -> int -> rat_num
+    val to_lower : algebraic_num -> int -> rat_num
+    val to_decimal_string : algebraic_num -> int -> string
+    val to_string : algebraic_num -> string
+  end
 
-  (** Indicates whether the term is an arithmetic numeral. *)
-  val is_arithmetic_numeral : Expr.expr -> bool
-
-  (** Indicates whether the term is a less-than-or-equal *)
-  val is_le : Expr.expr -> bool
-
-  (** Indicates whether the term is a greater-than-or-equal *)
-  val is_ge : Expr.expr -> bool
-
-  (** Indicates whether the term is a less-than *)
-  val is_lt : Expr.expr -> bool
-
-  (** Indicates whether the term is a greater-than *)
-  val is_gt : Expr.expr -> bool
-
-  (** Indicates whether the term is addition (binary) *)
-  val is_add : Expr.expr -> bool
-
-  (** Indicates whether the term is subtraction (binary) *)
-  val is_sub : Expr.expr -> bool
-
-  (** Indicates whether the term is a unary minus *)
-  val is_uminus : Expr.expr -> bool
-
-  (** Indicates whether the term is multiplication (binary) *)
-  val is_mul : Expr.expr -> bool
-
-  (** Indicates whether the term is division (binary) *)
-  val is_div : Expr.expr -> bool
-
-  (** Indicates whether the term is integer division (binary) *)
-  val is_idiv : Expr.expr -> bool
-
-  (** Indicates whether the term is remainder (binary) *)
-  val is_remainder : Expr.expr -> bool
-
-  (** Indicates whether the term is modulus (binary) *)
-  val is_modulus : Expr.expr -> bool
-
-  (** Indicates whether the term is a coercion of integer to real (unary) *)
-  val is_inttoreal : Expr.expr -> bool
-
-  (** Indicates whether the term is a coercion of real to integer (unary) *)
-  val is_real_to_int : Expr.expr -> bool
-
-  (** Indicates whether the term is a check that tests whether a real is integral (unary) *)
-  val is_real_is_int : Expr.expr -> bool
-
-  (** Indicates whether the term is of sort real. *)
-  val is_real : Expr.expr -> bool
-
-  (** Indicates whether the term is an integer numeral. *)
-  val is_int_numeral : Expr.expr -> bool
-
-  (** Indicates whether the term is a real numeral. *)
-  val is_rat_numeral : Expr.expr -> bool
-
-  (** Indicates whether the term is an algebraic number *)
-  val is_algebraic_number : Expr.expr -> bool
-
-  (** Create an expression representing [t[0] + t[1] + ...]. *)    
-  val mk_add : context -> Expr.expr list -> Expr.expr
-
-  (** Create an expression representing [t[0] * t[1] * ...]. *)    
-  val mk_mul : context -> Expr.expr list -> Expr.expr
-
-  (** Create an expression representing [t[0] - t[1] - ...]. *)    
-  val mk_sub : context -> Expr.expr list -> Expr.expr
-
-  (** Create an expression representing [-t]. *)    
-  val mk_unary_minus : context -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 / t2]. *)    
-  val mk_div : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 ^ t2]. *)    
-  val mk_power : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 < t2] *)    
-  val mk_lt : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 <= t2] *)    
-  val mk_le : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 > t2] *)    
-  val mk_gt : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an expression representing [t1 >= t2] *)    
-  val mk_ge : context -> Expr.expr -> Expr.expr -> Expr.expr
+  val is_int : expr -> bool
+  val is_arithmetic_numeral : expr -> bool
+  val is_le : expr -> bool
+  val is_ge : expr -> bool
+  val is_lt : expr -> bool
+  val is_gt : expr -> bool
+  val is_add : expr -> bool
+  val is_sub : expr -> bool
+  val is_uminus : expr -> bool
+  val is_mul : expr -> bool
+  val is_div : expr -> bool
+  val is_idiv : expr -> bool
+  val is_remainder : expr -> bool
+  val is_modulus : expr -> bool
+  val is_inttoreal : expr -> bool
+  val is_real_to_int : expr -> bool
+  val is_real_is_int : expr -> bool
+  val is_real : expr -> bool
+  val is_int_numeral : expr -> bool
+  val is_rat_num : expr -> bool
+  val is_algebraic_number : expr -> bool
+  val mk_add : context -> arith_expr array -> arith_expr
+  val mk_mul : context -> arith_expr array -> arith_expr
+  val mk_sub : context -> arith_expr array -> arith_expr
+  val mk_unary_minus : context -> arith_expr -> arith_expr
+  val mk_div : context -> arith_expr -> arith_expr -> arith_expr
+  val mk_power : context -> arith_expr -> arith_expr -> arith_expr
+  val mk_lt : context -> arith_expr -> arith_expr -> bool_expr
+  val mk_le : context -> arith_expr -> arith_expr -> bool_expr
+  val mk_gt : context -> arith_expr -> arith_expr -> bool_expr
+  val mk_ge : context -> arith_expr -> arith_expr -> bool_expr
 end
 
-(** Functions to manipulate bit-vector expressions *)
 module BitVector :
 sig
-  (** Create a new bit-vector sort. *)
-  val mk_sort : context -> int -> Sort.sort
-
-  (** Indicates whether the terms is of bit-vector sort. *)
-  val is_bv : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector numeral *)
-  val is_bv_numeral : Expr.expr -> bool
-
-  (** Indicates whether the term is a one-bit bit-vector with value one *)
-  val is_bv_bit1 : Expr.expr -> bool
-
-  (** Indicates whether the term is a one-bit bit-vector with value zero *)
-  val is_bv_bit0 : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector unary minus *)
-  val is_bv_uminus : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector addition (binary) *)
-  val is_bv_add : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector subtraction (binary) *)
-  val is_bv_sub : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector multiplication (binary) *)
-  val is_bv_mul : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed division (binary) *)
-  val is_bv_sdiv : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector unsigned division (binary) *)
-  val is_bv_udiv : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed remainder (binary) *)
-  val is_bv_SRem : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector unsigned remainder (binary) *)
-  val is_bv_urem : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed modulus *)
-  val is_bv_smod : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed division by zero *)
-  val is_bv_sdiv0 : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector unsigned division by zero *)
-  val is_bv_udiv0 : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed remainder by zero *)
-  val is_bv_srem0 : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector unsigned remainder by zero *)
-  val is_bv_urem0 : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector signed modulus by zero *)
-  val is_bv_smod0 : Expr.expr -> bool
-
-  (** Indicates whether the term is an unsigned bit-vector less-than-or-equal *)
-  val is_bv_ule : Expr.expr -> bool
-
-  (** Indicates whether the term is a signed bit-vector less-than-or-equal *)
-  val is_bv_sle : Expr.expr -> bool
-
-  (** Indicates whether the term is an unsigned bit-vector greater-than-or-equal *)
-  val is_bv_uge : Expr.expr -> bool
-
-  (** Indicates whether the term is a signed bit-vector greater-than-or-equal *)
-  val is_bv_sge : Expr.expr -> bool
-
-  (** Indicates whether the term is an unsigned bit-vector less-than *)
-  val is_bv_ult : Expr.expr -> bool
-
-  (** Indicates whether the term is a signed bit-vector less-than *)
-  val is_bv_slt : Expr.expr -> bool
-
-  (** Indicates whether the term is an unsigned bit-vector greater-than *)
-  val is_bv_ugt : Expr.expr -> bool
-
-  (** Indicates whether the term is a signed bit-vector greater-than *)
-  val is_bv_sgt : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise AND *)
-  val is_bv_and : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise OR *)
-  val is_bv_or : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise NOT *)
-  val is_bv_not : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise XOR *)
-  val is_bv_xor : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise NAND *)
-  val is_bv_nand : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise NOR *)
-  val is_bv_nor : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-wise XNOR *)
-  val is_bv_xnor : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector concatenation (binary) *)
-  val is_bv_concat : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector sign extension *)
-  val is_bv_signextension : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector zero extension *)
-  val is_bv_zeroextension : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector extraction *)
-  val is_bv_extract : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector repetition *)
-  val is_bv_repeat : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector reduce OR *)
-  val is_bv_reduceor : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector reduce AND *)
-  val is_bv_reduceand : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector comparison *)
-  val is_bv_comp : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector shift left *)
-  val is_bv_shiftleft : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector logical shift right *)
-  val is_bv_shiftrightlogical : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector arithmetic shift left *)
-  val is_bv_shiftrightarithmetic : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector rotate left *)
-  val is_bv_rotateleft : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector rotate right *)
-  val is_bv_rotateright : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector rotate left (extended)
-      Similar to Z3_OP_ROTATE_LEFT, but it is a binary operator instead of a parametric one. *)
-  val is_bv_rotateleftextended : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector rotate right (extended)
-      Similar to Z3_OP_ROTATE_RIGHT, but it is a binary operator instead of a parametric one. *)
-  val is_bv_rotaterightextended : Expr.expr -> bool
-    
-  (** Indicates whether the term is a coercion from integer to bit-vector
-      This function is not supported by the decision procedures. Only the most 
-      rudimentary simplification rules are applied to this function. *)
-
-  (** Indicates whether the term is a coercion from bit-vector to integer
-      This function is not supported by the decision procedures. Only the most 
-      rudimentary simplification rules are applied to this function. *)
-  val is_int_to_bv : Expr.expr -> bool
-
-  (** Indicates whether the term is a coercion from integer to bit-vector
-      This function is not supported by the decision procedures. Only the most 
-      rudimentary simplification rules are applied to this function. *)
-  val is_bv_to_int : Expr.expr -> bool
-
-  (** Indicates whether the term is a bit-vector carry
-      Compute the carry bit in a full-adder.  The meaning is given by the 
-      equivalence (carry l1 l2 l3) <=> (or (and l1 l2) (and l1 l3) (and l2 l3))) *)
-  val is_bv_carry : Expr.expr -> bool
-    
-  (** Indicates whether the term is a bit-vector ternary XOR
-      The meaning is given by the equivalence (xor3 l1 l2 l3) <=> (xor (xor l1 l2) l3) *)
-  val is_bv_xor3 : Expr.expr -> bool
-
-  (** The size of a bit-vector sort. *)
-  val get_size : Sort.sort -> int
-
-  (**  Retrieve the int value. *)
-  val get_int : Expr.expr -> int
-    
-  (** Returns a string representation of the numeral. *)
-  val to_string : Expr.expr -> string
-
-  (** Creates a bit-vector constant. *)
-  val mk_const : context -> Symbol.symbol -> int -> Expr.expr
-
-  (** Creates a bit-vector constant. *)
-  val mk_const_s : context -> string -> int -> Expr.expr
-
-  (** Bitwise negation.
-      The argument must have a bit-vector sort. *)
-  val mk_not : context -> Expr.expr -> Expr.expr
-
-  (** Take conjunction of bits in a vector,vector of length 1.
-      The argument must have a bit-vector sort. *)
-  val mk_redand : context -> Expr.expr -> Expr.expr
-
-  (** Take disjunction of bits in a vector,vector of length 1.
-      The argument must have a bit-vector sort. *)
-  val mk_redor : context -> Expr.expr -> Expr.expr
-
-  (** Bitwise conjunction.
-      The arguments must have a bit-vector sort. *)
-  val mk_and : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bitwise disjunction.
-      The arguments must have a bit-vector sort. *)
-  val mk_or : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bitwise XOR.
-      The arguments must have a bit-vector sort. *)
-  val mk_xor : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bitwise NAND.
-      The arguments must have a bit-vector sort. *)
-  val mk_nand : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bitwise NOR.
-      The arguments must have a bit-vector sort. *)
-  val mk_nor : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bitwise XNOR.
-      The arguments must have a bit-vector sort. *)
-  val mk_xnor : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Standard two's complement unary minus.
-      The arguments must have a bit-vector sort. *)
-  val mk_neg : context -> Expr.expr -> Expr.expr
-
-  (** Two's complement addition.
-      The arguments must have the same bit-vector sort. *)
-  val mk_add : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement subtraction.
-      The arguments must have the same bit-vector sort. *)
-  val mk_sub : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement multiplication.
-      The arguments must have the same bit-vector sort. *)
-  val mk_mul : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned division.
-      
-      It is defined as the floor of [t1/t2] if \c t2 is
-      different from zero. If [t2] is zero, then the result
-      is undefined.
-      The arguments must have the same bit-vector sort. *)
-  val mk_udiv : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Signed division.
-      
-      It is defined in the following way:
-
-      - The \c floor of [t1/t2] if \c t2 is different from zero, and [t1*t2 >= 0].
-
-      - The \c ceiling of [t1/t2] if \c t2 is different from zero, and [t1*t2 < 0].
-
-      If [t2] is zero, then the result is undefined.
-      The arguments must have the same bit-vector sort. *)
-  val mk_sdiv : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned remainder.
-      
-      It is defined as [t1 - (t1 /u t2) * t2], where [/u] represents unsigned division.       
-      If [t2] is zero, then the result is undefined.
-      The arguments must have the same bit-vector sort. *)
-  val mk_urem : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Signed remainder.
-      
-      It is defined as [t1 - (t1 /s t2) * t2], where [/s] represents signed division.
-      The most significant bit (sign) of the result is equal to the most significant bit of \c t1.
-
-      If [t2] is zero, then the result is undefined.
-      The arguments must have the same bit-vector sort. *)
-  val mk_srem : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement signed remainder (sign follows divisor).
-      
-      If [t2] is zero, then the result is undefined.
-      The arguments must have the same bit-vector sort. *)
-  val mk_smod : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned less-than
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_ult : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement signed less-than
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_slt : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned less-than or equal to.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_ule : context -> Expr.expr -> Expr.expr -> Expr.expr
-    
-  (** Two's complement signed less-than or equal to.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_sle : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned greater than or equal to.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_uge : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement signed greater than or equal to.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_sge : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Unsigned greater-than.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_ugt : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Two's complement signed greater-than.
-      
-      The arguments must have the same bit-vector sort. *)
-  val mk_sgt : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bit-vector concatenation.
-      
-      The arguments must have a bit-vector sort.
-      @return 
-      The result is a bit-vector of size [n1+n2], where [n1] ([n2]) 
-      is the size of [t1] ([t2]). *)
-  val mk_concat : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Bit-vector extraction.
-      
-      Extract the bits between two limits from a bitvector of
-      size [m] to yield a new bitvector of size [n], where 
-      [n = high - low + 1]. *)
-  val mk_extract : context -> int -> int -> Expr.expr -> Expr.expr
-
-  (** Bit-vector sign extension.
-
-      Sign-extends the given bit-vector to the (signed) equivalent bitvector of
-      size [m+i], where \c m is the size of the given bit-vector. *)
-  val mk_sign_ext : context -> int -> Expr.expr -> Expr.expr
-
-  (** Bit-vector zero extension.
-
-      Extend the given bit-vector with zeros to the (unsigned) equivalent
-      bitvector of size [m+i], where \c m is the size of the
-      given bit-vector. *)
-  val mk_zero_ext : context -> int -> Expr.expr -> Expr.expr
-    
-  (** Bit-vector repetition. *)
-  val mk_repeat : context -> int -> Expr.expr -> Expr.expr
-
-  (** Shift left.
-
-      It is equivalent to multiplication by [2^x] where \c x is the value of third argument.
-      
-      NB. The semantics of shift operations varies between environments. This 
-      definition does not necessarily capture directly the semantics of the 
-      programming language or assembly architecture you are modeling.*)
-  val mk_shl : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Logical shift right
-      
-      It is equivalent to unsigned division by [2^x] where \c x is the value of the third argument.
-
-      NB. The semantics of shift operations varies between environments. This 
-      definition does not necessarily capture directly the semantics of the 
-      programming language or assembly architecture you are modeling.
-
-      The arguments must have a bit-vector sort. *)
-  val mk_lshr : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Arithmetic shift right
-      
-      It is like logical shift right except that the most significant
-      bits of the result always copy the most significant bit of the
-      second argument.
-
-      NB. The semantics of shift operations varies between environments. This 
-      definition does not necessarily capture directly the semantics of the 
-      programming language or assembly architecture you are modeling.
-
-      The arguments must have a bit-vector sort. *)
-  val mk_ashr : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Rotate Left.
-      Rotate bits of \c t to the left \c i times. *)
-  val mk_rotate_left : context -> int -> Expr.expr -> Expr.expr
-
-  (** Rotate Right.      
-      Rotate bits of \c t to the right \c i times.*)
-  val mk_rotate_right : context -> int -> Expr.expr -> Expr.expr
-
-  (** Rotate Left.     
-      Rotate bits of the second argument to the left.*)
-  val mk_ext_rotate_left : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Rotate Right.     
-      Rotate bits of the second argument to the right. *)
-  val mk_ext_rotate_right : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create an integer from the bit-vector argument 
-      
-      If \c is_signed is false, then the bit-vector \c t1 is treated as unsigned. 
-      So the result is non-negative and in the range [[0..2^N-1]], where 
-      N are the number of bits in the argument.
-      If \c is_signed is true, \c t1 is treated as a signed bit-vector.
-      
-      NB. This function is essentially treated as uninterpreted. 
-      So you cannot expect Z3 to precisely reflect the semantics of this function
-      when solving constraints with this function.*)
-  val mk_bv2int : context -> Expr.expr -> bool -> Expr.expr
-    
-  (** Create a predicate that checks that the bit-wise addition does not overflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_add_no_overflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise addition does not underflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_add_no_underflow : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise subtraction does not overflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_sub_no_overflow : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise subtraction does not underflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_sub_no_underflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise signed division does not overflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_sdiv_no_overflow : context -> Expr.expr -> Expr.expr -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise negation does not overflow.
-      
-      The arguments must be of bit-vector sort. *)      
-  val mk_neg_no_overflow : context -> Expr.expr -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise multiplication does not overflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_mul_no_overflow : context -> Expr.expr -> Expr.expr -> bool -> Expr.expr
-
-  (** Create a predicate that checks that the bit-wise multiplication does not underflow.
-      
-      The arguments must be of bit-vector sort. *)
-  val mk_mul_no_underflow : context -> Expr.expr -> Expr.expr -> Expr.expr
-    
-  (** Create a bit-vector numeral. *)
-  val mk_numeral : context -> string -> int -> Expr.expr
+  val mk_sort : context -> int -> bitvec_sort
+  val is_bv : expr -> bool
+  val is_bv_numeral : expr -> bool
+  val is_bv_bit1 : expr -> bool
+  val is_bv_bit0 : expr -> bool
+  val is_bv_uminus : expr -> bool
+  val is_bv_add : expr -> bool
+  val is_bv_sub : expr -> bool
+  val is_bv_mul : expr -> bool
+  val is_bv_sdiv : expr -> bool
+  val is_bv_udiv : expr -> bool
+  val is_bv_SRem : expr -> bool
+  val is_bv_urem : expr -> bool
+  val is_bv_smod : expr -> bool
+  val is_bv_sdiv0 : expr -> bool
+  val is_bv_udiv0 : expr -> bool
+  val is_bv_srem0 : expr -> bool
+  val is_bv_urem0 : expr -> bool
+  val is_bv_smod0 : expr -> bool
+  val is_bv_ule : expr -> bool
+  val is_bv_sle : expr -> bool
+  val is_bv_uge : expr -> bool
+  val is_bv_sge : expr -> bool
+  val is_bv_ult : expr -> bool
+  val is_bv_slt : expr -> bool
+  val is_bv_ugt : expr -> bool
+  val is_bv_sgt : expr -> bool
+  val is_bv_and : expr -> bool
+  val is_bv_or : expr -> bool
+  val is_bv_not : expr -> bool
+  val is_bv_xor : expr -> bool
+  val is_bv_nand : expr -> bool
+  val is_bv_nor : expr -> bool
+  val is_bv_xnor : expr -> bool
+  val is_bv_concat : expr -> bool
+  val is_bv_signextension : expr -> bool
+  val is_bv_zeroextension : expr -> bool
+  val is_bv_extract : expr -> bool
+  val is_bv_repeat : expr -> bool
+  val is_bv_reduceor : expr -> bool
+  val is_bv_reduceand : expr -> bool
+  val is_bv_comp : expr -> bool
+  val is_bv_shiftleft : expr -> bool
+  val is_bv_shiftrightlogical : expr -> bool
+  val is_bv_shiftrightarithmetic : expr -> bool
+  val is_bv_rotateleft : expr -> bool
+  val is_bv_rotateright : expr -> bool
+  val is_bv_rotateleftextended : expr -> bool
+  val is_bv_rotaterightextended : expr -> bool
+  val is_int_to_bv : expr -> bool
+  val is_bv_to_int : expr -> bool
+  val is_bv_carry : expr -> bool
+  val is_bv_xor3 : expr -> bool
+  val get_size : bitvec_sort -> int
+  val get_int : bitvec_num -> int
+  val to_string : bitvec_num -> string
+  val mk_const : context -> symbol -> int -> bitvec_expr
+  val mk_const_s : context -> string -> int -> bitvec_expr
+  val mk_not : context -> bitvec_expr -> expr
+  val mk_redand : context -> bitvec_expr -> expr
+  val mk_redor : context -> bitvec_expr -> expr
+  val mk_and : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_or : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_xor : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_nand : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_nor : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_xnor : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_neg : context -> bitvec_expr -> expr
+  val mk_add : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_sub : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_mul : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_udiv : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_sdiv : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_urem : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_srem : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_smod : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_ult : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_slt : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_ule : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_sle : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_uge : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_sge : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_ugt : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_sgt : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_concat : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_extract : context -> int -> int -> bitvec_expr -> expr
+  val mk_sign_ext : context -> int -> bitvec_expr -> expr
+  val mk_zero_ext : context -> int -> bitvec_expr -> expr
+  val mk_repeat : context -> int -> bitvec_expr -> expr
+  val mk_shl : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_lshr : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_ashr : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_rotate_left : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_rotate_right : context -> bitvec_expr -> bitvec_expr -> expr
+  val mk_bv2int : context -> bitvec_expr -> bool -> int_expr
+  val mk_add_no_overflow : context -> bitvec_expr -> bitvec_expr -> bool -> bool_expr
+  val mk_add_no_underflow : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_sub_no_overflow : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_sub_no_underflow : context -> bitvec_expr -> bitvec_expr -> bool -> bool_expr
+  val mk_sdiv_no_overflow : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_neg_no_overflow : context -> bitvec_expr -> bool_expr
+  val mk_mul_no_overflow : context -> bitvec_expr -> bitvec_expr -> bool -> bool_expr
+  val mk_mul_no_underflow : context -> bitvec_expr -> bitvec_expr -> bool_expr
+  val mk_numeral : context -> string -> int -> bitvec_num
 end
 
-(** Functions to manipulate proof expressions *)
 module Proof :
 sig
-  (** Indicates whether the term is a Proof for the expression 'true'. *)
-  val is_true : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for a fact asserted by the user. *)
-  val is_asserted : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for a fact (tagged as goal) asserted by the user. *)
-  val is_goal : Expr.expr -> bool
-
-  (** Indicates whether the term is a binary equivalence modulo namings. 
-      This binary predicate is used in proof terms.
-      It captures equisatisfiability and equivalence modulo renamings. *)
-  val is_oeq : Expr.expr -> bool
-
-  (** Indicates whether the term is proof via modus ponens
-      
-      Given a proof for p and a proof for (implies p q), produces a proof for q.
-      T1: p
-      T2: (implies p q)
-      [mp T1 T2]: q
-      The second antecedents may also be a proof for (iff p q). *)
-  val is_modus_ponens : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (R t t), where R is a reflexive relation.
-      This proof object has no antecedents. 
-      The only reflexive relations that are used are 
-      equivalence modulo namings, equality and equivalence.
-      That is, R is either '~', '=' or 'iff'. *)
-  val is_reflexivity : Expr.expr -> bool
-
-  (** Indicates whether the term is proof by symmetricity of a relation
-      
-      Given an symmetric relation R and a proof for (R t s), produces a proof for (R s t).
-      T1: (R t s)
-      [symmetry T1]: (R s t)
-      T1 is the antecedent of this proof object. *)
-  val is_symmetry : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by transitivity of a relation
-      
-      Given a transitive relation R, and proofs for (R t s) and (R s u), produces a proof 
-      for (R t u). 
-      T1: (R t s)
-      T2: (R s u)
-      [trans T1 T2]: (R t u) *)
-  val is_transitivity : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by condensed transitivity of a relation
-      
-      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
-      It combines several symmetry and transitivity proofs. 
-      Example:
-      T1: (R a b)
-      T2: (R c b)
-      T3: (R c d)
-      [trans* T1 T2 T3]: (R a d)          
-      R must be a symmetric and transitive relation.
-      
-      Assuming that this proof object is a proof for (R s t), then
-      a proof checker must check if it is possible to prove (R s t)
-      using the antecedents, symmetry and transitivity.  That is, 
-      if there is a path from s to t, if we view every
-      antecedent (R a b) as an edge between a and b. *)
-  val is_Transitivity_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a monotonicity proof object.
-      
-      T1: (R t_1 s_1)
-      ...
-      Tn: (R t_n s_n)
-      [monotonicity T1 ... Tn]: (R (f t_1 ... t_n) (f s_1 ... s_n))          
-      Remark: if t_i == s_i, then the antecedent Ti is suppressed.
-      That is, reflexivity proofs are supressed to save space. *)
-  val is_monotonicity : Expr.expr -> bool
-
-  (** Indicates whether the term is a quant-intro proof 
-      
-      Given a proof for (~ p q), produces a proof for (~ (forall (x) p) (forall (x) q)).
-      T1: (~ p q)
-      [quant-intro T1]: (~ (forall (x) p) (forall (x) q)) *)
-  val is_quant_intro : Expr.expr -> bool
-
-  (** Indicates whether the term is a distributivity proof object.  
-      
-      Given that f (= or) distributes over g (= and), produces a proof for
-      (= (f a (g c d))
-      (g (f a c) (f a d)))
-      If f and g are associative, this proof also justifies the following equality:
-      (= (f (g a b) (g c d))
-      (g (f a c) (f a d) (f b c) (f b d)))
-      where each f and g can have arbitrary number of arguments.
-      
-      This proof object has no antecedents.
-      Remark. This rule is used by the CNF conversion pass and 
-      instantiated by f = or, and g = and. *)
-  val is_distributivity : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by elimination of AND
-      
-      Given a proof for (and l_1 ... l_n), produces a proof for l_i
-      T1: (and l_1 ... l_n)
-      [and-elim T1]: l_i *)
-  val is_and_elimination : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by eliminiation of not-or
-      
-      Given a proof for (not (or l_1 ... l_n)), produces a proof for (not l_i).
-      T1: (not (or l_1 ... l_n))
-      [not-or-elim T1]: (not l_i)        *)
-  val is_or_elimination : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by rewriting
-      
-      A proof for a local rewriting step (= t s).
-      The head function symbol of t is interpreted.
-      
-      This proof object has no antecedents.
-      The conclusion of a rewrite rule is either an equality (= t s), 
-      an equivalence (iff t s), or equi-satisfiability (~ t s).
-      Remark: if f is bool, then = is iff.
-      
-      Examples:
-      (= (+ ( x : expr ) 0) x)
-      (= (+ ( x : expr ) 1 2) (+ 3 x))
-      (iff (or ( x : expr ) false) x)           *)
-  val is_rewrite : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by rewriting
-      
-      A proof for rewriting an expression t into an expression s.
-      This proof object is used if the parameter PROOF_MODE is 1.
-      This proof object can have n antecedents.
-      The antecedents are proofs for equalities used as substitution rules.
-      The object is also used in a few cases if the parameter PROOF_MODE is 2.
-      The cases are:
-      - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-      - When converting bit-vectors to Booleans (BIT2BOOL=true)
-      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
-  val is_rewrite_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for pulling quantifiers out.
-      
-      A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
-  val is_pull_quant : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for pulling quantifiers out.
-      
-      A proof for (iff P Q) where Q is in prenex normal form. 
-      This proof object is only used if the parameter PROOF_MODE is 1.       
-      This proof object has no antecedents *)
-  val is_pull_quant_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for pushing quantifiers in.
-      
-      A proof for:
-      (iff (forall (x_1 ... x_m) (and p_1[x_1 ... x_m] ... p_n[x_1 ... x_m]))
-      (and (forall (x_1 ... x_m) p_1[x_1 ... x_m])
-      ... 
-      (forall (x_1 ... x_m) p_n[x_1 ... x_m])))               
-      This proof object has no antecedents *)
-  val is_push_quant : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for elimination of unused variables.
-      
-      A proof for (iff (forall (x_1 ... x_n y_1 ... y_m) p[x_1 ... x_n])
-      (forall (x_1 ... x_n) p[x_1 ... x_n])) 
-      
-      It is used to justify the elimination of unused variables.
-      This proof object has no antecedents. *)
-  val is_elim_unused_vars : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for destructive equality resolution
-      
-      A proof for destructive equality resolution:
-      (iff (forall (x) (or (not (= ( x : expr ) t)) P[x])) P[t])
-      if ( x : expr ) does not occur in t.
-      
-      This proof object has no antecedents.
-      
-      Several variables can be eliminated simultaneously. *)
-  val is_der : Expr.expr -> bool
-    
-  (** Indicates whether the term is a proof for quantifier instantiation
-      
-      A proof of (or (not (forall (x) (P x))) (P a)) *)
-  val is_quant_inst : Expr.expr -> bool
-
-  (** Indicates whether the term is a hypthesis marker.
-      Mark a hypothesis in a natural deduction style proof. *)
-  val is_hypothesis : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by lemma
-      
-      T1: false
-      [lemma T1]: (or (not l_1) ... (not l_n))
-      
-      This proof object has one antecedent: a hypothetical proof for false.
-      It converts the proof in a proof for (or (not l_1) ... (not l_n)),
-      when T1 contains the hypotheses: l_1, ..., l_n. *)
-  val is_lemma : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by unit resolution
-      
-      T1:      (or l_1 ... l_n l_1' ... l_m')
-      T2:      (not l_1)
-      ...
-      T(n+1):  (not l_n)
-      [unit-resolution T1 ... T(n+1)]: (or l_1' ... l_m') *)
-  val is_unit_resolution : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by iff-true
-      
-      T1: p
-      [iff-true T1]: (iff p true) *)
-  val is_iff_true : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by iff-false
-      
-      T1: (not p)
-      [iff-false T1]: (iff p false) *)
-  val is_iff_false : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by commutativity
-      
-      [comm]: (= (f a b) (f b a))
-      
-      f is a commutative operator.
-      
-      This proof object has no antecedents.
-      Remark: if f is bool, then = is iff. *)
-  val is_commutativity : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for Tseitin-like axioms
-      
-      Proof object used to justify Tseitin's like axioms:
-      
-      (or (not (and p q)) p)
-      (or (not (and p q)) q)
-      (or (not (and p q r)) p)
-      (or (not (and p q r)) q)
-      (or (not (and p q r)) r)
-      ...
-      (or (and p q) (not p) (not q))
-      (or (not (or p q)) p q)
-      (or (or p q) (not p))
-      (or (or p q) (not q))
-      (or (not (iff p q)) (not p) q)
-      (or (not (iff p q)) p (not q))
-      (or (iff p q) (not p) (not q))
-      (or (iff p q) p q)
-      (or (not (ite a b c)) (not a) b)
-      (or (not (ite a b c)) a c)
-      (or (ite a b c) (not a) (not b))
-      (or (ite a b c) a (not c))
-      (or (not (not a)) (not a))
-      (or (not a) a)
-      
-      This proof object has no antecedents.
-      Note: all axioms are propositional tautologies.
-      Note also that 'and' and 'or' can take multiple arguments.
-      You can recover the propositional tautologies by
-      unfolding the Boolean connectives in the axioms a small
-      bounded number of steps (=3). *)
-  val is_def_axiom : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for introduction of a name
-      
-      Introduces a name for a formula/term.
-      Suppose e is an expression with free variables x, and def-intro
-      introduces the name n(x). The possible cases are:
-      
-      When e is of Boolean type:
-      [def-intro]: (and (or n (not e)) (or (not n) e))
-      
-      or:
-      [def-intro]: (or (not n) e)
-      when e only occurs positively.
-      
-      When e is of the form (ite cond th el):
-      [def-intro]: (and (or (not cond) (= n th)) (or cond (= n el)))
-      
-      Otherwise:
-      [def-intro]: (= n e)        *)
-  val is_def_intro : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for application of a definition
-      
-      [apply-def T1]: F ~ n
-      F is 'equivalent' to n, given that T1 is a proof that
-      n is a name for F. *)
-  val is_apply_def : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof iff-oeq
-      
-      T1: (iff p q)
-      [iff~ T1]: (~ p q) *)
-  val is_iff_oeq : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for a positive NNF step
-      
-      Proof for a (positive) NNF step. Example:
-      
-      T1: (not s_1) ~ r_1
-      T2: (not s_2) ~ r_2
-      T3: s_1 ~ r_1'
-      T4: s_2 ~ r_2'
-      [nnf-pos T1 T2 T3 T4]: (~ (iff s_1 s_2)
-      (and (or r_1 r_2') (or r_1' r_2)))
-      
-      The negation normal form steps NNF_POS and NNF_NEG are used in the following cases:
-      (a) When creating the NNF of a positive force quantifier.
-      The quantifier is retained (unless the bound variables are eliminated).
-      Example
-      T1: q ~ q_new 
-      [nnf-pos T1]: (~ (forall (x T) q) (forall (x T) q_new))
-      
-      (b) When recursively creating NNF over Boolean formulas, where the top-level
-      connective is changed during NNF conversion. The relevant Boolean connectives
-      for NNF_POS are 'implies', 'iff', 'xor', 'ite'.
-      NNF_NEG furthermore handles the case where negation is pushed
-      over Boolean connectives 'and' and 'or'. *)
-  val is_nnf_pos : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for a negative NNF step
-      
-      Proof for a (negative) NNF step. Examples:
-      
-      T1: (not s_1) ~ r_1
-      ...
-      Tn: (not s_n) ~ r_n
-      [nnf-neg T1 ... Tn]: (not (and s_1 ... s_n)) ~ (or r_1 ... r_n)
-      and
-      T1: (not s_1) ~ r_1
-      ...
-      Tn: (not s_n) ~ r_n
-      [nnf-neg T1 ... Tn]: (not (or s_1 ... s_n)) ~ (and r_1 ... r_n)
-      and
-      T1: (not s_1) ~ r_1
-      T2: (not s_2) ~ r_2
-      T3: s_1 ~ r_1'
-      T4: s_2 ~ r_2'
-      [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
-      (and (or r_1 r_2) (or r_1' r_2'))) *)
-  val is_nnf_neg : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-      
-      A proof for (~ P Q) where Q is in negation normal form.
-      
-      This proof object is only used if the parameter PROOF_MODE is 1.       
-      
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
-  val is_nnf_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-      
-      A proof for (~ P Q) where Q is in conjunctive normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.       
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
-  val is_cnf_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for a Skolemization step
-      
-      Proof for: 
-      
-      [sk]: (~ (not (forall ( x : expr ) (p ( x : expr ) y))) (not (p (sk y) y)))
-      [sk]: (~ (exists ( x : expr ) (p ( x : expr ) y)) (p (sk y) y))
-      
-      This proof object has no antecedents. *)
-  val is_skolemize : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof by modus ponens for equi-satisfiability.
-      
-      Modus ponens style rule for equi-satisfiability.
-      T1: p
-      T2: (~ p q)
-      [mp~ T1 T2]: q   *)
-  val is_modus_ponens_oeq : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for theory lemma
-      
-      Generic proof for theory lemmas.
-      
-      The theory lemma function comes with one or more parameters.
-      The first parameter indicates the name of the theory.
-      For the theory of arithmetic, additional parameters provide hints for
-      checking the theory lemma. 
-      The hints for arithmetic are:
-      - farkas - followed by rational coefficients. Multiply the coefficients to the
-      inequalities in the lemma, add the (negated) inequalities and obtain a contradiction.
-      - triangle-eq - Indicates a lemma related to the equivalence:        
-      (iff (= t1 t2) (and (<= t1 t2) (<= t2 t1)))
-      - gcd-test - Indicates an integer linear arithmetic lemma that uses a gcd test. *)
-  val is_theory_lemma : Expr.expr -> bool
+  val is_true : expr -> bool
+  val is_asserted : expr -> bool
+  val is_goal : expr -> bool
+  val is_modus_ponens : expr -> bool
+  val is_reflexivity : expr -> bool
+  val is_symmetry : expr -> bool
+  val is_transitivity : expr -> bool
+  val is_Transitivity_star : expr -> bool
+  val is_monotonicity : expr -> bool
+  val is_quant_intro : expr -> bool
+  val is_distributivity : expr -> bool
+  val is_and_elimination : expr -> bool
+  val is_or_elimination : expr -> bool
+  val is_rewrite : expr -> bool
+  val is_rewrite_star : expr -> bool
+  val is_pull_quant : expr -> bool
+  val is_pull_quant_star : expr -> bool
+  val is_push_quant : expr -> bool
+  val is_elim_unused_vars : expr -> bool
+  val is_der : expr -> bool
+  val is_quant_inst : expr -> bool
+  val is_hypothesis : expr -> bool
+  val is_lemma : expr -> bool
+  val is_unit_resolution : expr -> bool
+  val is_iff_true : expr -> bool
+  val is_iff_false : expr -> bool
+  val is_commutativity : expr -> bool
+  val is_def_axiom : expr -> bool
+  val is_def_intro : expr -> bool
+  val is_apply_def : expr -> bool
+  val is_iff_oeq : expr -> bool
+  val is_nnf_pos : expr -> bool
+  val is_nnf_neg : expr -> bool
+  val is_nnf_star : expr -> bool
+  val is_cnf_star : expr -> bool
+  val is_skolemize : expr -> bool
+  val is_modus_ponens_oeq : expr -> bool
+  val is_theory_lemma : expr -> bool
 end
 
-(** Goals 
-
-    A goal (aka problem). A goal is essentially a 
-    of formulas, that can be solved and/or transformed using
-    tactics and solvers. *)
 module Goal :
 sig
-  type goal 
-
-  (** The precision of the goal. 
-
-      Goals can be transformed using over and under approximations.
-      An under approximation is applied when the objective is to find a model for a given goal.
-      An over approximation is applied when the objective is to find a proof for a given goal. *)
   val get_precision : goal -> Z3enums.goal_prec
-
-  (** Indicates whether the goal is precise. *)
   val is_precise : goal -> bool
-
-  (** Indicates whether the goal is an under-approximation. *)
   val is_underapproximation : goal -> bool
-
-  (** Indicates whether the goal is an over-approximation. *)
   val is_overapproximation : goal -> bool
-
-  (** Indicates whether the goal is garbage (i.e., the product of over- and under-approximations). *)
   val is_garbage : goal -> bool
-
-  (** Adds the constraints to the given goal. *)
-  val add : goal -> Expr.expr list -> unit
-    
-  (** Indicates whether the goal contains `false'. *)
+  val assert_ : goal -> bool_expr array -> unit
   val is_inconsistent : goal -> bool
-    
-  (** The depth of the goal.      
-      This tracks how many transformations were applied to it. *)
   val get_depth : goal -> int
-
-  (** Erases all formulas from the given goal. *)
   val reset : goal -> unit
-
-  (** The number of formulas in the goal. *)
   val get_size : goal -> int
-
-  (** The formulas in the goal. *)
-  val get_formulas : goal -> Expr.expr list
-
-  (** The number of formulas, subformulas and terms in the goal. *)
+  val get_formulas : goal -> bool_expr array
   val get_num_exprs : goal -> int
-
-  (** Indicates whether the goal is empty, and it is precise or the product of an under approximation. *)
   val is_decided_sat : goal -> bool
-
-  (** Indicates whether the goal contains `false', and it is precise or the product of an over approximation. *)
   val is_decided_unsat : goal -> bool
-
-  (**  Translates (copies) the Goal to another context.. *)
   val translate : goal -> context -> goal
-
-  (** Simplifies the goal. Essentially invokes the `simplify' tactic on the goal. *)
-  val simplify : goal -> Params.params option -> goal
-
-  (** Creates a new Goal.
-      
-      Note that the Context must have been created with proof generation support if 
-      the fourth argument is set to true here. *)
+  val simplify : goal -> params option -> goal
   val mk_goal : context -> bool -> bool -> bool -> goal
-
-  (**  A string representation of the Goal. *)
   val to_string : goal -> string
 end
 
-(** Models
-
-    A Model contains interpretations (assignments) of constants and functions. *)
 module Model :
 sig
-  type model 
 
-  (** Function interpretations 
-
-      A function interpretation is represented as a finite map and an 'else'.
-      Each entry in the finite map represents the value of a function given a set of arguments.   *)    
   module FuncInterp :
   sig
-    type func_interp 
-      
-    (** Function interpretations entries 
 
-	An Entry object represents an element in the finite map used to a function interpretation. *)  
     module FuncEntry :
     sig
-      type func_entry 
-
-      (** Return the (symbolic) value of this entry.
-      *)	
-      val get_value : func_entry -> Expr.expr
-
-      (** The number of arguments of the entry.
-      *)
+      val get_value : func_entry -> expr
       val get_num_args : func_entry -> int
-
-      (** The arguments of the function entry.
-      *)
-      val get_args : func_entry -> Expr.expr list
-
-      (** A string representation of the function entry.
-      *)
+      val get_args : func_entry -> expr array
       val to_string : func_entry -> string
     end
 
-    (**   The number of entries in the function interpretation. *)
     val get_num_entries : func_interp -> int
-
-    (**   The entries in the function interpretation *)
-    val get_entries : func_interp -> FuncEntry.func_entry list
-
-    (**   The (symbolic) `else' value of the function interpretation. *)
-    val get_else : func_interp -> Expr.expr
-
-    (**   The arity of the function interpretation *)
+    val get_entries : func_interp -> func_entry array
+    val get_else : func_interp -> expr
     val get_arity : func_interp -> int
-
-    (**   A string representation of the function interpretation. *)    
     val to_string : func_interp -> string
   end
 
-  (** Retrieves the interpretation (the assignment) of a func_decl in the model. 
-      @return An expression if the function has an interpretation in the model, null otherwise. *)
-  val get_const_interp : model -> FuncDecl.func_decl -> Expr.expr option
-
-  (** Retrieves the interpretation (the assignment) of an expression in the model. 
-      @return An expression if the constant has an interpretation in the model, null otherwise. *)
-  val get_const_interp_e : model -> Expr.expr -> Expr.expr option
-
-  (** Retrieves the interpretation (the assignment) of a non-constant func_decl in the model. 
-      @return A FunctionInterpretation if the function has an interpretation in the model, null otherwise. *)
-  val get_func_interp : model -> FuncDecl.func_decl -> FuncInterp.func_interp option
-
-  (** The number of constant interpretations in the model. *)
+  val get_const_interp : model -> func_decl -> expr option
+  val get_const_interp_e : model -> expr -> expr option
+  val get_func_interp : model -> func_decl -> func_interp option
   val get_num_consts : model -> int
-
-  (** The function declarations of the constants in the model. *)  
-  val get_const_decls : model -> FuncDecl.func_decl list
-
-  (** The number of function interpretations in the model. *)
+  val get_const_decls : model -> func_decl array
   val get_num_funcs : model -> int
-
-  (** The function declarations of the function interpretations in the model. *)
-  val get_func_decls : model -> FuncDecl.func_decl list
-
-  (** All symbols that have an interpretation in the model. *)
-  val get_decls : model -> FuncDecl.func_decl list
-
-  (** Evaluates an expression in the current model.
-      
-      This function may fail if the argument contains quantifiers, 
-      is partial (MODEL_PARTIAL enabled), or if it is not well-sorted.
-      In this case a [ModelEvaluationFailedException] is thrown.
-  *)
-  val eval : model -> Expr.expr -> bool -> Expr.expr option
-
-  (** Alias for [eval]. *)
-  val evaluate : model -> Expr.expr -> bool -> Expr.expr option
-
-  (** The number of uninterpreted sorts that the model has an interpretation for. *)
+  val get_func_decls : model -> func_decl array
+  val get_decls : model -> func_decl array
+  exception ModelEvaluationFailedException of string
+  val eval : model -> expr -> bool -> expr
+  val evaluate : model -> expr -> bool -> expr
   val get_num_sorts : model -> int
-
-  (** The uninterpreted sorts that the model has an interpretation for. 
-      
-      Z3 also provides an intepretation for uninterpreted sorts used in a formula.
-      The interpretation for a sort is a finite set of distinct values. We say this finite set is
-      the "universe" of the sort.
-      {!get_num_sorts}
-      {!sort_universe} *)
-  val get_sorts : model -> Sort.sort list
-
-  (** The finite set of distinct values that represent the interpretation of a sort. 
-      {!get_sorts}
-      @return A list of expressions, where each is an element of the universe of the sort *)
-  val sort_universe : model -> Sort.sort -> AST.ast list
-    
-  (** Conversion of models to strings. 
-      @return A string representation of the model. *)
+  val get_sorts : model -> sort array
+  val sort_universe : model -> sort -> ast_vector array
   val to_string : model -> string
 end
 
-(** Probes 
-
-    Probes are used to inspect a goal (aka problem) and collect information that may be used to decide
-    which solver and/or preprocessing step will be used.
-    The complete list of probes may be obtained using the procedures [Context.NumProbes]
-    and [Context.ProbeNames].
-    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
-*)
 module Probe :
 sig
-  type probe 
-
-  (** Execute the probe over the goal. 
-      @return A probe always produce a float value.
-      "Boolean" probes return 0.0 for false, and a value different from 0.0 for true. *)
-  val apply : probe -> Goal.goal -> float
-
-  (** The number of supported Probes. *)
+  val apply : probe -> goal -> float
   val get_num_probes : context -> int
-
-  (** The names of all supported Probes. *)
-  val get_probe_names : context -> string list
-
-  (** Returns a string containing a description of the probe with the given name. *)
+  val get_probe_names : context -> string array
   val get_probe_description : context -> string -> string
-
-  (** Creates a new Probe. *) 
   val mk_probe : context -> string -> probe
-
-  (** Create a probe that always evaluates to a float value. *)
   val const : context -> float -> probe
-
-  (** Create a probe that evaluates to "true" when the value returned by the first argument
-      is less than the value returned by second argument *)
   val lt : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when the value returned by the first argument
-      is greater than the value returned by second argument *)
   val gt : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when the value returned by the first argument
-      is less than or equal the value returned by second argument *)
   val le : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when the value returned by the first argument
-      is greater than or equal the value returned by second argument *)
   val ge : context -> probe -> probe -> probe
-
-
-  (** Create a probe that evaluates to "true" when the value returned by the first argument
-      is equal the value returned by second argument *)
   val eq : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when both of two probes evaluate to "true". *)
   val and_ : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when either of two probes evaluates to "true". *)
   val or_ : context -> probe -> probe -> probe
-
-  (** Create a probe that evaluates to "true" when another probe does not evaluate to "true". *)
   val not_ : context -> probe -> probe
 end
 
-(** Tactics
-
-    Tactics are the basic building block for creating custom solvers for specific problem domains.
-    The complete list of tactics may be obtained using [Context.get_num_tactics] 
-    and [Context.get_tactic_names].
-    It may also be obtained using the command [(help-tactics)] in the SMT 2.0 front-end.
-*)
 module Tactic :
 sig
-  type tactic 
 
-  (** Tactic application results 
-      
-      ApplyResult objects represent the result of an application of a 
-      tactic to a goal. It contains the subgoals that were produced. *)
   module ApplyResult :
   sig
-    type apply_result 
-
-    (** The number of Subgoals. *)
     val get_num_subgoals : apply_result -> int
-
-    (** Retrieves the subgoals from the apply_result. *)
-    val get_subgoals : apply_result -> Goal.goal list
-
-    (** Retrieves a subgoal from the apply_result. *)
-    val get_subgoal : apply_result -> int -> Goal.goal
-
-    (** Convert a model for a subgoal into a model for the original 
-	goal [g], that the ApplyResult was obtained from. 
-	#return A model for [g] *)
-    val convert_model : apply_result -> int -> Model.model -> Model.model
-
-    (** A string representation of the ApplyResult. *)
+    val get_subgoals : apply_result -> goal array
+    val get_subgoal : apply_result -> int -> goal
+    val convert_model : apply_result -> int -> model -> model
     val to_string : apply_result -> string
   end
 
-  (** A string containing a description of parameters accepted by the tactic. *)
   val get_help : tactic -> string
-
-  (** Retrieves parameter descriptions for Tactics. *)
-  val get_param_descrs : tactic -> Params.ParamDescrs.param_descrs
-
-  (** Apply the tactic to the goal. *)
-  val apply : tactic -> Goal.goal -> Params.params option -> ApplyResult.apply_result
-
-  (** The number of supported tactics. *)
+  val get_param_descrs : tactic -> param_descrs
+  val apply : tactic -> goal -> params option -> apply_result
   val get_num_tactics : context -> int
-
-  (** The names of all supported tactics. *)
-  val get_tactic_names : context -> string list
-
-  (** Returns a string containing a description of the tactic with the given name. *)
+  val get_tactic_names : context -> string array
   val get_tactic_description : context -> string -> string
-
-  (** Creates a new Tactic. *)    
   val mk_tactic : context -> string -> tactic
-
-  (** Create a tactic that applies one tactic to a Goal and
-      then another one to every subgoal produced by the first one. *)
-  val and_then : context -> tactic -> tactic -> tactic list -> tactic
-
-  (** Create a tactic that first applies one tactic to a Goal and
-      if it fails then returns the result of another tactic applied to the Goal. *)
+  val and_then : context -> tactic -> tactic -> tactic array -> tactic
   val or_else : context -> tactic -> tactic -> tactic
-
-  (** Create a tactic that applies one tactic to a goal for some time (in milliseconds).    
-      
-      If the tactic does not terminate within the timeout, then it fails. *)
   val try_for : context -> tactic -> int -> tactic
-
-  (** Create a tactic that applies one tactic to a given goal if the probe 
-      evaluates to true. 
-      
-      If the probe evaluates to false, then the new tactic behaves like the [skip] tactic.  *)
-  val when_ : context -> Probe.probe -> tactic -> tactic
-
-  (** Create a tactic that applies a tactic to a given goal if the probe 
-      evaluates to true and another tactic otherwise. *)
-  val cond : context -> Probe.probe -> tactic -> tactic -> tactic
-
-  (** Create a tactic that keeps applying one tactic until the goal is not 
-      modified anymore or the maximum number of iterations is reached. *)
+  val when_ : context -> probe -> tactic -> tactic
+  val cond : context -> probe -> tactic -> tactic -> tactic
   val repeat : context -> tactic -> int -> tactic
-
-  (** Create a tactic that just returns the given goal. *)
   val skip : context -> tactic
-
-  (** Create a tactic always fails. *)
   val fail : context -> tactic
-
-  (** Create a tactic that fails if the probe evaluates to false. *)
-  val fail_if : context -> Probe.probe -> tactic
-
-  (** Create a tactic that fails if the goal is not triviall satisfiable (i.e., empty)
-      or trivially unsatisfiable (i.e., contains `false'). *)
+  val fail_if : context -> probe -> tactic
   val fail_if_not_decided : context -> tactic
-
-  (** Create a tactic that applies a tactic using the given set of parameters. *)
-  val using_params : context -> tactic -> Params.params -> tactic
-
-  (** Create a tactic that applies a tactic using the given set of parameters.
-      Alias for [UsingParams]*)
-  val with_ : context -> tactic -> Params.params -> tactic
-
-  (** Create a tactic that applies the given tactics in parallel. *)
-  val par_or : context -> tactic list -> tactic
-
-  (** Create a tactic that applies a tactic to a given goal and then another tactic
-      to every subgoal produced by the first one. The subgoals are processed in parallel. *)
+  val using_params : context -> tactic -> params -> tactic
+  val with_ : context -> tactic -> params -> tactic
+  val par_or : context -> tactic array -> tactic
   val par_and_then : context -> tactic -> tactic -> tactic
-
-  (** Interrupt the execution of a Z3 procedure.        
-      This procedure can be used to interrupt: solvers, simplifiers and tactics. *)
   val interrupt : context -> unit
 end
 
-(** Solvers *)
 module Solver :
 sig
-  type solver 
-  type status = UNSATISFIABLE | UNKNOWN | SATISFIABLE
-      
   val string_of_status : status -> string
 
-  (** Objects that track statistical information about solvers. *)
   module Statistics :
   sig
-    type statistics 
 
-    (**   Statistical data is organized into pairs of \[Key, Entry\], where every
-	  Entry is either a floating point or integer value.
-    *)
     module Entry :
     sig
-      type statistics_entry
-
-      (** The key of the entry. *)
       val get_key : statistics_entry -> string
-
-      (** The int-value of the entry. *)
       val get_int : statistics_entry -> int
-
-      (** The float-value of the entry. *)
       val get_float : statistics_entry -> float
-	
-      (** True if the entry is uint-valued. *)
       val is_int : statistics_entry -> bool
-	
-      (** True if the entry is float-valued. *)
       val is_float : statistics_entry -> bool
-	
-      (** The string representation of the the entry's value. *)
       val to_string_value : statistics_entry -> string
-	
-      (** The string representation of the entry (key and value) *)
       val to_string : statistics_entry -> string
     end
 
-    (** A string representation of the statistical data. *)    
     val to_string : statistics -> string
-
-    (** The number of statistical data. *)
     val get_size : statistics -> int
-
-    (** The data entries. *)
-    val get_entries : statistics -> Entry.statistics_entry list
-
-    (**   The statistical counters. *)
-    val get_keys : statistics -> string list
-
-    (** The value of a particular statistical counter. *)        
-    val get : statistics -> string -> Entry.statistics_entry option
+    val get_entries : statistics -> statistics_entry array
+    val get_keys : statistics -> string array
+    val get : statistics -> string -> statistics_entry option
   end
 
-  (** A string that describes all available solver parameters. *)
   val get_help : solver -> string
-
-  (** Sets the solver parameters. *)
-  val set_parameters : solver -> Params.params -> unit
-
-  (** Retrieves parameter descriptions for solver. *)
-  val get_param_descrs : solver -> Params.ParamDescrs.param_descrs
-
-  (** The current number of backtracking points (scopes).
-      {!pop}
-      {!push} *)
+  val set_parameters : solver -> params -> unit
+  val get_param_descrs : solver -> param_descrs
   val get_num_scopes : solver -> int
-
-  (** Creates a backtracking point.
-      {!pop} *)
   val push : solver -> unit
-
-  (** Backtracks a number of backtracking points.
-      Note that an exception is thrown if the integer is not smaller than {!get_num_scopes}
-      {!push} *)
   val pop : solver -> int -> unit
-
-  (** Resets the Solver.
-      This removes all assertions from the solver. *)
   val reset : solver -> unit
-
-  (** Assert a constraint (or multiple) into the solver. *)        
-  val add : solver -> Expr.expr list -> unit
-
-  (** * Assert multiple constraints (cs) into the solver, and track them (in the
-      * unsat) core
-      * using the Boolean constants in ps.
-      *
-      * This API is an alternative to {!check} with assumptions for
-      * extracting unsat cores.
-      * Both APIs can be used in the same solver. The unsat core will contain a
-      * combination
-      * of the Boolean variables provided using {!assert_and_track}
-      * and the Boolean literals
-      * provided using {!check} with assumptions. *)
-  val assert_and_track_l : solver -> Expr.expr list -> Expr.expr list -> unit
-
-  (** * Assert a constraint (c) into the solver, and track it (in the unsat) core
-      * using the Boolean constant p.
-      * 
-      * This API is an alternative to {!check} with assumptions for
-      * extracting unsat cores.
-      * Both APIs can be used in the same solver. The unsat core will contain a
-      * combination
-      * of the Boolean variables provided using {!assert_and_track}
-      * and the Boolean literals
-      * provided using {!check} with assumptions. *)
-  val assert_and_track : solver -> Expr.expr -> Expr.expr -> unit
-
-  (** The number of assertions in the solver. *)
+  val assert_ : solver -> bool_expr array -> unit
+  val assert_and_track : solver -> bool_expr -> bool_expr -> unit
   val get_num_assertions : solver -> int
-
-  (** The set of asserted formulas. *)
-  val get_assertions : solver -> Expr.expr list
-
-  (** Checks whether the assertions in the solver are consistent or not.
-      
-      {!Model}
-      {!get_unsat_core}
-      {!Proof}     *)
-  val check : solver -> Expr.expr list -> status
-
-  (** The model of the last [Check].
-      
-      The result is [None] if [Check] was not invoked before,
-      if its results was not [SATISFIABLE], or if model production is not enabled. *)
-  val get_model : solver -> Model.model option
-
-  (** The proof of the last [Check].
-      
-      The result is [null] if [Check] was not invoked before,
-      if its results was not [UNSATISFIABLE], or if proof production is disabled. *)
-  val get_proof : solver -> Expr.expr option
-
-  (** The unsat core of the last [Check].
-      
-      The unsat core is a subset of [Assertions]
-      The result is empty if [Check] was not invoked before,
-      if its results was not [UNSATISFIABLE], or if core production is disabled. *)
-  val get_unsat_core : solver -> AST.ast list
-
-  (** A brief justification of why the last call to [Check] returned [UNKNOWN]. *)
+  val get_assertions : solver -> bool_expr array
+  val check : solver -> bool_expr array -> status
+  val get_model : solver -> model option
+  val get_proof : solver -> expr option
+  val get_unsat_core : solver -> ast_vector array
   val get_reason_unknown : solver -> string
-
-  (** Solver statistics. *)
-  val get_statistics : solver -> Statistics.statistics
-
-  (** Creates a new (incremental) solver. 
-      
-      This solver also uses a set of builtin tactics for handling the first 
-      check-sat command, and check-sat commands that take more than a given 
-      number of milliseconds to be solved.  *)    
-  val mk_solver : context -> Symbol.symbol option -> solver
-
-  (** Creates a new (incremental) solver.
-      {!mk_solver} *)        
+  val get_statistics : solver -> statistics
+  val mk_solver : context -> symbol option -> solver
   val mk_solver_s : context -> string -> solver
-
-  (** Creates a new (incremental) solver.  *)
   val mk_simple_solver : context -> solver
-
-  (** Creates a solver that is implemented using the given tactic.
-      
-      The solver supports the commands [Push] and [Pop], but it
-      will always solve each check from scratch. *)
-  val mk_solver_t : context -> Tactic.tactic -> solver
-
-  (** A string representation of the solver. *)
+  val mk_solver_t : context -> tactic -> solver
   val to_string : solver -> string
 end
 
-(** Fixedpoint solving *)
 module Fixedpoint :
 sig
-  type fixedpoint 
-    
-  (** A string that describes all available fixedpoint solver parameters. *)
   val get_help : fixedpoint -> string
-
-  (** Sets the fixedpoint solver parameters. *)
-  val set_params : fixedpoint -> Params.params -> unit
-
-  (** Retrieves parameter descriptions for Fixedpoint solver. *)
-  val get_param_descrs : fixedpoint -> Params.ParamDescrs.param_descrs
-
-  (** Assert a constraints into the fixedpoint solver. *)        
-  val add : fixedpoint -> Expr.expr list -> unit
-
-  (** Register predicate as recursive relation. *)       
-  val register_relation : fixedpoint -> FuncDecl.func_decl -> unit
-
-  (** Add rule into the fixedpoint solver. *)        
-  val add_rule : fixedpoint -> Expr.expr -> Symbol.symbol option -> unit
-
-  (** Add table fact to the fixedpoint solver. *)        
-  val add_fact : fixedpoint -> FuncDecl.func_decl -> int list -> unit
-
-  (** Query the fixedpoint solver.
-      A query is a conjunction of constraints. The constraints may include the recursively defined relations.
-      The query is satisfiable if there is an instance of the query variables and a derivation for it.
-      The query is unsatisfiable if there are no derivations satisfying the query variables.  *)        
-  val query : fixedpoint -> Expr.expr -> Solver.status
-
-  (** Query the fixedpoint solver.
-      A query is an array of relations.
-      The query is satisfiable if there is an instance of some relation that is non-empty.
-      The query is unsatisfiable if there are no derivations satisfying any of the relations. *)        
-  val query_r : fixedpoint -> FuncDecl.func_decl list -> Solver.status
-
-  (** Creates a backtracking point.
-      {!pop} *)
+  val set_params : fixedpoint -> params -> unit
+  val get_param_descrs : fixedpoint -> param_descrs
+  val assert_ : fixedpoint -> bool_expr array -> unit
+  val register_relation : fixedpoint -> func_decl -> unit
+  val add_rule : fixedpoint -> bool_expr -> symbol option -> unit
+  val add_fact : fixedpoint -> func_decl -> int array -> unit
+  val query : fixedpoint -> bool_expr -> status
+  val query_r : fixedpoint -> func_decl array -> status
   val push : fixedpoint -> unit
-
-  (** Backtrack one backtracking point.
-
-      Note that an exception is thrown if Pop is called without a corresponding [Push]</remarks>
-      {!push} *)
   val pop : fixedpoint -> unit
-
-  (** Update named rule into in the fixedpoint solver. *)        
-  val update_rule : fixedpoint -> Expr.expr -> Symbol.symbol -> unit
-
-  (** Retrieve satisfying instance or instances of solver, 
-      or definitions for the recursive predicates that show unsatisfiability. *)                
-  val get_answer : fixedpoint -> Expr.expr option
-
-  (** Retrieve explanation why fixedpoint engine returned status Unknown. *)                
+  val update_rule : fixedpoint -> bool_expr -> symbol -> unit
+  val get_answer : fixedpoint -> expr option
   val get_reason_unknown : fixedpoint -> string
-
-  (** Retrieve the number of levels explored for a given predicate. *)                
-  val get_num_levels : fixedpoint -> FuncDecl.func_decl -> int
-
-  (** Retrieve the cover of a predicate. *)                
-  val get_cover_delta : fixedpoint -> int -> FuncDecl.func_decl -> Expr.expr option
-
-  (** Add <tt>property</tt> about the <tt>predicate</tt>.
-      The property is added at <tt>level</tt>. *)                
-  val add_cover : fixedpoint -> int -> FuncDecl.func_decl -> Expr.expr -> unit
-
-  (** Retrieve internal string representation of fixedpoint object. *)
+  val get_num_levels : fixedpoint -> func_decl -> int
+  val get_cover_delta : fixedpoint -> int -> func_decl -> expr option
+  val add_cover : fixedpoint -> int -> func_decl -> expr -> unit
   val to_string : fixedpoint -> string
-
-  (** Instrument the Datalog engine on which table representation to use for recursive predicate. *)                
-  val set_predicate_representation : fixedpoint -> FuncDecl.func_decl -> Symbol.symbol list -> unit
-
-  (** Convert benchmark given as set of axioms, rules and queries to a string. *)                
-  val to_string_q : fixedpoint -> Expr.expr list -> string
-
-  (** Retrieve set of rules added to fixedpoint context. *)                
-  val get_rules : fixedpoint -> Expr.expr list
-
-  (** Retrieve set of assertions added to fixedpoint context. *)                
-  val get_assertions : fixedpoint -> Expr.expr list
-
-  (** Create a Fixedpoint context. *)
+  val set_predicate_representation : fixedpoint -> func_decl -> symbol array -> unit
+  val to_string_q : fixedpoint -> bool_expr array -> string
+  val get_rules : fixedpoint -> bool_expr array
+  val get_assertions : fixedpoint -> bool_expr array
   val mk_fixedpoint : context -> fixedpoint
 end
 
-(** Functions for handling SMT and SMT2 expressions and files *)
+module Options :
+sig
+  val update_param_value : context -> string -> string -> unit
+  val get_param_value : context -> string -> string option
+  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
+  val toggle_warning_messages : bool -> unit
+end
+
 module SMT :
 sig
-  (** Convert a benchmark into an SMT-LIB formatted string.
-
-      @return A string representation of the benchmark. *)
-  val benchmark_to_smtstring : context -> string -> string -> string -> string -> Expr.expr list -> Expr.expr -> string
-
-  (** Parse the given string using the SMT-LIB parser. 
-      
-      The symbol table of the parser can be initialized using the given sorts and declarations. 
-      The symbols in the arrays in the third and fifth argument 
-      don't need to match the names of the sorts and declarations in the arrays in the fourth 
-      and sixth argument. This is a useful feature since we can use arbitrary names to 
-      reference sorts and declarations. *)
-  val parse_smtlib_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** Parse the given file using the SMT-LIB parser. 
-      {!parse_smtlib_string} *)
-  val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
-
-  (** The number of SMTLIB formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
+  val benchmark_to_smtstring : context -> string -> string -> string -> string -> bool_expr array -> bool_expr -> string
+  val parse_smtlib_string : context -> string -> symbol array -> sort array -> symbol array -> func_decl array -> unit
+  val parse_smtlib_file : context -> string -> symbol array -> sort array -> symbol array -> func_decl array -> unit
   val get_num_smtlib_formulas : context -> int
-
-  (** The formulas parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_formulas : context -> Expr.expr list
-
-  (** The number of SMTLIB assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
+  val get_smtlib_formulas : context -> bool_expr array
   val get_num_smtlib_assumptions : context -> int
-
-  (** The assumptions parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_assumptions : context -> Expr.expr list
-
-  (** The number of SMTLIB declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
+  val get_smtlib_assumptions : context -> bool_expr array
   val get_num_smtlib_decls : context -> int
-
-  (** The declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_decls : context -> FuncDecl.func_decl list
-
-  (** The number of SMTLIB sorts parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
+  val get_smtlib_decls : context -> func_decl array
   val get_num_smtlib_sorts : context -> int
-
-  (** The sort declarations parsed by the last call to [ParseSMTLIBString] or [ParseSMTLIBFile]. *)
-  val get_smtlib_sorts : context -> Sort.sort list
-
-  (** Parse the given string using the SMT-LIB2 parser. 
-
-      {!parse_smtlib_string}
-      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
-  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
-
-  (** Parse the given file using the SMT-LIB2 parser. 
-      {!parse_smtlib2_string} *)
-  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+  val get_smtlib_sorts : context -> sort array
+  val parse_smtlib2_string : context -> string -> symbol array -> sort array -> symbol array -> func_decl array -> bool_expr
+  val parse_smtlib2_file : context -> string -> symbol array -> sort array -> symbol array -> func_decl array -> bool_expr
 end
 
-(** Interpolation *)
-module Interpolation :
-sig
-
-  (** Create an AST node marking a formula position for interpolation.
-      The expression must have Boolean sort. *)
-  val mk_interpolant : context -> Expr.expr -> Expr.expr
-    
-  (** The interpolation context is suitable for generation of interpolants.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val mk_interpolation_context : (string * string) list -> context
-
-  (** Gets an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> AST.ASTVector.ast_vector
-
-  (** Computes an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (AST.ASTVector.ast_vector * Model.model)
-
-  (** Retrieves an interpolation profile.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolation_profile : context -> string
-    
-  (** Read an interpolation problem from file.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
-    
-  (** Check the correctness of an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
-
-  (** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
-
-end
-
-(** Set a global (or module) parameter, which is shared by all Z3 contexts.
-    
-    When a Z3 module is initialized it will use the value of these parameters
-    when Z3_params objects are not provided.
-    The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
-    The character '.' is a delimiter (more later).
-    The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
-    Thus, the following parameter names are considered equivalent: "pp.decimal-precision"  and "PP.DECIMAL_PRECISION".
-    This function can be used to set parameters for a specific Z3 module.
-    This can be done by using <module-name>.<parameter-name>.
-    For example:
-    (set_global_param "pp.decimal" "true")
-    will set the parameter "decimal" in the module "pp" to true.
-*)
 val set_global_param : string -> string -> unit
-
-(** Get a global (or module) parameter.
-    
-    Returns None if the parameter does not exist.
-    The caller must invoke #Z3_global_param_del_value to delete the value returned at param_value.
-    This function cannot be invoked simultaneously from different threads without synchronization.
-    The result string stored in param_value is stored in a shared location.
-*)
 val get_global_param : string -> string option
-
-(** Restore the value of all global (and module) parameters.
-    
-    This command will not affect already created objects (such as tactics and solvers)
-    {!set_global_param}
-*)
-
-val global_param_reset_all : unit -> unit
-  
-(** Enable/disable printing of warning messages to the console.
-    
-    Note that this function is static and effects the behaviour of 
-    all contexts globally. *)
-val toggle_warning_messages : bool -> unit
-  
+val global_param_reset_all : unit
