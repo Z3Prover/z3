@@ -1236,7 +1236,7 @@ class JavaExampleComponent(ExampleComponent):
     def mk_makefile(self, out):
         if JAVA_ENABLED:
             pkg = get_component(JAVA_COMPONENT).package_name + '.jar'
-            out.write('_ex_%s: %s' % (self.name, pkg))
+            out.write('JavaExample.class: %s' % (pkg))
             deps = ''
             for jfile in get_java_files(self.ex_dir):
                 out.write(' %s' % os.path.join(self.to_ex_dir, jfile))
@@ -1248,7 +1248,8 @@ class JavaExampleComponent(ExampleComponent):
             for javafile in get_java_files(self.ex_dir):
                 out.write(' ')
                 out.write(os.path.join(win_ex_dir, javafile))
-            out.write(' -d .\n\n')
+            out.write(' -d .\n')
+            out.write('_ex_%s: JavaExample.class\n\n' % (self.name))
 
 class PythonExampleComponent(ExampleComponent):
     def __init__(self, name, path):
