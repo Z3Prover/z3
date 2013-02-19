@@ -1350,10 +1350,17 @@ class MLComponent(Component):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
                 shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
+            cmis = '%s/z3enums.cmi %s/z3native.cmi %s/z3.cmi' % (src_dir,src_dir,src_dir)
+            out.write('%s/z3enums.cmi: %s/z3enums.mli\n' % (src_dir,src_dir))
+            out.write('\t%s -I %s  -c %s/z3enums.mli\n' % (OCAMLC,src_dir,src_dir))
+            out.write('%s/z3native.cmi: %s/z3native.mli\n' % (src_dir,src_dir))
+            out.write('\t%s -I %s -c %s/z3native.mli\n' % (OCAMLC,src_dir,src_dir))
+            out.write('%s/z3.cmi: %s/z3.mli\n' % (src_dir,src_dir))
+            out.write('\t%s -I %s -c %s/z3.mli\n' % (OCAMLC,src_dir,src_dir))
             out.write('api/ml/libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
             out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, api_src, src_dir))
             out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
-            out.write('api/ml/z3.cmxa: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('api/ml/z3.cmxa: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(src_dir, mlfile))
             out.write('\n')
@@ -1361,7 +1368,7 @@ class MLComponent(Component):
             if DEBUG_MODE:
                 out.write('-g ')
             out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (api_src,src_dir,src_dir,src_dir,src_dir))
-            out.write('api/ml/z3.cma: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT)' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('api/ml/z3.cma: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
                 out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
             out.write('\n')
@@ -2732,6 +2739,76 @@ def mk_z3consts_ml(api_files):
     efile.write('end\n')
     if VERBOSE:
         print "Generated '%s/z3enums.ml'" % ('%s' % gendir)
+    efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
+    efile.write('(* Automatically generated file *)\n\n')
+    efile.write('(** The enumeration types of Z3. *)\n\n')
+    for api_file in api_files:
+        api_file_c = ml.find_file(api_file, ml.name)
+        api_file   = os.path.join(api_file_c.src_dir, api_file)
+
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1 
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    if name not in DeprecatedEnums:
+                        efile.write('(** %s *)\n' % name[3:])
+                        efile.write('type %s =\n' % name[3:]) # strip Z3_
+                        for k, i in decls.iteritems():
+                            efile.write('  | %s \n' % k[3:]) # strip Z3_
+                        efile.write('\n')
+                        efile.write('(** Convert %s to int*)\n' % name[3:])
+                        efile.write('val int_of_%s : %s -> int\n' % (name[3:], name[3:])) # strip Z3_
+                        efile.write('(** Convert int to %s*)\n' % name[3:])
+                        efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
+                        efile.write('\n')
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+    if VERBOSE:
+        print "Generated '%s/z3enums.mli'" % ('%s' % gendir)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
