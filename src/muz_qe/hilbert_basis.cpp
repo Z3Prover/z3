@@ -87,7 +87,39 @@ public:
     unsigned size() const {
         return m_table.size();
     }
+
+    void display(std::ostream& out) const {
+        int_table::iterator it = m_table.begin(), end = m_table.end();
+        for (; it != end; ++it) {
+            offset_t offs(*it);
+            hb.display(out, offs);            
+        }
+        display_profile(out);
+    }
+
 private:
+
+    typedef hashtable<numeral, numeral::hash_proc, numeral::eq_proc> numeral_set;
+
+    void display_profile(std::ostream& out) const {
+        vector<numeral_set> weights;
+        weights.resize(hb.get_num_vars()+1);
+        int_table::iterator it = m_table.begin(), end = m_table.end();
+        for (; it != end; ++it) {
+            offset_t offs(*it);
+            values const& ws = hb.vec(offs);
+            weights[0].insert(ws.weight());
+            for (unsigned i = 0; i < hb.get_num_vars(); ++i) {
+                weights[i+1].insert(ws[i]);
+            }            
+        }
+        out << "profile: "; 
+        for (unsigned i = 0; i < weights.size(); ++i) {
+            out << weights[i].size() << " ";
+        }
+        out << "\n";
+    }
+
     void display_profile(offset_t idx, std::ostream& out) {
         unsigned_vector leq;
         unsigned nv = hb.get_num_vars();
@@ -130,14 +162,19 @@ private:
 };
 
 class hilbert_basis::value_index2 {
-    struct checker : public heap_trie<numeral, unsigned>::check_value {
+    struct key_le {
+        static bool le(numeral const& n1, numeral const& n2) {
+            return hilbert_basis::is_abs_geq(n2, n1);
+        }
+    };
+    struct checker : public heap_trie<numeral, key_le, unsigned>::check_value {
         hilbert_basis* hb;
-        offset_t m_value;
-        offset_t m_found;
-        checker(): hb(0) {}
+        offset_t  m_value;
+        offset_t* m_found;
+        checker(): hb(0), m_found(0) {}
         virtual bool operator()(unsigned const& v) {
             if (m_value.m_offset != v && hb->is_subsumed(m_value, offset_t(v))) {
-                m_found = offset_t(v);
+                *m_found = offset_t(v);
                 return true;
             }
             else {
@@ -146,11 +183,25 @@ class hilbert_basis::value_index2 {
         }
     };
     hilbert_basis&               hb;
-    heap_trie<numeral, unsigned> m_trie;
+    heap_trie<numeral, key_le, unsigned> m_trie;
     vector<unsigned>             m_found;
     bool                         m_init;
     checker                      m_checker;
-    
+    vector<numeral>              m_keys;
+
+#if 1    
+    numeral const* get_keys(values const& vs) {
+        return vs()-1;
+    }
+#else
+    numeral const* get_keys(values const& vs) {
+        unsigned sz = m_keys.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            m_keys[sz-i-1] = vs()[i-1];
+        }
+        return m_keys.c_ptr();
+    }
+#endif
 
 public:
     value_index2(hilbert_basis& hb): hb(hb), m_init(false) {
@@ -159,50 +210,23 @@ public:
 
     void insert(offset_t idx, values const& vs) {
         init();
-        m_trie.insert(vs()-1, idx.m_offset);
+        m_trie.insert(get_keys(vs), idx.m_offset);
     }
 
     void remove(offset_t idx, values const& vs) {
-        m_trie.remove(vs()-1);
+        m_trie.remove(get_keys(vs));
     }
 
     void reset() {
-        m_trie.reset(hb.get_num_vars());
+        m_trie.reset(hb.get_num_vars()+1);
+        m_keys.resize(hb.get_num_vars()+1);
     }
 
     bool find(offset_t idx, values const& vs, offset_t& found_idx) {
         init();
-        m_found.reset();
         m_checker.m_value = idx;
-        if (!m_trie.find_le(vs()-1, m_checker)) {
-            return false;
-        }
-        else {
-            found_idx = m_checker.m_found;
-            return true;
-        }        
-    }
-
-    bool find_old(offset_t idx, values const& vs, offset_t& found_idx) {
-        init();
-        m_found.reset();
-        m_trie.find_le(vs()-1, m_found);
-        std::cout << m_found.size() << " - ";
-        for (unsigned i = 0; i < m_found.size(); ++i) {
-            found_idx = offset_t(m_found[i]);
-            std::cout << i << " ";
-            if (m_found[i] != idx.m_offset && hb.is_subsumed(idx, found_idx)) {
-                TRACE("hilbert_basis", 
-                      hb.display(tout << "found:" , idx);
-                      hb.display(tout << "-> ", found_idx);
-                      m_trie.display(tout););       
-                std::cout << "\n";
-                return true;
-            }
-        }
-        std::cout << "\n";
-        TRACE("hilbert_basis", tout << "not found: "; hb.display(tout, idx); );
-        return false;
+        m_checker.m_found = &found_idx;
+        return m_trie.find_le(get_keys(vs), m_checker);
     }
 
     void collect_statistics(statistics& st) const {
@@ -215,6 +239,10 @@ public:
 
     unsigned size() const {
         return m_trie.size();
+    }
+
+    void display(std::ostream& out) const {
+        // m_trie.display(out);
     }
 
 private:
@@ -232,8 +260,8 @@ class hilbert_basis::index {
     // for each non-positive weight a separate index.
     // for positive weights a shared value index.
 
-    typedef value_index1 value_index;
-    // typedef value_index2 value_index;
+    // typedef value_index1 value_index;
+    typedef value_index2 value_index;
 
     struct stats {
         unsigned m_num_find;
@@ -328,6 +356,15 @@ public:
             it->m_value->reset_statistics();
         }
     }
+
+    void display(std::ostream& out) const {
+        m_pos.display(out);
+        m_zero.display(out);
+        value_map::iterator it = m_neg.begin(), end = m_neg.end();
+        for (; it != end; ++it) {
+            it->m_value->display(out);
+        }
+    }
     
 private:
     unsigned size() const {
@@ -347,15 +384,16 @@ private:
 
 class hilbert_basis::passive {
     struct lt {
-        passive& p;
-        lt(passive& p): p(p) {}
+        passive** p;
+        lt(passive** p): p(p) {}
         bool operator()(int v1, int v2) const {
-            return p(v1, v2);
+            return (**p)(v1, v2);
         }
     };
     hilbert_basis&      hb;
     svector<offset_t>   m_passive;
     unsigned_vector     m_free_list;
+    passive*            m_this;
     lt                  m_lt;
     heap<lt>            m_heap;    // binary heap over weights
 
@@ -371,10 +409,11 @@ class hilbert_basis::passive {
 public:
     
     passive(hilbert_basis& hb): 
-        hb(hb) ,
-        m_lt(*this),
+        hb(hb),
+        m_lt(&m_this),
         m_heap(10, m_lt)
     {
+        m_this = this;
     }
 
     void reset() {
@@ -529,7 +568,7 @@ void hilbert_basis::add_eq(num_vector const& v) {
 
 void hilbert_basis::set_is_int(unsigned var_index) {
     //
-    // The 0't index is reserved for the constant
+    // The 0'th index is reserved for the constant
     // coefficient. Shift indices by 1.
     //
     m_ints.push_back(var_index+1);
@@ -550,7 +589,7 @@ unsigned hilbert_basis::get_num_vars() const {
 }
 
 hilbert_basis::values hilbert_basis::vec(offset_t offs) const {
-    return values(m_store.c_ptr() + offs.m_offset);
+    return values(m_store.c_ptr() + (get_num_vars() + 1)*offs.m_offset);
 }
 
 void hilbert_basis::init_basis() {
@@ -680,7 +719,7 @@ void hilbert_basis::select_inequality() {
     for (unsigned j = best+1; prod != 0 && j < m_ineqs.size(); ++j) {
         unsigned non_zeros2 = get_num_nonzeros(m_ineqs[j]);
         unsigned prod2 = get_ineq_product(m_ineqs[j]);
-        if (prod2 < prod || (prod2 == prod && non_zeros2 < non_zeros)) {
+        if (non_zeros2 < non_zeros || (non_zeros2 == non_zeros && prod2 < prod)) {
             prod = prod2;
             non_zeros = non_zeros2;
             best = j;
@@ -733,7 +772,6 @@ void hilbert_basis::resolve(offset_t i, offset_t j, offset_t r) {
         u[k] = v[k] + w[k];
     }
     u.weight() = v.weight() + w.weight();
-    // std::cout << "resolve: " << v.weight() << " + " << w.weight() << " = " << u.weight() << "\n";
     TRACE("hilbert_basis_verbose",
           display(tout, i); 
           display(tout, j); 
@@ -747,7 +785,7 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
         unsigned num_vars = get_num_vars();
         unsigned idx =  m_store.size();
         m_store.resize(idx + 1 + num_vars);
-        return offset_t(idx);
+        return offset_t(idx/(1+num_vars));
     }
     else {
         offset_t result = m_free_list.back();
@@ -757,6 +795,7 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
 }
 
 void hilbert_basis::add_goal(offset_t idx) {
+    TRACE("hilbert_basis", display(tout, idx););
     values v = vec(idx);
     if (is_subsumed(idx)) {
         return;
@@ -851,6 +890,9 @@ void hilbert_basis::display(std::ostream& out) const {
         for (unsigned i = 0; i < m_zero.size(); ++i) {
             display(out, m_zero[i]);
         }
+    }
+    if (m_index) {
+        m_index->display(out);
     }
 }
 
@@ -954,7 +996,7 @@ bool hilbert_basis::is_geq(values const& v, values const& w) const {
     return true;
 }
 
-bool hilbert_basis::is_abs_geq(numeral const& v, numeral const& w) const {
+bool hilbert_basis::is_abs_geq(numeral const& v, numeral const& w) {
     if (w.is_neg()) {
         return v <= w;
     }

@@ -100,7 +100,7 @@ private:
     unsigned get_num_vars() const;
     numeral get_weight(values const & val, num_vector const& ineq) const;
     bool is_geq(values const& v, values const& w) const;
-    bool is_abs_geq(numeral const& v, numeral const& w) const;
+    static bool is_abs_geq(numeral const& v, numeral const& w);
     bool is_subsumed(offset_t idx);
     bool is_subsumed(offset_t i, offset_t j) const;
     void recycle(offset_t idx);

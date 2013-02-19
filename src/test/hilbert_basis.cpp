@@ -510,7 +510,7 @@ void tst_hilbert_basis() {
         tst1();
         tst2();
         tst3();
-        // tst4();
+        tst4();
         tst5();
         tst6();
         tst7();
@@ -530,6 +530,5 @@ void tst_hilbert_basis() {
     }
     else {
         gorrila_test(0, 10, 7, 20, 11);
-        tst4();
     }
 }

@@ -29,6 +29,9 @@ Notes:
 
     Maintaining sorted ranges for larger domains is another option.
 
+    Another possible enhancement is to resplay the tree. 
+    Keep current key index in the nodes.
+
 --*/
 
 #ifndef _HEAP_TRIE_H_
@@ -36,10 +39,12 @@ Notes:
 
 #include "map.h"
 #include "vector.h"
+#include "buffer.h"
 #include "statistics.h"
+#include "small_object_allocator.h"
 
 
-template<typename Key, typename Value>
+template<typename Key, typename KeyLE, typename Value>
 class heap_trie {
 
     struct stats {
@@ -68,7 +73,8 @@ class heap_trie {
         void dec_ref() { SASSERT(m_ref > 0); --m_ref; }
         unsigned ref_count() const { return m_ref; }
         virtual void display(std::ostream& out, unsigned indent) const = 0;
-        virtual unsigned size() const = 0;
+        virtual unsigned num_nodes() const = 0;
+        virtual unsigned num_leaves() const = 0;
     };
 
     class leaf : public node {
@@ -81,19 +87,19 @@ class heap_trie {
         virtual void display(std::ostream& out, unsigned indent) const {
             out << " value: " << m_value;
         }
-        virtual unsigned size() const { return 1; }
+        virtual unsigned num_nodes() const { return 1; }
+        virtual unsigned num_leaves() const { return ref_count()>0?1:0; }
     };
+
+    typedef buffer<std::pair<Key,node*>, true, 2> children_t;
 
     // lean trie node
     class trie : public node {
-        vector<std::pair<Key,node*> > m_nodes;
+        children_t m_nodes;
     public:
         trie(): node(trie_t) {}
 
         virtual ~trie() {
-            for (unsigned i = 0; i < m_nodes.size(); ++i) {
-                dealloc(m_nodes[i].second);
-            }
         }
 
         node* find_or_insert(Key k, node* n) {
@@ -119,7 +125,7 @@ class heap_trie {
         // push nodes whose keys are <= key into vector.
         void find_le(Key key, ptr_vector<node>& nodes) {
             for (unsigned i = 0; i < m_nodes.size(); ++i) {
-                if (m_nodes[i].first <= key) {
+                if (KeyLE::le(m_nodes[i].first, key)) {
                     node* n = m_nodes[i].second;
                     if (n->ref_count() > 0){
                         nodes.push_back(n);
@@ -128,22 +134,35 @@ class heap_trie {
             }
         }
 
+        children_t const& nodes() const { return m_nodes; }
+        children_t & nodes() { return m_nodes; }
+
         virtual void display(std::ostream& out, unsigned indent) const {
             for (unsigned j = 0; j < m_nodes.size(); ++j) {
-                out << "\n";
+                if (j != 0 || indent > 0) {
+                    out << "\n";
+                }
                 for (unsigned i = 0; i < indent; ++i) {
                     out << " ";
                 }
                 node* n = m_nodes[j].second;
-                out << m_nodes[j].first << " count: " << n->ref_count();
+                out << m_nodes[j].first << " refs: " << n->ref_count();
                 n->display(out, indent + 1);
             }
         }
 
-        virtual unsigned size() const {
+        virtual unsigned num_nodes() const {
             unsigned sz = 1;
             for (unsigned j = 0; j < m_nodes.size(); ++j) {
-                sz += m_nodes[j].second->size();
+                sz += m_nodes[j].second->num_nodes();
+            }
+            return sz;
+        }
+
+        virtual unsigned num_leaves() const {
+            unsigned sz = 0;
+            for (unsigned j = 0; j < m_nodes.size(); ++j) {
+                sz += m_nodes[j].second->num_leaves();
             }
             return sz;
         }
@@ -157,18 +176,19 @@ class heap_trie {
             }
             return false;
         }
-
     };
 
+    small_object_allocator m_alloc;
     unsigned m_num_keys;
     node*    m_root;
     stats    m_stats;
     node*    m_spare_leaf;
     node*    m_spare_trie;
-    vector<ptr_vector<node> > m_children;
+
 public:
 
-    heap_trie():         
+    heap_trie():     
+        m_alloc("heap_trie"),
         m_num_keys(0),
         m_root(0),
         m_spare_leaf(0),
@@ -176,19 +196,19 @@ public:
     {}
 
     ~heap_trie() {
-        dealloc(m_root);
-        dealloc(m_spare_leaf);
-        dealloc(m_spare_trie);
+        del_node(m_root);
+        del_node(m_spare_leaf);
+        del_node(m_spare_trie);
     }
 
     unsigned size() const {
-        return m_root->size();
+        return m_root->num_leaves();
     }
 
     void reset(unsigned num_keys) {
-        dealloc(m_root);
-        dealloc(m_spare_leaf);
-        dealloc(m_spare_trie);
+        del_node(m_root);
+        del_node(m_spare_leaf);
+        del_node(m_spare_trie);
         m_num_keys = num_keys;
         m_root = mk_trie();
         m_spare_trie = mk_trie();
@@ -214,7 +234,7 @@ public:
         return true;
     }
 
-    void find_le(Key const* keys, vector<Value>& values) {
+    void find_all_le(Key const* keys, vector<Value>& values) {
         ++m_stats.m_num_find_le;
         ptr_vector<node> todo[2];
         todo[0].push_back(m_root);
@@ -232,7 +252,6 @@ public:
         }
     }
 
-
     // callback based find function
     class check_value {
     public:
@@ -241,28 +260,8 @@ public:
 
     bool find_le(Key const* keys, check_value& check) {
         ++m_stats.m_num_find_le;
-        if (m_children.size() < num_keys()) {
-            m_children.resize(num_keys());
-        }
-        return find_le(m_root, 0, keys, check);
-    }
-
-    bool find_le(node* n, unsigned index, Key const* keys, check_value& check) {
         ++m_stats.m_num_find_le_nodes;
-        if (index == num_keys()) {
-            SASSERT(n->ref_count() > 0);
-            return check(to_leaf(n)->get_value());
-        }
-        else {
-            m_children[index].reset();
-            to_trie(n)->find_le(keys[index], m_children[index]);
-            for (unsigned i = 0; i < m_children[index].size(); ++i) {
-                if (find_le(m_children[index][i], index + 1, keys, check)) {
-                    return true;
-                }
-            }
-            return false;
-        }
+        return find_le(m_root, 0, keys, check);
     }
 
     void remove(Key const* keys) {
@@ -288,9 +287,49 @@ public:
         st.update("heap_trie.num_find_eq", m_stats.m_num_find_eq);
         st.update("heap_trie.num_find_le", m_stats.m_num_find_le);
         st.update("heap_trie.num_find_le_nodes", m_stats.m_num_find_le_nodes);
+        st.update("heap_trie.num_nodes", m_root->num_nodes());
+        unsigned_vector nums;
+        ptr_vector<node> todo;
+        todo.push_back(m_root);
+        while (!todo.empty()) {
+            node* n = todo.back();
+            todo.pop_back();
+            if (n->type() == trie_t) {
+                trie* t = to_trie(n);
+                unsigned sz = t->nodes().size();
+                if (nums.size() <= sz) {
+                    nums.resize(sz+1);
+                }
+                ++nums[sz];
+                for (unsigned i = 0; i < sz; ++i) {
+                    todo.push_back(t->nodes()[i].second);
+                }
+            }
+        }
+        if (nums.size() < 16) nums.resize(16);
+        st.update("heap_trie.num_1_children", nums[1]);
+        st.update("heap_trie.num_2_children", nums[2]);
+        st.update("heap_trie.num_3_children", nums[3]);
+        st.update("heap_trie.num_4_children", nums[4]);
+        st.update("heap_trie.num_5_children", nums[5]);
+        st.update("heap_trie.num_6_children", nums[6]);
+        st.update("heap_trie.num_7_children", nums[7]);
+        st.update("heap_trie.num_8_children", nums[8]);
+        st.update("heap_trie.num_9_children", nums[9]);
+        st.update("heap_trie.num_10_children", nums[10]);
+        st.update("heap_trie.num_11_children", nums[11]);
+        st.update("heap_trie.num_12_children", nums[12]);
+        st.update("heap_trie.num_13_children", nums[13]);
+        st.update("heap_trie.num_14_children", nums[14]);
+        st.update("heap_trie.num_15_children", nums[15]);
+        unsigned sz = 0;
+        for (unsigned i = 16; i < nums.size(); ++i) {
+            sz += nums[i];
+        }
+        st.update("heap_trie.num_16+_children", sz);
     }
 
-    void display(std::ostream& out) {
+    void display(std::ostream& out) const {
         m_root->display(out, 0);
         out << "\n";
     }
@@ -300,23 +339,37 @@ private:
     unsigned num_keys() const { 
         return m_num_keys;
     }
+
+    bool find_le(node* n, unsigned index, Key const* keys, check_value& check) {
+        if (index == num_keys()) {
+            SASSERT(n->ref_count() > 0);
+            return check(to_leaf(n)->get_value());
+        }
+        else {
+            Key key = keys[index];
+            children_t const& nodes = to_trie(n)->nodes();
+            for (unsigned i = 0; i < nodes.size(); ++i) {
+                ++m_stats.m_num_find_le_nodes;
+                if (KeyLE::le(nodes[i].first, key)) {
+                    node* m = nodes[i].second;
+                    if (m->ref_count() > 0 && find_le(m, index+1, keys, check)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
     
     void insert(node* n, unsigned num_keys, Key const* keys, Value const& val) {
         // assumption: key is not in table.
-
-        while (true) {
+        for (unsigned i = 0; i < num_keys; ++i) {
             n->inc_ref();
-            if (num_keys == 0) {
-                to_leaf(n)->set_value(val);
-                SASSERT(n->ref_count() == 1);
-                break;
-            }
-            else {
-                n = insert_key(to_trie(n), (num_keys == 1), keys[0]);
-                --num_keys;
-                ++keys;       
-            } 
+            n = insert_key(to_trie(n), (i + 1 == num_keys), keys[i]);
         }
+        n->inc_ref();
+        to_leaf(n)->set_value(val);
+        SASSERT(n->ref_count() == 1);
     }
 
     node* insert_key(trie* n, bool is_leaf, Key const& key) {
@@ -334,19 +387,40 @@ private:
     }       
 
     leaf* mk_leaf() {
-        return alloc(leaf);
+        void* mem = m_alloc.allocate(sizeof(leaf));
+        return new (mem) leaf();
     }
 
     trie* mk_trie() {
-        return alloc(trie);
+        void* mem = m_alloc.allocate(sizeof(trie));
+        return new (mem) trie();
     }
 
-    trie* to_trie(node* n) {
+    void del_node(node* n) {
+        if (!n) {
+            return;
+        }
+        if (n->type() == trie_t) {
+            trie* t = to_trie(n);
+            for (unsigned i = 0; i < t->nodes().size(); ++i) {
+                del_node(t->nodes()[i].second);
+            }            
+            t->~trie();
+            m_alloc.deallocate(sizeof(trie), t);
+        }
+        else {
+            leaf* l = to_leaf(n);
+            l->~leaf();
+            m_alloc.deallocate(sizeof(leaf), l);
+        }
+    }
+
+    trie* to_trie(node* n) const {
         SASSERT(n->type() == trie_t);
         return static_cast<trie*>(n);
     }
 
-    leaf* to_leaf(node* n) {
+    leaf* to_leaf(node* n) const {
         SASSERT(n->type() == leaf_t);
         return static_cast<leaf*>(n);
     }
