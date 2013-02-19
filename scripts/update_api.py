@@ -1147,49 +1147,66 @@ def mk_ml():
         return
     ml_dir      = get_component('ml').src_dir
     ml_nativef  = os.path.join(ml_dir, 'z3native.ml')
+    ml_nativefi = os.path.join(ml_dir, 'z3native.mli')
     ml_wrapperf = os.path.join(ml_dir, 'z3native.c')
     ml_native   = open(ml_nativef, 'w')
+    ml_i        = open(ml_nativefi, 'w')
     ml_native.write('(* Automatically generated file *)\n\n')
     ml_native.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
+    ml_i.write('(* Automatically generated file *)\n\n')
+    ml_i.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
     ml_native.write('open Z3enums\n\n')
     ml_native.write('(**/**)\n')
     ml_native.write('type ptr\n')
+    ml_i.write('type ptr\n')
     ml_native.write('and z3_symbol = ptr\n')
+    ml_i.write('and z3_symbol = ptr\n')
     for k, v in Type2Str.iteritems():
         if is_obj(k):
             ml_native.write('and %s = ptr\n' % v.lower())
+            ml_i.write('and %s = ptr\n' % v.lower())
     ml_native.write('\n')
-    ml_native.write('external is_null : ptr -> bool\n')
-    ml_native.write('  = "n_is_null"\n\n')
-    ml_native.write('external mk_null : unit -> ptr\n')
-    ml_native.write('  = "n_mk_null"\n\n')
+    ml_i.write('\n')
+    ml_native.write('external is_null : ptr -> bool\n  = "n_is_null"\n\n')
+    ml_native.write('external mk_null : unit -> ptr\n  = "n_mk_null"\n\n')
     ml_native.write('exception Exception of string\n\n')
+    ml_i.write('val is_null : ptr -> bool\n')
+    ml_i.write('val mk_null : unit -> ptr\n')
+    ml_i.write('exception Exception of string\n\n')
 
     # ML declarations
-    ml_native.write('  module ML2C = struct\n\n')
+    ml_native.write('module ML2C = struct\n\n')
     for name, result, params in _dotnet_decls:
         ml_native.write('    external n_%s : ' % ml_method_name(name))
+        ml_i.write('val %s : ' % ml_method_name(name))
         ip = inparams(params)
         op = outparams(params)
         if len(ip) == 0:
-            ml_native.write(' unit -> ')
+           ml_native.write(' unit -> ')
         for p in ip:
             ml_native.write('%s -> ' % param2ml(p))
+            ml_i.write('%s -> ' % param2ml(p))
         if len(op) > 0:
             ml_native.write('(')
+            ml_i.write('(')
         first = True
         if result != VOID or len(op) == 0:
             ml_native.write('%s' % type2ml(result))
+            ml_i.write('%s' % type2ml(result))
             first = False
         for p in op:
             if first:
                 first = False
             else:
                 ml_native.write(' * ')
+                ml_i.write(' * ')
             ml_native.write('%s' % param2ml(p))
+            ml_i.write('%s' % param2ml(p))
         if len(op) > 0:
             ml_native.write(')')
+            ml_i.write(')')
         ml_native.write('\n')
+        ml_i.write('\n')
         ml_native.write('      = "n_%s"\n' % ml_method_name(name))
         if len(ip) > 5:
             ml_native.write('        "n_%s_bytecode"\n' % ml_method_name(name))
@@ -1201,6 +1218,7 @@ def mk_ml():
         ip = inparams(params)
         op = outparams(params)
         ml_native.write('  let %s ' % ml_method_name(name))
+
         first = True
         i = 0;
         for p in params:

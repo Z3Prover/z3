@@ -7,4 +7,4 @@ all:
 
 doc: *.ml
 	mkdir -p doc
-	ocamldoc -html -d doc -I ../../../bld_dbg/api/ml -sort *.ml -hide Z3
+	ocamldoc -html -d doc -I ../../../bld_dbg/api/ml -sort *.mli -hide Z3
