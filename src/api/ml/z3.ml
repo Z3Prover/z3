@@ -240,7 +240,7 @@ struct
       Expr(z3_native_object_of_ast_ptr ctx no)
     else
       let s = Z3native.get_sort (context_gno ctx) no in
-      let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in    
+      let sk = (sort_kind_of_int (Z3native.get_sort_kind (context_gno ctx) s)) in
       if (Z3native.is_algebraic_number (context_gno ctx) no) then
 	Expr(z3_native_object_of_ast_ptr ctx no)
       else
@@ -376,92 +376,99 @@ let expr_of_ast a =
     Expr(a)
 
 let bool_expr_of_expr e =
-  match e with Expr(no) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.BOOL_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       BoolExpr(e)
 	
 let arith_expr_of_expr e =
-  match e with Expr(no) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.INT_SORT && q != Z3enums.REAL_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       ArithExpr(e)
 
 let bitvec_expr_of_expr e =
-  match e with Expr(no) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.BV_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       BitVecExpr(e)
 
 let array_expr_of_expr e =
-  match e with Expr(no) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.ARRAY_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       ArrayExpr(e)
 
 let datatype_expr_of_expr e =
-  match e with Expr(no) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.DATATYPE_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       DatatypeExpr(e)
 
 let int_expr_of_arith_expr e =
-  match e with ArithExpr(Expr(no)) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with ArithExpr(Expr(a)) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.INT_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       IntExpr(e)
 
 let real_expr_of_arith_expr e =
-  match e with ArithExpr(Expr(no)) -> 
-    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with ArithExpr(Expr(a)) -> 
+    let s = Z3native.get_sort (z3obj_gnc a) (z3obj_gno a) in
+    let q = (Z3enums.sort_kind_of_int (Z3native.get_sort_kind (z3obj_gnc a) s)) in
     if (q != Z3enums.REAL_SORT) then
       raise (Z3native.Exception "Invalid coercion")
     else
       RealExpr(e)
 
 let int_num_of_int_expr e =
-  match e with IntExpr(ArithExpr(Expr(no))) -> 
-    if (not (Z3native.is_numeral_ast (z3obj_gnc no) (z3obj_gno no))) then
+  match e with IntExpr(ArithExpr(Expr(a))) -> 
+    if (not (Z3native.is_numeral_ast (z3obj_gnc a) (z3obj_gno a))) then
       raise (Z3native.Exception "Invalid coercion")
     else
       IntNum(e)
 
 let rat_num_of_real_expr e =
-  match e with RealExpr(ArithExpr(Expr(no))) -> 
-    if (not (Z3native.is_numeral_ast (z3obj_gnc no) (z3obj_gno no))) then
+  match e with RealExpr(ArithExpr(Expr(a))) -> 
+    if (not (Z3native.is_numeral_ast (z3obj_gnc a) (z3obj_gno a))) then
       raise (Z3native.Exception "Invalid coercion")
     else
       RatNum(e)
 
 let algebraic_num_of_arith_expr e =
-  match e with ArithExpr(Expr(no)) -> 
-    if (not (Z3native.is_algebraic_number (z3obj_gnc no) (z3obj_gno no))) then
+  match e with ArithExpr(Expr(a)) -> 
+    if (not (Z3native.is_algebraic_number (z3obj_gnc a) (z3obj_gno a))) then
       raise (Z3native.Exception "Invalid coercion")
     else
       AlgebraicNum(e)
 
 let bitvec_num_of_bitvec_expr e =
-  match e with BitVecExpr(Expr(no)) -> 
-    if (not (Z3native.is_numeral_ast (z3obj_gnc no) (z3obj_gno no))) then
+  match e with BitVecExpr(Expr(a)) -> 
+    if (not (Z3native.is_numeral_ast (z3obj_gnc a) (z3obj_gno a))) then
       raise (Z3native.Exception "Invalid coercion")
     else
       BitVecNum(e)
 
 let quantifier_of_expr e =
-  match e with Expr(no) ->
-    let q = (Z3enums.ast_kind_of_int (Z3native.get_ast_kind (z3obj_gnc no) (z3obj_gno no))) in
+  match e with Expr(a) ->
+    let q = (Z3enums.ast_kind_of_int (Z3native.get_ast_kind (z3obj_gnc a) (z3obj_gno a))) in
     if (q != Z3enums.QUANTIFIER_AST) then
       raise (Z3native.Exception "Invalid coercion")
     else
@@ -4378,7 +4385,8 @@ struct
   (** The formulas in the goal. *)
   let get_formulas ( x : goal ) =
     let n = get_size x in 
-    let f i = bool_expr_of_expr (expr_of_ptr (z3obj_gc x) (Z3native.goal_formula (z3obj_gnc x) (z3obj_gno x) i)) in
+    let f i = (bool_expr_of_expr (expr_of_ptr (z3obj_gc x) 
+				    (Z3native.goal_formula (z3obj_gnc x) (z3obj_gno x) i))) in
     Array.init n f
 
   (** The number of formulas, subformulas and terms in the goal. *)

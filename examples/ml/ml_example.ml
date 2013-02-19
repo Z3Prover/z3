@@ -7,6 +7,7 @@ open Z3
 open Z3.Symbol
 open Z3.Sort
 open Z3.Expr
+open Z3.Boolean
 open Z3.FuncDecl
 open Z3.Goal
 open Z3.Tactic
@@ -22,12 +23,20 @@ exception TestFailedException of string
 *)
 let  model_converter_test ( ctx : context ) =
   Printf.printf "ModelConverterTest\n";
-  let xr = ((mk_const ctx (Symbol.mk_string ctx "x") (mk_real_sort ctx )) :> arith_expr) in
-  let yr = ((mk_const ctx (Symbol.mk_string ctx "y") (mk_real_sort ctx )) :> arith_expr) in
+  let xr = (arith_expr_of_expr 
+	      (Expr.mk_const ctx (Symbol.mk_string ctx "x") 
+		 (sort_of_arith_sort (arith_sort_of_real_sort (Real.mk_sort ctx))))) in
+  let yr =  (arith_expr_of_expr
+	       (Expr.mk_const ctx (Symbol.mk_string ctx "y") 
+		  (sort_of_arith_sort (arith_sort_of_real_sort (Real.mk_sort ctx))))) in
   let g4 = (mk_goal ctx true false false ) in
-  (Goal.assert_ g4 [| (mk_gt ctx xr (mk_real_numeral_nd ctx 10 1)) |]) ;
-  (Goal.assert_ g4 [| (mk_eq ctx yr (mk_add ctx [| xr; (mk_real_numeral_nd ctx 1 1)  |] )) |] ) ;
-  (Goal.assert_ g4 [| (mk_gt ctx yr (mk_real_numeral_nd ctx 1 1)) |]) ;
+  (Goal.assert_ g4 [| (mk_gt ctx xr 
+			 (arith_expr_of_real_expr (real_expr_of_rat_num 
+						     (Real.mk_numeral_nd ctx 10 1)))) |]) ;
+  (Goal.assert_ g4 [| (mk_eq ctx 
+			 (expr_of_arith_expr yr) 
+			 (expr_of_arith_expr (mk_add ctx [| xr; (arith_expr_of_real_expr (real_expr_of_rat_num (Real.mk_numeral_nd ctx 1 1)))  |] ))) |] ) ;
+  (Goal.assert_ g4 [| (mk_gt ctx yr (arith_expr_of_real_expr (real_expr_of_rat_num (Real.mk_numeral_nd ctx 1 1)))) |]) ;
   (
     let  ar = (Tactic.apply (mk_tactic ctx "simplify") g4 None) in
     if ((get_num_subgoals ar) == 1 && 
@@ -67,15 +76,15 @@ let  model_converter_test ( ctx : context ) =
 *)
 let basic_tests ( ctx : context ) =
   Printf.printf "BasicTests\n" ;
-  let qi = (mk_int ctx 1) in
+(*  let qi = (mk_int ctx 1) in *)
   let fname = (mk_string ctx "f") in
   let x = (mk_string ctx "x") in
   let y = (mk_string ctx "y") in
-  let bs = (Sort.mk_bool ctx) in
+  let bs = (sort_of_bool_sort (Boolean.mk_sort ctx)) in
   let domain = [| bs; bs |] in
   let f = (FuncDecl.mk_func_decl ctx fname domain bs) in
   let fapp = (mk_app ctx f 
-		[| (mk_const ctx x bs); (mk_const ctx y bs) |]) in
+		[| (Expr.mk_const ctx x bs); (Expr.mk_const ctx y bs) |]) in
   let fargs2 = [| (mk_fresh_const ctx "cp" bs) |] in
   let domain2 = [| bs |] in
   let fapp2 = (mk_app ctx (mk_fresh_func_decl ctx "fp" domain2 bs) fargs2) in
@@ -110,8 +119,11 @@ let basic_tests ( ctx : context ) =
     else
       Printf.printf "Test passed.\n"
   );
-  (Goal.assert_ g [| (mk_eq ctx (mk_numeral_int ctx 1 (BitVectors.mk_sort ctx 32))
-			(mk_numeral_int ctx 2 (BitVectors.mk_sort ctx 32))) |] )
+  (Goal.assert_ g [| (mk_eq ctx 
+			(mk_numeral_int ctx 1 
+			   (sort_of_bitvec_sort (BitVector.mk_sort ctx 32)))
+			(mk_numeral_int ctx 2 
+			   (sort_of_bitvec_sort (BitVector.mk_sort ctx 32)))) |] )
   ;
   (
     let ar = (Tactic.apply (mk_tactic ctx "smt") g None) in
@@ -132,7 +144,7 @@ let basic_tests ( ctx : context ) =
   );
   (
     let g2 = (mk_goal ctx true true false) in
-    (Goal.assert_ g2 [| (mk_false ctx) |]) ;
+    (Goal.assert_ g2 [| (Boolean.mk_false ctx) |]) ;
     let ar = (Tactic.apply (mk_tactic ctx "smt") g2 None) in
     if ((get_num_subgoals ar) == 1 && 
 	   (not (is_decided_unsat (get_subgoal ar 0)))) then
@@ -142,10 +154,10 @@ let basic_tests ( ctx : context ) =
   );
   (
     let g3 = (mk_goal ctx true true false) in
-    let xc = (mk_const ctx (Symbol.mk_string ctx "x") (mk_int_sort ctx)) in
-    let yc = (mk_const ctx (Symbol.mk_string ctx "y") (mk_int_sort ctx)) in
-    (Goal.assert_ g3 [| (mk_eq ctx xc (mk_numeral_int ctx 1 (mk_int_sort ctx))) |]) ;
-    (Goal.assert_ g3 [| (mk_eq ctx yc (mk_numeral_int ctx 2 (mk_int_sort ctx))) |]) ;
+    let xc = (Expr.mk_const ctx (Symbol.mk_string ctx "x") (sort_of_arith_sort (arith_sort_of_int_sort (Integer.mk_sort ctx)))) in
+    let yc = (Expr.mk_const ctx (Symbol.mk_string ctx "y") (sort_of_arith_sort (arith_sort_of_int_sort (Integer.mk_sort ctx)))) in
+    (Goal.assert_ g3 [| (mk_eq ctx xc (mk_numeral_int ctx 1 (sort_of_arith_sort (arith_sort_of_int_sort (Integer.mk_sort ctx))))) |]) ;
+    (Goal.assert_ g3 [| (mk_eq ctx yc (mk_numeral_int ctx 2 (sort_of_arith_sort (arith_sort_of_int_sort (Integer.mk_sort ctx))))) |]) ;
     let constr = (mk_eq ctx xc yc) in
     (Goal.assert_ g3 [| constr |] ) ;
     let ar = (Tactic.apply (mk_tactic ctx "smt") g3 None) in
@@ -208,14 +220,14 @@ let _ =
       let ctx = (mk_context cfg) in
       let is = (Symbol.mk_int ctx 42) in
       let ss = (Symbol.mk_string ctx "mySymbol") in
-      let bs = (Sort.mk_bool ctx) in
-      let ints = (mk_int_sort ctx) in
-      let rs = (mk_real_sort ctx) in
+      let bs = (Boolean.mk_sort ctx) in
+      let ints = (Integer.mk_sort ctx) in
+      let rs = (Real.mk_sort ctx) in
       Printf.printf "int symbol: %s\n" (Symbol.to_string is);
       Printf.printf "string symbol: %s\n" (Symbol.to_string ss);
-      Printf.printf "bool sort: %s\n" (Sort.to_string bs);
-      Printf.printf "int sort: %s\n" (Sort.to_string ints);
-      Printf.printf "real sort: %s\n" (Sort.to_string rs);
+      Printf.printf "bool sort: %s\n" (Sort.to_string (sort_of_bool_sort bs));
+      Printf.printf "int sort: %s\n" (Sort.to_string (sort_of_arith_sort (arith_sort_of_int_sort ints)));
+      Printf.printf "real sort: %s\n" (Sort.to_string (sort_of_arith_sort (arith_sort_of_real_sort rs)));
       basic_tests ctx ;
       Printf.printf "Disposing...\n";
       Gc.full_major ()
