@@ -93,13 +93,7 @@ type quantifier = Quantifier of expr
 type pattern = Pattern of ast
 
 (* Datatype stuff *)
-type constructor_extra = { 
-  m_n : int; 
-  mutable m_tester_decl : func_decl option; 
-  mutable m_constructor_decl : func_decl option ; 
-  mutable m_accessor_decls : func_decl array option}
-
-type constructor = Constructor of (z3_native_object * constructor_extra)
+type constructor = z3_native_object
 type constructor_list = z3_native_object 
 
 (* Tactical interface *)
@@ -2358,7 +2352,8 @@ struct
   (** Constructors *)
   module Constructor = 
   struct
-    
+    let _counts = Hashtbl.create 0
+
     let create ( ctx : context ) ( name : symbol ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array ) =
       let n = (Array.length field_names) in
       if n != (Array.length sorts) then
@@ -2373,53 +2368,31 @@ struct
 		     (let f x = (Symbol.gno x) in (Array.map f field_names))
 		     (let f x = (ptr_of_ast (ast_of_sort x)) in  (Array.map f sorts))
 		     sort_refs) in	  
-	  let no : z3_native_object = { m_ctx = ctx ;
-					m_n_obj = null ;
-					inc_ref = z3obj_nil_ref ;
-					dec_ref = z3obj_nil_ref} in
-	  let ex : constructor_extra =  { m_n = n; 
-					  m_tester_decl = None; 
-					  m_constructor_decl = None; 
-					  m_accessor_decls = None} in
+	  let no : constructor = { m_ctx = ctx ;
+				   m_n_obj = null ;
+				   inc_ref = z3obj_nil_ref ;
+				   dec_ref = z3obj_nil_ref} in
+	  Hashtbl.add _counts no n ; 
 	  (z3obj_sno no ctx ptr) ;
 	  (z3obj_create no) ;
 	  let f = fun o -> Z3native.del_constructor (z3obj_gnc o) (z3obj_gno o) in
 	  Gc.finalise f no ;
-	  Constructor(no, ex)
+	  no    	  
 
-    let init_extra ( x : constructor ) =
-      match x with Constructor(no, ex) ->
-	match ex.m_tester_decl with
-	  | None -> 
-	    let (a, b, c) = (Z3native.query_constructor (z3obj_gnc no) (z3obj_gno no) ex.m_n) in
-	    ex.m_constructor_decl <- Some (func_decl_of_ptr (z3obj_gc no) a) ;
-	    ex.m_tester_decl <- Some (func_decl_of_ptr (z3obj_gc no) b) ;	
-	    ex.m_accessor_decls <- Some (let f e = (func_decl_of_ptr (z3obj_gc no) e) in Array.map f c) ;
-	    ()
-	  | _ -> ()
-    	  
-
-    let get_n ( x : constructor ) = 
-      match x with Constructor(no, ex) ->
-	ex.m_n
+    let get_n ( x : constructor ) = (Hashtbl.find _counts x)
     
-    let rec tester_decl ( x : constructor ) = 
-      match x with Constructor(no, ex) ->
-	match ex.m_tester_decl with
-	  | Some(s) -> s
-	  | None -> init_extra x ; tester_decl x
-	    
     let rec constructor_decl ( x : constructor ) = 
-      match x with Constructor(no, ex) ->
-	match ex.m_constructor_decl with
-	  | Some(s) -> s
-	  | None -> init_extra x ; constructor_decl x
+      let (a, _, _) = (Z3native.query_constructor (z3obj_gnc x) (z3obj_gno x) (Hashtbl.find _counts x)) in
+      func_decl_of_ptr (z3obj_gc x) a
+
+    let rec tester_decl ( x : constructor ) = 
+      let (_, b, _) = (Z3native.query_constructor (z3obj_gnc x) (z3obj_gno x) (Hashtbl.find _counts x)) in
+      func_decl_of_ptr (z3obj_gc x) b	
 	    
     let rec accessor_decls ( x : constructor ) = 
-      match x with Constructor(no, ex) ->
-	match ex.m_accessor_decls with
-	  | Some(s) -> s
-	  | None -> init_extra x ; accessor_decls x
+      let (_, _, c) = (Z3native.query_constructor (z3obj_gnc x) (z3obj_gno x) (Hashtbl.find _counts x)) in
+      let f y = func_decl_of_ptr (z3obj_gc x) y in
+      Array.map f c
 	          	
     (** The number of fields of the constructor. *)
     let get_num_fields ( x : constructor ) = get_n x
@@ -2443,7 +2416,7 @@ struct
 				     m_n_obj = null ;
 				     inc_ref = z3obj_nil_ref ;
 				     dec_ref = z3obj_nil_ref} in
-      let f x = match x with Constructor(no,_) -> (z3obj_gno no) in 
+      let f x =(z3obj_gno x) in 
       (z3obj_sno res ctx (Z3native.mk_constructor_list (context_gno ctx) (Array.length c) (Array.map f c))) ;
       (z3obj_create res) ;
       let f = fun o -> Z3native.del_constructor_list (z3obj_gnc o) (z3obj_gno o) in      
@@ -2462,7 +2435,7 @@ struct
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared.
   *)
-  let mk_constructor ( ctx : context ) ( name : symbol ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array) =
+  let mk_constructor ( ctx : context ) ( name : symbol ) ( recognizer : symbol ) ( field_names : symbol array ) ( sorts : sort array ) ( sort_refs : int array ) =
     Constructor.create ctx name recognizer field_names sorts sort_refs
 
 
@@ -2483,8 +2456,8 @@ struct
   (**
      Create a new datatype sort.
   *)
-  let mk_sort ( ctx : context ) ( name : symbol ) ( constructors : constructor array) =
-    let f x = match x with Constructor(no,_) -> (z3obj_gno no) in 
+  let mk_sort ( ctx : context ) ( name : symbol ) ( constructors : constructor array ) =
+    let f x = (z3obj_gno x) in 
     let (x,_) = (Z3native.mk_datatype (context_gno ctx) (Symbol.gno name) (Array.length constructors) (Array.map f constructors)) in
     create_sort ctx x
 

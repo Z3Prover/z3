@@ -482,8 +482,8 @@ sig
   module Constructor :
   sig
     val get_n : constructor -> int
-    val tester_decl : constructor -> func_decl
     val constructor_decl : constructor -> func_decl
+    val tester_decl : constructor -> func_decl
     val accessor_decls : constructor -> func_decl array
     val get_num_fields : constructor -> int
     val get_constructor_decl : constructor -> func_decl
