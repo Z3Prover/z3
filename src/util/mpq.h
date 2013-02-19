@@ -259,6 +259,7 @@ public:
     void display(std::ostream & out, mpz const & a) const { return mpz_manager<SYNCH>::display(out, a); }
 
     void display(std::ostream & out, mpq const & a) const;
+    void display_pp(std::ostream & out, mpq const & a) const { display(out, a); }
 
     void display_smt2(std::ostream & out, mpz const & a, bool decimal) const { return mpz_manager<SYNCH>::display_smt2(out, a, decimal); }
 

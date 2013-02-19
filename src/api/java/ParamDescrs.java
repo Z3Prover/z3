@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_param_kind;
 
 /**
  * A ParamDescrs describes a set of parameters.
@@ -16,21 +16,21 @@ public class ParamDescrs extends Z3Object
     /**
      * validate a set of parameters.
      **/
-    public void Validate(Params p) throws Z3Exception
+    public void validate(Params p) throws Z3Exception
     {
 
-        Native.paramsValidate(Context().nCtx(), p.NativeObject(),
-                NativeObject());
+        Native.paramsValidate(getContext().nCtx(), p.getNativeObject(),
+                getNativeObject());
     }
 
     /**
      * Retrieve kind of parameter.
      **/
-    public Z3_param_kind GetKind(Symbol name) throws Z3Exception
+    public Z3_param_kind getKind(Symbol name) throws Z3Exception
     {
 
         return Z3_param_kind.fromInt(Native.paramDescrsGetKind(
-                Context().nCtx(), NativeObject(), name.NativeObject()));
+                getContext().nCtx(), getNativeObject(), name.getNativeObject()));
     }
 
     /**
@@ -38,14 +38,14 @@ public class ParamDescrs extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Symbol[] Names() throws Z3Exception
+    public Symbol[] getNames() throws Z3Exception
     {
-        int sz = Native.paramDescrsSize(Context().nCtx(), NativeObject());
+        int sz = Native.paramDescrsSize(getContext().nCtx(), getNativeObject());
         Symbol[] names = new Symbol[sz];
         for (int i = 0; i < sz; ++i)
         {
-            names[i] = Symbol.Create(Context(), Native.paramDescrsGetName(
-                    Context().nCtx(), NativeObject(), i));
+            names[i] = Symbol.create(getContext(), Native.paramDescrsGetName(
+                    getContext().nCtx(), getNativeObject(), i));
         }
         return names;
     }
@@ -53,9 +53,9 @@ public class ParamDescrs extends Z3Object
     /**
      * The size of the ParamDescrs.
      **/
-    public int Size() throws Z3Exception
+    public int size() throws Z3Exception
     {
-        return Native.paramDescrsSize(Context().nCtx(), NativeObject());
+        return Native.paramDescrsSize(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -65,7 +65,7 @@ public class ParamDescrs extends Z3Object
     {
         try
         {
-            return Native.paramDescrsToString(Context().nCtx(), NativeObject());
+            return Native.paramDescrsToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -77,15 +77,15 @@ public class ParamDescrs extends Z3Object
         super(ctx, obj);
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().ParamDescrs_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().paramDescrs_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().ParamDescrs_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().paramDescrs_DRQ().add(o);
+        super.decRef(o);
     }
 }

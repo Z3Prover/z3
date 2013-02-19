@@ -6,7 +6,8 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_ast_kind;
+import com.microsoft.z3.enumerations.Z3_sort_kind;
 
 /**
  * The Sort class implements type information for ASTs.
@@ -47,7 +48,7 @@ public class Sort extends AST
 	    return false;
 	}
 
-	return this.NativeObject() == casted.NativeObject();
+	return this.getNativeObject() == casted.getNativeObject();
     }
 
     /**
@@ -55,35 +56,35 @@ public class Sort extends AST
      * 
      * @return A hash code
      **/
-    public int GetHashCode() throws Z3Exception
+    public int hashCode()
     {
-        return super.GetHashCode();
+        return super.hashCode();
     }
 
     /**
      * Returns a unique identifier for the sort.
      **/
-    public int Id() throws Z3Exception
+    public int getId() throws Z3Exception
     {
-        return Native.getSortId(Context().nCtx(), NativeObject());
+        return Native.getSortId(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The kind of the sort.
      **/
-    public Z3_sort_kind SortKind() throws Z3Exception
+    public Z3_sort_kind getSortKind() throws Z3Exception
     {
-        return Z3_sort_kind.fromInt(Native.getSortKind(Context().nCtx(),
-                NativeObject()));
+        return Z3_sort_kind.fromInt(Native.getSortKind(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
      * The name of the sort
      **/
-    public Symbol Name() throws Z3Exception
+    public Symbol getName() throws Z3Exception
     {
-        return Symbol.Create(Context(),
-                Native.getSortName(Context().nCtx(), NativeObject()));
+        return Symbol.create(getContext(),
+                Native.getSortName(getContext().nCtx(), getNativeObject()));
     }
 
     /**
@@ -93,7 +94,7 @@ public class Sort extends AST
     {
         try
         {
-            return Native.sortToString(Context().nCtx(), NativeObject());
+            return Native.sortToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -117,17 +118,18 @@ public class Sort extends AST
         }
     }
 
-    void CheckNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj) throws Z3Exception
     {
-        if (Native.getAstKind(Context().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST
+        if (Native.getAstKind(getContext().nCtx(), obj) != Z3_ast_kind.Z3_SORT_AST
                 .toInt())
             throw new Z3Exception("Underlying object is not a sort");
-        super.CheckNativeObject(obj);
+        super.checkNativeObject(obj);
     }
 
-    static Sort Create(Context ctx, long obj) throws Z3Exception
+    static Sort create(Context ctx, long obj) throws Z3Exception
     {
-        switch (Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj)))
+        Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(ctx.nCtx(), obj));
+        switch (sk)
         {
         case Z3_ARRAY_SORT:
             return new ArraySort(ctx, obj);

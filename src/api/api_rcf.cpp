@@ -98,13 +98,13 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(Z3_context c, Z3_string name) {
+    Z3_rcf_num Z3_API Z3_rcf_mk_infinitesimal(Z3_context c) {
         Z3_TRY;
-        LOG_Z3_rcf_mk_infinitesimal(c, name);
+        LOG_Z3_rcf_mk_infinitesimal(c);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         rcnumeral r;
-        rcfm(c).mk_infinitesimal(name, r);
+        rcfm(c).mk_infinitesimal(r);
         RETURN_Z3(from_rcnumeral(r));
         Z3_CATCH_RETURN(0);
     }
@@ -264,17 +264,17 @@ extern "C" {
         LOG_Z3_rcf_neq(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
-        return rcfm(c).eq(to_rcnumeral(a), to_rcnumeral(b));
+        return rcfm(c).neq(to_rcnumeral(a), to_rcnumeral(b));
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
-    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a) {
+    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact, Z3_bool html) {
         Z3_TRY;
-        LOG_Z3_rcf_num_to_string(c, a);
+        LOG_Z3_rcf_num_to_string(c, a, compact, html);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         std::ostringstream buffer;
-        rcfm(c).display(buffer, to_rcnumeral(a));
+        rcfm(c).display(buffer, to_rcnumeral(a), compact != 0, html != 0);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
@@ -288,6 +288,19 @@ extern "C" {
         rcfm(c).display_decimal(buffer, to_rcnumeral(a), prec);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
+    }
+
+    void Z3_API Z3_rcf_get_numerator_denominator(Z3_context c, Z3_rcf_num a, Z3_rcf_num * n, Z3_rcf_num * d) {
+        Z3_TRY;
+        LOG_Z3_rcf_get_numerator_denominator(c, a, n, d);
+        RESET_ERROR_CODE();
+        reset_rcf_cancel(c);
+        rcnumeral _n, _d;
+        rcfm(c).clean_denominators(to_rcnumeral(a), _n, _d);
+        *n = from_rcnumeral(_n);
+        *d = from_rcnumeral(_d);
+        RETURN_Z3_rcf_get_numerator_denominator;
+        Z3_CATCH;
     }
 
 };

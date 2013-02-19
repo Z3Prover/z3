@@ -43,7 +43,7 @@ extern "C" {
         }
     }
 
-    void Z3_API Z3_global_param_reset_all() {
+    void Z3_API Z3_global_param_reset_all(void) {
         memory::initialize(UINT_MAX);
         LOG_Z3_global_param_reset_all();
         gparams::reset();
@@ -71,7 +71,7 @@ extern "C" {
         }
     }
 
-    Z3_config Z3_API Z3_mk_config() {
+    Z3_config Z3_API Z3_mk_config(void) {
         memory::initialize(UINT_MAX);
         LOG_Z3_mk_config();
         Z3_config r = reinterpret_cast<Z3_config>(alloc(context_params));

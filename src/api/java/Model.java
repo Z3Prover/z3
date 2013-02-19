@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_sort_kind;
 
 /**
  * A Model contains interpretations (assignments) of constants and functions.
@@ -21,10 +21,10 @@ public class Model extends Z3Object
      *         null otherwise.
      * @throws Z3Exception
      **/
-    public Expr ConstInterp(Expr a) throws Z3Exception
+    public Expr getConstInterp(Expr a) throws Z3Exception
     {
-        Context().CheckContextMatch(a);
-        return ConstInterp(a.FuncDecl());
+        getContext().checkContextMatch(a);
+        return getConstInterp(a.getFuncDecl());
     }
 
     /**
@@ -35,22 +35,22 @@ public class Model extends Z3Object
      *         null otherwise.
      * @throws Z3Exception
      **/
-    public Expr ConstInterp(FuncDecl f) throws Z3Exception
+    public Expr getConstInterp(FuncDecl f) throws Z3Exception
     {
-        Context().CheckContextMatch(f);
-        if (f.Arity() != 0
-                || Native.getSortKind(Context().nCtx(),
-                        Native.getRange(Context().nCtx(), f.NativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT
+        getContext().checkContextMatch(f);
+        if (f.getArity() != 0
+                || Native.getSortKind(getContext().nCtx(),
+                        Native.getRange(getContext().nCtx(), f.getNativeObject())) == Z3_sort_kind.Z3_ARRAY_SORT
                         .toInt())
             throw new Z3Exception(
                     "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
 
-        long n = Native.modelGetConstInterp(Context().nCtx(), NativeObject(),
-                f.NativeObject());
+        long n = Native.modelGetConstInterp(getContext().nCtx(), getNativeObject(),
+                f.getNativeObject());
         if (n == 0)
             return null;
         else
-            return Expr.Create(Context(), n);
+            return Expr.create(getContext(), n);
     }
 
     /**
@@ -62,17 +62,17 @@ public class Model extends Z3Object
      *         the model, null otherwise.
      * @throws Z3Exception
      **/
-    public FuncInterp FuncInterp(FuncDecl f) throws Z3Exception
+    public FuncInterp getFuncInterp(FuncDecl f) throws Z3Exception
     {
-        Context().CheckContextMatch(f);
+        getContext().checkContextMatch(f);
 
-        Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(Context()
-                .nCtx(), Native.getRange(Context().nCtx(), f.NativeObject())));
+        Z3_sort_kind sk = Z3_sort_kind.fromInt(Native.getSortKind(getContext()
+                .nCtx(), Native.getRange(getContext().nCtx(), f.getNativeObject())));
 
-        if (f.Arity() == 0)
+        if (f.getArity() == 0)
         {
-            long n = Native.modelGetConstInterp(Context().nCtx(),
-                    NativeObject(), f.NativeObject());
+            long n = Native.modelGetConstInterp(getContext().nCtx(),
+                    getNativeObject(), f.getNativeObject());
 
             if (sk == Z3_sort_kind.Z3_ARRAY_SORT)
             {
@@ -80,11 +80,11 @@ public class Model extends Z3Object
                     return null;
                 else
                 {
-                    if (Native.isAsArray(Context().nCtx(), n) ^ true)
+                    if (Native.isAsArray(getContext().nCtx(), n) ^ true)
                         throw new Z3Exception(
                                 "Argument was not an array constant");
-                    long fd = Native.getAsArrayFuncDecl(Context().nCtx(), n);
-                    return FuncInterp(new FuncDecl(Context(), fd));
+                    long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
+                    return getFuncInterp(new FuncDecl(getContext(), fd));
                 }
             } else
             {
@@ -93,21 +93,21 @@ public class Model extends Z3Object
             }
         } else
         {
-            long n = Native.modelGetFuncInterp(Context().nCtx(),
-                    NativeObject(), f.NativeObject());
+            long n = Native.modelGetFuncInterp(getContext().nCtx(),
+                    getNativeObject(), f.getNativeObject());
             if (n == 0)
                 return null;
             else
-                return new FuncInterp(Context(), n);
+                return new FuncInterp(getContext(), n);
         }
     }
 
     /**
      * The number of constants that have an interpretation in the model.
      **/
-    public int NumConsts() throws Z3Exception
+    public int getNumConsts() throws Z3Exception
     {
-        return Native.modelGetNumConsts(Context().nCtx(), NativeObject());
+        return Native.modelGetNumConsts(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -115,22 +115,22 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] ConstDecls() throws Z3Exception
+    public FuncDecl[] getConstDecls() throws Z3Exception
     {
-        int n = NumConsts();
+        int n = getNumConsts();
         FuncDecl[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(Context(), Native.modelGetConstDecl(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = new FuncDecl(getContext(), Native.modelGetConstDecl(getContext()
+                    .nCtx(), getNativeObject(), i));
         return res;
     }
 
     /**
      * The number of function interpretations in the model.
      **/
-    public int NumFuncs() throws Z3Exception
+    public int getNumFuncs() throws Z3Exception
     {
-        return Native.modelGetNumFuncs(Context().nCtx(), NativeObject());
+        return Native.modelGetNumFuncs(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -138,13 +138,13 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] FuncDecls() throws Z3Exception
+    public FuncDecl[] getFuncDecls() throws Z3Exception
     {
-        int n = NumFuncs();
+        int n = getNumFuncs();
         FuncDecl[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
-            res[i] = new FuncDecl(Context(), Native.modelGetFuncDecl(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = new FuncDecl(getContext(), Native.modelGetFuncDecl(getContext()
+                    .nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -153,18 +153,18 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public FuncDecl[] Decls() throws Z3Exception
+    public FuncDecl[] getDecls() throws Z3Exception
     {
-        int nFuncs = NumFuncs();
-        int nConsts = NumConsts();
+        int nFuncs = getNumFuncs();
+        int nConsts = getNumConsts();
         int n = nFuncs + nConsts;
         FuncDecl[] res = new FuncDecl[n];
         for (int i = 0; i < nConsts; i++)
-            res[i] = new FuncDecl(Context(), Native.modelGetConstDecl(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = new FuncDecl(getContext(), Native.modelGetConstDecl(getContext()
+                    .nCtx(), getNativeObject(), i));
         for (int i = 0; i < nFuncs; i++)
-            res[nConsts + i] = new FuncDecl(Context(), Native.modelGetFuncDecl(
-                    Context().nCtx(), NativeObject(), i));
+            res[nConsts + i] = new FuncDecl(getContext(), Native.modelGetFuncDecl(
+                    getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -197,14 +197,14 @@ public class Model extends Z3Object
      * @return The evaluation of <paramref name="t"/> in the model.
      * @throws Z3Exception
      **/
-    public Expr Eval(Expr t, boolean completion) throws Z3Exception
+    public Expr eval(Expr t, boolean completion) throws Z3Exception
     {
         Native.LongPtr v = new Native.LongPtr();
-        if (Native.modelEval(Context().nCtx(), NativeObject(),
-                t.NativeObject(), (completion) ? true : false, v) ^ true)
+        if (Native.modelEval(getContext().nCtx(), getNativeObject(),
+                t.getNativeObject(), (completion) ? true : false, v) ^ true)
             throw new ModelEvaluationFailedException();
         else
-            return Expr.Create(Context(), v.value);
+            return Expr.create(getContext(), v.value);
     }
 
     /**
@@ -212,18 +212,18 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr Evaluate(Expr t, boolean completion) throws Z3Exception
+    public Expr evaluate(Expr t, boolean completion) throws Z3Exception
     {
-        return Eval(t, completion);
+        return eval(t, completion);
     }
 
     /**
      * The number of uninterpreted sorts that the model has an interpretation
      * for.
      **/
-    public int NumSorts() throws Z3Exception
+    public int getNumSorts() throws Z3Exception
     {
-        return Native.modelGetNumSorts(Context().nCtx(), NativeObject());
+        return Native.modelGetNumSorts(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -235,14 +235,14 @@ public class Model extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Sort[] Sorts() throws Z3Exception
+    public Sort[] getSorts() throws Z3Exception
     {
 
-        int n = NumSorts();
+        int n = getNumSorts();
         Sort[] res = new Sort[n];
         for (int i = 0; i < n; i++)
-            res[i] = Sort.Create(Context(),
-                    Native.modelGetSort(Context().nCtx(), NativeObject(), i));
+            res[i] = Sort.create(getContext(),
+                    Native.modelGetSort(getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -255,15 +255,15 @@ public class Model extends Z3Object
      *         of <paramref name="s"/>
      * @throws Z3Exception
      **/
-    public Expr[] SortUniverse(Sort s) throws Z3Exception
+    public Expr[] getSortUniverse(Sort s) throws Z3Exception
     {
 
-        ASTVector nUniv = new ASTVector(Context(), Native.modelGetSortUniverse(
-                Context().nCtx(), NativeObject(), s.NativeObject()));
-        int n = nUniv.Size();
+        ASTVector nUniv = new ASTVector(getContext(), Native.modelGetSortUniverse(
+                getContext().nCtx(), getNativeObject(), s.getNativeObject()));
+        int n = nUniv.size();
         Expr[] res = new Expr[n];
         for (int i = 0; i < n; i++)
-            res[i] = Expr.Create(Context(), nUniv.get(i).NativeObject());
+            res[i] = Expr.create(getContext(), nUniv.get(i).getNativeObject());
         return res;
     }
 
@@ -276,7 +276,7 @@ public class Model extends Z3Object
     {
         try
         {
-            return Native.modelToString(Context().nCtx(), NativeObject());
+            return Native.modelToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -288,15 +288,15 @@ public class Model extends Z3Object
         super(ctx, obj);
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Model_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().model_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Model_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().model_DRQ().add(o);
+        super.decRef(o);
     }
 }

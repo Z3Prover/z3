@@ -22,7 +22,7 @@ def init_project_def():
     add_lib('normal_forms', ['rewriter'], 'ast/normal_forms')
     add_lib('model', ['rewriter'])
     add_lib('tactic', ['ast', 'model'])
-    add_lib('substitution', ['ast'], 'ast/substitution')
+    add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
     add_lib('grobner', ['ast'], 'math/grobner')
     add_lib('euclid', ['util'], 'math/euclid')

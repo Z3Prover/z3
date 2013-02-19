@@ -227,7 +227,7 @@ namespace datalog {
         obj_map<quantifier, expr_ref_vector*>& insts,
         expr_ref_vector&             bindings)
     {
-        datalog::scoped_fine_proof _scp(m);
+        datalog::scoped_proof _scp(m);
         smt_params fparams;
         fparams.m_mbqi = true; // false
         fparams.m_soft_timeout = 1000;

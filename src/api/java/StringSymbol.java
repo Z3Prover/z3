@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_symbol_kind;
 
 /**
  * Named symbols
@@ -17,9 +17,9 @@ public class StringSymbol extends Symbol
      * The string value of the symbol. <remarks>Throws an exception if the
      * symbol is not of string kind.</remarks>
      **/
-    public String String() throws Z3Exception
+    public String getString() throws Z3Exception
     {
-        return Native.getSymbolString(Context().nCtx(), NativeObject());
+        return Native.getSymbolString(getContext().nCtx(), getNativeObject());
     }
 
     StringSymbol(Context ctx, long obj) throws Z3Exception
@@ -32,12 +32,12 @@ public class StringSymbol extends Symbol
         super(ctx, Native.mkStringSymbol(ctx.nCtx(), s));
     }
 
-    void CheckNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj) throws Z3Exception
     {
-        if (Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_STRING_SYMBOL
+        if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_STRING_SYMBOL
                 .toInt())
             throw new Z3Exception("Symbol is not of String kind");
 
-        super.CheckNativeObject(obj);
+        super.checkNativeObject(obj);
     }
 }

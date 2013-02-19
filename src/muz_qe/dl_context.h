@@ -35,6 +35,7 @@ Revision History:
 #include"dl_rule_set.h"
 #include"pdr_dl_interface.h"
 #include"dl_bmc_engine.h"
+#include"tab_context.h"
 #include"rel_context.h"
 #include"lbool.h"
 #include"statistics.h"
@@ -100,6 +101,7 @@ namespace datalog {
         scoped_ptr<pdr::dl_interface>   m_pdr;
         scoped_ptr<bmc>                 m_bmc;
         scoped_ptr<rel_context>         m_rel;
+        scoped_ptr<tab>                 m_tab;
 
         bool               m_closed;
         bool               m_saturation_was_run;
@@ -434,6 +436,8 @@ namespace datalog {
 
         void ensure_bmc();
 
+        void ensure_tab();
+
         void ensure_rel();
 
         void new_query();
@@ -443,6 +447,8 @@ namespace datalog {
         lbool pdr_query(expr* query);
 
         lbool bmc_query(expr* query);
+
+        lbool tab_query(expr* query);
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);

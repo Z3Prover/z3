@@ -332,4 +332,16 @@ void display(std::ostream & out,
     }
 }
 
+template<typename numeral_manager>
+void display_pp(std::ostream & out,
+                numeral_manager & m, 
+                typename numeral_manager::numeral const & a,
+                ext_numeral_kind ak) {
+    switch (ak) {
+    case EN_MINUS_INFINITY: out << "-&infin;"; break;
+    case EN_NUMERAL: m.display_pp(out, a); break;
+    case EN_PLUS_INFINITY: out << "+&infin;"; break;
+    }
+}
+
 #endif

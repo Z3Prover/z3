@@ -382,6 +382,7 @@ public:
     unsigned prev_power_of_two(mpfx const & a);
 
     void display(std::ostream & out, mpfx const & n) const;
+    void display_pp(std::ostream & out, mpfx const & n) const { display(out, n); }
     void display_smt2(std::ostream & out, mpfx const & n) const;
     void display_decimal(std::ostream & out, mpfx const & n, unsigned prec = UINT_MAX) const;
     void display_raw(std::ostream & out, mpfx const & n) const;

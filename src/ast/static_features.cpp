@@ -165,7 +165,8 @@ void static_features::update_core(expr * e) {
     // even if a benchmark does not contain any theory interpreted function decls, we still have to install
     // the theory if the benchmark contains constants or function applications of an interpreted sort.
     sort * s      = m_manager.get_sort(e);
-    mark_theory(s->get_family_id());
+    if (!m_manager.is_uninterp(s))
+        mark_theory(s->get_family_id());
     
     bool _is_gate = is_gate(e);
     bool _is_eq   = m_manager.is_eq(e);
@@ -255,9 +256,11 @@ void static_features::update_core(expr * e) {
                 m_num_simple_eqs++;
         }
         sort * s      = m_manager.get_sort(to_app(e)->get_arg(0));
-        family_id fid = s->get_family_id();
-        if (fid != null_family_id && fid != m_bfid)
-            inc_theory_eqs(fid);
+        if (!m_manager.is_uninterp(s)) {
+            family_id fid = s->get_family_id();
+            if (fid != null_family_id && fid != m_bfid)
+                inc_theory_eqs(fid);
+        }
     }
     if (!m_has_int && m_autil.is_int(e))
         m_has_int  = true;
@@ -295,9 +298,11 @@ void static_features::update_core(expr * e) {
             if (to_app(e)->get_num_args() == 0) {
                 m_num_uninterpreted_constants++;
                 sort * s      = m_manager.get_sort(e);
-                family_id fid = s->get_family_id();
-                if (fid != null_family_id && fid != m_bfid)
-                    inc_theory_constants(fid);
+                if (!m_manager.is_uninterp(s)) {
+                    family_id fid = s->get_family_id();
+                    if (fid != null_family_id && fid != m_bfid)
+                        inc_theory_constants(fid);
+                }
             }
         }
         func_decl * d = to_app(e)->get_decl();
@@ -312,18 +317,20 @@ void static_features::update_core(expr * e) {
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg   = to_app(e)->get_arg(i);
                 sort * arg_s = m_manager.get_sort(arg); 
-                family_id fid_arg = arg_s->get_family_id();
-                if (fid_arg != fid && fid_arg != null_family_id) {
-                    m_num_aliens++;
-                    inc_num_aliens(fid_arg);
-                    if (fid_arg == m_afid) {
-                        SASSERT(!_is_le_ge);
-                        m_num_arith_terms++;
-                        rational k;
-                        TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m_manager) << "\n";);
-                        if (is_diff_term(arg, k)) {
-                            m_num_diff_terms++;
-                            acc_num(k);
+                if (!m_manager.is_uninterp(arg_s)) {
+                    family_id fid_arg = arg_s->get_family_id();
+                    if (fid_arg != fid && fid_arg != null_family_id) {
+                        m_num_aliens++;
+                        inc_num_aliens(fid_arg);
+                        if (fid_arg == m_afid) {
+                            SASSERT(!_is_le_ge);
+                            m_num_arith_terms++;
+                            rational k;
+                            TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m_manager) << "\n";);
+                            if (is_diff_term(arg, k)) {
+                                m_num_diff_terms++;
+                                acc_num(k);
+                            }
                         }
                     }
                 }

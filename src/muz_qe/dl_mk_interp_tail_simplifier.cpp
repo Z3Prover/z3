@@ -518,7 +518,7 @@ namespace datalog {
 
         if (m.is_false(itail.get())) {
             //the tail member is never true, so we may delete the rule
-            TRACE("dl", r->display(m_context, tout << "rule in infeasible\n"););
+            TRACE("dl", r->display(m_context, tout << "rule is infeasible\n"););
             return false;
         }
         if (!m.is_true(itail.get())) {

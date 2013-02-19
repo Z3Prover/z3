@@ -1274,7 +1274,7 @@ extern "C" {
 
        def_API('Z3_global_param_reset_all', VOID, ())
     */
-    void Z3_API Z3_global_param_reset_all();
+    void Z3_API Z3_global_param_reset_all(void);
     
     /**
        \brief Get a global (or module) parameter.
@@ -1335,7 +1335,7 @@ extern "C" {
 
        def_API('Z3_mk_config', CONFIG, ())
     */
-    Z3_config Z3_API Z3_mk_config();
+    Z3_config Z3_API Z3_mk_config(void);
 
     /**
        \brief Delete the given configuration object.
@@ -4765,7 +4765,7 @@ END_MLAPI_EXCLUDE
 
        extra_API('Z3_close_log', VOID, ())
     */
-    void Z3_API Z3_close_log();
+    void Z3_API Z3_close_log(void);
 
     /**
        \brief Enable/disable printing warning messages to the console.

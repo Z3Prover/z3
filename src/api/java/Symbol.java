@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_symbol_kind;
 
 /**
  * Symbols are used to name several term and type constructors.
@@ -16,26 +16,26 @@ public class Symbol extends Z3Object
     /**
      * The kind of the symbol (int or string)
      **/
-    protected Z3_symbol_kind Kind() throws Z3Exception
+    protected Z3_symbol_kind getKind() throws Z3Exception
     {
-        return Z3_symbol_kind.fromInt(Native.getSymbolKind(Context().nCtx(),
-                NativeObject()));
+        return Z3_symbol_kind.fromInt(Native.getSymbolKind(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
      * Indicates whether the symbol is of Int kind
      **/
-    public boolean IsIntSymbol() throws Z3Exception
+    public boolean isIntSymbol() throws Z3Exception
     {
-        return Kind() == Z3_symbol_kind.Z3_INT_SYMBOL;
+        return getKind() == Z3_symbol_kind.Z3_INT_SYMBOL;
     }
 
     /**
      * Indicates whether the symbol is of string kind.
      **/
-    public boolean IsStringSymbol() throws Z3Exception
+    public boolean isStringSymbol() throws Z3Exception
     {
-        return Kind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
+        return getKind() == Z3_symbol_kind.Z3_STRING_SYMBOL;
     }
 
     /**
@@ -45,10 +45,10 @@ public class Symbol extends Z3Object
     {
         try
         {
-            if (IsIntSymbol())
-                return Integer.toString(((IntSymbol) this).Int());
-            else if (IsStringSymbol())
-                return ((StringSymbol) this).String();
+            if (isIntSymbol())
+                return Integer.toString(((IntSymbol) this).getInt());
+            else if (isStringSymbol())
+                return ((StringSymbol) this).getString();
             else
                 return new String(
                         "Z3Exception: Unknown symbol kind encountered.");
@@ -66,7 +66,7 @@ public class Symbol extends Z3Object
         super(ctx, obj);
     }
 
-    static Symbol Create(Context ctx, long obj) throws Z3Exception
+    static Symbol create(Context ctx, long obj) throws Z3Exception
     {
         switch (Z3_symbol_kind.fromInt(Native.getSymbolKind(ctx.nCtx(), obj)))
         {

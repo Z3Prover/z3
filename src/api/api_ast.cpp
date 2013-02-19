@@ -38,6 +38,8 @@ Revision History:
 #include"scoped_timer.h"
 #include"pp_params.hpp"
 
+extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
+
 extern "C" {
 
     Z3_symbol Z3_API Z3_mk_int_symbol(Z3_context c, int i) {
@@ -76,7 +78,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_uninterpreted_sort(c, name);
         RESET_ERROR_CODE();
-        sort* ty = mk_c(c)->m().mk_sort(to_symbol(name));
+        sort* ty = mk_c(c)->m().mk_uninterpreted_sort(to_symbol(name));
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
         Z3_CATCH_RETURN(0);
@@ -313,8 +315,6 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
-    
     Z3_ast_kind Z3_API Z3_get_ast_kind(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_get_ast_kind(c, a);
@@ -620,7 +620,7 @@ extern "C" {
         CHECK_VALID_AST(t, Z3_UNKNOWN_SORT);
         family_id fid = to_sort(t)->get_family_id();
         decl_kind k   = to_sort(t)->get_decl_kind();
-        if (fid == null_family_id) {
+        if (mk_c(c)->m().is_uninterp(to_sort(t))) {
             return Z3_UNINTERPRETED_SORT;
         }
         else if (fid == mk_c(c)->m().get_basic_family_id() && k == BOOL_SORT) {

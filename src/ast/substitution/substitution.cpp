@@ -20,22 +20,23 @@ Revision History:
 #include"substitution.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
+#include"rewriter.h"
 
 substitution::substitution(ast_manager & m):
     m_manager(m),
-    m_new_exprs(m) {
+    m_refs(m),
+    m_new_exprs(m),
+    m_state(CLEAN) {
 }
 
 void substitution::reset() {
-    reset_subst();
+    m_subst.reset(); 
+    m_vars.reset();
+    m_refs.reset();
+    m_scopes.reset();
     reset_cache();
 }
 
-void substitution::reset_subst() { 
-    m_subst.reset(); 
-    m_vars.reset();
-    m_scopes.reset();
-}
 
 void substitution::reset_cache() {
     TRACE("subst_bug", tout << "substitution::reset_cache\n";
@@ -43,6 +44,7 @@ void substitution::reset_cache() {
 
     m_apply_cache.reset();
     m_new_exprs.reset();
+    m_state = CLEAN;
 }
 
 void substitution::pop_scope(unsigned num_scopes) {
@@ -57,7 +59,9 @@ void substitution::pop_scope(unsigned num_scopes) {
         m_subst.erase(curr.first, curr.second);
     }
     m_vars.shrink(old_sz);
+    m_refs.shrink(old_sz);
     m_scopes.shrink(new_lvl);
+    reset_cache();    
 }
 
 inline void substitution::apply_visit(expr_offset const & n, bool & visited) {
@@ -72,10 +76,13 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
     
     TRACE("subst_bug", tout << "BEGIN substitution::apply\n";);
 
+
     // It is incorrect to cache results between different calls if we are applying a substitution
     // modulo a substitution s -> t.
-    if (s != expr_offset(0,0))
+    if (m_state == INSERT || s != expr_offset(0,0))
         reset_cache();
+
+    m_state = APPLY;
 
     unsigned         j;
     expr *           e;
@@ -160,6 +167,48 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 }
             }
             break;
+        case AST_QUANTIFIER: {
+            quantifier* q = to_quantifier(e);
+            unsigned num_vars = q->get_num_decls();
+            substitution subst(m_manager);
+            expr_ref er(m_manager);
+            subst.reserve(m_subst.offsets_capacity(), m_subst.vars_capacity() + num_vars);
+            var_shifter var_sh(m_manager);
+            expr_offset r;
+            for (unsigned i = 0; i < m_subst.offsets_capacity(); i++) {
+                for (unsigned j = 0; j < m_subst.vars_capacity(); j++) {
+                    if (find(j, i, r)) {
+                        var_sh(r.get_expr(), num_vars, er);
+                        subst.insert(j + num_vars, i, expr_offset(er, r.get_offset()));
+                    }
+                }
+            }
+            expr_offset body(q->get_expr(), off);
+            expr_ref s1_ref(m_manager), t1_ref(m_manager);
+            if (s.get_expr() != 0) {
+                var_sh(s.get_expr(), num_vars, s1_ref);
+            }
+            if (t.get_expr() != 0) {
+                var_sh(t.get_expr(), num_vars, t1_ref);
+            }
+            expr_offset s1(s1_ref, s.get_offset());
+            expr_offset t1(t1_ref, t.get_offset());
+            expr_ref_vector pats(m_manager), no_pats(m_manager);
+            for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
+                subst.apply(num_actual_offsets, deltas, expr_offset(q->get_pattern(i), off), s1, t1, er);
+                pats.push_back(er);
+            }
+            for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
+                subst.apply(num_actual_offsets, deltas, expr_offset(q->get_no_pattern(i), off), s1, t1, er);
+                no_pats.push_back(er);
+            }
+            subst.apply(num_actual_offsets, deltas, body, s1, t1, er);
+            er = m_manager.update_quantifier(q, pats.size(), pats.c_ptr(), no_pats.size(), no_pats.c_ptr(), er);
+            m_todo.pop_back();
+            m_new_exprs.push_back(er);
+            m_apply_cache.insert(n, er);            
+            break;
+        }            
         default:
             UNREACHABLE();
         }

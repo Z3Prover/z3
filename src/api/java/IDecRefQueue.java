@@ -6,26 +6,26 @@
 
 package com.microsoft.z3;
 
-import java.util.*;
+import java.util.LinkedList;
 
 abstract class IDecRefQueue
 {
 	protected Object m_lock = new Object();
 	protected LinkedList<Long> m_queue = new LinkedList<Long>();
-	final int m_move_limit = 1024;
+	protected final int m_move_limit = 1024;
 
-	public abstract void IncRef(Context ctx, long obj);
+	protected abstract void incRef(Context ctx, long obj);
 
-	public abstract void DecRef(Context ctx, long obj);
+	protected abstract void decRef(Context ctx, long obj);
 
-	public void IncAndClear(Context ctx, long o)
+	protected void incAndClear(Context ctx, long o)
 	{
-		IncRef(ctx, o);
+		incRef(ctx, o);
 		if (m_queue.size() >= m_move_limit)
-			Clear(ctx);
+			clear(ctx);
 	}
 
-	public void Add(long o)
+	protected void add(long o)
 	{
 		if (o == 0)
 			return;
@@ -36,12 +36,12 @@ abstract class IDecRefQueue
 		}
 	}
 
-	public void Clear(Context ctx)
+	protected void clear(Context ctx)
 	{
 		synchronized (m_lock)
 		{
 			for (Long o : m_queue)
-				DecRef(ctx, o);
+				decRef(ctx, o);
 			m_queue.clear();
 		}
 	}

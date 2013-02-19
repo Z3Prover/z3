@@ -17,17 +17,17 @@ public class Z3Object extends IDisposable
      **/
     protected void finalize() throws Z3Exception
     {
-        Dispose();
+        dispose();
     }
 
     /**
      * Disposes of the underlying native Z3 object.
      **/
-    public void Dispose() throws Z3Exception
+    public void dispose() throws Z3Exception
     {
         if (m_n_obj != 0)
         {
-            DecRef(m_n_obj);
+            decRef(m_n_obj);
             m_n_obj = 0;
         }
 
@@ -51,23 +51,23 @@ public class Z3Object extends IDisposable
     {
         ctx.m_refCount++;
         m_ctx = ctx;
-        IncRef(obj);
+        incRef(obj);
         m_n_obj = obj;
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
     }
 
-    void CheckNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj) throws Z3Exception
     {
     }
 
-    long NativeObject()
+    long getNativeObject()
     {
         return m_n_obj;
     }
@@ -76,39 +76,39 @@ public class Z3Object extends IDisposable
     {
         if (value != 0)
         {
-            CheckNativeObject(value);
-            IncRef(value);
+            checkNativeObject(value);
+            incRef(value);
         }
         if (m_n_obj != 0)
         {
-            DecRef(m_n_obj);
+            decRef(m_n_obj);
         }
         m_n_obj = value;
     }
 
-    static long GetNativeObject(Z3Object s)
+    static long getNativeObject(Z3Object s)
     {
         if (s == null)
             return 0;
-        return s.NativeObject();
+        return s.getNativeObject();
     }
 
-    Context Context()
+    Context getContext()
     {
         return m_ctx;
     }
 
-    static long[] ArrayToNative(Z3Object[] a)
+    static long[] arrayToNative(Z3Object[] a)
     {
         if (a == null)
             return null;
         long[] an = new long[a.length];
         for (int i = 0; i < a.length; i++)
-	    an[i] = (a[i] == null) ? 0 : a[i].NativeObject();
+	    an[i] = (a[i] == null) ? 0 : a[i].getNativeObject();
         return an;
     }
 
-    static int ArrayLength(Z3Object[] a)
+    static int arrayLength(Z3Object[] a)
     {
         return (a == null) ? 0 : a.length;
     }

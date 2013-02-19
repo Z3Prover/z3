@@ -6,7 +6,6 @@
 
 package com.microsoft.z3;
 
-import java.lang.Exception;
 
 /**
  * The exception base class for error reporting from Z3

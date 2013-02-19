@@ -24,26 +24,26 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"algebraic_numbers.h"
 
+bool is_numeral_sort(Z3_context c, Z3_sort ty) {
+    sort * _ty = to_sort(ty);
+    family_id fid  = _ty->get_family_id();
+    if (fid != mk_c(c)->get_arith_fid() && 
+        fid != mk_c(c)->get_bv_fid() &&
+        fid != mk_c(c)->get_datalog_fid()) {
+        return false;
+    }
+    return true;
+}
+
+bool check_numeral_sort(Z3_context c, Z3_sort ty) {
+    bool is_num = is_numeral_sort(c, ty);
+    if (!is_num) {
+        SET_ERROR_CODE(Z3_INVALID_ARG);
+    }
+    return is_num;
+}
+
 extern "C" {
-
-    bool is_numeral_sort(Z3_context c, Z3_sort ty) {
-        sort * _ty = to_sort(ty);
-        family_id fid  = _ty->get_family_id();
-        if (fid != mk_c(c)->get_arith_fid() && 
-            fid != mk_c(c)->get_bv_fid() &&
-            fid != mk_c(c)->get_datalog_fid()) {
-            return false;
-        }
-        return true;
-    }
-
-    bool check_numeral_sort(Z3_context c, Z3_sort ty) {
-        bool is_num = is_numeral_sort(c, ty);
-        if (!is_num) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-        }
-        return is_num;
-    }
 
     Z3_ast Z3_API Z3_mk_numeral(Z3_context c, const char* n, Z3_sort ty) {
         Z3_TRY;

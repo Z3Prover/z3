@@ -179,7 +179,7 @@ namespace realclosure {
 
     struct rational_function_value : public value {
         polynomial   m_numerator;
-        polynomial   m_denominator;
+        polynomial   m_denominator; // it is only needed if the extension is not algebraic.
         extension *  m_ext;
         bool         m_depends_on_infinitesimals; //!< True if the polynomial expression depends on infinitesimal values.
         rational_function_value(extension * ext):value(false), m_ext(ext), m_depends_on_infinitesimals(false) {}
@@ -281,7 +281,8 @@ namespace realclosure {
 
     struct algebraic : public extension {
         polynomial   m_p;
-        sign_det *   m_sign_det; //!< != 0         if m_interval constains more than one root of m_p.
+        mpbqi        m_iso_interval;                
+        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constains more than one root of m_p.
         unsigned     m_sc_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sc_idx < m_sign_det->m_sign_conditions.size()
         bool         m_depends_on_infinitesimals;  //!< True if the polynomial p depends on infinitesimal extensions.
 
@@ -292,30 +293,46 @@ namespace realclosure {
         sign_det * sdt() const { return m_sign_det; }
         unsigned sc_idx() const { return m_sc_idx; }
         unsigned num_roots_inside_interval() const { return m_sign_det == 0 ? 1 : m_sign_det->num_roots(); }
+        mpbqi & iso_interval() { return m_iso_interval; }
     };
 
     struct transcendental : public extension {
         symbol        m_name;
+        symbol        m_pp_name;
         unsigned      m_k;
         mk_interval & m_proc;
         
-        transcendental(unsigned idx, symbol const & n, mk_interval & p):extension(TRANSCENDENTAL, idx), m_name(n), m_k(0), m_proc(p) {}
+        transcendental(unsigned idx, symbol const & n, symbol const & pp_n, mk_interval & p):
+            extension(TRANSCENDENTAL, idx), m_name(n), m_pp_name(pp_n), m_k(0), m_proc(p) {}
 
-        void display(std::ostream & out) const {
-            out << m_name;
+        void display(std::ostream & out, bool pp = false) const {
+            if (pp) 
+                out << m_pp_name;
+            else
+                out << m_name;
         }
     };
     
     struct infinitesimal : public extension {
         symbol        m_name;
+        symbol        m_pp_name;
  
-        infinitesimal(unsigned idx, symbol const & n):extension(INFINITESIMAL, idx), m_name(n) {}
+        infinitesimal(unsigned idx, symbol const & n, symbol const & pp_n):extension(INFINITESIMAL, idx), m_name(n), m_pp_name(pp_n) {}
 
-        void display(std::ostream & out) const {
-            if (m_name.is_numerical())
-                out << "eps!" << m_name.get_num();
-            else
-                out << m_name;
+        void display(std::ostream & out, bool pp = false) const {
+            if (pp) {
+                if (m_pp_name.is_numerical())
+                    out << "&epsilon;<sub>" << m_pp_name.get_num() << "</sub>";
+                else
+                    out << m_pp_name;
+                
+            }
+            else {
+                if (m_name.is_numerical())
+                    out << "eps!" << m_name.get_num();
+                else
+                    out << m_name;
+            }
         }
     };
 
@@ -376,10 +393,12 @@ namespace realclosure {
         unsigned                       m_inf_precision; //!< 2^m_inf_precision is used as the lower bound of oo and -2^m_inf_precision is used as the upper_bound of -oo
         scoped_mpbq                    m_plus_inf_approx; // lower bound for binary rational intervals used to approximate an infinite positive value
         scoped_mpbq                    m_minus_inf_approx; // upper bound for binary rational intervals used to approximate an infinite negative value
-        
+        bool                           m_lazy_algebraic_normalization;
 
         // Tracing
         unsigned                       m_exec_depth;
+
+        bool                           m_in_aux_values; // True if we are computing SquareFree polynomials or Sturm sequences. That is, the values being computed will be discarded.
 
         volatile bool                  m_cancel;
 
@@ -492,6 +511,8 @@ namespace realclosure {
             m_e  = 0;
 
             m_exec_depth = 0;
+
+            m_in_aux_values = false;
 
             m_cancel = false;
             
@@ -625,7 +646,9 @@ namespace realclosure {
             SASSERT(!qm().is_zero(b));
             scoped_mpbqi bi(bqim());
             set_interval(bi, b);
-            div(a, bi, prec, c);
+            scoped_mpbqi r(bqim());
+            div(a, bi, prec, r);
+            swap(c, r);
         }
 
         /**
@@ -719,6 +742,7 @@ namespace realclosure {
             m_ini_precision      = p.initial_precision();
             m_inf_precision      = p.inf_precision();
             m_max_precision      = p.max_precision();
+            m_lazy_algebraic_normalization = p.lazy_algebraic_normalization();
             bqm().power(mpbq(2), m_inf_precision, m_plus_inf_approx);
             bqm().set(m_minus_inf_approx, m_plus_inf_approx);
             bqm().neg(m_minus_inf_approx);
@@ -806,6 +830,7 @@ namespace realclosure {
         void del_algebraic(algebraic * a) {
             reset_p(a->m_p);
             bqim().del(a->m_interval);
+            bqim().del(a->m_iso_interval);
             dec_ref_sign_det(a->m_sign_det);
             allocator().deallocate(sizeof(algebraic), a);
         }
@@ -932,6 +957,16 @@ namespace realclosure {
         }
         bool is_rational_one(value_ref_buffer const & p) const {
             return p.size() == 1 && is_rational_one(p[0]);
+        }
+        
+        bool is_denominator_one(rational_function_value * v) const {
+            if (v->ext()->is_algebraic()) {
+                SASSERT(v->den().size() == 0); // we do not use denominator for algebraic extensions
+                return true;
+            }
+            else {
+                return is_rational_one(v->den());
+            }
         }
 
         template<typename T>
@@ -1214,10 +1249,23 @@ namespace realclosure {
             rational_function_value * r = alloc(rational_function_value, ext);
             inc_ref(ext);
             set_p(r->num(), num_sz, num);
-            set_p(r->den(), den_sz, den);
+            if (ext->is_algebraic()) {
+                // Avoiding wasteful allocation...
+                // We do not use the denominator for algebraic extensions
+                SASSERT(den_sz == 0 || (den_sz == 1 && is_rational_one(den[0])));
+                
+                SASSERT(r->den().size() == 0);
+            }
+            else {
+                set_p(r->den(), den_sz, den);
+            }
             r->set_depends_on_infinitesimals(depends_on_infinitesimals(ext) || depends_on_infinitesimals(num_sz, num) || depends_on_infinitesimals(den_sz, den));
             return r;
         }         
+
+        rational_function_value * mk_rational_function_value_core(algebraic * ext, unsigned num_sz, value * const * num) {
+            return mk_rational_function_value_core(ext, num_sz, num, 0, 0);
+        }
 
         /**
            \brief Create a value using the given extension.
@@ -1233,9 +1281,9 @@ namespace realclosure {
         /**
            \brief Create a new infinitesimal.
         */
-        void mk_infinitesimal(symbol const & n, numeral & r) {
+        void mk_infinitesimal(symbol const & n, symbol const & pp_n, numeral & r) {
             unsigned idx = next_infinitesimal_idx();
-            infinitesimal * eps = alloc(infinitesimal, idx, n);
+            infinitesimal * eps = alloc(infinitesimal, idx, n, pp_n);
             m_extensions[extension::INFINITESIMAL].push_back(eps);
 
             set_lower(eps->interval(), mpbq(0));
@@ -1247,12 +1295,12 @@ namespace realclosure {
             SASSERT(depends_on_infinitesimals(r));
         }
 
-        void mk_infinitesimal(char const * n, numeral & r) {
-            mk_infinitesimal(symbol(n), r);
+        void mk_infinitesimal(char const * n, char const * pp_n, numeral & r) {
+            mk_infinitesimal(symbol(n), symbol(pp_n), r);
         }
 
         void mk_infinitesimal(numeral & r) {
-            mk_infinitesimal(symbol(next_infinitesimal_idx()), r);
+            mk_infinitesimal(symbol(next_infinitesimal_idx()+1), symbol(next_infinitesimal_idx()+1), r);
         }
 
         void refine_transcendental_interval(transcendental * t) {
@@ -1285,9 +1333,9 @@ namespace realclosure {
             }
         }
 
-        void mk_transcendental(symbol const & n, mk_interval & proc, numeral & r) {
+        void mk_transcendental(symbol const & n, symbol const & pp_n, mk_interval & proc, numeral & r) {
             unsigned idx = next_transcendental_idx();
-            transcendental * t = alloc(transcendental, idx, n, proc);
+            transcendental * t = alloc(transcendental, idx, n, pp_n, proc);
             m_extensions[extension::TRANSCENDENTAL].push_back(t);
             
             while (contains_zero(t->interval())) {
@@ -1299,12 +1347,12 @@ namespace realclosure {
             SASSERT(!depends_on_infinitesimals(r));
         }
         
-        void mk_transcendental(char const * p, mk_interval & proc, numeral & r) {
-            mk_transcendental(symbol(p), proc, r);
+        void mk_transcendental(char const * p, char const * pp_n, mk_interval & proc, numeral & r) {
+            mk_transcendental(symbol(p), symbol(pp_n), proc, r);
         }
 
         void mk_transcendental(mk_interval & proc, numeral & r) {
-            mk_transcendental(symbol(next_transcendental_idx()), proc, r);
+            mk_transcendental(symbol(next_transcendental_idx()+1), symbol(next_transcendental_idx()+1), proc, r);
         }
 
         void mk_pi(numeral & r) {
@@ -1312,7 +1360,7 @@ namespace realclosure {
                 set(r, m_pi);
             }
             else {
-                mk_transcendental(symbol("pi"), m_mk_pi_interval, r);
+                mk_transcendental(symbol("pi"), symbol("&pi;"), m_mk_pi_interval, r);
                 m_pi = r.m_value;
                 inc_ref(m_pi);
             }
@@ -1323,7 +1371,7 @@ namespace realclosure {
                 set(r, m_e);
             }
             else {
-                mk_transcendental(symbol("e"), m_mk_e_interval, r);
+                mk_transcendental(symbol("e"), symbol("e"), m_mk_e_interval, r);
                 m_e = r.m_value;
                 inc_ref(m_e);
             }
@@ -1764,7 +1812,7 @@ namespace realclosure {
         /**
            \brief Create a new algebraic extension
          */
-        algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sc_idx) {
+        algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, sign_det * sd, unsigned sc_idx) {
             unsigned idx = next_algebraic_idx();
 	    void * mem = allocator().allocate(sizeof(algebraic));
             algebraic * r = new (mem) algebraic(idx);
@@ -1772,6 +1820,7 @@ namespace realclosure {
             
             set_p(r->m_p, p_sz, p);
             set_interval(r->m_interval, interval);
+            set_interval(r->m_iso_interval, iso_interval);
             r->m_sign_det = sd;
             inc_ref_sign_det(sd);
             r->m_sc_idx   = sc_idx;
@@ -1783,8 +1832,8 @@ namespace realclosure {
         /**
            \brief Add a new root of p that is isolated by (interval, sd, sc_idx) to roots.
         */
-        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, sign_det * sd, unsigned sc_idx, numeral_vector & roots) {
-            algebraic * a = mk_algebraic(p_sz, p, interval, sd, sc_idx);
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, sign_det * sd, unsigned sc_idx, numeral_vector & roots) {
+            algebraic * a = mk_algebraic(p_sz, p, interval, iso_interval, sd, sc_idx);
             numeral r;
             set(r, mk_rational_function_value(a));
             roots.push_back(r);
@@ -1794,8 +1843,8 @@ namespace realclosure {
            \brief Simpler version of add_root that does not use sign_det data-structure. That is,
            interval contains only one root of p.
         */
-        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, numeral_vector & roots) {
-            add_root(p_sz, p, interval, 0, UINT_MAX, roots);
+        void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, numeral_vector & roots) {
+            add_root(p_sz, p, interval, iso_interval, 0, UINT_MAX, roots);
         }
 
         /**
@@ -1897,7 +1946,7 @@ namespace realclosure {
 
            \pre num_roots is the number of roots in the given interval
         */
-        void sign_det_isolate_roots(unsigned p_sz, value * const * p, int num_roots, mpbqi const & interval, numeral_vector & roots) {
+        void sign_det_isolate_roots(unsigned p_sz, value * const * p, int num_roots, mpbqi const & interval, mpbqi const & iso_interval, numeral_vector & roots) {
             SASSERT(num_roots >= 2);
             scoped_polynomial_seq der_seq(*this);
             mk_derivatives(p_sz, p, der_seq);
@@ -1967,7 +2016,7 @@ namespace realclosure {
                 // q is a derivative of p.
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
-                count_signs_at_zeros(p_sz, p, q_sz, q, interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                count_signs_at_zeros(p_sz, p, q_sz, q, iso_interval, num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
                 TRACE("rcf_sign_det",
                       tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
                       tout << "#(q == 0): " << q_eq_0 << ", #(q > 0): " << q_gt_0 << ", #(q < 0): " << q_lt_0 << "\n";);
@@ -1978,7 +2027,7 @@ namespace realclosure {
                 }
                 bool use_q2 = M.n() == 3;
                 mm().tensor_product(M_s, M, new_M_s);
-                expand_taqrs(taqrs, prs, p_sz, p, q_sz, q, use_q2, q2.size(), q2.c_ptr(), interval,
+                expand_taqrs(taqrs, prs, p_sz, p, q_sz, q, use_q2, q2.size(), q2.c_ptr(), iso_interval,
                              // --->
                              new_taqrs, new_prs);
                 SASSERT(new_M_s.n() == new_M_s.m());           // it is a square matrix
@@ -2065,7 +2114,7 @@ namespace realclosure {
             SASSERT(M_s.n() == M_s.m()); SASSERT(M_s.n() == static_cast<unsigned>(num_roots));
             sign_det * sd = mk_sign_det(M_s, prs, taqrs, qs, scs);
             for (unsigned idx = 0; idx < static_cast<unsigned>(num_roots); idx++) {
-                add_root(p_sz, p, interval, sd, idx, roots);
+                add_root(p_sz, p, interval, iso_interval, sd, idx, roots);
             }
         }
 
@@ -2150,7 +2199,7 @@ namespace realclosure {
                 m_p_sz(p_sz), m_p(p), m_depends_on_infinitesimals(dinf), m_sturm_seq(seq), m_result_roots(roots) {}
         };
         
-        void bisect_isolate_roots(mpbqi & interval, int lower_sv, int upper_sv, bisect_ctx & ctx) {
+        void bisect_isolate_roots(mpbqi & interval, mpbqi & iso_interval, int lower_sv, int upper_sv, bisect_ctx & ctx) {
             SASSERT(lower_sv >= upper_sv);
             int num_roots = lower_sv - upper_sv;
             if (num_roots == 0) {
@@ -2167,7 +2216,7 @@ namespace realclosure {
                 }                                                              
                 else {                                                         
                     // interval is an isolating interval
-                    add_root(ctx.m_p_sz, ctx.m_p, interval, ctx.m_result_roots);
+                    add_root(ctx.m_p_sz, ctx.m_p, interval, iso_interval, ctx.m_result_roots);
                 }
             }
             else if (ctx.m_depends_on_infinitesimals && check_precision(interval, m_max_precision)) {
@@ -2179,21 +2228,37 @@ namespace realclosure {
                 //   - We switch to expensive sign determination procedure, since
                 //     the roots may be infinitely close to each other.
                 //
-                sign_det_isolate_roots(ctx.m_p_sz, ctx.m_p, num_roots, interval, ctx.m_result_roots);
+                sign_det_isolate_roots(ctx.m_p_sz, ctx.m_p, num_roots, interval, iso_interval, ctx.m_result_roots);
             }
             else {
                 scoped_mpbq mid(bqm());
                 bqm().add(interval.lower(), interval.upper(), mid);
                 bqm().div2(mid);
                 int mid_sv = sign_variations_at(ctx.m_sturm_seq, mid);
-                scoped_mpbqi left_interval(bqim());
-                scoped_mpbqi right_interval(bqim());
-                set_lower(left_interval, interval.lower());
-                set_upper(left_interval, mid);
-                set_lower(right_interval, mid);
-                set_upper(right_interval, interval.upper());
-                bisect_isolate_roots(left_interval, lower_sv, mid_sv, ctx);
-                bisect_isolate_roots(right_interval, mid_sv, upper_sv, ctx);
+                int num_left_roots  = lower_sv - mid_sv;
+                int num_right_roots = mid_sv - upper_sv;
+                if (num_left_roots == 0) {
+                    scoped_mpbqi right_interval(bqim());
+                    set_lower(right_interval, mid);
+                    set_upper(right_interval, interval.upper());
+                    bisect_isolate_roots(right_interval, iso_interval, mid_sv, upper_sv, ctx);
+                }
+                else if (num_right_roots == 0) {
+                    scoped_mpbqi left_interval(bqim());
+                    set_lower(left_interval, interval.lower());
+                    set_upper(left_interval, mid);
+                    bisect_isolate_roots(left_interval, iso_interval,   lower_sv, mid_sv, ctx);
+                }
+                else {
+                    scoped_mpbqi left_interval(bqim());
+                    scoped_mpbqi right_interval(bqim());
+                    set_lower(left_interval, interval.lower());
+                    set_upper(left_interval, mid);
+                    set_lower(right_interval, mid);
+                    set_upper(right_interval, interval.upper());
+                    bisect_isolate_roots(left_interval, left_interval,   lower_sv, mid_sv, ctx);
+                    bisect_isolate_roots(right_interval, right_interval, mid_sv, upper_sv, ctx);
+                }
             }
         }
 
@@ -2201,7 +2266,7 @@ namespace realclosure {
            \brief Entry point for the root isolation procedure based on bisection.
         */
         void bisect_isolate_roots(// Input values
-                                  unsigned p_sz, value * const * p, mpbqi & interval,
+                                  unsigned p_sz, value * const * p, mpbqi & interval, mpbqi & iso_interval,
                                   // Extra Input values with already computed information
                                   scoped_polynomial_seq & sturm_seq, // sturm sequence for p
                                   int lower_sv,                      // number of sign variations at the lower bound of interval
@@ -2210,7 +2275,7 @@ namespace realclosure {
                                   numeral_vector & roots) {
             bool dinf = depends_on_infinitesimals(p_sz, p);
             bisect_ctx ctx(p_sz, p, dinf, sturm_seq, roots);
-            bisect_isolate_roots(interval, lower_sv, upper_sv, ctx);
+            bisect_isolate_roots(interval, iso_interval, lower_sv, upper_sv, ctx);
         }
 
         /**
@@ -2254,37 +2319,37 @@ namespace realclosure {
             scoped_mpbqi neg_interval(bqim());
             mk_neg_interval(has_neg_lower, neg_lower_N, has_neg_upper, neg_upper_N, neg_interval);
             mk_pos_interval(has_pos_lower, pos_lower_N, has_pos_upper, pos_upper_N, pos_interval);
-
+            scoped_mpbqi minf_zero(bqim());
+            set_lower_inf(minf_zero);
+            set_upper_zero(minf_zero);
+            scoped_mpbqi zero_inf(bqim());
+            set_lower_zero(zero_inf);
+            set_upper_inf(zero_inf);
+            
             if (num_neg_roots > 0) {
                 if (num_neg_roots == 1) {
-                    add_root(n, p, neg_interval, 0, UINT_MAX, roots);
+                    add_root(n, p, neg_interval, minf_zero, 0, UINT_MAX, roots);
                 }
                 else {
                     if (has_neg_lower) {
-                        bisect_isolate_roots(n, p, neg_interval, seq, num_sv_minus_inf, num_sv_zero, roots);
+                        bisect_isolate_roots(n, p, neg_interval, minf_zero, seq, num_sv_minus_inf, num_sv_zero, roots);
                     }
                     else {
-                        scoped_mpbqi minf_zero(bqim());
-                        set_lower_inf(minf_zero);
-                        set_upper_zero(minf_zero);
-                        sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, roots);
+                        sign_det_isolate_roots(n, p, num_neg_roots, minf_zero, minf_zero, roots);
                     }
                 }
             }
             
             if (num_pos_roots > 0) {
                 if (num_pos_roots == 1) {
-                    add_root(n, p, pos_interval, 0, UINT_MAX, roots);
+                    add_root(n, p, pos_interval, zero_inf, 0, UINT_MAX, roots);
                 }
                 else {
                     if (has_pos_upper) {
-                        bisect_isolate_roots(n, p, pos_interval, seq, num_sv_zero, num_sv_plus_inf, roots);
+                        bisect_isolate_roots(n, p, pos_interval, zero_inf, seq, num_sv_zero, num_sv_plus_inf, roots);
                     }
                     else {
-                        scoped_mpbqi zero_inf(bqim());
-                        set_lower_zero(zero_inf);
-                        set_upper_inf(zero_inf);
-                        sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, roots);
+                        sign_det_isolate_roots(n, p, num_pos_roots, zero_inf, zero_inf, roots);
                     }
                 }
             }
@@ -2344,8 +2409,6 @@ namespace realclosure {
                 value_ref d(*this);
                 value_ref_buffer norm_p(*this);
                 clean_denominators(n, p, norm_p, d);
-                if (sign(d) < 0)
-                    neg(norm_p);
                 nz_cd_isolate_roots(norm_p.size(), norm_p.c_ptr(), roots);
             }
             else {
@@ -2413,12 +2476,11 @@ namespace realclosure {
 
            \pre a is a rational function (algebraic) extension.
 
-           \remark If a is actually an integer, this method is also update its representation.
+           \remark If a is actually an integer, this method also updates its representation.
         */
         bool is_algebraic_int(numeral const & a) {
             SASSERT(is_rational_function(a));
             SASSERT(to_rational_function(a)->ext()->is_algebraic());
-            
             // TODO
             return false;
         }
@@ -2812,6 +2874,7 @@ namespace realclosure {
            \brief r <- p/a
         */
         void div(unsigned sz, value * const * p, value * a, value_ref_buffer & r) {
+            r.reset();
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
                 div(p[i], a, a_i);
@@ -3062,7 +3125,7 @@ namespace realclosure {
                 return qm().is_int(to_mpq(a));
             else {
                 rational_function_value * rf_a = to_rational_function(a);
-                return is_rational_one(rf_a->den()) && has_clean_denominators(rf_a->num());
+                return is_denominator_one(rf_a) && has_clean_denominators(rf_a->num());
             }
         }
 
@@ -3107,7 +3170,13 @@ namespace realclosure {
                 value_ref_buffer p_num(*this), p_den(*this);
                 value_ref d_num(*this), d_den(*this);
                 clean_denominators_core(rf_a->num(), p_num, d_num);
-                clean_denominators_core(rf_a->den(), p_den, d_den);
+                if (is_denominator_one(rf_a)) {
+                    p_den.push_back(one());
+                    d_den = one();
+                }
+                else {
+                    clean_denominators_core(rf_a->den(), p_den, d_den);
+                }
                 value_ref x(*this);
                 x = mk_rational_function_value(rf_a->ext());
                 mk_polynomial_value(p_num.size(), p_num.c_ptr(), x, p);
@@ -3115,6 +3184,11 @@ namespace realclosure {
                 if (!struct_eq(d_den, d_num)) {
                     mul(p, d_den, p);
                     mul(q, d_num, q);
+                }
+                if (sign(q) < 0) {
+                    // make sure the denominator is positive
+                    neg(p, p);
+                    neg(q, q);
                 }
             }
         }
@@ -3125,6 +3199,7 @@ namespace realclosure {
                   and has_clean_denominators(clean_p) && has_clean_denominators(d)
         */
         void clean_denominators_core(unsigned p_sz, value * const * p, value_ref_buffer & norm_p, value_ref & d) {
+            SASSERT(p_sz >= 1);
             value_ref_buffer nums(*this), dens(*this);
             value_ref a_n(*this), a_d(*this);
             bool all_one = true;
@@ -3297,7 +3372,7 @@ namespace realclosure {
             }
             else {
                 rational_function_value * rf_a = to_rational_function(a);
-                if (is_rational_one(rf_a->den()))
+                if (!is_denominator_one(rf_a))
                     return false;
                 else
                     return gcd_int_coeffs(rf_a->num(), g);
@@ -3369,7 +3444,7 @@ namespace realclosure {
             }
             else {
                 rational_function_value * rf = to_rational_function(a);
-                SASSERT(is_rational_one(rf->den()));
+                SASSERT(is_denominator_one(rf));
                 value_ref_buffer new_ais(*this);
                 value_ref ai(*this);
                 polynomial const & p = rf->num();
@@ -3397,6 +3472,14 @@ namespace realclosure {
         //
         // ---------------------------------
         
+        bool is_monic(value_ref_buffer const & p) {
+            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+        }
+
+        bool is_monic(polynomial const & p) {
+            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+        }
+
         /**
            \brief Force the leading coefficient of p to be 1.
         */
@@ -3532,6 +3615,7 @@ namespace realclosure {
            Store in r the square free factors of p.
         */
         void square_free(unsigned sz, value * const * p, value_ref_buffer & r) {
+            flet<bool> set(m_in_aux_values, true);
             if (sz <= 1) {
                 r.append(sz, p);
             }
@@ -3559,6 +3643,8 @@ namespace realclosure {
         */
         void sturm_seq_core(scoped_polynomial_seq & seq) {
             INC_DEPTH();
+            flet<bool> set(m_in_aux_values, true);
+
             SASSERT(seq.size() >= 2);
             TRACE("rcf_sturm_seq", 
                   unsigned sz = seq.size();
@@ -3731,13 +3817,42 @@ namespace realclosure {
            \brief Evaluate the sign of p(b) by computing a value object.
         */
         int expensive_eval_sign_at(unsigned n, value * const * p, mpbq const & b) {
-            SASSERT(n > 0);
+            flet<bool> set(m_in_aux_values, true);
+
+            SASSERT(n > 1);
             SASSERT(p[n - 1] != 0);
-            value_ref _b(*this);
-            _b = mk_rational(b);
-            value_ref pb(*this);
-            mk_polynomial_value(n, p, _b, pb);
-            return sign(pb);
+            // Actually, given b = c/2^k, we compute the sign of (2^k)^n*p(c)
+            // Original Horner Sequence
+            //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
+            // Variation of the Horner Sequence for (2^k)^n*p(b)
+            //     ((a_n * c + a_{n-1}*2_k)*c + a_{n-2}*(2_k)^2)*c + a_{n-3}*(2_k)^3 ... + a_0*(2_k)^n 
+            scoped_mpz mpz_twok(qm());
+            qm().mul2k(mpz(1), b.k(), mpz_twok);
+            value_ref twok(*this), twok_i(*this);
+            twok = mk_rational(mpz_twok);
+            twok_i = twok;
+            value_ref c(*this);
+            c = mk_rational(b.numerator());
+
+            value_ref r(*this), ak(*this), rc(*this);
+
+            r = p[n-1];
+            unsigned i = n-1;
+            while (i > 0) {
+                --i;
+                if (is_zero(p[i])) {
+                    mul(r, c, r);
+                }
+                else {
+                    // ak <- a_i * (2^k)^(n-i)
+                    mul(p[i], twok_i, ak);
+                    // r <- r * c + a_i * (2^k)^(n-i)
+                    mul(r, c, rc);
+                    add(ak, rc, r);
+                }
+                mul(twok_i, twok, twok_i);
+            }
+            return sign(r);
         }
 
         /**
@@ -4026,7 +4141,7 @@ namespace realclosure {
            extension and coefficients of the rational function.
         */
         void update_rf_interval(rational_function_value * v, unsigned prec) {
-            if (is_rational_one(v->den())) {
+            if (is_denominator_one(v)) {
                 polynomial_interval(v->num(), v->ext()->interval(), v->interval());
             }
             else  {
@@ -4136,56 +4251,63 @@ namespace realclosure {
         bool refine_algebraic_interval(algebraic * a, unsigned prec) {
             save_interval_if_too_small(a, prec);
             if (a->sdt() != 0) {
-                // we can't bisect the interval, since it contains more than one root.
+                // We don't bisect the interval, since it contains more than one root.
+                // To bisect this kind of interval we would have to use Tarski queries.
                 return false;
             }
             else {
                 mpbqi & a_i = a->interval();
-                SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
-                int  lower_sign = INT_MIN;
-                while (!check_precision(a_i, prec)) {
-                    checkpoint();
-                    SASSERT(!bqm().eq(a_i.lower(), a_i.upper()));
-                    scoped_mpbq m(bqm());
-                    bqm().add(a_i.lower(), a_i.upper(), m);
-                    bqm().div2(m);
-                    int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
-                    if (mid_sign == 0) {
-                        // found the actual root
-                        // set interval [m, m]
-                        set_lower(a_i, m, false);
-                        set_upper(a_i, m, false);
-                        return true;
-                    }
-                    else {
-                        SASSERT(mid_sign == 1 || mid_sign == -1);
-                        if (lower_sign == INT_MIN) {
-                            // initialize lower_sign
-                            lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
-                        }
-                        SASSERT(lower_sign == 1 || lower_sign == -1);
-                        if (mid_sign == lower_sign) {
-                            // improved lower bound
-                            set_lower(a_i, m);
+                if (a_i.lower_is_inf() || a_i.upper_is_inf()) {
+                    // we can't bisect the infinite intervals
+                    return false;
+                }
+                else {
+                    mpbqi & a_i = a->interval();
+                    SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
+                    int  lower_sign = INT_MIN;
+                    while (!check_precision(a_i, prec)) {
+                        checkpoint();
+                        SASSERT(!bqm().eq(a_i.lower(), a_i.upper()));
+                        scoped_mpbq m(bqm());
+                        bqm().add(a_i.lower(), a_i.upper(), m);
+                        bqm().div2(m);
+                        int mid_sign   = eval_sign_at(a->p().size(), a->p().c_ptr(), m);
+                        if (mid_sign == 0) {
+                            // found the actual root
+                            // set interval [m, m]
+                            set_lower(a_i, m, false);
+                            set_upper(a_i, m, false);
+                            return true;
                         }
                         else {
-                            // improved upper bound
-                            set_upper(a_i, m);
+                            SASSERT(mid_sign == 1 || mid_sign == -1);
+                            if (lower_sign == INT_MIN) {
+                                // initialize lower_sign
+                                lower_sign = eval_sign_at(a->p().size(), a->p().c_ptr(), a_i.lower());
+                            }
+                            SASSERT(lower_sign == 1 || lower_sign == -1);
+                            if (mid_sign == lower_sign) {
+                                // improved lower bound
+                                set_lower(a_i, m);
+                            }
+                            else {
+                                // improved upper bound
+                                set_upper(a_i, m);
+                            }
                         }
                     }
+                    return true;
                 }
-                return true;
             }
         }
 
         bool refine_algebraic_interval(rational_function_value * v, unsigned prec) {
             SASSERT(v->ext()->is_algebraic());
             polynomial const & n = v->num();
-            polynomial const & d = v->den();
+            SASSERT(is_denominator_one(v)); 
             unsigned _prec = prec;
             while (true) {
                 if (!refine_coeffs_interval(n, _prec) ||
-                    !refine_coeffs_interval(d, _prec) || 
                     !refine_algebraic_interval(to_algebraic(v->ext()), _prec))
                     return false;
 
@@ -4464,7 +4586,7 @@ namespace realclosure {
             int num_roots = x->num_roots_inside_interval();
             SASSERT(x->sdt() != 0 || num_roots == 1);
             polynomial const & p = x->p();
-            int taq_p_q = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->interval());
+            int taq_p_q = TaQ(p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval());
             if (num_roots == 1 && taq_p_q == 0)
                 return false; // q(x) is zero
             if (taq_p_q == num_roots) {
@@ -4490,7 +4612,7 @@ namespace realclosure {
                 SASSERT(x->sdt() != 0);
                 int q_eq_0, q_gt_0, q_lt_0;
                 value_ref_buffer q2(*this);
-                count_signs_at_zeros_core(taq_p_q, p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
+                count_signs_at_zeros_core(taq_p_q, p.size(), p.c_ptr(), q.size(), q.c_ptr(), x->iso_interval(), num_roots, q_eq_0, q_gt_0, q_lt_0, q2);
                 if (q_eq_0 > 0 && q_gt_0 == 0 && q_lt_0 == 0) {
                     // q(x) is zero
                     return false; 
@@ -4512,7 +4634,7 @@ namespace realclosure {
                     //   sdt.M_s * [1, ..., 1]^t = sdt.taqrs()^t 
                     // That is,
                     //   [1, ..., 1]^t = sdt.M_s^-1 * sdt.taqrs()^t
-                    // Moreover the number of roots in x->interval() is equal to the number of rows and columns in sdt.M_s.
+                    // Moreover the number of roots in x->iso_interval() is equal to the number of rows and columns in sdt.M_s.
                     // The column j of std.M_s is associated with the sign condition sdt.m_scs[j].
                     // The row i of sdt.M_s is associated with the polynomial sdt.prs()[i].
                     //
@@ -4524,21 +4646,21 @@ namespace realclosure {
                     scoped_mpz_matrix new_M_s(mm());
                     mm().tensor_product(sdt.M_s, M, new_M_s);
                     array<polynomial> const & prs = sdt.prs(); // polynomials associated with the rows of M_s
-                    array<int> const & taqrs      = sdt.taqrs(); // For each i in [0, taqrs.size())  TaQ(p, prs[i]; x->interval()) == taqrs[i]
+                    array<int> const & taqrs      = sdt.taqrs(); // For each i in [0, taqrs.size())  TaQ(p, prs[i]; x->iso_interval()) == taqrs[i]
                     SASSERT(prs.size() == taqrs.size());
                     int_buffer   new_taqrs;
                     value_ref_buffer prq(*this);
                     // fill new_taqrs using taqrs and the new tarski queries containing q (and q^2 when use_q2 == true).
                     for (unsigned i = 0; i < taqrs.size(); i++) {
-                        // Add TaQ(p, prs[i] * 1; x->interval())
+                        // Add TaQ(p, prs[i] * 1; x->iso_interval())
                         new_taqrs.push_back(taqrs[i]);
-                        // Add TaQ(p, prs[i] * q; x->interval())
+                        // Add TaQ(p, prs[i] * q; x->iso_interval())
                         mul(prs[i].size(), prs[i].c_ptr(), q.size(), q.c_ptr(), prq);
-                        new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->interval()));
+                        new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         if (use_q2) {
-                            // Add TaQ(p, prs[i] * q^2; x->interval())
+                            // Add TaQ(p, prs[i] * q^2; x->iso_interval())
                             mul(prs[i].size(), prs[i].c_ptr(), q2.size(), q2.c_ptr(), prq);
-                            new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->interval()));
+                            new_taqrs.push_back(TaQ(p.size(), p.c_ptr(), prq.size(), prq.c_ptr(), x->iso_interval()));
                         }
                     }
                     int_buffer   sc_cardinalities;
@@ -4566,7 +4688,7 @@ namespace realclosure {
                             }
                         });
                     // Remark:
-                    //   Note that we found the sign of q for every root of p in the interval x->interval() :)
+                    //   Note that we found the sign of q for every root of p in the interval x->iso_interval() :)
                     unsigned sc_idx = x->sc_idx();
                     if (use_q2) {
                         if (sc_cardinalities[3*sc_idx] == 1) {
@@ -4637,13 +4759,11 @@ namespace realclosure {
                   tout << "\ninterval: ";  bqim().display(tout, v->interval()); tout << "\n";);
             algebraic * x = to_algebraic(v->ext());
             scoped_mpbqi num_interval(bqim());
+            SASSERT(is_denominator_one(v));
             if (!expensive_algebraic_poly_interval(v->num(), x, num_interval))
                 return false; // it is zero
             SASSERT(!contains_zero(num_interval));
-            scoped_mpbqi den_interval(bqim());
-            VERIFY(expensive_algebraic_poly_interval(v->den(), x, den_interval));
-            SASSERT(!contains_zero(den_interval));
-            div(num_interval, den_interval, m_ini_precision, v->interval());
+            set_interval(v->interval(), num_interval);
             SASSERT(!contains_zero(v->interval()));
             return true; // it is not zero
         }
@@ -4685,14 +4805,20 @@ namespace realclosure {
         bool determine_sign(rational_function_value * v) {
             if (!contains_zero(v->interval()))
                 return true;
+            bool r;
             switch (v->ext()->knd()) {
-            case extension::TRANSCENDENTAL: determine_transcendental_sign(v); return true; // it is never zero
-            case extension::INFINITESIMAL:  determine_infinitesimal_sign(v); return true; // it is never zero
-            case extension::ALGEBRAIC:      return determine_algebraic_sign(v);
+            case extension::TRANSCENDENTAL: determine_transcendental_sign(v); r = true; break; // it is never zero
+            case extension::INFINITESIMAL:  determine_infinitesimal_sign(v);  r = true; break; // it is never zero
+            case extension::ALGEBRAIC:      r = determine_algebraic_sign(v); break;
             default:
                 UNREACHABLE();
-                return false;
+                r = false;
             }
+            TRACE("rcf_determine_sign_bug",
+                  tout << "result: " << r << "\n";
+                  display_compact(tout, v); tout << "\n";
+                  tout << "sign: " << sign(v) << "\n";);
+            return r;
         }
 
         bool determine_sign(value_ref & r) {
@@ -4707,10 +4833,10 @@ namespace realclosure {
         // ---------------------------------
 
         /**
-           \brief Set new_p1 and new_p2 using the following normalization rules:
-           - new_p1 <- p1/p2[0];       new_p2 <- one              IF  sz2 == 1
-           - new_p1 <- one;            new_p2 <- p2/p1[0];        IF  sz1 == 1
-           - new_p1 <- p1/gcd(p1, p2); new_p2 <- p2/gcd(p1, p2);  Otherwise
+           \brief Compute polynomials new_p1 and new_p2 s.t.
+                  - p1/p2 == new_p1/new_p2, AND
+                  - new_p2 is a Monic polynomial, AND
+                  - gcd(new_p1, new_p2) == 1
         */
         void normalize_fraction(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
             INC_DEPTH();
@@ -4723,46 +4849,57 @@ namespace realclosure {
                 div(sz1, p1, p2[0], new_p1);
                 new_p2.reset(); new_p2.push_back(one());
             }
-            else if (sz1 == 1) {
-                SASSERT(sz2 > 1);
-                // - new_p1 <- one;            new_p2 <- p2/p1[0];        IF  sz1 == 1
-                new_p1.reset(); new_p1.push_back(one());
-                div(sz2, p2, p1[0], new_p2);
-            }
             else {
-                // - new_p1 <- p1/gcd(p1, p2); new_p2 <- p2/gcd(p1, p2);  Otherwise
-                value_ref_buffer g(*this);
-                gcd(sz1, p1, sz2, p2, g);
-                if (is_rational_one(g)) {
-                    new_p1.append(sz1, p1);
-                    new_p2.append(sz2, p2);
-                }
-                else if (g.size() == sz1 || g.size() == sz2) {
-                    // After dividing p1 and p2 by g, one of the quotients will have size 1.
-                    // Thus, we have to apply the first two rules again.
-                    value_ref_buffer tmp_p1(*this);
-                    value_ref_buffer tmp_p2(*this);
-                    div(sz1, p1, g.size(), g.c_ptr(), tmp_p1);
-                    div(sz2, p2, g.size(), g.c_ptr(), tmp_p2);
-                    if (tmp_p2.size() == 1) {
-                        div(tmp_p1.size(), tmp_p1.c_ptr(), tmp_p2[0], new_p1);
-                        new_p2.reset(); new_p2.push_back(one());
-                    }
-                    else if (tmp_p1.size() == 1) {
-                        SASSERT(tmp_p2.size() > 1);
-                        new_p1.reset(); new_p1.push_back(one());
-                        div(tmp_p2.size(), tmp_p2.c_ptr(), tmp_p1[0], new_p2);
-                    }
-                    else {
-                        UNREACHABLE();
-                    }
+                value * lc = p2[sz2 - 1];
+                if (is_rational_one(lc)) {
+                    // p2 is monic
+                    normalize_num_monic_den(sz1, p1, sz2, p2, new_p1, new_p2);
                 }
                 else {
-                    div(sz1, p1, g.size(), g.c_ptr(), new_p1);
-                    div(sz2, p2, g.size(), g.c_ptr(), new_p2);
-                    SASSERT(new_p1.size() > 1);
-                    SASSERT(new_p2.size() > 1);
+                    // p2 is not monic
+                    value_ref_buffer tmp1(*this);
+                    value_ref_buffer tmp2(*this);
+                    div(sz1, p1, lc, tmp1);
+                    div(sz2, p2, lc, tmp2);
+                    normalize_num_monic_den(tmp1.size(), tmp1.c_ptr(), tmp2.size(), tmp2.c_ptr(), new_p1, new_p2);
                 }
+            }
+            TRACE("normalize_fraction_bug", 
+                  display_poly(tout, sz1, p1); tout << "\n";
+                  display_poly(tout, sz2, p2); tout << "\n";
+                  tout << "====>\n";
+                  display_poly(tout, new_p1.size(), new_p1.c_ptr()); tout << "\n";
+                  display_poly(tout, new_p2.size(), new_p2.c_ptr()); tout << "\n";);
+        }
+        
+        /**
+           \brief Auxiliary function for normalize_fraction. 
+           It produces new_p1 and new_p2 s.t.
+                 new_p1/new_p2 == p1/p2
+                 gcd(new_p1, new_p2) == 1
+
+           Assumptions:
+           \pre p2 is monic
+           \pre sz2 > 1
+        */
+        void normalize_num_monic_den(unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, 
+                                     value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
+            SASSERT(sz2 > 1);
+            SASSERT(is_rational_one(p2[sz2-1]));
+            
+            value_ref_buffer g(*this);
+
+            gcd(sz1, p1, sz2, p2, g);
+            SASSERT(is_monic(g));
+            
+            if (is_rational_one(g)) {
+                new_p1.append(sz1, p1);
+                new_p2.append(sz2, p2);
+            }
+            else {
+                div(sz1, p1, g.size(), g.c_ptr(), new_p1);
+                div(sz2, p2, g.size(), g.c_ptr(), new_p2);
+                SASSERT(is_monic(new_p2));
             }
         }
 
@@ -4779,41 +4916,26 @@ namespace realclosure {
         */
         void normalize_algebraic(algebraic * x, unsigned sz1, value * const * p1, value_ref_buffer & new_p1) {
             polynomial const & p = x->p();
-            rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
-        }
-        
-        /**
-           \brief Apply normalize_algebraic (if applicable) & normalize_fraction.
-        */
-        void normalize_all(extension * x, unsigned sz1, value * const * p1, unsigned sz2, value * const * p2, value_ref_buffer & new_p1, value_ref_buffer & new_p2) {
-            if (x->is_algebraic()) {
-                value_ref_buffer p1_norm(*this);
-                value_ref_buffer p2_norm(*this);
-                // FUTURE: we don't need to invoke normalize_algebraic if degree of p1 < degree x->p()
-                normalize_algebraic(to_algebraic(x), sz1, p1, p1_norm);
-                if (p1_norm.empty()) {
-                    new_p1.reset(); // result is 0
-                }
-                else {
-                    // FUTURE: we don't need to invoke normalize_algebraic if degree of p2 < degree x->p()
-                    normalize_algebraic(to_algebraic(x), sz2, p2, p2_norm);
-                    normalize_fraction(p1_norm.size(), p1_norm.c_ptr(), p2_norm.size(), p2_norm.c_ptr(), new_p1, new_p2);
-                }
+            if (!m_lazy_algebraic_normalization || !m_in_aux_values || is_monic(p)) {
+                rem(sz1, p1, p.size(), p.c_ptr(), new_p1);
             }
             else {
-                normalize_fraction(sz1, p1, sz2, p2, new_p1, new_p2);
+                new_p1.reset();
+                new_p1.append(sz1, p1);
             }
         }
-
+        
         /**
            \brief Create a new value using the a->ext(), and the given numerator and denominator.
            Use interval(a) + interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
         void mk_add_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
-            SASSERT(num_sz > 0 && den_sz > 0);
-            if (num_sz == 1 && den_sz == 1) {
+            SASSERT(num_sz > 0);
+            // den_sz may be zero for algebraic extensions. 
+            // We do not use denominators for algebraic extensions.
+            if (num_sz == 1 && den_sz <= 1) {
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_rational_one(den[0]));
+                SASSERT(den_sz == 0 || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
@@ -4835,7 +4957,7 @@ namespace realclosure {
            \brief Add a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
         void add_p_v(rational_function_value * a, value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
+            SASSERT(is_denominator_one(a));
             SASSERT(compare_rank(a, b) > 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -4853,11 +4975,12 @@ namespace realclosure {
             value_ref_buffer b_ad(*this);
             value_ref_buffer num(*this);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
-            if (is_rational_one(ad)) {
+            if (is_denominator_one(a)) {
                 add_p_v(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
                 // b_ad <- b * ad
                 mul(b, ad.size(), ad.c_ptr(), b_ad);
                 // num <- a + b * ad
@@ -4867,11 +4990,9 @@ namespace realclosure {
                 else {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
-                    if (new_num.empty())
-                        r = 0;
-                    else
-                        mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+                    normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                    SASSERT(!new_num.empty());
+                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
         }
@@ -4880,8 +5001,8 @@ namespace realclosure {
            \brief Add values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
         void add_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
-            SASSERT(is_rational_one(b->den()));
+            SASSERT(is_denominator_one(a));
+            SASSERT(is_denominator_one(b));
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -4906,13 +5027,14 @@ namespace realclosure {
         void add_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
             polynomial const & bn = b->num();
-            polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd)) {
+            if (is_denominator_one(a) && is_denominator_one(b)) {
                 add_p_p(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
+                polynomial const & bd = b->den();
                 value_ref_buffer an_bd(*this);
                 value_ref_buffer bn_ad(*this);
                 mul(an.size(), an.c_ptr(), bd.size(), bd.c_ptr(), an_bd);
@@ -4927,11 +5049,9 @@ namespace realclosure {
                     mul(ad.size(), ad.c_ptr(), bd.size(), bd.c_ptr(), den);
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
-                    normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
-                    if (new_num.empty())
-                        r = 0;
-                    else
-                        mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
+                    normalize_fraction(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                    SASSERT(!new_num.empty());
+                    mk_add_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
                 }
             }
         }
@@ -5024,10 +5144,12 @@ namespace realclosure {
            Use interval(a) * interval(b) as an initial approximation for the interval of the result, and invoke determine_sign()
         */
         void mk_mul_value(rational_function_value * a, value * b, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den, value_ref & r) {
-            SASSERT(num_sz > 0 && den_sz > 0);
-            if (num_sz == 1 && den_sz == 1) {
+            SASSERT(num_sz > 0);
+            if (num_sz == 1 && den_sz <= 1) {
+                // den_sz may be zero for algebraic extensions. 
+                // We do not use denominators for algebraic extensions.
                 // In this case, the normalization rules guarantee that den is one.
-                SASSERT(is_rational_one(den[0]));
+                SASSERT(den_sz == 0 || is_rational_one(den[0]));
                 r = num[0];
             }
             else {
@@ -5049,7 +5171,7 @@ namespace realclosure {
            \brief Multiply a value of 'a' the form n/1 with b where rank(a) > rank(b)
         */
         void mul_p_v(rational_function_value * a, value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
+            SASSERT(is_denominator_one(a));
             SASSERT(b != 0);
             SASSERT(compare_rank(a, b) > 0);
             polynomial const & an  = a->num();
@@ -5066,18 +5188,19 @@ namespace realclosure {
         */
         void mul_rf_v(rational_function_value * a, value * b, value_ref & r) {
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
-            if (is_rational_one(ad)) {
+            if (is_denominator_one(a)) {
                 mul_p_v(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
                 value_ref_buffer num(*this);
                 // num <- b * an
                 mul(b, an.size(), an.c_ptr(), num);
                 SASSERT(num.size() == an.size());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_all(a->ext(), num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
+                normalize_fraction(num.size(), num.c_ptr(), ad.size(), ad.c_ptr(), new_num, new_den);
                 SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
@@ -5087,8 +5210,8 @@ namespace realclosure {
            \brief Multiply values 'a' and 'b' of the form n/1 and rank(a) == rank(b)
         */
         void mul_p_p(rational_function_value * a, rational_function_value * b, value_ref & r) {
-            SASSERT(is_rational_one(a->den()));
-            SASSERT(is_rational_one(b->den()));
+            SASSERT(is_denominator_one(a));
+            SASSERT(is_denominator_one(b));
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an  = a->num();
             polynomial const & one = a->den();
@@ -5098,7 +5221,6 @@ namespace realclosure {
             SASSERT(!new_num.empty());
             extension * x = a->ext();
             if (x->is_algebraic()) {
-                // FUTURE: we don't need to invoke normalize_algebraic if degree of new_num < degree x->p()
                 value_ref_buffer new_num2(*this);
                 normalize_algebraic(to_algebraic(x), new_num.size(), new_num.c_ptr(), new_num2);
                 SASSERT(!new_num.empty());
@@ -5115,13 +5237,14 @@ namespace realclosure {
         void mul_rf_rf(rational_function_value * a, rational_function_value * b, value_ref & r) {
             SASSERT(compare_rank(a, b) == 0);
             polynomial const & an = a->num();
-            polynomial const & ad = a->den();
             polynomial const & bn = b->num();
-            polynomial const & bd = b->den();
-            if (is_rational_one(ad) && is_rational_one(bd)) {
+            if (is_denominator_one(a) && is_denominator_one(b)) {
                 mul_p_p(a, b, r);
             }
             else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & ad = a->den();
+                polynomial const & bd = b->den();
                 value_ref_buffer num(*this);
                 value_ref_buffer den(*this);
                 mul(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), num);
@@ -5129,7 +5252,7 @@ namespace realclosure {
                 SASSERT(!num.empty()); SASSERT(!den.empty());
                 value_ref_buffer new_num(*this);
                 value_ref_buffer new_den(*this);
-                normalize_all(a->ext(), num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
+                normalize_fraction(num.size(), num.c_ptr(), den.size(), den.c_ptr(), new_num, new_den);
                 SASSERT(!new_num.empty());
                 mk_mul_value(a, b, new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr(), r);
             }
@@ -5203,14 +5326,236 @@ namespace realclosure {
             }
         }
 
-        void inv_rf(rational_function_value * a, value_ref & r) {
-            polynomial const & an = a->num();
-            polynomial const & ad = a->den();
+        /**
+           \brief Invert 1/q(alpha) given that p(alpha) = 0. That is, we find h s.t.
+
+           q(alpha) * h(alpha) = 1
+
+           The procedure succeeds (and returns true) if the GCD(q, p) = 1.
+           
+           If the GCD(q, p) != 1, then it returns false, and store the GCD in g.
+        
+           The following procedure is essentially a special case of the extended polynomial GCD algorithm.
+        */
+        bool inv_algebraic(unsigned q_sz, value * const * q, unsigned p_sz, value * const * p, value_ref_buffer & g, value_ref_buffer & h) {
+            TRACE("inv_algebraic", 
+                  tout << "q: "; display_poly(tout, q_sz, q); tout << "\n";
+                  tout << "p: "; display_poly(tout, p_sz, p); tout << "\n";);
+            SASSERT(q_sz > 0);
+            SASSERT(q_sz < p_sz);
+            // Q <- q
+            value_ref_buffer Q(*this);
+            Q.append(q_sz, q);
+            // R <- 1
+            value_ref_buffer R(*this);
+            R.push_back(one());
+            value_ref_buffer Quo(*this), Rem(*this), aux(*this);
+            
+            // We find h(alpha), by rewriting the equation
+            //    q(alpha) * h(alpha) = 1
+            // until we have 
+            //    1 * h(alpha) = R(alpha)
+            while (true) {
+                // In every iteration of the loop we have
+                //   Q(alpha) * h(alpha) = R(alpha) 
+                TRACE("inv_algebraic", 
+                      tout << "Q: "; display_poly(tout, Q.size(), Q.c_ptr()); tout << "\n";
+                      tout << "R: "; display_poly(tout, R.size(), R.c_ptr()); tout << "\n";);
+                if (Q.size() == 1) {
+                    // If the new Q is the constant polynomial, they we are done.
+                    // We just divide R by Q[0].
+                    // h(alpha) = R(alpha) / Q[0]
+                    div(R.size(), R.c_ptr(), Q[0], h);
+                    TRACE("inv_algebraic", tout << "h: "; display_poly(tout, h.size(), h.c_ptr()); tout << "\n";);
+                    // g <- 1
+                    g.reset(); g.push_back(one());
+                    return true;
+                }
+                else {
+                    div_rem(p_sz, p, Q.size(), Q.c_ptr(), Quo, Rem);
+                    if (Rem.empty()) {
+                        // failed
+                        // GCD(q, p) != 1
+                        g = Q;
+                        mk_monic(g);
+                        return false;
+                    }
+                    else {
+                        // By the definition of polynomial division, we have
+                        //     p == Quo * Q + Rem
+                        // Since, we have p(alpha) = 0 
+                        //     Quo(alpha) * Q(alpha) = -Rem(alpha)    (*)
+                        // Now, if we multiply the equation
+                        //     Q(alpha) * h(alpha) = R(alpha)
+                        // by Quo(alpha) and apply (*), we get
+                        //     -Rem(alpha) * h(alpha) = R(alpha) * Quo(alpha)
+                        // Thus, we update Q, and R for the next iteration, as 
+                        //    Q <- -REM
+                        //    R <- R * Quo
+                        // Q <- -Rem
+                        neg(Rem.size(), Rem.c_ptr(), Q);
+                        mul(R.size(), R.c_ptr(), Quo.size(), Quo.c_ptr(), aux);
+                        // Moreover since p(alpha) = 0, we can simplify Q, by using
+                        // Q(alpha) = REM(Q, p)(alpha)
+                        rem(aux.size(), aux.c_ptr(), p_sz, p, R);
+                        SASSERT(R.size() < p_sz);
+                        //
+                    }
+                }
+            }
+        }
+
+        /**
+           \brief r <- 1/a  specialized version when a->ext() is algebraic.
+           It avoids the use of rational functions.
+        */
+        void inv_algebraic(rational_function_value * a, value_ref & r) {
+            SASSERT(a->ext()->is_algebraic());
+            SASSERT(is_denominator_one(a));
             scoped_mpbqi ri(bqim());
             bqim().inv(interval(a), ri);
-            r = mk_rational_function_value_core(a->ext(), ad.size(), ad.c_ptr(), an.size(), an.c_ptr());
-            swap(r->interval(), ri);
-            SASSERT(!contains_zero(r->interval()));
+            algebraic * alpha = to_algebraic(a->ext());
+            polynomial const & q = a->num();
+            polynomial const & p = alpha->p();
+            value_ref_buffer norm_q(*this);
+            // since p(alpha) = 0, we have that q(alpha) = rem(q, p)(alpha) 
+            rem(q.size(), q.c_ptr(), p.size(), p.c_ptr(), norm_q);
+            SASSERT(norm_q.size() < p.size());
+            value_ref_buffer new_num(*this), g(*this);
+            if (inv_algebraic(norm_q.size(), norm_q.c_ptr(), p.size(), p.c_ptr(), g, new_num)) {
+                if (new_num.size() == 1) {
+                    r = new_num[0];
+                }
+                else {
+                    r = mk_rational_function_value_core(alpha, new_num.size(), new_num.c_ptr());
+                    swap(r->interval(), ri);
+                    SASSERT(!contains_zero(r->interval()));
+                }
+            }
+            else {
+                // We failed to compute 1/a
+                // because q and p are not co-prime
+                // This can happen because we don't use minimal
+                // polynomials to represent algebraic extensions such
+                // as alpha.
+                
+                // We recover from the failure by refining the defining polynomial of alpha
+                // with p/gcd(p, q)
+                // Remark: g contains the gcd of p, q
+                // And try again :)
+
+                value_ref_buffer new_p(*this);
+                div(p.size(), p.c_ptr(), g.size(), g.c_ptr(), new_p);
+                if (m_clean_denominators) {
+                    value_ref_buffer tmp(*this);
+                    value_ref d(*this);
+                    clean_denominators(new_p.size(), new_p.c_ptr(), tmp, d);
+                    new_p = tmp;
+                }
+                SASSERT(new_p.size() >= 2);
+
+                if (new_p.size() == 2) {
+                    // Easy case: alpha is actually equal to 
+                    //    -new_p[0]/new_p[1]
+                    value_ref alpha_val(*this);
+                    alpha_val = new_p[0];
+                    neg(alpha_val, alpha_val);
+                    div(alpha_val, new_p[1], alpha_val);
+                    // Thus, a is equal to q(alpha_val)
+                    value_ref new_a(*this);
+                    mk_polynomial_value(q.size(), q.c_ptr(), alpha_val, new_a);
+                    // Remark new_a does not depend on alpha anymore
+                    // r == 1/inv(new_a)
+                    inv(new_a, r);
+                }
+                else if (alpha->sdt() == 0) {
+                    // Another easy case: we just have to replace
+                    //    alpha->p() with new_p.
+                    // The m_iso_interval for p() is also an isolating interval for new_p,
+                    // since the roots of new_p() are a subset of the roots of p
+                    reset_p(alpha->m_p);
+                    set_p(alpha->m_p, new_p.size(), new_p.c_ptr());
+
+                    // The new call will succeed because q and new_p are co-prime
+                    inv_algebraic(a, r);
+                }
+                else {
+                    // Let sdt be alpha->sdt();
+                    // In pricipal, the signs of the polynomials sdt->qs can be used
+                    // to discriminate the roots of new_p. The signs of this polynomials 
+                    // depend only on alpha, and not on the polynomial used to define alpha
+                    // So, in principle, we can reuse m_qs and m_sign_conditions.
+                    // However, we have to recompute the tarski queries with respect to new_p.
+                    // This values will be different, since new_p has less roots than p.
+                    //
+                    // Instead of trying to reuse the information in sdt, we simply
+                    // isolate the roots of new_p, and check the one that is equal to alpha.
+                    // and copy all the information from them.
+                    SASSERT(new_p.size() > 2);
+                    // we can invoke nl_nz_sqf_isolate_roots, because we know
+                    //   - new_p is not linear
+                    //   - new_p is square free (it is a factor of the square free polynomial p)
+                    //   - 0 is not a root of new_p (it is a factor of p, and 0 is not a root of p)
+                    numeral_vector roots;
+                    nl_nz_sqf_isolate_roots(new_p.size(), new_p.c_ptr(), roots);
+                    SASSERT(roots.size() > 0);
+                    algebraic * new_alpha;
+                    if (roots.size() == 1) {
+                        new_alpha = to_algebraic(to_rational_function(roots[0].m_value)->ext());
+                    }
+                    else {
+                        value_ref alpha_val(*this);
+                        alpha_val = mk_rational_function_value(alpha);
+                        // search for the root that is equal to alpha
+                        unsigned i = 0;
+                        for (i = 0; i < roots.size(); i++) {
+                            if (compare(alpha_val, roots[i].m_value) == 0) {
+                                // found it;
+                                break;
+                            }
+                        }
+                        new_alpha = to_algebraic(to_rational_function(roots[i].m_value)->ext());
+                    }
+                    SASSERT(new_alpha->p().size() == new_p.size());
+                    // We now that alpha and new_alpha represent the same value.
+                    // Thus, we update alpha fields with the fields from new_alpha.
+
+                    // copy new_alpha->m_p
+                    reset_p(alpha->m_p);
+                    set_p(alpha->m_p, new_alpha->m_p.size(), new_alpha->m_p.c_ptr());
+                    // copy new_alpha->m_sign_det
+                    inc_ref_sign_det(new_alpha->m_sign_det);
+                    dec_ref_sign_det(alpha->m_sign_det);
+                    alpha->m_sign_det = new_alpha->m_sign_det;
+                    // copy remaining fields
+                    set_interval(alpha->m_iso_interval, new_alpha->m_iso_interval);
+                    alpha->m_sc_idx = new_alpha->m_sc_idx;
+                    alpha->m_depends_on_infinitesimals = new_alpha->m_depends_on_infinitesimals;
+                    
+                    // The new call will succeed because q and new_p are co-prime
+                    inv_algebraic(a, r);
+                }
+            }
+        }
+
+        void inv_rf(rational_function_value * a, value_ref & r) {
+            if (a->ext()->is_algebraic()) {
+                inv_algebraic(a, r);
+            }
+            else {
+                SASSERT(!a->ext()->is_algebraic());
+                polynomial const & an = a->num();
+                polynomial const & ad = a->den();
+                scoped_mpbqi ri(bqim());
+                bqim().inv(interval(a), ri);
+                // The GCD of an and ad is one, we may use a simpler version of normalize
+                value_ref_buffer new_num(*this);
+                value_ref_buffer new_den(*this);
+                normalize_fraction(ad.size(), ad.c_ptr(), an.size(), an.c_ptr(), new_num, new_den);
+                r = mk_rational_function_value_core(a->ext(), new_num.size(), new_num.c_ptr(), new_den.size(), new_den.c_ptr());
+                swap(r->interval(), ri);
+                SASSERT(!contains_zero(r->interval()));
+            }
         }
 
         void inv(value * a, value_ref & r) {
@@ -5428,11 +5773,11 @@ namespace realclosure {
             if (is_zero(v) || is_nz_rational(v)) 
                 return false;
             rational_function_value * rf = to_rational_function(v);
-            return num_nz_coeffs(rf->num()) > 1 || !is_rational_one(rf->den());
+            return num_nz_coeffs(rf->num()) > 1 || !is_denominator_one(rf);
         }
 
         template<typename DisplayVar>
-        void display_polynomial(std::ostream & out, unsigned sz, value * const * p, DisplayVar const & display_var, bool compact) const {
+        void display_polynomial(std::ostream & out, unsigned sz, value * const * p, DisplayVar const & display_var, bool compact, bool pp) const {
             if (sz == 0) {
                 out << "0";
                 return;
@@ -5448,34 +5793,45 @@ namespace realclosure {
                 else
                     out << " + ";
                 if (i == 0)
-                    display(out, p[i], compact);
+                    display(out, p[i], compact, pp);
                 else {
                     if (!is_rational_one(p[i])) {
                         if (use_parenthesis(p[i])) {
                             out << "(";
-                            display(out, p[i], compact);
-                            out << ")*";
+                            display(out, p[i], compact, pp);
+                            out << ")";
+                            if (pp)
+                                out << " ";
+                            else
+                                out << "*";
                         }
                         else {
-                            display(out, p[i], compact);
-                            out << "*";
+                            display(out, p[i], compact, pp);
+                            if (pp)
+                                out << " ";
+                            else
+                                out << "*";
                         }
                     }
-                    display_var(out, compact);
-                    if (i > 1)
-                        out << "^" << i;
+                    display_var(out, compact, pp);
+                    if (i > 1) {
+                        if (pp)
+                            out << "<sup>" << i << "</sup>";
+                        else
+                            out << "^" << i;
+                    }
                 }
             }
         }
 
         template<typename DisplayVar>
-        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact) const {
-            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact);
+        void display_polynomial(std::ostream & out, polynomial const & p, DisplayVar const & display_var, bool compact, bool pp) const {
+            display_polynomial(out, p.size(), p.c_ptr(), display_var, compact, pp);
         }
 
         struct display_free_var_proc {
-            void operator()(std::ostream & out, bool compact) const {
-                out << "#";
+            void operator()(std::ostream & out, bool compact, bool pp) const {
+                out << "x";
             }
         };
 
@@ -5483,13 +5839,13 @@ namespace realclosure {
             imp const &  m;
             extension *  m_ref;    
             display_ext_proc(imp const & _m, extension * r):m(_m), m_ref(r) {}
-            void operator()(std::ostream & out, bool compact) const {
-                m.display_ext(out, m_ref, compact);
+            void operator()(std::ostream & out, bool compact, bool pp) const {
+                m.display_ext(out, m_ref, compact, pp);
             }
         };
 
-        void display_polynomial_expr(std::ostream & out, polynomial const & p, extension * ext, bool compact) const {
-            display_polynomial(out, p, display_ext_proc(*this, ext), compact);
+        void display_polynomial_expr(std::ostream & out, polynomial const & p, extension * ext, bool compact, bool pp) const {
+            display_polynomial(out, p, display_ext_proc(*this, ext), compact, pp);
         }
 
         static void display_poly_sign(std::ostream & out, int s) {
@@ -5516,7 +5872,7 @@ namespace realclosure {
             out << "}";
         }
 
-        void display_sign_conditions(std::ostream & out, sign_condition * sc, array<polynomial> const & qs, bool compact) const {
+        void display_sign_conditions(std::ostream & out, sign_condition * sc, array<polynomial> const & qs, bool compact, bool pp) const {
             bool first = true;
             out << "{";
             while (sc) {
@@ -5524,88 +5880,115 @@ namespace realclosure {
                     first = false;
                 else
                     out << ", ";
-                display_polynomial(out, qs[sc->qidx()], display_free_var_proc(), compact);
+                display_polynomial(out, qs[sc->qidx()], display_free_var_proc(), compact, pp);
                 display_poly_sign(out, sc->sign());
                 sc = sc->prev();
             }
             out << "}";
         }
 
-        void display_algebraic_def(std::ostream & out, algebraic * a, bool compact) const {
+        void display_interval(std::ostream & out, mpbqi const & i, bool pp) const {
+            if (pp)
+                bqim().display_pp(out, i);
+            else
+                bqim().display(out, i);
+        }
+
+        void display_algebraic_def(std::ostream & out, algebraic * a, bool compact, bool pp) const {
             out << "root(";
-            display_polynomial(out, a->p(), display_free_var_proc(), compact);
+            display_polynomial(out, a->p(), display_free_var_proc(), compact, pp);
             out << ", ";
-            bqim().display(out, a->interval());
+            display_interval(out, a->iso_interval(), pp);
             out << ", ";
             if (a->sdt() != 0) 
-                display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact);
+                display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact, pp);
             else
                 out << "{}";
             out << ")";
         }
 
         void display_poly(std::ostream & out, unsigned n, value * const * p) const {
-            display_polynomial(out, n, p, display_free_var_proc(), false);
-        }
-
-        void display_ext(std::ostream & out, extension * r, bool compact) const {
-            switch (r->knd()) {
-            case extension::TRANSCENDENTAL: to_transcendental(r)->display(out); break;
-            case extension::INFINITESIMAL:  to_infinitesimal(r)->display(out); break;
-            case extension::ALGEBRAIC: 
-                if (compact)
-                    out << "r!" << r->idx();
-                else
-                    display_algebraic_def(out, to_algebraic(r), compact);
+            collect_algebraic_refs c;
+            for (unsigned i = 0; i < n; i++)
+                c.mark(p[i]);
+            display_polynomial(out, n, p, display_free_var_proc(), true, false);
+            std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
+            for (unsigned i = 0; i < c.m_found.size(); i++) {
+                algebraic * ext = c.m_found[i];
+                out << "\n   r!" << ext->idx() << " := ";
+                display_algebraic_def(out, ext, true, false);
             }
         }
 
-        void display(std::ostream & out, value * v, bool compact) const {
+        void display_ext(std::ostream & out, extension * r, bool compact, bool pp) const {
+            switch (r->knd()) {
+            case extension::TRANSCENDENTAL: to_transcendental(r)->display(out, pp); break;
+            case extension::INFINITESIMAL:  to_infinitesimal(r)->display(out, pp); break;
+            case extension::ALGEBRAIC: 
+                if (compact) {
+                    if (pp) 
+                        out << "&alpha;<sub>" << r->idx() << "</sub>";
+                    else
+                        out << "r!" << r->idx();
+                }
+                else {
+                    display_algebraic_def(out, to_algebraic(r), compact, pp);
+                }
+            }
+        }
+
+        void display(std::ostream & out, value * v, bool compact, bool pp=false) const {
             if (v == 0)
                 out << "0";
             else if (is_nz_rational(v)) 
                 qm().display(out, to_mpq(v));
             else {
                 rational_function_value * rf = to_rational_function(v);
-                if (is_rational_one(rf->den())) {
-                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
+                if (is_denominator_one(rf)) {
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact, pp);
                 }
                 else if (is_rational_one(rf->num())) {
                     out << "1/(";
-                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact, pp);
                     out << ")";
                 }
                 else {
                     out << "(";
-                    display_polynomial_expr(out, rf->num(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->num(), rf->ext(), compact, pp);
                     out << ")/(";
-                    display_polynomial_expr(out, rf->den(), rf->ext(), compact);
+                    display_polynomial_expr(out, rf->den(), rf->ext(), compact, pp);
                     out << ")";
                 }
             }
         }
 
-        void display_compact(std::ostream & out, numeral const & a) const {
+        void display_compact(std::ostream & out, value * a, bool pp=false) const {
             collect_algebraic_refs c;
-            c.mark(a.m_value);
+            c.mark(a);
             if (c.m_found.empty()) {
-                display(out, a.m_value, true);
+                display(out, a, true, pp);
             }
             else {
                 std::sort(c.m_found.begin(), c.m_found.end(), rank_lt_proc());
                 out << "[";
-                display(out, a.m_value, true);
+                display(out, a, true, pp);
                 for (unsigned i = 0; i < c.m_found.size(); i++) {
                     algebraic * ext = c.m_found[i];
-                    out << ", r!" << ext->idx() << " = ";
-                    display_algebraic_def(out, ext, true);
+                    if (pp)
+                        out << "; &alpha;<sub>" << ext->idx() << "</sub> := ";
+                    else
+                        out << "; r!" << ext->idx() << " := ";
+                    display_algebraic_def(out, ext, true, pp);
                 }
                 out << "]";
             }
         }
 
-        void display(std::ostream & out, numeral const & a) const {
-            display(out, a.m_value, false);
+        void display(std::ostream & out, numeral const & a, bool compact=false, bool pp=false) const {
+            if (compact)
+                display_compact(out, a.m_value, pp);
+            else
+                display(out, a.m_value, false, pp);
         }
 
         void display_non_rational_in_decimal(std::ostream & out, numeral const & a, unsigned precision) {
@@ -5643,7 +6026,7 @@ namespace realclosure {
             if (is_zero(a))
                 out << "[0, 0]";
             else
-                bqim().display(out, interval(a.m_value));
+                display_interval(out, interval(a.m_value), false);
         }
     };
 
@@ -5683,16 +6066,16 @@ namespace realclosure {
         m_imp->del(a);
     }
 
-    void manager::mk_infinitesimal(char const * n, numeral & r) {
-        m_imp->mk_infinitesimal(n, r);
+    void manager::mk_infinitesimal(char const * n, char const * pp_n, numeral & r) {
+        m_imp->mk_infinitesimal(n, pp_n, r);
     }
 
     void manager::mk_infinitesimal(numeral & r) {
         m_imp->mk_infinitesimal(r);
     }
         
-    void manager::mk_transcendental(char const * n, mk_interval & proc, numeral & r) {
-        m_imp->mk_transcendental(n, proc, r);
+    void manager::mk_transcendental(char const * n, char const * pp_n, mk_interval & proc, numeral & r) {
+        m_imp->mk_transcendental(n, pp_n, proc, r);
     }
 
     void manager::mk_transcendental(mk_interval & proc, numeral & r) {
@@ -5866,9 +6249,9 @@ namespace realclosure {
         return gt(a, _b);
     }
 
-    void manager::display(std::ostream & out, numeral const & a) const {
+    void manager::display(std::ostream & out, numeral const & a, bool compact, bool pp) const {
         save_interval_ctx ctx(this);
-        m_imp->display(out, a);
+        m_imp->display(out, a, compact, pp);
     }
 
     void manager::display_decimal(std::ostream & out, numeral const & a, unsigned precision) const {
@@ -5888,7 +6271,7 @@ namespace realclosure {
 };
 
 void pp(realclosure::manager::imp * imp, realclosure::polynomial const & p, realclosure::extension * ext) {
-    imp->display_polynomial_expr(std::cout, p, ext, false);
+    imp->display_polynomial_expr(std::cout, p, ext, false, false);
     std::cout << std::endl;
 }
 
@@ -5932,6 +6315,6 @@ void pp(realclosure::manager::imp * imp, mpq const & n) {
 }
 
 void pp(realclosure::manager::imp * imp, realclosure::extension * x) {
-    imp->display_ext(std::cout, x, false);
+    imp->display_ext(std::cout, x, false, false);
     std::cout << std::endl;
 }

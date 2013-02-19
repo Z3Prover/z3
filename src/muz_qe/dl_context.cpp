@@ -544,14 +544,16 @@ namespace datalog {
     unsigned context::get_num_levels(func_decl* pred) {
         switch(get_engine()) {
         case DATALOG_ENGINE:
-            throw default_exception("get_num_levels is unsupported for datalog engine");
+            throw default_exception("get_num_levels is not supported for datalog engine");
         case PDR_ENGINE:
         case QPDR_ENGINE:
             ensure_pdr();
             return m_pdr->get_num_levels(pred);
         case BMC_ENGINE:
         case QBMC_ENGINE:
-            throw default_exception("get_num_levels is unsupported for bmc");
+            throw default_exception("get_num_levels is not supported for bmc");
+        case TAB_ENGINE:
+            throw default_exception("get_num_levels is not supported for tab");
         default:
             throw default_exception("unknown engine");
         } 
@@ -560,14 +562,16 @@ namespace datalog {
     expr_ref context::get_cover_delta(int level, func_decl* pred) {
         switch(get_engine()) {
         case DATALOG_ENGINE:
-            throw default_exception("operation is unsupported for datalog engine");
+            throw default_exception("operation is not supported for datalog engine");
         case PDR_ENGINE:
         case QPDR_ENGINE:
             ensure_pdr();
             return m_pdr->get_cover_delta(level, pred);
         case BMC_ENGINE:
         case QBMC_ENGINE:
-            throw default_exception("operation is unsupported for BMC engine");
+            throw default_exception("operation is not supported for BMC engine");
+        case TAB_ENGINE:
+            throw default_exception("operation is not supported for TAB engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -576,7 +580,7 @@ namespace datalog {
     void context::add_cover(int level, func_decl* pred, expr* property) {
         switch(get_engine()) {
         case DATALOG_ENGINE:
-            throw default_exception("operation is unsupported for datalog engine");
+            throw default_exception("operation is not supported for datalog engine");
         case PDR_ENGINE:
         case QPDR_ENGINE:
             ensure_pdr();
@@ -584,7 +588,9 @@ namespace datalog {
             break;
         case BMC_ENGINE:
         case QBMC_ENGINE:
-            throw default_exception("operation is unsupported for BMC engine");
+            throw default_exception("operation is not supported for BMC engine");
+        case TAB_ENGINE:
+            throw default_exception("operation is not supported for TAB engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -720,7 +726,11 @@ namespace datalog {
         case QBMC_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
-            break;            
+            break;         
+        case TAB_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
         default:
             UNREACHABLE();
             break;
@@ -921,6 +931,7 @@ namespace datalog {
         if (m_pdr.get()) m_pdr->cancel();
         if (m_bmc.get()) m_bmc->cancel();
         if (m_rel.get()) m_rel->cancel();
+        if (m_tab.get()) m_tab->cancel();
     }
 
     void context::cleanup() {
@@ -928,6 +939,7 @@ namespace datalog {
         if (m_pdr.get()) m_pdr->cleanup();
         if (m_bmc.get()) m_bmc->cleanup();
         if (m_rel.get()) m_rel->cleanup();
+        if (m_tab.get()) m_tab->cleanup();
     }
 
     class context::engine_type_proc {
@@ -974,6 +986,9 @@ namespace datalog {
         else if (e == symbol("qbmc")) {
             m_engine = QBMC_ENGINE;
         }
+        else if (e == symbol("tab")) {
+            m_engine = TAB_ENGINE;
+        }
 
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -997,8 +1012,7 @@ namespace datalog {
         for (; it != end; ++it) {
             r = *it;
             check_rule(r);
-        }
-        
+        }        
         switch(get_engine()) {
         case DATALOG_ENGINE:
             return rel_query(query);
@@ -1008,6 +1022,8 @@ namespace datalog {
         case BMC_ENGINE:
         case QBMC_ENGINE:
             return bmc_query(query);
+        case TAB_ENGINE:
+            return tab_query(query);
         default:
             UNREACHABLE();
             return rel_query(query);
@@ -1064,6 +1080,17 @@ namespace datalog {
         return m_bmc->query(query);
     }
 
+    void context::ensure_tab() {
+        if (!m_tab.get()) {
+            m_tab = alloc(tab, *this);
+        }
+    }
+
+    lbool context::tab_query(expr* query) {
+        ensure_tab();
+        return m_tab->query(query);
+    }
+
     void context::ensure_rel() {
         if (!m_rel.get()) {
             m_rel = alloc(rel_context, *this);
@@ -1100,6 +1127,10 @@ namespace datalog {
             ensure_rel();
             m_last_answer = m_rel->get_last_answer();
             return m_last_answer.get();
+        case TAB_ENGINE:
+            ensure_tab();
+            m_last_answer = m_tab->get_answer();
+            return m_last_answer.get();
         default:
             UNREACHABLE();
         }
@@ -1120,6 +1151,10 @@ namespace datalog {
             ensure_bmc();
             m_bmc->display_certificate(out);
             return true;
+        case TAB_ENGINE:
+            ensure_tab();
+            m_tab->display_certificate(out);
+            return true;
         default: 
             return false;
         }        
@@ -1132,27 +1167,20 @@ namespace datalog {
         if (m_bmc) {
             m_bmc->reset_statistics();
         }
+        if (m_tab) {
+            m_tab->reset_statistics();
+        }
     }
 
     void context::collect_statistics(statistics& st) const {
-
-        switch(m_engine) {
-        case DATALOG_ENGINE: 
-            break;
-        case PDR_ENGINE: 
-        case QPDR_ENGINE:
-            if (m_pdr) {
-                m_pdr->collect_statistics(st);
-            }
-            break;
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            if (m_bmc) {
-                m_bmc->collect_statistics(st);
-            }
-            break;
-        default: 
-            break;
+        if (m_pdr) {
+            m_pdr->collect_statistics(st);
+        }
+        if (m_bmc) {
+            m_bmc->collect_statistics(st);
+        }
+        if (m_tab) {
+            m_tab->collect_statistics(st);
         }
     }
 

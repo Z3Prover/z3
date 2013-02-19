@@ -51,6 +51,7 @@ enum arith_op_kind {
     OP_TO_REAL,
     OP_TO_INT,
     OP_IS_INT,
+    OP_ABS,
     OP_POWER,
     // hyperbolic and trigonometric functions
     OP_SIN,
@@ -120,6 +121,9 @@ protected:
     func_decl * m_is_int_decl;
     func_decl * m_r_power_decl;
     func_decl * m_i_power_decl;
+
+    func_decl * m_r_abs_decl;
+    func_decl * m_i_abs_decl;
 
     func_decl * m_sin_decl;
     func_decl * m_cos_decl;

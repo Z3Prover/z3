@@ -193,7 +193,7 @@ func_decl * theory::declare_func(symbol const & id, sort_ref_buffer & domain, so
 
 
 sort * theory::declare_sort(symbol const & id) {
-    sort * decl = m_ast_manager.mk_sort(id);
+    sort * decl = m_ast_manager.mk_uninterpreted_sort(id);
     m_symtable.insert(id, decl);
     m_asts.push_back(decl);
     return decl;

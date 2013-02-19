@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_symbol_kind;
 
 /**
  * Numbered symbols
@@ -17,11 +17,11 @@ public class IntSymbol extends Symbol
      * The int value of the symbol. <remarks>Throws an exception if the symbol
      * is not of int kind. </remarks>
      **/
-    public int Int() throws Z3Exception
+    public int getInt() throws Z3Exception
     {
-        if (!IsIntSymbol())
+        if (!isIntSymbol())
             throw new Z3Exception("Int requested from non-Int symbol");
-        return Native.getSymbolInt(Context().nCtx(), NativeObject());
+        return Native.getSymbolInt(getContext().nCtx(), getNativeObject());
     }
 
     IntSymbol(Context ctx, long obj) throws Z3Exception
@@ -34,11 +34,11 @@ public class IntSymbol extends Symbol
         super(ctx, Native.mkIntSymbol(ctx.nCtx(), i));
     }
 
-    void CheckNativeObject(long obj) throws Z3Exception
+    void checkNativeObject(long obj) throws Z3Exception
     {
-        if (Native.getSymbolKind(Context().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL
+        if (Native.getSymbolKind(getContext().nCtx(), obj) != Z3_symbol_kind.Z3_INT_SYMBOL
                 .toInt())
             throw new Z3Exception("Symbol is not of integer kind");
-        super.CheckNativeObject(obj);
+        super.checkNativeObject(obj);
     }
 }

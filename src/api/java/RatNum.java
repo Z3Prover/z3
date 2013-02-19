@@ -16,36 +16,36 @@ public class RatNum extends RealExpr
     /**
      * The numerator of a rational numeral.
      **/
-    public IntNum Numerator() throws Z3Exception
+    public IntNum getNumerator() throws Z3Exception
     {
-        return new IntNum(Context(), Native.getNumerator(Context().nCtx(),
-                NativeObject()));
+        return new IntNum(getContext(), Native.getNumerator(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
      * The denominator of a rational numeral.
      **/
-    public IntNum Denominator() throws Z3Exception
+    public IntNum getDenominator() throws Z3Exception
     {
-        return new IntNum(Context(), Native.getDenominator(Context().nCtx(),
-                NativeObject()));
+        return new IntNum(getContext(), Native.getDenominator(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
      * Converts the numerator of the rational to a BigInteger
      **/
-    public BigInteger BigIntNumerator() throws Z3Exception
+    public BigInteger getBigIntNumerator() throws Z3Exception
     {
-        IntNum n = Numerator();
+        IntNum n = getNumerator();
         return new BigInteger(n.toString());
     }
 
     /**
      * Converts the denominator of the rational to a BigInteger
      **/
-    public BigInteger BigIntDenominator() throws Z3Exception
+    public BigInteger getBigIntDenominator() throws Z3Exception
     {
-        IntNum n = Denominator();
+        IntNum n = getDenominator();
         return new BigInteger(n.toString());
     }
 
@@ -53,9 +53,9 @@ public class RatNum extends RealExpr
      * Returns a string representation in decimal notation. <remarks>The result
      * has at most <paramref name="precision"/> decimal places.</remarks>
      **/
-    public String ToDecimalString(int precision) throws Z3Exception
+    public String toDecimalString(int precision) throws Z3Exception
     {
-        return Native.getNumeralDecimalString(Context().nCtx(), NativeObject(),
+        return Native.getNumeralDecimalString(getContext().nCtx(), getNativeObject(),
                 precision);
     }
 
@@ -66,7 +66,7 @@ public class RatNum extends RealExpr
     {
         try
         {
-            return Native.getNumeralString(Context().nCtx(), NativeObject());
+            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();

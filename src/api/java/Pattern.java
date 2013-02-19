@@ -15,9 +15,9 @@ public class Pattern extends AST
     /**
      * The number of terms in the pattern.
      **/
-    public int NumTerms() throws Z3Exception
+    public int getNumTerms() throws Z3Exception
     {
-        return Native.getPatternNumTerms(Context().nCtx(), NativeObject());
+        return Native.getPatternNumTerms(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -25,14 +25,14 @@ public class Pattern extends AST
      * 
      * @throws Z3Exception
      **/
-    public Expr[] Terms() throws Z3Exception
+    public Expr[] getTerms() throws Z3Exception
     {
 
-        int n = NumTerms();
+        int n = getNumTerms();
         Expr[] res = new Expr[n];
         for (int i = 0; i < n; i++)
-            res[i] = Expr.Create(Context(),
-                    Native.getPattern(Context().nCtx(), NativeObject(), i));
+            res[i] = Expr.create(getContext(),
+                    Native.getPattern(getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -43,7 +43,7 @@ public class Pattern extends AST
     {
         try
         {
-            return Native.patternToString(Context().nCtx(), NativeObject());
+            return Native.patternToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();

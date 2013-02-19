@@ -6,7 +6,7 @@
 
 package com.microsoft.z3;
 
-import com.microsoft.z3.enumerations.*;
+import com.microsoft.z3.enumerations.Z3_lbool;
 
 /**
  * Solvers.
@@ -16,9 +16,9 @@ public class Solver extends Z3Object
     /**
      * A string that describes all available solver parameters.
      **/
-    public String Help() throws Z3Exception
+    public String getHelp() throws Z3Exception
     {
-        return Native.solverGetHelp(Context().nCtx(), NativeObject());
+        return Native.solverGetHelp(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -28,9 +28,9 @@ public class Solver extends Z3Object
      **/
     public void setParameters(Params value) throws Z3Exception
     {
-        Context().CheckContextMatch(value);
-        Native.solverSetParams(Context().nCtx(), NativeObject(),
-                value.NativeObject());
+        getContext().checkContextMatch(value);
+        Native.solverSetParams(getContext().nCtx(), getNativeObject(),
+                value.getNativeObject());
     }
 
     /**
@@ -38,35 +38,36 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ParamDescrs ParameterDescriptions() throws Z3Exception
+    public ParamDescrs getParameterDescriptions() throws Z3Exception
     {
-        return new ParamDescrs(Context(), Native.solverGetParamDescrs(Context()
-                .nCtx(), NativeObject()));
+        return new ParamDescrs(getContext(), Native.solverGetParamDescrs(
+                getContext().nCtx(), getNativeObject()));
     }
 
     /**
      * The current number of backtracking points (scopes). <seealso cref="Pop"/>
      * <seealso cref="Push"/>
      **/
-    public int NumScopes() throws Z3Exception
+    public int getNumScopes() throws Z3Exception
     {
-        return Native.solverGetNumScopes(Context().nCtx(), NativeObject());
+        return Native
+                .solverGetNumScopes(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Creates a backtracking point. <seealso cref="Pop"/>
      **/
-    public void Push() throws Z3Exception
+    public void push() throws Z3Exception
     {
-        Native.solverPush(Context().nCtx(), NativeObject());
+        Native.solverPush(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * Backtracks one backtracking point. <remarks>.
      **/
-    public void Pop() throws Z3Exception
+    public void pop() throws Z3Exception
     {
-        Pop(1);
+        pop(1);
     }
 
     /**
@@ -74,18 +75,18 @@ public class Solver extends Z3Object
      * an exception is thrown if <paramref name="n"/> is not smaller than
      * <code>NumScopes</code></remarks> <seealso cref="Push"/>
      **/
-    public void Pop(int n) throws Z3Exception
+    public void pop(int n) throws Z3Exception
     {
-        Native.solverPop(Context().nCtx(), NativeObject(), n);
+        Native.solverPop(getContext().nCtx(), getNativeObject(), n);
     }
 
     /**
      * Resets the Solver. <remarks>This removes all assertions from the
      * solver.</remarks>
      **/
-    public void Reset() throws Z3Exception
+    public void reset() throws Z3Exception
     {
-        Native.solverReset(Context().nCtx(), NativeObject());
+        Native.solverReset(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -93,26 +94,62 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void Assert(BoolExpr[] constraints) throws Z3Exception
+    public void assert_(BoolExpr... constraints) throws Z3Exception
     {
-        Context().CheckContextMatch(constraints);
+        getContext().checkContextMatch(constraints);
         for (BoolExpr a : constraints)
         {
-            Native.solverAssert(Context().nCtx(), NativeObject(),
-                    a.NativeObject());
+            Native.solverAssert(getContext().nCtx(), getNativeObject(),
+                    a.getNativeObject());
         }
     }
 
-    /**
-     * Assert one constraint into the solver.
-     * 
-     * @throws Z3Exception
-     **/
-    public void Assert(BoolExpr constraint) throws Z3Exception
+    // / <summary>
+    // / Assert multiple constraints into the solver, and track them (in the
+    // unsat) core
+    // / using the Boolean constants in ps.
+    // / </summary>
+    // / <remarks>
+    // / This API is an alternative to <see cref="Check"/> with assumptions for
+    // extracting unsat cores.
+    // / Both APIs can be used in the same solver. The unsat core will contain a
+    // combination
+    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
+    // and the Boolean literals
+    // / provided using <see cref="Check"/> with assumptions.
+    // / </remarks>
+    public void assertAndTrack(BoolExpr[] constraints, BoolExpr[] ps) throws Z3Exception
     {
-        Context().CheckContextMatch(constraint);
-        Native.solverAssert(Context().nCtx(), NativeObject(),
-                constraint.NativeObject());
+        getContext().checkContextMatch(constraints);
+        getContext().checkContextMatch(ps);
+        if (constraints.length != ps.length)
+            throw new Z3Exception("Argument size mismatch");
+
+        for (int i = 0; i < constraints.length; i++)
+            Native.solverAssertAndTrack(getContext().nCtx(), getNativeObject(),
+                    constraints[i].getNativeObject(), ps[i].getNativeObject());
+    }
+
+    // / <summary>
+    // / Assert a constraint into the solver, and track it (in the unsat) core
+    // / using the Boolean constant p.
+    // / </summary>
+    // / <remarks>
+    // / This API is an alternative to <see cref="Check"/> with assumptions for
+    // extracting unsat cores.
+    // / Both APIs can be used in the same solver. The unsat core will contain a
+    // combination
+    // / of the Boolean variables provided using <see cref="AssertAndTrack"/>
+    // and the Boolean literals
+    // / provided using <see cref="Check"/> with assumptions.
+    // / </remarks>
+    public void assertAndTrack(BoolExpr constraint, BoolExpr p) throws Z3Exception
+    {
+        getContext().checkContextMatch(constraint);
+        getContext().checkContextMatch(p);
+
+        Native.solverAssertAndTrack(getContext().nCtx(), getNativeObject(),
+                constraint.getNativeObject(), p.getNativeObject());
     }
 
     /**
@@ -120,11 +157,11 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public int NumAssertions() throws Z3Exception
+    public int getNumAssertions() throws Z3Exception
     {
-        ASTVector ass = new ASTVector(Context(), Native.solverGetAssertions(
-                Context().nCtx(), NativeObject()));
-        return ass.Size();
+        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+                getContext().nCtx(), getNativeObject()));
+        return ass.size();
     }
 
     /**
@@ -132,14 +169,14 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr[] Assertions() throws Z3Exception
+    public BoolExpr[] getAssertions() throws Z3Exception
     {
-        ASTVector ass = new ASTVector(Context(), Native.solverGetAssertions(
-                Context().nCtx(), NativeObject()));
-        int n = ass.Size();
+        ASTVector ass = new ASTVector(getContext(), Native.solverGetAssertions(
+                getContext().nCtx(), getNativeObject()));
+        int n = ass.size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(Context(), ass.get(i).NativeObject());
+            res[i] = new BoolExpr(getContext(), ass.get(i).getNativeObject());
         return res;
     }
 
@@ -148,16 +185,16 @@ public class Solver extends Z3Object
      * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
      * cref="Proof"/> </remarks>
      **/
-    public Status Check(Expr[] assumptions) throws Z3Exception
+    public Status check(Expr... assumptions) throws Z3Exception
     {
         Z3_lbool r;
         if (assumptions == null)
-            r = Z3_lbool.fromInt(Native.solverCheck(Context().nCtx(),
-                    NativeObject()));
+            r = Z3_lbool.fromInt(Native.solverCheck(getContext().nCtx(),
+                    getNativeObject()));
         else
-            r = Z3_lbool.fromInt(Native.solverCheckAssumptions(
-                    Context().nCtx(), NativeObject(), (int) assumptions.length,
-                    AST.ArrayToNative(assumptions)));
+            r = Z3_lbool.fromInt(Native.solverCheckAssumptions(getContext()
+                    .nCtx(), getNativeObject(), (int) assumptions.length, AST
+                    .arrayToNative(assumptions)));
         switch (r)
         {
         case Z3_L_TRUE:
@@ -174,9 +211,9 @@ public class Solver extends Z3Object
      * <remarks> <seealso cref="Model"/> <seealso cref="UnsatCore"/> <seealso
      * cref="Proof"/> </remarks>
      **/
-    public Status Check() throws Z3Exception
+    public Status check() throws Z3Exception
     {
-        return Check(null);
+        return check((Expr[]) null);
     }
 
     /**
@@ -187,13 +224,13 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Model Model() throws Z3Exception
+    public Model getModel() throws Z3Exception
     {
-        long x = Native.solverGetModel(Context().nCtx(), NativeObject());
+        long x = Native.solverGetModel(getContext().nCtx(), getNativeObject());
         if (x == 0)
             return null;
         else
-            return new Model(Context(), x);
+            return new Model(getContext(), x);
     }
 
     /**
@@ -204,13 +241,13 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr Proof() throws Z3Exception
+    public Expr getProof() throws Z3Exception
     {
-        long x = Native.solverGetProof(Context().nCtx(), NativeObject());
+        long x = Native.solverGetProof(getContext().nCtx(), getNativeObject());
         if (x == 0)
             return null;
         else
-            return Expr.Create(Context(), x);
+            return Expr.create(getContext(), x);
     }
 
     /**
@@ -221,15 +258,15 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Expr[] UnsatCore() throws Z3Exception
+    public Expr[] getUnsatCore() throws Z3Exception
     {
 
-        ASTVector core = new ASTVector(Context(), Native.solverGetUnsatCore(
-                Context().nCtx(), NativeObject()));
-        int n = core.Size();
+        ASTVector core = new ASTVector(getContext(), Native.solverGetUnsatCore(
+                getContext().nCtx(), getNativeObject()));
+        int n = core.size();
         Expr[] res = new Expr[n];
         for (int i = 0; i < n; i++)
-            res[i] = Expr.Create(Context(), core.get(i).NativeObject());
+            res[i] = Expr.create(getContext(), core.get(i).getNativeObject());
         return res;
     }
 
@@ -237,9 +274,10 @@ public class Solver extends Z3Object
      * A brief justification of why the last call to <code>Check</code> returned
      * <code>UNKNOWN</code>.
      **/
-    public String ReasonUnknown() throws Z3Exception
+    public String getReasonUnknown() throws Z3Exception
     {
-        return Native.solverGetReasonUnknown(Context().nCtx(), NativeObject());
+        return Native.solverGetReasonUnknown(getContext().nCtx(),
+                getNativeObject());
     }
 
     /**
@@ -247,10 +285,10 @@ public class Solver extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Statistics Statistics() throws Z3Exception
+    public Statistics getStatistics() throws Z3Exception
     {
-        return new Statistics(Context(), Native.solverGetStatistics(Context()
-                .nCtx(), NativeObject()));
+        return new Statistics(getContext(), Native.solverGetStatistics(
+                getContext().nCtx(), getNativeObject()));
     }
 
     /**
@@ -260,7 +298,8 @@ public class Solver extends Z3Object
     {
         try
         {
-            return Native.solverToString(Context().nCtx(), NativeObject());
+            return Native
+                    .solverToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -272,15 +311,15 @@ public class Solver extends Z3Object
         super(ctx, obj);
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Solver_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().solver_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Solver_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().solver_DRQ().add(o);
+        super.decRef(o);
     }
 }

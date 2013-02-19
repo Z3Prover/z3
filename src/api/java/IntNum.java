@@ -22,10 +22,10 @@ public class IntNum extends IntExpr
     /**
      * Retrieve the int value.
      **/
-    public int Int() throws Z3Exception
+    public int getInt() throws Z3Exception
     {
         Native.IntPtr res = new Native.IntPtr();
-        if (Native.getNumeralInt(Context().nCtx(), NativeObject(), res) ^ true)
+        if (Native.getNumeralInt(getContext().nCtx(), getNativeObject(), res) ^ true)
             throw new Z3Exception("Numeral is not an int");
         return res.value;
     }
@@ -33,10 +33,10 @@ public class IntNum extends IntExpr
     /**
      * Retrieve the 64-bit int value.
      **/
-    public long Int64() throws Z3Exception
+    public long getInt64() throws Z3Exception
     {
         Native.LongPtr res = new Native.LongPtr();
-        if (Native.getNumeralInt64(Context().nCtx(), NativeObject(), res) ^ true)
+        if (Native.getNumeralInt64(getContext().nCtx(), getNativeObject(), res) ^ true)
             throw new Z3Exception("Numeral is not an int64");
         return res.value;
     }
@@ -44,7 +44,7 @@ public class IntNum extends IntExpr
     /**
      * Retrieve the BigInteger value.
      **/
-    public BigInteger BigInteger() throws Z3Exception
+    public BigInteger getBigInteger() throws Z3Exception
     {
         return new BigInteger(this.toString());
     }
@@ -56,7 +56,7 @@ public class IntNum extends IntExpr
     {
         try
         {
-            return Native.getNumeralString(Context().nCtx(), NativeObject());
+            return Native.getNumeralString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();

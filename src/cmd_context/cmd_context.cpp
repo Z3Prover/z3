@@ -304,8 +304,8 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_main_ctx(main_ctx),
     m_logic(l),
     m_interactive_mode(false),
-    m_global_decls(false),  // :global-decls is false by default.
-    m_print_success(false), // params.m_smtlib2_compliant), 
+    m_global_decls(false),  
+    m_print_success(m_params.m_smtlib2_compliant),
     m_random_seed(0),
     m_produce_unsat_cores(false),
     m_produce_assignments(false),
@@ -352,6 +352,8 @@ void cmd_context::set_cancel(bool f) {
 
 void cmd_context::global_params_updated() {
     m_params.updt_params();
+    if (m_params.m_smtlib2_compliant)
+        m_print_success = true;
     if (m_solver) {
         params_ref p;
         if (!m_params.m_auto_config)
@@ -619,14 +621,19 @@ bool cmd_context::supported_logic(symbol const & s) const {
         s == "QF_FPA" || s == "QF_FPABV";
 }
 
-void cmd_context::set_logic(symbol const & s) {
+bool cmd_context::set_logic(symbol const & s) {
     if (has_logic())
         throw cmd_exception("the logic has already been set");
     if (has_manager() && m_main_ctx) 
         throw cmd_exception("logic must be set before initialization");    
     if (!supported_logic(s)) {
-        warning_msg("unknown logic, ignoring set-logic command");
-        return; 
+        if (m_params.m_smtlib2_compliant) {
+            return false; 
+        }
+        else {
+            warning_msg("unknown logic, ignoring set-logic command");
+            return true;
+        }
     }
     m_logic = s;
     if (is_logic("QF_RDL") ||
@@ -638,6 +645,7 @@ void cmd_context::set_logic(symbol const & s) {
         is_logic("QF_UFNRA") ||
         is_logic("QF_UFLRA"))
         m_numeral_as_real = true;
+    return true;
 }
 
 std::string cmd_context::reason_unknown() const { 
@@ -668,7 +676,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         msg += f->get_arity() == 0 ? "constant" : "function";
         msg += " '";
         msg += s.str();
-        msg += "' (whith the given signature) already declared";
+        msg += "' (with the given signature) already declared";
         throw cmd_exception(msg.c_str());
     }
     if (s != f->get_name()) {
@@ -1415,7 +1423,7 @@ void cmd_context::validate_model() {
     params_ref p;
     p.set_uint("max_degree", UINT_MAX); // evaluate algebraic numbers of any degree.
     p.set_uint("sort_store", true); 
-    p.set_bool("model_completion", true); 
+    p.set_bool("completion", true); 
     model_evaluator evaluator(*(md.get()), p);
     contains_array_op_proc contains_array(m());
     {

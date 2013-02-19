@@ -111,7 +111,10 @@ void ast_translation::mk_sort(sort * s, frame & fr) {
     sort_info * si     = s->get_info();
     sort * new_s;
     if (si == 0) {
-        new_s = m_to_manager.mk_sort(s->get_name());
+        // TODO: investigate: this branch is probably unreachable.
+        // It became unreachable after we started using mk_uninterpreted_sort for creating uninterpreted sorts,
+        // and mk_uninterpreted_sort actually creates a user_sort.
+        new_s = m_to_manager.mk_uninterpreted_sort(s->get_name());
         SASSERT(m_result_stack.size() == fr.m_rpos);
     }
     else {

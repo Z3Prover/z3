@@ -14,65 +14,65 @@ public class Params extends Z3Object
     /**
      * Adds a parameter setting.
      **/
-    public void Add(Symbol name, boolean value) throws Z3Exception
+    public void add(Symbol name, boolean value) throws Z3Exception
     {
-        Native.paramsSetBool(Context().nCtx(), NativeObject(),
-                name.NativeObject(), (value) ? true : false);
+        Native.paramsSetBool(getContext().nCtx(), getNativeObject(),
+                name.getNativeObject(), (value) ? true : false);
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(Symbol name, double value) throws Z3Exception
+    public void add(Symbol name, double value) throws Z3Exception
     {
-        Native.paramsSetDouble(Context().nCtx(), NativeObject(),
-                name.NativeObject(), value);
+        Native.paramsSetDouble(getContext().nCtx(), getNativeObject(),
+                name.getNativeObject(), value);
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(Symbol name, Symbol value) throws Z3Exception
+    public void add(Symbol name, Symbol value) throws Z3Exception
     {
 
-        Native.paramsSetSymbol(Context().nCtx(), NativeObject(),
-                name.NativeObject(), value.NativeObject());
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(),
+                name.getNativeObject(), value.getNativeObject());
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(String name, boolean value) throws Z3Exception
+    public void add(String name, boolean value) throws Z3Exception
     {
-        Native.paramsSetBool(Context().nCtx(), NativeObject(), 
-                Context().MkSymbol(name).NativeObject(), value);
+        Native.paramsSetBool(getContext().nCtx(), getNativeObject(), 
+                getContext().mkSymbol(name).getNativeObject(), value);
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(String name, int value) throws Z3Exception
+    public void add(String name, int value) throws Z3Exception
     {
-        Native.paramsSetUint(Context().nCtx(), NativeObject(), Context()
-                .MkSymbol(name).NativeObject(), value);
+        Native.paramsSetUint(getContext().nCtx(), getNativeObject(), getContext()
+                .mkSymbol(name).getNativeObject(), value);
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(String name, double value) throws Z3Exception
+    public void add(String name, double value) throws Z3Exception
     {
-        Native.paramsSetDouble(Context().nCtx(), NativeObject(), Context()
-                .MkSymbol(name).NativeObject(), value);
+        Native.paramsSetDouble(getContext().nCtx(), getNativeObject(), getContext()
+                .mkSymbol(name).getNativeObject(), value);
     }
 
     /**
      * Adds a parameter setting.
      **/
-    public void Add(String name, Symbol value) throws Z3Exception
+    public void add(String name, Symbol value) throws Z3Exception
     {
-        Native.paramsSetSymbol(Context().nCtx(), NativeObject(), Context()
-                .MkSymbol(name).NativeObject(), value.NativeObject());
+        Native.paramsSetSymbol(getContext().nCtx(), getNativeObject(), getContext()
+                .mkSymbol(name).getNativeObject(), value.getNativeObject());
     }
 
     /**
@@ -82,7 +82,7 @@ public class Params extends Z3Object
     {
         try
         {
-            return Native.paramsToString(Context().nCtx(), NativeObject());
+            return Native.paramsToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -94,15 +94,15 @@ public class Params extends Z3Object
         super(ctx, Native.mkParams(ctx.nCtx()));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().Params_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().params_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().Params_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().params_DRQ().add(o);
+        super.decRef(o);
     }
 }

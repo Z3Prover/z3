@@ -14,7 +14,7 @@ public class EnumSort extends Sort
 	/**
 	 * The function declarations of the constants in the enumeration.
 	 **/
-	public FuncDecl[] ConstDecls()
+	public FuncDecl[] getConstDecls()
 	{
 		return _constdecls;
 	}
@@ -22,7 +22,7 @@ public class EnumSort extends Sort
 	/**
 	 * The constants in the enumeration.
 	 **/
-	public Expr[] Consts()
+	public Expr[] getConsts()
 	{
 		return _consts;
 	}
@@ -30,7 +30,7 @@ public class EnumSort extends Sort
 	/**
 	 * The test predicates for the constants in the enumeration.
 	 **/
-	public FuncDecl[] TesterDecls()
+	public FuncDecl[] getTesterDecls()
 	{
 		return _testerdecls;
 	}
@@ -46,7 +46,7 @@ public class EnumSort extends Sort
 		long[] n_constdecls = new long[n];
 		long[] n_testers = new long[n];
 		setNativeObject(Native.mkEnumerationSort(ctx.nCtx(),
-				name.NativeObject(), (int) n, Symbol.ArrayToNative(enumNames),
+				name.getNativeObject(), (int) n, Symbol.arrayToNative(enumNames),
 				n_constdecls, n_testers));
 		_constdecls = new FuncDecl[n];
 		for (int i = 0; i < n; i++)
@@ -56,6 +56,6 @@ public class EnumSort extends Sort
 		    _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
 		_consts = new Expr[n];
 		for (int i = 0; i < n; i++)
-		    _consts[i] = ctx.MkApp(_constdecls[i], (Expr[])null);
+		    _consts[i] = ctx.mkApp(_constdecls[i], (Expr[])null);
 	}
 };

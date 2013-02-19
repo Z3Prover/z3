@@ -240,6 +240,7 @@ class horn_tactic : public tactic {
     };
     
     params_ref m_params;
+    statistics m_stats;
     imp *      m_imp;
 public:
     horn_tactic(ast_manager & m, params_ref const & p):
@@ -272,20 +273,21 @@ public:
                             expr_dependency_ref & core) {
         (*m_imp)(in, result, mc, pc, core);
     }
-
     
     virtual void collect_statistics(statistics & st) const {
         m_imp->collect_statistics(st);
+        st.copy(m_stats);
     }
 
     virtual void reset_statistics() {
+        m_stats.reset();
         m_imp->reset_statistics();
     }
-
     
     virtual void cleanup() {
         ast_manager & m = m_imp->m;
         imp * d = m_imp;
+        d->collect_statistics(m_stats);
         #pragma omp critical (tactic_cancel)
         {
             m_imp = 0;

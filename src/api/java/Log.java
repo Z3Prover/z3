@@ -21,7 +21,7 @@ public final class Log
      * 
      * @return True if opening the log file succeeds, false otherwise.
      **/
-    public static boolean Open(String filename)
+    public static boolean open(String filename)
     {
         m_is_open = true;
         return Native.openLog(filename) == 1;
@@ -30,7 +30,7 @@ public final class Log
     /**
      * Closes the interaction log.
      **/
-    public static void Close()
+    public static void close()
     {
         m_is_open = false;
         Native.closeLog();
@@ -41,7 +41,7 @@ public final class Log
      * log.
      * @throws Z3Exception 
      **/
-    public static void Append(String s) throws Z3Exception
+    public static void append(String s) throws Z3Exception
     {
         if (!m_is_open)
             throw new Z3Exception("Log cannot be closed.");

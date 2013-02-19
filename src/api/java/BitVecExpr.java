@@ -16,15 +16,15 @@ public class BitVecExpr extends Expr
 	 * The size of the sort of a bit-vector term.
 	 * @throws Z3Exception 
 	 **/
-	public int SortSize() throws Z3Exception
+	public int getSortSize() throws Z3Exception
 	{
-		return ((BitVecSort) Sort()).Size();
+		return ((BitVecSort) getSort()).getSize();
 	}
 
 	/**
 	 * Constructor for BitVecExpr </summary>
 	 **/
-	protected BitVecExpr(Context ctx)
+	BitVecExpr(Context ctx)
 	{
 		super(ctx);
 	}

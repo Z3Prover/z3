@@ -15,10 +15,10 @@ public class ApplyResult extends Z3Object
     /**
      * The number of Subgoals.
      **/
-    public int NumSubgoals() throws Z3Exception
+    public int getNumSubgoals() throws Z3Exception
     {
-        return Native.applyResultGetNumSubgoals(Context().nCtx(),
-                NativeObject());
+        return Native.applyResultGetNumSubgoals(getContext().nCtx(),
+                getNativeObject());
     }
 
     /**
@@ -26,13 +26,13 @@ public class ApplyResult extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public Goal[] Subgoals() throws Z3Exception
+    public Goal[] getSubgoals() throws Z3Exception
     {
-        int n = NumSubgoals();
+        int n = getNumSubgoals();
         Goal[] res = new Goal[n];
         for (int i = 0; i < n; i++)
-            res[i] = new Goal(Context(), Native.applyResultGetSubgoal(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = new Goal(getContext(), 
+                Native.applyResultGetSubgoal(getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -43,10 +43,10 @@ public class ApplyResult extends Z3Object
      * @return A model for <code>g</code>
      * @throws Z3Exception
      **/
-    public Model ConvertModel(int i, Model m) throws Z3Exception
+    public Model convertModel(int i, Model m) throws Z3Exception
     {
-        return new Model(Context(), Native.applyResultConvertModel(Context()
-                .nCtx(), NativeObject(), i, m.NativeObject()));
+        return new Model(getContext(), 
+            Native.applyResultConvertModel(getContext().nCtx(), getNativeObject(), i, m.getNativeObject()));
     }
 
     /**
@@ -56,7 +56,7 @@ public class ApplyResult extends Z3Object
     {
         try
         {
-            return Native.applyResultToString(Context().nCtx(), NativeObject());
+            return Native.applyResultToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -68,15 +68,15 @@ public class ApplyResult extends Z3Object
         super(ctx, obj);
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().ApplyResult_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().applyResult_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().ApplyResult_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().applyResult_DRQ().add(o);
+        super.decRef(o);
     }
 }

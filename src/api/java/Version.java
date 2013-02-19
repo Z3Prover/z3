@@ -14,7 +14,7 @@ public class Version
     /**
      * The major version
      **/
-    public static int Major()
+    public static int getMajor()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -24,7 +24,7 @@ public class Version
     /**
      * The minor version
      **/
-    public static int Minor()
+    public static int getMinor()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -34,7 +34,7 @@ public class Version
     /**
      * The build version
      **/
-    public static int Build()
+    public static int getBuild()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);
@@ -44,7 +44,7 @@ public class Version
     /**
      * The revision
      **/
-    public static int Revision()
+    public static int getRevision()
     {
         Native.IntPtr major = new Native.IntPtr(), minor = new Native.IntPtr(), build = new Native.IntPtr(), revision = new Native.IntPtr();
         Native.getVersion(major, minor, build, revision);

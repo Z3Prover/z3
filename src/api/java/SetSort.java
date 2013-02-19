@@ -18,6 +18,6 @@ public class SetSort extends Sort
 
     SetSort(Context ctx, Sort ty) throws Z3Exception
     {
-        super(ctx, Native.mkSetSort(ctx.nCtx(), ty.NativeObject()));
+        super(ctx, Native.mkSetSort(ctx.nCtx(), ty.getNativeObject()));
     }
 }

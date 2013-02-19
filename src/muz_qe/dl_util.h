@@ -52,6 +52,7 @@ namespace datalog {
         QPDR_ENGINE,
         BMC_ENGINE,
         QBMC_ENGINE,
+        TAB_ENGINE,
         LAST_ENGINE
     };
 
@@ -187,14 +188,9 @@ namespace datalog {
 
     };
 
-    class scoped_coarse_proof : public scoped_proof_mode {
+    class scoped_proof : public scoped_proof_mode {
     public:
-        scoped_coarse_proof(ast_manager& m): scoped_proof_mode(m, PGM_COARSE) {}
-    };
-
-    class scoped_fine_proof : public scoped_proof_mode {
-    public:
-        scoped_fine_proof(ast_manager& m): scoped_proof_mode(m, PGM_FINE) {}
+        scoped_proof(ast_manager& m): scoped_proof_mode(m, PGM_FINE) {}
     };
 
     class scoped_no_proof : public scoped_proof_mode {

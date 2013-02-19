@@ -24,18 +24,18 @@ public class FuncInterp extends Z3Object
 		 * 
 		 * @throws Z3Exception
 		 **/
-		public Expr Value() throws Z3Exception
+		public Expr getValue() throws Z3Exception
 		{
-			return Expr.Create(Context(),
-					Native.funcEntryGetValue(Context().nCtx(), NativeObject()));
+			return Expr.create(getContext(),
+					Native.funcEntryGetValue(getContext().nCtx(), getNativeObject()));
 		}
 
 		/**
 		 * The number of arguments of the entry.
 		 **/
-		public int NumArgs() throws Z3Exception
+		public int getNumArgs() throws Z3Exception
 		{
-			return Native.funcEntryGetNumArgs(Context().nCtx(), NativeObject());
+			return Native.funcEntryGetNumArgs(getContext().nCtx(), getNativeObject());
 		}
 
 		/**
@@ -43,13 +43,13 @@ public class FuncInterp extends Z3Object
 		 * 
 		 * @throws Z3Exception
 		 **/
-		public Expr[] Args() throws Z3Exception
+		public Expr[] getArgs() throws Z3Exception
 		{
-			int n = NumArgs();
+			int n = getNumArgs();
 			Expr[] res = new Expr[n];
 			for (int i = 0; i < n; i++)
-				res[i] = Expr.Create(Context(), Native.funcEntryGetArg(
-						Context().nCtx(), NativeObject(), i));
+				res[i] = Expr.create(getContext(), Native.funcEntryGetArg(
+						getContext().nCtx(), getNativeObject(), i));
 			return res;
 		}
 
@@ -60,12 +60,12 @@ public class FuncInterp extends Z3Object
 		{
 			try
 			{
-				int n = NumArgs();
+				int n = getNumArgs();
 				String res = "[";
-				Expr[] args = Args();
+				Expr[] args = getArgs();
 				for (int i = 0; i < n; i++)
 					res += args[i] + ", ";
-				return res + Value() + "]";
+				return res + getValue() + "]";
 			} catch (Z3Exception e)
 			{
 				return new String("Z3Exception: " + e.getMessage());
@@ -77,25 +77,25 @@ public class FuncInterp extends Z3Object
 			super(ctx, obj);
 		}
 
-		void IncRef(long o) throws Z3Exception
+		void incRef(long o) throws Z3Exception
 		{
-			Context().FuncEntry_DRQ().IncAndClear(Context(), o);
-			super.IncRef(o);
+			getContext().funcEntry_DRQ().incAndClear(getContext(), o);
+			super.incRef(o);
 		}
 
-		void DecRef(long o) throws Z3Exception
+		void decRef(long o) throws Z3Exception
 		{
-			Context().FuncEntry_DRQ().Add(o);
-			super.DecRef(o);
+			getContext().funcEntry_DRQ().add(o);
+			super.decRef(o);
 		}
 	};
 
 	/**
 	 * The number of entries in the function interpretation.
 	 **/
-	public int NumEntries() throws Z3Exception
+	public int getNumEntries() throws Z3Exception
 	{
-		return Native.funcInterpGetNumEntries(Context().nCtx(), NativeObject());
+		return Native.funcInterpGetNumEntries(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
@@ -103,13 +103,13 @@ public class FuncInterp extends Z3Object
 	 * 
 	 * @throws Z3Exception
 	 **/
-	public Entry[] Entries() throws Z3Exception
+	public Entry[] getEntries() throws Z3Exception
 	{
-		int n = NumEntries();
+		int n = getNumEntries();
 		Entry[] res = new Entry[n];
 		for (int i = 0; i < n; i++)
-			res[i] = new Entry(Context(), Native.funcInterpGetEntry(Context()
-					.nCtx(), NativeObject(), i));
+			res[i] = new Entry(getContext(), Native.funcInterpGetEntry(getContext()
+					.nCtx(), getNativeObject(), i));
 		return res;
 	}
 
@@ -118,18 +118,18 @@ public class FuncInterp extends Z3Object
 	 * 
 	 * @throws Z3Exception
 	 **/
-	public Expr Else() throws Z3Exception
+	public Expr getElse() throws Z3Exception
 	{
-		return Expr.Create(Context(),
-				Native.funcInterpGetElse(Context().nCtx(), NativeObject()));
+		return Expr.create(getContext(),
+				Native.funcInterpGetElse(getContext().nCtx(), getNativeObject()));
 	}
 
 	/**
 	 * The arity of the function interpretation
 	 **/
-	public int Arity() throws Z3Exception
+	public int getArity() throws Z3Exception
 	{
-		return Native.funcInterpGetArity(Context().nCtx(), NativeObject());
+		return Native.funcInterpGetArity(getContext().nCtx(), getNativeObject());
 	}
 
 	/**
@@ -141,12 +141,12 @@ public class FuncInterp extends Z3Object
 		{
 			String res = "";
 			res += "[";
-			for (Entry e : Entries())
+			for (Entry e : getEntries())
 			{
-				int n = e.NumArgs();
+				int n = e.getNumArgs();
 				if (n > 1)
 					res += "[";
-				Expr[] args = e.Args();
+				Expr[] args = e.getArgs();
 				for (int i = 0; i < n; i++)
 				{
 					if (i != 0)
@@ -155,9 +155,9 @@ public class FuncInterp extends Z3Object
 				}
 				if (n > 1)
 					res += "]";
-				res += " -> " + e.Value() + ", ";
+				res += " -> " + e.getValue() + ", ";
 			}
-			res += "else -> " + Else();
+			res += "else -> " + getElse();
 			res += "]";
 			return res;
 		} catch (Z3Exception e)
@@ -171,15 +171,15 @@ public class FuncInterp extends Z3Object
 		super(ctx, obj);
 	}
 
-	void IncRef(long o) throws Z3Exception
+	void incRef(long o) throws Z3Exception
 	{
-		Context().FuncInterp_DRQ().IncAndClear(Context(), o);
-		super.IncRef(o);
+		getContext().funcInterp_DRQ().incAndClear(getContext(), o);
+		super.incRef(o);
 	}
 
-	void DecRef(long o) throws Z3Exception
+	void decRef(long o) throws Z3Exception
 	{
-		Context().FuncInterp_DRQ().Add(o);
-		super.DecRef(o);
+		getContext().funcInterp_DRQ().add(o);
+		super.decRef(o);
 	}
 }

@@ -7,7 +7,7 @@ package com.microsoft.z3;
 
 class ASTVectorDecRefQueue extends IDecRefQueue
 {
-    public void IncRef(Context ctx, long obj)
+    protected void incRef(Context ctx, long obj)
     {
         try
         {
@@ -18,7 +18,7 @@ class ASTVectorDecRefQueue extends IDecRefQueue
         }
     }
 
-    public void DecRef(Context ctx, long obj)
+    protected void decRef(Context ctx, long obj)
     {
         try
         {

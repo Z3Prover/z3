@@ -88,7 +88,6 @@ namespace pdr {
                   for (unsigned i = 0; i < assumptions.size(); ++i) {
                       pp.add_assumption(assumptions[i].get());
                   }
-                  pp.display_smt2(tout, m.mk_true());
 
                   static unsigned lemma_id = 0;
                   std::ostringstream strm;
@@ -97,6 +96,7 @@ namespace pdr {
                   pp.display_smt2(out, m.mk_true());
                   out.close();
                   lemma_id++;
+                  tout << "pdr_check: " << strm.str() << "\n";
               });
         lbool result = m_context.check(assumptions.size(), assumptions.c_ptr());
         if (!m.is_true(m_pred)) {

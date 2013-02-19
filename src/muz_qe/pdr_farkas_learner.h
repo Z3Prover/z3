@@ -99,8 +99,6 @@ public:
 
     void collect_statistics(statistics& st) const;
 
-    static void test(char const* filename);
-
 };
 
 

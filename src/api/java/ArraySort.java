@@ -15,20 +15,20 @@ public class ArraySort extends Sort
 	 * The domain of the array sort.
 	 * @throws Z3Exception 
 	 **/
-	public Sort Domain() throws Z3Exception
+	public Sort getDomain() throws Z3Exception
 	{
-		return Sort.Create(Context(),
-				Native.getArraySortDomain(Context().nCtx(), NativeObject()));
+		return Sort.create(getContext(),
+				Native.getArraySortDomain(getContext().nCtx(), getNativeObject()));
 	}
 
 	/**
 	 * The range of the array sort.
 	 * @throws Z3Exception 
 	 **/
-	public Sort Range() throws Z3Exception
+	public Sort getRange() throws Z3Exception
 	{
-		return Sort.Create(Context(),
-				Native.getArraySortRange(Context().nCtx(), NativeObject()));
+		return Sort.create(getContext(),
+				Native.getArraySortRange(getContext().nCtx(), getNativeObject()));
 	}
 
 	ArraySort(Context ctx, long obj) throws Z3Exception
@@ -38,7 +38,7 @@ public class ArraySort extends Sort
 
 	ArraySort(Context ctx, Sort domain, Sort range) throws Z3Exception
 	{
-		super(ctx, Native.mkArraySort(ctx.nCtx(), domain.NativeObject(),
-				range.NativeObject()));
+		super(ctx, Native.mkArraySort(ctx.nCtx(), domain.getNativeObject(),
+				range.getNativeObject()));
 	}
 };

@@ -44,7 +44,7 @@ extern "C" {
         _Z3_append_log(static_cast<char const *>(str));
     }
 
-    void Z3_API Z3_close_log() {
+    void Z3_API Z3_close_log(void) {
         if (g_z3_log != 0) {
             dealloc(g_z3_log);
             g_z3_log_enabled = false;

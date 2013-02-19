@@ -464,6 +464,7 @@ public:
 
     void display_raw(std::ostream & out, mpff const & n) const;
     void display(std::ostream & out, mpff const & n) const;
+    void display_pp(std::ostream & out, mpff const & n) const { display(out, n); }
     void display_decimal(std::ostream & out, mpff const & n, unsigned prec=32, unsigned max_power=128) const;
     void display_smt2(std::ostream & out, mpff const & n, bool decimal=true) const;
 

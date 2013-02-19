@@ -36,6 +36,7 @@ Revision History:
 #include "for_each_expr.h"
 #include "expr_safe_replace.h"
 #include "cooperate.h"
+#include "datatype_decl_plugin.h"
 
 class is_variable_proc {
 public:
@@ -80,6 +81,7 @@ namespace eq {
     class der {
         ast_manager &   m;
         arith_util      a;
+        datatype_util   dt;
         is_variable_proc* m_is_variable;
         var_subst       m_subst;
         expr_ref_vector m_new_exprs;
@@ -215,14 +217,15 @@ namespace eq {
            (not T) is used because this formula is equivalent to (not (iff (VAR 2) (not T))),
            and can be viewed as a disequality.
         */
-        bool is_var_diseq(expr * e, var * & v, expr_ref & t) {
+        bool is_var_diseq(expr * e, ptr_vector<var>& vs, expr_ref_vector& ts) {
             expr* e1;
             if (m.is_not(e, e1)) {
-                return is_var_eq(e, v, t);
+                return is_var_eq(e, vs, ts);
             }
-            else if (is_var_eq(e, v, t) && m.is_bool(v)) { 
-                bool_rewriter(m).mk_not(t, t);
-                m_new_exprs.push_back(t);
+            else if (is_var_eq(e, vs, ts) && vs.size() == 1 && m.is_bool(vs[0])) { 
+                expr_ref tmp(m);
+                bool_rewriter(m).mk_not(ts[0].get(), tmp);
+                ts[0] = tmp;
                 return true;
             }
             else {
@@ -230,11 +233,11 @@ namespace eq {
             }
         }
 
-        bool solve_arith_core(app * lhs, expr * rhs, expr * eq, var* & var, expr_ref & def) {
+        bool solve_arith_core(app * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             SASSERT(a.is_add(lhs));
             bool is_int  = a.is_int(lhs);
-            expr * a1; 
-            expr * v;
+            expr * a1, *v;
+            expr_ref def(m);
             rational a_val;
             unsigned num = lhs->get_num_args();
             unsigned i;
@@ -255,7 +258,7 @@ namespace eq {
             }
             if (i == num)
                 return false;
-            var = to_var(v);
+            vs.push_back(to_var(v));
             expr_ref inv_a(m);
             if (!a_val.is_one()) {
                 inv_a = a.mk_numeral(rational(1)/a_val, is_int);
@@ -282,35 +285,48 @@ namespace eq {
                 def = a.mk_sub(rhs, a.mk_add(other_args.size(), other_args.c_ptr()));
                 break;
             }
-            m_new_exprs.push_back(def);
+            ts.push_back(def);
             return true;
         }
+
         
-        bool arith_solve(expr * lhs, expr * rhs, expr * eq, var* & var, expr_ref & t) {
+        bool arith_solve(expr * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             return 
-                (a.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, var, t)) ||
-                (a.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, var, t));
+                (a.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, vs, ts)) ||
+                (a.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, vs, ts));
         }
 
-        bool trival_solve(expr* lhs, expr* rhs, expr* eq, var* & v, expr_ref& t) {
+        bool trivial_solve(expr* lhs, expr* rhs, expr* eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             if (!is_variable(lhs)) {
                 std::swap(lhs, rhs);
             }
             if (!is_variable(lhs)) {
                 return false;
             }
-            v = to_var(lhs);
-            t = rhs;
-            TRACE("der", tout << mk_pp(eq, m) << "\n";);
+            vs.push_back(to_var(lhs));
+            ts.push_back(rhs);
+            TRACE("qe_lite", tout << mk_pp(eq, m) << "\n";);
             return true;
         }
         
+
+        bool same_vars(ptr_vector<var> const& vs1, ptr_vector<var> const& vs2) const {
+            if (vs1.size() != vs2.size()) {
+                return false;
+            }
+            for (unsigned i = 0; i < vs1.size(); ++i) {
+                if (vs1[i] != vs2[i]) {
+                    return false;
+                }
+            }
+            return true;
+        }
 
         /**
            \brief Return true if e can be viewed as a variable equality.
         */
         
-        bool is_var_eq(expr * e, var * & v, expr_ref & t) {
+        bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs, *rhs;
             
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases    
@@ -323,16 +339,15 @@ namespace eq {
                     if (!is_neg_var(m, lhs)) {
                         return false;
                     }
-                    v = to_var(lhs);
-                    t = m.mk_not(rhs);
-                    m_new_exprs.push_back(t);
-                    TRACE("der", tout << mk_pp(e, m) << "\n";);
+                    vs.push_back(to_var(lhs));
+                    ts.push_back(m.mk_not(rhs));
+                    TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                     return true;
                 }
-                if (trival_solve(lhs, rhs, e, v, t)) {
+                if (trivial_solve(lhs, rhs, e, vs, ts)) {
                     return true;
                 }
-                if (arith_solve(lhs, rhs, e, v, t)) {
+                if (arith_solve(lhs, rhs, e, vs, ts)) {
                     return true;
                 }
                 return false;
@@ -341,12 +356,13 @@ namespace eq {
             // (ite cond (= VAR t) (= VAR t2)) case
             expr* cond, *e2, *e3;
             if (m.is_ite(e, cond, e2, e3)) {
-                if (is_var_eq(e2, v, t)) {
-                    expr_ref t2(m);
-                    var* v2;
-                    if (is_var_eq(e3, v2, t2) && v2 == v) {
-                        t = m.mk_ite(cond, t, t2);
-                        m_new_exprs.push_back(t);
+                if (is_var_eq(e2, vs, ts)) {
+                    expr_ref_vector ts2(m);
+                    ptr_vector<var> vs2;
+                    if (is_var_eq(e3, vs2, ts2) && same_vars(vs, vs2)) {
+                        for (unsigned i = 0; i < vs.size(); ++i) {
+                            ts[i] = m.mk_ite(cond, ts[i].get(), ts2[i].get());
+                        }
                         return true;
                     }
                 }
@@ -355,17 +371,17 @@ namespace eq {
             
             // VAR = true case
             if (is_variable(e)) {
-                t = m.mk_true();
-                v = to_var(e);
-                TRACE("der", tout << mk_pp(e, m) << "\n";);
+                ts.push_back(m.mk_true());
+                vs.push_back(to_var(e));
+                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
             
             // VAR = false case
             if (is_neg_var(m, e)) {
-                t = m.mk_false();
-                v = to_var(to_app(e)->get_arg(0));
-                TRACE("der", tout << mk_pp(e, m) << "\n";);
+                ts.push_back(m.mk_false());
+                vs.push_back(to_var(to_app(e)->get_arg(0)));
+                TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
             
@@ -373,12 +389,12 @@ namespace eq {
         }
         
         
-        bool is_var_def(bool check_eq, expr* e, var*& v, expr_ref& t) {
+        bool is_var_def(bool check_eq, expr* e, ptr_vector<var>& vs, expr_ref_vector& ts) {
             if (check_eq) {
-                return is_var_eq(e, v, t);
+                return is_var_eq(e, vs, ts);
             }
             else {
-                return is_var_diseq(e, v, t);
+                return is_var_diseq(e, vs, ts);
             }    
         }
         
@@ -393,7 +409,7 @@ namespace eq {
             
             der_sort_vars(m_inx2var, m_map, m_order);
             
-            TRACE("der", 
+            TRACE("qe_lite", 
                   tout << "Elimination m_order:" << std::endl;
                   for(unsigned i=0; i<m_order.size(); i++)
                       {
@@ -520,8 +536,6 @@ namespace eq {
         }
         
         void find_definitions(unsigned num_args, expr* const* args, bool is_exists, unsigned& def_count, unsigned& largest_vinx) {
-            var * v = 0;
-            expr_ref t(m);    
             def_count = 0;
             largest_vinx = 0;
             m_map.reset();
@@ -532,24 +546,135 @@ namespace eq {
             // Find all definitions
             for (unsigned i = 0; i < num_args; i++) {
                 checkpoint();
-                if (is_var_def(is_exists, args[i], v, t)) {
-                    unsigned idx = v->get_idx();
-                    if(m_map.get(idx, 0) == 0) {
-                        m_map.reserve(idx + 1, 0);
-                        m_inx2var.reserve(idx + 1, 0);                
-                        m_map[idx] = t;
-                        m_inx2var[idx] = v;
-                        m_pos2var[i] = idx;
-                        def_count++;
-                        largest_vinx = std::max(idx, largest_vinx); 
+                ptr_vector<var> vs;
+                expr_ref_vector ts(m);
+                if (is_var_def(is_exists, args[i], vs, ts)) {
+                    for (unsigned j = 0; j < vs.size(); ++j) {
+                        var* v = vs[j];
+                        expr* t = ts[j].get();
+                        unsigned idx = v->get_idx();
+                        if (m_map.get(idx, 0) == 0) {
+                            m_map.reserve(idx + 1, 0);
+                            m_inx2var.reserve(idx + 1, 0);                
+                            m_map[idx] = t;
+                            m_inx2var[idx] = v;
+                            m_pos2var[i] = idx;
+                            def_count++;
+                            largest_vinx = std::max(idx, largest_vinx); 
+                            m_new_exprs.push_back(t);
+                        }
                     }
                 }
             }
+        }
+
+        void flatten_definitions(expr_ref_vector& conjs) {
+            TRACE("qe_lite",
+                  expr_ref tmp(m);
+                  tmp = m.mk_and(conjs.size(), conjs.c_ptr());
+                  tout << mk_pp(tmp, m) << "\n";);
+            for (unsigned i = 0; i < conjs.size(); ++i) {
+                expr* c = conjs[i].get();
+                expr* l, *r;
+                if (m.is_false(c)) {
+                    conjs[0] = c;
+                    conjs.resize(1);
+                    break;
+                }
+                if (is_ground(c)) {
+                    continue;
+                }
+                if (!m.is_eq(c, l, r)) {
+                    continue;
+                }
+                if (!is_app(l) || !is_app(r)) {
+                    continue;
+                }
+                if (dt.is_constructor(to_app(l)->get_decl())) {
+                    flatten_constructor(to_app(l), to_app(r), conjs);
+                    conjs[i] = conjs.back();
+                    conjs.pop_back();
+                    --i;
+                    continue;
+                }
+                if (dt.is_constructor(to_app(r)->get_decl())) {
+                    flatten_constructor(to_app(r), to_app(l), conjs);
+                    conjs[i] = conjs.back();
+                    conjs.pop_back();
+                    --i;
+                    continue;
+                }
+            }
+            TRACE("qe_lite",
+                  expr_ref tmp(m);
+                  tmp = m.mk_and(conjs.size(), conjs.c_ptr());
+                  tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
+        }
+        
+        void flatten_constructor(app* c, app* r, expr_ref_vector& conjs) {
+            SASSERT(dt.is_constructor(c));
+            
+            func_decl* d = c->get_decl();
+
+            if (dt.is_constructor(r->get_decl())) {
+                app* b = to_app(r);
+                if (d == b->get_decl()) {
+                    for (unsigned j = 0; j < c->get_num_args(); ++j) {
+                        conjs.push_back(m.mk_eq(c->get_arg(j), b->get_arg(j)));
+                    }
+                }
+                else {
+                    conjs.push_back(m.mk_false());
+                }                
+            }
+            else {
+                func_decl* rec = dt.get_constructor_recognizer(d);
+                conjs.push_back(m.mk_app(rec, r));
+                ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
+                for (unsigned i = 0; i < acc.size(); ++i) {
+                    conjs.push_back(m.mk_eq(c->get_arg(i), m.mk_app(acc[i], r)));
+                }
+            }
+        }
+
+        bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
+            bool occ = occurs(x, t);
+            for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
+                occ = (i != j) && occurs(x, conjs[j]);
+            }
+            return !occ;
+        }
+
+        bool remove_unconstrained(expr_ref_vector& conjs) {
+            bool reduced = false, change = true;
+            expr* r, *l, *ne;           
+            while (change) {
+                change = false;
+                for (unsigned i = 0; i < conjs.size(); ++i) {
+                    if (m.is_not(conjs[i].get(), ne) && m.is_eq(ne, l, r)) {
+                        TRACE("qe_lite", tout << mk_pp(conjs[i].get(), m) << " " << is_variable(l) << " " << is_variable(r) << "\n";);
+                        if (is_variable(l) && ::is_var(l) && is_unconstrained(::to_var(l), r, i, conjs)) {
+                            conjs[i] = m.mk_true();
+                            reduced = true;
+                            change = true;
+                        }
+                        else if (is_variable(r) && ::is_var(r) && is_unconstrained(::to_var(r), l, i, conjs)) {
+                            conjs[i] = m.mk_true();
+                            reduced = true;
+                            change = true;
+                        }
+                    }
+                }
+            }
+            return reduced;
         }
         
         bool reduce_var_set(expr_ref_vector& conjs) {
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
+            bool reduced = false;
+
+            flatten_definitions(conjs);
             
             find_definitions(conjs.size(), conjs.c_ptr(), true, def_count, largest_vinx);
             
@@ -565,10 +690,15 @@ namespace eq {
                     m_rewriter(new_r);
                     conjs.reset();
                     datalog::flatten_and(new_r, conjs);
-                    return true;
+                    reduced = true;
                 }
             }
-            return false;
+
+            if (remove_unconstrained(conjs)) {
+                reduced = true;
+            }
+
+            return reduced;
         }
 
         void checkpoint() {
@@ -578,12 +708,22 @@ namespace eq {
         }
 
     public:
-        der(ast_manager & m): m(m), a(m), m_is_variable(0), m_subst(m), m_new_exprs(m), m_subst_map(m), m_new_args(m), m_rewriter(m), m_cancel(false) {}
+        der(ast_manager & m): 
+            m(m), 
+            a(m),
+            dt(m),
+            m_is_variable(0), 
+            m_subst(m), 
+            m_new_exprs(m), 
+            m_subst_map(m), 
+            m_new_args(m), 
+            m_rewriter(m), 
+            m_cancel(false) {}
         
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
         
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
-            TRACE("der", tout << mk_pp(q, m) << "\n";);    
+            TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);    
             pr = 0;
             r  = q;
             reduce_quantifier(q, r, pr);    

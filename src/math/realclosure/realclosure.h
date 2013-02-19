@@ -70,7 +70,7 @@ namespace realclosure {
         /**
            \brief Add a new infinitesimal to the current field. The new infinitesimal is smaller than any positive element in the field.
         */
-        void mk_infinitesimal(char const * name, numeral & r);
+        void mk_infinitesimal(char const * name, char const * pp_name, numeral & r);
         void mk_infinitesimal(numeral & r);
         
         /**
@@ -83,7 +83,7 @@ namespace realclosure {
            Then, we extend the field F with 1 - Pi. 1 - Pi is transcendental with respect to algebraic real numbers, but it is NOT transcendental
            with respect to F, since F contains Pi.
         */
-        void mk_transcendental(char const * name, mk_interval & proc, numeral & r);
+        void mk_transcendental(char const * name, char const * pp_name, mk_interval & proc, numeral & r);
         void mk_transcendental(mk_interval & proc, numeral & r);
 
         /**
@@ -252,7 +252,7 @@ namespace realclosure {
         bool ge(numeral const & a, mpq const & b) { return !lt(a, b); }
         bool ge(numeral const & a, mpz const & b) { return !lt(a, b); }
         
-        void display(std::ostream & out, numeral const & a) const;
+        void display(std::ostream & out, numeral const & a, bool compact=false, bool pp=false) const;
 
         /**
            \brief Display a real number in decimal notation.

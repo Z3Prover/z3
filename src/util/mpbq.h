@@ -260,6 +260,7 @@ public:
 
 
     void display(std::ostream & out, mpbq const & a);
+    void display_pp(std::ostream & out, mpbq const & a);
     void display_decimal(std::ostream & out, mpbq const & a, unsigned prec = 8);
     /**
        \brief Display a in decimal while its digits match b digits.

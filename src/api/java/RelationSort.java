@@ -14,26 +14,26 @@ public class RelationSort extends Sort
     /**
      * The arity of the relation sort.
      **/
-    public int Arity() throws Z3Exception
+    public int getArity() throws Z3Exception
     {
-        return Native.getRelationArity(Context().nCtx(), NativeObject());
+        return Native.getRelationArity(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The sorts of the columns of the relation sort.
      * @throws Z3Exception 
      **/
-    public Sort[] ColumnSorts() throws Z3Exception
+    public Sort[] getColumnSorts() throws Z3Exception
     {
 
         if (m_columnSorts != null)
             return m_columnSorts;
 
-        int n = Arity();
+        int n = getArity();
         Sort[] res = new Sort[n];
         for (int i = 0; i < n; i++)
-            res[i] = Sort.Create(Context(), Native.getRelationColumn(Context()
-                    .nCtx(), NativeObject(), i));
+            res[i] = Sort.create(getContext(), Native.getRelationColumn(getContext()
+                    .nCtx(), getNativeObject(), i));
         return res;
     }
 

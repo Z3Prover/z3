@@ -1044,7 +1044,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 }
 
 func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                          unsigned num_args, expr * const * args, sort * range) {
+                                            unsigned num_args, expr * const * args, sort * range) {
     switch (static_cast<basic_op_kind>(k)) {
     case OP_TRUE:    return m_true_decl;
     case OP_FALSE:   return m_false_decl;
@@ -1816,6 +1816,12 @@ sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
     return register_node(new_node);
 }
 
+sort * ast_manager::mk_uninterpreted_sort(symbol const & name, unsigned num_parameters, parameter const * parameters) {
+    user_sort_plugin * plugin = get_user_sort_plugin();
+    decl_kind kind = plugin->register_name(name);
+    return plugin->mk_sort(kind, num_parameters, parameters);
+}
+
 func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort * const * domain, sort * range, 
                                       bool assoc, bool comm, bool inj) {
     func_decl_info info(null_family_id, null_decl_kind);
@@ -1836,14 +1842,17 @@ func_decl * ast_manager::mk_func_decl(symbol const & name, unsigned arity, sort 
 }
 
 void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * const * args) const {
+    ast_manager& m = const_cast<ast_manager&>(*this);
     if (decl->is_associative()) {
         sort * expected = decl->get_domain(0);
         for (unsigned i = 0; i < num_args; i++) {
             sort * given = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
-                string_buffer<> buff;
-                buff << "invalid function application, sort mismatch on argument at position " << (i+1);
-                throw ast_exception(buff.c_str());
+                std::ostringstream buff;
+                buff << "invalid function application for " << decl->get_name() << ", ";
+                buff << "sort mismatch on argument at position " << (i+1) << ", ";
+                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                throw ast_exception(buff.str().c_str());
             }
         }
     }
@@ -1855,9 +1864,11 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
             sort * expected = decl->get_domain(i);
             sort * given    = get_sort(args[i]);
             if (!compatible_sorts(expected, given)) {
-                string_buffer<> buff;
-                buff << "invalid function application, sort mismatch on argument at position " << (i+1);
-                throw ast_exception(buff.c_str());
+                std::ostringstream buff;
+                buff << "invalid function application for " << decl->get_name() << ", ";
+                buff << "sort mismatch on argument at position " << (i+1) << ", ";
+                buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
+                throw ast_exception(buff.str().c_str());
             }
         }
     }
@@ -2058,7 +2069,7 @@ sort * ast_manager::mk_fresh_sort(char const * prefix) {
     string_buffer<32> buffer;
     buffer << prefix << "!" << m_fresh_id;
     m_fresh_id++;
-    return mk_sort(symbol(buffer.c_str()));
+    return mk_uninterpreted_sort(symbol(buffer.c_str()));
 }
 
 symbol ast_manager::mk_fresh_var_name(char const * prefix) {

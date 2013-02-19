@@ -118,6 +118,13 @@ namespace datalog {
         SASSERT(tail.size()==tail_neg.size());
         res = m_rm.mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), tgt.name(), m_normalize);
         res->set_accounting_parent_object(m_context, const_cast<rule*>(&tgt));
+        TRACE("dl",
+              tgt.display(m_context,  tout << "tgt (" << tail_index << "): \n");
+              src.display(m_context,  tout << "src:\n");
+              res->display(m_context, tout << "res\n");
+              // m_unif.display(tout << "subst:\n");
+              );
+
         if (m_normalize) {
             m_rm.fix_unbound_vars(res, true);        
             if (m_interp_simplifier.transform_rule(res.get(), simpl_rule)) {
@@ -174,12 +181,6 @@ namespace datalog {
         }
 
         if (m_unifier.apply(tgt, tail_index, src, res)) {
-            TRACE("dl",
-                  tgt.display(m_context,  tout << "tgt (" << tail_index << "): \n");
-                  src.display(m_context,  tout << "src:\n");
-                  res->display(m_context, tout << "res\n");
-                  //m_unifier.display(tout << "subst:\n");
-                  );
             if (m_pc) {
                 expr_ref_vector s1 = m_unifier.get_rule_subst(tgt, true);
                 expr_ref_vector s2 = m_unifier.get_rule_subst(src, false);

@@ -254,7 +254,7 @@ public:
     void reset_cancel() { set_cancel(false); }
     context_params  & params() { return m_params; }
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
-    void set_logic(symbol const & s);
+    bool set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
     symbol const & get_logic() const { return m_logic; }
     bool is_logic(char const * l_name) const { return has_logic() && strcmp(m_logic.bare_str(), l_name) == 0; }

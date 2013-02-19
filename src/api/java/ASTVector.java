@@ -14,9 +14,9 @@ class ASTVector extends Z3Object
     /**
      * The size of the vector
      **/
-    public int Size() throws Z3Exception
+    public int size() throws Z3Exception
     {
-        return Native.astVectorSize(Context().nCtx(), NativeObject());
+        return Native.astVectorSize(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -29,33 +29,33 @@ class ASTVector extends Z3Object
      **/
     public AST get(int i) throws Z3Exception
     {
-        return new AST(Context(), Native.astVectorGet(Context().nCtx(),
-                NativeObject(), i));
+        return new AST(getContext(), Native.astVectorGet(getContext().nCtx(),
+                getNativeObject(), i));
     }
 
     public void set(int i, AST value) throws Z3Exception
     {
 
-        Native.astVectorSet(Context().nCtx(), NativeObject(), i,
-                value.NativeObject());
+        Native.astVectorSet(getContext().nCtx(), getNativeObject(), i,
+                value.getNativeObject());
     }
 
     /**
      * Resize the vector to <paramref name="newSize"/>. <param
      * name="newSize">The new size of the vector.</param>
      **/
-    public void Resize(int newSize) throws Z3Exception
+    public void resize(int newSize) throws Z3Exception
     {
-        Native.astVectorResize(Context().nCtx(), NativeObject(), newSize);
+        Native.astVectorResize(getContext().nCtx(), getNativeObject(), newSize);
     }
 
     /**
      * Add the AST <paramref name="a"/> to the back of the vector. The size is
      * increased by 1. <param name="a">An AST</param>
      **/
-    public void Push(AST a) throws Z3Exception
+    public void push(AST a) throws Z3Exception
     {
-        Native.astVectorPush(Context().nCtx(), NativeObject(), a.NativeObject());
+        Native.astVectorPush(getContext().nCtx(), getNativeObject(), a.getNativeObject());
     }
 
     /**
@@ -65,10 +65,10 @@ class ASTVector extends Z3Object
      * @return A new ASTVector
      * @throws Z3Exception
      **/
-    public ASTVector Translate(Context ctx) throws Z3Exception
+    public ASTVector translate(Context ctx) throws Z3Exception
     {
-        return new ASTVector(Context(), Native.astVectorTranslate(Context()
-                .nCtx(), NativeObject(), ctx.nCtx()));
+        return new ASTVector(getContext(), Native.astVectorTranslate(getContext()
+                .nCtx(), getNativeObject(), ctx.nCtx()));
     }
 
     /**
@@ -78,7 +78,7 @@ class ASTVector extends Z3Object
     {
         try
         {
-            return Native.astVectorToString(Context().nCtx(), NativeObject());
+            return Native.astVectorToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -95,15 +95,15 @@ class ASTVector extends Z3Object
         super(ctx, Native.mkAstVector(ctx.nCtx()));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().ASTVector_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().astvector_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().ASTVector_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().astvector_DRQ().add(o);
+        super.decRef(o);
     }
 }

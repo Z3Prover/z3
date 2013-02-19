@@ -18,6 +18,6 @@ public class UninterpretedSort extends Sort
 
     UninterpretedSort(Context ctx, Symbol s) throws Z3Exception
     {
-        super(ctx, Native.mkUninterpretedSort(ctx.nCtx(), s.NativeObject()));
+        super(ctx, Native.mkUninterpretedSort(ctx.nCtx(), s.getNativeObject()));
     }
 }

@@ -236,7 +236,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a new enumeration sort.
         /// </summary>
-        public EnumSort MkEnumSort(Symbol name, Symbol[] enumNames)
+        public EnumSort MkEnumSort(Symbol name, params Symbol[] enumNames)
         {
             Contract.Requires(name != null);
             Contract.Requires(enumNames != null);
@@ -252,7 +252,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a new enumeration sort.
         /// </summary>
-        public EnumSort MkEnumSort(string name, string[] enumNames)
+        public EnumSort MkEnumSort(string name, params string[] enumNames)
         {
             Contract.Requires(enumNames != null);
             Contract.Ensures(Contract.Result<EnumSort>() != null);
@@ -3219,7 +3219,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Create a probe that always evaluates to <paramref name="val"/>.
         /// </summary>
-        public Probe Const(double val)
+        public Probe ConstProbe(double val)
         {
             Contract.Ensures(Contract.Result<Probe>() != null);
 
@@ -3518,8 +3518,7 @@ namespace Microsoft.Z3
         public string GetParamValue(string id)
         {
             IntPtr res = IntPtr.Zero;
-            int r = Native.Z3_get_param_value(nCtx, id, out res);
-            if (r == (int)Z3_lbool.Z3_L_FALSE)
+            if (Native.Z3_get_param_value(nCtx, id, out res) == 0)
                 return null;
             else
                 return Marshal.PtrToStringAnsi(res);

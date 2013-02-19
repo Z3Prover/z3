@@ -6,8 +6,9 @@
 
 package com.microsoft.z3;
 
-import java.util.*;
-import com.microsoft.z3.enumerations.*;
+import java.util.Map;
+
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 /**
  * The main interaction with Z3 happens via the Context.
@@ -21,7 +22,7 @@ public class Context extends IDisposable
     {
         super();
         m_ctx = Native.mkContextRc(0);
-        InitContext();
+        initContext();
     }
 
     /**
@@ -35,14 +36,7 @@ public class Context extends IDisposable
             Native.setParamValue(cfg, kv.getKey(), kv.getValue());
         m_ctx = Native.mkContextRc(cfg);
         Native.delConfig(cfg);
-        InitContext();
-    }
-
-    private Context(long ctx, long refCount)
-    {
-        super();
-        this.m_ctx = ctx;
-        this.m_refCount = refCount;
+        initContext();
     }
 
     /**
@@ -50,7 +44,7 @@ public class Context extends IDisposable
      * passed to this function. The legal range of unsigned integers is 0 to
      * 2^30-1. </remarks>
      **/
-    public IntSymbol MkSymbol(int i) throws Z3Exception
+    public IntSymbol mkSymbol(int i) throws Z3Exception
     {
         return new IntSymbol(this, i);
     }
@@ -58,7 +52,7 @@ public class Context extends IDisposable
     /**
      * Create a symbol using a string.
      **/
-    public StringSymbol MkSymbol(String name) throws Z3Exception
+    public StringSymbol mkSymbol(String name) throws Z3Exception
     {
         return new StringSymbol(this, name);
     }
@@ -72,7 +66,7 @@ public class Context extends IDisposable
             return null;
         Symbol[] result = new Symbol[names.length];
         for (int i = 0; i < names.length; ++i)
-            result[i] = MkSymbol(names[i]);
+            result[i] = mkSymbol(names[i]);
         return result;
     }
 
@@ -83,7 +77,7 @@ public class Context extends IDisposable
     /**
      * Retrieves the Boolean sort of the context.
      **/
-    public BoolSort BoolSort() throws Z3Exception
+    public BoolSort getBoolSort() throws Z3Exception
     {
         if (m_boolSort == null)
             m_boolSort = new BoolSort(this);
@@ -93,7 +87,7 @@ public class Context extends IDisposable
     /**
      * Retrieves the Integer sort of the context.
      **/
-    public IntSort IntSort() throws Z3Exception
+    public IntSort getIntSort() throws Z3Exception
     {
         if (m_intSort == null)
             m_intSort = new IntSort(this);
@@ -103,7 +97,7 @@ public class Context extends IDisposable
     /**
      * Retrieves the Real sort of the context.
      **/
-    public RealSort RealSort() throws Z3Exception
+    public RealSort getRealSort() throws Z3Exception
     {
         if (m_realSort == null)
             m_realSort = new RealSort(this);
@@ -113,7 +107,7 @@ public class Context extends IDisposable
     /**
      * Create a new Boolean sort.
      **/
-    public BoolSort MkBoolSort() throws Z3Exception
+    public BoolSort mkBoolSort() throws Z3Exception
     {
 
         return new BoolSort(this);
@@ -122,26 +116,26 @@ public class Context extends IDisposable
     /**
      * Create a new uninterpreted sort.
      **/
-    public UninterpretedSort MkUninterpretedSort(Symbol s) throws Z3Exception
+    public UninterpretedSort mkUninterpretedSort(Symbol s) throws Z3Exception
     {
 
-        CheckContextMatch(s);
+        checkContextMatch(s);
         return new UninterpretedSort(this, s);
     }
 
     /**
      * Create a new uninterpreted sort.
      **/
-    public UninterpretedSort MkUninterpretedSort(String str) throws Z3Exception
+    public UninterpretedSort mkUninterpretedSort(String str) throws Z3Exception
     {
 
-        return MkUninterpretedSort(MkSymbol(str));
+        return mkUninterpretedSort(mkSymbol(str));
     }
 
     /**
      * Create a new integer sort.
      **/
-    public IntSort MkIntSort() throws Z3Exception
+    public IntSort mkIntSort() throws Z3Exception
     {
 
         return new IntSort(this);
@@ -150,7 +144,7 @@ public class Context extends IDisposable
     /**
      * Create a real sort.
      **/
-    public RealSort MkRealSort() throws Z3Exception
+    public RealSort mkRealSort() throws Z3Exception
     {
 
         return new RealSort(this);
@@ -159,7 +153,7 @@ public class Context extends IDisposable
     /**
      * Create a new bit-vector sort.
      **/
-    public BitVecSort MkBitVecSort(int size) throws Z3Exception
+    public BitVecSort mkBitVecSort(int size) throws Z3Exception
     {
 
         return new BitVecSort(this, Native.mkBvSort(nCtx(), size));
@@ -168,24 +162,24 @@ public class Context extends IDisposable
     /**
      * Create a new array sort.
      **/
-    public ArraySort MkArraySort(Sort domain, Sort range) throws Z3Exception
+    public ArraySort mkArraySort(Sort domain, Sort range) throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
+        checkContextMatch(domain);
+        checkContextMatch(range);
         return new ArraySort(this, domain, range);
     }
 
     /**
      * Create a new tuple sort.
      **/
-    public TupleSort MkTupleSort(Symbol name, Symbol[] fieldNames,
+    public TupleSort mkTupleSort(Symbol name, Symbol[] fieldNames,
             Sort[] fieldSorts) throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(fieldNames);
-        CheckContextMatch(fieldSorts);
+        checkContextMatch(name);
+        checkContextMatch(fieldNames);
+        checkContextMatch(fieldSorts);
         return new TupleSort(this, name, (int) fieldNames.length, fieldNames,
                 fieldSorts);
     }
@@ -193,65 +187,64 @@ public class Context extends IDisposable
     /**
      * Create a new enumeration sort.
      **/
-    public EnumSort MkEnumSort(Symbol name, Symbol[] enumNames)
+    public EnumSort mkEnumSort(Symbol name, Symbol... enumNames)
             throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(enumNames);
+        checkContextMatch(name);
+        checkContextMatch(enumNames);
         return new EnumSort(this, name, enumNames);
     }
 
     /**
      * Create a new enumeration sort.
      **/
-    public EnumSort MkEnumSort(String name, String[] enumNames)
+    public EnumSort mkEnumSort(String name, String... enumNames)
             throws Z3Exception
     {
-
-        return new EnumSort(this, MkSymbol(name), MkSymbols(enumNames));
+        return new EnumSort(this, mkSymbol(name), MkSymbols(enumNames));
     }
 
     /**
      * Create a new list sort.
      **/
-    public ListSort MkListSort(Symbol name, Sort elemSort) throws Z3Exception
+    public ListSort mkListSort(Symbol name, Sort elemSort) throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(elemSort);
+        checkContextMatch(name);
+        checkContextMatch(elemSort);
         return new ListSort(this, name, elemSort);
     }
 
     /**
      * Create a new list sort.
      **/
-    public ListSort MkListSort(String name, Sort elemSort) throws Z3Exception
+    public ListSort mkListSort(String name, Sort elemSort) throws Z3Exception
     {
 
-        CheckContextMatch(elemSort);
-        return new ListSort(this, MkSymbol(name), elemSort);
+        checkContextMatch(elemSort);
+        return new ListSort(this, mkSymbol(name), elemSort);
     }
 
     /**
      * Create a new finite domain sort.
      **/
-    public FiniteDomainSort MkFiniteDomainSort(Symbol name, long size)
+    public FiniteDomainSort mkFiniteDomainSort(Symbol name, long size)
             throws Z3Exception
     {
 
-        CheckContextMatch(name);
+        checkContextMatch(name);
         return new FiniteDomainSort(this, name, size);
     }
 
     /**
      * Create a new finite domain sort.
      **/
-    public FiniteDomainSort MkFiniteDomainSort(String name, long size)
+    public FiniteDomainSort mkFiniteDomainSort(String name, long size)
             throws Z3Exception
     {
 
-        return new FiniteDomainSort(this, MkSymbol(name), size);
+        return new FiniteDomainSort(this, mkSymbol(name), size);
     }
 
     /**
@@ -265,7 +258,7 @@ public class Context extends IDisposable
      * an index referring to one of the recursive datatypes that is
      * declared.</param>
      **/
-    public Constructor MkConstructor(Symbol name, Symbol recognizer,
+    public Constructor mkConstructor(Symbol name, Symbol recognizer,
             Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
             throws Z3Exception
     {
@@ -281,36 +274,36 @@ public class Context extends IDisposable
      * 
      * @return
      **/
-    public Constructor MkConstructor(String name, String recognizer,
+    public Constructor mkConstructor(String name, String recognizer,
             String[] fieldNames, Sort[] sorts, int[] sortRefs)
             throws Z3Exception
     {
 
-        return new Constructor(this, MkSymbol(name), MkSymbol(recognizer),
+        return new Constructor(this, mkSymbol(name), mkSymbol(recognizer),
                 MkSymbols(fieldNames), sorts, sortRefs);
     }
 
     /**
      * Create a new datatype sort.
      **/
-    public DatatypeSort MkDatatypeSort(Symbol name, Constructor[] constructors)
+    public DatatypeSort mkDatatypeSort(Symbol name, Constructor[] constructors)
             throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(constructors);
+        checkContextMatch(name);
+        checkContextMatch(constructors);
         return new DatatypeSort(this, name, constructors);
     }
 
     /**
      * Create a new datatype sort.
      **/
-    public DatatypeSort MkDatatypeSort(String name, Constructor[] constructors)
+    public DatatypeSort mkDatatypeSort(String name, Constructor[] constructors)
             throws Z3Exception
     {
 
-        CheckContextMatch(constructors);
-        return new DatatypeSort(this, MkSymbol(name), constructors);
+        checkContextMatch(constructors);
+        return new DatatypeSort(this, mkSymbol(name), constructors);
     }
 
     /**
@@ -318,11 +311,11 @@ public class Context extends IDisposable
      * datatype sorts</param> <param name="c">list of constructors, one list per
      * sort.</param>
      **/
-    public DatatypeSort[] MkDatatypeSorts(Symbol[] names, Constructor[][] c)
+    public DatatypeSort[] mkDatatypeSorts(Symbol[] names, Constructor[][] c)
             throws Z3Exception
     {
 
-        CheckContextMatch(names);
+        checkContextMatch(names);
         int n = (int) names.length;
         ConstructorList[] cla = new ConstructorList[n];
         long[] n_constr = new long[n];
@@ -330,12 +323,12 @@ public class Context extends IDisposable
         {
             Constructor[] constructor = c[i];
 
-            CheckContextMatch(constructor);
+            checkContextMatch(constructor);
             cla[i] = new ConstructorList(this, constructor);
-            n_constr[i] = cla[i].NativeObject();
+            n_constr[i] = cla[i].getNativeObject();
         }
         long[] n_res = new long[n];
-        Native.mkDatatypes(nCtx(), n, Symbol.ArrayToNative(names), n_res,
+        Native.mkDatatypes(nCtx(), n, Symbol.arrayToNative(names), n_res,
                 n_constr);
         DatatypeSort[] res = new DatatypeSort[n];
         for (int i = 0; i < n; i++)
@@ -349,36 +342,36 @@ public class Context extends IDisposable
      * 
      * @return
      **/
-    public DatatypeSort[] MkDatatypeSorts(String[] names, Constructor[][] c)
+    public DatatypeSort[] mkDatatypeSorts(String[] names, Constructor[][] c)
             throws Z3Exception
     {
 
-        return MkDatatypeSorts(MkSymbols(names), c);
+        return mkDatatypeSorts(MkSymbols(names), c);
     }
 
     /**
      * Creates a new function declaration.
      **/
-    public FuncDecl MkFuncDecl(Symbol name, Sort[] domain, Sort range)
+    public FuncDecl mkFuncDecl(Symbol name, Sort[] domain, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
+        checkContextMatch(name);
+        checkContextMatch(domain);
+        checkContextMatch(range);
         return new FuncDecl(this, name, domain, range);
     }
 
     /**
      * Creates a new function declaration.
      **/
-    public FuncDecl MkFuncDecl(Symbol name, Sort domain, Sort range)
+    public FuncDecl mkFuncDecl(Symbol name, Sort domain, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
+        checkContextMatch(name);
+        checkContextMatch(domain);
+        checkContextMatch(range);
         Sort[] q = new Sort[] { domain };
         return new FuncDecl(this, name, q, range);
     }
@@ -386,26 +379,26 @@ public class Context extends IDisposable
     /**
      * Creates a new function declaration.
      **/
-    public FuncDecl MkFuncDecl(String name, Sort[] domain, Sort range)
+    public FuncDecl mkFuncDecl(String name, Sort[] domain, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
-        return new FuncDecl(this, MkSymbol(name), domain, range);
+        checkContextMatch(domain);
+        checkContextMatch(range);
+        return new FuncDecl(this, mkSymbol(name), domain, range);
     }
 
     /**
      * Creates a new function declaration.
      **/
-    public FuncDecl MkFuncDecl(String name, Sort domain, Sort range)
+    public FuncDecl mkFuncDecl(String name, Sort domain, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
+        checkContextMatch(domain);
+        checkContextMatch(range);
         Sort[] q = new Sort[] { domain };
-        return new FuncDecl(this, MkSymbol(name), q, range);
+        return new FuncDecl(this, mkSymbol(name), q, range);
     }
 
     /**
@@ -413,34 +406,34 @@ public class Context extends IDisposable
      * name="prefix"/>. <seealso cref="MkFuncDecl(string,Sort,Sort)"/> <seealso
      * cref="MkFuncDecl(string,Sort[],Sort)"/>
      **/
-    public FuncDecl MkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
+    public FuncDecl mkFreshFuncDecl(String prefix, Sort[] domain, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        CheckContextMatch(range);
+        checkContextMatch(domain);
+        checkContextMatch(range);
         return new FuncDecl(this, prefix, domain, range);
     }
 
     /**
      * Creates a new constant function declaration.
      **/
-    public FuncDecl MkConstDecl(Symbol name, Sort range) throws Z3Exception
+    public FuncDecl mkConstDecl(Symbol name, Sort range) throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(range);
+        checkContextMatch(name);
+        checkContextMatch(range);
         return new FuncDecl(this, name, null, range);
     }
 
     /**
      * Creates a new constant function declaration.
      **/
-    public FuncDecl MkConstDecl(String name, Sort range) throws Z3Exception
+    public FuncDecl mkConstDecl(String name, Sort range) throws Z3Exception
     {
 
-        CheckContextMatch(range);
-        return new FuncDecl(this, MkSymbol(name), null, range);
+        checkContextMatch(range);
+        return new FuncDecl(this, mkSymbol(name), null, range);
     }
 
     /**
@@ -448,11 +441,11 @@ public class Context extends IDisposable
      * <paramref name="prefix"/>. <seealso cref="MkFuncDecl(string,Sort,Sort)"/>
      * <seealso cref="MkFuncDecl(string,Sort[],Sort)"/>
      **/
-    public FuncDecl MkFreshConstDecl(String prefix, Sort range)
+    public FuncDecl mkFreshConstDecl(String prefix, Sort range)
             throws Z3Exception
     {
 
-        CheckContextMatch(range);
+        checkContextMatch(range);
         return new FuncDecl(this, prefix, null, range);
     }
 
@@ -460,21 +453,21 @@ public class Context extends IDisposable
      * Creates a new bound variable. <param name="index">The de-Bruijn index of
      * the variable</param> <param name="ty">The sort of the variable</param>
      **/
-    public Expr MkBound(int index, Sort ty) throws Z3Exception
+    public Expr mkBound(int index, Sort ty) throws Z3Exception
     {
-        return Expr.Create(this,
-                Native.mkBound(nCtx(), index, ty.NativeObject()));
+        return Expr.create(this,
+                Native.mkBound(nCtx(), index, ty.getNativeObject()));
     }
 
     /**
      * Create a quantifier pattern.
      **/
-    public Pattern MkPattern(Expr[] terms) throws Z3Exception
+    public Pattern mkPattern(Expr... terms) throws Z3Exception
     {
         if (terms.length == 0)
             throw new Z3Exception("Cannot create a pattern from zero terms");
 
-        long[] termsNative = AST.ArrayToNative(terms);
+        long[] termsNative = AST.arrayToNative(terms);
         return new Pattern(this, Native.mkPattern(nCtx(), (int) terms.length,
                 termsNative));
     }
@@ -483,148 +476,136 @@ public class Context extends IDisposable
      * Creates a new Constant of sort <paramref name="range"/> and named
      * <paramref name="name"/>.
      **/
-    public Expr MkConst(Symbol name, Sort range) throws Z3Exception
+    public Expr mkConst(Symbol name, Sort range) throws Z3Exception
     {
 
-        CheckContextMatch(name);
-        CheckContextMatch(range);
+        checkContextMatch(name);
+        checkContextMatch(range);
 
-        return Expr.Create(
+        return Expr.create(
                 this,
-                Native.mkConst(nCtx(), name.NativeObject(),
-                        range.NativeObject()));
+                Native.mkConst(nCtx(), name.getNativeObject(),
+                        range.getNativeObject()));
     }
 
     /**
      * Creates a new Constant of sort <paramref name="range"/> and named
      * <paramref name="name"/>.
      **/
-    public Expr MkConst(String name, Sort range) throws Z3Exception
+    public Expr mkConst(String name, Sort range) throws Z3Exception
     {
 
-        return MkConst(MkSymbol(name), range);
+        return mkConst(mkSymbol(name), range);
     }
 
     /**
      * Creates a fresh Constant of sort <paramref name="range"/> and a name
      * prefixed with <paramref name="prefix"/>.
      **/
-    public Expr MkFreshConst(String prefix, Sort range) throws Z3Exception
+    public Expr mkFreshConst(String prefix, Sort range) throws Z3Exception
     {
 
-        CheckContextMatch(range);
-        return Expr.Create(this,
-                Native.mkFreshConst(nCtx(), prefix, range.NativeObject()));
+        checkContextMatch(range);
+        return Expr.create(this,
+                Native.mkFreshConst(nCtx(), prefix, range.getNativeObject()));
     }
 
     /**
      * Creates a fresh constant from the FuncDecl <paramref name="f"/>. <param
      * name="f">A decl of a 0-arity function</param>
      **/
-    public Expr MkConst(FuncDecl f) throws Z3Exception
+    public Expr mkConst(FuncDecl f) throws Z3Exception
     {
 
-        return MkApp(f, (Expr[]) null);
+        return mkApp(f, (Expr[]) null);
     }
 
     /**
      * Create a Boolean constant.
      **/
-    public BoolExpr MkBoolConst(Symbol name) throws Z3Exception
+    public BoolExpr mkBoolConst(Symbol name) throws Z3Exception
     {
 
-        return (BoolExpr) MkConst(name, BoolSort());
+        return (BoolExpr) mkConst(name, getBoolSort());
     }
 
     /**
      * Create a Boolean constant.
      **/
-    public BoolExpr MkBoolConst(String name) throws Z3Exception
+    public BoolExpr mkBoolConst(String name) throws Z3Exception
     {
 
-        return (BoolExpr) MkConst(MkSymbol(name), BoolSort());
+        return (BoolExpr) mkConst(mkSymbol(name), getBoolSort());
     }
 
     /**
      * Creates an integer constant.
      **/
-    public IntExpr MkIntConst(Symbol name) throws Z3Exception
+    public IntExpr mkIntConst(Symbol name) throws Z3Exception
     {
 
-        return (IntExpr) MkConst(name, IntSort());
+        return (IntExpr) mkConst(name, getIntSort());
     }
 
     /**
      * Creates an integer constant.
      **/
-    public IntExpr MkIntConst(String name) throws Z3Exception
+    public IntExpr mkIntConst(String name) throws Z3Exception
     {
 
-        return (IntExpr) MkConst(name, IntSort());
+        return (IntExpr) mkConst(name, getIntSort());
     }
 
     /**
      * Creates a real constant.
      **/
-    public RealExpr MkRealConst(Symbol name) throws Z3Exception
+    public RealExpr mkRealConst(Symbol name) throws Z3Exception
     {
 
-        return (RealExpr) MkConst(name, RealSort());
+        return (RealExpr) mkConst(name, getRealSort());
     }
 
     /**
      * Creates a real constant.
      **/
-    public RealExpr MkRealConst(String name) throws Z3Exception
+    public RealExpr mkRealConst(String name) throws Z3Exception
     {
 
-        return (RealExpr) MkConst(name, RealSort());
+        return (RealExpr) mkConst(name, getRealSort());
     }
 
     /**
      * Creates a bit-vector constant.
      **/
-    public BitVecExpr MkBVConst(Symbol name, int size) throws Z3Exception
+    public BitVecExpr mkBVConst(Symbol name, int size) throws Z3Exception
     {
 
-        return (BitVecExpr) MkConst(name, MkBitVecSort(size));
+        return (BitVecExpr) mkConst(name, mkBitVecSort(size));
     }
 
     /**
      * Creates a bit-vector constant.
      **/
-    public BitVecExpr MkBVConst(String name, int size) throws Z3Exception
+    public BitVecExpr mkBVConst(String name, int size) throws Z3Exception
     {
 
-        return (BitVecExpr) MkConst(name, MkBitVecSort(size));
+        return (BitVecExpr) mkConst(name, mkBitVecSort(size));
     }
 
     /**
      * Create a new function application.
      **/
-    public Expr MkApp(FuncDecl f, Expr arg) throws Z3Exception
+    public Expr mkApp(FuncDecl f, Expr... args) throws Z3Exception
     {
-        CheckContextMatch(f);
-        CheckContextMatch(arg);
-        Expr[] args = { arg };
-        return Expr.Create(this, f, args);
-    }
-
-    /**
-     * Create a new function application.
-     **/
-    public Expr MkApp(FuncDecl f, Expr[] args) throws Z3Exception
-    {
-
-        CheckContextMatch(f);
-        CheckContextMatch(args);
-        return Expr.Create(this, f, args);
+        checkContextMatch(f);
+        checkContextMatch(args);
+        return Expr.create(this, f, args);
     }
 
     /**
      * The true Term.
      **/
-    public BoolExpr MkTrue() throws Z3Exception
+    public BoolExpr mkTrue() throws Z3Exception
     {
         return new BoolExpr(this, Native.mkTrue(nCtx()));
     }
@@ -632,7 +613,7 @@ public class Context extends IDisposable
     /**
      * The false Term.
      **/
-    public BoolExpr MkFalse() throws Z3Exception
+    public BoolExpr mkFalse() throws Z3Exception
     {
         return new BoolExpr(this, Native.mkFalse(nCtx()));
     }
@@ -640,40 +621,40 @@ public class Context extends IDisposable
     /**
      * Creates a Boolean value.
      **/
-    public BoolExpr MkBool(boolean value) throws Z3Exception
+    public BoolExpr mkBool(boolean value) throws Z3Exception
     {
-        return value ? MkTrue() : MkFalse();
+        return value ? mkTrue() : mkFalse();
     }
 
     /**
      * Creates the equality <paramref name="x"/> = <paramref name="y"/>.
      **/
-    public BoolExpr MkEq(Expr x, Expr y) throws Z3Exception
+    public BoolExpr mkEq(Expr x, Expr y) throws Z3Exception
     {
-        CheckContextMatch(x);
-        CheckContextMatch(y);
-        return new BoolExpr(this, Native.mkEq(nCtx(), x.NativeObject(),
-                y.NativeObject()));
+        checkContextMatch(x);
+        checkContextMatch(y);
+        return new BoolExpr(this, Native.mkEq(nCtx(), x.getNativeObject(),
+                y.getNativeObject()));
     }
 
     /**
      * Creates a <code>distinct</code> term.
      **/
-    public BoolExpr MkDistinct(Expr[] args) throws Z3Exception
+    public BoolExpr mkDistinct(Expr... args) throws Z3Exception
     {
-        CheckContextMatch(args);
+        checkContextMatch(args);
         return new BoolExpr(this, Native.mkDistinct(nCtx(), (int) args.length,
-                AST.ArrayToNative(args)));
+                AST.arrayToNative(args)));
     }
 
     /**
      * Mk an expression representing <code>not(a)</code>.
      **/
-    public BoolExpr MkNot(BoolExpr a) throws Z3Exception
+    public BoolExpr mkNot(BoolExpr a) throws Z3Exception
     {
 
-        CheckContextMatch(a);
-        return new BoolExpr(this, Native.mkNot(nCtx(), a.NativeObject()));
+        checkContextMatch(a);
+        return new BoolExpr(this, Native.mkNot(nCtx(), a.getNativeObject()));
     }
 
     /**
@@ -682,216 +663,216 @@ public class Context extends IDisposable
      * sort</param> <param name="t2">An expression </param> <param name="t3">An
      * expression with the same sort as <paramref name="t2"/></param>
      **/
-    public Expr MkITE(BoolExpr t1, Expr t2, Expr t3) throws Z3Exception
+    public Expr mkITE(BoolExpr t1, Expr t2, Expr t3) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        CheckContextMatch(t3);
-        return Expr.Create(
-                this,
-                Native.mkIte(nCtx(), t1.NativeObject(), t2.NativeObject(),
-                        t3.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        checkContextMatch(t3);
+        return Expr.create(this, Native.mkIte(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject(), t3.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 iff t2</code>.
      **/
-    public BoolExpr MkIff(BoolExpr t1, BoolExpr t2) throws Z3Exception
+    public BoolExpr mkIff(BoolExpr t1, BoolExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkIff(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkIff(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 -> t2</code>.
      **/
-    public BoolExpr MkImplies(BoolExpr t1, BoolExpr t2) throws Z3Exception
+    public BoolExpr mkImplies(BoolExpr t1, BoolExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkImplies(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkImplies(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 xor t2</code>.
      **/
-    public BoolExpr MkXor(BoolExpr t1, BoolExpr t2) throws Z3Exception
+    public BoolExpr mkXor(BoolExpr t1, BoolExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkXor(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkXor(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t[0] and t[1] and ...</code>.
      **/
-    public BoolExpr MkAnd(BoolExpr[] t) throws Z3Exception
+    public BoolExpr mkAnd(BoolExpr... t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BoolExpr(this, Native.mkAnd(nCtx(), (int) t.length,
-                AST.ArrayToNative(t)));
+                AST.arrayToNative(t)));
     }
 
     /**
      * Create an expression representing <code>t[0] or t[1] or ...</code>.
      **/
-    public BoolExpr MkOr(BoolExpr[] t) throws Z3Exception
+    public BoolExpr mkOr(BoolExpr... t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BoolExpr(this, Native.mkOr(nCtx(), (int) t.length,
-                AST.ArrayToNative(t)));
+                AST.arrayToNative(t)));
     }
 
     /**
      * Create an expression representing <code>t[0] + t[1] + ...</code>.
      **/
-    public ArithExpr MkAdd(ArithExpr[] t) throws Z3Exception
+    public ArithExpr mkAdd(ArithExpr... t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkAdd(nCtx(), (int) t.length, AST.ArrayToNative(t)));
+        checkContextMatch(t);
+        return (ArithExpr) Expr.create(this,
+                Native.mkAdd(nCtx(), (int) t.length, AST.arrayToNative(t)));
     }
 
     /**
      * Create an expression representing <code>t[0] * t[1] * ...</code>.
      **/
-    public ArithExpr MkMul(ArithExpr[] t) throws Z3Exception
+    public ArithExpr mkMul(ArithExpr... t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkMul(nCtx(), (int) t.length, AST.ArrayToNative(t)));
+        checkContextMatch(t);
+        return (ArithExpr) Expr.create(this,
+                Native.mkMul(nCtx(), (int) t.length, AST.arrayToNative(t)));
     }
 
     /**
      * Create an expression representing <code>t[0] - t[1] - ...</code>.
      **/
-    public ArithExpr MkSub(ArithExpr[] t) throws Z3Exception
+    public ArithExpr mkSub(ArithExpr... t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkSub(nCtx(), (int) t.length, AST.ArrayToNative(t)));
+        checkContextMatch(t);
+        return (ArithExpr) Expr.create(this,
+                Native.mkSub(nCtx(), (int) t.length, AST.arrayToNative(t)));
     }
 
     /**
      * Create an expression representing <code>-t</code>.
      **/
-    public ArithExpr MkUnaryMinus(ArithExpr t) throws Z3Exception
+    public ArithExpr mkUnaryMinus(ArithExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkUnaryMinus(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return (ArithExpr) Expr.create(this,
+                Native.mkUnaryMinus(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 / t2</code>.
      **/
-    public ArithExpr MkDiv(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public ArithExpr mkDiv(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkDiv(nCtx(), t1.NativeObject(), t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return (ArithExpr) Expr.create(this, Native.mkDiv(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 mod t2</code>. <remarks>The
      * arguments must have int type.</remarks>
      **/
-    public IntExpr MkMod(IntExpr t1, IntExpr t2) throws Z3Exception
+    public IntExpr mkMod(IntExpr t1, IntExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new IntExpr(this, Native.mkMod(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new IntExpr(this, Native.mkMod(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 rem t2</code>. <remarks>The
      * arguments must have int type.</remarks>
      **/
-    public IntExpr MkRem(IntExpr t1, IntExpr t2) throws Z3Exception
+    public IntExpr mkRem(IntExpr t1, IntExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new IntExpr(this, Native.mkRem(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new IntExpr(this, Native.mkRem(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 ^ t2</code>.
      **/
-    public ArithExpr MkPower(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public ArithExpr mkPower(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return (ArithExpr) Expr.Create(this,
-                Native.mkPower(nCtx(), t1.NativeObject(), t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return (ArithExpr) Expr.create(
+                this,
+                Native.mkPower(nCtx(), t1.getNativeObject(),
+                        t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 &lt; t2</code>
      **/
-    public BoolExpr MkLt(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public BoolExpr mkLt(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkLt(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkLt(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 &lt;= t2</code>
      **/
-    public BoolExpr MkLe(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public BoolExpr mkLe(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkLe(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkLe(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 &gt; t2</code>
      **/
-    public BoolExpr MkGt(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public BoolExpr mkGt(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkGt(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkGt(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Create an expression representing <code>t1 &gt;= t2</code>
      **/
-    public BoolExpr MkGe(ArithExpr t1, ArithExpr t2) throws Z3Exception
+    public BoolExpr mkGe(ArithExpr t1, ArithExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkGe(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkGe(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
@@ -903,11 +884,12 @@ public class Context extends IDisposable
      * <code>MakeInt2Real(k) &lt;= t1 &lt; MkInt2Real(k)+1</code>. The argument
      * must be of integer sort. </remarks>
      **/
-    public RealExpr MkInt2Real(IntExpr t) throws Z3Exception
+    public RealExpr mkInt2Real(IntExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new RealExpr(this, Native.mkInt2real(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new RealExpr(this,
+                Native.mkInt2real(nCtx(), t.getNativeObject()));
     }
 
     /**
@@ -915,182 +897,184 @@ public class Context extends IDisposable
      * follows the SMT-LIB standard for the function to_int. The argument must
      * be of real sort. </remarks>
      **/
-    public IntExpr MkReal2Int(RealExpr t) throws Z3Exception
+    public IntExpr mkReal2Int(RealExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new IntExpr(this, Native.mkReal2int(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new IntExpr(this, Native.mkReal2int(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Creates an expression that checks whether a real number is an integer.
      **/
-    public BoolExpr MkIsInteger(RealExpr t) throws Z3Exception
+    public BoolExpr mkIsInteger(RealExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BoolExpr(this, Native.mkIsInt(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new BoolExpr(this, Native.mkIsInt(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Bitwise negation. <remarks>The argument must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVNot(BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVNot(BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this, Native.mkBvnot(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkBvnot(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Take conjunction of bits in a vector, return vector of length 1.
      * <remarks>The argument must have a bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVRedAND(BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVRedAND(BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this, Native.mkBvredand(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkBvredand(nCtx(),
+                t.getNativeObject()));
     }
 
     /**
      * Take disjunction of bits in a vector, return vector of length 1.
      * <remarks>The argument must have a bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVRedOR(BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVRedOR(BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this, Native.mkBvredor(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkBvredor(nCtx(),
+                t.getNativeObject()));
     }
 
     /**
      * Bitwise conjunction. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvand(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvand(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Bitwise disjunction. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvor(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvor(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Bitwise XOR. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVXOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVXOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvxor(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvxor(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Bitwise NAND. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVNAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVNAND(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvnand(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvnand(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Bitwise NOR. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvnor(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvnor(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Bitwise XNOR. <remarks>The arguments must have a bit-vector
      * sort.</remarks>
      **/
-    public BitVecExpr MkBVXNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVXNOR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvxnor(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvxnor(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Standard two's complement unary minus. <remarks>The arguments must have a
      * bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVNeg(BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVNeg(BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this, Native.mkBvneg(nCtx(), t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkBvneg(nCtx(), t.getNativeObject()));
     }
 
     /**
      * Two's complement addition. <remarks>The arguments must have the same
      * bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVAdd(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVAdd(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvadd(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvadd(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Two's complement subtraction. <remarks>The arguments must have the same
      * bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVSub(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVSub(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvsub(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvsub(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Two's complement multiplication. <remarks>The arguments must have the
      * same bit-vector sort.</remarks>
      **/
-    public BitVecExpr MkBVMul(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVMul(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvmul(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvmul(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1099,13 +1083,13 @@ public class Context extends IDisposable
      * zero, then the result is undefined. The arguments must have the same
      * bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVUDiv(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVUDiv(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvudiv(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvudiv(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1120,13 +1104,13 @@ public class Context extends IDisposable
      * If <code>t2</code> is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVSDiv(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVSDiv(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvsdiv(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvsdiv(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1135,13 +1119,13 @@ public class Context extends IDisposable
      * unsigned division. If <code>t2</code> is zero, then the result is
      * undefined. The arguments must have the same bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVURem(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVURem(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvurem(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvurem(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1153,13 +1137,13 @@ public class Context extends IDisposable
      * If <code>t2</code> is zero, then the result is undefined. The arguments
      * must have the same bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVSRem(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVSRem(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvsrem(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvsrem(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1167,117 +1151,117 @@ public class Context extends IDisposable
      * <code>t2</code> is zero, then the result is undefined. The arguments must
      * have the same bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVSMod(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVSMod(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvsmod(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvsmod(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Unsigned less-than <remarks> The arguments must have the same bit-vector
      * sort. </remarks>
      **/
-    public BoolExpr MkBVULT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVULT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvult(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvult(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Two's complement signed less-than <remarks> The arguments must have the
      * same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSLT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVSLT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvslt(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvslt(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Unsigned less-than or equal to. <remarks> The arguments must have the
      * same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVULE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVULE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvule(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvule(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Two's complement signed less-than or equal to. <remarks> The arguments
      * must have the same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSLE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVSLE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvsle(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvsle(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Unsigned greater than or equal to. <remarks> The arguments must have the
      * same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVUGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVUGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvuge(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvuge(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Two's complement signed greater than or equal to. <remarks> The arguments
      * must have the same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVSGE(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvsge(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvsge(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Unsigned greater-than. <remarks> The arguments must have the same
      * bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVUGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVUGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvugt(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvugt(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
      * Two's complement signed greater-than. <remarks> The arguments must have
      * the same bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BoolExpr mkBVSGT(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this, Native.mkBvsgt(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvsgt(nCtx(), t1.getNativeObject(),
+                t2.getNativeObject()));
     }
 
     /**
@@ -1289,13 +1273,13 @@ public class Context extends IDisposable
      *         (<code>t2</code>).
      * 
      **/
-    public BitVecExpr MkConcat(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkConcat(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkConcat(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkConcat(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1305,13 +1289,13 @@ public class Context extends IDisposable
      * <code>n = high - low + 1</code>. The argument <paramref name="t"/> must
      * have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkExtract(int high, int low, BitVecExpr t)
+    public BitVecExpr mkExtract(int high, int low, BitVecExpr t)
             throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BitVecExpr(this, Native.mkExtract(nCtx(), high, low,
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
@@ -1320,12 +1304,12 @@ public class Context extends IDisposable
      * the size of the given bit-vector. The argument <paramref name="t"/> must
      * have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkSignExt(int i, BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkSignExt(int i, BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BitVecExpr(this, Native.mkSignExt(nCtx(), i,
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
@@ -1334,24 +1318,24 @@ public class Context extends IDisposable
      * where \c m is the size of the given bit-vector. The argument <paramref
      * name="t"/> must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkZeroExt(int i, BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkZeroExt(int i, BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BitVecExpr(this, Native.mkZeroExt(nCtx(), i,
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
      * Bit-vector repetition. <remarks> The argument <paramref name="t"/> must
      * have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkRepeat(int i, BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkRepeat(int i, BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this,
-                Native.mkRepeat(nCtx(), i, t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkRepeat(nCtx(), i,
+                t.getNativeObject()));
     }
 
     /**
@@ -1364,13 +1348,13 @@ public class Context extends IDisposable
      * 
      * The arguments must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVSHL(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVSHL(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvshl(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvshl(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1383,13 +1367,13 @@ public class Context extends IDisposable
      * 
      * The arguments must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVLSHR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVLSHR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvlshr(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvlshr(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1403,37 +1387,37 @@ public class Context extends IDisposable
      * 
      * The arguments must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVASHR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
+    public BitVecExpr mkBVASHR(BitVecExpr t1, BitVecExpr t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BitVecExpr(this, Native.mkBvashr(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BitVecExpr(this, Native.mkBvashr(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Rotate Left. <remarks> Rotate bits of \c t to the left \c i times. The
      * argument <paramref name="t"/> must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVRotateLeft(int i, BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVRotateLeft(int i, BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BitVecExpr(this, Native.mkRotateLeft(nCtx(), i,
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
      * Rotate Right. <remarks> Rotate bits of \c t to the right \c i times. The
      * argument <paramref name="t"/> must have a bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVRotateRight(int i, BitVecExpr t) throws Z3Exception
+    public BitVecExpr mkBVRotateRight(int i, BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BitVecExpr(this, Native.mkRotateRight(nCtx(), i,
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
@@ -1441,14 +1425,14 @@ public class Context extends IDisposable
      * <paramref name="t2"/> times. The arguments must have the same bit-vector
      * sort. </remarks>
      **/
-    public BitVecExpr MkBVRotateLeft(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVRotateLeft(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BitVecExpr(this, Native.mkExtRotateLeft(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1456,14 +1440,14 @@ public class Context extends IDisposable
      * right<paramref name="t2"/> times. The arguments must have the same
      * bit-vector sort. </remarks>
      **/
-    public BitVecExpr MkBVRotateRight(BitVecExpr t1, BitVecExpr t2)
+    public BitVecExpr mkBVRotateRight(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BitVecExpr(this, Native.mkExtRotateRight(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -1474,12 +1458,12 @@ public class Context extends IDisposable
      * 
      * The argument must be of integer sort. </remarks>
      **/
-    public BitVecExpr MkInt2BV(int n, IntExpr t) throws Z3Exception
+    public BitVecExpr mkInt2BV(int n, IntExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new BitVecExpr(this,
-                Native.mkInt2bv(nCtx(), n, t.NativeObject()));
+        checkContextMatch(t);
+        return new BitVecExpr(this, Native.mkInt2bv(nCtx(), n,
+                t.getNativeObject()));
     }
 
     /**
@@ -1496,11 +1480,11 @@ public class Context extends IDisposable
      * 
      * The argument must be of bit-vector sort. </remarks>
      **/
-    public IntExpr MkBV2Int(BitVecExpr t, boolean signed) throws Z3Exception
+    public IntExpr mkBV2Int(BitVecExpr t, boolean signed) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new IntExpr(this, Native.mkBv2int(nCtx(), t.NativeObject(),
+        checkContextMatch(t);
+        return new IntExpr(this, Native.mkBv2int(nCtx(), t.getNativeObject(),
                 (signed) ? true : false));
     }
 
@@ -1508,133 +1492,133 @@ public class Context extends IDisposable
      * Create a predicate that checks that the bit-wise addition does not
      * overflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVAddNoOverflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVAddNoOverflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this,
-                Native.mkBvaddNoOverflow(nCtx(), t1.NativeObject(),
-                        t2.NativeObject(), (isSigned) ? true : false));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvaddNoOverflow(nCtx(), t1
+                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
+                : false));
     }
 
     /**
      * Create a predicate that checks that the bit-wise addition does not
      * underflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVAddNoUnderflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVAddNoUnderflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvaddNoUnderflow(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create a predicate that checks that the bit-wise subtraction does not
      * overflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSubNoOverflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSubNoOverflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvsubNoOverflow(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create a predicate that checks that the bit-wise subtraction does not
      * underflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSubNoUnderflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVSubNoUnderflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this,
-                Native.mkBvsubNoUnderflow(nCtx(), t1.NativeObject(),
-                        t2.NativeObject(), (isSigned) ? true : false));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvsubNoUnderflow(nCtx(), t1
+                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
+                : false));
     }
 
     /**
      * Create a predicate that checks that the bit-wise signed division does not
      * overflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVSDivNoOverflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVSDivNoOverflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvsdivNoOverflow(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create a predicate that checks that the bit-wise negation does not
      * overflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVNegNoOverflow(BitVecExpr t) throws Z3Exception
+    public BoolExpr mkBVNegNoOverflow(BitVecExpr t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new BoolExpr(this, Native.mkBvnegNoOverflow(nCtx(),
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
      * Create a predicate that checks that the bit-wise multiplication does not
      * overflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVMulNoOverflow(BitVecExpr t1, BitVecExpr t2,
+    public BoolExpr mkBVMulNoOverflow(BitVecExpr t1, BitVecExpr t2,
             boolean isSigned) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new BoolExpr(this,
-                Native.mkBvmulNoOverflow(nCtx(), t1.NativeObject(),
-                        t2.NativeObject(), (isSigned) ? true : false));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new BoolExpr(this, Native.mkBvmulNoOverflow(nCtx(), t1
+                .getNativeObject(), t2.getNativeObject(), (isSigned) ? true
+                : false));
     }
 
     /**
      * Create a predicate that checks that the bit-wise multiplication does not
      * underflow. <remarks> The arguments must be of bit-vector sort. </remarks>
      **/
-    public BoolExpr MkBVMulNoUnderflow(BitVecExpr t1, BitVecExpr t2)
+    public BoolExpr mkBVMulNoUnderflow(BitVecExpr t1, BitVecExpr t2)
             throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new BoolExpr(this, Native.mkBvmulNoUnderflow(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Create an array constant.
      **/
-    public ArrayExpr MkArrayConst(Symbol name, Sort domain, Sort range)
+    public ArrayExpr mkArrayConst(Symbol name, Sort domain, Sort range)
             throws Z3Exception
     {
 
-        return (ArrayExpr) MkConst(name, MkArraySort(domain, range));
+        return (ArrayExpr) mkConst(name, mkArraySort(domain, range));
     }
 
     /**
      * Create an array constant.
      **/
-    public ArrayExpr MkArrayConst(String name, Sort domain, Sort range)
+    public ArrayExpr mkArrayConst(String name, Sort domain, Sort range)
             throws Z3Exception
     {
 
-        return (ArrayExpr) MkConst(MkSymbol(name), MkArraySort(domain, range));
+        return (ArrayExpr) mkConst(mkSymbol(name), mkArraySort(domain, range));
     }
 
     /**
@@ -1646,13 +1630,15 @@ public class Context extends IDisposable
      * <code>domain</code>. The sort of the result is <code>range</code>.
      * <seealso cref="MkArraySort"/> <seealso cref="MkStore"/> </remarks>
      **/
-    public Expr MkSelect(ArrayExpr a, Expr i) throws Z3Exception
+    public Expr mkSelect(ArrayExpr a, Expr i) throws Z3Exception
     {
 
-        CheckContextMatch(a);
-        CheckContextMatch(i);
-        return Expr.Create(this,
-                Native.mkSelect(nCtx(), a.NativeObject(), i.NativeObject()));
+        checkContextMatch(a);
+        checkContextMatch(i);
+        return Expr.create(
+                this,
+                Native.mkSelect(nCtx(), a.getNativeObject(),
+                        i.getNativeObject()));
     }
 
     /**
@@ -1668,14 +1654,14 @@ public class Context extends IDisposable
      * with respect to <code>i</code> may be a different value). <seealso
      * cref="MkArraySort"/> <seealso cref="MkSelect"/> </remarks>
      **/
-    public ArrayExpr MkStore(ArrayExpr a, Expr i, Expr v) throws Z3Exception
+    public ArrayExpr mkStore(ArrayExpr a, Expr i, Expr v) throws Z3Exception
     {
 
-        CheckContextMatch(a);
-        CheckContextMatch(i);
-        CheckContextMatch(v);
-        return new ArrayExpr(this, Native.mkStore(nCtx(), a.NativeObject(),
-                i.NativeObject(), v.NativeObject()));
+        checkContextMatch(a);
+        checkContextMatch(i);
+        checkContextMatch(v);
+        return new ArrayExpr(this, Native.mkStore(nCtx(), a.getNativeObject(),
+                i.getNativeObject(), v.getNativeObject()));
     }
 
     /**
@@ -1684,13 +1670,13 @@ public class Context extends IDisposable
      * <code>v</code>. <seealso cref="MkArraySort"/> <seealso cref="MkSelect"/>
      * </remarks>
      **/
-    public ArrayExpr MkConstArray(Sort domain, Expr v) throws Z3Exception
+    public ArrayExpr mkConstArray(Sort domain, Expr v) throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        CheckContextMatch(v);
+        checkContextMatch(domain);
+        checkContextMatch(v);
         return new ArrayExpr(this, Native.mkConstArray(nCtx(),
-                domain.NativeObject(), v.NativeObject()));
+                domain.getNativeObject(), v.getNativeObject()));
     }
 
     /**
@@ -1702,14 +1688,14 @@ public class Context extends IDisposable
      * <code>[domain_i -> range]</code>. <seealso cref="MkArraySort"/> <seealso
      * cref="MkSelect"/> <seealso cref="MkStore"/> </remarks>
      **/
-    public ArrayExpr MkMap(FuncDecl f, ArrayExpr[] args) throws Z3Exception
+    public ArrayExpr mkMap(FuncDecl f, ArrayExpr... args) throws Z3Exception
     {
 
-        CheckContextMatch(f);
-        CheckContextMatch(args);
-        return (ArrayExpr) Expr.Create(this, Native.mkMap(nCtx(),
-                f.NativeObject(), AST.ArrayLength(args),
-                AST.ArrayToNative(args)));
+        checkContextMatch(f);
+        checkContextMatch(args);
+        return (ArrayExpr) Expr.create(this, Native.mkMap(nCtx(),
+                f.getNativeObject(), AST.arrayLength(args),
+                AST.arrayToNative(args)));
     }
 
     /**
@@ -1717,151 +1703,151 @@ public class Context extends IDisposable
      * value, for arrays that can be represented as finite maps with a default
      * range value. </remarks>
      **/
-    public Expr MkTermArray(ArrayExpr array) throws Z3Exception
+    public Expr mkTermArray(ArrayExpr array) throws Z3Exception
     {
 
-        CheckContextMatch(array);
-        return Expr.Create(this,
-                Native.mkArrayDefault(nCtx(), array.NativeObject()));
+        checkContextMatch(array);
+        return Expr.create(this,
+                Native.mkArrayDefault(nCtx(), array.getNativeObject()));
     }
 
     /**
      * Create a set type.
      **/
-    public SetSort MkSetSort(Sort ty) throws Z3Exception
+    public SetSort mkSetSort(Sort ty) throws Z3Exception
     {
 
-        CheckContextMatch(ty);
+        checkContextMatch(ty);
         return new SetSort(this, ty);
     }
 
     /**
      * Create an empty set.
      **/
-    public Expr MkEmptySet(Sort domain) throws Z3Exception
+    public Expr mkEmptySet(Sort domain) throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        return Expr.Create(this,
-                Native.mkEmptySet(nCtx(), domain.NativeObject()));
+        checkContextMatch(domain);
+        return Expr.create(this,
+                Native.mkEmptySet(nCtx(), domain.getNativeObject()));
     }
 
     /**
      * Create the full set.
      **/
-    public Expr MkFullSet(Sort domain) throws Z3Exception
+    public Expr mkFullSet(Sort domain) throws Z3Exception
     {
 
-        CheckContextMatch(domain);
-        return Expr.Create(this,
-                Native.mkFullSet(nCtx(), domain.NativeObject()));
+        checkContextMatch(domain);
+        return Expr.create(this,
+                Native.mkFullSet(nCtx(), domain.getNativeObject()));
     }
 
     /**
      * Add an element to the set.
      **/
-    public Expr MkSetAdd(Expr set, Expr element) throws Z3Exception
+    public Expr mkSetAdd(Expr set, Expr element) throws Z3Exception
     {
 
-        CheckContextMatch(set);
-        CheckContextMatch(element);
-        return Expr.Create(
+        checkContextMatch(set);
+        checkContextMatch(element);
+        return Expr.create(
                 this,
-                Native.mkSetAdd(nCtx(), set.NativeObject(),
-                        element.NativeObject()));
+                Native.mkSetAdd(nCtx(), set.getNativeObject(),
+                        element.getNativeObject()));
     }
 
     /**
      * Remove an element from a set.
      **/
-    public Expr MkSetDel(Expr set, Expr element) throws Z3Exception
+    public Expr mkSetDel(Expr set, Expr element) throws Z3Exception
     {
 
-        CheckContextMatch(set);
-        CheckContextMatch(element);
-        return Expr.Create(
+        checkContextMatch(set);
+        checkContextMatch(element);
+        return Expr.create(
                 this,
-                Native.mkSetDel(nCtx(), set.NativeObject(),
-                        element.NativeObject()));
+                Native.mkSetDel(nCtx(), set.getNativeObject(),
+                        element.getNativeObject()));
     }
 
     /**
      * Take the union of a list of sets.
      **/
-    public Expr MkSetUnion(Expr[] args) throws Z3Exception
+    public Expr mkSetUnion(Expr... args) throws Z3Exception
     {
 
-        CheckContextMatch(args);
-        return Expr.Create(
+        checkContextMatch(args);
+        return Expr.create(
                 this,
                 Native.mkSetUnion(nCtx(), (int) args.length,
-                        AST.ArrayToNative(args)));
+                        AST.arrayToNative(args)));
     }
 
     /**
      * Take the intersection of a list of sets.
      **/
-    public Expr MkSetIntersection(Expr[] args) throws Z3Exception
+    public Expr mkSetIntersection(Expr... args) throws Z3Exception
     {
 
-        CheckContextMatch(args);
-        return Expr.Create(
+        checkContextMatch(args);
+        return Expr.create(
                 this,
                 Native.mkSetIntersect(nCtx(), (int) args.length,
-                        AST.ArrayToNative(args)));
+                        AST.arrayToNative(args)));
     }
 
     /**
      * Take the difference between two sets.
      **/
-    public Expr MkSetDifference(Expr arg1, Expr arg2) throws Z3Exception
+    public Expr mkSetDifference(Expr arg1, Expr arg2) throws Z3Exception
     {
 
-        CheckContextMatch(arg1);
-        CheckContextMatch(arg2);
-        return Expr.Create(
+        checkContextMatch(arg1);
+        checkContextMatch(arg2);
+        return Expr.create(
                 this,
-                Native.mkSetDifference(nCtx(), arg1.NativeObject(),
-                        arg2.NativeObject()));
+                Native.mkSetDifference(nCtx(), arg1.getNativeObject(),
+                        arg2.getNativeObject()));
     }
 
     /**
      * Take the complement of a set.
      **/
-    public Expr MkSetComplement(Expr arg) throws Z3Exception
+    public Expr mkSetComplement(Expr arg) throws Z3Exception
     {
 
-        CheckContextMatch(arg);
-        return Expr.Create(this,
-                Native.mkSetComplement(nCtx(), arg.NativeObject()));
+        checkContextMatch(arg);
+        return Expr.create(this,
+                Native.mkSetComplement(nCtx(), arg.getNativeObject()));
     }
 
     /**
      * Check for set membership.
      **/
-    public Expr MkSetMembership(Expr elem, Expr set) throws Z3Exception
+    public Expr mkSetMembership(Expr elem, Expr set) throws Z3Exception
     {
 
-        CheckContextMatch(elem);
-        CheckContextMatch(set);
-        return Expr.Create(
+        checkContextMatch(elem);
+        checkContextMatch(set);
+        return Expr.create(
                 this,
-                Native.mkSetMember(nCtx(), elem.NativeObject(),
-                        set.NativeObject()));
+                Native.mkSetMember(nCtx(), elem.getNativeObject(),
+                        set.getNativeObject()));
     }
 
     /**
      * Check for subsetness of sets.
      **/
-    public Expr MkSetSubset(Expr arg1, Expr arg2) throws Z3Exception
+    public Expr mkSetSubset(Expr arg1, Expr arg2) throws Z3Exception
     {
 
-        CheckContextMatch(arg1);
-        CheckContextMatch(arg2);
-        return Expr.Create(
+        checkContextMatch(arg1);
+        checkContextMatch(arg2);
+        return Expr.create(
                 this,
-                Native.mkSetSubset(nCtx(), arg1.NativeObject(),
-                        arg2.NativeObject()));
+                Native.mkSetSubset(nCtx(), arg1.getNativeObject(),
+                        arg2.getNativeObject()));
     }
 
     /**
@@ -1875,12 +1861,12 @@ public class Context extends IDisposable
      * @return A Term with value <paramref name="v"/> and sort <paramref
      *         name="ty"/>
      **/
-    public Expr MkNumeral(String v, Sort ty) throws Z3Exception
+    public Expr mkNumeral(String v, Sort ty) throws Z3Exception
     {
 
-        CheckContextMatch(ty);
-        return Expr
-                .Create(this, Native.mkNumeral(nCtx(), v, ty.NativeObject()));
+        checkContextMatch(ty);
+        return Expr.create(this,
+                Native.mkNumeral(nCtx(), v, ty.getNativeObject()));
     }
 
     /**
@@ -1893,11 +1879,11 @@ public class Context extends IDisposable
      * @return A Term with value <paramref name="v"/> and type <paramref
      *         name="ty"/>
      **/
-    public Expr MkNumeral(int v, Sort ty) throws Z3Exception
+    public Expr mkNumeral(int v, Sort ty) throws Z3Exception
     {
 
-        CheckContextMatch(ty);
-        return Expr.Create(this, Native.mkInt(nCtx(), v, ty.NativeObject()));
+        checkContextMatch(ty);
+        return Expr.create(this, Native.mkInt(nCtx(), v, ty.getNativeObject()));
     }
 
     /**
@@ -1910,11 +1896,12 @@ public class Context extends IDisposable
      * @return A Term with value <paramref name="v"/> and type <paramref
      *         name="ty"/>
      **/
-    public Expr MkNumeral(long v, Sort ty) throws Z3Exception
+    public Expr mkNumeral(long v, Sort ty) throws Z3Exception
     {
 
-        CheckContextMatch(ty);
-        return Expr.Create(this, Native.mkInt64(nCtx(), v, ty.NativeObject()));
+        checkContextMatch(ty);
+        return Expr.create(this,
+                Native.mkInt64(nCtx(), v, ty.getNativeObject()));
     }
 
     /**
@@ -1924,7 +1911,7 @@ public class Context extends IDisposable
      * @return A Term with value <paramref name="num"/>/<paramref name="den"/>
      *         and sort Real <seealso cref="MkNumeral(string, Sort)"/>
      **/
-    public RatNum MkReal(int num, int den) throws Z3Exception
+    public RatNum mkReal(int num, int den) throws Z3Exception
     {
         if (den == 0)
             throw new Z3Exception("Denominator is zero");
@@ -1938,11 +1925,11 @@ public class Context extends IDisposable
      * 
      * @return A Term with value <paramref name="v"/> and sort Real
      **/
-    public RatNum MkReal(String v) throws Z3Exception
+    public RatNum mkReal(String v) throws Z3Exception
     {
 
-        return new RatNum(this, Native.mkNumeral(nCtx(), v, RealSort()
-                .NativeObject()));
+        return new RatNum(this, Native.mkNumeral(nCtx(), v, getRealSort()
+                .getNativeObject()));
     }
 
     /**
@@ -1950,11 +1937,11 @@ public class Context extends IDisposable
      * 
      * @return A Term with value <paramref name="v"/> and sort Real
      **/
-    public RatNum MkReal(int v) throws Z3Exception
+    public RatNum mkReal(int v) throws Z3Exception
     {
 
-        return new RatNum(this, Native.mkInt(nCtx(), v, RealSort()
-                .NativeObject()));
+        return new RatNum(this, Native.mkInt(nCtx(), v, getRealSort()
+                .getNativeObject()));
     }
 
     /**
@@ -1962,22 +1949,22 @@ public class Context extends IDisposable
      * 
      * @return A Term with value <paramref name="v"/> and sort Real
      **/
-    public RatNum MkReal(long v) throws Z3Exception
+    public RatNum mkReal(long v) throws Z3Exception
     {
 
-        return new RatNum(this, Native.mkInt64(nCtx(), v, RealSort()
-                .NativeObject()));
+        return new RatNum(this, Native.mkInt64(nCtx(), v, getRealSort()
+                .getNativeObject()));
     }
 
     /**
      * Create an integer numeral. <param name="v">A string representing the Term
      * value in decimal notation.</param>
      **/
-    public IntNum MkInt(String v) throws Z3Exception
+    public IntNum mkInt(String v) throws Z3Exception
     {
 
-        return new IntNum(this, Native.mkNumeral(nCtx(), v, IntSort()
-                .NativeObject()));
+        return new IntNum(this, Native.mkNumeral(nCtx(), v, getIntSort()
+                .getNativeObject()));
     }
 
     /**
@@ -1985,11 +1972,11 @@ public class Context extends IDisposable
      * 
      * @return A Term with value <paramref name="v"/> and sort Integer
      **/
-    public IntNum MkInt(int v) throws Z3Exception
+    public IntNum mkInt(int v) throws Z3Exception
     {
 
-        return new IntNum(this, Native.mkInt(nCtx(), v, IntSort()
-                .NativeObject()));
+        return new IntNum(this, Native.mkInt(nCtx(), v, getIntSort()
+                .getNativeObject()));
     }
 
     /**
@@ -1997,11 +1984,11 @@ public class Context extends IDisposable
      * 
      * @return A Term with value <paramref name="v"/> and sort Integer
      **/
-    public IntNum MkInt(long v) throws Z3Exception
+    public IntNum mkInt(long v) throws Z3Exception
     {
 
-        return new IntNum(this, Native.mkInt64(nCtx(), v, IntSort()
-                .NativeObject()));
+        return new IntNum(this, Native.mkInt64(nCtx(), v, getIntSort()
+                .getNativeObject()));
     }
 
     /**
@@ -2009,30 +1996,30 @@ public class Context extends IDisposable
      * value in decimal notation.</param> <param name="size">the size of the
      * bit-vector</param>
      **/
-    public BitVecNum MkBV(String v, int size) throws Z3Exception
+    public BitVecNum mkBV(String v, int size) throws Z3Exception
     {
 
-        return (BitVecNum) MkNumeral(v, MkBitVecSort(size));
+        return (BitVecNum) mkNumeral(v, mkBitVecSort(size));
     }
 
     /**
      * Create a bit-vector numeral. <param name="v">value of the
      * numeral.</param> <param name="size">the size of the bit-vector</param>
      **/
-    public BitVecNum MkBV(int v, int size) throws Z3Exception
+    public BitVecNum mkBV(int v, int size) throws Z3Exception
     {
 
-        return (BitVecNum) MkNumeral(v, MkBitVecSort(size));
+        return (BitVecNum) mkNumeral(v, mkBitVecSort(size));
     }
 
     /**
      * Create a bit-vector numeral. <param name="v">value of the
      * numeral.</param> * <param name="size">the size of the bit-vector</param>
      **/
-    public BitVecNum MkBV(long v, int size) throws Z3Exception
+    public BitVecNum mkBV(long v, int size) throws Z3Exception
     {
 
-        return (BitVecNum) MkNumeral(v, MkBitVecSort(size));
+        return (BitVecNum) mkNumeral(v, mkBitVecSort(size));
     }
 
     /**
@@ -2054,7 +2041,7 @@ public class Context extends IDisposable
      * name="quantifierID">optional symbol to track quantifier.</param> <param
      * name="skolemID">optional symbol to track skolem constants.</param>
      **/
-    public Quantifier MkForall(Sort[] sorts, Symbol[] names, Expr body,
+    public Quantifier mkForall(Sort[] sorts, Symbol[] names, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID) throws Z3Exception
     {
@@ -2066,7 +2053,7 @@ public class Context extends IDisposable
     /**
      * Create a universal Quantifier.
      **/
-    public Quantifier MkForall(Expr[] boundConstants, Expr body, int weight,
+    public Quantifier mkForall(Expr[] boundConstants, Expr body, int weight,
             Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
             Symbol skolemID) throws Z3Exception
     {
@@ -2079,7 +2066,7 @@ public class Context extends IDisposable
      * Create an existential Quantifier. <seealso cref=
      * "MkForall(Sort[],Symbol[],Expr,uint,Pattern[],Expr[],Symbol,Symbol)"/>
      **/
-    public Quantifier MkExists(Sort[] sorts, Symbol[] names, Expr body,
+    public Quantifier mkExists(Sort[] sorts, Symbol[] names, Expr body,
             int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID) throws Z3Exception
     {
@@ -2091,7 +2078,7 @@ public class Context extends IDisposable
     /**
      * Create an existential Quantifier.
      **/
-    public Quantifier MkExists(Expr[] boundConstants, Expr body, int weight,
+    public Quantifier mkExists(Expr[] boundConstants, Expr body, int weight,
             Pattern[] patterns, Expr[] noPatterns, Symbol quantifierID,
             Symbol skolemID) throws Z3Exception
     {
@@ -2103,33 +2090,33 @@ public class Context extends IDisposable
     /**
      * Create a Quantifier.
      **/
-    public Quantifier MkQuantifier(boolean universal, Sort[] sorts,
+    public Quantifier mkQuantifier(boolean universal, Sort[] sorts,
             Symbol[] names, Expr body, int weight, Pattern[] patterns,
             Expr[] noPatterns, Symbol quantifierID, Symbol skolemID)
             throws Z3Exception
     {
 
         if (universal)
-            return MkForall(sorts, names, body, weight, patterns, noPatterns,
+            return mkForall(sorts, names, body, weight, patterns, noPatterns,
                     quantifierID, skolemID);
         else
-            return MkExists(sorts, names, body, weight, patterns, noPatterns,
+            return mkExists(sorts, names, body, weight, patterns, noPatterns,
                     quantifierID, skolemID);
     }
 
     /**
      * Create a Quantifier.
      **/
-    public Quantifier MkQuantifier(boolean universal, Expr[] boundConstants,
+    public Quantifier mkQuantifier(boolean universal, Expr[] boundConstants,
             Expr body, int weight, Pattern[] patterns, Expr[] noPatterns,
             Symbol quantifierID, Symbol skolemID) throws Z3Exception
     {
 
         if (universal)
-            return MkForall(boundConstants, body, weight, patterns, noPatterns,
+            return mkForall(boundConstants, body, weight, patterns, noPatterns,
                     quantifierID, skolemID);
         else
-            return MkExists(boundConstants, body, weight, patterns, noPatterns,
+            return mkExists(boundConstants, body, weight, patterns, noPatterns,
                     quantifierID, skolemID);
     }
 
@@ -2161,14 +2148,14 @@ public class Context extends IDisposable
      * 
      * @return A string representation of the benchmark.
      **/
-    public String BenchmarkToSMTString(String name, String logic,
+    public String benchmarkToSMTString(String name, String logic,
             String status, String attributes, BoolExpr[] assumptions,
             BoolExpr formula) throws Z3Exception
     {
 
         return Native.benchmarkToSmtlibString(nCtx(), name, logic, status,
                 attributes, (int) assumptions.length,
-                AST.ArrayToNative(assumptions), formula.NativeObject());
+                AST.arrayToNative(assumptions), formula.getNativeObject());
     }
 
     /**
@@ -2180,46 +2167,46 @@ public class Context extends IDisposable
      * name="decls"/>. This is a useful feature since we can use arbitrary names
      * to reference sorts and declarations. </remarks>
      **/
-    public void ParseSMTLIBString(String str, Symbol[] sortNames, Sort[] sorts,
+    public void parseSMTLIBString(String str, Symbol[] sortNames, Sort[] sorts,
             Symbol[] declNames, FuncDecl[] decls) throws Z3Exception
     {
-        int csn = Symbol.ArrayLength(sortNames);
-        int cs = Sort.ArrayLength(sorts);
-        int cdn = Symbol.ArrayLength(declNames);
-        int cd = AST.ArrayLength(decls);
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        Native.parseSmtlibString(nCtx(), str, AST.ArrayLength(sorts),
-                Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames),
-                AST.ArrayToNative(decls));
+        Native.parseSmtlibString(nCtx(), str, AST.arrayLength(sorts),
+                Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
+                AST.arrayLength(decls), Symbol.arrayToNative(declNames),
+                AST.arrayToNative(decls));
     }
 
     /**
      * Parse the given file using the SMT-LIB parser. <seealso
      * cref="ParseSMTLIBString"/>
      **/
-    public void ParseSMTLIBFile(String fileName, Symbol[] sortNames,
+    public void parseSMTLIBFile(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
             throws Z3Exception
     {
-        int csn = Symbol.ArrayLength(sortNames);
-        int cs = Sort.ArrayLength(sorts);
-        int cdn = Symbol.ArrayLength(declNames);
-        int cd = AST.ArrayLength(decls);
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        Native.parseSmtlibFile(nCtx(), fileName, AST.ArrayLength(sorts),
-                Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames),
-                AST.ArrayToNative(decls));
+        Native.parseSmtlibFile(nCtx(), fileName, AST.arrayLength(sorts),
+                Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
+                AST.arrayLength(decls), Symbol.arrayToNative(declNames),
+                AST.arrayToNative(decls));
     }
 
     /**
      * The number of SMTLIB formulas parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public int NumSMTLIBFormulas() throws Z3Exception
+    public int getNumSMTLIBFormulas() throws Z3Exception
     {
         return Native.getSmtlibNumFormulas(nCtx());
     }
@@ -2228,13 +2215,13 @@ public class Context extends IDisposable
      * The formulas parsed by the last call to <code>ParseSMTLIBString</code> or
      * <code>ParseSMTLIBFile</code>.
      **/
-    public BoolExpr[] SMTLIBFormulas() throws Z3Exception
+    public BoolExpr[] getSMTLIBFormulas() throws Z3Exception
     {
 
-        int n = NumSMTLIBFormulas();
+        int n = getNumSMTLIBFormulas();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = (BoolExpr) Expr.Create(this,
+            res[i] = (BoolExpr) Expr.create(this,
                     Native.getSmtlibFormula(nCtx(), i));
         return res;
     }
@@ -2243,7 +2230,7 @@ public class Context extends IDisposable
      * The number of SMTLIB assumptions parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public int NumSMTLIBAssumptions() throws Z3Exception
+    public int getNumSMTLIBAssumptions() throws Z3Exception
     {
         return Native.getSmtlibNumAssumptions(nCtx());
     }
@@ -2252,13 +2239,13 @@ public class Context extends IDisposable
      * The assumptions parsed by the last call to <code>ParseSMTLIBString</code>
      * or <code>ParseSMTLIBFile</code>.
      **/
-    public BoolExpr[] SMTLIBAssumptions() throws Z3Exception
+    public BoolExpr[] getSMTLIBAssumptions() throws Z3Exception
     {
 
-        int n = NumSMTLIBAssumptions();
+        int n = getNumSMTLIBAssumptions();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = (BoolExpr) Expr.Create(this,
+            res[i] = (BoolExpr) Expr.create(this,
                     Native.getSmtlibAssumption(nCtx(), i));
         return res;
     }
@@ -2267,7 +2254,7 @@ public class Context extends IDisposable
      * The number of SMTLIB declarations parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public int NumSMTLIBDecls() throws Z3Exception
+    public int getNumSMTLIBDecls() throws Z3Exception
     {
         return Native.getSmtlibNumDecls(nCtx());
     }
@@ -2276,10 +2263,10 @@ public class Context extends IDisposable
      * The declarations parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public FuncDecl[] SMTLIBDecls() throws Z3Exception
+    public FuncDecl[] getSMTLIBDecls() throws Z3Exception
     {
 
-        int n = NumSMTLIBDecls();
+        int n = getNumSMTLIBDecls();
         FuncDecl[] res = new FuncDecl[n];
         for (int i = 0; i < n; i++)
             res[i] = new FuncDecl(this, Native.getSmtlibDecl(nCtx(), i));
@@ -2290,7 +2277,7 @@ public class Context extends IDisposable
      * The number of SMTLIB sorts parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public int NumSMTLIBSorts() throws Z3Exception
+    public int getNumSMTLIBSorts() throws Z3Exception
     {
         return Native.getSmtlibNumSorts(nCtx());
     }
@@ -2299,13 +2286,13 @@ public class Context extends IDisposable
      * The declarations parsed by the last call to
      * <code>ParseSMTLIBString</code> or <code>ParseSMTLIBFile</code>.
      **/
-    public Sort[] SMTLIBSorts() throws Z3Exception
+    public Sort[] getSMTLIBSorts() throws Z3Exception
     {
 
-        int n = NumSMTLIBSorts();
+        int n = getNumSMTLIBSorts();
         Sort[] res = new Sort[n];
         for (int i = 0; i < n; i++)
-            res[i] = Sort.Create(this, Native.getSmtlibSort(nCtx(), i));
+            res[i] = Sort.create(this, Native.getSmtlibSort(nCtx(), i));
         return res;
     }
 
@@ -2316,43 +2303,43 @@ public class Context extends IDisposable
      * @return A conjunction of assertions in the scope (up to push/pop) at the
      *         end of the string.
      **/
-    public BoolExpr ParseSMTLIB2String(String str, Symbol[] sortNames,
+    public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
             throws Z3Exception
     {
 
-        int csn = Symbol.ArrayLength(sortNames);
-        int cs = Sort.ArrayLength(sorts);
-        int cdn = Symbol.ArrayLength(declNames);
-        int cd = AST.ArrayLength(decls);
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        return (BoolExpr) Expr.Create(this, Native.parseSmtlib2String(nCtx(),
-                str, AST.ArrayLength(sorts), Symbol.ArrayToNative(sortNames),
-                AST.ArrayToNative(sorts), AST.ArrayLength(decls),
-                Symbol.ArrayToNative(declNames), AST.ArrayToNative(decls)));
+        return (BoolExpr) Expr.create(this, Native.parseSmtlib2String(nCtx(),
+                str, AST.arrayLength(sorts), Symbol.arrayToNative(sortNames),
+                AST.arrayToNative(sorts), AST.arrayLength(decls),
+                Symbol.arrayToNative(declNames), AST.arrayToNative(decls)));
     }
 
     /**
      * Parse the given file using the SMT-LIB2 parser. <seealso
      * cref="ParseSMTLIB2String"/>
      **/
-    public BoolExpr ParseSMTLIB2File(String fileName, Symbol[] sortNames,
+    public BoolExpr parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
             throws Z3Exception
     {
 
-        int csn = Symbol.ArrayLength(sortNames);
-        int cs = Sort.ArrayLength(sorts);
-        int cdn = Symbol.ArrayLength(declNames);
-        int cd = AST.ArrayLength(decls);
+        int csn = Symbol.arrayLength(sortNames);
+        int cs = Sort.arrayLength(sorts);
+        int cdn = Symbol.arrayLength(declNames);
+        int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        return (BoolExpr) Expr.Create(this, Native.parseSmtlib2File(nCtx(),
-                fileName, AST.ArrayLength(sorts),
-                Symbol.ArrayToNative(sortNames), AST.ArrayToNative(sorts),
-                AST.ArrayLength(decls), Symbol.ArrayToNative(declNames),
-                AST.ArrayToNative(decls)));
+        return (BoolExpr) Expr.create(this, Native.parseSmtlib2File(nCtx(),
+                fileName, AST.arrayLength(sorts),
+                Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
+                AST.arrayLength(decls), Symbol.arrayToNative(declNames),
+                AST.arrayToNative(decls)));
     }
 
     /**
@@ -2364,7 +2351,7 @@ public class Context extends IDisposable
      * name="proofs">Indicates whether proof generation should be
      * enabled.</param>
      **/
-    public Goal MkGoal(boolean models, boolean unsatCores, boolean proofs)
+    public Goal mkGoal(boolean models, boolean unsatCores, boolean proofs)
             throws Z3Exception
     {
 
@@ -2374,7 +2361,7 @@ public class Context extends IDisposable
     /**
      * Creates a new ParameterSet.
      **/
-    public Params MkParams() throws Z3Exception
+    public Params mkParams() throws Z3Exception
     {
 
         return new Params(this);
@@ -2383,7 +2370,7 @@ public class Context extends IDisposable
     /**
      * The number of supported tactics.
      **/
-    public int NumTactics() throws Z3Exception
+    public int getNumTactics() throws Z3Exception
     {
         return Native.getNumTactics(nCtx());
     }
@@ -2391,10 +2378,10 @@ public class Context extends IDisposable
     /**
      * The names of all supported tactics.
      **/
-    public String[] TacticNames() throws Z3Exception
+    public String[] getTacticNames() throws Z3Exception
     {
 
-        int n = NumTactics();
+        int n = getNumTactics();
         String[] res = new String[n];
         for (int i = 0; i < n; i++)
             res[i] = Native.getTacticName(nCtx(), i);
@@ -2405,7 +2392,7 @@ public class Context extends IDisposable
      * Returns a string containing a description of the tactic with the given
      * name.
      **/
-    public String TacticDescription(String name) throws Z3Exception
+    public String getTacticDescription(String name) throws Z3Exception
     {
 
         return Native.tacticGetDescr(nCtx(), name);
@@ -2414,7 +2401,7 @@ public class Context extends IDisposable
     /**
      * Creates a new Tactic.
      **/
-    public Tactic MkTactic(String name) throws Z3Exception
+    public Tactic mkTactic(String name) throws Z3Exception
     {
 
         return new Tactic(this, name);
@@ -2424,28 +2411,29 @@ public class Context extends IDisposable
      * Create a tactic that applies <paramref name="t1"/> to a Goal and then
      * <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.
      **/
-    public Tactic AndThen(Tactic t1, Tactic t2, Tactic[] ts) throws Z3Exception
+    public Tactic andThen(Tactic t1, Tactic t2, Tactic... ts)
+            throws Z3Exception
     {
-
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        CheckContextMatch(ts);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        checkContextMatch(ts);
 
         long last = 0;
         if (ts != null && ts.length > 0)
         {
-            last = ts[ts.length - 1].NativeObject();
+            last = ts[ts.length - 1].getNativeObject();
             for (int i = ts.length - 2; i >= 0; i--)
-                last = Native.tacticAndThen(nCtx(), ts[i].NativeObject(), last);
+                last = Native.tacticAndThen(nCtx(), ts[i].getNativeObject(),
+                        last);
         }
         if (last != 0)
         {
-            last = Native.tacticAndThen(nCtx(), t2.NativeObject(), last);
+            last = Native.tacticAndThen(nCtx(), t2.getNativeObject(), last);
             return new Tactic(this, Native.tacticAndThen(nCtx(),
-                    t1.NativeObject(), last));
+                    t1.getNativeObject(), last));
         } else
             return new Tactic(this, Native.tacticAndThen(nCtx(),
-                    t1.NativeObject(), t2.NativeObject()));
+                    t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -2453,10 +2441,9 @@ public class Context extends IDisposable
      * <paramref name="t2"/> to every subgoal produced by <paramref name="t1"/>.
      * <remarks> Shorthand for <code>AndThen</code>. </remarks>
      **/
-    public Tactic Then(Tactic t1, Tactic t2, Tactic[] ts) throws Z3Exception
+    public Tactic then(Tactic t1, Tactic t2, Tactic... ts) throws Z3Exception
     {
-
-        return AndThen(t1, t2, ts);
+        return andThen(t1, t2, ts);
     }
 
     /**
@@ -2464,13 +2451,13 @@ public class Context extends IDisposable
      * it fails then returns the result of <paramref name="t2"/> applied to the
      * Goal.
      **/
-    public Tactic OrElse(Tactic t1, Tactic t2) throws Z3Exception
+    public Tactic orElse(Tactic t1, Tactic t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new Tactic(this, Native.tacticOrElse(nCtx(), t1.NativeObject(),
-                t2.NativeObject()));
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new Tactic(this, Native.tacticOrElse(nCtx(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -2479,12 +2466,12 @@ public class Context extends IDisposable
      * terminate within <paramref name="ms"/> milliseconds, then it fails.
      * </remarks>
      **/
-    public Tactic TryFor(Tactic t, int ms) throws Z3Exception
+    public Tactic tryFor(Tactic t, int ms) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new Tactic(this, Native.tacticTryFor(nCtx(), t.NativeObject(),
-                ms));
+        checkContextMatch(t);
+        return new Tactic(this, Native.tacticTryFor(nCtx(),
+                t.getNativeObject(), ms));
     }
 
     /**
@@ -2493,13 +2480,13 @@ public class Context extends IDisposable
      * name="p"/> evaluates to false, then the new tactic behaves like the
      * <code>skip</code> tactic. </remarks>
      **/
-    public Tactic When(Probe p, Tactic t) throws Z3Exception
+    public Tactic when(Probe p, Tactic t) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        CheckContextMatch(p);
-        return new Tactic(this, Native.tacticWhen(nCtx(), p.NativeObject(),
-                t.NativeObject()));
+        checkContextMatch(t);
+        checkContextMatch(p);
+        return new Tactic(this, Native.tacticWhen(nCtx(), p.getNativeObject(),
+                t.getNativeObject()));
     }
 
     /**
@@ -2507,14 +2494,14 @@ public class Context extends IDisposable
      * probe <paramref name="p"/> evaluates to true and <paramref name="t2"/>
      * otherwise.
      **/
-    public Tactic Cond(Probe p, Tactic t1, Tactic t2) throws Z3Exception
+    public Tactic cond(Probe p, Tactic t1, Tactic t2) throws Z3Exception
     {
 
-        CheckContextMatch(p);
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
-        return new Tactic(this, Native.tacticCond(nCtx(), p.NativeObject(),
-                t1.NativeObject(), t2.NativeObject()));
+        checkContextMatch(p);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
+        return new Tactic(this, Native.tacticCond(nCtx(), p.getNativeObject(),
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
@@ -2522,18 +2509,18 @@ public class Context extends IDisposable
      * is not modified anymore or the maximum number of iterations <paramref
      * name="max"/> is reached.
      **/
-    public Tactic Repeat(Tactic t, int max) throws Z3Exception
+    public Tactic repeat(Tactic t, int max) throws Z3Exception
     {
 
-        CheckContextMatch(t);
-        return new Tactic(this, Native.tacticRepeat(nCtx(), t.NativeObject(),
-                max));
+        checkContextMatch(t);
+        return new Tactic(this, Native.tacticRepeat(nCtx(),
+                t.getNativeObject(), max));
     }
 
     /**
      * Create a tactic that just returns the given goal.
      **/
-    public Tactic Skip() throws Z3Exception
+    public Tactic skip() throws Z3Exception
     {
 
         return new Tactic(this, Native.tacticSkip(nCtx()));
@@ -2542,7 +2529,7 @@ public class Context extends IDisposable
     /**
      * Create a tactic always fails.
      **/
-    public Tactic Fail() throws Z3Exception
+    public Tactic fail() throws Z3Exception
     {
 
         return new Tactic(this, Native.tacticFail(nCtx()));
@@ -2552,20 +2539,20 @@ public class Context extends IDisposable
      * Create a tactic that fails if the probe <paramref name="p"/> evaluates to
      * false.
      **/
-    public Tactic FailIf(Probe p) throws Z3Exception
+    public Tactic failIf(Probe p) throws Z3Exception
     {
 
-        CheckContextMatch(p);
-        return new Tactic(this, Native.tacticFailIf(nCtx(), p.NativeObject()));
+        checkContextMatch(p);
+        return new Tactic(this,
+                Native.tacticFailIf(nCtx(), p.getNativeObject()));
     }
 
     /**
      * Create a tactic that fails if the goal is not triviall satisfiable (i.e.,
      * empty) or trivially unsatisfiable (i.e., contains `false').
      **/
-    public Tactic FailIfNotDecided() throws Z3Exception
+    public Tactic failIfNotDecided() throws Z3Exception
     {
-
         return new Tactic(this, Native.tacticFailIfNotDecided(nCtx()));
     }
 
@@ -2573,13 +2560,12 @@ public class Context extends IDisposable
      * Create a tactic that applies <paramref name="t"/> using the given set of
      * parameters <paramref name="p"/>.
      **/
-    public Tactic UsingParams(Tactic t, Params p) throws Z3Exception
+    public Tactic usingParams(Tactic t, Params p) throws Z3Exception
     {
-
-        CheckContextMatch(t);
-        CheckContextMatch(p);
+        checkContextMatch(t);
+        checkContextMatch(p);
         return new Tactic(this, Native.tacticUsingParams(nCtx(),
-                t.NativeObject(), p.NativeObject()));
+                t.getNativeObject(), p.getNativeObject()));
     }
 
     /**
@@ -2587,21 +2573,19 @@ public class Context extends IDisposable
      * parameters <paramref name="p"/>. <remarks>Alias for
      * <code>UsingParams</code></remarks>
      **/
-    public Tactic With(Tactic t, Params p) throws Z3Exception
+    public Tactic with(Tactic t, Params p) throws Z3Exception
     {
-
-        return UsingParams(t, p);
+        return usingParams(t, p);
     }
 
     /**
      * Create a tactic that applies the given tactics in parallel.
      **/
-    public Tactic ParOr(Tactic[] t) throws Z3Exception
+    public Tactic parOr(Tactic... t) throws Z3Exception
     {
-
-        CheckContextMatch(t);
+        checkContextMatch(t);
         return new Tactic(this, Native.tacticParOr(nCtx(),
-                Tactic.ArrayLength(t), Tactic.ArrayToNative(t)));
+                Tactic.arrayLength(t), Tactic.arrayToNative(t)));
     }
 
     /**
@@ -2609,20 +2593,20 @@ public class Context extends IDisposable
      * then <paramref name="t2"/> to every subgoal produced by <paramref
      * name="t1"/>. The subgoals are processed in parallel.
      **/
-    public Tactic ParAndThen(Tactic t1, Tactic t2) throws Z3Exception
+    public Tactic parAndThen(Tactic t1, Tactic t2) throws Z3Exception
     {
 
-        CheckContextMatch(t1);
-        CheckContextMatch(t2);
+        checkContextMatch(t1);
+        checkContextMatch(t2);
         return new Tactic(this, Native.tacticParAndThen(nCtx(),
-                t1.NativeObject(), t2.NativeObject()));
+                t1.getNativeObject(), t2.getNativeObject()));
     }
 
     /**
      * Interrupt the execution of a Z3 procedure. <remarks>This procedure can be
      * used to interrupt: solvers, simplifiers and tactics.</remarks>
      **/
-    public void Interrupt() throws Z3Exception
+    public void interrupt() throws Z3Exception
     {
         Native.interrupt(nCtx());
     }
@@ -2630,7 +2614,7 @@ public class Context extends IDisposable
     /**
      * The number of supported Probes.
      **/
-    public int NumProbes() throws Z3Exception
+    public int getNumProbes() throws Z3Exception
     {
         return Native.getNumProbes(nCtx());
     }
@@ -2638,10 +2622,10 @@ public class Context extends IDisposable
     /**
      * The names of all supported Probes.
      **/
-    public String[] ProbeNames() throws Z3Exception
+    public String[] getProbeNames() throws Z3Exception
     {
 
-        int n = NumProbes();
+        int n = getNumProbes();
         String[] res = new String[n];
         for (int i = 0; i < n; i++)
             res[i] = Native.getProbeName(nCtx(), i);
@@ -2652,27 +2636,24 @@ public class Context extends IDisposable
      * Returns a string containing a description of the probe with the given
      * name.
      **/
-    public String ProbeDescription(String name) throws Z3Exception
+    public String getProbeDescription(String name) throws Z3Exception
     {
-
         return Native.probeGetDescr(nCtx(), name);
     }
 
     /**
      * Creates a new Probe.
      **/
-    public Probe MkProbe(String name) throws Z3Exception
+    public Probe mkProbe(String name) throws Z3Exception
     {
-
         return new Probe(this, name);
     }
 
     /**
      * Create a probe that always evaluates to <paramref name="val"/>.
      **/
-    public Probe Const(double val) throws Z3Exception
+    public Probe constProbe(double val) throws Z3Exception
     {
-
         return new Probe(this, Native.probeConst(nCtx(), val));
     }
 
@@ -2681,13 +2662,13 @@ public class Context extends IDisposable
      * <paramref name="p1"/> is less than the value returned by <paramref
      * name="p2"/>
      **/
-    public Probe Lt(Probe p1, Probe p2) throws Z3Exception
+    public Probe lt(Probe p1, Probe p2) throws Z3Exception
     {
 
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeLt(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeLt(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
@@ -2695,13 +2676,13 @@ public class Context extends IDisposable
      * <paramref name="p1"/> is greater than the value returned by <paramref
      * name="p2"/>
      **/
-    public Probe Gt(Probe p1, Probe p2) throws Z3Exception
+    public Probe gt(Probe p1, Probe p2) throws Z3Exception
     {
 
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeGt(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeGt(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
@@ -2709,13 +2690,13 @@ public class Context extends IDisposable
      * <paramref name="p1"/> is less than or equal the value returned by
      * <paramref name="p2"/>
      **/
-    public Probe Le(Probe p1, Probe p2) throws Z3Exception
+    public Probe le(Probe p1, Probe p2) throws Z3Exception
     {
 
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeLe(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeLe(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
@@ -2723,13 +2704,12 @@ public class Context extends IDisposable
      * <paramref name="p1"/> is greater than or equal the value returned by
      * <paramref name="p2"/>
      **/
-    public Probe Ge(Probe p1, Probe p2) throws Z3Exception
+    public Probe ge(Probe p1, Probe p2) throws Z3Exception
     {
-
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeGe(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeGe(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
@@ -2737,50 +2717,47 @@ public class Context extends IDisposable
      * <paramref name="p1"/> is equal to the value returned by <paramref
      * name="p2"/>
      **/
-    public Probe Eq(Probe p1, Probe p2) throws Z3Exception
+    public Probe eq(Probe p1, Probe p2) throws Z3Exception
     {
-
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeEq(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeEq(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
      * Create a probe that evaluates to "true" when the value <paramref
      * name="p1"/> and <paramref name="p2"/> evaluate to "true".
      **/
-    public Probe And(Probe p1, Probe p2) throws Z3Exception
+    public Probe and(Probe p1, Probe p2) throws Z3Exception
     {
-
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeAnd(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeAnd(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
      * Create a probe that evaluates to "true" when the value <paramref
      * name="p1"/> or <paramref name="p2"/> evaluate to "true".
      **/
-    public Probe Or(Probe p1, Probe p2) throws Z3Exception
+    public Probe or(Probe p1, Probe p2) throws Z3Exception
     {
-
-        CheckContextMatch(p1);
-        CheckContextMatch(p2);
-        return new Probe(this, Native.probeOr(nCtx(), p1.NativeObject(),
-                p2.NativeObject()));
+        checkContextMatch(p1);
+        checkContextMatch(p2);
+        return new Probe(this, Native.probeOr(nCtx(), p1.getNativeObject(),
+                p2.getNativeObject()));
     }
 
     /**
      * Create a probe that evaluates to "true" when the value <paramref
      * name="p"/> does not evaluate to "true".
      **/
-    public Probe Not(Probe p) throws Z3Exception
+    public Probe not(Probe p) throws Z3Exception
     {
 
-        CheckContextMatch(p);
-        return new Probe(this, Native.probeNot(nCtx(), p.NativeObject()));
+        checkContextMatch(p);
+        return new Probe(this, Native.probeNot(nCtx(), p.getNativeObject()));
     }
 
     /**
@@ -2789,9 +2766,9 @@ public class Context extends IDisposable
      * check-sat commands that take more than a given number of milliseconds to
      * be solved. </remarks>
      **/
-    public Solver MkSolver() throws Z3Exception
+    public Solver mkSolver() throws Z3Exception
     {
-        return MkSolver((Symbol) null);
+        return mkSolver((Symbol) null);
     }
 
     /**
@@ -2800,29 +2777,29 @@ public class Context extends IDisposable
      * check-sat commands that take more than a given number of milliseconds to
      * be solved. </remarks>
      **/
-    public Solver MkSolver(Symbol logic) throws Z3Exception
+    public Solver mkSolver(Symbol logic) throws Z3Exception
     {
 
         if (logic == null)
             return new Solver(this, Native.mkSolver(nCtx()));
         else
             return new Solver(this, Native.mkSolverForLogic(nCtx(),
-                    logic.NativeObject()));
+                    logic.getNativeObject()));
     }
 
     /**
      * Creates a new (incremental) solver. <seealso cref="MkSolver(Symbol)"/>
      **/
-    public Solver MkSolver(String logic) throws Z3Exception
+    public Solver mkSolver(String logic) throws Z3Exception
     {
 
-        return MkSolver(MkSymbol(logic));
+        return mkSolver(mkSymbol(logic));
     }
 
     /**
      * Creates a new (incremental) solver.
      **/
-    public Solver MkSimpleSolver() throws Z3Exception
+    public Solver mkSimpleSolver() throws Z3Exception
     {
 
         return new Solver(this, Native.mkSimpleSolver(nCtx()));
@@ -2833,17 +2810,17 @@ public class Context extends IDisposable
      * The solver supports the commands <code>Push</code> and <code>Pop</code>,
      * but it will always solve each check from scratch. </remarks>
      **/
-    public Solver MkSolver(Tactic t) throws Z3Exception
+    public Solver mkSolver(Tactic t) throws Z3Exception
     {
 
         return new Solver(this, Native.mkSolverFromTactic(nCtx(),
-                t.NativeObject()));
+                t.getNativeObject()));
     }
 
     /**
      * Create a Fixedpoint context.
      **/
-    public Fixedpoint MkFixedpoint() throws Z3Exception
+    public Fixedpoint mkFixedpoint() throws Z3Exception
     {
 
         return new Fixedpoint(this);
@@ -2858,10 +2835,10 @@ public class Context extends IDisposable
      * cref="UnwrapAST"/> <param name="nativeObject">The native pointer to
      * wrap.</param>
      **/
-    public AST WrapAST(long nativeObject) throws Z3Exception
+    public AST wrapAST(long nativeObject) throws Z3Exception
     {
 
-        return AST.Create(this, nativeObject);
+        return AST.create(this, nativeObject);
     }
 
     /**
@@ -2873,9 +2850,9 @@ public class Context extends IDisposable
      * e.g., <seealso cref="Native.Z3_inc_ref"/>).</remarks> <seealso
      * cref="WrapAST"/> <param name="a">The AST to unwrap.</param>
      **/
-    public long UnwrapAST(AST a)
+    public long unwrapAST(AST a)
     {
-        return a.NativeObject();
+        return a.getNativeObject();
     }
 
     /**
@@ -2891,7 +2868,7 @@ public class Context extends IDisposable
     /**
      * Retrieves parameter descriptions for simplifier.
      **/
-    public ParamDescrs SimplifyParameterDescriptions() throws Z3Exception
+    public ParamDescrs getSimplifyParameterDescriptions() throws Z3Exception
     {
         return new ParamDescrs(this, Native.simplifyGetParamDescrs(nCtx()));
     }
@@ -2914,7 +2891,7 @@ public class Context extends IDisposable
      * once the context is created. An exception is thrown when trying to modify
      * an immutable parameter. </remarks> <seealso cref="GetParamValue"/>
      **/
-    public void UpdateParamValue(String id, String value) throws Z3Exception
+    public void updateParamValue(String id, String value) throws Z3Exception
     {
         Native.updateParamValue(nCtx(), id, value);
     }
@@ -2923,7 +2900,7 @@ public class Context extends IDisposable
      * Get a configuration parameter. <remarks> Returns null if the parameter
      * value does not exist. </remarks> <seealso cref="UpdateParamValue"/>
      **/
-    public String GetParamValue(String id) throws Z3Exception
+    public String getParamValue(String id) throws Z3Exception
     {
         Native.StringPtr res = new Native.StringPtr();
         boolean r = Native.getParamValue(nCtx(), id, res);
@@ -2940,23 +2917,23 @@ public class Context extends IDisposable
         return m_ctx;
     }
 
-    void InitContext() throws Z3Exception
+    void initContext() throws Z3Exception
     {
         setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB2_COMPLIANT);
-	Native.setInternalErrorHandler(nCtx());
+        Native.setInternalErrorHandler(nCtx());
     }
 
-    void CheckContextMatch(Z3Object other) throws Z3Exception
+    void checkContextMatch(Z3Object other) throws Z3Exception
     {
-        if (this != other.Context())
+        if (this != other.getContext())
             throw new Z3Exception("Context mismatch");
     }
 
-    void CheckContextMatch(Z3Object[] arr) throws Z3Exception
+    void checkContextMatch(Z3Object[] arr) throws Z3Exception
     {
         if (arr != null)
             for (Z3Object a : arr)
-                CheckContextMatch(a);
+                checkContextMatch(a);
     }
 
     private ASTDecRefQueue m_AST_DRQ = new ASTDecRefQueue();
@@ -2975,77 +2952,77 @@ public class Context extends IDisposable
     private TacticDecRefQueue m_Tactic_DRQ = new TacticDecRefQueue();
     private FixedpointDecRefQueue m_Fixedpoint_DRQ = new FixedpointDecRefQueue();
 
-    ASTDecRefQueue AST_DRQ()
+    ASTDecRefQueue ast_DRQ()
     {
         return m_AST_DRQ;
     }
 
-    ASTMapDecRefQueue ASTMap_DRQ()
+    ASTMapDecRefQueue astmap_DRQ()
     {
         return m_ASTMap_DRQ;
     }
 
-    ASTVectorDecRefQueue ASTVector_DRQ()
+    ASTVectorDecRefQueue astvector_DRQ()
     {
         return m_ASTVector_DRQ;
     }
 
-    ApplyResultDecRefQueue ApplyResult_DRQ()
+    ApplyResultDecRefQueue applyResult_DRQ()
     {
         return m_ApplyResult_DRQ;
     }
 
-    FuncInterpEntryDecRefQueue FuncEntry_DRQ()
+    FuncInterpEntryDecRefQueue funcEntry_DRQ()
     {
         return m_FuncEntry_DRQ;
     }
 
-    FuncInterpDecRefQueue FuncInterp_DRQ()
+    FuncInterpDecRefQueue funcInterp_DRQ()
     {
         return m_FuncInterp_DRQ;
     }
 
-    GoalDecRefQueue Goal_DRQ()
+    GoalDecRefQueue goal_DRQ()
     {
         return m_Goal_DRQ;
     }
 
-    ModelDecRefQueue Model_DRQ()
+    ModelDecRefQueue model_DRQ()
     {
         return m_Model_DRQ;
     }
 
-    ParamsDecRefQueue Params_DRQ()
+    ParamsDecRefQueue params_DRQ()
     {
         return m_Params_DRQ;
     }
 
-    ParamDescrsDecRefQueue ParamDescrs_DRQ()
+    ParamDescrsDecRefQueue paramDescrs_DRQ()
     {
         return m_ParamDescrs_DRQ;
     }
 
-    ProbeDecRefQueue Probe_DRQ()
+    ProbeDecRefQueue probe_DRQ()
     {
         return m_Probe_DRQ;
     }
 
-    SolverDecRefQueue Solver_DRQ()
+    SolverDecRefQueue solver_DRQ()
     {
         return m_Solver_DRQ;
     }
 
-    StatisticsDecRefQueue Statistics_DRQ()
+    StatisticsDecRefQueue statistics_DRQ()
     {
         return m_Statistics_DRQ;
     }
 
-    TacticDecRefQueue Tactic_DRQ()
+    TacticDecRefQueue tactic_DRQ()
     {
         return m_Tactic_DRQ;
     }
 
-    FixedpointDecRefQueue Fixedpoint_DRQ()
+    FixedpointDecRefQueue fixedpoint_DRQ()
     {
         return m_Fixedpoint_DRQ;
     }
@@ -3057,7 +3034,7 @@ public class Context extends IDisposable
      **/
     protected void finalize()
     {
-        Dispose();
+        dispose();
 
         if (m_refCount == 0)
         {
@@ -3069,31 +3046,31 @@ public class Context extends IDisposable
                 // OK.
             }
             m_ctx = 0;
-        } else
-            /* re-queue the finalizer */
-            /* BUG: DRQ's need to be taken over too! */
-            new Context(m_ctx, m_refCount);
+        } 
+        /*
+        else
+            CMW: re-queue the finalizer? */
     }
 
     /**
      * Disposes of the context.
      **/
-    public void Dispose()
+    public void dispose()
     {
-        m_AST_DRQ.Clear(this);
-        m_ASTMap_DRQ.Clear(this);
-        m_ASTVector_DRQ.Clear(this);
-        m_ApplyResult_DRQ.Clear(this);
-        m_FuncEntry_DRQ.Clear(this);
-        m_FuncInterp_DRQ.Clear(this);
-        m_Goal_DRQ.Clear(this);
-        m_Model_DRQ.Clear(this);
-        m_Params_DRQ.Clear(this);
-        m_Probe_DRQ.Clear(this);
-        m_Solver_DRQ.Clear(this);
-        m_Statistics_DRQ.Clear(this);
-        m_Tactic_DRQ.Clear(this);
-        m_Fixedpoint_DRQ.Clear(this);
+        m_AST_DRQ.clear(this);
+        m_ASTMap_DRQ.clear(this);
+        m_ASTVector_DRQ.clear(this);
+        m_ApplyResult_DRQ.clear(this);
+        m_FuncEntry_DRQ.clear(this);
+        m_FuncInterp_DRQ.clear(this);
+        m_Goal_DRQ.clear(this);
+        m_Model_DRQ.clear(this);
+        m_Params_DRQ.clear(this);
+        m_Probe_DRQ.clear(this);
+        m_Solver_DRQ.clear(this);
+        m_Statistics_DRQ.clear(this);
+        m_Tactic_DRQ.clear(this);
+        m_Fixedpoint_DRQ.clear(this);
 
         m_boolSort = null;
         m_intSort = null;

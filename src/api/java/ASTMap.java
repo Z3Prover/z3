@@ -18,11 +18,11 @@ class ASTMap extends Z3Object
      * @return True if <paramref name="k"/> is a key in the map, false
      *         otherwise.
      **/
-    public boolean Contains(AST k) throws Z3Exception
+    public boolean contains(AST k) throws Z3Exception
     {
 
-        return Native.astMapContains(Context().nCtx(), NativeObject(),
-                k.NativeObject());
+        return Native.astMapContains(getContext().nCtx(), getNativeObject(),
+                k.getNativeObject());
     }
 
     /**
@@ -32,47 +32,47 @@ class ASTMap extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public AST Find(AST k) throws Z3Exception
+    public AST find(AST k) throws Z3Exception
     {
-        return new AST(Context(), Native.astMapFind(Context().nCtx(),
-                NativeObject(), k.NativeObject()));
+        return new AST(getContext(), Native.astMapFind(getContext().nCtx(),
+                getNativeObject(), k.getNativeObject()));
     }
 
     /**
      * Stores or replaces a new key/value pair in the map. <param name="k">The
      * key AST</param> <param name="v">The value AST</param>
      **/
-    public void Insert(AST k, AST v) throws Z3Exception
+    public void insert(AST k, AST v) throws Z3Exception
     {
 
-        Native.astMapInsert(Context().nCtx(), NativeObject(), k.NativeObject(),
-                v.NativeObject());
+        Native.astMapInsert(getContext().nCtx(), getNativeObject(), k.getNativeObject(),
+                v.getNativeObject());
     }
 
     /**
      * Erases the key <paramref name="k"/> from the map. <param name="k">An
      * AST</param>
      **/
-    public void Erase(AST k) throws Z3Exception
+    public void erase(AST k) throws Z3Exception
     {
 
-        Native.astMapErase(Context().nCtx(), NativeObject(), k.NativeObject());
+        Native.astMapErase(getContext().nCtx(), getNativeObject(), k.getNativeObject());
     }
 
     /**
      * Removes all keys from the map.
      **/
-    public void Reset() throws Z3Exception
+    public void reset() throws Z3Exception
     {
-        Native.astMapReset(Context().nCtx(), NativeObject());
+        Native.astMapReset(getContext().nCtx(), getNativeObject());
     }
 
     /**
      * The size of the map
      **/
-    public int Size() throws Z3Exception
+    public int size() throws Z3Exception
     {
-        return Native.astMapSize(Context().nCtx(), NativeObject());
+        return Native.astMapSize(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -80,10 +80,10 @@ class ASTMap extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public ASTVector Keys() throws Z3Exception
+    public ASTVector getKeys() throws Z3Exception
     {
-        return new ASTVector(Context(), Native.astMapKeys(Context().nCtx(),
-                NativeObject()));
+        return new ASTVector(getContext(), Native.astMapKeys(getContext().nCtx(),
+                getNativeObject()));
     }
 
     /**
@@ -93,7 +93,7 @@ class ASTMap extends Z3Object
     {
         try
         {
-            return Native.astMapToString(Context().nCtx(), NativeObject());
+            return Native.astMapToString(getContext().nCtx(), getNativeObject());
         } catch (Z3Exception e)
         {
             return "Z3Exception: " + e.getMessage();
@@ -110,15 +110,15 @@ class ASTMap extends Z3Object
         super(ctx, Native.mkAstMap(ctx.nCtx()));
     }
 
-    void IncRef(long o) throws Z3Exception
+    void incRef(long o) throws Z3Exception
     {
-        Context().ASTMap_DRQ().IncAndClear(Context(), o);
-        super.IncRef(o);
+        getContext().astmap_DRQ().incAndClear(getContext(), o);
+        super.incRef(o);
     }
 
-    void DecRef(long o) throws Z3Exception
+    void decRef(long o) throws Z3Exception
     {
-        Context().ASTMap_DRQ().Add(o);
-        super.DecRef(o);
+        getContext().astmap_DRQ().add(o);
+        super.decRef(o);
     }
 }
