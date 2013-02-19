@@ -88,7 +88,7 @@ class heap_trie {
             out << " value: " << m_value;
         }
         virtual unsigned num_nodes() const { return 1; }
-        virtual unsigned num_leaves() const { return ref_count()>0?1:0; }
+        virtual unsigned num_leaves() const { return this->ref_count()>0?1:0; }
     };
 
     typedef buffer<std::pair<Key,node*>, true, 2> children_t;
