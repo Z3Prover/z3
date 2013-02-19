@@ -1332,40 +1332,49 @@ class MLComponent(Component):
 
     def mk_makefile(self, out):
         if is_ml_enabled():
+            CP_CMD = "cp"
+            if IS_WINDOWS:
+                CP_CMD = "copy"
             src_dir = self.to_src_dir
             sub_dir = os.path.join('api', 'ml')
             mk_dir(os.path.join(BUILD_DIR, sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
-                shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
+                out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
+                out.write('\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f))
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
-                shutil.copyfile(os.path.join(self.src_dir, f), os.path.join(BUILD_DIR, sub_dir, f))
-            cmis = '%s/z3enums.cmi %s/z3native.cmi %s/z3.cmi' % (src_dir,src_dir,src_dir)
-            out.write('%s/z3enums.cmi: %s/z3enums.mli\n' % (src_dir,src_dir))
-            out.write('\t%s -I %s  -c %s/z3enums.mli\n' % (OCAMLC,src_dir,src_dir))
-            out.write('%s/z3native.cmi: %s/z3native.mli\n' % (src_dir,src_dir))
-            out.write('\t%s -I %s -c %s/z3native.mli\n' % (OCAMLC,src_dir,src_dir))
-            out.write('%s/z3.cmi: %s/z3.mli\n' % (src_dir,src_dir))
-            out.write('\t%s -I %s -c %s/z3.mli\n' % (OCAMLC,src_dir,src_dir))
-            out.write('api/ml/libz3ml$(LIB_EXT): %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
-            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, api_src, src_dir))
+                out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
+                out.write('\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f))
+            modules = ["z3enums", "z3native", "z3"]  # dependencies in this order!
+            prev = ''
+            for m in modules:
+                out.write('%s/%s.mli: %s/%s.ml %s\n' % (sub_dir,m,sub_dir,m,prev))
+                out.write('\t%s -I %s -i -c %s/%s.ml > %s/%s.mli\n' % (OCAMLC,sub_dir,sub_dir,m,sub_dir,m))
+                prev = prev + ' ' + sub_dir + '/' + m + '.mli'
+            cmis = ''
+            for m in modules:
+                out.write('%s/%s.cmi: %s/%s.mli\n' % (sub_dir,m,sub_dir,m))
+                out.write('\t%s -I %s -c %s/%s.mli\n' % (OCAMLC,sub_dir,sub_dir,m))
+                cmis = cmis + ' ' + sub_dir + '/' + m + '.cmi'
+            out.write('api/ml/libz3ml$(LIB_EXT): api/ml/z3native.c %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
+            out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
             out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')
             out.write('api/ml/z3.cmxa: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
-                out.write(' %s' % os.path.join(src_dir, mlfile))
+                out.write(' %s' % os.path.join(sub_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % (OCAMLOPT))
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (api_src,src_dir,src_dir,src_dir,src_dir))
+            out.write('-cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cmxa -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
             out.write('api/ml/z3.cma: api/ml/libz3ml$(LIB_EXT) %s$(SO_EXT) %s' % (get_component(Z3_DLL_COMPONENT).dll_name, cmis))
             for mlfile in get_ml_files(self.src_dir):
-                out.write(' %s' % os.path.join(self.to_src_dir, mlfile))
+                out.write(' %s' % os.path.join(sub_dir, mlfile))
             out.write('\n')
             out.write('\t%s ' % (OCAMLC))
             if DEBUG_MODE:
                 out.write('-g ')
-                out.write('-ccopt "-I../../%s" -cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (api_src,src_dir,src_dir,src_dir,src_dir))
+            out.write('-cclib "-L../.. -lz3ml" -I %s %s/z3enums.ml %s/z3native.ml %s/z3.ml -a -o api/ml/z3.cma -linkall\n' % (sub_dir,sub_dir,sub_dir,sub_dir))
             out.write('ml: api/ml/z3.cmxa api/ml/z3.cma\n')
             out.write('\n')
     
