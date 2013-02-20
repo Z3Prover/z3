@@ -135,16 +135,12 @@ struct
     let v = Z3native.mk_context_rc cfg in
     Z3native.del_config(cfg) ;
     Z3native.set_ast_print_mode v (int_of_ast_print_mode PRINT_SMTLIB2_COMPLIANT) ;
+    Z3native.set_internal_error_handler v ;
     (* Printf.printf "Installing finalizer on context \n" ; *)
     let res = { m_n_ctx = v; m_n_obj_cnt = 0 } in
     let f = fun o -> dispose_context o in
     Gc.finalise f res;
     res
-  (* CMW: Install error handler here! 
-     m_n_err_handler = new Z3native.error_handler(NativeErrorHandler);  keep reference so it doesn't get collected.
-     Z3native.set_error_handler(m_ctx, m_n_err_handler);
-     GC.SuppressFinalize(this);
-  *)
 
   let context_add1 ctx = ignore (ctx.m_n_obj_cnt = ctx.m_n_obj_cnt + 1)
   let context_sub1 ctx = ignore (ctx.m_n_obj_cnt = ctx.m_n_obj_cnt - 1)

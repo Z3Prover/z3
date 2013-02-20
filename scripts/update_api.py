@@ -1169,9 +1169,11 @@ def mk_ml():
     ml_i.write('\n')
     ml_native.write('external is_null : ptr -> bool\n  = "n_is_null"\n\n')
     ml_native.write('external mk_null : unit -> ptr\n  = "n_mk_null"\n\n')
+    ml_native.write('external set_internal_error_handler : ptr -> unit\n  = "n_set_internal_error_handler"\n\n')
     ml_native.write('exception Exception of string\n\n')
     ml_i.write('val is_null : ptr -> bool\n')
     ml_i.write('val mk_null : unit -> ptr\n')
+    ml_i.write('val set_internal_error_handler : ptr -> unit\n\n')
     ml_i.write('exception Exception of string\n\n')
 
     # ML declarations
@@ -1328,6 +1330,16 @@ def mk_ml():
     ml_wrapper.write('  result = caml_alloc_custom(&default_custom_ops, sizeof(void*), 0, 1);\n')
     ml_wrapper.write('  memcpy( Data_custom_val(result), &z3_result, sizeof(void*));\n')
     ml_wrapper.write('  CAMLreturn (result);\n')
+    ml_wrapper.write('}\n\n')
+    ml_wrapper.write('void MLErrorHandler(Z3_context c, Z3_error_code e)\n')
+    ml_wrapper.write('{\n')
+    ml_wrapper.write('  // Internal do-nothing error handler. This is required to avoid that Z3 calls exit()\n')
+    ml_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
+    ml_wrapper.write('  // wrappers below.\n')
+    ml_wrapper.write('}\n\n')
+    ml_wrapper.write('void n_set_internal_error_handler(Z3_context c)\n')
+    ml_wrapper.write('{\n')
+    ml_wrapper.write('  Z3_set_error_handler(c, MLErrorHandler);\n')
     ml_wrapper.write('}\n\n')
     for name, result, params in _dotnet_decls:
         ip = inparams(params)

@@ -1341,10 +1341,14 @@ class MLComponent(Component):
             api_src = get_component(API_COMPONENT).to_src_dir
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
                 out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
-                out.write('\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f))
+                str = '\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f)
+                if IS_WINDOWS: str = str.replace('/','\\')
+                out.write(str)
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
                 out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
-                out.write('\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f))
+                str = '\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f)
+                if IS_WINDOWS: str = str.replace('/','\\')
+                out.write(str)
             modules = ["z3enums", "z3native", "z3"]  # dependencies in this order!
             prev = ''
             for m in modules:
