@@ -34,9 +34,9 @@ public:
                             expr_dependency_ref & core) {
         #pragma omp critical (echo_tactic)
         {
-            m_ctx.diagnostic_stream() << m_msg;
+            m_ctx.regular_stream() << m_msg;
             if (m_newline)
-                m_ctx.diagnostic_stream() << std::endl;
+                m_ctx.regular_stream() << std::endl;
         }
         skip_tactic::operator()(in, result, mc, pc, core);
     }

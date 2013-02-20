@@ -104,3 +104,10 @@ tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
     return st;
 }
 
+tactic * mk_lia_tactic(ast_manager & m, params_ref const & p) {
+    return mk_lra_tactic(m, p);
+}
+
+tactic * mk_lira_tactic(ast_manager & m, params_ref const & p) {
+    return mk_lra_tactic(m, p);
+}
