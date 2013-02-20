@@ -2159,15 +2159,10 @@ end
 module Enumeration = 
 struct 
   type enum_sort = EnumSort of sort
-
-  let _constdecls = Hashtbl.create 0
-  let _testerdecls = Hashtbl.create 0
     
   let sort_of_ptr ( ctx : context ) ( no : Z3native.ptr ) ( cdecls : Z3native.z3_func_decl array ) ( tdecls : Z3native.z3_func_decl array ) =
     let s = (sort_of_ptr ctx no) in
     let res = EnumSort(s) in
-    Hashtbl.add _constdecls res (let f e = func_decl_of_ptr ctx e in (Array.map f cdecls)) ;
-    Hashtbl.add _testerdecls res (let f e = func_decl_of_ptr ctx e in (Array.map f tdecls)) ;
     res
 
   let sort_of_enum_sort s = match s with EnumSort(x) -> x
@@ -2191,33 +2186,27 @@ struct
     mk_sort ctx (Symbol.mk_string ctx name) (Symbol.mk_strings ctx enum_names)
 
   (** The function declarations of the constants in the enumeration. *)
-  let get_const_decls ( x : enum_sort ) = Hashtbl.find _constdecls x
+  let get_const_decls ( x : enum_sort ) =
+    let n = Z3native.get_datatype_sort_num_constructors (sgnc x) (sgno x)  in
+    let f i = (func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_constructor (sgnc x) (sgno x)  i)) in
+    Array.init n f
 
   (** The test predicates for the constants in the enumeration. *)
-  let get_tester_decls ( x : enum_sort ) = Hashtbl.find _testerdecls x
+  let get_tester_decls ( x : enum_sort ) = 
+    let n = Z3native.get_datatype_sort_num_constructors (sgnc x) (sgno x)  in
+    let f i = (func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_recognizer (sgnc x) (sgno x)  i)) in
+    Array.init n f
+      
 end
 
 (** Functions to manipulate List expressions *)
 module List_ = 
 struct
   type list_sort = ListSort of sort
-
-  let _nildecls = Hashtbl.create 0
-  let _is_nildecls = Hashtbl.create 0
-  let _consdecls = Hashtbl.create 0
-  let _is_consdecls = Hashtbl.create 0
-  let _headdecls = Hashtbl.create 0
-  let _taildecls = Hashtbl.create 0
     
   let sort_of_ptr ( ctx : context ) ( no : Z3native.ptr ) ( nildecl : Z3native.ptr ) ( is_nildecl : Z3native.ptr ) ( consdecl : Z3native.ptr ) ( is_consdecl : Z3native.ptr ) ( headdecl : Z3native.ptr ) ( taildecl : Z3native.ptr ) =
     let s = (sort_of_ptr ctx no) in
     let res = ListSort(s) in
-    Hashtbl.add _nildecls res (func_decl_of_ptr ctx nildecl) ;
-    Hashtbl.add _is_nildecls res (func_decl_of_ptr ctx is_nildecl) ;
-    Hashtbl.add _consdecls res (func_decl_of_ptr ctx consdecl) ;
-    Hashtbl.add _is_consdecls res (func_decl_of_ptr ctx is_consdecl) ;
-    Hashtbl.add _headdecls res (func_decl_of_ptr ctx headdecl) ;
-    Hashtbl.add _taildecls res (func_decl_of_ptr ctx taildecl) ;
     res
 
   let sort_of_list_sort s = match s with ListSort(x) -> x
@@ -2237,22 +2226,28 @@ struct
     mk_sort ctx (Symbol.mk_string ctx name) elem_sort
 
   (** The declaration of the nil function of this list sort. *)
-  let get_nil_decl ( x : list_sort ) = (Hashtbl.find _nildecls x)
+  let get_nil_decl ( x : list_sort ) = 
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_constructor (sgnc x) (sgno x)  0)
 
   (** The declaration of the isNil function of this list sort. *)
-  let get_is_nil_decl ( x : list_sort ) = (Hashtbl.find _is_nildecls x)
+  let get_is_nil_decl ( x : list_sort ) = 
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_recognizer (sgnc x) (sgno x)  0)
 
   (** The declaration of the cons function of this list sort. *)
-  let get_cons_decl ( x : list_sort ) = (Hashtbl.find _consdecls x)
+  let get_cons_decl ( x : list_sort ) = 
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_constructor (sgnc x) (sgno x)  1)
 
   (** The declaration of the isCons function of this list sort. *)
-  let get_is_cons_decl ( x : list_sort ) = (Hashtbl.find _is_consdecls x)
+  let get_is_cons_decl ( x : list_sort ) =
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_recognizer (sgnc x) (sgno x)  1)
 
   (** The declaration of the head function of this list sort. *)
-  let get_head_decl ( x : list_sort )  = (Hashtbl.find _headdecls x)
+  let get_head_decl ( x : list_sort )  = 
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_constructor_accessor (sgnc x) (sgno x) 1 0)
 
   (** The declaration of the tail function of this list sort. *)
-  let get_tail_decl ( x : list_sort ) = (Hashtbl.find _taildecls x)
+  let get_tail_decl ( x : list_sort ) =
+    func_decl_of_ptr (sgc x) (Z3native.get_datatype_sort_constructor_accessor (sgnc x) (sgno x) 1 1)
 
   (** The empty list. *)
   let nil ( x : list_sort ) = expr_of_func_app (sgc x) (get_nil_decl x) [||]

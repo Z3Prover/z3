@@ -5,9 +5,9 @@
    @author CM Wintersteiger (cwinter) 2012-12-17
 *)
 
-type context
 
-(** Create a context object. 
+
+(** Context objects.
 
     Most interactions with Z3 are interpreted in some context; many users will only 
     require one such object, but power users may require more than one. To start using 
@@ -27,6 +27,9 @@ type context
     (...)
     </code>
 *)
+type context
+
+(** Create a context object *)
 val mk_context : (string * string) list -> context
 
 
