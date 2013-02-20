@@ -15,6 +15,9 @@ open Z3.Tactic.ApplyResult
 open Z3.Probe
 open Z3.Solver
 open Z3.Arithmetic
+open Z3.Arithmetic.Integer
+open Z3.Arithmetic.Real
+open Z3.BitVector
 
 exception TestFailedException of string
 
@@ -35,7 +38,7 @@ let  model_converter_test ( ctx : context ) =
 						     (Real.mk_numeral_nd ctx 10 1)))) |]) ;
   (Goal.assert_ g4 [| (mk_eq ctx 
 			 (expr_of_arith_expr yr) 
-			 (expr_of_arith_expr (mk_add ctx [| xr; (arith_expr_of_real_expr (real_expr_of_rat_num (Real.mk_numeral_nd ctx 1 1)))  |] ))) |] ) ;
+			 (expr_of_arith_expr (Arithmetic.mk_add ctx [| xr; (arith_expr_of_real_expr (real_expr_of_rat_num (Real.mk_numeral_nd ctx 1 1)))  |]) ) ) |] ) ;
   (Goal.assert_ g4 [| (mk_gt ctx yr (arith_expr_of_real_expr (real_expr_of_rat_num (Real.mk_numeral_nd ctx 1 1)))) |]) ;
   (
     let  ar = (Tactic.apply (mk_tactic ctx "simplify") g4 None) in
