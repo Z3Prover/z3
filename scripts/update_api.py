@@ -1155,6 +1155,7 @@ def mk_ml():
     ml_native.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
     ml_i.write('(* Automatically generated file *)\n\n')
     ml_i.write('(** The native (raw) interface to the dynamic Z3 library. *)\n\n')
+    ml_i.write('(**/**)\n\n');
     ml_native.write('open Z3enums\n\n')
     ml_native.write('(**/**)\n')
     ml_native.write('type ptr\n')
@@ -1214,6 +1215,7 @@ def mk_ml():
             ml_native.write('        "n_%s_bytecode"\n' % ml_method_name(name))
         ml_native.write('\n')
     ml_native.write('  end\n\n')
+    ml_i.write('\n(**/**)\n');
 
     # Exception wrappers
     for name, result, params in _dotnet_decls:
