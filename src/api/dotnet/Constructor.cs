@@ -34,8 +34,7 @@ namespace Microsoft.Z3
         public uint NumFields
         {
             get
-            {
-                init();
+            {                
                 return n;
             }
         }
@@ -48,8 +47,11 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<FuncDecl>() != null);
-                init();
-                return m_constructorDecl;
+                IntPtr constructor = IntPtr.Zero;
+                IntPtr tester = IntPtr.Zero;
+                IntPtr[] accessors = new IntPtr[n];
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);
+                return new FuncDecl(Context, constructor);                
             }
         }
 
@@ -61,8 +63,11 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<FuncDecl>() != null);
-                init();
-                return m_testerDecl;
+                IntPtr constructor = IntPtr.Zero;
+                IntPtr tester = IntPtr.Zero;
+                IntPtr[] accessors = new IntPtr[n];
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);
+                return new FuncDecl(Context, tester);                
             }
         }
 
@@ -74,8 +79,14 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
-                init(); 
-                return m_accessorDecls;
+                IntPtr constructor = IntPtr.Zero;
+                IntPtr tester = IntPtr.Zero;
+                IntPtr[] accessors = new IntPtr[n];
+                Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);                
+                FuncDecl[] t = new FuncDecl[n];
+                for (uint i = 0; i < n; i++)
+                    t[i] = new FuncDecl(Context, accessors[i]); 
+                return t;
             }
         }
 
@@ -85,25 +96,11 @@ namespace Microsoft.Z3
         ~Constructor()
         {
             Native.Z3_del_constructor(Context.nCtx, NativeObject);
-        }
-
-        #region Object invariant
-
-        [ContractInvariantMethod]
-        private void ObjectInvariant()
-        {
-            Contract.Invariant(m_testerDecl == null || m_constructorDecl != null);
-            Contract.Invariant(m_testerDecl == null || m_accessorDecls != null);
-        }
-
-        #endregion
+        }        
 
         #region Internal
-        readonly private uint n = 0;
-        private FuncDecl m_testerDecl = null;
-        private FuncDecl m_constructorDecl = null;
-        private FuncDecl[] m_accessorDecls = null;
-
+        private uint n = 0;
+        
         internal Constructor(Context ctx, Symbol name, Symbol recognizer, Symbol[] fieldNames,
                              Sort[] sorts, uint[] sortRefs)
             : base(ctx)
@@ -127,24 +124,6 @@ namespace Microsoft.Z3
                                                     Sort.ArrayToNative(sorts),
                                                     sortRefs);
 
-        }
-
-        private void init()
-        {
-            Contract.Ensures(m_constructorDecl != null);
-            Contract.Ensures(m_testerDecl != null);
-            Contract.Ensures(m_accessorDecls != null);
-
-            if (m_testerDecl != null) return;
-            IntPtr constructor = IntPtr.Zero;
-            IntPtr tester = IntPtr.Zero;
-            IntPtr[] accessors = new IntPtr[n];
-            Native.Z3_query_constructor(Context.nCtx, NativeObject, n, ref constructor, ref tester, accessors);
-            m_constructorDecl = new FuncDecl(Context, constructor);
-            m_testerDecl = new FuncDecl(Context, tester);
-            m_accessorDecls = new FuncDecl[n];
-            for (uint i = 0; i < n; i++)
-                m_accessorDecls[i] = new FuncDecl(Context, accessors[i]);
         }
 
         #endregion

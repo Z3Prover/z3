@@ -13,64 +13,67 @@ public class ListSort extends Sort
 {
     /**
      * The declaration of the nil function of this list sort.
+     * @throws Z3Exception 
      **/
-    public FuncDecl getNilDecl()
+    public FuncDecl getNilDecl() throws Z3Exception
     {
-        return nilDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortConstructor(getContext().nCtx(), getNativeObject(), 0));
     }
 
     /**
      * The empty list.
+     * @throws Z3Exception 
      **/
-    public Expr getNil()
+    public Expr getNil() throws Z3Exception
     {
-        return nilConst;
+        return getContext().mkApp(getNilDecl());
     }
 
     /**
      * The declaration of the isNil function of this list sort.
+     * @throws Z3Exception 
      **/
-    public FuncDecl getIsNilDecl()
+    public FuncDecl getIsNilDecl() throws Z3Exception
     {
-        return isNilDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), 0));
     }
 
     /**
      * The declaration of the cons function of this list sort.
+     * @throws Z3Exception 
      **/
-    public FuncDecl getConsDecl()
+    public FuncDecl getConsDecl() throws Z3Exception
     {
-        return consDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortConstructor(getContext().nCtx(), getNativeObject(), 1));
     }
 
     /**
      * The declaration of the isCons function of this list sort.
+     * @throws Z3Exception 
      * 
      **/
-    public FuncDecl getIsConsDecl()
+    public FuncDecl getIsConsDecl() throws Z3Exception
     {
-        return isConsDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), 1));
     }
 
     /**
      * The declaration of the head function of this list sort.
+     * @throws Z3Exception 
      **/
-    public FuncDecl getHeadDecl()
+    public FuncDecl getHeadDecl() throws Z3Exception
     {
-        return headDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortConstructorAccessor(getContext().nCtx(), getNativeObject(), 1, 0));
     }
 
     /**
      * The declaration of the tail function of this list sort.
+     * @throws Z3Exception 
      **/
-    public FuncDecl getTailDecl()
+    public FuncDecl getTailDecl() throws Z3Exception
     {
-        return tailDecl;
+        return new FuncDecl(getContext(), Native.getDatatypeSortConstructorAccessor(getContext().nCtx(), getNativeObject(), 1, 1));
     }
-
-    private FuncDecl nilDecl, isNilDecl, consDecl, isConsDecl, headDecl,
-            tailDecl;
-    private Expr nilConst;
 
     ListSort(Context ctx, Symbol name, Sort elemSort) throws Z3Exception
     {
@@ -83,12 +86,5 @@ public class ListSort extends Sort
         setNativeObject(Native.mkListSort(ctx.nCtx(), name.getNativeObject(),
                 elemSort.getNativeObject(), inil, iisnil, icons, iiscons, ihead,
                 itail));
-        nilDecl = new FuncDecl(ctx, inil.value);
-        isNilDecl = new FuncDecl(ctx, iisnil.value);
-        consDecl = new FuncDecl(ctx, icons.value);
-        isConsDecl = new FuncDecl(ctx, iiscons.value);
-        headDecl = new FuncDecl(ctx, ihead.value);
-        tailDecl = new FuncDecl(ctx, itail.value);
-        nilConst = ctx.mkConst(nilDecl);
     }
 };
