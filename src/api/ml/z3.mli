@@ -106,11 +106,11 @@ sig
   (** Creates a new symbol using a string. *)
   val mk_string : context -> string -> symbol
 
-  (** Create an array of symbols. *)
-  val mk_ints : context -> int array -> symbol array
+  (** Create a list of symbols. *)
+  val mk_ints : context -> int list -> symbol list
 
-  (** Create an array of symbols. *)
-  val mk_strings : context -> string array -> symbol array
+  (** Create a list of symbols. *)
+  val mk_strings : context -> string list -> symbol list
 end
 
 (** The abstract syntax tree (AST) module *)
@@ -175,7 +175,7 @@ sig
     val get_size : ast_map -> int
 
     (** The keys stored in the map. *)
-    val get_keys : ast_map -> ASTVector.ast_vector
+    val get_keys : ast_map -> ast list
 
     (** Retrieves a string representation of the map.*)
     val to_string : ast_map -> string
@@ -331,13 +331,13 @@ sig
   end
 
   (** Creates a new function declaration. *)
-  val mk_func_decl : context -> Symbol.symbol -> Sort.sort array -> Sort.sort -> func_decl
+  val mk_func_decl : context -> Symbol.symbol -> Sort.sort list -> Sort.sort -> func_decl
 
   (** Creates a new function declaration. *)
-  val mk_func_decl_s : context -> string -> Sort.sort array -> Sort.sort -> func_decl
+  val mk_func_decl_s : context -> string -> Sort.sort list -> Sort.sort -> func_decl
   (** Creates a fresh function declaration with a name prefixed with a prefix string. *)
 
-  val mk_fresh_func_decl : context -> string -> Sort.sort array -> Sort.sort -> func_decl
+  val mk_fresh_func_decl : context -> string -> Sort.sort list -> Sort.sort -> func_decl
 
   (** Creates a new constant function declaration. *)
   val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
@@ -368,7 +368,7 @@ sig
   val get_domain_size : func_decl -> int
     
   (** The domain of the function declaration *)
-  val get_domain : func_decl -> Sort.sort array
+  val get_domain : func_decl -> Sort.sort list
     
   (** The range of the function declaration *)
   val get_range : func_decl -> Sort.sort
@@ -386,7 +386,7 @@ sig
   val get_parameters : func_decl -> Parameter.parameter list
 
   (** Create expression that applies function to arguments. *)	   
-  val apply : func_decl -> Expr.expr array -> Expr.expr
+  val apply : func_decl -> Expr.expr list -> Expr.expr
 end
 
 (** Parameter sets (of Solvers, Tactics, ...)
@@ -408,7 +408,7 @@ sig
     val get_kind : param_descrs -> Symbol.symbol -> Z3enums.param_kind
 
     (** Retrieve all names of parameters. *)
-    val get_names : param_descrs -> Symbol.symbol array
+    val get_names : param_descrs -> Symbol.symbol list
 
     (** The size of the ParamDescrs. *)
     val get_size : param_descrs -> int
@@ -477,18 +477,18 @@ sig
   val get_num_args : Expr.expr -> int
 
   (** The arguments of the expression. *)        
-  val get_args : Expr.expr -> Expr.expr array
+  val get_args : Expr.expr -> Expr.expr list
 
   (** Update the arguments of the expression using an array of expressions.
       The number of new arguments should coincide with the current number of arguments. *)
-  val update : Expr.expr -> Expr.expr array -> expr
+  val update : Expr.expr -> Expr.expr list -> expr
 
   (** Substitute every occurrence of <c>from[i]</c> in the expression with <c>to[i]</c>, for <c>i</c> smaller than <c>num_exprs</c>.
      
      The result is the new expression. The arrays <c>from</c> and <c>to</c> must have size <c>num_exprs</c>.
      For every <c>i</c> smaller than <c>num_exprs</c>, we must have that 
      sort of <c>from[i]</c> must be equal to sort of <c>to[i]</c>. *)
-  val substitute : Expr.expr -> Expr.expr array -> Expr.expr array -> expr
+  val substitute : Expr.expr -> Expr.expr list -> Expr.expr list -> expr
 
   (** Substitute every occurrence of <c>from</c> in the expression with <c>to</c>.
      {!substitute} *)
@@ -497,7 +497,7 @@ sig
   (** Substitute the free variables in the expression with the expressions in the expr array
 
      For every <c>i</c> smaller than <c>num_exprs</c>, the variable with de-Bruijn index <c>i</c> is replaced with term <c>to[i]</c>. *)
-  val substitute_vars : Expr.expr -> Expr.expr array -> expr
+  val substitute_vars : Expr.expr -> Expr.expr list -> expr
 
   (** Translates (copies) the term to another context.
      @return A copy of the term which is associated with the other context *)
@@ -582,7 +582,7 @@ sig
   val mk_fresh_const : context -> string -> Sort.sort -> expr
   
   (** Create a new function application. *)
-  val mk_app : context -> FuncDecl.func_decl -> Expr.expr array -> expr
+  val mk_app : context -> FuncDecl.func_decl -> Expr.expr list -> expr
   
   (** Create a numeral of a given sort.         
      @return A Term with the goven value and sort *)
@@ -627,7 +627,7 @@ sig
   val mk_eq : context -> Expr.expr -> Expr.expr -> bool_expr
 
   (** Creates a <c>distinct</c> term. *)
-  val mk_distinct : context -> Expr.expr array -> bool_expr
+  val mk_distinct : context -> Expr.expr list -> bool_expr
 
   (** Mk an expression representing <c>not(a)</c>. *)    
   val mk_not : context -> bool_expr -> bool_expr
@@ -645,10 +645,10 @@ sig
   val mk_xor : context -> bool_expr -> bool_expr -> bool_expr
 
   (** Create an expression representing the AND of args *)
-  val mk_and : context -> bool_expr array -> bool_expr
+  val mk_and : context -> bool_expr list -> bool_expr
 
   (** Create an expression representing the OR of args *)
-  val mk_or : context -> bool_expr array -> bool_expr
+  val mk_or : context -> bool_expr list -> bool_expr
 end
 
 (** Quantifier expressions *)
@@ -675,7 +675,7 @@ sig
     val get_num_terms : pattern -> int
 
     (** The terms in the pattern. *)
-    val get_terms : pattern -> Expr.expr array
+    val get_terms : pattern -> Expr.expr list
 
     (** A string representation of the pattern. *)
     val to_string : pattern -> string
@@ -713,22 +713,22 @@ sig
   val get_num_patterns : quantifier -> int
 
   (** The patterns. *)
-  val get_patterns : quantifier -> Pattern.pattern array
+  val get_patterns : quantifier -> Pattern.pattern list
   
  (** The number of no-patterns. *)
   val get_num_no_patterns : quantifier -> int
     
   (** The no-patterns. *)
-  val get_no_patterns : quantifier -> Pattern.pattern array
+  val get_no_patterns : quantifier -> Pattern.pattern list
 
  (** The number of bound variables. *)
    val get_num_bound : quantifier -> int
  
  (** The symbols for the bound variables. *)
-  val get_bound_variable_names : quantifier -> Symbol.symbol array
+  val get_bound_variable_names : quantifier -> Symbol.symbol list
  
   (** The sorts of the bound variables. *)
-  val get_bound_variable_sorts : quantifier -> Sort.sort array
+  val get_bound_variable_sorts : quantifier -> Sort.sort list
 
   (** The body of the quantifier. *)
   val get_body : quantifier -> Boolean.bool_expr
@@ -737,25 +737,25 @@ sig
   val mk_bound : context -> int -> Sort.sort -> Expr.expr
 
   (** Create a quantifier pattern. *)
-  val mk_pattern : context -> Expr.expr array -> Pattern.pattern
+  val mk_pattern : context -> Expr.expr list -> Pattern.pattern
 
   (** Create a universal Quantifier. *)
-  val mk_forall : context -> Sort.sort array -> Symbol.symbol array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_forall : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** Create a universal Quantifier. *)
-  val mk_forall_const : context -> Expr.expr array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_forall_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** Create an existential Quantifier. *)
-  val mk_exists : context -> Sort.sort array -> Symbol.symbol array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_exists : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** Create an existential Quantifier. *)
-  val mk_exists_const : context -> Expr.expr array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_exists_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** Create a Quantifier. *)
-  val mk_quantifier : context -> Sort.sort array -> Symbol.symbol array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_quantifier : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
     
   (** Create a Quantifier. *)
-  val mk_quantifier : context -> bool -> Expr.expr array -> Expr.expr -> int option -> Pattern.pattern array -> Expr.expr array -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_quantifier : context -> bool -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 end
 
 (** Functions to manipulate Array expressions *)
@@ -857,7 +857,7 @@ sig
      {!Array_.mk_sort}
      {!mk_select}
      {!mk_store} *)
-  val mk_map : context -> FuncDecl.func_decl -> array_expr array -> array_expr
+  val mk_map : context -> FuncDecl.func_decl -> array_expr list -> array_expr
 
   (** Access the array default value.
      
@@ -904,10 +904,10 @@ sig
   val mk_del : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** Take the union of a list of sets. *)
-  val mk_union : context -> Expr.expr array -> Expr.expr
+  val mk_union : context -> Expr.expr list -> Expr.expr
 
   (** Take the intersection of a list of sets. *)
-  val mk_intersection : context -> Expr.expr array -> Expr.expr
+  val mk_intersection : context -> Expr.expr list -> Expr.expr
 
   (** Take the difference between two sets. *)
   val mk_difference : context -> Expr.expr -> Expr.expr -> Expr.expr
@@ -1037,7 +1037,7 @@ sig
   val get_arity : relation_sort -> int
 
   (** The sorts of the columns of the relation sort. *)
-  val get_column_sorts : relation_sort -> relation_sort array
+  val get_column_sorts : relation_sort -> relation_sort list
 end
 
 (** Functions to manipulate Datatype expressions *)
@@ -1066,43 +1066,43 @@ sig
     val get_tester_decl : constructor -> FuncDecl.func_decl
     
     (** The function declarations of the accessors *)
-    val get_accessor_decls : constructor -> FuncDecl.func_decl array
+    val get_accessor_decls : constructor -> FuncDecl.func_decl list
   end
 
   (** Create a datatype constructor.
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol array -> Sort.sort array -> int array -> Constructor.constructor
+  val mk_constructor : context -> Symbol.symbol -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> int list -> Constructor.constructor
 
   (** Create a datatype constructor.
      if the corresponding sort reference is 0, then the value in sort_refs should be an index 
      referring to one of the recursive datatypes that is declared. *)
-  val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol array -> Sort.sort array -> int array -> Constructor.constructor
+  val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> int list -> Constructor.constructor
 
   (** Create a new datatype sort. *)
-  val mk_sort : context -> Symbol.symbol -> Constructor.constructor array -> datatype_sort
+  val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> datatype_sort
 
   (** Create a new datatype sort. *)
-  val mk_sort_s : context -> string -> Constructor.constructor array -> datatype_sort
+  val mk_sort_s : context -> string -> Constructor.constructor list -> datatype_sort
 
   (** Create mutually recursive datatypes. *)
-  val mk_sorts : context -> Symbol.symbol array -> Constructor.constructor array array -> datatype_sort array
+  val mk_sorts : context -> Symbol.symbol list -> Constructor.constructor list list -> datatype_sort list
 
   (** Create mutually recursive data-types. *)
-  val mk_sorts_s : context -> string array -> Constructor.constructor array array -> datatype_sort array
+  val mk_sorts_s : context -> string list -> Constructor.constructor list list -> datatype_sort list
 
 
   (** The number of constructors of the datatype sort. *)
   val get_num_constructors : datatype_sort -> int
 
   (** The constructors. *)
-  val get_constructors : datatype_sort -> FuncDecl.func_decl array
+  val get_constructors : datatype_sort -> FuncDecl.func_decl list
   
   (** The recognizers. *)
-  val get_recognizers : datatype_sort -> FuncDecl.func_decl array
+  val get_recognizers : datatype_sort -> FuncDecl.func_decl list
 
   (** The constructor accessors. *)
-  val get_accessors : datatype_sort -> FuncDecl.func_decl array array
+  val get_accessors : datatype_sort -> FuncDecl.func_decl list list
 end
 
 (** Functions to manipulate Enumeration expressions *)
@@ -1113,16 +1113,16 @@ sig
   val sort_of_enum_sort : enum_sort -> Sort.sort
 
   (** Create a new enumeration sort. *)
-  val mk_sort : context -> Symbol.symbol -> Symbol.symbol array -> enum_sort
+  val mk_sort : context -> Symbol.symbol -> Symbol.symbol list -> enum_sort
 
   (** Create a new enumeration sort. *)
-  val mk_sort_s : context -> string -> string array -> enum_sort
+  val mk_sort_s : context -> string -> string list -> enum_sort
 
   (** The function declarations of the constants in the enumeration. *)
-  val get_const_decls : enum_sort -> FuncDecl.func_decl array
+  val get_const_decls : enum_sort -> FuncDecl.func_decl list
 
   (** The test predicates for the constants in the enumeration. *)
-  val get_tester_decls : enum_sort -> FuncDecl.func_decl array
+  val get_tester_decls : enum_sort -> FuncDecl.func_decl list
 end
 
 (** Functions to manipulate List expressions *)
@@ -1168,7 +1168,7 @@ sig
   val sort_of_tuple_sort : tuple_sort -> Sort.sort
 
   (** Create a new tuple sort. *)    
-  val mk_sort : context -> Symbol.symbol -> Symbol.symbol array -> Sort.sort array -> tuple_sort
+  val mk_sort : context -> Symbol.symbol -> Symbol.symbol list -> Sort.sort list -> tuple_sort
 
   (**  The constructor function of the tuple. *)
   val get_mk_decl : tuple_sort -> FuncDecl.func_decl
@@ -1177,7 +1177,7 @@ sig
   val get_num_fields : tuple_sort -> int
 
   (** The field declarations. *)
-  val get_field_decls : tuple_sort -> FuncDecl.func_decl array
+  val get_field_decls : tuple_sort -> FuncDecl.func_decl list
 end
 
 (** Functions to manipulate arithmetic expressions *)
@@ -1407,13 +1407,13 @@ sig
   val is_algebraic_number : Expr.expr -> bool
 
   (** Create an expression representing <c>t[0] + t[1] + ...</c>. *)    
-  val mk_add : context -> arith_expr array -> arith_expr
+  val mk_add : context -> arith_expr list -> arith_expr
 
   (** Create an expression representing <c>t[0] * t[1] * ...</c>. *)    
-  val mk_mul : context -> arith_expr array -> arith_expr
+  val mk_mul : context -> arith_expr list -> arith_expr
 
   (** Create an expression representing <c>t[0] - t[1] - ...</c>. *)    
-  val mk_sub : context -> arith_expr array -> arith_expr
+  val mk_sub : context -> arith_expr list -> arith_expr
 
   (** Create an expression representing <c>-t</c>. *)    
   val mk_unary_minus : context -> arith_expr -> arith_expr
@@ -2332,7 +2332,7 @@ sig
   val is_garbage : goal -> bool
 
  (** Adds the constraints to the given goal. *)
-  val assert_ : goal -> Boolean.bool_expr array -> unit
+  val assert_ : goal -> Boolean.bool_expr list -> unit
  
   (** Indicates whether the goal contains `false'. *)
   val is_inconsistent : goal -> bool
@@ -2348,7 +2348,7 @@ sig
   val get_size : goal -> int
 
   (** The formulas in the goal. *)
-  val get_formulas : goal -> Boolean.bool_expr array
+  val get_formulas : goal -> Boolean.bool_expr list
 
   (** The number of formulas, subformulas and terms in the goal. *)
   val get_num_exprs : goal -> int
@@ -2407,7 +2407,7 @@ sig
 
       (** The arguments of the function entry.
       *)
-      val get_args : func_entry -> Expr.expr array
+      val get_args : func_entry -> Expr.expr list
 
       (** A string representation of the function entry.
       *)
@@ -2418,7 +2418,7 @@ sig
     val get_num_entries : func_interp -> int
 
     (**   The entries in the function interpretation *)
-    val get_entries : func_interp -> FuncEntry.func_entry array
+    val get_entries : func_interp -> FuncEntry.func_entry list
 
     (**   The (symbolic) `else' value of the function interpretation. *)
     val get_else : func_interp -> Expr.expr
@@ -2446,16 +2446,16 @@ sig
   val get_num_consts : model -> int
 
   (** The function declarations of the constants in the model. *)  
-  val get_const_decls : model -> FuncDecl.func_decl array
+  val get_const_decls : model -> FuncDecl.func_decl list
 
   (** The number of function interpretations in the model. *)
   val get_num_funcs : model -> int
 
   (** The function declarations of the function interpretations in the model. *)
-  val get_func_decls : model -> FuncDecl.func_decl array
+  val get_func_decls : model -> FuncDecl.func_decl list
 
   (** All symbols that have an interpretation in the model. *)
-  val get_decls : model -> FuncDecl.func_decl array
+  val get_decls : model -> FuncDecl.func_decl list
 
   (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
   exception ModelEvaluationFailedException of string
@@ -2481,12 +2481,12 @@ sig
       the "universe" of the sort.
       {!get_num_sorts}
       {!sort_universe} *)
-  val get_sorts : model -> Sort.sort array
+  val get_sorts : model -> Sort.sort list
 
   (** The finite set of distinct values that represent the interpretation of a sort. 
       {!get_sorts}
-      @returns An array of expressions, where each is an element of the universe of the sort *)
-  val sort_universe : model -> Sort.sort -> AST.ASTVector.ast_vector array
+      @returns A list of expressions, where each is an element of the universe of the sort *)
+  val sort_universe : model -> Sort.sort -> AST.ast list
       
   (** Conversion of models to strings. 
       <returns>A string representation of the model.</returns> *)
@@ -2514,7 +2514,7 @@ sig
   val get_num_probes : context -> int
 
   (** The names of all supported Probes. *)
-  val get_probe_names : context -> string array
+  val get_probe_names : context -> string list
 
   (** Returns a string containing a description of the probe with the given name. *)
   val get_probe_description : context -> string -> string
@@ -2579,7 +2579,7 @@ sig
     val get_num_subgoals : apply_result -> int
 
     (** Retrieves the subgoals from the apply_result. *)
-    val get_subgoals : apply_result -> Goal.goal array
+    val get_subgoals : apply_result -> Goal.goal list
 
     (** Retrieves a subgoal from the apply_result. *)
     val get_subgoal : apply_result -> int -> Goal.goal
@@ -2606,7 +2606,7 @@ sig
   val get_num_tactics : context -> int
 
   (** The names of all supported tactics. *)
-  val get_tactic_names : context -> string array
+  val get_tactic_names : context -> string list
 
   (** Returns a string containing a description of the tactic with the given name. *)
   val get_tactic_description : context -> string -> string
@@ -2616,7 +2616,7 @@ sig
 
   (** Create a tactic that applies one tactic to a Goal and
      then another one to every subgoal produced by the first one. *)
-  val and_then : context -> tactic -> tactic -> tactic array -> tactic
+  val and_then : context -> tactic -> tactic -> tactic list -> tactic
 
   (** Create a tactic that first applies one tactic to a Goal and
      if it fails then returns the result of another tactic applied to the Goal. *)
@@ -2662,7 +2662,7 @@ sig
   val with_ : context -> tactic -> Params.params -> tactic
 
   (** Create a tactic that applies the given tactics in parallel. *)
-  val par_or : context -> tactic array -> tactic
+  val par_or : context -> tactic list -> tactic
 
   (** Create a tactic that applies a tactic to a given goal and then another tactic
       to every subgoal produced by the first one. The subgoals are processed in parallel. *)
@@ -2722,10 +2722,10 @@ sig
     val get_size : statistics -> int
 
     (** The data entries. *)
-    val get_entries : statistics -> Entry.statistics_entry array
+    val get_entries : statistics -> Entry.statistics_entry list
 
     (**   The statistical counters. *)
-    val get_keys : statistics -> string array
+    val get_keys : statistics -> string list
 
     (** The value of a particular statistical counter. *)        
     val get : statistics -> string -> Entry.statistics_entry option
@@ -2759,7 +2759,7 @@ sig
   val reset : solver -> unit
 
   (** Assert a constraint (or multiple) into the solver. *)        
-  val assert_ : solver -> Boolean.bool_expr array -> unit
+  val assert_ : solver -> Boolean.bool_expr list -> unit
 
   (** * Assert multiple constraints (cs) into the solver, and track them (in the
      * unsat) core
@@ -2772,7 +2772,7 @@ sig
      * of the Boolean variables provided using {!assert_and_track}
      * and the Boolean literals
      * provided using {!check} with assumptions. *)
-  val assert_and_track_a : solver -> Boolean.bool_expr array -> Boolean.bool_expr array -> unit
+  val assert_and_track_a : solver -> Boolean.bool_expr list -> Boolean.bool_expr list -> unit
 
   (** * Assert a constraint (c) into the solver, and track it (in the unsat) core
      * using the Boolean constant p.
@@ -2790,14 +2790,14 @@ sig
   val get_num_assertions : solver -> int
 
   (** The set of asserted formulas. *)
-  val get_assertions : solver -> Boolean.bool_expr array
+  val get_assertions : solver -> Boolean.bool_expr list
 
   (** Checks whether the assertions in the solver are consistent or not.
      
      {!Model}
      {!get_unsat_core}
      {!Proof}     *)
-  val check : solver -> Boolean.bool_expr array -> status
+  val check : solver -> Boolean.bool_expr list -> status
 
   (** The model of the last <c>Check</c>.
      
@@ -2816,7 +2816,7 @@ sig
      The unsat core is a subset of <c>Assertions</c>
      The result is empty if <c>Check</c> was not invoked before,
      if its results was not <c>UNSATISFIABLE</c>, or if core production is disabled. *)
-  val get_unsat_core : solver -> AST.ASTVector.ast_vector array
+  val get_unsat_core : solver -> AST.ast list
 
   (** A brief justification of why the last call to <c>Check</c> returned <c>UNKNOWN</c>. *)
   val get_reason_unknown : solver -> string
@@ -2863,7 +2863,7 @@ sig
   val get_param_descrs : fixedpoint -> Params.ParamDescrs.param_descrs
 
   (** Assert a constraints into the fixedpoint solver. *)        
-  val assert_ : fixedpoint -> Boolean.bool_expr array -> unit
+  val assert_ : fixedpoint -> Boolean.bool_expr list -> unit
 
   (** Register predicate as recursive relation. *)       
   val register_relation : fixedpoint -> FuncDecl.func_decl -> unit
@@ -2872,7 +2872,7 @@ sig
   val add_rule : fixedpoint -> Boolean.bool_expr -> Symbol.symbol option -> unit
 
   (** Add table fact to the fixedpoint solver. *)        
-  val add_fact : fixedpoint -> FuncDecl.func_decl -> int array -> unit
+  val add_fact : fixedpoint -> FuncDecl.func_decl -> int list -> unit
 
   (** Query the fixedpoint solver.
      A query is a conjunction of constraints. The constraints may include the recursively defined relations.
@@ -2884,7 +2884,7 @@ sig
      A query is an array of relations.
      The query is satisfiable if there is an instance of some relation that is non-empty.
      The query is unsatisfiable if there are no derivations satisfying any of the relations. *)        
-  val query_r : fixedpoint -> FuncDecl.func_decl array -> Solver.status
+  val query_r : fixedpoint -> FuncDecl.func_decl list -> Solver.status
 
   (** Creates a backtracking point.
      {!pop} *)
@@ -2920,16 +2920,16 @@ sig
   val to_string : fixedpoint -> string
 
   (** Instrument the Datalog engine on which table representation to use for recursive predicate. *)                
-  val set_predicate_representation : fixedpoint -> FuncDecl.func_decl -> Symbol.symbol array -> unit
+  val set_predicate_representation : fixedpoint -> FuncDecl.func_decl -> Symbol.symbol list -> unit
 
   (** Convert benchmark given as set of axioms, rules and queries to a string. *)                
-  val to_string_q : fixedpoint -> Boolean.bool_expr array -> string
+  val to_string_q : fixedpoint -> Boolean.bool_expr list -> string
 
   (** Retrieve set of rules added to fixedpoint context. *)                
-  val get_rules : fixedpoint -> Boolean.bool_expr array
+  val get_rules : fixedpoint -> Boolean.bool_expr list
 
   (** Retrieve set of assertions added to fixedpoint context. *)                
-  val get_assertions : fixedpoint -> Boolean.bool_expr array
+  val get_assertions : fixedpoint -> Boolean.bool_expr list
 
   (** Create a Fixedpoint context. *)
   val mk_fixedpoint : context -> fixedpoint
@@ -2985,7 +2985,7 @@ sig
   (** Convert a benchmark into an SMT-LIB formatted string.
 
      @return A string representation of the benchmark. *)
-  val benchmark_to_smtstring : context -> string -> string -> string -> string -> Boolean.bool_expr array -> Boolean.bool_expr -> string
+  val benchmark_to_smtstring : context -> string -> string -> string -> string -> Boolean.bool_expr list -> Boolean.bool_expr -> string
 
   (** Parse the given string using the SMT-LIB parser. 
       
@@ -2994,45 +2994,45 @@ sig
       don't need to match the names of the sorts and declarations in the arrays in the fourth 
       and sixth argument. This is a useful feature since we can use arbitrary names to 
       reference sorts and declarations. *)
-  val parse_smtlib_string : context -> string -> Symbol.symbol array -> Sort.sort array -> Symbol.symbol array -> FuncDecl.func_decl array -> unit
+  val parse_smtlib_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
 
   (** Parse the given file using the SMT-LIB parser. 
      {!parse_smtlib_string} *)
-  val parse_smtlib_file : context -> string -> Symbol.symbol array -> Sort.sort array -> Symbol.symbol array -> FuncDecl.func_decl array -> unit
+  val parse_smtlib_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> unit
 
   (** The number of SMTLIB formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
   val get_num_smtlib_formulas : context -> int
 
   (** The formulas parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
-  val get_smtlib_formulas : context -> Boolean.bool_expr array
+  val get_smtlib_formulas : context -> Boolean.bool_expr list
 
   (** The number of SMTLIB assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
   val get_num_smtlib_assumptions : context -> int
 
   (** The assumptions parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
-  val get_smtlib_assumptions : context -> Boolean.bool_expr array
+  val get_smtlib_assumptions : context -> Boolean.bool_expr list
 
   (** The number of SMTLIB declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
   val get_num_smtlib_decls : context -> int
 
   (** The declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
-  val get_smtlib_decls : context -> FuncDecl.func_decl array
+  val get_smtlib_decls : context -> FuncDecl.func_decl list
 
   (** The number of SMTLIB sorts parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
   val get_num_smtlib_sorts : context -> int
 
   (** The sort declarations parsed by the last call to <c>ParseSMTLIBString</c> or <c>ParseSMTLIBFile</c>. *)
-  val get_smtlib_sorts : context -> Sort.sort array
+  val get_smtlib_sorts : context -> Sort.sort list
 
   (** Parse the given string using the SMT-LIB2 parser. 
 
      {!parse_smtlib_string}
      @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
-  val parse_smtlib2_string : context -> string -> Symbol.symbol array -> Sort.sort array -> Symbol.symbol array -> FuncDecl.func_decl array -> Boolean.bool_expr
+  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Boolean.bool_expr
 
   (** Parse the given file using the SMT-LIB2 parser. 
      {!parse_smtlib2_string} *)
-  val parse_smtlib2_file : context -> string -> Symbol.symbol array -> Sort.sort array -> Symbol.symbol array -> FuncDecl.func_decl array -> Boolean.bool_expr
+  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Boolean.bool_expr
 end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
