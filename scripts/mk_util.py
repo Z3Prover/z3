@@ -33,6 +33,7 @@ LDFLAGS=getenv("LDFLAGS", "")
 JAVA=getenv("JAVA", "java")
 JAVAC=getenv("JAVAC", "javac")
 JAVA_HOME=getenv("JAVA_HOME", None)
+JNI_HOME=getenv("JNI_HOME", None)
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
@@ -222,6 +223,7 @@ def check_java():
     if r != 0:
         raise MKException('Failed testing Java program. Set environment variable JAVA with the path to the Java virtual machine')
     find_java_home()
+    find_jni_home()
 
 def find_jni_h(path):
     for root, dirs, files in os.walk(path): 
@@ -233,10 +235,14 @@ def find_jni_h(path):
 def find_java_home():
     global JAVA_HOME
     if JAVA_HOME != None:
-        if is_verbose():
-            print("Checking jni.h...")
-        if os.path.exists(os.path.join(JAVA_HOME, 'include', 'jni.h')):
-            return
+        if IS_WINDOWS:
+            ind = '%s%s' % (JAVA_HOME, '\\bin\\java.exe')
+        else:
+            ind = '%s%s' % (JAVA_HOME, '/bin/java')
+	if not os.path.exists(ind):
+            raise MKException("Failed to detect java at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(JAVA_HOME))
+        else:
+	    return
     if is_verbose():
         print("Finding JAVA_HOME...")
     t = TempFile('output')
@@ -252,19 +258,50 @@ def find_java_home():
         m = open_pat.match(line)
         if m:
             # Remove last 3 directives from m.group(1)
-            print(m.group(1))
             tmp  = m.group(1).split(os.sep)
             path = string.join(tmp[:len(tmp) - 3], os.sep)
-            if is_verbose():
-                print("Checking jni.h...")
-            jni_dir = find_jni_h(path)
-            if not jni_dir:
-                raise MKException("Failed to detect jni.h at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(path, 'include'))
-            JAVA_HOME = os.path.split(jni_dir)[0]
-            if is_verbose():
-                print('JAVA_HOME=%s' % JAVA_HOME)
+            if IS_WINDOWS:
+                ind = '%s%s' % (path, '\\bin\\java.exe')
+            else:
+                ind = '%s%s' % (path, '/bin/java')
+            if os.path.exists(ind): 
+		JAVA_HOME = path
+		return
+	    if IS_OSX:
+                path = '%s%s' % (path, '/Contents/Home/')
+                ind = '%s%s' % (path, 'bin/java')
+                if os.path.exists(ind): 
+		    JAVA_HOME = path
+		    return
+            raise MKException("Failed to detect java at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(path))
             return
     raise MKException('Failed to find JAVA_HOME')
+
+def find_jni_home():
+    global JNI_HOME
+    if JNI_HOME != None:
+        if is_verbose():
+            print("Checking jni.h...")
+	path = JNI_HOME
+        fn = os.path.join(path, 'jni.h')
+        print("Checking for jni.h in %s..." % JNI_HOME)
+        if os.path.exists(fn):
+            return
+    else:
+        path = '%s%s' % (JAVA_HOME, '/include/')
+        fn = '%s%s' % (path, 'jni.h')
+        print("Checking for jni.h in %s..." % path)
+        if os.path.exists(fn):
+            JNI_HOME = find_jni_h(path)
+        elif IS_OSX:
+            # Apparently Apple knows best where to put stuff...
+            path = '/System/Library/Frameworks/JavaVM.framework/Headers/'
+            fn = '%s%s' % (path, 'jni.h')
+            print("Checking for jni.h in %s..." % path)
+            if os.path.exists(fn):
+                JNI_HOME = find_jni_h(path)
+    if JNI_HOME == None:
+        raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
 def is64():
     return sys.maxsize >= 2**32
@@ -402,6 +439,7 @@ def display_help(exit_code):
     print("  JAVA       Java virtual machine (only relevant if -j or --java option is provided)")
     print("  JAVAC      Java compiler (only relevant if -j or --java option is provided)")
     print("  JAVA_HOME  JDK installation directory (only relevant if -j or --java option is provided)")
+    print("  JNI_HOME   JNI bindings directory (only relevant if -j or --java option is provided)")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -1086,7 +1124,7 @@ class JavaDLLComponent(Component):
             mk_dir(os.path.join(BUILD_DIR, 'api', 'java', 'classes'))
             dllfile = '%s$(SO_EXT)' % self.dll_name            
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) %s\n' % os.path.join(self.to_src_dir, 'Native.cpp'))
-            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
+            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s" -I"%s/PLATFORM" -I%s %s/Native.cpp\n' % (JNI_HOME, JNI_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
                 t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
@@ -1388,6 +1426,7 @@ def mk_config():
             print('64-bit:         %s' % is64())
             if is_java_enabled():
                 print('Java Home:      %s' % JAVA_HOME)
+                print('JNI Home:       %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
                 print('Java VM:        %s' % JAVA)
     else:
@@ -1492,6 +1531,7 @@ def mk_config():
             print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
                 print('Java Home:      %s' % JAVA_HOME)
+                print('JNI Home:       %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
                 print('Java VM:        %s' % JAVA)
 
