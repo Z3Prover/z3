@@ -30,7 +30,6 @@ type context
 (** Create a context object *)
 val mk_context : (string * string) list -> context
 
-
 (** Interaction logging for Z3
     Note that this is a global, static log and if multiple Context 
     objects are created, it logs the interaction with all of them. *)
@@ -1117,10 +1116,10 @@ sig
 end
 
 (** Functions to manipulate arithmetic expressions *)
-module rec Arithmetic :
+module Arithmetic :
 sig
   (** Integer Arithmetic *)
-  module rec Integer :
+  module Integer :
   sig
     (** Create a new integer sort. *)      
     val mk_sort : context -> Sort.sort
@@ -1132,10 +1131,10 @@ sig
     val to_string : Expr.expr -> string
 
     (** Creates an integer constant. *)        
-    val mk_int_const : context -> Symbol.symbol -> Expr.expr
+    val mk_const : context -> Symbol.symbol -> Expr.expr
 
     (** Creates an integer constant. *)
-    val mk_int_const_s : context -> string -> Expr.expr
+    val mk_const_s : context -> string -> Expr.expr
 
     (** Create an expression representing <c>t1 mod t2</c>.
        The arguments must have int type. *)
@@ -1146,11 +1145,11 @@ sig
     val mk_rem : context -> Expr.expr -> Expr.expr -> Expr.expr
 
     (** Create an integer numeral. *)
-    val mk_int_numeral_s : context -> string -> Expr.expr
+    val mk_numeral_s : context -> string -> Expr.expr
 
     (** Create an integer numeral.
        @return A Term with the given value and sort Integer *)
-    val mk_int_numeral_i : context -> int -> Expr.expr
+    val mk_numeral_i : context -> int -> Expr.expr
 
     (** Coerce an integer to a real.
        
@@ -1174,7 +1173,7 @@ sig
   end
 
   (** Real Arithmetic *)
-  and Real :
+  module Real :
   sig
     (** Create a real sort. *)    
     val mk_sort : context -> Sort.sort
@@ -1193,10 +1192,10 @@ sig
     val to_string : Expr.expr-> string
 
     (** Creates a real constant. *)
-    val mk_real_const : context -> Symbol.symbol -> Expr.expr
+    val mk_const : context -> Symbol.symbol -> Expr.expr
 
     (** Creates a real constant. *)
-    val mk_real_const_s : context -> string -> Expr.expr
+    val mk_const_s : context -> string -> Expr.expr
 
     (** Create a real numeral from a fraction.       
        @return A Term with rational value and sort Real
@@ -1222,7 +1221,7 @@ sig
   end
 
   (** Algebraic Numbers *)
-  and AlgebraicNumber :
+  module AlgebraicNumber :
   sig
     (** Return a upper bound for a given real algebraic number. 
 	The interval isolating the number is smaller than 1/10^precision.
@@ -1339,7 +1338,7 @@ sig
 end
 
 (** Functions to manipulate bit-vector expressions *)
-and BitVector :
+module BitVector :
 sig
   (** Create a new bit-vector sort. *)
   val mk_sort : context -> int -> Sort.sort

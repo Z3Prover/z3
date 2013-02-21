@@ -1,4 +1,4 @@
-(**
+\(**
    The Z3 ML/Ocaml Interface.
 
    Copyright (C) 2012 Microsoft Corporation
@@ -10,7 +10,6 @@ open Z3enums
 (* Some helpers. *)
 let null = Z3native.mk_null()
 let is_null o = (Z3native.is_null o)
-
 
 (* Internal types *)
 type z3_native_context = { m_n_ctx : Z3native.z3_context; m_n_obj_cnt: int; } 
@@ -1679,12 +1678,12 @@ sig
     val mk_sort : context -> int_sort
     val get_int : int_num -> int
     val to_string : int_num -> string
-    val mk_int_const : context -> Symbol.symbol -> int_expr
-    val mk_int_const_s : context -> string -> int_expr
+    val mk_const : context -> Symbol.symbol -> int_expr
+    val mk_const_s : context -> string -> int_expr
     val mk_mod : context -> int_expr -> int_expr -> int_expr
     val mk_rem : context -> int_expr -> int_expr -> int_expr
-    val mk_int_numeral_s : context -> string -> int_num
-    val mk_int_numeral_i : context -> int -> int_num
+    val mk_numeral_s : context -> string -> int_num
+    val mk_numeral_i : context -> int -> int_num
     val mk_int2real : context -> int_expr -> Real.real_expr
     val mk_int2bv : context -> int -> int_expr -> BitVector.bitvec_expr
   end
@@ -1709,8 +1708,8 @@ sig
     val get_denominator : rat_num -> Integer.int_num
     val to_decimal_string : rat_num -> int -> string
     val to_string : rat_num -> string
-    val mk_real_const : context -> Symbol.symbol -> real_expr
-    val mk_real_const_s : context -> string -> real_expr
+    val mk_const : context -> Symbol.symbol -> real_expr
+    val mk_const_s : context -> string -> real_expr
     val mk_numeral_nd : context -> int -> int -> rat_num
     val mk_numeral_s : context -> string -> rat_num
     val mk_numeral_i : context -> int -> rat_num
@@ -1816,12 +1815,12 @@ end = struct
     val mk_sort : context -> int_sort
     val get_int : int_num -> int
     val to_string : int_num -> string
-    val mk_int_const : context -> Symbol.symbol -> int_expr
-    val mk_int_const_s : context -> string -> int_expr
+    val mk_const : context -> Symbol.symbol -> int_expr
+    val mk_const_s : context -> string -> int_expr
     val mk_mod : context -> int_expr -> int_expr -> int_expr
     val mk_rem : context -> int_expr -> int_expr -> int_expr
-    val mk_int_numeral_s : context -> string -> int_num
-    val mk_int_numeral_i : context -> int -> int_num
+    val mk_numeral_s : context -> string -> int_num
+    val mk_numeral_i : context -> int -> int_num
     val mk_int2real : context -> int_expr -> Real.real_expr
     val mk_int2bv : context -> int -> int_expr -> BitVector.bitvec_expr
   end = struct     
@@ -1884,11 +1883,11 @@ end = struct
 	
     let to_string ( x : int_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)
 
-    let mk_int_const ( ctx : context ) ( name : Symbol.symbol ) =
+    let mk_const ( ctx : context ) ( name : Symbol.symbol ) =
       IntExpr(ArithExpr(Expr.mk_const ctx name (match (mk_sort ctx) with IntSort(ArithSort(s)) -> s)))
 	
-    let mk_int_const_s ( ctx : context ) ( name : string )  =
-      mk_int_const ctx (Symbol.mk_string ctx name)
+    let mk_const_s ( ctx : context ) ( name : string )  =
+      mk_const ctx (Symbol.mk_string ctx name)
 	
     let mk_mod ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =    
       int_expr_of_ptr ctx (Z3native.mk_mod (context_gno ctx) (egno t1) (egno t2))
@@ -1896,10 +1895,10 @@ end = struct
     let mk_rem ( ctx : context ) ( t1 : int_expr ) ( t2 : int_expr ) =
       int_expr_of_ptr  ctx (Z3native.mk_rem (context_gno ctx) (egno t1) (egno t2))
 
-    let mk_int_numeral_s ( ctx : context ) ( v : string ) =
+    let mk_numeral_s ( ctx : context ) ( v : string ) =
       int_num_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (sgno (mk_sort ctx)))
 	
-    let mk_int_numeral_i ( ctx : context ) ( v : int ) =
+    let mk_numeral_i ( ctx : context ) ( v : int ) =
       int_num_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (sgno (mk_sort ctx)))
 
     let mk_int2real ( ctx : context ) ( t : int_expr ) =
@@ -1930,8 +1929,8 @@ end = struct
     val get_denominator : rat_num -> Integer.int_num
     val to_decimal_string : rat_num -> int -> string
     val to_string : rat_num -> string
-    val mk_real_const : context -> Symbol.symbol -> real_expr
-    val mk_real_const_s : context -> string -> real_expr
+    val mk_const : context -> Symbol.symbol -> real_expr
+    val mk_const_s : context -> string -> real_expr
     val mk_numeral_nd : context -> int -> int -> rat_num
     val mk_numeral_s : context -> string -> rat_num
     val mk_numeral_i : context -> int -> rat_num
@@ -2002,11 +2001,11 @@ end = struct
 	
     let to_string ( x : rat_num ) = Z3native.get_numeral_string (ngnc x) (ngno x)
 
-    let mk_real_const ( ctx : context ) ( name : Symbol.symbol )  =
+    let mk_const ( ctx : context ) ( name : Symbol.symbol )  =
       RealExpr(ArithExpr(Expr.mk_const ctx name (match (mk_sort ctx) with RealSort(ArithSort(s)) -> s)))
 	
-    let mk_real_const_s ( ctx : context ) ( name : string )  =
-      mk_real_const ctx (Symbol.mk_string ctx name)
+    let mk_const_s ( ctx : context ) ( name : string )  =
+      mk_const ctx (Symbol.mk_string ctx name)
 
     let mk_numeral_nd ( ctx : context ) ( num : int ) ( den : int) =
       if (den == 0) then 
