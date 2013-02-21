@@ -1339,9 +1339,10 @@ def mk_ml():
     ml_wrapper.write('  // upon errors, but the actual error handling is done by throwing exceptions in the\n')
     ml_wrapper.write('  // wrappers below.\n')
     ml_wrapper.write('}\n\n')
-    ml_wrapper.write('void n_set_internal_error_handler(Z3_context c)\n')
+    ml_wrapper.write('void n_set_internal_error_handler(value a0)\n')
     ml_wrapper.write('{\n')
-    ml_wrapper.write('  Z3_set_error_handler(c, MLErrorHandler);\n')
+    ml_wrapper.write('  Z3_context _a0 = * (Z3_context*) Data_custom_val(a0);\n')
+    ml_wrapper.write('  Z3_set_error_handler(_a0, MLErrorHandler);\n')
     ml_wrapper.write('}\n\n')
     for name, result, params in _dotnet_decls:
         ip = inparams(params)
