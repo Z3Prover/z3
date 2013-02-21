@@ -236,11 +236,11 @@ def find_java_home():
     global JAVA_HOME
     if JAVA_HOME != None:
         if IS_WINDOWS:
-            ind = string.join(path, 'bin\java.exe')
+            ind = '%s%s' % (JAVA_HOME, '\\bin\\java.exe')
         else:
-            ind = string.join(path, 'bin/java')
+            ind = '%s%s' % (JAVA_HOME, '/bin/java')
 	if not os.path.exists(ind):
-            raise MKException("Failed to detect java at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(path))
+            raise MKException("Failed to detect java at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(JAVA_HOME))
         else:
 	    return
     if is_verbose():
@@ -261,7 +261,7 @@ def find_java_home():
             tmp  = m.group(1).split(os.sep)
             path = string.join(tmp[:len(tmp) - 3], os.sep)
             if IS_WINDOWS:
-                ind = '%s%s' % (path, '\bin\java.exe')
+                ind = '%s%s' % (path, '\\bin\\java.exe')
             else:
                 ind = '%s%s' % (path, '/bin/java')
             if os.path.exists(ind): 
