@@ -34,7 +34,6 @@ type context
 (** Create a context object *)
 val mk_context : (string * string) list -> context
 
-
 (** Interaction logging for Z3
     Note that this is a global, static log and if multiple Context 
     objects are created, it logs the interaction with all of them. *)
@@ -1219,10 +1218,10 @@ sig
     val to_string : int_num -> string
 
     (** Creates an integer constant. *)        
-    val mk_int_const : context -> Symbol.symbol -> int_expr
+    val mk_const : context -> Symbol.symbol -> int_expr
 
     (** Creates an integer constant. *)
-    val mk_int_const_s : context -> string -> int_expr
+    val mk_const_s : context -> string -> int_expr
 
     (** Create an expression representing <c>t1 mod t2</c>.
 	The arguments must have int type. *)
@@ -1233,11 +1232,11 @@ sig
     val mk_rem : context -> int_expr -> int_expr -> int_expr
 
     (** Create an integer numeral. *)
-    val mk_int_numeral_s : context -> string -> int_num
+    val mk_numeral_s : context -> string -> int_num
 
     (** Create an integer numeral.
 	@return A Term with the given value and sort Integer *)
-    val mk_int_numeral_i : context -> int -> int_num
+    val mk_numeral_i : context -> int -> int_num
 
     (** Coerce an integer to a real.
 	
@@ -1291,10 +1290,10 @@ sig
     val to_string : rat_num -> string
 
     (** Creates a real constant. *)
-    val mk_real_const : context -> Symbol.symbol -> real_expr
+    val mk_const : context -> Symbol.symbol -> real_expr
 
     (** Creates a real constant. *)
-    val mk_real_const_s : context -> string -> real_expr
+    val mk_const_s : context -> string -> real_expr
 
     (** Create a real numeral from a fraction.       
 	@return A Term with rational value and sort Real

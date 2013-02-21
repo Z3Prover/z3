@@ -11,7 +11,6 @@ open Z3enums
 let null = Z3native.mk_null()
 let is_null o = (Z3native.is_null o)
 
-
 (* Internal types *)
 type z3_native_context = { m_n_ctx : Z3native.z3_context; m_n_obj_cnt: int; } 
 type context = z3_native_context
@@ -21,7 +20,6 @@ type z3_native_object = {
   mutable m_n_obj : Z3native.ptr ; 
   inc_ref : Z3native.z3_context -> Z3native.ptr -> unit;
   dec_ref : Z3native.z3_context -> Z3native.ptr -> unit }
-    
 
 (** Internal stuff *)
 module Internal =
@@ -1455,11 +1453,11 @@ struct
 	
     let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 
-    let mk_int_const ( ctx : context ) ( name : Symbol.symbol ) =
+    let mk_const ( ctx : context ) ( name : Symbol.symbol ) =
       Expr.mk_const ctx name (mk_sort ctx) 
 	
-    let mk_int_const_s ( ctx : context ) ( name : string )  =
-      mk_int_const ctx (Symbol.mk_string ctx name)
+    let mk_const_s ( ctx : context ) ( name : string )  =
+      mk_const ctx (Symbol.mk_string ctx name)
 	
     let mk_mod ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =    
       expr_of_ptr ctx (Z3native.mk_mod (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
@@ -1467,10 +1465,10 @@ struct
     let mk_rem ( ctx : context ) ( t1 : expr ) ( t2 : expr ) =
       expr_of_ptr  ctx (Z3native.mk_rem (context_gno ctx) (Expr.gno t1) (Expr.gno t2))
 
-    let mk_int_numeral_s ( ctx : context ) ( v : string ) =
+    let mk_numeral_s ( ctx : context ) ( v : string ) =
       expr_of_ptr ctx (Z3native.mk_numeral (context_gno ctx) v (Sort.gno (mk_sort ctx)))
 	
-    let mk_int_numeral_i ( ctx : context ) ( v : int ) =
+    let mk_numeral_i ( ctx : context ) ( v : int ) =
       expr_of_ptr ctx (Z3native.mk_int (context_gno ctx) v (Sort.gno (mk_sort ctx)))
 
     let mk_int2real ( ctx : context ) ( t : expr ) =
@@ -1496,11 +1494,11 @@ struct
 	
     let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)
 
-    let mk_real_const ( ctx : context ) ( name : Symbol.symbol )  =
+    let mk_const ( ctx : context ) ( name : Symbol.symbol )  =
       Expr.mk_const ctx name (mk_sort ctx)
 	
-    let mk_real_const_s ( ctx : context ) ( name : string )  =
-      mk_real_const ctx (Symbol.mk_string ctx name)
+    let mk_const_s ( ctx : context ) ( name : string )  =
+      mk_const ctx (Symbol.mk_string ctx name)
 
     let mk_numeral_nd ( ctx : context ) ( num : int ) ( den : int) =
       if (den == 0) then 

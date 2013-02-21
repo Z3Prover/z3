@@ -162,70 +162,68 @@ let basic_tests ( ctx : context ) =
     else 
       Printf.printf "Test passed.\n"
   ) ;
-  model_converter_test ctx
-(*
-            // Real num/den test.
-            RatNum rn = ctx.MkReal(42, 43);
-            Expr inum = rn.Numerator;
-            Expr iden = rn.Denominator;
-            Console.WriteLine("Numerator: " + inum + " Denominator: " + iden);
-            if (inum.ToString() != "42" || iden.ToString() != "43")
-                throw new TestFailedException();
-
-            if (rn.ToDecimalString(3) != "0.976?")
-                throw new TestFailedException();
-
-            BigIntCheck(ctx, ctx.MkReal("-1231231232/234234333"));
-            BigIntCheck(ctx, ctx.MkReal("-123123234234234234231232/234234333"));
-            BigIntCheck(ctx, ctx.MkReal("-234234333"));
-            BigIntCheck(ctx, ctx.MkReal("234234333/2"));
-
-
-            string bn = "1234567890987654321";
-
-            if (ctx.MkInt(bn).BigInteger.ToString() != bn)
-                throw new TestFailedException();
-
-            if (ctx.MkBV(bn, 128).BigInteger.ToString() != bn)
-                throw new TestFailedException();
-
-            if (ctx.MkBV(bn, 32).BigInteger.ToString() == bn)
-                throw new TestFailedException();
-
-            // Error handling test.
-            try
-            {
-                IntExpr i = ctx.MkInt("1/2");
-                throw new TestFailedException(); // unreachable
-            }
-            catch (Z3Exception)
-            {
-            }
-        }
-*)
+  model_converter_test ctx ;
+  (* Real num/den test. *)
+  let rn = Real.mk_numeral_nd ctx 42 43 in
+  let inum = (get_numerator rn) in
+  let iden = get_denominator rn in
+  Printf.printf "Numerator: %s Denominator: %s\n" (Real.to_string inum) (Real.to_string iden) ;
+  if ((Real.to_string inum) <> "42" or (Real.to_string iden) <> "43") then
+    raise (TestFailedException "")
+  else 
+    Printf.printf "Test passed.\n"
+  ;
+  if ((to_decimal_string rn 3) <> "0.976?") then
+    raise (TestFailedException "")
+  else 
+    Printf.printf "Test passed.\n"
+  ;
+  if (to_decimal_string (Real.mk_numeral_s ctx "-1231231232/234234333") 5 <> "-5.25640?") then
+    raise (TestFailedException "")
+  else if (to_decimal_string (Real.mk_numeral_s ctx "-123123234234234234231232/234234333") 5 <> "-525641278361333.28170?") then
+    raise (TestFailedException "")
+  else if (to_decimal_string (Real.mk_numeral_s ctx "-234234333") 5 <> "-234234333") then
+    raise (TestFailedException "")
+  else if (to_decimal_string (Real.mk_numeral_s ctx "234234333/2") 5 <> "117117166.5") then
+    raise (TestFailedException "")
+  ;
+  (* Error handling test. *)
+  try (
+    let i = Integer.mk_numeral_s ctx "1/2" in
+    raise (TestFailedException "") (* unreachable *)
+  )
+  with Z3native.Exception(_) -> (
+    Printf.printf "Exception caught, OK.\n" 
+  )
 
 
 let _ = 
-  if not (Log.open_ "z3.log") then
-    raise (TestFailedException "Log couldn't be opened.")
-  else
-    (
-      Printf.printf "Running Z3 version %s\n" Version.to_string ;
-      let cfg = [("model", "true"); ("proof", "false")] in
-      let ctx = (mk_context cfg) in
-      let is = (Symbol.mk_int ctx 42) in
-      let ss = (Symbol.mk_string ctx "mySymbol") in
-      let bs = (Boolean.mk_sort ctx) in
-      let ints = (Integer.mk_sort ctx) in
-      let rs = (Real.mk_sort ctx) in
-      Printf.printf "int symbol: %s\n" (Symbol.to_string is);
-      Printf.printf "string symbol: %s\n" (Symbol.to_string ss);
-      Printf.printf "bool sort: %s\n" (Sort.to_string bs);
-      Printf.printf "int sort: %s\n" (Sort.to_string ints);
-      Printf.printf "real sort: %s\n" (Sort.to_string rs);
-      basic_tests ctx ;
-      Printf.printf "Disposing...\n";
-      Gc.full_major ()
-    );
-  Printf.printf "Exiting.\n";
+  try (
+    if not (Log.open_ "z3.log") then
+      raise (TestFailedException "Log couldn't be opened.")
+    else
+      (
+	Printf.printf "Running Z3 version %s\n" Version.to_string ;
+	let cfg = [("model", "true"); ("proof", "false")] in
+	let ctx = (mk_context cfg) in
+	let is = (Symbol.mk_int ctx 42) in
+	let ss = (Symbol.mk_string ctx "mySymbol") in
+	let bs = (Boolean.mk_sort ctx) in
+	let ints = (Integer.mk_sort ctx) in
+	let rs = (Real.mk_sort ctx) in
+	Printf.printf "int symbol: %s\n" (Symbol.to_string is);
+	Printf.printf "string symbol: %s\n" (Symbol.to_string ss);
+	Printf.printf "bool sort: %s\n" (Sort.to_string bs);
+	Printf.printf "int sort: %s\n" (Sort.to_string ints);
+	Printf.printf "real sort: %s\n" (Sort.to_string rs);
+	basic_tests ctx ;
+	Printf.printf "Disposing...\n";
+	Gc.full_major ()
+      );
+    Printf.printf "Exiting.\n" ;
+    exit 0
+  ) with Z3native.Exception(msg) -> (
+    Printf.printf "Z3 EXCEPTION: %s\n" msg ;
+    exit 1
+  )    
 ;;
