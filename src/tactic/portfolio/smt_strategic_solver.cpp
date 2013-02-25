@@ -72,6 +72,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_uflra_tactic(m, p);
     else if (logic=="LRA")
         return mk_lra_tactic(m, p);
+    else if (logic=="LIA")
+        return mk_lia_tactic(m, p);
     else if (logic=="UFBV")
         return mk_ufbv_tactic(m, p);
     else if (logic=="BV")

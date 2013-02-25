@@ -111,19 +111,29 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
     if (m().is_true(f))
         return;
     if (m().is_false(f)) {
+        // Make sure pr and d are not deleted by the m().del(...) statements.
+        proof_ref saved_pr(m());
+        expr_dependency_ref saved_d(m());
+        saved_pr = pr;
+        saved_d  = d;
         m().del(m_forms);
         m().del(m_proofs);
         m().del(m_dependencies);
         m_inconsistent = true;
+        m().push_back(m_forms, m().mk_false());
+        if (proofs_enabled())
+            m().push_back(m_proofs, saved_pr);
+        if (unsat_core_enabled())
+            m().push_back(m_dependencies, saved_d);
     }
     else {
         SASSERT(!m_inconsistent);
+        m().push_back(m_forms, f);
+        if (proofs_enabled())
+            m().push_back(m_proofs, pr);
+        if (unsat_core_enabled())
+            m().push_back(m_dependencies, d);
     }
-    m().push_back(m_forms, f);
-    if (proofs_enabled())
-        m().push_back(m_proofs, pr);
-    if (unsat_core_enabled())
-        m().push_back(m_dependencies, d);
 }
 
 void goal::quick_process(bool save_first, expr * & f, expr_dependency * d) {

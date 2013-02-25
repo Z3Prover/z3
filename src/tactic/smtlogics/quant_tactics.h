@@ -29,5 +29,7 @@ tactic * mk_auflia_tactic(ast_manager & m, params_ref const & p);
 tactic * mk_auflira_tactic(ast_manager & m, params_ref const & p);
 tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p);
 tactic * mk_lra_tactic(ast_manager & m, params_ref const & p);
+tactic * mk_lia_tactic(ast_manager & m, params_ref const & p);
+tactic * mk_lira_tactic(ast_manager & m, params_ref const & p);
 
 #endif

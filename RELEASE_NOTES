@@ -61,6 +61,8 @@ Version 4.3.2
 
 - Fixed bugs in the C++ API (Thanks to Andrey Kupriyanov).
 
+- Fixed bug reported at http://z3.codeplex.com/workitem/23 (Thanks to Paul Jackson).
+
 Version 4.3.1
 =============
 

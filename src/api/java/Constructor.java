@@ -16,8 +16,7 @@ public class Constructor extends Z3Object
 	 * @throws Z3Exception 
 	 **/
 	public int getNumFields() throws Z3Exception
-	{
-		init();
+	{	
 		return n;
 	}
 
@@ -27,8 +26,11 @@ public class Constructor extends Z3Object
 	 **/
 	public FuncDecl ConstructorDecl() throws Z3Exception
 	{
-		init();
-		return m_constructorDecl;
+	    Native.LongPtr constructor = new Native.LongPtr();
+	    Native.LongPtr tester = new Native.LongPtr();
+	    long[] accessors = new long[n];
+        Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
+        return new FuncDecl(getContext(), constructor.value);         
 	}
 
 	/**
@@ -37,8 +39,11 @@ public class Constructor extends Z3Object
 	 **/
 	public FuncDecl getTesterDecl() throws Z3Exception
 	{
-		init();
-		return m_testerDecl;
+	    Native.LongPtr constructor = new Native.LongPtr();
+        Native.LongPtr tester = new Native.LongPtr();
+        long[] accessors = new long[n];
+        Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
+        return new FuncDecl(getContext(), tester.value);
 	}
 
 	/**
@@ -47,8 +52,14 @@ public class Constructor extends Z3Object
 	 **/
 	public FuncDecl[] getAccessorDecls() throws Z3Exception
 	{
-		init();
-		return m_accessorDecls;
+	    Native.LongPtr constructor = new Native.LongPtr();
+        Native.LongPtr tester = new Native.LongPtr();
+        long[] accessors = new long[n];
+        Native.queryConstructor(getContext().nCtx(), getNativeObject(), n, constructor, tester, accessors);
+        FuncDecl[] t = new FuncDecl[n];
+        for (int i = 0; i < n; i++)
+            t[i] = new FuncDecl(getContext(), accessors[i]); 
+        return t;
 	}
 
 	/**
@@ -60,9 +71,6 @@ public class Constructor extends Z3Object
 	}
 
 	private int n = 0;
-	private FuncDecl m_testerDecl = null;
-	private FuncDecl m_constructorDecl = null;
-	private FuncDecl[] m_accessorDecls = null;
 
 	Constructor(Context ctx, Symbol name, Symbol recognizer,
 			Symbol[] fieldNames, Sort[] sorts, int[] sortRefs)
@@ -87,21 +95,4 @@ public class Constructor extends Z3Object
 				Sort.arrayToNative(sorts), sortRefs));
 
 	}
-
-	private void init() throws Z3Exception
-	{
-		if (m_testerDecl != null)
-			return;
-		Native.LongPtr constructor = new Native.LongPtr();
-		Native.LongPtr tester = new Native.LongPtr();
-		long[] accessors = new long[n];
-		Native.queryConstructor(getContext().nCtx(), getNativeObject(), n,
-				constructor, tester, accessors);
-		m_constructorDecl = new FuncDecl(getContext(), constructor.value);
-		m_testerDecl = new FuncDecl(getContext(), tester.value);
-		m_accessorDecls = new FuncDecl[n];
-		for (int i = 0; i < n; i++)
-			m_accessorDecls[i] = new FuncDecl(getContext(), accessors[i]);
-	}
-
 }

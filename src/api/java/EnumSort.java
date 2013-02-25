@@ -14,29 +14,38 @@ public class EnumSort extends Sort
 	/**
 	 * The function declarations of the constants in the enumeration.
 	 **/
-	public FuncDecl[] getConstDecls()
+	public FuncDecl[] getConstDecls() throws Z3Exception
 	{
-		return _constdecls;
+	    int n = Native.getDatatypeSortNumConstructors(getContext().nCtx(), getNativeObject());
+        FuncDecl[] t = new FuncDecl[n];
+        for (int i = 0; i < n; i++)
+            t[i] = new FuncDecl(getContext(), Native.getDatatypeSortConstructor(getContext().nCtx(), getNativeObject(), i));
+        return t;
 	}
 
 	/**
 	 * The constants in the enumeration.
 	 **/
-	public Expr[] getConsts()
-	{
-		return _consts;
+	public Expr[] getConsts() throws Z3Exception
+	{	    
+	    FuncDecl[] cds = getConstDecls();
+        Expr[] t = new Expr[cds.length];
+        for (int i = 0; i < t.length; i++)
+            t[i] = getContext().mkApp(cds[i]);
+        return t;
 	}
 
 	/**
 	 * The test predicates for the constants in the enumeration.
 	 **/
-	public FuncDecl[] getTesterDecls()
+	public FuncDecl[] getTesterDecls() throws Z3Exception
 	{
-		return _testerdecls;
+	    int n = Native.getDatatypeSortNumConstructors(getContext().nCtx(), getNativeObject());
+        FuncDecl[] t = new FuncDecl[n];
+        for (int i = 0; i < n; i++)
+            t[i] = new FuncDecl(getContext(), Native.getDatatypeSortRecognizer(getContext().nCtx(), getNativeObject(), i));
+        return t;
 	}
-
-	private FuncDecl[] _constdecls = null, _testerdecls = null;
-	private Expr[] _consts = null;
 
 	EnumSort(Context ctx, Symbol name, Symbol[] enumNames) throws Z3Exception
 	{
@@ -47,15 +56,6 @@ public class EnumSort extends Sort
 		long[] n_testers = new long[n];
 		setNativeObject(Native.mkEnumerationSort(ctx.nCtx(),
 				name.getNativeObject(), (int) n, Symbol.arrayToNative(enumNames),
-				n_constdecls, n_testers));
-		_constdecls = new FuncDecl[n];
-		for (int i = 0; i < n; i++)
-		    _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
-		_testerdecls = new FuncDecl[n];
-		for (int i = 0; i < n; i++)
-		    _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
-		_consts = new Expr[n];
-		for (int i = 0; i < n; i++)
-		    _consts[i] = ctx.mkApp(_constdecls[i], (Expr[])null);
+				n_constdecls, n_testers));		
 	}
 };

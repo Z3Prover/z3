@@ -313,23 +313,28 @@ struct is_non_nira_functor {
     bool          m_int;
     bool          m_real;
     bool          m_quant;
+    bool          m_linear;
 
-    is_non_nira_functor(ast_manager & _m, bool _int, bool _real, bool _quant):m(_m), u(m), m_int(_int), m_real(_real), m_quant(_quant) {}
+    is_non_nira_functor(ast_manager & _m, bool _int, bool _real, bool _quant, bool linear):m(_m), u(m), m_int(_int), m_real(_real), m_quant(_quant), m_linear(linear) {}
+
+    void throw_found() {
+        throw found();
+    }
 
     void operator()(var * x) {
         if (!m_quant)
-            throw found();
+            throw_found();
         sort * s = x->get_sort();
         if (m_int && u.is_int(s))
             return;
         if (m_real && u.is_real(s))
             return;
-        throw found();
+        throw_found();
     }
     
     void operator()(quantifier *) { 
         if (!m_quant)
-            throw found(); 
+            throw_found(); 
     }
     
     bool compatible_sort(app * n) const {
@@ -344,35 +349,92 @@ struct is_non_nira_functor {
 
     void operator()(app * n) {
         if (!compatible_sort(n))
-            throw found();
+            throw_found();
         family_id fid = n->get_family_id();
         if (fid == m.get_basic_family_id())
             return; 
-        if (fid == u.get_family_id())
+        if (fid == u.get_family_id()) {
+            switch (n->get_decl_kind()) {
+            case OP_LE:  case OP_GE: case OP_LT: case OP_GT:
+            case OP_ADD: case OP_UMINUS: case OP_SUB: case OP_ABS: 
+            case OP_NUM:
+                return;
+            case OP_MUL:
+                if (m_linear) {
+                    if (n->get_num_args() != 2)
+                        throw_found();
+                    if (!u.is_numeral(n->get_arg(0)))
+                        throw_found();
+                }
+                return;
+            case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
+                if (m_linear && !u.is_numeral(n->get_arg(1)))
+                    throw_found();
+                return;
+            case OP_IS_INT:
+                if (m_real)
+                    throw_found();
+                return;
+            case OP_TO_INT:
+            case OP_TO_REAL:
+                return;
+            case OP_POWER:
+                if (m_linear)
+                    throw_found();
+                return;
+            case OP_IRRATIONAL_ALGEBRAIC_NUM:
+                if (m_linear || !m_real)
+                    throw_found();
+                return;
+            default:
+                throw_found();
+            }
             return;
+        }
+
         if (is_uninterp_const(n))
             return;
-        throw found();
+        throw_found();
     }
 };
 
 static bool is_qfnia(goal const & g) {
-    is_non_nira_functor p(g.m(), true, false, false);
+    is_non_nira_functor p(g.m(), true, false, false, false);
     return !test(g, p);
 }
 
 static bool is_qfnra(goal const & g) {
-    is_non_nira_functor p(g.m(), false, true, false);
+    is_non_nira_functor p(g.m(), false, true, false, false);
     return !test(g, p);
 }
 
 static bool is_nia(goal const & g) {
-    is_non_nira_functor p(g.m(), true, false, true);
+    is_non_nira_functor p(g.m(), true, false, true, false);
     return !test(g, p);
 }
 
 static bool is_nra(goal const & g) {
-    is_non_nira_functor p(g.m(), false, true, true);
+    is_non_nira_functor p(g.m(), false, true, true, false);
+    return !test(g, p);
+}
+
+static bool is_nira(goal const & g) {
+    is_non_nira_functor p(g.m(), true, true, true, false);
+    return !test(g, p);
+}
+
+static bool is_lra(goal const & g) {
+    is_non_nira_functor p(g.m(), false, true, true, true);
+    return !test(g, p);
+}
+
+static bool is_lia(goal const & g) {
+    is_non_nira_functor p(g.m(), true, false, true, true);
+    return !test(g, p);
+}
+
+static bool is_lira(goal const & g) {
+    is_non_nira_functor p(g.m(), true, true, true, true);
     return !test(g, p);
 }
 
@@ -404,6 +466,34 @@ public:
     }
 };
 
+class is_nira_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return is_nira(g);
+    }
+};
+
+class is_lia_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return is_lia(g);
+    }
+};
+
+class is_lra_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return is_lra(g);
+    }
+};
+
+class is_lira_probe : public probe {
+public:
+    virtual result operator()(goal const & g) {
+        return is_lira(g);
+    }
+};
+
 probe * mk_is_qfnia_probe() {
     return alloc(is_qfnia_probe);
 }
@@ -418,4 +508,20 @@ probe * mk_is_nia_probe() {
 
 probe * mk_is_nra_probe() {
     return alloc(is_nra_probe);
+}
+
+probe * mk_is_nira_probe() {
+    return alloc(is_nira_probe);
+}
+
+probe * mk_is_lia_probe() {
+    return alloc(is_lia_probe);
+}
+
+probe * mk_is_lra_probe() {
+    return alloc(is_lra_probe);
+}
+
+probe * mk_is_lira_probe() {
+    return alloc(is_lira_probe);
 }

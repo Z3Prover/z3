@@ -981,14 +981,6 @@ br_status arith_rewriter::mk_to_real_core(expr * arg, expr_ref & result) {
         result = m_util.mk_numeral(a, false);
         return BR_DONE;
     }
-#if 0
-    // The following rewriting rule is not correct.
-    // It is used only for making experiments.
-    if (m_util.is_to_int(arg)) {
-        result = to_app(arg)->get_arg(0);
-        return BR_DONE;
-    }
-#endif
     // push to_real over OP_ADD, OP_MUL
     if (m_push_to_real) {
         if (m_util.is_add(arg) || m_util.is_mul(arg)) {
