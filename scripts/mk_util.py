@@ -35,6 +35,7 @@ JNI_HOME=getenv("JNI_HOME", None)
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
 JAVAC=None
+JAR=None
 PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
@@ -215,6 +216,7 @@ def find_jni_h(path):
 def check_java():
     global JNI_HOME
     global JAVAC
+    global JAR
 
     JDK_HOME = getenv('JDK_HOME', None) # we only need to check this locally.
     
@@ -245,6 +247,17 @@ def check_java():
 
     if JAVAC == None:
         raise MKException('No java compiler in the path, please adjust your PATH or set JDK_HOME to the location of the JDK.')
+
+    if is_verbose():
+        print("Finding jar ...")
+
+    if IS_WINDOWS:
+        JAR = os.path.join(os.path.dirname(JAVAC), 'jar.exe')
+    else:
+        JAR = os.path.join(os.path.dirname(JAVAC), 'jar')
+
+    if not os.path.exists(JAR):
+        raise MKException("Failed to detect jar at '%s'; the environment variable JDK_HOME is probably set to the wrong path." % os.path.join(JDK_HOME))
 
     if is_verbose():
         print("Testing %s..." % JAVAC)
@@ -1120,6 +1133,9 @@ class JavaDLLComponent(Component):
         self.manifest_file = manifest_file
 
     def mk_makefile(self, out):
+        global JAVAC
+        global JAR
+
         if is_java_enabled():
             mk_dir(os.path.join(BUILD_DIR, 'api', 'java', 'classes'))
             dllfile = '%s$(SO_EXT)' % self.dll_name            
@@ -1146,6 +1162,9 @@ class JavaDLLComponent(Component):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
             out.write(deps)
             out.write('\n')
+            if IS_WINDOWS:
+                JAVAC = '"%s"' % JAVAC
+                JAR = '"%s"' % JAR
             t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
             t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
@@ -1153,7 +1172,7 @@ class JavaDLLComponent(Component):
                                                   os.path.join(self.to_src_dir, '*'), 
                                                   os.path.join('api', 'java', 'classes')))
             out.write(t)
-            out.write('\tjar cfm %s.jar %s -C %s .\n' % (self.package_name, 
+            out.write('\t%s cfm %s.jar %s -C %s .\n' % (JAR, self.package_name, 
                                                          os.path.join(self.to_src_dir, 'manifest'), 
                                                          os.path.join('api', 'java', 'classes')))
             out.write('java: %s.jar\n\n' % self.package_name)
