@@ -36,6 +36,7 @@ private:
     class value_index2;
     class index;
     class passive;
+    class passive2;
     struct offset_t { 
         unsigned m_offset; 
         offset_t(unsigned o) : m_offset(o) {} 
@@ -69,13 +70,20 @@ private:
     svector<offset_t>  m_basis;      // vector of current basis
     svector<offset_t>  m_free_list;  // free list of unused storage
     svector<offset_t>  m_active;     // active set
+    svector<offset_t>  m_sos;        // set of support
     svector<offset_t>  m_zero;       // zeros
     passive*           m_passive;    // passive set
+    passive2*          m_passive2;   // passive set
     volatile bool      m_cancel;     
     stats              m_stats;
     index*             m_index;      // index of generated vectors
     unsigned_vector    m_ints;       // indices that can be both positive and negative
     unsigned           m_current_ineq;
+    
+    bool               m_use_support;             // parameter: (associativity) resolve only against vectors that are initially in basis.
+    bool               m_use_ordered_support;     // parameter: (commutativity) resolve in order
+    bool               m_use_ordered_subsumption; // parameter
+
     class iterator {
         hilbert_basis const& hb;
         unsigned             m_idx;
@@ -91,10 +99,12 @@ private:
     static offset_t mk_invalid_offset();
     static bool     is_invalid_offset(offset_t offs);
     lbool saturate(num_vector const& ineq, bool is_eq);
+    lbool saturate_orig(num_vector const& ineq, bool is_eq);
     void init_basis();
     void select_inequality();
     unsigned get_num_nonzeros(num_vector const& ineq);
     unsigned get_ineq_product(num_vector const& ineq);
+    numeral   get_ineq_diff(num_vector const& ineq);
 
     void add_unit_vector(unsigned i, numeral const& e);
     unsigned get_num_vars() const;
@@ -106,11 +116,14 @@ private:
     void recycle(offset_t idx);
     bool can_resolve(offset_t i, offset_t j) const;
     sign_t get_sign(offset_t idx) const;
-    void add_goal(offset_t idx);
+    bool add_goal(offset_t idx);
     offset_t alloc_vector();
     void resolve(offset_t i, offset_t j, offset_t r);
     iterator begin() const { return iterator(*this,0); }
     iterator end() const { return iterator(*this, m_basis.size()); }
+
+    class vector_lt_t;
+    bool vector_lt(offset_t i, offset_t j) const;
 
     values vec(offset_t offs) const;
     
@@ -124,6 +137,10 @@ public:
     ~hilbert_basis();
 
     void reset();
+
+    void set_use_support(bool b) { m_use_support = b; }
+    void set_use_ordered_support(bool b) { m_use_ordered_support = b; }
+    void set_use_ordered_subsumption(bool b) { m_use_ordered_subsumption = b; }
 
     // add inequality v*x >= 0
     // add inequality v*x <= 0

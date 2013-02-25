@@ -10,6 +10,9 @@
 #include <time.h>
 #include <sstream>
 
+static bool g_use_ordered_support = false;
+static bool g_use_ordered_subsumption = false;
+static bool g_use_support = false;
 
 class hilbert_basis_validate {
     ast_manager& m;
@@ -241,6 +244,9 @@ static void saturate_basis(hilbert_basis& hb) {
     signal(SIGINT, on_ctrl_c);
     g_hb = &hb;
     g_start_time = static_cast<double>(clock());
+    hb.set_use_ordered_support(g_use_ordered_support);
+    hb.set_use_support(g_use_support);
+    hb.set_use_ordered_subsumption(g_use_ordered_subsumption);
     lbool is_sat = hb.saturate();
 
     switch(is_sat) {
@@ -505,6 +511,10 @@ static void tst15() {
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
+//    tst3();
+//    return;
+
+    g_use_ordered_support = true;
 
     if (true) {
         tst1();
@@ -531,4 +541,14 @@ void tst_hilbert_basis() {
     else {
         gorrila_test(0, 10, 7, 20, 11);
     }
+
+    return;
+    std::cout << "ordered support\n";
+    g_use_ordered_support = true;
+    tst4();
+
+    std::cout << "non-ordered support\n";
+    g_use_ordered_support = false;
+    tst4();
+
 }

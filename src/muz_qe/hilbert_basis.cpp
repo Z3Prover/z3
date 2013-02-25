@@ -25,6 +25,8 @@ Revision History:
 template<typename Value>
 class rational_map : public map<rational, Value, rational::hash_proc, rational::eq_proc> {};
 
+typedef int_hashtable<int_hash, default_eq<int> > int_table;
+
 
 class hilbert_basis::value_index1 {
     struct stats {
@@ -36,7 +38,6 @@ class hilbert_basis::value_index1 {
         void reset() { memset(this, 0, sizeof(*this)); }
     };    
 
-    typedef int_hashtable<int_hash, default_eq<int> > int_table;
     hilbert_basis&     hb;
     int_table          m_table;
     stats              m_stats;
@@ -167,7 +168,9 @@ class hilbert_basis::value_index2 {
             return hilbert_basis::is_abs_geq(n2, n1);
         }
     };
-    struct checker : public heap_trie<numeral, key_le, unsigned>::check_value {
+
+    typedef heap_trie<numeral, key_le, numeral::hash_proc, unsigned> ht;
+    struct checker : public ht::check_value {
         hilbert_basis* hb;
         offset_t  m_value;
         offset_t* m_found;
@@ -183,7 +186,7 @@ class hilbert_basis::value_index2 {
         }
     };
     hilbert_basis&               hb;
-    heap_trie<numeral, key_le, unsigned> m_trie;
+    ht                           m_trie;
     vector<unsigned>             m_found;
     bool                         m_init;
     checker                      m_checker;
@@ -483,16 +486,168 @@ public:
     }
 };
 
+
+class hilbert_basis::vector_lt_t {
+    hilbert_basis& hb;
+public:
+    vector_lt_t(hilbert_basis& hb): hb(hb) {}
+    bool operator()(offset_t idx1, offset_t idx2) const {
+        return hb.vector_lt(idx1, idx2);
+    }
+};
+
+
+class hilbert_basis::passive2 {
+    struct lt {
+        passive2** p;
+        lt(passive2** p): p(p) {}
+        bool operator()(int v1, int v2) const {
+            return (**p)(v1, v2);
+        }
+    };
+    hilbert_basis&      hb;
+    svector<offset_t>   const& m_sos;
+    unsigned_vector     m_psos;
+    svector<offset_t>   m_pas;
+    vector<numeral>     m_weight;
+    unsigned_vector     m_free_list;
+    passive2*           m_this;
+    lt                  m_lt;
+    heap<lt>            m_heap;    // binary heap over weights
+
+    numeral sum_abs(offset_t idx) const {
+        numeral w(0);
+        unsigned nv = hb.get_num_vars();
+        for (unsigned i = 0; i < nv; ++i) {
+            w += abs(hb.vec(idx)[i]);
+        }
+        return w;
+    }
+
+public:
+    passive2(hilbert_basis& hb): 
+        hb(hb),
+        m_sos(hb.m_sos),
+        m_lt(&m_this),
+        m_heap(10, m_lt)
+    {
+        m_this = this;
+    }
+
+    void reset() {
+        m_heap.reset();
+        m_free_list.reset();
+        m_psos.reset();
+        m_pas.reset();
+        m_weight.reset();
+    }
+
+    void insert(offset_t idx, unsigned offset) {
+        SASSERT(!m_sos.empty());
+        unsigned v;
+        numeral w = sum_abs(idx) + sum_abs(m_sos[0]);
+        if (m_free_list.empty()) {
+            v = m_pas.size();
+            m_pas.push_back(idx);
+            m_psos.push_back(offset);
+            m_weight.push_back(w);
+            m_heap.set_bounds(v+1);
+        }
+        else {
+            v = m_free_list.back();
+            m_free_list.pop_back();
+            m_pas[v] = idx;
+            m_psos[v] = offset;
+            m_weight[v] = w;
+        }
+        next_resolvable(v);
+    }
+
+    bool empty() const {
+        return m_heap.empty();
+    }
+
+    unsigned pop(offset_t& sos, offset_t& pas) {
+        SASSERT (!empty());
+        unsigned val = static_cast<unsigned>(m_heap.erase_min());
+        unsigned psos = m_psos[val];
+        sos = m_sos[psos];
+        pas = m_pas[val];
+        m_psos[val]++;
+        next_resolvable(val);
+        numeral old_weight = hb.vec(pas).weight();
+        numeral new_weight = hb.vec(sos).weight() + old_weight;
+        if (new_weight.is_pos() != old_weight.is_pos()) {
+            psos = 0;
+        }
+        return psos;
+    }
+
+    bool operator()(int v1, int v2) const {
+        return m_weight[v1] < m_weight[v2];
+    }
+
+    class iterator {
+        passive2& p;
+        unsigned m_idx;
+        void fwd() {
+            while (m_idx < p.m_pas.size() && 
+                   is_invalid_offset(p.m_pas[m_idx])) {
+                ++m_idx;
+            }
+        }
+    public:
+        iterator(passive2& p, unsigned i): p(p), m_idx(i) { fwd(); }
+        offset_t pas() const { return p.m_pas[m_idx]; }
+        offset_t sos() const { return p.m_sos[p.m_psos[m_idx]]; }
+        iterator& operator++() { ++m_idx; fwd(); return *this; }
+        iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
+        bool operator==(iterator const& it) const {return m_idx == it.m_idx; }
+        bool operator!=(iterator const& it) const {return m_idx != it.m_idx; }
+    };
+
+    iterator begin() {
+        return iterator(*this, 0);
+    }
+
+    iterator end() {
+        return iterator(*this, m_pas.size());
+    }    
+private:
+    void next_resolvable(unsigned v) {
+        offset_t pas = m_pas[v];
+        while (m_psos[v] < m_sos.size()) {
+            offset_t sos = m_sos[m_psos[v]];
+            if (hb.can_resolve(sos, pas)) {
+                m_weight[v] = sum_abs(pas) + sum_abs(sos);
+                m_heap.insert(v);
+                return;
+            }
+            ++m_psos[v];
+        }
+        // add pas to free-list for hb if it is not in sos.
+        m_free_list.push_back(v);
+        m_psos[v] = UINT_MAX;
+        m_pas[v] = mk_invalid_offset();
+    }
+};
+
+
 hilbert_basis::hilbert_basis(): 
-    m_cancel(false) 
+    m_cancel(false),
+    m_use_support(true),
+    m_use_ordered_support(true),
+    m_use_ordered_subsumption(true)
 {
     m_index = alloc(index, *this);
     m_passive = alloc(passive, *this);
+    m_passive2 = alloc(passive2, *this);
 }
 
 hilbert_basis::~hilbert_basis() {
     dealloc(m_index);
     dealloc(m_passive);
+    dealloc(m_passive2);
 }
 
 hilbert_basis::offset_t hilbert_basis::mk_invalid_offset() {
@@ -510,6 +665,7 @@ void hilbert_basis::reset() {
     m_free_list.reset();
     m_active.reset();
     m_passive->reset();
+    m_passive2->reset();
     m_zero.reset();
     m_index->reset();
     m_cancel = false;
@@ -621,6 +777,7 @@ lbool hilbert_basis::saturate() {
     init_basis();
     m_current_ineq = 0;
     while (!m_cancel && m_current_ineq < m_ineqs.size()) {
+        IF_VERBOSE(1, { statistics st; collect_statistics(st); st.display(verbose_stream()); });
         select_inequality();
         lbool r = saturate(m_ineqs[m_current_ineq], m_iseq[m_current_ineq]);
         ++m_stats.m_num_saturations;
@@ -635,27 +792,26 @@ lbool hilbert_basis::saturate() {
     return l_true;
 }
 
-lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
+lbool hilbert_basis::saturate_orig(num_vector const& ineq, bool is_eq) {
     m_active.reset();
     m_passive->reset();
     m_zero.reset();
     m_index->reset();
+    int_table support;
     TRACE("hilbert_basis", display_ineq(tout, ineq, is_eq););
-    bool has_non_negative = false;
     iterator it = begin();
     for (; it != end(); ++it) {
-        values v = vec(*it);
+        offset_t idx = *it;
+        values v = vec(idx);
         v.weight() = get_weight(v, ineq);
-        add_goal(*it);
-        if (v.weight().is_nonneg()) {
-            has_non_negative = true;
+        add_goal(idx);
+        if (m_use_support) {
+            support.insert(idx.m_offset);
         }
     }
     TRACE("hilbert_basis", display(tout););
-    if (!has_non_negative) {
-        return l_false;
-    }
     // resolve passive into active
+    offset_t j = alloc_vector();
     while (!m_passive->empty()) {
         if (m_cancel) {
             return l_undef;
@@ -667,14 +823,16 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
             continue;
         }
         for (unsigned i = 0; !m_cancel && i < m_active.size(); ++i) {
-            if (can_resolve(idx, m_active[i])) {
-                offset_t j = alloc_vector();
+            if ((!m_use_support || support.contains(m_active[i].m_offset)) && can_resolve(idx, m_active[i])) {
                 resolve(idx, m_active[i], j);
-                add_goal(j);
+                if (add_goal(j)) {
+                    j = alloc_vector();
+                }
             }
         }
         m_active.push_back(idx);
     }
+    m_free_list.push_back(j);
     // Move positive from active and zeros to new basis.
     m_basis.reset();
     m_basis.append(m_zero);
@@ -691,7 +849,103 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
     m_passive->reset();
     m_zero.reset();
     TRACE("hilbert_basis", display(tout););
-    return l_true;
+    return m_basis.empty()?l_false:l_true;
+}
+
+bool hilbert_basis::vector_lt(offset_t idx1, offset_t idx2) const {
+    values v = vec(idx1);
+    values w = vec(idx2);
+    numeral a(0), b(0);
+    for (unsigned i = 0; i < get_num_vars(); ++i) {
+        a += abs(v[i]);
+        b += abs(w[i]);
+    }
+    return a < b;
+}
+
+lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
+    m_zero.reset();
+    m_index->reset();
+    m_passive2->reset();
+    m_sos.reset();
+    TRACE("hilbert_basis", display_ineq(tout, ineq, is_eq););
+    unsigned init_basis_size = 0;
+    for (unsigned i = 0; i < m_basis.size(); ++i) {
+        offset_t idx = m_basis[i];
+        values v = vec(idx);
+        v.weight() = get_weight(v, ineq);
+        m_index->insert(idx, v);
+        if (v.weight().is_zero()) {
+            m_zero.push_back(idx);
+        }
+        else {
+            if (v.weight().is_pos()) {
+                m_basis[init_basis_size++] = idx;
+            }
+            m_sos.push_back(idx);
+        }
+    }
+    m_basis.resize(init_basis_size);
+    // ASSERT basis is sorted by weight.
+
+    // initialize passive
+    for (unsigned i = 0; (init_basis_size > 0) && i < m_sos.size(); ++i) {
+        if (vec(m_sos[i]).weight().is_neg()) {
+            m_passive2->insert(m_sos[i], 0);         
+        }   
+    }
+
+    TRACE("hilbert_basis", display(tout););
+    // resolve passive into active
+    offset_t idx = alloc_vector();
+    while (!m_cancel && !m_passive2->empty()) {
+        offset_t sos, pas;
+        TRACE("hilbert_basis", display(tout); );
+        unsigned offset = m_passive2->pop(sos, pas);
+        SASSERT(can_resolve(sos, pas));
+        resolve(sos, pas, idx);
+        if (is_subsumed(idx)) {
+            continue;
+        }
+        values v = vec(idx);
+        m_index->insert(idx, v);
+        if (v.weight().is_zero()) {
+            m_zero.push_back(idx);
+        }
+        else {
+            if (!m_use_ordered_support) {
+                offset = 0;
+            }
+            m_passive2->insert(idx, offset);
+            if (v.weight().is_pos()) {
+                m_basis.push_back(idx);
+            }
+        }
+        idx = alloc_vector();
+    }
+    if (m_cancel) {
+        return l_undef;
+    }
+
+    m_free_list.push_back(idx);
+    // remove positive values from basis if we are looking for an equality.
+    while (is_eq && !m_basis.empty()) {
+        m_free_list.push_back(m_basis.back());
+        m_basis.pop_back();
+    }
+    for (unsigned i = 0; i < init_basis_size; ++i) {
+        offset_t idx = m_basis[i];
+        if (vec(idx).weight().is_neg()) {
+            m_basis[i] = m_basis.back();
+            m_basis.pop_back();
+            
+        }
+    }
+    m_basis.append(m_zero);
+    std::sort(m_basis.begin(), m_basis.end(), vector_lt_t(*this));
+    m_zero.reset();
+    TRACE("hilbert_basis", display(tout););
+    return m_basis.empty()?l_false:l_true;
 }
 
 void hilbert_basis::get_basis_solution(unsigned i, num_vector& v, bool& is_initial) {
@@ -716,11 +970,20 @@ void hilbert_basis::select_inequality() {
     unsigned best = m_current_ineq;
     unsigned non_zeros = get_num_nonzeros(m_ineqs[best]);
     unsigned prod      = get_ineq_product(m_ineqs[best]);
+    //numeral  diff      = get_ineq_diff(m_ineqs[best]);
     for (unsigned j = best+1; prod != 0 && j < m_ineqs.size(); ++j) {
         unsigned non_zeros2 = get_num_nonzeros(m_ineqs[j]);
         unsigned prod2 = get_ineq_product(m_ineqs[j]);
+        //numeral diff2  = get_ineq_diff(m_ineqs[j]);
+        if (prod2 == 0) {
+            prod = prod2;
+            non_zeros = non_zeros2;
+            best = j;
+            break;
+        }
         if (non_zeros2 < non_zeros || (non_zeros2 == non_zeros && prod2 < prod)) {
             prod = prod2;
+            //  diff = diff2;
             non_zeros = non_zeros2;
             best = j;
         }
@@ -755,6 +1018,22 @@ unsigned hilbert_basis::get_ineq_product(num_vector const& ineq) {
         }
     }
     return num_pos * num_neg;
+}
+
+hilbert_basis::numeral hilbert_basis::get_ineq_diff(num_vector const& ineq) {
+    numeral max_pos(0), min_neg(0);
+    iterator it = begin();
+    for (; it != end(); ++it) {
+        values v = vec(*it);
+        numeral w = get_weight(v, ineq);
+        if (w > max_pos) {
+            max_pos = w;
+        }
+        else if (w < min_neg) {
+            min_neg = w;
+        }
+    }
+    return max_pos - min_neg;
 }
 
 void hilbert_basis::recycle(offset_t idx) {
@@ -794,11 +1073,11 @@ hilbert_basis::offset_t hilbert_basis::alloc_vector() {
     }
 }
 
-void hilbert_basis::add_goal(offset_t idx) {
+bool hilbert_basis::add_goal(offset_t idx) {
     TRACE("hilbert_basis", display(tout, idx););
     values v = vec(idx);
     if (is_subsumed(idx)) {
-        return;
+        return false;
     }
     m_index->insert(idx, v);
     if (v.weight().is_zero()) {
@@ -807,6 +1086,7 @@ void hilbert_basis::add_goal(offset_t idx) {
     else {
         m_passive->insert(idx);
     }
+    return true;
 }
 
 bool hilbert_basis::is_subsumed(offset_t idx)  {
@@ -883,6 +1163,15 @@ void hilbert_basis::display(std::ostream& out) const {
         out << "passive:\n";
         for (; it != end; ++it) {
             display(out, *it);
+        }
+    }
+    if (!m_passive2->empty()) {
+        passive2::iterator it = m_passive2->begin();
+        passive2::iterator end = m_passive2->end();
+        out << "passive:\n";
+        for (; it != end; ++it) {
+            display(out << "sos:", it.sos());
+            display(out << "pas:", it.pas());
         }
     }
     if (!m_zero.empty()) {

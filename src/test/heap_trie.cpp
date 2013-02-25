@@ -4,7 +4,8 @@ struct unsigned_le {
     static bool le(unsigned i, unsigned j) { return i <= j; }
 };
 
-typedef heap_trie<unsigned, unsigned_le, unsigned > heap_trie_t;
+
+typedef heap_trie<unsigned, unsigned_le, unsigned_hash, unsigned > heap_trie_t;
 
 static void find_le(heap_trie_t& ht, unsigned num_keys, unsigned const* keys) {
     statistics st;

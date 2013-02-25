@@ -44,7 +44,7 @@ Notes:
 #include "small_object_allocator.h"
 
 
-template<typename Key, typename KeyLE, typename Value>
+template<typename Key, typename KeyLE, typename KeyHash, typename Value>
 class heap_trie {
 
     struct stats {
@@ -180,6 +180,8 @@ class heap_trie {
 
     small_object_allocator m_alloc;
     unsigned m_num_keys;
+    unsigned_vector m_keys;
+    unsigned m_do_reshuffle;
     node*    m_root;
     stats    m_stats;
     node*    m_spare_leaf;
@@ -190,6 +192,7 @@ public:
     heap_trie():     
         m_alloc("heap_trie"),
         m_num_keys(0),
+        m_do_reshuffle(4),
         m_root(0),
         m_spare_leaf(0),
         m_spare_trie(0)
@@ -202,7 +205,7 @@ public:
     }
 
     unsigned size() const {
-        return m_root->num_leaves();
+        return m_root?m_root->num_leaves():0;
     }
 
     void reset(unsigned num_keys) {
@@ -210,6 +213,10 @@ public:
         del_node(m_spare_leaf);
         del_node(m_spare_trie);
         m_num_keys = num_keys;
+        m_keys.resize(num_keys);
+        for (unsigned i = 0; i < num_keys; ++i) {
+            m_keys[i] = i;
+        }
         m_root = mk_trie();
         m_spare_trie = mk_trie();
         m_spare_leaf = mk_leaf();
@@ -217,7 +224,13 @@ public:
 
     void insert(Key const* keys, Value const& val) {
         ++m_stats.m_num_inserts;
-        insert(m_root, num_keys(), keys, val);
+        insert(m_root, num_keys(), keys, m_keys.c_ptr(), val);
+#if 0
+        if (m_stats.m_num_inserts == (1 << m_do_reshuffle)) {
+            m_do_reshuffle++;
+            reorder_keys();
+        }
+#endif
     }
 
     bool find_eq(Key const* keys, Value& value) {
@@ -225,7 +238,7 @@ public:
         node* n = m_root;
         node* m;
         for (unsigned i = 0; i < num_keys(); ++i) {
-            if (!to_trie(n)->find(keys[i], m)) {
+            if (!to_trie(n)->find(get_key(keys, i), m)) {
                 return false;
             }            
             n = m;
@@ -242,7 +255,7 @@ public:
         for (unsigned i = 0; i < num_keys(); ++i) {
             for (unsigned j = 0; j < todo[index].size(); ++j) {
                 ++m_stats.m_num_find_le_nodes;
-                to_trie(todo[index][j])->find_le(keys[i], todo[!index]);
+                to_trie(todo[index][j])->find_le(get_key(keys, i), todo[!index]);
             }
             todo[index].reset();
             index = !index;
@@ -271,7 +284,7 @@ public:
         node* m;
         for (unsigned i = 0; i < num_keys(); ++i) {
             n->dec_ref();
-            VERIFY (to_trie(n)->find(keys[i], m));
+            VERIFY (to_trie(n)->find(get_key(keys, i), m));
             n = m;
         }           
         n->dec_ref();
@@ -287,14 +300,14 @@ public:
         st.update("heap_trie.num_find_eq", m_stats.m_num_find_eq);
         st.update("heap_trie.num_find_le", m_stats.m_num_find_le);
         st.update("heap_trie.num_find_le_nodes", m_stats.m_num_find_le_nodes);
-        st.update("heap_trie.num_nodes", m_root->num_nodes());
+        if (m_root) st.update("heap_trie.num_nodes", m_root->num_nodes());
         unsigned_vector nums;
         ptr_vector<node> todo;
-        todo.push_back(m_root);
+        if (m_root) todo.push_back(m_root);
         while (!todo.empty()) {
             node* n = todo.back();
             todo.pop_back();
-            if (n->type() == trie_t) {
+            if (is_trie(n)) {
                 trie* t = to_trie(n);
                 unsigned sz = t->nodes().size();
                 if (nums.size() <= sz) {
@@ -334,38 +347,252 @@ public:
         out << "\n";
     }
 
+    class iterator {
+        ptr_vector<node> m_path;
+        unsigned_vector  m_idx;
+        vector<Key>      m_keys;
+        unsigned         m_count;
+    public:
+        iterator(node* n) {
+            if (!n) {
+                m_count = UINT_MAX;
+            }
+            else {
+                m_count = 0;
+                first(n);
+            }
+        }
+        Key const* keys() {
+            return m_keys.c_ptr();
+        }
+
+        Value const& value() const {
+            return to_leaf(m_path.back())->get_value();
+        }
+        iterator& operator++() { fwd(); return *this; }
+        iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
+        bool operator==(iterator const& it) const {return m_count == it.m_count; }
+        bool operator!=(iterator const& it) const {return m_count != it.m_count; }
+
+    private:
+        void first(node* r) {
+            SASSERT(r->ref_count() > 0);
+            while (is_trie(r)) {
+                trie* t = to_trie(r);
+                m_path.push_back(r);
+                unsigned sz = t->nodes().size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    r = t->nodes()[i].second;
+                    if (r->ref_count() > 0) {
+                        m_idx.push_back(i);
+                        m_keys.push_back(t->nodes()[i].first);                        
+                        break;
+                    }
+                }
+            }
+            SASSERT(is_leaf(r));
+            m_path.push_back(r);
+        }
+
+        void fwd() {
+            if (m_path.empty()) {
+                m_count = UINT_MAX;
+                return;
+            }
+            m_path.pop_back();
+            while (!m_path.empty()) {
+                trie* t = to_trie(m_path.back());
+                unsigned idx = m_idx.back();                   
+                unsigned sz = t->nodes().size();
+                m_idx.pop_back();
+                m_keys.pop_back();
+                for (unsigned i = idx+1; i < sz; ++i) {
+                    node* r = t->nodes()[i].second;
+                    if (r->ref_count() > 0) {
+                        m_idx.push_back(i);
+                        m_keys.push_back(t->nodes()[i].first);
+                        first(r);
+                        ++m_count;
+                        return;
+                    }
+                }
+                m_path.pop_back();
+            }
+            m_count = UINT_MAX;
+        }
+    };
+
+    iterator begin() const { 
+        return iterator(m_root);
+    }
+
+    iterator end() const { 
+        return iterator(0);
+    }
+
+
 private:
 
-    unsigned num_keys() const { 
+    inline unsigned num_keys() const { 
         return m_num_keys;
+    }
+
+    inline Key const& get_key(Key const* keys, unsigned i) const {
+        return keys[m_keys[i]];
+    }
+
+    struct KeyEq {
+        bool operator()(Key const& k1, Key const& k2) const {
+            return k1 == k2;
+        }
+    };
+
+
+    typedef hashtable<Key, KeyHash, KeyEq> key_set;
+
+    struct key_info {
+        unsigned m_index;
+        unsigned m_index_size;
+        key_info(unsigned i, unsigned sz):
+            m_index(i),
+            m_index_size(sz)
+        {}
+
+        bool operator<(key_info const& other) const {
+            return 
+                (m_index_size < other.m_index_size) ||
+                ((m_index_size == other.m_index_size) && 
+                 (m_index < other.m_index));
+        }
+    };
+
+    void reorder_keys() {
+        vector<key_set> weights;
+        weights.resize(num_keys());
+        unsigned_vector depth;
+        ptr_vector<node> nodes;
+        depth.push_back(0);
+        nodes.push_back(m_root);
+        while (!nodes.empty()) {
+            node* n = nodes.back();
+            unsigned d = depth.back();
+            nodes.pop_back();
+            depth.pop_back();
+            if (is_trie(n)) {
+                trie* t = to_trie(n);
+                unsigned sz = t->nodes().size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    nodes.push_back(t->nodes()[i].second);
+                    depth.push_back(d+1);
+                    weights[d].insert(t->nodes()[i].first);
+                }
+            }
+        }
+        SASSERT(weights.size() == num_keys());
+        svector<key_info> infos;
+        unsigned sz = 0;
+        bool is_sorted = true;
+        for (unsigned i = 0; i < weights.size(); ++i) {
+            unsigned sz2 = weights[i].size();
+            if (sz > sz2) {
+                is_sorted = false;
+            }
+            sz = sz2;
+            infos.push_back(key_info(i, sz));
+        }
+        if (is_sorted) {
+            return;
+        }
+        std::sort(infos.begin(), infos.end());
+        unsigned_vector sorted_keys, new_keys;
+        for (unsigned i = 0; i < num_keys(); ++i) {
+            unsigned j = infos[i].m_index;
+            sorted_keys.push_back(j);
+            new_keys.push_back(m_keys[j]);
+        } 
+        // m_keys:    i |-> key_index
+        // new_keys:  i |-> new_key_index
+        // permutation: key_index |-> new_key_index
+        SASSERT(sorted_keys.size() == num_keys());
+        SASSERT(new_keys.size() == num_keys());
+        SASSERT(m_keys.size() == num_keys());
+        iterator it = begin();
+        trie* new_root = mk_trie();
+        IF_VERBOSE(1, verbose_stream() << "before reshuffle: " << m_root->num_nodes() << " nodes\n";);
+        for (; it != end(); ++it) {
+            IF_VERBOSE(2, 
+                       for (unsigned i = 0; i < num_keys(); ++i) {
+                           for (unsigned j = 0; j < num_keys(); ++j) {
+                               if (m_keys[j] == i) {
+                                   verbose_stream() << it.keys()[j] << " ";
+                                   break;
+                               }
+                           }
+                       }
+                       verbose_stream() << " |-> " << it.value() << "\n";);
+
+            insert(new_root, num_keys(), it.keys(), sorted_keys.c_ptr(), it.value());
+        }
+        del_node(m_root);
+        m_root = new_root;
+        for (unsigned i = 0; i < m_keys.size(); ++i) {
+            m_keys[i] = new_keys[i];
+        }
+        
+        IF_VERBOSE(1, verbose_stream() << "after reshuffle: " << new_root->num_nodes() << " nodes\n";);
+        IF_VERBOSE(2, 
+                   it = begin();
+                   for (; it != end(); ++it) {                       
+                       for (unsigned i = 0; i < num_keys(); ++i) {
+                           for (unsigned j = 0; j < num_keys(); ++j) {
+                               if (m_keys[j] == i) {
+                                   verbose_stream() << it.keys()[j] << " ";
+                                   break;
+                               }
+                           }
+                       }
+                       verbose_stream() << " |-> " << it.value() << "\n";
+                   });
     }
 
     bool find_le(node* n, unsigned index, Key const* keys, check_value& check) {
         if (index == num_keys()) {
             SASSERT(n->ref_count() > 0);
-            return check(to_leaf(n)->get_value());
+            bool r = check(to_leaf(n)->get_value());
+            IF_VERBOSE(1, 
+                       for (unsigned j = 0; j < index; ++j) {
+                           verbose_stream() << " ";
+                       }
+                       verbose_stream() << to_leaf(n)->get_value() << (r?" hit\n":" miss\n"););
+            return r;
         }
         else {
-            Key key = keys[index];
-            children_t const& nodes = to_trie(n)->nodes();
+            Key const& key = get_key(keys, index);
+            children_t& nodes = to_trie(n)->nodes();
             for (unsigned i = 0; i < nodes.size(); ++i) {
                 ++m_stats.m_num_find_le_nodes;
-                if (KeyLE::le(nodes[i].first, key)) {
-                    node* m = nodes[i].second;
-                    if (m->ref_count() > 0 && find_le(m, index+1, keys, check)) {
-                        return true;
+                node* m = nodes[i].second;
+                IF_VERBOSE(1,
+                           for (unsigned j = 0; j < index; ++j) {
+                               verbose_stream() << " ";
+                           }
+                           verbose_stream() << nodes[i].first << " <=? " << key << " rc:" << m->ref_count() << "\n";);
+                if (m->ref_count() > 0 && KeyLE::le(nodes[i].first, key) && find_le(m, index+1, keys, check)) {
+                    if (i > 0) {
+                        std::swap(nodes[i], nodes[0]);
                     }
+                    return true;
                 }
             }
             return false;
         }
     }
     
-    void insert(node* n, unsigned num_keys, Key const* keys, Value const& val) {
+    void insert(node* n, unsigned num_keys, Key const* keys, unsigned const* permutation, Value const& val) {
         // assumption: key is not in table.
         for (unsigned i = 0; i < num_keys; ++i) {
             n->inc_ref();
-            n = insert_key(to_trie(n), (i + 1 == num_keys), keys[i]);
+            n = insert_key(to_trie(n), (i + 1 == num_keys), keys[permutation[i]]);
         }
         n->inc_ref();
         to_leaf(n)->set_value(val);
@@ -400,7 +627,7 @@ private:
         if (!n) {
             return;
         }
-        if (n->type() == trie_t) {
+        if (is_trie(n)) {
             trie* t = to_trie(n);
             for (unsigned i = 0; i < t->nodes().size(); ++i) {
                 del_node(t->nodes()[i].second);
@@ -415,14 +642,22 @@ private:
         }
     }
 
-    trie* to_trie(node* n) const {
-        SASSERT(n->type() == trie_t);
+    static trie* to_trie(node* n) {
+        SASSERT(is_trie(n));
         return static_cast<trie*>(n);
     }
 
-    leaf* to_leaf(node* n) const {
-        SASSERT(n->type() == leaf_t);
+    static leaf* to_leaf(node* n) {
+        SASSERT(is_leaf(n));
         return static_cast<leaf*>(n);
+    }
+
+    static bool is_leaf(node* n) {
+        return n->type() == leaf_t;
+    }
+
+    static bool is_trie(node* n) {
+        return n->type() == trie_t;
     }
 };
 
