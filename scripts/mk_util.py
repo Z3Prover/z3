@@ -30,7 +30,6 @@ CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
 LDFLAGS=getenv("LDFLAGS", "")
-JDK_HOME=getenv("JDK_HOME", None)
 JNI_HOME=getenv("JNI_HOME", None)
 
 CXX_COMPILERS=['g++', 'clang++']
@@ -214,12 +213,13 @@ def find_jni_h(path):
     return False
 
 def check_java():
-    global JDK_HOME
     global JNI_HOME
     global JAVAC
+
+    JDK_HOME = getenv('JDK_HOME', None) # we only need to check this locally.
     
     if is_verbose():
-        print("Finding JDK_HOME...")
+        print("Finding javac ...")
 
     if JDK_HOME != None:
         if IS_WINDOWS:
@@ -234,13 +234,14 @@ def check_java():
         ind = 'javac';
         if IS_WINDOWS:
             ind = ind + '.exe'
-        paths = os.getenv('path', None)
-        spaths = paths.split(os.pathsep)
-        for i in range(0, len(spaths)):
-            cmb = os.path.join(spaths[i], ind)
-            if os.path.exists(cmb):
-                JAVAC = cmb
-                break
+        paths = os.getenv('PATH', None)
+        if paths:
+            spaths = paths.split(os.pathsep)
+            for i in range(0, len(spaths)):
+                cmb = os.path.join(spaths[i], ind)
+                if os.path.exists(cmb):
+                    JAVAC = cmb
+                    break
 
     if JAVAC == None:
         raise MKException('No java compiler in the path, please adjust your PATH or set JDK_HOME to the location of the JDK.')
@@ -297,7 +298,6 @@ def check_java():
         cdirs[len(cdirs):] = extra_dirs
 
         for dir in cdirs:
-            print dir
             q = find_jni_h(dir)
             if q != False:
                 JNI_HOME = q
@@ -1425,8 +1425,7 @@ def mk_config():
         if is_verbose():
             print('64-bit:         %s' % is64())
             if is_java_enabled():
-                print('JDK Home:       %s' % JDK_HOME)
-                print('JNI Home:       %s' % JNI_HOME)
+                print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
     else:
         global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
@@ -1529,8 +1528,7 @@ def mk_config():
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
-                print('JDK Home:       %s' % JDK_HOME)
-                print('JNI Home:       %s' % JNI_HOME)
+                print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
 
 def mk_install(out):
