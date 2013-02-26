@@ -251,8 +251,8 @@ namespace z3 {
         array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
         ~array() { delete[] m_array; }
         unsigned size() const { return m_size; }
-        T & operator[](unsigned i) { assert(i < m_size); return m_array[i]; }
-        T const & operator[](unsigned i) const { assert(i < m_size); return m_array[i]; }
+        T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
+        T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const * ptr() const { return m_array; }
         T * ptr() { return m_array; }
     };
@@ -1016,7 +1016,7 @@ namespace z3 {
         ~ast_vector_tpl() { Z3_ast_vector_dec_ref(ctx(), m_vector); }
         operator Z3_ast_vector() const { return m_vector; }
         unsigned size() const { return Z3_ast_vector_size(ctx(), m_vector); }
-        T operator[](unsigned i) const { Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
+        T operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_ast_vector_get(ctx(), m_vector, i); check_error(); return cast_ast<T>()(ctx(), r); }
         void push_back(T const & e) { Z3_ast_vector_push(ctx(), m_vector, e); check_error(); }
         void resize(unsigned sz) { Z3_ast_vector_resize(ctx(), m_vector, sz); check_error(); }
         T back() const { return operator[](size() - 1); }
@@ -1112,7 +1112,10 @@ namespace z3 {
         func_decl get_const_decl(unsigned i) const { Z3_func_decl r = Z3_model_get_const_decl(ctx(), m_model, i); check_error(); return func_decl(ctx(), r); }
         func_decl get_func_decl(unsigned i) const { Z3_func_decl r = Z3_model_get_func_decl(ctx(), m_model, i); check_error(); return func_decl(ctx(), r); }
         unsigned size() const { return num_consts() + num_funcs(); }
-        func_decl operator[](unsigned i) const { return i < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts()); }
+        func_decl operator[](int i) const { 
+	    assert(0 <= i); 
+	    return static_cast<unsigned>(i) < num_consts() ? get_const_decl(i) : get_func_decl(i - num_consts()); 
+	}
 
         expr get_const_interp(func_decl c) const {
             check_context(*this, c);
@@ -1260,7 +1263,7 @@ namespace z3 {
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
-        expr operator[](unsigned i) const { Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
+        expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
         bool inconsistent() const { return Z3_goal_inconsistent(ctx(), m_goal) != 0; }
         unsigned depth() const { return Z3_goal_depth(ctx(), m_goal); } 
@@ -1303,8 +1306,7 @@ namespace z3 {
             return *this; 
         }
         unsigned size() const { return Z3_apply_result_get_num_subgoals(ctx(), m_apply_result); }
-        goal operator[](unsigned i) const { Z3_goal r = Z3_apply_result_get_subgoal(ctx(), m_apply_result, i); check_error(); return goal(ctx(), r); }
-        goal operator[](int i) const { assert(i >= 0); return this->operator[](static_cast<unsigned>(i)); }
+        goal operator[](int i) const { assert(0 <= i); Z3_goal r = Z3_apply_result_get_subgoal(ctx(), m_apply_result, i); check_error(); return goal(ctx(), r); }
         model convert_model(model const & m, unsigned i = 0) const { 
             check_context(*this, m); 
             Z3_model new_m = Z3_apply_result_convert_model(ctx(), m_apply_result, i, m);
