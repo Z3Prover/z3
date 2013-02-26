@@ -1850,7 +1850,7 @@ struct
   let is_garbage ( x : goal ) = 
     (get_precision x) == GOAL_UNDER_OVER
       
-  let assert_ ( x : goal ) ( constraints : expr list ) =
+  let add ( x : goal ) ( constraints : expr list ) =
     let f e = Z3native.goal_assert (z3obj_gnc x) (z3obj_gno x) (Expr.gno e) in
     ignore (List.map f constraints) ;
     ()
@@ -2370,11 +2370,11 @@ struct
 
   let reset ( x : solver ) = Z3native.solver_reset (z3obj_gnc x) (z3obj_gno x)
 
-  let assert_ ( x : solver ) ( constraints : expr list ) =
+  let add ( x : solver ) ( constraints : expr list ) =
     let f e = (Z3native.solver_assert (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in
     ignore (List.map f constraints)
 
-  let assert_and_track_a ( x : solver ) ( cs : expr list ) ( ps : expr list ) =
+  let assert_and_track_l ( x : solver ) ( cs : expr list ) ( ps : expr list ) =
     if ((List.length cs) != (List.length ps)) then
       raise (Z3native.Exception "Argument size mismatch")
     else
@@ -2473,7 +2473,7 @@ struct
   let get_param_descrs ( x : fixedpoint ) =
     Params.ParamDescrs.param_descrs_of_ptr (z3obj_gc x) (Z3native.fixedpoint_get_param_descrs (z3obj_gnc x) (z3obj_gno x))
       
-  let assert_ ( x : fixedpoint ) ( constraints : expr list ) =
+  let add ( x : fixedpoint ) ( constraints : expr list ) =
     let f e = (Z3native.fixedpoint_assert (z3obj_gnc x) (z3obj_gno x) (Expr.gno e)) in
     ignore (List.map f constraints) ;
     ()
