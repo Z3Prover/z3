@@ -2221,7 +2221,7 @@ sig
   val is_garbage : goal -> bool
 
  (** Adds the constraints to the given goal. *)
-  val assert_ : goal -> Expr.expr list -> unit
+  val add : goal -> Expr.expr list -> unit
  
   (** Indicates whether the goal contains `false'. *)
   val is_inconsistent : goal -> bool
@@ -2648,7 +2648,7 @@ sig
   val reset : solver -> unit
 
   (** Assert a constraint (or multiple) into the solver. *)        
-  val assert_ : solver -> Expr.expr list -> unit
+  val add : solver -> Expr.expr list -> unit
 
   (** * Assert multiple constraints (cs) into the solver, and track them (in the
      * unsat) core
@@ -2661,7 +2661,7 @@ sig
      * of the Boolean variables provided using {!assert_and_track}
      * and the Boolean literals
      * provided using {!check} with assumptions. *)
-  val assert_and_track_a : solver -> Expr.expr list -> Expr.expr list -> unit
+  val assert_and_track_l : solver -> Expr.expr list -> Expr.expr list -> unit
 
   (** * Assert a constraint (c) into the solver, and track it (in the unsat) core
      * using the Boolean constant p.
@@ -2752,7 +2752,7 @@ sig
   val get_param_descrs : fixedpoint -> Params.ParamDescrs.param_descrs
 
   (** Assert a constraints into the fixedpoint solver. *)        
-  val assert_ : fixedpoint -> Expr.expr list -> unit
+  val add : fixedpoint -> Expr.expr list -> unit
 
   (** Register predicate as recursive relation. *)       
   val register_relation : fixedpoint -> FuncDecl.func_decl -> unit
