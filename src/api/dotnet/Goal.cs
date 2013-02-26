@@ -91,6 +91,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(params BoolExpr[] constraints)
+        {
+            Assert(constraints);
+        }
+
+        /// <summary>
         /// Indicates whether the goal contains `false'.
         /// </summary>
         public bool Inconsistent

@@ -118,6 +118,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(params BoolExpr[] constraints)
+        {
+            Assert(constraints);
+        }
+
+        /// <summary>
         /// Assert multiple constraints into the solver, and track them (in the unsat) core 
         /// using the Boolean constants in ps. 
         /// </summary>
