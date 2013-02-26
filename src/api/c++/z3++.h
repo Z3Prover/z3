@@ -63,6 +63,11 @@ namespace z3 {
     class statistics;
     class apply_result;
     class fixedpoint;
+    template<typename T> class ast_vector_tpl;
+    typedef ast_vector_tpl<ast>       ast_vector;
+    typedef ast_vector_tpl<expr>      expr_vector;
+    typedef ast_vector_tpl<sort>      sort_vector;
+    typedef ast_vector_tpl<func_decl> func_decl_vector;
 
     inline void set_param(char const * param, char const * value) { Z3_global_param_set(param, value); }
     inline void set_param(char const * param, bool value) { Z3_global_param_set(param, value ? "true" : "false"); }
@@ -190,7 +195,13 @@ namespace z3 {
            Example: Given a context \c c, <tt>c.array_sort(c.int_sort(), c.bool_sort())</tt> is an array sort from integer to Boolean.
         */
         sort array_sort(sort d, sort r);
-
+        /**
+           \brief Return an enumeration sort: enum_names[0], ..., enum_names[n-1].
+           \c cs and \c ts are output parameters. The method stores in \c cs the constants corresponding to the enumerated elements,
+           and in \c ts the predicates for testing if terms of the enumeration sort correspond to an enumeration.
+        */
+        sort enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts);
+        
         func_decl function(symbol const & name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, unsigned arity, sort const * domain, sort const & range);
         func_decl function(char const * name, sort const & domain, sort const & range);
@@ -414,6 +425,7 @@ namespace z3 {
 
         bool is_const() const { return arity() == 0; }
 
+        expr operator()() const;
         expr operator()(unsigned n, expr const * args) const;
         expr operator()(expr const & a) const;
         expr operator()(int a) const;
@@ -1020,11 +1032,6 @@ namespace z3 {
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
     };
 
-    typedef ast_vector_tpl<ast>       ast_vector;
-    typedef ast_vector_tpl<expr>      expr_vector;
-    typedef ast_vector_tpl<sort>      sort_vector;
-    typedef ast_vector_tpl<func_decl> func_decl_vector;
-
     class func_entry : public object {
         Z3_func_entry m_entry;
         void init(Z3_func_entry e) {
@@ -1261,6 +1268,19 @@ namespace z3 {
         unsigned num_exprs() const { return Z3_goal_num_exprs(ctx(), m_goal); }
         bool is_decided_sat() const { return Z3_goal_is_decided_sat(ctx(), m_goal) != 0; }        
         bool is_decided_unsat() const { return Z3_goal_is_decided_unsat(ctx(), m_goal) != 0; }        
+        expr as_expr() const {
+            unsigned n = size();
+            if (n == 0) 
+                return ctx().bool_val(false);
+            else if (n == 1)
+                return operator[](0);
+            else {
+                array<Z3_ast> args(n);
+                for (unsigned i = 0; i < n; i++)
+                    args[i] = operator[](i);
+                return expr(ctx(), Z3_mk_and(ctx(), n, args.ptr()));
+            }
+        }
         friend std::ostream & operator<<(std::ostream & out, goal const & g) { out << Z3_goal_to_string(g.ctx(), g); return out; }
     };
 
@@ -1437,6 +1457,17 @@ namespace z3 {
     inline sort context::real_sort() { Z3_sort s = Z3_mk_real_sort(m_ctx); check_error(); return sort(*this, s); }
     inline sort context::bv_sort(unsigned sz) { Z3_sort s = Z3_mk_bv_sort(m_ctx, sz); check_error(); return sort(*this, s); }
     inline sort context::array_sort(sort d, sort r) { Z3_sort s = Z3_mk_array_sort(m_ctx, d, r); check_error(); return sort(*this, s); }
+    inline sort context::enumeration_sort(char const * name, unsigned n, char const * const * enum_names, func_decl_vector & cs, func_decl_vector & ts) {
+        array<Z3_symbol> _enum_names(n);
+        for (unsigned i = 0; i < n; i++) { _enum_names[i] = Z3_mk_string_symbol(*this, enum_names[i]); }
+        array<Z3_func_decl> _cs(n);
+        array<Z3_func_decl> _ts(n);
+        Z3_symbol _name = Z3_mk_string_symbol(*this, name);
+        sort s = to_sort(*this, Z3_mk_enumeration_sort(*this, _name, n, _enum_names.ptr(), _cs.ptr(), _ts.ptr()));
+        check_error();
+        for (unsigned i = 0; i < n; i++) { cs.push_back(func_decl(*this, _cs[i])); ts.push_back(func_decl(*this, _ts[i])); }
+        return s;
+    }
 
     inline func_decl context::function(symbol const & name, unsigned arity, sort const * domain, sort const & range) {
         array<Z3_sort> args(arity);
@@ -1537,6 +1568,11 @@ namespace z3 {
         check_error();
         return expr(ctx(), r);
     
+    }
+    inline expr func_decl::operator()() const {
+        Z3_ast r = Z3_mk_app(ctx(), *this, 0, 0);
+        ctx().check_error();
+        return expr(ctx(), r);
     }
     inline expr func_decl::operator()(expr const & a) const {
         check_context(*this, a);
