@@ -65,7 +65,7 @@ public class Goal extends Z3Object
      * 
      * @throws Z3Exception
      **/
-    public void assert_(BoolExpr ... constraints) throws Z3Exception
+    public void add(BoolExpr ... constraints) throws Z3Exception
     {
         getContext().checkContextMatch(constraints);
         for (BoolExpr c : constraints)

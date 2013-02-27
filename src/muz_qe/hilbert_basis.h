@@ -56,12 +56,14 @@ private:
     class values {
         numeral* m_values;
     public:
-        values(numeral* v):m_values(v) {}
-        numeral& weight() { return m_values[0]; } // value of a*x 
-        numeral& operator[](unsigned i) { return m_values[i+1]; } // value of x_i
-        numeral const& weight() const { return m_values[0]; } // value of a*x 
-        numeral const& operator[](unsigned i) const { return m_values[i+1]; } // value of x_i
-        numeral const* operator()() const { return m_values + 1; }
+        values(unsigned offset, numeral* v): m_values(v+offset) { }
+        numeral& weight()             { return m_values[-1]; } // value of a*x 
+        numeral const& weight() const { return m_values[-1]; } // value of a*x 
+        numeral& weight(int i)   { return m_values[-2-i]; } // value of b_i*x for 0 <= i < current inequality. 
+        numeral const& weight(int i) const { return m_values[-2-i]; } // value of b_i*x 
+        numeral& operator[](unsigned i) { return m_values[i]; } // value of x_i
+        numeral const& operator[](unsigned i) const { return m_values[i]; } // value of x_i
+        numeral const* operator()() const { return m_values; }
     };
 
     vector<num_vector> m_ineqs;      // set of asserted inequalities
@@ -114,7 +116,7 @@ private:
     bool is_subsumed(offset_t idx);
     bool is_subsumed(offset_t i, offset_t j) const;
     void recycle(offset_t idx);
-    bool can_resolve(offset_t i, offset_t j) const;
+    bool can_resolve(offset_t i, offset_t j, bool check_sign) const;
     sign_t get_sign(offset_t idx) const;
     bool add_goal(offset_t idx);
     offset_t alloc_vector();
