@@ -21,6 +21,7 @@ Revision History:
 #include "heap.h"
 #include "map.h"
 #include "heap_trie.h"
+#include "stopwatch.h"
 
 template<typename Value>
 class rational_map : public map<rational, Value, rational::hash_proc, rational::eq_proc> {};
@@ -777,9 +778,18 @@ lbool hilbert_basis::saturate() {
     init_basis();
     m_current_ineq = 0;
     while (!m_cancel && m_current_ineq < m_ineqs.size()) {
-        IF_VERBOSE(1, { statistics st; collect_statistics(st); st.display(verbose_stream()); });
         select_inequality();
+        stopwatch sw;
+        sw.start();
         lbool r = saturate(m_ineqs[m_current_ineq], m_iseq[m_current_ineq]);
+        IF_VERBOSE(1,  
+                   { statistics st; 
+                       collect_statistics(st); 
+                       st.display(verbose_stream()); 
+                       sw.stop(); 
+                       verbose_stream() << "time: " << sw.get_seconds() << "\n";
+                   });
+
         ++m_stats.m_num_saturations;
         if (r != l_true) {
             return r;
@@ -932,14 +942,6 @@ lbool hilbert_basis::saturate(num_vector const& ineq, bool is_eq) {
     while (is_eq && !m_basis.empty()) {
         m_free_list.push_back(m_basis.back());
         m_basis.pop_back();
-    }
-    for (unsigned i = 0; i < init_basis_size; ++i) {
-        offset_t idx = m_basis[i];
-        if (vec(idx).weight().is_neg()) {
-            m_basis[i] = m_basis.back();
-            m_basis.pop_back();
-            
-        }
     }
     m_basis.append(m_zero);
     std::sort(m_basis.begin(), m_basis.end(), vector_lt_t(*this));
