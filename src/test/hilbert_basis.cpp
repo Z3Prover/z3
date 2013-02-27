@@ -521,6 +521,8 @@ void tst_hilbert_basis() {
         tst2();
         tst3();
         tst4();
+        tst4();
+        tst4();
         tst5();
         tst6();
         tst7();
