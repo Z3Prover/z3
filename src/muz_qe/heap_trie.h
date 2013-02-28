@@ -518,7 +518,7 @@ private:
         SASSERT(m_keys.size() == num_keys());
         iterator it = begin();
         trie* new_root = mk_trie();
-        IF_VERBOSE(1, verbose_stream() << "before reshuffle: " << m_root->num_nodes() << " nodes\n";);
+        IF_VERBOSE(2, verbose_stream() << "before reshuffle: " << m_root->num_nodes() << " nodes\n";);
         for (; it != end(); ++it) {
             IF_VERBOSE(2, 
                        for (unsigned i = 0; i < num_keys(); ++i) {
@@ -539,7 +539,7 @@ private:
             m_keys[i] = new_keys[i];
         }
         
-        IF_VERBOSE(1, verbose_stream() << "after reshuffle: " << new_root->num_nodes() << " nodes\n";);
+        IF_VERBOSE(2, verbose_stream() << "after reshuffle: " << new_root->num_nodes() << " nodes\n";);
         IF_VERBOSE(2, 
                    it = begin();
                    for (; it != end(); ++it) {                       
@@ -559,7 +559,7 @@ private:
         if (index == num_keys()) {
             SASSERT(n->ref_count() > 0);
             bool r = check(to_leaf(n)->get_value());
-            IF_VERBOSE(1, 
+            IF_VERBOSE(2, 
                        for (unsigned j = 0; j < index; ++j) {
                            verbose_stream() << " ";
                        }
@@ -572,7 +572,7 @@ private:
             for (unsigned i = 0; i < nodes.size(); ++i) {
                 ++m_stats.m_num_find_le_nodes;
                 node* m = nodes[i].second;
-                IF_VERBOSE(1,
+                IF_VERBOSE(2,
                            for (unsigned j = 0; j < index; ++j) {
                                verbose_stream() << " ";
                            }

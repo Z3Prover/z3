@@ -253,7 +253,7 @@ static void saturate_basis(hilbert_basis& hb) {
     case l_true:  
         std::cout << "sat\n"; 
         hb.display(std::cout);
-        validate_sat(hb);
+        //validate_sat(hb);
         break;
     case l_false: 
         std::cout << "unsat\n"; 
@@ -523,6 +523,9 @@ void tst_hilbert_basis() {
         tst4();
         tst4();
         tst4();
+       tst4();
+       tst4();
+       tst4();
         tst5();
         tst6();
         tst7();

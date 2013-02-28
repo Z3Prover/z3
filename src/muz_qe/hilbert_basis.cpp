@@ -21,9 +21,8 @@ Revision History:
 #include "heap.h"
 #include "map.h"
 #include "heap_trie.h"
+#include "stopwatch.h"
 
-template<typename Value>
-class rational_map : public map<rational, Value, rational::hash_proc, rational::eq_proc> {};
 
 typedef int_hashtable<int_hash, default_eq<int> > int_table;
 
@@ -263,7 +262,10 @@ class hilbert_basis::index {
         void reset() { memset(this, 0, sizeof(*this)); }
     };        
 
-    typedef rational_map<value_index*> value_map;
+    template<typename Value>
+    class numeral_map : public map<numeral, Value, numeral::hash_proc, numeral::eq_proc> {};
+
+    typedef numeral_map<value_index*> value_map;
     hilbert_basis&   hb;
     value_map        m_neg;
     value_index      m_pos;
@@ -793,9 +795,18 @@ lbool hilbert_basis::saturate() {
     init_basis();
     m_current_ineq = 0;
     while (!m_cancel && m_current_ineq < m_ineqs.size()) {
-        IF_VERBOSE(1, { statistics st; collect_statistics(st); st.display(verbose_stream()); });
         select_inequality();
+        stopwatch sw;
+        sw.start();
         lbool r = saturate(m_ineqs[m_current_ineq], m_iseq[m_current_ineq]);
+        IF_VERBOSE(1,  
+                   { statistics st; 
+                       collect_statistics(st); 
+                       st.display(verbose_stream()); 
+                       sw.stop(); 
+                       verbose_stream() << "time: " << sw.get_seconds() << "\n";
+                   });
+
         ++m_stats.m_num_saturations;
         if (r != l_true) {
             return r;
