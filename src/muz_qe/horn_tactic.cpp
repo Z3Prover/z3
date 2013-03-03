@@ -22,6 +22,8 @@ Revision History:
 #include"horn_tactic.h"
 #include"dl_context.h"
 #include"expr_replacer.h"
+#include"dl_rule_transformer.h"
+#include"dl_mk_slice.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -30,9 +32,9 @@ class horn_tactic : public tactic {
         datalog::context         m_ctx;
         smt_params               m_fparams;
 
-        imp(bool is_simplify, ast_manager & m, params_ref const & p):
+        imp(bool t, ast_manager & m, params_ref const & p):
             m(m),
-            m_is_simplify(is_simplify),
+            m_is_simplify(t),
             m_ctx(m, m_fparams) {
             updt_params(p);
         }
@@ -283,6 +285,13 @@ class horn_tactic : public tactic {
             m_ctx.set_output_predicate(query_pred);
             m_ctx.get_rules(); // flush adding rules.
             m_ctx.apply_default_transformation(mc, pc);
+            
+            if (m_ctx.get_params().slice()) {
+                datalog::rule_transformer transformer(m_ctx);
+                datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
+                transformer.register_plugin(slice);
+                m_ctx.transform_rules(transformer, mc, pc);
+            }
 
             expr_substitution sub(m);
             sub.insert(q, m.mk_false());
@@ -308,10 +317,10 @@ class horn_tactic : public tactic {
     statistics m_stats;
     imp *      m_imp;
 public:
-    horn_tactic(bool is_simplify, ast_manager & m, params_ref const & p):
-        m_is_simplify(is_simplify),
+    horn_tactic(bool t, ast_manager & m, params_ref const & p):
+        m_is_simplify(t),
         m_params(p) {
-        m_imp = alloc(imp, is_simplify, m, p);
+        m_imp = alloc(imp, t, m, p);
     }
 
     virtual tactic * translate(ast_manager & m) {
