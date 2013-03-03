@@ -287,6 +287,7 @@ class horn_tactic : public tactic {
             expr_substitution sub(m);
             sub.insert(q, m.mk_false());
             scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+            rep->set_substitution(&sub);
             g->inc_depth();
             g->reset();
             result.push_back(g.get());
