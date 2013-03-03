@@ -25,6 +25,7 @@ static void find_le(heap_trie_t& ht, unsigned num_keys, unsigned const* keys) {
 
 }
 
+
 void tst_heap_trie() {
     heap_trie_t ht;
 

@@ -73,7 +73,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             return BR_DONE;
         }
 
-		if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm_sort(f->get_range())) {
+        if (num == 0 && f->get_family_id() == null_family_id && m_conv.is_rm_sort(f->get_range())) {
             m_conv.mk_rm_const(f, result);
             return BR_DONE;
         }
@@ -102,7 +102,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_RM_NEAREST_TIES_TO_EVEN:
             case OP_RM_TOWARD_NEGATIVE:
             case OP_RM_TOWARD_POSITIVE:
-			case OP_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;            
+            case OP_RM_TOWARD_ZERO: m_conv.mk_rounding_mode(f, result); return BR_DONE;            
             case OP_FLOAT_VALUE: m_conv.mk_value(f, num, args, result); return BR_DONE;                             
             case OP_FLOAT_PLUS_INF: m_conv.mk_plus_inf(f, result); return BR_DONE;
             case OP_FLOAT_MINUS_INF: m_conv.mk_minus_inf(f, result); return BR_DONE;
