@@ -410,6 +410,15 @@ namespace pdr {
         add_property(result, level);        
     }
 
+    void  pred_transformer::propagate_to_infinity(unsigned invariant_level) {
+        expr_ref inv = get_formulas(invariant_level, false);
+        add_property(inv, infty_level);
+        // cleanup
+        for (unsigned i = invariant_level; i < m_levels.size(); ++i) {
+            m_levels[i].reset();
+        }
+    }
+
     lbool pred_transformer::is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level) {
         TRACE("pdr", 
               tout << "is-reachable: " << head()->get_name() << " level: " << n.level() << "\n";
@@ -723,26 +732,6 @@ namespace pdr {
         m_closed = true; 
     }
 
-    expr_ref model_node::get_trace() const {
-        pred_transformer& p = pt();
-        ast_manager& m = p.get_manager();
-        manager& pm = p.get_pdr_manager();
-        TRACE("pdr", model_smt2_pp(tout, m, get_model(), 0););
-        func_decl* f = p.head();
-        unsigned arity = f->get_arity();
-        model_ref model = get_model_ptr();
-        expr_ref_vector args(m);
-        expr_ref v(m);
-        model_evaluator mev(m);
-
-        for (unsigned i = 0; i < arity; ++i) {
-            v = m.mk_const(pm.o2n(p.sig(i),0));  
-            expr_ref e = mev.eval(model, v);
-            args.push_back(e);
-        }            
-        return expr_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
-    }
-
     static bool is_ini(datalog::rule const& r) {
         return r.get_uninterpreted_tail_size() == 0;
     }
@@ -961,21 +950,80 @@ namespace pdr {
         return out;
     }
 
-    expr_ref model_search::get_trace() const {       
+    /**
+       Extract trace comprising of constraints 
+       and predicates that are satisfied from facts to the query.
+       The resulting trace 
+     */
+
+    expr_ref model_search::get_trace(context const& ctx) const {       
         pred_transformer& pt = get_root().pt();
         ast_manager& m = pt.get_manager();
         manager& pm = pt.get_pdr_manager();
-        expr_ref result(m.mk_true(),m);
-        expr_ref_vector rules(m);
-        ptr_vector<model_node> nodes;
-        nodes.push_back(m_root);
-        while (!nodes.empty()) {
-            model_node* current = nodes.back();
-            nodes.pop_back();
-            rules.push_back(current->get_trace());
-            nodes.append(current->children());
-        }
-        return pm.mk_and(rules);
+        datalog::context& dctx = ctx.get_context();
+        datalog::rule_manager& rm = dctx.get_rule_manager();
+        expr_ref_vector constraints(m), predicates(m);
+        expr_ref tmp(m);
+        ptr_vector<model_node> children;
+        unsigned deltas[2];
+        datalog::rule_ref rule(rm), r0(rm);
+        model_node* n = m_root;
+        datalog::var_counter& vc = rm.get_var_counter();
+        substitution subst(m);
+        unifier unif(m);
+        rule = n->get_rule();
+        unsigned max_var = vc.get_max_var(*rule);
+        predicates.push_back(rule->get_head());
+        children.append(n);
+        bool first = true;
+        while (!children.empty()) {
+            SASSERT(children.size() == predicates.size());
+            expr_ref_vector binding(m);
+            n = children.back();
+            children.pop_back();
+            n->mk_instantiate(r0, rule, binding);
+            
+            max_var = std::max(max_var, vc.get_max_var(*rule));
+            subst.reset();
+            subst.reserve(2, max_var+1);
+            deltas[0] = 0;
+            deltas[1] = max_var+1;
+        
+            VERIFY(unif(predicates.back(), rule->get_head(), subst));
+            for (unsigned i = 0; i < constraints.size(); ++i) {
+                subst.apply(2, deltas, expr_offset(constraints[i].get(), 0), tmp);
+                dctx.get_rewriter()(tmp);
+                constraints[i] = tmp;
+            }
+            for (unsigned i = 0; i < predicates.size(); ++i) {
+                subst.apply(2, deltas, expr_offset(predicates[i].get(), 0), tmp);
+                predicates[i] = tmp;
+            }
+            if (!first) {
+                constraints.push_back(predicates.back());
+            }
+            first = false;
+            predicates.pop_back();
+            for (unsigned i = 0; i < rule->get_uninterpreted_tail_size(); ++i) {
+                subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
+                predicates.push_back(tmp);
+            }
+            for (unsigned i = rule->get_uninterpreted_tail_size(); i < rule->get_tail_size(); ++i) {
+                subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
+                dctx.get_rewriter()(tmp);
+                if (!m.is_true(tmp)) {
+                    constraints.push_back(tmp);
+                }
+            }
+            for (unsigned i = 0; i < constraints.size(); ++i) {
+                max_var = std::max(vc.get_max_var(constraints[i].get()), max_var);
+            }
+            for (unsigned i = 0; i < predicates.size(); ++i) {
+                max_var = std::max(vc.get_max_var(predicates[i].get()), max_var);
+            }
+            children.append(n->children());
+        }            
+        return pm.mk_and(constraints);
     }
 
     proof_ref model_search::get_proof_trace(context const& ctx) const {
@@ -1367,6 +1415,8 @@ namespace pdr {
         if (!m_params.validate_result()) {
             return;
         }
+        std::stringstream msg;
+
         switch(m_last_result) {
         case l_true: {
             proof_ref pr = get_proof();
@@ -1374,7 +1424,8 @@ namespace pdr {
             expr_ref_vector side_conditions(m);
             bool ok = checker.check(pr, side_conditions);
             if (!ok) {
-                IF_VERBOSE(0, verbose_stream() << "proof validation failed\n";);
+                msg << "proof validation failed";
+                throw default_exception(msg.str());
             }
             for (unsigned i = 0; i < side_conditions.size(); ++i) {
                 expr* cond = side_conditions[i].get();
@@ -1385,9 +1436,8 @@ namespace pdr {
                 solver.assert_expr(tmp);
                 lbool res = solver.check();
                 if (res != l_false) {
-                    IF_VERBOSE(0, verbose_stream() << "rule validation failed\n";
-                               verbose_stream() << mk_pp(cond, m) << "\n";
-                               );
+                    msg << "rule validation failed when checking: " << mk_pp(cond, m);
+                    throw default_exception(msg.str());
                 }                                
             }
             break;
@@ -1430,14 +1480,15 @@ namespace pdr {
                         names.push_back(symbol(i));
                     }
                     sorts.reverse();
-                    tmp = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
+                    if (!sorts.empty()) {
+                        tmp = m.mk_exists(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp);
+                    }
                     smt::kernel solver(m, get_fparams());
                     solver.assert_expr(tmp);
                     lbool res = solver.check();
                     if (res != l_false) {
-                        IF_VERBOSE(0, verbose_stream() << "rule validation failed\n";
-                                   verbose_stream() << mk_pp(tmp, m) << "\n";
-                                   );
+                        msg << "rule validation failed when checking: " << mk_pp(tmp, m);
+                        throw default_exception(msg.str());
                     }
                 }
             }
@@ -1530,6 +1581,14 @@ namespace pdr {
                     inductive_property ex(m, mc, rs);
                     verbose_stream() << ex.to_string();
                 });
+            
+            // upgrade invariants that are known to be inductive.
+            decl2rel::iterator it = m_rels.begin (), end = m_rels.end ();
+            for (; m_inductive_lvl > 0 && it != end; ++it) {
+                if (it->m_value->head() != m_query_pred) {
+                    it->m_value->propagate_to_infinity (m_inductive_lvl);	
+                }
+            }
             validate();
             return l_false;
         }
@@ -1594,7 +1653,7 @@ namespace pdr {
             proof_ref pr = get_proof();
             return expr_ref(pr.get(), m);
         }
-        return m_search.get_trace();
+        return m_search.get_trace(*this);
     }
 
     expr_ref context::mk_unsat_answer() const {
@@ -1939,6 +1998,7 @@ namespace pdr {
         }
         st.update("PDR num unfoldings", m_stats.m_num_nodes);
         st.update("PDR max depth", m_stats.m_max_depth);
+        st.update("PDR inductive level", m_inductive_lvl);
         m_pm.collect_statistics(st);
 
         for (unsigned i = 0; i < m_core_generalizers.size(); ++i) {
