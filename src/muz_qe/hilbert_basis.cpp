@@ -23,8 +23,6 @@ Revision History:
 #include "heap_trie.h"
 #include "stopwatch.h"
 
-template<typename Value>
-class rational_map : public map<rational, Value, rational::hash_proc, rational::eq_proc> {};
 
 typedef int_hashtable<int_hash, default_eq<int> > int_table;
 
@@ -264,7 +262,10 @@ class hilbert_basis::index {
         void reset() { memset(this, 0, sizeof(*this)); }
     };        
 
-    typedef rational_map<value_index*> value_map;
+    template<typename Value>
+    class numeral_map : public map<numeral, Value, numeral::hash_proc, numeral::eq_proc> {};
+
+    typedef numeral_map<value_index*> value_map;
     hilbert_basis&   hb;
     value_map        m_neg;
     value_index      m_pos;
