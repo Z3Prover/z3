@@ -59,8 +59,9 @@ def init_project_def():
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
     add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
+    add_lib('interp', ['solver'])
     API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h']
-    add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure'],
+    add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure', 'interp'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds'], exe_name='z3')
     add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)
