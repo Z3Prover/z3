@@ -1,4 +1,21 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3scopes.cpp
+
+Abstract:
+
+   Calculations with scopes, for both sequence and tree interpolation.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
 
 #include <assert.h>
 

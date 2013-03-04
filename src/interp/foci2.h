@@ -1,3 +1,22 @@
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    foci2.h
+
+Abstract:
+
+   An interface class for foci2.   
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
+
 #ifndef FOCI2_H
 #define FOCI2_H
 

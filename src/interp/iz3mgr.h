@@ -1,4 +1,21 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3mgr.h
+
+Abstract:
+
+   A wrapper around an ast manager, providing convenience methods.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
 
 #ifndef IZ3MGR_H
 #define IZ3MGR_H

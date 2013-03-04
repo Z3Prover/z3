@@ -1,4 +1,22 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3proof.cpp
+
+Abstract:
+
+   This class defines a simple interpolating proof system.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
+
 
 
 #include "iz3proof.h"

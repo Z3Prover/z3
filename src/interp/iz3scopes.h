@@ -1,4 +1,22 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3scopes.h
+
+Abstract:
+
+   Calculations with scopes, for both sequence and tree interpolation.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
+
 
 #ifndef IZ3SOPES_H
 #define IZ3SOPES_H

@@ -1,4 +1,23 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3base.cpp
+
+Abstract:
+
+   Base class for interpolators. Includes an AST manager and a scoping
+   object as bases.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
+
 
 #include "iz3base.h"
 #include <stdio.h>

@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3hash.h
+
+Abstract:
+
+   Wrapper for stl hash tables
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
 
 // pull in the headers for has_map and hash_set
 // these live in non-standard places

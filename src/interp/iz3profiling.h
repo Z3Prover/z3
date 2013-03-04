@@ -1,4 +1,21 @@
-/* Copyright 2011 Microsoft Research. */
+/*++
+Copyright (c) 2011 Microsoft Corporation
+
+Module Name:
+
+    iz3profiling.h
+
+Abstract:
+
+   Some routines for measuring performance.
+
+Author:
+
+    Ken McMillan (kenmcmil)
+
+Revision History:
+
+--*/
 
 #ifndef IZ3PROFILING_H
 #define IZ3PROFILING_H
