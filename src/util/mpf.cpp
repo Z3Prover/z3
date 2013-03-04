@@ -367,7 +367,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         o.ebits = ebits;
         o.sbits = sbits;    
 
-        signed ds = sbits - x.sbits;
+        signed ds = sbits - x.sbits + 4;  // plus rounding bits
         if (ds > 0)
         {
             m_mpz_manager.mul2k(o.significand, ds);
