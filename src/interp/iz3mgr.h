@@ -63,9 +63,20 @@ class ast_r {
   bool eq(const ast_r &other) const {
     return _ast == other._ast;
   }
+  bool lt(const ast_r &other) const {
+    return _ast < other._ast;
+  }
   friend bool operator==(const ast_r &x, const ast_r&y){
     return x.eq(y);
   }
+  friend bool operator!=(const ast_r &x, const ast_r&y){
+    return !x.eq(y);
+  }
+  friend bool operator<(const ast_r &x, const ast_r&y){
+    return x.lt(y);
+  }
+  size_t hash() const {return (size_t)_ast;}
+  bool null() const {return !_ast;}
 };
 
 
@@ -101,6 +112,8 @@ class iz3mgr  {
   // typedef decl_kind opr;
   typedef func_decl *symb;
   typedef sort *type;
+  typedef ast_r z3pf;
+  typedef decl_kind pfrule;
 
   enum opr {
     True,
@@ -163,7 +176,7 @@ class iz3mgr  {
   ast make(opr op, const std::vector<ast> &args);
   ast make(opr op);
   ast make(opr op, ast &arg0);
-  ast make(opr op, ast &arg0, ast &arg1);
+  ast make(opr op, const ast &arg0, const ast &arg1);
   ast make(opr op, ast &arg0, ast &arg1, ast &arg2);
   ast make(symb sym, const std::vector<ast> &args);
   ast make(symb sym);
@@ -354,6 +367,16 @@ class iz3mgr  {
 
   ast mk_true() { return make(True); }
 
+  /** methods for destructing proof terms */
+
+  pfrule pr(const z3pf &t);
+
+  int num_prems(const z3pf &t){return to_app(t.raw())->get_num_args()-1;}
+  
+  z3pf prem(const z3pf &t, int n){return arg(t,n);}
+
+  z3pf conc(const z3pf &t){return arg(t,num_prems(t));}
+  
   /** For debugging */
   void show(ast);
 

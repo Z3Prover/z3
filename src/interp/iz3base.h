@@ -65,6 +65,15 @@ class iz3base : public iz3mgr, public scopes {
     weak = false;
   }
 
+ iz3base(const iz3mgr& other,
+	 const std::vector<ast> &_cnsts,
+	 const std::vector<int> &_parents,
+	 const std::vector<ast> &_theory)
+   : iz3mgr(other), scopes(_parents)  {
+    initialize(_cnsts,_parents,_theory);
+    weak = false;
+  }
+
   /* Set our options */
   void set_option(const std::string &name, const std::string &value){
     if(name == "weak" && value == "1") weak = true;
@@ -87,6 +96,12 @@ class iz3base : public iz3mgr, public scopes {
     throw "no interpolator";
   }
 
+  ast get_proof_check_assump(range &rng){
+    std::vector<ast> cs(theory);
+    cs.push_back(cnsts[rng.hi]);
+    return make(And,cs);
+  }
+  
  private:
 
   struct ranges {
@@ -106,6 +121,7 @@ class iz3base : public iz3mgr, public scopes {
   void initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
 
   std::vector<ast> cnsts;
+  std::vector<ast> theory;
 
   bool is_literal(ast n);
   void gather_conjuncts_rec(ast n, std::vector<ast> &conjuncts, stl_ext::hash_set<ast> &memo);

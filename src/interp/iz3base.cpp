@@ -193,13 +193,14 @@ iz3base::ast iz3base::simplify(ast n){
   return res;
 }
 
-void iz3base::initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &theory){
+void iz3base::initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory){
   cnsts = _parts;
+  theory = _theory;
   for(unsigned i = 0; i < cnsts.size(); i++)
     add_frame_range(i, cnsts[i]);
-  for(unsigned i = 0; i < theory.size(); i++){
-    add_frame_range(SHRT_MIN, theory[i]);
-    add_frame_range(SHRT_MAX, theory[i]);
+  for(unsigned i = 0; i < _theory.size(); i++){
+    add_frame_range(SHRT_MIN, _theory[i]);
+    add_frame_range(SHRT_MAX, _theory[i]);
   }
 }
 
