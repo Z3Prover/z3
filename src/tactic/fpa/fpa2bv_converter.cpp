@@ -1546,14 +1546,14 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         unsigned ebits = m_util.get_ebits(f->get_range());
         unsigned sbits = m_util.get_sbits(f->get_range());          
         
-        //SASSERT(m_bv_util.is_numeral(args[0]));        
-        //rational tmp_rat; unsigned sz; 
-        //m_bv_util.is_numeral(to_expr(args[0]), tmp_rat, sz);        
-        //SASSERT(tmp_rat.is_int32());
-        //SASSERT(sz == 3);
-        //BV_RM_VAL rm = (BV_RM_VAL) tmp_rat.get_unsigned();
+        SASSERT(m_bv_util.is_numeral(args[0]));        
+        rational tmp_rat; unsigned sz; 
+        m_bv_util.is_numeral(to_expr(args[0]), tmp_rat, sz);        
+        SASSERT(tmp_rat.is_int32());
+        SASSERT(sz == 3);
+        BV_RM_VAL bv_rm = (BV_RM_VAL) tmp_rat.get_unsigned();
         
-        /*mpf_rounding_mode rm;
+        mpf_rounding_mode rm;
         switch(bv_rm)
         {
         case BV_RM_TIES_TO_AWAY: rm = MPF_ROUND_NEAREST_TAWAY; break;
@@ -1562,14 +1562,10 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         case BV_RM_TO_POSITIVE: rm = MPF_ROUND_TOWARD_POSITIVE; break;
         case BV_RM_TO_ZERO: rm = MPF_ROUND_TOWARD_ZERO; break;
         default: UNREACHABLE();
-        }*/
+        }
 
         SASSERT(m_util.au().is_numeral(args[1]));
         
-        sort * rm_rng = to_app(args[0])->get_decl()->get_range();
-        SASSERT(m_util.is_rm(rm_rng));
-        mpf_rounding_mode rm = static_cast<mpf_rounding_mode>(to_app(args[1])->get_decl_kind());
-
         rational q;
         SASSERT(m_util.au().is_numeral(args[1]));
         m_util.au().is_numeral(args[1], q);
