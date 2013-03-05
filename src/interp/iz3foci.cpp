@@ -73,9 +73,9 @@ public:
   // create a symbol corresponding to a DeBruijn index of a particular type
   // the type has to be encoded into the name because the same index can
   // occur with different types
-  foci2::symb make_deBruijn_symbol(int index, int type){
+  foci2::symb make_deBruijn_symbol(int index, type ty){
     std::ostringstream s;
-    s << "#" << index << "#" << type;
+    // s << "#" << index << "#" << type;
     return foci->mk_func(s.str());
   }
 
@@ -181,7 +181,7 @@ public:
       case Variable: {  // a deBruijn index
         int index = get_variable_index_value(t);
 	type ty = get_type(t);
-        foci2::symb symbol = make_deBruijn_symbol(index,(int)(ty));
+        foci2::symb symbol = make_deBruijn_symbol(index,ty);
         res = foci->mk_app(symbol,std::vector<foci2::ast>());
       }
       default:

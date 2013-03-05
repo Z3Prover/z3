@@ -264,8 +264,8 @@ void iz3mgr::pretty_print(std::ostream &f, const std::string &s){
 	col = indent;
 	continue;
       }
-      unsigned paren = s.find('(',pos);
-      if(paren != std::string::npos){
+      int paren = s.find('(',pos);
+      if(paren != (int)std::string::npos){
 	int chars = paren - pos + 1;
 	f << s.substr(pos,chars);
 	indent += pretty_indent_chars;
