@@ -54,8 +54,8 @@ extern "C" {
 			    Z3_ast proof,
 			    int num,
 			    Z3_ast *cnsts,
-			    int *parents,
-			    Z3_interpolation_options options,
+			    unsigned *parents,
+			    Z3_params options,
 			    Z3_ast *interps,
 			    int num_theory,
 			    Z3_ast *theory
@@ -92,7 +92,7 @@ extern "C" {
 		       pre_parents_vec,
 		       interpolants,
 		       theory_vec,
-		       (interpolation_options) options);
+		       0); // ignore params for now FIXME
 
 	// copy result back
 	for(unsigned i = 0; i < interpolants.size(); i++)
@@ -104,8 +104,8 @@ extern "C" {
   Z3_lbool Z3_interpolate(Z3_context ctx,
 			  int num,
 			  Z3_ast *cnsts,
-			  int *parents,
-			  Z3_interpolation_options options,
+			  unsigned *parents,
+			  Z3_params options,
 			  Z3_ast *interps,
 			  Z3_model *model,
 			  Z3_literals *labels,

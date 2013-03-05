@@ -7750,24 +7750,23 @@ END_MLAPI_EXCLUDE
     are considered to have global scope (i.e., may appear in any
     interpolant formula). 
 
-    def_API('Z3_interpolate', LBOOL, (_in(CONTEXT),), (_in(INT),), (_in_ptr(AST),),
-            (_in_ptr(INT),), (_in(PARAMS),), (_in_ptr(AST),),
-	    (_out(MODEL),), (_out(LITERALS),), (_in(BOOL),), (_in(INT),), (_in_ptr(AST,0),))
+    def_API('Z3_interpolate', INT, (_in(CONTEXT), _in(INT), _in_array(1,AST), _in_array(1,UINT), _in(PARAMS), _out_array(1,AST), _out(MODEL), _out(LITERALS),  _in(BOOL),  _in(INT), _in_array(9,AST),))
 
+   
   */  
 
 
-  Z3_lbool Z3_API Z3_interpolate(Z3_context ctx, 
-				 int num,
-				 Z3_ast *cnsts,
-				 int *parents,
-				 Z3_interpolation_options options,
-				 Z3_ast *interps,
-				 Z3_model *model = 0,
-				 Z3_literals *labels = 0,
-				 bool incremental = false,
-				 int num_theory = 0,
-				 Z3_ast *theory = 0);
+  Z3_lbool Z3_API Z3_interpolate(__in Z3_context ctx, 
+				 __in int num,
+				 __in_ecount(num) Z3_ast *cnsts,
+				 __in_ecount(num) unsigned *parents,
+				 __in Z3_params options,
+				 __out_ecount(num-1) Z3_ast *interps,
+				 __out Z3_model *model = 0,
+				 __out Z3_literals *labels = 0,
+				 __in bool incremental = false,
+				 __in int num_theory = 0,
+				 __in_ecount(num_theory) Z3_ast *theory = 0);
   
   /** Return a string summarizing cumulative time used for
       interpolation.  This string is purely for entertainment purposes
