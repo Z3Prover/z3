@@ -1476,8 +1476,7 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
             expr_ref sticky(m), low(m), high(m);
             low = m_bv_util.mk_extract(from_sbits - to_sbits - 3, 0, sig);
             high = m_bv_util.mk_extract(from_sbits - 1, from_sbits - to_sbits - 2, sig);
-            unsigned high_sz = m_bv_util.get_bv_size(high);
-            sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, low);
+            sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, low.get());
             res_sig = m_bv_util.mk_concat(high, sticky);
         }
         else
@@ -1494,24 +1493,24 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
             res_exp = m_bv_util.mk_sign_extend(to_ebits+2-from_ebits, exp);
         else if (from_ebits > (to_ebits + 2))
         {
-            expr_ref high(m), low(m), lows(m), high_red_or(m), high_red_and(m), or_eq(m), not_or_eq(m), and_eq(m);
+            expr_ref high(m), low(m), lows(m), high_red_or(m), high_red_and(m), h_or_eq(m), h_and_eq(m);
             expr_ref no_ovf(m), zero1(m), s_is_one(m), s_is_zero(m);
             high = m_bv_util.mk_extract(from_ebits - 1, to_ebits + 2, exp);
             low = m_bv_util.mk_extract(to_ebits+1, 0, exp);
             lows = m_bv_util.mk_extract(to_ebits+1, to_ebits+1, low);
             
-            high_red_or = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, high);
-            high_red_and = m.mk_app(m_bv_util.get_fid(), OP_BREDAND, high);
+            high_red_or = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, high.get());
+            high_red_and = m.mk_app(m_bv_util.get_fid(), OP_BREDAND, high.get());
 
             zero1 = m_bv_util.mk_numeral(0, 1);
-            m_simp.mk_eq(high_red_and, one1, and_eq);            
-            m_simp.mk_eq(high_red_or, zero1, or_eq);
+            m_simp.mk_eq(high_red_and, one1, h_and_eq);            
+            m_simp.mk_eq(high_red_or, zero1, h_or_eq);
             m_simp.mk_eq(lows, zero1, s_is_zero);
             m_simp.mk_eq(lows, one1, s_is_one);
             
             expr_ref c2(m);
-            m_simp.mk_ite(or_eq, s_is_one, m.mk_false(), c2);
-            m_simp.mk_ite(and_eq, s_is_zero, c2, exponent_overflow);            
+            m_simp.mk_ite(h_or_eq, s_is_one, m.mk_false(), c2);
+            m_simp.mk_ite(h_and_eq, s_is_zero, c2, exponent_overflow);            
             
             // Note: Upon overflow, we _could_ try to shift the significand around...
 
