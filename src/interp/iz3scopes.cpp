@@ -31,7 +31,7 @@ int scopes::tree_lca(int n1, int n2){
   if(n1 == SHRT_MAX || n2 == SHRT_MAX) return SHRT_MAX;
   while(n1 != n2){
     if(n1 == SHRT_MAX || n2 == SHRT_MAX) return SHRT_MAX;
-    assert(n1 >= 0 && n2 >= 0 && n1 < parents.size() && n2 < parents.size());
+    assert(n1 >= 0 && n2 >= 0 && n1 < (int)parents.size() && n2 < (int)parents.size());
     if(n1 < n2) n1 = parents[n1];
     else n2 = parents[n2];
   }

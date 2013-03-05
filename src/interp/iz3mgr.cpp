@@ -65,7 +65,7 @@ iz3mgr::ast iz3mgr::make(opr op, ast &arg0){
   return make(op,1,&a);
 }
 
-iz3mgr::ast iz3mgr::make(opr op, ast &arg0, ast &arg1){
+iz3mgr::ast iz3mgr::make(opr op, const ast &arg0, const ast &arg1){
   raw_ast *args[2];
   args[0] = arg0.raw();
   args[1] = arg1.raw();
@@ -366,4 +366,11 @@ iz3mgr::opr iz3mgr::op(ast &t){
     default:;
     }
     return Other;
+}
+
+
+iz3mgr::pfrule iz3mgr::pr(const ast &t){
+  func_decl *d = to_app(t.raw())->get_decl();
+  assert(m_basic_fid == d->get_family_id());
+  return d->get_decl_kind();
 }
