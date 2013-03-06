@@ -227,7 +227,7 @@ br_status float_rewriter::mk_abs(expr * arg1, expr_ref & result) {
         return BR_DONE;
     }
     sort * s = m().get_sort(arg1);
-    result = m().mk_ite(m_util.mk_lt(arg1, m_util.mk_pzero(s)),
+    result = m().mk_ite(m_util.mk_is_sign_minus(arg1),
                         m_util.mk_uminus(arg1),
                         arg1);
     return BR_REWRITE2;

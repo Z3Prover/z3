@@ -610,11 +610,11 @@ void fpa2bv_converter::mk_mul(func_decl * f, unsigned num, expr * const * args, 
 
     expr_ref h_p(m), l_p(m), rbits(m);
     h_p = m_bv_util.mk_extract(2*sbits-1, sbits, product);
-    l_p = m_bv_util.mk_extract(2*sbits-1, sbits, product);
+    l_p = m_bv_util.mk_extract(sbits-1, 0, product);
     
     if (sbits >= 4) {
         expr_ref sticky(m);
-        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(sbits-4, 0, l_p));    
+        sticky = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, m_bv_util.mk_extract(sbits-4, 0, l_p));            
         rbits = m_bv_util.mk_concat(m_bv_util.mk_extract(sbits-1, sbits-3, l_p), sticky);
     }
     else
@@ -2094,11 +2094,11 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     expr * round_sticky[2] = { round, sticky };        
     last_or_sticky = m_bv_util.mk_bv_or(2, last_sticky);
     round_or_sticky = m_bv_util.mk_bv_or(2, round_sticky); 
-    not_round = m_bv_util.mk_bv_not(round);
+    not_round = m_bv_util.mk_bv_not(round);    
     not_lors = m_bv_util.mk_bv_not(last_or_sticky);
     not_rors = m_bv_util.mk_bv_not(round_or_sticky);
     not_sgn = m_bv_util.mk_bv_not(sgn);
-    expr * round_lors[2] = { not_round, not_lors };    
+    expr * round_lors[2] = { not_round, not_lors};    
     expr * pos_args[2] = { sgn, not_rors };
     expr * neg_args[2] = { not_sgn, not_rors };
 
