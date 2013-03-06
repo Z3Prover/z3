@@ -138,6 +138,7 @@ namespace pdr {
         ptr_vector<app>& get_aux_vars(datalog::rule const& r) { return m_rule2vars.find(&r); }
 
         bool propagate_to_next_level(unsigned level);
+        void propagate_to_infinity(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
 
         lbool is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level);
@@ -223,7 +224,6 @@ namespace pdr {
         void set_rule(datalog::rule const* r) { m_rule = r; }
         datalog::rule* get_rule();
 
-        expr_ref get_trace(context const& ctx);
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);
 
         std::ostream& display(std::ostream& out, unsigned indent);

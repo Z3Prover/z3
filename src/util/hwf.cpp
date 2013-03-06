@@ -117,14 +117,14 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, char const * value) {
     std::string v(value);
     size_t e_pos = v.find('p');
     if (e_pos == std::string::npos) e_pos = v.find('P');
-    
+
     std::string f, e;
-    
+
     f = (e_pos != std::string::npos) ? v.substr(0, e_pos) : v;
     e = (e_pos != std::string::npos) ? v.substr(e_pos+1) : "0";    
-    
+
     TRACE("mpf_dbg", tout << " f = " << f << " e = " << e << std::endl;);   
-    
+
     mpq q;    
     m_mpq_manager.set(q, f.c_str());
 
@@ -132,14 +132,14 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, char const * value) {
     m_mpz_manager.set(ex, e.c_str());
 
     set(o, rm, q, ex);    
-    
+
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
 
 void hwf_manager::set(hwf & o, mpf_rounding_mode rm, mpq const & significand, mpz const & exponent) {
     // Assumption: this represents significand * 2^exponent.
     set_rounding_mode(rm);
-    
+
     mpq sig; 
     m_mpq_manager.set(sig, significand);
     int64 exp = m_mpz_manager.get_int64(exponent);
@@ -349,7 +349,7 @@ void hwf_manager::rem(hwf const & x, hwf const & y, hwf & o) {
     else 
         o.value = fmod(x.value, y.value);
 
-// Here is an x87 alternative if the above makes problems; this may also be faster.
+    // Here is an x87 alternative if the above makes problems; this may also be faster.
 #if 0
     double xv = x.value;
     double yv = y.value;
@@ -434,7 +434,7 @@ void hwf_manager::display_smt2(std::ostream & out, hwf const & a, bool decimal) 
 void hwf_manager::to_rational(hwf const & x, unsynch_mpq_manager & qm, mpq & o) {
     SASSERT(is_normal(x) || is_denormal(x) || is_zero(x));
     scoped_mpz n(qm), d(qm);
-    
+
     if (is_normal(x))
         qm.set(n, sig(x) | 0x0010000000000000ull);
     else
@@ -466,7 +466,7 @@ bool hwf_manager::is_neg(hwf const & x) {
 bool hwf_manager::is_pos(hwf const & x) {
     return !sgn(x) && !is_nan(x);
 }
-    
+
 bool hwf_manager::is_nzero(hwf const & x) {
     return RAW(x.value) == 0x8000000000000000ull;
 }
@@ -581,20 +581,20 @@ void hwf_manager::mk_ninf(hwf & o) {
 
 #ifdef _WINDOWS
 #if defined(_AMD64_) || defined(_M_IA64)
-  #ifdef USE_INTRINSICS
-    #define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
-  #else
-    #define SETRM(RM) _controlfp_s(&sse2_state, RM, _MCW_RC); 
-  #endif
+#ifdef USE_INTRINSICS
+#define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
 #else
-  #ifdef USE_INTRINSICS
-    #define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
-  #else
-    #define SETRM(RM) __control87_2(RM, _MCW_RC, &x86_state, &sse2_state)
-  #endif
+#define SETRM(RM) _controlfp_s(&sse2_state, RM, _MCW_RC); 
 #endif
 #else
-  #define SETRM(RM) fesetround(RM)
+#ifdef USE_INTRINSICS
+#define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
+#else
+#define SETRM(RM) __control87_2(RM, _MCW_RC, &x86_state, &sse2_state)
+#endif
+#endif
+#else
+#define SETRM(RM) fesetround(RM)
 #endif
 
 unsigned hwf_manager::prev_power_of_two(hwf const & a) {
@@ -608,9 +608,28 @@ unsigned hwf_manager::prev_power_of_two(hwf const & a) {
 
 void hwf_manager::set_rounding_mode(mpf_rounding_mode rm)
 {
-#ifdef _WINDOWS    
+#ifdef _WINDOWS
+#ifdef USE_INTRINSICS
     switch (rm) {
-    case MPF_ROUND_NEAREST_TEVEN:             
+    case MPF_ROUND_NEAREST_TEVEN:
+        SETRM(_MM_ROUND_NEAREST);
+        break;
+    case MPF_ROUND_TOWARD_POSITIVE:
+        SETRM(_MM_ROUND_UP);
+        break;
+    case MPF_ROUND_TOWARD_NEGATIVE:
+        SETRM(_MM_ROUND_DOWN);
+        break;
+    case MPF_ROUND_TOWARD_ZERO:
+        SETRM(_MM_ROUND_TOWARD_ZERO);
+        break;
+    case MPF_ROUND_NEAREST_TAWAY:
+    default:
+        UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
+    }
+#else
+    switch (rm) {
+    case MPF_ROUND_NEAREST_TEVEN:
         SETRM(_RC_NEAR);
         break;
     case MPF_ROUND_TOWARD_POSITIVE:
@@ -626,6 +645,7 @@ void hwf_manager::set_rounding_mode(mpf_rounding_mode rm)
     default:
         UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
     }
+#endif
 #else // OSX/Linux
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:             

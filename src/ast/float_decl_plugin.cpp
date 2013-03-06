@@ -151,6 +151,10 @@ sort * float_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) {
             m_manager->raise_exception("expecting two integer parameters to floating point sort");
         }
+        if (parameters[0].get_int() <= 1 || parameters[1].get_int() <= 1)
+            m_manager->raise_exception("floating point sorts need parameters > 1");
+        if (parameters[0].get_int() > parameters[1].get_int())
+            m_manager->raise_exception("floating point sorts with ebits > sbits are currently not supported");
         return mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
     case ROUNDING_MODE_SORT:
         return mk_rm_sort();
@@ -349,27 +353,22 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         sort * fp = mk_float_sort(domain[2]->get_parameter(0).get_int(), domain[1]->get_parameter(0).get_int()+1);
         symbol name("asFloat");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-		}
+    }    
     else {
         // .. Otherwise we only know how to convert rationals/reals. 
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
             m_manager->raise_exception("expecting two integer parameters to asFloat");        
         if (arity != 2 && arity != 3)
-			m_manager->raise_exception("invalid number of arguments to asFloat operator");
-		if (!is_rm_sort(domain[0]) || domain[1] != m_real_sort)
+            m_manager->raise_exception("invalid number of arguments to asFloat operator");
+        if (arity == 3 && domain[2] != m_int_sort)
+            m_manager->raise_exception("sort mismatch");     
+        if (!is_rm_sort(domain[0]) ||
+            !(domain[1] == m_real_sort || is_sort_of(domain[1], m_family_id, FLOAT_SORT)))
             m_manager->raise_exception("sort mismatch");
-        if (arity == 2) {            
-            sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
-            symbol name("asFloat");
-            return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-        }
-        else {
-            if (domain[2] != m_int_sort)
-                m_manager->raise_exception("sort mismatch");     
-            sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
-            symbol name("asFloat");
-            return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-        }
+        
+        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+        symbol name("asFloat");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));            
     }
 }
 

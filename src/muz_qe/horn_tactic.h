@@ -27,4 +27,9 @@ tactic * mk_horn_tactic(ast_manager & m, params_ref const & p = params_ref());
 /*
   ADD_TACTIC("horn", "apply tactic for horn clauses.", "mk_horn_tactic(m, p)")
 */
+
+tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p = params_ref());
+/*
+  ADD_TACTIC("horn-simplify", "simplify horn clauses.", "mk_horn_simplify_tactic(m, p)")
+*/
 #endif

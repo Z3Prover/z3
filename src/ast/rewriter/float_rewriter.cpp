@@ -77,14 +77,23 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
             return BR_FAILED;
         
         rational q;
-        if (!m_util.au().is_numeral(args[1], q))
+        mpf q_mpf;
+        if (m_util.au().is_numeral(args[1], q)) {        
+            mpf v;
+            m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
+            result = m_util.mk_value(v);
+            m_util.fm().del(v);            
+            return BR_DONE;
+        }
+        else if (m_util.is_value(args[1], q_mpf)) {            
+            mpf v;
+            m_util.fm().set(v, ebits, sbits, rm, q_mpf);
+            result = m_util.mk_value(v);
+            m_util.fm().del(v);
+            return BR_DONE;
+        }
+        else 
             return BR_FAILED;
-        
-        mpf v;
-        m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
-        result = m_util.mk_value(v);
-        m_util.fm().del(v);
-        return BR_DONE;
     }
     else if (num_args == 3 && 
              m_util.is_rm(m().get_sort(args[0])) && 
