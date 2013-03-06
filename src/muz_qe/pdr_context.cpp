@@ -723,24 +723,17 @@ namespace pdr {
         m_closed = true; 
     }
 
-    expr_ref model_node::get_trace() const {
+    expr_ref model_node::get_trace(context const& ctx) {
         pred_transformer& p = pt();
         ast_manager& m = p.get_manager();
-        manager& pm = p.get_pdr_manager();
-        TRACE("pdr", model_smt2_pp(tout, m, get_model(), 0););
-        func_decl* f = p.head();
-        unsigned arity = f->get_arity();
-        model_ref model = get_model_ptr();
-        expr_ref_vector args(m);
-        expr_ref v(m);
-        model_evaluator mev(m);
-
-        for (unsigned i = 0; i < arity; ++i) {
-            v = m.mk_const(pm.o2n(p.sig(i),0));  
-            expr_ref e = mev.eval(model, v);
-            args.push_back(e);
-        }            
-        return expr_ref(m.mk_app(f, args.size(), args.c_ptr()), m);
+        datalog::context& dctx = ctx.get_context();
+        datalog::rule_manager& rm = dctx.get_rule_manager();
+        datalog::rule_ref r0(rm), r1(rm);
+        expr_ref_vector binding(m);
+        expr_ref fml(m);
+        mk_instantiate(r0, r1, binding);
+        r1->to_formula(fml);
+        return fml;
     }
 
     static bool is_ini(datalog::rule const& r) {
@@ -961,21 +954,95 @@ namespace pdr {
         return out;
     }
 
-    expr_ref model_search::get_trace() const {       
+    expr_ref model_search::get_trace(context const& ctx) const {       
         pred_transformer& pt = get_root().pt();
         ast_manager& m = pt.get_manager();
         manager& pm = pt.get_pdr_manager();
-        expr_ref result(m.mk_true(),m);
         expr_ref_vector rules(m);
-        ptr_vector<model_node> nodes;
-        nodes.push_back(m_root);
+        expr_ref_vector binding(m);
+        ptr_vector<model_node> todo;
+        datalog::rule_ref r0(rm), r1(rm), r2(rm);
+        model_node* n = m_root;
+        todo.push_back(n);
+        while (!todo.empty()) {
+            n = todo.back();
+            ptr_vector<model_node> const& chs = n->children();
+            rls.push_back(0);
+            for (unsigned i = 0; i < chs.size(); ++i) {
+                todo.push_back(chs[i]);
+            }
+            if (!chs.empty()) {
+                continue;
+            }
+            expr_ref fml0(m);
+            binding.reset();
+            n->mk_instantiate(r0, r1, binding);
+            r0->to_formula(fml0);
+            datalog::rule_ref reduced_rule(rm), r3(rm);            
+            reduced_rule = rls[0];
+            // check if binding is identity.
+            bool binding_is_id = true;
+            for (unsigned i = 0; binding_is_id && i < binding.size(); ++i) {
+                expr* v = binding[i].get();
+                binding_is_id = is_var(v) && to_var(v)->get_idx() == i;
+            }
+            if (rls.size() > 1 || !binding_is_id) {
+                expr_ref tmp(m);
+                vector<expr_ref_vector> substs;
+                svector<std::pair<unsigned,unsigned> > positions;
+                substs.push_back(binding); // TODO base substitution.
+                for (unsigned i = 1; i < rls.size(); ++i) {
+                    datalog::rule& src = *rls[i];
+                    bool unified = unifier.unify_rules(*reduced_rule, 0, src);
+                    if (!unified) {
+                        IF_VERBOSE(0,
+                                   verbose_stream() << "Could not unify rules: ";
+                                   reduced_rule->display(dctx, verbose_stream());
+                                   src.display(dctx, verbose_stream()););
+                    }
+                    expr_ref_vector sub1 = unifier.get_rule_subst(*reduced_rule, true);
+                    TRACE("pdr",
+                          for (unsigned k = 0; k < sub1.size(); ++k) {
+                              tout << mk_pp(sub1[k].get(), m) << " ";
+                          }
+                          tout << "\n";
+                          );
+
+                    for (unsigned j = 0; j < substs.size(); ++j) {
+                        for (unsigned k = 0; k < substs[j].size(); ++k) {
+                            var_subst(m, false)(substs[j][k].get(), sub1.size(), sub1.c_ptr(), tmp);
+                            substs[j][k] = tmp;
+                        }
+                        while (substs[j].size() < sub1.size()) {
+                            substs[j].push_back(sub1[substs[j].size()].get());
+                        }
+                    }
+
+                    positions.push_back(std::make_pair(i,0));
+                    substs.push_back(unifier.get_rule_subst(src, false));
+                    VERIFY(unifier.apply(*reduced_rule.get(), 0, src, r3));
+                    reduced_rule = r3;
+                }
+
+                expr_ref fml_concl(m);
+                reduced_rule->to_formula(fml_concl);                    
+                p1 = m.mk_hyper_resolve(pfs.size(), pfs.c_ptr(), fml_concl, positions, substs);
+
+            }
+            cache.insert(n->state(), p1);
+            rules.insert(n->state(), reduced_rule);
+            trail.push_back(p1);
+            rules_trail.push_back(reduced_rule);
+            todo.pop_back();
+        }
+
         while (!nodes.empty()) {
             model_node* current = nodes.back();
             nodes.pop_back();
-            rules.push_back(current->get_trace());
+            rules.push_back(current->get_trace(ctx));
             nodes.append(current->children());
         }
-        return pm.mk_and(rules);
+        return expr_ref(m.mk_and(rules.size(), rules.c_ptr()), m);
     }
 
     proof_ref model_search::get_proof_trace(context const& ctx) const {
@@ -1594,7 +1661,7 @@ namespace pdr {
             proof_ref pr = get_proof();
             return expr_ref(pr.get(), m);
         }
-        return m_search.get_trace();
+        return m_search.get_trace(*this);
     }
 
     expr_ref context::mk_unsat_answer() const {

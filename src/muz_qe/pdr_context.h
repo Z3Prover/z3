@@ -223,7 +223,7 @@ namespace pdr {
         void set_rule(datalog::rule const* r) { m_rule = r; }
         datalog::rule* get_rule();
 
-        expr_ref get_trace() const;
+        expr_ref get_trace(context const& ctx);
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);
 
         std::ostream& display(std::ostream& out, unsigned indent);
@@ -253,7 +253,7 @@ namespace pdr {
         void set_root(model_node* n);
         model_node& get_root() const { return *m_root; }
         std::ostream& display(std::ostream& out) const; 
-        expr_ref get_trace() const;
+        expr_ref get_trace(context const& ctx) const;
         proof_ref get_proof_trace(context const& ctx) const;
         void backtrack_level(bool uses_level, model_node& n);
     };
