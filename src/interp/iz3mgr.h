@@ -420,8 +420,8 @@ class iz3mgr  {
   scoped_ptr<ast_manager> m_manager;
 
  private:
+  ast mki(family_id fid, decl_kind sk, int n, raw_ast **args);
   ast make(opr op, int n, raw_ast **args);
-
   ast make(symb sym, int n, raw_ast **args);
 
   family_id                  m_basic_fid;

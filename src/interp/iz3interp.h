@@ -34,7 +34,7 @@ void iz3interpolate(scoped_ptr<ast_manager> &_m_manager,
 		    const ptr_vector<ast> &cnsts,
 		    const ::vector<int> &parents,
 		    ptr_vector<ast> &interps,
-		    const ptr_vector<ast> theory,
+		    const ptr_vector<ast> &theory,
 		    interpolation_options_struct * options = 0);
 
 #endif

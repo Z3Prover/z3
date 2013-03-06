@@ -44,7 +44,54 @@ iz3mgr::ast iz3mgr::make_var(const std::string &name, type ty){
 }
 
 iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
-  return m().mk_app(m().get_basic_family_id(), op, 0, 0, n, (expr **)args);        
+  switch(op) {
+  case True:     return mki(m_basic_fid,OP_TRUE,n,args);
+  case False:    return mki(m_basic_fid,OP_FALSE,n,args);
+  case Equal:    return mki(m_basic_fid,OP_EQ,n,args);
+  case Distinct: return mki(m_basic_fid,OP_DISTINCT,n,args);
+  case Ite:      return mki(m_basic_fid,OP_ITE,n,args);
+  case And:      return mki(m_basic_fid,OP_AND,n,args);
+  case Or:       return mki(m_basic_fid,OP_OR,n,args);
+  case Iff:      return mki(m_basic_fid,OP_IFF,n,args);
+  case Xor:      return mki(m_basic_fid,OP_XOR,n,args);
+  case Not:      return mki(m_basic_fid,OP_NOT,n,args);
+  case Implies:  return mki(m_basic_fid,OP_IMPLIES,n,args);
+  case Oeq:      return mki(m_basic_fid,OP_OEQ,n,args);
+  case Leq:      return mki(m_arith_fid,OP_LE,n,args);
+  case Geq:      return mki(m_arith_fid,OP_GE,n,args);
+  case Lt:       return mki(m_arith_fid,OP_LT,n,args);
+  case Gt:       return mki(m_arith_fid,OP_GT,n,args);
+  case Plus:     return mki(m_arith_fid,OP_ADD,n,args);
+  case Sub:      return mki(m_arith_fid,OP_SUB,n,args);
+  case Uminus:   return mki(m_arith_fid,OP_UMINUS,n,args);
+  case Times:    return mki(m_arith_fid,OP_MUL,n,args);
+  case Div:      return mki(m_arith_fid,OP_DIV,n,args);
+  case Idiv:     return mki(m_arith_fid,OP_IDIV,n,args);
+  case Rem:      return mki(m_arith_fid,OP_REM,n,args);
+  case Mod:      return mki(m_arith_fid,OP_MOD,n,args);
+  case Power:    return mki(m_arith_fid,OP_POWER,n,args);
+  case ToReal:   return mki(m_arith_fid,OP_TO_REAL,n,args);
+  case ToInt:    return mki(m_arith_fid,OP_TO_INT,n,args);
+  case IsInt:    return mki(m_arith_fid,OP_IS_INT,n,args);
+  case Store:    return mki(m_array_fid,OP_STORE,n,args);
+  case Select:   return mki(m_array_fid,OP_SELECT,n,args);
+  case ConstArray: return mki(m_array_fid,OP_CONST_ARRAY,n,args);
+  case ArrayDefault: return mki(m_array_fid,OP_ARRAY_DEFAULT,n,args);
+  case ArrayMap: return mki(m_array_fid,OP_ARRAY_MAP,n,args);
+  case SetUnion: return mki(m_array_fid,OP_SET_UNION,n,args);
+  case SetIntersect: return mki(m_array_fid,OP_SET_INTERSECT,n,args);
+  case SetDifference: return mki(m_array_fid,OP_SET_DIFFERENCE,n,args);
+  case SetComplement: return mki(m_array_fid,OP_SET_COMPLEMENT,n,args);
+  case SetSubSet: return mki(m_array_fid,OP_SET_SUBSET,n,args);
+  case AsArray:   return mki(m_array_fid,OP_AS_ARRAY,n,args);
+  default:
+    assert(0);
+    return ast();
+  }
+}
+
+iz3mgr::ast iz3mgr::mki(family_id fid, decl_kind dk, int n, raw_ast **args){
+  return m().mk_app(fid, dk, 0, 0, n, (expr **)args);        
 }
 
 iz3mgr::ast iz3mgr::make(opr op, const std::vector<ast> &args){

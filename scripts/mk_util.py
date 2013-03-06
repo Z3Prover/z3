@@ -29,6 +29,7 @@ CXX=getenv("CXX", None)
 CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
+EXAMP_DEBUG_FLAG=''
 LDFLAGS=getenv("LDFLAGS", "")
 JNI_HOME=getenv("JNI_HOME", None)
 
@@ -665,6 +666,10 @@ class Component:
         self.src_dir   = os.path.join(SRC_DIR, path)
         self.to_src_dir = os.path.join(REV_BUILD_DIR, self.src_dir)
 
+    def get_link_name(self):
+        return os.path.join(self.build_dir, self.name) + '$(LIB_EXT)'
+
+
     # Find fname in the include paths for the given component.
     # ownerfile is only used for creating error messages.
     # That is, we were looking for fname when processing ownerfile
@@ -880,7 +885,7 @@ class ExeComponent(Component):
             out.write(obj)
         for dep in deps:
             c_dep = get_component(dep)
-            out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+            out.write(' ' + c_dep.get_link_name())
         out.write('\n')
         out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
         for obj in objs:
@@ -888,7 +893,7 @@ class ExeComponent(Component):
             out.write(obj)
         for dep in deps:
             c_dep = get_component(dep)
-            out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+            out.write(' ' + c_dep.get_link_name())
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
@@ -954,6 +959,12 @@ class DLLComponent(Component):
         self.install = install
         self.static = static
 
+    def get_link_name(self):
+        if self.static:
+            return os.path.join(self.build_dir, self.name) + '$(LIB_EXT)'
+        else:
+            return self.name + '$(SO_EXT)'
+
     def mk_makefile(self, out):
         Component.mk_makefile(self, out)
         # generate rule for (SO_EXT)
@@ -976,7 +987,7 @@ class DLLComponent(Component):
         for dep in deps:
             if not dep in self.reexports:
                 c_dep = get_component(dep)
-                out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+                out.write(' ' + c_dep.get_link_name())
         out.write('\n')
         out.write('\t$(LINK) $(SLINK_OUT_FLAG)%s $(SLINK_FLAGS)' % dllfile)
         for obj in objs:
@@ -985,7 +996,7 @@ class DLLComponent(Component):
         for dep in deps:
             if not dep in self.reexports:
                 c_dep = get_component(dep)
-                out.write(' %s$(LIB_EXT)' % os.path.join(c_dep.build_dir, c_dep.name))
+                out.write(' ' + c_dep.get_link_name())
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
@@ -1228,7 +1239,7 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write(os.path.join(self.to_ex_dir, cppfile))
         out.write('\n')
-        out.write('\t%s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
+        out.write('\t%s $(EXAMP_DEBUG_FLAG) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
         # Add include dir components
         out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
         out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
@@ -1476,6 +1487,7 @@ def mk_config():
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
+            EXAMP_DEBUG_FLAG = '-g'
         else:
             if GPROF:
                 CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE' % CXXFLAGS
@@ -1519,6 +1531,7 @@ def mk_config():
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)    
         config.write('CXX_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
         config.write('LIB_EXT=.a\n')

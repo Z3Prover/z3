@@ -7750,8 +7750,6 @@ END_MLAPI_EXCLUDE
     are considered to have global scope (i.e., may appear in any
     interpolant formula). 
 
-    def_API('Z3_interpolate', INT, (_in(CONTEXT), _in(INT), _in_array(1,AST), _in_array(1,UINT), _in(PARAMS), _out_array(1,AST), _out(MODEL), _out(LITERALS),  _in(BOOL),  _in(INT), _in_array(9,AST),))
-
    
   */  
 
@@ -7762,11 +7760,11 @@ END_MLAPI_EXCLUDE
 				 __in_ecount(num) unsigned *parents,
 				 __in Z3_params options,
 				 __out_ecount(num-1) Z3_ast *interps,
-				 __out Z3_model *model = 0,
-				 __out Z3_literals *labels = 0,
-				 __in bool incremental = false,
-				 __in int num_theory = 0,
-				 __in_ecount(num_theory) Z3_ast *theory = 0);
+				 __out Z3_model *model,
+				 __out Z3_literals *labels,
+				 __in int incremental,
+				 __in int num_theory,
+				 __in_ecount(num_theory) Z3_ast *theory);
   
   /** Return a string summarizing cumulative time used for
       interpolation.  This string is purely for entertainment purposes
@@ -7779,6 +7777,49 @@ END_MLAPI_EXCLUDE
 
   Z3_string Z3_API Z3_interpolation_profile(Z3_context ctx);
   
+  /**
+     \brief Read an interpolation problem from file.
+
+     \param ctx The Z3 context. This resets the error handler of ctx.
+     \param filename The file name to read.
+     \param num Returns length of sequence.
+     \param cnsts Returns sequence of formulas (do not free)
+     \param parents Returns the parents vector (or NULL for sequence)
+     \param error Returns an error message in case of failure (do not free the string)
+
+     Returns true on success. 
+
+     File formats: Currently two formats are supported, based on
+     SMT-LIB2. For sequence interpolants, the sequence of constraints is
+     represented by the sequence of "assert" commands in the file.
+
+     For tree interpolants, one symbol of type bool is associated to
+     each vertex of the tree. For each vertex v there is an "assert"
+     of the form:
+
+     (implies (and c1 ... cn f) v)
+
+     where c1 .. cn are the children of v (which must precede v in the file)
+     and f is the formula assiciated to node v. The last formula in the
+     file is the root vertex, and is represented by the predicate "false".
+
+     A solution to a tree interpolation problem can be thought of as a
+     valuation of the vertices that makes all the implications true
+     where each value is represented using the common symbols between
+     the formulas in the subtree and the remainder of the formulas.
+  */
+  
+
+  int Z3_API
+  Z3_read_interpolation_problem(__in Z3_context ctx,
+				__out int *num, 
+				__out_ecount(*num) Z3_ast **cnsts, 
+				__out_ecount(*num) int **parents,
+				__in const char *filename,
+				__out const char **error,
+                                __out int *num_theory,
+				__out_ecount(*num_theory) Z3_ast **theory);
+
 
 
 #endif
