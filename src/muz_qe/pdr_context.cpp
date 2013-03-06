@@ -732,22 +732,6 @@ namespace pdr {
         m_closed = true; 
     }
 
-<<<<<<< HEAD
-    expr_ref model_node::get_trace(context const& ctx) {
-        pred_transformer& p = pt();
-        ast_manager& m = p.get_manager();
-        datalog::context& dctx = ctx.get_context();
-        datalog::rule_manager& rm = dctx.get_rule_manager();
-        datalog::rule_ref r0(rm), r1(rm);
-        expr_ref_vector binding(m);
-        expr_ref fml(m);
-        mk_instantiate(r0, r1, binding);
-        r1->to_formula(fml);
-        return fml;
-    }
-
-=======
->>>>>>> bdc675b1dfef87fcffeb7f3e5143128492d3bd89
     static bool is_ini(datalog::rule const& r) {
         return r.get_uninterpreted_tail_size() == 0;
     }
