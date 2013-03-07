@@ -224,11 +224,11 @@ public:
     delete sp;
   }
 
-  iz3interp(scoped_ptr<ast_manager> &_m_manager)
+  iz3interp(ast_manager &_m_manager)
     : iz3mgr(_m_manager) {}
 };
 
-void iz3interpolate(scoped_ptr<ast_manager> &_m_manager,
+void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
 		    const ptr_vector<ast> &cnsts,
 		    const ::vector<int> &parents,
@@ -236,21 +236,21 @@ void iz3interpolate(scoped_ptr<ast_manager> &_m_manager,
 		    const ptr_vector<ast> &theory,
 		    interpolation_options_struct * options)
 {
-  std::vector<ast_r> _cnsts(cnsts.size());
+  iz3interp itp(_m_manager);
+  std::vector<iz3mgr::ast> _cnsts(cnsts.size());
   std::vector<int> _parents(parents.size());
-  std::vector<ast_r> _interps;
-  std::vector<ast_r> _theory(theory.size());
+  std::vector<iz3mgr::ast> _interps;
+  std::vector<iz3mgr::ast> _theory(theory.size());
   for(unsigned i = 0; i < cnsts.size(); i++)
-    _cnsts[i] = cnsts[i];
+    _cnsts[i] = itp.cook(cnsts[i]);
   for(unsigned i = 0; i < parents.size(); i++)
     _parents[i] = parents[i];
   for(unsigned i = 0; i < theory.size(); i++)
-    _theory[i] = theory[i];
-  ast_r _proof(proof);
-  iz3interp itp(_m_manager);
+    _theory[i] = itp.cook(theory[i]);
+  iz3mgr::ast _proof = itp.cook(proof);
   itp.proof_to_interpolant(_proof,_cnsts,_parents,_interps,_theory,options);
   interps.resize(_interps.size());
   for(unsigned i = 0; i < interps.size(); i++)
-    _interps[i] = interps[i];
+    interps[i] = itp.uncook(_interps[i]);
 }
 

@@ -71,6 +71,7 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX=os.path.split(os.path.split(os.path.split(PYTHON_PACKAGE_DIR)[0])[0])[0]
 GMP=False
+FOCI2=False
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
@@ -198,6 +199,14 @@ def test_gmp(cc):
     t.add('#include<gmp.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
+
+def test_foci2(cc):
+    if is_verbose():
+        print("Testing FOCI2...")
+    t = TempFile('tstfoci2.cpp')
+    t.add('#include<foci2.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
+    t.commit()
+    return exec_compiler_cmd([cc, CPPFLAGS, 'tstfoci2.cpp', LDFLAGS, '-lfoci2']) == 0
 
 def test_openmp(cc):
     if is_verbose():
@@ -444,6 +453,7 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
+    print("  --foci2                       use FOCI2.")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -459,7 +469,7 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
                                                'b:dsxhmcvtnp:gj', 
@@ -508,6 +518,8 @@ def parse_options():
             VS_PAR_NUM = int(arg)
         elif opt in ('-g', '--gmp'):
             GMP = True
+        elif opt in ('-f', '--foci2'):
+            FOCI2 = True
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
         elif opt == '--gprof':
@@ -1458,7 +1470,7 @@ def mk_config():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
     else:
-        global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
@@ -1473,6 +1485,12 @@ def mk_config():
             CPPFLAGS = '%s -D_MP_GMP' % CPPFLAGS
             LDFLAGS  = '%s -lgmp' % LDFLAGS
             SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
+        else:
+            CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
+        if FOCI2:
+            test_foci2(CXX)
+            LDFLAGS  = '%s -lfoci2' % LDFLAGS
+            SLIBEXTRAFLAGS = '%s -lfoci2' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if GIT_HASH:

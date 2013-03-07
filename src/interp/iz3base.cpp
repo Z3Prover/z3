@@ -140,7 +140,7 @@ iz3base::ast iz3base::simplify_with_lit_rec(ast n, ast lit, stl_ext::hash_map<as
   ast not_lit = mk_not(lit);
   if(n == not_lit) return mk_false();
   if(op(n) != And || depth <= 0) return n;
-  std::pair<ast,ast> foo(n,(ast)0);
+  std::pair<ast,ast> foo(n,ast());
   std::pair<hash_map<ast,ast>::iterator,bool> bar = memo.insert(foo);
   ast &res = bar.first->second;
   if(!bar.second) return res;
@@ -159,7 +159,7 @@ iz3base::ast iz3base::simplify_with_lit(ast n, ast lit){
 
 iz3base::ast iz3base::simplify(ast n){
   if(is_not(n)) return mk_not(simplify(mk_not(n)));
-  std::pair<ast,ast> memo_obj(n,(ast)0);
+  std::pair<ast,ast> memo_obj(n,ast());
   std::pair<hash_map<ast,ast>::iterator,bool> memo = simplify_memo.insert(memo_obj);
   ast &res = memo.first->second;
   if(!memo.second) return res;

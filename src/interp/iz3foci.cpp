@@ -197,7 +197,7 @@ public:
 
   // convert an expr to Z3 ast
   ast to_Z3_ast(foci2::ast i){
-    std::pair<foci2::ast,ast> foo(i,(ast)0);
+    std::pair<foci2::ast,ast> foo(i,ast());
     std::pair<NodeToAst::iterator,bool> bar = node_to_ast.insert(foo);
     if(!bar.second) return bar.first->second;
     ast &res = bar.first->second;

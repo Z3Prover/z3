@@ -90,7 +90,7 @@ extern "C" {
 	
 	ptr_vector<ast> interpolants(num-1); // make space for result
 	
-	scoped_ptr<ast_manager> _m(&mk_c(ctx)->m());
+	ast_manager &_m = mk_c(ctx)->m();
 	iz3interpolate(_m,
 		       to_ast(proof),
 		       pre_cnsts_vec,
@@ -100,10 +100,12 @@ extern "C" {
 		       0); // ignore params for now FIXME
 
 	// copy result back
-	for(unsigned i = 0; i < interpolants.size(); i++)
+	for(unsigned i = 0; i < interpolants.size(); i++){
+	  mk_c(ctx)->save_ast_trail(interpolants[i]);
 	  interps[i] = of_ast(interpolants[i]);
+	  _m.dec_ref(interpolants[i]);
+	}
       }
-
   }
 
   Z3_lbool Z3_interpolate(Z3_context ctx,
@@ -120,6 +122,8 @@ extern "C" {
 			  ){
 
     
+    profiling::timer_start("Solve");
+
     if(!incremental){
 
       profiling::timer_start("Z3 assert");
@@ -159,6 +163,10 @@ extern "C" {
 			   interps,
 			   num_theory,
 			   theory);
+
+      if(!incremental)
+	for(int i = 0; i < num-1; i++)
+	  Z3_persist_ast(ctx,interps[i],1);
       break;
       
     case Z3_L_UNDEF:
@@ -171,6 +179,13 @@ extern "C" {
 	*labels = Z3_get_relevant_labels(ctx);
       break;
     }
+
+    profiling::timer_start("Z3 pop");
+    if(!incremental)
+      Z3_pop(ctx,1);
+    profiling::timer_stop("Z3 pop");
+
+    profiling::timer_stop("Solve");
 
     return result;
 

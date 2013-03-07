@@ -56,7 +56,7 @@ class iz3base : public iz3mgr, public scopes {
 
   /** Constructor */
 
-  iz3base(scoped_ptr<ast_manager> &_m_manager,
+  iz3base(ast_manager &_m_manager,
 	 const std::vector<ast> &_cnsts,
 	 const std::vector<int> &_parents,
 	 const std::vector<ast> &_theory)

@@ -625,7 +625,7 @@ public:
   ast cont_eq(bool truth, ast v, ast e){
     if(is_not(e)) return cont_eq(!truth,v,arg(e,0));
     if(cont_eq_memo.find(e) != cont_eq_memo.end())
-      return (ast)0;
+      return ast();
     cont_eq_memo.insert(e);
     if(!truth && op(e) == Equal){
       if(arg(e,0) == v) return(arg(e,1));
@@ -645,7 +645,7 @@ public:
   
   ast subst(ast var, ast t, ast e){
     if(e == var) return t;
-    std::pair<ast,ast> foo(e,(ast)0);
+    std::pair<ast,ast> foo(e,ast());
     std::pair<AstToAst::iterator,bool> bar = subst_memo.insert(foo);
     ast &res = bar.first->second;
     if(bar.second){
@@ -1722,7 +1722,7 @@ public:
     for(unsigned i = 0; i < theory.size(); i++)
       frame_map[theory[i]] = INT_MAX;
     frames = cnsts.size();
-    traced_lit = 0;
+    traced_lit = ast();
   }
 };
 

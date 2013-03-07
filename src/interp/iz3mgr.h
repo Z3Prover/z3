@@ -53,32 +53,65 @@ Revision History:
 typedef ast raw_ast;
 
 /** Wrapper around an ast pointer */
-class ast_r {
+class ast_i {
+ protected:
   raw_ast *_ast;
  public:
   raw_ast * const &raw() const {return _ast;}
-  ast_r(raw_ast *a){_ast = a;}
+  ast_i(raw_ast *a){_ast = a;}
   
-  ast_r(){_ast = 0;}
-  bool eq(const ast_r &other) const {
+  ast_i(){_ast = 0;}
+  bool eq(const ast_i &other) const {
     return _ast == other._ast;
   }
-  bool lt(const ast_r &other) const {
+  bool lt(const ast_i &other) const {
     return _ast < other._ast;
   }
-  friend bool operator==(const ast_r &x, const ast_r&y){
+  friend bool operator==(const ast_i &x, const ast_i&y){
     return x.eq(y);
   }
-  friend bool operator!=(const ast_r &x, const ast_r&y){
+  friend bool operator!=(const ast_i &x, const ast_i&y){
     return !x.eq(y);
   }
-  friend bool operator<(const ast_r &x, const ast_r&y){
+  friend bool operator<(const ast_i &x, const ast_i&y){
     return x.lt(y);
   }
   size_t hash() const {return (size_t)_ast;}
   bool null() const {return !_ast;}
 };
 
+/** Reference counting verison of above */
+class ast_r : public ast_i {
+  ast_manager *_m;
+ public:
+  ast_r(ast_manager *m, raw_ast *a) : ast_i(a) {
+    _m = m;
+    m->inc_ref(a);
+  }
+  
+  ast_r() {_m = 0;}
+
+  ast_r(const ast_r &other) : ast_i(other) {
+    _m = other._m;
+    _m->inc_ref(_ast);
+  }
+
+  ast_r &operator=(const ast_r &other) {
+    if(_ast)
+      _m->dec_ref(_ast);
+    _ast = other._ast;
+    _m = other._m;
+    _m->inc_ref(_ast);
+    return *this;
+  }
+
+  ~ast_r(){
+    if(_ast)
+      _m->dec_ref(_ast);
+  }
+  
+
+};
 
 // to make ast_r hashable
 namespace stl_ext {
@@ -186,8 +219,14 @@ class iz3mgr  {
   ast make_quant(opr op, const std::vector<ast> &bvs, ast &body);
   ast clone(ast &t, const std::vector<ast> &args);
 
-  ast_manager &m() {return *m_manager.get();}
+  ast_manager &m() {return m_manager;}
 
+  ast cook(raw_ast *a) {return ast(&m_manager,a);}
+
+  raw_ast *uncook(const ast &a) {
+    m_manager.inc_ref(a.raw());
+    return a.raw();
+  }
 
   /** Methods for destructing ast. */
 
@@ -210,13 +249,13 @@ class iz3mgr  {
     ast_kind dk = t.raw()->get_kind();
     switch(dk){
     case AST_APP:
-      return to_app(t.raw())->get_arg(i);
+      return cook(to_app(t.raw())->get_arg(i));
     case AST_QUANTIFIER:
-      return to_quantifier(t.raw())->get_expr();
+      return cook(to_quantifier(t.raw())->get_expr());
     default:;
     }
     assert(0);
-    return ast((raw_ast *)0);
+    return ast();
   }
   
   symb sym(ast t){
@@ -262,7 +301,7 @@ class iz3mgr  {
   }
 
   ast get_quantifier_body(const ast &t) {
-    return to_quantifier(t.raw())->get_expr();
+    return cook(to_quantifier(t.raw())->get_expr());
   }
 
   unsigned get_variable_index_value(const ast &t) {
@@ -359,7 +398,7 @@ class iz3mgr  {
 
   ast make_int(const std::string &s) {
     sort *r = m().mk_sort(m_arith_fid, INT_SORT);
-    return m_arith_util.mk_numeral(rational(s.c_str()),r);
+    return cook(m_arith_util.mk_numeral(rational(s.c_str()),r));
   }
 
 
@@ -392,9 +431,9 @@ class iz3mgr  {
 
   static void pretty_print(std::ostream &f, const std::string &s);
 
-  iz3mgr(scoped_ptr<ast_manager> &_m_manager)
+  iz3mgr(ast_manager &_m_manager)
     : m_manager(_m_manager),
-    m_arith_util(*_m_manager)
+    m_arith_util(_m_manager)
     {
       m_basic_fid = m().get_basic_family_id();
       m_arith_fid = m().mk_family_id("arith");
@@ -406,7 +445,7 @@ class iz3mgr  {
   
  iz3mgr(const iz3mgr& other)
    : m_manager(other.m_manager),
-    m_arith_util((const arith_util&)*other.m_manager)
+    m_arith_util(other.m_manager)
   {
       m_basic_fid = m().get_basic_family_id();
       m_arith_fid = m().mk_family_id("arith");
@@ -417,7 +456,7 @@ class iz3mgr  {
   }
 
  protected:
-  scoped_ptr<ast_manager> m_manager;
+  ast_manager &m_manager;
 
  private:
   ast mki(family_id fid, decl_kind sk, int n, raw_ast **args);

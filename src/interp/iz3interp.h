@@ -29,7 +29,7 @@ struct interpolation_options_struct {
 
 typedef interpolation_options_struct *interpolation_options;
 
-void iz3interpolate(scoped_ptr<ast_manager> &_m_manager,
+void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
 		    const ptr_vector<ast> &cnsts,
 		    const ::vector<int> &parents,

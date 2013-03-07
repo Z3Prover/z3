@@ -40,7 +40,7 @@ std::ostream &operator <<(std::ostream &s, const iz3mgr::ast &a){
 
 iz3mgr::ast iz3mgr::make_var(const std::string &name, type ty){ 
   symbol s = symbol(name.c_str());
-  return m().mk_const(m().mk_const_decl(s, ty));
+  return cook(m().mk_const(m().mk_const_decl(s, ty)));
 }
 
 iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
@@ -91,7 +91,7 @@ iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
 }
 
 iz3mgr::ast iz3mgr::mki(family_id fid, decl_kind dk, int n, raw_ast **args){
-  return m().mk_app(fid, dk, 0, 0, n, (expr **)args);        
+  return cook(m().mk_app(fid, dk, 0, 0, n, (expr **)args));        
 }
 
 iz3mgr::ast iz3mgr::make(opr op, const std::vector<ast> &args){
@@ -128,7 +128,7 @@ iz3mgr::ast iz3mgr::make(opr op, ast &arg0, ast &arg1, ast &arg2){
 }
 
 iz3mgr::ast iz3mgr::make(symb sym, int n, raw_ast **args){
-  return m().mk_app(sym, n, (expr **) args);   
+  return cook(m().mk_app(sym, n, (expr **) args));   
 }
 
 iz3mgr::ast iz3mgr::make(symb sym, const std::vector<ast> &args){
@@ -193,14 +193,16 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 			     0, 0,
 			     0, 0
 			     );
-  return result.get();
+  return cook(result.get());
 }
+
+// FIXME replace this with existing Z3 functionality
 
 iz3mgr::ast iz3mgr::clone(ast &t, const std::vector<ast> &_args){
   if(_args.size() == 0)
     return t;
 
-  ast_manager& m = *m_manager.get();
+  ast_manager& m = m_manager;
   expr* a = to_expr(t.raw());
   static std::vector<raw_ast*> rargs(10);
   if(rargs.size() < _args.size())
@@ -231,7 +233,7 @@ iz3mgr::ast iz3mgr::clone(ast &t, const std::vector<ast> &_args){
   default:
     break;
   }            
-  return a;
+  return cook(a);
 }
 
 
