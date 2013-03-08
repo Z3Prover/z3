@@ -955,11 +955,11 @@ namespace pdr {
        and predicates that are satisfied from facts to the query.
        The resulting trace 
      */
-
     expr_ref model_search::get_trace(context const& ctx) const {       
         pred_transformer& pt = get_root().pt();
         ast_manager& m = pt.get_manager();
         manager& pm = pt.get_pdr_manager();
+
         datalog::context& dctx = ctx.get_context();
         datalog::rule_manager& rm = dctx.get_rule_manager();
         expr_ref_vector constraints(m), predicates(m);
