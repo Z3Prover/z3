@@ -45,10 +45,9 @@ Revision History:
 #include"proof_converter.h"
 #include"model2expr.h"
 #include"smt_params.h"
+#include"dl_rule_transformer.h"
 
 namespace datalog {
-
-    class rule_transformer;
 
     enum execution_result {
         OK,
@@ -85,6 +84,7 @@ namespace datalog {
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
+        rule_transformer   m_transf;
 
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
@@ -314,7 +314,7 @@ namespace datalog {
         void ensure_opened();
 
         void transform_rules(model_converter_ref& mc, proof_converter_ref& pc);
-        void transform_rules(rule_transformer& trans, model_converter_ref& mc, proof_converter_ref& pc);
+        void transform_rules(rule_transformer& transf, model_converter_ref& mc, proof_converter_ref& pc);
         void replace_rules(rule_set & rs);
 
         void apply_default_transformation(model_converter_ref& mc, proof_converter_ref& pc);

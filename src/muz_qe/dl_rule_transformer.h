@@ -28,6 +28,8 @@ Revision History:
 
 namespace datalog {
 
+    class context;
+
     class rule_transformer {
     public:
         class plugin;
@@ -37,9 +39,10 @@ namespace datalog {
         typedef svector<plugin*> plugin_vector;
         struct plugin_comparator;
 
-        context & m_context;
-        rule_manager & m_rule_manager;
-        bool m_dirty;
+        context &        m_context;
+        rule_manager &   m_rule_manager;
+        bool             m_dirty;
+        volatile bool    m_cancel;
         svector<plugin*> m_plugins;
         
         void ensure_ordered();
@@ -47,6 +50,13 @@ namespace datalog {
 
         rule_transformer(context & ctx);
         ~rule_transformer();
+
+        /**
+           \brief Reset all registered transformers.
+         */
+        void reset();
+
+        void cancel();
         
         /**
            \brief Add a plugin for rule transformation.
@@ -72,6 +82,8 @@ namespace datalog {
         void attach(rule_transformer & transformer) { m_transformer = &transformer; }
 
     protected:
+        volatile bool m_cancel;
+
         /**
            \brief Create a plugin object for rule_transformer.
 
@@ -79,7 +91,8 @@ namespace datalog {
            (higher priority plugins will be applied first).
         */
         plugin(unsigned priority, bool can_destratify_negation = false) : m_priority(priority), 
-            m_can_destratify_negation(can_destratify_negation), m_transformer(0) {}
+            m_can_destratify_negation(can_destratify_negation), m_transformer(0), m_cancel(false) {}
+
     public:
         virtual ~plugin() {}
 
@@ -96,8 +109,10 @@ namespace datalog {
                                       model_converter_ref& mc,
                                       proof_converter_ref& pc) = 0;
 
+        virtual void cancel() { m_cancel = true; }
+
         /**
-        Removes duplicate tails.
+           Removes duplicate tails.
         */
         static void remove_duplicate_tails(app_ref_vector& tail, svector<bool>& tail_neg);
 

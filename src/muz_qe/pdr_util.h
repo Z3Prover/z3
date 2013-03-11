@@ -104,6 +104,8 @@ namespace pdr {
         bool check_model(ptr_vector<expr> const & formulas);
 
         bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case);
+
+        void eval_exprs(expr_ref_vector& es);
         
     public:
         model_evaluator(ast_manager& m) : m(m), m_arith(m), m_array(m), m_refs(m) {}
