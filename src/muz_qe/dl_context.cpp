@@ -45,6 +45,7 @@ Revision History:
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_array_blast.h"
+#include"dl_mk_karr_invariants.h"
 #include"datatype_decl_plugin.h"
 #include"expr_abstract.h"
 
@@ -223,6 +224,7 @@ namespace datalog {
         m_rewriter(m),
         m_var_subst(m),
         m_rule_manager(*this),
+        m_transf(*this),
         m_trail(*this),
         m_pinned(m),
         m_vars(m),
@@ -825,23 +827,23 @@ namespace datalog {
     }
 
     void context::transform_rules(model_converter_ref& mc, proof_converter_ref& pc) {
-        rule_transformer transf(*this);
-        transf.register_plugin(alloc(mk_filter_rules,*this));
-        transf.register_plugin(alloc(mk_simple_joins,*this));
+        m_transf.reset();
+        m_transf.register_plugin(alloc(mk_filter_rules,*this));
+        m_transf.register_plugin(alloc(mk_simple_joins,*this));
 
         if (unbound_compressor()) {
-            transf.register_plugin(alloc(mk_unbound_compressor,*this));
+            m_transf.register_plugin(alloc(mk_unbound_compressor,*this));
         }
 
         if (similarity_compressor()) {
-            transf.register_plugin(alloc(mk_similarity_compressor, *this, 
+            m_transf.register_plugin(alloc(mk_similarity_compressor, *this, 
                                          similarity_compressor_threshold()));
         }
-        transf.register_plugin(alloc(datalog::mk_partial_equivalence_transformer, *this));
+        m_transf.register_plugin(alloc(datalog::mk_partial_equivalence_transformer, *this));
 
-        transform_rules(transf, mc, pc);
+        transform_rules(m_transf, mc, pc);
     }
-
+    
     void context::transform_rules(rule_transformer& transf, model_converter_ref& mc, proof_converter_ref& pc) {
         SASSERT(m_closed); //we must finish adding rules before we start transforming them
         TRACE("dl", display_rules(tout););
@@ -862,32 +864,33 @@ namespace datalog {
 
     void context::apply_default_transformation(model_converter_ref& mc, proof_converter_ref& pc) {
         ensure_closed();
-        datalog::rule_transformer transf(*this);
-        transf.register_plugin(alloc(datalog::mk_coi_filter, *this));
-        transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this));
+        m_transf.reset();
+        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this));
+        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this));
 
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 35005));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 35000));
-        transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34990));
-        transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34980));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 35005));
+        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 35000));
+        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34990));
+        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34980));
 
         //and another round of inlining
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34975));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34970));
-        transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34960));
-        transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34950));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34975));
+        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34970));
+        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34960));
+        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34950));
 
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34940));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34930));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34920));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34910));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34900));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34890));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34940));
+        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34930));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34920));
+        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34910));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34900));
+        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34890));
+        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
 
-        transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
-        transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
-        transform_rules(transf, mc, pc);
+        m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
+        m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
+        m_transf.register_plugin(alloc(datalog::mk_karr_invariants, *this, 36010));
+        transform_rules(m_transf, mc, pc);
     }
 
     void context::collect_params(param_descrs& p) {
@@ -928,6 +931,7 @@ namespace datalog {
 
     void context::cancel() {
         m_cancel = true;
+        m_transf.cancel();
         if (m_pdr.get()) m_pdr->cancel();
         if (m_bmc.get()) m_bmc->cancel();
         if (m_rel.get()) m_rel->cancel();

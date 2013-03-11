@@ -686,6 +686,7 @@ void hilbert_basis::reset() {
     m_passive2->reset();
     m_zero.reset();
     m_index->reset();
+    m_ints.reset();
     m_cancel = false;
 }
 

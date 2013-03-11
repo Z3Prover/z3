@@ -49,7 +49,7 @@ namespace datalog {
 
     public:
         /**
-           \brief Create rule transformer that extracts universal quantifiers (over recursive predicates).
+           \brief Create rule transformer that removes array stores and selects by ackermannization.
         */
         mk_array_blast(context & ctx, unsigned priority);
 

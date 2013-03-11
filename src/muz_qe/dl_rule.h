@@ -237,6 +237,7 @@ namespace datalog {
         bool has_uninterpreted_non_predicates(func_decl*& f) const;
         void has_quantifiers(bool& existential, bool& universal) const;
         bool has_quantifiers() const;
+        bool has_negation() const;
 
         /**
            \brief Store in d the (direct) dependencies of the given rule.

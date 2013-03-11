@@ -927,6 +927,15 @@ namespace datalog {
         return exist || univ;
     }
 
+    bool rule::has_negation() const {
+        for (unsigned i = 0; i < get_uninterpreted_tail_size(); ++i) {
+            if (is_neg_tail(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void rule::get_used_vars(used_vars& used) const {
         used.process(get_head());
         unsigned sz = get_tail_size();

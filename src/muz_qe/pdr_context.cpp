@@ -1425,6 +1425,7 @@ namespace pdr {
             bool ok = checker.check(pr, side_conditions);
             if (!ok) {
                 msg << "proof validation failed";
+                IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                 throw default_exception(msg.str());
             }
             for (unsigned i = 0; i < side_conditions.size(); ++i) {
@@ -1437,6 +1438,7 @@ namespace pdr {
                 lbool res = solver.check();
                 if (res != l_false) {
                     msg << "rule validation failed when checking: " << mk_pp(cond, m);
+                    IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                     throw default_exception(msg.str());
                 }                                
             }
@@ -1488,6 +1490,7 @@ namespace pdr {
                     lbool res = solver.check();
                     if (res != l_false) {
                         msg << "rule validation failed when checking: " << mk_pp(tmp, m);
+                        IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
                         throw default_exception(msg.str());
                     }
                 }
@@ -1595,6 +1598,7 @@ namespace pdr {
         catch (unknown_exception) {
             return l_undef;
         }
+        UNREACHABLE();
         return l_undef;
     }
 
