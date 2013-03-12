@@ -281,7 +281,7 @@ def check_java():
         print("Finding jni.h...")
 
     if JNI_HOME != None:
-        if not os.path.exists(path.join(JNI_HOME, 'jni.h')):
+        if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
             raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
     else:        
         # Search for jni.h in the library directories...
