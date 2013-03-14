@@ -1924,7 +1924,8 @@ namespace smt {
                 m_mutil.mk_add(t1, t2, r);
             }
 
-            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) const {
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t, bool & inv) const {
+                inv = false; // true if invert the sign
                 TRACE("is_var_and_ground", tout << "is_var_and_ground: " << mk_ismt2_pp(lhs, m_manager) << " " << mk_ismt2_pp(rhs, m_manager) << "\n";);
                 if (is_var(lhs) && is_ground(rhs)) {
                     v = to_var(lhs);
@@ -1939,7 +1940,6 @@ namespace smt {
                     return true;
                 }
                 else {
-                    bool inv  = false; // true if invert the sign
                     expr_ref tmp(m_manager);
                     if (is_var_plus_ground(lhs, inv, v, tmp) && is_ground(rhs)) {
                         if (inv)
@@ -1959,6 +1959,11 @@ namespace smt {
                 return false;
             }
 
+            bool is_var_and_ground(expr * lhs, expr * rhs, var * & v, expr_ref & t) const {
+                bool inv;
+                return is_var_and_ground(lhs, rhs, v, t, inv);
+            }
+            
             bool is_x_eq_t_atom(expr * n, var * & v, expr_ref & t) const {
                 if (!is_app(n))
                     return false;
@@ -2011,22 +2016,28 @@ namespace smt {
                 if (sign) {
                     bool r = is_le_ge(atom) && is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, t);
                     CTRACE("is_x_gle_t", r, tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n" 
-                           << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";);
+                           << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";
+                           tout << "sign: " << sign << "\n";);
                     return r;
                 }
                 else {
                     if (is_le_ge(atom)) {
                         expr_ref tmp(m_manager);
-                        if (is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, tmp)) {
+                        bool le = is_le(atom);
+                        bool inv   = false;
+                        if (is_var_and_ground(to_app(atom)->get_arg(0), to_app(atom)->get_arg(1), v, tmp, inv)) {
+                            if (inv)
+                                le = !le;
                             sort * s = m_manager.get_sort(tmp);
                             expr_ref one(m_manager);
                             one = mk_one(s);
-                            if (is_le(atom))
+                            if (le)
                                 mk_add(tmp, one, t);
                             else
                                 mk_sub(tmp, one, t);
                             TRACE("is_x_gle_t", tout << "is_x_gle_t: " << mk_ismt2_pp(atom, m_manager) << "\n--->\n" 
-                                  << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";);
+                                  << mk_ismt2_pp(v, m_manager) << " " << mk_ismt2_pp(t, m_manager) << "\n";
+                                  tout << "sign: " << sign << "\n";);
                             return true;
                         }
                     }
