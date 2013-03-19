@@ -968,11 +968,11 @@ namespace pdr {
         unsigned deltas[2];
         datalog::rule_ref rule(rm), r0(rm);
         model_node* n = m_root;
-        datalog::var_counter& vc = rm.get_var_counter();
+        datalog::rule_counter& vc = rm.get_counter();
         substitution subst(m);
         unifier unif(m);
         rule = n->get_rule();
-        unsigned max_var = vc.get_max_var(*rule);
+        unsigned max_var = vc.get_max_rule_var(*rule);
         predicates.push_back(rule->get_head());
         children.append(n);
         bool first = true;
@@ -983,7 +983,7 @@ namespace pdr {
             children.pop_back();
             n->mk_instantiate(r0, rule, binding);
             
-            max_var = std::max(max_var, vc.get_max_var(*rule));
+            max_var = std::max(max_var, vc.get_max_rule_var(*rule));
             subst.reset();
             subst.reserve(2, max_var+1);
             deltas[0] = 0;

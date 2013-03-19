@@ -708,8 +708,8 @@ namespace datalog {
     }
 
     rule * mk_explanations::get_e_rule(rule * r) {
-        var_counter ctr;
-        ctr.count_vars(m_manager, r);
+        rule_counter ctr;
+        ctr.count_rule_vars(m_manager, r);
         unsigned max_var;
         unsigned next_var = ctr.get_max_positive(max_var) ? (max_var+1) : 0;
         unsigned head_var = next_var++;

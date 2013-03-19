@@ -45,7 +45,7 @@ namespace datalog {
     {
         ast_manager&        m;
         context&            m_ctx;
-        var_counter         m_var_counter;
+        rule_counter        m_counter;
         obj_map<expr, app*> m_memoize_disj;
         expr_ref_vector     m_refs;
 
@@ -162,7 +162,7 @@ namespace datalog {
 
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 
-        var_counter& get_var_counter() { return m_var_counter; }
+        rule_counter& get_counter() { return m_counter; }
 
     };
 

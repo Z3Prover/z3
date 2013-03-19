@@ -384,8 +384,8 @@ namespace datalog {
     void compiler::get_local_indexes_for_projection(rule * r, unsigned_vector & res) {
         SASSERT(r->get_positive_tail_size()==2);
         ast_manager & m = m_context.get_manager();
-        var_counter counter;
-        counter.count_vars(m, r);
+        rule_counter counter;
+        counter.count_rule_vars(m, r);
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
         counter.count_vars(m, t1, -1);

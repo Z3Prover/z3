@@ -310,8 +310,8 @@ namespace datalog {
         }
 
         void register_rule(rule * r) {
-            var_counter counter;
-            counter.count_vars(m, r, 1);
+            rule_counter counter;
+            counter.count_rule_vars(m, r, 1);
 
             ptr_vector<app> & rule_content = 
                 m_rules_content.insert_if_not_there2(r, ptr_vector<app>())->get_data().m_value;

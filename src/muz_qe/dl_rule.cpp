@@ -705,7 +705,7 @@ namespace datalog {
         bool_rewriter(m).mk_and(tails_with_unbound.size(), tails_with_unbound.c_ptr(), unbound_tail);
 
         unsigned q_var_cnt = unbound_vars.num_elems();
-        unsigned max_var = m_var_counter.get_max_var(*r);
+        unsigned max_var = m_counter.get_max_rule_var(*r);
 
         expr_ref_vector subst(m);
 

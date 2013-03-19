@@ -317,7 +317,7 @@ namespace tb {
             for (unsigned i = utsz; i < tsz; ++i) {
                 fmls.push_back(r->get_tail(i));
             }
-            m_num_vars = 1 + r.get_manager().get_var_counter().get_max_var(*r);
+            m_num_vars = 1 + r.get_manager().get_counter().get_max_rule_var(*r);
             m_head = r->get_head();
             m_predicates.reset();
             for (unsigned i = 0; i < utsz; ++i) {

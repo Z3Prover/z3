@@ -145,7 +145,7 @@ namespace datalog {
     }
     
     bool mk_karr_invariants::get_transition_relation(rule const& r, matrix& M) {
-        unsigned num_vars = rm.get_var_counter().get_max_var(r)+1;
+        unsigned num_vars = rm.get_counter().get_max_rule_var(r)+1;
         unsigned arity = r.get_decl()->get_arity();
         unsigned num_columns = arity + num_vars;        
         unsigned utsz = r.get_uninterpreted_tail_size();

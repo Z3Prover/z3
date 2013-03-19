@@ -431,89 +431,8 @@ namespace datalog {
         }
     }
 
-    void counter::update(unsigned el, int delta) {
-        int & counter = get(el);
-        SASSERT(!m_stay_non_negative || counter>=0);
-        SASSERT(!m_stay_non_negative || static_cast<int>(counter)>=-delta);
-        counter += delta;
-    }
-
-    int & counter::get(unsigned el) {
-        return m_data.insert_if_not_there2(el, 0)->get_data().m_value;
-    }
-
-    counter & counter::count(unsigned sz, const unsigned * els, int delta) {
-        for(unsigned i=0; i<sz; i++) {
-            update(els[i], delta);
-        }
-        return *this;
-    }
-
-    unsigned counter::get_positive_count() const {
-        unsigned cnt = 0;
-        iterator eit = begin();
-        iterator eend = end();
-        for(; eit!=eend; ++eit) {
-            if( eit->m_value>0 ) { 
-                cnt++;
-            }
-        }
-        return cnt;
-    }
-
-    void counter::collect_positive(idx_set & acc) const {
-        iterator eit = begin();
-        iterator eend = end();
-        for(; eit!=eend; ++eit) {
-            if(eit->m_value>0) { acc.insert(eit->m_key); }
-        }
-    }
-
-    bool counter::get_max_positive(unsigned & res) const {
-        bool found = false;
-        iterator eit = begin();
-        iterator eend = end();
-        for(; eit!=eend; ++eit) {
-            if( eit->m_value>0 && (!found || eit->m_key>res) ) { 
-                found = true;
-                res = eit->m_key;
-            }
-        }
-        return found;
-    }
-
-    unsigned counter::get_max_positive() const {
-        unsigned max_pos;
-        VERIFY(get_max_positive(max_pos));
-        return max_pos;
-    }
-
-    int counter::get_max_counter_value() const {
-        int res = 0;
-        iterator eit = begin();
-        iterator eend = end();
-        for (; eit!=eend; ++eit) {
-            if( eit->m_value>res ) { 
-                res = eit->m_value;
-            }
-        }
-        return res;
-    }
-
-    void var_counter::count_vars(ast_manager & m, const app * pred, int coef) {
-        unsigned n = pred->get_num_args();
-        for (unsigned i = 0; i < n; i++) {
-            m_sorts.reset();
-            ::get_free_vars(pred->get_arg(i), m_sorts);
-            for (unsigned j = 0; j < m_sorts.size(); ++j) {
-                if (m_sorts[j]) {
-                    update(j, coef);
-                }
-            }
-        }
-    }
-
-    void var_counter::count_vars(ast_manager & m, const rule * r, int coef) {
+    
+    void rule_counter::count_rule_vars(ast_manager & m, const rule * r, int coef) {
         count_vars(m, r->get_head(), 1);
         unsigned n = r->get_tail_size();
         for (unsigned i = 0; i < n; i++) {
@@ -521,50 +440,7 @@ namespace datalog {
         }
     }
 
-    unsigned var_counter::get_max_var(bool& has_var) {
-        has_var = false;
-        unsigned max_var = 0;
-        while (!m_todo.empty()) {
-            expr* e = m_todo.back();
-            unsigned scope = m_scopes.back();
-            m_todo.pop_back();
-            m_scopes.pop_back();
-            if (m_visited.is_marked(e)) {
-                continue;
-            }
-            m_visited.mark(e, true);
-            switch(e->get_kind()) {
-            case AST_QUANTIFIER: {
-                quantifier* q = to_quantifier(e);
-                m_todo.push_back(q->get_expr());
-                m_scopes.push_back(scope + q->get_num_decls());
-                break;                 
-            }
-            case AST_VAR: {
-                if (to_var(e)->get_idx() >= scope + max_var) {
-                    has_var = true;
-                    max_var = to_var(e)->get_idx() - scope;
-                }
-                break;
-            }
-            case AST_APP: {
-                app* a = to_app(e);
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    m_todo.push_back(a->get_arg(i));
-                    m_scopes.push_back(scope);                    
-                }
-                break;
-            }
-            default:
-                UNREACHABLE();
-                break;
-            }
-        }
-        m_visited.reset();
-        return max_var;
-    }
-
-    unsigned var_counter::get_max_var(const rule & r) {
+    unsigned rule_counter::get_max_rule_var(const rule & r) {
         m_todo.push_back(r.get_head());
         m_scopes.push_back(0);
         unsigned n = r.get_tail_size();
@@ -574,22 +450,6 @@ namespace datalog {
             m_scopes.push_back(0);
         }
         return get_max_var(has_var);
-    }
-
-    unsigned var_counter::get_max_var(expr* e) {
-        bool has_var = false;
-        m_todo.push_back(e);
-        m_scopes.push_back(0);
-        return get_max_var(has_var);
-    }
-
-    unsigned var_counter::get_next_var(expr* e) {
-        bool has_var = false;
-        m_todo.push_back(e);
-        m_scopes.push_back(0);
-        unsigned mv = get_max_var(has_var);
-        if (has_var) mv++;
-        return mv;
     }
 
     void del_rule(horn_subsume_model_converter* mc, rule& r) {
@@ -678,10 +538,6 @@ namespace datalog {
     proof_converter* mk_skip_proof_converter() { return alloc(skip_proof_converter); }
 
 
-    unsigned get_max_var(const rule & r, ast_manager & m) {
-        var_counter ctr;
-        return ctr.get_max_var(r);
-    }
 
     void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt) {
         SASSERT(tgt.empty());

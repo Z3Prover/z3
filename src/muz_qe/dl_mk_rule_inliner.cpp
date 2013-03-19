@@ -65,8 +65,8 @@ namespace datalog {
     // -----------------------------------
 
     bool rule_unifier::unify_rules(const rule& tgt, unsigned tgt_idx, const rule& src) {
-        var_counter& vc = m_rm.get_var_counter();
-        unsigned var_cnt = std::max(vc.get_max_var(tgt), vc.get_max_var(src))+1;
+        rule_counter& vc = m_rm.get_counter();
+        unsigned var_cnt = std::max(vc.get_max_rule_var(tgt), vc.get_max_rule_var(src))+1;
         m_subst.reset();
         m_subst.reserve(2, var_cnt);
         
@@ -733,7 +733,7 @@ namespace datalog {
         }
 
         // initialize substitution.
-        var_counter& vc = m_rm.get_var_counter();
+        rule_counter& vc = m_rm.get_counter();
         unsigned max_var = 0;
         for (unsigned i = 0; i < sz; ++i) {
             rule* r = acc[i].get();
@@ -820,7 +820,7 @@ namespace datalog {
                     del_rule(r2, j);
                 }
 
-                max_var = std::max(max_var, vc.get_max_var(*r.get()));
+                max_var = std::max(max_var, vc.get_max_rule_var(*r.get()));
                 m_subst.reserve_vars(max_var+1);
 
             }
