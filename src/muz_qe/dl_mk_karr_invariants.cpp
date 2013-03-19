@@ -325,7 +325,6 @@ namespace datalog {
         TRACE("dl", m_hb.display(tout););
         SASSERT(is_sat == l_true);
         unsigned basis_size = m_hb.get_basis_size();
-        bool first_initial = true;
         for (unsigned i = 0; i < basis_size; ++i) {
             bool is_initial;
             vector<rational> soln;
@@ -378,7 +377,6 @@ namespace datalog {
     }
 
     void mk_karr_invariants::update_body(rule_set& rules, rule& r){
-        func_decl* p = r.get_decl();        
         unsigned utsz = r.get_uninterpreted_tail_size();
         unsigned tsz  = r.get_tail_size();
         app_ref_vector tail(m);

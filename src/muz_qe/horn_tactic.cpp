@@ -233,7 +233,6 @@ class horn_tactic : public tactic {
             lbool is_reachable = m_ctx.query(q);
             g->inc_depth();
 
-            bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
             result.push_back(g.get());
