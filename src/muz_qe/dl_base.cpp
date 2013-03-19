@@ -325,9 +325,20 @@ namespace datalog {
         return res;
     }
 
+    /**
+       \brief Default method for complementation.
+
+       It assumes that the compiler creates only tables with
+       at most one column (0 or 1 columns).       
+       Complementation of tables with more than one columns
+       is transformed into a cross product of complements and/or
+       difference. 
+
+     */
     table_base * table_base::complement(func_decl* p, const table_element * func_columns) const {
         const table_signature & sig = get_signature();
         SASSERT(sig.functional_columns()==0 || func_columns!=0);
+        SASSERT(sig.first_functional() <= 1);
 
         table_base * res = get_plugin().mk_empty(sig);
 
@@ -335,16 +346,14 @@ namespace datalog {
         fact.resize(sig.first_functional());
         fact.append(sig.functional_columns(), func_columns);
 
-        if(sig.first_functional()==0) {
-            if(empty()) {
+        if (sig.first_functional() == 0) {
+            if (empty()) {
                 res->add_fact(fact);
             }
             return res;
         }
 
-        if(sig.first_functional()!=1) { //now we support only tables with one non-functional column
-            NOT_IMPLEMENTED_YET();
-        }
+        VERIFY(sig.first_functional() == 1);
 
         uint64 upper_bound = get_signature()[0];
         bool empty_table = empty();
@@ -356,51 +365,13 @@ namespace datalog {
             warning_msg(buffer.str().c_str());
         }
 
-        for(table_element i=0; i<upper_bound; i++) {
-            fact[0]=i;
+        for(table_element i = 0; i < upper_bound; i++) {
+            fact[0] = i;
             if(empty_table || !contains_fact(fact)) {
                 res->add_fact(fact);
             }
         }
         return res;
-#if 0
-        svector<unsigned> var_arg_indexes(arity);
-        var_arg_indexes.fill(0);
-
-        svector<unsigned> var_arg_domain_sizes = s;
-
-        unsigned var_cnt=var_arg_indexes.size();
-        table_fact fact;
-        fact.resize(arity);
-        fact.fill(0);
-        unsigned depth=arity;
-
-        while(true) {
-            if(depth==arity) {
-                SASSERT(!res->contains_fact(fact));
-                if(empty_table || !contains_fact(fact)) {
-                    res->add_fact(fact);
-                }
-                depth--;
-            }
-            else if(fact[depth]==s[depth]-1) {
-                val_indexes[depth]=0;
-                if(depth==0) {
-                    break;
-                }
-                depth--;
-            }
-            else {
-                SASSERT(val_indexes[depth]<var_arg_domain_sizes[depth]);
-                unsigned arg_idx = var_arg_indexes[depth];
-                unsigned val_idx = val_indexes[depth]++;
-                head_args[arg_idx]=ctx.get_arith().mk_numeral(rational(val_idx), true);
-                depth++;
-            }
-        }
-
-        return res;
-#endif
     }
     
     void table_base::display(std::ostream & out) const {
@@ -468,23 +439,21 @@ namespace datalog {
         expr_ref_vector disjs(m);
         expr_ref_vector conjs(m);
         dl_decl_util util(m);
+        bool_rewriter brw(m);
         table_fact fact;
         iterator it = begin();
         iterator iend = end();
-        for(; it!=iend; ++it) {
+        for(; it != iend; ++it) {
             const row_interface & r = *it;   
             r.get_fact(fact);
             conjs.reset();
             for (unsigned i = 0; i < fact.size(); ++i) {
                 conjs.push_back(m.mk_eq(m.mk_var(i, sig[i]), util.mk_numeral(fact[i], sig[i])));
             }
-            switch(conjs.size()) {
-            case 0: disjs.push_back(m.mk_true()); break;
-            case 1: disjs.push_back(conjs[0].get()); break;
-            default: disjs.push_back(m.mk_and(conjs.size(), conjs.c_ptr())); break;
-            }
+            brw.mk_and(conjs.size(), conjs.c_ptr(), fml);
+            disjs.push_back(fml);
         }
-        bool_rewriter(m).mk_or(disjs.size(), disjs.c_ptr(), fml);        
+        brw.mk_or(disjs.size(), disjs.c_ptr(), fml);        
     }
 
 }

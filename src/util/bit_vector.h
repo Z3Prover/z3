@@ -106,7 +106,7 @@ public:
     }
 
     bool empty() const {
-        return m_num_bits != 0;
+        return m_num_bits == 0;
     }
 
     unsigned num_words() const { 

@@ -31,9 +31,6 @@ Revision History:
 #include"dl_sparse_table.h"
 #include"dl_table.h"
 #include"dl_table_relation.h"
-#ifndef _EXTERNAL_RELEASE
-#include"dl_skip_table.h"
-#endif
 
 namespace datalog {
    
@@ -44,16 +41,16 @@ namespace datalog {
           m_answer(m), 
           m_cancel(false), 
           m_last_result_relation(0) {
+
+        // register plugins for builtin tables
+
         get_rmanager().register_plugin(alloc(sparse_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(hashtable_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
 
-#ifndef _EXTERNAL_RELEASE
-        get_rmanager().register_plugin(alloc(skip_table_plugin, get_rmanager()));
-#endif
 
-        //register plugins for builtin relations
+        // register plugins for builtin relations
 
         get_rmanager().register_plugin(alloc(bound_relation_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(interval_relation_plugin, get_rmanager()));
