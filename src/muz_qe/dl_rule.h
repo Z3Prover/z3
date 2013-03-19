@@ -24,6 +24,9 @@ Revision History:
 #include"dl_costs.h"
 #include"dl_util.h"
 #include"used_vars.h"
+#include"proof_converter.h"
+#include"model_converter.h"
+#include"ast_counter.h"
 
 namespace datalog {
 
@@ -48,11 +51,16 @@ namespace datalog {
         var_counter         m_var_counter;
         obj_map<expr, app*> m_memoize_disj;
         expr_ref_vector     m_refs;
+        model_converter_ref m_mc;
+        proof_converter_ref m_pc;
 
         // only the context can create a rule_manager
         friend class context;
 
         explicit rule_manager(context& ctx);
+
+        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
+        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
 
         /**
            \brief Move functions from predicate tails into the interpreted tail by introducing new variables.

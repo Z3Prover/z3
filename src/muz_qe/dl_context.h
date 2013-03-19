@@ -85,6 +85,8 @@ namespace datalog {
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
         rule_transformer   m_transf;
+        model_converter_ref m_mc;
+        proof_converter_ref m_pc;
 
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
@@ -109,6 +111,8 @@ namespace datalog {
         expr_ref           m_last_answer;
         DL_ENGINE          m_engine;
         volatile bool      m_cancel;
+
+
 
         bool is_fact(app * head) const;
         bool has_sort_domain(relation_sort s) const;
@@ -313,11 +317,15 @@ namespace datalog {
         void reopen();
         void ensure_opened();
 
-        void transform_rules(model_converter_ref& mc, proof_converter_ref& pc);
-        void transform_rules(rule_transformer& transf, model_converter_ref& mc, proof_converter_ref& pc);
+        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
+        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
+
+        void transform_rules();
+        void transform_rules(rule_transformer::plugin* plugin);
+        void transform_rules(rule_transformer& transf);
         void replace_rules(rule_set & rs);
 
-        void apply_default_transformation(model_converter_ref& mc, proof_converter_ref& pc);
+        void apply_default_transformation();
 
         void collect_params(param_descrs& r);
         

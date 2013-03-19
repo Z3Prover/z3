@@ -56,16 +56,16 @@ namespace datalog {
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
-            SASSERT(r->m_ref_cnt!=UINT_MAX);
+            SASSERT(r->m_ref_cnt != UINT_MAX);
             r->m_ref_cnt++;
         }
     }
 
     void rule_manager::dec_ref(rule * r) {
         if (r) {
-            SASSERT(r->m_ref_cnt>0);
+            SASSERT(r->m_ref_cnt > 0);
             r->m_ref_cnt--;
-            if (r->m_ref_cnt==0) {
+            if (r->m_ref_cnt == 0) {
                 r->deallocate(m);
             }
         }
@@ -103,8 +103,13 @@ namespace datalog {
         m_memoize_disj.reset();
         m_refs.reset();
         bind_variables(fml, true, fml1);
-        remove_labels(fml1);
+        unsigned num_rules = rules.size();
         mk_rule_core(fml1, rules, name);
+        if (m_pc) {
+            // big-step proof
+            // m.mk_cnf_star(fml1, conj, 0, 0);
+            // 
+        }
     }
 
     // 

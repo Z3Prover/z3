@@ -1413,20 +1413,22 @@ namespace datalog {
         datalog::rule_set        old_rules(m_ctx.get_rules());
         datalog::rule_ref_vector query_rules(rule_manager);
         datalog::rule_ref        query_rule(rule_manager);
-        rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
-        m_ctx.add_rules(query_rules);
-        expr_ref bg_assertion = m_ctx.get_background_assertion();
-        
         model_converter_ref mc = datalog::mk_skip_model_converter();
         m_pc = datalog::mk_skip_proof_converter();
+        m_ctx.set_model_converter(mc);
+        m_ctx.set_proof_converter(m_pc);
+        rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
+        m_ctx.add_rules(query_rules);
+        expr_ref bg_assertion = m_ctx.get_background_assertion();        
+
         m_ctx.set_output_predicate(m_query_pred);
-        m_ctx.apply_default_transformation(mc, m_pc);
+        m_ctx.apply_default_transformation();
         
         if (m_ctx.get_params().slice()) {
             datalog::rule_transformer transformer(m_ctx);
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);
-            m_ctx.transform_rules(transformer, mc, m_pc);        
+            m_ctx.transform_rules(transformer);
             m_query_pred = slice->get_predicate(m_query_pred.get());
             m_ctx.set_output_predicate(m_query_pred);
         }

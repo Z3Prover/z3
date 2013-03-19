@@ -474,6 +474,8 @@ namespace datalog {
     void context::flush_add_rules() {
         datalog::rule_manager& rm = get_rule_manager();
         datalog::rule_ref_vector rules(rm);
+        rm.set_model_converter(m_mc);
+        rm.set_proof_converter(m_pc);
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             rm.mk_rule(m_rule_fmls[i].get(), rules, m_rule_names[i]);
         }
@@ -826,7 +828,7 @@ namespace datalog {
         m_closed = false;
     }
 
-    void context::transform_rules(model_converter_ref& mc, proof_converter_ref& pc) {
+    void context::transform_rules() {
         m_transf.reset();
         m_transf.register_plugin(alloc(mk_filter_rules,*this));
         m_transf.register_plugin(alloc(mk_simple_joins,*this));
@@ -841,13 +843,13 @@ namespace datalog {
         }
         m_transf.register_plugin(alloc(datalog::mk_partial_equivalence_transformer, *this));
 
-        transform_rules(m_transf, mc, pc);
+        transform_rules(m_transf);
     }
     
-    void context::transform_rules(rule_transformer& transf, model_converter_ref& mc, proof_converter_ref& pc) {
+    void context::transform_rules(rule_transformer& transf) {
         SASSERT(m_closed); //we must finish adding rules before we start transforming them
         TRACE("dl", display_rules(tout););
-        if (transf(m_rule_set, mc, pc)) {
+        if (transf(m_rule_set, m_mc, m_pc)) {
             //we have already ensured the negation is stratified and transformations
             //should not break the stratification
             m_rule_set.ensure_closed();
@@ -862,7 +864,7 @@ namespace datalog {
         m_rule_set.add_rules(rs);
     }
 
-    void context::apply_default_transformation(model_converter_ref& mc, proof_converter_ref& pc) {
+    void context::apply_default_transformation() {
         ensure_closed();
         m_transf.reset();
         m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this));
@@ -890,7 +892,7 @@ namespace datalog {
         m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
         m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
         m_transf.register_plugin(alloc(datalog::mk_karr_invariants, *this, 36010));
-        transform_rules(m_transf, mc, pc);
+        transform_rules(m_transf);
     }
 
     void context::collect_params(param_descrs& p) {

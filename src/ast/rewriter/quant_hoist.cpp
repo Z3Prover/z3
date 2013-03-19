@@ -25,7 +25,7 @@ Revision History:
 #include "bool_rewriter.h"
 #include "var_subst.h"
 #include "ast_pp.h"
-
+#include "ast_counter.h"
 
 //
 // Bring quantifiers of common type into prenex form.
@@ -215,6 +215,37 @@ private:
             break;
         }
     }
+
+    unsigned pull_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names) {
+        unsigned index = var_counter().get_next_var(fml);
+        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
+            quantifier* q = to_quantifier(fml);
+            index += q->get_num_decls();
+            if (names) {
+                names->append(q->get_num_decls(), q->get_decl_names());
+            }
+            fml = q->get_expr();
+        }
+        if (!has_quantifiers(fml)) {
+            return index;
+        }
+        app_ref_vector vars(m);
+        pull_quantifier(is_forall, fml, vars);
+        if (vars.empty()) {
+            return index;
+        }
+        // replace vars by de-bruijn indices
+        expr_safe_replace rep(m);
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            app* v = vars[i].get();
+            if (names) {
+                names->push_back(v->get_decl()->get_name());
+            }                
+            rep.insert(v, m.mk_var(index++,m.get_sort(v)));
+        }
+        rep(fml);
+        return index;
+    }
 };   
 
 quantifier_hoister::quantifier_hoister(ast_manager& m) {
@@ -235,5 +266,9 @@ void quantifier_hoister::pull_exists(expr* fml, app_ref_vector& vars, expr_ref& 
 
 void quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, app_ref_vector& vars) {
     m_impl->pull_quantifier(is_forall, fml, vars);
+}
+
+unsigned quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names) {
+    return m_impl->pull_quantifier(is_forall, fml, names);
 }
 

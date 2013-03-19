@@ -89,12 +89,19 @@ lbool dl_interface::query(expr * query) {
     func_decl_ref            query_pred(m);
     datalog::rule_ref_vector query_rules(rule_manager);
     datalog::rule_ref        query_rule(rule_manager);
+    model_converter_ref mc = datalog::mk_skip_model_converter();
+    proof_converter_ref pc;
+    if (m_ctx.get_params().generate_proof_trace()) {
+        pc = datalog::mk_skip_proof_converter();
+    }
+    m_ctx.set_model_converter(mc);
+    m_ctx.set_proof_converter(pc);
     rule_manager.mk_query(query, query_pred, query_rules, query_rule);
     m_ctx.add_rules(query_rules);
     expr_ref bg_assertion = m_ctx.get_background_assertion();
 
     check_reset();
-   
+
     TRACE("pdr",
           if (!m.is_true(bg_assertion)) {
               tout << "axioms:\n";
@@ -105,19 +112,15 @@ lbool dl_interface::query(expr * query) {
           m_ctx.display_rules(tout);
           );
 
-    model_converter_ref mc = datalog::mk_skip_model_converter();
-    proof_converter_ref pc;
-    if (m_ctx.get_params().generate_proof_trace()) {
-        pc = datalog::mk_skip_proof_converter();
-    }
     m_ctx.set_output_predicate(query_pred);
-    m_ctx.apply_default_transformation(mc, pc);
+
+    m_ctx.apply_default_transformation();
 
     if (m_ctx.get_params().slice()) {
         datalog::rule_transformer transformer(m_ctx);
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
-        m_ctx.transform_rules(transformer, mc, pc);        
+        m_ctx.transform_rules(transformer);
         query_pred = slice->get_predicate(query_pred.get());
         m_ctx.set_output_predicate(query_pred);
         
@@ -134,22 +137,25 @@ lbool dl_interface::query(expr * query) {
 
     if (m_ctx.get_params().unfold_rules() > 0) {
         unsigned num_unfolds = m_ctx.get_params().unfold_rules();
-        datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
+        datalog::rule_transformer transf1(m_ctx), transf2(m_ctx);        
+        transf1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
+        transf2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         if (m_ctx.get_params().coalesce_rules()) {
-            transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
-            m_ctx.transform_rules(transformer1, mc, pc);
+            m_ctx.transform_rules(transf1);
         }
-        transformer2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         while (num_unfolds > 0) {
-            m_ctx.transform_rules(transformer2, mc, pc);        
+            m_ctx.transform_rules(transf2);
             --num_unfolds;
         }
     }
     // remove universal quantifiers from body.
+
+
+
     datalog::mk_extract_quantifiers* extract_quantifiers = alloc(datalog::mk_extract_quantifiers, m_ctx);
     datalog::rule_transformer extract_q_tr(m_ctx);
     extract_q_tr.register_plugin(extract_quantifiers);
-    m_ctx.transform_rules(extract_q_tr, mc, pc);
+    m_ctx.transform_rules(extract_q_tr);
     
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););

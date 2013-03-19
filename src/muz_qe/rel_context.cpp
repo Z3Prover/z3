@@ -106,9 +106,7 @@ namespace datalog {
         TRACE("dl", m_context.display(tout););
 
         while (true) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
-            m_context.transform_rules(mc, pc);
+            m_context.transform_rules();
             compiler::compile(m_context, m_context.get_rules(), rules_code, termination_code);
 
             TRACE("dl", rules_code.display(*this, tout); );
@@ -266,14 +264,12 @@ namespace datalog {
         reset_negated_tables();
         
         if (m_context.generate_explanations()) {
-            model_converter_ref mc; // ignored in Datalog mode
-            proof_converter_ref pc; // ignored in Datalog mode
             rule_transformer transformer(m_context);
             //expl_plugin is deallocated when transformer goes out of scope
             mk_explanations * expl_plugin = 
                 alloc(mk_explanations, m_context, m_context.explanations_on_relation_level());
             transformer.register_plugin(expl_plugin);
-            m_context.transform_rules(transformer, mc, pc);
+            m_context.transform_rules(transformer);
 
             //we will retrieve the predicate with explanations instead of the original query predicate
             query_pred = expl_plugin->get_e_decl(query_pred);
@@ -283,11 +279,9 @@ namespace datalog {
         }
 
         if (m_context.magic_sets_for_queries()) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
             rule_transformer transformer(m_context);
             transformer.register_plugin(alloc(mk_magic_sets, m_context, qrule.get()));
-            m_context.transform_rules(transformer, mc, pc);
+            m_context.transform_rules(transformer);
         }
 
         lbool res = saturate();
