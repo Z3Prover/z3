@@ -59,6 +59,14 @@ public:
        The list of variables is empty if there are no top-level universal/existential quantifier.
     */
     void pull_quantifier(bool is_forall, expr_ref& fml, app_ref_vector& vars);
+
+    /**
+       \brief Pull top-most universal (is_forall true) or existential (is_forall=false) quantifier up.
+       Return an expression with de-Bruijn indices and the list of names that were used.
+       Return index of maximal variable.
+    */
+
+    unsigned pull_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
 };
 
 #endif

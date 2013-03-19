@@ -107,41 +107,6 @@ namespace datalog {
         mk_rule_core(fml1, rules, name);
     }
 
-    // 
-    // Hoist quantifier from rule (universal) or query (existential)
-    // 
-    unsigned rule_manager::hoist_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names) {   
-
-        unsigned index = var_counter().get_next_var(fml);
-        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
-            quantifier* q = to_quantifier(fml);
-            index += q->get_num_decls();
-            if (names) {
-                names->append(q->get_num_decls(), q->get_decl_names());
-            }
-            fml = q->get_expr();
-        }
-        if (!has_quantifiers(fml)) {
-            return index;
-        }
-        app_ref_vector vars(m);
-        quantifier_hoister qh(m);
-        qh.pull_quantifier(is_forall, fml, vars);
-        if (vars.empty()) {
-            return index;
-        }
-        // replace vars by de-bruijn indices
-        expr_safe_replace rep(m);
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            app* v = vars[i].get();
-            if (names) {
-                names->push_back(v->get_decl()->get_name());
-            }                
-            rep.insert(v, m.mk_var(index++,m.get_sort(v)));
-        }
-        rep(fml);
-        return index;
-    }
 
     void rule_manager::mk_rule_core(expr* _fml, rule_ref_vector& rules, symbol const& name) {
         app_ref_vector body(m);
@@ -149,7 +114,8 @@ namespace datalog {
         expr_ref e(m), fml(_fml, m);
         svector<bool> is_negated;
         TRACE("dl_rule", tout << mk_pp(fml, m) << "\n";);
-        unsigned index = hoist_quantifier(true, fml, 0); 
+        quantifier_hoister qh(m);
+        unsigned index = qh.pull_quantifier(true, fml, 0); 
         check_app(fml);
         head = to_app(fml);
         
@@ -225,7 +191,8 @@ namespace datalog {
         // Add implicit variables.
         // Remove existential prefix.
         bind_variables(query, false, q);
-        hoist_quantifier(false, q, &names);
+        quantifier_hoister qh(m);
+        qh.pull_quantifier(false, q, &names);
         // retrieve free variables.
         get_free_vars(q, vars);
         if (vars.contains(static_cast<sort*>(0))) {
@@ -1115,3 +1082,4 @@ namespace datalog {
 
 
 };
+

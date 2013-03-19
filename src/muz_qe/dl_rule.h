@@ -81,8 +81,6 @@ namespace datalog {
 
         void mk_rule_core(expr* fml, rule_ref_vector& rules, symbol const& name);
 
-        unsigned hoist_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
-
         /**
            \brief Perform cheap quantifier elimination to reduce the number of variables in the interpreted tail.
          */
