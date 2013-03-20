@@ -169,7 +169,6 @@ class horn_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("horn", *g);
-            bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {

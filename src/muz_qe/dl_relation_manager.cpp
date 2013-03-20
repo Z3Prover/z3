@@ -243,15 +243,14 @@ namespace datalog {
 
     relation_plugin & relation_manager::get_appropriate_plugin(const relation_signature & s) {
         relation_plugin * res = try_get_appropriate_plugin(s);
-        if(!res) {
+        if (!res) {
             throw default_exception("no suitable plugin found for given relation signature");
-            throw 0;
         }
         return *res;
     }
 
     table_plugin * relation_manager::try_get_appropriate_plugin(const table_signature & t) {
-        if(m_favourite_table_plugin && m_favourite_table_plugin->can_handle_signature(t)) {
+        if (m_favourite_table_plugin && m_favourite_table_plugin->can_handle_signature(t)) {
             return m_favourite_table_plugin;
         }
         table_plugin_vector::iterator tpit = m_table_plugins.begin();
@@ -346,7 +345,7 @@ namespace datalog {
             return p->mk_empty(s);
         }
 
-        if(mk_empty_table_relation(s, res)) {
+        if (mk_empty_table_relation(s, res)) {
             return res;
         }
 
@@ -884,10 +883,10 @@ namespace datalog {
             SASSERT(plugin->can_handle_signature(res_sign));
             table_base * res = plugin->mk_empty(res_sign);
 
-            unsigned t1cols=t1.get_signature().size();
-            unsigned t2cols=t2.get_signature().size();
-            unsigned t1first_func=t1.get_signature().first_functional();
-            unsigned t2first_func=t2.get_signature().first_functional();
+            unsigned t1cols = t1.get_signature().size();
+            unsigned t2cols = t2.get_signature().size();
+            unsigned t1first_func = t1.get_signature().first_functional();
+            unsigned t2first_func = t2.get_signature().first_functional();
 
             table_base::iterator els1it = t1.begin();
             table_base::iterator els1end = t1.end();
