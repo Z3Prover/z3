@@ -97,6 +97,8 @@ namespace datalog {
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;
         expr_ref_vector    m_background;
+        model_converter_ref m_mc;
+        proof_converter_ref m_pc;
 
         scoped_ptr<pdr::dl_interface>   m_pdr;
         scoped_ptr<bmc>                 m_bmc;
@@ -313,11 +315,14 @@ namespace datalog {
         void reopen();
         void ensure_opened();
 
-        void transform_rules(model_converter_ref& mc, proof_converter_ref& pc);
-        void transform_rules(rule_transformer& transf, model_converter_ref& mc, proof_converter_ref& pc);
+        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
+        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
+
+        void transform_rules(); // model_converter_ref& mc, proof_converter_ref& pc);
+        void transform_rules(rule_transformer& transf); // , model_converter_ref& mc, proof_converter_ref& pc);
         void replace_rules(rule_set & rs);
 
-        void apply_default_transformation(model_converter_ref& mc, proof_converter_ref& pc);
+        void apply_default_transformation(); // model_converter_ref& mc, proof_converter_ref& pc);
 
         void collect_params(param_descrs& r);
         

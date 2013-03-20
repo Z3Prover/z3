@@ -282,14 +282,16 @@ class horn_tactic : public tactic {
 
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
+            m_ctx.set_model_converter(mc);
+            m_ctx.set_proof_converter(pc);
             m_ctx.get_rules(); // flush adding rules.
-            m_ctx.apply_default_transformation(mc, pc);
+            m_ctx.apply_default_transformation();
             
             if (m_ctx.get_params().slice()) {
                 datalog::rule_transformer transformer(m_ctx);
                 datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
                 transformer.register_plugin(slice);
-                m_ctx.transform_rules(transformer, mc, pc);
+                m_ctx.transform_rules(transformer);
             }
 
             expr_substitution sub(m);

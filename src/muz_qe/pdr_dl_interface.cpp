@@ -111,13 +111,15 @@ lbool dl_interface::query(expr * query) {
         pc = datalog::mk_skip_proof_converter();
     }
     m_ctx.set_output_predicate(query_pred);
-    m_ctx.apply_default_transformation(mc, pc);
+    m_ctx.set_model_converter(mc);
+    m_ctx.set_proof_converter(pc);
+    m_ctx.apply_default_transformation();
 
     if (m_ctx.get_params().slice()) {
         datalog::rule_transformer transformer(m_ctx);
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
-        m_ctx.transform_rules(transformer, mc, pc);        
+        m_ctx.transform_rules(transformer);
         query_pred = slice->get_predicate(query_pred.get());
         m_ctx.set_output_predicate(query_pred);
         
@@ -137,11 +139,11 @@ lbool dl_interface::query(expr * query) {
         datalog::rule_transformer transformer1(m_ctx), transformer2(m_ctx);
         if (m_ctx.get_params().coalesce_rules()) {
             transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
-            m_ctx.transform_rules(transformer1, mc, pc);
+            m_ctx.transform_rules(transformer1);
         }
         transformer2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         while (num_unfolds > 0) {
-            m_ctx.transform_rules(transformer2, mc, pc);        
+            m_ctx.transform_rules(transformer2);
             --num_unfolds;
         }
     }
@@ -149,7 +151,7 @@ lbool dl_interface::query(expr * query) {
     datalog::mk_extract_quantifiers* extract_quantifiers = alloc(datalog::mk_extract_quantifiers, m_ctx);
     datalog::rule_transformer extract_q_tr(m_ctx);
     extract_q_tr.register_plugin(extract_quantifiers);
-    m_ctx.transform_rules(extract_q_tr, mc, pc);
+    m_ctx.transform_rules(extract_q_tr);
     
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););

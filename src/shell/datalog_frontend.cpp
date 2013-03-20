@@ -200,9 +200,7 @@ unsigned read_datalog(char const * file) {
             timeout = UINT_MAX;
         }
         do {
-            model_converter_ref mc; // ignored
-            proof_converter_ref pc; // ignored
-            ctx.transform_rules(mc, pc);
+            ctx.transform_rules();
             
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
             
