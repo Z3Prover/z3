@@ -351,8 +351,8 @@ namespace datalog {
         return result;
     }
 
-    table_base * check_table::complement(func_decl* p) const {
-        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p), m_checker->complement(p));
+    table_base * check_table::complement(func_decl* p, const table_element * func_columns) const {
+        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p, func_columns), m_checker->complement(p, func_columns));
         return result;
     }
 

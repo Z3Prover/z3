@@ -119,7 +119,7 @@ namespace datalog {
         virtual void add_fact(const table_fact & f);
         virtual void remove_fact(const table_element*  fact);
         virtual bool contains_fact(const table_fact & f) const;       
-        virtual table_base * complement(func_decl* p) const;
+        virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
         virtual table_base * clone() const;
 
         virtual iterator begin() const { SASSERT(well_formed()); return m_tocheck->begin(); }
