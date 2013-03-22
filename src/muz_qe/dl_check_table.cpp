@@ -287,9 +287,6 @@ namespace datalog {
 
     bool check_table::well_formed() const {
         get_plugin().m_count++;
-        if (get_plugin().m_count == 497) {
-            std::cout << "here\n";
-        }
         iterator it = m_tocheck->begin(), end = m_tocheck->end();
         for (; it != end; ++it) {
             table_fact fact;
@@ -354,8 +351,8 @@ namespace datalog {
         return result;
     }
 
-    table_base * check_table::complement(func_decl* p) const {
-        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p), m_checker->complement(p));
+    table_base * check_table::complement(func_decl* p, const table_element * func_columns) const {
+        check_table* result = alloc(check_table, get_plugin(), get_signature(), m_tocheck->complement(p, func_columns), m_checker->complement(p, func_columns));
         return result;
     }
 
