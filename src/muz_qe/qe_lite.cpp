@@ -201,15 +201,9 @@ namespace eq {
             return (*m_is_variable)(e);
         }
         
-        bool is_neg_var(ast_manager & m, expr * e, var*& v) {
+        bool is_neg_var(ast_manager & m, expr * e) {
             expr* e1;
-            if (m.is_not(e, e1) && is_variable(e1)) {
-                v = to_var(e1);
-                return true;
-            }
-            else {
-                return false;
-            }
+            return m.is_not(e, e1) && is_variable(e1);
         }
         
         
@@ -334,19 +328,18 @@ namespace eq {
         
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs, *rhs;
-            var* v;
             
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases    
             if (m.is_eq(e, lhs, rhs) || m.is_iff(e, lhs, rhs)) {
                 // (iff (not VAR) t) (iff t (not VAR)) cases
                 if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
-                    if (!is_neg_var(m, lhs, v)) {
+                    if (!is_neg_var(m, lhs)) {
                         std::swap(lhs, rhs);
                     }
-                    if (!is_neg_var(m, lhs, v)) {
+                    if (!is_neg_var(m, lhs)) {
                         return false;
                     }
-                    vs.push_back(v);
+                    vs.push_back(to_var(lhs));
                     ts.push_back(m.mk_not(rhs));
                     TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                     return true;
@@ -385,9 +378,9 @@ namespace eq {
             }
             
             // VAR = false case
-            if (is_neg_var(m, e, v)) {
+            if (is_neg_var(m, e)) {
                 ts.push_back(m.mk_false());
-                vs.push_back(v);
+                vs.push_back(to_var(to_app(e)->get_arg(0)));
                 TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
