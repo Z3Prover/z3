@@ -171,9 +171,9 @@ public:
             resize(sz, val);
     }
 
-    bool operator==(bit_vector const & other);
+    bool operator==(bit_vector const & other) const;
 
-    bool operator!=(bit_vector const & other) { return !operator==(other); }
+    bool operator!=(bit_vector const & other) const { return !operator==(other); }
 
     bit_vector & operator=(bit_vector const & source) {
         m_num_bits = source.m_num_bits;
