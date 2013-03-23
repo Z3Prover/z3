@@ -431,8 +431,6 @@ namespace datalog {
         }
     }
 
-<<<<<<< HEAD
-=======
     
     void rule_counter::count_rule_vars(ast_manager & m, const rule * r, int coef) {
         count_vars(m, r->get_head(), 1);
@@ -453,7 +451,6 @@ namespace datalog {
         }
         return get_max_var(has_var);
     }
->>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
 
     void del_rule(horn_subsume_model_converter* mc, rule& r) {
         if (mc) {

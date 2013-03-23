@@ -275,11 +275,6 @@ class horn_tactic : public tactic {
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
             m_ctx.get_rules(); // flush adding rules.
-<<<<<<< HEAD
-            m_ctx.set_model_converter(mc);
-            m_ctx.set_proof_converter(pc);
-=======
->>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
             m_ctx.apply_default_transformation();
             
             if (m_ctx.get_params().slice()) {

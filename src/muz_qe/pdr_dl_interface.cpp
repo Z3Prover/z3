@@ -90,13 +90,6 @@ lbool dl_interface::query(expr * query) {
     func_decl_ref            query_pred(m);
     datalog::rule_ref_vector query_rules(rule_manager);
     datalog::rule_ref        query_rule(rule_manager);
-    model_converter_ref mc = datalog::mk_skip_model_converter();
-    proof_converter_ref pc;
-    if (m_ctx.get_params().generate_proof_trace()) {
-        pc = datalog::mk_skip_proof_converter();
-    }
-    m_ctx.set_model_converter(mc);
-    m_ctx.set_proof_converter(pc);
     rule_manager.mk_query(query, query_pred, query_rules, query_rule);
     m_ctx.add_rules(query_rules);
     expr_ref bg_assertion = m_ctx.get_background_assertion();
@@ -113,13 +106,8 @@ lbool dl_interface::query(expr * query) {
           m_ctx.display_rules(tout);
           );
 
-<<<<<<< HEAD
-    m_ctx.set_output_predicate(query_pred);
-
-=======
 
     m_ctx.set_output_predicate(query_pred);
->>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
     m_ctx.apply_default_transformation();
 
     if (m_ctx.get_params().slice()) {
@@ -147,19 +135,10 @@ lbool dl_interface::query(expr * query) {
         transf1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
         transf2.register_plugin(alloc(datalog::mk_unfold, m_ctx));
         if (m_ctx.get_params().coalesce_rules()) {
-<<<<<<< HEAD
             m_ctx.transform_rules(transf1);
-=======
-            transformer1.register_plugin(alloc(datalog::mk_coalesce, m_ctx));
-            m_ctx.transform_rules(transformer1);
->>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
         }
         while (num_unfolds > 0) {
-<<<<<<< HEAD
             m_ctx.transform_rules(transf2);
-=======
-            m_ctx.transform_rules(transformer2);
->>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
             --num_unfolds;
         }
     }
