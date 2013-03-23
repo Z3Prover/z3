@@ -2492,7 +2492,13 @@ class qe_lite_tactic : public tactic {
                 new_f = f;
                 m_qe(new_f, new_pr);
                 if (produce_proofs) {
-                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                    expr* fact = m.get_fact(new_pr);
+                    if (to_app(fact)->get_arg(0) != to_app(fact)->get_arg(1)) {
+                        new_pr = m.mk_modus_ponens(g->pr(i), new_pr);                        
+                    }
+                    else {
+                        new_pr = g->pr(i);
+                    }
                 }
                 g->update(i, new_f, new_pr, g->dep(i));                
             }

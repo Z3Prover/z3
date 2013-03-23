@@ -37,7 +37,6 @@ namespace datalog {
         rule_manager&   rm;
         params_ref      m_params;
         th_rewriter     m_rewriter;
-        equiv_proof_converter* m_pc;
 
         typedef obj_map<app, var*> defs_t;
 
@@ -55,7 +54,7 @@ namespace datalog {
 
         virtual ~mk_array_blast();
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
 
     };
 

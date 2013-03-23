@@ -35,7 +35,6 @@ namespace datalog {
         ast_manager&    m;
         rule_manager&   rm;
         rule_unifier    m_unify;
-        replace_proof_converter* m_pc;
 
         void expand_tail(rule& r, unsigned tail_idx, rule_set const& src, rule_set& dst);
 
@@ -45,7 +44,7 @@ namespace datalog {
          */
         mk_unfold(context & ctx);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
     };
 
 };

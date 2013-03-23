@@ -24,7 +24,6 @@ Revision History:
 #include"dl_rule.h"
 #include"dl_rule_set.h"
 #include"model_converter.h"
-#include"proof_converter.h"
 
 namespace datalog {
 
@@ -69,7 +68,7 @@ namespace datalog {
            \brief Transform the rule set using the registered transformation plugins. If the rule 
            set has changed, return true; otherwise return false.
         */
-        bool operator()(rule_set & rules, model_converter_ref& mc, proof_converter_ref& pc);
+        bool operator()(rule_set & rules, model_converter_ref& mc);
     };
     
     class rule_transformer::plugin {
@@ -106,8 +105,7 @@ namespace datalog {
            The caller takes ownership of the returned \c rule_set object.
         */
         virtual rule_set * operator()(rule_set const & source,
-                                      model_converter_ref& mc,
-                                      proof_converter_ref& pc) = 0;
+                                      model_converter_ref& mc) = 0;
 
         virtual void cancel() { m_cancel = true; }
 

@@ -164,10 +164,8 @@ namespace datalog {
                 TRACE("dl", tout << "does not have fact\n" << mk_pp(fact, m) << "\n";);
                 return false;
             }
-            expr_ref fml(m);
             proof_ref new_p(m);
-            r->to_formula(fml);
-            new_p = m.mk_asserted(fml);
+            new_p = r->get_proof();
             m_pinned_exprs.push_back(new_p);
             m_todo.pop_back();
             m_new_proof.insert(p, new_p);
@@ -784,6 +782,9 @@ namespace datalog {
             rm.fix_unbound_vars(new_rule, false);
 
             TRACE("dl", r.display(m_ctx, tout << "replacing:\n"); new_rule->display(m_ctx, tout << "by:\n"););
+            if (m_ctx.generate_proof_trace()) {
+                rm.mk_rule_asserted_proof(*new_rule.get());
+            }
         }
         else {
             new_rule = &r;
@@ -801,7 +802,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_slice::operator()(rule_set const & src, model_converter_ref& mc, proof_converter_ref& pc) {        
+    rule_set * mk_slice::operator()(rule_set const & src, model_converter_ref& mc) {        
         for (unsigned i = 0; i < src.get_num_rules(); ++i) {
             if (src.get_rule(i)->has_quantifiers()) {
                 return 0;
@@ -809,8 +810,8 @@ namespace datalog {
         }
         ref<slice_proof_converter> spc;
         ref<slice_model_converter> smc;
-        if (pc) {
-            spc = alloc(slice_proof_converter, m_ctx);
+        if (m_ctx.generate_proof_trace()) {
+            spc = alloc(slice_proof_converter, m_ctx);        
         }
         if (mc) {
             smc = alloc(slice_model_converter, *this, m);
@@ -834,7 +835,7 @@ namespace datalog {
                 m_mc->add_sliceable(it->m_key, it->m_value);
             }
         }
-        pc = concat(pc.get(), spc.get());
+        m_ctx.add_proof_converter(spc.get());
         mc = concat(mc.get(), smc.get());
         return result;
     }    

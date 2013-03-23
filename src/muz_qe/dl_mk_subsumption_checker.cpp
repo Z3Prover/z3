@@ -166,7 +166,8 @@ namespace datalog {
         res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
         res->set_accounting_parent_object(m_context, r);
         m_context.get_rule_manager().fix_unbound_vars(res, true);
-        
+        m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *res.get());
+
         return true;
     }
 
@@ -208,10 +209,10 @@ namespace datalog {
                     continue;
                 }
                 rule * defining_rule;
-                TRUSTME(m_total_relation_defining_rules.find(head_pred, defining_rule));
-                if(defining_rule) {
+                VERIFY(m_total_relation_defining_rules.find(head_pred, defining_rule));
+                if (defining_rule) {
                     rule_ref totality_rule(m_context.get_rule_manager());
-                    TRUSTME(transform_rule(defining_rule, subs_index, totality_rule));
+                    VERIFY(transform_rule(defining_rule, subs_index, totality_rule));
                     if(defining_rule!=totality_rule) {
                         modified = true;
                     }
@@ -331,8 +332,8 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_subsumption_checker::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_subsumption_checker::operator()(rule_set const & source, model_converter_ref& mc) {
+        // TODO mc
 
         m_have_new_total_rule = false;
         collect_ground_unconditional_rule_heads(source);

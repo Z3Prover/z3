@@ -37,7 +37,6 @@ namespace datalog {
         rule_manager&   rm;
         expr_ref_vector m_sub1, m_sub2;
         unsigned        m_idx;
-        replace_proof_converter* m_pc;
 
         void mk_pred(app_ref& pred, app* p1, app* p2);
 
@@ -53,7 +52,7 @@ namespace datalog {
          */
         mk_coalesce(context & ctx);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
     };
 
 };

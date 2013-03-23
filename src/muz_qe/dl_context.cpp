@@ -231,6 +231,7 @@ namespace datalog {
         m_rule_set(*this),
         m_rule_fmls(m),
         m_background(m),
+        m_mc(0),
         m_closed(false),
         m_saturation_was_run(false),
         m_last_answer(m),
@@ -474,10 +475,11 @@ namespace datalog {
     void context::flush_add_rules() {
         datalog::rule_manager& rm = get_rule_manager();
         datalog::rule_ref_vector rules(rm);
-        rm.set_model_converter(m_mc);
-        rm.set_proof_converter(m_pc);
+        scoped_proof_mode _scp(m, generate_proof_trace()?PGM_FINE:PGM_DISABLED);
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-            rm.mk_rule(m_rule_fmls[i].get(), rules, m_rule_names[i]);
+            expr* fml = m_rule_fmls[i].get();
+            proof* p = generate_proof_trace()?m.mk_asserted(fml):0;
+            rm.mk_rule(fml, p, rules, m_rule_names[i]);
         }
         add_rules(rules);
         m_rule_fmls.reset();
@@ -491,7 +493,11 @@ namespace datalog {
     void context::update_rule(expr* rl, symbol const& name) {
         datalog::rule_manager& rm = get_rule_manager();
         datalog::rule_ref_vector rules(rm);
-        rm.mk_rule(rl, rules, name);
+        proof* p = 0;
+        if (generate_proof_trace()) {
+            p = m.mk_asserted(rl);
+        }
+        rm.mk_rule(rl, p, rules, name);
         if (rules.size() != 1) {
             std::stringstream strm;
             strm << "Rule " << name << " has a non-trivial body. It cannot be modified";
@@ -685,7 +691,7 @@ namespace datalog {
                 todo.push_back(e2);
             }
             else if (is_quantifier(e)) {
-                todo.append(to_quantifier(e)->get_expr());
+                todo.push_back(to_quantifier(e)->get_expr());
             }
             else if ((m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) && 
                      m.is_true(e1)) {
@@ -738,6 +744,9 @@ namespace datalog {
         default:
             UNREACHABLE();
             break;
+        }
+        if (generate_proof_trace() && !r->get_proof()) {
+            m_rule_manager.mk_rule_asserted_proof(*r.get());
         }
     }
 
@@ -849,7 +858,7 @@ namespace datalog {
     void context::transform_rules(rule_transformer& transf) {
         SASSERT(m_closed); //we must finish adding rules before we start transforming them
         TRACE("dl", display_rules(tout););
-        if (transf(m_rule_set, m_mc, m_pc)) {
+        if (transf(m_rule_set, m_mc)) {
             //we have already ensured the negation is stratified and transformations
             //should not break the stratification
             m_rule_set.ensure_closed();
@@ -1037,6 +1046,8 @@ namespace datalog {
     }
 
     void context::new_query() {
+        m_mc = mk_skip_model_converter();
+
         flush_add_rules();
         m_last_status = OK;
         m_last_answer = 0;
@@ -1148,6 +1159,7 @@ namespace datalog {
         switch(get_engine()) {
         case DATALOG_ENGINE:            
             return false;
+        case PDR_ENGINE: 
         case QPDR_ENGINE: 
             ensure_pdr();
             m_pdr->display_certificate(out);
@@ -1241,7 +1253,7 @@ namespace datalog {
             ptr_vector<sort> sorts;
             get_free_vars(m_rule_fmls[i].get(), sorts);
             if (!sorts.empty()) {
-                rm.mk_rule(m_rule_fmls[i].get(), rule_refs, m_rule_names[i]);
+                rm.mk_rule(m_rule_fmls[i].get(), 0, rule_refs, m_rule_names[i]);
                 m_rule_fmls[i] = m_rule_fmls.back();
                 m_rule_names[i] = m_rule_names.back();
                 m_rule_fmls.pop_back();
@@ -1258,7 +1270,7 @@ namespace datalog {
         }
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             rules.push_back(m_rule_fmls[i].get());
-            names.push_back(m_rule_names[i]);
+            names.push_back(m_rule_names[i]);            
         }
     }
  

@@ -46,38 +46,25 @@ namespace datalog {
     */
     class rule_manager
     {
-        ast_manager&        m;
-        context&            m_ctx;
-        var_counter         m_var_counter;
-        obj_map<expr, app*> m_memoize_disj;
-        expr_ref_vector     m_refs;
-        model_converter_ref m_mc;
-        proof_converter_ref m_pc;
+        ast_manager&         m;
+        context&             m_ctx;
+        rule_counter         m_counter;
 
         // only the context can create a rule_manager
         friend class context;
 
         explicit rule_manager(context& ctx);
 
-        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
-        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
-
         /**
            \brief Move functions from predicate tails into the interpreted tail by introducing new variables.
         */
+        void hoist_compound_predicates(unsigned num_bound, app_ref& head, app_ref_vector& body);
+
         void hoist_compound(unsigned& num_bound, app_ref& fml, app_ref_vector& body);
 
         void flatten_body(app_ref_vector& body);
 
-        void remove_labels(expr_ref& fml);
-
-        void eliminate_disjunctions(app_ref_vector::element_ref& body, rule_ref_vector& rules, symbol const& name);
-
-        void eliminate_disjunctions(app_ref_vector& body, rule_ref_vector& rules, symbol const& name);        
-
-        void eliminate_quantifier_body(app_ref_vector::element_ref& body, rule_ref_vector& rules, symbol const& name);
-
-        void eliminate_quantifier_body(app_ref_vector& body, rule_ref_vector& rules, symbol const& name);
+        void remove_labels(expr_ref& fml, proof_ref& pr);
 
         app_ref ensure_app(expr* e);
 
@@ -89,7 +76,15 @@ namespace datalog {
 
         void mk_rule_core(expr* fml, rule_ref_vector& rules, symbol const& name);
 
-        unsigned hoist_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
+        void mk_negations(app_ref_vector& body, svector<bool>& is_negated);
+
+        void mk_rule_core_new(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name);
+
+        void mk_rule_core2(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name);
+
+        static expr_ref mk_implies(app_ref_vector const& body, expr* head);
+
+        unsigned extract_horn(expr* fml, app_ref_vector& body, app_ref& head);
 
         /**
            \brief Perform cheap quantifier elimination to reduce the number of variables in the interpreted tail.
@@ -109,7 +104,7 @@ namespace datalog {
            The formula is of the form (forall (...) (forall (...) (=> (and ...) head)))
            
         */
-        void mk_rule(expr* fml, rule_ref_vector& rules, symbol const& name = symbol::null);
+        void mk_rule(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name = symbol::null);
 
         /**
            \brief Create a Datalog query from an expression.
@@ -139,7 +134,15 @@ namespace datalog {
         /** make sure there are not non-quantified variables that occur only in interpreted predicates */
         void fix_unbound_vars(rule_ref& r, bool try_quantifier_elimination);
 
+        /**
+           \brief add proof that new rule is obtained by rewriting old rule.
+         */
+        void mk_rule_rewrite_proof(rule& old_rule, rule& new_rule);
 
+        /**
+           \brief tag rule as asserted.
+         */
+        void mk_rule_asserted_proof(rule& r);
 
         /**
            \brief apply substitution to variables of rule.
@@ -170,7 +173,7 @@ namespace datalog {
 
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 
-        var_counter& get_var_counter() { return m_var_counter; }
+        rule_counter& get_counter() { return m_counter; }
 
     };
 
@@ -178,6 +181,7 @@ namespace datalog {
         friend class rule_manager;
 
         app *    m_head;
+        proof*   m_proof;
         unsigned m_tail_size:20;
         // unsigned m_reserve:12;
         unsigned m_ref_cnt;
@@ -209,6 +213,10 @@ namespace datalog {
         void get_used_vars(used_vars& uv) const;
         
     public:
+
+        proof * get_proof() const { return m_proof; }
+
+        void set_proof(ast_manager& m, proof* p);
         
         app * get_head() const { return m_head; }
 

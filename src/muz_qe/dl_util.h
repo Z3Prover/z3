@@ -27,6 +27,7 @@ Revision History:
 #include"replace_proof_converter.h"
 #include"substitution.h"
 #include"fixedpoint_params.hpp"
+#include"ast_counter.h"
 
 namespace datalog {
 
@@ -411,20 +412,25 @@ namespace datalog {
     }
 
 
+    class rule_counter : public var_counter {        
+    public:
+        rule_counter(bool stay_non_negative = true): var_counter(stay_non_negative) {}
+        void count_rule_vars(ast_manager & m, const rule * r, int coef = 1);
+        unsigned get_max_rule_var(const rule& r);
+    };
+
     void del_rule(horn_subsume_model_converter* mc, rule& r);
 
     void resolve_rule(replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res);
 
+    void resolve_rule(rule const& r1, rule const& r2, unsigned idx, 
+                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res);
+
     model_converter* mk_skip_model_converter();
 
     proof_converter* mk_skip_proof_converter();
 
-
-    /**
-       Return maximal variable number, or zero is there isn't any
-    */
-    // unsigned get_max_var(const rule & r, ast_manager & m);
 
     void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt);
 

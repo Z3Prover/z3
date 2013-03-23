@@ -67,6 +67,7 @@ public:
     */
 
     unsigned pull_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
+
 };
 
 #endif

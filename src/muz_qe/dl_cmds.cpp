@@ -262,8 +262,10 @@ public:
                 
             case datalog::OK: 
                 break;
+
             default:
-                UNREACHABLE();
+                // exception was raised.
+                break;
             }
             break;
         }

@@ -431,6 +431,29 @@ namespace datalog {
         }
     }
 
+<<<<<<< HEAD
+=======
+    
+    void rule_counter::count_rule_vars(ast_manager & m, const rule * r, int coef) {
+        count_vars(m, r->get_head(), 1);
+        unsigned n = r->get_tail_size();
+        for (unsigned i = 0; i < n; i++) {
+            count_vars(m, r->get_tail(i), coef);
+        }
+    }
+
+    unsigned rule_counter::get_max_rule_var(const rule & r) {
+        m_todo.push_back(r.get_head());
+        m_scopes.push_back(0);
+        unsigned n = r.get_tail_size();
+        bool has_var = false;
+        for (unsigned i = 0; i < n; i++) {
+            m_todo.push_back(r.get_tail(i));
+            m_scopes.push_back(0);
+        }
+        return get_max_var(has_var);
+    }
+>>>>>>> 26f4d3be202606ff0189aefc103de187caf06d5d
 
     void del_rule(horn_subsume_model_converter* mc, rule& r) {
         if (mc) {
@@ -492,6 +515,44 @@ namespace datalog {
         pc->insert(pr);
     }
 
+    void resolve_rule(rule const& r1, rule const& r2, unsigned idx, 
+                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res) {
+        if (!r1.get_proof()) {
+            return;
+        }
+        SASSERT(r2.get_proof());
+        ast_manager& m = s1.get_manager();
+        expr_ref fml(m);
+        res.to_formula(fml);
+        vector<expr_ref_vector> substs;
+        svector<std::pair<unsigned, unsigned> > positions;
+        substs.push_back(s1);
+        substs.push_back(s2);
+
+        scoped_proof _sc(m);
+        proof_ref pr(m);
+        proof_ref_vector premises(m);
+        premises.push_back(r1.get_proof());
+        premises.push_back(r2.get_proof());
+        positions.push_back(std::make_pair(idx+1, 0));
+
+        TRACE("dl", 
+              tout << premises[0]->get_id() << " " << mk_pp(premises[0].get(), m) << "\n";
+              for (unsigned i = 0; i < s1.size(); ++i) {
+                  tout << mk_pp(s1[i], m) << " ";
+              }
+              tout << "\n";
+              tout << premises[1]->get_id() << " " << mk_pp(premises[1].get(), m) << "\n";
+              for (unsigned i = 0; i < s2.size(); ++i) {
+                  tout << mk_pp(s2[i], m) << " ";
+              }
+              tout << "\n";
+              ); 
+
+        pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml, positions, substs);
+        res.set_proof(m, pr);
+    }
+
     class skip_model_converter : public model_converter {
     public:
         skip_model_converter() {}
@@ -519,10 +580,6 @@ namespace datalog {
     proof_converter* mk_skip_proof_converter() { return alloc(skip_proof_converter); }
 
 
-    unsigned get_max_var(const rule & r, ast_manager & m) {
-        var_counter ctr;
-        return ctr.get_max_var(r);
-    }
 
     void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt) {
         SASSERT(tgt.empty());

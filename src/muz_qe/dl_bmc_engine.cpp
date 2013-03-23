@@ -307,7 +307,7 @@ namespace datalog {
                     r1->to_formula(concl);
                     scoped_proof _sp(m);
                     
-                    proof* p = m.mk_asserted(fml);
+                    proof* p = r->get_proof();
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -320,7 +320,7 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = m.mk_asserted(fml);
+                    proof* p = r->get_proof();
                     if (sub.empty()) {
                         pr = p;
                     }
@@ -340,7 +340,7 @@ namespace datalog {
                 pred = r->get_decl(0);
             }
             scoped_proof _sp(m);
-            apply(m, b.m_pc.get(), pr);
+            apply(m, b.m_ctx.get_proof_converter().get(), pr);
             b.m_answer = pr;
             return l_true;
         }
@@ -474,6 +474,9 @@ namespace datalog {
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
+            if (b.m_cancel) {
+                return proof_ref(0, m);
+            }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
 
             expr_ref prop_r(m), prop_v(m), fml(m), prop_body(m), tmp(m), body(m);
@@ -497,7 +500,7 @@ namespace datalog {
             SASSERT(r);
             r->to_formula(fml);
             IF_VERBOSE(1, verbose_stream() << mk_pp(fml, m) << "\n";);
-            prs.push_back(m.mk_asserted(fml));
+            prs.push_back(r->get_proof());
             unsigned sz = r->get_uninterpreted_tail_size();
 
             ptr_vector<sort> rule_vars;
@@ -536,8 +539,9 @@ namespace datalog {
             model_ref md;
             b.m_solver.get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            proof_ref pr = get_proof(md, b.m_query_pred, to_app(level_query), level);
-            apply(m, b.m_pc.get(), pr);
+            proof_ref pr(m);
+            pr = get_proof(md, b.m_query_pred, to_app(level_query), level);
+            apply(m, b.m_ctx.get_proof_converter().get(), pr);
             b.m_answer = pr;
         }
 
@@ -1034,7 +1038,7 @@ namespace datalog {
                     var_subst vs(m, false);
                     mk_subst(*rules[i], path, trace, sub);
                     rules[i]->to_formula(fml);
-                    prs.push_back(m.mk_asserted(fml));
+                    prs.push_back(rules[i]->get_proof());
                     unsigned sz = trace->get_num_args();
                     if (sub.empty() && sz == 0) {
                         pr = prs[0].get();
@@ -1112,7 +1116,6 @@ namespace datalog {
         }
         
         void mk_answer(model_ref& md, expr_ref& trace, expr_ref& path) {                
-            proof_ref pr(m);            
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
             md->eval(trace, trace);
             md->eval(path, path);
@@ -1120,7 +1123,11 @@ namespace datalog {
                        for (unsigned i = 0; i < b.m_solver.size(); ++i) {
                            verbose_stream() << mk_pp(b.m_solver.get_formulas()[i], m) << "\n";
                        });
-            b.m_answer = get_proof(md, to_app(trace), to_app(path));
+            scoped_proof _sp(m);
+            proof_ref pr(m);
+            pr = get_proof(md, to_app(trace), to_app(path));
+            apply(m, b.m_ctx.get_proof_converter().get(), pr);
+            b.m_answer = pr;
         }
        
     };
@@ -1155,6 +1162,9 @@ namespace datalog {
     private:
 
         void get_model(unsigned level) {
+            if (b.m_cancel) {
+                return;
+            }
             rule_manager& rm = b.m_ctx.get_rule_manager();
             expr_ref level_query = mk_level_predicate(b.m_query_pred, level);
             model_ref md;
@@ -1212,7 +1222,7 @@ namespace datalog {
                     r1->to_formula(concl);
                     scoped_proof _sp(m);
                     
-                    proof* p = m.mk_asserted(fml);
+                    proof* p = r->get_proof();
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -1225,7 +1235,7 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = m.mk_asserted(fml);
+                    proof* p = r->get_proof();
                     if (sub.empty()) {
                         pr = p;
                     }
@@ -1245,7 +1255,7 @@ namespace datalog {
                 pred = r->get_decl(0);
             }
             scoped_proof _sp(m);
-            apply(m, b.m_pc.get(), pr);
+            apply(m, b.m_ctx.get_proof_converter().get(), pr);
             b.m_answer = pr;
         }
         
@@ -1409,18 +1419,15 @@ namespace datalog {
 
         m_ctx.ensure_opened();
         m_rules.reset();
+
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
         datalog::rule_set        old_rules(m_ctx.get_rules());
         datalog::rule_ref_vector query_rules(rule_manager);
         datalog::rule_ref        query_rule(rule_manager);
-        model_converter_ref mc = datalog::mk_skip_model_converter();
-        m_pc = datalog::mk_skip_proof_converter();
-        m_ctx.set_model_converter(mc);
-        m_ctx.set_proof_converter(m_pc);
         rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
         m_ctx.add_rules(query_rules);
-        expr_ref bg_assertion = m_ctx.get_background_assertion();        
-
+        expr_ref bg_assertion = m_ctx.get_background_assertion();
+        
         m_ctx.set_output_predicate(m_query_pred);
         m_ctx.apply_default_transformation();
         

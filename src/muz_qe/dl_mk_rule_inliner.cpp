@@ -65,8 +65,8 @@ namespace datalog {
     // -----------------------------------
 
     bool rule_unifier::unify_rules(const rule& tgt, unsigned tgt_idx, const rule& src) {
-        var_counter& vc = m_rm.get_var_counter();
-        unsigned var_cnt = std::max(vc.get_max_var(tgt), vc.get_max_var(src))+1;
+        rule_counter& vc = m_rm.get_counter();
+        unsigned var_cnt = std::max(vc.get_max_rule_var(tgt), vc.get_max_rule_var(src))+1;
         m_subst.reset();
         m_subst.reserve(2, var_cnt);
         
@@ -181,10 +181,10 @@ namespace datalog {
         }
 
         if (m_unifier.apply(tgt, tail_index, src, res)) {
-            if (m_pc) {
+            if (m_context.generate_proof_trace()) {
                 expr_ref_vector s1 = m_unifier.get_rule_subst(tgt, true);
                 expr_ref_vector s2 = m_unifier.get_rule_subst(src, false);
-                datalog::resolve_rule(m_pc, tgt, src, tail_index, s1, s2, *res.get());
+                datalog::resolve_rule(tgt, src, tail_index, s1, s2, *res.get());
             }
             return true;        
         }
@@ -733,7 +733,7 @@ namespace datalog {
         }
 
         // initialize substitution.
-        var_counter& vc = m_rm.get_var_counter();
+        rule_counter& vc = m_rm.get_counter();
         unsigned max_var = 0;
         for (unsigned i = 0; i < sz; ++i) {
             rule* r = acc[i].get();
@@ -820,7 +820,7 @@ namespace datalog {
                     del_rule(r2, j);
                 }
 
-                max_var = std::max(max_var, vc.get_max_var(*r.get()));
+                max_var = std::max(max_var, vc.get_max_rule_var(*r.get()));
                 m_subst.reserve_vars(max_var+1);
 
             }
@@ -837,11 +837,10 @@ namespace datalog {
         return done_something;
     }
 
-    rule_set * mk_rule_inliner::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
+    rule_set * mk_rule_inliner::operator()(rule_set const & source, model_converter_ref& mc) {
 
         bool something_done = false;
         ref<horn_subsume_model_converter> hsmc;        
-        ref<replace_proof_converter> hpc;
 
         if (source.get_num_rules() == 0) {
             return 0;
@@ -858,11 +857,7 @@ namespace datalog {
         if (mc) {
             hsmc = alloc(horn_subsume_model_converter, m);
         }
-        if (pc) {
-            hpc = alloc(replace_proof_converter, m);
-        }
         m_mc = hsmc.get();
-        m_pc = hpc.get();
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
 
@@ -888,9 +883,6 @@ namespace datalog {
         else {
             if (mc) {
                 mc = concat(mc.get(), hsmc.get());
-            }
-            if (pc) {
-                pc = concat(pc.get(), hpc.get());
             }
         }
 

@@ -35,7 +35,7 @@ namespace datalog {
     // -----------------------------------
 
     void mk_interp_tail_simplifier::rule_substitution::reset(rule * r) {
-        unsigned var_cnt = m_context.get_rule_manager().get_var_counter().get_max_var(*r)+1;
+        unsigned var_cnt = m_context.get_rule_manager().get_counter().get_max_rule_var(*r)+1;
         m_subst.reset();
         m_subst.reserve(1, var_cnt);
         m_rule = r;
@@ -541,8 +541,8 @@ namespace datalog {
 
         rule_ref pro_var_eq_result(m_context.get_rule_manager());
         if (propagate_variable_equivalences(res, pro_var_eq_result)) {
-            SASSERT(var_counter().get_max_var(*r.get())==0 || 
-                var_counter().get_max_var(*r.get()) > var_counter().get_max_var(*pro_var_eq_result.get()));
+            SASSERT(rule_counter().get_max_rule_var(*r.get())==0 || 
+                    rule_counter().get_max_rule_var(*r.get()) > rule_counter().get_max_rule_var(*pro_var_eq_result.get()));
             r = pro_var_eq_result;
             goto start;
         }
@@ -554,11 +554,13 @@ namespace datalog {
 
     bool mk_interp_tail_simplifier::transform_rules(const rule_set & orig, rule_set & tgt) {
         bool modified = false;
+        rule_manager& rm = m_context.get_rule_manager();
         rule_set::iterator rit = orig.begin();
         rule_set::iterator rend = orig.end();
         for (; rit!=rend; ++rit) {
-            rule_ref new_rule(m_context.get_rule_manager());
+            rule_ref new_rule(rm);
             if (transform_rule(*rit, new_rule)) {
+                rm.mk_rule_rewrite_proof(**rit, *new_rule.get());
                 bool is_modified = *rit != new_rule;
                 modified |= is_modified;
                 tgt.add_rule(new_rule);
@@ -570,8 +572,7 @@ namespace datalog {
         return modified;
     }
 
-    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc) {
         if (source.get_num_rules() == 0) {
             return 0;
         }
