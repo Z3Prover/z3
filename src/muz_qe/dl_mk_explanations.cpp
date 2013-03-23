@@ -875,8 +875,8 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_explanations::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        SASSERT(!mc && !pc);
+    rule_set * mk_explanations::operator()(rule_set const & source, model_converter_ref& mc) {
+        SASSERT(!mc);
         if(source.get_num_rules()==0) {
             return 0;
         }

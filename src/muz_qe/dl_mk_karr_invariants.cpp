@@ -310,7 +310,7 @@ namespace datalog {
         m_hb.reset();
         for (unsigned i = 0; i < src.size(); ++i) {
             vector<rational> v(src.A[i]);
-            v.append(src.b[i]);
+            v.push_back(src.b[i]);
             if (src.eq[i]) {
                 m_hb.add_eq(v, rational(0));
             }
@@ -420,6 +420,7 @@ namespace datalog {
             new_rule = rm.mk(r.get_head(), tail.size(), tail.c_ptr(), 0, r.name());
         }
         rules.add_rule(new_rule);
+        rm.mk_rule_rewrite_proof(r, *new_rule); // should be weakening rule.
     }
 
     class mk_karr_invariants::add_invariant_model_converter : public model_converter {
@@ -519,7 +520,7 @@ namespace datalog {
         m_hb.set_cancel(true);
     }
     
-    rule_set * mk_karr_invariants::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
+    rule_set * mk_karr_invariants::operator()(rule_set const & source, model_converter_ref& mc) {
         if (!m_ctx.get_params().karr()) {
             return 0;
         }

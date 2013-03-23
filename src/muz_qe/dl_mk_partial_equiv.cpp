@@ -86,8 +86,8 @@ namespace datalog {
     }
 
 
-    rule_set * mk_partial_equivalence_transformer::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc  
+    rule_set * mk_partial_equivalence_transformer::operator()(rule_set const & source, model_converter_ref& mc) {
+        // TODO mc  
 
         if (source.get_num_rules() == 0) {
             return 0;

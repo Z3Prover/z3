@@ -951,15 +951,44 @@ namespace pdr {
     }
 
     /**
+       \brief Ensure that all nodes in the tree have associated models.
+       get_trace and get_proof_trace rely on models to extract rules.
+     */
+    void model_search::update_models() {
+        obj_map<expr, model*> models;
+        ptr_vector<model_node> todo;
+        todo.push_back(m_root);
+        while (!todo.empty()) {
+            model_node* n = todo.back();
+            if (n->get_model_ptr()) {
+                models.insert(n->state(), n->get_model_ptr());
+            }
+            todo.pop_back();
+            todo.append(n->children().size(), n->children().c_ptr());
+        }
+
+        todo.push_back(m_root);
+        while (!todo.empty()) {
+            model_node* n = todo.back();
+            model* md = 0;
+            if (!n->get_model_ptr() && models.find(n->state(), md)) {
+                model_ref mr(md);
+                n->set_model(mr);
+            }
+            todo.pop_back();
+            todo.append(n->children().size(), n->children().c_ptr());
+        }        
+    }
+
+    /**
        Extract trace comprising of constraints 
        and predicates that are satisfied from facts to the query.
        The resulting trace 
      */
-    expr_ref model_search::get_trace(context const& ctx) const {       
+    expr_ref model_search::get_trace(context const& ctx) {       
         pred_transformer& pt = get_root().pt();
         ast_manager& m = pt.get_manager();
         manager& pm = pt.get_pdr_manager();
-
         datalog::context& dctx = ctx.get_context();
         datalog::rule_manager& rm = dctx.get_rule_manager();
         expr_ref_vector constraints(m), predicates(m);
@@ -974,13 +1003,15 @@ namespace pdr {
         rule = n->get_rule();
         unsigned max_var = vc.get_max_rule_var(*rule);
         predicates.push_back(rule->get_head());
-        children.append(n);
+        children.push_back(n);
         bool first = true;
+        update_models();
         while (!children.empty()) {
             SASSERT(children.size() == predicates.size());
             expr_ref_vector binding(m);
             n = children.back();
             children.pop_back();
+            TRACE("pdr", n->display(tout, 0););
             n->mk_instantiate(r0, rule, binding);
             
             max_var = std::max(max_var, vc.get_max_rule_var(*rule));
@@ -1026,7 +1057,7 @@ namespace pdr {
         return pm.mk_and(constraints);
     }
 
-    proof_ref model_search::get_proof_trace(context const& ctx) const {
+    proof_ref model_search::get_proof_trace(context const& ctx) {
         pred_transformer& pt = get_root().pt();
         ast_manager& m = pt.get_manager();
         datalog::context& dctx = ctx.get_context();
@@ -1042,8 +1073,10 @@ namespace pdr {
         proof* pr = 0;
         unifier.set_normalize(false);
         todo.push_back(m_root);
+        update_models();
         while (!todo.empty()) {
             model_node* n = todo.back();
+            TRACE("pdr", n->display(tout, 0););
             if (cache.find(n->state(), pr)) {
                 todo.pop_back();
                 continue;
@@ -1066,12 +1099,14 @@ namespace pdr {
                 continue;
             }
             proof_ref rl(m);
-            expr_ref  fml0(m);
             expr_ref_vector binding(m);
             n->mk_instantiate(r0, r1, binding);
-            r0->to_formula(fml0);
             proof_ref p1(m), p2(m);
-            p1 = m.mk_asserted(fml0);
+            p1 = r0->get_proof();
+            if (!p1) {
+                r0->display(dctx, std::cout);
+            }
+            SASSERT(p1);
             pfs[0] = p1;
             rls[0] = r1;
             TRACE("pdr",

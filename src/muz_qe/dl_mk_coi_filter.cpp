@@ -35,8 +35,7 @@ namespace datalog {
 
     rule_set * mk_coi_filter::operator()(
         rule_set const & source,
-        model_converter_ref& mc,
-        proof_converter_ref& pc) 
+        model_converter_ref& mc) 
     {
         if (source.get_num_rules()==0) {
             return 0;

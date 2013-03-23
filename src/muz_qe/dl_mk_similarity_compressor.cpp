@@ -500,8 +500,8 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_similarity_compressor::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_similarity_compressor::operator()(rule_set const & source, model_converter_ref& mc) {
+        // TODO mc
         m_modified = false;
         unsigned init_rule_cnt = source.get_num_rules();
         SASSERT(m_rules.empty());

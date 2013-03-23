@@ -82,7 +82,7 @@ namespace datalog {
     public:
         mk_unbound_compressor(context & ctx);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
     };
 
 };

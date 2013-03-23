@@ -1644,9 +1644,7 @@ namespace datalog {
         void resolve_rule(replace_proof_converter& pc, tb::clause const& r1, tb::clause const& r2, 
                           expr_ref_vector const& s1, expr_ref_vector const& s2, tb::clause const& res) const {
             unsigned idx = r1.get_predicate_index();
-            expr_ref fml1 = r1.to_formula();
-            expr_ref fml2 = r2.to_formula();
-            expr_ref fml3 = res.to_formula();
+            expr_ref fml = res.to_formula();
             vector<expr_ref_vector> substs;
             svector<std::pair<unsigned, unsigned> > positions;
             substs.push_back(s1);
@@ -1654,13 +1652,12 @@ namespace datalog {
             scoped_proof _sc(m);
             proof_ref pr(m);
             proof_ref_vector premises(m);
-            premises.push_back(m.mk_asserted(fml1));
-            premises.push_back(m.mk_asserted(fml2));
+            premises.push_back(m.mk_asserted(r1.to_formula()));
+            premises.push_back(m.mk_asserted(r2.to_formula()));
             positions.push_back(std::make_pair(idx+1, 0));            
-            pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml3, positions, substs);
+            pr = m.mk_hyper_resolve(2, premises.c_ptr(), fml, positions, substs);
             pc.insert(pr);
-        }
-            
+        }            
     };
 
     tab::tab(context& ctx):

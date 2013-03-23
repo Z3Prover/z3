@@ -151,23 +151,6 @@ public:
         }
     }
 
-    vector(T const & e) : 
-        m_data(0) { 
-        push_back(e); 
-    }
-
-    vector(T const & t1, T const & t2) : 
-        m_data(0) { 
-        push_back(t1); 
-        push_back(t2); 
-    }
-
-    vector(T const & t1, T const & t2, T const & t3) : 
-        m_data(0) { 
-        push_back(t1); 
-        push_back(t2); 
-        push_back(t3); 
-    }
  
     ~vector() { 
         destroy();

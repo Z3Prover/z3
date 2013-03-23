@@ -42,7 +42,6 @@ Revision History:
 #include"params.h"
 #include"trail.h"
 #include"model_converter.h"
-#include"proof_converter.h"
 #include"model2expr.h"
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
@@ -142,6 +141,7 @@ namespace datalog {
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
 
+        bool generate_proof_trace() const { return m_params.generate_proof_trace(); }
         bool output_profile() const { return m_params.output_profile(); }
         bool fix_unbound_vars() const { return m_params.fix_unbound_vars(); }
         symbol default_table() const { return m_params.default_table(); }
@@ -315,14 +315,15 @@ namespace datalog {
         void reopen();
         void ensure_opened();
 
-        void set_model_converter(model_converter_ref& mc) { m_mc = mc; }
-        void set_proof_converter(proof_converter_ref& pc) { m_pc = pc; }
+        model_converter_ref& get_model_converter() { return m_mc; }
+        proof_converter_ref& get_proof_converter() { return m_pc; }
+        void add_proof_converter(proof_converter* pc) { m_pc = concat(m_pc.get(), pc); }
 
-        void transform_rules(); // model_converter_ref& mc, proof_converter_ref& pc);
-        void transform_rules(rule_transformer& transf); // , model_converter_ref& mc, proof_converter_ref& pc);
+        void transform_rules(); 
+        void transform_rules(rule_transformer& transf); 
         void replace_rules(rule_set & rs);
 
-        void apply_default_transformation(); // model_converter_ref& mc, proof_converter_ref& pc);
+        void apply_default_transformation(); 
 
         void collect_params(param_descrs& r);
         

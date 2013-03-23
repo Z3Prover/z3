@@ -40,8 +40,7 @@ namespace datalog {
 
 
         rule_set * operator()(rule_set const & source,
-                              model_converter_ref& mc,
-                              proof_converter_ref& pc);
+                              model_converter_ref& mc);
     };
 
 };

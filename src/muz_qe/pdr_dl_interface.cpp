@@ -85,6 +85,7 @@ lbool dl_interface::query(expr * query) {
     m_pred2slice.reset();
     ast_manager& m =                      m_ctx.get_manager();
     datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
+
     datalog::rule_set        old_rules(m_ctx.get_rules());
     func_decl_ref            query_pred(m);
     datalog::rule_ref_vector query_rules(rule_manager);
@@ -105,14 +106,8 @@ lbool dl_interface::query(expr * query) {
           m_ctx.display_rules(tout);
           );
 
-    model_converter_ref mc = datalog::mk_skip_model_converter();
-    proof_converter_ref pc;
-    if (m_ctx.get_params().generate_proof_trace()) {
-        pc = datalog::mk_skip_proof_converter();
-    }
+
     m_ctx.set_output_predicate(query_pred);
-    m_ctx.set_model_converter(mc);
-    m_ctx.set_proof_converter(pc);
     m_ctx.apply_default_transformation();
 
     if (m_ctx.get_params().slice()) {
@@ -164,8 +159,8 @@ lbool dl_interface::query(expr * query) {
     
     datalog::scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
-    m_context->set_proof_converter(pc);
-    m_context->set_model_converter(mc);
+    m_context->set_proof_converter(m_ctx.get_proof_converter());
+    m_context->set_model_converter(m_ctx.get_model_converter());
     m_context->set_query(query_pred);
     m_context->set_axioms(bg_assertion);
     m_context->update_rules(m_pdr_rules);

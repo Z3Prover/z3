@@ -554,11 +554,13 @@ namespace datalog {
 
     bool mk_interp_tail_simplifier::transform_rules(const rule_set & orig, rule_set & tgt) {
         bool modified = false;
+        rule_manager& rm = m_context.get_rule_manager();
         rule_set::iterator rit = orig.begin();
         rule_set::iterator rend = orig.end();
         for (; rit!=rend; ++rit) {
-            rule_ref new_rule(m_context.get_rule_manager());
+            rule_ref new_rule(rm);
             if (transform_rule(*rit, new_rule)) {
+                rm.mk_rule_rewrite_proof(**rit, *new_rule.get());
                 bool is_modified = *rit != new_rule;
                 modified |= is_modified;
                 tgt.add_rule(new_rule);
@@ -570,8 +572,7 @@ namespace datalog {
         return modified;
     }
 
-    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc) {
         if (source.get_num_rules() == 0) {
             return 0;
         }

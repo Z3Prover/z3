@@ -706,19 +706,20 @@ namespace datalog {
                     negs.c_ptr());
 
                 new_rule->set_accounting_parent_object(m_context, orig_r);
-
+                m_context.get_rule_manager().mk_rule_rewrite_proof(*orig_r, *new_rule);
                 result->add_rule(new_rule);
             }
-            while(!m_introduced_rules.empty()) {
+            while (!m_introduced_rules.empty()) {
                 result->add_rule(m_introduced_rules.back());
+                m_context.get_rule_manager().mk_rule_asserted_proof(*m_introduced_rules.back());
                 m_introduced_rules.pop_back();
             }
             return result;
         }
     };
 
-    rule_set * mk_simple_joins::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_simple_joins::operator()(rule_set const & source, model_converter_ref& mc) {
+        // TODO mc
         rule_set rs_aux_copy(m_context);
         rs_aux_copy.add_rules(source);
         if(!rs_aux_copy.is_closed()) {

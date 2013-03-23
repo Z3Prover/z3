@@ -317,8 +317,8 @@ namespace datalog {
         m_rules.push_back(r);
     }
 
-    rule_set * mk_magic_sets::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        SASSERT(!mc && !pc);
+    rule_set * mk_magic_sets::operator()(rule_set const & source, model_converter_ref& mc) {
+        SASSERT(!mc);
         unsigned init_rule_cnt = source.get_num_rules();
         {
             func_decl_set intentional;

@@ -701,7 +701,7 @@ typedef enum
        over Boolean connectives 'and' and 'or'.
 
     
-   - Z3_OP_PR_NFF_NEG: Proof for a (negative) NNF step. Examples:
+   - Z3_OP_PR_NNF_NEG: Proof for a (negative) NNF step. Examples:
           \nicebox{
           T1: (not s_1) ~ r_1
           ...

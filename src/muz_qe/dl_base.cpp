@@ -233,7 +233,7 @@ namespace datalog {
         table_fact row;
         for(; it!=iend; ++it) {
             it->get_fact(row);
-            to_remove.append(row);
+            to_remove.push_back(row);
         }
         remove_facts(to_remove.size(), to_remove.c_ptr());
     }

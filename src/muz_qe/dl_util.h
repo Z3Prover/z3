@@ -425,6 +425,9 @@ namespace datalog {
     void resolve_rule(replace_proof_converter* pc, rule const& r1, rule const& r2, unsigned idx, 
                       expr_ref_vector const& s1, expr_ref_vector const& s2, rule const& res);
 
+    void resolve_rule(rule const& r1, rule const& r2, unsigned idx, 
+                      expr_ref_vector const& s1, expr_ref_vector const& s2, rule& res);
+
     model_converter* mk_skip_model_converter();
 
     proof_converter* mk_skip_proof_converter();

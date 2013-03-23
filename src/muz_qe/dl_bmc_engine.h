@@ -39,7 +39,6 @@ namespace datalog {
         func_decl_ref    m_query_pred;
         expr_ref         m_answer;
         volatile bool    m_cancel;
-        proof_converter_ref m_pc;
 
         void checkpoint();
 

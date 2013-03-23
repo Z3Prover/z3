@@ -113,8 +113,8 @@ class horn_tactic : public tactic {
                     todo.append(to_app(a)->get_num_args(), to_app(a)->get_args());
                 }
                 else if (m.is_ite(a)) {
-                    todo.append(to_app(a)->get_arg(1));
-                    todo.append(to_app(a)->get_arg(2));
+                    todo.push_back(to_app(a)->get_arg(1));
+                    todo.push_back(to_app(a)->get_arg(2));
                 }
                 else if (is_predicate(a)) {
                     register_predicate(a);
@@ -270,20 +270,10 @@ class horn_tactic : public tactic {
                     proof_converter_ref & pc) {
 
             expr_ref fml(m);            
-            bool produce_models = g->models_enabled();
-            bool produce_proofs = g->proofs_enabled();
 
-            if (produce_models) {
-                mc = datalog::mk_skip_model_converter();
-            }
-            if (produce_proofs) {
-                pc = datalog::mk_skip_proof_converter();
-            }
 
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
-            m_ctx.set_model_converter(mc);
-            m_ctx.set_proof_converter(pc);
             m_ctx.get_rules(); // flush adding rules.
             m_ctx.apply_default_transformation();
             

@@ -73,7 +73,7 @@ namespace datalog {
         m_dirty=true;
     }
 
-    bool rule_transformer::operator()(rule_set & rules, model_converter_ref& mc, proof_converter_ref& pc) {
+    bool rule_transformer::operator()(rule_set & rules, model_converter_ref& mc) {
         ensure_ordered();
 
         bool modified = false;
@@ -87,7 +87,7 @@ namespace datalog {
         for(; it!=end && !m_cancel; ++it) {
             plugin & p = **it;
 
-            rule_set * new_rules = p(rules, mc, pc);
+            rule_set * new_rules = p(rules, mc);
             if (!new_rules) {
                 continue;
             }

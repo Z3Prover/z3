@@ -114,7 +114,6 @@ namespace datalog {
         ast_counter     m_tail_pred_ctr;
         rule_set        m_inlined_rules;
         horn_subsume_model_converter* m_mc;
-        replace_proof_converter* m_pc;
 
 
         //used in try_to_inline_rule and do_eager_inlining
@@ -188,7 +187,6 @@ namespace datalog {
             m_pinned(m_rm),
             m_inlined_rules(m_context),
             m_mc(0),
-            m_pc(0),
             m_unifier(ctx),
             m_head_index(m),
             m_tail_index(m),
@@ -198,7 +196,7 @@ namespace datalog {
         {}
         virtual ~mk_rule_inliner() { }
 
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
     };
 
 };

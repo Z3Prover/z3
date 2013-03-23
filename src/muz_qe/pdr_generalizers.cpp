@@ -228,11 +228,13 @@ namespace pdr {
             is_lower = !is_lower;
         }
 
+        vector<term_loc_t> bound;
+        bound.push_back(std::make_pair(x, i));
         if (is_lower) {
-            m_lb.insert(abs(r), std::make_pair(x, i));
+            m_lb.insert(abs(r), bound);
         }
         else {
-            m_ub.insert(abs(r), std::make_pair(x, i));
+            m_ub.insert(abs(r), bound);
         }
     }
 

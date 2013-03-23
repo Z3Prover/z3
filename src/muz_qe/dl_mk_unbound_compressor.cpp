@@ -238,6 +238,7 @@ namespace datalog {
 
         unsigned new_rule_index = m_rules.size();
         m_rules.push_back(new_rule);
+        m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *new_rule.get());
         m_head_occurrence_ctr.inc(new_rule->get_head()->get_decl());
 
 
@@ -333,8 +334,8 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_unbound_compressor::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_unbound_compressor::operator()(rule_set const & source, model_converter_ref& mc) {
+        // TODO mc
         m_modified = false;
 
         m_context.get_rel_context().get_rmanager().collect_non_empty_predicates(m_non_empty_rels);

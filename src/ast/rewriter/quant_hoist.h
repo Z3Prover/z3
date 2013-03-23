@@ -66,7 +66,7 @@ public:
        Return index of maximal variable.
     */
 
-    unsigned pull_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names);
+    unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names);
 };
 
 #endif

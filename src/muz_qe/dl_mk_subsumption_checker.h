@@ -84,7 +84,7 @@ namespace datalog {
             reset_dealloc_values(m_ground_unconditional_rule_heads);
         }
 
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
     };
 
 };
