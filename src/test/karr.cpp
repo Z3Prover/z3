@@ -43,7 +43,7 @@ namespace karr {
         hilbert_basis hb;
         for (unsigned i = 0; i < src.size(); ++i) {
             vector<rational> v(src.A[i]);
-            v.append(src.b[i]);
+            v.push_back(src.b[i]);
             hb.add_eq(v, rational(0));
         }
         for (unsigned i = 0; i < 1 + src.A[0].size(); ++i) {
