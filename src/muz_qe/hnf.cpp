@@ -353,7 +353,8 @@ private:
 
     void eliminate_disjunctions(expr_ref_vector& body, proof_ref_vector& proofs) {
         for (unsigned i = 0; i < body.size(); ++i) {
-            eliminate_disjunctions(body[i], proofs);
+            expr_ref_vector::element_ref r = body[i];
+            eliminate_disjunctions(r, proofs);
         }
     }
 
@@ -378,7 +379,8 @@ private:
 
     void eliminate_quantifier_body(expr_ref_vector& body, proof_ref_vector& proofs) {
         for (unsigned i = 0; i < body.size(); ++i) {
-            eliminate_quantifier_body(body[i], proofs);
+            expr_ref_vector::element_ref r = body[i];
+            eliminate_quantifier_body(r, proofs);
         }
     }
 
