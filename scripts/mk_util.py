@@ -520,6 +520,7 @@ def parse_options():
 # Return a list containing a file names included using '#include' in
 # the given C/C++ file named fname.
 def extract_c_includes(fname):
+    print(fname)
     result = []
     # We look for well behaved #include directives
     std_inc_pat     = re.compile("[ \t]*#include[ \t]*\"(.*)\"[ \t]*")

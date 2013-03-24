@@ -11,7 +11,7 @@ Abstract:
 
     The linear invariants are extracted according to Karr's method.
     A short description is in 
-    Nikolaj Bjørner, Anca Browne and Zohar Manna. Automatic Generation 
+    Nikolaj Bjorner, Anca Browne and Zohar Manna. Automatic Generation 
     of Invariants and Intermediate Assertions, in CP 95.
 
     The algorithm is here adapted to Horn clauses.
