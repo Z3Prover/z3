@@ -23,6 +23,7 @@ Revision History:
 #include "ast_pp.h"
 #include "expr_safe_replace.h"
 #include "filter_model_converter.h"
+#include "dl_mk_interp_tail_simplifier.h"
 
 namespace datalog {
 
@@ -212,18 +213,23 @@ namespace datalog {
         ast_manager &        m;
         params_ref           m_params;
         rule_ref_vector      m_rules;
+        mk_interp_tail_simplifier m_simplifier;
         bit_blaster_rewriter m_blaster;
         expand_mkbv          m_rewriter;
         
 
-        bool blast(expr_ref& fml) {
+        bool blast(rule *r, expr_ref& fml) {
             proof_ref pr(m);
-            expr_ref fml1(m), fml2(m);
-            m_blaster(fml, fml1, pr);
-            m_rewriter(fml1, fml2);
-            TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml1, m) << " -> " << mk_pp(fml2, m) << "\n";);
-            if (fml2 != fml) {
-                fml = fml2;
+            expr_ref fml1(m), fml2(m), fml3(m);
+            rule_ref r2(m_context.get_rule_manager());
+            // We need to simplify rule before bit-blasting.
+            m_simplifier.transform_rule(r, r2);
+            r2->to_formula(fml1);
+            m_blaster(fml1, fml2, pr);
+            m_rewriter(fml2, fml3);
+            TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml2, m) << " -> " << mk_pp(fml3, m) << "\n";);
+            if (fml3 != fml) {
+                fml = fml3;
                 return true;
             }
             else {
@@ -241,6 +247,7 @@ namespace datalog {
             m(ctx.get_manager()),
             m_params(ctx.get_params().p),
             m_rules(ctx.get_rule_manager()),
+            m_simplifier(ctx),
             m_blaster(ctx.get_manager(), m_params),
             m_rewriter(ctx.get_manager(), ctx, m_rules) {
             m_params.set_bool("blast_full", true);
@@ -261,12 +268,12 @@ namespace datalog {
             for (unsigned i = 0; i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 r->to_formula(fml);                
-                if (blast(fml)) {
+                if (blast(r, fml)) {
                     proof_ref pr(m);
                     if (m_context.generate_proof_trace()) {
                         pr = m.mk_asserted(fml); // loses original proof of r.
                     }
-                    rm.mk_rule(fml, pr, m_rules, r->name()); 
+                    rm.mk_rule(fml, pr, m_rules, r->name());
                 }
                 else {
                     m_rules.push_back(r);
