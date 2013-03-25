@@ -134,6 +134,16 @@ bool lt(ast * n1, ast * n2) {
     }
 }
 
+bool is_sorted(unsigned num, expr * const * ns) {
+    for (unsigned i = 1; i < num; i++) {
+        ast * prev = ns[i-1];
+        ast * curr = ns[i];
+        if (lt(curr, prev))
+            return false;
+    }
+    return true;
+}
+
 bool lex_lt(unsigned num, ast * const * n1, ast * const * n2) {
     for (unsigned i = 0; i < num; i ++) {
         if (n1[i] == n2[i])
