@@ -681,7 +681,7 @@ extern "C" {
         th_rewriter m_rw(m, p);
         expr_ref    result(m);
         cancel_eh<th_rewriter> eh(m_rw);
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);

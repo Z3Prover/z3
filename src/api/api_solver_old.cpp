@@ -73,7 +73,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
         cancel_eh<smt::kernel> eh(mk_c(c)->get_smt_kernel());
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         flet<bool> _model(mk_c(c)->fparams().m_model, true);
         lbool result;
         try {
@@ -123,7 +123,7 @@ extern "C" {
         expr * const* _assumptions = to_exprs(assumptions);
         flet<bool> _model(mk_c(c)->fparams().m_model, true);
         cancel_eh<smt::kernel> eh(mk_c(c)->get_smt_kernel());
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         lbool result;
         result = mk_c(c)->get_smt_kernel().check(num_assumptions, _assumptions);
         if (result != l_false && m) {
