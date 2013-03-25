@@ -502,6 +502,7 @@ namespace datalog {
         r->m_tail_size    = n;
         r->m_positive_cnt = source->m_positive_cnt;
         r->m_uninterp_cnt = source->m_uninterp_cnt;
+        r->m_proof        = 0;
         m.inc_ref(r->m_head);
         for (unsigned i = 0; i < n; i++) {
             r->m_tail[i] = source->m_tail[i];
