@@ -33,10 +33,14 @@ class ctx_solver_simplify_tactic : public tactic {
     arith_util            m_arith;
     mk_simplified_app     m_mk_app;
     func_decl_ref         m_fn;
+    obj_map<sort, func_decl*> m_fns;
     unsigned              m_num_steps;
+    volatile bool         m_cancel;
 public:
     ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p = params_ref()):
-        m(m), m_params(p), m_solver(m, m_front_p),  m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0) {
+        m(m), m_params(p), m_solver(m, m_front_p),  
+        m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0), 
+        m_cancel(false) {
         sort* i_sort = m_arith.mk_int();
         m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
     }
@@ -45,7 +49,13 @@ public:
         return alloc(ctx_solver_simplify_tactic, m, m_params);
     }
 
-    virtual ~ctx_solver_simplify_tactic() {}
+    virtual ~ctx_solver_simplify_tactic() {
+        obj_map<sort, func_decl*>::iterator it = m_fns.begin(), end = m_fns.end();
+        for (; it != end; ++it) {
+            m.dec_ref(it->m_value);
+        }
+        m_fns.reset();
+    }
 
     virtual void updt_params(params_ref const & p) {
         m_solver.updt_params(p);
@@ -76,15 +86,18 @@ public:
     virtual void cleanup() {
         reset_statistics();
         m_solver.reset();
+        m_cancel = false;
     }
+
 protected:
+
     virtual void set_cancel(bool f) {
         m_solver.set_cancel(f);
+        m_cancel = false;
     }
 
     void reduce(goal& g) {
         SASSERT(g.is_well_sorted());
-        m_num_steps = 0;
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
         if (g.inconsistent())
@@ -134,15 +147,16 @@ protected:
         svector<unsigned> parent_ids, self_ids;
         expr_ref_vector fresh_vars(m), trail(m);
         expr_ref res(m), tmp(m);
-        obj_map<expr,std::pair<unsigned, expr*> > cache;
+        obj_map<expr,std::pair<unsigned, expr*> > cache;        
         unsigned id = 1;
-        expr* n2, *fml;
+        expr_ref n2(m), fml(m);
         unsigned path_id = 0, self_pos = 0;
         app * a;
         unsigned sz;
         std::pair<unsigned,expr*> path_r;
         ptr_vector<expr> found;
-        expr* n = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
+        expr_ref_vector args(m);
+        expr_ref n = mk_fresh(id, m.mk_bool_sort());
         trail.push_back(n);        
 
         fml = result.get();
@@ -156,19 +170,15 @@ protected:
         self_ids.push_back(0);        
         m_solver.push();
 
-        while (!todo.empty()) {            
+        while (!todo.empty() && !m_cancel) {            
             expr_ref res(m);
-            ptr_buffer<expr> args;
+            args.reset();
             expr* e = todo.back();
             unsigned pos = parent_ids.back();
             n = names.back();
             bool checked = is_checked.back();
             
             if (cache.contains(e)) {
-                goto done;
-            }
-            if (!m.is_bool(e)) {
-                res = e;
                 goto done;
             }
             if (m.is_bool(e) && !checked && simplify_bool(n, res)) {
@@ -193,14 +203,11 @@ protected:
             found.reset(); // arguments already simplified.
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);
-                if (!m.is_bool(arg)) {
-                    args.push_back(arg);
-                }
-                else if (cache.find(arg, path_r) && !found.contains(arg)) {
+                if (cache.find(arg, path_r) && !found.contains(arg)) {
                     //
                     // This is a single traversal version of the context
                     // simplifier. It simplifies only the first occurrence of 
-                    // a formula with respect to the context.
+                    // a sub-term with respect to the context.
                     //
                                         
                     found.push_back(arg);
@@ -208,15 +215,18 @@ protected:
                         TRACE("ctx_solver_simplify_tactic", tout << "cached " << mk_pp(arg, m) << " |-> " << mk_pp(path_r.second, m) << "\n";);
                         args.push_back(path_r.second);
                     }
-                    else {
+                    else if (m.is_bool(arg)) {
                         res = local_simplify(a, n, id, i);
                         TRACE("ctx_solver_simplify_tactic", 
                               tout << "Already cached: " << path_r.first << " " << mk_pp(res, m) << "\n";);
+                        args.push_back(res);
+                    }
+                    else {
                         args.push_back(arg);
                     }
                 }
                 else if (!n2 && !found.contains(arg)) {                
-                    n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
+                    n2 = mk_fresh(id, m.get_sort(arg));
                     trail.push_back(n2);
                     todo.push_back(arg);
                     parent_ids.push_back(self_pos);
@@ -254,8 +264,10 @@ protected:
             is_checked.pop_back();
             m_solver.pop(1);
         }
-        VERIFY(cache.find(fml, path_r));
-        result = path_r.second;
+        if (!m_cancel) {
+            VERIFY(cache.find(fml, path_r));
+            result = path_r.second;
+        }
     }
 
     bool simplify_bool(expr* n, expr_ref& res) {
@@ -282,11 +294,25 @@ protected:
         return false;
     }
 
+    expr_ref mk_fresh(unsigned& id, sort* s) {
+        func_decl* fn;
+        if (m.is_bool(s)) {
+            fn = m_fn;
+        }
+        else if (!m_fns.find(s, fn)) {
+            fn = m.mk_func_decl(symbol(0xbeef101 + id), m_arith.mk_int(), s);
+            m.inc_ref(fn);
+            m_fns.insert(s, fn);
+        }
+        return expr_ref(m.mk_app(fn, m_arith.mk_numeral(rational(id++), true)), m);
+    }
+
+
     expr_ref local_simplify(app* a, expr* n, unsigned& id, unsigned index) {
         SASSERT(index < a->get_num_args());
         SASSERT(m.is_bool(a->get_arg(index)));
         expr_ref n2(m), result(m), tmp(m);
-        n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
+        n2 = mk_fresh(id, m.get_sort(a->get_arg(index)));
         ptr_buffer<expr> args;
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             if (i == index) {
