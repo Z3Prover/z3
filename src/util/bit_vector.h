@@ -37,7 +37,8 @@ class bit_vector {
     }
     
     static unsigned num_words(unsigned num_bits) { 
-        return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        // return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        return (num_bits + 31) / 32;
     }
 
     void expand_to(unsigned new_capacity);
