@@ -80,8 +80,8 @@ public:
         m_todo(m),
         m_proofs(m),
         m_refs(m), 
-        m_qh(m),
         m_name("P"),
+        m_qh(m),
         m_fresh_predicates(m) {
     }
 
