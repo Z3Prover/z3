@@ -165,7 +165,7 @@ class propagate_values_tactic : public tactic {
             m_occs(*m_goal);
 
             while (true) {
-                TRACE("propagate_values", m_goal->display(tout););
+                TRACE("propagate_values", tout << "while(true) loop\n"; m_goal->display(tout););
                 if (forward) {
                     for (; m_idx < size; m_idx++) {
                         process_current();
@@ -201,14 +201,14 @@ class propagate_values_tactic : public tactic {
                 if (round >= m_max_rounds)
                     break;
                 IF_VERBOSE(100, verbose_stream() << "starting new round, goal size: " << m_goal->num_exprs() << std::endl;);
-                TRACE("propgate_values", tout << "round finished\n"; m_goal->display(tout); tout << "\n";);
+                TRACE("propagate_values", tout << "round finished\n"; m_goal->display(tout); tout << "\n";);
             }
         end:
             m_goal->elim_redundancies();
             m_goal->inc_depth();
             result.push_back(m_goal);
             SASSERT(m_goal->is_well_sorted());
-            TRACE("propagate_values", m_goal->display(tout););
+            TRACE("propagate_values", tout << "end\n"; m_goal->display(tout););
             TRACE("propagate_values_core", m_goal->display_with_dependencies(tout););
             m_goal = 0;
         }

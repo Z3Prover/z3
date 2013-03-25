@@ -269,7 +269,7 @@ class max_bv_sharing_tactic : public tactic {
             m_rw.cfg().cleanup();
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("qe", g->display(tout););
+            TRACE("max_bv_sharing", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
     };
