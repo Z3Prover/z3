@@ -114,7 +114,7 @@ class ast_r : public ast_i {
 };
 
 // to make ast_r hashable
-namespace stl_ext {
+namespace hash_space {
   template <>
     class hash<ast_r> {
   public:
@@ -124,12 +124,21 @@ namespace stl_ext {
   };
 }
 
+// to make ast_r hashable in windows
+#ifdef WIN32 
+template <> inline
+size_t stdext::hash_value<ast_r >(const ast_r& s)
+{	
+  return s.raw()->get_id();
+}
+#endif
+
 // to make ast_r usable in ordered collections
 namespace std {
   template <>
     class less<ast_r> {
   public:
-    size_t operator()(const ast_r &s, const ast_r &t) const {
+    bool operator()(const ast_r &s, const ast_r &t) const {
       return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
     }
   };

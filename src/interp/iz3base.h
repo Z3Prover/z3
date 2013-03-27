@@ -145,7 +145,7 @@ class iz3base : public iz3mgr, public scopes {
   ast simplify_and(std::vector<ast> &conjuncts);
   ast simplify_with_lit_rec(ast n, ast lit, stl_ext::hash_map<ast,ast> &memo, int depth);
   ast simplify_with_lit(ast n, ast lit);  
-  void find_children(const stl_ext::hash_set<ast> &cnsts_set,
+  void find_children(const hash_set<ast> &cnsts_set,
 		     const ast &tree,
 		     std::vector<ast> &cnsts,
 		     std::vector<int> &parents,

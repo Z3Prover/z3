@@ -81,8 +81,8 @@ namespace std {
   class less<Z3_resolvent > {
   public:
    bool operator()(const Z3_resolvent &x, const Z3_resolvent &y) const {
-     size_t ixproof = (size_t) x.proof;
-     size_t iyproof = (size_t) y.proof;
+     size_t ixproof = (size_t) x.proof.raw();
+     size_t iyproof = (size_t) y.proof.raw();
      if(ixproof < iyproof) return true;
      if(ixproof > iyproof) return false;
      return x.pivot < y.pivot;

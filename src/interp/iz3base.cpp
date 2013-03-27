@@ -243,6 +243,7 @@ bool iz3base::is_sat(ast f){
   Z3_pop(ctx,1);
   return res != Z3_L_FALSE;
 #endif
+  return false;
 }
 
 

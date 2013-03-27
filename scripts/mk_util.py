@@ -909,6 +909,7 @@ class ExeComponent(Component):
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
+        out.write(' ' + FOCI2LIB)
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
@@ -1012,6 +1013,7 @@ class DLLComponent(Component):
             if not dep in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
+        out.write(' ' + FOCI2LIB)
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))

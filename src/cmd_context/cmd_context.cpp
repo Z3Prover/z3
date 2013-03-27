@@ -39,8 +39,6 @@ Notes:
 #include"for_each_expr.h"
 #include"scoped_timer.h"
 #include"interpolant_cmds.h"
-//FIXME Does this break modularity?
-// #include"smt_solver.h"
 
 func_decls::func_decls(ast_manager & m, func_decl * f):
     m_decls(TAG(func_decl*, f, 0)) {
