@@ -213,7 +213,7 @@ namespace datalog {
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::iterator it = source.begin(), end = source.end();
         bool change = false;
-        for (; it != end; ++it) {
+        for (; !m_ctx.canceled() && it != end; ++it) {
             change = blast(**it, *rules) || change;
         }
         if (!change) {

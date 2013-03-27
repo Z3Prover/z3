@@ -265,7 +265,7 @@ namespace datalog {
             expr_ref fml(m);            
             reset();
             rule_set * result = alloc(rule_set, m_context);        
-            for (unsigned i = 0; i < sz; ++i) {
+            for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 r->to_formula(fml);                
                 if (blast(r, fml)) {

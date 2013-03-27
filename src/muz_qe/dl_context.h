@@ -52,7 +52,8 @@ namespace datalog {
         OK,
         TIMEOUT,
         MEMOUT,
-        INPUT_ERROR
+        INPUT_ERROR,
+        CANCELED
     };
 
     class context {
@@ -92,6 +93,7 @@ namespace datalog {
         sym2decl           m_preds_by_name;
         pred2syms          m_argument_var_names;
         rule_set           m_rule_set;
+        rule_set           m_transformed_rule_set;
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;
         expr_ref_vector    m_background;
@@ -323,6 +325,7 @@ namespace datalog {
         void transform_rules(); 
         void transform_rules(rule_transformer& transf); 
         void replace_rules(rule_set & rs);
+        void record_transformed_rules();
 
         void apply_default_transformation(); 
 
@@ -349,6 +352,8 @@ namespace datalog {
 
         void display_smt2(unsigned num_queries, expr* const* queries, std::ostream& out);
 
+        void display_profile(std::ostream& out) const;
+
         // -----------------------------------
         //
         // basic usage methods
@@ -356,6 +361,7 @@ namespace datalog {
         // -----------------------------------
 
         void cancel();
+        bool canceled() const { return m_cancel; }
 
         void cleanup();
         void reset_cancel() { cleanup(); }

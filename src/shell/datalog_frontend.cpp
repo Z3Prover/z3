@@ -209,7 +209,6 @@ unsigned read_datalog(char const * file) {
             rules_code.make_annotations(ex_ctx);
             
             ex_ctx.set_timelimit(timeout);
-            SASSERT(!ex_ctx.should_terminate());
             
             early_termination = !rules_code.perform(ex_ctx);
             if(early_termination) {

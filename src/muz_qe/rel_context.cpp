@@ -39,8 +39,8 @@ namespace datalog {
           m(ctx.get_manager()),
           m_rmanager(ctx),
           m_answer(m), 
-          m_cancel(false), 
-          m_last_result_relation(0) {
+          m_last_result_relation(0),
+          m_ectx(ctx) {
 
         // register plugins for builtin tables
 
@@ -94,9 +94,9 @@ namespace datalog {
         decl_set original_predicates;
         m_context.collect_predicates(original_predicates);
                 
-        instruction_block rules_code;
+        m_code.reset();
         instruction_block termination_code;
-        execution_context ex_ctx(m_context);
+        m_ectx.reset();
 
         lbool result;
 
@@ -104,9 +104,13 @@ namespace datalog {
 
         while (true) {
             m_context.transform_rules();
-            compiler::compile(m_context, m_context.get_rules(), rules_code, termination_code);
+            if (m_context.canceled()) {
+                result = l_undef;
+                break;
+            }
+            compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
-            TRACE("dl", rules_code.display(*this, tout); );
+            TRACE("dl", m_code.display(*this, tout); );
 
             bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
 
@@ -114,29 +118,32 @@ namespace datalog {
                 unsigned timeout = time_limit ? (restart_time!=0) ? 
                     std::min(remaining_time_limit, restart_time)
                     : remaining_time_limit : restart_time;
-                ex_ctx.set_timelimit(timeout);
+                m_ectx.set_timelimit(timeout);
             }
 
-            bool early_termination = !rules_code.perform(ex_ctx);
-            ex_ctx.reset_timelimit();
-            VERIFY( termination_code.perform(ex_ctx) );
+            bool early_termination = !m_code.perform(m_ectx);
+            m_ectx.reset_timelimit();
+            VERIFY( termination_code.perform(m_ectx) || m_context.canceled());
 
-            rules_code.process_all_costs();
+            m_code.process_all_costs();
 
-            IF_VERBOSE(10, ex_ctx.report_big_relations(1000, verbose_stream()););
-        
+            IF_VERBOSE(10, m_ectx.report_big_relations(1000, verbose_stream()););
+
+            if (m_context.canceled()) {
+                result = l_undef;
+                break;
+            }
             if (!early_termination) {
                 m_context.set_status(OK);
                 result = l_true;
                 break;
             }
-
             if (memory::above_high_watermark()) {
                 m_context.set_status(MEMOUT);
                 result = l_undef;
                 break;
             }
-            if (timeout_after_this_round || m_cancel) {
+            if (timeout_after_this_round) {
                 m_context.set_status(TIMEOUT);
                 result = l_undef;
                 break;
@@ -154,9 +161,7 @@ namespace datalog {
                 restart_time = static_cast<unsigned>(new_restart_time);
             }
 
-            rules_code.reset();
-            termination_code.reset();
-            ex_ctx.reset();
+            termination_code.reset();            
             m_context.reopen();
             restrict_predicates(original_predicates);
             m_context.replace_rules(original_rules);
@@ -164,10 +169,12 @@ namespace datalog {
         }
         m_context.reopen();
         restrict_predicates(original_predicates);
+        m_context.record_transformed_rules();
         m_context.replace_rules(original_rules);
         m_context.close();
-        TRACE("dl", ex_ctx.report_big_relations(100, tout););
-        m_cancel = false;
+        TRACE("dl", m_ectx.report_big_relations(100, tout););
+        m_code.process_all_costs();
+        m_code.make_annotations(m_ectx);        
         return result;
     }
 
@@ -502,6 +509,18 @@ namespace datalog {
 
     void rel_context::display_facts(std::ostream& out) const {
         get_rmanager().display(out);
+    }
+
+    void rel_context::display_profile(std::ostream& out) const {
+        out << "\n--------------\n";
+        out << "Instructions\n";
+        m_code.display(*this, out);
+
+        out << "\n--------------\n";
+        out << "Big relations\n";
+        m_ectx.report_big_relations(1000, out);
+
+        get_rmanager().display_relation_sizes(out);
     }
 
 
