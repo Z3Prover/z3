@@ -653,7 +653,7 @@ void asserted_formulas::propagate_values() {
         // will be (silently) eliminated, and models produced by Z3 will not contain them.
         flush_cache(); 
     }
-    TRACE("propagate_values", tout << "afer:\n"; display(tout););
+    TRACE("propagate_values", tout << "after:\n"; display(tout););
 }
 
 void asserted_formulas::propagate_booleans() {
