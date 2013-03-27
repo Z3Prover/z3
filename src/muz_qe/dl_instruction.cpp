@@ -58,14 +58,18 @@ namespace datalog {
         reset_timelimit();
     }
 
+    rel_context& execution_context::get_rel_context() { 
+        return m_context.get_rel_context(); 
+    }
+
     struct compare_size_proc {
         typedef std::pair<unsigned, unsigned> pr;
         bool operator()(pr const& a, pr const& b) const {
             return a.second > b.second;
         }
-
     };
-    void execution_context::report_big_relations(unsigned threshold, std::ostream & out) {
+
+    void execution_context::report_big_relations(unsigned threshold, std::ostream & out) const {
         unsigned n = register_count();
         svector<std::pair<unsigned, unsigned> > sizes;
         size_t total_bytes = 0;
@@ -110,6 +114,7 @@ namespace datalog {
 
     bool execution_context::should_terminate() {
         return 
+            m_context.canceled() ||
             memory::above_high_watermark() ||
             (m_stopwatch && 
              m_timelimit_ms != 0 &&
@@ -135,7 +140,7 @@ namespace datalog {
         process_costs();
     }
 
-    void instruction::display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const {
+    void instruction::display_indented(rel_context const & ctx, std::ostream & out, std::string indentation) const {
         out << indentation;
         display_head_impl(ctx, out);
         if (ctx.output_profile()) {
@@ -182,7 +187,7 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             ctx.set_register_annotation(m_reg, m_pred->get_name().bare_str());
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             const char * rel_name = m_pred->get_name().bare_str();
             if (m_store) {
                 out << "store " << m_reg << " into " << rel_name;
@@ -213,7 +218,7 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             ctx.set_register_annotation(m_reg, "alloc");
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "dealloc " << m_reg;
         }
     };
@@ -248,7 +253,7 @@ namespace datalog {
                 ctx.set_register_annotation(m_src, str);
             }
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << (m_clone ? "clone " : "move ") << m_src << " into " << m_tgt;
         }
     };
@@ -304,11 +309,11 @@ namespace datalog {
         virtual void make_annotations(execution_context & ctx) {
             m_body->make_annotations(ctx);
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
             out << "while";
             print_container(m_controls, out);
         }
-        virtual void display_body_impl(rel_context & ctx, std::ostream & out, std::string indentation) const {
+        virtual void display_body_impl(rel_context const & ctx, std::ostream & out, std::string indentation) const {
             m_body->display_indented(ctx, out, indentation+"    ");
         }
     };
@@ -385,7 +390,7 @@ namespace datalog {
             ctx.get_register_annotation(m_rel1, a1);
             ctx.set_register_annotation(m_res, "join " + a1 + " " + a2);
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
             out << "join " << m_rel1;
             print_container(m_cols1, out);
             out << " and " << m_rel2;
@@ -434,7 +439,7 @@ namespace datalog {
             a << "filter_equal " << m_col << " val: " << ctx.get_rel_context().get_rmanager().to_nice_string(m_value);
             ctx.set_register_annotation(m_reg, a.str());
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "filter_equal " << m_reg << " col: " << m_col << " val: "
                 << ctx.get_rmanager().to_nice_string(m_value);
         }
@@ -476,7 +481,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "filter_identical " << m_reg << " ";
             print_container(m_cols, out);
         }
@@ -519,7 +524,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "filter_interpreted " << m_reg << " using "
                 << mk_pp(m_cond, m_cond.get_manager());
         }
@@ -619,12 +624,16 @@ namespace datalog {
             return true;
         }
         virtual void make_annotations(execution_context & ctx) {
-            std::string str;
-            if (ctx.get_register_annotation(m_tgt, str) && m_delta!=execution_context::void_register) {
-                ctx.set_register_annotation(m_delta, "delta of "+str);
+            std::string str = "union";
+            if (!ctx.get_register_annotation(m_tgt, str)) {
+                ctx.set_register_annotation(m_tgt, "union");
             }
+            if (m_delta != execution_context::void_register) {
+                str = "delta of " + str;
+            }
+            ctx.set_register_annotation(m_delta, str);            
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << (m_widen ? "widen " : "union ") << m_src << " into " << m_tgt;
             if (m_delta!=execution_context::void_register) {
                 out << " with delta " << m_delta;
@@ -678,7 +687,7 @@ namespace datalog {
 
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << (m_projection ? "project " : "rename ") << m_src << " into " << m_tgt;
             out << (m_projection ? " deleting columns " : " with cycle ");
             print_container(m_cols, out);
@@ -739,7 +748,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "join_project " << m_rel1;
             print_container(m_cols1, out);
             out << " and " << m_rel2;
@@ -800,7 +809,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "select_equal_and_project " << m_src <<" into " << m_result << " col: " << m_col 
                 << " val: " << ctx.get_rmanager().to_nice_string(m_value);
         }
@@ -854,7 +863,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "filter_by_negation on " << m_tgt;
             print_container(m_cols1, out);
             out << " with " << m_neg_rel;
@@ -892,7 +901,7 @@ namespace datalog {
             ctx.set_reg(m_tgt, rel);
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "mk_unary_singleton into " << m_tgt << " sort:" 
                 << ctx.get_rmanager().to_nice_string(m_sig[0]) << " val:" 
                 <<  ctx.get_rmanager().to_nice_string(m_sig[0], m_fact[0]);
@@ -922,7 +931,7 @@ namespace datalog {
             ctx.set_reg(m_tgt, ctx.get_rel_context().get_rmanager().mk_full_relation(m_sig, m_pred));
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "mk_total into " << m_tgt << " sort:" 
                 << ctx.get_rmanager().to_nice_string(m_sig);
         }
@@ -947,7 +956,7 @@ namespace datalog {
             ctx.get_rel_context().get_rmanager().mark_saturated(m_pred);
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "mark_saturated " << m_pred->get_name().bare_str();
         }
         virtual void make_annotations(execution_context & ctx) {            
@@ -970,7 +979,7 @@ namespace datalog {
             }
             return true;
         }
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
             out << "instr_assert_signature of " << m_tgt << " signature:";
             print_container(m_sig, out);
         }
@@ -1042,7 +1051,7 @@ namespace datalog {
         }
     }
 
-    void instruction_block::display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const {
+    void instruction_block::display_indented(rel_context const& ctx, std::ostream & out, std::string indentation) const {
         instr_seq_type::const_iterator it = m_data.begin();
         instr_seq_type::const_iterator end = m_data.end();
         for(; it!=end; ++it) {

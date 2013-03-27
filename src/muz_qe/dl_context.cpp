@@ -229,11 +229,13 @@ namespace datalog {
         m_pinned(m),
         m_vars(m),
         m_rule_set(*this),
+        m_transformed_rule_set(*this),
         m_rule_fmls(m),
         m_background(m),
         m_mc(0),
         m_closed(false),
         m_saturation_was_run(false),
+        m_last_status(OK),
         m_last_answer(m),
         m_engine(LAST_ENGINE),
         m_cancel(false) {
@@ -873,6 +875,11 @@ namespace datalog {
         m_rule_set.add_rules(rs);
     }
 
+    void context::record_transformed_rules() {
+        m_transformed_rule_set.reset();
+        m_transformed_rule_set.add_rules(m_rule_set);
+    }
+
     void context::apply_default_transformation() {
         ensure_closed();
         m_transf.reset();
@@ -942,18 +949,18 @@ namespace datalog {
 
     void context::cancel() {
         m_cancel = true;
+        m_last_status = CANCELED;
         m_transf.cancel();
         if (m_pdr.get()) m_pdr->cancel();
         if (m_bmc.get()) m_bmc->cancel();
-        if (m_rel.get()) m_rel->cancel();
         if (m_tab.get()) m_tab->cancel();
     }
 
     void context::cleanup() {
         m_cancel = false;
+        m_last_status = OK;
         if (m_pdr.get()) m_pdr->cleanup();
         if (m_bmc.get()) m_bmc->cleanup();
-        if (m_rel.get()) m_rel->cleanup();
         if (m_tab.get()) m_tab->cleanup();
     }
 
@@ -1176,6 +1183,20 @@ namespace datalog {
         default: 
             return false;
         }        
+    }
+
+    void context::display_profile(std::ostream& out) const {
+        out << "\n---------------\n";
+        out << "Original rules\n";
+        display_rules(out);
+
+        out << "\n---------------\n";
+        out << "Transformed rules\n";
+        m_transformed_rule_set.display(out);
+
+        if (m_rel) {
+            m_rel->display_profile(out);
+        }
     }
 
     void context::reset_statistics() {
