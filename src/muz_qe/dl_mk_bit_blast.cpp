@@ -212,6 +212,7 @@ namespace datalog {
         ast_manager &        m;
         params_ref           m_params;
         rule_ref_vector      m_rules;
+        th_rewriter          m_theory_rewriter;
         bit_blaster_rewriter m_blaster;
         expand_mkbv          m_rewriter;
         
@@ -219,6 +220,7 @@ namespace datalog {
         bool blast(expr_ref& fml) {
             proof_ref pr(m);
             expr_ref fml1(m), fml2(m);
+            m_theory_rewriter(fml);
             m_blaster(fml, fml1, pr);
             m_rewriter(fml1, fml2);
             TRACE("dl", tout << mk_pp(fml, m) << " -> " << mk_pp(fml1, m) << " -> " << mk_pp(fml2, m) << "\n";);
@@ -241,8 +243,9 @@ namespace datalog {
             m(ctx.get_manager()),
             m_params(ctx.get_params().p),
             m_rules(ctx.get_rule_manager()),
-            m_blaster(ctx.get_manager(), m_params),
-            m_rewriter(ctx.get_manager(), ctx, m_rules) {
+            m_theory_rewriter(m, m_params),
+            m_blaster(m, m_params),
+            m_rewriter(m, ctx, m_rules) {
             m_params.set_bool("blast_full", true);
             m_params.set_bool("blast_quant", true);
             m_blaster.updt_params(m_params);

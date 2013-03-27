@@ -27,7 +27,8 @@ static void find_le(heap_trie_t& ht, unsigned num_keys, unsigned const* keys) {
 
 
 void tst_heap_trie() {
-    heap_trie_t ht;
+    unsigned_le le;
+    heap_trie_t ht(le);
 
     ht.reset(3);
     unsigned keys1[3] = { 1, 2, 3};

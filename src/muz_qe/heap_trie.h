@@ -123,9 +123,9 @@ class heap_trie {
         }
         
         // push nodes whose keys are <= key into vector.
-        void find_le(Key key, ptr_vector<node>& nodes) {
+        void find_le(KeyLE& le, Key key, ptr_vector<node>& nodes) {
             for (unsigned i = 0; i < m_nodes.size(); ++i) {
-                if (KeyLE::le(m_nodes[i].first, key)) {
+                if (le.le(m_nodes[i].first, key)) {
                     node* n = m_nodes[i].second;
                     if (n->ref_count() > 0){
                         nodes.push_back(n);
@@ -179,6 +179,7 @@ class heap_trie {
     };
 
     small_object_allocator m_alloc;
+    KeyLE&   m_le;
     unsigned m_num_keys;
     unsigned_vector m_keys;
     unsigned m_do_reshuffle;
@@ -189,8 +190,9 @@ class heap_trie {
 
 public:
 
-    heap_trie():     
+    heap_trie(KeyLE& le):    
         m_alloc("heap_trie"),
+        m_le(le),
         m_num_keys(0),
         m_do_reshuffle(4),
         m_root(0),
@@ -255,7 +257,7 @@ public:
         for (unsigned i = 0; i < num_keys(); ++i) {
             for (unsigned j = 0; j < todo[index].size(); ++j) {
                 ++m_stats.m_num_find_le_nodes;
-                to_trie(todo[index][j])->find_le(get_key(keys, i), todo[!index]);
+                to_trie(todo[index][j])->find_le(m_le, get_key(keys, i), todo[!index]);
             }
             todo[index].reset();
             index = !index;
@@ -577,7 +579,7 @@ private:
                                verbose_stream() << " ";
                            }
                            verbose_stream() << nodes[i].first << " <=? " << key << " rc:" << m->ref_count() << "\n";);
-                if (m->ref_count() > 0 && KeyLE::le(nodes[i].first, key) && find_le(m, index+1, keys, check)) {
+                if (m->ref_count() > 0 && m_le.le(nodes[i].first, key) && find_le(m, index+1, keys, check)) {
                     if (i > 0) {
                         std::swap(nodes[i], nodes[0]);
                     }

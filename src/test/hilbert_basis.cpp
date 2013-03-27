@@ -508,6 +508,12 @@ static void tst15() {
     saturate_basis(hb);
 }
 
+static void tst16() {
+    hilbert_basis hb;
+    hb.add_le(vec(1, 0), R(100));
+    saturate_basis(hb);
+}
+
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
@@ -537,6 +543,7 @@ void tst_hilbert_basis() {
         tst13();
         tst14();
         tst15();
+        tst16();
         gorrila_test(0, 4, 3, 20, 5);
         gorrila_test(1, 4, 3, 20, 5);
         //gorrila_test(2, 4, 3, 20, 5);
