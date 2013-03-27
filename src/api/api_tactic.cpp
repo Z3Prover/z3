@@ -410,7 +410,7 @@ extern "C" {
         
         to_tactic_ref(t)->updt_params(p);
 
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);

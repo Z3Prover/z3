@@ -243,7 +243,7 @@ extern "C" {
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
         cancel_eh<solver> eh(*to_solver_ref(s));
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         lbool result;
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
