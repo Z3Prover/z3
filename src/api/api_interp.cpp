@@ -16,6 +16,7 @@ Revision History:
 
 --*/
 #include<iostream>
+#include<sstream>
 #include"z3.h"
 #include"api_log_macros.h"
 #include"api_context.h"
@@ -34,6 +35,8 @@ Revision History:
 #include"iz3interp.h"
 #include"iz3profiling.h"
 #include"iz3hash.h"
+#include"iz3pp.h"
+#include"iz3checker.h"
 
 #ifndef WIN32
 using namespace stl_ext;
@@ -47,8 +50,8 @@ extern "C" {
     if(!cfg) cfg = Z3_mk_config();
     Z3_set_param_value(cfg, "PROOF", "true");
     Z3_set_param_value(cfg, "MODEL", "true");
-    Z3_set_param_value(cfg, "PRE_SIMPLIFIER","false");
-    Z3_set_param_value(cfg, "SIMPLIFY_CLAUSES","false");
+    // Z3_set_param_value(cfg, "PRE_SIMPLIFIER","false");
+    // Z3_set_param_value(cfg, "SIMPLIFY_CLAUSES","false");
     
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
@@ -191,6 +194,64 @@ extern "C" {
 
   }
   
+  static std::ostringstream itp_err;
+
+  int Z3_check_interpolant(Z3_context ctx, 
+			    int num, 
+			    Z3_ast *cnsts, 
+			    int *parents,
+			    Z3_ast *itp,
+			    const char **error,
+			    int num_theory,
+			    Z3_ast *theory){
+
+    ast_manager &_m = mk_c(ctx)->m();
+    itp_err.clear();
+    
+    // need a solver -- make one here, but how?
+    params_ref p = params_ref::get_empty(); //FIXME
+    scoped_ptr<solver_factory> sf(mk_smt_solver_factory());
+    scoped_ptr<solver> sp((*(sf))(_m, p, false, true, false, symbol("AUFLIA")));
+    
+    ptr_vector<ast> cnsts_vec(num);  // get constraints in a vector
+    for(int i = 0; i < num; i++){
+      ast *a = to_ast(cnsts[i]);
+      cnsts_vec[i] = a;
+    }
+    
+    ptr_vector<ast> itp_vec(num);  // get interpolants in a vector
+    for(int i = 0; i < num-1; i++){
+      ast *a = to_ast(itp[i]);
+      itp_vec[i] = a;
+    }
+
+    ::vector<int> parents_vec;  // get parents in a vector
+    if(parents){
+      parents_vec.resize(num);
+      for(int i = 0; i < num; i++)
+	parents_vec[i] = parents[i];
+    }
+    
+    ptr_vector<ast> theory_vec; // get background theory in a vector
+    if(theory){
+      theory_vec.resize(num_theory);
+      for(int i = 0; i < num_theory; i++)
+	theory_vec[i] = to_ast(theory[i]);
+    }
+    
+    bool res = iz3check(_m,
+			sp.get(),
+			itp_err,
+			cnsts_vec,
+			parents_vec,
+			itp_vec,
+			theory_vec);
+
+    *error = res ? 0 : itp_err.str().c_str();
+    return res;
+  }
+
+
   static std::string Z3_profile_string;
   
   Z3_string Z3_interpolation_profile(Z3_context ctx){
@@ -258,6 +319,7 @@ static void get_file_params(const char *filename, hash_map<std::string,std::stri
 
 extern "C" {
 
+#if 0
   static void iZ3_write_seq(Z3_context ctx, int num, Z3_ast *cnsts, const char *filename, int num_theory, Z3_ast *theory){
     int num_fmlas = num+num_theory;
     std::vector<Z3_ast> fmlas(num_fmlas);
@@ -298,6 +360,89 @@ extern "C" {
     }
     iZ3_write_seq(ctx,num,&tcnsts[0],filename,num_theory,theory);
   }
+#else
+
+
+  static Z3_ast and_vec(Z3_context ctx,std::vector<Z3_ast> &c){
+    return (c.size() > 1) ? Z3_mk_and(ctx,c.size(),&c[0]) : c[0];
+  }
+  
+  static Z3_ast parents_vector_to_tree(Z3_context ctx, int num, Z3_ast *cnsts, int *parents){
+    Z3_ast res;
+    if(!parents){
+      res = Z3_mk_interp(ctx,cnsts[0]);
+      for(int i = 1; i < num-1; i++){
+	Z3_ast bar[2] = {res,cnsts[i]};
+	res = Z3_mk_interp(ctx,Z3_mk_and(ctx,2,bar));
+      }
+      if(num > 1){
+	Z3_ast bar[2] = {res,cnsts[num-1]};
+	res = Z3_mk_and(ctx,2,bar);
+      }
+    }
+    else {
+      std::vector<std::vector<Z3_ast> > chs(num);
+      for(int i = 0; i < num-1; i++){
+	std::vector<Z3_ast> &c = chs[i];
+	c.push_back(cnsts[i]);
+	Z3_ast foo = Z3_mk_interp(ctx,and_vec(ctx,c));
+	chs[parents[i]].push_back(foo);
+      }
+      {
+	std::vector<Z3_ast> &c = chs[num-1];
+	c.push_back(cnsts[num-1]);
+	res = and_vec(ctx,c);
+      }
+    }
+    Z3_inc_ref(ctx,res);
+    return res;
+  }
+
+  void Z3_write_interpolation_problem(Z3_context ctx, int num, Z3_ast *cnsts, int *parents, const char *filename, int num_theory, Z3_ast *theory){
+    std::ofstream f(filename);
+    if(num >  0){
+      ptr_vector<expr> cnsts_vec(num);  // get constraints in a vector
+      for(int i = 0; i < num; i++){
+	expr *a = to_expr(cnsts[i]);
+	cnsts_vec[i] = a;
+      }
+      Z3_ast tree = parents_vector_to_tree(ctx,num,cnsts,parents);
+      iz3pp(mk_c(ctx)->m(),cnsts_vec,to_expr(tree),f);
+      Z3_dec_ref(ctx,tree);
+    }
+    f.close();
+
+#if 0    
+
+    
+    if(!parents){
+      iZ3_write_seq(ctx,num,cnsts,filename,num_theory,theory);
+      return;
+    }
+    std::vector<Z3_ast> tcnsts(num);
+    hash_map<int,Z3_ast> syms;
+    for(int j = 0; j < num - 1; j++){
+      std::ostringstream oss;
+      oss << "$P" << j;
+      std::string name = oss.str();
+      Z3_symbol s = Z3_mk_string_symbol(ctx, name.c_str());
+      Z3_ast symbol = Z3_mk_const(ctx, s, Z3_mk_bool_sort(ctx));
+      syms[j] = symbol;
+      tcnsts[j] = Z3_mk_implies(ctx,cnsts[j],symbol);
+    }
+    tcnsts[num-1] = Z3_mk_implies(ctx,cnsts[num-1],Z3_mk_false(ctx));
+    for(int j = num-2; j >= 0; j--){
+      int parent = parents[j];
+      // assert(parent >= 0 && parent < num);
+      tcnsts[parent] = Z3_mk_implies(ctx,syms[j],tcnsts[parent]);
+    }
+    iZ3_write_seq(ctx,num,&tcnsts[0],filename,num_theory,theory);
+#endif
+
+  }
+
+
+#endif
 
   static std::vector<Z3_ast> read_cnsts;
   static std::vector<int> read_parents;
@@ -309,7 +454,7 @@ extern "C" {
     read_error.clear();
     try {
       std::string foo(filename);
-      if(!foo.empty() && foo[foo.size()-1] == '2'){
+      if(foo.size() >= 5 && foo.substr(foo.size()-5) == ".smt2"){
 	Z3_ast ass = Z3_parse_smtlib2_file(ctx, filename, 0, 0, 0, 0, 0, 0);
 	Z3_app app = Z3_to_app(ctx,ass);
 	int nconjs = Z3_get_app_num_args(ctx,app);

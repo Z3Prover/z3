@@ -32,6 +32,7 @@ int main(int argc, const char **argv) {
   std::string output_file;
   bool flat_mode = false;
   bool anonymize = false;
+  bool write = false;
 
   Z3_config cfg = Z3_mk_config();
   // Z3_interpolation_options options = Z3_mk_interpolation_options();
@@ -65,6 +66,8 @@ int main(int argc, const char **argv) {
         flat_mode = true;
       else if(flag == "-a" || flag == "--anon")
         anonymize = true;
+      else if(flag == "-w" || flag == "--write")
+        write = true;
       else if(flag == "-s" || flag == "--simple")
         Z3_set_param_value(cfg,"PREPROCESS","false");
       else
@@ -80,7 +83,9 @@ int main(int argc, const char **argv) {
   /* Create a Z3 context to contain formulas */
   Z3_context ctx = Z3_mk_interpolation_context(cfg);
 
-  if(!flat_mode)
+  if(write || anonymize)
+    Z3_set_ast_print_mode(ctx,Z3_PRINT_SMTLIB2_COMPLIANT);
+  else if(!flat_mode)
     Z3_set_ast_print_mode(ctx,Z3_PRINT_SMTLIB_COMPLIANT);
   
   /* Read an interpolation problem */
@@ -119,17 +124,17 @@ int main(int argc, const char **argv) {
     }
   }
 
-#if 0
   /* Write out anonymized version. */
 
-  if(anonymize){
+  if(write || anonymize){
+#if 0
     Z3_anonymize_ast_vector(ctx,num,constraints);
-    std::string ofn = output_file.empty() ? "anon.smt" : output_file;
-    Z3_write_interpolation_problem(ctx, num, constraints, parents, ofn.c_str());
+#endif
+    std::string ofn = output_file.empty() ? "iz3out.smt2" : output_file;
+    Z3_write_interpolation_problem(ctx, num, constraints, parents, ofn.c_str(), num_theory,  theory);
     std::cout << "anonymized problem written to " << ofn << "\n";
     exit(0);
   }
-#endif
 
   /* Compute an interpolant, or get a model. */
 
@@ -188,7 +193,7 @@ int main(int argc, const char **argv) {
       printf("interpolant written to %s\n",output_file.c_str());
 #endif
     }
-#if 0
+#if 1
     if(check_mode){
       std::cout << "Checking interpolant...\n";
       bool chk;
@@ -212,6 +217,7 @@ int main(int argc, const char **argv) {
     break;
   }
 
+  if(profile_mode)
     std::cout << Z3_interpolation_profile(ctx);
 
   /* Delete the model if there is one */

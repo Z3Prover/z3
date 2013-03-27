@@ -130,7 +130,7 @@ namespace std {
     class less<ast_r> {
   public:
     size_t operator()(const ast_r &s, const ast_r &t) const {
-      return s.raw()->get_id() < t.raw()->get_id();
+      return s.raw() < t.raw(); // s.raw()->get_id() < t.raw()->get_id();
     }
   };
 }
@@ -161,6 +161,7 @@ class iz3mgr  {
     Distinct,
     Xor,
     Oeq,
+    Interp,
     Leq,
     Geq,
     Lt,
@@ -196,7 +197,7 @@ class iz3mgr  {
     Other
   };
 
-  opr op(ast &t);
+  opr op(const ast &t);
 
   unsigned ast_id(const ast &x)
   {
@@ -208,9 +209,9 @@ class iz3mgr  {
   ast make_var(const std::string &name, type ty);
   ast make(opr op, const std::vector<ast> &args);
   ast make(opr op);
-  ast make(opr op, ast &arg0);
+  ast make(opr op, const ast &arg0);
   ast make(opr op, const ast &arg0, const ast &arg1);
-  ast make(opr op, ast &arg0, ast &arg1, ast &arg2);
+  ast make(opr op, const ast &arg0, const ast &arg1, const ast &arg2);
   ast make(symb sym, const std::vector<ast> &args);
   ast make(symb sym);
   ast make(symb sym, ast &arg0);
@@ -222,6 +223,13 @@ class iz3mgr  {
   ast_manager &m() {return m_manager;}
 
   ast cook(raw_ast *a) {return ast(&m_manager,a);}
+
+  std::vector<ast> cook(ptr_vector<raw_ast> v) {
+    std::vector<ast> _v(v.size());
+    for(unsigned i = 0; i < v.size(); i++)
+      _v[i] = cook(v[i]);
+    return _v;
+  }
 
   raw_ast *uncook(const ast &a) {
     m_manager.inc_ref(a.raw());
@@ -245,7 +253,7 @@ class iz3mgr  {
     assert(0);
   }
 
-  ast arg(ast t, int i){
+  ast arg(const ast &t, int i){
     ast_kind dk = t.raw()->get_kind();
     switch(dk){
     case AST_APP:
@@ -426,6 +434,8 @@ class iz3mgr  {
   void print_expr(std::ostream &s, const ast &e);
 
   void print_clause(std::ostream &s, std::vector<ast> &cls);
+
+  void print_sat_problem(std::ostream &out, const ast &t);
 
   void show_clause(std::vector<ast> &cls);
 

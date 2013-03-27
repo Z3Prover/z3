@@ -33,7 +33,8 @@ def init_project_def():
     add_lib('subpaving_tactic', ['core_tactics', 'subpaving'], 'math/subpaving/tactic')
     add_lib('aig_tactic', ['tactic'], 'tactic/aig')
     add_lib('solver', ['model', 'tactic'])
-    add_lib('cmd_context', ['solver', 'rewriter'])
+    add_lib('interp', ['solver'])
+    add_lib('cmd_context', ['solver', 'rewriter', 'interp'])
     add_lib('extra_cmds', ['cmd_context', 'subpaving_tactic', 'arith_tactics'], 'cmd_context/extra_cmds')
     add_lib('smt2parser', ['cmd_context', 'parser_util'], 'parsers/smt2')
     add_lib('proof_checker', ['rewriter'], 'ast/proof_checker')
@@ -59,10 +60,10 @@ def init_project_def():
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
     add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
-    add_dll('foci2', ['util'], 'interp/foci2stub', 
-            dll_name='foci2', 
-            export_files=['foci2stub.cpp'])
-    add_lib('interp', ['solver','foci2'])
+#    add_dll('foci2', ['util'], 'interp/foci2stub', 
+#            dll_name='foci2', 
+#            export_files=['foci2stub.cpp'])
+#    add_lib('interp', ['solver','foci2'])
     API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h']
     add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure', 'interp'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)

@@ -34,6 +34,7 @@ Revision History:
 #include "iz3interp.h"
 
 
+
 #ifndef WIN32
 using namespace stl_ext;
 #endif
@@ -164,9 +165,32 @@ static lbool test_secondary(context ctx,
 }                         
 #endif
     
+template<class T>
+struct killme {
+  T *p;
+  killme(){p = 0;}
+  void set(T *_p) {p = _p;} 
+  ~killme(){
+    if(p)
+      delete p;
+  }
+};
 
-class iz3interp : public iz3mgr {
+
+class iz3interp : public iz3base {
 public:
+
+  killme<iz3secondary> sp_killer;
+  killme<iz3translation> tr_killer;
+
+  bool is_linear(std::vector<int> &parents){
+    for(int i = 0; i < ((int)parents.size())-1; i++)
+      if(parents[i] != i+1)
+	return false;
+    return true;
+  }
+
+
   void proof_to_interpolant(z3pf proof,
 			    const std::vector<ast> &cnsts,
 			    const std::vector<int> &parents,
@@ -187,11 +211,17 @@ public:
     int num = cnsts_vec.size();
     std::vector<ast> interps_vec(num-1);
     
+    // if this is really a sequence problem, we can make it easier
+    if(is_linear(parents_vec))
+      parents_vec.clear();
+
     // create a secondary prover
     iz3secondary *sp = iz3foci::create(this,num,parents_vec.empty()?0:&parents_vec[0]);
+    sp_killer.set(sp); // kill this on exit
 	  
     // create a translator
     iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec,parents_vec,theory);
+    tr_killer.set(tr);
     
     // set the translation options, if needed
     if(options)
@@ -220,12 +250,37 @@ public:
     fr.fix_interpolants(interps_vec);
 
     interps = interps_vec;
-    delete tr;
-    delete sp;
   }
 
+
+  // same as above, but represents the tree using an ast
+
+  void proof_to_interpolant(const z3pf &proof,
+			    const std::vector<ast> &_cnsts,
+			    const ast &tree,
+			    std::vector<ast> &interps,
+			    interpolation_options_struct *options = 0
+			    ){
+    std::vector<int> pos_map;
+    
+    // convert to the parents vector representation
+    
+    to_parents_vec_representation(_cnsts, tree, cnsts, parents, theory, pos_map);
+
+    
+    //use the parents vector representation to compute interpolant
+    proof_to_interpolant(proof,cnsts,parents,interps,theory,options);
+    
+    // get the interps for the tree positions
+    std::vector<ast> _interps = interps;
+    interps.resize(pos_map.size());
+    for(unsigned i = 0; i < pos_map.size(); i++)
+      interps[i] = i < _interps.size() ? _interps[i] : mk_false();
+  }
+
+
   iz3interp(ast_manager &_m_manager)
-    : iz3mgr(_m_manager) {}
+    : iz3base(_m_manager) {}
 };
 
 void iz3interpolate(ast_manager &_m_manager,
@@ -253,4 +308,27 @@ void iz3interpolate(ast_manager &_m_manager,
   for(unsigned i = 0; i < interps.size(); i++)
     interps[i] = itp.uncook(_interps[i]);
 }
+
+void iz3interpolate(ast_manager &_m_manager,
+		    ast *proof,
+		    const ptr_vector<ast> &cnsts,
+		    ast *tree,
+		    ptr_vector<ast> &interps,
+		    interpolation_options_struct * options)
+{
+  iz3interp itp(_m_manager);
+  std::vector<iz3mgr::ast> _cnsts(cnsts.size());
+  std::vector<iz3mgr::ast> _interps;
+  for(unsigned i = 0; i < cnsts.size(); i++)
+    _cnsts[i] = itp.cook(cnsts[i]);
+  iz3mgr::ast _proof = itp.cook(proof);
+  iz3mgr::ast _tree = itp.cook(tree);
+  itp.proof_to_interpolant(_proof,_cnsts,_tree,_interps,options);
+  interps.resize(_interps.size());
+  for(unsigned i = 0; i < interps.size(); i++)
+    interps[i] = itp.uncook(_interps[i]);
+}
+
+
+
 

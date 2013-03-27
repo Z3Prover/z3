@@ -57,6 +57,7 @@ iz3mgr::ast iz3mgr::make(opr op, int n, raw_ast **args){
   case Not:      return mki(m_basic_fid,OP_NOT,n,args);
   case Implies:  return mki(m_basic_fid,OP_IMPLIES,n,args);
   case Oeq:      return mki(m_basic_fid,OP_OEQ,n,args);
+  case Interp:   return mki(m_basic_fid,OP_INTERP,n,args);
   case Leq:      return mki(m_arith_fid,OP_LE,n,args);
   case Geq:      return mki(m_arith_fid,OP_GE,n,args);
   case Lt:       return mki(m_arith_fid,OP_LT,n,args);
@@ -107,7 +108,7 @@ iz3mgr::ast iz3mgr::make(opr op){
   return make(op,0,0);
 }
 
-iz3mgr::ast iz3mgr::make(opr op, ast &arg0){
+iz3mgr::ast iz3mgr::make(opr op, const ast &arg0){
   raw_ast *a = arg0.raw();
   return make(op,1,&a);
 }
@@ -119,7 +120,7 @@ iz3mgr::ast iz3mgr::make(opr op, const ast &arg0, const ast &arg1){
   return make(op,2,args);
 }
 
-iz3mgr::ast iz3mgr::make(opr op, ast &arg0, ast &arg1, ast &arg2){
+iz3mgr::ast iz3mgr::make(opr op, const ast &arg0, const ast &arg1, const ast &arg2){
   raw_ast *args[3];
   args[0] = arg0.raw();
   args[1] = arg1.raw();
@@ -335,13 +336,11 @@ void iz3mgr::pretty_print(std::ostream &f, const std::string &s){
 }
 
 
-iz3mgr::opr iz3mgr::op(ast &t){
+iz3mgr::opr iz3mgr::op(const ast &t){
     ast_kind dk = t.raw()->get_kind();
     switch(dk){
     case AST_APP: {
       expr * e = to_expr(t.raw());
-      if (m().is_unique_value(e)) 
-	return Numeral;
       func_decl *d = to_app(t.raw())->get_decl();
       if (null_family_id == d->get_family_id())
 	return Uninterpreted;
@@ -360,6 +359,7 @@ iz3mgr::opr iz3mgr::op(ast &t){
 	case OP_NOT:      return Not;
 	case OP_IMPLIES:  return Implies;
 	case OP_OEQ:      return Oeq;
+	case OP_INTERP:   return Interp;
 	default:
 	  return Other;
         }
@@ -383,6 +383,8 @@ iz3mgr::opr iz3mgr::op(ast &t){
 	case OP_TO_INT: return ToInt;
 	case OP_IS_INT: return IsInt;
 	default:
+	  if (m().is_unique_value(e)) 
+	    return Numeral;
 	  return Other;
 	  }
       }
@@ -422,4 +424,10 @@ iz3mgr::pfrule iz3mgr::pr(const ast &t){
   func_decl *d = to_app(t.raw())->get_decl();
   assert(m_basic_fid == d->get_family_id());
   return d->get_decl_kind();
+}
+
+void iz3mgr::print_sat_problem(std::ostream &out, const ast &t){
+  ast_smt_pp pp(m());
+  pp.set_simplify_implies(false);
+  pp.display_smt2(out, to_expr(t.raw()));
 }

@@ -158,6 +158,7 @@ public:
       case Numeral: {
 	std::string s = string_of_numeral(t);
 	res = foci->mk_int(s);
+	break;
       }
       case Forall: 
       case Exists: {
@@ -177,12 +178,14 @@ public:
 	foci_bvs.push_back(body);
 	res = foci->mk_op(qop,foci_bvs);
 	node_to_ast[res] = t; // desperate
+	break;
       }
       case Variable: {  // a deBruijn index
         int index = get_variable_index_value(t);
 	type ty = get_type(t);
         foci2::symb symbol = make_deBruijn_symbol(index,ty);
         res = foci->mk_app(symbol,std::vector<foci2::ast>());
+	break;
       }
       default:
 	{
@@ -240,7 +243,7 @@ public:
       case foci2::Times:
 	res = make(Times,args); break; 
       case foci2::Div:
-	res = make(Div,args[0],args[1]); break;
+	res = make(Idiv,args[0],args[1]); break;
       case foci2::Leq:
 	res = make(Leq,args[0],args[1]); break; 
       case foci2::Distinct:

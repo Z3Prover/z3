@@ -65,12 +65,17 @@ class iz3base : public iz3mgr, public scopes {
     weak = false;
   }
 
- iz3base(const iz3mgr& other,
+  iz3base(const iz3mgr& other,
 	 const std::vector<ast> &_cnsts,
 	 const std::vector<int> &_parents,
 	 const std::vector<ast> &_theory)
    : iz3mgr(other), scopes(_parents)  {
     initialize(_cnsts,_parents,_theory);
+    weak = false;
+  }
+
+  iz3base(const iz3mgr& other)
+   : iz3mgr(other), scopes()  {
     weak = false;
   }
 
@@ -102,6 +107,19 @@ class iz3base : public iz3mgr, public scopes {
     return make(And,cs);
   }
   
+  void to_parents_vec_representation(const std::vector<ast> &_cnsts,
+				     const ast &tree,
+				     std::vector<ast> &cnsts,
+				     std::vector<int> &parents,
+				     std::vector<ast> &theory,
+				     std::vector<int> &pos_map,
+				     bool merge = false
+				   );
+
+ protected:
+  std::vector<ast> cnsts;
+  std::vector<ast> theory;
+
  private:
 
   struct ranges {
@@ -120,8 +138,6 @@ class iz3base : public iz3mgr, public scopes {
 
   void initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
 
-  std::vector<ast> cnsts;
-  std::vector<ast> theory;
 
   bool is_literal(ast n);
   void gather_conjuncts_rec(ast n, std::vector<ast> &conjuncts, stl_ext::hash_set<ast> &memo);
@@ -129,7 +145,15 @@ class iz3base : public iz3mgr, public scopes {
   ast simplify_and(std::vector<ast> &conjuncts);
   ast simplify_with_lit_rec(ast n, ast lit, stl_ext::hash_map<ast,ast> &memo, int depth);
   ast simplify_with_lit(ast n, ast lit);  
-
+  void find_children(const stl_ext::hash_set<ast> &cnsts_set,
+		     const ast &tree,
+		     std::vector<ast> &cnsts,
+		     std::vector<int> &parents,
+		     std::vector<ast> &conjuncts,
+		     std::vector<int> &children,
+		     std::vector<int> &pos_map,
+		     bool merge
+		     );
   bool weak;
 
 };

@@ -72,6 +72,7 @@ VER_REVISION=None
 PREFIX=os.path.split(os.path.split(os.path.split(PYTHON_PACKAGE_DIR)[0])[0])[0]
 GMP=False
 FOCI2=False
+FOCI2LIB=''
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
@@ -200,13 +201,13 @@ def test_gmp(cc):
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
 
-def test_foci2(cc):
+def test_foci2(cc,foci2lib):
     if is_verbose():
         print("Testing FOCI2...")
     t = TempFile('tstfoci2.cpp')
-    t.add('#include<foci2.h>\nint main() { mpz_t t; mpz_init(t); mpz_clear(t); return 0; }\n')
+    t.add('#include<foci2.h>\nint main() { foci2 *f = foci2::create("lia"); return 0; }\n')
     t.commit()
-    return exec_compiler_cmd([cc, CPPFLAGS, 'tstfoci2.cpp', LDFLAGS, '-lfoci2']) == 0
+    return exec_compiler_cmd([cc, CPPFLAGS, '-Isrc/interp', 'tstfoci2.cpp', LDFLAGS, foci2lib]) == 0
 
 def test_openmp(cc):
     if is_verbose():
@@ -453,7 +454,7 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
-    print("  --foci2                       use FOCI2.")
+    print("  -f <path> --foci2=<path>          use foci2 library at path")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -469,18 +470,19 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
+    global DOTNET_ENABLED, JAVA_ENABLED, STATIC_LIB, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:], 
-                                               'b:dsxhmcvtnp:gj', 
+                                               'b:df:sxhmcvtnp:gj', 
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
+                                                'trace', 'nodotnet', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
                                                 'githash='])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
 
     for opt, arg in options:
+        print('opt = %s, arg = %s' % (opt, arg))
         if opt in ('-b', '--build'):
             if arg == 'src':
                 raise MKException('The src directory should not be used to host the Makefile')
@@ -520,6 +522,7 @@ def parse_options():
             GMP = True
         elif opt in ('-f', '--foci2'):
             FOCI2 = True
+            FOCI2LIB = arg
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
         elif opt == '--gprof':
@@ -1470,7 +1473,7 @@ def mk_config():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
     else:
-        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS
+        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
@@ -1488,11 +1491,12 @@ def mk_config():
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
         if FOCI2:
-            test_foci2(CXX)
-            LDFLAGS  = '%s -lfoci2' % LDFLAGS
-            SLIBEXTRAFLAGS = '%s -lfoci2' % SLIBEXTRAFLAGS
-        else:
-            CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
+            if test_foci2(CXX,FOCI2LIB):
+                LDFLAGS  = '%s %s' % (LDFLAGS,FOCI2LIB)
+                SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
+            else:
+                print "FAILED\n"
+                FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
         CXXFLAGS = '%s -c' % CXXFLAGS

@@ -32,6 +32,13 @@ class scopes {
     parents = _parents;
   }
 
+  scopes(){
+  }
+  
+  void initialize(const std::vector<int> &_parents){
+    parents = _parents;
+  }
+
   /** The parents vector defining the tree structure */
   std::vector<int> parents;
 

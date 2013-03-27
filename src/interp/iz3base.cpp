@@ -84,10 +84,9 @@ iz3base::range &iz3base::ast_scope(ast t){
 
 void iz3base::print(const std::string &filename){
   ast t = make(And,cnsts);
-  assert(0 && "not implemented");
-  // Z3_string smt = Z3_benchmark_to_smtlib_string(ctx,"iZ3","QFLIA","unsat","",0,0,t);  
-  // std::ofstream f(filename.c_str());
-  // f << smt;
+  std::ofstream f(filename.c_str());
+  print_sat_problem(f,t);
+  f.close();
 }
 
 
@@ -244,5 +243,78 @@ bool iz3base::is_sat(ast f){
   Z3_pop(ctx,1);
   return res != Z3_L_FALSE;
 #endif
+}
+
+
+void iz3base::find_children(const hash_set<ast> &cnsts_set,
+			    const ast &tree,
+			    std::vector<ast> &cnsts,
+			    std::vector<int> &parents,
+			    std::vector<ast> &conjuncts,
+			    std::vector<int> &children,
+			    std::vector<int> &pos_map,
+			    bool merge
+			    ){
+  std::vector<int> my_children;
+  std::vector<ast> my_conjuncts;
+  if(op(tree) == Interp){ // if we've hit an interpolation position...
+    find_children(cnsts_set,arg(tree,0),cnsts,parents,my_conjuncts,my_children,pos_map,merge);
+    if(my_conjuncts.empty()) 
+      my_conjuncts.push_back(mk_true()); // need at least one conjunct
+    int root = cnsts.size() + my_conjuncts.size() - 1;
+    for(unsigned i = 0; i < my_conjuncts.size(); i++){
+      parents.push_back(root);
+      cnsts.push_back(my_conjuncts[i]);
+    }
+    for(unsigned i = 0; i < my_children.size(); i++)
+      parents[my_children[i]] = root;
+    children.push_back(root);
+    pos_map.push_back(root);
+  }
+  else {
+    if(op(tree) == And){
+      int nargs = num_args(tree);
+      for(int i = 0; i < nargs; i++)
+	find_children(cnsts_set,arg(tree,i),cnsts,parents,my_conjuncts,my_children,pos_map,merge);
+    }
+    if(cnsts_set.find(tree) != cnsts_set.end()){
+      if(merge && !my_conjuncts.empty())
+	my_conjuncts.back() = mk_and(my_conjuncts.back(),tree);
+      else
+	my_conjuncts.push_back(tree);
+    }
+    for(unsigned i = 0; i < my_children.size(); i++)
+      children.push_back(my_children[i]);
+    for(unsigned i = 0; i < my_conjuncts.size(); i++)
+      conjuncts.push_back(my_conjuncts[i]);
+  }
+}
+    
+void iz3base::to_parents_vec_representation(const std::vector<ast> &_cnsts,
+					    const ast &tree,
+					    std::vector<ast> &cnsts,
+					    std::vector<int> &parents,
+					    std::vector<ast> &theory,
+					    std::vector<int> &pos_map,
+					    bool merge
+					    ){
+  std::vector<int> my_children;
+  std::vector<ast> my_conjuncts;
+  hash_set<ast> cnsts_set;
+  for(unsigned i = 0; i < _cnsts.size(); i++)
+    cnsts_set.insert(_cnsts[i]);
+  ast _tree = (op(tree) != Interp) ? make(Interp,tree) : tree;
+  find_children(cnsts_set,_tree,cnsts,parents,my_conjuncts,my_children,pos_map,merge);
+  if(op(tree) != Interp) pos_map.pop_back();
+  parents[parents.size()-1] = SHRT_MAX;
+    
+  // rest of the constraints are the background theory
+    
+  hash_set<ast> used_set;
+  for(unsigned i = 0; i < cnsts.size(); i++)
+    used_set.insert(cnsts[i]);
+  for(unsigned i = 0; i < _cnsts.size(); i++)
+    if(used_set.find(_cnsts[i]) == used_set.end())
+      theory.push_back(_cnsts[i]);
 }
 

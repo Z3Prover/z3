@@ -22,6 +22,7 @@ Revision History:
 #include "iz3translate.h"
 #include "iz3proof.h"
 #include "iz3profiling.h"
+#include "iz3interp.h"
 
 #include <assert.h>
 #include <algorithm>
@@ -336,6 +337,16 @@ public:
 	}	    
       }
     }
+#if 0
+    AstSet::iterator it = res.begin(), en = res.end();
+    if(it != en){
+      AstSet::iterator old = it;
+      ++it;
+      for(; it != en; ++it, ++old)
+	if(!(*old < *it))
+	  std::cout << "foo!";
+    }
+#endif
     return res;
   }
 
@@ -439,24 +450,27 @@ public:
     if(it != localization_map.end())
       return it->second;
 
-    // if is is non-local, we must first localise the arguments to
+    // if is is non-local, we must first localize the arguments to
     // the range of its function symbol
-    if(op(e) == Uninterpreted){
-      symb f = sym(e);
-      range frng = sym_range(f);
-      int nargs = num_args(e);
-      if(nargs > 0 /*  && (!is_local(e) || flo <= hi || fhi >= lo) */){
-	if(ranges_intersect(frng,rng)) // localize to desired range if possible
-	  {frng = range_glb(frng,rng);}
-	std::vector<ast> largs(nargs);
-	for(int i = 0; i < nargs; i++){
-	  largs[i] = localize_term(arg(e,i),frng);
-	  frng = range_glb(frng,ast_scope(largs[i]));
-	}
-	e = make(f,largs);
-	assert(is_local(e));
+    
+    int nargs = num_args(e);
+    if(nargs > 0 /*  && (!is_local(e) || flo <= hi || fhi >= lo) */){
+      range frng = rng;
+      if(op(e) == Uninterpreted){
+	symb f = sym(e);
+	range srng = sym_range(f);
+	if(ranges_intersect(srng,rng)) // localize to desired range if possible
+	  frng = range_glb(srng,rng);
       }
+      std::vector<ast> largs(nargs);
+      for(int i = 0; i < nargs; i++){
+	largs[i] = localize_term(arg(e,i),frng);
+	frng = range_glb(frng,ast_scope(largs[i]));
+      }
+      e = clone(e,largs);
+      assert(is_local(e));
     }
+
 
     if(ranges_intersect(ast_scope(e),rng))
       return e; // this term occurs in range, so it's O.K.
@@ -774,10 +788,12 @@ public:
 
     // if sat, lemma isn't valid, something is wrong
     if(sat){
+#if 1
       std::cerr << "invalid lemma written to file invalid_lemma.smt:\n";
       iz3base foo(*this,preds,std::vector<int>(),std::vector<ast>());
       foo.print("invalid_lemma.smt");
-      throw invalid_lemma();
+#endif
+      throw iz3_incompleteness();
     }
     assert(sat == 0); // if sat, lemma doesn't hold!
 
@@ -961,12 +977,14 @@ public:
 	AstSet &this_hyps = get_hyps(proof);
 	if(std::includes(hyps.begin(),hyps.end(),this_hyps.begin(),this_hyps.end())){
 	  // if(hyps.find(con) == hyps.end())
+#if 0
           if(/* lemma_count == SHOW_LEMMA_COUNT - 1 && */ !is_literal_or_lit_iff(conc(proof))){
              std::cout << "\nnon-lit local ante\n";
              show_step(proof);
              show(conc(proof));
              throw non_lit_local_ante();
           }
+#endif
           local_antes.push_back(proof);
 	  return true;
 	}
@@ -1019,7 +1037,7 @@ public:
   std::vector<ast> lit_trace;
   hash_set<ast> marked_proofs;
 
-  bool proof_has_lit(ast proof, ast lit){
+  bool proof_has_lit(const ast &proof, const ast &lit){
     AstSet &hyps = get_hyps(proof);
     if(hyps.find(mk_not(lit)) != hyps.end())
       return true;
@@ -1033,7 +1051,7 @@ public:
   }
 
 
-  void trace_lit_rec(ast lit, ast proof, AstHashSet &memo){
+  void trace_lit_rec(const ast &lit, const ast &proof, AstHashSet &memo){
     if(memo.find(proof) == memo.end()){
       memo.insert(proof);
       AstSet &hyps = get_hyps(proof);
@@ -1064,7 +1082,7 @@ public:
   
   ast traced_lit;
 
-  int trace_lit(ast lit, ast proof){
+  int trace_lit(const ast &lit, const ast &proof){
     marked_proofs.clear();
     lit_trace.clear();
     traced_lit = lit;
@@ -1073,7 +1091,7 @@ public:
     return lit_trace.size();
   }
 
-  bool is_literal_or_lit_iff(ast lit){
+  bool is_literal_or_lit_iff(const ast &lit){
     if(my_is_literal(lit)) return true;
     if(op(lit) == Iff){
       return my_is_literal(arg(lit,0)) && my_is_literal(arg(lit,1));
@@ -1081,13 +1099,13 @@ public:
     return false;
   }
 
-  bool my_is_literal(ast lit){
+  bool my_is_literal(const ast &lit){
     ast abslit = is_not(lit) ? arg(lit,0) : lit;
     int f = op(abslit);
     return !(f == And || f == Or || f == Iff);
   }
 
-  void print_lit(ast lit){
+  void print_lit(const ast &lit){
     ast abslit = is_not(lit) ? arg(lit,0) : lit;
     if(!is_literal_or_lit_iff(lit)){
       if(is_not(lit)) std::cout << "~";
@@ -1099,22 +1117,22 @@ public:
       print_expr(std::cout,lit);
   }
 
-  void show_lit(ast lit){
+  void show_lit(const ast &lit){
     print_lit(lit);
     std::cout << "\n";
   }
 
-  void print_z3_lit(ast a){
+  void print_z3_lit(const ast &a){
     print_lit(from_ast(a));
   }
 
-  void show_z3_lit(ast a){
+  void show_z3_lit(const ast &a){
     print_z3_lit(a);
     std::cout << "\n";
   }
 
   
-  void show_con(ast proof, bool brief){
+  void show_con(const ast &proof, bool brief){
     if(!traced_lit.null() && proof_has_lit(proof,traced_lit))
       std::cout << "(*) ";
     ast con = conc(proof);
@@ -1138,7 +1156,7 @@ public:
     std::cout << "\n";
   }
 
-  void show_step( ast proof){
+  void show_step(const  ast &proof){
     std::cout << "\n";
     unsigned nprems = num_prems(proof);
     for(unsigned i = 0; i < nprems; i++){
@@ -1151,7 +1169,7 @@ public:
     show_con(proof,false);
   }
 
-  void show_marked( ast proof){
+  void show_marked( const ast &proof){
     std::cout << "\n";
     unsigned nprems = num_prems(proof);
     for(unsigned i = 0; i < nprems; i++){
@@ -1166,7 +1184,7 @@ public:
   std::vector<ast> pfhist;
   int pfhist_pos;
   
-  void pfgoto(ast proof){
+  void pfgoto(const ast &proof){
     if(pfhist.size() == 0)
       pfhist_pos = 0;
     else pfhist_pos++;
@@ -1245,7 +1263,7 @@ public:
     return res;
   }
 
-  Iproof::node extract_simple_proof(ast proof, hash_set<ast> &leaves){
+  Iproof::node extract_simple_proof(const ast &proof, hash_set<ast> &leaves){
     if(leaves.find(proof) != leaves.end())
       return iproof->make_hypothesis(conc(proof));
     ast con = from_ast(conc(proof));
@@ -1271,7 +1289,7 @@ public:
     return 0;
   }
 
-  int extract_th_lemma_simple(ast proof, std::vector<ast> &lits){
+  int extract_th_lemma_simple(const ast &proof, std::vector<ast> &lits){
     std::vector<ast> la = local_antes;
     local_antes.clear();  // clear antecedents for next lemma
     antes_added.clear();
@@ -1321,7 +1339,7 @@ public:
 
 // #define NEW_EXTRACT_TH_LEMMA
 
-  void get_local_hyps(ast proof, std::set<ast> &res){
+  void get_local_hyps(const ast &proof, std::set<ast> &res){
     std::set<ast> hyps = get_hyps(proof);
     for(std::set<ast>::iterator it = hyps.begin(), en = hyps.end(); it != en; ++it){
       ast hyp = *it;
@@ -1376,6 +1394,7 @@ public:
     try {
       res = extract_th_lemma_common(lits,nll,lemma_nll);
     }
+#if 0
     catch (const invalid_lemma &) {
       std::cout << "\n\nlemma: " << my_count;
       std::cout << "\n\nproof node: \n";
@@ -1397,6 +1416,7 @@ public:
         show_lit(lits[i]);
       throw invalid_lemma();
     }
+#endif
     
     return res;
 #else
@@ -1648,7 +1668,7 @@ public:
       if(!(res = extract_th_lemma(proof,lits,nll))){
 	if(!(res = push_into_resolvent(proof,lits,nll,expect_clause))){
 #endif
-	  std::cout << "extract theory lemma failed\n";
+	  // std::cout << "extract theory lemma failed\n";
           add_antes(proof);
 	  res = fix_lemma(lits,get_hyps(proof),nll);
 	}
@@ -1724,6 +1744,22 @@ public:
     frames = cnsts.size();
     traced_lit = ast();
   }
+
+  ~iz3translation_direct(){
+    for(hash_map<non_local_lits, non_local_lits *>::iterator
+	  it = non_local_lits_unique.begin(),
+	  en = non_local_lits_unique.end();
+	it != en;
+	++it)
+      delete it->second;
+
+    for(hash_map<Z3_resolvent, Z3_resolvent *>::iterator
+	  it = Z3_resolvent_unique.begin(),
+	  en = Z3_resolvent_unique.end();
+	it != en;
+	++it)
+      delete it->second;
+  }
 };
 
 
@@ -1740,29 +1776,29 @@ iz3translation *iz3translation::create(iz3mgr &mgr,
 }
 
 
-#if 0
+#if 1
 
-void iz3translation_direct_trace_lit(iz3translation_direct *p, ast lit, ast proof){
+void iz3translation_direct_trace_lit(iz3translation_direct *p, iz3mgr::ast lit, iz3mgr::ast proof){
    p->trace_lit(lit, proof);
 }
 
-void iz3translation_direct_show_step(iz3translation_direct *p,  ast proof){
+void iz3translation_direct_show_step(iz3translation_direct *p,  iz3mgr::ast proof){
    p->show_step(proof);
 }
 
-void iz3translation_direct_show_marked(iz3translation_direct *p,  ast proof){
+void iz3translation_direct_show_marked(iz3translation_direct *p,  iz3mgr::ast proof){
    p->show_marked(proof);
 }
 
-void iz3translation_direct_show_lit(iz3translation_direct *p,  ast lit){
+void iz3translation_direct_show_lit(iz3translation_direct *p,  iz3mgr::ast lit){
   p->show_lit(lit);
 }
 
-void iz3translation_direct_show_z3_lit(iz3translation_direct *p, ast a){
+void iz3translation_direct_show_z3_lit(iz3translation_direct *p, iz3mgr::ast a){
   p->show_z3_lit(a);
 }
 
-void iz3translation_direct_pfgoto(iz3translation_direct *p, ast proof){
+void iz3translation_direct_pfgoto(iz3translation_direct *p, iz3mgr::ast proof){
   p->pfgoto(proof);
 }
   
