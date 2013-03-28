@@ -3,26 +3,43 @@ Z3 is licensed under MSR-LA (Microsoft Research License Agreement).
 See http://z3.codeplex.com/license for more information about this license.
 Z3 can be built using Visual Studio Command Prompt and make/g++.
 
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+This is the interpolating branch. Build instruction differ from the
+main branch. Please read carefully.
+
+Interpolation depends on the Cadence foci2 library obtainable from
+here:
+
+http://www.kenmcmil.com/foci2/
+
+Download the appropriate files for your operating system and
+architecture. Note, the default Z3 build on intel architecture
+is x86, not x64, so you need the 32-bit version of foci2.
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 1) Building Z3 on Windows using Visual Studio Command Prompt
    
-   python scripts/mk_make.py
+   python scripts/mk_make.py -f <full\path\to\libfoci.lib>
    cd build
    nmake
+   copy <full\path\to\libfoci.dll> libfoci.dll
 
 2) Building Z3 using make/g++ and Python
 Execute:
 
-   python scripts/mk_make.py
+   python scripts/mk_make.py -f <full/path/to/libfoci.so>
    cd build
    make
    sudo make install
+
+Then put libfoci.so somewhere in your LD_LIBRARY_PATH.
 
 By default, it will install z3 executable at PREFIX/bin, libraries at PREFIX/lib, and include files at PREFIX/include,
 where PREFIX is the installation prefix used for installing Python in your system.
 It is usually /usr for most Linux distros, and /usr/local for FreeBSD.
 Use the following commands to install in a different prefix (e.g., /home/leo)
 
-  python scripts/mk_make.py --prefix=/home/leo
+  python scripts/mk_make.py --prefix=/home/leo -f <full/path/to/libfoci.so>
   cd build
   make
   make install
@@ -37,7 +54,7 @@ To uninstall Z3, use
 4) Building Z3 using clang and clang++ on Linux/OSX
 Remark: clang does not support OpenMP yet.   
 
-   CXX=clang++ CC=clang python scripts/mk_make.py
+   CXX=clang++ CC=clang python scripts/mk_make.py -f <full/path/to/libfoci.so>
    cd build
    make
 
