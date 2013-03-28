@@ -247,7 +247,7 @@ bool iz3base::is_sat(ast f){
 }
 
 
-void iz3base::find_children(const hash_set<ast> &cnsts_set,
+void iz3base::find_children(const stl_ext::hash_set<ast> &cnsts_set,
 			    const ast &tree,
 			    std::vector<ast> &cnsts,
 			    std::vector<int> &parents,

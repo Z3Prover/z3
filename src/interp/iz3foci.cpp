@@ -307,7 +307,8 @@ public:
 
   int interpolate(const std::vector<ast> &cnsts, std::vector<ast> &itps){
     assert((int)cnsts.size() == frames);
-    foci = foci2::create("lia");
+    std::string lia("lia");
+    foci = foci2::create(lia);
     if(!foci){
       std::cerr << "iZ3: cannot find foci lia solver.\n";
       assert(0);

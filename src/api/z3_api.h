@@ -7788,7 +7788,7 @@ END_MLAPI_EXCLUDE
     def_API('Z3_interpolation_profile', STRING, (_in(CONTEXT),))
   */
 
-  Z3_string Z3_API Z3_interpolation_profile(Z3_context ctx);
+  Z3_string Z3_API Z3_interpolation_profile(__in Z3_context ctx);
   
   /**
      \brief Read an interpolation problem from file.
@@ -7824,8 +7824,7 @@ END_MLAPI_EXCLUDE
   */
   
 
-  int Z3_API
-  Z3_read_interpolation_problem(__in Z3_context ctx,
+  int Z3_API Z3_read_interpolation_problem(__in Z3_context ctx,
 				__out int *num, 
 				__out_ecount(*num) Z3_ast **cnsts, 
 				__out_ecount(*num) int **parents,
@@ -7853,8 +7852,7 @@ END_MLAPI_EXCLUDE
 
   */
   
-  int Z3_API
-  Z3_check_interpolant(Z3_context ctx, int num, Z3_ast *cnsts, int *parents, Z3_ast *interps, const char **error,
+  int Z3_API Z3_check_interpolant(Z3_context ctx, int num, Z3_ast *cnsts, int *parents, Z3_ast *interps, const char **error,
                                        int num_theory, Z3_ast *theory);
 
   /** Write an interpolation problem to file suitable for reading with
@@ -7870,8 +7868,7 @@ END_MLAPI_EXCLUDE
 
   */
 
-  void Z3_API
-  Z3_write_interpolation_problem(Z3_context ctx,
+  void Z3_API  Z3_write_interpolation_problem(Z3_context ctx,
 				 int num, 
 				 Z3_ast *cnsts, 
 				 int *parents,
