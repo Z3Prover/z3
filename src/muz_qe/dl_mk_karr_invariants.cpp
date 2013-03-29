@@ -62,12 +62,38 @@ namespace datalog {
         return *this;
     }
 
+    void mk_karr_invariants::matrix::display_row(
+        std::ostream& out, vector<rational> const& row, rational const& b, bool is_eq) {
+        for (unsigned j = 0; j < row.size(); ++j) {
+            out << row[j] << " ";
+        }
+        out << (is_eq?" = ":" >= ") << -b << "\n";        
+    }
+
+    void mk_karr_invariants::matrix::display_ineq(
+        std::ostream& out, vector<rational> const& row, rational const& b, bool is_eq) {
+        bool first = true;
+        for (unsigned j = 0; j < row.size(); ++j) {
+            if (!row[j].is_zero()) {
+                if (!first && row[j].is_pos()) {
+                    out << "+ ";
+                }
+                if (row[j].is_minus_one()) {
+                    out << "- ";
+                }
+                if (row[j] > rational(1) || row[j] < rational(-1)) {
+                    out << row[j] << "*";
+                }
+                out << "x" << j << " ";
+                first = false;
+            }
+        }
+        out << (is_eq?"= ":">= ") << -b << "\n";        
+    }
+
     void mk_karr_invariants::matrix::display(std::ostream& out) const {
         for (unsigned i = 0; i < A.size(); ++i) {
-            for (unsigned j = 0; j < A[i].size(); ++j) {
-                out << A[i][j] << " ";
-            }
-            out << (eq[i]?" = ":" >= ") << -b[i] << "\n";
+            display_row(out, A[i], b[i], eq[i]);
         }
     }
 
@@ -182,24 +208,28 @@ namespace datalog {
                 M.b.push_back(b);
                 M.eq.push_back(true);
             }
-            else if ((a.is_le(e, e1, e2) || a.is_ge(e, e2, e1)) && is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
+            else if ((a.is_le(e, e1, e2) || a.is_ge(e, e2, e1)) && 
+                     is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
                 M.A.push_back(row);
                 M.b.push_back(b);
                 M.eq.push_back(false);
             }
-            else if ((a.is_lt(e, e1, e2) || a.is_gt(e, e2, e1)) && is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
+            else if ((a.is_lt(e, e1, e2) || a.is_gt(e, e2, e1)) && 
+                     is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
                 M.A.push_back(row);
-                M.b.push_back(b + rational(1));
+                M.b.push_back(b - rational(1));
                 M.eq.push_back(false);
             }
-            else if (m.is_not(e, en) && (a.is_lt(en, e2, e1) || a.is_gt(en, e1, e2)) && is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
+            else if (m.is_not(e, en) && (a.is_lt(en, e2, e1) || a.is_gt(en, e1, e2)) && 
+                     is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
                 M.A.push_back(row);
                 M.b.push_back(b);
                 M.eq.push_back(false);
             }
-            else if (m.is_not(e, en) && (a.is_le(en, e2, e1) || a.is_ge(en, e1, e2)) && is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
+            else if (m.is_not(e, en) && (a.is_le(en, e2, e1) || a.is_ge(en, e1, e2)) && 
+                     is_linear(e1, row, b, mone) && is_linear(e2, row, b, one)) {
                 M.A.push_back(row);
-                M.b.push_back(b + rational(1));
+                M.b.push_back(b - rational(1));
                 M.eq.push_back(false);
             }
             else if (m.is_or(e, e1, e2) && is_eq(e1, v, n1) && is_eq(e2, w, n2) && v == w) {
@@ -221,7 +251,9 @@ namespace datalog {
             else {
                 processed = false;
             }
-            TRACE("dl", tout << (processed?"+ ":"- ") << mk_pp(e, m) << "\n";);
+            TRACE("dl", tout << (processed?"+ ":"- ") << mk_pp(e, m) << "\n";
+                  if (processed) matrix::display_ineq(tout, row, M.b.back(), M.eq.back());
+                  );
         }
         // intersect with the head predicate.
         app* head = r.get_head();
@@ -270,6 +302,7 @@ namespace datalog {
             M.b.push_back(MD.b[i]);
             M.eq.push_back(true);
         }
+        TRACE("dl", M.display(tout << r.get_decl()->get_name() << "\n"););
         
         return true;
     }
@@ -322,7 +355,7 @@ namespace datalog {
             m_hb.set_is_int(i);
         }
         lbool is_sat = m_hb.saturate();
-        TRACE("dl", m_hb.display(tout););
+        TRACE("dl_verbose", m_hb.display(tout););
         SASSERT(is_sat == l_true);
         unsigned basis_size = m_hb.get_basis_size();
         for (unsigned i = 0; i < basis_size; ++i) {
@@ -353,7 +386,7 @@ namespace datalog {
             m_hb.set_is_int(i);
         }
         lbool is_sat = m_hb.saturate();
-        TRACE("dl", m_hb.display(tout););
+        TRACE("dl_verbose", m_hb.display(tout););
         SASSERT(is_sat == l_true);
         dst.reset();
         unsigned basis_size = m_hb.get_basis_size();
@@ -532,7 +565,7 @@ namespace datalog {
             }
         }
         bool change = true, non_empty = false;
-        while (!m_cancel && change) {
+        while (!m_ctx.canceled() && change) {
             change = false;
             it = source.begin();            
             for (; it != end; ++it) {
@@ -550,8 +583,8 @@ namespace datalog {
                 dualizeH(P, ND);
 
                 TRACE("dl",
-                           MD.display(tout << "MD\n");
-                           P.display(tout << "P\n"););
+                      ND.display(tout << "ND\n");
+                      P.display(tout << "P\n"););
 
                 if (!N) {
                     change = true;
@@ -569,7 +602,7 @@ namespace datalog {
             return 0;
         }
 
-        if (m_cancel) {
+        if (m_ctx.canceled()) {
             return 0;
         }
 

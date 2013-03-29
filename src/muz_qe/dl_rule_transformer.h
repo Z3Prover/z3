@@ -41,7 +41,6 @@ namespace datalog {
         context &        m_context;
         rule_manager &   m_rule_manager;
         bool             m_dirty;
-        volatile bool    m_cancel;
         svector<plugin*> m_plugins;
         
         void ensure_ordered();
@@ -81,7 +80,6 @@ namespace datalog {
         void attach(rule_transformer & transformer) { m_transformer = &transformer; }
 
     protected:
-        volatile bool m_cancel;
 
         /**
            \brief Create a plugin object for rule_transformer.
@@ -90,13 +88,15 @@ namespace datalog {
            (higher priority plugins will be applied first).
         */
         plugin(unsigned priority, bool can_destratify_negation = false) : m_priority(priority), 
-            m_can_destratify_negation(can_destratify_negation), m_transformer(0), m_cancel(false) {}
+            m_can_destratify_negation(can_destratify_negation), m_transformer(0) {}
 
     public:
         virtual ~plugin() {}
 
         unsigned get_priority() { return m_priority; }
         bool can_destratify_negation() const { return m_can_destratify_negation; }
+
+        virtual void cancel() {}
 
         /**
            \brief Return \c rule_set object with containing transformed rules or 0 if no
@@ -106,8 +106,6 @@ namespace datalog {
         */
         virtual rule_set * operator()(rule_set const & source,
                                       model_converter_ref& mc) = 0;
-
-        virtual void cancel() { m_cancel = true; }
 
         /**
            Removes duplicate tails.

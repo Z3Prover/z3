@@ -46,7 +46,7 @@ namespace datalog {
         ast_mark         m_visited;
 
 
-        //we need to take care with removing to aviod memory leaks
+        //we need to take care with removing to avoid memory leaks
         void remove_m_data_entry(func_decl * key);
 
         //sometimes we need to return reference to an empty set,

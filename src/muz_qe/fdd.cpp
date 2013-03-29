@@ -97,14 +97,14 @@ node_id manager::mk_node(unsigned var, node_id lo, node_id hi) {
         inc_ref(hi);
     }
     
-    TRACE("mtdd", tout << "mk_node: " << var << " " << lo << " " << hi << " -> " << result << "\n";);
+    TRACE("fdd", tout << "mk_node: " << var << " " << lo << " " << hi << " -> " << result << "\n";);
 
     return result;
 }
 
 
 void manager::inc_ref(node_id n) {
-    TRACE("mtdd", tout << "incref: " << n << "\n";);
+    TRACE("fdd", tout << "incref: " << n << "\n";);
     if (!is_leaf(n)) {
         m_nodes[n].inc_ref();
     }
@@ -126,6 +126,7 @@ void manager::setup_keys(Key const* keys) {
 
 void manager::insert(Key const* keys) {
     setup_keys(keys);
+    m_insert_cache.reset();
     node_id result = insert_sign(m_num_idx + m_num_keys, m_root);
     inc_ref(result);
     dec_ref(m_root);
@@ -161,7 +162,7 @@ node_id manager::insert_sign(unsigned idx, node_id n) {
 node_id manager::insert(unsigned idx, node_id n) {
     node_id result;
     SASSERT(0 <= idx && idx <= m_num_idx);
-    TRACE("mtdd", tout << "insert: " << idx << " " << n << "\n";);
+    TRACE("fdd", tout << "insert: " << idx << " " << n << "\n";);
     if (is_leaf(n)) {
         while (idx > 0) {
             --idx;
@@ -176,9 +177,8 @@ node_id manager::insert(unsigned idx, node_id n) {
     --idx;
 
     config c(m_dont_cares, idx, n);
-    insert_cache::key_data & kd = m_insert_cache.insert_if_not_there2(c, 0)->get_data();
-    if (kd.m_value != 0) {
-        return kd.m_value;
+    if (m_insert_cache.find(c, result)) {
+        return result;
     }
 
     node nd = m_nodes[n];
@@ -209,7 +209,7 @@ node_id manager::insert(unsigned idx, node_id n) {
         }
         result = mk_node(idx, lo, hi);
     }
-    kd.m_value = result;
+    m_insert_cache.insert(c, result);
     return result;
 }
 
@@ -263,11 +263,12 @@ bool manager::find_le(Key const* keys) {
         SASSERT(idx > 0);
         --idx;
         while (nc.var() < idx) {
-            if (idx2bit(idx)) {
+            if (idx2bit(idx) && is_dont_care(idx2key(idx))) {
                 set_dont_care(idx2key(idx));
             }
             --idx;
         }
+        SASSERT(nc.var() == idx);
         if (is_dont_care(idx2key(idx)) || idx2bit(idx)) {
             n = nc.hi();
         }

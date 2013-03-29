@@ -26,7 +26,7 @@ Revision History:
 namespace datalog {
 
     rule_transformer::rule_transformer(context & ctx) 
-        : m_context(ctx), m_rule_manager(m_context.get_rule_manager()), m_dirty(false), m_cancel(false) {
+        : m_context(ctx), m_rule_manager(m_context.get_rule_manager()), m_dirty(false) {
     }
 
 
@@ -42,11 +42,9 @@ namespace datalog {
         }
         m_plugins.reset();
         m_dirty = false;
-        m_cancel = false;
     }
 
     void rule_transformer::cancel() {
-        m_cancel = true;
         plugin_vector::iterator it = m_plugins.begin();
         plugin_vector::iterator end = m_plugins.end();
         for(; it!=end; ++it) {
@@ -84,7 +82,7 @@ namespace datalog {
         );
         plugin_vector::iterator it = m_plugins.begin();
         plugin_vector::iterator end = m_plugins.end();
-        for(; it!=end && !m_cancel; ++it) {
+        for(; it!=end && !m_context.canceled(); ++it) {
             plugin & p = **it;
 
             rule_set * new_rules = p(rules, mc);

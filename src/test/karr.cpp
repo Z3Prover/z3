@@ -165,6 +165,28 @@ namespace karr {
         return v;
     }
 
+    static vector<rational> V(int i, int j, int k, int l, int m) {
+        vector<rational> v;
+        v.push_back(rational(i));
+        v.push_back(rational(j));
+        v.push_back(rational(k));
+        v.push_back(rational(l));
+        v.push_back(rational(m));
+        return v;
+    }
+
+    static vector<rational> V(int i, int j, int k, int l, int x, int y, int z) {
+        vector<rational> v;
+        v.push_back(rational(i));
+        v.push_back(rational(j));
+        v.push_back(rational(k));
+        v.push_back(rational(l));
+        v.push_back(rational(x));
+        v.push_back(rational(y));
+        v.push_back(rational(z));
+        return v;
+    }
+
 #define R(_x_) rational(_x_)
 
 
@@ -206,8 +228,66 @@ namespace karr {
         e2.display(std::cout << "e2\n");        
     }
 
+    void tst2() {
+        /**
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 1 0 0  = 0
+           0 0 0 0 -1 0 0  = 0
+           0 1 0 0 0 0 0  = 0
+           0 -1 0 0 0 0 0  = 0
+           0 0 0 2 0 0 0  = 0
+           0 0 0 -2 0 0 0  = 0
+        */
+
+        matrix ND;
+        ND.A.push_back(V(0,0,0,0,1,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,0,-1,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,1,0,0,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,-1,0,0,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,2,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,-2,0,0,0));  ND.b.push_back(R(0));
+
+        ND.display(std::cout << "ND\n");
+
+        matrix N;
+        dualizeH(N, ND);
+
+        N.display(std::cout << "N\n");
+
+        
+    }
+
+    void tst3() {
+        /**
+           0 0 0 0 1 0 0  = 0
+           0 0 0 0 -1 0 0  = 0
+           0 1 0 0 0 0 0  = 0
+           0 -1 0 0 0 0 0  = 0
+           0 0 0 2 0 0 0  = 0
+           0 0 0 -2 0 0 0  = 0
+        */
+
+        matrix ND;
+        ND.A.push_back(V(1,0));   ND.b.push_back(R(0));
+        ND.A.push_back(V(0,2));   ND.b.push_back(R(0));
+
+        ND.display(std::cout << "ND\n");
+
+        matrix N;
+        dualizeH(N, ND);
+
+        N.display(std::cout << "N\n");
+
+        
+    }
+
 };
 
 void tst_karr() {
+    karr::tst3();
+    return;
     karr::tst1();
 }

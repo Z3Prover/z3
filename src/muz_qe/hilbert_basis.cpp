@@ -290,7 +290,7 @@ public:
     }
 
     void display(std::ostream& out) const {
-        // m_fdd.display(out);
+        m_fdd.display(out);
     }
 
 
@@ -302,8 +302,8 @@ class hilbert_basis::index {
     // for positive weights a shared value index.
 
     // typedef value_index1 value_index;
-    // typedef value_index2 value_index;
-    typedef value_index3 value_index;
+    typedef value_index2 value_index;
+    // typedef value_index3 value_index;
 
     struct stats {
         unsigned m_num_find;

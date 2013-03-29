@@ -41,6 +41,10 @@ namespace datalog {
             matrix& operator=(matrix const& other);
             void append(matrix const& other) { A.append(other.A); b.append(other.b); eq.append(other.eq); }
             void display(std::ostream& out) const;
+            static void display_row(
+                std::ostream& out, vector<rational> const& row, rational const& b, bool is_eq);
+            static void display_ineq(
+                std::ostream& out, vector<rational> const& row, rational const& b, bool is_eq);
         };
         class add_invariant_model_converter;
 
@@ -67,7 +71,7 @@ namespace datalog {
 
         virtual ~mk_karr_invariants();
 
-        virtual void cancel(); 
+        virtual void cancel();
         
         rule_set * operator()(rule_set const & source, model_converter_ref& mc);
 

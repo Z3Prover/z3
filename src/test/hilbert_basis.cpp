@@ -514,6 +514,15 @@ static void tst16() {
     saturate_basis(hb);
 }
 
+static void tst17() {
+    hilbert_basis hb;
+    hb.add_eq(vec(1,  0), R(0));
+    hb.add_eq(vec(-1, 0), R(0));
+    hb.add_eq(vec(0,  2), R(0));
+    hb.add_eq(vec(0, -2), R(0));
+    saturate_basis(hb);
+
+}
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
@@ -521,6 +530,9 @@ void tst_hilbert_basis() {
 //    return;
 
     g_use_ordered_support = true;
+
+    tst17();
+    return;
 
     if (true) {
         tst1();

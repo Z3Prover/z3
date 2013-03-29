@@ -22,6 +22,7 @@ Revision History:
 #include"dl_context.h"
 #include"dl_rule_set.h"
 #include"dl_rule_transformer.h"
+#include"dl_mk_interp_tail_simplifier.h"
 #include "equiv_proof_converter.h"
 #include "array_decl_plugin.h"
 
@@ -37,6 +38,7 @@ namespace datalog {
         rule_manager&   rm;
         params_ref      m_params;
         th_rewriter     m_rewriter;
+        mk_interp_tail_simplifier m_simplifier;
 
         typedef obj_map<app, var*> defs_t;
 

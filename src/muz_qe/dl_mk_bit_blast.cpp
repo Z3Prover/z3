@@ -223,7 +223,9 @@ namespace datalog {
             expr_ref fml1(m), fml2(m), fml3(m);
             rule_ref r2(m_context.get_rule_manager());
             // We need to simplify rule before bit-blasting.
-            m_simplifier.transform_rule(r, r2);
+            if (!m_simplifier.transform_rule(r, r2)) {
+                r2 = r;
+            }
             r2->to_formula(fml1);
             m_blaster(fml1, fml2, pr);
             m_rewriter(fml2, fml3);

@@ -30,7 +30,8 @@ namespace datalog {
         m(ctx.get_manager()), 
         a(m),
         rm(ctx.get_rule_manager()),
-        m_rewriter(m, m_params){
+        m_rewriter(m, m_params),
+        m_simplifier(ctx) {
         m_params.set_bool("expand_select_store",true);
         m_rewriter.updt_params(m_params);
     }
@@ -202,9 +203,11 @@ namespace datalog {
         SASSERT(new_rules.size() == 1);
 
         TRACE("dl", new_rules[0]->display(m_ctx, tout << "new rule\n"););
-        
-        rules.add_rule(new_rules[0].get());
-        rm.mk_rule_rewrite_proof(r, *new_rules[0].get());
+        rule_ref new_rule(rm);
+        if (m_simplifier.transform_rule(new_rules[0].get(), new_rule)) {
+            rules.add_rule(new_rule.get());
+            rm.mk_rule_rewrite_proof(r, *new_rule.get());
+        }
         return true;
     }
     

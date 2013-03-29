@@ -469,7 +469,7 @@ namespace datalog {
     start:
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();
-        if (u_len==len) {
+        if (u_len == len) {
             res = r;
             return true;
         }
@@ -504,34 +504,29 @@ namespace datalog {
         expr_ref simp_res(m);
         simplify_expr(itail.get(), simp_res);
 
-        modified |= itail.get()!=simp_res.get();
-
-        if (is_app(simp_res.get())) {
-            itail = to_app(simp_res.get());
-        }
-        else if (m.is_bool(simp_res)) {
-            itail = m.mk_eq(simp_res, m.mk_true());
-        }
-        else {
-            throw default_exception("simplification resulted in non-boolean non-function");
-        }
-
-        if (m.is_false(itail.get())) {
-            //the tail member is never true, so we may delete the rule
+        modified |= itail.get() != simp_res.get();
+        
+        if (m.is_false(simp_res)) {
             TRACE("dl", r->display(m_context, tout << "rule is infeasible\n"););
             return false;
         }
-        if (!m.is_true(itail.get())) {
-            //if the simplified tail is not a tautology, we add it to the rule
-            tail.push_back(itail);
-            tail_neg.push_back(false);
-        }
-        else {
-            modified = true;
-        }
+        SASSERT(m.is_bool(simp_res));
 
-        SASSERT(tail.size() == tail_neg.size());
         if (modified) {
+            expr_ref_vector conjs(m);
+            flatten_and(simp_res, conjs);
+            for (unsigned i = 0; i < conjs.size(); ++i) {
+                expr* e = conjs[i].get();
+                if (is_app(e)) {
+                    tail.push_back(to_app(e));
+                }
+                else {
+                    tail.push_back(m.mk_eq(e, m.mk_true()));
+                }
+                tail_neg.push_back(false);
+            }
+
+            SASSERT(tail.size() == tail_neg.size());
             res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
             res->set_accounting_parent_object(m_context, r);
         }
