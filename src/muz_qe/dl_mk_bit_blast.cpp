@@ -255,7 +255,7 @@ namespace datalog {
             m_blaster.updt_params(m_params);
         }
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc) {
+        rule_set * operator()(rule_set const & source) {
             // TODO pc
             if (!m_context.get_params().bit_blast()) {
                 return 0;
@@ -284,7 +284,7 @@ namespace datalog {
                 result->add_rule(m_rules.get(i));
             }
 
-            if (mc) {               
+            if (m_context.get_model_converter()) {               
                 filter_model_converter* fmc = alloc(filter_model_converter, m);
                 bit_blast_model_converter* bvmc = alloc(bit_blast_model_converter, m);
                 func_decl_ref_vector const& old_funcs = m_rewriter.m_cfg.old_funcs();
@@ -293,7 +293,7 @@ namespace datalog {
                     fmc->insert(new_funcs[i]);
                     bvmc->insert(old_funcs[i], new_funcs[i]);
                 }
-                mc = concat(mc.get(), concat(bvmc, fmc));
+                m_context.add_model_converter(concat(bvmc, fmc));
             }
             
             return result;
@@ -308,8 +308,8 @@ namespace datalog {
         dealloc(m_impl);
     }
 
-    rule_set * mk_bit_blast::operator()(rule_set const & source, model_converter_ref& mc) {
-        return (*m_impl)(source, mc);
+    rule_set * mk_bit_blast::operator()(rule_set const & source) {
+        return (*m_impl)(source);
     }        
 
 };

@@ -82,7 +82,7 @@ namespace datalog {
             return get_union_decl(m_context);
         }
 
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
 
         static expr* get_explanation(relation_base const& r);
     };

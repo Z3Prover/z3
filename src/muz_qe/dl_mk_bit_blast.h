@@ -44,7 +44,7 @@ namespace datalog {
         mk_bit_blast(context & ctx, unsigned priority = 35000);
         ~mk_bit_blast();
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

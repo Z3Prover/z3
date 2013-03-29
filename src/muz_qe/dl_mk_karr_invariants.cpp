@@ -520,7 +520,7 @@ namespace datalog {
         m_hb.set_cancel(true);
     }
     
-    rule_set * mk_karr_invariants::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_karr_invariants::operator()(rule_set const & source) {
         if (!m_ctx.get_params().karr()) {
             return 0;
         }
@@ -590,7 +590,7 @@ namespace datalog {
         for (; it != end; ++it) {
             update_body(*rules, **it);
         }
-        if (mc) {
+        if (m_ctx.get_model_converter()) {
             add_invariant_model_converter* kmc = alloc(add_invariant_model_converter, m);
             rule_set::decl2rules::iterator git  = source.begin_grouped_rules();
             rule_set::decl2rules::iterator gend = source.end_grouped_rules();
@@ -601,7 +601,7 @@ namespace datalog {
                     kmc->add(p, *M);
                 }
             }
-            mc = concat(mc.get(), kmc);
+            m_ctx.add_model_converter(kmc);
         }
         TRACE("dl", rules->display(tout););
         return rules;

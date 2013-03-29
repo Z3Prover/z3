@@ -718,8 +718,7 @@ namespace datalog {
         }
     };
 
-    rule_set * mk_simple_joins::operator()(rule_set const & source, model_converter_ref& mc) {
-        // TODO mc
+    rule_set * mk_simple_joins::operator()(rule_set const & source) {
         rule_set rs_aux_copy(m_context);
         rs_aux_copy.add_rules(source);
         if(!rs_aux_copy.is_closed()) {

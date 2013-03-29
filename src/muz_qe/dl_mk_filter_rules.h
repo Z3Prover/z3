@@ -72,7 +72,7 @@ namespace datalog {
         /**
            \brief Return a new rule set where only filter rules contain atoms with repeated variables and/or values.
         */
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

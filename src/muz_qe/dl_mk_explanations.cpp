@@ -174,11 +174,9 @@ namespace datalog {
             }
         }
 
-#if 1
         virtual void deallocate() {
             get_plugin().recycle(this);
         }
-#endif
 
     public:
 
@@ -875,14 +873,12 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_explanations::operator()(rule_set const & source, model_converter_ref& mc) {
-        SASSERT(!mc);
+    rule_set * mk_explanations::operator()(rule_set const & source) {
+
         if(source.get_num_rules()==0) {
             return 0;
         }
-
         m_context.collect_predicates(m_original_preds);
-
         rule_set * res = alloc(rule_set, m_context);
         transform_facts(m_context.get_rel_context().get_rmanager());
         transform_rules(source, *res);

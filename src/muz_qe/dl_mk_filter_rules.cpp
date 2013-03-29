@@ -150,7 +150,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_filter_rules::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_filter_rules::operator()(rule_set const & source) {
         // TODO mc, pc
         m_tail2filter.reset();
         m_result           = alloc(rule_set, m_context);

@@ -241,8 +241,10 @@ namespace datalog {
             return false;
         }
 
-        //these conditions are optional, they avoid possible exponential increase 
-        //in the size of the problem
+        // 
+        // these conditions are optional, they avoid possible exponential increase 
+        // in the size of the problem
+        // 
 
         return 
             //m_head_pred_non_empty_tails_ctr.get(pred)<=1
@@ -837,7 +839,7 @@ namespace datalog {
         return done_something;
     }
 
-    rule_set * mk_rule_inliner::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_rule_inliner::operator()(rule_set const & source) {
 
         bool something_done = false;
         ref<horn_subsume_model_converter> hsmc;        
@@ -854,7 +856,7 @@ namespace datalog {
         }
         
 
-        if (mc) {
+        if (m_context.get_model_converter()) {
             hsmc = alloc(horn_subsume_model_converter, m);
         }
         m_mc = hsmc.get();
@@ -881,9 +883,7 @@ namespace datalog {
             res = 0;
         }
         else {
-            if (mc) {
-                mc = concat(mc.get(), hsmc.get());
-            }
+            m_context.add_model_converter(hsmc.get());
         }
 
         return res.detach();

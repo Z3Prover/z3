@@ -997,11 +997,9 @@ void hilbert_basis::select_inequality() {
     unsigned best = m_current_ineq;
     unsigned non_zeros = get_num_nonzeros(m_ineqs[best]);
     unsigned prod      = get_ineq_product(m_ineqs[best]);
-    //numeral  diff      = get_ineq_diff(m_ineqs[best]);
     for (unsigned j = best+1; prod != 0 && j < m_ineqs.size(); ++j) {
         unsigned non_zeros2 = get_num_nonzeros(m_ineqs[j]);
         unsigned prod2 = get_ineq_product(m_ineqs[j]);
-        //numeral diff2  = get_ineq_diff(m_ineqs[j]);
         if (prod2 == 0) {
             prod = prod2;
             non_zeros = non_zeros2;
@@ -1010,7 +1008,6 @@ void hilbert_basis::select_inequality() {
         }
         if (non_zeros2 < non_zeros || (non_zeros2 == non_zeros && prod2 < prod)) {
             prod = prod2;
-            //  diff = diff2;
             non_zeros = non_zeros2;
             best = j;
         }

@@ -50,7 +50,7 @@ namespace datalog {
         }
     }
         
-    rule_set * mk_unfold::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_unfold::operator()(rule_set const & source) {
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::iterator it = source.begin(), end = source.end();
         for (; it != end; ++it) {

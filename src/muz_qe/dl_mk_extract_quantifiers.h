@@ -77,7 +77,7 @@ namespace datalog {
 
         void set_query(func_decl* q);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
 
         bool has_quantifiers() { return m_has_quantifiers; }
 

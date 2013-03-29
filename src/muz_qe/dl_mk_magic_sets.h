@@ -121,7 +121,7 @@ namespace datalog {
          */
         mk_magic_sets(context & ctx, rule * goal_rule);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

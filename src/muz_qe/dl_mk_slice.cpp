@@ -802,7 +802,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_slice::operator()(rule_set const & src, model_converter_ref& mc) {        
+    rule_set * mk_slice::operator()(rule_set const & src) {        
         for (unsigned i = 0; i < src.get_num_rules(); ++i) {
             if (src.get_rule(i)->has_quantifiers()) {
                 return 0;
@@ -813,7 +813,7 @@ namespace datalog {
         if (m_ctx.generate_proof_trace()) {
             spc = alloc(slice_proof_converter, m_ctx);        
         }
-        if (mc) {
+        if (m_ctx.get_model_converter()) {
             smc = alloc(slice_model_converter, *this, m);
         }
         m_pc = spc.get();
@@ -836,7 +836,7 @@ namespace datalog {
             }
         }
         m_ctx.add_proof_converter(spc.get());
-        mc = concat(mc.get(), smc.get());
+        m_ctx.add_model_converter(smc.get());
         return result;
     }    
 
