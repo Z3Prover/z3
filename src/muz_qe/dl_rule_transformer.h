@@ -23,7 +23,6 @@ Revision History:
 #include"vector.h"
 #include"dl_rule.h"
 #include"dl_rule_set.h"
-#include"model_converter.h"
 
 namespace datalog {
 
@@ -67,7 +66,7 @@ namespace datalog {
            \brief Transform the rule set using the registered transformation plugins. If the rule 
            set has changed, return true; otherwise return false.
         */
-        bool operator()(rule_set & rules, model_converter_ref& mc);
+        bool operator()(rule_set & rules);
     };
     
     class rule_transformer::plugin {
@@ -104,8 +103,7 @@ namespace datalog {
 
            The caller takes ownership of the returned \c rule_set object.
         */
-        virtual rule_set * operator()(rule_set const & source,
-                                      model_converter_ref& mc) = 0;
+        virtual rule_set * operator()(rule_set const & source) = 0;
 
         /**
            Removes duplicate tails.

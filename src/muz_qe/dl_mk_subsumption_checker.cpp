@@ -332,7 +332,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_subsumption_checker::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_subsumption_checker::operator()(rule_set const & source) {
         // TODO mc
 
         m_have_new_total_rule = false;

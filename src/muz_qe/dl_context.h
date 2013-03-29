@@ -319,6 +319,7 @@ namespace datalog {
         void ensure_opened();
 
         model_converter_ref& get_model_converter() { return m_mc; }
+        void add_model_converter(model_converter* mc) { m_mc = concat(m_mc.get(), mc); }
         proof_converter_ref& get_proof_converter() { return m_pc; }
         void add_proof_converter(proof_converter* pc) { m_pc = concat(m_pc.get(), pc); }
 

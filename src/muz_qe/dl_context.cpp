@@ -860,7 +860,7 @@ namespace datalog {
     void context::transform_rules(rule_transformer& transf) {
         SASSERT(m_closed); //we must finish adding rules before we start transforming them
         TRACE("dl", display_rules(tout););
-        if (transf(m_rule_set, m_mc)) {
+        if (transf(m_rule_set)) {
             //we have already ensured the negation is stratified and transformations
             //should not break the stratification
             m_rule_set.ensure_closed();

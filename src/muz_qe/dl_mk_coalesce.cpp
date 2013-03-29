@@ -171,7 +171,7 @@ namespace datalog {
         return true;
     }    
         
-    rule_set * mk_coalesce::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_coalesce::operator()(rule_set const & source) {
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
         for (; it != end; ++it) {

@@ -355,7 +355,7 @@ namespace datalog {
         m_quantifiers.reset();
     }
     
-    rule_set * mk_extract_quantifiers::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_extract_quantifiers::operator()(rule_set const & source) {
         reset();
         rule_set::iterator it = source.begin(), end = source.end();
         for (; !m_has_quantifiers && it != end; ++it) {

@@ -44,7 +44,7 @@ namespace datalog {
          */
         mk_unfold(context & ctx);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

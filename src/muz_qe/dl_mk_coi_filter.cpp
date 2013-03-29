@@ -33,9 +33,7 @@ namespace datalog {
     // -----------------------------------
 
 
-    rule_set * mk_coi_filter::operator()(
-        rule_set const & source,
-        model_converter_ref& mc) 
+    rule_set * mk_coi_filter::operator()(rule_set const & source)
     {
         if (source.get_num_rules()==0) {
             return 0;
@@ -80,7 +78,7 @@ namespace datalog {
             if (interesting_preds.contains(pred)) {
                 res->add_rule(r);
             }
-            else if (mc.get()) {
+            else if (m_context.get_model_converter()) {
                 pruned_preds.insert(pred);
             }
         }
@@ -89,14 +87,14 @@ namespace datalog {
             res = 0;
         }
 
-        if (res && mc) {
+        if (res && m_context.get_model_converter()) {
             decl_set::iterator end = pruned_preds.end();
             decl_set::iterator it = pruned_preds.begin();
             extension_model_converter* mc0 = alloc(extension_model_converter, m);
             for (; it != end; ++it) {
                 mc0->insert(*it, m.mk_true());
             }   
-            mc = concat(mc.get(), mc0);
+            m_context.add_model_converter(mc0);
         }
 
         return res.detach();

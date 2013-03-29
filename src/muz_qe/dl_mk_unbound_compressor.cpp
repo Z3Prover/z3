@@ -334,7 +334,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_unbound_compressor::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_unbound_compressor::operator()(rule_set const & source) {
         // TODO mc
         m_modified = false;
 

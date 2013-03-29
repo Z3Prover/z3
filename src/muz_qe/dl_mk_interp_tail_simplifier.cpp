@@ -567,7 +567,7 @@ namespace datalog {
         return modified;
     }
 
-    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc) {
+    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source) {
         if (source.get_num_rules() == 0) {
             return 0;
         }

@@ -93,7 +93,7 @@ namespace datalog {
         */
         bool transform_rule(rule * r, rule_ref& res);
 
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };
