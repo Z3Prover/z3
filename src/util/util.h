@@ -394,11 +394,14 @@ public:
 
 inline std::ostream & operator<<(std::ostream & out, escaped const & s) { s.display(out); return out; }
 
-inline unsigned long long megabytes_to_bytes(unsigned b) {
-    if (b == UINT_MAX)
-        return UINT64_MAX;
-    else
-        return static_cast<unsigned long long>(b) * 1024ull * 1024ull;
+inline size_t megabytes_to_bytes(unsigned mb) {
+    if (mb == UINT_MAX)
+        return SIZE_MAX;
+    unsigned long long b = static_cast<unsigned long long>(mb) * 1024ull * 1024ull;
+    size_t r = static_cast<size_t>(b);
+    if (r != b)  // overflow
+        r = SIZE_MAX;    
+    return r;
 }
 
 void z3_bound_num_procs();
