@@ -731,16 +731,26 @@ bool hilbert_basis::is_invalid_offset(offset_t offs) {
 
 void hilbert_basis::reset() {
     m_ineqs.reset();
-    m_basis.reset();
+    m_iseq.reset();
     m_store.reset();
+    m_basis.reset();
     m_free_list.reset();
-    m_active.reset();
-    m_passive->reset();
-    m_passive2->reset();
+    m_sos.reset();
     m_zero.reset();
-    m_index->reset(1);
-    m_ints.reset();
+    m_active.reset();
+    if (m_passive) {
+        m_passive->reset();
+    }
+    if (m_passive2) {
+        m_passive2->reset();
+    }
     m_cancel = false;
+    if (m_index) {
+        m_index->reset(1);
+    }
+    m_ints.reset();
+    m_current_ineq = 0;
+    
 }
 
 void hilbert_basis::collect_statistics(statistics& st) const {
