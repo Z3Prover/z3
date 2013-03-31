@@ -954,6 +954,7 @@ namespace datalog {
         if (m_pdr.get()) m_pdr->cancel();
         if (m_bmc.get()) m_bmc->cancel();
         if (m_tab.get()) m_tab->cancel();
+        if (m_rel.get()) m_rel->set_cancel(true);
     }
 
     void context::cleanup() {
@@ -962,6 +963,7 @@ namespace datalog {
         if (m_pdr.get()) m_pdr->cleanup();
         if (m_bmc.get()) m_bmc->cleanup();
         if (m_tab.get()) m_tab->cleanup();
+        if (m_rel.get()) m_rel->set_cancel(false);
     }
 
     class context::engine_type_proc {
@@ -1231,7 +1233,7 @@ namespace datalog {
         return m_rel->result_contains_fact(f);
     }
     
-    // TBD: algebraic data-types declarations will not be printed.
+    // NB: algebraic data-types declarations will not be printed.
     class free_func_visitor {
         ast_manager& m;
         func_decl_set m_funcs;

@@ -146,6 +146,8 @@ namespace datalog {
         const comp_vector & get_strats() const { return m_strats; }
 
         unsigned get_predicate_strat(func_decl * pred) const;
+        
+        void display( std::ostream & out ) const;
     };
 
     /**

@@ -37,10 +37,13 @@ typedef vector<rational> rational_vector;
 
 class hilbert_basis {
 
-    static const bool check = false;
+    static const bool check = true;
     typedef checked_int64<check> numeral;
     typedef vector<numeral> num_vector;
     static checked_int64<check> to_numeral(rational const& r) {
+        if (!r.is_int64()) {
+            throw checked_int64<check>::overflow_exception();
+        }
         return checked_int64<check>(r.get_int64());
     }
     static rational to_rational(checked_int64<check> const& i) {

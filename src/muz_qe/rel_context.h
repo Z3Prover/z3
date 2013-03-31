@@ -63,7 +63,6 @@ namespace datalog {
 
         bool output_profile() const;
 
-
         lbool query(expr* q);
         lbool query(unsigned num_rels, func_decl * const* rels);
 
@@ -72,6 +71,7 @@ namespace datalog {
         
         void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
+        void set_cancel(bool f);
 
         /**
            \brief Restrict the set of used predicates to \c res.
