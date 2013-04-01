@@ -387,6 +387,8 @@ namespace datalog {
         }
         lbool is_sat = m_hb.saturate();
         TRACE("dl_verbose", m_hb.display(tout););
+        // TBD: actually transition function can be unsat.
+        // in this case the rule can be removed.
         SASSERT(is_sat == l_true);
         dst.reset();
         unsigned basis_size = m_hb.get_basis_size();
