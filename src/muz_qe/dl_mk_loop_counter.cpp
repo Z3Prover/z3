@@ -23,13 +23,14 @@ Revision History:
 namespace datalog {
 
     mk_loop_counter::mk_loop_counter(context & ctx, unsigned priority):
-        plugin(priority) {        
+        plugin(priority),
+        m(ctx.get_manager()),
+        a(m) {        
     }
 
     mk_loop_counter::~mk_loop_counter() { }
 
-    app_ref mk_loop_counter::add_arg(ast_manager& m, app* fn, unsigned idx) {
-        arith_util a(m);
+    app_ref mk_loop_counter::add_arg(app* fn, unsigned idx) {
         ptr_vector<sort> domain;
         expr_ref_vector args(m);
         domain.append(fn->get_num_args(), fn->get_decl()->get_domain());
@@ -43,9 +44,7 @@ namespace datalog {
         
     rule_set * mk_loop_counter::operator()(rule_set const & source) {
         context& ctx = source.get_context();
-        ast_manager& m = source.get_manager();
         rule_manager& rm = source.get_rule_manager();
-        arith_util a(m);
         rule_set * result = alloc(rule_set, ctx);
         unsigned sz = source.get_num_rules();
         rule_ref new_rule(rm);
@@ -61,7 +60,7 @@ namespace datalog {
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();
             for (unsigned j = 0; j < utsz; ++j, ++cnt) {
-                tail.push_back(add_arg(m, r.get_tail(j), cnt));                
+                tail.push_back(add_arg(r.get_tail(j), cnt));                
                 neg.push_back(r.is_neg_tail(j));
                 ctx.register_predicate(tail.back()->get_decl());
             }
@@ -69,7 +68,7 @@ namespace datalog {
                 tail.push_back(r.get_tail(j));
                 neg.push_back(false);
             }
-            head = add_arg(m, r.get_head(), cnt);
+            head = add_arg(r.get_head(), cnt);
             ctx.register_predicate(head->get_decl());
             // set the loop counter to be an increment of the previous 
             bool found = false;

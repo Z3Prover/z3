@@ -20,11 +20,14 @@ Revision History:
 #define _DL_MK_LOOP_COUNTER_H_
 
 #include"dl_rule_transformer.h"
+#include"arith_decl_plugin.h"
 
 namespace datalog {
 
     class mk_loop_counter : public rule_transformer::plugin {
-        app_ref add_arg(ast_manager& m, app* fn, unsigned idx);        
+        ast_manager& m;
+        arith_util   a;
+        app_ref add_arg(app* fn, unsigned idx);        
     public:
         mk_loop_counter(context & ctx, unsigned priority = 33000);
         ~mk_loop_counter();
