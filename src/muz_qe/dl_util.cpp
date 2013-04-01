@@ -153,35 +153,6 @@ namespace datalog {
         flatten_or(result);
     }
 
-    bool push_toplevel_junction_negation_inside(expr_ref& e)
-    {
-        ast_manager& m = e.get_manager();
-        bool_rewriter brwr(m);
-
-        expr * arg;
-        if(!m.is_not(e, arg)) { return false; }
-        bool is_and = m.is_and(arg);
-        if(!is_and && !m.is_or(arg)) { return false; }
-
-        //now we know we have formula we need to transform
-        app * junction = to_app(arg);
-        expr_ref_vector neg_j_args(m);
-        unsigned num_args = junction->get_num_args();
-        for(unsigned i=0; i<num_args; ++i) {
-            expr_ref neg_j_arg(m);
-            brwr.mk_not(junction->get_arg(i), neg_j_arg);
-            neg_j_args.push_back(neg_j_arg);
-        }
-        if(is_and) {
-            brwr.mk_or(neg_j_args.size(), neg_j_args.c_ptr(), e);
-        }
-        else {
-            brwr.mk_and(neg_j_args.size(), neg_j_args.c_ptr(), e);
-        }
-        return true;
-    }
-
-
     bool contains_var(expr * trm, unsigned var_idx) {
         ptr_vector<sort> vars;
         ::get_free_vars(trm, vars);

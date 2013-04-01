@@ -81,19 +81,6 @@ namespace datalog {
 
     void flatten_or(expr* fml, expr_ref_vector& result);
     
-    /**
-    Transform
-    ~(a1 | ... | aN)
-    into 
-    ~a1 | ... | ~aN
-    and 
-    ~(a1 & ... & aN)
-    into 
-    ~a1 | ... | ~aN
-
-    Return true if something was done.
-    */
-    bool push_toplevel_junction_negation_inside(expr_ref& e);
 
 
     bool contains_var(expr * trm, unsigned var_idx);

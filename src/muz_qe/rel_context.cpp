@@ -27,6 +27,7 @@ Revision History:
 #include"dl_product_relation.h"
 #include"dl_bound_relation.h"
 #include"dl_interval_relation.h"
+#include"dl_mk_karr_invariants.h"
 #include"dl_finite_product_relation.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
@@ -54,6 +55,8 @@ namespace datalog {
 
         get_rmanager().register_plugin(alloc(bound_relation_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(interval_relation_plugin, get_rmanager()));
+        get_rmanager().register_plugin(alloc(karr_relation_plugin, get_rmanager()));
+
 
 }
 
@@ -178,23 +181,23 @@ namespace datalog {
         return result;
     }
 
-#define BEGIN_QUERY()                           \
+#define BEGIN_QUERY()                                     \
     rule_set original_rules(m_context.get_rules());       \
-    decl_set original_preds;                    \
-    m_context.collect_predicates(original_preds);       \
-    bool was_closed = m_context.is_closed();    \
-    if (was_closed) {                           \
+    decl_set original_preds;                              \
+    m_context.collect_predicates(original_preds);         \
+    bool was_closed = m_context.is_closed();              \
+    if (was_closed) {                                     \
         m_context.reopen();                               \
-    }                                           \
-
-#define END_QUERY()                             \
+    }                                                     \
+    
+#define END_QUERY()                                       \
     m_context.reopen();                                   \
     m_context.replace_rules(original_rules);              \
-    restrict_predicates(original_preds);        \
-                                                \
-    if (was_closed) {                           \
+    restrict_predicates(original_preds);                  \
+                                                          \
+    if (was_closed) {                                     \
         m_context.close();                                \
-    }                                           \
+    }                                                     \
  
     lbool rel_context::query(unsigned num_rels, func_decl * const* rels) {
         get_rmanager().reset_saturated_marks();
@@ -425,6 +428,10 @@ namespace datalog {
 
         SASSERT(target_kind != null_family_id);
         get_rmanager().set_predicate_kind(pred, target_kind);
+    }
+
+    void rel_context::set_cancel(bool f) {
+        get_rmanager().set_cancel(f);        
     }
 
     relation_plugin & rel_context::get_ordinary_relation_plugin(symbol relation_name) {

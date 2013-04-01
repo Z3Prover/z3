@@ -744,7 +744,6 @@ void hilbert_basis::reset() {
     if (m_passive2) {
         m_passive2->reset();
     }
-    m_cancel = false;
     if (m_index) {
         m_index->reset(1);
     }
@@ -867,7 +866,7 @@ lbool hilbert_basis::saturate() {
         stopwatch sw;
         sw.start();
         lbool r = saturate(m_ineqs[m_current_ineq], m_iseq[m_current_ineq]);
-        IF_VERBOSE(1,  
+        IF_VERBOSE(3,  
                    { statistics st; 
                        collect_statistics(st); 
                        st.display(verbose_stream()); 

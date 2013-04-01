@@ -296,18 +296,40 @@ namespace datalog {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
             proof_ref & result_pr)
         {
-            if (m.is_not(f)) {
+
+            if (m.is_not(f) && (m.is_and(args[0]) || m.is_or(args[0]))) {
                 SASSERT(num==1);
-                if (m.is_and(args[0]) || m.is_or(args[0])) {
-                    expr_ref e(m.mk_not(args[0]),m);
-                    if (push_toplevel_junction_negation_inside(e)) {
-                        result = e;
-                        return BR_REWRITE2;
-                    }
+                expr_ref tmp(m);
+                app* a = to_app(args[0]);
+                m_app_args.reset();
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                    m_brwr.mk_not(a->get_arg(i), tmp);
+                    m_app_args.push_back(tmp);
                 }
+                if (m.is_and(args[0])) {
+                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                }
+                else {
+                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                }
+                return BR_REWRITE2;
             }
-            if (!m.is_and(f) && !m.is_or(f)) { return BR_FAILED; }
-            if (num<2) { return BR_FAILED; }
+            if (!m.is_and(f) && !m.is_or(f)) { 
+                return BR_FAILED; 
+            }
+            if (num == 0) {
+                if (m.is_and(f)) {
+                    result = m.mk_true();
+                }
+                else {
+                    result = m.mk_false();
+                }
+                return BR_DONE;
+            }
+            if (num == 1) {
+                result = args[0];
+                return BR_DONE;
+            }
 
             m_app_args.reset();
             m_app_args.append(num, args);
@@ -318,30 +340,18 @@ namespace datalog {
 
             bool have_rewritten_args = false;
 
-            if (m.is_or(f) || m.is_and(f)) {
-                have_rewritten_args = detect_equivalences(m_app_args, m.is_or(f));
-#if 0
-                if (have_rewritten_args) {
-                    std::sort(m_app_args.c_ptr(), m_app_args.c_ptr()+m_app_args.size(), m_expr_cmp);
-
-                    app_ref orig(m.mk_app(f, num, args),m);
-                    app_ref res(m.mk_app(f, m_app_args.size(), m_app_args.c_ptr()),m);
-                    std::cout<<"s:"<<mk_pp(orig, m)<<"\n";
-                    std::cout<<"t:"<<mk_pp(res, m)<<"\n";
-                }
-#endif
-            }
+            have_rewritten_args = detect_equivalences(m_app_args, m.is_or(f));
 
             if (m_app_args.size()==1) {
                 result = m_app_args[0].get();
             }
             else {
                 if (m.is_and(f)) {
-                    m_brwr.mk_and(m_app_args.size(), m_app_args.c_ptr(), result);
+                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
                 }
                 else {
                     SASSERT(m.is_or(f));
-                    m_brwr.mk_or(m_app_args.size(), m_app_args.c_ptr(), result);
+                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
                 }
             }
 

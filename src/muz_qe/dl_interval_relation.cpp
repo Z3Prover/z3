@@ -21,6 +21,7 @@ Revision History:
 #include "optional.h"
 #include "ast_pp.h"
 #include "dl_interval_relation.h"
+#include "bool_rewriter.h"
 
 
 namespace datalog {
@@ -30,8 +31,7 @@ namespace datalog {
     interval_relation_plugin::interval_relation_plugin(relation_manager& m):
         relation_plugin(interval_relation_plugin::get_name(), m), 
         m_empty(m_dep),
-        m_arith(get_ast_manager()), 
-        m_bsimp(get_ast_manager()) {
+        m_arith(get_ast_manager()) {
     }
 
     bool interval_relation_plugin::can_handle_signature(const relation_signature & sig) {
@@ -374,7 +374,6 @@ namespace datalog {
     void interval_relation::to_formula(expr_ref& fml) const {
         ast_manager& m = get_plugin().get_ast_manager();
         arith_util& arith = get_plugin().m_arith;
-        basic_simplifier_plugin& bsimp = get_plugin().m_bsimp;
         expr_ref_vector conjs(m);
         relation_signature const& sig = get_signature();
         for (unsigned i = 0; i < sig.size(); ++i) {
@@ -405,7 +404,8 @@ namespace datalog {
                 }
             }
         }
-        bsimp.mk_and(conjs.size(), conjs.c_ptr(), fml);
+        bool_rewriter br(m);
+        br.mk_and(conjs.size(), conjs.c_ptr(), fml);
     }
 
 
