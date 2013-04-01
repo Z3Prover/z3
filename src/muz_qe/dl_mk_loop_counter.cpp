@@ -25,24 +25,34 @@ namespace datalog {
     mk_loop_counter::mk_loop_counter(context & ctx, unsigned priority):
         plugin(priority),
         m(ctx.get_manager()),
-        a(m) {        
+        a(m),
+        m_refs(m) {        
     }
 
     mk_loop_counter::~mk_loop_counter() { }
 
     app_ref mk_loop_counter::add_arg(app* fn, unsigned idx) {
-        ptr_vector<sort> domain;
         expr_ref_vector args(m);
-        domain.append(fn->get_num_args(), fn->get_decl()->get_domain());
-        domain.push_back(a.mk_int());
+        func_decl* new_fn, *old_fn = fn->get_decl();
         args.append(fn->get_num_args(), fn->get_args());
         args.push_back(m.mk_var(idx, a.mk_int()));
-        func_decl_ref new_fn(m);
-        new_fn = m.mk_func_decl(fn->get_decl()->get_name(), domain.size(), domain.c_ptr(), m.mk_bool_sort());
+        
+        if (!m_old2new.find(old_fn, new_fn)) {
+            ptr_vector<sort> domain;
+            domain.append(fn->get_num_args(), old_fn->get_domain());
+            domain.push_back(a.mk_int());
+            new_fn = m.mk_func_decl(old_fn->get_name(), domain.size(), domain.c_ptr(), old_fn->get_range());
+            m_old2new.insert(old_fn, new_fn);
+            m_new2old.insert(new_fn, old_fn);
+            m_refs.push_back(new_fn);
+        }
         return app_ref(m.mk_app(new_fn, args.size(), args.c_ptr()), m);
     }
         
     rule_set * mk_loop_counter::operator()(rule_set const & source) {
+        m_refs.reset();
+        m_old2new.reset();
+        m_new2old.reset();
         context& ctx = source.get_context();
         rule_manager& rm = source.get_rule_manager();
         rule_set * result = alloc(rule_set, ctx);
@@ -95,7 +105,7 @@ namespace datalog {
         }
 
         // model converter: remove references to extra argument.
-        // proof converter: etc.
+        // proof converter: remove references to extra argument as well.
 
         return result;
     }
