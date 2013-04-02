@@ -204,7 +204,7 @@ namespace datalog {
         m_inner_ctx.ensure_opened();
         it = source.begin();
         for (; it != end; ++it) {
-            rule_ref r(*it, m_ctx.get_rule_manager());
+            rule_ref r(*it, m_inner_ctx.get_rule_manager());
             m_inner_ctx.add_rule(r);
             m_inner_ctx.register_predicate(r->get_decl());
         }
