@@ -46,6 +46,7 @@ Revision History:
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_array_blast.h"
 #include"dl_mk_karr_invariants.h"
+#include"dl_mk_quantifier_abstraction.h"
 #include"datatype_decl_plugin.h"
 #include"expr_abstract.h"
 
@@ -904,6 +905,9 @@ namespace datalog {
         m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34900));
         m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34890));
         m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
+
+
+        m_transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, *this, 33000));
 
         m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
         m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
