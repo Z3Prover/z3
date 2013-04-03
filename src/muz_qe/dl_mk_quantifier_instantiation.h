@@ -18,7 +18,7 @@ Author:
 
 Revision History:
 
-    Based on approach suggested in SAS 2013 paper 
+    Based on approach suggested in the SAS 2013 paper 
     "On Solving Universally Quantified Horn Clauses"    
 
 --*/
@@ -27,7 +27,6 @@ Revision History:
 
 
 #include"dl_rule_transformer.h"
-#include"array_decl_plugin.h"
 #include"expr_safe_replace.h"
 
 
@@ -42,6 +41,12 @@ namespace datalog {
             unsigned_vector   m_find;
             unsigned_vector   m_size;
             unsigned_vector   m_next;
+
+            void ensure_size(unsigned v) {
+                while (v >= get_num_vars()) {
+                    mk_var();
+                }
+            }
         public:
             unsigned mk_var() {
                 unsigned r = m_find.size();
@@ -53,6 +58,9 @@ namespace datalog {
             unsigned get_num_vars() const { return m_find.size(); }
             
             unsigned find(unsigned v) const {
+                if (v >= get_num_vars()) {
+                    return v;
+                }
                 while (true) {
                     unsigned new_v = m_find[v];
                     if (new_v == v)
@@ -61,15 +69,24 @@ namespace datalog {
                 }
             }
             
-            unsigned next(unsigned v) const { return m_next[v]; }
+            unsigned next(unsigned v) const { 
+                if (v >= get_num_vars()) {
+                    return v;
+                }
+                return m_next[v]; 
+            }
             
-            bool is_root(unsigned v) const { return m_find[v] == v; }
+            bool is_root(unsigned v) const { 
+                return v >= get_num_vars() || m_find[v] == v; 
+            }
             
             void merge(unsigned v1, unsigned v2) {
                 unsigned r1 = find(v1);
                 unsigned r2 = find(v2);
                 if (r1 == r2)
                     return;
+                ensure_size(v1);
+                ensure_size(v2);
                 if (m_size[r1] > m_size[r2])
                     std::swap(r1, r2);
                 m_find[r1] = r2;
@@ -83,15 +100,15 @@ namespace datalog {
                 m_size.reset();
             }
         };
-        ast_manager& m;
-        context&     m_ctx;
+
+        ast_manager&      m;
+        context&          m_ctx;
         expr_safe_replace m_var2cnst; 
         expr_safe_replace m_cnst2var;
-        array_util   a;
-        union_find   m_uf;
-        ptr_vector<expr> m_todo;
-        ptr_vector<expr> m_terms;
-        ptr_vector<expr> m_binding;
+        union_find        m_uf;
+        ptr_vector<expr>  m_todo;
+        ptr_vector<expr>  m_terms;
+        ptr_vector<expr>  m_binding;
         obj_map<func_decl, ptr_vector<expr>*> m_funs;
 
 
@@ -100,9 +117,9 @@ namespace datalog {
         void collect_egraph(expr* e);
         void instantiate_rule(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs, rule_set& rules);
         void instantiate_quantifier(quantifier* q, expr_ref_vector & conjs);
-        void mk_quantifier_instantiation::instantiate_quantifier(quantifier* q, app* pat, expr_ref_vector & conjs);
-        void mk_quantifier_instantiation::match(unsigned i, app* pat, unsigned j, term_pairs& todo, quantifier* q, expr_ref_vector& conjs);
-        void mk_quantifier_instantiation::yield_binding(quantifier* q, expr_ref_vector& conjs);
+        void instantiate_quantifier(quantifier* q, app* pat, expr_ref_vector & conjs);
+        void match(unsigned i, app* pat, unsigned j, term_pairs& todo, quantifier* q, expr_ref_vector& conjs);
+        void yield_binding(quantifier* q, expr_ref_vector& conjs);
 
     public:
         mk_quantifier_instantiation(context & ctx, unsigned priority);

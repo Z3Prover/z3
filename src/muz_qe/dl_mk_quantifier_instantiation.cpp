@@ -18,13 +18,14 @@ Author:
 
 Revision History:
 
-    Based on approach suggested in SAS 2013 paper 
+    Based on approach suggested in the SAS 2013 paper 
     "On Solving Universally Quantified Horn Clauses"    
 
 --*/
 
 #include "dl_mk_quantifier_instantiation.h"
 #include "dl_context.h"
+#include "pattern_inference.h"
 
 namespace datalog {
 
@@ -34,12 +35,10 @@ namespace datalog {
         m(ctx.get_manager()),
         m_ctx(ctx),
         m_var2cnst(m),
-        m_cnst2var(m),
-        a(m) {        
+        m_cnst2var(m) {        
     }
 
-    mk_quantifier_instantiation::~mk_quantifier_instantiation() {
-        
+    mk_quantifier_instantiation::~mk_quantifier_instantiation() {        
     }
 
     void mk_quantifier_instantiation::extract_quantifiers(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs) {
@@ -66,8 +65,15 @@ namespace datalog {
     void mk_quantifier_instantiation::instantiate_quantifier(quantifier* q, expr_ref_vector & conjs) {
         expr_ref qe(m);
         qe = q;
-        m_var2cnst(qe);
+        m_var2cnst(qe);        
         q = to_quantifier(qe);
+        if (q->get_num_patterns() == 0) {
+            proof_ref new_pr(m);
+            pattern_inference_params params;
+            pattern_inference infer(m, params);
+            infer(q, qe, new_pr);
+            q = to_quantifier(qe);
+        }
         unsigned num_patterns = q->get_num_patterns();
         for (unsigned i = 0; i < num_patterns; ++i) {
             expr * pat = q->get_pattern(i);
@@ -86,6 +92,7 @@ namespace datalog {
     }
 
     void mk_quantifier_instantiation::match(unsigned i, app* pat, unsigned j, term_pairs& todo, quantifier* q, expr_ref_vector& conjs) {
+        TRACE("dl", tout << "match" << mk_pp(pat, m) << "\n";);
         while (j < todo.size()) {
             expr* p = todo[j].first;
             expr* t = todo[j].second;
@@ -102,7 +109,7 @@ namespace datalog {
                     // matching failed.
                     return;
                 }
-                j += 1;
+                ++j;
                 continue;
             }
             if (!is_app(p)) {
@@ -125,7 +132,7 @@ namespace datalog {
                         todo.resize(sz);
                     }                    
                 }
-                next_id = m_uf.next(id);
+                next_id = m_uf.next(next_id);
             }
             while (next_id != id);
             return;
@@ -156,16 +163,14 @@ namespace datalog {
         expr_ref res(m);
         instantiate(m, q, m_binding.c_ptr(), res);
         m_binding.reverse();
+        m_cnst2var(res);
         conjs.push_back(res);
+        TRACE("dl", tout << mk_pp(q, m) << "\n==>\n" << mk_pp(res, m) << "\n";);
     }
 
     void mk_quantifier_instantiation::merge(expr* e1, expr* e2) {
         unsigned i1 = e1->get_id();
         unsigned i2 = e2->get_id();
-        unsigned n = std::max(i1, i2);
-        while (n >= m_uf.get_num_vars()) {
-            m_uf.mk_var();            
-        }
         m_uf.merge(i1, i2);
     }
 
@@ -179,7 +184,8 @@ namespace datalog {
             if (visited.is_marked(e)) {
                 continue;
             }
-            if (e->get_id() >= m_terms.size()) {
+            unsigned n = e->get_id();
+            if (n >= m_terms.size()) {
                 m_terms.resize(e->get_id()+1);
             }
             m_terms[e->get_id()] = e;
@@ -190,7 +196,7 @@ namespace datalog {
             if (is_app(e)) {
                 app* ap = to_app(e);
                 ptr_vector<expr>* terms = 0;
-                if (m_funs.find(ap->get_decl(), terms)) {
+                if (!m_funs.find(ap->get_decl(), terms)) {
                     terms = alloc(ptr_vector<expr>);
                     m_funs.insert(ap->get_decl(), terms);
                 }
@@ -237,6 +243,7 @@ namespace datalog {
 
         fml = m.mk_and(conjs.size(), conjs.c_ptr());
         fml = m.mk_implies(fml, r.get_head());
+        TRACE("dl", r.display(m_ctx, tout); tout << mk_pp(fml, m) << "\n";);
         
         rule_ref_vector added_rules(rm);
         proof_ref pr(m); // proofs are TBD.
