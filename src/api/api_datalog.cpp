@@ -358,7 +358,7 @@ extern "C" {
             v->m_ast_vector.push_back(coll.m_queries[i].get());
         }
         for (unsigned i = 0; i < coll.m_rels.size(); ++i) {
-            to_fixedpoint_ref(d)->ctx().register_predicate(coll.m_rels[i].get());
+            to_fixedpoint_ref(d)->ctx().register_predicate(coll.m_rels[i].get(), true);
         }
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
@@ -415,7 +415,7 @@ extern "C" {
     void Z3_API Z3_fixedpoint_register_relation(Z3_context c,Z3_fixedpoint d, Z3_func_decl f) {
         Z3_TRY;
         LOG_Z3_fixedpoint_register_relation(c, d, f);
-        to_fixedpoint_ref(d)->ctx().register_predicate(to_func_decl(f));
+        to_fixedpoint_ref(d)->ctx().register_predicate(to_func_decl(f), true);
         Z3_CATCH;
     }
 

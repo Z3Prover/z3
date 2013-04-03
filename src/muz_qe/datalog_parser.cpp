@@ -441,6 +441,7 @@ protected:
     unsigned          m_sym_idx;
     std::string       m_path;
     str2sort          m_sort_dict;
+
     
     // true if an error occured during the current call to the parse_stream
     // function
@@ -812,7 +813,8 @@ protected:
             }
             f = m_manager.mk_func_decl(s, domain.size(), domain.c_ptr(), m_manager.mk_bool_sort());
 
-            m_context.register_predicate(f);
+            m_context.register_predicate(f, true);
+        
             while (tok == TK_ID) {
                 char const* pred_pragma = m_lexer->get_token_data();
                 if(strcmp(pred_pragma, "printtuples")==0 || strcmp(pred_pragma, "outputtuples")==0) {

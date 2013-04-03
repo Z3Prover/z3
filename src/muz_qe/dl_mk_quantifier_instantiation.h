@@ -112,7 +112,6 @@ namespace datalog {
         obj_map<func_decl, ptr_vector<expr>*> m_funs;
 
 
-        void merge(expr* e1, expr* e2);
         void extract_quantifiers(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs);
         void collect_egraph(expr* e);
         void instantiate_rule(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs, rule_set& rules);

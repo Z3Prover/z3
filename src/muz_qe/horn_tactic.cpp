@@ -92,7 +92,7 @@ class horn_tactic : public tactic {
 
         void register_predicate(expr* a) {
             SASSERT(is_predicate(a));
-            m_ctx.register_predicate(to_app(a)->get_decl(), true);
+            m_ctx.register_predicate(to_app(a)->get_decl(), false);
         }
 
         void check_predicate(ast_mark& mark, expr* a) {

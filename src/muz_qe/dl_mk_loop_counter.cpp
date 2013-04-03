@@ -72,14 +72,14 @@ namespace datalog {
             for (unsigned j = 0; j < utsz; ++j, ++cnt) {
                 tail.push_back(add_arg(r.get_tail(j), cnt));                
                 neg.push_back(r.is_neg_tail(j));
-                ctx.register_predicate(tail.back()->get_decl());
+                ctx.register_predicate(tail.back()->get_decl(), false);
             }
             for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(r.get_tail(j));
                 neg.push_back(false);
             }
             head = add_arg(r.get_head(), cnt);
-            ctx.register_predicate(head->get_decl());
+            ctx.register_predicate(head->get_decl(), false);
             // set the loop counter to be an increment of the previous 
             bool found = false;
             unsigned last = head->get_num_args()-1;

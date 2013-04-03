@@ -206,7 +206,7 @@ namespace datalog {
         for (; it != end; ++it) {
             rule_ref r(*it, m_inner_ctx.get_rule_manager());
             m_inner_ctx.add_rule(r);
-            m_inner_ctx.register_predicate(r->get_decl());
+            m_inner_ctx.register_predicate(r->get_decl(), false);
         }
         m_inner_ctx.close();
         rule_set::decl2rules::iterator dit  = source.begin_grouped_rules();

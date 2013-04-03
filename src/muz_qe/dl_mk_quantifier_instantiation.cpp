@@ -46,8 +46,7 @@ namespace datalog {
         qs.reset();
         unsigned tsz = r.get_tail_size();
         for (unsigned j = 0; j < tsz; ++j) {
-            conjs.push_back(r.get_tail(j));
-            
+            conjs.push_back(r.get_tail(j));            
         }
         datalog::flatten_and(conjs);
         for (unsigned j = 0; j < conjs.size(); ++j) {
@@ -98,15 +97,10 @@ namespace datalog {
             expr* t = todo[j].second;
             if (is_var(p)) {
                 unsigned idx = to_var(p)->get_idx();
-                expr* t2 = m_binding[idx];
-                if (!t2) {
+                if (!m_binding[idx]) {
                     m_binding[idx] = t;
                     match(i, pat, j + 1, todo, q, conjs);
                     m_binding[idx] = 0;
-                    return;
-                }
-                else if (m_uf.find(t2->get_id()) != m_uf.find(t->get_id())) {
-                    // matching failed.
                     return;
                 }
                 ++j;
@@ -168,12 +162,6 @@ namespace datalog {
         TRACE("dl", tout << mk_pp(q, m) << "\n==>\n" << mk_pp(res, m) << "\n";);
     }
 
-    void mk_quantifier_instantiation::merge(expr* e1, expr* e2) {
-        unsigned i1 = e1->get_id();
-        unsigned i2 = e2->get_id();
-        m_uf.merge(i1, i2);
-    }
-
     void mk_quantifier_instantiation::collect_egraph(expr* e) {
         expr* e1, *e2;
         m_todo.push_back(e);
@@ -186,12 +174,12 @@ namespace datalog {
             }
             unsigned n = e->get_id();
             if (n >= m_terms.size()) {
-                m_terms.resize(e->get_id()+1);
+                m_terms.resize(n+1);
             }
-            m_terms[e->get_id()] = e;
+            m_terms[n] = e;
             visited.mark(e);
             if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
-                merge(e1, e2);
+                m_uf.merge(e1->get_id(), e2->get_id());
             }
             if (is_app(e)) {
                 app* ap = to_app(e);
@@ -246,12 +234,23 @@ namespace datalog {
         TRACE("dl", r.display(m_ctx, tout); tout << mk_pp(fml, m) << "\n";);
         
         rule_ref_vector added_rules(rm);
-        proof_ref pr(m); // proofs are TBD.
+        proof_ref pr(m); 
         rm.mk_rule(fml, pr, added_rules);
+        if (r.get_proof()) {
+            // use def-axiom to encode that new rule is a weakening of the original.
+            proof* p1 = r.get_proof();
+            for (unsigned i = 0; i < added_rules.size(); ++i) {
+                rule* r2 = added_rules[i].get();
+                r2->to_formula(fml);
+                pr = m.mk_modus_ponens(m.mk_def_axiom(m.mk_implies(m.get_fact(p1), fml)), p1);
+                r2->set_proof(m, pr);
+            }
+        }
         rules.add_rules(added_rules.size(), added_rules.c_ptr());
     }
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
+        TRACE("dl", tout << m_ctx.get_params().instantiate_quantifiers() << "\n";);
         if (!m_ctx.get_params().instantiate_quantifiers()) {
             return 0;
         }
@@ -286,8 +285,7 @@ namespace datalog {
             }
         }
 
-        // model converter: TBD.
-        // proof converter: TBD.
+        // model convertion: identity function.
 
         if (!instantiated) {
             dealloc(result);

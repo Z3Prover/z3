@@ -302,14 +302,6 @@ namespace datalog {
         return m_preds.contains(pred);
     }
 
-    func_decl * context::try_get_predicate_decl(symbol pred_name) const {
-        func_decl * res;
-        if (!m_preds_by_name.find(pred_name, res)) {
-            return 0;
-        }
-        return res;
-    }
-
     void context::register_variable(func_decl* var) {
         m_vars.push_back(m.mk_const(var));
     }
@@ -361,7 +353,6 @@ namespace datalog {
         m_pinned.push_back(decl);
         m_preds.insert(decl);
         if (named) {
-            SASSERT(!m_preds_by_name.contains(decl->get_name()));
             m_preds_by_name.insert(decl->get_name(), decl);
         }
     }
@@ -448,7 +439,7 @@ namespace datalog {
         func_decl* new_pred = 
             m.mk_fresh_func_decl(prefix, suffix, arity, domain, m.mk_bool_sort());
 
-        register_predicate(new_pred);
+        register_predicate(new_pred, true);
 
         if (m_rel.get()) {
             m_rel->inherit_predicate_kind(new_pred, orig_pred);

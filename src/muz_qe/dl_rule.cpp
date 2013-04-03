@@ -135,7 +135,7 @@ namespace datalog {
         h.set_name(name);
         h(fml, p, fmls, prs);
         for (unsigned i = 0; i < h.get_fresh_predicates().size(); ++i) {
-            m_ctx.register_predicate(h.get_fresh_predicates()[i]);
+            m_ctx.register_predicate(h.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
             mk_rule_core2(fmls[i].get(), prs[i].get(), rules, name);

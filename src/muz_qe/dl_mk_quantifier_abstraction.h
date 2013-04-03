@@ -34,16 +34,19 @@ namespace datalog {
     class context;
 
     class mk_quantifier_abstraction : public rule_transformer::plugin {
+        class qa_model_converter;
         ast_manager& m;
         context&     m_ctx;
         array_util   a;
-        func_decl_ref_vector m_refs;
+        func_decl_ref_vector           m_refs;
         obj_map<func_decl, func_decl*> m_new2old;
         obj_map<func_decl, func_decl*> m_old2new;
+        qa_model_converter*            m_mc;
 
         func_decl* declare_pred(func_decl* old_p);
         app_ref mk_head(app* p, unsigned idx);
         app_ref mk_tail(app* p);
+        expr*   mk_select(expr* a, unsigned num_args, expr* const* args);
 
     public:
         mk_quantifier_abstraction(context & ctx, unsigned priority);
