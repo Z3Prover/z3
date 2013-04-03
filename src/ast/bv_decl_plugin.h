@@ -288,10 +288,10 @@ public:
     bool is_extract(expr const * e) const { return is_app_of(e, get_fid(), OP_EXTRACT); }
     unsigned get_extract_high(func_decl const * f) const { return f->get_parameter(0).get_int(); }
     unsigned get_extract_low(func_decl const * f) const { return f->get_parameter(1).get_int(); }
-    unsigned get_extract_high(expr const * n) { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
-    unsigned get_extract_low(expr const * n) { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
-    bool is_extract(expr const * e, unsigned & low, unsigned & high, expr * & b);
-    bool is_bv2int(expr const * e, expr * & r);
+    unsigned get_extract_high(expr const * n) const { SASSERT(is_extract(n)); return get_extract_high(to_app(n)->get_decl()); }
+    unsigned get_extract_low(expr const * n) const { SASSERT(is_extract(n)); return get_extract_low(to_app(n)->get_decl()); }
+    bool is_extract(expr const * e, unsigned & low, unsigned & high, expr * & b) const;
+    bool is_bv2int(expr const * e, expr * & r) const;
     bool is_bv_add(expr const * e) const { return is_app_of(e, get_fid(), OP_BADD); }
     bool is_bv_sub(expr const * e) const { return is_app_of(e, get_fid(), OP_BSUB); }
     bool is_bv_mul(expr const * e) const { return is_app_of(e, get_fid(), OP_BMUL); }
