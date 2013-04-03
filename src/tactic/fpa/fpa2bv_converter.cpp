@@ -1263,6 +1263,9 @@ void fpa2bv_converter::mk_float_eq(func_decl * f, unsigned num, expr * const * a
 
     expr * x = args[0], * y = args[1];
 
+    TRACE("fpa2bv_float_eq", tout << "X = " << mk_ismt2_pp(x, m) << std::endl; 
+                             tout << "Y = " << mk_ismt2_pp(y, m) << std::endl;);
+
     expr_ref c1(m), c2(m), x_is_nan(m), y_is_nan(m), x_is_zero(m), y_is_zero(m);
     mk_is_nan(x, x_is_nan);
     mk_is_nan(y, y_is_nan);
@@ -1290,6 +1293,8 @@ void fpa2bv_converter::mk_float_eq(func_decl * f, unsigned num, expr * const * a
     m_simp.mk_ite(c2, m.mk_true(), c3t4, c2else);
 
     m_simp.mk_ite(c1, m.mk_false(), c2else, result);
+
+    TRACE("fpa2bv_float_eq", tout << "FLOAT_EQ = " << mk_ismt2_pp(result, m) << std::endl; );
 }
 
 void fpa2bv_converter::mk_float_lt(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2314,9 +2319,10 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         unsigned ebits = fu.get_ebits(var->get_range());
         unsigned sbits = fu.get_sbits(var->get_range());
 
-        expr * sgn = bv_mdl->get_const_interp(to_app(a->get_arg(0))->get_decl());
-        expr * sig = bv_mdl->get_const_interp(to_app(a->get_arg(1))->get_decl());
-        expr * exp = bv_mdl->get_const_interp(to_app(a->get_arg(2))->get_decl());
+        expr_ref sgn(m), sig(m), exp(m);
+        sgn = bv_mdl->get_const_interp(to_app(a->get_arg(0))->get_decl());
+        sig = bv_mdl->get_const_interp(to_app(a->get_arg(1))->get_decl());
+        exp = bv_mdl->get_const_interp(to_app(a->get_arg(2))->get_decl());
 
         seen.insert(to_app(a->get_arg(0))->get_decl());
         seen.insert(to_app(a->get_arg(1))->get_decl());
@@ -2385,12 +2391,11 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
     for (unsigned i = 0; i < sz; i++)
     {
         func_decl * c = bv_mdl->get_constant(i);
-        if (seen.contains(c))
-            continue;
-        float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
+        if (!seen.contains(c))            
+            float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
     }
 
-// And keep everything else
+    // And keep everything else
     sz = bv_mdl->get_num_functions();
     for (unsigned i = 0; i < sz; i++)
     {
