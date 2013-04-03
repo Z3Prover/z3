@@ -899,7 +899,10 @@ namespace datalog {
         m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
 
 
-        m_transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, *this, 33000));
+        if (get_params().quantify_arrays()) {
+            m_transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, *this, 33000));
+            m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 32500));
+        }
         m_transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, *this, 32000));
 
         m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));

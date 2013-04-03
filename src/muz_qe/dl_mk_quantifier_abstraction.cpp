@@ -37,6 +37,7 @@ namespace datalog {
         func_decl_ref_vector    m_old_funcs;
         func_decl_ref_vector    m_new_funcs;
         vector<expr_ref_vector> m_subst;
+        vector<sort_ref_vector> m_sorts;
         vector<svector<bool> >  m_bound;
 
     public:
@@ -50,25 +51,27 @@ namespace datalog {
             return alloc(qa_model_converter, m);
         }
 
-        void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, svector<bool> const& bound) {
+        void insert(func_decl* old_p, func_decl* new_p, expr_ref_vector& sub, sort_ref_vector& sorts, svector<bool> const& bound) {
             m_old_funcs.push_back(old_p);
             m_new_funcs.push_back(new_p);
             m_subst.push_back(sub);
             m_bound.push_back(bound);
+            m_sorts.push_back(sorts);
         }
 
-        virtual void operator()(model_ref & model) {
+        virtual void operator()(model_ref & old_model) {
+            model_ref new_model = alloc(model, m);
             for (unsigned i = 0; i < m_new_funcs.size(); ++i) {
                 func_decl* p = m_new_funcs[i].get();
                 func_decl* q = m_old_funcs[i].get();
-                expr_ref_vector const& s = m_subst[i];
+                expr_ref_vector const& sub = m_subst[i];
+                sort_ref_vector const& sorts = m_sorts[i];
                 svector<bool> const& is_bound  = m_bound[i];
-                func_interp* f = model->get_func_interp(p);
+                func_interp* f = old_model->get_func_interp(p);
                 expr_ref body(m);                
                 unsigned arity_p = p->get_arity();
                 unsigned arity_q = q->get_arity();
                 SASSERT(0 < arity_p);
-                model->register_decl(p, f);
                 func_interp* g = alloc(func_interp, m, arity_q);
 
                 if (f) {
@@ -79,49 +82,56 @@ namespace datalog {
                 else {
                     body = m.mk_false();  
                 }
-                // TBD. create quantifier wrapper around body.
+                // Create quantifier wrapper around body.
 
+                TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 1. replace variables by the compound terms from 
                 //    the original predicate.
-                expr_safe_replace sub(m);
-                for (unsigned i = 0; i < s.size(); ++i) {
-                    sub.insert(m.mk_var(i, m.get_sort(s[i])), s[i]);
+                expr_safe_replace rep(m);
+                for (unsigned i = 0; i < sub.size(); ++i) {
+                    rep.insert(m.mk_var(i, m.get_sort(sub[i])), sub[i]);
                 }
-                sub(body);
-                sub.reset();
+                rep(body);
+                rep.reset();
 
+                TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 2. replace bound variables by constants.
                 expr_ref_vector consts(m), bound(m), free(m);
-                ptr_vector<sort> sorts;
                 svector<symbol> names;
-                for (unsigned i = 0; i < q->get_arity(); ++i) {
-                    sort* s = q->get_domain(i);
+                ptr_vector<sort> bound_sorts;
+                for (unsigned i = 0; i < sorts.size(); ++i) {
+                    sort* s = sorts[i];
                     consts.push_back(m.mk_fresh_const("C", s));
-                    sub.insert(m.mk_var(i, s), consts.back());
+                    rep.insert(m.mk_var(i, s), consts.back());
                     if (is_bound[i]) {
                         bound.push_back(consts.back());
                         names.push_back(symbol(i));
-                        sorts.push_back(s);
+                        bound_sorts.push_back(s);
                     }
                     else {
                         free.push_back(consts.back());
                     }
                 }
-                sub(body);                
-                sub.reset();
+                rep(body);                
+                rep.reset();
 
+                TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 3. abstract and quantify those variables that should be bound.
                 expr_abstract(m, 0, bound.size(), bound.c_ptr(), body, body);
-                body = m.mk_forall(names.size(), sorts.c_ptr(), names.c_ptr(), body);
+                body = m.mk_forall(names.size(), bound_sorts.c_ptr(), names.c_ptr(), body);
 
+                TRACE("dl", tout << mk_pp(body, m) << "\n";);
                 // 4. replace remaining constants by variables.                                
                 for (unsigned i = 0; i < free.size(); ++i) {
-                    sub.insert(free[i].get(), m.mk_var(i, m.get_sort(free[i].get())));
+                    rep.insert(free[i].get(), m.mk_var(i, m.get_sort(free[i].get())));
                 }
-                sub(body);                
+                rep(body);                
                 g->set_else(body);
-                model->register_decl(q, g);
+                TRACE("dl", tout << mk_pp(body, m) << "\n";);
+
+                new_model->register_decl(q, g);
             }  
+            old_model = new_model;
         }                        
     };
 
@@ -139,6 +149,10 @@ namespace datalog {
 
     func_decl* mk_quantifier_abstraction::declare_pred(func_decl* old_p) {
 
+        if (m_ctx.is_output_predicate(old_p)) {
+            return 0;
+        }
+
         unsigned sz = old_p->get_arity();
         unsigned num_arrays = 0;
         for (unsigned i = 0; i < sz; ++i) {
@@ -152,26 +166,29 @@ namespace datalog {
 
         func_decl* new_p = 0;
         if (!m_old2new.find(old_p, new_p)) {
-            expr_ref_vector sub(m);
-            svector<bool> bound;
-            sort_ref_vector domain(m);
+            expr_ref_vector sub(m), vars(m);
+            svector<bool> bound;            
+            sort_ref_vector domain(m), sorts(m);
             expr_ref arg(m);
             for (unsigned i = 0; i < sz; ++i) {
-                sort* s = old_p->get_domain(i);
+                sort* s0 = old_p->get_domain(i);
                 unsigned lookahead = 0;
-                sort* s0 = s;
-                while (a.is_array(s0)) {
-                    lookahead += get_array_arity(s0);
-                    s0 = get_array_range(s0);
+                sort* s = s0;
+                while (a.is_array(s)) {
+                    lookahead += get_array_arity(s);
+                    s = get_array_range(s);
                 }
-                arg = m.mk_var(bound.size() + lookahead, s);
+                arg = m.mk_var(bound.size() + lookahead, s0);
+                s = s0;
                 while (a.is_array(s)) {
                     unsigned arity = get_array_arity(s);
                     expr_ref_vector args(m);
                     for (unsigned j = 0; j < arity; ++j) {
-                        domain.push_back(get_array_domain(s, j));
-                        args.push_back(m.mk_var(bound.size(), domain.back()));
+                        sort* s1 = get_array_domain(s, j);
+                        domain.push_back(s1);
+                        args.push_back(m.mk_var(bound.size(), s1));
                         bound.push_back(true);
+                        sorts.push_back(s1);
                     }
                     arg = mk_select(arg, args.size(), args.c_ptr());
                     s = get_array_range(s);
@@ -179,14 +196,16 @@ namespace datalog {
                 domain.push_back(s);
                 bound.push_back(false);
                 sub.push_back(arg);
+                sorts.push_back(s0);
             }          
             SASSERT(old_p->get_range() == m.mk_bool_sort());
             new_p = m.mk_func_decl(old_p->get_name(), domain.size(), domain.c_ptr(), old_p->get_range());
             m_refs.push_back(new_p);
             m_ctx.register_predicate(new_p, false);
             if (m_mc) {
-                m_mc->insert(old_p, new_p, sub, bound);
+                m_mc->insert(old_p, new_p, sub, sorts, bound);
             }
+            m_old2new.insert(old_p, new_p);
         }
         return new_p;
     }
@@ -212,6 +231,11 @@ namespace datalog {
             }
             args.push_back(arg);
         }
+        TRACE("dl", 
+              tout << mk_pp(new_p, m) << "\n";
+              for (unsigned i = 0; i < args.size(); ++i) {
+                  tout << mk_pp(args[i].get(), m) << "\n";
+              });
         return app_ref(m.mk_app(new_p, args.size(), args.c_ptr()), m);        
     }
 
@@ -237,7 +261,7 @@ namespace datalog {
         for (unsigned i = 0; i < sz; ++i) {
             arg = ps->get_arg(i);
             sort* s = m.get_sort(arg);
-            bool is_pattern = false;
+            bool is_pattern = false;            
             while (a.is_array(s)) {
                 is_pattern = true;
                 unsigned arity = get_array_arity(s);
@@ -277,42 +301,49 @@ namespace datalog {
         if (!m_ctx.get_params().quantify_arrays()) {
             return 0;
         }
+        unsigned sz = source.get_num_rules();
+        for (unsigned i = 0; i < sz; ++i) {
+            rule& r = *source.get_rule(i);
+            if (r.has_negation()) {
+                return 0;
+            }
+        }
+
         m_refs.reset();
         m_old2new.reset();
         m_new2old.reset();
         rule_manager& rm = source.get_rule_manager();
-        rule_set * result = alloc(rule_set, m_ctx);
-        unsigned sz = source.get_num_rules();
         rule_ref new_rule(rm);
-        app_ref_vector tail(m);
+        expr_ref_vector tail(m);
         app_ref head(m);
-        svector<bool> neg;
+        expr_ref fml(m);
         rule_counter& vc = rm.get_counter();
 
         if (m_ctx.get_model_converter()) {
             m_mc = alloc(qa_model_converter, m);
         }
+        rule_set * result = alloc(rule_set, m_ctx);
 
-        for (unsigned i = 0; i < sz; ++i) {            
+        for (unsigned i = 0; i < sz; ++i) {      
             tail.reset();
-            neg.reset();
             rule & r = *source.get_rule(i);
+            TRACE("dl", r.display(m_ctx, tout); );      
             unsigned cnt = vc.get_max_rule_var(r)+1;
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();
             for (unsigned j = 0; j < utsz; ++j) {
                 tail.push_back(mk_tail(r.get_tail(j)));
-                neg.push_back(r.is_neg_tail(j));
             }
             for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(r.get_tail(j));
-                neg.push_back(false);
             }
             head = mk_head(r.get_head(), cnt);
-
-            new_rule = rm.mk(head, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
-            TRACE("dl", r.display(m_ctx, tout); new_rule->display(m_ctx, tout););
-            result->add_rule(new_rule);
+            fml = m.mk_implies(m.mk_and(tail.size(), tail.c_ptr()), head);
+            rule_ref_vector added_rules(rm);
+            proof_ref pr(m);
+            rm.mk_rule(fml, pr, added_rules);
+            result->add_rules(added_rules.size(), added_rules.c_ptr());
+            TRACE("dl", added_rules.back()->display(m_ctx, tout););
         }        
         
         // proof converter: proofs are not necessarily preserved using this transformation.
