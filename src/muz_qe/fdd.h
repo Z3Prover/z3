@@ -39,7 +39,7 @@ namespace fdd {
         unsigned   m_ref_count;
         void reset();
     public:
-	node() : m_var(0), m_hi(0), m_lo(0), m_ref_count(0) {}
+        node() : m_var(0), m_lo(0), m_hi(0), m_ref_count(0) {}
         node(unsigned var, node_id l, node_id h): m_var(var), m_lo(l), m_hi(h), m_ref_count(0) {}
 
         unsigned get_hash() const;        
@@ -93,9 +93,13 @@ namespace fdd {
     class manager {
     public:
         typedef int64 Key;
+        typedef node::hash node_hash;
+        typedef node::eq node_eq;
+        typedef config::hash config_hash;
+        typedef config::eq config_eq;
     private:
-        typedef map<node, unsigned, typename node::hash, typename node::eq>   node_table;
-        typedef map<config, node_id, typename config::hash, typename config::eq> insert_cache;
+        typedef map<node, unsigned, node_hash, node_eq>      node_table;
+        typedef map<config, node_id, config_hash, config_eq> insert_cache;
         node_table             m_table;
         insert_cache           m_insert_cache;
         svector<node>          m_nodes;

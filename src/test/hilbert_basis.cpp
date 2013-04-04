@@ -220,6 +220,7 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+#if 0
 static void validate_sat(hilbert_basis& hb) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -239,6 +240,7 @@ static void validate_sat(hilbert_basis& hb) {
     lbool r = sol->check_sat(0,0);
     std::cout << r << "\n";
 }
+#endif
 
 static void saturate_basis(hilbert_basis& hb) {
     signal(SIGINT, on_ctrl_c);

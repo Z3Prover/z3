@@ -54,7 +54,6 @@ namespace karr {
         SASSERT(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
-        bool first_initial = true;
         for (unsigned i = 0; i < basis_size; ++i) {
             bool is_initial;
             vector<rational> soln;
@@ -165,6 +164,7 @@ namespace karr {
         return v;
     }
 
+#if 0
     static vector<rational> V(int i, int j, int k, int l, int m) {
         vector<rational> v;
         v.push_back(rational(i));
@@ -174,6 +174,7 @@ namespace karr {
         v.push_back(rational(m));
         return v;
     }
+#endif
 
     static vector<rational> V(int i, int j, int k, int l, int x, int y, int z) {
         vector<rational> v;
