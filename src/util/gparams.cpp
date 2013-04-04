@@ -49,6 +49,7 @@ char const * g_params_renames[] = {
     "restart_factor", "smt.restart_factor",
     "arith_random_initial_value", "smt.arith.random_initial_value",
     "bv_reflect", "smt.bv.reflect",
+    "bv_enable_int2bv_propagation", "smt.bv.enable_int2bv",
     "qi_cost", "smt.qi.cost",
     "qi_eager_threshold", "smt.qi.eager_threshold",
     "nl_arith", "smt.arith.nl",
