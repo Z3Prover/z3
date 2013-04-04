@@ -20,7 +20,6 @@ Revision History:
 #define _DL_RULE_SET_H_
 
 #include"obj_hashtable.h"
-
 #include"dl_rule.h"
 
 namespace datalog {

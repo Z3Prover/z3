@@ -229,6 +229,7 @@ public:
                 status = dlctx.query(m_target);
             }
             catch (z3_error & ex) {
+                ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
                 throw ex;
             }
             catch (z3_exception& ex) {

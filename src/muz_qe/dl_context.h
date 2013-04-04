@@ -183,18 +183,22 @@ namespace datalog {
            retrieved by the try_get_predicate_decl() function. Auxiliary predicates introduced
            e.g. by rule transformations do not need to be named.
          */
-        void register_predicate(func_decl * pred, bool named = true);
+        void register_predicate(func_decl * pred, bool named);
 
         bool is_predicate(func_decl * pred) const;
-        
+
         /**
            \brief If a predicate name has a \c func_decl object assigned, return pointer to it;
            otherwise return 0.
-
+           
            Not all \c func_decl object used as relation identifiers need to be assigned to their
            names. Generally, the names coming from the parses are registered here.
-         */
-        func_decl * try_get_predicate_decl(symbol pred_name) const;
+        */
+        func_decl * try_get_predicate_decl(symbol const& pred_name) const {
+            func_decl * res = 0;
+            m_preds_by_name.find(pred_name, res);
+            return res;
+        }        
 
         /**
            \brief Create a fresh head predicate declaration.

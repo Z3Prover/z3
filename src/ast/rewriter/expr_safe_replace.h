@@ -38,6 +38,8 @@ public:
     void operator()(expr_ref& e) { (*this)(e.get(), e); }
 
     void operator()(expr* src, expr_ref& e);
+
+    void reset();
 };
 
 #endif /* __EXPR_SAFE_REPLACE_H__ */
