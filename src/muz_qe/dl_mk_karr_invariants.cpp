@@ -1015,7 +1015,6 @@ namespace datalog {
 
         virtual void operator()(relation_base & _r) {
             karr_relation & r = get(_r);
-            karr_relation_plugin & p = r.get_plugin();
             if (m_value.is_int()) {
                 r.get_ineqs();
                 vector<rational> row;

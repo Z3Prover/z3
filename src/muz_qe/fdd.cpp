@@ -42,11 +42,11 @@ bool node::operator==(node const& other) const {
 // ------------------------------------------
 // manager
 
-manager::manager() :  
+manager::manager() :
+    m_alloc_node(2),  
     m_false(0),
     m_true(1),
-    m_root(m_false),
-    m_alloc_node(2)
+    m_root(m_false)
 {
     m_nodes.push_back(node()); // false
     m_nodes.push_back(node()); // true
@@ -183,7 +183,6 @@ node_id manager::insert(unsigned idx, node_id n) {
 
     node nd = m_nodes[n];
     SASSERT(idx >= nd.var());
-    unsigned idx0 = idx;
     while (idx > nd.var()) {
         if (idx2bit(idx) && !is_dont_care(idx2key(idx))) {
             return mk_node(idx, n, insert(idx, n));
