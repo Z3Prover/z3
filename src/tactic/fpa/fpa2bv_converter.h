@@ -135,7 +135,7 @@ protected:
     void mk_bias(expr * e, expr_ref & result);
     void mk_unbias(expr * e, expr_ref & result);
 
-    void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, bool normalize);
+    void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize);
     void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);        
 
     void add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
