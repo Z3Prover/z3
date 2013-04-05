@@ -83,7 +83,6 @@ namespace datalog {
 
 
     void mk_quantifier_instantiation::instantiate_quantifier(quantifier* q, app* pat, expr_ref_vector & conjs) {
-        unsigned sz = pat->get_num_args();
         m_binding.reset();
         m_binding.resize(q->get_num_decls());
         term_pairs todo;

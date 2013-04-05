@@ -23,12 +23,12 @@ Revision History:
 #include "bit_vector.h"
 #include "trace.h"
 
-#define OFFSET_OF(ty, field) (unsigned char*)(&((ty*)(0))->field) - (unsigned char*)(ty*)(0)
+#define OFFSET_OF(th, ty, field) (unsigned char*)(&((ty*)(th))->field) - (unsigned char*)(ty*)(th)
 
 using namespace fdd;
 
 unsigned node::get_hash() const {
-    return string_hash((char*)this, OFFSET_OF(node, m_ref_count), 11);
+    return string_hash((char*)this, static_cast<unsigned>(OFFSET_OF(this, node, m_ref_count)), 11);
 }
 
 bool node::operator==(node const& other) const {
