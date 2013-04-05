@@ -711,11 +711,11 @@ void fpa2bv_converter::mk_div(func_decl * f, unsigned num, expr * const * args, 
     mk_is_ninf(y, c5);
     mk_ite(x_is_inf, nan, xy_zero, v5);
 
-    // (y is 0) -> if (x is 0) then NaN else inf with x's sign.
+    // (y is 0) -> if (x is 0) then NaN else inf with xor sign.
     c6 = y_is_zero;    
-    expr_ref x_sgn_inf(m);
-    mk_ite(x_is_pos, pinf, ninf, x_sgn_inf);
-    mk_ite(x_is_zero, nan, x_sgn_inf, v6);
+    expr_ref sgn_inf(m);
+    mk_ite(signs_xor, ninf, pinf, sgn_inf);
+    mk_ite(x_is_zero, nan, sgn_inf, v6);
 
     // (x is 0) -> result is zero with sgn = x.sgn^y.sgn
     // This is a special case to avoid problems with the unpacking of zero.
