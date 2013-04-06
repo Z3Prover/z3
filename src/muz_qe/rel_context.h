@@ -92,9 +92,14 @@ namespace datalog {
          */
         bool result_contains_fact(relation_fact const& f);
 
+        /** \brief add facts to relation
+        */
         void add_fact(func_decl* pred, relation_fact const& fact);
-
         void add_fact(func_decl* pred, table_fact const& fact);
+
+        /** \brief check if facts were added to relation
+        */
+        bool has_facts(func_decl * pred) const;
         
         /**
            \brief Store the relation \c rel under the predicate \c pred. The \c context object

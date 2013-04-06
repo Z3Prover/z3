@@ -780,6 +780,10 @@ namespace datalog {
         add_fact(head->get_decl(), fact);
     }
 
+    bool context::has_facts(func_decl * pred) const {
+        return m_rel && m_rel->has_facts(pred);
+    }
+
     void context::add_table_fact(func_decl * pred, const table_fact & fact) {
         if (get_engine() == DATALOG_ENGINE) {
             ensure_rel();

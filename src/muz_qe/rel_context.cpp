@@ -497,6 +497,11 @@ namespace datalog {
         }
     }
 
+    bool rel_context::has_facts(func_decl * pred) const {
+        relation_base* r = try_get_relation(pred);
+        return r && !r->empty();
+    }
+
     void rel_context::store_relation(func_decl * pred, relation_base * rel) {
         get_rmanager().store_relation(pred, rel);
     }
