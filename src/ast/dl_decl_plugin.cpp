@@ -636,9 +636,13 @@ namespace datalog {
 
     app* dl_decl_util::mk_numeral(uint64 value, sort* s) {
         if (is_finite_sort(s)) {
+            uint64 sz = 0;
+            if (try_get_size(s, sz) && sz <= value) {
+                m.raise_exception("value is out of bounds");
+            }
             parameter params[2] = { parameter(rational(value, rational::ui64())), parameter(s) };
             return m.mk_const(m.mk_func_decl(m_fid, OP_DL_CONSTANT, 2, params, 0, (sort*const*)0));
-        }
+        }        
         if (m_arith.is_int(s) || m_arith.is_real(s)) {
             return m_arith.mk_numeral(rational(value, rational::ui64()), s);
         }

@@ -1299,9 +1299,10 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
     if (is_small(a))
         return true;
 #ifndef _MP_GMP
-    if (!is_uint64(a)) 
+    if (!is_uint64(a)) {
         return false;
-    uint64 num = get_uint64(a);
+    }
+    uint64 num get_uint64(a);
     uint64 msb = static_cast<uint64>(1) << 63;
     uint64 msb_val = msb & num;
     if (a.m_val >= 0) {

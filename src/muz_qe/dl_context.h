@@ -185,7 +185,17 @@ namespace datalog {
          */
         void register_predicate(func_decl * pred, bool named);
 
-        bool is_predicate(func_decl * pred) const;
+        /**
+           Restrict reltaions to set of predicates.
+         */
+        void restrict_predicates(func_decl_set const& preds);
+
+        /**
+           \brief Retrieve predicates
+        */
+        func_decl_set const& get_predicates() const { return m_preds; }
+        bool is_predicate(func_decl* pred) const { return m_preds.contains(pred); }
+        bool is_predicate(expr * e) const { return is_app(e) && is_predicate(to_app(e)->get_decl()); }
 
         /**
            \brief If a predicate name has a \c func_decl object assigned, return pointer to it;
@@ -238,11 +248,9 @@ namespace datalog {
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
             symbol const *  relation_names);
 
-        void set_output_predicate(func_decl * pred);
-        bool is_output_predicate(func_decl * pred);
-        const decl_set & get_output_predicates();
+        void set_output_predicate(func_decl * pred) { m_rule_set.set_output_predicate(pred); }
 
-        rule_set const & get_rules() { flush_add_rules(); return m_rule_set; }
+        rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
         void get_rules_as_formulas(expr_ref_vector& fmls, svector<symbol>& names);
 
@@ -251,7 +259,6 @@ namespace datalog {
 
         
         void add_rule(rule_ref& r);
-        void add_rules(rule_ref_vector& rs);
         
         void assert_expr(expr* e);
         expr_ref get_background_assertion();
@@ -329,7 +336,8 @@ namespace datalog {
 
         void transform_rules(); 
         void transform_rules(rule_transformer& transf); 
-        void replace_rules(rule_set & rs);
+        void transform_rules(rule_transformer::plugin* plugin);
+        void replace_rules(rule_set const& rs);
         void record_transformed_rules();
 
         void apply_default_transformation(); 
@@ -337,14 +345,6 @@ namespace datalog {
         void collect_params(param_descrs& r);
         
         void updt_params(params_ref const& p);
-
-        void collect_predicates(decl_set & res);
-        /**
-           \brief Restrict the set of used predicates to \c res.
-
-           The function deallocates unsused relations, it does not deal with rules.
-         */
-        void restrict_predicates(const decl_set & res);
 
         void display_rules(std::ostream & out) const {
             m_rule_set.display(out);

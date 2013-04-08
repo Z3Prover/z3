@@ -26,6 +26,7 @@ namespace datalog {
 
     class mk_loop_counter : public rule_transformer::plugin {
         ast_manager& m;
+        context&     m_ctx;
         arith_util   a;
         func_decl_ref_vector m_refs;
         obj_map<func_decl, func_decl*> m_new2old;

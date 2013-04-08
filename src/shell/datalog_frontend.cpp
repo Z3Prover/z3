@@ -175,8 +175,6 @@ unsigned read_datalog(char const * file) {
     TRACE("dl_compiler", ctx.display(tout););
 
     datalog::rule_set original_rules(ctx.get_rules());
-    datalog::decl_set original_predicates;
-    ctx.collect_predicates(original_predicates);
 
     datalog::instruction_block rules_code;
     datalog::instruction_block termination_code;
@@ -237,7 +235,6 @@ unsigned read_datalog(char const * file) {
                 termination_code.reset();
                 ex_ctx.reset();
                 ctx.reopen();
-                ctx.restrict_predicates(original_predicates);
                 ctx.replace_rules(original_rules);
                 ctx.close();
             }
@@ -248,7 +245,7 @@ unsigned read_datalog(char const * file) {
               rules_code.display(ctx.get_rel_context(), tout););
         
         if (ctx.get_params().output_tuples()) {
-            ctx.get_rel_context().display_output_facts(std::cout);
+            ctx.get_rel_context().display_output_facts(ctx.get_rules(), std::cout);
         }
 
         display_statistics(

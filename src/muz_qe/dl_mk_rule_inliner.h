@@ -129,7 +129,7 @@ namespace datalog {
 
         bool try_to_inline_rule(rule& tgt, rule& src, unsigned tail_index, rule_ref& res);
 
-        bool inlining_allowed(func_decl * pred);
+        bool inlining_allowed(rule_set const& orig, func_decl * pred);
 
         void count_pred_occurrences(rule_set const & orig);
 
@@ -143,7 +143,7 @@ namespace datalog {
         bool forbid_multiple_multipliers(const rule_set & orig, rule_set const & proposed_inlined_rules);
 
         /** Return true if the rule was modified */
-        bool transform_rule(rule * r, rule_set& tgt);
+        bool transform_rule(rule_set const& orig, rule * r, rule_set& tgt);
         
         /** Return true if some transformation was performed */
         bool transform_rules(const rule_set & orig, rule_set & tgt);

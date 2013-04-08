@@ -445,40 +445,8 @@ public:
         ctx.insert(var);
         m_dl_ctx->dlctx().register_variable(var);
     }
-
 };
 
-class dl_push_cmd : public cmd {
-    ref<dl_context>   m_ctx;    
-public:
-    dl_push_cmd(dl_context* ctx):
-        cmd("fixedpoint-push"),
-        m_ctx(ctx)
-    {}
-
-    virtual char const * get_usage() const { return ""; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "push context on the fixedpoint engine"; }
-        
-    virtual void execute(cmd_context& ctx) {
-        m_ctx->push();
-    }
-};
-
-class dl_pop_cmd : public cmd {
-    ref<dl_context>   m_ctx;    
-public:
-    dl_pop_cmd(dl_context* ctx):
-        cmd("fixedpoint-pop"),
-        m_ctx(ctx)
-    {}
-
-    virtual char const * get_usage() const { return ""; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "pop context on the fixedpoint engine"; }
-        
-    virtual void execute(cmd_context& ctx) {
-        m_ctx->pop();
-    }
-};
 
 static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_cmds) {
     dl_context * dl_ctx = alloc(dl_context, ctx, collected_cmds);
@@ -486,10 +454,6 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
     ctx.insert(alloc(dl_query_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_rel_cmd, dl_ctx));
     ctx.insert(alloc(dl_declare_var_cmd, dl_ctx));
-#ifndef _EXTERNAL_RELEASE
-    ctx.insert(alloc(dl_push_cmd, dl_ctx)); // not exposed to keep command-extensions simple.
-    ctx.insert(alloc(dl_pop_cmd, dl_ctx));
-#endif
 }
 
 void install_dl_cmds(cmd_context & ctx) {

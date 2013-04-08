@@ -500,6 +500,9 @@ namespace datalog {
         char * reserve = m_data.get_reserve_ptr();
         unsigned col_cnt = m_column_layout.size();
         for(unsigned i=0; i<col_cnt; i++) {
+            if (f[i] >= get_signature()[i]) {
+                std::cout << f[i] << " " << get_signature()[i] << "\n";
+            }
             SASSERT(f[i]<get_signature()[i]); //the value fits into the table signature
             m_column_layout.set(reserve, i, f[i]);
         }

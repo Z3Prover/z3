@@ -59,7 +59,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     }
     relation_manager & rel_mgr_q = ctx_b.get_rel_context().get_rmanager();
 
-    decl_set out_preds = ctx_b.get_output_predicates();
+    decl_set out_preds = ctx_b.get_rules().get_output_predicates();
     decl_set::iterator it = out_preds.begin();
     decl_set::iterator end = out_preds.end();
     for(; it!=end; ++it) {

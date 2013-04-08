@@ -703,7 +703,7 @@ namespace datalog {
         m_pinned.reset();
     }
         
-    void mk_slice::declare_predicates() {
+    void mk_slice::declare_predicates(rule_set const& src, rule_set& dst) {
         obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
         ptr_vector<sort> domain;
         func_decl* f;
@@ -720,6 +720,7 @@ namespace datalog {
                 f = m_ctx.mk_fresh_head_predicate(p->get_name(), symbol("slice"), domain.size(), domain.c_ptr(), p);
                 m_pinned.push_back(f);
                 m_predicates.insert(p, f);
+                dst.inherit_predicate(src, p, f);
                 if (m_mc) {
                     m_mc->add_predicate(p, f);
                 }
@@ -820,13 +821,14 @@ namespace datalog {
         m_mc = smc.get();
         reset();
         saturate(src);
-        declare_predicates();
+        rule_set* result = alloc(rule_set, m_ctx);
+        declare_predicates(src, *result);
         if (m_predicates.empty()) {
             // nothing could be sliced.
+            dealloc(result);
             return 0;
         }
         TRACE("dl", display(tout););        
-        rule_set* result = alloc(rule_set, m_ctx);
         update_rules(src, *result);
         TRACE("dl", result->display(tout););
         if (m_mc) {

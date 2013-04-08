@@ -44,7 +44,6 @@ namespace datalog {
     public:
         qlinear(bmc& b): b(b), m(b.m), m_bv(m), m_bit_width(1) {}
 
-
         lbool check() {
             setup();
             m_bit_width = 4;
@@ -1416,19 +1415,12 @@ namespace datalog {
     lbool bmc::query(expr* query) {
         m_solver.reset();
         m_answer = 0;
-
         m_ctx.ensure_opened();
         m_rules.reset();
-
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
-        datalog::rule_set        old_rules(m_ctx.get_rules());
-        datalog::rule_ref_vector query_rules(rule_manager);
-        datalog::rule_ref        query_rule(rule_manager);
-        rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
-        m_ctx.add_rules(query_rules);
-        expr_ref bg_assertion = m_ctx.get_background_assertion();
-        
-        m_ctx.set_output_predicate(m_query_pred);
+        datalog::rule_set old_rules(m_ctx.get_rules());
+        rule_manager.mk_query(query, m_ctx.get_rules());
+        expr_ref bg_assertion = m_ctx.get_background_assertion();        
         m_ctx.apply_default_transformation();
         
         if (m_ctx.get_params().slice()) {
@@ -1436,10 +1428,9 @@ namespace datalog {
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);
             m_ctx.transform_rules(transformer);
-            m_query_pred = slice->get_predicate(m_query_pred.get());
-            m_ctx.set_output_predicate(m_query_pred);
         }
-        m_rules.add_rules(m_ctx.get_rules());
+        m_query_pred = m_ctx.get_rules().get_output_predicate();
+        m_rules.replace_rules(m_ctx.get_rules());
         m_rules.close();
         m_ctx.reopen();
         m_ctx.replace_rules(old_rules);

@@ -32,19 +32,13 @@ namespace datalog {
 
         typedef obj_map<func_decl, func_decl *> decl_map;
 
-        ast_manager & m_manager;
-        context & m_context;
+        ast_manager &  m_manager;
+        context &      m_context;
         dl_decl_util & m_decl_util;
-
-        bool m_relation_level;
-
-        decl_set m_original_preds;
-
+        bool           m_relation_level;
         ast_ref_vector m_pinned;
-
         explanation_relation_plugin * m_er_plugin;
-
-        sort * m_e_sort;
+        sort *         m_e_sort;
         scoped_rel<explanation_relation> m_e_fact_relation;
 
         decl_map m_e_decl_map;
@@ -62,15 +56,15 @@ namespace datalog {
         void assign_rel_level_kind(func_decl * e_decl, func_decl * orig);
         void translate_rel_level_relation(relation_manager & rmgr, relation_base & orig, relation_base & e_rel);
 
-        void transform_rules(const rule_set & orig, rule_set & tgt);
+        void transform_rules(const rule_set & src, rule_set & dst);
         
-        void transform_facts(relation_manager & rmgr);
+        void transform_facts(relation_manager & rmgr, rule_set const& src, rule_set& dst);
     public:
         /**
            If relation_level is true, the explanation will not be stored for each fact,
            but we will rather store history of the whole relation.
         */
-        mk_explanations(context & ctx, bool relation_level);
+        mk_explanations(context & ctx);
 
         /**
            \brief Return explanation predicate that corresponds to \c orig_decl.
