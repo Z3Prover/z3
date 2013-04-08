@@ -168,6 +168,7 @@ class mpz_manager {
     mpz_t  *  m_arg[2];
     mpz_t     m_uint64_max;
     mpz_t     m_int64_max;
+    mpz_t     m_int64_min;
 
     mpz_t * allocate() {
         mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));

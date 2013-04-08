@@ -171,7 +171,7 @@ static void tst2() {
 
 
     rational int64_max("9223372036854775807");
-    rational int64_min(-int64_max - rational(1));
+    rational int64_min((-int64_max) - rational(1));
     // is_int64
     SASSERT(int64_max.is_int64());
     SASSERT(int64_min.is_int64());

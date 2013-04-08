@@ -128,6 +128,8 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_mul(m_int64_max, m_tmp, m_int64_max);
     mpz_set_ui(m_tmp, max_l);
     mpz_add(m_int64_max, m_tmp, m_int64_max);
+    mpz_neg(m_int64_min, m_int64_max);
+    mpz_sub_ui(m_int64_min, m_int64_min, 1);
 #endif
     
     mpz one(1);
@@ -152,6 +154,7 @@ mpz_manager<SYNCH>::~mpz_manager() {
     deallocate(m_arg[1]);
     mpz_clear(m_uint64_max);
     mpz_clear(m_int64_max);
+    mpz_clear(m_int64_min);
 #endif
     if (SYNCH)
         omp_destroy_nest_lock(&m_lock);
@@ -1317,7 +1320,7 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
     }
 #else
     // GMP version
-    return mpz_cmp(*a.m_ptr, m_int64_max) <= 0;
+    return mpz_cmp(m_int64_min, *a.m_ptr) <= 0 && mpz_cmp(*a.m_ptr, m_int64_max) <= 0;
 #endif
 }
 
