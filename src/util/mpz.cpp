@@ -1299,9 +1299,9 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
     if (is_small(a))
         return true;
 #ifndef _MP_GMP
-    if (!is_uint64(a)) 
+    if (!is_abs_uint64(a)) 
         return false;
-    uint64 num = get_uint64(a);
+    uint64 num = big_abs_to_uint64(a);
     uint64 msb = static_cast<uint64>(1) << 63;
     uint64 msb_val = msb & num;
     if (a.m_val >= 0) {
@@ -1327,14 +1327,7 @@ uint64 mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
         return static_cast<uint64>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(a.m_ptr->m_size > 0);
-    if (a.m_ptr->m_size == 1)
-        return digits(a)[0];
-    if (sizeof(digit_t) == sizeof(uint64))
-        // 64-bit machine
-        return digits(a)[0];
-    else 
-        // 32-bit machine
-        return ((static_cast<uint64>(digits(a)[1]) << 32) | (static_cast<uint64>(digits(a)[0])));
+    return big_abs_to_uint64(a);
 #else
     // GMP version
     if (sizeof(uint64) == sizeof(unsigned long)) {
@@ -1359,7 +1352,7 @@ int64 mpz_manager<SYNCH>::get_int64(mpz const & a) const {
         return static_cast<int64>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(is_int64(a));
-    uint64 num = get_uint64(a);
+    uint64 num = big_abs_to_uint64(a);
     if (a.m_val < 0) {
         if (num != 0 && (num << 1) == 0)
             return INT64_MIN;
