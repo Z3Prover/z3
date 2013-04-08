@@ -120,6 +120,7 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_set_ui(m_tmp, max_l);
     mpz_add(m_uint64_max, m_uint64_max, m_tmp);
     mpz_init(m_int64_max);
+    mpz_init(m_int64_min);
 
     max_l = static_cast<unsigned>(INT64_MAX % static_cast<int64>(UINT_MAX));
     max_h = static_cast<unsigned>(INT64_MAX / static_cast<int64>(UINT_MAX));
