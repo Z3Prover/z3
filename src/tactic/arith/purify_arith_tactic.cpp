@@ -595,63 +595,6 @@ struct purify_arith_proc {
             m_cfg(o) {
         }
     };
-
-    /**
-       \brief Return the number of (auxiliary) variables needed for converting an expression.
-    */
-    struct num_vars_proc {
-        arith_util &     m_util;
-        expr_fast_mark1  m_visited;
-        ptr_vector<expr> m_todo;
-        unsigned         m_num_vars;
-        bool             m_elim_root_objs;
-        
-        num_vars_proc(arith_util & u, bool elim_root_objs):
-            m_util(u),
-            m_elim_root_objs(elim_root_objs) {
-        }
-        
-        void visit(expr * t) {
-            if (m_visited.is_marked(t)) 
-                return;
-            m_visited.mark(t);
-            m_todo.push_back(t);
-        }
-        
-        void process(app * t) {
-            if (t->get_family_id() == m_util.get_family_id()) {
-                if (m_util.is_power(t)) {
-                    rational k;
-                    if (m_util.is_numeral(t->get_arg(1), k) && (k.is_zero() || !k.is_int())) {
-                        m_num_vars++;
-                    }
-                }
-                else if (m_util.is_div(t)    || 
-                         m_util.is_idiv(t)   || 
-                         m_util.is_mod(t)    || 
-                         m_util.is_to_int(t) || 
-                         (m_util.is_irrational_algebraic_numeral(t) && m_elim_root_objs)) {
-                    m_num_vars++;
-                }
-            }
-            unsigned num_args = t->get_num_args();
-            for (unsigned i = 0; i < num_args; i++)
-                visit(t->get_arg(i));
-        }
-        
-        unsigned operator()(expr * t) {
-            m_num_vars = 0;
-            visit(t);
-            while (!m_todo.empty()) {
-                expr * t = m_todo.back();
-                m_todo.pop_back();
-                if (is_app(t)) 
-                    process(to_app(t));
-            }
-            m_visited.reset();
-            return m_num_vars;
-        }
-    };
     
     void process_quantifier(quantifier * q, expr_ref & result, proof_ref & result_pr) { 
         result_pr = 0;
