@@ -278,6 +278,37 @@ public:
       interps[i] = i < _interps.size() ? _interps[i] : mk_false();
   }
 
+  bool has_interp(hash_map<ast,bool> &memo, const ast &t){
+    if(memo.find(t) != memo.end())
+      return memo[t];
+    bool res = false;
+    if(op(t) == Interp)
+      res = true;
+    else if(op(t) == And){
+      int nargs = num_args(t);
+      for(int i = 0; i < nargs; i++)
+	res |= has_interp(memo, arg(t,i));
+    }
+    memo[t] = res;
+    return res;
+  }
+
+  void collect_conjuncts(std::vector<ast> &cnsts, hash_map<ast,bool> &memo, const ast &t){
+    if(!has_interp(memo,t))
+      cnsts.push_back(t);
+    else {
+      int nargs = num_args(t);
+      for(int i = 0; i < nargs; i++)
+	collect_conjuncts(cnsts, memo, arg(t,i));
+    }
+  }
+  
+  void assert_conjuncts(solver &s, std::vector<ast> &cnsts, const ast &t){
+    hash_map<ast,bool> memo;    
+    collect_conjuncts(cnsts,memo,t);
+    for(unsigned i = 0; i < cnsts.size(); i++)
+      s.assert_expr(to_expr(cnsts[i].raw()));
+  }
 
   iz3interp(ast_manager &_m_manager)
     : iz3base(_m_manager) {}
@@ -327,6 +358,37 @@ void iz3interpolate(ast_manager &_m_manager,
   interps.resize(_interps.size());
   for(unsigned i = 0; i < interps.size(); i++)
     interps[i] = itp.uncook(_interps[i]);
+}
+
+lbool iz3interpolate(ast_manager &_m_manager,
+		     solver &s,
+		     ast *tree,
+		     ptr_vector<ast> &cnsts,
+		     ptr_vector<ast> &interps,
+		     model_ref &m,
+		     interpolation_options_struct * options)
+{
+  iz3interp itp(_m_manager);
+  iz3mgr::ast _tree = itp.cook(tree);
+  std::vector<iz3mgr::ast> _cnsts;
+  itp.assert_conjuncts(s,_cnsts,_tree);
+  lbool res = s.check_sat(0,0);
+  if(res == l_false){
+    ast *proof = s.get_proof();
+    iz3mgr::ast _proof = itp.cook(proof);
+    std::vector<iz3mgr::ast> _interps;
+    itp.proof_to_interpolant(_proof,_cnsts,_tree,_interps,options);
+    interps.resize(_interps.size());
+    for(unsigned i = 0; i < interps.size(); i++)
+      interps[i] = itp.uncook(_interps[i]);
+  }
+  else if(m){
+    s.get_model(m);
+  }
+  cnsts.resize(_cnsts.size());
+  for(unsigned i = 0; i < cnsts.size(); i++)
+    cnsts[i] = itp.uncook(_cnsts[i]);
+  return res;
 }
 
 

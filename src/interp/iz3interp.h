@@ -21,6 +21,7 @@ Revision History:
 #define IZ3_INTERP_H
 
 #include "iz3hash.h"
+#include "solver.h"
 
 struct interpolation_options_struct {
   stl_ext::hash_map<std::string,std::string> map;
@@ -37,6 +38,9 @@ struct iz3_incompleteness {
 
 typedef interpolation_options_struct *interpolation_options;
 
+/* Compute an interpolant from a proof. This version uses the parents vector
+   representation, for compatibility with the old API. */
+
 void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
 		    const ptr_vector<ast> &cnsts,
@@ -45,11 +49,28 @@ void iz3interpolate(ast_manager &_m_manager,
 		    const ptr_vector<ast> &theory,
 		    interpolation_options_struct * options = 0);
 
+/* Compute an interpolant from a proof. This version uses the ast
+   representation, for compatibility with the new API. */
+
 void iz3interpolate(ast_manager &_m_manager,
 		    ast *proof,
 		    const ptr_vector<ast> &cnsts,
 		    ast *tree,
 		    ptr_vector<ast> &interps,
 		    interpolation_options_struct * options);
+
+/* Compute an interpolant from an ast representing an interpolation
+   problem, if unsat, else return a model (if enabled). Uses the
+   given solver to produce the proof/model. Also returns a vector
+   of the constraints in the problem, helpful for checking correctness.
+*/
+
+lbool iz3interpolate(ast_manager &_m_manager,
+		     solver &s,
+		     ast *tree,
+		     ptr_vector<ast> &cnsts,
+		     ptr_vector<ast> &interps,
+		     model_ref &m,
+		     interpolation_options_struct * options);
 
 #endif

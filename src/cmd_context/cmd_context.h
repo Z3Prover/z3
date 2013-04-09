@@ -255,6 +255,7 @@ public:
     void reset_cancel() { set_cancel(false); }
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
+    solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
     bool set_logic(symbol const & s);
     bool has_logic() const { return m_logic != symbol::null; }
