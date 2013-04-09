@@ -29,6 +29,7 @@ Revision History:
 #include"th_rewriter.h"
 #include"filter_model_converter.h"
 #include"ast_smt2_pp.h"
+#include"expr_replacer.h"
 
 /*
 ----
@@ -131,18 +132,16 @@ struct purify_arith_proc {
         proof_ref_vector     m_new_cnstr_prs;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
-        bool                 m_in_q;
-        unsigned             m_var_idx;
+        expr_ref_vector      m_new_vars;
 
-        rw_cfg(purify_arith_proc & o, bool in_q):
+        rw_cfg(purify_arith_proc & o):
             m_owner(o),
             m_pinned(o.m()),
             m_new_cnstrs(o.m()),
             m_new_cnstr_prs(o.m()),
             m_subst(o.m()),
             m_subst_pr(o.m()),
-            m_in_q(in_q),
-            m_var_idx(0) {
+            m_new_vars(o.m()) {
         }
 
         ast_manager & m() { return m_owner.m(); }
@@ -155,14 +154,9 @@ struct purify_arith_proc {
         bool elim_inverses() const { return m_owner.m_elim_inverses; }
 
         expr * mk_fresh_var(bool is_int) {
-            if (m_in_q) {
-                unsigned idx = m_var_idx;
-                m_var_idx++;
-                return m().mk_var(idx, is_int ? u().mk_int() : u().mk_real());
-            }
-            else {
-                return m().mk_fresh_const(0, is_int ? u().mk_int() : u().mk_real());
-            }
+            expr * r = m().mk_fresh_const(0, is_int ? u().mk_int() : u().mk_real());
+            m_new_vars.push_back(r);
+            return r;
         }
 
         expr * mk_fresh_real_var() { return mk_fresh_var(false); }
@@ -596,9 +590,9 @@ struct purify_arith_proc {
 
     struct rw : public rewriter_tpl<rw_cfg> {
         rw_cfg m_cfg;
-        rw(purify_arith_proc & o, bool in_q):
+        rw(purify_arith_proc & o):
             rewriter_tpl<rw_cfg>(o.m(), o.m_produce_proofs, m_cfg),
-            m_cfg(o, in_q) {
+            m_cfg(o) {
         }
     };
 
@@ -661,40 +655,43 @@ struct purify_arith_proc {
     
     void process_quantifier(quantifier * q, expr_ref & result, proof_ref & result_pr) { 
         result_pr = 0;
-        num_vars_proc p(u(), m_elim_root_objs);
-        expr_ref body(m());
-        unsigned num_vars = p(q->get_expr());
-        if (num_vars > 0) {
-            // open space for aux vars
-            var_shifter shifter(m());
-            shifter(q->get_expr(), num_vars, body);
-        }
-        else {
-            body = q->get_expr();
-        }
-
-        rw r(*this, true);
+        rw r(*this);
         expr_ref new_body(m());
         proof_ref new_body_pr(m());
-        r(body, new_body, new_body_pr);
+        r(q->get_expr(), new_body, new_body_pr);
+        unsigned num_vars = r.cfg().m_new_vars.size();
         TRACE("purify_arith", 
               tout << "num_vars: " << num_vars << "\n";
-              tout << "body: " << mk_ismt2_pp(body, m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
+              tout << "body: " << mk_ismt2_pp(q->get_expr(), m()) << "\nnew_body: " << mk_ismt2_pp(new_body, m()) << "\n";);
         if (num_vars == 0) {
+            SASSERT(r.cfg().m_new_cnstrs.empty());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs)
                 result_pr = m().mk_quant_intro(q, to_quantifier(result.get()), result_pr);
         }
         else {
+            // Add new constraints
             expr_ref_vector & cnstrs = r.cfg().m_new_cnstrs;
             cnstrs.push_back(new_body);
             new_body = m().mk_and(cnstrs.size(), cnstrs.c_ptr());
+            // Open space for new variables
+            var_shifter shifter(m());
+            shifter(new_body, num_vars, new_body);
+            // Rename fresh constants in r.cfg().m_new_vars to variables
             ptr_buffer<sort> sorts;
             buffer<symbol>   names;
+            expr_substitution subst(m(), false, false);
             for (unsigned i = 0; i < num_vars; i++) {
-                sorts.push_back(u().mk_real());
+                expr * c = r.cfg().m_new_vars.get(i);
+                sort * s = get_sort(c);
+                sorts.push_back(s);
                 names.push_back(m().mk_fresh_var_name("x"));
+                unsigned idx = num_vars - i - 1;
+                subst.insert(c, m().mk_var(idx, s));
             }
+            scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m());
+            replacer->set_substitution(&subst);
+            (*replacer)(new_body, new_body);
             new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body);
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
@@ -708,7 +705,7 @@ struct purify_arith_proc {
     }
 
     void operator()(goal & g, model_converter_ref & mc, bool produce_models) {
-        rw r(*this, false);
+        rw r(*this);
         // purify
         expr_ref   new_curr(m());
         proof_ref  new_pr(m());
