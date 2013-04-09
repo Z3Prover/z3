@@ -4515,6 +4515,15 @@ END_MLAPI_EXCLUDE
     Z3_ast_opt Z3_API Z3_model_get_const_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl a);
 
     /**
+       \brief Test if there exists an interpretation (i.e., assignment) of constant \c a in the model \c m.
+
+       \pre Z3_get_arity(c, a) == 0
+
+       def_API('Z3_model_has_interp', BOOL, (_in(CONTEXT), _in(MODEL), _in(FUNC_DECL)))
+    */
+    Z3_bool Z3_API Z3_model_has_interp(__in Z3_context c, __in Z3_model m, __in Z3_func_decl a);
+
+    /**
        \brief Return the interpretation of the function \c f in the model \c m.
        Return \mlonly [None], \endmlonly \conly \c NULL,
        if the model does not assign an interpretation for \c f. 
