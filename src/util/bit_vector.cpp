@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-
+#include<limits.h>
 #include"bit_vector.h"
 #include"trace.h"
 
@@ -116,7 +116,7 @@ void bit_vector::shift_right(unsigned k) {
     }
 }
 
-bool bit_vector::operator==(bit_vector const & source) {
+bool bit_vector::operator==(bit_vector const & source) const {
     if (m_num_bits != source.m_num_bits)
         return false;
     unsigned n = num_words();
@@ -129,6 +129,7 @@ bool bit_vector::operator==(bit_vector const & source) {
     }
     unsigned bit_rest = source.m_num_bits % 32;
     unsigned mask = (1 << bit_rest) - 1;
+    if (mask == 0) mask = UINT_MAX;
     return (m_data[i] & mask) == (source.m_data[i] & mask);
 }
 

@@ -42,13 +42,13 @@ Revision History:
 #include"bool_rewriter.h"
 #include"qe_lite.h"
 #include"expr_safe_replace.h"
+#include"hnf.h"
 
 namespace datalog {
 
     rule_manager::rule_manager(context& ctx) 
         : m(ctx.get_manager()),
-        m_ctx(ctx),
-        m_refs(ctx.get_manager()) {}
+          m_ctx(ctx) {}
 
     bool rule_manager::is_predicate(func_decl * f) const {
         return m_ctx.is_predicate(f);
@@ -56,16 +56,16 @@ namespace datalog {
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
-            SASSERT(r->m_ref_cnt!=UINT_MAX);
+            SASSERT(r->m_ref_cnt != UINT_MAX);
             r->m_ref_cnt++;
         }
     }
 
     void rule_manager::dec_ref(rule * r) {
         if (r) {
-            SASSERT(r->m_ref_cnt>0);
+            SASSERT(r->m_ref_cnt > 0);
             r->m_ref_cnt--;
-            if (r->m_ref_cnt==0) {
+            if (r->m_ref_cnt == 0) {
                 r->deallocate(m);
             }
         }
@@ -89,106 +89,32 @@ namespace datalog {
         }
     };
 
-    void rule_manager::remove_labels(expr_ref& fml) {
+    void rule_manager::remove_labels(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
         remove_label_cfg r_cfg(m);
         rewriter_tpl<remove_label_cfg> rwr(m, false, r_cfg);
         rwr(fml, tmp);
+        if (pr && fml != tmp) {
+            
+            pr = m.mk_modus_ponens(pr, m.mk_rewrite(fml, tmp));
+        }
         fml = tmp;
     }
 
 
-    void rule_manager::mk_rule(expr* fml, rule_ref_vector& rules, symbol const& name) {              
+    void rule_manager::mk_rule(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {              
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        proof_ref pr(p, m);
         expr_ref fml1(m);
-        m_memoize_disj.reset();
-        m_refs.reset();
         bind_variables(fml, true, fml1);
-        remove_labels(fml1);
-        mk_rule_core(fml1, rules, name);
+        if (fml1 != fml && pr) {
+            pr = m.mk_asserted(fml1);
+        }
+        remove_labels(fml1, pr);        
+        mk_rule_core_new(fml1, pr, rules, name);
     }
 
-    // 
-    // Hoist quantifier from rule (universal) or query (existential)
-    // 
-    unsigned rule_manager::hoist_quantifier(bool is_forall, expr_ref& fml, svector<symbol>* names) {   
-
-        unsigned index = var_counter().get_next_var(fml);
-        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
-            quantifier* q = to_quantifier(fml);
-            index += q->get_num_decls();
-            if (names) {
-                names->append(q->get_num_decls(), q->get_decl_names());
-            }
-            fml = q->get_expr();
-        }
-        if (!has_quantifiers(fml)) {
-            return index;
-        }
-        app_ref_vector vars(m);
-        quantifier_hoister qh(m);
-        qh.pull_quantifier(is_forall, fml, vars);
-        if (vars.empty()) {
-            return index;
-        }
-        // replace vars by de-bruijn indices
-        expr_safe_replace rep(m);
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            app* v = vars[i].get();
-            if (names) {
-                names->push_back(v->get_decl()->get_name());
-            }                
-            rep.insert(v, m.mk_var(index++,m.get_sort(v)));
-        }
-        rep(fml);
-        return index;
-    }
-
-    void rule_manager::mk_rule_core(expr* _fml, rule_ref_vector& rules, symbol const& name) {
-        app_ref_vector body(m);
-        app_ref head(m);
-        expr_ref e(m), fml(_fml, m);
-        svector<bool> is_negated;
-        TRACE("dl_rule", tout << mk_pp(fml, m) << "\n";);
-        unsigned index = hoist_quantifier(true, fml, 0); 
-        check_app(fml);
-        head = to_app(fml);
-        
-        while (m.is_implies(head)) {
-            e = head->get_arg(0);
-            th_rewriter th_rwr(m);
-            th_rwr(e);
-            body.push_back(ensure_app(e));
-            e = to_app(head)->get_arg(1);
-            check_app(e);
-            head = to_app(e.get());
-        }
-        symbol head_name = (name == symbol::null)?head->get_decl()->get_name():name;
-        flatten_body(body);
-        if (body.size() == 1 && m.is_or(body[0].get()) && contains_predicate(body[0].get())) {
-            app* _or = to_app(body[0].get());
-            for (unsigned i = 0; i < _or->get_num_args(); ++i) {
-                e = m.mk_implies(_or->get_arg(i), head);
-                mk_rule_core(e, rules, head_name);
-            } 
-            return;
-        }
-
-        eliminate_disjunctions(body, rules, head_name);
-        eliminate_quantifier_body(body, rules, head_name);
-        hoist_compound(index, head, body);
-        unsigned sz = body.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            app_ref b(body[i].get(), m);
-            hoist_compound(index, b, body);
-            body[i] = b;
-        }
-        TRACE("dl_rule",
-              tout << mk_pp(head, m) << " :- ";
-              for (unsigned i = 0; i < body.size(); ++i) {
-                  tout << mk_pp(body[i].get(), m) << " ";
-              }
-              tout << "\n";);
-
+    void rule_manager::mk_negations(app_ref_vector& body, svector<bool>& is_negated) {
         for (unsigned i = 0; i < body.size(); ++i) {
             expr* e = body[i].get(), *e1;
             if (m.is_not(e, e1) && is_predicate(e1)) {
@@ -199,22 +125,104 @@ namespace datalog {
             else {
                 is_negated.push_back(false);
             }
-        }
-        check_valid_rule(head, body.size(), body.c_ptr());
+        }        
+    }
 
-        rules.push_back(mk(head.get(), body.size(), body.c_ptr(), is_negated.c_ptr(), name));
-        
-        if (m_ctx.fix_unbound_vars()) {
-            unsigned rule_cnt = rules.size();
-            for (unsigned i=0; i<rule_cnt; ++i) {
-                rule_ref r(rules[i].get(), *this);
-                fix_unbound_vars(r, true);
-                if (r.get()!=rules[i].get()) {
-                    rules[i] = r;
-                }
-            }
+    void rule_manager::mk_rule_core_new(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {
+        hnf h(m);
+        expr_ref_vector fmls(m);
+        proof_ref_vector prs(m);
+        h.set_name(name);
+        h(fml, p, fmls, prs);
+        for (unsigned i = 0; i < h.get_fresh_predicates().size(); ++i) {
+            m_ctx.register_predicate(h.get_fresh_predicates()[i], false);
+        }
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            mk_rule_core2(fmls[i].get(), prs[i].get(), rules, name);
         }
     }
+
+    void rule_manager::mk_rule_core2(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {
+        
+        app_ref_vector body(m);
+        app_ref head(m);
+        svector<bool> is_negated;
+        unsigned index = extract_horn(fml, body, head);
+        hoist_compound_predicates(index, head, body);
+        TRACE("dl_rule",
+              tout << mk_pp(head, m) << " :- ";
+              for (unsigned i = 0; i < body.size(); ++i) {
+                  tout << mk_pp(body[i].get(), m) << " ";
+              }
+              tout << "\n";);
+
+
+        mk_negations(body, is_negated);
+        check_valid_rule(head, body.size(), body.c_ptr());
+
+        rule_ref r(*this);
+        r = mk(head.get(), body.size(), body.c_ptr(), is_negated.c_ptr(), name);
+
+        expr_ref fml1(m);
+        if (p) {
+            r->to_formula(fml1);
+            if (fml1 == fml) {
+                // no-op.
+            }
+            else if (is_quantifier(fml1)) {
+                p = m.mk_modus_ponens(p, m.mk_symmetry(m.mk_der(to_quantifier(fml1), fml)));
+            }            
+            else {
+                p = m.mk_modus_ponens(p, m.mk_rewrite(fml, fml1));
+            }
+        }
+
+        if (m_ctx.fix_unbound_vars()) {            
+            fix_unbound_vars(r, true);
+        }
+
+        if (p) {
+            expr_ref fml2(m);
+            r->to_formula(fml2);
+            if (fml1 != fml2) {
+                p = m.mk_modus_ponens(p, m.mk_rewrite(fml1, fml2));
+            }
+            r->set_proof(m, p);
+        }
+        rules.push_back(r);        
+    }
+
+    unsigned rule_manager::extract_horn(expr* fml, app_ref_vector& body, app_ref& head) {
+        expr* e1, *e2;
+        unsigned index = m_counter.get_next_var(fml);
+        if (::is_forall(fml)) {
+            index += to_quantifier(fml)->get_num_decls();
+            fml = to_quantifier(fml)->get_expr();
+        }
+        if (m.is_implies(fml, e1, e2)) {
+            expr_ref_vector es(m);
+            head = ensure_app(e2);
+            datalog::flatten_and(e1, es);
+            for (unsigned i = 0; i < es.size(); ++i) {
+                body.push_back(ensure_app(es[i].get()));
+            }
+        } 
+        else {
+            head = ensure_app(fml);
+        }
+        return index;
+    }
+
+    void rule_manager::hoist_compound_predicates(unsigned index, app_ref& head, app_ref_vector& body) {
+        unsigned sz = body.size();
+        hoist_compound(index, head, body);
+        for (unsigned i = 0; i < sz; ++i) {
+            app_ref b(body[i].get(), m);
+            hoist_compound(index, b, body);
+            body[i] = b;
+        }
+    }
+
 
     void rule_manager::mk_query(expr* query, func_decl_ref& qpred, rule_ref_vector& query_rules, rule_ref& query_rule) {
         ptr_vector<sort> vars;
@@ -225,7 +233,8 @@ namespace datalog {
         // Add implicit variables.
         // Remove existential prefix.
         bind_variables(query, false, q);
-        hoist_quantifier(false, q, &names);
+        quantifier_hoister qh(m);
+        qh.pull_quantifier(false, q, 0, &names);
         // retrieve free variables.
         get_free_vars(q, vars);
         if (vars.contains(static_cast<sort*>(0))) {
@@ -283,7 +292,12 @@ namespace datalog {
             rule_expr = m.mk_forall(vars.size(), vars.c_ptr(), names.c_ptr(), impl);
         }
 
-        mk_rule(rule_expr, query_rules);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        proof_ref pr(m);
+        if (m_ctx.generate_proof_trace()) {
+            pr = m.mk_asserted(rule_expr);
+        }
+        mk_rule(rule_expr, pr, query_rules);
         SASSERT(query_rules.size() >= 1);
         query_rule = query_rules.back();
     }
@@ -363,73 +377,6 @@ namespace datalog {
         return false;
     }
 
-    void rule_manager::eliminate_disjunctions(app_ref_vector::element_ref& body, rule_ref_vector& rules, symbol const& name) {
-
-        app* b = body.get(); 
-        expr* e1;
-        bool negate_args = false;
-        bool is_disj = false;
-        unsigned num_disj = 0;
-        expr* const* disjs = 0;
-        if (!contains_predicate(b)) {
-            return;
-        }
-        TRACE("dl_rule", tout << mk_ismt2_pp(b, m) << "\n";);
-        if (m.is_or(b)) {
-            is_disj = true;
-            negate_args = false;
-            num_disj = b->get_num_args();
-            disjs = b->get_args();
-        }
-        if (m.is_not(b, e1) && m.is_and(e1)) {
-            is_disj = true;
-            negate_args = true;
-            num_disj = to_app(e1)->get_num_args();
-            disjs = to_app(e1)->get_args();
-        }
-        if (is_disj) {
-            ptr_vector<sort> sorts0, sorts1;
-            get_free_vars(b, sorts0);
-            expr_ref_vector args(m);
-            for (unsigned i = 0; i < sorts0.size(); ++i) {
-                if (sorts0[i]) {
-                    args.push_back(m.mk_var(i,sorts0[i]));
-                    sorts1.push_back(sorts0[i]);
-                }
-            }
-            app* old_head = 0;
-            if (m_memoize_disj.find(b, old_head)) {
-                body = old_head;
-            }
-            else {
-                app_ref head(m);
-                func_decl_ref f(m);
-                f = m.mk_fresh_func_decl(name.str().c_str(),"", sorts1.size(), sorts1.c_ptr(), m.mk_bool_sort());
-                m_ctx.register_predicate(f);
-                head = m.mk_app(f, args.size(), args.c_ptr());
-                
-                for (unsigned i = 0; i < num_disj; ++i) {
-                    expr_ref fml(m);
-                    expr* e = disjs[i];
-                    if (negate_args) e = m.mk_not(e);
-                    fml = m.mk_implies(e,head);
-                    mk_rule_core(fml, rules, name);
-                }
-                m_memoize_disj.insert(b, head);
-                m_refs.push_back(b);
-                m_refs.push_back(head);
-                // update the body to be the newly introduced head relation
-                body = head;
-            }
-        }
-    }
-
-    void rule_manager::eliminate_disjunctions(app_ref_vector& body, rule_ref_vector& rules, symbol const& name) {
-        for (unsigned i = 0; i < body.size(); ++i) {
-            app_ref_vector::element_ref t = body[i];
-            eliminate_disjunctions(t, rules, name);
-        }
-    }
 
     bool rule_manager::is_forall(ast_manager& m, expr* e, quantifier*& q) {
         expr* e1, *e2;
@@ -446,40 +393,6 @@ namespace datalog {
             return q->is_forall();
         }    
         return false;
-    }
-
-    void rule_manager::eliminate_quantifier_body(app_ref_vector::element_ref& body, rule_ref_vector& rules, symbol const& name) {
-        quantifier* q;
-        if (is_forall(m, body.get(), q) && contains_predicate(q)) {
-            expr* e = q->get_expr();
-            if (!is_predicate(e)) {
-                ptr_vector<sort> sorts0, sorts1;
-                get_free_vars(e, sorts0);
-                expr_ref_vector args(m);
-                for (unsigned i = 0; i < sorts0.size(); ++i) {
-                    if (sorts0[i]) {
-                        args.push_back(m.mk_var(i,sorts0[i]));
-                        sorts1.push_back(sorts0[i]);
-                    }
-                }
-                app_ref head(m), fml(m);
-                func_decl_ref f(m);
-                f = m.mk_fresh_func_decl(name.str().c_str(),"", sorts1.size(), sorts1.c_ptr(), m.mk_bool_sort());
-                m_ctx.register_predicate(f);
-                head = m.mk_app(f, args.size(), args.c_ptr());
-                fml = m.mk_implies(e, head);
-                mk_rule_core(fml, rules, name);
-                // update the body to be the newly introduced head relation
-                body = m.mk_eq(m.mk_true(), m.update_quantifier(q, head));                
-            }
-        }
-    }
-
-    void rule_manager::eliminate_quantifier_body(app_ref_vector& body, rule_ref_vector& rules, symbol const& name) {
-        for (unsigned i = 0; i < body.size(); ++i) {
-            app_ref_vector::element_ref t = body[i];
-            eliminate_quantifier_body(t, rules, name);
-        }
     }
 
 
@@ -509,6 +422,7 @@ namespace datalog {
         r->m_head       = head;
         r->m_name       = name;
         r->m_tail_size  = n;
+        r->m_proof      = 0;
         m.inc_ref(r->m_head);
 
         app * * uninterp_tail = r->m_tail; //grows upwards
@@ -566,6 +480,11 @@ namespace datalog {
         if (normalize) {
             r->norm_vars(*this);
         }
+        DEBUG_CODE(ptr_vector<sort> sorts; 
+                   ::get_free_vars(head, sorts);
+                   for (unsigned i = 0; i < n; ++i) {
+                       ::get_free_vars(tail[i], sorts);
+                   });
         return r;
     }
 
@@ -583,6 +502,7 @@ namespace datalog {
         r->m_tail_size    = n;
         r->m_positive_cnt = source->m_positive_cnt;
         r->m_uninterp_cnt = source->m_uninterp_cnt;
+        r->m_proof        = 0;
         m.inc_ref(r->m_head);
         for (unsigned i = 0; i < n; i++) {
             r->m_tail[i] = source->m_tail[i];
@@ -705,7 +625,7 @@ namespace datalog {
         bool_rewriter(m).mk_and(tails_with_unbound.size(), tails_with_unbound.c_ptr(), unbound_tail);
 
         unsigned q_var_cnt = unbound_vars.num_elems();
-        unsigned max_var = m_var_counter.get_max_var(*r);
+        unsigned max_var = m_counter.get_max_rule_var(*r);
 
         expr_ref_vector subst(m);
 
@@ -787,6 +707,27 @@ namespace datalog {
         r->set_accounting_parent_object(m_ctx, old_r);
     }
 
+    void rule_manager::mk_rule_rewrite_proof(rule& old_rule, rule& new_rule) {
+        if (&old_rule != &new_rule &&
+            !new_rule.get_proof() &&
+            old_rule.get_proof()) {
+            expr_ref fml(m);
+            new_rule.to_formula(fml);
+            scoped_proof _sc(m);
+            proof* p = m.mk_rewrite(m.get_fact(old_rule.get_proof()), fml);
+            new_rule.set_proof(m, m.mk_modus_ponens(old_rule.get_proof(), p)); 
+        }
+    }
+
+    void rule_manager::mk_rule_asserted_proof(rule& r) {
+        if (m_ctx.generate_proof_trace()) {
+            scoped_proof _scp(m);
+            expr_ref fml(m);
+            r.to_formula(fml);
+            r.set_proof(m, m.mk_asserted(fml));
+        }
+    }
+
     void rule_manager::substitute(rule_ref& r, unsigned sz, expr*const* es) {
         expr_ref tmp(m);
         app_ref  new_head(m);
@@ -845,8 +786,21 @@ namespace datalog {
         for (unsigned i = 0; i < n; i++) {
             m.dec_ref(get_tail(i));
         }
+        if (m_proof) {
+            m.dec_ref(m_proof);
+        }
         this->~rule();
         m.get_allocator().deallocate(get_obj_size(n), this);
+    }
+
+    void rule::set_proof(ast_manager& m, proof* p) { 
+        if (p) {
+            m.inc_ref(p); 
+        }
+        if (m_proof) {
+            m.dec_ref(m_proof); 
+        }
+        m_proof = p; 
     }
 
     bool rule::is_in_tail(const func_decl * p, bool only_positive) const {
@@ -925,6 +879,15 @@ namespace datalog {
         bool exist, univ;
         has_quantifiers(exist, univ);
         return exist || univ;
+    }
+
+    bool rule::has_negation() const {
+        for (unsigned i = 0; i < get_uninterpreted_tail_size(); ++i) {
+            if (is_neg_tail(i)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void rule::get_used_vars(used_vars& used) const {
@@ -1017,6 +980,9 @@ namespace datalog {
             out << '}';
         }
         out << '\n';
+        if (m_proof) {
+            out << mk_pp(m_proof, m) << '\n';
+        }
     }
 
     void rule::to_formula(expr_ref& fml) const {
@@ -1106,3 +1072,4 @@ namespace datalog {
 
 
 };
+

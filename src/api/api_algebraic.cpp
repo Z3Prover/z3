@@ -373,7 +373,7 @@ extern "C" {
         scoped_anum_vector roots(_am);
         {
             cancel_eh<algebraic_numbers::manager> eh(_am);
-            api::context::set_interruptable(*(mk_c(c)), eh);
+            api::context::set_interruptable si(*(mk_c(c)), eh);
             scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
             vector_var2anum v2a(as);
             _am.isolate_roots(_p, v2a, roots);
@@ -408,7 +408,7 @@ extern "C" {
         }
         {
             cancel_eh<algebraic_numbers::manager> eh(_am);
-            api::context::set_interruptable(*(mk_c(c)), eh);
+            api::context::set_interruptable si(*(mk_c(c)), eh);
             scoped_timer timer(mk_c(c)->params().m_timeout, &eh);
             vector_var2anum v2a(as);
             int r = _am.eval_sign_at(_p, v2a);

@@ -90,6 +90,7 @@ namespace datalog {
             rule * filter_rule = m_context.get_rule_manager().mk(filter_head, 1, &filter_tail, (const bool *)0);
             filter_rule->set_accounting_parent_object(m_context, m_current);
             m_result->add_rule(filter_rule);
+            m_context.get_rule_manager().mk_rule_asserted_proof(*filter_rule);
         }
         else {
             dealloc(key);
@@ -135,12 +136,13 @@ namespace datalog {
             }
             new_is_negated.push_back(r->is_neg_tail(i));
         }
-        if(rule_modified) {
+        if (rule_modified) {
             remove_duplicate_tails(new_tail, new_is_negated);
             SASSERT(new_tail.size() == new_is_negated.size());
             rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), new_is_negated.c_ptr());
             new_rule->set_accounting_parent_object(m_context, m_current);
             m_result->add_rule(new_rule);
+            m_context.get_rule_manager().mk_rule_rewrite_proof(*r, *new_rule);
             m_modified = true;
         }
         else {
@@ -148,7 +150,7 @@ namespace datalog {
         }
     }
 
-    rule_set * mk_filter_rules::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
+    rule_set * mk_filter_rules::operator()(rule_set const & source) {
         // TODO mc, pc
         m_tail2filter.reset();
         m_result           = alloc(rule_set, m_context);

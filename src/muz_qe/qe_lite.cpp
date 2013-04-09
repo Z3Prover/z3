@@ -201,9 +201,15 @@ namespace eq {
             return (*m_is_variable)(e);
         }
         
-        bool is_neg_var(ast_manager & m, expr * e) {
+        bool is_neg_var(ast_manager & m, expr * e, var*& v) {
             expr* e1;
-            return m.is_not(e, e1) && is_variable(e1);
+            if (m.is_not(e, e1) && is_variable(e1)) {
+                v = to_var(e1);
+                return true;
+            }
+            else {
+                return false;
+            }
         }
         
         
@@ -328,18 +334,19 @@ namespace eq {
         
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs, *rhs;
+            var* v;
             
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases    
             if (m.is_eq(e, lhs, rhs) || m.is_iff(e, lhs, rhs)) {
                 // (iff (not VAR) t) (iff t (not VAR)) cases
                 if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
-                    if (!is_neg_var(m, lhs)) {
+                    if (!is_neg_var(m, lhs, v)) {
                         std::swap(lhs, rhs);
                     }
-                    if (!is_neg_var(m, lhs)) {
+                    if (!is_neg_var(m, lhs, v)) {
                         return false;
                     }
-                    vs.push_back(to_var(lhs));
+                    vs.push_back(v);
                     ts.push_back(m.mk_not(rhs));
                     TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                     return true;
@@ -378,9 +385,9 @@ namespace eq {
             }
             
             // VAR = false case
-            if (is_neg_var(m, e)) {
+            if (is_neg_var(m, e, v)) {
                 ts.push_back(m.mk_false());
-                vs.push_back(to_var(to_app(e)->get_arg(0)));
+                vs.push_back(v);
                 TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
@@ -2492,7 +2499,13 @@ class qe_lite_tactic : public tactic {
                 new_f = f;
                 m_qe(new_f, new_pr);
                 if (produce_proofs) {
-                    new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
+                    expr* fact = m.get_fact(new_pr);
+                    if (to_app(fact)->get_arg(0) != to_app(fact)->get_arg(1)) {
+                        new_pr = m.mk_modus_ponens(g->pr(i), new_pr);                        
+                    }
+                    else {
+                        new_pr = g->pr(i);
+                    }
                 }
                 g->update(i, new_f, new_pr, g->dep(i));                
             }

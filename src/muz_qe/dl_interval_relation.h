@@ -34,7 +34,6 @@ namespace datalog {
         v_dependency_manager m_dep;
         interval             m_empty;
         arith_util           m_arith;
-        basic_simplifier_plugin m_bsimp;
 
         class join_fn;
         class project_fn;

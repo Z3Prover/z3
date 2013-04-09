@@ -31,6 +31,7 @@ namespace datalog {
 
     class execution_context;
     class instruction_block;
+    class rel_context;
 
     inline void check_overflow(unsigned i) {
         if (i == UINT_MAX) {
@@ -78,7 +79,7 @@ namespace datalog {
 
         void reset();
 
-        rel_context & get_rel_context() { return m_context.get_rel_context(); };
+        rel_context & get_rel_context();
 
         void set_timelimit(unsigned time_in_ms);
         void reset_timelimit();
@@ -91,10 +92,9 @@ namespace datalog {
 
            If register contains zero, it should be treated as if it contains an empty relation.
         */
-        reg_type reg(reg_idx i) { 
-            if (i>=m_registers.size()) {
-                check_overflow(i);
-                m_registers.resize(i+1,0);
+        reg_type reg(reg_idx i) const { 
+            if (i >= m_registers.size()) {
+                return 0;
             }
             return m_registers[i];
         }
@@ -102,27 +102,29 @@ namespace datalog {
            \brief Return value of the register and assign zero into it place.
         */
         reg_type release_reg(reg_idx i) {
-            SASSERT(i<m_registers.size());
+            SASSERT(i < m_registers.size());
             SASSERT(m_registers[i]);
             reg_type res = m_registers[i];
             m_registers[i] = 0;
             return res;
         }
+
         /**
            \brief Assign value to a register. If it was non-empty, deallocate its content first.
         */
         void set_reg(reg_idx i, reg_type val) {
-            if(i>=m_registers.size()) {
+            if (i >= m_registers.size()) {
                 check_overflow(i);
                 m_registers.resize(i+1,0);
             }
-            if(m_registers[i]) {
+            if (m_registers[i]) {
                 m_registers[i]->deallocate();
             }
-            m_registers[i]=val;
+            m_registers[i] = val;
         }
+
         void make_empty(reg_idx i) {
-            if(reg(i)) {
+            if (reg(i)) {
                 set_reg(i, 0);
             }
         }
@@ -130,14 +132,16 @@ namespace datalog {
         unsigned register_count() const {
             return m_registers.size();
         }
+
         bool get_register_annotation(reg_idx reg, std::string & res) const {
             return m_reg_annotation.find(reg, res);
         }
+
         void set_register_annotation(reg_idx reg, std::string str) {
             m_reg_annotation.insert(reg, str);
         }
 
-        void report_big_relations(unsigned threshold, std::ostream & out);
+        void report_big_relations(unsigned threshold, std::ostream & out) const;
     };
 
 
@@ -208,7 +212,7 @@ namespace datalog {
 
            The newline character at the end should not be printed.
         */
-        virtual void display_head_impl(rel_context & ctx, std::ostream & out) const {
+        virtual void display_head_impl(rel_context const & ctx, std::ostream & out) const {
             out << "<instruction>";
         }
         /**
@@ -216,7 +220,7 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(rel_context & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(rel_context const & ctx, std::ostream & out, std::string indentation) const {}
     public:
         typedef execution_context::reg_type reg_type;
         typedef execution_context::reg_idx reg_idx;
@@ -227,10 +231,10 @@ namespace datalog {
 
         virtual void make_annotations(execution_context & ctx)  = 0;
 
-        void display(rel_context & ctx, std::ostream & out) const {
+        void display(rel_context const& ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(rel_context const & ctx, std::ostream & out, std::string indentation) const;
 
         static instruction * mk_load(ast_manager & m, func_decl * pred, reg_idx tgt);
         /**
@@ -329,10 +333,10 @@ namespace datalog {
 
         void make_annotations(execution_context & ctx);
 
-        void display(rel_context & ctx, std::ostream & out) const {
+        void display(rel_context const & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(rel_context & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(rel_context const & ctx, std::ostream & out, std::string indentation) const;
     };
 
 

@@ -229,12 +229,12 @@ public:
                 status = dlctx.query(m_target);
             }
             catch (z3_error & ex) {
+                ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
                 throw ex;
             }
             catch (z3_exception& ex) {
                 ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
             }
-            dlctx.cleanup();
         }
         switch (status) {
         case l_false:
@@ -250,6 +250,7 @@ public:
             ctx.regular_stream() << "unknown\n";
             switch(dlctx.get_status()) {
             case datalog::INPUT_ERROR:
+                ctx.regular_stream() << "input error\n";
                 break;
                 
             case datalog::MEMOUT:
@@ -261,12 +262,21 @@ public:
                 break;
                 
             case datalog::OK: 
+                UNREACHABLE();
                 break;
+
+            case datalog::CANCELED:
+                ctx.regular_stream() << "canceled\n";
+                dlctx.display_profile(ctx.regular_stream());
+                break;
+
             default:
                 UNREACHABLE();
+                break;
             }
             break;
         }
+        dlctx.cleanup();
         print_statistics(ctx);
         m_target = 0;
     }

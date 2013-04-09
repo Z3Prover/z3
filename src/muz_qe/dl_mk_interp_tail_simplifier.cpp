@@ -35,7 +35,7 @@ namespace datalog {
     // -----------------------------------
 
     void mk_interp_tail_simplifier::rule_substitution::reset(rule * r) {
-        unsigned var_cnt = m_context.get_rule_manager().get_var_counter().get_max_var(*r)+1;
+        unsigned var_cnt = m_context.get_rule_manager().get_counter().get_max_rule_var(*r)+1;
         m_subst.reset();
         m_subst.reserve(1, var_cnt);
         m_rule = r;
@@ -296,18 +296,40 @@ namespace datalog {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
             proof_ref & result_pr)
         {
-            if (m.is_not(f)) {
+
+            if (m.is_not(f) && (m.is_and(args[0]) || m.is_or(args[0]))) {
                 SASSERT(num==1);
-                if (m.is_and(args[0]) || m.is_or(args[0])) {
-                    expr_ref e(m.mk_not(args[0]),m);
-                    if (push_toplevel_junction_negation_inside(e)) {
-                        result = e;
-                        return BR_REWRITE2;
-                    }
+                expr_ref tmp(m);
+                app* a = to_app(args[0]);
+                m_app_args.reset();
+                for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                    m_brwr.mk_not(a->get_arg(i), tmp);
+                    m_app_args.push_back(tmp);
                 }
+                if (m.is_and(args[0])) {
+                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                }
+                else {
+                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                }
+                return BR_REWRITE2;
             }
-            if (!m.is_and(f) && !m.is_or(f)) { return BR_FAILED; }
-            if (num<2) { return BR_FAILED; }
+            if (!m.is_and(f) && !m.is_or(f)) { 
+                return BR_FAILED; 
+            }
+            if (num == 0) {
+                if (m.is_and(f)) {
+                    result = m.mk_true();
+                }
+                else {
+                    result = m.mk_false();
+                }
+                return BR_DONE;
+            }
+            if (num == 1) {
+                result = args[0];
+                return BR_DONE;
+            }
 
             m_app_args.reset();
             m_app_args.append(num, args);
@@ -318,30 +340,18 @@ namespace datalog {
 
             bool have_rewritten_args = false;
 
-            if (m.is_or(f) || m.is_and(f)) {
-                have_rewritten_args = detect_equivalences(m_app_args, m.is_or(f));
-#if 0
-                if (have_rewritten_args) {
-                    std::sort(m_app_args.c_ptr(), m_app_args.c_ptr()+m_app_args.size(), m_expr_cmp);
-
-                    app_ref orig(m.mk_app(f, num, args),m);
-                    app_ref res(m.mk_app(f, m_app_args.size(), m_app_args.c_ptr()),m);
-                    std::cout<<"s:"<<mk_pp(orig, m)<<"\n";
-                    std::cout<<"t:"<<mk_pp(res, m)<<"\n";
-                }
-#endif
-            }
+            have_rewritten_args = detect_equivalences(m_app_args, m.is_or(f));
 
             if (m_app_args.size()==1) {
                 result = m_app_args[0].get();
             }
             else {
                 if (m.is_and(f)) {
-                    m_brwr.mk_and(m_app_args.size(), m_app_args.c_ptr(), result);
+                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
                 }
                 else {
                     SASSERT(m.is_or(f));
-                    m_brwr.mk_or(m_app_args.size(), m_app_args.c_ptr(), result);
+                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
                 }
             }
 
@@ -469,7 +479,7 @@ namespace datalog {
     start:
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();
-        if (u_len==len) {
+        if (u_len == len) {
             res = r;
             return true;
         }
@@ -504,34 +514,29 @@ namespace datalog {
         expr_ref simp_res(m);
         simplify_expr(itail.get(), simp_res);
 
-        modified |= itail.get()!=simp_res.get();
-
-        if (is_app(simp_res.get())) {
-            itail = to_app(simp_res.get());
-        }
-        else if (m.is_bool(simp_res)) {
-            itail = m.mk_eq(simp_res, m.mk_true());
-        }
-        else {
-            throw default_exception("simplification resulted in non-boolean non-function");
-        }
-
-        if (m.is_false(itail.get())) {
-            //the tail member is never true, so we may delete the rule
+        modified |= itail.get() != simp_res.get();
+        
+        if (m.is_false(simp_res)) {
             TRACE("dl", r->display(m_context, tout << "rule is infeasible\n"););
             return false;
         }
-        if (!m.is_true(itail.get())) {
-            //if the simplified tail is not a tautology, we add it to the rule
-            tail.push_back(itail);
-            tail_neg.push_back(false);
-        }
-        else {
-            modified = true;
-        }
+        SASSERT(m.is_bool(simp_res));
 
-        SASSERT(tail.size() == tail_neg.size());
         if (modified) {
+            expr_ref_vector conjs(m);
+            flatten_and(simp_res, conjs);
+            for (unsigned i = 0; i < conjs.size(); ++i) {
+                expr* e = conjs[i].get();
+                if (is_app(e)) {
+                    tail.push_back(to_app(e));
+                }
+                else {
+                    tail.push_back(m.mk_eq(e, m.mk_true()));
+                }
+                tail_neg.push_back(false);
+            }
+
+            SASSERT(tail.size() == tail_neg.size());
             res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
             res->set_accounting_parent_object(m_context, r);
         }
@@ -541,8 +546,8 @@ namespace datalog {
 
         rule_ref pro_var_eq_result(m_context.get_rule_manager());
         if (propagate_variable_equivalences(res, pro_var_eq_result)) {
-            SASSERT(var_counter().get_max_var(*r.get())==0 || 
-                var_counter().get_max_var(*r.get()) > var_counter().get_max_var(*pro_var_eq_result.get()));
+            SASSERT(rule_counter().get_max_rule_var(*r.get())==0 || 
+                    rule_counter().get_max_rule_var(*r.get()) > rule_counter().get_max_rule_var(*pro_var_eq_result.get()));
             r = pro_var_eq_result;
             goto start;
         }
@@ -554,11 +559,13 @@ namespace datalog {
 
     bool mk_interp_tail_simplifier::transform_rules(const rule_set & orig, rule_set & tgt) {
         bool modified = false;
+        rule_manager& rm = m_context.get_rule_manager();
         rule_set::iterator rit = orig.begin();
         rule_set::iterator rend = orig.end();
         for (; rit!=rend; ++rit) {
-            rule_ref new_rule(m_context.get_rule_manager());
+            rule_ref new_rule(rm);
             if (transform_rule(*rit, new_rule)) {
+                rm.mk_rule_rewrite_proof(**rit, *new_rule.get());
                 bool is_modified = *rit != new_rule;
                 modified |= is_modified;
                 tgt.add_rule(new_rule);
@@ -570,8 +577,7 @@ namespace datalog {
         return modified;
     }
 
-    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        // TODO mc, pc
+    rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source) {
         if (source.get_num_rules() == 0) {
             return 0;
         }

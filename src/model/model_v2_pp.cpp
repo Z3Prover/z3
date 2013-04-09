@@ -80,3 +80,8 @@ void model_v2_pp(std::ostream & out, model_core const & md, bool partial) {
     display_constants(out, md);
     display_functions(out, md, partial);
 }
+
+// debugging support
+void pp(model_core const & md) {
+    model_v2_pp(std::cout, md, false);
+}

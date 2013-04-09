@@ -367,7 +367,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         o.ebits = ebits;
         o.sbits = sbits;    
 
-        signed ds = sbits - x.sbits;
+        signed ds = sbits - x.sbits + 4;  // plus rounding bits
         if (ds > 0)
         {
             m_mpz_manager.mul2k(o.significand, ds);
@@ -520,9 +520,8 @@ void mpf_manager::add_sub(mpf_rounding_mode rm, mpf const & x, mpf const & y, mp
         }
     }        
     else if (is_zero(x) && is_zero(y)) {
-        if (sgn(x) && sgn_y)
-            set(o, x);
-        else if (rm == MPF_ROUND_TOWARD_NEGATIVE)
+        if ((x.sign && sgn_y) || 
+            ((rm == MPF_ROUND_TOWARD_NEGATIVE) && (x.sign != sgn_y)))
             mk_nzero(x.ebits, x.sbits, o);
         else
             mk_pzero(x.ebits, x.sbits, o);
@@ -627,29 +626,28 @@ void mpf_manager::mul(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
         if (is_zero(y))
             mk_nan(x.ebits, x.sbits, o);
         else 
-            mk_inf(x.ebits, x.sbits, sgn(y), o);
+            mk_inf(x.ebits, x.sbits, y.sign, o);
     }
     else if (is_pinf(y)) {
         if (is_zero(x))
             mk_nan(x.ebits, x.sbits, o);
         else
-            mk_inf(x.ebits, x.sbits, sgn(x), o);
+            mk_inf(x.ebits, x.sbits, x.sign, o);
     }
     else if (is_ninf(x)) {
         if (is_zero(y))
             mk_nan(x.ebits, x.sbits, o);
         else 
-            mk_inf(x.ebits, x.sbits, !sgn(y), o);
+            mk_inf(x.ebits, x.sbits, !y.sign, o);
     }
     else if (is_ninf(y)) {
         if (is_zero(x))
             mk_nan(x.ebits, x.sbits, o);
         else
-            mk_inf(x.ebits, x.sbits, !sgn(x), o);
+            mk_inf(x.ebits, x.sbits, !x.sign, o);
     }
     else if (is_zero(x) || is_zero(y)) {
-        set(o, x);
-        o.sign = x.sign ^ y.sign;
+        mk_zero(x.ebits, x.sbits, x.sign != y.sign, o);
     }
     else {
         o.ebits = x.ebits;
@@ -699,31 +697,35 @@ void mpf_manager::div(mpf_rounding_mode rm, mpf const & x, mpf const & y, mpf & 
         if (is_inf(y))
             mk_nan(x.ebits, x.sbits, o);
         else
-            mk_inf(x.ebits, x.sbits, sgn(y), o);
+            mk_inf(x.ebits, x.sbits, y.sign, o);
     }
     else if (is_pinf(y)) {
         if (is_inf(x))
             mk_nan(x.ebits, x.sbits, o);
         else 
-            mk_zero(x.ebits, x.sbits, (x.sign ^ y.sign) == 1, o);        
+            mk_zero(x.ebits, x.sbits, x.sign != y.sign, o);        
     }
     else if (is_ninf(x)) {
         if (is_inf(y))
             mk_nan(x.ebits, x.sbits, o);
         else
-            mk_inf(x.ebits, x.sbits, !sgn(y), o);
+            mk_inf(x.ebits, x.sbits, !y.sign, o);
     }
     else if (is_ninf(y)) {
         if (is_inf(x))
             mk_nan(x.ebits, x.sbits, o);
         else 
-            mk_zero(x.ebits, x.sbits, (x.sign ^ y.sign) == 1, o);
+            mk_zero(x.ebits, x.sbits, x.sign != y.sign, o);
     }
     else if (is_zero(y)) {
         if (is_zero(x))
             mk_nan(x.ebits, x.sbits, o);
         else
-            mk_inf(x.ebits, x.sbits, sgn(x), o);
+            mk_inf(x.ebits, x.sbits, x.sign != y.sign, o);
+    }
+    else if (is_zero(x)) {
+        // Special case to avoid problems with unpacking of zeros.
+        mk_zero(x.ebits, x.sbits, x.sign != y.sign, o);
     }
     else {
         o.ebits = x.ebits;
@@ -837,6 +839,10 @@ void mpf_manager::sqrt(mpf_rounding_mode rm, mpf const & x, mpf & o) {
         else
             mk_nzero(x.ebits, x.sbits, o);
     }
+    else if (is_pzero(x))
+        mk_pzero(x.ebits, x.sbits, o);
+    else if (is_nzero(x))
+        mk_nzero(x.ebits, x.sbits, o);
     else {
         o.ebits = x.ebits;
         o.sbits = x.sbits;
@@ -933,7 +939,7 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
     else if (is_inf(y))
         set(o, x);
     else if (is_zero(x))
-        set(o, x);
+        mk_pzero(x.ebits, x.sbits, o);
     else if (is_zero(y))
         mk_nan(x.ebits, x.sbits, o);
     else {        
@@ -982,9 +988,9 @@ void mpf_manager::rem(mpf const & x, mpf const & y, mpf & o) {
 void mpf_manager::maximum(mpf const & x, mpf const & y, mpf & o) {
     if (is_nan(x))
         set(o, y);
-    else if (is_nan(y) || (sgn(y) && is_zero(x) && is_zero(y)))
-        set(o, x);    
-    else if (gt(x, y))
+    else if (is_nan(y))
+        set(o, x);
+    else if (gt(x, y) || (is_zero(x) && is_nzero(y)))
         set(o, x);
     else
         set(o, y);
@@ -993,9 +999,9 @@ void mpf_manager::maximum(mpf const & x, mpf const & y, mpf & o) {
 void mpf_manager::minimum(mpf const & x, mpf const & y, mpf & o) {
     if (is_nan(x))
         set(o, y);
-    else if (is_nan(y) || (sgn(x) && is_zero(x) && is_zero(y)))
+    else if (is_nan(y))
         set(o, x);
-    else if (lt(x, y))
+    else if (lt(x, y) || (is_nzero(x) && is_zero(y)))
         set(o, x);
     else
         set(o, y);

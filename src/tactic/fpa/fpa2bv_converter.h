@@ -35,13 +35,13 @@ class fpa2bv_converter {
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
     float_util                 m_util;
-	mpf_manager				 & m_mpf_manager;
-	unsynch_mpz_manager      & m_mpz_manager;
+    mpf_manager                 & m_mpf_manager;
+    unsynch_mpz_manager      & m_mpz_manager;
     bv_util                    m_bv_util;    
     float_decl_plugin        * m_plugin;
 
     obj_map<func_decl, expr*>  m_const2bv;
-	obj_map<func_decl, expr*>  m_rm_const2bv;
+    obj_map<func_decl, expr*>  m_rm_const2bv;
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -52,22 +52,22 @@ public:
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
     bool is_float_family(func_decl * f) { return f->get_family_id() == m_util.get_family_id(); }
-	bool is_rm_sort(sort * s) { return m_util.is_rm(s); }
+    bool is_rm_sort(sort * s) { return m_util.is_rm(s); }
 
     void mk_triple(expr * sign, expr * significand, expr * exponent, expr_ref & result) {
-		SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
-		SASSERT(m_bv_util.is_bv(significand));
-		SASSERT(m_bv_util.is_bv(exponent));
+        SASSERT(m_bv_util.is_bv(sign) && m_bv_util.get_bv_size(sign) == 1);
+        SASSERT(m_bv_util.is_bv(significand));
+        SASSERT(m_bv_util.is_bv(exponent));
         result = m.mk_app(m_util.get_family_id(), OP_TO_FLOAT, sign, significand, exponent);
     }
 
     void mk_eq(expr * a, expr * b, expr_ref & result);
     void mk_ite(expr * c, expr * t, expr * f, expr_ref & result);
 
-	void mk_rounding_mode(func_decl * f, expr_ref & result);
+    void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_const(func_decl * f, expr_ref & result);
-	void mk_rm_const(func_decl * f, expr_ref & result);
+    void mk_rm_const(func_decl * f, expr_ref & result);
 
     void mk_plus_inf(func_decl * f, expr_ref & result);
     void mk_minus_inf(func_decl * f, expr_ref & result);
@@ -102,7 +102,8 @@ public:
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    fpa2bv_model_converter * mk_model_converter();
+    obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
+    obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
 
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector extra_assertions;
@@ -122,11 +123,11 @@ protected:
     void mk_is_denormal(expr * e, expr_ref & result);
     void mk_is_normal(expr * e, expr_ref & result);
 
-	void mk_is_rm(expr * e, BV_RM_VAL rm, expr_ref & result);
+    void mk_is_rm(expr * e, BV_RM_VAL rm, expr_ref & result);
 
     void mk_top_exp(unsigned sz, expr_ref & result);
     void mk_bot_exp(unsigned sz, expr_ref & result);
-	void mk_min_exp(unsigned ebits, expr_ref & result);
+    void mk_min_exp(unsigned ebits, expr_ref & result);
     void mk_max_exp(unsigned ebits, expr_ref & result);
 
     void mk_leading_zeros(expr * e, unsigned max_bits, expr_ref & result);
@@ -134,8 +135,8 @@ protected:
     void mk_bias(expr * e, expr_ref & result);
     void mk_unbias(expr * e, expr_ref & result);
 
-    void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, bool normalize);
-    void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);	    
+    void unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & lz, bool normalize);
+    void round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref & sig, expr_ref & exp, expr_ref & result);        
 
     void add_core(unsigned sbits, unsigned ebits, expr_ref & rm,
         expr_ref & c_sgn, expr_ref & c_sig, expr_ref & c_exp, expr_ref & d_sgn, expr_ref & d_sig, expr_ref & d_exp,
@@ -146,11 +147,11 @@ protected:
 class fpa2bv_model_converter : public model_converter {
     ast_manager               & m;
     obj_map<func_decl, expr*>   m_const2bv;
-	obj_map<func_decl, expr*>   m_rm_const2bv;
+    obj_map<func_decl, expr*>   m_rm_const2bv;
 
 public:
-    fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> & const2bv,
-		                                    obj_map<func_decl, expr*> & rm_const2bv) : 
+    fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
+                                            obj_map<func_decl, expr*> const & rm_const2bv) : 
       m(m) {
           // Just create a copy?
           for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
@@ -161,7 +162,7 @@ public:
                m.inc_ref(it->m_key);
                m.inc_ref(it->m_value);
           }
-		  for (obj_map<func_decl, expr*>::iterator it = rm_const2bv.begin();
+          for (obj_map<func_decl, expr*>::iterator it = rm_const2bv.begin();
                it != rm_const2bv.end();
                it++) 
           {
@@ -173,7 +174,7 @@ public:
 
     virtual ~fpa2bv_model_converter() {
         dec_ref_map_key_values(m, m_const2bv);
-		dec_ref_map_key_values(m, m_rm_const2bv);
+        dec_ref_map_key_values(m, m_rm_const2bv);
     }
 
     virtual void operator()(model_ref & md, unsigned goal_idx) {
@@ -197,5 +198,10 @@ protected:
     
     void convert(model * bv_mdl, model * float_mdl);
 };
+
+
+model_converter * mk_fpa2bv_model_converter(ast_manager & m, 
+                                            obj_map<func_decl, expr*> const & const2bv,
+                                            obj_map<func_decl, expr*> const & rm_const2bv);
 
 #endif

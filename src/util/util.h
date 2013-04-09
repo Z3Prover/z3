@@ -45,7 +45,7 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define INT64_MIN static_cast<int64>(0x8000000000000000ull)
 #endif
 #ifndef INT64_MAX
-#define INT64_MAX static_cast<int64>(0x0fffffffffffffffull)
+#define INT64_MAX static_cast<int64>(0x7fffffffffffffffull)
 #endif                              
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xffffffffffffffffull
@@ -394,11 +394,14 @@ public:
 
 inline std::ostream & operator<<(std::ostream & out, escaped const & s) { s.display(out); return out; }
 
-inline unsigned long long megabytes_to_bytes(unsigned b) {
-    if (b == UINT_MAX)
-        return UINT64_MAX;
-    else
-        return static_cast<unsigned long long>(b) * 1024ull * 1024ull;
+inline size_t megabytes_to_bytes(unsigned mb) {
+    if (mb == UINT_MAX)
+        return SIZE_MAX;
+    unsigned long long b = static_cast<unsigned long long>(mb) * 1024ull * 1024ull;
+    size_t r = static_cast<size_t>(b);
+    if (r != b)  // overflow
+        r = SIZE_MAX;    
+    return r;
 }
 
 void z3_bound_num_procs();

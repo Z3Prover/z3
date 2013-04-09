@@ -140,6 +140,7 @@ public:
                                      unsigned arity, sort * const * domain, sort * range);
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    virtual expr * get_some_value(sort * s);
     virtual bool is_value(app* e) const;
     virtual bool is_unique_value(app* e) const { return is_value(e); }
     

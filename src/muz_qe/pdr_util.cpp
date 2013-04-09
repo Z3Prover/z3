@@ -32,7 +32,6 @@ Notes:
 #include "for_each_expr.h"
 #include "smt_params.h"
 #include "model.h"
-#include "model_v2_pp.h"
 #include "ref_vector.h"
 #include "rewriter.h"
 #include "rewriter_def.h"
@@ -42,6 +41,7 @@ Notes:
 #include "pdr_util.h"
 #include "arith_decl_plugin.h"
 #include "expr_replacer.h"
+#include "model_smt2_pp.h"
 
 
 namespace pdr {
@@ -510,13 +510,24 @@ namespace pdr {
             set_x(e);
         }
     }
+
+    void model_evaluator::eval_exprs(expr_ref_vector& es) {
+        model_ref mr(m_model);
+        for (unsigned j = 0; j < es.size(); ++j) {
+            if (m_array.is_as_array(es[j].get())) {
+                es[j] = eval(mr, es[j].get());
+            }
+        }
+    }
     
     bool model_evaluator::extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case) {
         SASSERT(m_array.is_array(a));
         
+        TRACE("pdr", tout << mk_pp(a, m) << "\n";);
         while (m_array.is_store(a)) {
             expr_ref_vector store(m);
             store.append(to_app(a)->get_num_args()-1, to_app(a)->get_args()+1);
+            eval_exprs(store);
             stores.push_back(store);
             a = to_app(a)->get_arg(0);
         }
@@ -526,7 +537,7 @@ namespace pdr {
             return true;
         }
         
-        if (m_array.is_as_array(a)) {
+        while (m_array.is_as_array(a)) {
             func_decl* f = m_array.get_as_array_func_decl(to_app(a));
             func_interp* g = m_model->get_func_interp(f);
             unsigned sz = g->num_entries();
@@ -538,20 +549,30 @@ namespace pdr {
                 store.push_back(fe->get_result());
                 for (unsigned j = 0; j < store.size(); ++j) {
                     if (!is_ground(store[j].get())) {
+                        TRACE("pdr", tout << "could not extract array interpretation: " << mk_pp(a, m) << "\n" << mk_pp(store[j].get(), m) << "\n";);
                         return false;
                     }
                 }
+                eval_exprs(store);
                 stores.push_back(store);
             }        
             else_case = g->get_else();
             if (!else_case) {
+                TRACE("pdr", tout << "no else case " << mk_pp(a, m) << "\n";);
                 return false;
             }
             if (!is_ground(else_case)) {
+                TRACE("pdr", tout << "non-ground else case " << mk_pp(a, m) << "\n" << mk_pp(else_case, m) << "\n";);
                 return false;
             }
+            if (m_array.is_as_array(else_case)) {
+                model_ref mr(m_model);
+                else_case = eval(mr, else_case);
+            }
+            TRACE("pdr", tout << "else case: " << mk_pp(else_case, m) << "\n";);
             return true;
         }
+        TRACE("pdr", tout << "no translation: " << mk_pp(a, m) << "\n";);
         
         return false;
     }
@@ -570,7 +591,8 @@ namespace pdr {
         }
         sort* s = m.get_sort(arg1);
         sort* r = get_array_range(s);
-        if (!r->is_infinite() && !r->is_very_big()) {
+        // give up evaluating finite domain/range arrays
+        if (!r->is_infinite() && !r->is_very_big() && !s->is_infinite() && !s->is_very_big()) {
             TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
             set_x(e);
             return;
@@ -590,6 +612,9 @@ namespace pdr {
                       << "defaults are different: " << mk_pp(e, m) << " " 
                       << mk_pp(else1, m) << " " << mk_pp(else2, m) << "\n";);
                 set_false(e);
+            }
+            else if (m_array.is_array(else1)) {
+                eval_array_eq(e, else1, else2);
             }
             else {
                 TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
@@ -614,18 +639,23 @@ namespace pdr {
             if (w1 == w2) {
                 continue;
             }
-            else if (m.is_value(w1) && m.is_value(w2)) {
+            if (m.is_value(w1) && m.is_value(w2)) {
                 TRACE("pdr", tout << "Equality evaluation: " << mk_pp(e, m) << "\n"; 
                       tout << mk_pp(s1, m) << " |-> " << mk_pp(w1, m) << "\n";
                       tout << mk_pp(s2, m) << " |-> " << mk_pp(w2, m) << "\n";);
                 set_false(e);
-                return;
+            }
+            else if (m_array.is_array(w1)) {
+                eval_array_eq(e, w1, w2);
+                if (is_true(e)) {
+                    continue;
+                }
             }
             else {
                 TRACE("pdr", tout << "equality is unknown: " << mk_pp(e, m) << "\n";);
                 set_x(e);
-                return;
             }
+            return;
         }
         set_true(e);
     }
@@ -869,6 +899,7 @@ namespace pdr {
             }
             if (is_x(form)) {
                 IF_VERBOSE(0, verbose_stream() << "formula undetermined in model: " << mk_pp(form, m) << "\n";);
+                TRACE("pdr", model_smt2_pp(tout, m, *m_model, 0);); 
                 has_x = true;
             }
         }

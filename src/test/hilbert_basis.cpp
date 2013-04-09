@@ -10,6 +10,9 @@
 #include <time.h>
 #include <sstream>
 
+static bool g_use_ordered_support = false;
+static bool g_use_ordered_subsumption = false;
+static bool g_use_support = false;
 
 class hilbert_basis_validate {
     ast_manager& m;
@@ -217,6 +220,7 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+#if 0
 static void validate_sat(hilbert_basis& hb) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -236,18 +240,22 @@ static void validate_sat(hilbert_basis& hb) {
     lbool r = sol->check_sat(0,0);
     std::cout << r << "\n";
 }
+#endif
 
 static void saturate_basis(hilbert_basis& hb) {
     signal(SIGINT, on_ctrl_c);
     g_hb = &hb;
     g_start_time = static_cast<double>(clock());
+    hb.set_use_ordered_support(g_use_ordered_support);
+    hb.set_use_support(g_use_support);
+    hb.set_use_ordered_subsumption(g_use_ordered_subsumption);
     lbool is_sat = hb.saturate();
 
     switch(is_sat) {
     case l_true:  
         std::cout << "sat\n"; 
         hb.display(std::cout);
-        validate_sat(hb);
+        //validate_sat(hb);
         break;
     case l_false: 
         std::cout << "unsat\n"; 
@@ -502,15 +510,60 @@ static void tst15() {
     saturate_basis(hb);
 }
 
+static void tst16() {
+    hilbert_basis hb;
+    hb.add_le(vec(1, 0), R(100));
+    saturate_basis(hb);
+}
+
+static void tst17() {
+    hilbert_basis hb;
+    hb.add_eq(vec(1,  0), R(0));
+    hb.add_eq(vec(-1, 0), R(0));
+    hb.add_eq(vec(0,  2), R(0));
+    hb.add_eq(vec(0, -2), R(0));
+    saturate_basis(hb);
+
+}
+
+static void tst18() {
+    hilbert_basis hb;
+    hb.add_eq(vec(0, 1), R(0));
+    hb.add_eq(vec(1, -1), R(2));
+    saturate_basis(hb);    
+}
+
+static void tst19() {
+    hilbert_basis hb;
+    hb.add_eq(vec(0,  1, 0), R(0));
+    hb.add_eq(vec(1, -1, 0), R(2));
+    saturate_basis(hb);    
+}
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
+//    tst3();
+//    return;
+
+    g_use_ordered_support = true;
+
+    tst18();
+    return;
+
+    tst19();
+    return;
+    tst17();
 
     if (true) {
         tst1();
         tst2();
         tst3();
         tst4();
+        tst4();
+        tst4();
+       tst4();
+       tst4();
+       tst4();
         tst5();
         tst6();
         tst7();
@@ -522,6 +575,7 @@ void tst_hilbert_basis() {
         tst13();
         tst14();
         tst15();
+        tst16();
         gorrila_test(0, 4, 3, 20, 5);
         gorrila_test(1, 4, 3, 20, 5);
         //gorrila_test(2, 4, 3, 20, 5);
@@ -531,4 +585,14 @@ void tst_hilbert_basis() {
     else {
         gorrila_test(0, 10, 7, 20, 11);
     }
+
+    return;
+    std::cout << "ordered support\n";
+    g_use_ordered_support = true;
+    tst4();
+
+    std::cout << "non-ordered support\n";
+    g_use_ordered_support = false;
+    tst4();
+
 }

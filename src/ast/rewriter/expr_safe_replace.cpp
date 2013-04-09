@@ -100,3 +100,9 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
     }
     res = cache.find(e);
 }
+
+void expr_safe_replace::reset() {
+    m_src.reset();
+    m_dst.reset();
+    m_subst.reset();
+}

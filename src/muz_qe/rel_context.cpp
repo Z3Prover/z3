@@ -27,13 +27,11 @@ Revision History:
 #include"dl_product_relation.h"
 #include"dl_bound_relation.h"
 #include"dl_interval_relation.h"
+#include"dl_mk_karr_invariants.h"
 #include"dl_finite_product_relation.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
 #include"dl_table_relation.h"
-#ifndef _EXTERNAL_RELEASE
-#include"dl_skip_table.h"
-#endif
 
 namespace datalog {
    
@@ -42,21 +40,23 @@ namespace datalog {
           m(ctx.get_manager()),
           m_rmanager(ctx),
           m_answer(m), 
-          m_cancel(false), 
-          m_last_result_relation(0) {
+          m_last_result_relation(0),
+          m_ectx(ctx) {
+
+        // register plugins for builtin tables
+
         get_rmanager().register_plugin(alloc(sparse_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(hashtable_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
 
-#ifndef _EXTERNAL_RELEASE
-        get_rmanager().register_plugin(alloc(skip_table_plugin, get_rmanager()));
-#endif
 
-        //register plugins for builtin relations
+        // register plugins for builtin relations
 
         get_rmanager().register_plugin(alloc(bound_relation_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(interval_relation_plugin, get_rmanager()));
+        get_rmanager().register_plugin(alloc(karr_relation_plugin, get_rmanager()));
+
 
 }
 
@@ -97,21 +97,23 @@ namespace datalog {
         decl_set original_predicates;
         m_context.collect_predicates(original_predicates);
                 
-        instruction_block rules_code;
+        m_code.reset();
         instruction_block termination_code;
-        execution_context ex_ctx(m_context);
+        m_ectx.reset();
 
         lbool result;
 
         TRACE("dl", m_context.display(tout););
 
         while (true) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
-            m_context.transform_rules(mc, pc);
-            compiler::compile(m_context, m_context.get_rules(), rules_code, termination_code);
+            m_context.transform_rules();
+            if (m_context.canceled()) {
+                result = l_undef;
+                break;
+            }
+            compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
-            TRACE("dl", rules_code.display(*this, tout); );
+            TRACE("dl", m_code.display(*this, tout); );
 
             bool timeout_after_this_round = time_limit && (restart_time==0 || remaining_time_limit<=restart_time);
 
@@ -119,29 +121,32 @@ namespace datalog {
                 unsigned timeout = time_limit ? (restart_time!=0) ? 
                     std::min(remaining_time_limit, restart_time)
                     : remaining_time_limit : restart_time;
-                ex_ctx.set_timelimit(timeout);
+                m_ectx.set_timelimit(timeout);
             }
 
-            bool early_termination = !rules_code.perform(ex_ctx);
-            ex_ctx.reset_timelimit();
-            VERIFY( termination_code.perform(ex_ctx) );
+            bool early_termination = !m_code.perform(m_ectx);
+            m_ectx.reset_timelimit();
+            VERIFY( termination_code.perform(m_ectx) || m_context.canceled());
 
-            rules_code.process_all_costs();
+            m_code.process_all_costs();
 
-            IF_VERBOSE(10, ex_ctx.report_big_relations(1000, verbose_stream()););
-        
+            IF_VERBOSE(10, m_ectx.report_big_relations(1000, verbose_stream()););
+
+            if (m_context.canceled()) {
+                result = l_undef;
+                break;
+            }
             if (!early_termination) {
                 m_context.set_status(OK);
                 result = l_true;
                 break;
             }
-
             if (memory::above_high_watermark()) {
                 m_context.set_status(MEMOUT);
                 result = l_undef;
                 break;
             }
-            if (timeout_after_this_round || m_cancel) {
+            if (timeout_after_this_round) {
                 m_context.set_status(TIMEOUT);
                 result = l_undef;
                 break;
@@ -159,9 +164,7 @@ namespace datalog {
                 restart_time = static_cast<unsigned>(new_restart_time);
             }
 
-            rules_code.reset();
-            termination_code.reset();
-            ex_ctx.reset();
+            termination_code.reset();            
             m_context.reopen();
             restrict_predicates(original_predicates);
             m_context.replace_rules(original_rules);
@@ -169,30 +172,32 @@ namespace datalog {
         }
         m_context.reopen();
         restrict_predicates(original_predicates);
+        m_context.record_transformed_rules();
         m_context.replace_rules(original_rules);
         m_context.close();
-        TRACE("dl", ex_ctx.report_big_relations(100, tout););
-        m_cancel = false;
+        TRACE("dl", m_ectx.report_big_relations(100, tout););
+        m_code.process_all_costs();
+        m_code.make_annotations(m_ectx);        
         return result;
     }
 
-#define BEGIN_QUERY()                           \
+#define BEGIN_QUERY()                                     \
     rule_set original_rules(m_context.get_rules());       \
-    decl_set original_preds;                    \
-    m_context.collect_predicates(original_preds);       \
-    bool was_closed = m_context.is_closed();    \
-    if (was_closed) {                           \
+    decl_set original_preds;                              \
+    m_context.collect_predicates(original_preds);         \
+    bool was_closed = m_context.is_closed();              \
+    if (was_closed) {                                     \
         m_context.reopen();                               \
-    }                                           \
-
-#define END_QUERY()                             \
+    }                                                     \
+    
+#define END_QUERY()                                       \
     m_context.reopen();                                   \
     m_context.replace_rules(original_rules);              \
-    restrict_predicates(original_preds);        \
-                                                \
-    if (was_closed) {                           \
+    restrict_predicates(original_preds);                  \
+                                                          \
+    if (was_closed) {                                     \
         m_context.close();                                \
-    }                                           \
+    }                                                     \
  
     lbool rel_context::query(unsigned num_rels, func_decl * const* rels) {
         get_rmanager().reset_saturated_marks();
@@ -266,14 +271,12 @@ namespace datalog {
         reset_negated_tables();
         
         if (m_context.generate_explanations()) {
-            model_converter_ref mc; // ignored in Datalog mode
-            proof_converter_ref pc; // ignored in Datalog mode
             rule_transformer transformer(m_context);
             //expl_plugin is deallocated when transformer goes out of scope
             mk_explanations * expl_plugin = 
                 alloc(mk_explanations, m_context, m_context.explanations_on_relation_level());
             transformer.register_plugin(expl_plugin);
-            m_context.transform_rules(transformer, mc, pc);
+            m_context.transform_rules(transformer);
 
             //we will retrieve the predicate with explanations instead of the original query predicate
             query_pred = expl_plugin->get_e_decl(query_pred);
@@ -283,11 +286,9 @@ namespace datalog {
         }
 
         if (m_context.magic_sets_for_queries()) {
-            model_converter_ref mc; // Ignored in Datalog mode
-            proof_converter_ref pc; // Ignored in Datalog mode
             rule_transformer transformer(m_context);
             transformer.register_plugin(alloc(mk_magic_sets, m_context, qrule.get()));
-            m_context.transform_rules(transformer, mc, pc);
+            m_context.transform_rules(transformer);
         }
 
         lbool res = saturate();
@@ -429,6 +430,10 @@ namespace datalog {
         get_rmanager().set_predicate_kind(pred, target_kind);
     }
 
+    void rel_context::set_cancel(bool f) {
+        get_rmanager().set_cancel(f);        
+    }
+
     relation_plugin & rel_context::get_ordinary_relation_plugin(symbol relation_name) {
         relation_plugin * plugin = get_rmanager().get_relation_plugin(relation_name);
         if (!plugin) {
@@ -492,6 +497,11 @@ namespace datalog {
         }
     }
 
+    bool rel_context::has_facts(func_decl * pred) const {
+        relation_base* r = try_get_relation(pred);
+        return r && !r->empty();
+    }
+
     void rel_context::store_relation(func_decl * pred, relation_base * rel) {
         get_rmanager().store_relation(pred, rel);
     }
@@ -511,6 +521,18 @@ namespace datalog {
 
     void rel_context::display_facts(std::ostream& out) const {
         get_rmanager().display(out);
+    }
+
+    void rel_context::display_profile(std::ostream& out) const {
+        out << "\n--------------\n";
+        out << "Instructions\n";
+        m_code.display(*this, out);
+
+        out << "\n--------------\n";
+        out << "Big relations\n";
+        m_ectx.report_big_relations(1000, out);
+
+        get_rmanager().display_relation_sizes(out);
     }
 
 

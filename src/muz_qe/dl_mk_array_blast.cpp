@@ -30,7 +30,8 @@ namespace datalog {
         m(ctx.get_manager()), 
         a(m),
         rm(ctx.get_rule_manager()),
-        m_rewriter(m, m_params){
+        m_rewriter(m, m_params),
+        m_simplifier(ctx) {
         m_params.set_bool("expand_select_store",true);
         m_rewriter.updt_params(m_params);
     }
@@ -197,39 +198,31 @@ namespace datalog {
         }
 
         fml2 = m.mk_implies(body, head);
-        rm.mk_rule(fml2, new_rules, r.name());
+        proof_ref p(m);
+        rm.mk_rule(fml2, p, new_rules, r.name());
         SASSERT(new_rules.size() == 1);
 
         TRACE("dl", new_rules[0]->display(m_ctx, tout << "new rule\n"););
-        
-        rules.add_rule(new_rules[0].get());
-        if (m_pc) {
-            new_rules[0]->to_formula(fml2);
-            m_pc->insert(fml1, fml2);
+        rule_ref new_rule(rm);
+        if (m_simplifier.transform_rule(new_rules[0].get(), new_rule)) {
+            rules.add_rule(new_rule.get());
+            rm.mk_rule_rewrite_proof(r, *new_rule.get());
         }
         return true;
     }
     
-    rule_set * mk_array_blast::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        ref<equiv_proof_converter> epc;
-        if (pc) {
-            epc = alloc(equiv_proof_converter, m);
-        }
-        m_pc = epc.get();
+    rule_set * mk_array_blast::operator()(rule_set const & source) {
 
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::iterator it = source.begin(), end = source.end();
         bool change = false;
-        for (; it != end; ++it) {
+        for (; !m_ctx.canceled() && it != end; ++it) {
             change = blast(**it, *rules) || change;
         }
         if (!change) {
             dealloc(rules);
             rules = 0;
         }        
-        if (pc) {
-            pc = concat(pc.get(), epc.get());
-        }
         return rules;        
     }
 

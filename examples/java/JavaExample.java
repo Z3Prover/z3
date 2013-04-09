@@ -197,7 +197,7 @@ class JavaExample
             TestFailedException
     {
         Solver s = ctx.mkSolver();
-        s.assert_(f);
+        s.add(f);
         if (s.check() != sat)
             throw new TestFailedException();
         if (sat == Status.SATISFIABLE)
@@ -213,7 +213,7 @@ class JavaExample
         System.out.println("\nTactical solver: " + s);
 
         for (BoolExpr a : g.getFormulas())
-            s.assert_(a);
+            s.add(a);
         System.out.println("Solver: " + s);
 
         if (s.check() != sat)
@@ -266,8 +266,8 @@ class JavaExample
         p.add("mbqi", useMBQI);
         s.setParameters(p);
         for (BoolExpr a : assumptions)
-            s.assert_(a);
-        s.assert_(ctx.mkNot(f));
+            s.add(a);
+        s.add(ctx.mkNot(f));
         Status q = s.check();
 
         switch (q)
@@ -299,8 +299,8 @@ class JavaExample
         p.add("mbqi", useMBQI);
         s.setParameters(p);
         for (BoolExpr a : assumptions)
-            s.assert_(a);
-        s.assert_(ctx.mkNot(f));
+            s.add(a);
+        s.add(ctx.mkNot(f));
         Status q = s.check();
 
         switch (q)
@@ -326,9 +326,9 @@ class JavaExample
         ArithExpr yr = (ArithExpr) ctx.mkConst(ctx.mkSymbol("y"),
                 ctx.mkRealSort());
         Goal g4 = ctx.mkGoal(true, false, false);
-        g4.assert_(ctx.mkGt(xr, ctx.mkReal(10, 1)));
-        g4.assert_(ctx.mkEq(yr, ctx.mkAdd(xr, ctx.mkReal(1, 1))));
-        g4.assert_(ctx.mkGt(yr, ctx.mkReal(1, 1)));
+        g4.add(ctx.mkGt(xr, ctx.mkReal(10, 1)));
+        g4.add(ctx.mkEq(yr, ctx.mkAdd(xr, ctx.mkReal(1, 1))));
+        g4.add(ctx.mkGt(yr, ctx.mkReal(1, 1)));
 
         ApplyResult ar = applyTactic(ctx, ctx.mkTactic("simplify"), g4);
         if (ar.getNumSubgoals() == 1
@@ -345,7 +345,7 @@ class JavaExample
 
         Solver s = ctx.mkSolver();
         for (BoolExpr e : ar.getSubgoals()[0].getFormulas())
-            s.assert_(e);
+            s.add(e);
         Status q = s.check();
         System.out.println("Solver says: " + q);
         System.out.println("Model: \n" + s.getModel());
@@ -367,7 +367,7 @@ class JavaExample
                 ctx.mkBitVecSort(32));
         ArrayExpr aex = (ArrayExpr) ctx.mkConst(ctx.mkSymbol("MyArray"), asort);
         Expr sel = ctx.mkSelect(aex, ctx.mkInt(0));
-        g.assert_(ctx.mkEq(sel, ctx.mkBV(42, 32)));
+        g.add(ctx.mkEq(sel, ctx.mkBV(42, 32)));
         Symbol xs = ctx.mkSymbol("x");
         IntExpr xc = (IntExpr) ctx.mkConst(xs, ctx.getIntSort());
 
@@ -377,11 +377,11 @@ class JavaExample
         Expr[] fargs = { ctx.mkConst(xs, ctx.getIntSort()) };
         IntExpr fapp = (IntExpr) ctx.mkApp(fd, fargs);
 
-        g.assert_(ctx.mkEq(ctx.mkAdd(xc, fapp), ctx.mkInt(123)));
+        g.add(ctx.mkEq(ctx.mkAdd(xc, fapp), ctx.mkInt(123)));
 
         Solver s = ctx.mkSolver();
         for (BoolExpr a : g.getFormulas())
-            s.assert_(a);
+            s.add(a);
         System.out.println("Solver: " + s);
 
         Status q = s.check();
@@ -574,8 +574,8 @@ class JavaExample
                                 ctx.mkEq(X[i][j], ctx.mkInt(instance[i][j]))));
 
         Solver s = ctx.mkSolver();
-        s.assert_(sudoku_c);
-        s.assert_(instance_c);
+        s.add(sudoku_c);
+        s.add(instance_c);
 
         if (s.check() == Status.SATISFIABLE)
         {
@@ -798,14 +798,14 @@ class JavaExample
         BoolExpr nontrivial_eq = ctx.mkEq(fapp, fapp2);
 
         Goal g = ctx.mkGoal(true, false, false);
-        g.assert_(trivial_eq);
-        g.assert_(nontrivial_eq);
+        g.add(trivial_eq);
+        g.add(nontrivial_eq);
         System.out.println("Goal: " + g);
 
         Solver solver = ctx.mkSolver();
 
         for (BoolExpr a : g.getFormulas())
-            solver.assert_(a);
+            solver.add(a);
 
         if (solver.check() != Status.SATISFIABLE)
             throw new TestFailedException();
@@ -820,7 +820,7 @@ class JavaExample
         if (ar.getNumSubgoals() != 1 || !ar.getSubgoals()[0].isDecidedSat())
             throw new TestFailedException();
 
-        g.assert_(ctx.mkEq(ctx.mkNumeral(1, ctx.mkBitVecSort(32)),
+        g.add(ctx.mkEq(ctx.mkNumeral(1, ctx.mkBitVecSort(32)),
                 ctx.mkNumeral(2, ctx.mkBitVecSort(32))));
         ar = applyTactic(ctx, ctx.mkTactic("smt"), g);
         if (ar.getNumSubgoals() != 1 || !ar.getSubgoals()[0].isDecidedUnsat())
@@ -832,7 +832,7 @@ class JavaExample
             throw new TestFailedException();
 
         g2 = ctx.mkGoal(true, true, false);
-        g2.assert_(ctx.mkFalse());
+        g2.add(ctx.mkFalse());
         ar = applyTactic(ctx, ctx.mkTactic("smt"), g2);
         if (ar.getNumSubgoals() != 1 || !ar.getSubgoals()[0].isDecidedUnsat())
             throw new TestFailedException();
@@ -840,10 +840,10 @@ class JavaExample
         Goal g3 = ctx.mkGoal(true, true, false);
         Expr xc = ctx.mkConst(ctx.mkSymbol("x"), ctx.getIntSort());
         Expr yc = ctx.mkConst(ctx.mkSymbol("y"), ctx.getIntSort());
-        g3.assert_(ctx.mkEq(xc, ctx.mkNumeral(1, ctx.getIntSort())));
-        g3.assert_(ctx.mkEq(yc, ctx.mkNumeral(2, ctx.getIntSort())));
+        g3.add(ctx.mkEq(xc, ctx.mkNumeral(1, ctx.getIntSort())));
+        g3.add(ctx.mkEq(yc, ctx.mkNumeral(2, ctx.getIntSort())));
         BoolExpr constr = ctx.mkEq(xc, yc);
-        g3.assert_(constr);
+        g3.add(constr);
         ar = applyTactic(ctx, ctx.mkTactic("smt"), g3);
         if (ar.getNumSubgoals() != 1 || !ar.getSubgoals()[0].isDecidedUnsat())
             throw new TestFailedException();
@@ -1110,13 +1110,13 @@ class JavaExample
 
         // Use a solver for QF_BV
         Solver s = ctx.mkSolver("QF_BV");
-        s.assert_(eq);
+        s.add(eq);
         Status res = s.check();
         System.out.println("solver result: " + res);
 
         // Or perhaps a tactic for QF_BV
         Goal g = ctx.mkGoal(true, false, false);
-        g.assert_(eq);
+        g.add(eq);
 
         Tactic t = ctx.mkTactic("qfbv");
         ApplyResult ar = t.apply(g);
@@ -1139,7 +1139,7 @@ class JavaExample
         BoolExpr q = ctx.mkEq(x, y);
 
         Goal g = ctx.mkGoal(true, false, false);
-        g.assert_(q);
+        g.add(q);
 
         Tactic t1 = ctx.mkTactic("qfbv");
         Tactic t2 = ctx.mkTactic("qfbv");
@@ -1341,7 +1341,7 @@ class JavaExample
         /* assert x >= "big number" */
         BoolExpr c1 = ctx.mkGe(x, big_number);
         System.out.println("assert: x >= 'big number'");
-        solver.assert_(c1);
+        solver.add(c1);
 
         /* create a backtracking point */
         System.out.println("push");
@@ -1350,7 +1350,7 @@ class JavaExample
         /* assert x <= 3 */
         BoolExpr c2 = ctx.mkLe(x, three);
         System.out.println("assert: x <= 3");
-        solver.assert_(c2);
+        solver.add(c2);
 
         /* context is inconsistent at this point */
         if (solver.check() != Status.UNSATISFIABLE)
@@ -1375,7 +1375,7 @@ class JavaExample
         /* assert y > x */
         BoolExpr c3 = ctx.mkGt(y, x);
         System.out.println("assert: y > x");
-        solver.assert_(c3);
+        solver.add(c3);
 
         /* the context is still consistent. */
         if (solver.check() != Status.SATISFIABLE)
@@ -1911,10 +1911,10 @@ class JavaExample
         Solver solver = ctx.mkSolver();
 
         /* assert x < y */
-        solver.assert_(ctx.mkLt(x, y));
+        solver.add(ctx.mkLt(x, y));
 
         /* assert x > 2 */
-        solver.assert_(ctx.mkGt(x, two));
+        solver.add(ctx.mkGt(x, two));
 
         /* find model for the constraints above */
         Model model = null;
@@ -1964,9 +1964,9 @@ class JavaExample
         Solver solver = ctx.mkSolver();
 
         /* assert tup1 != tup2 */
-        solver.assert_(ctx.mkNot(ctx.mkEq(tup1, tup2)));
+        solver.add(ctx.mkNot(ctx.mkEq(tup1, tup2)));
         /* assert first tup1 = first tup2 */
-        solver.assert_(ctx.mkEq(ctx.mkApp(first, tup1), ctx.mkApp(first, tup2)));
+        solver.add(ctx.mkEq(ctx.mkApp(first, tup1), ctx.mkApp(first, tup2)));
 
         /* find model for the constraints above */
         Model model = null;
@@ -2014,7 +2014,7 @@ class JavaExample
                 // Assert all feasible bounds.
                 for (int i = 0; i < num_Exprs; ++i)
                 {
-                    solver.assert_(ctx.mkBVULE(to_minimize[i],
+                    solver.add(ctx.mkBVULE(to_minimize[i],
                             ctx.mkBV(upper[i], 32)));
                 }
 
@@ -2050,7 +2050,7 @@ class JavaExample
                     {
                         last_upper = (upper[i] + lower[i]) / 2;
                         last_index = i;
-                        solver.assert_(ctx.mkBVULE(to_minimize[i],
+                        solver.add(ctx.mkBVULE(to_minimize[i],
                                 ctx.mkBV(last_upper, 32)));
                         some_work = true;
                         break;
@@ -2074,7 +2074,7 @@ class JavaExample
 
         Solver solver = ctx.mkSolver();
 
-        solver.assert_(ctx.mkBVULE(x, ctx.mkBVAdd(y, z)));
+        solver.add(ctx.mkBVULE(x, ctx.mkBVAdd(y, z)));
         checkSmall(ctx, solver, x, y, z);
     }
 
@@ -2120,10 +2120,10 @@ class JavaExample
         BoolExpr f3 = ctx.mkOr(ctx.mkNot(pa), ctx.mkNot(pc));
         BoolExpr f4 = pd;
 
-        solver.assert_(ctx.mkOr(f1, p1));
-        solver.assert_(ctx.mkOr(f2, p2));
-        solver.assert_(ctx.mkOr(f3, p3));
-        solver.assert_(ctx.mkOr(f4, p4));
+        solver.add(ctx.mkOr(f1, p1));
+        solver.add(ctx.mkOr(f2, p2));
+        solver.add(ctx.mkOr(f3, p3));
+        solver.add(ctx.mkOr(f4, p4));
         Status result = solver.check(assumptions);
 
         if (result == Status.UNSATISFIABLE)

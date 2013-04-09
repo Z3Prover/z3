@@ -36,8 +36,11 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
-
-                return _constdecls;
+                uint n = Native.Z3_get_datatype_sort_num_constructors(Context.nCtx, NativeObject);
+                FuncDecl[] t = new FuncDecl[n];
+                for (uint i = 0; i < n; i++)
+                    t[i] = new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, i));
+                return t;                
             }
         }
 
@@ -49,8 +52,11 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<Expr[]>() != null);
-
-                return _consts;
+                FuncDecl[] cds = ConstDecls;
+                Expr[] t = new Expr[cds.Length];
+                for (uint i = 0; i < t.Length; i++)
+                    t[i] = Context.MkApp(cds[i]);
+                return t;
             }
         }
 
@@ -62,28 +68,15 @@ namespace Microsoft.Z3
             get
             {
                 Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
-
-                return _testerdecls;
+                uint n = Native.Z3_get_datatype_sort_num_constructors(Context.nCtx, NativeObject);
+                FuncDecl[] t = new FuncDecl[n];
+                for (uint i = 0; i < n; i++)
+                    t[i] = new FuncDecl(Context, Native.Z3_get_datatype_sort_recognizer(Context.nCtx, NativeObject, i));
+                return t;
             }
         }
 
-        #region Object Invariant
-
-        [ContractInvariantMethod]
-        private void ObjectInvariant()
-        {
-            Contract.Invariant(this._constdecls != null);
-            Contract.Invariant(this._testerdecls != null);
-            Contract.Invariant(this._consts != null);
-        }
-
-
-        #endregion
-
         #region Internal
-        readonly private FuncDecl[] _constdecls = null, _testerdecls = null;
-        readonly private Expr[] _consts = null;
-
         internal EnumSort(Context ctx, Symbol name, Symbol[] enumNames)
             : base(ctx)
         {
@@ -96,15 +89,6 @@ namespace Microsoft.Z3
             IntPtr[] n_testers = new IntPtr[n];
             NativeObject = Native.Z3_mk_enumeration_sort(ctx.nCtx, name.NativeObject, (uint)n,
                                                          Symbol.ArrayToNative(enumNames), n_constdecls, n_testers);
-            _constdecls = new FuncDecl[n];
-            for (uint i = 0; i < n; i++)
-                _constdecls[i] = new FuncDecl(ctx, n_constdecls[i]);
-            _testerdecls = new FuncDecl[n];
-            for (uint i = 0; i < n; i++)
-                _testerdecls[i] = new FuncDecl(ctx, n_testers[i]);
-            _consts = new Expr[n];
-            for (uint i = 0; i < n; i++)
-                _consts[i] = ctx.MkApp(_constdecls[i]);
         }
         #endregion
     };

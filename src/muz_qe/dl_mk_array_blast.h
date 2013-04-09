@@ -22,6 +22,7 @@ Revision History:
 #include"dl_context.h"
 #include"dl_rule_set.h"
 #include"dl_rule_transformer.h"
+#include"dl_mk_interp_tail_simplifier.h"
 #include "equiv_proof_converter.h"
 #include "array_decl_plugin.h"
 
@@ -37,7 +38,7 @@ namespace datalog {
         rule_manager&   rm;
         params_ref      m_params;
         th_rewriter     m_rewriter;
-        equiv_proof_converter* m_pc;
+        mk_interp_tail_simplifier m_simplifier;
 
         typedef obj_map<app, var*> defs_t;
 
@@ -49,13 +50,13 @@ namespace datalog {
 
     public:
         /**
-           \brief Create rule transformer that extracts universal quantifiers (over recursive predicates).
+           \brief Create rule transformer that removes array stores and selects by ackermannization.
         */
         mk_array_blast(context & ctx, unsigned priority);
 
         virtual ~mk_array_blast();
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source);
 
     };
 

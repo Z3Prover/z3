@@ -79,6 +79,14 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Alias for Assert.
+        /// </summary>        
+        public void Add(params BoolExpr[] constraints)
+        {
+            Assert(constraints);
+        }
+
+        /// <summary>
         /// Register predicate as recursive relation.
         /// </summary>       
         public void RegisterRelation(FuncDecl f)

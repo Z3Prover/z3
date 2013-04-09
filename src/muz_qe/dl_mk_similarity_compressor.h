@@ -69,7 +69,7 @@ namespace datalog {
     public:
         mk_similarity_compressor(context & ctx, unsigned threshold_count);
         
-        rule_set * operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

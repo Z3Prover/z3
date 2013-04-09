@@ -16,11 +16,11 @@ Author:
 Revision History:
 
 --*/
+
 #include <algorithm>
 #include<typeinfo>
 
 #include"dl_context.h"
-
 #include"dl_rule_transformer.h"
 
 namespace datalog {
@@ -31,25 +31,38 @@ namespace datalog {
 
 
     rule_transformer::~rule_transformer() {
-        plugin_vector::iterator it=m_plugins.begin();
-        plugin_vector::iterator end=m_plugins.end();
+        reset();
+    }
+
+    void rule_transformer::reset() {
+        plugin_vector::iterator it = m_plugins.begin();
+        plugin_vector::iterator end = m_plugins.end();
         for(; it!=end; ++it) {
             dealloc(*it);
+        }
+        m_plugins.reset();
+        m_dirty = false;
+    }
+
+    void rule_transformer::cancel() {
+        plugin_vector::iterator it = m_plugins.begin();
+        plugin_vector::iterator end = m_plugins.end();
+        for(; it!=end; ++it) {
+            (*it)->cancel();
         }
     }
 
     struct rule_transformer::plugin_comparator {
         bool operator()(rule_transformer::plugin * p1, rule_transformer::plugin * p2) {
-            return p1->get_priority()>p2->get_priority();
+            return p1->get_priority() > p2->get_priority();
         }
     };
 
     void rule_transformer::ensure_ordered() {
-        if (!m_dirty) {
-            return;
+        if (m_dirty) {
+            std::sort(m_plugins.begin(), m_plugins.end(), plugin_comparator());
+            m_dirty = false;
         }
-        std::sort(m_plugins.begin(), m_plugins.end(), plugin_comparator());
-        m_dirty=false;
     }
 
     void rule_transformer::register_plugin(plugin * p) {
@@ -58,7 +71,7 @@ namespace datalog {
         m_dirty=true;
     }
 
-    bool rule_transformer::operator()(rule_set & rules, model_converter_ref& mc, proof_converter_ref& pc) {
+    bool rule_transformer::operator()(rule_set & rules) {
         ensure_ordered();
 
         bool modified = false;
@@ -67,12 +80,12 @@ namespace datalog {
             tout<<"init:\n";
             rules.display(tout);
         );
-        plugin_vector::iterator it=m_plugins.begin();
-        plugin_vector::iterator end=m_plugins.end();
-        for(; it!=end; ++it) {
+        plugin_vector::iterator it = m_plugins.begin();
+        plugin_vector::iterator end = m_plugins.end();
+        for(; it!=end && !m_context.canceled(); ++it) {
             plugin & p = **it;
 
-            rule_set * new_rules = p(rules, mc, pc);
+            rule_set * new_rules = p(rules);
             if (!new_rules) {
                 continue;
             }

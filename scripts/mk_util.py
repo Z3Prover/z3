@@ -30,12 +30,12 @@ CC=getenv("CC", None)
 CPPFLAGS=getenv("CPPFLAGS", "")
 CXXFLAGS=getenv("CXXFLAGS", "")
 LDFLAGS=getenv("LDFLAGS", "")
-JAVA=getenv("JAVA", "java")
-JAVAC=getenv("JAVAC", "javac")
-JAVA_HOME=getenv("JAVA_HOME", None)
+JNI_HOME=getenv("JNI_HOME", None)
 
 CXX_COMPILERS=['g++', 'clang++']
 C_COMPILERS=['gcc', 'clang']
+JAVAC=None
+JAR=None
 PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
@@ -206,23 +206,6 @@ def test_openmp(cc):
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
 
-def check_java():
-    t = TempFile('Hello.java')
-    t.add('public class Hello { public static void main(String[] args) { System.out.println("Hello, World"); }}\n')
-    t.commit()
-    if is_verbose():
-        print("Testing %s..." % JAVAC)
-    r = exec_cmd([JAVAC, 'Hello.java'])
-    if r != 0:
-        raise MKException('Failed testing Java compiler. Set environment variable JAVAC with the path to the Java compiler')
-    if is_verbose():
-        print("Testing %s..." % JAVA)
-    r = exec_cmd([JAVA, 'Hello'])
-    rmf('Hello.class')
-    if r != 0:
-        raise MKException('Failed testing Java program. Set environment variable JAVA with the path to the Java virtual machine')
-    find_java_home()
-
 def find_jni_h(path):
     for root, dirs, files in os.walk(path): 
         for f in files:
@@ -230,41 +213,110 @@ def find_jni_h(path):
                 return root
     return False
 
-def find_java_home():
-    global JAVA_HOME
-    if JAVA_HOME != None:
-        if is_verbose():
-            print("Checking jni.h...")
-        if os.path.exists(os.path.join(JAVA_HOME, 'include', 'jni.h')):
-            return
+def check_java():
+    global JNI_HOME
+    global JAVAC
+    global JAR
+
+    JDK_HOME = getenv('JDK_HOME', None) # we only need to check this locally.
+    
     if is_verbose():
-        print("Finding JAVA_HOME...")
-    t = TempFile('output')
-    null = open(os.devnull, 'wb')
+        print("Finding javac ...")
+
+    if JDK_HOME != None:
+        if IS_WINDOWS:
+            JAVAC = os.path.join(JDK_HOME, 'bin', 'javac.exe')
+        else:
+            JAVAC = os.path.join(JDK_HOME, 'bin', 'javac')
+
+        if not os.path.exists(JAVAC):
+            raise MKException("Failed to detect javac at '%s/bin'; the environment variable JDK_HOME is probably set to the wrong path." % os.path.join(JDK_HOME))
+    else:
+        # Search for javac in the path.
+        ind = 'javac';
+        if IS_WINDOWS:
+            ind = ind + '.exe'
+        paths = os.getenv('PATH', None)
+        if paths:
+            spaths = paths.split(os.pathsep)
+            for i in range(0, len(spaths)):
+                cmb = os.path.join(spaths[i], ind)
+                if os.path.exists(cmb):
+                    JAVAC = cmb
+                    break
+
+    if JAVAC == None:
+        raise MKException('No java compiler in the path, please adjust your PATH or set JDK_HOME to the location of the JDK.')
+
+    if is_verbose():
+        print("Finding jar ...")
+
+    if IS_WINDOWS:
+        JAR = os.path.join(os.path.dirname(JAVAC), 'jar.exe')
+    else:
+        JAR = os.path.join(os.path.dirname(JAVAC), 'jar')
+
+    if not os.path.exists(JAR):
+        raise MKException("Failed to detect jar at '%s'; the environment variable JDK_HOME is probably set to the wrong path." % os.path.join(JDK_HOME))
+
+    if is_verbose():
+        print("Testing %s..." % JAVAC)
+
+    t = TempFile('Hello.java')
+    t.add('public class Hello { public static void main(String[] args) { System.out.println("Hello, World"); }}\n')
+    t.commit()
+
+    oo = TempFile('output')
+    eo = TempFile('errout')
     try: 
-        subprocess.call([JAVA, '-verbose'], stdout=t.fname, stderr=null)
-        t.commit()
+        subprocess.call([JAVAC, 'Hello.java', '-verbose'], stdout=oo.fname, stderr=eo.fname)
+        oo.commit()
+        eo.commit()
     except:
-        raise MKException('Failed to find JAVA_HOME')
-    open_pat     = re.compile("\[Opened (.*)\]")
-    t = open('output', 'r')
-    for line in t:
-        m = open_pat.match(line)
-        if m:
-            # Remove last 3 directives from m.group(1)
-            print(m.group(1))
-            tmp  = m.group(1).split(os.sep)
-            path = string.join(tmp[:len(tmp) - 3], os.sep)
-            if is_verbose():
-                print("Checking jni.h...")
-            jni_dir = find_jni_h(path)
-            if not jni_dir:
-                raise MKException("Failed to detect jni.h at '%s'.Possible solution: set JAVA_HOME with the path to JDK." % os.path.join(path, 'include'))
-            JAVA_HOME = os.path.split(jni_dir)[0]
-            if is_verbose():
-                print('JAVA_HOME=%s' % JAVA_HOME)
-            return
-    raise MKException('Failed to find JAVA_HOME')
+        raise MKException('Found, but failed to run Java compiler at %s' % (JAVAC))
+
+    os.remove('Hello.class')
+
+    if is_verbose():
+        print("Finding jni.h...")
+
+    if JNI_HOME != None:
+        if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
+            raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
+    else:        
+        # Search for jni.h in the library directories...
+        t = open('errout', 'r')
+        open_pat = re.compile("\[search path for class files: (.*)\]")
+        cdirs = []
+        for line in t:
+            m = open_pat.match(line)
+            if m:
+                libdirs = m.group(1).split(',')
+                for libdir in libdirs:
+                    q = os.path.dirname(libdir)
+                    if cdirs.count(q) == 0:
+                        cdirs.append(q)
+
+        # ... plus some heuristic ones.
+        extra_dirs = []
+                    
+        # For the libraries, even the JDK usually uses a JRE that comes with it. To find the 
+        # headers we have to go a little bit higher up.
+        for dir in cdirs:
+            extra_dirs.append(os.path.abspath(os.path.join(dir, '..')))
+
+        if IS_OSX: # Apparently Apple knows best where to put stuff...
+            extra_dirs.append('/System/Library/Frameworks/JavaVM.framework/Headers/')
+    
+        cdirs[len(cdirs):] = extra_dirs
+
+        for dir in cdirs:
+            q = find_jni_h(dir)
+            if q != False:
+                JNI_HOME = q
+                
+        if JNI_HOME == None:
+            raise MKException("Failed to detect jni.h. Possible solution: set JNI_HOME with the path to JDK.")
 
 def is64():
     return sys.maxsize >= 2**32
@@ -399,9 +451,8 @@ def display_help(exit_code):
         print("  LDFLAGS    Linker flags, e.g., -L<lib dir> if you have libraries in a non-standard directory")
         print("  CPPFLAGS   Preprocessor flags, e.g., -I<include dir> if you have header files in a non-standard directory")
         print("  CXXFLAGS   C++ compiler flags")
-    print("  JAVA       Java virtual machine (only relevant if -j or --java option is provided)")
-    print("  JAVAC      Java compiler (only relevant if -j or --java option is provided)")
-    print("  JAVA_HOME  JDK installation directory (only relevant if -j or --java option is provided)")
+    print("  JDK_HOME   JDK installation directory (only relevant if -j or --java option is provided)")
+    print("  JNI_HOME   JNI bindings directory (only relevant if -j or --java option is provided)")
     exit(exit_code)
 
 # Parse configuration option for mk_make script
@@ -1082,11 +1133,14 @@ class JavaDLLComponent(Component):
         self.manifest_file = manifest_file
 
     def mk_makefile(self, out):
+        global JAVAC
+        global JAR
+
         if is_java_enabled():
             mk_dir(os.path.join(BUILD_DIR, 'api', 'java', 'classes'))
             dllfile = '%s$(SO_EXT)' % self.dll_name            
             out.write('libz3java$(SO_EXT): libz3$(SO_EXT) %s\n' % os.path.join(self.to_src_dir, 'Native.cpp'))
-            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s/include" -I"%s/include/PLATFORM" -I%s %s/Native.cpp\n' % (JAVA_HOME, JAVA_HOME, get_component('api').to_src_dir, self.to_src_dir)
+            t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s" -I"%s/PLATFORM" -I%s %s/Native.cpp\n' % (JNI_HOME, JNI_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
                 t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
@@ -1108,6 +1162,9 @@ class JavaDLLComponent(Component):
                 deps += '%s ' % os.path.join(self.to_src_dir, 'enumerations', jfile)
             out.write(deps)
             out.write('\n')
+            if IS_WINDOWS:
+                JAVAC = '"%s"' % JAVAC
+                JAR = '"%s"' % JAR
             t = ('\t%s %s.java -d %s\n' % (JAVAC, os.path.join(self.to_src_dir, 'enumerations', '*'), os.path.join('api', 'java', 'classes')))
             out.write(t)
             t = ('\t%s -cp %s %s.java -d %s\n' % (JAVAC, 
@@ -1115,7 +1172,7 @@ class JavaDLLComponent(Component):
                                                   os.path.join(self.to_src_dir, '*'), 
                                                   os.path.join('api', 'java', 'classes')))
             out.write(t)
-            out.write('\tjar cfm %s.jar %s -C %s .\n' % (self.package_name, 
+            out.write('\t%s cfm %s.jar %s -C %s .\n' % (JAR, self.package_name, 
                                                          os.path.join(self.to_src_dir, 'manifest'), 
                                                          os.path.join('api', 'java', 'classes')))
             out.write('java: %s.jar\n\n' % self.package_name)
@@ -1387,9 +1444,8 @@ def mk_config():
         if is_verbose():
             print('64-bit:         %s' % is64())
             if is_java_enabled():
-                print('Java Home:      %s' % JAVA_HOME)
+                print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
-                print('Java VM:        %s' % JAVA)
     else:
         global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
         ARITH = "internal"
@@ -1491,9 +1547,8 @@ def mk_config():
                 print('gprof:          enabled')
             print('Python version: %s' % distutils.sysconfig.get_python_version())
             if is_java_enabled():
-                print('Java Home:      %s' % JAVA_HOME)
+                print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
-                print('Java VM:        %s' % JAVA)
 
 def mk_install(out):
     out.write('install:\n')

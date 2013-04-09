@@ -596,8 +596,9 @@ void hint_to_macro_head(ast_manager & m, app * head, unsigned num_decls, app_ref
    is_hint_head(head, vars) must also return true
 */
 bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
-    TRACE("macro_util_hint", tout << "is_poly_hint n:\n" << mk_pp(n, m_manager) << "\nhead:\n" << mk_pp(head, m_manager) << "\nexception:\n"
-          << mk_pp(exception, m_manager) << "\n";);
+    TRACE("macro_util_hint", tout << "is_poly_hint n:\n" << mk_pp(n, m_manager) << "\nhead:\n" << mk_pp(head, m_manager) << "\nexception:\n";
+          if (exception) tout << mk_pp(exception, m_manager); else tout << "<null>";
+          tout << "\n";);
     ptr_buffer<var> vars;
     if (!is_hint_head(head, vars)) {
         TRACE("macro_util_hint", tout << "failed because head is not hint head\n";);
@@ -791,7 +792,10 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
             mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
             expr_ref def(m_manager);
             mk_sub(rhs, rest, def);
-            add_arith_macro_candidate(to_app(arg), num_decls, def, atom, is_ineq, _is_poly_hint, r);
+            // If is_poly_hint, rhs may contain variables that do not occur in to_app(arg).
+            // So, we should re-check.
+            if (!_is_poly_hint || is_poly_hint(def, to_app(arg), 0))
+                add_arith_macro_candidate(to_app(arg), num_decls, def, atom, is_ineq, _is_poly_hint, r);
         }
         else if (is_times_minus_one(arg, neg_arg) && is_app(neg_arg)) {
             f = to_app(neg_arg)->get_decl();
@@ -809,7 +813,10 @@ void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * a
                 mk_add(args.size(), args.c_ptr(), m_manager.get_sort(arg), rest);
                 expr_ref def(m_manager);
                 mk_sub(rest, rhs, def);
-                add_arith_macro_candidate(to_app(neg_arg), num_decls, def, atom, is_ineq, _is_poly_hint, r);
+                // If is_poly_hint, rhs may contain variables that do not occur in to_app(neg_arg).
+                // So, we should re-check.
+                if (!_is_poly_hint || is_poly_hint(def, to_app(neg_arg), 0))
+                    add_arith_macro_candidate(to_app(neg_arg), num_decls, def, atom, is_ineq, _is_poly_hint, r);
             }
         }
     }

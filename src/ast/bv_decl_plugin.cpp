@@ -766,7 +766,7 @@ bool bv_recognizers::is_zero(expr const * n) const {
     return decl->get_parameter(0).get_rational().is_zero();
 }
 
-bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) {
+bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) const {
     if (!is_extract(e)) return false;
     low = get_extract_low(e);
     high = get_extract_high(e);
@@ -774,7 +774,7 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
     return true;
 }
 
-bool bv_recognizers::is_bv2int(expr const* e, expr*& r) {
+bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
     if (!is_bv2int(e)) return false;
     r = to_app(e)->get_arg(0);
     return true;

@@ -612,8 +612,8 @@ namespace pdr {
         datalog::rule_set::iterator it = m_rules.begin(), end = m_rules.end();
         for (; it != end; ++it) {
             datalog::rule* r = *it;
-            datalog::var_counter vc(true);
-            unsigned max_var = vc.get_max_var(*r);
+            datalog::rule_counter vc(true);
+            unsigned max_var = vc.get_max_rule_var(*r);
             app_ref_vector body(m);
             for (unsigned i = 0; i < m_instantiations.size(); ++i) {
                 if (r == m_instantiated_rules[i]) {

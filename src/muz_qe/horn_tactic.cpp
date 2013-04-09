@@ -21,15 +21,20 @@ Revision History:
 #include"proof_converter.h"
 #include"horn_tactic.h"
 #include"dl_context.h"
+#include"expr_replacer.h"
+#include"dl_rule_transformer.h"
+#include"dl_mk_slice.h"
 
 class horn_tactic : public tactic {
     struct imp {
         ast_manager&             m;
+        bool                     m_is_simplify;
         datalog::context         m_ctx;
         smt_params               m_fparams;
 
-        imp(ast_manager & m, params_ref const & p):
+        imp(bool t, ast_manager & m, params_ref const & p):
             m(m),
+            m_is_simplify(t),
             m_ctx(m, m_fparams) {
             updt_params(p);
         }
@@ -87,7 +92,7 @@ class horn_tactic : public tactic {
 
         void register_predicate(expr* a) {
             SASSERT(is_predicate(a));
-            m_ctx.register_predicate(to_app(a)->get_decl(), true);
+            m_ctx.register_predicate(to_app(a)->get_decl(), false);
         }
 
         void check_predicate(ast_mark& mark, expr* a) {
@@ -108,8 +113,8 @@ class horn_tactic : public tactic {
                     todo.append(to_app(a)->get_num_args(), to_app(a)->get_args());
                 }
                 else if (m.is_ite(a)) {
-                    todo.append(to_app(a)->get_arg(1));
-                    todo.append(to_app(a)->get_arg(2));
+                    todo.push_back(to_app(a)->get_arg(1));
+                    todo.push_back(to_app(a)->get_arg(2));
                 }
                 else if (is_predicate(a)) {
                     register_predicate(a);
@@ -164,7 +169,6 @@ class horn_tactic : public tactic {
             SASSERT(g->is_well_sorted());
             mc = 0; pc = 0; core = 0;
             tactic_report report("horn", *g);
-            bool produce_models = g->models_enabled();
             bool produce_proofs = g->proofs_enabled();
 
             if (produce_proofs) {
@@ -179,6 +183,9 @@ class horn_tactic : public tactic {
             expr_ref q(m), f(m);
             expr_ref_vector queries(m);
             std::stringstream msg;
+
+            m_ctx.reset();
+            m_ctx.ensure_opened();
 
             for (unsigned i = 0; i < sz; i++) {
                 f = g->form(i);
@@ -196,7 +203,7 @@ class horn_tactic : public tactic {
                 }
             }
 
-            if (queries.size() != 1) {
+            if (queries.size() != 1 || m_is_simplify) {
                 q = m.mk_fresh_const("query", m.mk_bool_sort());
                 register_predicate(q);
                 for (unsigned i = 0; i < queries.size(); ++i) {
@@ -208,8 +215,26 @@ class horn_tactic : public tactic {
             }
             SASSERT(queries.size() == 1);
             q = queries[0].get();
+            if (m_is_simplify) {
+                simplify(q, g, result, mc, pc);
+            }
+            else {
+                verify(q, g, result, mc, pc);
+            }
+        }
+
+        void verify(expr* q, 
+                    goal_ref const& g,
+                    goal_ref_buffer & result, 
+                    model_converter_ref & mc, 
+                    proof_converter_ref & pc) {
+
             lbool is_reachable = m_ctx.query(q);
             g->inc_depth();
+
+            bool produce_models = g->models_enabled();
+            bool produce_proofs = g->proofs_enabled();
+
             result.push_back(g.get());
             switch (is_reachable) {
             case l_true: {
@@ -237,19 +262,60 @@ class horn_tactic : public tactic {
             TRACE("horn", g->display(tout););
             SASSERT(g->is_well_sorted());
         }
+
+        void simplify(expr* q, 
+                    goal_ref const& g,
+                    goal_ref_buffer & result, 
+                    model_converter_ref & mc, 
+                    proof_converter_ref & pc) {
+
+            expr_ref fml(m);            
+
+
+            func_decl* query_pred = to_app(q)->get_decl();
+            m_ctx.set_output_predicate(query_pred);
+            m_ctx.get_rules(); // flush adding rules.
+            m_ctx.apply_default_transformation();
+            
+            if (m_ctx.get_params().slice()) {
+                datalog::rule_transformer transformer(m_ctx);
+                datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
+                transformer.register_plugin(slice);
+                m_ctx.transform_rules(transformer);
+            }
+
+            expr_substitution sub(m);
+            sub.insert(q, m.mk_false());
+            scoped_ptr<expr_replacer> rep = mk_default_expr_replacer(m);
+            rep->set_substitution(&sub);
+            g->inc_depth();
+            g->reset();
+            result.push_back(g.get());
+            datalog::rule_set const& rules = m_ctx.get_rules();
+            datalog::rule_set::iterator it = rules.begin(), end = rules.end();
+            for (; it != end; ++it) {
+                datalog::rule* r = *it;
+                r->to_formula(fml);
+                (*rep)(fml);
+                g->assert_expr(fml);
+            }
+        }
+        
     };
-    
+
+    bool       m_is_simplify;
     params_ref m_params;
     statistics m_stats;
     imp *      m_imp;
 public:
-    horn_tactic(ast_manager & m, params_ref const & p):
+    horn_tactic(bool t, ast_manager & m, params_ref const & p):
+        m_is_simplify(t),
         m_params(p) {
-        m_imp = alloc(imp, m, p);
+        m_imp = alloc(imp, t, m, p);
     }
 
     virtual tactic * translate(ast_manager & m) {
-        return alloc(horn_tactic, m, m_params);
+        return alloc(horn_tactic, m_is_simplify, m, m_params);
     }
         
     virtual ~horn_tactic() {
@@ -293,7 +359,7 @@ public:
             m_imp = 0;
         }
         dealloc(d);
-        d = alloc(imp, m, m_params);
+        d = alloc(imp, m_is_simplify, m, m_params);
         #pragma omp critical (tactic_cancel)
         {
             m_imp = d;
@@ -308,6 +374,10 @@ protected:
 };
 
 tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(horn_tactic, m, p));
+    return clean(alloc(horn_tactic, false, m, p));
+}
+
+tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(horn_tactic, true, m, p));
 }
 

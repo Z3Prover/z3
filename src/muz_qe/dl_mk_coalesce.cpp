@@ -133,7 +133,7 @@ namespace datalog {
         tail.push_back(to_app(fml));
         is_neg.push_back(false);
         res = rm.mk(head, tail.size(), tail.c_ptr(), is_neg.c_ptr(), tgt->name());
-        if (m_pc) {
+        if (m_ctx.generate_proof_trace()) {
             src.to_formula(fml1);
             tgt->to_formula(fml2);
             res->to_formula(fml);
@@ -142,12 +142,13 @@ namespace datalog {
             sort* domain[3] = { ps, ps, m.mk_bool_sort() };
             func_decl* merge = m.mk_func_decl(symbol("merge-clauses"), 3, domain, ps);  // TBD: ad-hoc proof rule
             expr* args[3] = { m.mk_asserted(fml1), m.mk_asserted(fml2), fml };
-            m_pc->insert(m.mk_app(merge, 3, args));
+            // ...m_pc->insert(m.mk_app(merge, 3, args));
 #else
             svector<std::pair<unsigned, unsigned> > pos;
             vector<expr_ref_vector> substs;
-            proof* p = m.mk_asserted(fml1);
-            m_pc->insert(m.mk_hyper_resolve(1, &p, fml, pos, substs));
+            proof* p = src.get_proof();
+            p = m.mk_hyper_resolve(1, &p, fml, pos, substs);
+            res->set_proof(m, p);
 #endif
         }
         tgt = res;
@@ -170,13 +171,7 @@ namespace datalog {
         return true;
     }    
         
-    rule_set * mk_coalesce::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
-        m_pc = 0;
-        ref<replace_proof_converter> rpc;
-        if (pc) {
-            rpc = alloc(replace_proof_converter, m);
-            m_pc = rpc.get();
-        }
+    rule_set * mk_coalesce::operator()(rule_set const & source) {
         rule_set* rules = alloc(rule_set, m_ctx);
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
         for (; it != end; ++it) {
@@ -194,9 +189,6 @@ namespace datalog {
                 }
                 rules->add_rule(r1.get());
             }
-        }
-        if (pc) {
-            pc = concat(pc.get(), rpc.get());
         }
         return rules;
     }

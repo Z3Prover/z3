@@ -37,7 +37,8 @@ class bit_vector {
     }
     
     static unsigned num_words(unsigned num_bits) { 
-        return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        // return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        return (num_bits + 31) / 32;
     }
 
     void expand_to(unsigned new_capacity);
@@ -106,7 +107,7 @@ public:
     }
 
     bool empty() const {
-        return m_num_bits != 0;
+        return m_num_bits == 0;
     }
 
     unsigned num_words() const { 
@@ -171,9 +172,9 @@ public:
             resize(sz, val);
     }
 
-    bool operator==(bit_vector const & other);
+    bool operator==(bit_vector const & other) const;
 
-    bool operator!=(bit_vector const & other) { return !operator==(other); }
+    bool operator!=(bit_vector const & other) const { return !operator==(other); }
 
     bit_vector & operator=(bit_vector const & source) {
         m_num_bits = source.m_num_bits;

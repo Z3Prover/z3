@@ -61,6 +61,10 @@ Version 4.3.2
 
 - Fixed bugs in the C++ API (Thanks to Andrey Kupriyanov).
 
+- Fixed bug reported at http://z3.codeplex.com/workitem/23 (Thanks to Paul Jackson).
+
+- Fixed bug reported at http://stackoverflow.com/questions/15226944/segmentation-fault-in-z3 (Thanks to Tianhai Liu).
+
 Version 4.3.1
 =============
 

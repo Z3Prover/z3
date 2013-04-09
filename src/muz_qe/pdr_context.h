@@ -138,6 +138,7 @@ namespace pdr {
         ptr_vector<app>& get_aux_vars(datalog::rule const& r) { return m_rule2vars.find(&r); }
 
         bool propagate_to_next_level(unsigned level);
+        void propagate_to_infinity(unsigned level);
         void add_property(expr * lemma, unsigned lvl);  // add property 'p' to state at level.
 
         lbool is_reachable(model_node& n, expr_ref_vector* core, bool& uses_level);
@@ -223,7 +224,6 @@ namespace pdr {
         void set_rule(datalog::rule const* r) { m_rule = r; }
         datalog::rule* get_rule();
 
-        expr_ref get_trace() const;
         void mk_instantiate(datalog::rule_ref& r0, datalog::rule_ref& r1, expr_ref_vector& binding);
 
         std::ostream& display(std::ostream& out, unsigned indent);
@@ -240,6 +240,7 @@ namespace pdr {
         void erase_leaf(model_node& n);
         void remove_node(model_node& n);
         void enqueue_leaf(model_node& n); // add leaf to priority queue.
+        void update_models();
     public:
         model_search(bool bfs): m_bfs(bfs), m_root(0) {}
         ~model_search();
@@ -253,8 +254,8 @@ namespace pdr {
         void set_root(model_node* n);
         model_node& get_root() const { return *m_root; }
         std::ostream& display(std::ostream& out) const; 
-        expr_ref get_trace() const;
-        proof_ref get_proof_trace(context const& ctx) const;
+        expr_ref get_trace(context const& ctx);
+        proof_ref get_proof_trace(context const& ctx);
         void backtrack_level(bool uses_level, model_node& n);
     };
 
@@ -299,7 +300,7 @@ namespace pdr {
         decl2rel             m_rels;         // Map from relation predicate to fp-operator.       
         func_decl_ref        m_query_pred;
         pred_transformer*    m_query;
-        model_search         m_search;
+        mutable model_search m_search;
         lbool                m_last_result;
         unsigned             m_inductive_lvl;
         ptr_vector<core_generalizer>  m_core_generalizers;

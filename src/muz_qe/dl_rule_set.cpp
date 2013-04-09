@@ -30,17 +30,17 @@ namespace datalog {
 
     rule_dependencies::rule_dependencies(const rule_dependencies & o, bool reversed):
         m_context(o.m_context) {
-        if(reversed) {
+        if (reversed) {
             iterator oit = o.begin();
             iterator oend = o.end();
-            for(; oit!=oend; ++oit) {
+            for (; oit!=oend; ++oit) {
                 func_decl * pred = oit->m_key;
                 item_set & orig_items = *oit->get_value();
 
                 ensure_key(pred);
                 item_set::iterator dit = orig_items.begin();
                 item_set::iterator dend = orig_items.end();
-                for(; dit!=dend; ++dit) {
+                for (; dit!=dend; ++dit) {
                     func_decl * master_pred = *dit;
                     insert(master_pred, pred);
                 }
@@ -49,7 +49,7 @@ namespace datalog {
         else {
             iterator oit = o.begin();
             iterator oend = o.end();
-            for(; oit!=oend; ++oit) {
+            for (; oit!=oend; ++oit) {
                 func_decl * pred = oit->m_key;
                 item_set & orig_items = *oit->get_value();
                 m_data.insert(pred, alloc(item_set, orig_items));
@@ -73,7 +73,7 @@ namespace datalog {
 
     rule_dependencies::item_set & rule_dependencies::ensure_key(func_decl * pred) {
         deps_type::obj_map_entry * e = m_data.insert_if_not_there2(pred, 0);
-        if(!e->get_data().m_value) {
+        if (!e->get_data().m_value) {
             e->get_data().m_value = alloc(item_set);
         }
         return *e->get_data().m_value;
@@ -101,12 +101,13 @@ namespace datalog {
 
     void rule_dependencies::populate(unsigned n, rule * const * rules) {
         SASSERT(m_data.empty());
-        for(unsigned i=0; i<n; i++) {
+        for (unsigned i=0; i<n; i++) {
             populate(rules[i]);
         }
     }
 
     void rule_dependencies::populate(rule const* r) {
+        TRACE("dl_verbose", tout << r->get_decl()->get_name() << "\n";);
         m_visited.reset();
         func_decl * d = r->get_head()->get_decl();
         func_decl_set & s = ensure_key(d);
@@ -141,7 +142,7 @@ namespace datalog {
 
     const rule_dependencies::item_set & rule_dependencies::get_deps(func_decl * f) const {
         deps_type::obj_map_entry * e = m_data.find_core(f);
-        if(!e) {
+        if (!e) {
             return m_empty_item_set;
         }
         SASSERT(e->get_data().get_value());
@@ -152,9 +153,9 @@ namespace datalog {
         ptr_vector<func_decl> to_remove;
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit!=pend; ++pit) {
             func_decl * pred = pit->m_key;
-            if(!allowed.contains(pred)) {
+            if (!allowed.contains(pred)) {
                 to_remove.insert(pred);
                 continue;
             }
@@ -163,7 +164,7 @@ namespace datalog {
         }
         ptr_vector<func_decl>::iterator rit = to_remove.begin();
         ptr_vector<func_decl>::iterator rend = to_remove.end();
-        for(; rit!=rend; ++rit) {
+        for (; rit!=rend; ++rit) {
             remove_m_data_entry(*rit);
         }
     }
@@ -172,7 +173,7 @@ namespace datalog {
         remove_m_data_entry(itm);
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit!=pend; ++pit) {
             item_set & itms = *pit->get_value();
             itms.remove(itm);
         }
@@ -181,12 +182,12 @@ namespace datalog {
     void rule_dependencies::remove(const item_set & to_remove) {
         item_set::iterator rit = to_remove.begin();
         item_set::iterator rend = to_remove.end();
-        for(; rit!=rend; ++rit) {
+        for (; rit!=rend; ++rit) {
             remove_m_data_entry(*rit);
         }
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit!=pend; ++pit) {
             item_set * itms = pit->get_value();
             set_difference(*itms, to_remove);
         }
@@ -196,9 +197,9 @@ namespace datalog {
         unsigned res = 0;
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit!=pend; ++pit) {
             item_set & itms = *pit->get_value();
-            if(itms.contains(f)) {
+            if (itms.contains(f)) {
                 res++;
             }
         }
@@ -214,10 +215,10 @@ namespace datalog {
 
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit!=pend; ++pit) {
             func_decl * pred = pit->m_key;
             unsigned deg = in_degree(pred);
-            if(deg==0) {
+            if (deg==0) {
                 res.push_back(pred);
             }
             else {
@@ -225,25 +226,25 @@ namespace datalog {
             }
         }
 
-        while(curr_index<res.size()) { //res.size() can change in the loop iteration
+        while (curr_index<res.size()) { //res.size() can change in the loop iteration
             func_decl * curr = res[curr_index];
             const item_set & children = reversed.get_deps(curr);
             item_set::iterator cit = children.begin();
             item_set::iterator cend = children.end();
-            for(; cit!=cend; ++cit) {
+            for (; cit!=cend; ++cit) {
                 func_decl * child = *cit;
                 deg_map::obj_map_entry * e = degs.find_core(child);
                 SASSERT(e);
                 unsigned & child_deg = e->get_data().m_value;
                 SASSERT(child_deg>0);
                 child_deg--;
-                if(child_deg==0) {
+                if (child_deg==0) {
                     res.push_back(child);
                 }
             }
             curr_index++;
         }
-        if(res.size()<init_len+m_data.size()) {
+        if (res.size()<init_len+m_data.size()) {
             res.shrink(init_len);
             return false;
         }
@@ -251,21 +252,21 @@ namespace datalog {
         return true;
     }
 
-    void rule_dependencies::display( std::ostream & out ) const
+    void rule_dependencies::display(std::ostream & out ) const
     {
         iterator pit = begin();
         iterator pend = end();
-        for(; pit!=pend; ++pit) {
+        for (; pit != pend; ++pit) {
             func_decl * pred = pit->m_key;
             const item_set & deps = *pit->m_value;
             item_set::iterator dit=deps.begin();
             item_set::iterator dend=deps.end();
-            if(dit==dend) {
+            if (dit == dend) {
                 out<<pred->get_name()<<" - <none>\n";
             }
-            for(; dit!=dend; ++dit) {
+            for (; dit != dend; ++dit) {
                 func_decl * dep = *dit;
-                out<<pred->get_name()<<" -> "<<dep->get_name()<<"\n";
+                out << pred->get_name() << " -> " << dep->get_name() << "\n";
             }
         }
     }
@@ -292,8 +293,8 @@ namespace datalog {
               m_deps(rs.m_context),
               m_stratifier(0) {
         add_rules(rs);
-        if(rs.m_stratifier) {
-            TRUSTME(close());
+        if (rs.m_stratifier) {
+            VERIFY(close());
         }
     }
 
@@ -302,7 +303,7 @@ namespace datalog {
     }
 
     void rule_set::reset() {
-        if(m_stratifier) {
+        if (m_stratifier) {
             m_stratifier = 0;
         }
         reset_dealloc_values(m_head2rules);
@@ -346,18 +347,19 @@ namespace datalog {
 
     void rule_set::ensure_closed()
     {
-        if(!is_closed()) {
-            TRUSTME(close());
+        if (!is_closed()) {
+            VERIFY(close());
         }
     }
 
     bool rule_set::close() {
         SASSERT(!is_closed()); //the rule_set is not already closed
 
+        
         m_deps.populate(*this);
         m_stratifier = alloc(rule_stratifier, m_deps);
 
-        if(!stratified_negation()) {
+        if (!stratified_negation()) {
             m_stratifier = 0;
             m_deps.reset();
             return false;
@@ -391,7 +393,7 @@ namespace datalog {
                 unsigned head_strat = get_predicate_strat(head_decl);
 
                 SASSERT(head_strat>=neg_strat); //head strat can never be lower than that of a tail
-                if(head_strat==neg_strat) {
+                if (head_strat == neg_strat) {
                     return false;
                 }
             }
@@ -415,7 +417,7 @@ namespace datalog {
 
     const rule_vector & rule_set::get_predicate_rules(func_decl * pred) const { 
         decl2rules::obj_map_entry * e = m_head2rules.find_core(pred);
-        if(!e) {
+        if (!e) {
             return m_empty_rule_vector;
         }
         return *e->get_data().m_value;
@@ -443,7 +445,7 @@ namespace datalog {
             ptr_vector<rule>::iterator end2 = rules->end();
             for (; it2 != end2; ++it2) {
                 rule * r = *it2;
-                if(!r->passes_output_thresholds(m_context)) {
+                if (!r->passes_output_thresholds(m_context)) {
                     continue;
                 }
                 r->display(m_context, out);
@@ -468,23 +470,23 @@ namespace datalog {
         const pred_set_vector & strats = get_strats();
         pred_set_vector::const_iterator sit = strats.begin();
         pred_set_vector::const_iterator send = strats.end();
-        for(; sit!=send; ++sit) {
+        for (; sit!=send; ++sit) {
             func_decl_set & strat = **sit;
             func_decl_set::iterator fit=strat.begin();
             func_decl_set::iterator fend=strat.end();
             bool non_empty = false;
-            for(; fit!=fend; ++fit) {
+            for (; fit!=fend; ++fit) {
                 func_decl * first = *fit;
                 const func_decl_set & deps = m_deps.get_deps(first);
                 func_decl_set::iterator dit=deps.begin();
                 func_decl_set::iterator dend=deps.end();
-                for(; dit!=dend; ++dit) {
+                for (; dit!=dend; ++dit) {
                     non_empty = true;
                     func_decl * dep = *dit;
                     out<<first->get_name()<<" -> "<<dep->get_name()<<"\n";
                 }
             }
-            if(non_empty && sit!=send) {
+            if (non_empty && sit!=send) {
                 out << "\n";
             }
         }
@@ -499,7 +501,7 @@ namespace datalog {
     rule_stratifier::~rule_stratifier() {
         comp_vector::iterator it = m_strats.begin();
         comp_vector::iterator end = m_strats.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             SASSERT(*it);
             dealloc(*it);
         }
@@ -507,7 +509,7 @@ namespace datalog {
 
     unsigned rule_stratifier::get_predicate_strat(func_decl * pred) const {
         unsigned num;
-        if(!m_pred_strat_nums.find(pred, num)) {
+        if (!m_pred_strat_nums.find(pred, num)) {
             //the number of the predicate is not stored, therefore it did not appear 
             //in the algorithm and therefore it does not depend on anything and nothing 
             //depends on it. So it is safe to assign zero strate to it, although it is
@@ -520,19 +522,19 @@ namespace datalog {
 
     void rule_stratifier::traverse(T* el) {
         unsigned p_num;
-        if(m_preorder_nums.find(el, p_num)) {
-            if(p_num<m_first_preorder) {
+        if (m_preorder_nums.find(el, p_num)) {
+            if (p_num < m_first_preorder) {
                 //traversed in a previous sweep
                 return;
             }
-            if(m_component_nums.contains(el)) {
+            if (m_component_nums.contains(el)) {
                 //we already assigned a component for el
                 return;
             }
-            while(!m_stack_P.empty()) {
+            while (!m_stack_P.empty()) {
                 unsigned on_stack_num;
-                TRUSTME( m_preorder_nums.find(m_stack_P.back(), on_stack_num) );
-                if(on_stack_num <= p_num) {
+                VERIFY( m_preorder_nums.find(m_stack_P.back(), on_stack_num) );
+                if (on_stack_num <= p_num) {
                     break;
                 }
                 m_stack_P.pop_back();
@@ -548,11 +550,11 @@ namespace datalog {
             const item_set & children = m_deps.get_deps(el);
             item_set::iterator cit=children.begin();
             item_set::iterator cend=children.end();
-            for(; cit!=cend; ++cit) {
+            for (; cit!=cend; ++cit) {
                 traverse(*cit);
             }
 
-            if(el==m_stack_P.back()) {
+            if (el == m_stack_P.back()) {
                 unsigned comp_num = m_components.size();
                 item_set * new_comp = alloc(item_set);
                 m_components.push_back(new_comp);
@@ -563,21 +565,21 @@ namespace datalog {
                     m_stack_S.pop_back();
                     new_comp->insert(s_el);
                     m_component_nums.insert(s_el, comp_num);
-                } while(s_el!=el);
+                } while (s_el!=el);
                 m_stack_P.pop_back();
             }
         }
     }
 
     void rule_stratifier::process() {
-        if(m_deps.empty()) {
+        if (m_deps.empty()) {
             return;
         }
 
         //detect strong components
         rule_dependencies::iterator it = m_deps.begin();
         rule_dependencies::iterator end = m_deps.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             T * el = it->m_key;
             //we take a note of the preorder number with which this sweep started
             m_first_preorder = m_next_preorder;
@@ -593,32 +595,32 @@ namespace datalog {
         //init in_degrees
         it = m_deps.begin();
         end = m_deps.end();
-        for(; it!=end; ++it) {
+        for (; it != end; ++it) {
             T * el = it->m_key;
             item_set * out_edges = it->m_value;
 
             unsigned el_comp;
-            TRUSTME( m_component_nums.find(el, el_comp) );
+            VERIFY( m_component_nums.find(el, el_comp) );
 
-            item_set::iterator eit=out_edges->begin();
-            item_set::iterator eend=out_edges->end();
-            for(; eit!=eend; ++eit) {
+            item_set::iterator eit = out_edges->begin();
+            item_set::iterator eend = out_edges->end();
+            for (; eit!=eend; ++eit) {
                 T * tgt = *eit;
 
                 unsigned tgt_comp = m_component_nums.find(tgt);
 
-                if(el_comp!=tgt_comp) {
+                if (el_comp != tgt_comp) {
                     in_degrees[tgt_comp]++;
                 }
             }
         }
 
 
-        //We put components whose indegree is zero to m_strats and assign its 
-        //m_components entry to zero.
+        // We put components whose indegree is zero to m_strats and assign its 
+        // m_components entry to zero.
         unsigned comp_cnt = m_components.size();
-        for(unsigned i=0; i<comp_cnt; i++) {
-            if(in_degrees[i]==0) {
+        for (unsigned i = 0; i < comp_cnt; i++) {
+            if (in_degrees[i] == 0) {
                 m_strats.push_back(m_components[i]);
                 m_components[i] = 0;
             }
@@ -628,33 +630,31 @@ namespace datalog {
 
         //we remove edges from components with zero indegre building the topological ordering
         unsigned strats_index = 0;
-        while(strats_index < m_strats.size()) { //m_strats.size() changes inside the loop!
+        while (strats_index < m_strats.size()) { //m_strats.size() changes inside the loop!
             item_set * comp = m_strats[strats_index];
             item_set::iterator cit=comp->begin();
             item_set::iterator cend=comp->end();
-            for(; cit!=cend; ++cit) {
+            for (; cit!=cend; ++cit) {
                 T * el = *cit;
                 const item_set & deps = m_deps.get_deps(el);
                 item_set::iterator eit=deps.begin();
                 item_set::iterator eend=deps.end();
-                for(; eit!=eend; ++eit) {
+                for (; eit!=eend; ++eit) {
                     T * tgt = *eit;
                     unsigned tgt_comp;
-                    TRUSTME( m_component_nums.find(tgt, tgt_comp) );
+                    VERIFY( m_component_nums.find(tgt, tgt_comp) );
 
                     //m_components[tgt_comp]==0 means the edge is intra-component.
                     //Otherwise it would go to another component, but it is not possible, since
                     //as m_components[tgt_comp]==0, its indegree has already reached zero.
-                    if(m_components[tgt_comp]) {
+                    if (m_components[tgt_comp]) {
                         SASSERT(in_degrees[tgt_comp]>0);
                         in_degrees[tgt_comp]--;
-                        if(in_degrees[tgt_comp]==0) {
+                        if (in_degrees[tgt_comp]==0) {
                             m_strats.push_back(m_components[tgt_comp]);
                             m_components[tgt_comp] = 0;
                         }
                     }
-
-
                     traverse(*cit);
                 }
             }
@@ -669,13 +669,12 @@ namespace datalog {
 
         SASSERT(m_pred_strat_nums.empty());
         unsigned strat_cnt = m_strats.size();
-        for(unsigned strat_index=0; strat_index<strat_cnt; strat_index++) {
+        for (unsigned strat_index=0; strat_index<strat_cnt; strat_index++) {
             item_set * comp = m_strats[strat_index];
             item_set::iterator cit=comp->begin();
             item_set::iterator cend=comp->end();
-            for(; cit!=cend; ++cit) {
+            for (; cit != cend; ++cit) {
                 T * el = *cit;
-
                 m_pred_strat_nums.insert(el, strat_index);
             }
         }
@@ -686,6 +685,21 @@ namespace datalog {
         m_stack_P.finalize();
         m_component_nums.finalize();
         m_components.finalize();
+
+    }
+
+    void rule_stratifier::display(std::ostream& out) const {
+        m_deps.display(out << "dependencies\n");
+        out << "strata\n";
+        for (unsigned i = 0; i < m_strats.size(); ++i) {
+            item_set::iterator it  = m_strats[i]->begin();
+            item_set::iterator end = m_strats[i]->end();            
+            for (; it != end; ++it) {
+                out << (*it)->get_name() << " ";
+            }
+            out << "\n";
+        }
+        
     }
 
 };

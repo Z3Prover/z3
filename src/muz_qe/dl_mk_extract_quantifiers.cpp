@@ -168,7 +168,15 @@ namespace datalog {
             fml = m.mk_implies(m.mk_and(fmls.size(), fmls.c_ptr()), r.get_head());
             TRACE("dl", tout << "new rule\n" << mk_pp(fml, m) << "\n";);
             rule_ref_vector rules(rm);
-            rm.mk_rule(fml, rules, r.name());
+            proof_ref pr(m);
+            if (m_ctx.generate_proof_trace()) {
+                scoped_proof _scp(m);
+                expr_ref fml1(m);
+                r.to_formula(fml1);
+                pr = m.mk_rewrite(fml1, fml);
+                pr = m.mk_modus_ponens(r.get_proof(), pr);
+            }
+            rm.mk_rule(fml, pr, rules, r.name());
             for (unsigned i = 0; i < rules.size(); ++i) {
                 new_rules.add_rule(rules[i].get());
                 m_quantifiers.insert(rules[i].get(), alloc(quantifier_ref_vector, qs));
@@ -347,7 +355,7 @@ namespace datalog {
         m_quantifiers.reset();
     }
     
-    rule_set * mk_extract_quantifiers::operator()(rule_set const & source, model_converter_ref& mc, proof_converter_ref& pc) {
+    rule_set * mk_extract_quantifiers::operator()(rule_set const & source) {
         reset();
         rule_set::iterator it = source.begin(), end = source.end();
         for (; !m_has_quantifiers && it != end; ++it) {

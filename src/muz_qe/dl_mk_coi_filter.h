@@ -38,10 +38,7 @@ namespace datalog {
             m(ctx.get_manager()),
             m_context(ctx) {}
 
-
-        rule_set * operator()(rule_set const & source,
-                              model_converter_ref& mc,
-                              proof_converter_ref& pc);
+        rule_set * operator()(rule_set const & source);
     };
 
 };

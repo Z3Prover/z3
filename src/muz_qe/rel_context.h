@@ -22,6 +22,7 @@ Revision History:
 #define _REL_CONTEXT_H_
 #include "ast.h"
 #include "dl_relation_manager.h"
+#include "dl_instruction.h"
 #include "lbool.h"
 
 namespace datalog {
@@ -35,10 +36,11 @@ namespace datalog {
         ast_manager&       m;
         relation_manager   m_rmanager;
         expr_ref           m_answer;
-        volatile bool      m_cancel;
         relation_base *    m_last_result_relation;
         decl_set           m_output_preds;
         fact_vector        m_table_facts;
+        execution_context  m_ectx;
+        instruction_block  m_code;
 
         void reset_negated_tables();
         
@@ -53,14 +55,13 @@ namespace datalog {
 
         relation_manager & get_rmanager();
         const relation_manager & get_rmanager() const;
-        ast_manager& get_manager() { return m; }
-        context&     get_context() { return m_context; }
+        ast_manager& get_manager() const { return m; }
+        context&     get_context() const { return m_context; }
         relation_base & get_relation(func_decl * pred); 
         relation_base * try_get_relation(func_decl * pred) const; 
         expr_ref get_last_answer() { return m_answer; }
 
         bool output_profile() const;
-
 
         lbool query(expr* q);
         lbool query(unsigned num_rels, func_decl * const* rels);
@@ -70,10 +71,7 @@ namespace datalog {
         
         void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
-        void cancel() { m_cancel = true; }
-        
-        void cleanup() { m_cancel = false; }
-
+        void set_cancel(bool f);
 
         /**
            \brief Restrict the set of used predicates to \c res.
@@ -94,9 +92,14 @@ namespace datalog {
          */
         bool result_contains_fact(relation_fact const& f);
 
+        /** \brief add facts to relation
+        */
         void add_fact(func_decl* pred, relation_fact const& fact);
-
         void add_fact(func_decl* pred, table_fact const& fact);
+
+        /** \brief check if facts were added to relation
+        */
+        bool has_facts(func_decl * pred) const;
         
         /**
            \brief Store the relation \c rel under the predicate \c pred. The \c context object
@@ -106,6 +109,8 @@ namespace datalog {
 
         void display_output_facts(std::ostream & out) const;
         void display_facts(std::ostream & out) const;
+
+        void display_profile(std::ostream& out) const;
 
         lbool saturate();
 

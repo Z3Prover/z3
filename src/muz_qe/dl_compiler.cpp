@@ -384,8 +384,8 @@ namespace datalog {
     void compiler::get_local_indexes_for_projection(rule * r, unsigned_vector & res) {
         SASSERT(r->get_positive_tail_size()==2);
         ast_manager & m = m_context.get_manager();
-        var_counter counter;
-        counter.count_vars(m, r);
+        rule_counter counter;
+        counter.count_rule_vars(m, r);
         app * t1 = r->get_tail(0);
         app * t2 = r->get_tail(1);
         counter.count_vars(m, t1, -1);
@@ -707,6 +707,7 @@ namespace datalog {
 
             //update the head relation
             make_union(new_head_reg, head_reg, delta_reg, use_widening, acc);
+            make_dealloc_non_void(new_head_reg, acc);
         }
 
     finish:
@@ -1028,21 +1029,23 @@ namespace datalog {
         func_decl * head_pred = *preds.begin();
         const rule_vector & rules = m_rule_set.get_predicate_rules(head_pred);
 
+
+
         reg_idx output_delta;
-        if(!output_deltas.find(head_pred, output_delta)) {
+        if (!output_deltas.find(head_pred, output_delta)) {
             output_delta = execution_context::void_register;
         }
 
         rule_vector::const_iterator it = rules.begin();
         rule_vector::const_iterator end = rules.end();
-        for(; it!=end; ++it) {
+        for (; it != end; ++it) {
             rule * r = *it;
             SASSERT(r->get_head()->get_decl()==head_pred);
 
             compile_rule_evaluation(r, input_deltas, output_delta, false, acc);
         }
 
-        if(add_saturation_marks) {
+        if (add_saturation_marks) {
             //now the predicate is saturated, so we may mark it as such
             acc.push_back(instruction::mk_mark_saturated(m_context.get_manager(), head_pred));
         }
@@ -1068,7 +1071,7 @@ namespace datalog {
         for(; sit!=send; ++sit) {
             func_decl_set & strat_preds = **sit;
 
-            if(all_saturated(strat_preds)) {
+            if (all_saturated(strat_preds)) {
                 //all predicates in stratum are saturated, so no need to compile rules for them
                 continue;
             }
@@ -1084,7 +1087,7 @@ namespace datalog {
                 tout << "\n";
                 );
 
-            if(is_nonrecursive_stratum(strat_preds)) {
+            if (is_nonrecursive_stratum(strat_preds)) {
                 //this stratum contains just a single non-recursive rule
                 compile_nonrecursive_stratum(strat_preds, input_deltas, output_deltas, add_saturation_marks, acc);
             }

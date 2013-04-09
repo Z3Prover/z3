@@ -23,10 +23,10 @@ Revision History:
 #include"vector.h"
 #include"dl_rule.h"
 #include"dl_rule_set.h"
-#include"model_converter.h"
-#include"proof_converter.h"
 
 namespace datalog {
+
+    class context;
 
     class rule_transformer {
     public:
@@ -37,9 +37,9 @@ namespace datalog {
         typedef svector<plugin*> plugin_vector;
         struct plugin_comparator;
 
-        context & m_context;
-        rule_manager & m_rule_manager;
-        bool m_dirty;
+        context &        m_context;
+        rule_manager &   m_rule_manager;
+        bool             m_dirty;
         svector<plugin*> m_plugins;
         
         void ensure_ordered();
@@ -47,6 +47,13 @@ namespace datalog {
 
         rule_transformer(context & ctx);
         ~rule_transformer();
+
+        /**
+           \brief Reset all registered transformers.
+         */
+        void reset();
+
+        void cancel();
         
         /**
            \brief Add a plugin for rule transformation.
@@ -59,7 +66,7 @@ namespace datalog {
            \brief Transform the rule set using the registered transformation plugins. If the rule 
            set has changed, return true; otherwise return false.
         */
-        bool operator()(rule_set & rules, model_converter_ref& mc, proof_converter_ref& pc);
+        bool operator()(rule_set & rules);
     };
     
     class rule_transformer::plugin {
@@ -72,6 +79,7 @@ namespace datalog {
         void attach(rule_transformer & transformer) { m_transformer = &transformer; }
 
     protected:
+
         /**
            \brief Create a plugin object for rule_transformer.
 
@@ -80,11 +88,14 @@ namespace datalog {
         */
         plugin(unsigned priority, bool can_destratify_negation = false) : m_priority(priority), 
             m_can_destratify_negation(can_destratify_negation), m_transformer(0) {}
+
     public:
         virtual ~plugin() {}
 
         unsigned get_priority() { return m_priority; }
         bool can_destratify_negation() const { return m_can_destratify_negation; }
+
+        virtual void cancel() {}
 
         /**
            \brief Return \c rule_set object with containing transformed rules or 0 if no
@@ -92,12 +103,10 @@ namespace datalog {
 
            The caller takes ownership of the returned \c rule_set object.
         */
-        virtual rule_set * operator()(rule_set const & source,
-                                      model_converter_ref& mc,
-                                      proof_converter_ref& pc) = 0;
+        virtual rule_set * operator()(rule_set const & source) = 0;
 
         /**
-        Removes duplicate tails.
+           Removes duplicate tails.
         */
         static void remove_duplicate_tails(app_ref_vector& tail, svector<bool>& tail_neg);
 

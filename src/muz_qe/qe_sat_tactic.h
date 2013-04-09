@@ -26,7 +26,7 @@ Revision History:
 
 namespace qe {
         
-    tactic * mk_sat_tactic(ast_manager& m, params_ref const& p);
+    tactic * mk_sat_tactic(ast_manager& m, params_ref const& p = params_ref());
     
 };
 /*

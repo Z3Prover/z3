@@ -22,6 +22,7 @@ Revision History:
 #include"solve_eqs_tactic.h"
 #include"elim_uncnstr_tactic.h"
 #include"qe_tactic.h"
+#include"qe_sat_tactic.h"
 #include"ctx_simplify_tactic.h"
 #include"smt_tactic.h"
 
@@ -98,9 +99,19 @@ tactic * mk_aufnira_tactic(ast_manager & m, params_ref const & p) {
 
 tactic * mk_lra_tactic(ast_manager & m, params_ref const & p) {
     tactic * st = and_then(mk_quant_preprocessor(m),
-                           mk_qe_tactic(m),
-                           mk_smt_tactic());
+                           or_else(try_for(mk_smt_tactic(), 100), 
+                                   try_for(qe::mk_sat_tactic(m), 1000), 
+                                   try_for(mk_smt_tactic(), 1000),
+                                   and_then(mk_qe_tactic(m), mk_smt_tactic())));
+
     st->updt_params(p);
     return st;
 }
 
+tactic * mk_lia_tactic(ast_manager & m, params_ref const & p) {
+    return mk_lra_tactic(m, p);
+}
+
+tactic * mk_lira_tactic(ast_manager & m, params_ref const & p) {
+    return mk_lra_tactic(m, p);
+}
