@@ -48,6 +48,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         bool use_magic_sets) {
 
     dl_decl_util decl_util(m);
+    random_gen ran(0);
 
     context ctx_q(m, fparams);
     params.set_bool("magic_sets_for_queries", use_magic_sets);
@@ -86,7 +87,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
                     warning_msg("cannot get sort size");
                     return;
                 }
-                uint64 num = rand()%sort_sz;
+                uint64 num = ran()%sort_sz;
                 app * el_b = decl_util.mk_numeral(num, sig_b[col]);
                 f_b.push_back(el_b);
                 app * el_q = decl_util.mk_numeral(num, sig_q[col]);
@@ -112,7 +113,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         table_base::iterator fit = table_b.begin();
         table_base::iterator fend = table_b.end();
         for(; fit!=fend; ++fit) {
-            if(rand()%std::max(1u,table_sz/test_count)!=0) {
+            if(ran()%std::max(1u,table_sz/test_count)!=0) {
                 continue;
             }
             fit->get_fact(tf);
@@ -131,6 +132,7 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     arith_util arith(m);
     const char * problem_dir = "C:\\tvm\\src\\z3_2\\debug\\test\\w0.datalog";
     dl_decl_util dl_util(m);
+    random_gen ran(0);
 
     std::cerr << "Testing queries on " << problem_dir <<"\n";
     context ctx(m, fparams);
@@ -151,8 +153,8 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     TRUSTME( ctx.try_get_sort_constant_count(var_sort, var_sz) );
 
     for(unsigned attempt=0; attempt<attempts; attempt++) {
-        unsigned el1 = rand()%var_sz;
-        unsigned el2 = rand()%var_sz;
+        unsigned el1 = ran()%var_sz;
+        unsigned el2 = ran()%var_sz;
         
         expr_ref_vector q_args(m);
         q_args.push_back(dl_util.mk_numeral(el1, var_sort));
@@ -217,6 +219,9 @@ void tst_dl_query() {
             params.set_uint("similarity_compressor", use_similar != 0);
 
             for(unsigned use_magic_sets=0; use_magic_sets<=1; use_magic_sets++) {
+                if (!(use_restarts == 1 && use_similar == 0 && use_magic_sets == 1)) {
+                    continue;
+                }
                 stopwatch watch;
                 watch.start();
                 std::cerr << "------- " << (use_restarts ? "With" : "Without") << " restarts -------\n";

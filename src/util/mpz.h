@@ -168,6 +168,7 @@ class mpz_manager {
     mpz_t  *  m_arg[2];
     mpz_t     m_uint64_max;
     mpz_t     m_int64_max;
+    mpz_t     m_int64_min;
 
     mpz_t * allocate() {
         mpz_t * cell = reinterpret_cast<mpz_t*>(m_allocator.allocate(sizeof(mpz_t)));
@@ -210,6 +211,30 @@ class mpz_manager {
     static unsigned size(mpz const & c) { return c.m_ptr->m_size; }
 
     static digit_t * digits(mpz const & c) { return c.m_ptr->m_digits; }
+
+    // Return true if the absolute value fits in a UINT64
+    static bool is_abs_uint64(mpz const & a) {
+        if (is_small(a))
+            return true;
+        if (sizeof(digit_t) == sizeof(uint64))
+            return size(a) <= 1;
+        else
+            return size(a) <= 2;
+    }
+    
+    // CAST the absolute value into a UINT64
+    static uint64 big_abs_to_uint64(mpz const & a) {
+        SASSERT(is_abs_uint64(a));
+        SASSERT(!is_small(a));
+        if (a.m_ptr->m_size == 1)
+            return digits(a)[0];
+        if (sizeof(digit_t) == sizeof(uint64))
+            // 64-bit machine
+            return digits(a)[0];
+        else 
+            // 32-bit machine
+            return ((static_cast<uint64>(digits(a)[1]) << 32) | (static_cast<uint64>(digits(a)[0])));
+    }
 
     template<int IDX>
     void get_sign_cell(mpz const & a, int & sign, mpz_cell * & cell) {

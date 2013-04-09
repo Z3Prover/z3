@@ -707,6 +707,7 @@ namespace datalog {
 
             //update the head relation
             make_union(new_head_reg, head_reg, delta_reg, use_widening, acc);
+            make_dealloc_non_void(new_head_reg, acc);
         }
 
     finish:

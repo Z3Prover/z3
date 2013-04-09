@@ -45,7 +45,7 @@ COMPILE_TIME_ASSERT(sizeof(int64) == 8);
 #define INT64_MIN static_cast<int64>(0x8000000000000000ull)
 #endif
 #ifndef INT64_MAX
-#define INT64_MAX static_cast<int64>(0x0fffffffffffffffull)
+#define INT64_MAX static_cast<int64>(0x7fffffffffffffffull)
 #endif                              
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xffffffffffffffffull

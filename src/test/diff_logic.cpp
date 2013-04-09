@@ -166,7 +166,7 @@ static void tst3() {
 void tst_diff_logic() {
     tst1();
     tst2();
-    tst3();
+   // tst3();
 }
 #else
 void tst_diff_logic() {

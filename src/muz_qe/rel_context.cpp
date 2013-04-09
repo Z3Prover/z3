@@ -107,15 +107,16 @@ namespace datalog {
         
         scoped_query scoped_query(m_context);
                 
-        m_code.reset();
         instruction_block termination_code;
-        m_ectx.reset();
 
         lbool result;
 
         TRACE("dl", m_context.display(tout););
 
         while (true) {
+            m_ectx.reset();
+            m_code.reset();
+            termination_code.reset();
             m_context.ensure_closed();
             m_context.transform_rules();
             if (m_context.canceled()) {
@@ -174,8 +175,6 @@ namespace datalog {
             else {
                 restart_time = static_cast<unsigned>(new_restart_time);
             }
-
-            termination_code.reset();            
             scoped_query.reset();
         }
         m_context.record_transformed_rules();
@@ -450,6 +449,11 @@ namespace datalog {
             }
             add_fact(pred, rfact);
         }
+    }
+
+    bool rel_context::has_facts(func_decl * pred) const {
+        relation_base* r = try_get_relation(pred);
+        return r && !r->empty();
     }
 
     void rel_context::store_relation(func_decl * pred, relation_base * rel) {

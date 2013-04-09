@@ -33,7 +33,7 @@ namespace datalog {
     entry_storage::store_offset entry_storage::insert_or_get_reserve_content() {
         SASSERT(has_reserve());
         store_offset entry_ofs = m_data_indexer.insert_if_not_there(m_reserve);
-        if(m_reserve==entry_ofs) {
+        if (m_reserve == entry_ofs) {
             //entry inserted, so reserve is no longer a reserve
             m_reserve = NO_RESERVE;
         }
@@ -42,7 +42,7 @@ namespace datalog {
     bool entry_storage::insert_reserve_content() {
         SASSERT(has_reserve());
         store_offset entry_ofs = m_data_indexer.insert_if_not_there(m_reserve);
-        if(m_reserve==entry_ofs) {
+        if (m_reserve == entry_ofs) {
             //entry inserted, so reserve is no longer a reserve
             m_reserve = NO_RESERVE;
             return true;
@@ -53,7 +53,7 @@ namespace datalog {
     bool entry_storage::remove_reserve_content() {
         SASSERT(has_reserve());
         store_offset entry_ofs;
-        if(!find_reserve_content(entry_ofs)) {
+        if (!find_reserve_content(entry_ofs)) {
             //the fact was not in the table
             return false;
         }
@@ -64,8 +64,8 @@ namespace datalog {
     void entry_storage::remove_offset(store_offset ofs) {
         m_data_indexer.remove(ofs);
         store_offset last_ofs = after_last_offset() - m_entry_size;
-        if(ofs!=last_ofs) {
-            SASSERT(ofs+m_entry_size<=last_ofs);
+        if (ofs!=last_ofs) {
+            SASSERT(ofs + m_entry_size <= last_ofs);
             //we don't want any holes, so we put the last element at the place
             //of the removed one
             m_data_indexer.remove(last_ofs);
@@ -73,7 +73,7 @@ namespace datalog {
             memcpy(base+ofs, base+last_ofs, m_entry_size);
             m_data_indexer.insert(ofs);
         }
-        if(has_reserve()) {
+        if (has_reserve()) {
             //we already have a reserve, so we need to shrink a little to keep having just one
             resize_data(m_data_size-m_entry_size);
         }
@@ -98,20 +98,20 @@ namespace datalog {
         unsigned length = 0;
 
         unsigned dom_size_sm;
-        if(dom_size>UINT_MAX) {
+        if (dom_size>UINT_MAX) {
             dom_size_sm = static_cast<unsigned>(dom_size>>32);
             length += 32;
-            if( (dom_size&UINT_MAX)!=0 && dom_size_sm!=UINT_MAX ) {
+            if ( (dom_size&UINT_MAX)!=0 && dom_size_sm!=UINT_MAX ) {
                 dom_size_sm++;
             }
         }
         else {
             dom_size_sm=static_cast<unsigned>(dom_size);
         }
-        if(dom_size_sm==1) {
+        if (dom_size_sm == 1) {
             length += 1; //unary domains
         }
-        else if(dom_size_sm>0x80000000u) {
+        else if (dom_size_sm > 0x80000000u) {
             length += 32;
         }
         else {
@@ -122,30 +122,30 @@ namespace datalog {
 
     sparse_table::column_layout::column_layout(const table_signature & sig)
             : m_functional_col_cnt(sig.functional_columns()) {
-        SASSERT(sig.size()>0);
+        SASSERT(sig.size() > 0);
         unsigned ofs = 0;
         unsigned sig_sz = sig.size();
         unsigned first_functional = sig_sz-m_functional_col_cnt;
-        for(unsigned i=0; i<sig_sz; i++) {
+        for (unsigned i=0; i<sig_sz; i++) {
             uint64 dom_size = sig[i];
             unsigned length = get_domain_length(dom_size);
             SASSERT(length>0);
             SASSERT(length<=64);
             
-            if(size()>0 && (length>54 || i==first_functional)) {
+            if (size() > 0 && (length > 54 || i == first_functional)) {
                 //large domains must start byte-aligned, as well as functional columns
                 make_byte_aligned_end(size()-1);
                 ofs = back().next_ofs();
             }
 
             push_back(column_info(ofs, length));
-            ofs+=length;
+            ofs += length;
         }
         make_byte_aligned_end(size()-1);
-        SASSERT(back().next_ofs()%8==0);//the entries must be aligned to whole bytes
+        SASSERT(back().next_ofs()%8 == 0);//the entries must be aligned to whole bytes
         m_entry_size = back().next_ofs()/8;
-        if(m_functional_col_cnt) { 
-            SASSERT((*this)[first_functional].m_offset%8==0);
+        if (m_functional_col_cnt) { 
+            SASSERT((*this)[first_functional].m_offset%8 == 0);
             m_functional_part_size = m_entry_size - (*this)[first_functional].m_offset/8;
         }
         else {
@@ -156,9 +156,9 @@ namespace datalog {
     void sparse_table::column_layout::make_byte_aligned_end(unsigned col_index0) {
         unsigned ofs = (*this)[col_index0].next_ofs();
         unsigned ofs_bit_part = ofs%8;
-        unsigned rounded_ofs = (ofs_bit_part==0) ? ofs : (ofs+8-ofs_bit_part);
+        unsigned rounded_ofs = (ofs_bit_part == 0) ? ofs : (ofs+8-ofs_bit_part);
 
-        if(rounded_ofs!=ofs) {
+        if (rounded_ofs!=ofs) {
             SASSERT(rounded_ofs>ofs);
             int diff = rounded_ofs-ofs;
             unsigned col_idx = col_index0+1;
@@ -168,18 +168,18 @@ namespace datalog {
                 col_idx--;
                 column_info & ci = (*this)[col_idx];
                 unsigned new_length = ci.m_length;
-                if(ci.m_length<64) {
+                if (ci.m_length < 64) {
                     unsigned swallowed = std::min(64-static_cast<int>(ci.m_length), diff);
-                    diff-=swallowed;
-                    new_length+=swallowed;
+                    diff -= swallowed;
+                    new_length += swallowed;
                 }
                 unsigned new_ofs = ci.m_offset+diff;
                 ci = column_info(new_ofs, new_length);
             }
         }
 
-        SASSERT(rounded_ofs%8==0);
-        SASSERT((*this)[col_index0].next_ofs()%8==0);
+        SASSERT(rounded_ofs%8 == 0);
+        SASSERT((*this)[col_index0].next_ofs()%8 == 0);
     }
 
     // -----------------------------------
@@ -218,7 +218,7 @@ namespace datalog {
           m_layout(t.m_column_layout) {}
 
         virtual bool is_finished() const {
-            return m_ptr==m_end;
+            return m_ptr == m_end;
         }
 
         virtual row_interface & operator*() {
@@ -267,7 +267,7 @@ namespace datalog {
 
             offset_iterator begin() const { return m_singleton ? &m_single_result : m_many.begin; }
             offset_iterator end() const { return m_singleton ? (&m_single_result+1) : m_many.end; }
-            bool empty() const { return begin()==end(); }
+            bool empty() const { return begin() == end(); }
         };
 
         key_indexer(unsigned key_len, const unsigned * key_cols) 
@@ -299,7 +299,7 @@ namespace datalog {
             key_to_reserve(key);
             store_offset ofs = m_keys.insert_or_get_reserve_content();
             index_map::entry * e = m_map.find_core(ofs);
-            if(!e) {
+            if (!e) {
                 TRACE("dl_table_relation", tout << "inserting\n";);
                 e = m_map.insert_if_not_there2(ofs, offset_vector());
             }
@@ -312,7 +312,7 @@ namespace datalog {
             m_first_nonindexed(0) {}
 
         virtual void update(const sparse_table & t) {
-            if(m_first_nonindexed==t.m_data.after_last_offset()) {
+            if (m_first_nonindexed == t.m_data.after_last_offset()) {
                 return;
             }
             SASSERT(m_first_nonindexed<t.m_data.after_last_offset());
@@ -330,16 +330,16 @@ namespace datalog {
             DEBUG_CODE( index_entry = 0; );
             bool key_modified = true;
 
-            for(; ofs!=after_last; ofs+=t.m_fact_size) {
-                for(unsigned i=0; i<key_len; i++) {
+            for (; ofs!=after_last; ofs+=t.m_fact_size) {
+                for (unsigned i=0; i<key_len; i++) {
                     table_element col_val = t.get_cell(ofs, m_key_cols[i]);
-                    if(key[i]!=col_val) {
+                    if (key[i]!=col_val) {
                         key[i] = col_val;
                         key_modified = true;
                     }
                 }
                 
-                if(key_modified) {
+                if (key_modified) {
                     index_entry = &get_matching_offset_vector(key);
                     key_modified = false;
                 }
@@ -354,11 +354,11 @@ namespace datalog {
         virtual query_result get_matching_offsets(const key_value & key) const {
             key_to_reserve(key);
             store_offset ofs;
-            if(!m_keys.find_reserve_content(ofs)) {
+            if (!m_keys.find_reserve_content(ofs)) {
                 return query_result();
             }
             index_map::entry * e = m_map.find_core(ofs);
-            if(!e) {
+            if (!e) {
                 return query_result();
             }
             const offset_vector & res = e->get_data().m_value;
@@ -381,15 +381,15 @@ namespace datalog {
 
         static bool can_handle(unsigned key_len, const unsigned * key_cols, const sparse_table & t) {
             unsigned non_func_cols = t.get_signature().first_functional();
-            if(key_len!=non_func_cols) {
+            if (key_len!=non_func_cols) {
                 return false;
             }
             counter ctr;
             ctr.count(key_len, key_cols);
-            if(ctr.get_max_counter_value()!=1 || ctr.get_max_positive()!=non_func_cols-1) {
+            if (ctr.get_max_counter_value()!=1 || ctr.get_max_positive()!=non_func_cols-1) {
                 return false;
             }
-            SASSERT(ctr.get_positive_count()==non_func_cols);
+            SASSERT(ctr.get_positive_count() == non_func_cols);
             return true;
         }
 
@@ -399,7 +399,7 @@ namespace datalog {
             SASSERT(can_handle(key_len, key_cols, t));
             
             m_permutation.resize(key_len);
-            for(unsigned i=0; i<key_len; i++) {
+            for (unsigned i=0; i<key_len; i++) {
                 //m_permutation[m_key_cols[i]] = i;
                 m_permutation[i] = m_key_cols[i];
             }
@@ -410,7 +410,7 @@ namespace datalog {
 
         virtual query_result get_matching_offsets(const key_value & key) const {
             unsigned key_len = m_key_cols.size();
-            for(unsigned i=0; i<key_len; i++) {
+            for (unsigned i=0; i<key_len; i++) {
                 m_key_fact[m_permutation[i]] = key[i];
             }
             //We will change the content of the reserve; which does not change the 'high-level' 
@@ -419,7 +419,7 @@ namespace datalog {
             t.write_into_reserve(m_key_fact.c_ptr());
 
             store_offset res;
-            if(!t.m_data.find_reserve_content(res)) {
+            if (!t.m_data.find_reserve_content(res)) {
                 return query_result();
             }
             return query_result(res);
@@ -466,14 +466,14 @@ namespace datalog {
         //without having to worry about updating indexes.
         //Maybe we might keep a list of indexes that contain functional columns and on an update reset 
         //only those.
-        SASSERT(key_len==0 || 
+        SASSERT(key_len == 0 || 
             counter().count(key_len, key_cols).get_max_positive()<get_signature().first_functional());
 #endif
         key_spec kspec;
         kspec.append(key_len, key_cols);
         key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, 0);
-        if(!key_map_entry->get_data().m_value) {
-            if(full_signature_key_indexer::can_handle(key_len, key_cols, *this)) {
+        if (!key_map_entry->get_data().m_value) {
+            if (full_signature_key_indexer::can_handle(key_len, key_cols, *this)) {
                 key_map_entry->get_data().m_value = alloc(full_signature_key_indexer, key_len, key_cols, *this);
             }
             else {
@@ -488,7 +488,7 @@ namespace datalog {
     void sparse_table::reset_indexes() {
         key_index_map::iterator kmit = m_key_indexes.begin();
         key_index_map::iterator kmend = m_key_indexes.end();
-        for(; kmit!=kmend; ++kmit) {
+        for (; kmit!=kmend; ++kmit) {
             dealloc((*kmit).m_value);
         }
         m_key_indexes.reset();
@@ -499,11 +499,8 @@ namespace datalog {
         m_data.ensure_reserve();
         char * reserve = m_data.get_reserve_ptr();
         unsigned col_cnt = m_column_layout.size();
-        for(unsigned i=0; i<col_cnt; i++) {
-            if (f[i] >= get_signature()[i]) {
-                std::cout << f[i] << " " << get_signature()[i] << "\n";
-            }
-            SASSERT(f[i]<get_signature()[i]); //the value fits into the table signature
+        for (unsigned i = 0; i < col_cnt; ++i) {
+            SASSERT(f[i] < get_signature()[i]); //the value fits into the table signature
             m_column_layout.set(reserve, i, f[i]);
         }
     }
@@ -526,17 +523,17 @@ namespace datalog {
         sparse_table & t = const_cast<sparse_table &>(*this);
         t.write_into_reserve(f.c_ptr());
         unsigned func_col_cnt = get_signature().functional_columns();
-        if(func_col_cnt==0) {
+        if (func_col_cnt == 0) {
             return t.m_data.reserve_content_already_present();
         }
         else {
             store_offset ofs;
-            if(!t.m_data.find_reserve_content(ofs)) {
+            if (!t.m_data.find_reserve_content(ofs)) {
                 return false;
             }
             unsigned sz = get_signature().size();
-            for(unsigned i=func_col_cnt; i<sz; i++) {
-                if(t.get_cell(ofs, i)!=f[i]) {
+            for (unsigned i=func_col_cnt; i<sz; i++) {
+                if (t.get_cell(ofs, i)!=f[i]) {
                     return false;
                 }
             }
@@ -546,19 +543,19 @@ namespace datalog {
 
     bool sparse_table::fetch_fact(table_fact & f) const {
         const table_signature & sig = get_signature();
-        SASSERT(f.size()==sig.size());
-        if(sig.functional_columns()==0) {
+        SASSERT(f.size() == sig.size());
+        if (sig.functional_columns() == 0) {
             return contains_fact(f);
         }
         else {
             sparse_table & t = const_cast<sparse_table &>(*this);
             t.write_into_reserve(f.c_ptr());
             store_offset ofs;
-            if(!t.m_data.find_reserve_content(ofs)) {
+            if (!t.m_data.find_reserve_content(ofs)) {
                 return false;
             }
             unsigned sz = sig.size();
-            for(unsigned i=sig.first_functional(); i<sz; i++) {
+            for (unsigned i=sig.first_functional(); i<sz; i++) {
                 f[i] = t.get_cell(ofs, i);
             }
             return true;
@@ -571,18 +568,18 @@ namespace datalog {
     */
     void sparse_table::ensure_fact(const table_fact & f) {
         const table_signature & sig = get_signature();
-        if(sig.functional_columns()==0) {
+        if (sig.functional_columns() == 0) {
             add_fact(f);
         }
         else {
             write_into_reserve(f.c_ptr());
             store_offset ofs;
-            if(!m_data.find_reserve_content(ofs)) {
+            if (!m_data.find_reserve_content(ofs)) {
                 add_fact(f);
                 return;
             }
             unsigned sz = sig.size();
-            for(unsigned i=sig.first_functional(); i<sz; i++) {
+            for (unsigned i=sig.first_functional(); i<sz; i++) {
                 set_cell(ofs, i, f[i]);
             }
         }
@@ -591,7 +588,7 @@ namespace datalog {
     void sparse_table::remove_fact(const table_element*  f) {
         //first insert the fact so that we find it's original location and remove it
         write_into_reserve(f);
-        if(!m_data.remove_reserve_content()) {
+        if (!m_data.remove_reserve_content()) {
             //the fact was not in the table
             return;
         }
@@ -601,8 +598,8 @@ namespace datalog {
     void sparse_table::copy_columns(const column_layout & src_layout, const column_layout & dest_layout,
             unsigned start_index, unsigned after_last, const char * src, char * dest, 
             unsigned & dest_idx, unsigned & pre_projection_idx, const unsigned * & next_removed) {
-        for(unsigned i=start_index; i<after_last; i++, pre_projection_idx++) {
-            if(*next_removed==pre_projection_idx) {
+        for (unsigned i=start_index; i<after_last; i++, pre_projection_idx++) {
+            if (*next_removed == pre_projection_idx) {
                 next_removed++;
                 continue;
             }
@@ -656,18 +653,18 @@ namespace datalog {
               tout << (&t1) << " " << (&t2) << " " << (&result) << "\n";
               );
 
-        if(joined_col_cnt==0) {
+        if (joined_col_cnt == 0) {
             unsigned t2idx = 0;
             unsigned t2end = t2.m_data.after_last_offset();
 
-            for(; t1idx!=t1end; t1idx+=t1_entry_size) {
-                for(t2idx = 0; t2idx != t2end; t2idx += t2_entry_size) {
+            for (; t1idx!=t1end; t1idx+=t1_entry_size) {
+                for (t2idx = 0; t2idx != t2end; t2idx += t2_entry_size) {
                     result.m_data.ensure_reserve();
                     result.garbage_collect();
                     char * res_reserve = result.m_data.get_reserve_ptr();
                     char const* t1ptr = t1.get_at_offset(t1idx);
                     char const* t2ptr = t2.get_at_offset(t2idx);
-                    if(tables_swapped) {
+                    if (tables_swapped) {
                         concatenate_rows(t2.m_column_layout, t1.m_column_layout, result.m_column_layout,
                             t2ptr, t1ptr, res_reserve, removed_cols);
                     } else {
@@ -687,34 +684,34 @@ namespace datalog {
         bool key_modified = true;
         key_indexer::query_result t2_offsets;
 
-        for(; t1idx != t1end; t1idx += t1_entry_size) {
-            for(unsigned i = 0; i < joined_col_cnt; i++) {
+        for (; t1idx != t1end; t1idx += t1_entry_size) {
+            for (unsigned i = 0; i < joined_col_cnt; i++) {
                 table_element val = t1.m_column_layout.get(t1.get_at_offset(t1idx), t1_joined_cols[i]);
                 TRACE("dl_table_relation", tout << "val: " << val << " " << t1idx << " " << t1_joined_cols[i] << "\n";);
-                if(t1_key[i] != val) {
+                if (t1_key[i] != val) {
                     t1_key[i] = val;
                     key_modified = true;
                 }
             }
-            if(key_modified) {
+            if (key_modified) {
                 t2_offsets = t2_indexer.get_matching_offsets(t1_key);
                 key_modified = false;
             }
 
-            if(t2_offsets.empty()) {
+            if (t2_offsets.empty()) {
                 continue;
             }
             
             key_indexer::offset_iterator t2ofs_it  = t2_offsets.begin();
             key_indexer::offset_iterator t2ofs_end = t2_offsets.end();
-            for(; t2ofs_it != t2ofs_end; ++t2ofs_it) {
+            for (; t2ofs_it != t2ofs_end; ++t2ofs_it) {
                 store_offset t2ofs = *t2ofs_it;
                 result.m_data.ensure_reserve();
                 result.garbage_collect();
                 char * res_reserve = result.m_data.get_reserve_ptr();
                 char const * t1ptr = t1.get_at_offset(t1idx);
                 char const * t2ptr = t2.get_at_offset(t2ofs);
-                if(tables_swapped) {
+                if (tables_swapped) {
                     concatenate_rows(t2.m_column_layout, t1.m_column_layout, result.m_column_layout,
                         t2ptr, t1ptr, res_reserve, removed_cols);
                 } else {
@@ -743,11 +740,11 @@ namespace datalog {
     void sparse_table_plugin::reset() {
         table_pool::iterator it = m_pool.begin();
         table_pool::iterator end = m_pool.end();
-        for(; it!=end; ++it) {
+        for (; it!=end; ++it) {
             sp_table_vector * vect = it->m_value;
             sp_table_vector::iterator it = vect->begin();
             sp_table_vector::iterator end = vect->end();
-            for(; it!=end; ++it) {
+            for (; it!=end; ++it) {
                 (*it)->destroy(); //calling deallocate() would only put the table back into the pool
             }
             dealloc(vect);
@@ -767,7 +764,7 @@ namespace datalog {
 
         table_pool::entry * e = m_pool.insert_if_not_there2(sig, 0);
         sp_table_vector * & vect = e->get_data().m_value;
-        if(vect==0) {
+        if (vect == 0) {
             vect = alloc(sp_table_vector);
         }
         IF_VERBOSE(12, verbose_stream() << "Recycle: " << t->get_size_estimate_bytes() << "\n";);
@@ -779,7 +776,7 @@ namespace datalog {
         SASSERT(can_handle_signature(s));
 
         sp_table_vector * vect;
-        if(!m_pool.find(s, vect) || vect->empty()) {
+        if (!m_pool.find(s, vect) || vect->empty()) {
             return alloc(sparse_table, *this, s);
         }
         sparse_table * res = vect->back();
@@ -796,7 +793,7 @@ namespace datalog {
 
     bool sparse_table_plugin::join_involves_functional(const table_signature & s1, const table_signature & s2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
-        if(col_cnt==0) {
+        if (col_cnt == 0) {
             return false;
         }
         return counter().count(col_cnt, cols1).get_max_positive()>=s1.first_functional()
@@ -827,7 +824,7 @@ namespace datalog {
             //do indexing into the bigger one. If we simply do a product, we want the bigger
             //one to be at the outer iteration (then the small one will hopefully fit into 
             //the cache)
-            if( (t1.row_count() > t2.row_count()) == (!m_cols1.empty()) ) {
+            if ( (t1.row_count() > t2.row_count()) == (!m_cols1.empty()) ) {
                 sparse_table::self_agnostic_join_project(t2, t1, m_cols1.size(), m_cols2.c_ptr(), 
                     m_cols1.c_ptr(), m_removed_cols.c_ptr(), true, *res);
             }
@@ -844,7 +841,7 @@ namespace datalog {
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         const table_signature & sig1 = t1.get_signature();
         const table_signature & sig2 = t2.get_signature();
-        if(t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind() 
+        if (t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind() 
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We also don't allow indexes on functional columns (and they are needed for joins)
             return 0;
@@ -857,8 +854,8 @@ namespace datalog {
             const unsigned * removed_cols) {
         const table_signature & sig1 = t1.get_signature();
         const table_signature & sig2 = t2.get_signature();
-        if(t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind()
-            || removed_col_cnt==t1.get_signature().size()+t2.get_signature().size()
+        if (t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind()
+            || removed_col_cnt == t1.get_signature().size()+t2.get_signature().size()
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We don't allow sparse tables with zero signatures (and project on all columns leads to such)
             //We also don't allow indexes on functional columns.
@@ -879,8 +876,8 @@ namespace datalog {
             unsigned fact_size = tgt.m_fact_size;
             const char* ptr = src.m_data.begin();
             const char* after_last=src.m_data.after_last();
-            for(; ptr<after_last; ptr+=fact_size) {
-                if(tgt.add_fact(ptr) && delta) {
+            for (; ptr<after_last; ptr+=fact_size) {
+                if (tgt.add_fact(ptr) && delta) {
                     delta->add_fact(ptr);
                 }
             }
@@ -889,7 +886,7 @@ namespace datalog {
 
     table_union_fn * sparse_table_plugin::mk_union_fn(const table_base & tgt, const table_base & src, 
             const table_base * delta) {
-        if(tgt.get_kind()!=get_kind() || src.get_kind()!=get_kind() 
+        if (tgt.get_kind()!=get_kind() || src.get_kind()!=get_kind() 
             || (delta && delta->get_kind()!=get_kind()) 
             || tgt.get_signature()!=src.get_signature() 
             || (delta && delta->get_signature()!=tgt.get_signature())) {
@@ -916,8 +913,8 @@ namespace datalog {
             const sparse_table::column_layout & tgt_layout) {
                 unsigned r_idx=0;
                 unsigned tgt_i=0;
-                for(unsigned i=0; i<m_inp_col_cnt; i++) {
-                    if(r_idx!=m_removed_col_cnt && i==m_removed_cols[r_idx]) {
+                for (unsigned i=0; i<m_inp_col_cnt; i++) {
+                    if (r_idx!=m_removed_col_cnt && i == m_removed_cols[r_idx]) {
                         SASSERT(r_idx<m_removed_col_cnt);
                         r_idx++;
                         continue;
@@ -925,8 +922,8 @@ namespace datalog {
                     tgt_layout.set(tgt, tgt_i, src_layout.get(src, i));
                     tgt_i++;
                 }
-                SASSERT(tgt_i==m_result_col_cnt);
-                SASSERT(r_idx==m_removed_col_cnt);
+                SASSERT(tgt_i == m_result_col_cnt);
+                SASSERT(r_idx == m_removed_col_cnt);
         }
 
         virtual table_base * operator()(const table_base & tb) {
@@ -942,7 +939,7 @@ namespace datalog {
 
             const char* t_ptr = t.m_data.begin();
             const char* t_end = t.m_data.after_last();
-            for(; t_ptr!=t_end; t_ptr+=t_fact_size) {
+            for (; t_ptr!=t_end; t_ptr+=t_fact_size) {
                 SASSERT(t_ptr<t_end);
                 res->m_data.ensure_reserve();
                 char * res_ptr = res->m_data.get_reserve_ptr();
@@ -955,7 +952,7 @@ namespace datalog {
 
     table_transformer_fn * sparse_table_plugin::mk_project_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * removed_cols) {
-        if(col_cnt==t.get_signature().size()) {
+        if (col_cnt == t.get_signature().size()) {
             return 0;
         }
         return alloc(project_fn, t.get_signature(), col_cnt, removed_cols);
@@ -984,14 +981,14 @@ namespace datalog {
 
             sparse_table::key_indexer & indexer = t.get_key_indexer(1, &m_col);
             sparse_table::key_indexer::query_result t_offsets = indexer.get_matching_offsets(m_key);
-            if(t_offsets.empty()) {
+            if (t_offsets.empty()) {
                 //no matches
                 return res;
             }
             sparse_table::key_indexer::offset_iterator ofs_it=t_offsets.begin();
             sparse_table::key_indexer::offset_iterator ofs_end=t_offsets.end();
 
-            for(; ofs_it!=ofs_end; ++ofs_it) {
+            for (; ofs_it!=ofs_end; ++ofs_it) {
                 sparse_table::store_offset t_ofs = *ofs_it;
                 const char * t_ptr = t.get_at_offset(t_ofs);
 
@@ -999,8 +996,8 @@ namespace datalog {
                 char * res_reserve = res->m_data.get_reserve_ptr();
 
                 unsigned res_i = 0;
-                for(unsigned i=0; i<t_cols; i++) {
-                    if(i==m_col) {
+                for (unsigned i=0; i<t_cols; i++) {
+                    if (i == m_col) {
                         continue;
                     }
                     res_layout.set(res_reserve, res_i++, t_layout.get(t_ptr, i));
@@ -1013,7 +1010,7 @@ namespace datalog {
 
     table_transformer_fn * sparse_table_plugin::mk_select_equal_and_project_fn(const table_base & t, 
             const table_element & value, unsigned col) {
-        if(t.get_kind()!=get_kind() || t.get_signature().size()==1 || col>=t.get_signature().first_functional()) {
+        if (t.get_kind()!=get_kind() || t.get_signature().size() == 1 || col>=t.get_signature().first_functional()) {
             //We don't allow sparse tables with zero signatures (and project on a single 
             //column table produces one).
             //We also don't allow indexes on functional columns. And our implementation of
@@ -1034,11 +1031,11 @@ namespace datalog {
             m_cycle_len(permutation_cycle_len), m_col_cnt(orig_sig.size()) {
                 SASSERT(permutation_cycle_len>=2);
                 idx_set cycle_cols;
-                for(unsigned i=0; i<m_cycle_len; i++) {
+                for (unsigned i=0; i<m_cycle_len; i++) {
                     cycle_cols.insert(permutation_cycle[i]);
                 }
-                for(unsigned i=0; i<m_col_cnt; i++) {
-                    if(!cycle_cols.contains(i)) {
+                for (unsigned i=0; i<m_col_cnt; i++) {
+                    if (!cycle_cols.contains(i)) {
                         m_out_of_cycle.push_back(i);
                     }
                 }
@@ -1048,14 +1045,14 @@ namespace datalog {
             const sparse_table::column_layout & src_layout, 
             const sparse_table::column_layout & tgt_layout) {
 
-                for(unsigned i=1; i<m_cycle_len; i++) {
+                for (unsigned i=1; i<m_cycle_len; i++) {
                     tgt_layout.set(tgt, m_cycle[i-1], src_layout.get(src, m_cycle[i]));
                 }
                 tgt_layout.set(tgt, m_cycle[m_cycle_len-1], src_layout.get(src, m_cycle[0]));
 
                 unsigned_vector::const_iterator it = m_out_of_cycle.begin();
                 unsigned_vector::const_iterator end = m_out_of_cycle.end();
-                for(; it!=end; ++it) {
+                for (; it!=end; ++it) {
                     unsigned col = *it;
                     tgt_layout.set(tgt, col, src_layout.get(src, col));
                 }
@@ -1082,12 +1079,12 @@ namespace datalog {
             const char* t_ptr = t.m_data.begin();
             char* res_ptr = res->m_data.begin();
             char* res_end = res_ptr+res_data_size;
-            for(; res_ptr!=res_end; t_ptr+=t_fact_size, res_ptr+=res_fact_size) {
+            for (; res_ptr!=res_end; t_ptr+=t_fact_size, res_ptr+=res_fact_size) {
                 transform_row(t_ptr, res_ptr, t.m_column_layout, res->m_column_layout);
             }
 
             //and insert them into the hash-map
-            for(unsigned i=0; i!=res_data_size; i+=res_fact_size) {
+            for (unsigned i=0; i!=res_data_size; i+=res_fact_size) {
                 TRUSTME(res->m_data.insert_offset(i));
             }
 
@@ -1097,7 +1094,7 @@ namespace datalog {
 
     table_transformer_fn * sparse_table_plugin::mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
             const unsigned * permutation_cycle) {
-        if(t.get_kind()!=get_kind()) {
+        if (t.get_kind()!=get_kind()) {
             return 0;
         }
         return alloc(rename_fn, t.get_signature(), permutation_cycle_len, permutation_cycle);
@@ -1123,9 +1120,9 @@ namespace datalog {
             unsigned neg_fisrt_func = neg.get_signature().first_functional();
             counter ctr;
             ctr.count(m_cols2);
-            m_joining_neg_non_functional = ctr.get_max_counter_value()==1
-                && ctr.get_positive_count()==neg_fisrt_func 
-                && (neg_fisrt_func==0 || ctr.get_max_positive()==neg_fisrt_func-1);
+            m_joining_neg_non_functional = ctr.get_max_counter_value() == 1
+                && ctr.get_positive_count() == neg_fisrt_func 
+                && (neg_fisrt_func == 0 || ctr.get_max_positive() == neg_fisrt_func-1);
         }
 
         /**
@@ -1136,7 +1133,7 @@ namespace datalog {
                 bool tgt_is_first, svector<store_offset> & res) {
             SASSERT(res.empty());
 
-            if(!tgt_is_first) {
+            if (!tgt_is_first) {
                 m_intersection_content.reset();
             }
 
@@ -1153,32 +1150,32 @@ namespace datalog {
             bool key_modified=true;
             key_indexer::query_result t2_offsets;
             store_offset t1_after_last = t1.m_data.after_last_offset();
-            for(store_offset t1_ofs=0; t1_ofs<t1_after_last; t1_ofs+=t1_entry_size) {
+            for (store_offset t1_ofs=0; t1_ofs<t1_after_last; t1_ofs+=t1_entry_size) {
             
-                for(unsigned i=0; i<joined_col_cnt; i++) {
+                for (unsigned i=0; i<joined_col_cnt; i++) {
                     table_element val = t1.get_cell(t1_ofs, cols1[i]);
-                    if(t1_key[i]!=val) {
+                    if (t1_key[i]!=val) {
                         t1_key[i]=val;
                         key_modified=true;
                     }
                 }
-                if(key_modified) {
+                if (key_modified) {
                     t2_offsets = t2_indexer.get_matching_offsets(t1_key);
                     key_modified=false;
                 }
 
-                if(t2_offsets.empty()) {
+                if (t2_offsets.empty()) {
                     continue;
                 }
-                if(tgt_is_first) {
+                if (tgt_is_first) {
                     res.push_back(t1_ofs);
                 }
                 else {
                     key_indexer::offset_iterator it = t2_offsets.begin();
                     key_indexer::offset_iterator end = t2_offsets.end();
-                    for(; it!=end; ++it) {
+                    for (; it!=end; ++it) {
                         store_offset ofs = *it;
-                        if(!m_intersection_content.contains(ofs)) {
+                        if (!m_intersection_content.contains(ofs)) {
                             m_intersection_content.insert(ofs);
                             res.push_back(ofs);
                         }
@@ -1186,7 +1183,7 @@ namespace datalog {
                 }
             }
 
-            if(!tgt_is_first) {
+            if (!tgt_is_first) {
                 //in this case \c res now may be in arbitrary order
                 std::sort(res.begin(), res.end());
             }
@@ -1196,8 +1193,8 @@ namespace datalog {
             sparse_table & tgt = static_cast<sparse_table &>(tgt0);
             const sparse_table & neg = static_cast<const sparse_table &>(neg0);
 
-            if(m_cols1.size()==0) {
-                if(!neg.empty()) {
+            if (m_cols1.size() == 0) {
+                if (!neg.empty()) {
                     tgt.reset();
                 }
                 return;
@@ -1207,14 +1204,14 @@ namespace datalog {
 
             //We don't do just the simple tgt.row_count()>neg.row_count() because the swapped case is 
             //more expensive. The constant 4 is, however, just my guess what the ratio might be.
-            if(tgt.row_count()/4>neg.row_count()) {
+            if (tgt.row_count()/4>neg.row_count()) {
                 collect_intersection_offsets(neg, tgt, false, to_remove);
             }
             else {
                 collect_intersection_offsets(tgt, neg, true, to_remove);
             }
 
-            if(to_remove.empty()) {
+            if (to_remove.empty()) {
                 return;
             }
 
@@ -1232,7 +1229,7 @@ namespace datalog {
     table_intersection_filter_fn * sparse_table_plugin::mk_filter_by_negation_fn(const table_base & t, 
             const table_base & negated_obj, unsigned joined_col_cnt, 
             const unsigned * t_cols, const unsigned * negated_cols) { 
-        if(!check_kind(t) || !check_kind(negated_obj)
+        if (!check_kind(t) || !check_kind(negated_obj)
             || join_involves_functional(t.get_signature(), negated_obj.get_signature(), joined_col_cnt, 
                 t_cols, negated_cols) ) {
             return 0;

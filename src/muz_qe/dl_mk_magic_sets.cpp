@@ -309,6 +309,8 @@ namespace datalog {
         if (!m_context.magic_sets_for_queries()) {
             return 0;
         }
+        SASSERT(source.contains(m_goal));
+        SASSERT(source.get_predicate_rules(m_goal).size() == 1);
 
         app * goal_head = source.get_predicate_rules(m_goal)[0]->get_head();
 

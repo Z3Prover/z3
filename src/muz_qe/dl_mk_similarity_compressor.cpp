@@ -42,20 +42,20 @@ namespace datalog {
     /**
        Allows to traverse head and positive tails in a single for loop starting from -1
      */
-    app * get_by_tail_index(rule * r, int idx) {
-        if (idx == -1) {
+    static app * get_by_tail_index(rule * r, int idx) {
+        if (idx < 0) {
             return r->get_head();
         }
-        SASSERT(idx<static_cast<int>(r->get_positive_tail_size()));
+        SASSERT(idx < static_cast<int>(r->get_positive_tail_size()));
         return r->get_tail(idx);
     }
 
     template<typename T>
-    int aux_compare(T a, T b) {
+    static int aux_compare(T a, T b) {
         return (a>b) ? 1 : ( (a==b) ? 0 : -1);
     }
 
-    int compare_var_args(app* t1, app* t2) {
+    static int compare_var_args(app* t1, app* t2) {
         SASSERT(t1->get_num_args()==t2->get_num_args());
         int res;
         unsigned n = t1->get_num_args();
@@ -76,7 +76,7 @@ namespace datalog {
         return 0;
     }
 
-    int compare_args(app* t1, app* t2, int & skip_countdown) {
+    static int compare_args(app* t1, app* t2, int & skip_countdown) {
         SASSERT(t1->get_num_args()==t2->get_num_args());
         int res;
         unsigned n = t1->get_num_args();
@@ -101,7 +101,7 @@ namespace datalog {
        Two rules are in the same rough similarity class if they differ only in constant arguments
        of positive uninterpreted predicates.
      */
-    int rough_compare(rule * r1, rule * r2) {
+    static int rough_compare(rule * r1, rule * r2) {
         int res = aux_compare(r1->get_tail_size(), r2->get_tail_size());
         if (res!=0) { return res; }
         res = aux_compare(r1->get_uninterpreted_tail_size(), r2->get_uninterpreted_tail_size());
@@ -132,7 +132,7 @@ namespace datalog {
        \c r1 and \c r2 must be equal according to the \c rough_compare function for this function
        to be called.
      */
-    int total_compare(rule * r1, rule * r2, int skipped_arg_index = INT_MAX) {
+    static int total_compare(rule * r1, rule * r2, int skipped_arg_index = INT_MAX) {
         SASSERT(rough_compare(r1, r2)==0);
         int pos_tail_sz = r1->get_positive_tail_size();
         for (int i=-1; i<pos_tail_sz; i++) {
@@ -168,7 +168,7 @@ namespace datalog {
 
     typedef svector<const_info> info_vector;
 
-    void collect_const_indexes(app * t, int tail_index, info_vector & res) {
+    static void collect_const_indexes(app * t, int tail_index, info_vector & res) {
         unsigned n = t->get_num_args();
         for (unsigned i=0; i<n; i++) {
             if (is_var(t->get_arg(i))) {
@@ -178,7 +178,7 @@ namespace datalog {
         }
     }
 
-    void collect_const_indexes(rule * r, info_vector & res) {
+    static void collect_const_indexes(rule * r, info_vector & res) {
         collect_const_indexes(r->get_head(), -1, res);
         unsigned pos_tail_sz = r->get_positive_tail_size();
         for (unsigned i=0; i<pos_tail_sz; i++) {
@@ -187,7 +187,7 @@ namespace datalog {
     }
 
     template<class T>
-    void collect_orphan_consts(rule * r, const info_vector & const_infos, T & tgt) {
+    static void collect_orphan_consts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
         tgt.reset();
         for (unsigned i=0; i<const_cnt; i++) {
@@ -201,7 +201,7 @@ namespace datalog {
         }
     }
     template<class T>
-    void collect_orphan_sorts(rule * r, const info_vector & const_infos, T & tgt) {
+    static void collect_orphan_sorts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
         tgt.reset();
         for (unsigned i=0; i<const_cnt; i++) {
@@ -218,7 +218,7 @@ namespace datalog {
        \brief From the \c tail_indexes and \c arg_indexes remove elements corresponding to constants
        that are the same in rules \c *first ... \c *(after_last-1).
      */
-    void remove_stable_constants(rule_vector::iterator first, rule_vector::iterator after_last, 
+    static void remove_stable_constants(rule_vector::iterator first, rule_vector::iterator after_last, 
             info_vector & const_infos) {
         SASSERT(after_last-first>1);
         unsigned const_cnt = const_infos.size();
@@ -255,7 +255,7 @@ namespace datalog {
        first constant that is equal to it in all the rules. If there is no such, it will contain
        its own index.
      */
-    void detect_equal_constants(rule_vector::iterator first, rule_vector::iterator after_last, 
+    static void detect_equal_constants(rule_vector::iterator first, rule_vector::iterator after_last, 
             info_vector & const_infos) {
         SASSERT(first!=after_last);
         unsigned const_cnt = const_infos.size();
@@ -305,7 +305,7 @@ namespace datalog {
         }
     }
 
-    unsigned get_constant_count(rule * r) {
+    static unsigned get_constant_count(rule * r) {
         unsigned res = r->get_head()->get_num_args() - count_variable_arguments(r->get_head());
         unsigned pos_tail_sz = r->get_positive_tail_size();
         for (unsigned i=0; i<pos_tail_sz; i++) {
@@ -314,7 +314,7 @@ namespace datalog {
         return res;
     }
 
-    bool initial_comparator(rule * r1, rule * r2) {
+    static bool initial_comparator(rule * r1, rule * r2) {
         int res = rough_compare(r1, r2);
         if (res!=0) { return res>0; }
         return total_compare(r1, r2)>0;

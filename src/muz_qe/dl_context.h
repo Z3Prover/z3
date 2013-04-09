@@ -257,6 +257,7 @@ namespace datalog {
         void add_fact(app * head);
         void add_fact(func_decl * pred, const relation_fact & fact);
 
+        bool has_facts(func_decl * pred) const;
         
         void add_rule(rule_ref& r);
         
