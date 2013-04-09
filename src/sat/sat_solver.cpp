@@ -1745,6 +1745,12 @@ namespace sat {
             mark_lit(m_lemma[i]);
         }
         
+        literal l0 = m_lemma[0];
+        // l0 is the FUIP, and we never remove the FUIP.
+        // 
+        // In the following loop, we use unmark_lit(l) to remove a
+        // literal from m_lemma.
+        
         for (unsigned i = 0; i < sz; i++) {
             literal l = m_lemma[i];
             if (!is_marked_lit(l))
@@ -1754,9 +1760,15 @@ namespace sat {
             watch_list::const_iterator it  = wlist.begin();
             watch_list::const_iterator end = wlist.end();
             for (; it != end; ++it) {
+                // In this for-loop, the conditions l0 != ~l2 and l0 != ~l3
+                // are not really needed if the solver does not miss unit propagations.
+                // However, we add them anyway because we don't want to rely on this 
+                // property of the propagator. 
+                // For example, if this property is relaxed in the future, then the code
+                // without the conditions l0 != ~l2 and l0 != ~l3 may remove the FUIP
                 if (it->is_binary_clause()) {
                     literal l2 = it->get_literal();
-                    if (is_marked_lit(~l2)) {
+                    if (is_marked_lit(~l2) && l0 != ~l2) {
                         // eliminate ~l2 from lemma because we have the clause l \/ l2
                         unmark_lit(~l2);
                     }
@@ -1764,11 +1776,11 @@ namespace sat {
                 else if (it->is_ternary_clause()) {
                     literal l2 = it->get_literal1();
                     literal l3 = it->get_literal2();
-                    if (is_marked_lit(l2) && is_marked_lit(~l3)) {
+                    if (is_marked_lit(l2) && is_marked_lit(~l3) && l0 != ~l3) {
                         // eliminate ~l3 from lemma because we have the clause l \/ l2 \/ l3
                         unmark_lit(~l3);
                     }
-                    else if (is_marked_lit(~l2) && is_marked_lit(l3)) {
+                    else if (is_marked_lit(~l2) && is_marked_lit(l3) && l0 != ~l2) {
                         // eliminate ~l2 from lemma because we have the clause l \/ l2 \/ l3
                         unmark_lit(~l2);
                     }
@@ -1786,7 +1798,41 @@ namespace sat {
                 literal_vector::iterator end = implied_lits->end();
                 for (; it != end; ++it) {
                     literal l2 = *it;
-                    if (is_marked_lit(~l2)) {
+                    // Here, we must check l0 != ~l2.
+                    // l \/ l2 is an implied binary clause.
+                    // However, it may have been deduced using a lemma that has been deleted.
+                    // For example, consider the following sequence of events:
+                    //
+                    // 1. Initial clause database:
+                    //
+                    //    l  \/ ~p1
+                    //    p1 \/ ~p2
+                    //    p2 \/ ~p3
+                    //    p3 \/ ~p4
+                    //    q1  \/ q2  \/ p1 \/ p2 \/ p3 \/ p4 \/ l2   
+                    //    q1  \/ ~q2 \/ p1 \/ p2 \/ p3 \/ p4 \/ l2   
+                    //    ~q1 \/ q2  \/ p1 \/ p2 \/ p3 \/ p4 \/ l2   
+                    //    ~q1 \/ ~q2 \/ p1 \/ p2 \/ p3 \/ p4 \/ l2   
+                    //    ...
+                    //
+                    // 2. Now suppose we learned the lemma
+                    //
+                    //    p1 \/ p2 \/ p3 \/ p4 \/ l2   (*)
+                    //
+                    // 3. Probing is executed and we notice hat (~l => l2) when we assign l to false.
+                    //    That is, l \/ l2 is an implied clause. Note that probing does not add
+                    //    this clause to the clause database (there are too many).
+                    //
+                    // 4. Lemma (*) is deleted (garbage collected). 
+                    //
+                    // 5. l is decided to be false, p1, p2, p3 and p4 are propagated using BCP,
+                    //    but l2 is not since the lemma (*) was deleted.
+                    //   
+                    //    Probing module still "knows" that l \/ l2 is valid binary clause
+                    //    
+                    // 6. A new lemma is created where ~l2 is the FUIP and the lemma also contains l.
+                    //    If we remove l0 != ~l2 may try to delete the FUIP. 
+                    if (is_marked_lit(~l2) && l0 != ~l2) {
                         // eliminate ~l2 from lemma because we have the clause l \/ l2
                         unmark_lit(~l2);
                     }
