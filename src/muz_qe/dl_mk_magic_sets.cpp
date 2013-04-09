@@ -318,7 +318,6 @@ namespace datalog {
     }
 
     rule_set * mk_magic_sets::operator()(rule_set const & source) {
-        SASSERT(!m_context.get_model_converter());
         unsigned init_rule_cnt = source.get_num_rules();
         {
             func_decl_set intentional;

@@ -61,13 +61,14 @@ namespace datalog {
     void compiler::make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc) {
         relation_signature aux_sig;
-        relation_signature::from_join(m_reg_signatures[t1], m_reg_signatures[t2], vars.size(), 
-            vars.get_cols1(), vars.get_cols2(), aux_sig);
+        relation_signature sig1 = m_reg_signatures[t1];
+        relation_signature sig2 = m_reg_signatures[t2];
+        relation_signature::from_join(sig1, sig2, vars.size(), vars.get_cols1(), vars.get_cols2(), aux_sig);
         relation_signature res_sig;
         relation_signature::from_project(aux_sig, removed_cols.size(), removed_cols.c_ptr(), 
             res_sig);
-
         result = get_fresh_register(res_sig);
+
         acc.push_back(instruction::mk_join_project(t1, t2, vars.size(), vars.get_cols1(), 
             vars.get_cols2(), removed_cols.size(), removed_cols.c_ptr(), result));
     }

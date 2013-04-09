@@ -87,30 +87,29 @@ namespace datalog {
 
 
     lbool rel_context::saturate() {
-        m_context.ensure_closed();
-        
+        m_context.ensure_closed();        
         bool time_limit = m_context.soft_timeout()!=0;
         unsigned remaining_time_limit = m_context.soft_timeout();
-        unsigned restart_time = m_context.initial_restart_timeout();
-        
+        unsigned restart_time = m_context.initial_restart_timeout();        
         rule_set original_rules(m_context.get_rules());
         decl_set original_predicates;
-        m_context.collect_predicates(original_predicates);
-                
-        m_code.reset();
+        m_context.collect_predicates(original_predicates);                
         instruction_block termination_code;
-        m_ectx.reset();
-
         lbool result;
 
         TRACE("dl", m_context.display(tout););
 
         while (true) {
+            m_code.reset();
+            m_ectx.reset();
+            termination_code.reset();
             m_context.transform_rules();
             if (m_context.canceled()) {
                 result = l_undef;
                 break;
             }
+            TRACE("dl", m_context.display(tout););
+
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
             TRACE("dl", m_code.display(*this, tout); );
