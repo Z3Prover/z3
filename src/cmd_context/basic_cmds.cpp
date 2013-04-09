@@ -568,7 +568,7 @@ public:
             ctx.regular_stream() << "(:authors \"Leonardo de Moura and Nikolaj Bjorner\")" << std::endl;
         }
         else if (opt == m_version) {
-            ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "\")" << std::endl;
+            ctx.regular_stream() << "(:version \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\")" << std::endl;
         }
         else if (opt == m_status) {
             ctx.regular_stream() << "(:status " << ctx.get_status() << ")" << std::endl;
