@@ -667,7 +667,7 @@ namespace datalog {
         return et->get_data().m_value;
     }
 
-    void mk_rule_inliner::add_rule(rule* r, unsigned i) {
+    void mk_rule_inliner::add_rule(rule_set const& source, rule* r, unsigned i) {
         svector<bool>& can_remove = m_head_visitor.can_remove();
         svector<bool>& can_expand = m_head_visitor.can_expand();
         app* head = r->get_head();
@@ -676,7 +676,7 @@ namespace datalog {
         m_head_index.insert(head);
         m_pinned.push_back(r);
             
-        if (m_context.get_rules().is_output_predicate(headd) ||
+        if (source.is_output_predicate(headd) ||
             m_preds_with_facts.contains(headd)) {
             can_remove.set(i, false);
             TRACE("dl", output_predicate(m_context, head, tout << "cannot remove: " << i << " "); tout << "\n";);
@@ -692,7 +692,7 @@ namespace datalog {
             tl_sz == 1
             && r->get_positive_tail_size() == 1 
             && !m_preds_with_facts.contains(r->get_decl(0)) 
-            && !m_context.get_rules().is_output_predicate(r->get_decl(0));
+            && !source.is_output_predicate(r->get_decl(0));
         can_expand.set(i, can_exp);
     }
 
@@ -709,7 +709,7 @@ namespace datalog {
 
 #define PRT(_x_) ((_x_)?"T":"F")
 
-    bool mk_rule_inliner::inline_linear(scoped_ptr<rule_set>& rules) {
+    bool mk_rule_inliner::inline_linear(rule_set const& source, scoped_ptr<rule_set>& rules) {
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         bool done_something = false;        
         unsigned sz = rules->get_num_rules();
@@ -731,7 +731,7 @@ namespace datalog {
         svector<bool>& can_expand = m_head_visitor.can_expand();
 
         for (unsigned i = 0; i < sz; ++i) {
-            add_rule(acc[i].get(), i);
+            add_rule(source, acc[i].get(), i);
         }
 
         // initialize substitution.
@@ -808,7 +808,7 @@ namespace datalog {
                 TRACE("dl", r->display(m_context, tout); r2->display(m_context, tout); rl_res->display(m_context, tout); );
 
                 del_rule(r, i);
-                add_rule(rl_res.get(), i);
+                add_rule(source, rl_res.get(), i);
                 
 
                 r = rl_res;
@@ -875,7 +875,7 @@ namespace datalog {
             TRACE("dl", res->display(tout << "after eager inlining\n"););
         }
 
-        if (m_context.get_params().inline_linear() && inline_linear(res)) {
+        if (m_context.get_params().inline_linear() && inline_linear(source, res)) {
             something_done = true;
         }
 

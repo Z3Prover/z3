@@ -172,9 +172,9 @@ namespace datalog {
         /**
            Inline predicates that are known to not be join-points.
          */
-        bool inline_linear(scoped_ptr<rule_set>& rules);
+        bool inline_linear(rule_set const& source, scoped_ptr<rule_set>& rules);
 
-        void add_rule(rule* r, unsigned i);
+        void add_rule(rule_set const& rule_set, rule* r, unsigned i);
         void del_rule(rule* r, unsigned i);
 
     public:

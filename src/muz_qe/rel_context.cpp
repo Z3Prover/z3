@@ -253,6 +253,8 @@ namespace datalog {
             m_context.transform_rules(alloc(mk_magic_sets, m_context, query_pred));
         }
 
+        query_pred = m_context.get_rules().get_pred(query_pred);
+
         lbool res = saturate();
         
         if (res != l_undef) {
