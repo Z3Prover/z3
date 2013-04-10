@@ -583,11 +583,12 @@ namespace datalog {
         }
 
         rule_set * res = alloc(rule_set, m_context);
-        if (!transform_rules(source, *res)) {
+        if (transform_rules(source, *res)) {
+            res->inherit_predicates(source);
+        } else {
             dealloc(res);
             res = 0;
         }
-        res->inherit_predicates(source);
         return res;
     }
   
