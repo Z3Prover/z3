@@ -89,7 +89,7 @@ namespace datalog {
                     m_consumers++;
                 }
                 if(m_stratified) {
-                    unsigned head_stratum = pl.get_stratum(r->get_head()->get_decl());
+                    unsigned head_stratum = pl.get_stratum(r->get_decl());
                     SASSERT(head_stratum>=m_src_stratum);
                     if(head_stratum==m_src_stratum) {
                         m_stratified = false;
@@ -383,7 +383,7 @@ namespace datalog {
 
             rule * one_parent = inf.m_rules.back();
 
-            func_decl* parent_head = one_parent->get_head()->get_decl();
+            func_decl* parent_head = one_parent->get_decl();
             const char * one_parent_name = parent_head->get_name().bare_str();
             std::string parent_name;
             if(inf.m_rules.size()>1) {
@@ -714,13 +714,14 @@ namespace datalog {
                 m_context.get_rule_manager().mk_rule_asserted_proof(*m_introduced_rules.back());
                 m_introduced_rules.pop_back();
             }
+            result->inherit_predicates(source);
             return result;
         }
     };
 
     rule_set * mk_simple_joins::operator()(rule_set const & source) {
         rule_set rs_aux_copy(m_context);
-        rs_aux_copy.add_rules(source);
+        rs_aux_copy.replace_rules(source);
         if(!rs_aux_copy.is_closed()) {
             rs_aux_copy.close();
         }

@@ -199,15 +199,15 @@ namespace datalog {
                 return 0;
             }
         }
+        m_inner_ctx.reset();
         rel_context& rctx = m_inner_ctx.get_rel_context();
         ptr_vector<func_decl> heads;
-        m_inner_ctx.ensure_opened();
-        it = source.begin();
-        for (; it != end; ++it) {
-            rule_ref r(*it, m_inner_ctx.get_rule_manager());
-            m_inner_ctx.add_rule(r);
-            m_inner_ctx.register_predicate(r->get_decl(), false);
+        func_decl_set const& predicates = m_ctx.get_predicates();
+        for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
+            m_inner_ctx.register_predicate(*fit, false);
         }
+        m_inner_ctx.ensure_opened();
+        m_inner_ctx.replace_rules(source);
         m_inner_ctx.close();
         rule_set::decl2rules::iterator dit  = source.begin_grouped_rules();
         rule_set::decl2rules::iterator dend = source.end_grouped_rules();
@@ -237,6 +237,7 @@ namespace datalog {
             m_ctx.add_model_converter(kmc);
         }
         TRACE("dl", rules->display(tout););
+        rules->inherit_predicates(source);
         return rules;
     }
 

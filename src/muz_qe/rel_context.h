@@ -37,10 +37,11 @@ namespace datalog {
         relation_manager   m_rmanager;
         expr_ref           m_answer;
         relation_base *    m_last_result_relation;
-        decl_set           m_output_preds;
         fact_vector        m_table_facts;
         execution_context  m_ectx;
         instruction_block  m_code;
+
+        class scoped_query;
 
         void reset_negated_tables();
         
@@ -78,13 +79,7 @@ namespace datalog {
 
            The function deallocates unsused relations, it does not deal with rules.
          */
-        void restrict_predicates(const decl_set & res);
-
-        void collect_predicates(decl_set & res);        
-
-        void set_output_predicate(func_decl * pred);
-        bool is_output_predicate(func_decl * pred) { return m_output_preds.contains(pred); }
-        const decl_set & get_output_predicates() const { return m_output_preds; }
+        void restrict_predicates(func_decl_set const& predicates);
 
 
         /**
@@ -107,7 +102,7 @@ namespace datalog {
         */
         void store_relation(func_decl * pred, relation_base * rel);
 
-        void display_output_facts(std::ostream & out) const;
+        void display_output_facts(rule_set const& rules, std::ostream & out) const;
         void display_facts(std::ostream & out) const;
 
         void display_profile(std::ostream& out) const;

@@ -43,9 +43,9 @@ namespace datalog {
         obj_map<func_decl, func_decl*> m_old2new;
         qa_model_converter*            m_mc;
 
-        func_decl* declare_pred(func_decl* old_p);
-        app_ref mk_head(app* p, unsigned idx);
-        app_ref mk_tail(app* p);
+        func_decl* declare_pred(rule_set const& rules, rule_set& dst, func_decl* old_p);
+        app_ref mk_head(rule_set const& rules, rule_set& dst, app* p, unsigned idx);
+        app_ref mk_tail(rule_set const& rules, rule_set& dst, app* p);
         expr*   mk_select(expr* a, unsigned num_args, expr* const* args);
 
     public:

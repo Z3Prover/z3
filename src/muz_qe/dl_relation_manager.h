@@ -22,7 +22,6 @@ Revision History:
 
 #include"map.h"
 #include"vector.h"
-
 #include"dl_base.h"
 
 namespace datalog {
@@ -35,8 +34,8 @@ namespace datalog {
     class finite_product_relation_plugin;
     class sieve_relation;
     class sieve_relation_plugin;
+    class rule_set;
 
-    typedef hashtable<func_decl * , ptr_hash<func_decl>, ptr_eq<func_decl> > decl_set;
 
     class relation_manager {
         class empty_signature_relation_join_fn;
@@ -153,7 +152,6 @@ namespace datalog {
             }
         }
 
-        void collect_predicates(decl_set & res) const;
         void collect_non_empty_predicates(decl_set & res) const;
         void restrict_predicates(const decl_set & preds);
 
@@ -595,7 +593,7 @@ namespace datalog {
 
         void display(std::ostream & out) const;
         void display_relation_sizes(std::ostream & out) const;
-        void display_output_tables(std::ostream & out) const;
+        void display_output_tables(rule_set const& rules, std::ostream & out) const;
 
     private:
         relation_intersection_filter_fn * try_mk_default_filter_by_intersection_fn(const relation_base & t, 

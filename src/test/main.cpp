@@ -22,7 +22,7 @@
     if (do_display_usage)                       \
         std::cout << #MODULE << "\n";           \
     for (int i = 0; i < argc; i++) 		\
-	if (strcmp(argv[i], #MODULE) == 0) {	\
+	if (test_all || strcmp(argv[i], #MODULE) == 0) {	\
             enable_trace(#MODULE);              \
 	    enable_debug(#MODULE);		\
 	    timeit timeit(true, s.c_str());     \
@@ -60,6 +60,7 @@ void display_usage() {
     std::cout << "  /h          prints this message.\n";
     std::cout << "  /v:level    be verbose, where <level> is the verbosity level.\n";
     std::cout << "  /w          enable warning messages.\n";
+    std::cout << "  /a          run all unit tests that don't require arguments.\n";
 #if defined(Z3DEBUG) || defined(_TRACE)
     std::cout << "\nDebugging support:\n";
 #endif
@@ -71,7 +72,7 @@ void display_usage() {
 #endif
 }
 
-void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage) {
+void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
     while (i < argc) {
 	char * arg = argv[i];    
@@ -99,6 +100,9 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage) {
 	    else if (strcmp(opt_name, "w") == 0) {
                 enable_warning_messages(true);
 	    }
+	    else if (strcmp(opt_name, "a") == 0) {
+                test_all = true;
+	    }
 #ifdef _TRACE
 	    else if (strcmp(opt_name, "tr") == 0) {
 		if (!opt_arg)
@@ -122,7 +126,8 @@ void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage) {
 int main(int argc, char ** argv) {
     memory::initialize(0);
     bool do_display_usage = false;
-    parse_cmd_line_args(argc, argv, do_display_usage);
+    bool test_all = false;
+    parse_cmd_line_args(argc, argv, do_display_usage, test_all);
     TST(random);
     TST(vector);
     TST(symbol_table);
@@ -151,7 +156,6 @@ int main(int argc, char ** argv) {
     TST(simple_parser);
     TST(api);
     TST(old_interval);
-    TST(interval_skip_list);
     TST(no_overflow);
     TST(memory);
     TST(get_implied_equalities);
@@ -170,7 +174,6 @@ int main(int argc, char ** argv) {
     TST(dl_util);
     TST(dl_product_relation);
     TST(dl_relation);
-    TST(imdd);
     TST(parray);
     TST(stack);
     TST(escaped);

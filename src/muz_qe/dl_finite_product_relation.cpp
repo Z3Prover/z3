@@ -129,7 +129,7 @@ namespace datalog {
         for(unsigned i=0; i<n; i++) {
             if(table_columns[i]) {
                 table_sort t_sort;
-                TRUSTME( rmgr.relation_sort_to_table(s[i], t_sort) );
+                VERIFY( rmgr.relation_sort_to_table(s[i], t_sort) );
                 table_sig.push_back(t_sort);
             }
             else {
@@ -1789,7 +1789,7 @@ namespace datalog {
                 m_sig2table[i]=m_table_sig.size();
                 table_sort srt;
                 //the table columns must have table-friendly sorts
-                TRUSTME( get_manager().relation_sort_to_table(rel_sig[i], srt) );
+                VERIFY( get_manager().relation_sort_to_table(rel_sig[i], srt) );
                 m_table_sig.push_back(srt);
                 m_table2sig.push_back(i);
             }

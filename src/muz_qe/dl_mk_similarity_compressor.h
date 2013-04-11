@@ -63,7 +63,7 @@ namespace datalog {
         ast_ref_vector      m_pinned;
         
         void merge_class(rule_vector::iterator first, rule_vector::iterator after_last);
-        void process_class(rule_vector::iterator first, rule_vector::iterator after_last);
+        void process_class(rule_set const& source, rule_vector::iterator first, rule_vector::iterator after_last);
 
         void reset();
     public:

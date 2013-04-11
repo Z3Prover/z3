@@ -124,14 +124,6 @@ namespace datalog {
         e->get_data().m_value = rel;
     }
 
-    void relation_manager::collect_predicates(decl_set & res) const {
-        relation_map::iterator it = m_relations.begin();
-        relation_map::iterator end = m_relations.end();
-        for(; it!=end; ++it) {
-            res.insert(it->m_key);
-        }
-    }
-
     void relation_manager::collect_non_empty_predicates(decl_set & res) const {
         relation_map::iterator it = m_relations.begin();
         relation_map::iterator end = m_relations.end();
@@ -539,8 +531,8 @@ namespace datalog {
         }
     }
 
-    void relation_manager::display_output_tables(std::ostream & out) const {
-        const decl_set & output_preds = get_context().get_output_predicates();
+    void relation_manager::display_output_tables(rule_set const& rules, std::ostream & out) const {
+        const decl_set & output_preds = rules.get_output_predicates();
         decl_set::iterator it=output_preds.begin();
         decl_set::iterator end=output_preds.end();
         for(; it!=end; ++it) {

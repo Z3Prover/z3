@@ -24,15 +24,15 @@ Revision History:
 namespace datalog {
 
     mk_similarity_compressor::mk_similarity_compressor(context & ctx, unsigned threshold_count) :
-            plugin(5000),
-            m_context(ctx),
-            m_manager(ctx.get_manager()),
-            m_threshold_count(threshold_count),
-            m_result_rules(ctx.get_rule_manager()),
-            m_pinned(m_manager) {
+        plugin(5000),
+        m_context(ctx),
+        m_manager(ctx.get_manager()),
+        m_threshold_count(threshold_count),
+        m_result_rules(ctx.get_rule_manager()),
+        m_pinned(m_manager) {
         SASSERT(threshold_count>1);
     }
-
+    
     void mk_similarity_compressor::reset() {
         m_rules.reset();
         m_result_rules.reset();
@@ -43,10 +43,10 @@ namespace datalog {
        Allows to traverse head and positive tails in a single for loop starting from -1
      */
     static app * get_by_tail_index(rule * r, int idx) {
-        if(idx==-1) {
+        if (idx < 0) {
             return r->get_head();
         }
-        SASSERT(idx<static_cast<int>(r->get_positive_tail_size()));
+        SASSERT(idx < static_cast<int>(r->get_positive_tail_size()));
         return r->get_tail(idx);
     }
 
@@ -59,15 +59,18 @@ namespace datalog {
         SASSERT(t1->get_num_args()==t2->get_num_args());
         int res;
         unsigned n = t1->get_num_args();
-        for(unsigned i=0; i<n; i++) {
+        for (unsigned i = 0; i < n; i++) {
             expr * a1 = t1->get_arg(i);
             expr * a2 = t2->get_arg(i);
-
             res = aux_compare(is_var(a1), is_var(a2));
-            if(res!=0) { return res; }
-            if(is_var(a1)) {
+            if (res != 0) { 
+                return res; 
+            }
+            if (is_var(a1)) {
                 res = aux_compare(to_var(a1)->get_idx(), to_var(a2)->get_idx());
-                if(res!=0) { return res; }
+                if (res != 0) { 
+                    return res; 
+                }
             }
         }
         return 0;
@@ -77,16 +80,16 @@ namespace datalog {
         SASSERT(t1->get_num_args()==t2->get_num_args());
         int res;
         unsigned n = t1->get_num_args();
-        for(unsigned i=0; i<n; i++) {
-            if(is_var(t1->get_arg(i))) {
-                SASSERT(t1->get_arg(i)==t2->get_arg(i));
+        for (unsigned i=0; i<n; i++) {
+            if (is_var(t1->get_arg(i))) {
+                SASSERT(t1->get_arg(i) == t2->get_arg(i));
                 continue;
             }
-            if((skip_countdown--)==0) {
+            if ((skip_countdown--) == 0) {
                 continue;
             }
             res = aux_compare(t1->get_arg(i), t2->get_arg(i));
-            if(res!=0) { return res; }
+            if (res!=0) { return res; }
         }
         return 0;
     }
@@ -100,26 +103,26 @@ namespace datalog {
      */
     static int rough_compare(rule * r1, rule * r2) {
         int res = aux_compare(r1->get_tail_size(), r2->get_tail_size());
-        if(res!=0) { return res; }
+        if (res!=0) { return res; }
         res = aux_compare(r1->get_uninterpreted_tail_size(), r2->get_uninterpreted_tail_size());
-        if(res!=0) { return res; }
+        if (res!=0) { return res; }
         res = aux_compare(r1->get_positive_tail_size(), r2->get_positive_tail_size());
-        if(res!=0) { return res; }
+        if (res!=0) { return res; }
 
         int pos_tail_sz = r1->get_positive_tail_size();
-        for(int i=-1; i<pos_tail_sz; i++) {
+        for (int i=-1; i<pos_tail_sz; i++) {
             app * t1 = get_by_tail_index(r1, i);
             app * t2 = get_by_tail_index(r2, i);
             res = aux_compare(t1->get_decl(), t2->get_decl());
-            if(res!=0) { return res; }
+            if (res!=0) { return res; }
             res = compare_var_args(t1, t2);
-            if(res!=0) { return res; }
+            if (res!=0) { return res; }
         }
 
         unsigned tail_sz = r1->get_tail_size();
-        for(unsigned i=pos_tail_sz; i<tail_sz; i++) {
+        for (unsigned i=pos_tail_sz; i<tail_sz; i++) {
             res = aux_compare(r1->get_tail(i), r2->get_tail(i));
-            if(res!=0) { return res; }
+            if (res!=0) { return res; }
         }
         
         return 0;
@@ -132,9 +135,9 @@ namespace datalog {
     static int total_compare(rule * r1, rule * r2, int skipped_arg_index = INT_MAX) {
         SASSERT(rough_compare(r1, r2)==0);
         int pos_tail_sz = r1->get_positive_tail_size();
-        for(int i=-1; i<pos_tail_sz; i++) {
+        for (int i=-1; i<pos_tail_sz; i++) {
             int res = compare_args(get_by_tail_index(r1, i), get_by_tail_index(r2, i), skipped_arg_index);
-            if(res!=0) { return res; }
+            if (res!=0) { return res; }
         }
         return 0;
     }
@@ -167,8 +170,8 @@ namespace datalog {
 
     static void collect_const_indexes(app * t, int tail_index, info_vector & res) {
         unsigned n = t->get_num_args();
-        for(unsigned i=0; i<n; i++) {
-            if(is_var(t->get_arg(i))) {
+        for (unsigned i=0; i<n; i++) {
+            if (is_var(t->get_arg(i))) {
                 continue;
             }
             res.push_back(const_info(tail_index, i));
@@ -178,7 +181,7 @@ namespace datalog {
     static void collect_const_indexes(rule * r, info_vector & res) {
         collect_const_indexes(r->get_head(), -1, res);
         unsigned pos_tail_sz = r->get_positive_tail_size();
-        for(unsigned i=0; i<pos_tail_sz; i++) {
+        for (unsigned i=0; i<pos_tail_sz; i++) {
             collect_const_indexes(r->get_tail(i), i, res);
         }
     }
@@ -187,9 +190,9 @@ namespace datalog {
     static void collect_orphan_consts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
         tgt.reset();
-        for(unsigned i=0; i<const_cnt; i++) {
+        for (unsigned i=0; i<const_cnt; i++) {
             const_info inf = const_infos[i];
-            if(inf.has_parent()) {
+            if (inf.has_parent()) {
                 continue;
             }
             app * pred = get_by_tail_index(r, inf.tail_index());
@@ -201,9 +204,9 @@ namespace datalog {
     static void collect_orphan_sorts(rule * r, const info_vector & const_infos, T & tgt) {
         unsigned const_cnt = const_infos.size();
         tgt.reset();
-        for(unsigned i=0; i<const_cnt; i++) {
+        for (unsigned i=0; i<const_cnt; i++) {
             const_info inf = const_infos[i];
-            if(inf.has_parent()) {
+            if (inf.has_parent()) {
                 continue;
             }
             app * pred = get_by_tail_index(r, inf.tail_index());
@@ -224,25 +227,25 @@ namespace datalog {
         collect_orphan_consts(r, const_infos, vals);
         SASSERT(vals.size()==const_cnt);
         rule_vector::iterator it = first;
-        for(; it!=after_last; ++it) {
-            for(unsigned i=0; i<const_cnt; i++) {
+        for (; it!=after_last; ++it) {
+            for (unsigned i=0; i<const_cnt; i++) {
                 app * pred = get_by_tail_index(*it, const_infos[i].tail_index());
                 app * val = to_app(pred->get_arg(const_infos[i].arg_index()));
-                if(vals[i]!=val) {
+                if (vals[i]!=val) {
                     vals[i] = 0;
                 }
             }
         }
         unsigned removed_cnt = 0;
-        for(unsigned i=0; i<const_cnt; i++) {
-            if(vals[i]!=0) {
+        for (unsigned i=0; i<const_cnt; i++) {
+            if (vals[i]!=0) {
                 removed_cnt++;
             }
-            else if(removed_cnt!=0) {
+            else if (removed_cnt!=0) {
                 const_infos[i-removed_cnt] = const_infos[i];
             }
         }
-        if(removed_cnt!=0) {
+        if (removed_cnt!=0) {
             const_infos.shrink(const_cnt-removed_cnt);
         }
     }
@@ -263,21 +266,21 @@ namespace datalog {
         collect_orphan_sorts(r, const_infos, sorts);
         SASSERT(vals.size()==const_cnt);
         vector<unsigned_vector> possible_parents(const_cnt);
-        for(unsigned i=1; i<const_cnt; i++) {
-            for(unsigned j=0; j<i; j++) {
-                if(vals[i]==vals[j] && sorts[i]==sorts[j]) {
+        for (unsigned i=1; i<const_cnt; i++) {
+            for (unsigned j=0; j<i; j++) {
+                if (vals[i]==vals[j] && sorts[i]==sorts[j]) {
                     possible_parents[i].push_back(j);
                 }
             }
         }
         rule_vector::iterator it = first;
-        for(; it!=after_last; ++it) {
+        for (; it!=after_last; ++it) {
             collect_orphan_consts(*it, const_infos, vals);
-            for(unsigned i=1; i<const_cnt; i++) {
+            for (unsigned i=1; i<const_cnt; i++) {
                 unsigned_vector & ppars = possible_parents[i];
                 unsigned j=0;
                 while(j<ppars.size()) {
-                    if(vals[i]!=vals[ppars[j]]) {
+                    if (vals[i]!=vals[ppars[j]]) {
                         ppars[j] = ppars.back();
                         ppars.pop_back();
                     }
@@ -287,16 +290,16 @@ namespace datalog {
                 }
             }
         }
-        for(unsigned i=0; i<const_cnt; i++) {
+        for (unsigned i=0; i<const_cnt; i++) {
             unsigned parent = i;
             unsigned_vector & ppars = possible_parents[i];
             unsigned ppars_sz = ppars.size();
-            for(unsigned j=0; j<ppars_sz; j++) {
-                if(ppars[j]<parent) {
+            for (unsigned j=0; j<ppars_sz; j++) {
+                if (ppars[j]<parent) {
                     parent = ppars[j];
                 }
             }
-            if(parent!=i) {
+            if (parent!=i) {
                 const_infos[i].set_parent_index(parent);
             }
         }
@@ -305,7 +308,7 @@ namespace datalog {
     static unsigned get_constant_count(rule * r) {
         unsigned res = r->get_head()->get_num_args() - count_variable_arguments(r->get_head());
         unsigned pos_tail_sz = r->get_positive_tail_size();
-        for(unsigned i=0; i<pos_tail_sz; i++) {
+        for (unsigned i=0; i<pos_tail_sz; i++) {
             res+= r->get_tail(i)->get_num_args() - count_variable_arguments(r->get_tail(i));
         }
         return res;
@@ -313,7 +316,7 @@ namespace datalog {
 
     static bool initial_comparator(rule * r1, rule * r2) {
         int res = rough_compare(r1, r2);
-        if(res!=0) { return res>0; }
+        if (res!=0) { return res>0; }
         return total_compare(r1, r2)>0;
     }
 
@@ -348,7 +351,7 @@ namespace datalog {
         ptr_vector<sort> aux_domain;
         collect_orphan_sorts(r, const_infos, aux_domain);
 
-        func_decl* head_pred = r->get_head()->get_decl();
+        func_decl* head_pred = r->get_decl();
         symbol const& name_prefix = head_pred->get_name();
         std::string name_suffix = "sc_" + to_string(const_cnt);
         func_decl * aux_pred = m_context.mk_fresh_head_predicate(name_prefix, symbol(name_suffix.c_str()), 
@@ -357,7 +360,7 @@ namespace datalog {
 
         relation_fact val_fact(m_manager, const_cnt);
         rule_vector::iterator it = first;
-        for(; it!=after_last; ++it) {
+        for (; it!=after_last; ++it) {
             collect_orphan_consts(*it, const_infos, val_fact);
             m_context.add_fact(aux_pred, val_fact);
         }
@@ -367,7 +370,7 @@ namespace datalog {
         ptr_vector<app> new_tail;
         svector<bool> new_negs;
         unsigned tail_sz = r->get_tail_size();
-        for(unsigned i=0; i<tail_sz; i++) {
+        for (unsigned i=0; i<tail_sz; i++) {
             new_tail.push_back(r->get_tail(i));
             new_negs.push_back(r->is_neg_tail(i));
         }
@@ -375,7 +378,7 @@ namespace datalog {
         rule_counter ctr;
         ctr.count_rule_vars(m_manager, r);
         unsigned max_var_idx, new_var_idx_base;
-        if(ctr.get_max_positive(max_var_idx)) {
+        if (ctr.get_max_positive(max_var_idx)) {
             new_var_idx_base = max_var_idx+1;
         }
         else {
@@ -387,15 +390,15 @@ namespace datalog {
 
         unsigned aux_column_index = 0;
 
-        for(unsigned i=0; i<const_cnt; ) {
+        for (unsigned i=0; i<const_cnt; ) {
             int tail_idx = const_infos[i].tail_index();
             app * & mod_tail = (tail_idx==-1) ? new_head : new_tail[tail_idx];
             ptr_vector<expr> mod_args(mod_tail->get_num_args(), mod_tail->get_args());
 
-            for(; i<const_cnt && const_infos[i].tail_index()==tail_idx; i++) { //here the outer loop counter is modified
+            for (; i<const_cnt && const_infos[i].tail_index()==tail_idx; i++) { //here the outer loop counter is modified
                 const_info & inf = const_infos[i];
                 var * mod_var;
-                if(!inf.has_parent()) {
+                if (!inf.has_parent()) {
                     mod_var = m_manager.mk_var(new_var_idx_base+aux_column_index, 
                         aux_domain[aux_column_index]);
                     aux_column_index++;
@@ -426,7 +429,7 @@ namespace datalog {
         m_modified = true;
     }
 
-    void mk_similarity_compressor::process_class(rule_vector::iterator first, 
+    void mk_similarity_compressor::process_class(rule_set const& source, rule_vector::iterator first, 
             rule_vector::iterator after_last) {
         SASSERT(first!=after_last);
         //remove duplicates
@@ -435,7 +438,7 @@ namespace datalog {
             rule_vector::iterator prev = it;
             ++it;
             while(it!=after_last) {
-                if(it!=after_last && total_compare(*prev, *it)==0) {
+                if (it!=after_last && total_compare(*prev, *it)==0) {
                     --after_last;
                     std::swap(*it, *after_last);
                     m_modified = true;
@@ -450,7 +453,7 @@ namespace datalog {
 
         unsigned const_cnt = get_constant_count(*first);
 #if 0
-        for(unsigned ignored_index=0; ignored_index<const_cnt; ignored_index++) {
+        for (unsigned ignored_index=0; ignored_index<const_cnt; ignored_index++) {
             arg_ignoring_comparator comparator(ignored_index);
             std::sort(first, after_last, comparator);
 
@@ -461,11 +464,11 @@ namespace datalog {
                 rule_vector::iterator prev = it;
                 ++it;
                 grp_size++;
-                if(it==after_last || !comparator.eq(*prev, *it)) {
-                    if(grp_size>m_threshold_count) {
+                if (it==after_last || !comparator.eq(*prev, *it)) {
+                    if (grp_size>m_threshold_count) {
                         merge_class(grp_begin, it);
                         //group was processed, so we remove it from the class
-                        if(it==after_last) {
+                        if (it==after_last) {
                             after_last=grp_begin;
                             it=after_last;
                         }
@@ -484,9 +487,9 @@ namespace datalog {
         //TODO: compress also rules with pairs (or tuples) of equal constants
 
 #if 1
-        if(const_cnt>0) {
+        if (const_cnt>0 && !source.is_output_predicate((*first)->get_decl())) {
             unsigned rule_cnt = static_cast<unsigned>(after_last-first);
-            if(rule_cnt>m_threshold_count) {
+            if (rule_cnt>m_threshold_count) {
                 merge_class(first, after_last);
                 return;
             }
@@ -495,7 +498,7 @@ namespace datalog {
 
         //put rules which weren't merged into result
         rule_vector::iterator it = first;
-        for(; it!=after_last; ++it) {
+        for (; it!=after_last; ++it) {
             m_result_rules.push_back(*it);
         }
     }
@@ -505,7 +508,7 @@ namespace datalog {
         m_modified = false;
         unsigned init_rule_cnt = source.get_num_rules();
         SASSERT(m_rules.empty());
-        for(unsigned i=0; i<init_rule_cnt; i++) {
+        for (unsigned i=0; i<init_rule_cnt; i++) {
             m_rules.push_back(source.get_rule(i));
         }
 
@@ -517,19 +520,20 @@ namespace datalog {
         while(it!=end) {
             rule_vector::iterator prev = it;
             ++it;
-            if(it==end || rough_compare(*prev, *it)!=0) {
-                process_class(cl_begin, it);
+            if (it==end || rough_compare(*prev, *it)!=0) {
+                process_class(source, cl_begin, it);
                 cl_begin = it;
             }
         }
 
         rule_set * result = static_cast<rule_set *>(0);
-        if(m_modified) {
+        if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_result_rules.size();
-            for(unsigned i=0; i<fin_rule_cnt; i++) {
+            for (unsigned i=0; i<fin_rule_cnt; i++) {
                 result->add_rule(m_result_rules.get(i));
             }
+            result->inherit_predicates(source);
         }
         reset();
         return result;

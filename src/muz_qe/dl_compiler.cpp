@@ -761,7 +761,7 @@ namespace datalog {
         typedef svector<tail_delta_info> tail_delta_infos;
 
         unsigned rule_len = r->get_uninterpreted_tail_size();
-        reg_idx head_reg = m_pred_regs.find(r->get_head()->get_decl());
+        reg_idx head_reg = m_pred_regs.find(r->get_decl());
 
         svector<reg_idx> tail_regs;
         tail_delta_infos tail_deltas;
@@ -885,7 +885,7 @@ namespace datalog {
             rule_vector::const_iterator rend = pred_rules.end();
             for(; rit!=rend; ++rit) {
                 rule * r = *rit;
-                SASSERT(head_pred==r->get_head()->get_decl());
+                SASSERT(head_pred==r->get_decl());
 
                 compile_rule_evaluation(r, input_deltas, d_head_reg, widen_predicate_in_loop, acc);
             }
@@ -1040,7 +1040,7 @@ namespace datalog {
         rule_vector::const_iterator end = rules.end();
         for (; it != end; ++it) {
             rule * r = *it;
-            SASSERT(r->get_head()->get_decl()==head_pred);
+            SASSERT(r->get_decl()==head_pred);
 
             compile_rule_evaluation(r, input_deltas, output_delta, false, acc);
         }
@@ -1113,7 +1113,7 @@ namespace datalog {
         //load predicate data
         for(unsigned i=0;i<rule_cnt;i++) {
             const rule * r = m_rule_set.get_rule(i);
-            ensure_predicate_loaded(r->get_head()->get_decl(), acc);
+            ensure_predicate_loaded(r->get_decl(), acc);
 
             unsigned rule_len = r->get_uninterpreted_tail_size();
             for(unsigned j=0;j<rule_len;j++) {

@@ -173,6 +173,7 @@ namespace datalog {
         
     rule_set * mk_coalesce::operator()(rule_set const & source) {
         rule_set* rules = alloc(rule_set, m_ctx);
+        rules->inherit_predicates(source);
         rule_set::decl2rules::iterator it = source.begin_grouped_rules(), end = source.end_grouped_rules();
         for (; it != end; ++it) {
             rule_ref_vector d_rules(rm);
