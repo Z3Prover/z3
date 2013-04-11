@@ -40,7 +40,9 @@ namespace datalog {
         rule_set  m_rules;
         decl_set  m_preds;
         bool      m_was_closed;                        
+
     public:
+
         scoped_query(context& ctx):
             m_ctx(ctx),
             m_rules(ctx.get_rules()),
@@ -51,6 +53,7 @@ namespace datalog {
                 ctx.reopen();
             }
         }
+
         ~scoped_query() {
             m_ctx.reopen();                                
             m_ctx.restrict_predicates(m_preds);
@@ -235,7 +238,6 @@ namespace datalog {
             query_pred = rm.mk_query(query, m_context.get_rules());
         }
         catch (default_exception& exn) {
-            m_context.close();
             m_context.set_status(INPUT_ERROR);
             throw exn;
         }
