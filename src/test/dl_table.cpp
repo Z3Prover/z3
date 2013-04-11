@@ -1,7 +1,6 @@
 #ifdef _WINDOWS
 #include "dl_context.h"
 #include "dl_table.h"
-#include "dl_skip_table.h"
 
 typedef datalog::table_base* (*mk_table_fn)(datalog::relation_manager& m, datalog::table_signature& sig);
 
@@ -10,13 +9,6 @@ static datalog::table_base* mk_bv_table(datalog::relation_manager& m, datalog::t
     SASSERT(p);
     return p->mk_empty(sig);
 }
-
-static datalog::table_base* mk_skip_table(datalog::relation_manager& m, datalog::table_signature& sig) {
-    datalog::table_plugin * p = m.get_table_plugin(symbol("skip"));
-    SASSERT(p);
-    return p->mk_empty(sig);    
-}
-
 
 static void test_table(mk_table_fn mk_table) {
     datalog::table_signature sig;
@@ -96,13 +88,9 @@ void test_dl_bitvector_table() {
     test_table(mk_bv_table);
 }
 
-void test_dl_skip_table() {
-    test_table(mk_skip_table);
-}
 
 void tst_dl_table() {
     test_dl_bitvector_table();
-    test_dl_skip_table();
 }
 #else
 void tst_dl_table() {

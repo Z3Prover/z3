@@ -80,36 +80,38 @@ namespace datalog {
             tout<<"init:\n";
             rules.display(tout);
         );
+        rule_set* new_rules = alloc(rule_set, rules);
         plugin_vector::iterator it = m_plugins.begin();
         plugin_vector::iterator end = m_plugins.end();
         for(; it!=end && !m_context.canceled(); ++it) {
             plugin & p = **it;
 
-            rule_set * new_rules = p(rules);
-            if (!new_rules) {
+            rule_set * new_rules1 = p(*new_rules);
+            if (!new_rules1) {
                 continue;
             }
-            if (p.can_destratify_negation()) {
-                if (!new_rules->is_closed()) {
-                    if (!new_rules->close()) {
-                        warning_msg("a rule transformation skipped because it destratified negation");
-                        dealloc(new_rules);
-                        continue;
-                    }
-                }
+            if (p.can_destratify_negation() && 
+                !new_rules1->is_closed() &&
+                !new_rules1->close()) {
+                warning_msg("a rule transformation skipped "
+                            "because it destratified negation");
+                dealloc(new_rules1);
+                continue;
             }
             modified = true;
-            rules.reset();
-            rules.add_rules(*new_rules);
             dealloc(new_rules);
-            rules.ensure_closed();
+            new_rules = new_rules1;
+            new_rules->ensure_closed();
 
             TRACE("dl_rule_transf", 
                 tout << typeid(p).name()<<":\n";
-                rules.display(tout);
+                new_rules->display(tout);
             );
-
         }
+        if (modified) {
+            rules.replace_rules(*new_rules);
+        }
+        dealloc(new_rules);
         return modified;
     }
 

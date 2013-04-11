@@ -20,30 +20,36 @@ static void hit_me(char const* wm) {
     oom = false;
 
     cfg = Z3_mk_config();
-    Z3_set_param_value(cfg, "MEMORY_MAX_SIZE", wm);
-    ctx = Z3_mk_context(cfg);
-    Z3_set_error_handler(ctx, &err_handler);
-    
-    unsigned i;
-    for (i = 1; !oom ; ++i) {
-        try {
-            Z3_mk_bv_sort(ctx,i);      
-			
-        }
-        catch (std::bad_alloc) {
-            std::cout << "caught\n";
-        }
+    if (!cfg) {
+        return;
     }
-
-    std::cout << "oom " << i << "\n";
+    Z3_global_param_set("MEMORY_MAX_SIZE", wm);
+    ctx = Z3_mk_context(cfg);
+    if (ctx) {
+        Z3_set_error_handler(ctx, &err_handler);
+    
+        unsigned i;
+        for (i = 1; !oom ; ++i) {
+            try {
+                Z3_mk_bv_sort(ctx,i);      
+                
+            }
+            catch (std::bad_alloc) {
+                std::cout << "caught\n";
+            }
+        }
+        std::cout << "oom " << i << "\n";
+        Z3_del_context(ctx);
+    }   
+    Z3_del_config(cfg);
 }
 
 void tst_memory() {    
-    hit_me("1");
+    hit_me("10");
     Z3_reset_memory();
-    hit_me("2");
+    hit_me("20");
     Z3_reset_memory();
-    hit_me("3");
+    hit_me("30");
     Z3_reset_memory();
 
 }

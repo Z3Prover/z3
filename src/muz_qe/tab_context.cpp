@@ -191,6 +191,7 @@ namespace tb {
         unsigned get_index() const            { return m_index; }
         void set_index(unsigned index)        { m_index = index; }
         app* get_head() const                 { return m_head; }
+        func_decl* get_decl() const           { return m_head->get_decl(); }
         void set_head(app* h)                 { m_head = h; }
         unsigned get_parent_index() const     { return m_parent_index; }
         unsigned get_parent_rule() const      { return m_parent_rule; }
@@ -447,7 +448,7 @@ namespace tb {
         void insert(ref<clause>& g) {
             unsigned idx = m_rules.size();
             m_rules.push_back(g);
-            func_decl* f = g->get_head()->get_decl();
+            func_decl* f = g->get_decl();
             map::obj_map_entry* e = m_index.insert_if_not_there2(f, unsigned_vector());
             SASSERT(e);
             e->get_data().m_value.push_back(idx);            
@@ -613,7 +614,7 @@ namespace tb {
 
         bool match_head(clause const& g) {
             return
-                m_head->get_decl() == g.get_head()->get_decl() &&
+                m_head->get_decl() == g.get_decl() &&
                 m_matcher(m_head, g.get_head(), m_subst, m_sideconds) &&
                 match_predicates(0, g);
         }
@@ -1080,7 +1081,7 @@ namespace tb {
         bool unify(clause const& tgt, unsigned idx, clause const& src, bool compute_subst, ref<clause>& result) {            
             qe_lite qe(m);
             reset();
-            SASSERT(tgt.get_predicate(idx)->get_decl() == src.get_head()->get_decl());
+            SASSERT(tgt.get_predicate(idx)->get_decl() == src.get_decl());
             unsigned var_cnt = std::max(tgt.get_num_vars(), src.get_num_vars());
             m_S1.reserve(2, var_cnt);            
             if (!m_unifier(tgt.get_predicate(idx), src.get_head(), m_S1)) {
@@ -1380,11 +1381,10 @@ namespace datalog {
             m_displayed_rules.reset();
             m_rules.init(m_ctx.get_rules());
             m_selection.init(m_rules);
-            rule_ref_vector query_rules(rm);
+            rule_set query_rules(m_ctx);
             rule_ref clause(rm);
-            func_decl_ref query_pred(m);
-            rm.mk_query(query, query_pred, query_rules, clause);
-
+            rm.mk_query(query, query_rules);
+            clause = query_rules.last();
             ref<tb::clause> g = alloc(tb::clause, m);
             g->init(clause);
             g->set_head(m.mk_false());

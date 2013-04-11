@@ -147,9 +147,10 @@ namespace datalog {
     mk_quantifier_abstraction::~mk_quantifier_abstraction() {        
     }
 
-    func_decl* mk_quantifier_abstraction::declare_pred(func_decl* old_p) {
+    func_decl* mk_quantifier_abstraction::declare_pred(rule_set const& rules, rule_set& dst, func_decl* old_p) {
 
-        if (m_ctx.is_output_predicate(old_p)) {
+        if (rules.is_output_predicate(old_p)) {
+            dst.inherit_predicate(rules, old_p, old_p);
             return 0;
         }
 
@@ -210,8 +211,8 @@ namespace datalog {
         return new_p;
     }
 
-    app_ref mk_quantifier_abstraction::mk_head(app* p, unsigned idx) {
-        func_decl* new_p = declare_pred(p->get_decl());
+    app_ref mk_quantifier_abstraction::mk_head(rule_set const& rules, rule_set& dst, app* p, unsigned idx) {
+        func_decl* new_p = declare_pred(rules, dst, p->get_decl());
         if (!new_p) {
             return app_ref(p, m);
         }
@@ -239,9 +240,9 @@ namespace datalog {
         return app_ref(m.mk_app(new_p, args.size(), args.c_ptr()), m);        
     }
 
-    app_ref mk_quantifier_abstraction::mk_tail(app* p) {
+    app_ref mk_quantifier_abstraction::mk_tail(rule_set const& rules, rule_set& dst, app* p) {
         func_decl* old_p = p->get_decl();
-        func_decl* new_p = declare_pred(old_p);
+        func_decl* new_p = declare_pred(rules, dst, old_p);
         if (!new_p) {
             return app_ref(p, m);
         }
@@ -332,18 +333,17 @@ namespace datalog {
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz = r.get_tail_size();
             for (unsigned j = 0; j < utsz; ++j) {
-                tail.push_back(mk_tail(r.get_tail(j)));
+                tail.push_back(mk_tail(source, *result, r.get_tail(j)));
             }
             for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(r.get_tail(j));
             }
-            head = mk_head(r.get_head(), cnt);
+            head = mk_head(source, *result, r.get_head(), cnt);
             fml = m.mk_implies(m.mk_and(tail.size(), tail.c_ptr()), head);
             rule_ref_vector added_rules(rm);
             proof_ref pr(m);
-            rm.mk_rule(fml, pr, added_rules);
-            result->add_rules(added_rules.size(), added_rules.c_ptr());
-            TRACE("dl", added_rules.back()->display(m_ctx, tout););
+            rm.mk_rule(fml, pr, *result);
+            TRACE("dl", result->last()->display(m_ctx, tout););
         }        
         
         // proof converter: proofs are not necessarily preserved using this transformation.

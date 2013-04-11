@@ -31,6 +31,7 @@ namespace datalog {
             m_result(0), 
             m_pinned(m_manager) {
     }
+
     mk_filter_rules::~mk_filter_rules() {
         ptr_vector<filter_key> to_dealloc;
         filter_cache::iterator it = m_tail2filter.begin();
@@ -50,7 +51,7 @@ namespace datalog {
        \brief Return true if \c pred is a cadidate for a "filter" rule.
     */
     bool mk_filter_rules::is_candidate(app * pred) {
-        if (!m_context.get_rule_manager().is_predicate(pred)) {
+        if (!m_context.is_predicate(pred)) {
             TRACE("mk_filter_rules", tout << mk_pp(pred, m_manager) << "\nis not a candidate because it is interpreted.\n";);
             return false;
         }
@@ -151,19 +152,21 @@ namespace datalog {
     }
 
     rule_set * mk_filter_rules::operator()(rule_set const & source) {
-        // TODO mc, pc
+        if (!m_context.get_params().filter_rules()) {
+            return 0;
+        }
         m_tail2filter.reset();
         m_result           = alloc(rule_set, m_context);
         m_modified         = false;
         unsigned num_rules = source.get_num_rules();
         for (unsigned i = 0; i < num_rules; i++) {
-            rule * r = source.get_rule(i);
-            process(r);
+            process(source.get_rule(i));
         }
         if(!m_modified) {
             dealloc(m_result);
             return static_cast<rule_set *>(0);
         }
+        m_result->inherit_predicates(source);
         return m_result;
     }
 

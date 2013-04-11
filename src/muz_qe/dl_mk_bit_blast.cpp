@@ -108,31 +108,35 @@ namespace datalog {
     class expand_mkbv_cfg : public default_rewriter_cfg {
 
         context&             m_context;
-        rule_ref_vector&     m_rules;
         ast_manager&         m;
         bv_util              m_util;
         expr_ref_vector      m_args, m_f_vars, m_g_vars;
         func_decl_ref_vector m_old_funcs;
         func_decl_ref_vector m_new_funcs;
+        rule_set const*      m_src;
+        rule_set*            m_dst;
         obj_map<func_decl,func_decl*> m_pred2blast;
 
 
     public:
 
-        expand_mkbv_cfg(context& ctx, rule_ref_vector& rules): 
+        expand_mkbv_cfg(context& ctx):
             m_context(ctx), 
-            m_rules(rules),
             m(ctx.get_manager()),
             m_util(m),
             m_args(m), 
             m_f_vars(m),
             m_g_vars(m),
             m_old_funcs(m),
-            m_new_funcs(m)
+            m_new_funcs(m),
+            m_src(0),
+            m_dst(0)
         {}
 
         ~expand_mkbv_cfg() {}
 
+        void set_src(rule_set const* src) { m_src = src; }
+        void set_dst(rule_set* dst) { m_dst = dst; }
         func_decl_ref_vector const& old_funcs() const { return m_old_funcs; }
         func_decl_ref_vector const& new_funcs() const { return m_new_funcs; }
         
@@ -183,14 +187,7 @@ namespace datalog {
                 m_new_funcs.push_back(g);
                 m_pred2blast.insert(f, g);
 
-                // Create rule f(mk_mkbv(args)) :- g(args)
-
-                fml = m.mk_implies(m.mk_app(g, m_g_vars.size(), m_g_vars.c_ptr()), m.mk_app(f, m_f_vars.size(), m_f_vars.c_ptr()));
-                proof_ref pr(m);
-                if (m_context.generate_proof_trace()) {
-                    pr = m.mk_asserted(fml); // or a def?
-                }
-                rm.mk_rule(fml, pr, m_rules, g->get_name());
+                m_dst->inherit_predicate(*m_src, f, g);
             }
             result = m.mk_app(g, m_args.size(), m_args.c_ptr());
             result_pr = 0;
@@ -200,9 +197,9 @@ namespace datalog {
 
     struct expand_mkbv : public rewriter_tpl<expand_mkbv_cfg> {
         expand_mkbv_cfg m_cfg;
-        expand_mkbv(ast_manager& m, context& ctx, rule_ref_vector& rules):
+        expand_mkbv(ast_manager& m, context& ctx):
             rewriter_tpl<expand_mkbv_cfg>(m, m.proofs_enabled(), m_cfg),
-            m_cfg(ctx, rules) {
+            m_cfg(ctx) {
         }
     };
 
@@ -212,7 +209,6 @@ namespace datalog {
         context &	     m_context;
         ast_manager &        m;
         params_ref           m_params;
-        rule_ref_vector      m_rules;
         mk_interp_tail_simplifier m_simplifier;
         bit_blaster_rewriter m_blaster;
         expand_mkbv          m_rewriter;
@@ -239,19 +235,14 @@ namespace datalog {
             }
         }
 
-        void reset() {
-            m_rules.reset();
-        }
-
     public:
         impl(context& ctx):
             m_context(ctx),
             m(ctx.get_manager()),
             m_params(ctx.get_params().p),
-            m_rules(ctx.get_rule_manager()),
             m_simplifier(ctx),
             m_blaster(ctx.get_manager(), m_params),
-            m_rewriter(ctx.get_manager(), ctx, m_rules) {
+            m_rewriter(ctx.get_manager(), ctx) {
             m_params.set_bool("blast_full", true);
             m_params.set_bool("blast_quant", true);
             m_blaster.updt_params(m_params);
@@ -265,8 +256,9 @@ namespace datalog {
             rule_manager& rm = m_context.get_rule_manager();
             unsigned sz = source.get_num_rules();
             expr_ref fml(m);            
-            reset();
-            rule_set * result = alloc(rule_set, m_context);        
+            rule_set * result = alloc(rule_set, m_context);   
+            m_rewriter.m_cfg.set_src(&source);
+            m_rewriter.m_cfg.set_dst(result);
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
                 r->to_formula(fml);                
@@ -275,17 +267,16 @@ namespace datalog {
                     if (m_context.generate_proof_trace()) {
                         pr = m.mk_asserted(fml); // loses original proof of r.
                     }
-                    rm.mk_rule(fml, pr, m_rules, r->name());
+                    // TODO add logic for pc:
+                    // 1. replace fresh predicates by non-bit-blasted predicates
+                    // 2. replace pr by the proof of r.
+                    rm.mk_rule(fml, pr, *result, r->name());
                 }
                 else {
-                    m_rules.push_back(r);
+                    result->add_rule(r);
                 }
             }
             
-            for (unsigned i = 0; i < m_rules.size(); ++i) {
-                result->add_rule(m_rules.get(i));
-            }
-
             if (m_context.get_model_converter()) {               
                 filter_model_converter* fmc = alloc(filter_model_converter, m);
                 bit_blast_model_converter* bvmc = alloc(bit_blast_model_converter, m);

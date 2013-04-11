@@ -381,7 +381,7 @@ static void tst3() {
     {
         std::ostringstream buffer;        
         display(buffer, m, a, EN_PLUS_INFINITY); 
-        SASSERT(buffer.str() == "oo");
+        SASSERT(buffer.str() == "+oo");
     }
     {
         std::ostringstream buffer;        

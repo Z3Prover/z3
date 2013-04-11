@@ -587,6 +587,7 @@ namespace datalog {
             dealloc(res);
             res = 0;
         }
+        res->inherit_predicates(source);
         return res;
     }
   

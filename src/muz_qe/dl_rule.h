@@ -32,6 +32,7 @@ namespace datalog {
 
     class rule;
     class rule_manager;
+    class rule_set;
     class table;
     class context;
 
@@ -74,13 +75,11 @@ namespace datalog {
 
         void bind_variables(expr* fml, bool is_forall, expr_ref& result);
 
-        void mk_rule_core(expr* fml, rule_ref_vector& rules, symbol const& name);
-
         void mk_negations(app_ref_vector& body, svector<bool>& is_negated);
 
-        void mk_rule_core_new(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name);
+        void mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name);
 
-        void mk_rule_core2(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name);
+        void mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name);
 
         static expr_ref mk_implies(app_ref_vector const& body, expr* head);
 
@@ -104,13 +103,13 @@ namespace datalog {
            The formula is of the form (forall (...) (forall (...) (=> (and ...) head)))
            
         */
-        void mk_rule(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name = symbol::null);
+        void mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name = symbol::null);
 
         /**
            \brief Create a Datalog query from an expression.
            The formula is of the form (exists (...) (exists (...) (and ...))
         */
-        void mk_query(expr* query, func_decl_ref& query_pred, rule_ref_vector& query_rules, rule_ref& query_rule);
+        func_decl* mk_query(expr* query, rule_set& rules);
 
         /**
            \brief Create a Datalog rule head :- tail[0], ..., tail[n-1].
@@ -165,11 +164,6 @@ namespace datalog {
         */
         bool is_fact(app * head) const;
 
-
-        bool is_predicate(func_decl * f) const;
-        bool is_predicate(expr * e) const {
-            return is_app(e) && is_predicate(to_app(e)->get_decl());
-        }
 
         static bool is_forall(ast_manager& m, expr* e, quantifier*& q);
 

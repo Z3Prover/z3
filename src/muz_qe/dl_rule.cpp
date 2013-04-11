@@ -50,10 +50,6 @@ namespace datalog {
         : m(ctx.get_manager()),
           m_ctx(ctx) {}
 
-    bool rule_manager::is_predicate(func_decl * f) const {
-        return m_ctx.is_predicate(f);
-    }
-
     void rule_manager::inc_ref(rule * r) {
         if (r) {
             SASSERT(r->m_ref_cnt != UINT_MAX);
@@ -102,7 +98,7 @@ namespace datalog {
     }
 
 
-    void rule_manager::mk_rule(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {              
+    void rule_manager::mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {              
         scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
         proof_ref pr(p, m);
         expr_ref fml1(m);
@@ -111,13 +107,13 @@ namespace datalog {
             pr = m.mk_asserted(fml1);
         }
         remove_labels(fml1, pr);        
-        mk_rule_core_new(fml1, pr, rules, name);
+        mk_rule_core(fml1, pr, rules, name);
     }
 
     void rule_manager::mk_negations(app_ref_vector& body, svector<bool>& is_negated) {
         for (unsigned i = 0; i < body.size(); ++i) {
             expr* e = body[i].get(), *e1;
-            if (m.is_not(e, e1) && is_predicate(e1)) {
+            if (m.is_not(e, e1) && m_ctx.is_predicate(e1)) {
                 check_app(e1);
                 body[i] = to_app(e1);
                 is_negated.push_back(true);
@@ -128,7 +124,7 @@ namespace datalog {
         }        
     }
 
-    void rule_manager::mk_rule_core_new(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {
+    void rule_manager::mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name) {
         hnf h(m);
         expr_ref_vector fmls(m);
         proof_ref_vector prs(m);
@@ -138,11 +134,11 @@ namespace datalog {
             m_ctx.register_predicate(h.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            mk_rule_core2(fmls[i].get(), prs[i].get(), rules, name);
+            mk_horn_rule(fmls[i].get(), prs[i].get(), rules, name);
         }
     }
 
-    void rule_manager::mk_rule_core2(expr* fml, proof* p, rule_ref_vector& rules, symbol const& name) {
+    void rule_manager::mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
         
         app_ref_vector body(m);
         app_ref head(m);
@@ -189,7 +185,7 @@ namespace datalog {
             }
             r->set_proof(m, p);
         }
-        rules.push_back(r);        
+        rules.add_rule(r);
     }
 
     unsigned rule_manager::extract_horn(expr* fml, app_ref_vector& body, app_ref& head) {
@@ -224,7 +220,7 @@ namespace datalog {
     }
 
 
-    void rule_manager::mk_query(expr* query, func_decl_ref& qpred, rule_ref_vector& query_rules, rule_ref& query_rule) {
+    func_decl* rule_manager::mk_query(expr* query, rule_set& rules) {
         ptr_vector<sort> vars;
         svector<symbol> names;
         app_ref_vector body(m);
@@ -279,7 +275,9 @@ namespace datalog {
         }
         vars.reverse();
         names.reverse();
-        qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
+        func_decl* qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
+        m_ctx.register_predicate(qpred, false);
+        rules.set_output_predicate(qpred);
 
         expr_ref_vector qhead_args(m);
         for (unsigned i = 0; i < vars.size(); i++) {
@@ -297,9 +295,8 @@ namespace datalog {
         if (m_ctx.generate_proof_trace()) {
             pr = m.mk_asserted(rule_expr);
         }
-        mk_rule(rule_expr, pr, query_rules);
-        SASSERT(query_rules.size() >= 1);
-        query_rule = query_rules.back();
+        mk_rule(rule_expr, pr, rules);
+        return qpred;
     }
 
     void rule_manager::bind_variables(expr* fml, bool is_forall, expr_ref& result) {
@@ -330,7 +327,7 @@ namespace datalog {
             return;
         }
         expr_ref_vector args(m);
-        if (!is_predicate(fml)) {
+        if (!m_ctx.is_predicate(fml)) {
             return;
         }
         for (unsigned i = 0; i < fml->get_num_args(); ++i) {
@@ -355,19 +352,19 @@ namespace datalog {
     }
 
     class contains_predicate_proc {
-        rule_manager const& m;
+        context const& ctx;
     public:
         struct found {};
-        contains_predicate_proc(rule_manager const& m): m(m) {}
+        contains_predicate_proc(context const& ctx): ctx(ctx) {}
         void operator()(var * n) {}
         void operator()(quantifier * n) {}
         void operator()(app* n) {
-            if (m.is_predicate(n)) throw found();
+            if (ctx.is_predicate(n)) throw found();
         }
     };
 
     bool rule_manager::contains_predicate(expr* fml) const {
-        contains_predicate_proc proc(*this);
+        contains_predicate_proc proc(m_ctx);
         try {
             quick_for_each_expr(proc, fml);
         }
@@ -434,7 +431,7 @@ namespace datalog {
             bool  is_neg = (is_negated != 0 && is_negated[i]); 
             app * curr = tail[i];
 
-            if (is_neg && !is_predicate(curr)) {
+            if (is_neg && !m_ctx.is_predicate(curr)) {
                 curr = m.mk_not(curr);
                 is_neg = false;
             }
@@ -442,7 +439,7 @@ namespace datalog {
                 has_neg = true;
             }
             app * tail_entry = TAG(app *, curr, is_neg);
-            if (is_predicate(curr)) {
+            if (m_ctx.is_predicate(curr)) {
                 *uninterp_tail=tail_entry;
                 uninterp_tail++;
             }
@@ -755,7 +752,7 @@ namespace datalog {
     void rule_manager::check_valid_head(expr * head) const {
         SASSERT(head);
         
-        if (!is_predicate(head)) {
+        if (!m_ctx.is_predicate(head)) {
             std::ostringstream out;
             out << "Illegal head. The head predicate needs to be uninterpreted and registered (as recursive) " << mk_pp(head, m);
             throw default_exception(out.str());
@@ -966,7 +963,7 @@ namespace datalog {
             if (is_neg_tail(i))
                 out << "not ";
             app * t = get_tail(i);
-            if (ctx.get_rule_manager().is_predicate(t)) {
+            if (ctx.is_predicate(t)) {
                 output_predicate(ctx, t, out);
             }
             else {

@@ -37,6 +37,8 @@ namespace datalog {
     ast_manager & get_ast_manager_from_rel_manager(const relation_manager & rm);
     context & get_context_from_rel_manager(const relation_manager & rm);
 
+    typedef func_decl_set decl_set;
+
 #if DL_LEAK_HUNTING
     void leak_guard_check(const symbol & s);
 #endif
