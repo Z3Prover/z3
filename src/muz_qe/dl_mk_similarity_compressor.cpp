@@ -429,7 +429,7 @@ namespace datalog {
         m_modified = true;
     }
 
-    void mk_similarity_compressor::process_class(rule_vector::iterator first, 
+    void mk_similarity_compressor::process_class(rule_set const& source, rule_vector::iterator first, 
             rule_vector::iterator after_last) {
         SASSERT(first!=after_last);
         //remove duplicates
@@ -487,7 +487,7 @@ namespace datalog {
         //TODO: compress also rules with pairs (or tuples) of equal constants
 
 #if 1
-        if (const_cnt>0) {
+        if (const_cnt>0 && !source.is_output_predicate((*first)->get_decl())) {
             unsigned rule_cnt = static_cast<unsigned>(after_last-first);
             if (rule_cnt>m_threshold_count) {
                 merge_class(first, after_last);
@@ -521,7 +521,7 @@ namespace datalog {
             rule_vector::iterator prev = it;
             ++it;
             if (it==end || rough_compare(*prev, *it)!=0) {
-                process_class(cl_begin, it);
+                process_class(source, cl_begin, it);
                 cl_begin = it;
             }
         }

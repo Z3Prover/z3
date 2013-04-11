@@ -332,15 +332,12 @@ namespace datalog {
 
     void rule_set::inherit_predicates(rule_set const& other) {
         m_refs.append(other.m_refs);
-        SASSERT(m_refs.size() < 1000);
         set_union(m_output_preds, other.m_output_preds);
         {
             obj_map<func_decl, func_decl*>::iterator it = other.m_orig2pred.begin();
             obj_map<func_decl, func_decl*>::iterator end = other.m_orig2pred.end();
             for (; it != end; ++it) {
                 m_orig2pred.insert(it->m_key, it->m_value);
-                m_refs.push_back(it->m_key);
-                m_refs.push_back(it->m_value);
             }
         }
         {
@@ -348,8 +345,6 @@ namespace datalog {
             obj_map<func_decl, func_decl*>::iterator end = other.m_pred2orig.end();
             for (; it != end; ++it) {
                 m_pred2orig.insert(it->m_key, it->m_value);
-                m_refs.push_back(it->m_key);
-                m_refs.push_back(it->m_value);
             }
         }
     }
@@ -515,6 +510,11 @@ namespace datalog {
     void rule_set::display(std::ostream & out) const {
         out << "; rule count: " << get_num_rules() << "\n";
         out << "; predicate count: " << m_head2rules.size() << "\n";
+        func_decl_set::iterator pit = m_output_preds.begin();
+        func_decl_set::iterator pend = m_output_preds.end();
+        for (; pit != pend; ++pit) {
+            out << "; output: " << (*pit)->get_name() << '\n';
+        }
         decl2rules::iterator it  = m_head2rules.begin();
         decl2rules::iterator end = m_head2rules.end();
         for (; it != end; ++it) {
