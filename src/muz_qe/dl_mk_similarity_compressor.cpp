@@ -23,14 +23,14 @@ Revision History:
 
 namespace datalog {
 
-    mk_similarity_compressor::mk_similarity_compressor(context & ctx, unsigned threshold_count) :
+    mk_similarity_compressor::mk_similarity_compressor(context & ctx) :
         plugin(5000),
         m_context(ctx),
         m_manager(ctx.get_manager()),
-        m_threshold_count(threshold_count),
+        m_threshold_count(ctx.similarity_compressor_threshold()),
         m_result_rules(ctx.get_rule_manager()),
         m_pinned(m_manager) {
-        SASSERT(threshold_count>1);
+        SASSERT(m_threshold_count>1);
     }
     
     void mk_similarity_compressor::reset() {

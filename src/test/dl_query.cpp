@@ -128,11 +128,11 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
 void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     params.set_bool("magic_sets_for_queries", true);
     ast_manager m;
+    random_gen ran(0);
     reg_decl_plugins(m);
     arith_util arith(m);
     const char * problem_dir = "C:\\tvm\\src\\z3_2\\debug\\test\\w0.datalog";
     dl_decl_util dl_util(m);
-    random_gen ran(0);
 
     std::cerr << "Testing queries on " << problem_dir <<"\n";
     context ctx(m, fparams);
@@ -219,10 +219,10 @@ void tst_dl_query() {
             params.set_uint("similarity_compressor", use_similar != 0);
 
             for(unsigned use_magic_sets=0; use_magic_sets<=1; use_magic_sets++) {
+                stopwatch watch;
                 if (!(use_restarts == 1 && use_similar == 0 && use_magic_sets == 1)) {
                     continue;
                 }
-                stopwatch watch;
                 watch.start();
                 std::cerr << "------- " << (use_restarts ? "With" : "Without") << " restarts -------\n";
                 std::cerr << "------- " << (use_similar ? "With" : "Without") << " similar compressor -------\n";

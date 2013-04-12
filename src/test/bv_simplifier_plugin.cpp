@@ -4,7 +4,14 @@
 #include "reg_decl_plugins.h"
 
 class tst_bv_simplifier_plugin_cls {
+    class mgr {
+    public:
+        mgr(ast_manager& m) {
+            reg_decl_plugins(m);
+        }
+    };
     ast_manager m_manager;
+    mgr         m_mgr;
     bv_simplifier_params m_bv_params;
     basic_simplifier_plugin m_bsimp;
     arith_util m_arith;
@@ -75,12 +82,13 @@ class tst_bv_simplifier_plugin_cls {
 public:
 
     tst_bv_simplifier_plugin_cls() : 
+        m_mgr(m_manager),
         m_bsimp(m_manager),
         m_arith(m_manager),
         m_simp(m_manager, m_bsimp, m_bv_params), 
         m_bv_util(m_manager), 
-        m_fid(m_manager.mk_family_id("bv")) {
-        reg_decl_plugins(m_manager);
+        m_fid(0) {
+        m_fid = m_manager.mk_family_id("bv");
     }
 
     ~tst_bv_simplifier_plugin_cls() {}
@@ -249,7 +257,9 @@ public:
 
         ar = m_manager.mk_app(m_fid, OP_BASHR, 2, e1e2);
         m_simp.reduce(ar->get_decl(), ar->get_num_args(), ar->get_args(), e);
-        SASSERT((sa >> b) == i32(e.get()));
+
+        std::cout << "compare: " << sa << " >> " << b << " = " << (sa >> b) << " with " << i32(e.get()) << "\n";
+        SASSERT(b >= 32 || ((sa >> b) == i32(e.get())));
 
         if (b != 0) {
             ar = m_manager.mk_app(m_fid, OP_BSDIV, 2, e1e2);

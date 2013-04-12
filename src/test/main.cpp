@@ -156,13 +156,9 @@ int main(int argc, char ** argv) {
     TST(simple_parser);
     TST(api);
     TST(old_interval);
-    TST(no_overflow);
-    TST(memory);
     TST(get_implied_equalities);
     TST(arith_simplifier_plugin);
     TST(matcher);
-    TST(datalog_parser);
-    TST_ARGV(datalog_parser_file);
     TST(object_allocator);
     TST(mpz);
     TST(mpq);
@@ -170,7 +166,6 @@ int main(int argc, char ** argv) {
     TST(total_order);
     TST(dl_table);
     TST(dl_context);
-    TST(dl_query);
     TST(dl_util);
     TST(dl_product_relation);
     TST(dl_relation);
@@ -199,7 +194,6 @@ int main(int argc, char ** argv) {
     TST(nlsat);
     TST(ext_numeral);
     TST(interval);
-    TST(quant_solve);
     TST(f2n);
     TST(hwf);
     TST(trigo);
@@ -209,11 +203,16 @@ int main(int argc, char ** argv) {
     TST(mpff);
     TST(horn_subsume_model_converter);
     TST(model2expr);
-    TST(rcf);
     TST(hilbert_basis);
     TST(heap_trie);
     TST(karr);
-    TST(fdd);
+    TST(no_overflow);
+    TST(memory);
+    TST(datalog_parser);
+    TST_ARGV(datalog_parser_file);
+    TST(dl_query);
+    TST(quant_solve);
+    TST(rcf);
 }
 
 void initialize_mam() {}

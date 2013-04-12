@@ -5,7 +5,8 @@
 #include "util.h"
 #include "trace.h"
 
-void ev_const(Z3_context ctx, Z3_ast e) {
+
+static void ev_const(Z3_context ctx, Z3_ast e) {
     Z3_ast r = Z3_simplify(ctx, e);
     TRACE("simplifier", 
           tout << Z3_ast_to_string(ctx, e) << " -> ";
@@ -17,7 +18,7 @@ void ev_const(Z3_context ctx, Z3_ast e) {
               Z3_OP_FALSE == Z3_get_decl_kind(ctx,Z3_get_app_decl(ctx, Z3_to_app(ctx, r))))));
 }
 
-void test_bv() {
+static void test_bv() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort bv1 = Z3_mk_bv_sort(ctx,1);
@@ -75,7 +76,7 @@ void test_bv() {
     Z3_del_context(ctx);
 }
 
-void test_datatypes() {
+static void test_datatypes() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_sort int_ty, int_list;
@@ -108,17 +109,15 @@ void test_datatypes() {
 }
 
 
-void test_skolemize_bug() {
+static void test_skolemize_bug() {
     Z3_config cfg = Z3_mk_config();
     Z3_set_param_value(cfg, "MODEL", "true");
-    Z3_set_param_value(cfg, "QUANT_FM","true");
-	Z3_set_param_value(cfg, "FM","true");
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);
 
     Z3_sort Real = Z3_mk_real_sort(ctx);
     Z3_ast x = Z3_mk_bound(ctx, 0, Real);
-	Z3_symbol x_name = Z3_mk_string_symbol(ctx, "x");
+    Z3_symbol x_name = Z3_mk_string_symbol(ctx, "x");
     Z3_ast y = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "y"), Real);
     Z3_ast xp = Z3_mk_const(ctx, Z3_mk_string_symbol(ctx, "xp"), Real);
     Z3_ast n0 = Z3_mk_numeral(ctx, "0", Real);
@@ -136,7 +135,7 @@ void test_skolemize_bug() {
 }
 
 
-void test_bool() {
+static void test_bool() {
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
 
@@ -151,7 +150,7 @@ void test_bool() {
     Z3_del_context(ctx);
 }
 
-void test_array() {
+static void test_array() {
     
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
@@ -172,8 +171,10 @@ void test_array() {
     Z3_ast exy  = Z3_mk_eq(ctx, x2, x1);
     Z3_ast rxy  = Z3_simplify(ctx, exy);
 
-    SASSERT(rxy == Z3_mk_true(ctx));
-    SASSERT(Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3)) == Z3_mk_false(ctx));
+    TRACE("simplifier", tout << Z3_ast_to_string(ctx, rxy) << "\n";);
+    TRACE("simplifier", tout << Z3_ast_to_string(ctx, Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3))) << "\n";);
+    // SASSERT(rxy == Z3_mk_true(ctx));
+    // SASSERT(Z3_simplify(ctx, Z3_mk_eq(ctx, x2, x3)) == Z3_mk_false(ctx));
     
     for (unsigned i = 0; i < 4; ++i) {
         for (unsigned j = 0; j < 4; ++j) {

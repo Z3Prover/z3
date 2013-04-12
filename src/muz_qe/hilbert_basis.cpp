@@ -21,7 +21,6 @@ Revision History:
 #include "heap.h"
 #include "map.h"
 #include "heap_trie.h"
-#include "fdd.h"
 #include "stopwatch.h"
 
 
@@ -237,64 +236,8 @@ public:
     void display(std::ostream& out) const {
         // m_trie.display(out);
     }
-
-
 };
 
-class hilbert_basis::value_index3 {
-    hilbert_basis&               hb;
-    fdd::manager                 m_fdd;
-    unsigned                     m_offset;
-    svector<int64>               m_keys;
-
-    int64 const* get_keys(values const& vs) {
-        numeral const* nums = vs()-m_offset;
-        for (unsigned i = 0; i < m_keys.size(); ++i) {
-            m_keys[i] = nums[i].get_int64();
-        }
-        return m_keys.c_ptr();
-    }
-
-public:
-
-    value_index3(hilbert_basis & hb): hb(hb), m_offset(1) {}
-
-    void insert(offset_t, values const& vs) {
-        m_fdd.insert(get_keys(vs));
-    }
-
-    bool find(offset_t, values const& vs) {
-        return m_fdd.find_le(get_keys(vs));
-    }
-    
-    void reset(unsigned offset) {
-        m_offset = offset;
-        m_fdd.reset(hb.get_num_vars()+m_offset);
-        m_keys.resize(hb.get_num_vars()+m_offset);
-    }
-
-    void collect_statistics(statistics& st) const {
-        m_fdd.collect_statistics(st);
-    }
-
-    void reset_statistics() {
-        m_fdd.reset_statistics();
-    }
-
-    unsigned size() const {
-        return m_fdd.size();
-    }
-
-    void remove(offset_t idx, values const& vs) {
-        UNREACHABLE();
-    }
-
-    void display(std::ostream& out) const {
-        m_fdd.display(out);
-    }
-
-
-};
 
 
 class hilbert_basis::index {

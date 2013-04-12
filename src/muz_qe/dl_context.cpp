@@ -814,16 +814,15 @@ namespace datalog {
 
     void context::transform_rules() {
         m_transf.reset();
-        m_transf.register_plugin(alloc(mk_filter_rules,*this));
-        m_transf.register_plugin(alloc(mk_simple_joins,*this));
-
-        if (unbound_compressor()) {
-            m_transf.register_plugin(alloc(mk_unbound_compressor,*this));
+        if (get_params().filter_rules()) {
+            m_transf.register_plugin(alloc(mk_filter_rules, *this));
         }
-
+        m_transf.register_plugin(alloc(mk_simple_joins, *this));
+        if (unbound_compressor()) {
+            m_transf.register_plugin(alloc(mk_unbound_compressor, *this));
+        }
         if (similarity_compressor()) {
-            m_transf.register_plugin(alloc(mk_similarity_compressor, *this, 
-                                         similarity_compressor_threshold()));
+            m_transf.register_plugin(alloc(mk_similarity_compressor, *this)); 
         }
         m_transf.register_plugin(alloc(datalog::mk_partial_equivalence_transformer, *this));
 

@@ -452,7 +452,7 @@ namespace datalog {
 
 
     class instr_filter_identical : public instruction {
-        typedef vector<unsigned> column_vector;
+        typedef unsigned_vector column_vector;
         reg_idx m_reg;
         column_vector m_cols;
     public:
@@ -651,7 +651,7 @@ namespace datalog {
 
 
     class instr_project_rename : public instruction {
-        typedef vector<unsigned> column_vector;
+        typedef unsigned_vector column_vector;
         bool m_projection;
         reg_idx m_src;
         column_vector m_cols;
@@ -723,7 +723,8 @@ namespace datalog {
         instr_join_project(reg_idx rel1, reg_idx rel2, unsigned joined_col_cnt, const unsigned * cols1, 
             const unsigned * cols2, unsigned removed_col_cnt, const unsigned * removed_cols, reg_idx result)
             : m_rel1(rel1), m_rel2(rel2), m_cols1(joined_col_cnt, cols1), 
-            m_cols2(joined_col_cnt, cols2), m_removed_cols(removed_col_cnt, removed_cols), m_res(result) {}
+            m_cols2(joined_col_cnt, cols2), m_removed_cols(removed_col_cnt, removed_cols), m_res(result) {
+        }
         virtual bool perform(execution_context & ctx) {
             ctx.make_empty(m_res);
             if (!ctx.reg(m_rel1) || !ctx.reg(m_rel2)) {
@@ -830,7 +831,7 @@ namespace datalog {
 
 
     class instr_filter_by_negation : public instruction {
-        typedef vector<unsigned> column_vector;
+        typedef unsigned_vector column_vector;
         reg_idx m_tgt;
         reg_idx m_neg_rel;
         column_vector m_cols1;

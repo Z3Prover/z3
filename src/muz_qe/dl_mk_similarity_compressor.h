@@ -67,7 +67,7 @@ namespace datalog {
 
         void reset();
     public:
-        mk_similarity_compressor(context & ctx, unsigned threshold_count);
+        mk_similarity_compressor(context & ctx);
         
         rule_set * operator()(rule_set const & source);
     };

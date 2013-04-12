@@ -102,8 +102,7 @@ namespace datalog {
     }
 
     lbool rel_context::saturate() {
-        m_context.ensure_closed();
-        
+        m_context.ensure_closed();        
         bool time_limit = m_context.soft_timeout()!=0;
         unsigned remaining_time_limit = m_context.soft_timeout();
         unsigned restart_time = m_context.initial_restart_timeout();
@@ -126,6 +125,8 @@ namespace datalog {
                 result = l_undef;
                 break;
             }
+            TRACE("dl", m_context.display(tout););
+
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
             TRACE("dl", m_code.display(*this, tout); );

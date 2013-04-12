@@ -209,6 +209,12 @@ namespace datalog {
         void compile_preds(const func_decl_vector & head_preds, const func_decl_set & widened_preds,
             const pred2idx * input_deltas, const pred2idx & output_deltas, instruction_block & acc);
 
+        /**
+           \brief Generate code to evaluate predicates in a stratum based on their non-recursive rules.
+         */
+        void compile_preds_init(const func_decl_vector & head_preds, const func_decl_set & widened_preds,
+            const pred2idx * input_deltas, const pred2idx & output_deltas, instruction_block & acc);
+
         void make_inloop_delta_transition(const pred2idx & global_head_deltas, 
             const pred2idx & global_tail_deltas, const pred2idx & local_deltas, instruction_block & acc);
         void compile_loop(const func_decl_vector & head_preds, const func_decl_set & widened_preds,

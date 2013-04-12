@@ -61,13 +61,14 @@ namespace datalog {
     void compiler::make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc) {
         relation_signature aux_sig;
-        relation_signature::from_join(m_reg_signatures[t1], m_reg_signatures[t2], vars.size(), 
-            vars.get_cols1(), vars.get_cols2(), aux_sig);
+        relation_signature sig1 = m_reg_signatures[t1];
+        relation_signature sig2 = m_reg_signatures[t2];
+        relation_signature::from_join(sig1, sig2, vars.size(), vars.get_cols1(), vars.get_cols2(), aux_sig);
         relation_signature res_sig;
         relation_signature::from_project(aux_sig, removed_cols.size(), removed_cols.c_ptr(), 
             res_sig);
-
         result = get_fresh_register(res_sig);
+
         acc.push_back(instruction::mk_join_project(t1, t2, vars.size(), vars.get_cols1(), 
             vars.get_cols2(), removed_cols.size(), removed_cols.c_ptr(), result));
     }
@@ -798,6 +799,8 @@ namespace datalog {
         typedef rule_dependencies::item_set item_set; //set of T
 
         rule_dependencies & m_deps;
+        rule_set const& m_rules;
+        context& m_context;
         item_set & m_removed;
         svector<T> m_stack;
         ast_mark m_stack_content;
@@ -820,7 +823,7 @@ namespace datalog {
                 T d = *it;
                 if(m_stack_content.is_marked(d)) {
                     //TODO: find the best vertex to remove in the cycle
-                    m_removed.insert(v);
+                    remove_from_stack();
                     break;
                 }
                 traverse(d);
@@ -830,9 +833,36 @@ namespace datalog {
             m_stack.pop_back();
             m_stack_content.mark(v, false);
         }
+
+        void remove_from_stack() {
+            for (unsigned i = 0; i < m_stack.size(); ++i) {
+                func_decl* p = m_stack[i];
+                rule_vector const& rules = m_rules.get_predicate_rules(p);
+                unsigned stratum = m_rules.get_predicate_strat(p);
+                if (m_context.has_facts(p)) {
+                    m_removed.insert(p);
+                    return;
+                }
+                for (unsigned j = 0; j < rules.size(); ++j) {
+                    rule const& r = *rules[j];
+                    bool ok = true;
+                    for (unsigned k = 0; ok && k < r.get_uninterpreted_tail_size(); ++k) {
+                        ok &= m_rules.get_predicate_strat(r.get_decl(k)) < stratum;
+                    }
+                    if (ok) {
+                        m_removed.insert(p);
+                        return;
+                    }
+                }
+            }
+
+            // nothing was found.
+            m_removed.insert(m_stack.back());
+
+        }
     public:
-        cycle_breaker(rule_dependencies & deps, item_set & removed) 
-            : m_deps(deps), m_removed(removed) { SASSERT(removed.empty()); }
+        cycle_breaker(rule_dependencies & deps, rule_set const& rules, context& ctx, item_set & removed) 
+            : m_deps(deps), m_rules(rules), m_context(ctx), m_removed(removed) { SASSERT(removed.empty()); }
 
         void operator()() {
             rule_dependencies::iterator it = m_deps.begin();
@@ -854,7 +884,7 @@ namespace datalog {
 
         rule_dependencies deps(m_rule_set.get_dependencies());
         deps.restrict(preds);
-        cycle_breaker(deps, global_deltas)();
+        cycle_breaker(deps, m_rule_set, m_context, global_deltas)();
         VERIFY( deps.sort_deps(ordered_preds) );
 
         //the predicates that were removed to get acyclic induced subgraph are put last
@@ -888,6 +918,40 @@ namespace datalog {
                 SASSERT(head_pred==r->get_decl());
 
                 compile_rule_evaluation(r, input_deltas, d_head_reg, widen_predicate_in_loop, acc);
+            }
+        }
+    }
+
+    void compiler::compile_preds_init(const func_decl_vector & head_preds, const func_decl_set & widened_preds,
+            const pred2idx * input_deltas, const pred2idx & output_deltas, instruction_block & acc) {
+        func_decl_vector::const_iterator hpit = head_preds.begin();
+        func_decl_vector::const_iterator hpend = head_preds.end();
+        reg_idx void_reg = execution_context::void_register;
+        for(; hpit!=hpend; ++hpit) {
+            func_decl * head_pred = *hpit;
+            const rule_vector & pred_rules = m_rule_set.get_predicate_rules(head_pred);
+            rule_vector::const_iterator rit = pred_rules.begin();
+            rule_vector::const_iterator rend = pred_rules.end();
+            unsigned stratum = m_rule_set.get_predicate_strat(head_pred);
+
+            for(; rit != rend; ++rit) {
+                rule * r = *rit;
+                SASSERT(head_pred==r->get_decl());
+
+                for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
+                    unsigned stratum1 = m_rule_set.get_predicate_strat(r->get_decl(i));
+                    if (stratum1 >= stratum) {
+                        goto next_loop;
+                    }
+                }
+                compile_rule_evaluation(r, input_deltas, void_reg, false, acc);
+            next_loop:
+                ;
+            }
+
+            reg_idx d_head_reg;
+            if (output_deltas.find(head_pred, d_head_reg)) {
+                acc.push_back(instruction::mk_clone(m_pred_regs.find(head_pred), d_head_reg));
             }
         }
     }
@@ -942,7 +1006,7 @@ namespace datalog {
             const pred2idx * input_deltas, const pred2idx & output_deltas, 
             bool add_saturation_marks, instruction_block & acc) {
         
-        if(!output_deltas.empty()) {
+        if (!output_deltas.empty()) {
             func_decl_set::iterator hpit = head_preds.begin();
             func_decl_set::iterator hpend = head_preds.end();
             for(; hpit!=hpend; ++hpit) {
@@ -979,7 +1043,8 @@ namespace datalog {
         func_decl_set empty_func_decl_set;
 
         //generate code for the initial run
-        compile_preds(preds_vector, empty_func_decl_set, input_deltas, d_global_src, acc);
+        // compile_preds(preds_vector, empty_func_decl_set, input_deltas, d_global_src, acc);
+        compile_preds_init(preds_vector, empty_func_decl_set, input_deltas, d_global_src, acc);
 
         if (compile_with_widening()) {
             compile_loop(preds_vector, global_deltas, d_global_tgt, d_global_src, d_local, acc);
