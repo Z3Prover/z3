@@ -803,17 +803,15 @@ namespace datalog {
         context& m_context;
         item_set & m_removed;
         svector<T> m_stack;
-        ast_mark m_stack_content;
         ast_mark m_visited;
 
         void traverse(T v) {
-            SASSERT(!m_stack_content.is_marked(v));
-            if(m_visited.is_marked(v) || m_removed.contains(v)) {
+            SASSERT(!m_visited.is_marked(v));
+            if (m_removed.contains(v)) {
                 return;
             }
 
             m_stack.push_back(v);
-            m_stack_content.mark(v, true);
             m_visited.mark(v, true);
 
             const item_set & deps = m_deps.get_deps(v);
@@ -821,33 +819,34 @@ namespace datalog {
             item_set::iterator end = deps.end();
             for(; it!=end; ++it) {
                 T d = *it;
-                if(m_stack_content.is_marked(d)) {
+                if (m_visited.is_marked(d)) {
                     //TODO: find the best vertex to remove in the cycle
                     remove_from_stack();
-                    break;
+                    continue;
                 }
                 traverse(d);
             }
             SASSERT(m_stack.back()==v);
 
             m_stack.pop_back();
-            m_stack_content.mark(v, false);
+            m_visited.mark(v, false);
         }
 
         void remove_from_stack() {
             for (unsigned i = 0; i < m_stack.size(); ++i) {
                 func_decl* p = m_stack[i];
-                rule_vector const& rules = m_rules.get_predicate_rules(p);
-                unsigned stratum = m_rules.get_predicate_strat(p);
                 if (m_context.has_facts(p)) {
                     m_removed.insert(p);
                     return;
                 }
+
+                rule_vector const& rules = m_rules.get_predicate_rules(p);
+                unsigned stratum = m_rules.get_predicate_strat(p);
                 for (unsigned j = 0; j < rules.size(); ++j) {
                     rule const& r = *rules[j];
                     bool ok = true;
                     for (unsigned k = 0; ok && k < r.get_uninterpreted_tail_size(); ++k) {
-                        ok &= m_rules.get_predicate_strat(r.get_decl(k)) < stratum;
+                        ok = m_rules.get_predicate_strat(r.get_decl(k)) < stratum;
                     }
                     if (ok) {
                         m_removed.insert(p);
@@ -858,8 +857,8 @@ namespace datalog {
 
             // nothing was found.
             m_removed.insert(m_stack.back());
-
         }
+
     public:
         cycle_breaker(rule_dependencies & deps, rule_set const& rules, context& ctx, item_set & removed) 
             : m_deps(deps), m_rules(rules), m_context(ctx), m_removed(removed) { SASSERT(removed.empty()); }
