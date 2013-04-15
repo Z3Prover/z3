@@ -32,11 +32,25 @@ Notes:
 #include"iz3interp.h"
 #include"iz3checker.h"
 
-static void show_interpolant_and_maybe_check(cmd_context & ctx, ptr_vector<ast> &cnsts, expr *t, ptr_vector<ast> &interps, bool check)
+static void show_interpolant_and_maybe_check(cmd_context & ctx,
+					     ptr_vector<ast> &cnsts,
+					     expr *t, 
+					     ptr_vector<ast> &interps,
+					     params_ref &m_params,
+					     bool check)
 {
   
+  if (m_params.get_bool("som", false))
+    m_params.set_bool("flat", true);
+  th_rewriter s(ctx.m(), m_params);
+  
   for(unsigned i = 0; i < interps.size(); i++){
-    ctx.regular_stream()  << mk_pp(interps[i], ctx.m()) << std::endl;
+
+    expr_ref r(ctx.m());
+    proof_ref pr(ctx.m());
+    s(to_expr(interps[i]),r,pr);
+
+    ctx.regular_stream()  << mk_pp(r.get(), ctx.m()) << std::endl;
 #if 0
     ast_smt_pp pp(ctx.m());
     pp.set_logic(ctx.get_logic().str().c_str());
@@ -44,6 +58,8 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx, ptr_vector<ast> 
     ctx.regular_stream() << std::endl;
 #endif
   }
+
+  s.cleanup();
 
   // verify, for the paranoid...
   if(check || ctx.check_interpolants()){
@@ -74,7 +90,7 @@ static void check_can_interpolate(cmd_context & ctx){
 }
 
 
-static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, bool check) {
+static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check) {
 
   check_can_interpolate(ctx);
 
@@ -110,19 +126,19 @@ static void get_interpolant_and_maybe_check(cmd_context & ctx, expr * t, bool ch
     throw cmd_exception("incompleteness in interpolator");
   }
 
-  show_interpolant_and_maybe_check(ctx, cnsts, t, interps, check);
+  show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
 }
 
-static void get_interpolant(cmd_context & ctx, expr * t) {
-  get_interpolant_and_maybe_check(ctx,t,false);
+static void get_interpolant(cmd_context & ctx, expr * t, params_ref &m_params) {
+  get_interpolant_and_maybe_check(ctx,t,m_params,false);
 }
 
-static void get_and_check_interpolant(cmd_context & ctx, expr * t) {
-  get_interpolant_and_maybe_check(ctx,t,true);
+static void get_and_check_interpolant(cmd_context & ctx, params_ref &m_params, expr * t) {
+  get_interpolant_and_maybe_check(ctx,t,m_params,true);
 }
 
 
-static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, bool check){
+static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, params_ref &m_params, bool check){
     
   // create a fresh solver suitable for interpolation
   bool proofs_enabled, models_enabled, unsat_core_enabled;
@@ -152,7 +168,7 @@ static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, boo
   switch(res){
   case l_false:
     ctx.regular_stream() << "unsat\n";
-    show_interpolant_and_maybe_check(ctx, cnsts, t, interps, check);
+    show_interpolant_and_maybe_check(ctx, cnsts, t, interps, m_params, check);
     break;
 
   case l_true:
@@ -181,17 +197,17 @@ static expr *make_tree(cmd_context & ctx, const ptr_vector<expr> &exprs){
   return foo;
 }
 
-static void get_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs) {
+static void get_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
   expr *foo = make_tree(ctx,exprs);
   ctx.m().inc_ref(foo);
-  get_interpolant(ctx,foo);
+  get_interpolant(ctx,foo,m_params);
   ctx.m().dec_ref(foo);
 }
 
-static void compute_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs) {
+static void compute_interpolant(cmd_context & ctx, const ptr_vector<expr> &exprs, params_ref &m_params) {
   expr *foo = make_tree(ctx, exprs);
   ctx.m().inc_ref(foo);
-  compute_interpolant_and_maybe_check(ctx,foo,false);
+  compute_interpolant_and_maybe_check(ctx,foo,m_params,false);
   ctx.m().dec_ref(foo);
 }
 
@@ -229,7 +245,7 @@ public:
     }
     
     virtual void execute(cmd_context & ctx) {
-      get_interpolant(ctx,m_targets);
+      get_interpolant(ctx,m_targets,m_params);
     }
 };
 
@@ -238,7 +254,7 @@ public:
     compute_interpolant_cmd(char const * name = "compute-interpolant"):get_interpolant_cmd(name) {}
 
     virtual void execute(cmd_context & ctx) {      
-      compute_interpolant(ctx,m_targets);
+      compute_interpolant(ctx,m_targets,m_params);
     }
 
 };
