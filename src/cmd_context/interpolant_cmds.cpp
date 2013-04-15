@@ -123,16 +123,16 @@ static void get_and_check_interpolant(cmd_context & ctx, expr * t) {
 
 
 static void compute_interpolant_and_maybe_check(cmd_context & ctx, expr * t, bool check){
-
-  // get the proof, if there is one
-  
-  check_can_interpolate(ctx);
     
   // create a fresh solver suitable for interpolation
   bool proofs_enabled, models_enabled, unsat_core_enabled;
   params_ref p;
   ast_manager &_m = ctx.m();
+  // TODO: the following is a HACK to enable proofs in the old smt solver
+  // When we stop using that solver, this hack can be removed
+  _m.toggle_proof_mode(PGM_FINE);  
   ctx.params().get_solver_params(_m, p, proofs_enabled, models_enabled, unsat_core_enabled);
+  p.set_bool("proof", true);
   scoped_ptr<solver> sp = (ctx.get_interpolating_solver_factory())(_m, p, true, models_enabled, false, ctx.get_logic());
 
   ptr_vector<ast> cnsts;
