@@ -19,11 +19,6 @@ Revision History:
 #ifndef _DATALOG_FRONTEND_H_
 #define _DATALOG_FRONTEND_H_
 
-struct datalog_params {
-    symbol m_default_table;
-    bool   m_default_table_checked;
-    datalog_params();
-};
 
 unsigned read_datalog(char const * file);
 
