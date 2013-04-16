@@ -1022,19 +1022,16 @@ namespace datalog {
 
 
     class sparse_table_plugin::rename_fn : public convenient_table_rename_fn {
-        const unsigned m_cycle_len;
-        const unsigned m_col_cnt;
         unsigned_vector m_out_of_cycle;
     public:
         rename_fn(const table_signature & orig_sig, unsigned permutation_cycle_len, const unsigned * permutation_cycle) 
-            : convenient_table_rename_fn(orig_sig, permutation_cycle_len, permutation_cycle), 
-            m_cycle_len(permutation_cycle_len), m_col_cnt(orig_sig.size()) {
+            : convenient_table_rename_fn(orig_sig, permutation_cycle_len, permutation_cycle) {
                 SASSERT(permutation_cycle_len>=2);
                 idx_set cycle_cols;
-                for (unsigned i=0; i<m_cycle_len; i++) {
+                for (unsigned i=0; i < permutation_cycle_len; ++i) {
                     cycle_cols.insert(permutation_cycle[i]);
                 }
-                for (unsigned i=0; i<m_col_cnt; i++) {
+                for (unsigned i=0; i < orig_sig.size(); ++i) {
                     if (!cycle_cols.contains(i)) {
                         m_out_of_cycle.push_back(i);
                     }
@@ -1045,10 +1042,10 @@ namespace datalog {
             const sparse_table::column_layout & src_layout, 
             const sparse_table::column_layout & tgt_layout) {
 
-                for (unsigned i=1; i<m_cycle_len; i++) {
+                for (unsigned i=1; i < m_cycle.size(); ++i) {
                     tgt_layout.set(tgt, m_cycle[i-1], src_layout.get(src, m_cycle[i]));
                 }
-                tgt_layout.set(tgt, m_cycle[m_cycle_len-1], src_layout.get(src, m_cycle[0]));
+                tgt_layout.set(tgt, m_cycle[m_cycle.size()-1], src_layout.get(src, m_cycle[0]));
 
                 unsigned_vector::const_iterator it = m_out_of_cycle.begin();
                 unsigned_vector::const_iterator end = m_out_of_cycle.end();

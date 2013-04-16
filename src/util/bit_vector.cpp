@@ -208,8 +208,8 @@ void bit_vector::display(std::ostream & out) const {
 
 void fr_bit_vector::reset() {
     unsigned sz = size();
-    vector<unsigned>::const_iterator it  = m_one_idxs.begin();
-    vector<unsigned>::const_iterator end = m_one_idxs.end();
+    unsigned_vector::const_iterator it  = m_one_idxs.begin();
+    unsigned_vector::const_iterator end = m_one_idxs.end();
     for (; it != end; ++it) {
         unsigned idx = *it;
         if (idx < sz)
@@ -217,5 +217,3 @@ void fr_bit_vector::reset() {
     }
     m_one_idxs.reset();
 }
-
-

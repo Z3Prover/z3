@@ -145,7 +145,8 @@ namespace pdr {
                     rational two(2);
                     for (unsigned j = 0; j < bv_size; ++j) {
                         parameter p(j);
-                        expr* e = m.mk_app(bv.get_family_id(), OP_BIT2BOOL, 1, &p, 1, &c);
+                        //expr* e = m.mk_app(bv.get_family_id(), OP_BIT2BOOL, 1, &p, 1, &c);
+                        expr* e = m.mk_eq(m.mk_app(bv.get_family_id(), OP_BIT1), bv.mk_extract(j, j, c));
                         if ((r % two).is_zero()) {
                             e = m.mk_not(e);
                         }
