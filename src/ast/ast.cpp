@@ -2755,7 +2755,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         app const * cls   = to_app(f1);
         unsigned num_args = cls->get_num_args();
 #ifdef Z3DEBUG
-        vector<bool> found;
+        svector<bool> found;
 #endif
         for (unsigned i = 0; i < num_args; i++) {
             expr * lit = cls->get_arg(i);

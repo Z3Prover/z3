@@ -204,7 +204,7 @@ inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {
    This class should be used if the reset is frequently called.
 */
 class fr_bit_vector : private bit_vector {
-    svector<unsigned> m_one_idxs;
+    unsigned_vector m_one_idxs;
 public:
     void reset();
 
