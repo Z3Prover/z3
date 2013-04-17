@@ -660,9 +660,9 @@ namespace datalog {
         return 0;
     }
 
-    bool dl_decl_util::is_numeral(expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral(const expr* e, uint64& v) const {
         if (is_numeral(e)) {
-            app* c = to_app(e);
+            const app* c = to_app(e);
             SASSERT(c->get_decl()->get_num_parameters() == 2);
             parameter const& p = c->get_decl()->get_parameter(0);
             SASSERT(p.is_rational());
