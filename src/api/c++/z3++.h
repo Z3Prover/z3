@@ -872,7 +872,18 @@ namespace z3 {
            \brief Return a simplified version of this expression. The parameter \c p is a set of parameters for the Z3 simplifier.
         */
         expr simplify(params const & p) const { Z3_ast r = Z3_simplify_ex(ctx(), m_ast, p); check_error(); return expr(ctx(), r); }
-    };
+
+        /**
+           \brief Apply substitution. Replace src expressions by dst.
+        */
+        expr substitute(expr_vector const& src, expr_vector const& dst); 
+
+        /**
+           \brief Apply substitution. Replace bound variables by expressions.
+        */
+        expr substitute(expr_vector const& dst);
+
+   };
     
     /**                                        
        \brief Wraps a Z3_ast as an expr object. It also checks for errors.
@@ -1680,6 +1691,30 @@ namespace z3 {
         d.check_error();
         return expr(d.ctx(), r);
     }
+
+    inline expr expr::substitute(expr_vector const& src, expr_vector const& dst) {
+        assert(src.size() == dst.size());
+        array<Z3_ast> _src(src.size());
+        array<Z3_ast> _dst(dst.size());    
+        for (unsigned i = 0; i < src.size(); ++i) {
+            _src[i] = src[i];
+            _dst[i] = dst[i];
+        }
+        Z3_ast r = Z3_substitute(ctx(), m_ast, src.size(), _src.ptr(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
+    inline expr expr::substitute(expr_vector const& dst) {
+        array<Z3_ast> _dst(dst.size());
+        for (unsigned i = 0; i < dst.size(); ++i) {
+            _dst[i] = dst[i];
+        }
+        Z3_ast r = Z3_substitute_vars(ctx(), m_ast, dst.size(), _dst.ptr());
+        check_error();
+        return expr(ctx(), r);
+    }
+
     
 
 };
