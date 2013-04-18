@@ -146,7 +146,7 @@ namespace datalog {
     }
 
     void compiler::make_add_constant_column(func_decl* head_pred, reg_idx src, const relation_sort & s, const relation_element & val,
-            reg_idx & result, instruction_block & acc) {
+            reg_idx & result, bool & dealloc, instruction_block & acc) {
         reg_idx singleton_table;
         if(!m_constant_registers.find(s, val, singleton_table)) {
             singleton_table = get_single_column_register(s);
@@ -155,16 +155,18 @@ namespace datalog {
             m_constant_registers.insert(s, val, singleton_table);
         }
         if(src==execution_context::void_register) {
-            make_clone(singleton_table, result, acc);
+            result = singleton_table;
+            dealloc = false;
         }
         else {
             variable_intersection empty_vars(m_context.get_manager());
             make_join(src, singleton_table, empty_vars, result, acc);
+            dealloc = true;
         }
     }
 
     void compiler::make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
-            instruction_block & acc) {
+            bool & dealloc, instruction_block & acc) {
         
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
             IF_VERBOSE(3, { 
@@ -173,25 +175,35 @@ namespace datalog {
                     verbose_stream() << "Compiling unsafe rule column " << col_idx << "\n" 
                                      << mk_ismt2_pp(e, m_context.get_manager()) << "\n"; 
                 });
-        reg_idx total_table = get_single_column_register(s);
-        relation_signature sig;
-        sig.push_back(s);
-        acc.push_back(instruction::mk_total(sig, pred, total_table));        
+        reg_idx total_table;
+        if (!m_total_registers.find(s, pred, total_table)) {
+            total_table = get_single_column_register(s);
+            relation_signature sig;
+            sig.push_back(s);
+            m_top_level_code.push_back(instruction::mk_total(sig, pred, total_table));
+            m_total_registers.insert(s, pred, total_table);
+        }       
         if(src == execution_context::void_register) {
             result = total_table;
+            dealloc = false;
         }
         else {
             variable_intersection empty_vars(m_context.get_manager());
             make_join(src, total_table, empty_vars, result, acc);
-            make_dealloc_non_void(total_table, acc);
+            dealloc = true;
         }
     }
 
     void compiler::make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc) {
+        SASSERT(sig.empty());
         TRACE("dl", tout << "Adding unbound column " << mk_pp(pred, m_context.get_manager()) << "\n";);
+        if (m_empty_tables_registers.find(pred, result))
+            return;
+
         result = get_fresh_register(sig);
-        acc.push_back(instruction::mk_total(sig, pred, result));
+        m_top_level_code.push_back(instruction::mk_total(sig, pred, result));
+        m_empty_tables_registers.insert(pred, result);
     }
 
 
@@ -233,6 +245,7 @@ namespace datalog {
         reg_idx    src, 
         const svector<assembling_column_info> & acis0,
         reg_idx &           result, 
+        bool & dealloc,
         instruction_block & acc) {
 
         TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);
@@ -277,7 +290,9 @@ namespace datalog {
         if(!src_cols_to_remove.empty()) {
             reg_idx new_curr;
             make_projection(curr, src_cols_to_remove.size(), src_cols_to_remove.c_ptr(), new_curr, acc);
-            make_dealloc_non_void(curr, acc);
+            if (dealloc)
+                make_dealloc_non_void(curr, acc);
+            dealloc = true;
             curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
 
@@ -298,16 +313,19 @@ namespace datalog {
             unsigned bound_column_index;
             if(acis[i].kind!=ACK_UNBOUND_VAR || !handled_unbound.find(acis[i].var_index,bound_column_index)) {
                 reg_idx new_curr;
+                bool new_dealloc;
                 bound_column_index=curr_sig->size();
                 if(acis[i].kind==ACK_CONSTANT) {
-                    make_add_constant_column(head_pred, curr, acis[i].domain, acis[i].constant, new_curr, acc);
+                    make_add_constant_column(head_pred, curr, acis[i].domain, acis[i].constant, new_curr, new_dealloc, acc);
                 }
                 else {
                     SASSERT(acis[i].kind==ACK_UNBOUND_VAR);
-                    make_add_unbound_column(compiled_rule, i, head_pred, curr, acis[i].domain, new_curr, acc);
+                    make_add_unbound_column(compiled_rule, i, head_pred, curr, acis[i].domain, new_curr, new_dealloc, acc);
                     handled_unbound.insert(acis[i].var_index,bound_column_index);
                 }
-                make_dealloc_non_void(curr, acc);
+                if (dealloc)
+                    make_dealloc_non_void(curr, acc);
+                dealloc = new_dealloc;
                 curr=new_curr;
                 curr_sig = & m_reg_signatures[curr];
                 SASSERT(bound_column_index==curr_sig->size()-1);
@@ -328,7 +346,9 @@ namespace datalog {
             }
             reg_idx new_curr;
             make_duplicate_column(curr, col, new_curr, acc);
-            make_dealloc_non_void(curr, acc);
+            if (dealloc)
+                make_dealloc_non_void(curr, acc);
+            dealloc = true;
             curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
             unsigned bound_column_index=curr_sig->size()-1;
@@ -356,7 +376,9 @@ namespace datalog {
 
             reg_idx new_curr;
             make_rename(curr, permutation.size(), permutation.c_ptr(), new_curr, acc);
-            make_dealloc_non_void(curr, acc);
+            if (dealloc)
+                make_dealloc_non_void(curr, acc);
+            dealloc = true;
             curr=new_curr;
             curr_sig = & m_reg_signatures[curr];
         }
@@ -365,6 +387,7 @@ namespace datalog {
             SASSERT(src==execution_context::void_register);
             SASSERT(acis0.size()==0);
             make_full_relation(head_pred, empty_signature, curr, acc);
+            dealloc = false;
         }
 
         result=curr;
@@ -415,6 +438,9 @@ namespace datalog {
         //used to save on filter_identical instructions where the check is already done 
         //by the join operation
         unsigned second_tail_arg_ofs;
+
+        // whether to dealloc the previous result
+        bool dealloc = true;
 
         if(pt_len == 2) {
             reg_idx t1_reg=tail_regs[0];
@@ -488,8 +514,7 @@ namespace datalog {
                 }
             }
             if(single_res==t_reg) {
-                //we may be modifying the register later, so we need a local copy
-                make_clone(t_reg, single_res, acc);
+                dealloc = false;
             }
 
         }
@@ -500,7 +525,7 @@ namespace datalog {
             single_res=execution_context::void_register;
         }
 
-        add_unbound_columns_for_negation(r, head_pred, single_res, single_res_expr, acc);
+        add_unbound_columns_for_negation(r, head_pred, single_res, single_res_expr, dealloc, acc);
 
         int2ints var_indexes;
 
@@ -515,7 +540,10 @@ namespace datalog {
                 if(is_app(exp)) {
                     SASSERT(m_context.get_decl_util().is_numeral_ext(exp));
                     relation_element value = to_app(exp);
+                    if (!dealloc)
+                        make_clone(filtered_res, filtered_res, acc);
                     acc.push_back(instruction::mk_filter_equal(m_context.get_manager(), filtered_res, value, i));
+                    dealloc = true;
                 }
                 else {
                     SASSERT(is_var(exp));
@@ -542,7 +570,10 @@ namespace datalog {
                 //condition!)
                 continue;
             }
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
             acc.push_back(instruction::mk_filter_identical(filtered_res, indexes.size(), indexes.c_ptr()));
+            dealloc = true;
         }
 
         //enforce negative predicates
@@ -565,9 +596,12 @@ namespace datalog {
                 relation_sort arg_sort;
                 m_context.get_rel_context().get_rmanager().from_predicate(neg_pred, i, arg_sort);
                 reg_idx new_reg;
-                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, acc);
+                bool new_dealloc;
+                make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
 
-                make_dealloc_non_void(filtered_res, acc);
+                if (dealloc)
+                    make_dealloc_non_void(filtered_res, acc);
+                dealloc = new_dealloc;
                 filtered_res = new_reg;                // here filtered_res value gets changed !!
 
                 t_cols.push_back(single_res_expr.size());
@@ -577,8 +611,11 @@ namespace datalog {
             SASSERT(t_cols.size()==neg_cols.size());
 
             reg_idx neg_reg = m_pred_regs.find(neg_pred);
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
             acc.push_back(instruction::mk_filter_by_negation(filtered_res, neg_reg, t_cols.size(),
                 t_cols.c_ptr(), neg_cols.c_ptr()));
+            dealloc = true;
         }
 
         //enforce interpreted tail predicates
@@ -639,9 +676,12 @@ namespace datalog {
 
                     reg_idx new_reg;
                     TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);
-                    make_add_unbound_column(r, 0, head_pred, filtered_res, unbound_sort, new_reg, acc);
+                    bool new_dealloc;
+                    make_add_unbound_column(r, 0, head_pred, filtered_res, unbound_sort, new_reg, new_dealloc, acc);
 
-                    make_dealloc_non_void(filtered_res, acc);
+                    if (dealloc)
+                        make_dealloc_non_void(filtered_res, acc);
+                    dealloc = new_dealloc;
                     filtered_res = new_reg;                // here filtered_res value gets changed !!
 
                     unsigned unbound_column_index = single_res_expr.size();
@@ -659,7 +699,10 @@ namespace datalog {
             expr_ref renamed(m);
             m_context.get_var_subst()(t, binding.size(), binding.c_ptr(), renamed);
             app_ref app_renamed(to_app(renamed), m);
+            if (!dealloc)
+                make_clone(filtered_res, filtered_res, acc);
             acc.push_back(instruction::mk_filter_interpreted(filtered_res, app_renamed));
+            dealloc = true;
         }
 
         {
@@ -704,11 +747,12 @@ namespace datalog {
             SASSERT(head_acis.size()==head_len);
 
             reg_idx new_head_reg;
-            make_assembling_code(r, head_pred, filtered_res, head_acis, new_head_reg, acc);
+            make_assembling_code(r, head_pred, filtered_res, head_acis, new_head_reg, dealloc, acc);
 
             //update the head relation
             make_union(new_head_reg, head_reg, delta_reg, use_widening, acc);
-            make_dealloc_non_void(new_head_reg, acc);
+            if (dealloc)
+                make_dealloc_non_void(new_head_reg, acc);
         }
 
     finish:
@@ -716,7 +760,7 @@ namespace datalog {
     }
 
     void compiler::add_unbound_columns_for_negation(rule* r, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr, 
-                                                    instruction_block & acc) {
+                                                    bool & dealloc, instruction_block & acc) {
         uint_set pos_vars;
         u_map<expr*> neg_vars;
         ast_manager& m = m_context.get_manager();
@@ -750,7 +794,13 @@ namespace datalog {
             expr* e = it->m_value;
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
-                make_add_unbound_column(r, v, pred, single_res, m.get_sort(e), single_res, acc);
+                reg_idx new_single_res;
+                bool new_dealloc;
+                make_add_unbound_column(r, v, pred, single_res, m.get_sort(e), new_single_res, new_dealloc, acc);
+                if (dealloc)
+                    make_dealloc_non_void(single_res, acc);
+                dealloc = new_dealloc;
+                single_res = new_single_res;
                 TRACE("dl", tout << "Adding unbound column: " << mk_pp(e, m) << "\n";);
             }
         }
