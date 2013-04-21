@@ -110,6 +110,7 @@ class ast_r : public ast_i {
       _m->dec_ref(_ast);
   }
   
+  ast_manager *mgr() const {return _m;}
 
 };
 

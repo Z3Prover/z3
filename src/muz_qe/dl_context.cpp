@@ -731,6 +731,10 @@ namespace datalog {
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
+	case DUALITY_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
         default:
             UNREACHABLE();
             break;
@@ -989,6 +993,9 @@ namespace datalog {
         else if (e == symbol("tab")) {
             m_engine = TAB_ENGINE;
         }
+        else if (e == symbol("duality")) {
+            m_engine = DUALITY_ENGINE;
+        }
 
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -1024,6 +1031,8 @@ namespace datalog {
             return bmc_query(query);
         case TAB_ENGINE:
             return tab_query(query);
+        case DUALITY_ENGINE:
+            return duality_query(query);
         default:
             UNREACHABLE();
             return rel_query(query);
@@ -1042,6 +1051,9 @@ namespace datalog {
         case QPDR_ENGINE:
             ensure_pdr();
             return m_pdr->get_model();
+        case DUALITY_ENGINE:
+            ensure_duality();
+            return m_duality->get_model();
         default:
             return model_ref(alloc(model, m));
         }        
@@ -1053,6 +1065,9 @@ namespace datalog {
         case QPDR_ENGINE:
             ensure_pdr();
             return m_pdr->get_proof();
+        case DUALITY_ENGINE:
+            ensure_duality();
+            return m_duality->get_proof();
         default:
             return proof_ref(m.mk_asserted(m.mk_true()), m);
         }                
@@ -1064,9 +1079,20 @@ namespace datalog {
         }
     }
 
+    void context::ensure_duality() {
+        if (!m_duality.get()) {
+            m_duality = alloc(Duality::dl_interface, *this);
+        }
+    }
+
     lbool context::pdr_query(expr* query) {
         ensure_pdr();
         return m_pdr->query(query);
+    }
+
+    lbool context::duality_query(expr* query) {
+        ensure_duality();
+        return m_duality->query(query);
     }
 
     void context::ensure_bmc() {
@@ -1131,6 +1157,10 @@ namespace datalog {
             ensure_tab();
             m_last_answer = m_tab->get_answer();
             return m_last_answer.get();
+        case DUALITY_ENGINE: 
+            ensure_duality();
+            m_last_answer = m_duality->get_answer();
+            return m_last_answer.get();
         default:
             UNREACHABLE();
         }
@@ -1155,6 +1185,8 @@ namespace datalog {
             ensure_tab();
             m_tab->display_certificate(out);
             return true;
+	case DUALITY_ENGINE:
+	  return false;
         default: 
             return false;
         }        

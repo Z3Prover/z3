@@ -36,6 +36,7 @@ Revision History:
 #include"pdr_dl_interface.h"
 #include"dl_bmc_engine.h"
 #include"tab_context.h"
+#include"duality_dl_interface.h"
 #include"rel_context.h"
 #include"lbool.h"
 #include"statistics.h"
@@ -102,6 +103,7 @@ namespace datalog {
         scoped_ptr<bmc>                 m_bmc;
         scoped_ptr<rel_context>         m_rel;
         scoped_ptr<tab>                 m_tab;
+        scoped_ptr<Duality::dl_interface>   m_duality;
 
         bool               m_closed;
         bool               m_saturation_was_run;
@@ -373,14 +375,16 @@ namespace datalog {
         /**
            \brief retrieve model from inductive invariant that shows query is unsat.
            
-           \pre engine == 'pdr' - this option is only supported for PDR mode.
+           \pre engine == 'pdr' || engine == 'duality' - this option is only supported
+           for PDR mode and Duality mode.
          */
         model_ref get_model();
 
         /**
            \brief retrieve proof from derivation of the query.
            
-           \pre engine == 'pdr' - this option is only supported for PDR mode.
+           \pre engine == 'pdr'  || engine == 'duality'- this option is only supported
+	   for PDR mode and Duality mode.
          */
         proof_ref get_proof();
 
@@ -438,6 +442,8 @@ namespace datalog {
 
         void ensure_tab();
 
+        void ensure_duality();
+
         void ensure_rel();
 
         void new_query();
@@ -449,6 +455,8 @@ namespace datalog {
         lbool bmc_query(expr* query);
 
         lbool tab_query(expr* query);
+
+        lbool duality_query(expr* query);
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);

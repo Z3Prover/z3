@@ -53,6 +53,7 @@ namespace datalog {
         BMC_ENGINE,
         QBMC_ENGINE,
         TAB_ENGINE,
+	DUALITY_ENGINE,
         LAST_ENGINE
     };
 
