@@ -114,6 +114,8 @@ namespace datalog {
         reg_idx m_new_reg;
         vector<relation_signature> m_reg_signatures;
         obj_pair_map<sort, app, reg_idx> m_constant_registers;
+        obj_pair_map<sort, decl, reg_idx> m_total_registers;
+        obj_map<decl, reg_idx> m_empty_tables_registers;
         instruction_observer m_instruction_observer;
 
         /**
@@ -163,20 +165,20 @@ namespace datalog {
            with empty signature.
         */
         void make_assembling_code(rule* compiled_rule, func_decl* head_pred, reg_idx src, const svector<assembling_column_info> & acis0,
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool & dealloc, instruction_block & acc);
 
         void make_dealloc_non_void(reg_idx r, instruction_block & acc);
 
         void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort & s, const relation_element & val,
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool & dealloc, instruction_block & acc);
 
         void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
-            instruction_block & acc);
+            bool & dealloc, instruction_block & acc);
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);
 
         void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr,
-                                              instruction_block& acc);
+                                              bool & dealloc, instruction_block& acc);
         
         void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, instruction_block & acc);
         

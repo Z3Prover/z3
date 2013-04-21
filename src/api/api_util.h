@@ -29,7 +29,6 @@ Revision History:
 #define Z3_CATCH_RETURN_NO_HANDLE(VAL) } catch (z3_exception &) { return VAL; }
 
 #define CHECK_REF_COUNT(a) (reinterpret_cast<ast const*>(a)->get_ref_count() > 0)
-#define VALIDATE(a) SASSERT(!a || CHECK_REF_COUNT(a))
 
 namespace api {
     // Generic wrapper for ref-count objects exposed by the API
@@ -44,30 +43,30 @@ namespace api {
     };
 };
 
-inline ast * to_ast(Z3_ast a) { VALIDATE(a); return reinterpret_cast<ast *>(a); }
+inline ast * to_ast(Z3_ast a) { return reinterpret_cast<ast *>(a); }
 inline Z3_ast of_ast(ast* a) { return reinterpret_cast<Z3_ast>(a); }
 
-inline expr * to_expr(Z3_ast a) { VALIDATE(a); return reinterpret_cast<expr*>(a); }
+inline expr * to_expr(Z3_ast a) { return reinterpret_cast<expr*>(a); }
 inline Z3_ast of_expr(expr* e) { return reinterpret_cast<Z3_ast>(e); }
 
 inline expr * const * to_exprs(Z3_ast const* a) { return reinterpret_cast<expr* const*>(a); }
 inline Z3_ast * const * of_exprs(expr* const* e) { return reinterpret_cast<Z3_ast* const*>(e); }
 
-inline app * to_app(Z3_app a) { VALIDATE(a); return reinterpret_cast<app*>(a); }
-inline app * to_app(Z3_ast a) { VALIDATE(a); return reinterpret_cast<app*>(a); }
+inline app * to_app(Z3_app a) { return reinterpret_cast<app*>(a); }
+inline app * to_app(Z3_ast a) { return reinterpret_cast<app*>(a); }
 inline Z3_app of_app(app* a) { return reinterpret_cast<Z3_app>(a); }
 
-inline app * const* to_apps(Z3_ast const* a) { VALIDATE(a); return reinterpret_cast<app * const*>(a); }
+inline app * const* to_apps(Z3_ast const* a) { return reinterpret_cast<app * const*>(a); }
 
 inline ast * const * to_asts(Z3_ast const* a) { return reinterpret_cast<ast* const*>(a); }
 
-inline sort * to_sort(Z3_sort a) { VALIDATE(a); return reinterpret_cast<sort*>(a); }
+inline sort * to_sort(Z3_sort a) { return reinterpret_cast<sort*>(a); }
 inline Z3_sort of_sort(sort* s) { return reinterpret_cast<Z3_sort>(s); }
 
 inline sort * const *  to_sorts(Z3_sort const* a) { return reinterpret_cast<sort* const*>(a); }
 inline Z3_sort const * of_sorts(sort* const* s) { return reinterpret_cast<Z3_sort const*>(s); }
 
-inline func_decl * to_func_decl(Z3_func_decl a) { VALIDATE(a); return reinterpret_cast<func_decl*>(a); }
+inline func_decl * to_func_decl(Z3_func_decl a) { return reinterpret_cast<func_decl*>(a); }
 inline Z3_func_decl of_func_decl(func_decl* f) { return reinterpret_cast<Z3_func_decl>(f); }
 
 inline func_decl * const * to_func_decls(Z3_func_decl const* f) { return reinterpret_cast<func_decl*const*>(f); }
@@ -75,7 +74,7 @@ inline func_decl * const * to_func_decls(Z3_func_decl const* f) { return reinter
 inline symbol to_symbol(Z3_symbol s) { return symbol::mk_symbol_from_c_ptr(reinterpret_cast<void*>(s)); }
 inline Z3_symbol of_symbol(symbol s) { return reinterpret_cast<Z3_symbol>(const_cast<void*>(s.c_ptr())); }
 
-inline Z3_pattern of_pattern(ast* a) { VALIDATE(a); return reinterpret_cast<Z3_pattern>(a); }
+inline Z3_pattern of_pattern(ast* a) { return reinterpret_cast<Z3_pattern>(a); }
 inline app* to_pattern(Z3_pattern p) { return reinterpret_cast<app*>(p); }
 
 inline Z3_lbool of_lbool(lbool b) { return static_cast<Z3_lbool>(b); }
