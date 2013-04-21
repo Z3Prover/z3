@@ -18,10 +18,6 @@ Revision History:
 --*/
 #include"matcher.h"
 
-matcher::matcher(ast_manager & m):
-    m_manager(m) {
-}
-
 bool matcher::operator()(expr * e1, expr * e2, substitution & s) {
     reset();
     m_subst = &s;

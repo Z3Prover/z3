@@ -661,17 +661,15 @@ namespace datalog {
                 SASSERT(res_idx<m_allocated_kinds.size());
                 ids.insert(spec, res_idx);
 
-                family_id2spec * idspecs;
-                VERIFY( m_kind_specs.find(sig, idspecs) );
+                family_id2spec * idspecs = m_kind_specs.find(sig);
                 idspecs->insert(m_allocated_kinds[res_idx], spec);
             }
             return m_allocated_kinds[res_idx];
         }
 
         void get_relation_spec(const relation_signature & sig, family_id kind, Spec & spec) {
-            family_id2spec * idspecs;
-            VERIFY( m_kind_specs.find(sig, idspecs) );
-            VERIFY( idspecs->find(kind, spec) );
+            family_id2spec * idspecs = m_kind_specs.find(sig);
+            spec = idspecs->find(kind);
         }
 
     };

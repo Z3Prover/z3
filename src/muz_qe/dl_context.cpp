@@ -647,7 +647,6 @@ namespace datalog {
             }
         }
         ast_manager& m = get_manager();
-        datalog::rule_manager& rm = get_rule_manager();
         contains_pred contains_p(*this);
         check_pred check_pred(contains_p, get_manager());
 

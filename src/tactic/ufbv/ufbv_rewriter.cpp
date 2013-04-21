@@ -442,11 +442,10 @@ expr * ufbv_rewriter::rewrite(expr * n) {
 }
 
 class ufbv_rewriter::add_back_idx_proc {
-    ast_manager &  m_manager;
     back_idx_map & m_back_idx;
     expr *         m_expr;
 public:
-    add_back_idx_proc(ast_manager & m, back_idx_map & bi, expr * e):m_manager(m),m_back_idx(bi),m_expr(e) {}
+    add_back_idx_proc(back_idx_map & bi, expr * e):m_back_idx(bi),m_expr(e) {}
     void operator()(var * n) {}
     void operator()(quantifier * n) {}
     void operator()(app * n) {        
@@ -469,11 +468,10 @@ public:
 };
 
 class ufbv_rewriter::remove_back_idx_proc {
-    ast_manager &  m_manager;
     back_idx_map & m_back_idx;
     expr *         m_expr;
 public:
-    remove_back_idx_proc(ast_manager & m, back_idx_map & bi, expr * e):m_manager(m),m_back_idx(bi),m_expr(e) {}
+    remove_back_idx_proc(back_idx_map & bi, expr * e):m_back_idx(bi),m_expr(e) {}
     void operator()(var * n) {}
     void operator()(quantifier * n) {}    
     void operator()(app * n) {        
@@ -511,7 +509,7 @@ void ufbv_rewriter::reschedule_processed(func_decl * f) {
             expr * p = *sit;
             // remove p from m_processed and m_back_idx
             m_processed.remove(p);
-            remove_back_idx_proc proc(m_manager, m_back_idx, p); // this could change it->m_value, thus we need the `temp' set.
+            remove_back_idx_proc proc(m_back_idx, p); // this could change it->m_value, thus we need the `temp' set.
             for_each_expr(proc, p);
             // insert p into m_todo                
             m_todo.push_back(p);
@@ -619,7 +617,7 @@ void ufbv_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
                     //     remove d from m_back_idx                    
                     // just remember it here, because otherwise it and/or esit might become invalid?
                     // to_remove.insert(d); 
-                    remove_back_idx_proc proc(m_manager, m_back_idx, d);
+                    remove_back_idx_proc proc(m_back_idx, d);
                     for_each_expr(proc, d);
                     //     insert d into m_todo
                     m_todo.push_back(d);                    
@@ -674,7 +672,7 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
             // insert n' into m_processed
             m_processed.insert(np);            
             // update m_back_idx (traverse n' and for each uninterpreted function declaration f in n' add the entry f->n' to m_back_idx)            
-            add_back_idx_proc proc(m_manager, m_back_idx, np);
+            add_back_idx_proc proc(m_back_idx, np);
             for_each_expr(proc, np);
         } else {            
             // np is a demodulator that allows us to replace 'large' with 'small'.
@@ -702,7 +700,7 @@ void ufbv_rewriter::operator()(unsigned n, expr * const * exprs, proof * const *
             insert_fwd_idx(large, small, to_quantifier(np));
 
             // update m_back_idx
-            add_back_idx_proc proc(m_manager, m_back_idx, np);
+            add_back_idx_proc proc(m_back_idx, np);
             for_each_expr(proc, np);
         }        
     }

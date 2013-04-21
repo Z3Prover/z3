@@ -198,8 +198,6 @@ namespace datalog {
     {
         bool values_match(const expr * v1, const expr * v2);
 
-        ast_manager &    m_manager;
-
         unsigned_vector m_args1;
         unsigned_vector m_args2;
 
@@ -211,7 +209,7 @@ namespace datalog {
         static unsigned expr_cont_get_size(const ptr_vector<expr> & v) { return v.size(); }
         static expr * expr_cont_get(const ptr_vector<expr> & v, unsigned i) { return v[i]; }
     public:
-        variable_intersection(ast_manager & m) : m_manager(m), m_consts(m) {}
+        variable_intersection(ast_manager & m) : m_consts(m) {}
 
         unsigned size() const {
             return m_args1.size();

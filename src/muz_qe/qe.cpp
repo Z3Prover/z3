@@ -1093,8 +1093,7 @@ namespace qe {
         bool has_branch(rational const& branch_id) const { return m_branch_index.contains(branch_id); }
 
         search_tree* child(rational const& branch_id) const {
-            unsigned idx;
-            VERIFY(m_branch_index.find(branch_id, idx));
+            unsigned idx = m_branch_index.find(branch_id);
             return m_children[idx];
         }
 
@@ -1963,7 +1962,6 @@ namespace qe {
         expr_ref                m_assumption;
         bool                    m_produce_models;
         ptr_vector<quant_elim_plugin> m_plugins;
-        unsigned                     m_name_counter; // fresh-id
         volatile bool            m_cancel;
         bool                     m_eliminate_variables_as_block;
 
@@ -1973,7 +1971,6 @@ namespace qe {
             m_fparams(p),
             m_assumption(m),
             m_produce_models(m_fparams.m_model),
-            m_name_counter(0),
             m_cancel(false),
             m_eliminate_variables_as_block(true)
           {

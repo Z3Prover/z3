@@ -28,6 +28,12 @@ class hwf {
     friend class hwf_manager;
     double value;
     hwf & operator=(hwf const & other) { UNREACHABLE(); return *this; }
+    uint64 get_raw() const {
+      uint64 n;
+      SASSERT(sizeof(n) == sizeof(value));
+      memcpy(&n, &value, sizeof(value));
+      return n;
+    }
 
 public:    
     hwf() {}
@@ -122,16 +128,15 @@ public:
     
     
     bool sgn(hwf const & x) const { 
-        uint64 raw = *reinterpret_cast<uint64 const *>(&x.value);
-        return (raw & 0x8000000000000000ull) != 0; 
+        return (x.get_raw() & 0x8000000000000000ull) != 0; 
     }
 
     const uint64 sig(hwf const & x) const { 
-        return *reinterpret_cast<uint64 const *>(&x.value) & 0x000FFFFFFFFFFFFFull;
+        return x.get_raw() & 0x000FFFFFFFFFFFFFull;
     }
 
     const int exp(hwf const & x) const {         
-        return ((*reinterpret_cast<uint64 const *>(&x.value) & 0x7FF0000000000000ull) >> 52) - 1023;
+        return ((x.get_raw() & 0x7FF0000000000000ull) >> 52) - 1023;
     }
 
     bool is_nan(hwf const & x);
@@ -151,7 +156,7 @@ public:
     void mk_pinf(hwf & o);
     void mk_ninf(hwf & o);
     
-    unsigned hash(hwf const & a) { return hash_ull(*reinterpret_cast<const unsigned long long*>(&a.value)); }
+    unsigned hash(hwf const & a) { return hash_ull(a.get_raw()); }
 
     inline void set_rounding_mode(mpf_rounding_mode rm);
 

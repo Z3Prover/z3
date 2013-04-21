@@ -141,7 +141,6 @@ namespace datalog {
         func_decl_ref_vector const& new_funcs() const { return m_new_funcs; }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
-            rule_manager& rm = m_context.get_rule_manager();
             bool found = false;
             for (unsigned j = 0; !found && j < num; ++j) {
                 found = m_util.is_mkbv(args[j]);                

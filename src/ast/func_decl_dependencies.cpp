@@ -79,7 +79,6 @@ void func_decl_dependencies::collect_ng_func_decls(expr * n, func_decl_set * s) 
 */
 class func_decl_dependencies::top_sort {
     enum color { OPEN, IN_PROGRESS, CLOSED };
-    ast_manager &       m_manager;    
     dependency_graph &  m_deps;
 
     typedef obj_map<func_decl, color> color_map;
@@ -177,7 +176,7 @@ class func_decl_dependencies::top_sort {
     }
 
 public:
-    top_sort(ast_manager & m, dependency_graph & deps):m_manager(m), m_deps(deps) {}
+    top_sort(dependency_graph & deps) : m_deps(deps) {}
     
     bool operator()(func_decl * new_decl) {
 
@@ -198,7 +197,7 @@ bool func_decl_dependencies::insert(func_decl * f, func_decl_set * s) {
 
     m_deps.insert(f, s);
 
-    top_sort cycle_detector(m_manager, m_deps);
+    top_sort cycle_detector(m_deps);
     if (cycle_detector(f)) {
         m_deps.erase(f);
         dealloc(s);

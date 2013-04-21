@@ -68,14 +68,11 @@ namespace smt {
         bv_util& b() { return m_bv; }
 
         class dl_value_proc : public smt::model_value_proc {
-            smt::model_generator &      m_mg; 
             theory_dl&                  m_th;
             smt::enode*                 m_node;
         public:
             
-            dl_value_proc(smt::model_generator & m, theory_dl& th, smt::enode* n):
-                m_mg(m), m_th(th), m_node(n)
-            { }
+            dl_value_proc(theory_dl& th, smt::enode* n) : m_th(th), m_node(n) {}
             
             virtual void get_dependencies(buffer<smt::model_value_dependency> & result) {}
             
@@ -165,8 +162,8 @@ namespace smt {
             m.register_factory(alloc(dl_factory, m_util, m.get_model()));
         }
         
-        virtual smt::model_value_proc * mk_value(smt::enode * n, smt::model_generator & m) {
-            return alloc(dl_value_proc, m, *this, n);
+        virtual smt::model_value_proc * mk_value(smt::enode * n) {
+            return alloc(dl_value_proc, *this, n);
         }
 
         virtual void apply_sort_cnstr(enode * n, sort * s) {

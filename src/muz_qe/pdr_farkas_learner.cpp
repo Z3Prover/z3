@@ -418,11 +418,10 @@ namespace pdr {
 
     class farkas_learner::constant_replacer_cfg : public default_rewriter_cfg
     {
-        ast_manager& m;
         const obj_map<expr, expr *>& m_translation;
     public:
-        constant_replacer_cfg(ast_manager& m, const obj_map<expr, expr *>& translation)
-            : m(m), m_translation(translation)
+        constant_replacer_cfg(const obj_map<expr, expr *>& translation)
+            : m_translation(translation)
         { }
 
         bool get_subst(expr * s, expr * & t, proof * & t_pr) {

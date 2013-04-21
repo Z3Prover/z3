@@ -24,7 +24,7 @@ Revision History:
 #include"str_hashtable.h"
 #include"z3_exception.h"
 
-volatile bool g_enable_assertions = true;
+static volatile bool g_enable_assertions = true;
 
 void enable_assertions(bool f) {
     g_enable_assertions = f;
@@ -41,7 +41,7 @@ void notify_assertion_violation(const char * fileName, int line, const char * co
     std::cerr << condition << "\n";
 }
 
-str_hashtable* g_enabled_debug_tags = 0;
+static str_hashtable* g_enabled_debug_tags = 0;
 
 static void init_debug_table() {
     if (!g_enabled_debug_tags) {

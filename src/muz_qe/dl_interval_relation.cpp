@@ -99,11 +99,9 @@ namespace datalog {
     }
    
     class interval_relation_plugin::rename_fn : public convenient_relation_rename_fn {
-        interval_relation_plugin& m_plugin;
     public:
-        rename_fn(interval_relation_plugin& p, const relation_signature & orig_sig, unsigned cycle_len, const unsigned * cycle) 
-            : convenient_relation_rename_fn(orig_sig, cycle_len, cycle),
-              m_plugin(p){
+        rename_fn(const relation_signature & orig_sig, unsigned cycle_len, const unsigned * cycle) 
+            : convenient_relation_rename_fn(orig_sig, cycle_len, cycle) {
         }
 
         virtual relation_base * operator()(const relation_base & _r) {
@@ -120,7 +118,7 @@ namespace datalog {
         if(!check_kind(r)) {
             return 0;
         }
-        return alloc(rename_fn, *this, r.get_signature(), cycle_len, permutation_cycle);
+        return alloc(rename_fn, r.get_signature(), cycle_len, permutation_cycle);
     }
      
     interval interval_relation_plugin::unite(interval const& src1, interval const& src2) {
@@ -194,11 +192,9 @@ namespace datalog {
     }
 
     class interval_relation_plugin::union_fn : public relation_union_fn {
-        interval_relation_plugin& m_plugin;
         bool                      m_is_widen;
     public:
-        union_fn(interval_relation_plugin& p, bool is_widen) :
-            m_plugin(p),
+        union_fn(bool is_widen) :
             m_is_widen(is_widen) {            
         }
 
@@ -223,7 +219,7 @@ namespace datalog {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
             return 0;
         }
-        return alloc(union_fn, *this, false);
+        return alloc(union_fn, false);
     }
 
     relation_union_fn * interval_relation_plugin::mk_widen_fn(
@@ -232,7 +228,7 @@ namespace datalog {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
             return 0;
         }
-        return alloc(union_fn, *this, true);
+        return alloc(union_fn, true);
     }
 
     class interval_relation_plugin::filter_identical_fn : public relation_mutator_fn {

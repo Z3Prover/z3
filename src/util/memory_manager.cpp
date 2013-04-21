@@ -27,14 +27,14 @@ void mem_finalize();
 out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
-volatile bool g_memory_out_of_memory  = false;
-bool       g_memory_initialized       = false;
-long long  g_memory_alloc_size        = 0;
-long long  g_memory_max_size          = 0;
-long long  g_memory_max_used_size     = 0;
-long long  g_memory_watermark         = 0;
-bool       g_exit_when_out_of_memory  = false;
-char const * g_out_of_memory_msg      = "ERROR: out of memory";
+static volatile bool g_memory_out_of_memory  = false;
+static bool       g_memory_initialized       = false;
+static long long  g_memory_alloc_size        = 0;
+static long long  g_memory_max_size          = 0;
+static long long  g_memory_max_used_size     = 0;
+static long long  g_memory_watermark         = 0;
+static bool       g_exit_when_out_of_memory  = false;
+static char const * g_out_of_memory_msg      = "ERROR: out of memory";
 
 void memory::exit_when_out_of_memory(bool flag, char const * msg) {
     g_exit_when_out_of_memory = flag;

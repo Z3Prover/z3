@@ -740,7 +740,6 @@ namespace tb {
         typedef svector<double>                   double_vector;
         typedef obj_map<func_decl, double_vector> score_map;
         typedef obj_map<app, double>              pred_map;
-        datalog::context&  m_ctx;
         ast_manager&       m;
         datatype_util      dt;
         score_map          m_score_map;
@@ -750,19 +749,16 @@ namespace tb {
         pred_map           m_pred_map;
         expr_ref_vector    m_refs;
         double             m_weight_multiply;
-        unsigned           m_num_invocations;
         unsigned           m_update_frequency;
         unsigned           m_next_update;
         
 
     public:
         selection(datalog::context& ctx):
-            m_ctx(ctx),
             m(ctx.get_manager()),
             dt(m),
             m_refs(m),
             m_weight_multiply(1.0),
-            m_num_invocations(0),
             m_update_frequency(20),
             m_next_update(20) {
             set_strategy(ctx.get_params().tab_selection());

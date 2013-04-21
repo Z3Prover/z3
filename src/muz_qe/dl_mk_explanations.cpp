@@ -527,11 +527,10 @@ namespace datalog {
     }
 
     class explanation_relation_plugin::intersection_filter_fn : public relation_intersection_filter_fn {
-        explanation_relation_plugin & m_plugin;
         func_decl_ref m_union_decl;
     public:
         intersection_filter_fn(explanation_relation_plugin & plugin)
-            : m_plugin(plugin), m_union_decl(plugin.m_union_decl) {}
+            : m_union_decl(plugin.m_union_decl) {}
 
         virtual void operator()(relation_base & tgt0, const relation_base & src0) {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);

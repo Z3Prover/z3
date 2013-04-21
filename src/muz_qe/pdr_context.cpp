@@ -1285,7 +1285,7 @@ namespace pdr {
             obj_hashtable<func_decl>::iterator itf = deps.begin(), endf = deps.end();
             for (; itf != endf; ++itf) {
                 TRACE("pdr", tout << mk_pp(pred, m) << " " << mk_pp(*itf, m) << "\n";);
-                VERIFY (rels.find(*itf, pt_user));
+                pt_user = rels.find(*itf);
                 pt_user->add_use(pt);                
             }
         }      
