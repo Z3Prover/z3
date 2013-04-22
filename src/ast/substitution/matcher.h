@@ -30,7 +30,6 @@ class matcher {
     typedef pair_hash<obj_ptr_hash<expr>, obj_ptr_hash<expr> > expr_pair_hash;
     typedef hashtable<expr_pair, expr_pair_hash, default_eq<expr_pair> > cache;
 
-    ast_manager &         m_manager;
     substitution *        m_subst;
     // cache                 m_cache;
     svector<expr_pair>    m_todo;
@@ -38,7 +37,7 @@ class matcher {
     void reset();
 
 public:
-    matcher(ast_manager & m);
+    matcher() {}
 
     /**
        \brief Return true if e2 is an instance of e1.

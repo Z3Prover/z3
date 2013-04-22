@@ -300,7 +300,7 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
 //
 // -----------------------------------
 
-char const * g_ast_kind_names[] = {"application", "variable", "quantifier", "sort", "function declaration" };
+static char const * g_ast_kind_names[] = {"application", "variable", "quantifier", "sort", "function declaration" };
 
 char const * get_ast_kind_name(ast_kind k) {
     return g_ast_kind_names[k];

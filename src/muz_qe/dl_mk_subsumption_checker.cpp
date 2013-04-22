@@ -320,9 +320,7 @@ namespace datalog {
             if(!m_ground_unconditional_rule_heads.contains(pred)) {
                 m_ground_unconditional_rule_heads.insert(pred, alloc(obj_hashtable<app>));
             }
-            obj_hashtable<app> * head_store;
-            m_ground_unconditional_rule_heads.find(pred, head_store);
-            head_store->insert(head);
+            m_ground_unconditional_rule_heads.find(pred)->insert(head);
 
         next_rule:;
         }

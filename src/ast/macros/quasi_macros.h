@@ -32,7 +32,6 @@ class quasi_macros {
 
     ast_manager &             m_manager;
     macro_manager &           m_macro_manager;
-    basic_simplifier_plugin & m_bsimp;   
     simplifier &              m_simplifier;
     occurrences_map           m_occurrences;
     ptr_vector<expr>          m_todo;    
@@ -57,7 +56,7 @@ class quasi_macros {
     void apply_macros(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);
 
 public:
-    quasi_macros(ast_manager & m, macro_manager & mm, basic_simplifier_plugin & p, simplifier & s);
+    quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s);
     ~quasi_macros();
     
     /**

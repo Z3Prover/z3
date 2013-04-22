@@ -326,6 +326,7 @@ namespace datalog {
         }
         unsigned index0;
         sort* last_sort = 0;
+        SASSERT(num_params > 0);
         for (unsigned i = 0; i < num_params; ++i) {
             parameter const& p = params[i];
             if (!p.is_int()) {

@@ -60,11 +60,11 @@ void myInvalidParameterHandler(
 #define END_ERR_HANDLER() {}
 #endif
 
-bool g_warning_msgs   = true;
-bool g_use_std_stdout = false;
-std::ostream* g_error_stream = 0;
-std::ostream* g_warning_stream = 0;
-bool g_show_error_msg_prefix = true;
+static bool g_warning_msgs   = true;
+static bool g_use_std_stdout = false;
+static std::ostream* g_error_stream = 0;
+static std::ostream* g_warning_stream = 0;
+static bool g_show_error_msg_prefix = true;
 
 void send_warnings_to_stdout(bool flag) {
     g_use_std_stdout = flag;

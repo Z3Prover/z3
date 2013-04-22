@@ -1,4 +1,4 @@
-char const * g_pattern_database =
+static char const * g_pattern_database =
 "(benchmark patterns \n"
 " :status unknown \n"
 " :logic ALL \n"

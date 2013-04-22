@@ -12,14 +12,12 @@ namespace qe {
     // dl_plugin
 
     class eq_atoms {
-        ast_manager& m;
         expr_ref_vector m_eqs;
         expr_ref_vector m_neqs;
         app_ref_vector m_eq_atoms;
         app_ref_vector m_neq_atoms;
     public:
         eq_atoms(ast_manager& m):
-          m(m),
           m_eqs(m),
           m_neqs(m),
           m_eq_atoms(m), 

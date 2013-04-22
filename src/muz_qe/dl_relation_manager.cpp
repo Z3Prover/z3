@@ -1090,12 +1090,10 @@ namespace datalog {
 
     class relation_manager::default_table_rename_fn 
             : public convenient_table_rename_fn, auxiliary_table_transformer_fn {
-        const unsigned m_cycle_len;
     public:
         default_table_rename_fn(const table_signature & orig_sig, unsigned permutation_cycle_len, 
                     const unsigned * permutation_cycle) 
-                : convenient_table_rename_fn(orig_sig, permutation_cycle_len, permutation_cycle), 
-                m_cycle_len(permutation_cycle_len) {
+                : convenient_table_rename_fn(orig_sig, permutation_cycle_len, permutation_cycle) {
             SASSERT(permutation_cycle_len>=2);
         }
 

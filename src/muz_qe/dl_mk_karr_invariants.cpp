@@ -963,11 +963,8 @@ namespace datalog {
 
 
     class karr_relation_plugin::union_fn : public relation_union_fn {
-        karr_relation_plugin& m_plugin;
     public:
-        union_fn(karr_relation_plugin& p) :
-            m_plugin(p) {            
-        }
+        union_fn() {}
 
         virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
 
@@ -991,7 +988,7 @@ namespace datalog {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
             return 0;
         }
-        return alloc(union_fn, *this);
+        return alloc(union_fn);
     }
 
     class karr_relation_plugin::filter_identical_fn : public relation_mutator_fn {
