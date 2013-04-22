@@ -740,7 +740,6 @@ namespace datalog {
     relation_transformer_fn * relation_manager::mk_select_equal_and_project_fn(const relation_base & t, 
             const relation_element & value, unsigned col) { 
         relation_transformer_fn * res = t.get_plugin().mk_select_equal_and_project_fn(t, value, col);
-        TRACE("dl", tout << t.get_plugin().get_name() << " " << value << " " << col << "\n";);
         if(!res) {
             relation_mutator_fn * selector = mk_filter_equal_fn(t, value, col);
             if(selector) {

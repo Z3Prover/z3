@@ -177,7 +177,7 @@ namespace datalog {
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);
 
-        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr,
+        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, expr_ref_vector& single_res_expr,
                                               bool & dealloc, instruction_block& acc);
         
         void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, instruction_block & acc);

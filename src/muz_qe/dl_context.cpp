@@ -823,7 +823,14 @@ namespace datalog {
         if (similarity_compressor()) {
             m_transf.register_plugin(alloc(mk_similarity_compressor, *this)); 
         }
-        m_transf.register_plugin(alloc(datalog::mk_partial_equivalence_transformer, *this));
+        m_transf.register_plugin(alloc(mk_partial_equivalence_transformer, *this));
+        m_transf.register_plugin(alloc(mk_rule_inliner, *this));
+        m_transf.register_plugin(alloc(mk_interp_tail_simplifier, *this));
+
+        if (get_params().bit_blast()) {
+            m_transf.register_plugin(alloc(mk_bit_blast, *this, 22000));
+            m_transf.register_plugin(alloc(mk_interp_tail_simplifier, *this, 21000));
+        }
 
         transform_rules(m_transf);
     }
