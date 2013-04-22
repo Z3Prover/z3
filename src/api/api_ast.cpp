@@ -46,7 +46,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_int_symbol(c, i);
         RESET_ERROR_CODE();
-        if (i < 0 || (unsigned)i >= (SIZE_MAX >> PTR_ALIGNMENT)) {
+        if (i < 0 || (size_t)i >= (SIZE_MAX >> PTR_ALIGNMENT)) {
             SET_ERROR_CODE(Z3_IOB);
             return 0;
         }

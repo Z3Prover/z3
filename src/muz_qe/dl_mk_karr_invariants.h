@@ -56,7 +56,7 @@ namespace datalog {
         context         m_inner_ctx;
         arith_util      a;
         void update_body(rel_context& rctx, rule_set& result, rule& r);
-
+        rule_set* update_using_propagation(rule_set const& src, rule_set const& srcref);
     public:
         mk_karr_invariants(context & ctx, unsigned priority);
 

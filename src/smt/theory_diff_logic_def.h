@@ -318,7 +318,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
     m_stats.m_num_assertions++;
     atom * a = 0;
-    m_bool_var2atom.find(v, a);
+    VERIFY (m_bool_var2atom.find(v, a));
     SASSERT(a);
     SASSERT(get_context().get_assignment(v) != l_undef);
     SASSERT((get_context().get_assignment(v) == l_true) == is_true);    
@@ -376,13 +376,6 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     SASSERT(is_consistent());
 
     
-#if 0
- TBD:
-    if (propagate_cheap_equalities()) {
-        return FC_CONTINUE;
-    }
-#endif
-
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
     }

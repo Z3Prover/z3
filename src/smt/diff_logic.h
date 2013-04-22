@@ -1643,7 +1643,3 @@ public:
 
 #endif /* _DIFF_LOGIC_H_ */
 
-#if 0
-
-
-#endif

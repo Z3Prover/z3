@@ -1004,7 +1004,6 @@ namespace datalog {
                     symbol is_name(_name.str().c_str());
                     std::stringstream _name2;
                     _name2 << "get_succ#" << i;
-                    symbol acc_name(_name2.str().c_str());
                     ptr_vector<accessor_decl> accs;
                     type_ref tr(0);
                     accs.push_back(mk_accessor_decl(name, tr));
