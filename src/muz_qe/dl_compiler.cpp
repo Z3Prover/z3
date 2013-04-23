@@ -36,7 +36,7 @@ namespace datalog {
     }
 
     void compiler::ensure_predicate_loaded(func_decl * pred, instruction_block & acc) {
-        pred2idx::entry * e = m_pred_regs.insert_if_not_there2(pred, UINT_MAX);
+        pred2idx::obj_map_entry * e = m_pred_regs.insert_if_not_there2(pred, UINT_MAX);
         if(e->get_data().m_value!=UINT_MAX) {
             //predicate is already loaded
             return;
@@ -421,6 +421,7 @@ namespace datalog {
     void compiler::compile_rule_evaluation_run(rule * r, reg_idx head_reg, const reg_idx * tail_regs, 
             reg_idx delta_reg, bool use_widening, instruction_block & acc) {
         
+        ast_manager & m = m_context.get_manager();
         m_instruction_observer.start_rule(r);
 
         const app * h = r->get_head();
@@ -433,7 +434,7 @@ namespace datalog {
         SASSERT(pt_len<=2); //we require rules to be processed by the mk_simple_joins rule transformer plugin
 
         reg_idx single_res;
-        ptr_vector<expr> single_res_expr;
+        expr_ref_vector single_res_expr(m);
 
         //used to save on filter_identical instructions where the check is already done 
         //by the join operation
@@ -536,7 +537,7 @@ namespace datalog {
             unsigned srlen=single_res_expr.size();
             SASSERT((single_res==execution_context::void_register) ? (srlen==0) : (srlen==m_reg_signatures[single_res].size()));
             for(unsigned i=0; i<srlen; i++) {
-                expr * exp = single_res_expr[i];
+                expr * exp = single_res_expr[i].get();
                 if(is_app(exp)) {
                     SASSERT(m_context.get_decl_util().is_numeral_ext(exp));
                     relation_element value = to_app(exp);
@@ -618,14 +619,13 @@ namespace datalog {
             dealloc = true;
         }
 
-        //enforce interpreted tail predicates
+        // enforce interpreted tail predicates
         unsigned ft_len=r->get_tail_size(); //full tail
         for(unsigned tail_index=ut_len; tail_index<ft_len; tail_index++) {
             app * t = r->get_tail(tail_index);
-            var_idx_set t_vars;
-            ast_manager & m = m_context.get_manager();
-            collect_vars(m, t, t_vars);
-
+            ptr_vector<sort> t_vars;
+            ::get_free_vars(t, t_vars);
+            
             if(t_vars.empty()) {
                 expr_ref simplified(m);
                 m_context.get_rewriter()(t, simplified);
@@ -639,40 +639,23 @@ namespace datalog {
             }
 
             //determine binding size
-            unsigned max_var=0;
-            var_idx_set::iterator vit = t_vars.begin();
-            var_idx_set::iterator vend = t_vars.end();
-            for(; vit!=vend; ++vit) {
-                unsigned v = *vit;
-                if(v>max_var) { max_var = v; }
+            while (!t_vars.back()) {
+                t_vars.pop_back();
             }
+            unsigned max_var = t_vars.size();
 
             //create binding
             expr_ref_vector binding(m);
             binding.resize(max_var+1);
-            vit = t_vars.begin();
-            for(; vit!=vend; ++vit) {
-                unsigned v = *vit;
+            
+            for(unsigned v = 0; v < t_vars.size(); ++v) {
+                if (!t_vars[v]) {
+                    continue;
+                }
                 int2ints::entry * e = var_indexes.find_core(v);
                 if(!e) {
                     //we have an unbound variable, so we add an unbound column for it
-                    relation_sort unbound_sort = 0;
-
-                    for(unsigned hindex = 0; hindex<head_len; hindex++) {
-                        expr * harg = h->get_arg(hindex);
-                        if(!is_var(harg) || to_var(harg)->get_idx()!=v) {
-                            continue;
-                        }
-                        unbound_sort = to_var(harg)->get_sort();
-                    }
-                    if(!unbound_sort) {
-                        // the variable in the interpreted tail is neither bound in the 
-                        // uninterpreted tail nor present in the head
-                        std::stringstream sstm;
-                        sstm << "rule with unbound variable #" << v << " in interpreted tail: ";                       
-                        r->display(m_context, sstm);
-                        throw default_exception(sstm.str());
-                    }
+                    relation_sort unbound_sort = t_vars[v];
 
                     reg_idx new_reg;
                     TRACE("dl", tout << mk_pp(head_pred, m_context.get_manager()) << "\n";);
@@ -759,7 +742,7 @@ namespace datalog {
         m_instruction_observer.finish_rule();
     }
 
-    void compiler::add_unbound_columns_for_negation(rule* r, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr, 
+    void compiler::add_unbound_columns_for_negation(rule* r, func_decl* pred, reg_idx& single_res, expr_ref_vector& single_res_expr, 
                                                     bool & dealloc, instruction_block & acc) {
         uint_set pos_vars;
         u_map<expr*> neg_vars;
@@ -782,7 +765,7 @@ namespace datalog {
         }
         // populate positive variables:
         for (unsigned i = 0; i < single_res_expr.size(); ++i) {
-            expr* e = single_res_expr[i];
+            expr* e = single_res_expr[i].get();
             if (is_var(e)) {
                 pos_vars.insert(to_var(e)->get_idx());
             }

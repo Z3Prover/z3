@@ -29,6 +29,7 @@ namespace datalog {
         m_manager(ctx.get_manager()),
         m_threshold_count(ctx.similarity_compressor_threshold()),
         m_result_rules(ctx.get_rule_manager()),
+        m_modified(false),
         m_pinned(m_manager) {
         SASSERT(m_threshold_count>1);
     }
@@ -54,6 +55,9 @@ namespace datalog {
     static int aux_compare(T a, T b) {
         return (a>b) ? 1 : ( (a==b) ? 0 : -1);
     }
+
+    template<typename T>
+    static int aux_compare(T* a, T* b);
 
     static int compare_var_args(app* t1, app* t2) {
         SASSERT(t1->get_num_args()==t2->get_num_args());
@@ -88,7 +92,7 @@ namespace datalog {
             if ((skip_countdown--) == 0) {
                 continue;
             }
-            res = aux_compare(t1->get_arg(i), t2->get_arg(i));
+            res = aux_compare(t1->get_arg(i)->get_id(), t2->get_arg(i)->get_id());
             if (res!=0) { return res; }
         }
         return 0;
@@ -113,7 +117,7 @@ namespace datalog {
         for (int i=-1; i<pos_tail_sz; i++) {
             app * t1 = get_by_tail_index(r1, i);
             app * t2 = get_by_tail_index(r2, i);
-            res = aux_compare(t1->get_decl(), t2->get_decl());
+            res = aux_compare(t1->get_decl()->get_id(), t2->get_decl()->get_id());
             if (res!=0) { return res; }
             res = compare_var_args(t1, t2);
             if (res!=0) { return res; }
@@ -121,7 +125,7 @@ namespace datalog {
 
         unsigned tail_sz = r1->get_tail_size();
         for (unsigned i=pos_tail_sz; i<tail_sz; i++) {
-            res = aux_compare(r1->get_tail(i), r2->get_tail(i));
+            res = aux_compare(r1->get_tail(i)->get_id(), r2->get_tail(i)->get_id());
             if (res!=0) { return res; }
         }
         

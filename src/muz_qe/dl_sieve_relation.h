@@ -52,7 +52,7 @@ namespace datalog {
 
             struct hash {
                 unsigned operator()(const rel_spec & s) const {
-                    return int_vector_hash(s.m_inner_cols)^s.m_inner_kind;
+                    return svector_hash<bool_hash>()(s.m_inner_cols)^s.m_inner_kind;
                 }
             };
         };

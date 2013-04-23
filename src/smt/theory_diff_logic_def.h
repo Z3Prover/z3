@@ -374,8 +374,12 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     // either will already be zero (as we don't do mixed constraints).
     m_graph.set_to_zero(m_zero_int, m_zero_real);
     SASSERT(is_consistent());
+<<<<<<< HEAD
 
     
+=======
+   
+>>>>>>> d849dbf21f218663e9c9ffa01eea168c7b7765c9
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
     }
@@ -531,22 +535,6 @@ bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
         break;
     }
     return true;
-}
-
-
-
-template<typename Ext>
-void theory_diff_logic<Ext>::mark_as_modified_since_eq_prop() {
-    if (!m_modified_since_eq_prop) {
-        get_context().push_trail(value_trail<context, bool>(m_modified_since_eq_prop));
-        m_modified_since_eq_prop = true;
-    }
-}
-
-template<typename Ext>
-void theory_diff_logic<Ext>::unmark_as_modified_since_eq_prop() {
-    get_context().push_trail(value_trail<context, bool>(m_modified_since_eq_prop));
-    m_modified_since_eq_prop = false;
 }
 
 template<typename Ext>
@@ -795,7 +783,6 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
 
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
-    mark_as_modified_since_eq_prop();
     theory_var v = theory::mk_var(n);
     TRACE("diff_logic_vars", tout << "mk_var: " << v << "\n";);
     m_graph.init_var(v);
@@ -803,10 +790,6 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
     return v;
 }
 
-template<typename Ext>
-bool theory_diff_logic<Ext>::is_interpreted(app* n) const {
-    return n->get_family_id() == get_family_id();
-}
 
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(app* n) {
@@ -847,7 +830,6 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_asserted_atoms   .reset();
     m_stats            .reset();
     m_scopes           .reset();
-    m_modified_since_eq_prop = false;
     m_asserted_qhead        = 0;
     m_num_core_conflicts    = 0;
     m_num_propagation_calls = 0;
@@ -855,70 +837,6 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_is_lia                = true;
     m_non_diff_logic_exprs  = false;
     theory::reset_eh();
-}
-
-
-template<typename Ext>
-bool theory_diff_logic<Ext>::propagate_cheap_equalities() {
-    bool result = false;
-    TRACE("dl_new_eq", get_context().display(tout););
-    context& ctx = get_context();
-    region&  reg = ctx.get_region();
-    SASSERT(m_eq_prop_info_set.empty());
-    SASSERT(m_eq_prop_infos.empty());
-    if (m_modified_since_eq_prop) {
-        m_graph.compute_zero_edge_scc(m_scc_id);
-        int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++) {
-            rational delta_r;
-            theory_var x_v = expand(true, v, delta_r);
-            numeral delta(delta_r);
-            int scc_id = m_scc_id[x_v];
-            if (scc_id != -1) {
-                delta += m_graph.get_assignment(x_v);
-                TRACE("eq_scc", tout << v << " " << x_v << " " << scc_id << " " << delta << "\n";);
-                eq_prop_info info(scc_id, delta);
-                typename eq_prop_info_set::entry * entry = m_eq_prop_info_set.find_core(&info);
-                if (entry == 0) {
-                    eq_prop_info * new_info = alloc(eq_prop_info, scc_id, delta, v);
-                    m_eq_prop_info_set.insert(new_info);
-                    m_eq_prop_infos.push_back(new_info);
-                }
-                else {
-                    // new equality found
-                    theory_var r = entry->get_data()->get_root();
-                    
-                    enode * n1 = get_enode(v);
-                    enode * n2 = get_enode(r);
-                    if (n1->get_root() != n2->get_root()) {
-                        // r may be an alias (i.e., it is not realy in the graph). So, I should expand it. 
-                        // nsb: ?? 
-                        rational r_delta;
-                        theory_var x_r = expand(true, r, r_delta);
-                        
-                        justification* j = new (reg) implied_eq_justification(*this, x_v, x_r, m_graph.get_timestamp());
-                        (void)j;
-
-                        m_stats.m_num_th2core_eqs++;
-                        // TBD: get equality into core.
-
-                        NOT_IMPLEMENTED_YET();
-                        // new_eq_eh(x_v, x_r, *j);
-                        result = true;
-                    }
-                }
-            }
-        }
-        m_eq_prop_info_set.reset();
-        std::for_each(m_eq_prop_infos.begin(), m_eq_prop_infos.end(), delete_proc<eq_prop_info>());
-        m_eq_prop_infos.reset();
-        unmark_as_modified_since_eq_prop();        
-    }
-
-    TRACE("dl_new_eq", get_context().display(tout););
-    SASSERT(!m_modified_since_eq_prop);
-
-    return result;
 }
 
 
@@ -1080,7 +998,6 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         // assign the corresponding equality literal.
         //
 
-        mark_as_modified_since_eq_prop();
 
         app_ref eq(m), s2(m), t2(m);
         app* s1 = get_enode(s)->get_owner();

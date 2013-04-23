@@ -41,7 +41,8 @@ namespace datalog {
         typedef hashtable<unsigned, u_hash, u_eq> int_set;
         typedef u_map<unsigned> int2int;
         typedef u_map<unsigned_vector> int2ints;
-        typedef map<func_decl *, reg_idx, ptr_hash<func_decl>,ptr_eq<func_decl> > pred2idx;
+        typedef obj_map<func_decl, reg_idx> pred2idx;
+//        typedef map<func_decl *, reg_idx, ptr_hash<func_decl>,ptr_eq<func_decl> > pred2idx;
         typedef unsigned_vector var_vector;
         typedef ptr_vector<func_decl> func_decl_vector;
 
@@ -177,7 +178,7 @@ namespace datalog {
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);
 
-        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr,
+        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, expr_ref_vector& single_res_expr,
                                               bool & dealloc, instruction_block& acc);
         
         void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, instruction_block & acc);

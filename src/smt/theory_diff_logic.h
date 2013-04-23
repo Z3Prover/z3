@@ -259,8 +259,6 @@ namespace smt {
         theory_var                     m_zero_int; // cache the variable representing the zero variable.
         theory_var                     m_zero_real; // cache the variable representing the zero variable.
         int_vector                     m_scc_id;                  // Cheap equality propagation
-        bool                           m_modified_since_eq_prop;  // true if new constraints were asserted 
-                                                                  // since last eq propagation.
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
         ptr_vector<eq_prop_info>       m_eq_prop_infos;
 
@@ -289,18 +287,14 @@ namespace smt {
         virtual theory_var mk_var(enode* n);
 
         virtual theory_var mk_var(app* n);
-                
-        void mark_as_modified_since_eq_prop();
-        
-        void unmark_as_modified_since_eq_prop();
-        
-        bool propagate_cheap_equalities();
-
+                        
         void compute_delta();
 
         void found_non_diff_logic_expr(expr * n);
 
-        bool is_interpreted(app* n) const;
+        bool is_interpreted(app* n) const {
+            return get_family_id() == n->get_family_id();
+        }
 
         void del_clause_eh(clause* cls);
 
@@ -312,7 +306,6 @@ namespace smt {
             m_arith_eq_adapter(*this, params, m_util),
             m_zero_int(null_theory_var),
             m_zero_real(null_theory_var),
-            m_modified_since_eq_prop(false),
             m_asserted_qhead(0),
             m_num_core_conflicts(0),
             m_num_propagation_calls(0),

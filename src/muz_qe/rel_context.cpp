@@ -116,10 +116,12 @@ namespace datalog {
         TRACE("dl", m_context.display(tout););
 
         while (true) {
+            
             m_ectx.reset();
             m_code.reset();
             termination_code.reset();
             m_context.ensure_closed();
+            IF_VERBOSE(1, verbose_stream() << "num rules: " << m_context.get_rules().get_num_rules() << "\n";);
             m_context.transform_rules();
             if (m_context.canceled()) {
                 result = l_undef;
