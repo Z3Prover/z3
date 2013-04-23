@@ -374,12 +374,6 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     // either will already be zero (as we don't do mixed constraints).
     m_graph.set_to_zero(m_zero_int, m_zero_real);
     SASSERT(is_consistent());
-<<<<<<< HEAD
-
-    
-=======
-   
->>>>>>> d849dbf21f218663e9c9ffa01eea168c7b7765c9
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
     }
