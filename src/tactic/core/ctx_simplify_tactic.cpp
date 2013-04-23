@@ -371,7 +371,7 @@ struct ctx_simplify_tactic::imp {
         if (!modified) {
             r = t;
         }
-        if (new_new_args.empty()) {
+        else if (new_new_args.empty()) {
             r = OR?m.mk_false():m.mk_true();
         }
         else if (new_new_args.size() == 1) {
