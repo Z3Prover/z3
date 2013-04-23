@@ -20,6 +20,7 @@ Revision History:
 #define _HASH_H_
 
 #include<algorithm>
+#include"util.h"
 
 #ifndef __fallthrough
 #define __fallthrough
@@ -140,6 +141,11 @@ struct unsigned_hash {
 struct size_t_hash {
     typedef size_t data;
     unsigned operator()(size_t x) const { return static_cast<unsigned>(x); }
+};
+
+struct uint64_hash {
+    typedef uint64 data;
+    unsigned operator()(uint64 x) const { return static_cast<unsigned>(x); }
 };
 
 struct bool_hash {

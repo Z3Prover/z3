@@ -587,17 +587,31 @@ namespace datalog {
     }
 
     template<class T>
-    unsigned int_vector_hash(const T & cont) {
-        return string_hash(reinterpret_cast<const char *>(cont.c_ptr()), 
-            cont.size()*sizeof(typename T::data), 0);
+    struct default_obj_chash {
+        unsigned operator()(T const& cont, unsigned i) const {
+            return cont[i]->hash();
+        }
+    };
+    template<class T>
+    unsigned obj_vector_hash(const T & cont) {
+        return get_composite_hash(cont, cont.size(),default_kind_hash_proc<T>(), default_obj_chash<T>());
     }
 
     template<class T>
-    struct int_vector_hash_proc { 
+    struct obj_vector_hash_proc { 
         unsigned operator()(const T & cont) const {
-            return int_vector_hash(cont);
+            return obj_vector_hash(cont);
         } 
     };
+
+    template<class T>
+    struct svector_hash_proc { 
+        unsigned operator()(const svector<typename T::data> & cont) const {
+            return svector_hash<T>()(cont);
+        } 
+    };
+
+
     template<class T>
     struct vector_eq_proc { 
         bool operator()(const T & c1, const T & c2) const { return vectors_equal(c1, c2); }
@@ -764,11 +778,6 @@ namespace datalog {
     // misc
     //
     // -----------------------------------
-
-    struct uint64_hash {
-        typedef uint64 data;
-        unsigned operator()(uint64 x) const { return hash_ull(x); }
-    };
 
     template<class T>
     void universal_delete(T* ptr) {

@@ -36,7 +36,7 @@ namespace datalog {
     }
 
     void compiler::ensure_predicate_loaded(func_decl * pred, instruction_block & acc) {
-        pred2idx::entry * e = m_pred_regs.insert_if_not_there2(pred, UINT_MAX);
+        pred2idx::obj_map_entry * e = m_pred_regs.insert_if_not_there2(pred, UINT_MAX);
         if(e->get_data().m_value!=UINT_MAX) {
             //predicate is already loaded
             return;

@@ -107,6 +107,9 @@ namespace datalog {
                 tout << typeid(p).name()<<":\n";
                 new_rules->display(tout);
             );
+            IF_VERBOSE(1, new_rules->get_rule(0)->display(m_context, verbose_stream() << typeid(p).name() <<"\n"););
+            IF_VERBOSE(1, verbose_stream() << new_rules->get_dependencies().begin()->m_key->get_name() << "\n";);
+
         }
         if (modified) {
             rules.replace_rules(*new_rules);

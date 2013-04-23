@@ -656,6 +656,7 @@ namespace datalog {
 
     typedef sort * relation_sort;
     typedef ptr_vector<sort> relation_signature_base0;
+    typedef ptr_hash<sort> relation_sort_hash;
 
     typedef app * relation_element;
     typedef app_ref relation_element_ref;
@@ -739,8 +740,8 @@ namespace datalog {
 
         struct hash {
             unsigned operator()(relation_signature const& s) const { 
-                relation_sort const* sorts = s.c_ptr();
-                return string_hash(reinterpret_cast<char const*>(sorts), sizeof(*sorts)*s.size(), 12); }
+                return obj_vector_hash<relation_signature>(s);
+            }
         };
 
         struct eq {
@@ -816,9 +817,11 @@ namespace datalog {
 
     typedef uint64 table_sort;
     typedef svector<table_sort> table_signature_base0;
+    typedef uint64_hash table_sort_hash;
 
     typedef uint64 table_element;
     typedef svector<table_element> table_fact;
+    typedef uint64_hash table_element_hash;
 
     struct table_traits {
         typedef table_plugin plugin;
@@ -881,8 +884,8 @@ namespace datalog {
     public:
         struct hash {
             unsigned operator()(table_signature const& s) const { 
-                table_sort const* sorts = s.c_ptr();
-                return string_hash(reinterpret_cast<char const*>(sorts), sizeof(*sorts)*s.size(), 12); }
+                return svector_hash<table_sort_hash>()(s);
+            }
         };
 
         struct eq {
