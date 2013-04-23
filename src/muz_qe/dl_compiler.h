@@ -42,7 +42,6 @@ namespace datalog {
         typedef u_map<unsigned> int2int;
         typedef u_map<unsigned_vector> int2ints;
         typedef obj_map<func_decl, reg_idx> pred2idx;
-//        typedef map<func_decl *, reg_idx, ptr_hash<func_decl>,ptr_eq<func_decl> > pred2idx;
         typedef unsigned_vector var_vector;
         typedef ptr_vector<func_decl> func_decl_vector;
 
