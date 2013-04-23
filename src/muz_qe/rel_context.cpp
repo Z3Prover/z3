@@ -179,9 +179,7 @@ namespace datalog {
             scoped_query.reset();
         }
         m_context.record_transformed_rules();
-        TRACE("dl", m_ectx.report_big_relations(100, tout););
-        m_code.process_all_costs();
-        m_code.make_annotations(m_ectx);        
+        TRACE("dl", display_profile(tout););
         return result;
     }
  
@@ -480,7 +478,10 @@ namespace datalog {
         get_rmanager().display(out);
     }
 
-    void rel_context::display_profile(std::ostream& out) const {
+    void rel_context::display_profile(std::ostream& out) {
+        m_code.make_annotations(m_ectx);
+        m_code.process_all_costs();  
+
         out << "\n--------------\n";
         out << "Instructions\n";
         m_code.display(*this, out);

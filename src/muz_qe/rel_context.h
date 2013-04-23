@@ -105,7 +105,7 @@ namespace datalog {
         void display_output_facts(rule_set const& rules, std::ostream & out) const;
         void display_facts(std::ostream & out) const;
 
-        void display_profile(std::ostream& out) const;
+        void display_profile(std::ostream& out);
 
         lbool saturate();
 
