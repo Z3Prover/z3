@@ -371,6 +371,12 @@ struct ctx_simplify_tactic::imp {
         if (!modified) {
             r = t;
         }
+        if (new_new_args.empty()) {
+            r = OR?m.mk_false():m.mk_true();
+        }
+        else if (new_new_args.size() == 1) {
+            r = new_new_args[0];
+        }
         else {
             std::reverse(new_new_args.c_ptr(), new_new_args.c_ptr() + new_new_args.size());
             m_mk_app(t->get_decl(), new_new_args.size(), new_new_args.c_ptr(), r);
