@@ -152,9 +152,6 @@ namespace datalog {
     }
 
     rule_set * mk_filter_rules::operator()(rule_set const & source) {
-        if (!m_context.get_params().filter_rules()) {
-            return 0;
-        }
         m_tail2filter.reset();
         m_result           = alloc(rule_set, m_context);
         m_modified         = false;
