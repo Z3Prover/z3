@@ -1004,16 +1004,14 @@ namespace datalog {
         }
         svector<symbol> names;
         used_symbols<> us;
-        
-        us(fml);
-        sorts.reverse();
-        
         for (unsigned i = 0; i < sorts.size(); ++i) {
             if (!sorts[i]) {
                 sorts[i] = m.mk_bool_sort();
             }
         }
-
+               
+        us(fml);
+        sorts.reverse();
         for (unsigned j = 0, i = 0; i < sorts.size(); ++j) {
             for (char c = 'A'; i < sorts.size() && c <= 'Z'; ++c) {
                 func_decl_ref f(m);

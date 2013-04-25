@@ -1081,6 +1081,7 @@ namespace pdr {
         arith_util a;
         bv_util    bv;
         bool m_is_dl;
+        bool m_test_for_utvpi;
 
         bool is_numeric(expr* e) const {
             if (a.is_numeral(e)) {
@@ -1115,6 +1116,16 @@ namespace pdr {
                 }
                 return false;
             }
+            if (m_test_for_utvpi) {
+                if (a.is_mul(e, e1, e2)) {
+                    if (is_minus_one(e1)) {
+                        return is_offset(e2);
+                    }
+                    if (is_minus_one(e2)) {
+                        return is_offset(e1);
+                    }
+                }
+            }
             return !is_arith_expr(e);
         }
 
@@ -1140,6 +1151,9 @@ namespace pdr {
             if (!a.is_add(lhs, arg1, arg2)) 
                 return false;    
             // x
+            if (m_test_for_utvpi) {
+                return is_offset(arg1) && is_offset(arg2);
+            }
             if (is_arith_expr(arg1)) 
                 std::swap(arg1, arg2);
             if (is_arith_expr(arg1))
@@ -1209,8 +1223,10 @@ namespace pdr {
         }
 
     public:
-        test_diff_logic(ast_manager& m): m(m), a(m), bv(m), m_is_dl(true) {}
-        
+        test_diff_logic(ast_manager& m): m(m), a(m), bv(m), m_is_dl(true), m_test_for_utvpi(false) {}
+       
+        void test_for_utvpi() { m_test_for_utvpi = true; }
+
         void operator()(expr* e) {
             if (!m_is_dl) {
                 return;
@@ -1241,6 +1257,16 @@ namespace pdr {
 
     bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
         test_diff_logic test(m);
+        expr_fast_mark1 mark;
+        for (unsigned i = 0; i < num_fmls; ++i) {
+            quick_for_each_expr(test, mark, fmls[i]);
+        } 
+        return test.is_dl();
+    }  
+
+    bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls) {
+        test_diff_logic test(m);
+        test.test_for_utvpi();
         expr_fast_mark1 mark;
         for (unsigned i = 0; i < num_fmls; ++i) {
             quick_for_each_expr(test, mark, fmls[i]);

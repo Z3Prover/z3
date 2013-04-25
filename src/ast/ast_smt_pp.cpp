@@ -260,6 +260,7 @@ class smt_printer {
         else {
             m_out << sym << "[";
         }
+
         for (unsigned i = 0; i < num_params; ++i) {
             parameter const& p = params[i];
             if (p.is_ast()) {
@@ -642,9 +643,7 @@ class smt_printer {
             m_out << m_var_names[m_num_var_names - idx - 1];
         }
         else {
-            if (!m_is_smt2) {
-                m_out << "?" << idx;
-            }
+            m_out << "?" << idx;
         }
     }
 

@@ -303,6 +303,7 @@ namespace pdr {
         mutable model_search m_search;
         lbool                m_last_result;
         unsigned             m_inductive_lvl;
+        unsigned             m_expanded_lvl;
         ptr_vector<core_generalizer>  m_core_generalizers;
         stats                m_stats;
         volatile bool        m_cancel;
