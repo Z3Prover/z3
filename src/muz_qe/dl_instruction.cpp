@@ -359,21 +359,7 @@ namespace datalog {
                 r2.get_signature().output(ctx.get_rel_context().get_manager(), tout);
                 tout<<":"<<r2.get_size_estimate_rows()<<" ->\n";);
 
-            try {
-                ctx.set_reg(m_res, (*fn)(r1, r2));
-            }
-            catch(...)
-            {
-                std::string annotation;
-                unsigned sz;
-                ctx.get_register_annotation(m_rel1, annotation);
-                sz = ctx.reg(m_rel1)?ctx.reg(m_rel1)->get_size_estimate_rows():0;
-                std::cout << m_rel1 << "\t" << sz << "\t" << annotation << "\n";
-                ctx.get_register_annotation(m_rel2, annotation);
-                sz = ctx.reg(m_rel2)?ctx.reg(m_rel2)->get_size_estimate_rows():0;
-                std::cout << m_rel2 << "\t" << sz << "\t" << annotation << "\n";
-                throw;
-            }
+            ctx.set_reg(m_res, (*fn)(r1, r2));
 
             TRACE("dl", 
                 ctx.reg(m_res)->get_signature().output(ctx.get_rel_context().get_manager(), tout);

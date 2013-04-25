@@ -832,19 +832,19 @@ namespace datalog {
         typedef rule_dependencies::item_set item_set; //set of T
 
         rule_dependencies & m_deps;
-        rule_set const& m_rules;
-        context& m_context;
         item_set & m_removed;
         svector<T> m_stack;
+        ast_mark m_stack_content;
         ast_mark m_visited;
 
         void traverse(T v) {
-            SASSERT(!m_visited.is_marked(v));
-            if (m_removed.contains(v)) {
+            SASSERT(!m_stack_content.is_marked(v)); 
+            if(m_visited.is_marked(v) || m_removed.contains(v)) { 
                 return;
             }
 
             m_stack.push_back(v);
+            m_stack_content.mark(v, true); 
             m_visited.mark(v, true);
 
             const item_set & deps = m_deps.get_deps(v);
@@ -852,49 +852,22 @@ namespace datalog {
             item_set::iterator end = deps.end();
             for(; it!=end; ++it) {
                 T d = *it;
-                if (m_visited.is_marked(d)) {
+                if(m_stack_content.is_marked(d)) { 
                     //TODO: find the best vertex to remove in the cycle
-                    remove_from_stack();
-                    continue;
+                    m_removed.insert(v);
+                    break;
                 }
                 traverse(d);
             }
             SASSERT(m_stack.back()==v);
 
             m_stack.pop_back();
-            m_visited.mark(v, false);
-        }
-
-        void remove_from_stack() {
-            for (unsigned i = 0; i < m_stack.size(); ++i) {
-                func_decl* p = m_stack[i];
-                if (m_context.has_facts(p)) {
-                    m_removed.insert(p);
-                    return;
-                }
-
-                rule_vector const& rules = m_rules.get_predicate_rules(p);
-                unsigned stratum = m_rules.get_predicate_strat(p);
-                for (unsigned j = 0; j < rules.size(); ++j) {
-                    rule const& r = *rules[j];
-                    bool ok = true;
-                    for (unsigned k = 0; ok && k < r.get_uninterpreted_tail_size(); ++k) {
-                        ok = m_rules.get_predicate_strat(r.get_decl(k)) < stratum;
-                    }
-                    if (ok) {
-                        m_removed.insert(p);
-                        return;
-                    }
-                }
-            }
-
-            // nothing was found.
-            m_removed.insert(m_stack.back());
+            m_stack_content.mark(v, false); 
         }
 
     public:
-        cycle_breaker(rule_dependencies & deps, rule_set const& rules, context& ctx, item_set & removed) 
-            : m_deps(deps), m_rules(rules), m_context(ctx), m_removed(removed) { SASSERT(removed.empty()); }
+        cycle_breaker(rule_dependencies & deps, item_set & removed) 
+            : m_deps(deps), m_removed(removed) { SASSERT(removed.empty()); }
 
         void operator()() {
             rule_dependencies::iterator it = m_deps.begin();
@@ -916,7 +889,7 @@ namespace datalog {
 
         rule_dependencies deps(m_rule_set.get_dependencies());
         deps.restrict(preds);
-        cycle_breaker(deps, m_rule_set, m_context, global_deltas)();
+        cycle_breaker(deps, global_deltas)();
         VERIFY( deps.sort_deps(ordered_preds) );
 
         //the predicates that were removed to get acyclic induced subgraph are put last
@@ -1052,12 +1025,17 @@ namespace datalog {
         }
 
         func_decl_vector preds_vector;
-        func_decl_set global_deltas;
+        func_decl_set global_deltas_dummy;
 
-        detect_chains(head_preds, preds_vector, global_deltas);
+        detect_chains(head_preds, preds_vector, global_deltas_dummy);
 
+        /*
+          FIXME: right now we use all preds as global deltas for correctness purposes
         func_decl_set local_deltas(head_preds);
         set_difference(local_deltas, global_deltas);
+        */
+        func_decl_set local_deltas;
+        func_decl_set global_deltas(head_preds);
 
         pred2idx d_global_src;  //these deltas serve as sources of tuples for rule evaluation inside the loop
         get_fresh_registers(global_deltas, d_global_src);

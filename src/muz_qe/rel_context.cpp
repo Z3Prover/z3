@@ -116,12 +116,10 @@ namespace datalog {
         TRACE("dl", m_context.display(tout););
 
         while (true) {
-            
             m_ectx.reset();
             m_code.reset();
             termination_code.reset();
             m_context.ensure_closed();
-            IF_VERBOSE(1, verbose_stream() << "num rules: " << m_context.get_rules().get_num_rules() << "\n";);
             m_context.transform_rules();
             if (m_context.canceled()) {
                 result = l_undef;
@@ -184,9 +182,7 @@ namespace datalog {
             scoped_query.reset();
         }
         m_context.record_transformed_rules();
-        TRACE("dl", m_ectx.report_big_relations(100, tout););
-        m_code.process_all_costs();
-        m_code.make_annotations(m_ectx);        
+        TRACE("dl", display_profile(tout););
         return result;
     }
  
@@ -484,7 +480,10 @@ namespace datalog {
         get_rmanager().display(out);
     }
 
-    void rel_context::display_profile(std::ostream& out) const {
+    void rel_context::display_profile(std::ostream& out) {
+        m_code.make_annotations(m_ectx);
+        m_code.process_all_costs();  
+
         out << "\n--------------\n";
         out << "Instructions\n";
         m_code.display(*this, out);
