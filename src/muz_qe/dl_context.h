@@ -84,6 +84,7 @@ namespace datalog {
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
+        unused_vars_eliminator m_elim_unused_vars;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;

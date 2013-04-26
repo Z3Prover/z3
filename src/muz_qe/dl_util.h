@@ -81,33 +81,13 @@ namespace datalog {
 
     void flatten_or(expr* fml, expr_ref_vector& result);
     
-
-
     bool contains_var(expr * trm, unsigned var_idx);
-
-    /**
-       \brief Collect the variables in \c pred. 
-       \pre \c pred must be a valid head or tail.
-    */
-    void collect_vars(ast_manager & m, expr * pred, var_idx_set & result);
-    void collect_tail_vars(ast_manager & m, rule * r, var_idx_set & result);
-
-    void get_free_vars(rule * r, ptr_vector<sort>& sorts);
 
     /**
        \brief Return number of arguments of \c pred that are variables
     */
     unsigned count_variable_arguments(app * pred);
 
-    /**
-       \brief Store in \c result the set of variables used by \c r when ignoring the tail \c t.
-    */
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t, var_idx_set & result);
-
-    /**
-       \brief Store in \c result the set of variables used by \c r when ignoring the tail elements \c t_1 and \c t_2.
-    */
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t_1, app * t_2, var_idx_set & result);
 
     template<typename T>
     void copy_nonvariables(app * src, T& tgt)

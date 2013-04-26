@@ -27,7 +27,8 @@ namespace datalog {
         plugin(500),
         m_context(ctx),
         m(ctx.get_manager()),
-        m_rules(ctx.get_rule_manager()),
+        rm(ctx.get_rule_manager()),
+        m_rules(rm),
         m_pinned(m) {
     }
 
@@ -47,10 +48,7 @@ namespace datalog {
         }
         unsigned var_idx = to_var(head_arg)->get_idx();
 
-        var_idx_set tail_vars;
-        collect_tail_vars(m, r, tail_vars);
-
-        return tail_vars.contains(var_idx);
+        return rm.collect_tail_vars(r).contains(var_idx);
     }
 
     void mk_unbound_compressor::add_task(func_decl * pred, unsigned arg_index) {
@@ -83,8 +81,7 @@ namespace datalog {
 
     void mk_unbound_compressor::detect_tasks(rule_set const& source, unsigned rule_index) {
         rule * r = m_rules.get(rule_index);
-        var_idx_set tail_vars;
-        collect_tail_vars(m, r, tail_vars);
+        var_idx_set& tail_vars = rm.collect_tail_vars(r);
 
         app * head = r->get_head();
         func_decl * head_pred = head->get_decl();
@@ -94,9 +91,9 @@ namespace datalog {
         }
 
         unsigned n = head_pred->get_arity();
-
-        var_counter head_var_counter;
-        head_var_counter.count_vars(m, head, 1);
+        
+        rm.get_counter().reset();
+        rm.get_counter().count_vars(m, head, 1);
 
         for (unsigned i=0; i<n; i++) {
             expr * arg = head->get_arg(i);
@@ -107,7 +104,7 @@ namespace datalog {
             if (!tail_vars.contains(var_idx)) {
                 //unbound
 
-                unsigned occurence_cnt = head_var_counter.get(var_idx);
+                unsigned occurence_cnt = rm.get_counter().get(var_idx);
                 SASSERT(occurence_cnt>0);
                 if (occurence_cnt == 1) {
                     TRACE("dl", r->display(m_context, tout << "Compress: "););
@@ -121,15 +118,14 @@ namespace datalog {
     void mk_unbound_compressor::try_compress(rule_set const& source, unsigned rule_index) {
     start:
         rule * r = m_rules.get(rule_index);
-        var_idx_set tail_vars;
-        collect_tail_vars(m, r, tail_vars);
+        var_idx_set& tail_vars = rm.collect_tail_vars(r);
         
         app * head = r->get_head();
         func_decl * head_pred = head->get_decl();
         unsigned head_arity = head_pred->get_arity();
 
-        var_counter head_var_counter;
-        head_var_counter.count_vars(m, head);
+        rm.get_counter().reset();
+        rm.get_counter().count_vars(m, head);
 
         unsigned arg_index;
         for (arg_index = 0; arg_index < head_arity; arg_index++) {
@@ -140,7 +136,7 @@ namespace datalog {
             unsigned var_idx = to_var(arg)->get_idx();
             if (!tail_vars.contains(var_idx)) {
                 //unbound
-                unsigned occurence_cnt = head_var_counter.get(var_idx);
+                unsigned occurence_cnt = rm.get_counter().get(var_idx);
                 SASSERT(occurence_cnt>0);
                 if ( occurence_cnt==1 && m_in_progress.contains(c_info(head_pred, arg_index)) ) {
                     //we have found what to compress

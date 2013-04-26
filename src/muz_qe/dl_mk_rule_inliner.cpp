@@ -505,9 +505,6 @@ namespace datalog {
 
         unsigned head_arity = head_pred->get_arity();
 
-        //var_idx_set head_vars;
-        //var_idx_set same_strat_vars;
-        //collect_vars(m, r->get_head(), head_vars);
 
         unsigned pt_len = r->get_positive_tail_size();
         for (unsigned ti=0; ti<pt_len; ++ti) {
@@ -518,7 +515,6 @@ namespace datalog {
             SASSERT(pred_strat<=head_strat);
 
             if (pred_strat==head_strat) {
-                //collect_vars(m, r->get_head(), same_strat_vars);
                 if (pred->get_arity()>head_arity
                     || (pred->get_arity()==head_arity && pred->get_id()>=head_pred->get_id()) ) {
                     return false;

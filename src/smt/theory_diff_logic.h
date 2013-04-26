@@ -316,7 +316,7 @@ namespace smt {
             m_nc_functor(*this) {
         }            
 
-        ~theory_diff_logic() {
+        virtual ~theory_diff_logic() {
             reset_eh();
         }
 

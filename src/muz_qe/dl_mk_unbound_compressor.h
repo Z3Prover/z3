@@ -52,6 +52,7 @@ namespace datalog {
 
         context &	    m_context;
         ast_manager &       m;
+        rule_manager &      rm;
         rule_ref_vector     m_rules;
         bool                m_modified;
         todo_stack          m_todo;

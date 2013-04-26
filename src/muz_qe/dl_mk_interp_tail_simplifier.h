@@ -34,15 +34,17 @@ namespace datalog {
         {
             ast_manager& m;
             context& m_context;
-            substitution m_subst;
-            unifier m_unif;
-
-            rule * m_rule;
+            substitution   m_subst;
+            unifier        m_unif;
+            app_ref        m_head;
+            app_ref_vector m_tail;
+            svector<bool>  m_neg;
+            rule *         m_rule;
 
             void apply(app * a, app_ref& res);
         public:
             rule_substitution(context & ctx)
-                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_rule(0) {}
+                : m(ctx.get_manager()), m_context(ctx), m_subst(m), m_unif(m), m_head(m), m_tail(m), m_rule(0) {}
 
             /**
             Reset substitution and get it ready for working with rule r.
@@ -61,13 +63,17 @@ namespace datalog {
             }
         };
 
+        class normalizer_cfg;
+        class normalizer_rw;
+
         ast_manager &     m;
         context &         m_context;
         th_rewriter &     m_simp;
         arith_util        a;
         rule_substitution m_rule_subst;
+        normalizer_cfg*   m_cfg;
+        normalizer_rw*    m_rw;
 
-        class normalizer_cfg;
 
         void simplify_expr(app * a, expr_ref& res);
 
@@ -77,13 +83,8 @@ namespace datalog {
         /** Return true if something was modified */
         bool transform_rules(const rule_set & orig, rule_set & tgt);
     public:
-        mk_interp_tail_simplifier(context & ctx, unsigned priority=40000)
-            : plugin(priority),
-            m(ctx.get_manager()),
-            m_context(ctx),
-            m_simp(ctx.get_rewriter()),
-            a(m),
-            m_rule_subst(ctx) {}
+        mk_interp_tail_simplifier(context & ctx, unsigned priority=40000);
+        virtual ~mk_interp_tail_simplifier();
 
         /**If rule should be retained, assign transformed version to res and return true;
         if rule can be deleted, return false.

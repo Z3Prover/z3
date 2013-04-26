@@ -2525,13 +2525,13 @@ public:
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
-
-    virtual tactic * translate(ast_manager & m) {
-        return alloc(qe_lite_tactic, m, m_params);
-    }
         
     virtual ~qe_lite_tactic() {
         dealloc(m_imp);
+    }
+
+    virtual tactic * translate(ast_manager & m) {
+        return alloc(qe_lite_tactic, m, m_params);
     }
 
     virtual void updt_params(params_ref const & p) {

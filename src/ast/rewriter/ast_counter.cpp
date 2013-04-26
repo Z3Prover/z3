@@ -93,7 +93,9 @@ void var_counter::count_vars(ast_manager & m, const app * pred, int coef) {
     unsigned n = pred->get_num_args();
     for (unsigned i = 0; i < n; i++) {
         m_sorts.reset();
-        ::get_free_vars(pred->get_arg(i), m_sorts);
+        m_todo.reset();
+        m_mark.reset();
+        ::get_free_vars(m_mark, m_todo, pred->get_arg(i), m_sorts);
         for (unsigned j = 0; j < m_sorts.size(); ++j) {
             if (m_sorts[j]) {
                 update(j, coef);

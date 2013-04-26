@@ -226,6 +226,7 @@ namespace datalog {
         m_rewriter(m),
         m_var_subst(m),
         m_rule_manager(*this),
+        m_elim_unused_vars(m),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
@@ -332,7 +333,7 @@ namespace datalog {
                 quantifier_ref q(m);
                 sorts.reverse();
                 q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
-                elim_unused_vars(m, q, result);
+                m_elim_unused_vars(q, result);
             }
         }
         return result;

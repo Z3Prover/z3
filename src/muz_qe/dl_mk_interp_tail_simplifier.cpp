@@ -67,24 +67,23 @@ namespace datalog {
     void mk_interp_tail_simplifier::rule_substitution::get_result(rule_ref & res) {
         SASSERT(m_rule);
 
-        app_ref new_head(m);
-        apply(m_rule->get_head(), new_head);
+        apply(m_rule->get_head(), m_head);
 
-        app_ref_vector tail(m);
-        svector<bool> tail_neg;
+        m_tail.reset();
+        m_neg.reset();
 
         unsigned tail_len = m_rule->get_tail_size();
         for (unsigned i=0; i<tail_len; i++) {
             app_ref new_tail_el(m);
             apply(m_rule->get_tail(i), new_tail_el);
-            tail.push_back(new_tail_el);
-            tail_neg.push_back(m_rule->is_neg_tail(i));
+            m_tail.push_back(new_tail_el);
+            m_neg.push_back(m_rule->is_neg_tail(i));
         }
 
-        mk_rule_inliner::remove_duplicate_tails(tail, tail_neg);
+        mk_rule_inliner::remove_duplicate_tails(m_tail, m_neg);
 
-        SASSERT(tail.size() == tail_neg.size());
-        res = m_context.get_rule_manager().mk(new_head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+        SASSERT(m_tail.size() == m_neg.size());
+        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr());
         res->set_accounting_parent_object(m_context, m_rule);
         res->norm_vars(res.get_manager());
     }
@@ -362,14 +361,34 @@ namespace datalog {
         }
     };
 
+    class mk_interp_tail_simplifier::normalizer_rw : public rewriter_tpl<normalizer_cfg> {
+    public:
+        normalizer_rw(ast_manager& m, normalizer_cfg& cfg): rewriter_tpl<normalizer_cfg>(m, false, cfg) {}
+    };
+
+
+    mk_interp_tail_simplifier::mk_interp_tail_simplifier(context & ctx, unsigned priority)
+            : plugin(priority),
+            m(ctx.get_manager()),
+            m_context(ctx),
+            m_simp(ctx.get_rewriter()),
+            a(m),
+            m_rule_subst(ctx) {
+        m_cfg = alloc(normalizer_cfg, m);
+        m_rw = alloc(normalizer_rw, m, *m_cfg);
+    }
+
+    mk_interp_tail_simplifier::~mk_interp_tail_simplifier() {
+        dealloc(m_rw);
+        dealloc(m_cfg);
+    }
+    
+
     void mk_interp_tail_simplifier::simplify_expr(app * a, expr_ref& res)
     {
         expr_ref simp1_res(m);
         m_simp(a, simp1_res);
-        normalizer_cfg r_cfg(m);
-        rewriter_tpl<normalizer_cfg> rwr(m, false, r_cfg);
-        expr_ref dl_form_e(m);
-        rwr(simp1_res.get(), res);
+        (*m_rw)(simp1_res.get(), res);
 
         /*if (simp1_res.get()!=res.get()) {
             std::cout<<"pre norm:\n"<<mk_pp(simp1_res.get(),m)<<"post norm:\n"<<mk_pp(res.get(),m)<<"\n";

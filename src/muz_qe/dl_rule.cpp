@@ -48,7 +48,9 @@ namespace datalog {
 
     rule_manager::rule_manager(context& ctx) 
         : m(ctx.get_manager()),
-          m_ctx(ctx) {}
+          m_ctx(ctx),
+          m_cfg(m),
+          m_rwr(m, false, m_cfg) {}
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
@@ -67,34 +69,86 @@ namespace datalog {
         }
     }
 
-    class remove_label_cfg : public default_rewriter_cfg {
-        family_id m_label_fid;
-    public:        
-        remove_label_cfg(ast_manager& m): m_label_fid(m.get_label_family_id()) {}
-        virtual ~remove_label_cfg() {}
-
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
-            proof_ref & result_pr)
-        {
-            if (is_decl_of(f, m_label_fid, OP_LABEL)) {
-                SASSERT(num == 1);
-                result = args[0];
-                return BR_DONE;
-            }
-            return BR_FAILED;
+    br_status rule_manager::remove_label_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
+                                                         proof_ref & result_pr)
+    {
+        if (is_decl_of(f, m_label_fid, OP_LABEL)) {
+            SASSERT(num == 1);
+            result = args[0];
+            return BR_DONE;
         }
-    };
+        return BR_FAILED;
+    }
 
     void rule_manager::remove_labels(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
-        remove_label_cfg r_cfg(m);
-        rewriter_tpl<remove_label_cfg> rwr(m, false, r_cfg);
-        rwr(fml, tmp);
+        m_rwr(fml, tmp);
         if (pr && fml != tmp) {
             
             pr = m.mk_modus_ponens(pr, m.mk_rewrite(fml, tmp));
         }
         fml = tmp;
+    }
+
+    var_idx_set& rule_manager::collect_vars(expr* e) {
+        return collect_vars(e, 0);
+    }
+
+    var_idx_set& rule_manager::collect_vars(expr* e1, expr* e2) {
+        reset_collect_vars();
+        if (e1) accumulate_vars(e1);
+        if (e2) accumulate_vars(e2);
+        return finalize_collect_vars();
+    }
+
+    void rule_manager::reset_collect_vars() {
+        m_vars.reset();
+        m_var_idx.reset();
+        m_todo.reset();
+        m_mark.reset();
+    }
+
+    var_idx_set& rule_manager::finalize_collect_vars() {
+        unsigned sz = m_vars.size();
+        for (unsigned i=0; i<sz; ++i) {
+            if (m_vars[i]) m_var_idx.insert(i); 
+        }
+        return m_var_idx;
+    }
+
+    var_idx_set& rule_manager::collect_tail_vars(rule * r) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        for (unsigned i=0;i<n;i++) {
+            accumulate_vars(r->get_tail(i));
+        }
+        return finalize_collect_vars();
+    }
+
+    var_idx_set& rule_manager::collect_rule_vars_ex(rule * r, app* t) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        accumulate_vars(r->get_head());
+        for (unsigned i=0;i<n;i++) {
+            if (r->get_tail(i) != t) {
+                accumulate_vars(r->get_tail(i));
+            }
+        }
+        return finalize_collect_vars();
+    }
+
+    var_idx_set& rule_manager::collect_rule_vars(rule * r) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        accumulate_vars(r->get_head());
+        for (unsigned i=0;i<n;i++) {
+            accumulate_vars(r->get_tail(i));
+        }
+        return finalize_collect_vars();
+    }
+
+    void rule_manager::accumulate_vars(expr* e) {
+        ::get_free_vars(m_mark, m_todo, e, m_vars);
     }
 
 
@@ -570,15 +624,14 @@ namespace datalog {
             return;
         }
 
-        ptr_vector<sort> free_rule_vars;
         var_counter vctr;
         app_ref_vector tail(m);
         svector<bool> tail_neg;
         app_ref head(r->get_head(), m);
 
-        get_free_vars(r, free_rule_vars);
+        collect_rule_vars(r);
         vctr.count_vars(m, head);
-
+        ptr_vector<sort>& free_rule_vars = m_vars;
 
         for (unsigned i = 0; i < ut_len; i++) {
             app * t = r->get_tail(i);
@@ -906,7 +959,7 @@ namespace datalog {
     }
 
     void rule::norm_vars(rule_manager & rm) {
-        used_vars used;
+        used_vars& used = rm.reset_used();
         get_used_vars(used);
 
         unsigned first_unsused = used.get_max_found_var_idx_plus_1();

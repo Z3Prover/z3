@@ -567,8 +567,7 @@ namespace datalog {
         const relation_signature sig = r.get_signature();
         unsigned sz = sig.size();
 
-        var_idx_set cond_vars;
-        collect_vars(m, condition, cond_vars);
+        var_idx_set& cond_vars = get_context().get_rule_manager().collect_vars(condition);
         expr_ref_vector subst_vect(m);
         subst_vect.resize(sz);
         unsigned subst_ofs = sz-1;
