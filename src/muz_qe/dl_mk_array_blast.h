@@ -38,7 +38,6 @@ namespace datalog {
         rule_manager&   rm;
         params_ref      m_params;
         th_rewriter     m_rewriter;
-        ptr_vector<sort> m_vars;
         mk_interp_tail_simplifier m_simplifier;
 
         typedef obj_map<app, var*> defs_t;

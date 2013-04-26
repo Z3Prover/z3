@@ -49,7 +49,6 @@ Revision History:
 #include"dl_mk_quantifier_abstraction.h"
 #include"dl_mk_quantifier_instantiation.h"
 #include"datatype_decl_plugin.h"
-#include"expr_abstract.h"
 
 
 namespace datalog {
@@ -227,6 +226,7 @@ namespace datalog {
         m_var_subst(m),
         m_rule_manager(*this),
         m_elim_unused_vars(m),
+        m_abstractor(m),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
@@ -307,7 +307,7 @@ namespace datalog {
         }
         else {
             ptr_vector<sort> sorts;
-            expr_abstract(m, 0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
+            m_abstractor(0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
             get_free_vars(result, sorts);
             if (sorts.empty()) {
                 result = fml;

@@ -45,6 +45,7 @@ Revision History:
 #include"model2expr.h"
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
+#include"expr_abstract.h"
 
 namespace datalog {
 
@@ -85,6 +86,7 @@ namespace datalog {
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
         unused_vars_eliminator m_elim_unused_vars;
+        expr_abstractor        m_abstractor;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;

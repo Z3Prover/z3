@@ -57,10 +57,10 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
         m_used.process(q->get_pattern(i));
     unsigned num_no_patterns = q->get_num_no_patterns();
     for (unsigned i = 0; i < num_no_patterns; i++)
-        used.process(q->get_no_pattern(i));
+        m_used.process(q->get_no_pattern(i));
 
     unsigned num_decls = q->get_num_decls();
-    if (used.uses_all_vars(num_decls)) {
+    if (m_used.uses_all_vars(num_decls)) {
         q->set_no_unused_vars();
         result = q;
         return;
@@ -69,7 +69,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     ptr_buffer<sort>  used_decl_sorts; 
     buffer<symbol>    used_decl_names;
     for (unsigned i = 0; i < num_decls; ++i) {
-        if (used.contains(num_decls - i - 1)) {
+        if (m_used.contains(num_decls - i - 1)) {
             used_decl_sorts.push_back(q->get_decl_sort(i));
             used_decl_names.push_back(q->get_decl_name(i));
         }
@@ -78,10 +78,10 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     unsigned         num_removed = 0;
     expr_ref_buffer  var_mapping(m);
     int              next_idx = 0;
-    unsigned         sz = used.get_max_found_var_idx_plus_1();
+    unsigned         sz = m_used.get_max_found_var_idx_plus_1();
 
     for (unsigned i = 0; i < num_decls; ++i) {
-        sort * s = used.contains(i);
+        sort * s = m_used.contains(i);
         if (s) {
             var_mapping.push_back(m.mk_var(next_idx, s));
             next_idx++;
@@ -94,7 +94,7 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     // (VAR 0) is in the first position of var_mapping.
 
     for (unsigned i = num_decls; i < sz; i++) {
-        sort * s = used.contains(i);
+        sort * s = m_used.contains(i);
         if (s)
             var_mapping.push_back(m.mk_var(i - num_removed, s));
         else
@@ -122,11 +122,11 @@ void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     expr_ref_buffer new_no_patterns(m);
     
     for (unsigned i = 0; i < num_patterns; i++) {
-        subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_patterns.push_back(tmp);
     }
     for (unsigned i = 0; i < num_no_patterns; i++) {
-        subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_no_patterns.push_back(tmp);
     }
     
