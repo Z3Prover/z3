@@ -369,11 +369,14 @@ namespace datalog {
 
     mk_interp_tail_simplifier::mk_interp_tail_simplifier(context & ctx, unsigned priority)
             : plugin(priority),
-            m(ctx.get_manager()),
-            m_context(ctx),
-            m_simp(ctx.get_rewriter()),
-            a(m),
-            m_rule_subst(ctx) {
+              m(ctx.get_manager()),
+              m_context(ctx),
+              m_simp(ctx.get_rewriter()),
+              a(m),
+              m_rule_subst(ctx),
+              m_tail(m), 
+              m_itail_members(m),
+              m_conj(m) {
         m_cfg = alloc(normalizer_cfg, m);
         m_rw = alloc(normalizer_rw, m, *m_cfg);
     }
@@ -404,15 +407,15 @@ namespace datalog {
             return false;
         }
 
-        ptr_vector<expr> todo;
+        m_todo.reset();
+        m_leqs.reset();
         for (unsigned i = u_len; i < len; i++) {
-            todo.push_back(r->get_tail(i));
+            m_todo.push_back(r->get_tail(i));
             SASSERT(!r->is_neg_tail(i));
         }
 
         m_rule_subst.reset(r);
 
-        obj_hashtable<expr> leqs;
         expr_ref_vector trail(m);
         expr_ref tmp1(m), tmp2(m);
         bool found_something = false;
@@ -420,10 +423,10 @@ namespace datalog {
 #define TRY_UNIFY(_x,_y) if (m_rule_subst.unify(_x,_y)) { found_something = true; }
 #define IS_FLEX(_x) (is_var(_x) || m.is_value(_x))
 
-        while (!todo.empty()) {
+        while (!m_todo.empty()) {
             expr * arg1, *arg2;
-            expr * t0 = todo.back();
-            todo.pop_back();
+            expr * t0 = m_todo.back();
+            m_todo.pop_back();
             expr* t = t0;
             bool neg = m.is_not(t, t);
             if (is_var(t)) {
@@ -431,7 +434,7 @@ namespace datalog {
             }
             else if (!neg && m.is_and(t)) {
                 app* a = to_app(t);
-                todo.append(a->get_num_args(), a->get_args());
+                m_todo.append(a->get_num_args(), a->get_args());
             }
             else if (!neg && m.is_eq(t, arg1, arg2) && IS_FLEX(arg1) && IS_FLEX(arg2)) {
                 TRY_UNIFY(arg1, arg2);
@@ -459,12 +462,12 @@ namespace datalog {
             else if (!neg && (a.is_le(t, arg1, arg2) || a.is_ge(t, arg2, arg1))) {
                 tmp1 = a.mk_sub(arg1, arg2);
                 tmp2 = a.mk_sub(arg2, arg1);
-                if (false && leqs.contains(tmp2) && IS_FLEX(arg1) && IS_FLEX(arg2)) {
+                if (false && m_leqs.contains(tmp2) && IS_FLEX(arg1) && IS_FLEX(arg2)) {
                     TRY_UNIFY(arg1, arg2);
                 }
                 else {
                     trail.push_back(tmp1);
-                    leqs.insert(tmp1);
+                    m_leqs.insert(tmp1);
                 }
             }
         }
@@ -504,12 +507,12 @@ namespace datalog {
         }
         app_ref head(r->get_head(), m);
 
-        app_ref_vector tail(m);
-        svector<bool> tail_neg;
+        m_tail.reset();
+        m_tail_neg.reset();
 
         for (unsigned i=0; i<u_len; i++) {
-            tail.push_back(r->get_tail(i));
-            tail_neg.push_back(r->is_neg_tail(i));
+            m_tail.push_back(r->get_tail(i));
+            m_tail_neg.push_back(r->is_neg_tail(i));
         }
 
         bool modified = false;
@@ -521,12 +524,12 @@ namespace datalog {
             SASSERT(!r->is_neg_tail(u_len));
         }
         else {
-            expr_ref_vector itail_members(m);
+            m_itail_members.reset();
             for (unsigned i=u_len; i<len; i++) {
-                itail_members.push_back(r->get_tail(i));
+                m_itail_members.push_back(r->get_tail(i));
                 SASSERT(!r->is_neg_tail(i));
             }
-            itail = m.mk_and(itail_members.size(), itail_members.c_ptr());
+            itail = m.mk_and(m_itail_members.size(), m_itail_members.c_ptr());
             modified = true;
         }
 
@@ -542,21 +545,21 @@ namespace datalog {
         SASSERT(m.is_bool(simp_res));
 
         if (modified) {
-            expr_ref_vector conjs(m);
-            flatten_and(simp_res, conjs);
-            for (unsigned i = 0; i < conjs.size(); ++i) {
-                expr* e = conjs[i].get();
+            m_conj.reset();
+            flatten_and(simp_res, m_conj);
+            for (unsigned i = 0; i < m_conj.size(); ++i) {
+                expr* e = m_conj[i].get();
                 if (is_app(e)) {
-                    tail.push_back(to_app(e));
+                    m_tail.push_back(to_app(e));
                 }
                 else {
-                    tail.push_back(m.mk_eq(e, m.mk_true()));
+                    m_tail.push_back(m.mk_eq(e, m.mk_true()));
                 }
-                tail_neg.push_back(false);
+                m_tail_neg.push_back(false);
             }
 
-            SASSERT(tail.size() == tail_neg.size());
-            res = m_context.get_rule_manager().mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+            SASSERT(m_tail.size() == m_tail_neg.size());
+            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr());
             res->set_accounting_parent_object(m_context, r);
         }
         else {

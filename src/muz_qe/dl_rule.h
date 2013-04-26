@@ -28,6 +28,8 @@ Revision History:
 #include"model_converter.h"
 #include"ast_counter.h"
 #include"rewriter.h"
+#include"hnf.h"
+#include"qe_lite.h"
 
 namespace datalog {
 
@@ -66,6 +68,12 @@ namespace datalog {
         var_idx_set          m_var_idx;
         ptr_vector<expr>     m_todo;
         ast_mark             m_mark;
+        app_ref_vector       m_body;
+        app_ref              m_head;
+        expr_ref_vector      m_args;
+        svector<bool>        m_neg;
+        hnf                  m_hnf;
+        qe_lite              m_qe;
         remove_label_cfg               m_cfg;
         rewriter_tpl<remove_label_cfg> m_rwr;
 

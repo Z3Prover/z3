@@ -40,15 +40,18 @@ Revision History:
 #include"quant_hoist.h"
 #include"expr_replacer.h"
 #include"bool_rewriter.h"
-#include"qe_lite.h"
 #include"expr_safe_replace.h"
-#include"hnf.h"
 
 namespace datalog {
 
     rule_manager::rule_manager(context& ctx) 
         : m(ctx.get_manager()),
           m_ctx(ctx),
+          m_body(m),
+          m_head(m),
+          m_args(m),
+          m_hnf(m),
+          m_qe(m),
           m_cfg(m),
           m_rwr(m, false, m_cfg) {}
 
@@ -179,13 +182,13 @@ namespace datalog {
     }
 
     void rule_manager::mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name) {
-        hnf h(m);
         expr_ref_vector fmls(m);
         proof_ref_vector prs(m);
-        h.set_name(name);
-        h(fml, p, fmls, prs);
-        for (unsigned i = 0; i < h.get_fresh_predicates().size(); ++i) {
-            m_ctx.register_predicate(h.get_fresh_predicates()[i], false);
+        m_hnf.reset();
+        m_hnf.set_name(name);
+        m_hnf(fml, p, fmls, prs);
+        for (unsigned i = 0; i < m_hnf.get_fresh_predicates().size(); ++i) {
+            m_ctx.register_predicate(m_hnf.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
             mk_horn_rule(fmls[i].get(), prs[i].get(), rules, name);
@@ -194,24 +197,23 @@ namespace datalog {
 
     void rule_manager::mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
         
-        app_ref_vector body(m);
-        app_ref head(m);
-        svector<bool> is_negated;
-        unsigned index = extract_horn(fml, body, head);
-        hoist_compound_predicates(index, head, body);
+        m_body.reset();
+        m_neg.reset();
+        unsigned index = extract_horn(fml, m_body, m_head);
+        hoist_compound_predicates(index, m_head, m_body);
         TRACE("dl_rule",
               tout << mk_pp(head, m) << " :- ";
-              for (unsigned i = 0; i < body.size(); ++i) {
-                  tout << mk_pp(body[i].get(), m) << " ";
+              for (unsigned i = 0; i < m_body.size(); ++i) {
+                  tout << mk_pp(m_body[i].get(), m) << " ";
               }
               tout << "\n";);
 
 
-        mk_negations(body, is_negated);
-        check_valid_rule(head, body.size(), body.c_ptr());
+        mk_negations(m_body, m_neg);
+        check_valid_rule(m_head, m_body.size(), m_body.c_ptr());
 
         rule_ref r(*this);
-        r = mk(head.get(), body.size(), body.c_ptr(), is_negated.c_ptr(), name);
+        r = mk(m_head.get(), m_body.size(), m_body.c_ptr(), m_neg.c_ptr(), name);
 
         expr_ref fml1(m);
         if (p) {
@@ -380,28 +382,28 @@ namespace datalog {
             fml = m.mk_not(fml);
             return;
         }
-        expr_ref_vector args(m);
         if (!m_ctx.is_predicate(fml)) {
             return;
         }
+        m_args.reset();
         for (unsigned i = 0; i < fml->get_num_args(); ++i) {
             e = fml->get_arg(i);
             if (!is_app(e)) {
-                args.push_back(e);
+                m_args.push_back(e);
                 continue;
             }
             app* b = to_app(e);
 
             if (m.is_value(b)) {
-                args.push_back(e);
+                m_args.push_back(e);
             }
             else {
                 var* v = m.mk_var(num_bound++, m.get_sort(b));
-                args.push_back(v);
+                m_args.push_back(v);
                 body.push_back(m.mk_eq(v, b));
             }
         }
-        fml = m.mk_app(fml->get_decl(), args.size(), args.c_ptr());
+        fml = m.mk_app(fml->get_decl(), m_args.size(), m_args.c_ptr());
         TRACE("dl_rule", tout << mk_pp(fml.get(), m) << "\n";);
     }
 
@@ -565,29 +567,22 @@ namespace datalog {
     void rule_manager::reduce_unbound_vars(rule_ref& r) {
         unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned t_len = r->get_tail_size();
-        ptr_vector<sort> vars;
-        uint_set index_set;
-        qe_lite qe(m);
         expr_ref_vector conjs(m);
 
         if (ut_len == t_len) {
             return;
         }
 
-        get_free_vars(r->get_head(), vars);
+        reset_collect_vars();
+        accumulate_vars(r->get_head());
         for (unsigned i = 0; i < ut_len; ++i) {
-            get_free_vars(r->get_tail(i), vars);
+            accumulate_vars(r->get_tail(i));
         }
+        var_idx_set& index_set = finalize_collect_vars();
         for (unsigned i = ut_len; i < t_len; ++i) {
             conjs.push_back(r->get_tail(i));
         }
-
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            if (vars[i]) {
-                index_set.insert(i);
-            }
-        }
-        qe(index_set, false, conjs);
+        m_qe(index_set, false, conjs);
         bool change = conjs.size() != t_len - ut_len;
         for (unsigned i = 0; !change && i < conjs.size(); ++i) {
             change = r->get_tail(ut_len+i) != conjs[i].get();

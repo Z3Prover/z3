@@ -46,6 +46,8 @@ Revision History:
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
 #include"expr_abstract.h"
+#include"expr_functors.h"
+
 
 namespace datalog {
 
@@ -77,6 +79,18 @@ namespace datalog {
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
 
+        class contains_pred : public i_expr_pred {
+            context const& ctx;
+        public:
+            contains_pred(context& ctx): ctx(ctx) {}
+            virtual ~contains_pred() {}
+            
+            virtual bool operator()(expr* e) {
+                return ctx.is_predicate(e);
+            }
+        };
+
+
         ast_manager &      m;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
@@ -87,10 +101,13 @@ namespace datalog {
         rule_manager       m_rule_manager;
         unused_vars_eliminator m_elim_unused_vars;
         expr_abstractor        m_abstractor;
+        contains_pred      m_contains_p;
+        check_pred         m_check_pred;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
         app_ref_vector     m_vars;
+        svector<symbol>    m_names;
         sort_domain_map    m_sorts;
         func_decl_set      m_preds;
         sym2decl           m_preds_by_name;

@@ -71,6 +71,12 @@ namespace datalog {
         th_rewriter &     m_simp;
         arith_util        a;
         rule_substitution m_rule_subst;
+        ptr_vector<expr> m_todo;
+        obj_hashtable<expr> m_leqs;
+        app_ref_vector    m_tail;
+        expr_ref_vector   m_itail_members;
+        expr_ref_vector   m_conj;
+        svector<bool>     m_tail_neg;
         normalizer_cfg*   m_cfg;
         normalizer_rw*    m_rw;
 
