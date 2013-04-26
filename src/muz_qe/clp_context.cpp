@@ -3,15 +3,15 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    tab_context.cpp
+    clp_context.cpp
 
 Abstract:
 
-    Tabulation/subsumption/cyclic proof context.
+    Bounded CLP (symbolic simulation using Z3) context.
 
 Author:
 
-    Nikolaj Bjorner (nbjorner) 2013-01-15
+    Nikolaj Bjorner (nbjorner) 2013-04-26
 
 Revision History:
 
