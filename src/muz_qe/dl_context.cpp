@@ -547,6 +547,8 @@ namespace datalog {
             throw default_exception("get_num_levels is not supported for bmc");
         case TAB_ENGINE:
             throw default_exception("get_num_levels is not supported for tab");
+        case CLP_ENGINE:
+            throw default_exception("get_num_levels is not supported for clp");
         default:
             throw default_exception("unknown engine");
         } 
@@ -565,6 +567,8 @@ namespace datalog {
             throw default_exception("operation is not supported for BMC engine");
         case TAB_ENGINE:
             throw default_exception("operation is not supported for TAB engine");
+        case CLP_ENGINE:
+            throw default_exception("operation is not supported for CLP engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -584,6 +588,8 @@ namespace datalog {
             throw default_exception("operation is not supported for BMC engine");
         case TAB_ENGINE:
             throw default_exception("operation is not supported for TAB engine");
+        case CLP_ENGINE:
+            throw default_exception("operation is not supported for CLP engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -708,6 +714,10 @@ namespace datalog {
             check_positive_predicates(r);
             break;         
         case TAB_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
+        case CLP_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
@@ -984,6 +994,9 @@ namespace datalog {
         else if (e == symbol("tab")) {
             m_engine = TAB_ENGINE;
         }
+        else if (e == symbol("clp")) {
+            m_engine = CLP_ENGINE;
+        }
 
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -1019,6 +1032,8 @@ namespace datalog {
             return bmc_query(query);
         case TAB_ENGINE:
             return tab_query(query);
+        case CLP_ENGINE:
+            return clp_query(query);
         default:
             UNREACHABLE();
             return rel_query(query);
@@ -1083,9 +1098,20 @@ namespace datalog {
         }
     }
 
+    void context::ensure_clp() {
+        if (!m_clp.get()) {
+            m_clp = alloc(clp, *this);
+        }
+    }
+
     lbool context::tab_query(expr* query) {
         ensure_tab();
         return m_tab->query(query);
+    }
+
+    lbool context::clp_query(expr* query) {
+        ensure_clp();
+        return m_clp->query(query);
     }
 
     void context::ensure_rel() {
@@ -1128,6 +1154,10 @@ namespace datalog {
             ensure_tab();
             m_last_answer = m_tab->get_answer();
             return m_last_answer.get();
+        case CLP_ENGINE:
+            ensure_clp();
+            m_last_answer = m_clp->get_answer();
+            return m_last_answer.get();
         default:
             UNREACHABLE();
         }
@@ -1152,6 +1182,10 @@ namespace datalog {
         case TAB_ENGINE:
             ensure_tab();
             m_tab->display_certificate(out);
+            return true;
+        case CLP_ENGINE:
+            ensure_clp();
+            m_clp->display_certificate(out);
             return true;
         default: 
             return false;

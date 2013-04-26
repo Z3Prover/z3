@@ -47,7 +47,7 @@ Revision History:
 #include"dl_rule_transformer.h"
 #include"expr_abstract.h"
 #include"expr_functors.h"
-
+#include"clp_context.h"
 
 namespace datalog {
 
@@ -124,6 +124,7 @@ namespace datalog {
         scoped_ptr<bmc>                 m_bmc;
         scoped_ptr<rel_context>         m_rel;
         scoped_ptr<tab>                 m_tab;
+        scoped_ptr<clp>                 m_clp;
 
         bool               m_closed;
         bool               m_saturation_was_run;
@@ -477,6 +478,8 @@ namespace datalog {
 
         void ensure_tab();
 
+        void ensure_clp();
+
         void ensure_rel();
 
         void new_query();
@@ -488,6 +491,8 @@ namespace datalog {
         lbool bmc_query(expr* query);
 
         lbool tab_query(expr* query);
+
+        lbool clp_query(expr* query);
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);
