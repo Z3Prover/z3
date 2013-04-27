@@ -39,23 +39,17 @@ namespace datalog {
         rule_manager&          rm;
         smt_params             m_fparams;
         smt::kernel            m_solver;
-        unifier                m_unify;
-        substitution           m_subst;
         var_subst              m_var_subst;
         expr_ref_vector        m_ground;
         app_ref_vector         m_goals;
         volatile bool          m_cancel;
-        unsigned               m_deltas[2];
-        unsigned               m_var_cnt;
         stats                  m_stats;
     public:
         imp(context& ctx):
             m_ctx(ctx), 
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
-            m_solver(m, m_fparams),
-            m_unify(m),
-            m_subst(m),
+            m_solver(m, m_fparams),      // TBD: can be replaced by efficient BV solver.
             m_var_subst(m, false),
             m_ground(m),
             m_goals(m),
@@ -64,8 +58,6 @@ namespace datalog {
             // m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_mbqi = false;
             m_fparams.m_soft_timeout = 1000;
-            m_deltas[0] = 0;
-            m_deltas[1] = m_var_cnt;
         }
 
         ~imp() {}        
@@ -134,24 +126,24 @@ namespace datalog {
         }
 
         lbool search(unsigned depth, unsigned index) {
-            IF_VERBOSE(1, verbose_stream() << "search " << depth << " " << index << "\n";);
-            if (depth == 0) {
-                return l_undef;
-            }
             if (index == m_goals.size()) {
                 return l_true;
             }
+            if (depth == 0) {
+                return l_undef;
+            }
+            IF_VERBOSE(1, verbose_stream() << "search " << depth << " " << index << "\n";);
             unsigned num_goals = m_goals.size();
             app* head = m_goals[index].get();
             rule_vector const& rules = m_ctx.get_rules().get_predicate_rules(head->get_decl());
             lbool status = l_false;
             for (unsigned i = 0; i < rules.size(); ++i) {
-                IF_VERBOSE(2, verbose_stream() << index << " " << mk_pp(head, m) << "\n";);
                 rule* r = rules[i];
                 m_solver.push();
                 reset_ground();
                 expr_ref tmp(m);
                 tmp = r->get_head();
+                IF_VERBOSE(2, verbose_stream() << index << " " << mk_pp(tmp, m) << "\n";);
                 ground(tmp);
                 for (unsigned j = 0; j < head->get_num_args(); ++j) {
                     expr_ref eq(m);
@@ -168,6 +160,10 @@ namespace datalog {
                 case l_false:
                     break;
                 case l_true:
+                    if (depth == 1 && (index+1 > m_goals.size() || r->get_uninterpreted_tail_size() > 0)) {
+                        status = l_undef;
+                        break;
+                    }
                     for (unsigned j = 0; j < r->get_uninterpreted_tail_size(); ++j) {
                         tmp = r->get_tail(j);
                         ground(tmp);
