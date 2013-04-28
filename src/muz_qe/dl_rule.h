@@ -53,8 +53,8 @@ namespace datalog {
         class remove_label_cfg : public default_rewriter_cfg {
             family_id m_label_fid;
         public:        
-        remove_label_cfg(ast_manager& m): m_label_fid(m.get_label_family_id()) {}
-            virtual ~remove_label_cfg() {}
+            remove_label_cfg(ast_manager& m): m_label_fid(m.get_label_family_id()) {}
+            virtual ~remove_label_cfg();
             
             br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
                                  proof_ref & result_pr);
