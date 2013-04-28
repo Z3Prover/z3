@@ -267,6 +267,8 @@ namespace Duality {
       //  print_profile(std::cout);
       delete indset;
       delete heuristic;
+      delete unwinding;
+      delete reporter;
       return res;
     }
 
@@ -1284,6 +1286,8 @@ namespace Duality {
       DerivationTree dt(this,unwinding,reporter,heuristic,FullExpand); 
       bool res = dt.Derive(unwinding,node,UseUnderapprox,true); // build full tree
       if(!res) throw "Duality internal error in BuildFullCex";
+      if(cex.tree)
+	delete cex.tree;
       cex.tree = dt.tree;
       cex.root = dt.top;
     }

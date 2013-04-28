@@ -58,6 +58,12 @@ def_module_params('fixedpoint',
                           ('print_certificate', BOOL, False, 'print certificate for reachability or non-reachability'),
                           ('print_statistics',  BOOL, False, 'print statistics'),
 	                  ('tab_selection', SYMBOL, 'weight', 'selection method for tabular strategy: weight (default), first, var-use'),
+	                  ('full_expand', BOOL, False, 'DUALITY: Fully expand derivation trees'),
+	                  ('no_conj', BOOL, False, 'DUALITY: No forced covering (conjectures)'),
+	                  ('feasible_edges', BOOL, True, 'DUALITY: Don\'t expand definitley infeasible edges'),
+	                  ('use_underapprox', BOOL, False, 'DUALITY: Use underapproximations'),
+			  ('stratified_inlining', BOOL, False, 'DUALITY: Use stratified inlining'),
+			  ('recursion_bound', UINT, UINT_MAX, 'DUALITY: Recursion bound for stratified inlining'),
                           ))
 
 

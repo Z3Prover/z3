@@ -171,6 +171,7 @@ namespace Duality {
 						    const std::vector<expr> &assumptions,
 						    const std::vector<expr> &theory
 						    ){}
+	   virtual ~LogicSolver(){}
       };
 
       /** This solver uses iZ3. */
@@ -205,8 +206,8 @@ namespace Duality {
         }
 #endif
 
-        iZ3LogicSolver(context c){
-          ctx = ictx = new interpolating_context(c);
+        iZ3LogicSolver(context &c){
+          ctx = ictx = &c;
           slvr = islvr = new interpolating_solver(*ictx);
           need_goals = false;
           islvr->SetWeakInterpolants(true);
@@ -221,7 +222,7 @@ namespace Duality {
 #endif
 	}
         ~iZ3LogicSolver(){
-          delete ictx;
+          // delete ictx;
           delete islvr;
         }
       };

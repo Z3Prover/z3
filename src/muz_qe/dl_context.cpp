@@ -1186,7 +1186,9 @@ namespace datalog {
             m_tab->display_certificate(out);
             return true;
 	case DUALITY_ENGINE:
-	  return false;
+            ensure_duality();
+            m_duality->display_certificate(out);
+	    return true;
         default: 
             return false;
         }        

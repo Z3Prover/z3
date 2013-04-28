@@ -590,7 +590,12 @@ namespace Duality {
     if (res == l_false)
       {
 	DecodeTree(root, interpolant->getChildren()[0], persist);
+	delete interpolant;
       }
+
+    delete tree;
+    if(goals)
+      delete goals;
     
     timer_stop("Solve");
     return res;
@@ -827,6 +832,7 @@ namespace Duality {
     memo[f] = res;
     return res;
   }
+
 
 #ifdef Z3OPS
   static Z3_subterm_truth *stt;

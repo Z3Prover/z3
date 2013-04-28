@@ -234,6 +234,7 @@ namespace Duality {
       expr make(decl_kind op, const expr &arg0, const expr &arg1, const expr &arg2);
 
       expr make_quant(decl_kind op, const std::vector<expr> &bvs, const expr &body);
+      expr make_quant(decl_kind op, const std::vector<sort> &_sorts, const std::vector<symbol> &_names, const expr &body);
 
 
       decl_kind get_decl_kind(const func_decl &t);
@@ -771,7 +772,10 @@ namespace Duality {
         solver(context & c);
         solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; }
         solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver;}
-        ~solver() { }
+        ~solver() {
+	  if(m_solver)
+	    dealloc(m_solver);
+	}
 	operator ::solver*() const { return m_solver; }
         solver & operator=(solver const & s) {
             m_ctx = s.m_ctx; 
@@ -1200,6 +1204,11 @@ namespace Duality {
 
       inline void setNumber(int _num){
 	num = _num;
+      }
+
+      ~TermTree(){
+	for(unsigned i = 0; i < children.size(); i++)
+	  delete children[i];
       }
 
     private:

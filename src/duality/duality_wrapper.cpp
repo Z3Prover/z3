@@ -161,6 +161,33 @@ expr context::make_quant(decl_kind op, const std::vector<expr> &bvs, const expr 
   return cook(result.get());
 }
 
+expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const std::vector<symbol> &_names, const expr &body){
+  if(_sorts.size() == 0) return body;
+
+
+  std::vector< ::symbol> names;
+  std::vector< ::sort *> types;
+  std::vector< ::expr *>  bound_asts;
+  unsigned num_bound = _sorts.size();
+
+  for (unsigned i = 0; i < num_bound; ++i) {
+    names.push_back(_names[i]);
+    types.push_back(to_sort(_sorts[i].raw()));
+  }
+  expr_ref result(m());
+  result = m().mk_quantifier(
+			     op == Forall, 
+			     names.size(), &types[0], &names[0], to_expr(body.raw()),            
+			     0, 
+			     ::symbol(),
+			     ::symbol(),
+			     0, 0,
+			     0, 0
+			     );
+  return cook(result.get());
+}
+
+
   decl_kind func_decl::get_decl_kind() const {
     return ctx().get_decl_kind(*this);
   }
@@ -452,6 +479,10 @@ expr context::make_quant(decl_kind op, const std::vector<expr> &bvs, const expr 
       std::vector<expr> linearized_interpolants(_interpolants.size());
       for(unsigned i = 0; i < _interpolants.size(); i++)
 	linearized_interpolants[i] = expr(ctx(),_interpolants[i]);
+
+      // since iz3interpolant returns interpolants with one ref count, we decrement here
+      for(unsigned i = 0; i < _interpolants.size(); i++)
+	m().dec_ref(_interpolants[i]);
 
       unlinearize_interpolants(0,assumptions,linearized_interpolants,interpolant);
       interpolant->setTerm(ctx().bool_val(false));
