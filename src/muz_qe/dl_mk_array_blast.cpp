@@ -145,7 +145,6 @@ namespace datalog {
         expr_ref_vector conjs(m), new_conjs(m);
         expr_ref tmp(m);
         expr_safe_replace sub(m);
-        uint_set lhs_vars, rhs_vars;
         bool change = false;
         bool inserted = false;
 
@@ -161,10 +160,8 @@ namespace datalog {
             
             if (is_store_def(e, x, y)) {
                 // enforce topological order consistency:
-                uint_set lhs;
-                collect_vars(m, x, lhs_vars);
-                collect_vars(m, y, rhs_vars);
-                lhs = lhs_vars;
+                uint_set lhs = rm.collect_vars(x);
+                uint_set rhs_vars = rm.collect_vars(y);
                 lhs &= rhs_vars;
                 if (!lhs.empty()) {
                     TRACE("dl", tout << "unusable equality " << mk_pp(e, m) << "\n";);

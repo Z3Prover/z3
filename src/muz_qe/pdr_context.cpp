@@ -43,6 +43,7 @@ Notes:
 #include "ast_ll_pp.h"
 #include "proof_checker.h"
 #include "smt_value_sort.h"
+#include "proof_utils.h"
 
 namespace pdr {
 
@@ -275,7 +276,7 @@ namespace pdr {
                 src.pop_back();
             }
             else if (is_invariant(tgt_level, curr, false, assumes_level)) {
-                
+
                 add_property(curr, assumes_level?tgt_level:infty_level);
                 TRACE("pdr", tout << "is invariant: "<< pp_level(tgt_level) << " " << mk_pp(curr, m) << "\n";);              
                 src[i] = src.back();
@@ -1225,6 +1226,7 @@ namespace pdr {
           m_search(m_params.bfs_model_search()),
           m_last_result(l_undef),
           m_inductive_lvl(0),
+          m_expanded_lvl(0),
           m_cancel(false)
     {
     }
@@ -1680,6 +1682,9 @@ namespace pdr {
         proof = m_search.get_proof_trace(*this);
         TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
         apply(m, m_pc.get(), proof);
+        TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
+        // proof_utils::push_instantiations_up(proof);
+        // TRACE("pdr", tout << "PDR up: " << mk_pp(proof, m) << "\n";);
         return proof;
     }
 
@@ -1711,6 +1716,7 @@ namespace pdr {
         bool reachable;
         while (true) {
             checkpoint();
+            m_expanded_lvl = lvl;
             reachable = check_reachability(lvl);
             if (reachable) {
                 throw model_exception();
@@ -1769,6 +1775,10 @@ namespace pdr {
     void context::expand_node(model_node& n) {
         SASSERT(n.is_open());
         expr_ref_vector cube(m);
+        
+        if (n.level() < m_expanded_lvl) {
+            m_expanded_lvl = n.level();
+        }
 
         if (n.pt().is_reachable(n.state())) {
             TRACE("pdr", tout << "reachable\n";);
@@ -1835,7 +1845,7 @@ namespace pdr {
         if (m_params.simplify_formulas_pre()) {
             simplify_formulas();
         }
-        for (unsigned lvl = 0; lvl <= max_prop_lvl; lvl++) {
+        for (unsigned lvl = m_expanded_lvl; lvl <= max_prop_lvl; lvl++) {
             checkpoint();
             bool all_propagated = true;
             decl2rel::iterator it = m_rels.begin(), end = m_rels.end();

@@ -93,7 +93,9 @@ void var_counter::count_vars(ast_manager & m, const app * pred, int coef) {
     unsigned n = pred->get_num_args();
     for (unsigned i = 0; i < n; i++) {
         m_sorts.reset();
-        ::get_free_vars(pred->get_arg(i), m_sorts);
+        m_todo.reset();
+        m_mark.reset();
+        ::get_free_vars(m_mark, m_todo, pred->get_arg(i), m_sorts);
         for (unsigned j = 0; j < m_sorts.size(); ++j) {
             if (m_sorts[j]) {
                 update(j, coef);
@@ -108,24 +110,27 @@ unsigned var_counter::get_max_var(bool& has_var) {
     unsigned max_var = 0;
     while (!m_todo.empty()) {
         expr* e = m_todo.back();
-        unsigned scope = m_scopes.back();
         m_todo.pop_back();
-        m_scopes.pop_back();
         if (m_visited.is_marked(e)) {
             continue;
         }
         m_visited.mark(e, true);
         switch(e->get_kind()) {
         case AST_QUANTIFIER: {
+            var_counter aux_counter;
             quantifier* q = to_quantifier(e);
-            m_todo.push_back(q->get_expr());
-            m_scopes.push_back(scope + q->get_num_decls());
+            bool has_var1 = false;
+            unsigned max_v = aux_counter.get_max_var(has_var1);
+            if (max_v > max_var + q->get_num_decls()) {
+                max_var = max_v - q->get_num_decls();
+                has_var = true;
+            }
             break;                 
         }
         case AST_VAR: {
-            if (to_var(e)->get_idx() >= scope + max_var) {
+            if (to_var(e)->get_idx() >= max_var) {
                 has_var = true;
-                max_var = to_var(e)->get_idx() - scope;
+                max_var = to_var(e)->get_idx();
             }
             break;
         }
@@ -133,7 +138,6 @@ unsigned var_counter::get_max_var(bool& has_var) {
             app* a = to_app(e);
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 m_todo.push_back(a->get_arg(i));
-                m_scopes.push_back(scope);                    
             }
             break;
         }
@@ -150,14 +154,12 @@ unsigned var_counter::get_max_var(bool& has_var) {
 unsigned var_counter::get_max_var(expr* e) {
     bool has_var = false;
     m_todo.push_back(e);
-    m_scopes.push_back(0);
     return get_max_var(has_var);
 }
 
 unsigned var_counter::get_next_var(expr* e) {
     bool has_var = false;
     m_todo.push_back(e);
-    m_scopes.push_back(0);
     unsigned mv = get_max_var(has_var);
     if (has_var) mv++;
     return mv;

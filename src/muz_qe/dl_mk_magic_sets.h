@@ -95,6 +95,7 @@ namespace datalog {
 
         context &	       m_context;
         ast_manager &          m;
+        rule_manager&          rm;
         ast_ref_vector         m_pinned;
         /**
            \brief Predicates from the original set that appear in a head of a rule

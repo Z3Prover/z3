@@ -1291,8 +1291,8 @@ namespace datalog {
                 m_renaming_for_inner_rel(m_manager) {
             relation_manager & rmgr = r.get_manager();
 
-            idx_set cond_columns;
-            collect_vars(m_manager, m_cond, cond_columns);
+            rule_manager& rm = r.get_context().get_rule_manager();
+            idx_set& cond_columns = rm.collect_vars(m_cond);
 
             unsigned sig_sz = r.get_signature().size();
             for(unsigned i=0; i<sig_sz; i++) {

@@ -59,7 +59,8 @@ namespace datalog {
         typedef obj_map<filter_key, func_decl*> filter_cache;
 
         context &                                 m_context;
-        ast_manager &                             m_manager;
+        ast_manager &                             m;
+        rule_manager &                            rm;
         filter_cache                              m_tail2filter;
         rule_set *                                m_result;
         rule *                                    m_current;

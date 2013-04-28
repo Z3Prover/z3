@@ -43,6 +43,8 @@ class horn_subsume_model_converter : public model_converter {
     func_decl_ref_vector m_funcs;
     expr_ref_vector      m_bodies;
     th_rewriter          m_rewrite;
+    app_ref_vector       m_delay_head;
+    expr_ref_vector      m_delay_body;
 
     void add_default_false_interpretation(expr* e, model_ref& md);
 
@@ -56,7 +58,9 @@ class horn_subsume_model_converter : public model_converter {
 
 public:
 
-    horn_subsume_model_converter(ast_manager& m): m(m), m_funcs(m), m_bodies(m), m_rewrite(m) {}
+ horn_subsume_model_converter(ast_manager& m): 
+    m(m), m_funcs(m), m_bodies(m), m_rewrite(m),
+        m_delay_head(m), m_delay_body(m) {}
 
     bool mk_horn(expr* clause, func_decl_ref& pred, expr_ref& body);
 

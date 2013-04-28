@@ -29,7 +29,8 @@ namespace datalog {
 
     mk_simple_joins::mk_simple_joins(context & ctx):
         plugin(1000),
-        m_context(ctx) {
+        m_context(ctx),
+        rm(ctx.get_rule_manager()) {
     }
 
     class join_planner {
@@ -120,6 +121,7 @@ namespace datalog {
 
         context & m_context;
         ast_manager & m;
+        rule_manager & rm;
         var_subst & m_var_subst;
         rule_set & m_rs_aux_copy; //reference to a rule_set that will allow to ask for stratum levels
 
@@ -130,10 +132,13 @@ namespace datalog {
         ptr_hashtable<rule, ptr_hash<rule>, ptr_eq<rule> > m_modified_rules;
 
         ast_ref_vector m_pinned;
+        mutable ptr_vector<sort> m_vars;
 
     public:
         join_planner(context & ctx, rule_set & rs_aux_copy)
-            : m_context(ctx), m(ctx.get_manager()), m_var_subst(ctx.get_var_subst()),
+            : m_context(ctx), m(ctx.get_manager()), 
+              rm(ctx.get_rule_manager()),
+              m_var_subst(ctx.get_var_subst()),
               m_rs_aux_copy(rs_aux_copy), 
               m_introduced_rules(ctx.get_rule_manager()),
               m_pinned(ctx.get_manager())
@@ -175,9 +180,7 @@ namespace datalog {
 
             unsigned max_var_idx = 0;
             {
-                var_idx_set orig_var_set;
-                collect_vars(m, t1, orig_var_set);
-                collect_vars(m, t2, orig_var_set);
+                var_idx_set& orig_var_set = rm.collect_vars(t1, t2);
                 var_idx_set::iterator ovit = orig_var_set.begin();
                 var_idx_set::iterator ovend = orig_var_set.end();
                 for(; ovit!=ovend; ++ovit) {
@@ -323,14 +326,13 @@ namespace datalog {
             }
             for(unsigned i=0; i<pos_tail_size; i++) {
                 app * t1 = r->get_tail(i);
-                var_idx_set t1_vars;
-                collect_vars(m, t1, t1_vars);
+                var_idx_set t1_vars = rm.collect_vars(t1);
                 counter.count_vars(m, t1, -1);  //temporarily remove t1 variables from counter
                 for(unsigned j=i+1; j<pos_tail_size; j++) {
                     app * t2 = r->get_tail(j);
                     counter.count_vars(m, t2, -1);  //temporarily remove t2 variables from counter
-                    var_idx_set scope_vars(t1_vars);
-                    collect_vars(m, t2, scope_vars);
+                    var_idx_set scope_vars = rm.collect_vars(t2);
+                    scope_vars |= t1_vars;
                     var_idx_set non_local_vars;
                     counter.collect_positive(non_local_vars);
                     counter.count_vars(m, t2, 1);  //restore t2 variables in counter
@@ -472,8 +474,7 @@ namespace datalog {
             while(!added_tails.empty()) {
                 app * a_tail = added_tails.back();  //added tail
 
-                var_idx_set a_tail_vars;
-                collect_vars(m, a_tail, a_tail_vars);
+                var_idx_set a_tail_vars = rm.collect_vars(a_tail);
                 counter.count_vars(m, a_tail, -1);  //temporarily remove a_tail variables from counter
 
                 for(unsigned i=0; i<len; i++) {
@@ -484,8 +485,8 @@ namespace datalog {
                     }
 
                     counter.count_vars(m, o_tail, -1);  //temporarily remove o_tail variables from counter
-                    var_idx_set scope_vars(a_tail_vars);
-                    collect_vars(m, o_tail, scope_vars);
+                    var_idx_set scope_vars = rm.collect_vars(o_tail);
+                    scope_vars |= a_tail_vars;
                     var_idx_set non_local_vars;
                     counter.collect_positive(non_local_vars);
                     counter.count_vars(m, o_tail, 1);  //restore o_tail variables in counter

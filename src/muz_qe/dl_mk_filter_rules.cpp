@@ -27,9 +27,10 @@ namespace datalog {
     mk_filter_rules::mk_filter_rules(context & ctx):
             plugin(2000),
             m_context(ctx),
-            m_manager(ctx.get_manager()),
+            m(ctx.get_manager()),
+            rm(ctx.get_rule_manager()),
             m_result(0), 
-            m_pinned(m_manager) {
+            m_pinned(m) {
     }
 
     mk_filter_rules::~mk_filter_rules() {
@@ -52,14 +53,14 @@ namespace datalog {
     */
     bool mk_filter_rules::is_candidate(app * pred) {
         if (!m_context.is_predicate(pred)) {
-            TRACE("mk_filter_rules", tout << mk_pp(pred, m_manager) << "\nis not a candidate because it is interpreted.\n";);
+            TRACE("mk_filter_rules", tout << mk_pp(pred, m) << "\nis not a candidate because it is interpreted.\n";);
             return false;
         }
         var_idx_set used_vars;
         unsigned n  = pred->get_num_args();
         for (unsigned i = 0; i < n; i++) {
             expr * arg = pred->get_arg(i);
-            if (m_manager.is_value(arg))
+            if (m.is_value(arg))
                 return true;
             SASSERT(is_var(arg));
             unsigned vidx = to_var(arg)->get_idx();
@@ -74,10 +75,10 @@ namespace datalog {
        \brief Create a "filter" (if it doesn't exist already) for the given predicate.
     */
     func_decl *  mk_filter_rules::mk_filter_decl(app * pred, var_idx_set const & non_local_vars) {
-        sort_ref_buffer filter_domain(m_manager);
+        sort_ref_buffer filter_domain(m);
 
-        filter_key * key = alloc(filter_key, m_manager);
-        mk_new_rule_tail(m_manager, pred, non_local_vars, filter_domain, key->filter_args, key->new_pred);
+        filter_key * key = alloc(filter_key, m);
+        mk_new_rule_tail(m, pred, non_local_vars, filter_domain, key->filter_args, key->new_pred);
         func_decl * filter_decl = 0;
         if (!m_tail2filter.find(key, filter_decl)) {
             filter_decl = m_context.mk_fresh_head_predicate(pred->get_decl()->get_name(), symbol("filter"), 
@@ -85,8 +86,8 @@ namespace datalog {
 
             m_pinned.push_back(filter_decl);
             m_tail2filter.insert(key, filter_decl);
-            app_ref filter_head(m_manager);
-            filter_head = m_manager.mk_app(filter_decl, key->filter_args.size(), key->filter_args.c_ptr());
+            app_ref filter_head(m);
+            filter_head = m.mk_app(filter_decl, key->filter_args.size(), key->filter_args.c_ptr());
             app * filter_tail = key->new_pred;
             rule * filter_rule = m_context.get_rule_manager().mk(filter_head, 1, &filter_tail, (const bool *)0);
             filter_rule->set_accounting_parent_object(m_context, m_current);
@@ -104,16 +105,15 @@ namespace datalog {
     void mk_filter_rules::process(rule * r) {
         m_current = r;
         app * new_head = r->get_head();
-        app_ref_vector new_tail(m_manager);
+        app_ref_vector new_tail(m);
         svector<bool>  new_is_negated;
         unsigned sz = r->get_tail_size();
         bool rule_modified = false;
         for (unsigned i = 0; i < sz; i++) {
             app * tail = r->get_tail(i);
             if (is_candidate(tail)) {
-                TRACE("mk_filter_rules", tout << "is_candidate: " << mk_pp(tail, m_manager) << "\n";);
-                var_idx_set non_local_vars;
-                collect_non_local_vars(m_manager, r, tail, non_local_vars);
+                TRACE("mk_filter_rules", tout << "is_candidate: " << mk_pp(tail, m) << "\n";);
+                var_idx_set non_local_vars = rm.collect_rule_vars_ex(r, tail);
                 func_decl * filter_decl = mk_filter_decl(tail, non_local_vars);
                 ptr_buffer<expr> new_args;
                 var_idx_set used_vars;
@@ -129,7 +129,7 @@ namespace datalog {
                     }
                 }
                 SASSERT(new_args.size() == filter_decl->get_arity());
-                new_tail.push_back(m_manager.mk_app(filter_decl, new_args.size(), new_args.c_ptr()));
+                new_tail.push_back(m.mk_app(filter_decl, new_args.size(), new_args.c_ptr()));
                 rule_modified = true;
             }
             else {

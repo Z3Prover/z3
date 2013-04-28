@@ -41,7 +41,6 @@ Revision History:
 #include"for_each_expr.h"
 #include"ast_smt_pp.h"
 #include"ast_smt2_pp.h"
-#include"expr_functors.h"
 #include"dl_mk_partial_equiv.h"
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_array_blast.h"
@@ -49,7 +48,6 @@ Revision History:
 #include"dl_mk_quantifier_abstraction.h"
 #include"dl_mk_quantifier_instantiation.h"
 #include"datatype_decl_plugin.h"
-#include"expr_abstract.h"
 
 
 namespace datalog {
@@ -226,6 +224,10 @@ namespace datalog {
         m_rewriter(m),
         m_var_subst(m),
         m_rule_manager(*this),
+        m_elim_unused_vars(m),
+        m_abstractor(m),
+        m_contains_p(*this),
+        m_check_pred(m_contains_p, m),
         m_transf(*this),
         m_trail(*this),
         m_pinned(m),
@@ -301,18 +303,19 @@ namespace datalog {
     expr_ref context::bind_variables(expr* fml, bool is_forall) {
         expr_ref result(m);
         app_ref_vector const & vars = m_vars;
+        rule_manager& rm = get_rule_manager();
         if (vars.empty()) {
             result = fml;
         }
         else {
-            ptr_vector<sort> sorts;
-            expr_abstract(m, 0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
-            get_free_vars(result, sorts);
+            m_names.reset();
+            m_abstractor(0, vars.size(), reinterpret_cast<expr*const*>(vars.c_ptr()), fml, result);
+            rm.collect_vars(result);
+            ptr_vector<sort>& sorts = rm.get_var_sorts();
             if (sorts.empty()) {
                 result = fml;
             }
             else {
-                svector<symbol> names;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
                     if (!sorts[i]) {
                         if (i < vars.size()) { 
@@ -323,16 +326,16 @@ namespace datalog {
                         }
                     }
                     if (i < vars.size()) {
-                        names.push_back(vars[i]->get_decl()->get_name());
+                        m_names.push_back(vars[i]->get_decl()->get_name());
                     }
                     else {
-                        names.push_back(symbol(i));
+                        m_names.push_back(symbol(i));
                     }
                 }
                 quantifier_ref q(m);
                 sorts.reverse();
-                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), names.c_ptr(), result); 
-                elim_unused_vars(m, q, result);
+                q = m.mk_quantifier(is_forall, sorts.size(), sorts.c_ptr(), m_names.c_ptr(), result); 
+                m_elim_unused_vars(q, result);
             }
         }
         return result;
@@ -544,6 +547,8 @@ namespace datalog {
             throw default_exception("get_num_levels is not supported for bmc");
         case TAB_ENGINE:
             throw default_exception("get_num_levels is not supported for tab");
+        case CLP_ENGINE:
+            throw default_exception("get_num_levels is not supported for clp");
         default:
             throw default_exception("unknown engine");
         } 
@@ -562,6 +567,8 @@ namespace datalog {
             throw default_exception("operation is not supported for BMC engine");
         case TAB_ENGINE:
             throw default_exception("operation is not supported for TAB engine");
+        case CLP_ENGINE:
+            throw default_exception("operation is not supported for CLP engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -581,6 +588,8 @@ namespace datalog {
             throw default_exception("operation is not supported for BMC engine");
         case TAB_ENGINE:
             throw default_exception("operation is not supported for TAB engine");
+        case CLP_ENGINE:
+            throw default_exception("operation is not supported for CLP engine");
         default:
             throw default_exception("unknown engine");
         } 
@@ -607,28 +616,16 @@ namespace datalog {
         }
     }
 
-    class context::contains_pred : public i_expr_pred {
-        context const& ctx;
-    public:
-        contains_pred(context& ctx): ctx(ctx) {}
-        virtual ~contains_pred() {}
-
-        virtual bool operator()(expr* e) {
-            return ctx.is_predicate(e);
-        }
-    };
 
     void context::check_existential_tail(rule_ref& r) {
         unsigned ut_size = r->get_uninterpreted_tail_size();
         unsigned t_size  = r->get_tail_size();   
-        contains_pred contains_p(*this);
-        check_pred check_pred(contains_p, get_manager());
         
         TRACE("dl", r->display_smt2(get_manager(), tout); tout << "\n";);
         for (unsigned i = ut_size; i < t_size; ++i) {
             app* t = r->get_tail(i);
             TRACE("dl", tout << "checking: " << mk_ismt2_pp(t, get_manager()) << "\n";);
-            if (check_pred(t)) {
+            if (m_check_pred(t)) {
                 std::ostringstream out;
                 out << "interpreted body " << mk_ismt2_pp(t, get_manager()) << " contains recursive predicate";
                 throw default_exception(out.str());
@@ -717,6 +714,10 @@ namespace datalog {
             check_positive_predicates(r);
             break;         
         case TAB_ENGINE:
+            check_existential_tail(r);
+            check_positive_predicates(r);
+            break;
+        case CLP_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
@@ -993,6 +994,9 @@ namespace datalog {
         else if (e == symbol("tab")) {
             m_engine = TAB_ENGINE;
         }
+        else if (e == symbol("clp")) {
+            m_engine = CLP_ENGINE;
+        }
 
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
@@ -1028,6 +1032,8 @@ namespace datalog {
             return bmc_query(query);
         case TAB_ENGINE:
             return tab_query(query);
+        case CLP_ENGINE:
+            return clp_query(query);
         default:
             UNREACHABLE();
             return rel_query(query);
@@ -1092,9 +1098,20 @@ namespace datalog {
         }
     }
 
+    void context::ensure_clp() {
+        if (!m_clp.get()) {
+            m_clp = alloc(clp, *this);
+        }
+    }
+
     lbool context::tab_query(expr* query) {
         ensure_tab();
         return m_tab->query(query);
+    }
+
+    lbool context::clp_query(expr* query) {
+        ensure_clp();
+        return m_clp->query(query);
     }
 
     void context::ensure_rel() {
@@ -1137,6 +1154,10 @@ namespace datalog {
             ensure_tab();
             m_last_answer = m_tab->get_answer();
             return m_last_answer.get();
+        case CLP_ENGINE:
+            ensure_clp();
+            m_last_answer = m_clp->get_answer();
+            return m_last_answer.get();
         default:
             UNREACHABLE();
         }
@@ -1161,6 +1182,10 @@ namespace datalog {
         case TAB_ENGINE:
             ensure_tab();
             m_tab->display_certificate(out);
+            return true;
+        case CLP_ENGINE:
+            ensure_clp();
+            m_clp->display_certificate(out);
             return true;
         default: 
             return false;
