@@ -31,34 +31,15 @@ Revision History:
 
 using namespace smt;
 
+
 template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th, std::ostream& out) const {
+std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th, std::ostream& out) const { 
     context& ctx = th.get_context();
     lbool asgn = ctx.get_assignment(m_bvar);
     //SASSERT(asgn == l_undef || ((asgn == l_true) == m_true));
     bool sign = (l_undef == asgn) || m_true;
     return out << literal(m_bvar, sign) 
                << " " << mk_pp(ctx.bool_var2expr(m_bvar), th.get_manager()) << " "; 
-}
-
-template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::eq_atom::display(theory_diff_logic const& th, std::ostream& out) const {
-    atom::display(th, out);
-    lbool asgn = th.get_context().get_assignment(this->m_bvar);
-    if (l_undef == asgn) {
-        out << "unassigned\n";
-    }
-    else {
-        out << mk_pp(m_le.get(), m_le.get_manager()) << " " 
-            << mk_pp(m_ge.get(), m_ge.get_manager()) << "\n";
-    }
-    return out;
-}
-
-template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::le_atom::display(theory_diff_logic const& th, std::ostream& out) const { 
-    atom::display(th, out);
-    lbool asgn = th.get_context().get_assignment(this->m_bvar);
     if (l_undef == asgn) {
         out << "unassigned\n";
     }
@@ -94,7 +75,6 @@ void theory_diff_logic<Ext>::init(context * ctx) {
     e = ctx->mk_enode(zero, false, false, true);
     SASSERT(!is_attached_to_var(e));
     m_zero_real = mk_var(e);
-
 }
 
 
@@ -277,7 +257,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         k -= this->m_epsilon; 
     }
     edge_id neg = m_graph.add_edge(target, source, k, ~l);
-    le_atom * a = alloc(le_atom, bv, pos, neg);
+    atom * a = alloc(atom, bv, pos, neg);
     m_atoms.push_back(a);
     m_bool_var2atom.insert(bv, a);
 
@@ -334,6 +314,7 @@ void theory_diff_logic<Ext>::collect_statistics(::statistics & st) const {
     st.update("dl asserts", m_stats.m_num_assertions);
     st.update("core->dl eqs", m_stats.m_num_core2th_eqs);
     m_arith_eq_adapter.collect_statistics(st);
+    m_graph.collect_statistics(st);
 }
 
 template<typename Ext>
@@ -497,43 +478,12 @@ bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     if (ctx.inconsistent()) {
         return false;
     }
-    switch(a->kind()) {
-    case LE_ATOM: {
-        int edge_id = dynamic_cast<le_atom*>(a)->get_asserted_edge();
-        if (!m_graph.enable_edge(edge_id)) {
-            set_neg_cycle_conflict();
-            return false;
-        }
-#if 0
-        if (m_params.m_arith_bound_prop != BP_NONE) {
-            svector<int> subsumed;
-            m_graph.find_subsumed1(edge_id, subsumed);
-            for (unsigned i = 0; i < subsumed.size(); ++i) {
-                int subsumed_edge_id = subsumed[i];
-                literal l = m_graph.get_explanation(subsumed_edge_id);
-                context & ctx = get_context();
-                region& r = ctx.get_region();
-                ++m_stats.m_num_th2core_prop;
-                ctx.assign(l, new (r) implied_bound_justification(*this, subsumed_edge_id, edge_id));
-            }
-
-        }
-#endif
-        break;
-    }
-    case EQ_ATOM: 
-        if (!a->is_true()) {
-            SASSERT(ctx.get_assignment(a->get_bool_var()) == l_false);
-            // eq_atom * ea = dynamic_cast<eq_atom*>(a);
-        }
-        break;
+    int edge_id = a->get_asserted_edge();
+    if (!m_graph.enable_edge(edge_id)) {
+        set_neg_cycle_conflict();
+        return false;
     }
     return true;
-}
-
-template<typename Ext>
-void theory_diff_logic<Ext>::del_clause_eh(clause* cls) {
-    
 }
 
 template<typename Ext>
@@ -584,7 +534,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     atom* a = 0;
     m_bool_var2atom.find(bv, a);
     SASSERT(a);
-    edge_id e_id = static_cast<le_atom*>(a)->get_pos();
+    edge_id e_id = a->get_pos();
 
     literal_vector lits;
     for (unsigned i = 0; i < num_edges; ++i) {
@@ -608,11 +558,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
                    lits.size(), lits.c_ptr(), 
                    params.size(), params.c_ptr());
     }
-    clause_del_eh* del_eh = alloc(theory_diff_logic_del_eh, *this);
-    clause* cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
-    if (!cls) {
-        dealloc(del_eh);
-    }
+    clause* cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
     if (dump_lemmas()) {
         char const * logic = m_is_lia ? "QF_LIA" : "QF_LRA";
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
@@ -906,30 +852,9 @@ bool theory_diff_logic<Ext>::is_consistent() const {
         lbool asgn = ctx.get_assignment(bv);        
         if (ctx.is_relevant(ctx.bool_var2expr(bv)) && asgn != l_undef) {
             SASSERT((asgn == l_true) == a->is_true());
-            switch(a->kind()) {
-            case LE_ATOM: {
-                le_atom* le = dynamic_cast<le_atom*>(a);
-                int edge_id = le->get_asserted_edge();
-                SASSERT(m_graph.is_enabled(edge_id));
-                SASSERT(m_graph.is_feasible(edge_id));
-                break;
-            }
-            case EQ_ATOM: {
-                eq_atom* ea = dynamic_cast<eq_atom*>(a);
-                bool_var bv1 = ctx.get_bool_var(ea->get_le());                    
-                bool_var bv2 = ctx.get_bool_var(ea->get_ge());
-                lbool val1 = ctx.get_assignment(bv1);
-                lbool val2 = ctx.get_assignment(bv2);
-                if (asgn == l_true) {
-                    SASSERT(val1 == l_true);
-                    SASSERT(val2 == l_true);
-                }
-                else {
-                    SASSERT(val1 == l_false || val2 == l_false);
-                }
-                break;
-            }
-            }
+            int edge_id = a->get_asserted_edge();
+            SASSERT(m_graph.is_enabled(edge_id));
+            SASSERT(m_graph.is_feasible(edge_id));
         }
     }
     return m_graph.is_feasible();

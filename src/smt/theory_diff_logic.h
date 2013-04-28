@@ -59,109 +59,30 @@ namespace smt {
         }
     };
 
-    class dl_conflict : public simple_justification {
-    public:
-        dl_conflict(region & r, unsigned nls, literal const * lits): simple_justification(r, nls, lits) { }
-            
-        virtual proof * mk_proof(conflict_resolution & cr) { 
-            NOT_IMPLEMENTED_YET();
-            return 0;
-        }
-    };
-
-
     template<typename Ext>
     class theory_diff_logic : public theory, private Ext {
         
         typedef typename Ext::numeral numeral;
 
-        class implied_eq_justification : public justification {
-            theory_diff_logic & m_theory;
-            theory_var          m_v1;
-            theory_var          m_v2;
-            unsigned            m_timestamp;
-        public:
-            implied_eq_justification(theory_diff_logic & theory, theory_var v1, theory_var v2, unsigned ts):
-                m_theory(theory), 
-                m_v1(v1), 
-                m_v2(v2), 
-                m_timestamp(ts) {
-            }
-
-            virtual void get_antecedents(conflict_resolution & cr) {
-                m_theory.get_eq_antecedents(m_v1, m_v2, m_timestamp, cr);
-            }
-
-            virtual proof * mk_proof(conflict_resolution & cr) { NOT_IMPLEMENTED_YET(); return 0; }
-        };
-
-        class implied_bound_justification : public justification {
-            theory_diff_logic& m_theory;
-            edge_id            m_subsumed_edge;
-            edge_id            m_bridge_edge;
-        public:
-            implied_bound_justification(theory_diff_logic & theory, edge_id se, edge_id be):
-                m_theory(theory), 
-                m_subsumed_edge(se),
-                m_bridge_edge(be) {
-            }
-
-            virtual void get_antecedents(conflict_resolution & cr) {
-                m_theory.get_implied_bound_antecedents(m_bridge_edge, m_subsumed_edge, cr);
-            }
-
-            virtual proof * mk_proof(conflict_resolution & cr) { NOT_IMPLEMENTED_YET(); return 0; }            
-        };
-
-        enum atom_kind {
-            LE_ATOM,
-            EQ_ATOM
-        };
-
         class atom {
-        protected:
-            atom_kind m_kind;
             bool_var  m_bvar;
             bool      m_true;
+            int       m_pos;
+            int       m_neg;
         public:
-            atom(atom_kind k, bool_var bv) : m_kind(k), m_bvar(bv), m_true(false) {}
-            virtual ~atom() {}
-            atom_kind kind() const { return m_kind; }
-            bool_var get_bool_var() const { return m_bvar; }
-            bool is_true() const { return m_true; }
-            void assign_eh(bool is_true) { m_true = is_true; }
-            virtual std::ostream& display(theory_diff_logic const& th, std::ostream& out) const;
-        };
-        
-        class le_atom : public atom {
-            int                 m_pos;
-            int                 m_neg;
-        public:
-            le_atom(bool_var bv, int pos, int neg):
-                atom(LE_ATOM, bv),
+            atom(bool_var bv, int pos, int neg):
+                m_bvar(bv), m_true(false),
                 m_pos(pos),
                 m_neg(neg) {
             }
-            virtual ~le_atom() {}
+            ~atom() {}
+            bool_var get_bool_var() const { return m_bvar; }
+            bool is_true() const { return m_true; }
+            void assign_eh(bool is_true) { m_true = is_true; }
             int get_asserted_edge() const { return this->m_true?m_pos:m_neg; }
             int get_pos() const { return m_pos; }
             int get_neg() const { return m_neg; }
-            virtual std::ostream& display(theory_diff_logic const& th, std::ostream& out) const;
-        };
-
-        class eq_atom : public atom {
-            app_ref m_le;
-            app_ref m_ge;
-        public:
-            eq_atom(bool_var bv, app_ref& le, app_ref& ge):
-                atom(EQ_ATOM, bv), 
-                m_le(le),
-                m_ge(ge)
-            {}
-            virtual ~eq_atom() {}
-            virtual std::ostream& display(theory_diff_logic const& th, std::ostream& out) const;
-            app* get_le() const { return m_le.get(); }
-            app* get_ge() const { return m_ge.get(); }
+            std::ostream& display(theory_diff_logic const& th, std::ostream& out) const;
         };
 
         typedef ptr_vector<atom> atoms;
@@ -239,19 +160,7 @@ namespace smt {
             unsigned      m_asserted_qhead_old;
         };
 
-        class theory_diff_logic_del_eh : public clause_del_eh {
-            theory_diff_logic& m_super;
-        public:
-            theory_diff_logic_del_eh(theory_diff_logic& s) : m_super(s) {}
-            virtual ~theory_diff_logic_del_eh() {}
-            virtual void operator()(ast_manager&, clause* cls) {
-                TRACE("dl_activity", tout << "deleting " << cls << "\n";);
-                m_super.del_clause_eh(cls);
-                dealloc(this);
-            }
-        };
-
-        smt_params &             m_params;
+        smt_params &                   m_params;
         arith_util                     m_util;
         arith_eq_adapter               m_arith_eq_adapter;
         theory_diff_logic_statistics   m_stats;
@@ -296,8 +205,6 @@ namespace smt {
             return get_family_id() == n->get_family_id();
         }
 
-        void del_clause_eh(clause* cls);
-
     public:    
         theory_diff_logic(ast_manager& m, smt_params & params):
             theory(m.mk_family_id("arith")),
@@ -316,7 +223,7 @@ namespace smt {
             m_nc_functor(*this) {
         }            
 
-        ~theory_diff_logic() {
+        virtual ~theory_diff_logic() {
             reset_eh();
         }
 

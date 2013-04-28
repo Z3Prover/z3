@@ -118,7 +118,7 @@ const edge_id null_edge_id = -1;
 
 template<typename Ext>
 class dl_graph {
-    struct statistics {
+    struct stats {
         unsigned m_propagation_cost;
         unsigned m_implied_literal_cost;
         unsigned m_num_implied_literals;
@@ -131,16 +131,16 @@ class dl_graph {
             m_num_helpful_implied_literals = 0;
             m_num_relax = 0;
         }
-        statistics() { reset(); }
-        void display(std::ostream& out) const {
-            out << "num. prop. steps.     " << m_propagation_cost << "\n";
-            out << "num. impl. steps.     " << m_implied_literal_cost << "\n";
-            out << "num. impl. lits.      " << m_num_implied_literals << "\n";
-            out << "num. impl. conf lits. " << m_num_helpful_implied_literals << "\n";
-            out << "num. bound relax.     " << m_num_relax << "\n";
+        stats() { reset(); }
+        void collect_statistics(::statistics& st) const {
+            st.update("dl prop steps", m_propagation_cost);
+            st.update("dl impl steps", m_implied_literal_cost);
+            st.update("dl impl lits",  m_num_implied_literals);
+            st.update("dl impl conf lits", m_num_helpful_implied_literals);
+            st.update("dl bound relax", m_num_relax);
         }
     };
-    statistics m_stats;
+    stats m_stats;
     typedef typename Ext::numeral     numeral;
     typedef typename Ext::explanation explanation;
     typedef vector<numeral> assignment;
@@ -262,6 +262,12 @@ class dl_graph {
         return 
             !e.is_enabled() || 
             m_assignment[e.get_target()] - m_assignment[e.get_source()] <= e.get_weight();
+    }
+
+    bool is_tight(edge_id e) const {
+        edge const& edge = m_edges[e];
+        return edge.is_enabled() &&
+            m_assignment[edge.get_target()] - m_assignment[e.get_source()] == e.get_weight();
     }
 
 
@@ -472,8 +478,9 @@ public:
         m_bw(m_mark) {
     }
 
-    void display_statistics(std::ostream& out) const {
-        m_stats.display(out);
+
+    void collect_statistics(::statistics& st) const {
+        m_stats.collect_statistics(st);
     }
 
     // Create/Initialize a variable with the given id.
@@ -655,10 +662,8 @@ public:
             throw default_exception("edges are not inconsistent");
         }
        
-#if 1
-        // experimental feature:
+        // allow theory to introduce shortcut lemmas.
         prune_edges(edges, f);
-#endif
 
         for (unsigned i = 0; i < edges.size(); ++i) {
             edge const& e = m_edges[edges[i]];
@@ -751,7 +756,6 @@ public:
         
         f.new_edge(src, dst, idx2-idx1+1, edges.begin()+idx1);
     }
-
 
     // Create a new scope.
     // That is, save the number of edges in the graph.
