@@ -72,6 +72,8 @@ namespace datalog {
         }
     }
 
+    rule_manager::remove_label_cfg::~remove_label_cfg() {}
+
     br_status rule_manager::remove_label_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
                                                          proof_ref & result_pr)
     {
@@ -82,6 +84,9 @@ namespace datalog {
         }
         return BR_FAILED;
     }
+
+    template class rewriter_tpl<rule_manager::remove_label_cfg>;
+
 
     void rule_manager::remove_labels(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
@@ -1113,6 +1118,6 @@ namespace datalog {
     }
 
 
-
+    
 };
 
