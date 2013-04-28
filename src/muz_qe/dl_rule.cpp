@@ -202,7 +202,7 @@ namespace datalog {
         unsigned index = extract_horn(fml, m_body, m_head);
         hoist_compound_predicates(index, m_head, m_body);
         TRACE("dl_rule",
-              tout << mk_pp(head, m) << " :- ";
+              tout << mk_pp(m_head, m) << " :- ";
               for (unsigned i = 0; i < m_body.size(); ++i) {
                   tout << mk_pp(m_body[i].get(), m) << " ";
               }
