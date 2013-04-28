@@ -6,30 +6,16 @@ Module Name:
     theory_horn_ineq.h
 
 Abstract:
-
     
-    A*x <= b + D*x, coefficients to A and D are non-negative, 
+    A*x <= weight + D*x, coefficients to A and D are non-negative, 
     D is a diagonal matrix.
-    Coefficients to b may have both signs.
-
+    Coefficients to weight may have both signs.
    
-    Ford-Fulkerson variant:
     Label variables by weight.
     Select inequality that is not satisfied.
-    Set gamma(LHS) := 0
-    Set gamma(RHS(x)) := weight(x) - b
-    Propagate gamma through inequalities. 
-    Gamma is the increment.
-    Maintain Heap of variables weighted by gamma.
-    When processing inequality,
-    then update gamma of variables by gamma := A(gamma + weight) - b
-    If some variable in the premise of the original rule gets
-    relabeled (assignment is increased), then the set of 
-    inequalities is unsatisfiable.
-    
-    Propagation updates lower bounds on gamma by taking into 
-    account integer inequalities. The greatest lower bound 
-    is computable by taking integer floor/ceilings. 
+    Set delta(LHS) := 0
+    Set delta(RHS(x)) := weight(x) - b
+    Propagate weight increment through inequalities.
 
 Author:
 

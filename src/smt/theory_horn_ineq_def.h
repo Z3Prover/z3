@@ -937,10 +937,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_horn_ineq<Ext>::collect_statistics(::statistics& st) const {
-        st.update("hi conflicts", m_stats.m_num_conflicts);
-//        st.update("hi propagations", m_stats.m_num_th2core_prop);
-//        st.update("hi asserts", m_stats.m_num_assertions);
-//        st.update("core->hi eqs", m_stats.m_num_core2th_eqs);
+        st.update("horn ineq conflicts", m_stats.m_num_conflicts);
+        st.update("horn ineq assertions", m_stats.m_num_assertions);
         m_arith_eq_adapter.collect_statistics(st);
         m_graph->collect_statistics(st);
     }
