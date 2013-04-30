@@ -797,10 +797,10 @@ namespace smt {
     template<typename Ext>
     typename theory_horn_ineq<Ext>::numeral theory_horn_ineq<Ext>::mk_weight(bool is_real, bool is_strict, rational const& w) const {
         if (is_strict) {
-            return numeral(inf_numeral(w)) + (is_real?m_epsilon:numeral(1));
+            return numeral(Ext::inf_numeral(w)) + (is_real?Ext::m_epsilon:numeral(1));
         }
         else {
-            return numeral(inf_numeral(w));
+            return numeral(Ext::inf_numeral(w));
         }
     }
 
@@ -1001,9 +1001,9 @@ namespace smt {
         th_var target = mk_var(ctx.mk_enode(n, false, false, true));        
         coeffs.push_back(std::make_pair(target, rational(-1)));
 
-        VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(inf_numeral(w)), null_literal)));        
+        VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(Ext::inf_numeral(w)), null_literal)));        
         negate(coeffs, w);
-        VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(inf_numeral(w)), null_literal)));
+        VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(Ext::inf_numeral(w)), null_literal)));
         return target;
     }
     
@@ -1024,9 +1024,9 @@ namespace smt {
             // v = k: v <= k k <= v
             coeffs coeffs;
             coeffs.push_back(std::make_pair(v, rational(1)));
-            VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(inf_numeral(r)), null_literal)));
+            VERIFY(m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(Ext::inf_numeral(r)), null_literal)));
             coeffs.back().second.neg();
-            VERIFY (m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(inf_numeral(-r)), null_literal)));
+            VERIFY (m_graph->enable_clause(m_graph->add_ineq(coeffs, numeral(Ext::inf_numeral(-r)), null_literal)));
         }
         return v;
     }
