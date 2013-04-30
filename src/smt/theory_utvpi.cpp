@@ -70,6 +70,7 @@ namespace smt {
     }
 
     vector<std::pair<expr*, rational> > const& utvpi_tester::get_linearization() const {
+        SASSERT(m_terms.size() <= 2);
         return m_terms;
     }
     

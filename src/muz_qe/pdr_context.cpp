@@ -597,7 +597,7 @@ namespace pdr {
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);
         rw(fml);
-        if (ctx.is_dl()) {
+        if (ctx.is_dl() || ctx.is_utvpi()) {
             hoist_non_bool_if(fml);
         }
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
@@ -1359,9 +1359,10 @@ namespace pdr {
         bool m_is_bool_arith;
         bool m_has_arith;
         bool m_is_dl;
+        bool m_is_utvpi;
     public:
         classifier_proc(ast_manager& m, datalog::rule_set& rules):
-            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false) {
+            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false), m_is_utvpi(false) {
             classify(rules);
         }
         void operator()(expr* e) {
@@ -1407,6 +1408,7 @@ namespace pdr {
 
         bool is_dl() const { return m_is_dl; }
 
+        bool is_utvpi() const { return m_is_utvpi; }
 
     private:
 
@@ -1427,6 +1429,7 @@ namespace pdr {
             mark.reset();
  
             m_is_dl = false;
+            m_is_utvpi = false;
             if (m_has_arith) {
                 ptr_vector<expr> forms;
                 for (it = rules.begin(); it != end; ++it) {  
@@ -1438,6 +1441,11 @@ namespace pdr {
                     }         
                 }
                 m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
+#if 0
+                if (!m_is_dl) {
+                    m_is_utvpi = is_utvpi_logic(m, forms.size(), forms.c_ptr());
+                }
+#endif
             }
         }
 
@@ -1560,6 +1568,11 @@ namespace pdr {
             if (classify.is_dl()) {
                 m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                 m_fparams.m_arith_expand_eqs = true;
+            }
+            else if (classify.is_utvpi()) {
+                IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
+                m_fparams.m_arith_mode = AS_UTVPI;
+                m_fparams.m_arith_expand_eqs = true;                
             }
         }
         if (!use_mc && m_params.use_inductive_generalizer()) {

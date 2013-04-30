@@ -196,7 +196,7 @@ namespace smt {
                                                      
         virtual bool internalize_term(app * term);
 
-        virtual void internalize_eq_eh(app * atom, bool_var v) {}
+        virtual void internalize_eq_eh(app * atom, bool_var v);
 
         virtual void assign_eh(bool_var v, bool is_true);
 
@@ -257,6 +257,14 @@ namespace smt {
         virtual void collect_statistics(::statistics & st) const;
 
     private:        
+
+        rational mk_value(theory_var v);
+
+        void validate_model();
+
+        bool eval(expr* e);
+
+        rational eval_num(expr* e);
 
         bool check_z_consistency();
 

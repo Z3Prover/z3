@@ -228,7 +228,10 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::found_non_utvpi_expr(expr* n) {
         if (!m_non_utvpi_exprs) {
-            TRACE("utvpi", tout << "found non horn logic expression:\n" << mk_pp(n, get_manager()) << "\n";);
+            std::stringstream msg;
+            msg << "found non utvpi logic expression:\n" << mk_pp(n, get_manager()) << "\n";
+            TRACE("utvpi", tout << msg.str(););
+            warning_msg(msg.str().c_str());
             get_context().push_trail(value_trail<context, bool>(m_non_utvpi_exprs));
             m_non_utvpi_exprs = true;
         }
@@ -278,6 +281,24 @@ namespace smt {
     }
 
     template<typename Ext>
+    void theory_utvpi<Ext>::internalize_eq_eh(app * atom, bool_var v) {
+        context & ctx  = get_context();
+        app * lhs      = to_app(atom->get_arg(0));
+        app * rhs      = to_app(atom->get_arg(1));
+        if (a.is_numeral(rhs)) {
+            std::swap(rhs, lhs);
+        }
+        if (!a.is_numeral(rhs)) {
+            return;
+        }
+        if (a.is_add(lhs) || a.is_sub(lhs)) {
+            // force axioms for (= (+ x y) k)
+            // this is necessary because (+ x y) is not expressible as a utvpi term.
+            m_arith_eq_adapter.mk_axioms(ctx.get_enode(lhs), ctx.get_enode(rhs));
+        }
+    }
+
+    template<typename Ext>
     bool theory_utvpi<Ext>::internalize_atom(app * n, bool) {
         context & ctx = get_context();
         if (!a.is_le(n) && !a.is_ge(n) && !a.is_lt(n) && !a.is_gt(n)) {
@@ -291,7 +312,7 @@ namespace smt {
         }
         bool is_strict = a.is_gt(n) || a.is_lt(n);
 
-        bool  cl = m_test.linearize(e1, e2);
+        bool cl = m_test.linearize(e1, e2);
         if (!cl) {
             found_non_utvpi_expr(n);
             return false;
@@ -324,8 +345,6 @@ namespace smt {
     bool theory_utvpi<Ext>::internalize_term(app * term) {
         bool result = null_theory_var != mk_term(term);
         CTRACE("utvpi", !result, tout << "Did not internalize " << mk_pp(term, get_manager()) << "\n";);
-        TRACE("utvpi", tout << "Terms may not be internalized " << mk_pp(term, get_manager()) << "\n";);
-        found_non_utvpi_expr(term);
         return result;
     }
 
@@ -478,6 +497,7 @@ namespace smt {
     
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_term(app* n) {
+		TRACE("utvpi", tout << mk_pp(n, get_manager()) << "\n";);
         context& ctx = get_context();
         
         bool cl = m_test.linearize(n);
@@ -485,7 +505,7 @@ namespace smt {
             found_non_utvpi_expr(n);
             return null_theory_var;
         }
-
+		
         coeffs coeffs;
         rational w;
         mk_coeffs(m_test.get_linearization(), coeffs, w);
@@ -495,7 +515,14 @@ namespace smt {
         if (coeffs.size() == 1 && coeffs[0].second.is_one()) {
             return coeffs[0].first;
         }
-        th_var target = mk_var(ctx.mk_enode(n, false, false, true));        
+        if (coeffs.size() == 2) {
+            // do not create an alias.
+            return null_theory_var;
+        }
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            mk_term(to_app(n->get_arg(i)));
+        }
+        th_var target = mk_var(ctx.mk_enode(n, false, false, true));
         coeffs.push_back(std::make_pair(target, rational(-1)));
 
         VERIFY(enable_edge(add_ineq(coeffs, numeral(w), null_literal)));        
@@ -520,7 +547,7 @@ namespace smt {
             v = mk_var(ctx.mk_enode(n, false, false, true));
             // v = k: v <= k k <= v
             coeffs coeffs;
-            coeffs.push_back(std::make_pair(v, rational(1)));
+            coeffs.push_back(std::make_pair(v, rational(-1)));
             VERIFY(enable_edge(add_ineq(coeffs, numeral(r), null_literal)));
             coeffs.back().second.neg();
             VERIFY(enable_edge(add_ineq(coeffs, numeral(-r), null_literal)));
@@ -633,17 +660,102 @@ namespace smt {
         m.register_factory(m_factory);
         // TBD: enforce strong or tight coherence?
         compute_delta();   
+        DEBUG_CODE(validate_model(););
     }
-    
+
     template<typename Ext>    
-    model_value_proc * theory_utvpi<Ext>::mk_value(enode * n, model_generator & mg) {
-        theory_var v = n->get_th_var(get_id());
+    void theory_utvpi<Ext>::validate_model() {
+        context& ctx = get_context();
+        unsigned sz = m_atoms.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            bool_var b = m_atoms[i].get_bool_var();
+            bool ok = true;
+            expr* e = ctx.bool_var2expr(b);
+            switch(ctx.get_assignment(b)) {
+            case l_true:
+                ok = eval(e);
+                break;
+            case l_false:
+                ok = !eval(e);
+                break;
+            default:
+                break;
+            }
+            CTRACE("utvpi", !ok, tout << "validation failed: " << mk_pp(e, get_manager()) << "\n";);
+        }
+    }
+
+    template<typename Ext>    
+    bool theory_utvpi<Ext>::eval(expr* e) {
+        expr* e1, *e2;
+        if (a.is_le(e, e1, e2) || a.is_ge(e, e2, e1)) {
+            return eval_num(e1) <= eval_num(e2);
+        }
+        if (a.is_lt(e, e1, e2) || a.is_gt(e, e2, e1)) {
+            return eval_num(e1) < eval_num(e2);
+        }
+        if (get_manager().is_eq(e, e1, e2)) {
+            return eval_num(e1) == eval_num(e2);
+        }
+        TRACE("utvpi", tout << "expression not handled: " << mk_pp(e, get_manager()) << "\n";);
+        return false;
+    }
+
+    template<typename Ext>    
+    rational theory_utvpi<Ext>::eval_num(expr* e) {
+        rational r;
+        expr* e1, *e2;
+        if (a.is_numeral(e, r)) {
+            return r;
+        }
+        if (a.is_sub(e, e1, e2)) {
+            return eval_num(e1) - eval_num(e2);
+        }
+        if (a.is_add(e)) {
+            r.reset();
+            for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
+                r += eval_num(to_app(e)->get_arg(i));
+            }
+            return r;
+        }
+        if (a.is_mul(e)) {
+            r = rational(1);
+            for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
+                r *= eval_num(to_app(e)->get_arg(i));
+            }
+            return r;
+        }
+        if (a.is_uminus(e, e1)) {
+            return -eval_num(e1);
+        }
+        if (a.is_to_real(e, e1)) {
+            return eval_num(e1);
+        }
+        if (is_uninterp_const(e)) {
+            return mk_value(mk_var(e));
+        }
+        TRACE("utvpi", tout << "expression not handled: " << mk_pp(e, get_manager()) << "\n";);
+        UNREACHABLE();
+        return rational(0);
+    }
+
+
+    template<typename Ext>    
+    rational theory_utvpi<Ext>::mk_value(th_var v) {
         SASSERT(v != null_theory_var);
         numeral val1 = m_graph.get_assignment(to_var(v));
         numeral val2 = m_graph.get_assignment(neg(to_var(v)));
         numeral val = val1 - val2;
         rational num = val.get_rational() + (m_delta * val.get_infinitesimal().to_rational());
         num = num/rational(2);
+        return num;
+    }
+    
+    template<typename Ext>    
+    model_value_proc * theory_utvpi<Ext>::mk_value(enode * n, model_generator & mg) {
+        theory_var v = n->get_th_var(get_id());
+        rational num = mk_value(v);
+        num = ceil(num);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
         return alloc(expr_wrapper_proc, m_factory->mk_value(num, a.is_int(n->get_owner())));
     }
