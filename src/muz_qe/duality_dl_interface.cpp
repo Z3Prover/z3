@@ -119,9 +119,9 @@ void dl_interface::check_reset() {
   m_ctx.ensure_opened();
 
   expr_ref_vector rules(m_ctx.get_manager());
-  svector< ::symbol> names;
-  
-  m_ctx.get_rules_as_formulas(rules, names);
+  svector< ::symbol> names;  
+  // m_ctx.get_rules_as_formulas(rules, names);
+   m_ctx.get_raw_rule_formulas(rules, names);
 
   // get all the rules as clauses
   std::vector<expr> &clauses = _d->clauses;
@@ -132,7 +132,7 @@ void dl_interface::check_reset() {
   }
   
   // turn the query into a clause
-  expr q(_d->ctx,query);
+  expr q(_d->ctx,m_ctx.bind_variables(query,false));
   
   std::vector<sort> b_sorts;
   std::vector<symbol> b_names;
@@ -146,7 +146,7 @@ void dl_interface::check_reset() {
   }
 
   expr qc = implies(q,_d->ctx.bool_val(false));
-  qc = _d->ctx.make_quant(Exists,b_sorts,b_names,qc);
+  qc = _d->ctx.make_quant(Forall,b_sorts,b_names,qc);
   clauses.push_back(qc);
   
   // get the background axioms

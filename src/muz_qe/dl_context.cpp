@@ -1013,13 +1013,15 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
-        new_query();
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        rule_ref r(m_rule_manager);
-        for (; it != end; ++it) {
+        if(get_engine() != DUALITY_ENGINE) {
+          new_query();
+	  rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
+	  rule_ref r(m_rule_manager);
+	  for (; it != end; ++it) {
             r = *it;
             check_rule(r);
-        }        
+	  }     
+        }   
         switch(get_engine()) {
         case DATALOG_ENGINE:
             return rel_query(query);
@@ -1259,6 +1261,15 @@ namespace datalog {
         }
     }
    
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, svector<symbol>& names){
+        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+	  expr_ref r = bind_variables(m_rule_fmls[i].get(), true);
+	  rules.push_back(r.get());
+	  //            rules.push_back(m_rule_fmls[i].get());
+	  names.push_back(m_rule_names[i]);
+        }
+    }
+
     void context::get_rules_as_formulas(expr_ref_vector& rules, svector<symbol>& names) {
         expr_ref fml(m);
         datalog::rule_manager& rm = get_rule_manager();

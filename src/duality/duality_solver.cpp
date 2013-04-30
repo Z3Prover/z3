@@ -294,7 +294,9 @@ namespace Duality {
 
     /** Return the counterexample */
     virtual Counterexample GetCounterexample(){
-      return cex;
+      Counterexample res = cex;
+      cex.tree = 0; // Cex now belongs to caller
+      return res;
     }
 
     // options
@@ -879,6 +881,7 @@ namespace Duality {
 #endif
       if(_cex) *_cex = cex;
       else delete cex.tree;    // delete the cex if not required
+      cex.tree = 0;
       node->Bound = save; // put back original bound
       timer_stop("ProveConjecture");
       return false;

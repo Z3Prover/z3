@@ -23,8 +23,15 @@ Revision History:
 #include "iz3hash.h"
 #include "solver.h"
 
+class iz3base;
+
 struct interpolation_options_struct {
   stl_ext::hash_map<std::string,std::string> map;
+public:
+  void set(const std::string &name, const std::string &value){
+    map[name] = value;
+  }
+  void apply(iz3base &b);
 };
 
 /** This object is thrown if a tree interpolation problem is mal-formed */

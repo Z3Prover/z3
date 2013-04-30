@@ -585,7 +585,7 @@ namespace Duality {
     // if (dualLabels != null) dualLabels.Dispose();
     
     timer_start("interpolate_tree");
-    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,goals);
+    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,goals,true);
     timer_stop("interpolate_tree");
     if (res == l_false)
       {

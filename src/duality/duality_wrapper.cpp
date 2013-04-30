@@ -467,14 +467,12 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     
     if(res == unsat){
 
-      // TODO
-#if 0
+      interpolation_options_struct opts;
       if(weak_mode)
-	Z3_set_interpolation_option(options,"weak","1"); 
-#endif
+	opts.set("weak","1"); 
       
       ::ast *proof = m_solver->get_proof();
-      iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,0);
+      iz3interpolate(m(),proof,_assumptions,_parents,_interpolants,_theory,&opts);
       
       std::vector<expr> linearized_interpolants(_interpolants.size());
       for(unsigned i = 0; i < _interpolants.size(); i++)

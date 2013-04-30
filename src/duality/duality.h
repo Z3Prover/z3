@@ -156,10 +156,11 @@ namespace Duality {
 
            virtual
            lbool interpolate_tree(TermTree *assumptions,
-				     TermTree *&interpolants,
-			             model &_model,
-                                     TermTree *goals = 0
-			            ) = 0;
+				  TermTree *&interpolants,
+				  model &_model,
+				  TermTree *goals = 0,
+				  bool weak = false
+				  ) = 0;
            
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
@@ -181,11 +182,13 @@ namespace Duality {
         interpolating_solver *islvr;   /** iZ3 solver */
 
         lbool interpolate_tree(TermTree *assumptions,
-				  TermTree *&interpolants,
-			          model &_model,
-                                  TermTree *goals = 0)
+			       TermTree *&interpolants,
+			       model &_model,
+			       TermTree *goals = 0,
+			       bool weak = false)
         {
            literals _labels;
+	   islvr->SetWeakInterpolants(weak);
            return islvr->interpolate_tree(assumptions,interpolants,_model,_labels,true);
         }
 

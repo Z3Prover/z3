@@ -323,6 +323,8 @@ void iz3interpolate(ast_manager &_m_manager,
 		    interpolation_options_struct * options)
 {
   iz3interp itp(_m_manager);
+  if(options)
+    options->apply(itp);
   std::vector<iz3mgr::ast> _cnsts(cnsts.size());
   std::vector<int> _parents(parents.size());
   std::vector<iz3mgr::ast> _interps;
@@ -348,6 +350,8 @@ void iz3interpolate(ast_manager &_m_manager,
 		    interpolation_options_struct * options)
 {
   iz3interp itp(_m_manager);
+  if(options)
+    options->apply(itp);
   std::vector<iz3mgr::ast> _cnsts(cnsts.size());
   std::vector<iz3mgr::ast> _interps;
   for(unsigned i = 0; i < cnsts.size(); i++)
@@ -369,6 +373,8 @@ lbool iz3interpolate(ast_manager &_m_manager,
 		     interpolation_options_struct * options)
 {
   iz3interp itp(_m_manager);
+  if(options)
+    options->apply(itp);
   iz3mgr::ast _tree = itp.cook(tree);
   std::vector<iz3mgr::ast> _cnsts;
   itp.assert_conjuncts(s,_cnsts,_tree);
@@ -391,6 +397,12 @@ lbool iz3interpolate(ast_manager &_m_manager,
   return res;
 }
 
+void interpolation_options_struct::apply(iz3base &b){
+  for(stl_ext::hash_map<std::string,std::string>::iterator it = map.begin(), en = map.end();
+      it != en;
+      ++it)
+    b.set_option((*it).first,(*it).second);
+}
 
 
 
