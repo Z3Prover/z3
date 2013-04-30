@@ -216,6 +216,9 @@ namespace pdr {
             }            
             res = m.mk_not(res);
             th_rewriter rw(m);
+            params_ref params;
+            params.set_bool("gcd_rounding", true);
+            rw.updt_params(params);
             proof_ref pr(m);
             expr_ref tmp(m);
             rw(res, tmp, pr);

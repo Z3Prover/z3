@@ -814,6 +814,7 @@ namespace datalog {
 
     void context::transform_rules() {
         m_transf.reset();
+        m_transf.register_plugin(alloc(mk_coi_filter, *this));
         m_transf.register_plugin(alloc(mk_filter_rules, *this));        
         m_transf.register_plugin(alloc(mk_simple_joins, *this));
         if (unbound_compressor()) {

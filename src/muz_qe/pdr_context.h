@@ -367,7 +367,7 @@ namespace pdr {
         expr_ref          get_answer();
 
         bool              is_dl() const { return m_fparams.m_arith_mode == AS_DIFF_LOGIC; }
-
+        bool              is_utvpi() const { return m_fparams.m_arith_mode == AS_UTVPI; }
 
         void collect_statistics(statistics& st) const;
         void reset_statistics();
