@@ -35,6 +35,8 @@ Revision History:
 #include"dl_mk_karr_invariants.h"
 #include"expr_safe_replace.h"
 #include"bool_rewriter.h"
+#include"dl_mk_backwards.h"
+#include"dl_mk_loop_counter.h"
 
 namespace datalog {
 
@@ -199,6 +201,29 @@ namespace datalog {
                 return 0;
             }
         }
+
+        mk_loop_counter lc(m_ctx);
+        mk_backwards bwd(m_ctx);
+
+        scoped_ptr<rule_set> src_loop = lc(source);
+        TRACE("dl", src_loop->display(tout << "source loop\n"););
+
+        // run propagation forwards, then backwards
+        scoped_ptr<rule_set> src_annot = update_using_propagation(*src_loop, *src_loop);
+        TRACE("dl", src_annot->display(tout << "updated using propagation\n"););
+
+#if 0
+        // figure out whether to update same rules as used for saturation.
+        scoped_ptr<rule_set> rev_source = bwd(*src_annot);
+        src_annot = update_using_propagation(*src_annot, *rev_source);
+#endif
+        rule_set* rules = lc.revert(*src_annot);
+        rules->inherit_predicates(source);
+        TRACE("dl", rules->display(tout););
+        return rules;
+    }
+
+    rule_set* mk_karr_invariants::update_using_propagation(rule_set const& src, rule_set const& srcref) {
         m_inner_ctx.reset();
         rel_context& rctx = m_inner_ctx.get_rel_context();
         ptr_vector<func_decl> heads;
@@ -207,24 +232,24 @@ namespace datalog {
             m_inner_ctx.register_predicate(*fit, false);
         }
         m_inner_ctx.ensure_opened();
-        m_inner_ctx.replace_rules(source);
+        m_inner_ctx.replace_rules(srcref);
         m_inner_ctx.close();
-        rule_set::decl2rules::iterator dit  = source.begin_grouped_rules();
-        rule_set::decl2rules::iterator dend = source.end_grouped_rules();
+        rule_set::decl2rules::iterator dit  = srcref.begin_grouped_rules();
+        rule_set::decl2rules::iterator dend = srcref.end_grouped_rules();
         for (; dit != dend; ++dit) {
             heads.push_back(dit->m_key);
         }
         m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
         
-        rule_set* rules = alloc(rule_set, m_ctx);
-        it = source.begin();            
+        rule_set* dst = alloc(rule_set, m_ctx);
+        rule_set::iterator it = src.begin(), end = src.end();
         for (; it != end; ++it) {
-            update_body(rctx, *rules, **it);
+            update_body(rctx, *dst, **it);
         }
         if (m_ctx.get_model_converter()) {
             add_invariant_model_converter* kmc = alloc(add_invariant_model_converter, m);
-            rule_set::decl2rules::iterator git  = source.begin_grouped_rules();
-            rule_set::decl2rules::iterator gend = source.end_grouped_rules();
+            rule_set::decl2rules::iterator git  = src.begin_grouped_rules();
+            rule_set::decl2rules::iterator gend = src.end_grouped_rules();
             for (; git != gend; ++git) {
                 func_decl* p = git->m_key;
                 expr_ref fml(m);
@@ -236,9 +261,9 @@ namespace datalog {
             }
             m_ctx.add_model_converter(kmc);
         }
-        TRACE("dl", rules->display(tout););
-        rules->inherit_predicates(source);
-        return rules;
+
+        dst->inherit_predicates(src);
+        return dst;
     }
 
     void mk_karr_invariants::update_body(rel_context& rctx, rule_set& rules, rule& r) { 

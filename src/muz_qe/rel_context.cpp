@@ -40,7 +40,9 @@ namespace datalog {
         rule_set  m_rules;
         decl_set  m_preds;
         bool      m_was_closed;                        
+
     public:
+
         scoped_query(context& ctx):
             m_ctx(ctx),
             m_rules(ctx.get_rules()),
@@ -51,6 +53,7 @@ namespace datalog {
                 ctx.reopen();
             }
         }
+
         ~scoped_query() {
             m_ctx.reopen();                                
             m_ctx.restrict_predicates(m_preds);
@@ -179,9 +182,7 @@ namespace datalog {
             scoped_query.reset();
         }
         m_context.record_transformed_rules();
-        TRACE("dl", m_ectx.report_big_relations(100, tout););
-        m_code.process_all_costs();
-        m_code.make_annotations(m_ectx);        
+        TRACE("dl", display_profile(tout););
         return result;
     }
  
@@ -236,7 +237,6 @@ namespace datalog {
             query_pred = rm.mk_query(query, m_context.get_rules());
         }
         catch (default_exception& exn) {
-            m_context.close();
             m_context.set_status(INPUT_ERROR);
             throw exn;
         }
@@ -480,7 +480,10 @@ namespace datalog {
         get_rmanager().display(out);
     }
 
-    void rel_context::display_profile(std::ostream& out) const {
+    void rel_context::display_profile(std::ostream& out) {
+        m_code.make_annotations(m_ectx);
+        m_code.process_all_costs();  
+
         out << "\n--------------\n";
         out << "Instructions\n";
         m_code.display(*this, out);

@@ -241,6 +241,7 @@ namespace datalog {
             tgt.add_rule(new_rule);
             subs_index.add(new_rule);
         }
+        tgt.inherit_predicates(orig);
         TRACE("dl",
             tout << "original set size: "<<orig.get_num_rules()<<"\n"
                  << "reduced set size: "<<tgt.get_num_rules()<<"\n"; );
@@ -338,7 +339,7 @@ namespace datalog {
         rule_set * res = alloc(rule_set, m_context);
         bool modified = transform_rules(source, *res);
 
-        if(!m_have_new_total_rule && !modified) {
+        if (!m_have_new_total_rule && !modified) {
             dealloc(res);
             return 0;
         }
@@ -347,7 +348,7 @@ namespace datalog {
         //During the construction of the new set we may discover new total relations
         //(by quantifier elimination on the uninterpreted tails).
         SASSERT(m_new_total_relation_discovery_during_transformation || !m_have_new_total_rule);
-        while(m_have_new_total_rule) {
+        while (m_have_new_total_rule) {
             m_have_new_total_rule = false;
 
             rule_set * old = res;
@@ -355,7 +356,6 @@ namespace datalog {
             transform_rules(*old, *res);
             dealloc(old);
         }
-        res->inherit_predicates(source);
 
         return res;
     }

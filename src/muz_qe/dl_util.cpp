@@ -158,36 +158,7 @@ namespace datalog {
         ::get_free_vars(trm, vars);
         return var_idx < vars.size() && vars[var_idx] != 0;
     }
-
-
-    void collect_vars(ast_manager & m, expr * e, var_idx_set & result) {
-        ptr_vector<sort> vars;
-        ::get_free_vars(e, vars);
-        unsigned sz = vars.size();
-        for(unsigned i=0; i<sz; ++i) {
-            if(vars[i]) { result.insert(i); }
-        }
-    }
     
-    void collect_tail_vars(ast_manager & m, rule * r, var_idx_set & result) {
-        unsigned n = r->get_tail_size();
-        for(unsigned i=0;i<n;i++) {
-            collect_vars(m, r->get_tail(i), result);
-        }
-    }
-
-    void get_free_tail_vars(rule * r, ptr_vector<sort>& sorts) {
-        unsigned n = r->get_tail_size();
-        for(unsigned i=0;i<n;i++) {
-            get_free_vars(r->get_tail(i), sorts);
-        }
-    }
-
-    void get_free_vars(rule * r, ptr_vector<sort>& sorts) {
-        get_free_vars(r->get_head(), sorts);
-        get_free_tail_vars(r, sorts);
-    }
-
     unsigned count_variable_arguments(app * pred)
     {
         SASSERT(is_uninterp(pred));
@@ -200,26 +171,6 @@ namespace datalog {
             }
         }
         return res;
-    }
-
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t, var_idx_set & result) {
-        collect_vars(m, r->get_head(), result);
-        unsigned sz = r->get_tail_size();
-        for (unsigned i = 0; i < sz; i++) {
-            app * curr = r->get_tail(i);
-            if (curr != t)
-                collect_vars(m, curr, result);
-        }
-    }
-
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t_1, app * t_2, var_idx_set & result) {
-        collect_vars(m, r->get_head(), result);
-        unsigned sz = r->get_tail_size();
-        for (unsigned i = 0; i < sz; i++) {
-            app * curr = r->get_tail(i);
-            if (curr != t_1 && curr != t_2)
-                collect_vars(m, curr, result);
-        }
     }
 
     void mk_new_rule_tail(ast_manager & m, app * pred, var_idx_set const & non_local_vars, unsigned & next_idx, varidx2var_map & varidx2var, 
@@ -404,6 +355,7 @@ namespace datalog {
 
     
     void rule_counter::count_rule_vars(ast_manager & m, const rule * r, int coef) {
+        reset();
         count_vars(m, r->get_head(), 1);
         unsigned n = r->get_tail_size();
         for (unsigned i = 0; i < n; i++) {

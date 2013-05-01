@@ -26,7 +26,9 @@ enum arith_solver_id {
     AS_NO_ARITH,
     AS_DIFF_LOGIC,
     AS_ARITH,
-    AS_DENSE_DIFF_LOGIC
+    AS_DENSE_DIFF_LOGIC,
+    AS_UTVPI,
+    AS_HORN
 };
 
 enum bound_prop_mode {

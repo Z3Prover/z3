@@ -1,6 +1,7 @@
 #include "dl_util.h"
 #include "proof_utils.h"
 #include "ast_smt2_pp.h"
+#include "var_subst.h"
 
 class reduce_hypotheses {
     typedef obj_hashtable<expr> expr_set;
@@ -516,4 +517,94 @@ void proof_utils::permute_unit_resolution(proof_ref& pr) {
     expr_ref_vector refs(pr.get_manager());
     obj_map<proof,proof*> cache;
     ::permute_unit_resolution(refs, cache, pr);
+}
+
+class push_instantiations_up_cl {
+    ast_manager& m;
+public:
+    push_instantiations_up_cl(ast_manager& m): m(m) {}
+
+    void operator()(proof_ref& p) {
+        expr_ref_vector s0(m);
+        p = push(p, s0);
+    }
+
+private:
+
+    proof* push(proof* p, expr_ref_vector const& sub) {
+        proof_ref_vector premises(m);
+        expr_ref conclusion(m);
+        svector<std::pair<unsigned, unsigned> >  positions;
+        vector<expr_ref_vector> substs;
+
+        if (m.is_hyper_resolve(p, premises, conclusion, positions, substs)) {
+            for (unsigned i = 0; i < premises.size(); ++i) {
+                compose(substs[i], sub);
+                premises[i] = push(premises[i].get(), substs[i]);
+                substs[i].reset();
+            }
+            instantiate(sub, conclusion);
+            return 
+                m.mk_hyper_resolve(premises.size(), premises.c_ptr(), conclusion, 
+                                   positions, 
+                                   substs);
+        }        
+        if (sub.empty()) {
+            return p;
+        }
+        if (m.is_modus_ponens(p)) {
+            SASSERT(m.get_num_parents(p) == 2);
+            proof* p0 = m.get_parent(p, 0);
+            proof* p1 = m.get_parent(p, 1);
+            if (m.get_fact(p0) == m.get_fact(p)) {
+                return push(p0, sub);
+            }
+            expr* e1, *e2;
+            if (m.is_rewrite(p1, e1, e2) && 
+                is_quantifier(e1) && is_quantifier(e2) &&
+                to_quantifier(e1)->get_num_decls() == to_quantifier(e2)->get_num_decls()) {
+                expr_ref r1(e1,m), r2(e2,m);
+                instantiate(sub, r1);
+                instantiate(sub, r2);
+                p1 = m.mk_rewrite(r1, r2);
+                return m.mk_modus_ponens(push(p0, sub), p1);
+            }
+        }
+        premises.push_back(p);
+        substs.push_back(sub);
+        conclusion = m.get_fact(p);
+        instantiate(sub, conclusion);
+        return m.mk_hyper_resolve(premises.size(), premises.c_ptr(), conclusion, positions, substs);
+    }
+
+    void compose(expr_ref_vector& sub, expr_ref_vector const& s0) {
+        for (unsigned i = 0; i < sub.size(); ++i) {
+            expr_ref e(m);
+            var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr(), e);
+            sub[i] = e;            
+        }
+    }
+
+    void instantiate(expr_ref_vector const& sub, expr_ref& fml) {
+        if (sub.empty()) {
+            return;
+        }
+        if (!is_forall(fml)) {
+            return;
+        }
+        quantifier* q = to_quantifier(fml);
+        if (q->get_num_decls() != sub.size()) {
+            TRACE("proof_utils", tout << "quantifier has different number of variables than substitution";
+                  tout << mk_pp(q, m) << "\n";
+                  tout << sub.size() << "\n";);
+            return;
+        }
+        var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr(), fml);
+    }
+
+};
+
+void proof_utils::push_instantiations_up(proof_ref& pr) {
+    push_instantiations_up_cl push(pr.get_manager());
+    push(pr);
 }

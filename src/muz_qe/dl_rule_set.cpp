@@ -409,9 +409,10 @@ namespace datalog {
     }
 
     void rule_set::reopen() {
-        SASSERT(is_closed());
-        m_stratifier = 0;
-        m_deps.reset();
+        if (is_closed()) {
+            m_stratifier = 0;
+            m_deps.reset();
+        }
     }
 
     /**

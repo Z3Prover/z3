@@ -505,9 +505,6 @@ namespace datalog {
 
         unsigned head_arity = head_pred->get_arity();
 
-        //var_idx_set head_vars;
-        //var_idx_set same_strat_vars;
-        //collect_vars(m, r->get_head(), head_vars);
 
         unsigned pt_len = r->get_positive_tail_size();
         for (unsigned ti=0; ti<pt_len; ++ti) {
@@ -518,7 +515,6 @@ namespace datalog {
             SASSERT(pred_strat<=head_strat);
 
             if (pred_strat==head_strat) {
-                //collect_vars(m, r->get_head(), same_strat_vars);
                 if (pred->get_arity()>head_arity
                     || (pred->get_arity()==head_arity && pred->get_id()>=head_pred->get_id()) ) {
                     return false;
@@ -709,8 +705,7 @@ namespace datalog {
 
 #define PRT(_x_) ((_x_)?"T":"F")
 
-    bool mk_rule_inliner::inline_linear(rule_set const& source, scoped_ptr<rule_set>& rules) {
-        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
+    bool mk_rule_inliner::inline_linear(scoped_ptr<rule_set>& rules) {
         bool done_something = false;        
         unsigned sz = rules->get_num_rules();
 
@@ -731,7 +726,7 @@ namespace datalog {
         svector<bool>& can_expand = m_head_visitor.can_expand();
 
         for (unsigned i = 0; i < sz; ++i) {
-            add_rule(source, acc[i].get(), i);
+            add_rule(*rules, acc[i].get(), i);
         }
 
         // initialize substitution.
@@ -808,7 +803,7 @@ namespace datalog {
                 TRACE("dl", r->display(m_context, tout); r2->display(m_context, tout); rl_res->display(m_context, tout); );
 
                 del_rule(r, i);
-                add_rule(source, rl_res.get(), i);
+                add_rule(*rules, rl_res.get(), i);
                 
 
                 r = rl_res;
@@ -828,13 +823,15 @@ namespace datalog {
             }
         }
         if (done_something) {
-            rules = alloc(rule_set, m_context);
+            scoped_ptr<rule_set> res = alloc(rule_set, m_context);
             for (unsigned i = 0; i < sz; ++i) {
                 if (valid.get(i)) {
-                    rules->add_rule(acc[i].get());
+                    res->add_rule(acc[i].get());
                 }
             }
-            TRACE("dl", rules->display(tout););
+            res->inherit_predicates(*rules);
+            TRACE("dl", res->display(tout););
+            rules = res.detach();
         }        
         return done_something;
     }
@@ -871,11 +868,17 @@ namespace datalog {
             // try eager inlining
             if (do_eager_inlining(res)) {
                 something_done = true;
-            }
+            }            
             TRACE("dl", res->display(tout << "after eager inlining\n"););
+        }    
+        if (something_done) {
+            res->inherit_predicates(source);
+        }
+        else {
+            res = alloc(rule_set, source);
         }
 
-        if (m_context.get_params().inline_linear() && inline_linear(source, res)) {
+        if (m_context.get_params().inline_linear() && inline_linear(res)) {
             something_done = true;
         }
 
@@ -883,7 +886,6 @@ namespace datalog {
             res = 0;
         }
         else {
-            res->inherit_predicates(source);
             m_context.add_model_converter(hsmc.get());
         }
 

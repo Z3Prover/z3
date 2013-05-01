@@ -28,6 +28,7 @@ namespace datalog {
         plugin(10000, true),
         m_context(ctx),
         m(ctx.get_manager()),
+        rm(ctx.get_rule_manager()),
         m_pinned(m), 
         m_goal(goal, m) {
     }
@@ -259,7 +260,7 @@ namespace datalog {
             }
             new_tail.push_back(curr);
             negations.push_back(r->is_neg_tail(curr_index));
-            collect_vars(m, curr, bound_vars);
+            bound_vars |= rm.collect_vars(curr);
         }
 
 

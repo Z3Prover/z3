@@ -27,6 +27,9 @@ Revision History:
 #include"proof_converter.h"
 #include"model_converter.h"
 #include"ast_counter.h"
+#include"rewriter.h"
+#include"hnf.h"
+#include"qe_lite.h"
 
 namespace datalog {
 
@@ -47,9 +50,33 @@ namespace datalog {
     */
     class rule_manager
     {
+        class remove_label_cfg : public default_rewriter_cfg {
+            family_id m_label_fid;
+        public:        
+            remove_label_cfg(ast_manager& m): m_label_fid(m.get_label_family_id()) {}
+            virtual ~remove_label_cfg();
+            
+            br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
+                                 proof_ref & result_pr);
+        };
+    
         ast_manager&         m;
         context&             m_ctx;
         rule_counter         m_counter;
+        used_vars            m_used;
+        ptr_vector<sort>     m_vars;
+        var_idx_set          m_var_idx;
+        ptr_vector<expr>     m_todo;
+        ast_mark             m_mark;
+        app_ref_vector       m_body;
+        app_ref              m_head;
+        expr_ref_vector      m_args;
+        svector<bool>        m_neg;
+        hnf                  m_hnf;
+        qe_lite              m_qe;
+        remove_label_cfg               m_cfg;
+        rewriter_tpl<remove_label_cfg> m_rwr;
+
 
         // only the context can create a rule_manager
         friend class context;
@@ -90,6 +117,10 @@ namespace datalog {
          */
         void reduce_unbound_vars(rule_ref& r);
 
+        void reset_collect_vars();
+
+        var_idx_set& finalize_collect_vars();
+
     public:
 
         ast_manager& get_manager() const { return m; }
@@ -97,6 +128,24 @@ namespace datalog {
         void inc_ref(rule * r);
 
         void dec_ref(rule * r);
+
+        used_vars& reset_used() { m_used.reset(); return m_used; }
+
+        var_idx_set& collect_vars(expr * pred);
+
+        var_idx_set& collect_vars(expr * e1, expr* e2);
+
+        var_idx_set& collect_rule_vars(rule * r);
+
+        var_idx_set& collect_rule_vars_ex(rule * r, app* t);
+
+        var_idx_set& collect_tail_vars(rule * r);
+
+        void accumulate_vars(expr* pred);
+
+        ptr_vector<sort>& get_var_sorts() { return m_vars; }
+
+        var_idx_set&      get_var_idx() { return m_var_idx; }
 
         /**
            \brief Create a Datalog rule from a Horn formula.

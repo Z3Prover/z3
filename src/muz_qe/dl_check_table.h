@@ -89,15 +89,6 @@ namespace datalog {
 
     class check_table : public table_base {
         friend class check_table_plugin;
-        friend class check_table_plugin::join_fn;
-        friend class check_table_plugin::union_fn;
-        friend class check_table_plugin::transformer_fn;
-        friend class check_table_plugin::rename_fn;
-        friend class check_table_plugin::project_fn;
-        friend class check_table_plugin::filter_equal_fn;
-        friend class check_table_plugin::filter_identical_fn;
-        friend class check_table_plugin::filter_interpreted_fn;
-        friend class check_table_plugin::filter_by_negation_fn;
 
         table_base* m_checker;
         table_base* m_tocheck;

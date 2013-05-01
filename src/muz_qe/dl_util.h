@@ -54,6 +54,7 @@ namespace datalog {
         BMC_ENGINE,
         QBMC_ENGINE,
         TAB_ENGINE,
+        CLP_ENGINE,
         LAST_ENGINE
     };
 
@@ -81,33 +82,13 @@ namespace datalog {
 
     void flatten_or(expr* fml, expr_ref_vector& result);
     
-
-
     bool contains_var(expr * trm, unsigned var_idx);
-
-    /**
-       \brief Collect the variables in \c pred. 
-       \pre \c pred must be a valid head or tail.
-    */
-    void collect_vars(ast_manager & m, expr * pred, var_idx_set & result);
-    void collect_tail_vars(ast_manager & m, rule * r, var_idx_set & result);
-
-    void get_free_vars(rule * r, ptr_vector<sort>& sorts);
 
     /**
        \brief Return number of arguments of \c pred that are variables
     */
     unsigned count_variable_arguments(app * pred);
 
-    /**
-       \brief Store in \c result the set of variables used by \c r when ignoring the tail \c t.
-    */
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t, var_idx_set & result);
-
-    /**
-       \brief Store in \c result the set of variables used by \c r when ignoring the tail elements \c t_1 and \c t_2.
-    */
-    void collect_non_local_vars(ast_manager & m, rule const * r, app * t_1, app * t_2, var_idx_set & result);
 
     template<typename T>
     void copy_nonvariables(app * src, T& tgt)
@@ -207,7 +188,9 @@ namespace datalog {
         static unsigned expr_cont_get_size(app * a) { return a->get_num_args(); }
         static expr * expr_cont_get(app * a, unsigned i) { return a->get_arg(i); }
         static unsigned expr_cont_get_size(const ptr_vector<expr> & v) { return v.size(); }
+        static unsigned expr_cont_get_size(const expr_ref_vector & v) { return v.size(); }
         static expr * expr_cont_get(const ptr_vector<expr> & v, unsigned i) { return v[i]; }
+        static expr * expr_cont_get(const expr_ref_vector & v, unsigned i) { return v[i]; }
     public:
         variable_intersection(ast_manager & m) : m_consts(m) {}
 
@@ -585,17 +568,31 @@ namespace datalog {
     }
 
     template<class T>
-    unsigned int_vector_hash(const T & cont) {
-        return string_hash(reinterpret_cast<const char *>(cont.c_ptr()), 
-            cont.size()*sizeof(typename T::data), 0);
+    struct default_obj_chash {
+        unsigned operator()(T const& cont, unsigned i) const {
+            return cont[i]->hash();
+        }
+    };
+    template<class T>
+    unsigned obj_vector_hash(const T & cont) {
+        return get_composite_hash(cont, cont.size(),default_kind_hash_proc<T>(), default_obj_chash<T>());
     }
 
     template<class T>
-    struct int_vector_hash_proc { 
+    struct obj_vector_hash_proc { 
         unsigned operator()(const T & cont) const {
-            return int_vector_hash(cont);
+            return obj_vector_hash(cont);
         } 
     };
+
+    template<class T>
+    struct svector_hash_proc { 
+        unsigned operator()(const svector<typename T::data> & cont) const {
+            return svector_hash<T>()(cont);
+        } 
+    };
+
+
     template<class T>
     struct vector_eq_proc { 
         bool operator()(const T & c1, const T & c2) const { return vectors_equal(c1, c2); }
@@ -762,11 +759,6 @@ namespace datalog {
     // misc
     //
     // -----------------------------------
-
-    struct uint64_hash {
-        typedef uint64 data;
-        unsigned operator()(uint64 x) const { return hash_ull(x); }
-    };
 
     template<class T>
     void universal_delete(T* ptr) {

@@ -71,6 +71,9 @@ class hnf::imp {
     obj_map<expr, app*>   m_memoize_disj;
     obj_map<expr, proof*> m_memoize_proof;
     func_decl_ref_vector  m_fresh_predicates;
+    expr_ref_vector       m_body;
+    proof_ref_vector      m_defs;
+
 
 public:
     imp(ast_manager & m):
@@ -82,7 +85,9 @@ public:
         m_refs(m), 
         m_name("P"),
         m_qh(m),
-        m_fresh_predicates(m) {
+        m_fresh_predicates(m),
+        m_body(m),
+        m_defs(m) {
     }
 
     void operator()(expr * n, 
@@ -181,14 +186,15 @@ private:
 
 
     void mk_horn(expr_ref& fml, proof_ref& premise) {
+        SASSERT(!premise || fml == m.get_fact(premise));
         expr* e1, *e2;
-        expr_ref_vector body(m);
-        proof_ref_vector defs(m);
         expr_ref fml0(m), fml1(m), fml2(m), head(m);
         proof_ref p(m);
         fml0 = fml;
         m_names.reset();
         m_sorts.reset();
+        m_body.reset();
+        m_defs.reset();
         m_qh.pull_quantifier(true, fml0, &m_sorts, &m_names);
         if (premise){
             fml1 = bind_variables(fml0);
@@ -199,12 +205,12 @@ private:
         }
         head = fml0;
         while (m.is_implies(head, e1, e2)) {
-            body.push_back(e1);
+            m_body.push_back(e1);
             head = e2;
         }
-        datalog::flatten_and(body);
+        datalog::flatten_and(m_body);
         if (premise) {
-            p = m.mk_rewrite(fml0, mk_implies(body, head));
+            p = m.mk_rewrite(fml0, mk_implies(m_body, head));
         }
 
         //
@@ -214,8 +220,8 @@ private:
         // A -> C
         // B -> C
         // 
-        if (body.size() == 1 && m.is_or(body[0].get()) && contains_predicate(body[0].get())) {
-            app* _or = to_app(body[0].get());
+        if (m_body.size() == 1 && m.is_or(m_body[0].get()) && contains_predicate(m_body[0].get())) {
+            app* _or = to_app(m_body[0].get());
             unsigned sz = _or->get_num_args();
             expr* const* args = _or->get_args();
             for (unsigned i = 0; i < sz; ++i) {
@@ -224,7 +230,7 @@ private:
             } 
 
             if (premise) {
-                expr_ref f1 = bind_variables(mk_implies(body, head));
+                expr_ref f1 = bind_variables(mk_implies(m_body, head));
                 expr* f2 = m.mk_and(sz, m_todo.c_ptr()+m_todo.size()-sz);
                 proof_ref p2(m), p3(m);
                 p2 = m.mk_def_axiom(m.mk_iff(f1, f2));
@@ -240,13 +246,13 @@ private:
         }
 
 
-        eliminate_disjunctions(body, defs);
-        p = mk_congruence(p, body, head, defs);
+        eliminate_disjunctions(m_body, m_defs);
+        p = mk_congruence(p, m_body, head, m_defs);
 
-        eliminate_quantifier_body(body, defs);
-        p = mk_congruence(p, body, head, defs);          
+        eliminate_quantifier_body(m_body, m_defs);
+        p = mk_congruence(p, m_body, head, m_defs);          
 
-        fml2 = mk_implies(body, head);
+        fml2 = mk_implies(m_body, head);
 
         fml = bind_variables(fml2);
 

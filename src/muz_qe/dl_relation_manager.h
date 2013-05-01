@@ -605,7 +605,7 @@ namespace datalog {
     /**
        This is a helper class for relation_plugins whose relations can be of various kinds.
     */
-    template<class Spec, class Hash=int_vector_hash_proc<Spec>, class Eq=vector_eq_proc<Spec> >
+    template<class Spec, class Hash, class Eq=vector_eq_proc<Spec> >
     class rel_spec_store {
         typedef relation_signature::hash r_hash;
         typedef relation_signature::eq r_eq;

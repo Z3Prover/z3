@@ -40,15 +40,20 @@ Revision History:
 #include"quant_hoist.h"
 #include"expr_replacer.h"
 #include"bool_rewriter.h"
-#include"qe_lite.h"
 #include"expr_safe_replace.h"
-#include"hnf.h"
 
 namespace datalog {
 
     rule_manager::rule_manager(context& ctx) 
         : m(ctx.get_manager()),
-          m_ctx(ctx) {}
+          m_ctx(ctx),
+          m_body(m),
+          m_head(m),
+          m_args(m),
+          m_hnf(m),
+          m_qe(m),
+          m_cfg(m),
+          m_rwr(m, false, m_cfg) {}
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
@@ -67,34 +72,89 @@ namespace datalog {
         }
     }
 
-    class remove_label_cfg : public default_rewriter_cfg {
-        family_id m_label_fid;
-    public:        
-        remove_label_cfg(ast_manager& m): m_label_fid(m.get_label_family_id()) {}
-        virtual ~remove_label_cfg() {}
+    rule_manager::remove_label_cfg::~remove_label_cfg() {}
 
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
-            proof_ref & result_pr)
-        {
-            if (is_decl_of(f, m_label_fid, OP_LABEL)) {
-                SASSERT(num == 1);
-                result = args[0];
-                return BR_DONE;
-            }
-            return BR_FAILED;
+    br_status rule_manager::remove_label_cfg::reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
+                                                         proof_ref & result_pr)
+    {
+        if (is_decl_of(f, m_label_fid, OP_LABEL)) {
+            SASSERT(num == 1);
+            result = args[0];
+            return BR_DONE;
         }
-    };
+        return BR_FAILED;
+    }
+
 
     void rule_manager::remove_labels(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
-        remove_label_cfg r_cfg(m);
-        rewriter_tpl<remove_label_cfg> rwr(m, false, r_cfg);
-        rwr(fml, tmp);
+        m_rwr(fml, tmp);
         if (pr && fml != tmp) {
             
             pr = m.mk_modus_ponens(pr, m.mk_rewrite(fml, tmp));
         }
         fml = tmp;
+    }
+
+    var_idx_set& rule_manager::collect_vars(expr* e) {
+        return collect_vars(e, 0);
+    }
+
+    var_idx_set& rule_manager::collect_vars(expr* e1, expr* e2) {
+        reset_collect_vars();
+        if (e1) accumulate_vars(e1);
+        if (e2) accumulate_vars(e2);
+        return finalize_collect_vars();
+    }
+
+    void rule_manager::reset_collect_vars() {
+        m_vars.reset();
+        m_var_idx.reset();
+        m_todo.reset();
+        m_mark.reset();
+    }
+
+    var_idx_set& rule_manager::finalize_collect_vars() {
+        unsigned sz = m_vars.size();
+        for (unsigned i=0; i<sz; ++i) {
+            if (m_vars[i]) m_var_idx.insert(i); 
+        }
+        return m_var_idx;
+    }
+
+    var_idx_set& rule_manager::collect_tail_vars(rule * r) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        for (unsigned i=0;i<n;i++) {
+            accumulate_vars(r->get_tail(i));
+        }
+        return finalize_collect_vars();
+    }
+
+    var_idx_set& rule_manager::collect_rule_vars_ex(rule * r, app* t) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        accumulate_vars(r->get_head());
+        for (unsigned i=0;i<n;i++) {
+            if (r->get_tail(i) != t) {
+                accumulate_vars(r->get_tail(i));
+            }
+        }
+        return finalize_collect_vars();
+    }
+
+    var_idx_set& rule_manager::collect_rule_vars(rule * r) {
+        reset_collect_vars();
+        unsigned n = r->get_tail_size();
+        accumulate_vars(r->get_head());
+        for (unsigned i=0;i<n;i++) {
+            accumulate_vars(r->get_tail(i));
+        }
+        return finalize_collect_vars();
+    }
+
+    void rule_manager::accumulate_vars(expr* e) {
+        ::get_free_vars(m_mark, m_todo, e, m_vars);
     }
 
 
@@ -125,13 +185,13 @@ namespace datalog {
     }
 
     void rule_manager::mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name) {
-        hnf h(m);
         expr_ref_vector fmls(m);
         proof_ref_vector prs(m);
-        h.set_name(name);
-        h(fml, p, fmls, prs);
-        for (unsigned i = 0; i < h.get_fresh_predicates().size(); ++i) {
-            m_ctx.register_predicate(h.get_fresh_predicates()[i], false);
+        m_hnf.reset();
+        m_hnf.set_name(name);
+        m_hnf(fml, p, fmls, prs);
+        for (unsigned i = 0; i < m_hnf.get_fresh_predicates().size(); ++i) {
+            m_ctx.register_predicate(m_hnf.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
             mk_horn_rule(fmls[i].get(), prs[i].get(), rules, name);
@@ -140,24 +200,23 @@ namespace datalog {
 
     void rule_manager::mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
         
-        app_ref_vector body(m);
-        app_ref head(m);
-        svector<bool> is_negated;
-        unsigned index = extract_horn(fml, body, head);
-        hoist_compound_predicates(index, head, body);
+        m_body.reset();
+        m_neg.reset();
+        unsigned index = extract_horn(fml, m_body, m_head);
+        hoist_compound_predicates(index, m_head, m_body);
         TRACE("dl_rule",
-              tout << mk_pp(head, m) << " :- ";
-              for (unsigned i = 0; i < body.size(); ++i) {
-                  tout << mk_pp(body[i].get(), m) << " ";
+              tout << mk_pp(m_head, m) << " :- ";
+              for (unsigned i = 0; i < m_body.size(); ++i) {
+                  tout << mk_pp(m_body[i].get(), m) << " ";
               }
               tout << "\n";);
 
 
-        mk_negations(body, is_negated);
-        check_valid_rule(head, body.size(), body.c_ptr());
+        mk_negations(m_body, m_neg);
+        check_valid_rule(m_head, m_body.size(), m_body.c_ptr());
 
         rule_ref r(*this);
-        r = mk(head.get(), body.size(), body.c_ptr(), is_negated.c_ptr(), name);
+        r = mk(m_head.get(), m_body.size(), m_body.c_ptr(), m_neg.c_ptr(), name);
 
         expr_ref fml1(m);
         if (p) {
@@ -326,28 +385,28 @@ namespace datalog {
             fml = m.mk_not(fml);
             return;
         }
-        expr_ref_vector args(m);
         if (!m_ctx.is_predicate(fml)) {
             return;
         }
+        m_args.reset();
         for (unsigned i = 0; i < fml->get_num_args(); ++i) {
             e = fml->get_arg(i);
             if (!is_app(e)) {
-                args.push_back(e);
+                m_args.push_back(e);
                 continue;
             }
             app* b = to_app(e);
 
             if (m.is_value(b)) {
-                args.push_back(e);
+                m_args.push_back(e);
             }
             else {
                 var* v = m.mk_var(num_bound++, m.get_sort(b));
-                args.push_back(v);
+                m_args.push_back(v);
                 body.push_back(m.mk_eq(v, b));
             }
         }
-        fml = m.mk_app(fml->get_decl(), args.size(), args.c_ptr());
+        fml = m.mk_app(fml->get_decl(), m_args.size(), m_args.c_ptr());
         TRACE("dl_rule", tout << mk_pp(fml.get(), m) << "\n";);
     }
 
@@ -511,29 +570,22 @@ namespace datalog {
     void rule_manager::reduce_unbound_vars(rule_ref& r) {
         unsigned ut_len = r->get_uninterpreted_tail_size();
         unsigned t_len = r->get_tail_size();
-        ptr_vector<sort> vars;
-        uint_set index_set;
-        qe_lite qe(m);
         expr_ref_vector conjs(m);
 
         if (ut_len == t_len) {
             return;
         }
 
-        get_free_vars(r->get_head(), vars);
+        reset_collect_vars();
+        accumulate_vars(r->get_head());
         for (unsigned i = 0; i < ut_len; ++i) {
-            get_free_vars(r->get_tail(i), vars);
+            accumulate_vars(r->get_tail(i));
         }
+        var_idx_set& index_set = finalize_collect_vars();
         for (unsigned i = ut_len; i < t_len; ++i) {
             conjs.push_back(r->get_tail(i));
         }
-
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            if (vars[i]) {
-                index_set.insert(i);
-            }
-        }
-        qe(index_set, false, conjs);
+        m_qe(index_set, false, conjs);
         bool change = conjs.size() != t_len - ut_len;
         for (unsigned i = 0; !change && i < conjs.size(); ++i) {
             change = r->get_tail(ut_len+i) != conjs[i].get();
@@ -570,15 +622,14 @@ namespace datalog {
             return;
         }
 
-        ptr_vector<sort> free_rule_vars;
         var_counter vctr;
         app_ref_vector tail(m);
         svector<bool> tail_neg;
         app_ref head(r->get_head(), m);
 
-        get_free_vars(r, free_rule_vars);
+        collect_rule_vars(r);
         vctr.count_vars(m, head);
-
+        ptr_vector<sort>& free_rule_vars = m_vars;
 
         for (unsigned i = 0; i < ut_len; i++) {
             app * t = r->get_tail(i);
@@ -906,7 +957,7 @@ namespace datalog {
     }
 
     void rule::norm_vars(rule_manager & rm) {
-        used_vars used;
+        used_vars& used = rm.reset_used();
         get_used_vars(used);
 
         unsigned first_unsused = used.get_max_found_var_idx_plus_1();
@@ -1004,16 +1055,14 @@ namespace datalog {
         }
         svector<symbol> names;
         used_symbols<> us;
-        
-        us(fml);
-        sorts.reverse();
-        
         for (unsigned i = 0; i < sorts.size(); ++i) {
             if (!sorts[i]) {
                 sorts[i] = m.mk_bool_sort();
             }
         }
-
+               
+        us(fml);
+        sorts.reverse();
         for (unsigned j = 0, i = 0; i < sorts.size(); ++j) {
             for (char c = 'A'; i < sorts.size() && c <= 'Z'; ++c) {
                 func_decl_ref f(m);
@@ -1067,6 +1116,8 @@ namespace datalog {
     }
 
 
-
+    
 };
+
+template class rewriter_tpl<datalog::rule_manager::remove_label_cfg>;
 

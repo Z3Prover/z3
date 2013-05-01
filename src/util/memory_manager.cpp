@@ -231,9 +231,8 @@ void * memory::allocate(size_t s) {
         return 0;
     s = s + sizeof(size_t); // we allocate an extra field!
     void * r = malloc(s);
-    if (r == 0) {
+    if (r == 0) 
         throw_out_of_memory();
-    }
     *(static_cast<size_t*>(r)) = s;
     g_memory_thread_alloc_size += s;
     if (g_memory_thread_alloc_size > SYNCH_THRESHOLD) {

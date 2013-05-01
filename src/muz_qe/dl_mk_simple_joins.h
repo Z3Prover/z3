@@ -49,7 +49,8 @@ namespace datalog {
        We say that a rule containing C_i's is a rule with a "big tail".
     */
     class mk_simple_joins : public rule_transformer::plugin {
-        context &							m_context;
+        context & 	    m_context;
+        rule_manager &      rm;
     public:
         mk_simple_joins(context & ctx);
         

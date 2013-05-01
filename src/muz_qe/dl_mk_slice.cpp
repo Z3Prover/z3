@@ -725,6 +725,9 @@ namespace datalog {
                     m_mc->add_predicate(p, f);
                 }
             }
+            else if (src.is_output_predicate(p)) {
+                dst.set_output_predicate(p);
+            }
         }
     }
 

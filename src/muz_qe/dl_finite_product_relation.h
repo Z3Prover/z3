@@ -47,7 +47,7 @@ namespace datalog {
             }
             struct hash {
                 unsigned operator()(const rel_spec & o) const {
-                    return o.m_inner_kind^int_vector_hash(o.m_table_cols);
+                    return o.m_inner_kind^svector_hash<bool_hash>()(o.m_table_cols);
                 }
             };
         };

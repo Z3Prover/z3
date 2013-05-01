@@ -28,10 +28,8 @@ Revision History:
 #include "well_sorted.h"
 
 void horn_subsume_model_converter::insert(app* head, expr* body) {
-    func_decl_ref pred(m);
-    expr_ref      body_res(m);
-    VERIFY(mk_horn(head, body, pred, body_res));
-    insert(pred.get(), body_res.get());
+    m_delay_head.push_back(head);
+    m_delay_body.push_back(body);
 }
 
 void horn_subsume_model_converter::insert(app* head, unsigned sz, expr* const* body) {
@@ -148,6 +146,7 @@ bool horn_subsume_model_converter::mk_horn(
 }
 
 void horn_subsume_model_converter::add_default_proc::operator()(app* n) {
+
     //
     // predicates that have not been assigned values 
     // in the Horn model are assumed false.
@@ -174,6 +173,16 @@ void horn_subsume_model_converter::add_default_false_interpretation(expr* e, mod
 
 
 void horn_subsume_model_converter::operator()(model_ref& mr) {
+
+    func_decl_ref pred(m);
+    expr_ref      body_res(m);
+    for (unsigned i = 0; i < m_delay_head.size(); ++i) {
+        VERIFY(mk_horn(m_delay_head[i].get(), m_delay_body[i].get(), pred, body_res));
+        insert(pred.get(), body_res.get());
+    }
+    m_delay_head.reset();
+    m_delay_body.reset();
+
     TRACE("mc", tout << m_funcs.size() << "\n"; model_smt2_pp(tout, m, *mr, 0););
     for (unsigned i = m_funcs.size(); i > 0; ) {
         --i;

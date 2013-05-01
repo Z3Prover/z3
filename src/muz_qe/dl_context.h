@@ -45,6 +45,9 @@ Revision History:
 #include"model2expr.h"
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
+#include"expr_abstract.h"
+#include"expr_functors.h"
+#include"clp_context.h"
 
 namespace datalog {
 
@@ -76,6 +79,18 @@ namespace datalog {
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
 
+        class contains_pred : public i_expr_pred {
+            context const& ctx;
+        public:
+            contains_pred(context& ctx): ctx(ctx) {}
+            virtual ~contains_pred() {}
+            
+            virtual bool operator()(expr* e) {
+                return ctx.is_predicate(e);
+            }
+        };
+
+
         ast_manager &      m;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
@@ -84,10 +99,15 @@ namespace datalog {
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
+        unused_vars_eliminator m_elim_unused_vars;
+        expr_abstractor        m_abstractor;
+        contains_pred      m_contains_p;
+        check_pred         m_check_pred;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
         app_ref_vector     m_vars;
+        svector<symbol>    m_names;
         sort_domain_map    m_sorts;
         func_decl_set      m_preds;
         sym2decl           m_preds_by_name;
@@ -104,6 +124,7 @@ namespace datalog {
         scoped_ptr<bmc>                 m_bmc;
         scoped_ptr<rel_context>         m_rel;
         scoped_ptr<tab>                 m_tab;
+        scoped_ptr<clp>                 m_clp;
 
         bool               m_closed;
         bool               m_saturation_was_run;
@@ -457,6 +478,8 @@ namespace datalog {
 
         void ensure_tab();
 
+        void ensure_clp();
+
         void ensure_rel();
 
         void new_query();
@@ -468,6 +491,8 @@ namespace datalog {
         lbool bmc_query(expr* query);
 
         lbool tab_query(expr* query);
+
+        lbool clp_query(expr* query);
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);

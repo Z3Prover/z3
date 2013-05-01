@@ -359,7 +359,7 @@ namespace datalog {
 
         typedef svector<unsigned> key_spec;        //sequence of columns in a key
         typedef svector<table_element> key_value;  //values of key columns
-        typedef map<key_spec, key_indexer*, int_vector_hash_proc<key_spec>,
+        typedef map<key_spec, key_indexer*, svector_hash_proc<unsigned_hash>,
             vector_eq_proc<key_spec> > key_index_map;
 
         static const store_offset NO_RESERVE = UINT_MAX;
