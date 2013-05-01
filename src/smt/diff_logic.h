@@ -21,6 +21,7 @@ Revision History:
 
 #include"vector.h"
 #include"heap.h"
+#include"statistics.h"
 #include"trace.h"
 #include"warning.h"
 
