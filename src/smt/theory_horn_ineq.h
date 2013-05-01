@@ -91,7 +91,6 @@ namespace smt {
         typedef svector<th_var> th_var_vector;
         typedef unsigned clause_id;
         typedef vector<std::pair<th_var, rational> >  coeffs;
-        static const clause_id null_clause_id = UINT_MAX;
 
         class clause;
         class graph;
@@ -108,7 +107,7 @@ namespace smt {
             atom(bool_var bv, int pos, int neg) : 
                 m_bvar(bv), m_true(false),
                 m_pos(pos), m_neg(neg) {}
-            virtual ~atom() {}
+            ~atom() {}
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_true; }
             void assign_eh(bool is_true) { m_true = is_true; }
