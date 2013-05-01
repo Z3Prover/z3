@@ -264,13 +264,6 @@ class dl_graph {
             m_assignment[e.get_target()] - m_assignment[e.get_source()] <= e.get_weight();
     }
 
-    bool is_tight(edge_id e) const {
-        edge const& edge = m_edges[e];
-        return edge.is_enabled() &&
-            m_assignment[edge.get_target()] - m_assignment[e.get_source()] == e.get_weight();
-    }
-
-
 public:
     // An assignment is feasible if all edges are feasible.
     bool is_feasible() const {

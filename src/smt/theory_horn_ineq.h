@@ -85,6 +85,7 @@ namespace smt {
     class theory_horn_ineq : public theory, private Ext {
         
         typedef typename Ext::numeral numeral;
+        typedef typename Ext::inf_numeral inf_numeral;
         typedef literal explanation;
         typedef theory_var th_var;
         typedef svector<th_var> th_var_vector;

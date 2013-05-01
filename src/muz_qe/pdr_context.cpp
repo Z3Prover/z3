@@ -1441,11 +1441,7 @@ namespace pdr {
                     }         
                 }
                 m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
-#if 0
-                if (!m_is_dl) {
-                    m_is_utvpi = is_utvpi_logic(m, forms.size(), forms.c_ptr());
-                }
-#endif
+                m_is_utvpi = m_is_dl || is_utvpi_logic(m, forms.size(), forms.c_ptr());
             }
         }
 
@@ -1565,14 +1561,14 @@ namespace pdr {
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
             m_fparams.m_arith_eager_eq_axioms = false;
-            if (classify.is_dl()) {
-                m_fparams.m_arith_mode = AS_DIFF_LOGIC;
-                m_fparams.m_arith_expand_eqs = true;
-            }
-            else if (classify.is_utvpi()) {
+            if (classify.is_utvpi() && m_params.use_utvpi()) {
                 IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                 m_fparams.m_arith_mode = AS_UTVPI;
                 m_fparams.m_arith_expand_eqs = true;                
+            }
+            else if (classify.is_dl()) {
+                m_fparams.m_arith_mode = AS_DIFF_LOGIC;
+                m_fparams.m_arith_expand_eqs = true;
             }
         }
         if (!use_mc && m_params.use_inductive_generalizer()) {

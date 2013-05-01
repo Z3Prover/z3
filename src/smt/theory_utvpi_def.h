@@ -264,7 +264,7 @@ namespace smt {
     template<typename Ext>
     typename theory_utvpi<Ext>::numeral theory_utvpi<Ext>::mk_weight(bool is_real, bool is_strict, rational const& w) const {
         if (is_strict) {
-            return numeral(w) + (is_real?m_epsilon:numeral(1));
+            return numeral(w) + (is_real?Ext::m_epsilon:numeral(1));
         }
         else {
             return numeral(w);
@@ -435,6 +435,7 @@ namespace smt {
             m_nc_functor.reset();
             VERIFY(m_graph.find_shortest_zero_edge_path(v1, v2, UINT_MAX, m_nc_functor));
             VERIFY(m_graph.find_shortest_zero_edge_path(v2, v1, UINT_MAX, m_nc_functor));
+            IF_VERBOSE(1, verbose_stream() << "parity conflict " << mk_pp(e->get_owner(), get_manager()) << "\n";);
             set_conflict();
                         
             return false;            
@@ -453,7 +454,9 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::collect_statistics(::statistics& st) const {
         st.update("utvpi conflicts",   m_stats.m_num_conflicts);
-        st.update("utvpi assignments", m_stats.m_num_assertions);
+        st.update("utvpi asserts", m_stats.m_num_assertions);
+        st.update("core->utvpi eqs", m_stats.m_num_core2th_eqs);
+        st.update("core->utvpi diseqs", m_stats.m_num_core2th_diseqs);
         m_arith_eq_adapter.collect_statistics(st);
         m_graph.collect_statistics(st);
     }
@@ -669,6 +672,9 @@ namespace smt {
         unsigned sz = m_atoms.size();
         for (unsigned i = 0; i < sz; ++i) {
             bool_var b = m_atoms[i].get_bool_var();
+            if (!ctx.is_relevant(b)) {
+                continue;
+            }
             bool ok = true;
             expr* e = ctx.bool_var2expr(b);
             switch(ctx.get_assignment(b)) {
@@ -681,7 +687,9 @@ namespace smt {
             default:
                 break;
             }
-            CTRACE("utvpi", !ok, tout << "validation failed: " << mk_pp(e, get_manager()) << "\n";);
+            CTRACE("utvpi", !ok, tout << "validation failed:  " << mk_pp(e, get_manager()) << "\n";);
+            // CTRACE("utvpi",  ok, tout << "validation success: " << mk_pp(e, get_manager()) << "\n";);
+            SASSERT(ok);
         }
     }
 
@@ -748,6 +756,7 @@ namespace smt {
         numeral val = val1 - val2;
         rational num = val.get_rational() + (m_delta * val.get_infinitesimal().to_rational());
         num = num/rational(2);
+        num = floor(num);
         return num;
     }
     
@@ -755,7 +764,6 @@ namespace smt {
     model_value_proc * theory_utvpi<Ext>::mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
         rational num = mk_value(v);
-        num = ceil(num);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
         return alloc(expr_wrapper_proc, m_factory->mk_value(num, a.is_int(n->get_owner())));
     }

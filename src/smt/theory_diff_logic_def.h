@@ -310,9 +310,9 @@ void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
 template<typename Ext>
 void theory_diff_logic<Ext>::collect_statistics(::statistics & st) const {
     st.update("dl conflicts", m_stats.m_num_conflicts);
-    st.update("dl propagations", m_stats.m_num_th2core_prop);
     st.update("dl asserts", m_stats.m_num_assertions);
     st.update("core->dl eqs", m_stats.m_num_core2th_eqs);
+    st.update("core->dl diseqs", m_stats.m_num_core2th_diseqs);
     m_arith_eq_adapter.collect_statistics(st);
     m_graph.collect_statistics(st);
 }
@@ -598,7 +598,6 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     literal_vector const& lits = m_nc_functor.get_lits();
     context & ctx = get_context();
     TRACE("arith_conflict", 
-          //display(tout);
           tout << "conflict: ";
           for (unsigned i = 0; i < lits.size(); ++i) {
               ctx.display_literal_info(tout, lits[i]);
@@ -970,10 +969,6 @@ void theory_diff_logic<Ext>::new_diseq_eh(theory_var v1, theory_var v2) {
     m_arith_eq_adapter.new_diseq_eh(v1, v2);
 }
 
-
-template<typename Ext>
-void theory_diff_logic<Ext>::relevant_eh(app* e) {
-}
 
 
 struct imp_functor {

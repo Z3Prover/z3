@@ -60,6 +60,7 @@ def_module_params('fixedpoint',
                           ('print_answer', BOOL, False, 'print answer instance(s) to query'),
                           ('print_certificate', BOOL, False, 'print certificate for reachability or non-reachability'),
                           ('print_statistics',  BOOL, False, 'print statistics'),
+			  ('use_utvpi', BOOL, False, 'experimental use UTVPI strategy'),
 	                  ('tab_selection', SYMBOL, 'weight', 'selection method for tabular strategy: weight (default), first, var-use'),
                           ))
 

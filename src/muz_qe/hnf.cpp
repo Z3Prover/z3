@@ -186,6 +186,7 @@ private:
 
 
     void mk_horn(expr_ref& fml, proof_ref& premise) {
+        SASSERT(!premise || fml == m.get_fact(premise));
         expr* e1, *e2;
         expr_ref fml0(m), fml1(m), fml2(m), head(m);
         proof_ref p(m);

@@ -46,7 +46,6 @@ namespace smt {
         unsigned   m_num_conflicts;
         unsigned   m_num_assertions;
         unsigned   m_num_th2core_eqs;
-        unsigned   m_num_th2core_prop;
 
         unsigned   m_num_core2th_eqs;
         unsigned   m_num_core2th_diseqs;
@@ -260,7 +259,7 @@ namespace smt {
             m_arith_eq_adapter.restart_eh();
         }
 
-        virtual void relevant_eh(app* e);
+        virtual void relevant_eh(app* e) {}
 
         virtual void init_search_eh() {
             m_arith_eq_adapter.init_search_eh();

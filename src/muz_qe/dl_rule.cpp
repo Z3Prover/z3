@@ -85,8 +85,6 @@ namespace datalog {
         return BR_FAILED;
     }
 
-    template class rewriter_tpl<rule_manager::remove_label_cfg>;
-
 
     void rule_manager::remove_labels(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
@@ -1120,4 +1118,6 @@ namespace datalog {
 
     
 };
+
+template class rewriter_tpl<datalog::rule_manager::remove_label_cfg>;
 

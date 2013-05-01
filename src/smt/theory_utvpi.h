@@ -201,6 +201,7 @@ namespace smt {
         virtual void assign_eh(bool_var v, bool is_true);
 
         virtual void new_eq_eh(th_var v1, th_var v2) {
+            m_stats.m_num_core2th_eqs++;
             m_arith_eq_adapter.new_eq_eh(v1, v2);
         }
 
@@ -320,10 +321,6 @@ namespace smt {
 
         th_var neg(th_var v) const {
             return v | 0x1;
-        }
-
-        th_var not(th_var v) const {
-            return v ^ 0x1;
         }
 
     };

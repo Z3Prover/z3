@@ -391,7 +391,7 @@ namespace pdr {
              !is_utvpi_logic(m, lemmas.size(), lemmas.c_ptr()));
 
         if (outside_of_logic) {
-            IF_VERBOSE(1, 
+            IF_VERBOSE(2, 
                        verbose_stream() << "not diff\n";
                        for (unsigned i = 0; i < lemmas.size(); ++i) {
                            verbose_stream() << mk_pp(lemmas[i].get(), m) << "\n";

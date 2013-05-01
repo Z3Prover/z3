@@ -1248,7 +1248,11 @@ namespace pdr {
             }
 
             if (!m_is_dl) {
-                IF_VERBOSE(1, verbose_stream() << "non-diff: " << mk_pp(e, m) << "\n";);
+                char const* msg = "non-diff: ";
+                if (m_test_for_utvpi) {
+                    msg = "non-utvpi: ";
+                }
+                IF_VERBOSE(1, verbose_stream() << msg << mk_pp(e, m) << "\n";);
             }
         }
 
