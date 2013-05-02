@@ -35,7 +35,7 @@ class fpa2bv_converter {
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
     float_util                 m_util;
-    mpf_manager                 & m_mpf_manager;
+    mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;
     bv_util                    m_bv_util;    
     float_decl_plugin        * m_plugin;
@@ -48,6 +48,7 @@ public:
     ~fpa2bv_converter();
 
     float_util & fu() { return m_util; }
+    bv_util & bu() { return m_bv_util; }
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
@@ -68,6 +69,7 @@ public:
     void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_const(func_decl * f, expr_ref & result);
     void mk_rm_const(func_decl * f, expr_ref & result);
+    void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_plus_inf(func_decl * f, expr_ref & result);
     void mk_minus_inf(func_decl * f, expr_ref & result);

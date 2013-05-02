@@ -29,6 +29,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     ast_manager              & m_manager;    
     expr_ref_vector            m_out;    
     fpa2bv_converter         & m_conv;
+    sort_ref_vector            m_bindings;    
+    expr_ref_vector            m_mappings;
 
     unsigned long long         m_max_memory;
     unsigned                   m_max_steps;
@@ -38,7 +40,9 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, params_ref const & p):
         m_manager(m),
         m_out(m),
-        m_conv(c) {
+        m_conv(c),
+        m_bindings(m),
+        m_mappings(m) {
         updt_params(p);
         // We need to make sure that the mananger has the BV plugin loaded.
         symbol s_bv("bv");
@@ -51,6 +55,9 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     void cleanup_buffers() {
         m_out.finalize();
+    }
+
+    void reset() {
     }
 
     void updt_params(params_ref const & p) {
@@ -140,17 +147,88 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         return BR_FAILED;
     }
 
+    bool pre_visit(expr * t)
+    {
+        if (is_quantifier(t)) {            
+            quantifier * q = to_quantifier(t);            
+            TRACE("fpa2bv", tout << "pre_visit [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
+            sort_ref_vector new_bindings(m_manager);
+            for (unsigned i = 0 ; i < q->get_num_decls(); i++)
+                new_bindings.push_back(q->get_decl_sort(i));
+            SASSERT(new_bindings.size() == q->get_num_decls());
+            m_bindings.append(new_bindings);
+            m_mappings.resize(m_bindings.size(), 0);
+        }
+        return true;
+    }
+
     bool reduce_quantifier(quantifier * old_q, 
                            expr * new_body, 
                            expr * const * new_patterns, 
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
-        return false;
+        unsigned curr_sz   = m_bindings.size();
+        SASSERT(old_q->get_num_decls() <= curr_sz);
+        unsigned num_decls = old_q->get_num_decls();
+        unsigned old_sz    = curr_sz - num_decls;
+        string_buffer<> name_buffer;
+        ptr_buffer<sort> new_decl_sorts;
+        sbuffer<symbol>  new_decl_names;
+        for (unsigned i = 0; i < num_decls; i++) {
+            symbol const & n = old_q->get_decl_name(i);
+            sort * s         = old_q->get_decl_sort(i);
+            if (m_conv.is_float(s)) {
+                unsigned ebits = m_conv.fu().get_ebits(s);
+                unsigned sbits = m_conv.fu().get_sbits(s);
+                name_buffer.reset();
+                name_buffer << n << ".exp";
+                new_decl_names.push_back(symbol(name_buffer.c_str()));
+                new_decl_sorts.push_back(m_conv.bu().mk_sort(ebits));
+                name_buffer.reset();
+                name_buffer << n << ".sig";
+                new_decl_names.push_back(symbol(name_buffer.c_str()));
+                new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits-1));
+                name_buffer.reset();
+                name_buffer << n << ".sgn";
+                new_decl_names.push_back(symbol(name_buffer.c_str()));
+                new_decl_sorts.push_back(m_conv.bu().mk_sort(1));                
+            }
+            else {
+                new_decl_sorts.push_back(s);
+                new_decl_names.push_back(n);
+            }
+        }
+        result = m().mk_quantifier(old_q->is_forall(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+                                   new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
+                                   old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
+        result_pr = 0;
+        m_bindings.shrink(old_sz);
+        m_mappings.shrink(old_sz);
+        TRACE("fpa2bv", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " << 
+                mk_ismt2_pp(old_q->get_expr(), m()) << std::endl <<
+                " new body: " << mk_ismt2_pp(new_body, m()) << std::endl;
+                tout << "result = " << mk_ismt2_pp(result, m()) << std::endl;);                
+        return true;
     }
 
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) { 
-        return false; 
+        if (t->get_idx() >= m_bindings.size())
+            return false;        
+        unsigned inx = m_bindings.size() - t->get_idx() - 1;        
+        if (m_mappings[inx] == 0)
+        {
+            unsigned shift = 0;
+            for (unsigned i = m_bindings.size() - 1; i > inx; i--)
+                if (m_conv.is_float(m_bindings[i].get())) shift += 2;
+            expr_ref new_var(m());
+            m_conv.mk_var(t->get_idx() + shift, t->get_sort(), new_var);
+            m_mappings[inx] = new_var;
+        }
+        result = m_mappings[inx].get();
+        result_pr = 0;        
+        TRACE("fpa2bv", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
+        return true;
     }
 };
 

@@ -150,6 +150,20 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
     }
 }
 
+void fpa2bv_converter::mk_var(unsigned base_inx, sort * srt, expr_ref & result) {
+    SASSERT(is_float(srt));
+    unsigned ebits = m_util.get_ebits(srt);
+    unsigned sbits = m_util.get_sbits(srt);
+        
+    expr_ref sgn(m), s(m), e(m);    
+
+    sgn = m.mk_var(base_inx, m_bv_util.mk_sort(1));
+    s   = m.mk_var(base_inx + 1, m_bv_util.mk_sort(sbits-1));
+    e   = m.mk_var(base_inx + 2, m_bv_util.mk_sort(ebits));
+
+    mk_triple(sgn, s, e, result);
+}
+
 
 void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
     SASSERT(f->get_family_id() == null_family_id);
