@@ -201,6 +201,7 @@ private:
             if (!m_sorts.empty()) {
                 proof* p1 = m.mk_pull_quant(fml, to_quantifier(fml1));
                 premise = mk_modus_ponens(premise, p1);
+                fml = fml1;
             }
         }
         head = fml0;

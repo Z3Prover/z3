@@ -27,6 +27,8 @@ Revision History:
 
 namespace smt {
 
+    static const unsigned null_clause_id = UINT_MAX;
+
     /**
        A clause represents an inequality of the form
        
