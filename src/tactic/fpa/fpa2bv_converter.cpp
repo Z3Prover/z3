@@ -2403,6 +2403,25 @@ void fpa2bv_model_converter::display(std::ostream & out) {
              unsigned indent = n.size() + 4;
              out << mk_ismt2_pp(it->m_value, m, indent) << ")";
     }
+    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
+         it != m_uf2bvuf.end();
+         it++) {
+             const symbol & n = it->m_key->get_name();
+             out << "\n  (" << n << " ";
+             unsigned indent = n.size() + 4;
+             out << mk_ismt2_pp(it->m_value, m, indent) << ")";
+    }
+    for (obj_map<func_decl, func_decl_triple>::iterator it = m_uf23bvuf.begin();
+         it != m_uf23bvuf.end();
+         it++) {
+             const symbol & n = it->m_key->get_name();
+             out << "\n  (" << n << " ";
+             unsigned indent = n.size() + 4;
+             out << mk_ismt2_pp(it->m_value.f_sgn, m, indent) << " ; " << 
+             mk_ismt2_pp(it->m_value.f_sig, m, indent) << " ; " << 
+             mk_ismt2_pp(it->m_value.f_exp, m, indent) << " ; " <<
+             ")";
+    }
     out << ")" << std::endl;
 }
 
@@ -2523,6 +2542,20 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
         }        
     }
 
+    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
+         it != m_uf2bvuf.end();
+         it++) 
+        seen.insert(it->m_value);
+
+    for (obj_map<func_decl, func_decl_triple>::iterator it = m_uf23bvuf.begin();
+         it != m_uf23bvuf.end();
+         it++) 
+    {
+        seen.insert(it->m_value.f_sgn);
+        seen.insert(it->m_value.f_sig);
+        seen.insert(it->m_value.f_exp);
+    }
+
     fu.fm().del(fp_val);
 
     // Keep all the non-float constants.
@@ -2530,7 +2563,7 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
     for (unsigned i = 0; i < sz; i++)
     {
         func_decl * c = bv_mdl->get_constant(i);
-        if (!seen.contains(c))            
+        if (!seen.contains(c))
             float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
     }
 
@@ -2539,7 +2572,8 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
     for (unsigned i = 0; i < sz; i++)
     {
         func_decl * c = bv_mdl->get_function(i);
-        float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
+        if (!seen.contains(c))
+            float_mdl->register_decl(c, bv_mdl->get_const_interp(c));
     }
 
     sz = bv_mdl->get_num_uninterpreted_sorts();
@@ -2553,6 +2587,8 @@ void fpa2bv_model_converter::convert(model * bv_mdl, model * float_mdl) {
 
 model_converter * mk_fpa2bv_model_converter(ast_manager & m, 
                                             obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv) {
-    return alloc(fpa2bv_model_converter, m, const2bv, rm_const2bv);
+                                            obj_map<func_decl, expr*> const & rm_const2bv,
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf,      
+                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf) {
+    return alloc(fpa2bv_model_converter, m, const2bv, rm_const2bv, uf2bvuf, uf23bvuf);
 }
