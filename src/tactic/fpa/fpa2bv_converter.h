@@ -42,6 +42,21 @@ class fpa2bv_converter {
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;
+
+    struct func_decl_triple {
+        func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
+        func_decl_triple (func_decl * sgn, func_decl * sig, func_decl * exp)
+        {
+            f_sgn = sgn;
+            f_sig = sig;
+            f_exp = exp;
+        }
+        func_decl * f_sgn;
+        func_decl * f_sig;        
+        func_decl * f_exp;        
+    };
+    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
     
 public:
     fpa2bv_converter(ast_manager & m);    
@@ -67,8 +82,9 @@ public:
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_const(func_decl * f, expr_ref & result);
+    void mk_const(func_decl * f, expr_ref & result);    
     void mk_rm_const(func_decl * f, expr_ref & result);
+    void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_plus_inf(func_decl * f, expr_ref & result);
@@ -102,7 +118,7 @@ public:
     void mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }

@@ -143,6 +143,23 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                 throw tactic_exception("NYI");
             }
         }
+
+        if (f->get_family_id() == null_family_id)
+        {
+            bool is_float_uf = m_conv.is_float(f->get_range());
+            unsigned i = 0;
+            while (!is_float_uf && i < num)
+            {
+                is_float_uf = m_conv.is_float(f->get_domain()[i]);
+                i++;
+            }
+
+            if (is_float_uf)
+            {
+                m_conv.mk_uninterpreted_function(f, num, args, result);
+                return BR_DONE;
+            }
+        }
         
         return BR_FAILED;
     }
@@ -222,7 +239,10 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             for (unsigned i = m_bindings.size() - 1; i > inx; i--)
                 if (m_conv.is_float(m_bindings[i].get())) shift += 2;
             expr_ref new_var(m());
-            m_conv.mk_var(t->get_idx() + shift, t->get_sort(), new_var);
+            if (m_conv.is_float(t->get_sort()))
+                m_conv.mk_var(t->get_idx() + shift, t->get_sort(), new_var);
+            else
+                new_var = m().mk_var(t->get_idx() + shift, t->get_sort());
             m_mappings[inx] = new_var;
         }
         result = m_mappings[inx].get();

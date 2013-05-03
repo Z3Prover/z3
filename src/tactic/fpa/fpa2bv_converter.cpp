@@ -38,6 +38,17 @@ fpa2bv_converter::fpa2bv_converter(ast_manager & m) :
 fpa2bv_converter::~fpa2bv_converter() {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
+    dec_ref_map_key_values(m, m_uf2bvuf);
+    
+    obj_map<func_decl, func_decl_triple>::iterator it  = m_uf23bvuf.begin();
+    obj_map<func_decl, func_decl_triple>::iterator end = m_uf23bvuf.end();
+    for (; it != end; ++it) {
+        m.dec_ref(it->m_key);
+        m.dec_ref(it->m_value.f_sgn);
+        m.dec_ref(it->m_value.f_sig);
+        m.dec_ref(it->m_value.f_exp);
+    }
+    m_uf23bvuf.reset();
 }
 
 void fpa2bv_converter::mk_eq(expr * a, expr * b, expr_ref & result) {
@@ -164,6 +175,90 @@ void fpa2bv_converter::mk_var(unsigned base_inx, sort * srt, expr_ref & result) 
     mk_triple(sgn, s, e, result);
 }
 
+void fpa2bv_converter::mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
+{
+    TRACE("fpa2bv_dbg", tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
+    SASSERT(f->get_arity() == num);
+
+    expr_ref_buffer new_args(m);
+
+    for (unsigned i = 0; i < num ; i ++)
+    if (is_float(args[i]))
+    {
+        expr * sgn, * sig, * exp;
+        split(args[i], sgn, sig, exp);
+        new_args.push_back(sgn);
+        new_args.push_back(sig);
+        new_args.push_back(exp);
+    }
+    else
+        new_args.push_back(args[i]);
+
+    func_decl * fd;    
+    func_decl_triple fd3;
+    if (m_uf2bvuf.find(f, fd)) {
+        result = m.mk_app(fd, new_args.size(), new_args.c_ptr());
+    }
+    else if (m_uf23bvuf.find(f, fd3))
+    {
+        expr_ref a_sgn(m), a_sig(m), a_exp(m);
+        a_sgn = m.mk_app(fd3.f_sgn, new_args.size(), new_args.c_ptr());
+        a_sig = m.mk_app(fd3.f_sig, new_args.size(), new_args.c_ptr());
+        a_exp = m.mk_app(fd3.f_exp, new_args.size(), new_args.c_ptr());            
+        mk_triple(a_sgn, a_sig, a_exp, result);
+    }
+    else {
+        sort_ref_buffer new_domain(m);
+    
+        for (unsigned i = 0; i < f->get_arity() ; i ++)
+            if (is_float(f->get_domain()[i]))
+            {
+                new_domain.push_back(m_bv_util.mk_sort(1));            
+                new_domain.push_back(m_bv_util.mk_sort(m_util.get_sbits(f->get_domain()[i])-1));
+                new_domain.push_back(m_bv_util.mk_sort(m_util.get_ebits(f->get_domain()[i])));                                
+            }
+            else
+                new_domain.push_back(f->get_domain()[i]);
+
+        if (!is_float(f->get_range()))
+        {
+            func_decl * fbv = m.mk_func_decl(f->get_name(), new_domain.size(), new_domain.c_ptr(), f->get_range(), *f->get_info());
+            TRACE("fpa2bv_dbg", tout << "New UF func_decl : " << mk_ismt2_pp(fbv, m) << std::endl; );
+            m_uf2bvuf.insert(f, fbv);
+            m.inc_ref(f);
+            m.inc_ref(fbv);
+            result = m.mk_app(fbv, new_args.size(), new_args.c_ptr());
+        }
+        else
+        {
+            string_buffer<> name_buffer;
+            name_buffer.reset(); name_buffer << f->get_name() << ".sgn";        
+            func_decl * f_sgn = m.mk_func_decl(symbol(name_buffer.c_str()), new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(1));
+            name_buffer.reset(); name_buffer << f->get_name() << ".sig";
+            func_decl * f_sig = m.mk_func_decl(symbol(name_buffer.c_str()), new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(m_util.get_sbits(f->get_range())-1));
+            name_buffer.reset(); name_buffer << f->get_name() << ".exp";
+            func_decl * f_exp = m.mk_func_decl(symbol(name_buffer.c_str()), new_domain.size(), new_domain.c_ptr(), m_bv_util.mk_sort(m_util.get_ebits(f->get_range())));
+            expr_ref a_sgn(m), a_sig(m), a_exp(m);
+            a_sgn = m.mk_app(f_sgn, new_args.size(), new_args.c_ptr());
+            a_sig = m.mk_app(f_sig, new_args.size(), new_args.c_ptr());
+            a_exp = m.mk_app(f_exp, new_args.size(), new_args.c_ptr());            
+            TRACE("fpa2bv_dbg", tout << "New UF func_decls : " << std::endl;
+                                tout << mk_ismt2_pp(f_sgn, m) << std::endl;
+                                tout << mk_ismt2_pp(f_sig, m) << std::endl;
+                                tout << mk_ismt2_pp(f_exp, m) << std::endl; );
+            m_uf23bvuf.insert(f, func_decl_triple(f_sgn, f_sig, f_exp));
+            m.inc_ref(f);
+            m.inc_ref(f_sgn);
+            m.inc_ref(f_sig);
+            m.inc_ref(f_exp);
+            mk_triple(a_sgn, a_sig, a_exp, result);
+        }               
+    }    
+
+    TRACE("fpa2bv_dbg", tout << "UF result: " << mk_ismt2_pp(result, m) << std::endl; );
+
+    SASSERT(is_well_sorted(m, result));
+}
 
 void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
     SASSERT(f->get_family_id() == null_family_id);
@@ -1953,7 +2048,8 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef _DEBUG
-    // return;
+    return;
+    // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));
     extra_assertions.push_back(m.mk_eq(new_e, e));    
