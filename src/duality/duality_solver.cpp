@@ -1266,7 +1266,7 @@ namespace Duality {
       DerivationTree dt(this,unwinding,reporter,heuristic,FullExpand);
       bool res = dt.Derive(unwinding,node,UseUnderapprox);
       int end_decs = rpfp->CumulativeDecisions();
-      std::cout << "decisions: " << (end_decs - start_decs)  << std::endl;
+      // std::cout << "decisions: " << (end_decs - start_decs)  << std::endl;
       last_decisions = end_decs - start_decs;
       if(res){
 	cex.tree = dt.tree;

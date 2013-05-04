@@ -36,9 +36,12 @@ Revision History:
 #include "expr_abstract.h"
 #include "model_smt2_pp.h"
 
+// template class symbol_table<family_id>;
+
+
 #include "duality.h"
 
-using namespace Duality;
+// using namespace Duality;
 
 namespace Duality {
 
@@ -230,7 +233,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
 
   // print the label and the proved fact
 
-  out << "(" << node.number;
+  out << "(step s!" << node.number;
   out << " (" << node.Name.name();
   for(unsigned i = 0; i < edge.F.IndParams.size(); i++)
     out << " " << cex.tree->Eval(&edge,edge.F.IndParams[i]);
@@ -238,7 +241,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
 
   // print the substitution
 
-  out << "  (\n";
+  out << "  (subst\n";
   RPFP::Edge *orig_edge = edge.map;
   int orig_clause = d->dd()->map[orig_edge];
   expr &t = d->dd()->clauses[orig_clause];
@@ -259,10 +262,10 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   // reference the proofs of all the children, in syntactic order
   // "true" means the child is not needed
   
-  out << "  (";
+  out << "  (ref ";
   for(unsigned i = 0; i < edge.Children.size(); i++){
     if(!cex.tree->Empty(edge.Children[i]))
-      out << " " << edge.Children[i]->number;
+      out << " s!" << edge.Children[i]->number;
     else
       out << " true";
   }
@@ -278,7 +281,7 @@ void dl_interface::display_certificate(std::ostream& out) {
     model_smt2_pp(out, m, *md.get(), 0); 
   }
   else if(_d->status == StatusRefutation){
-    out << "(\n";
+    out << "(derivation\n";
     // negation of the query is the last clause -- prove it
     print_proof(this,out,_d->cex);
     out << ")\n";

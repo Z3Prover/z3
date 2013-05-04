@@ -24,6 +24,7 @@ Revision History:
 #include "iz3interp.h"
 #include "statistics.h"
 #include "expr_abstract.h"
+#include "stopwatch.h"
 
 namespace Duality {
 
@@ -543,6 +544,15 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 
   void include_ast_show(ast &a){
     a.show();
+  }
+
+  double current_time()
+  {
+    static stopwatch sw;
+    static bool started = false;
+    if(!started)
+      sw.start();
+    return sw.get_seconds();
   }
 
 }

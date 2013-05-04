@@ -2295,8 +2295,8 @@ public:
     }
 
     void reset() {
-        ptr_buffer<ast>::iterator it  = m_to_unmark.begin();
-        ptr_buffer<ast>::iterator end = m_to_unmark.end();
+        ptr_buffer<::ast>::iterator it  = m_to_unmark.begin();
+        ptr_buffer<::ast>::iterator end = m_to_unmark.end();
         for (; it != end; ++it) {
             reset_mark(*it);
         }
