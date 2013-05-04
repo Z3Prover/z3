@@ -545,6 +545,15 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     a.show();
   }
 
+  bool expr::is_label (bool &pos,std::vector<symbol> &names) const {
+    buffer< ::symbol> _names;
+    bool res = m().is_label(to_expr(raw()),pos,_names);
+    if(res)
+      for(unsigned i = 0; i < _names.size(); i++)
+	names.push_back(symbol(ctx(),_names[i]));
+    return res;
+  }
+
 }
 
 

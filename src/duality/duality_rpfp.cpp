@@ -1631,34 +1631,39 @@ namespace Duality {
       && t.num_args() == 0;
   }
 
-  RPFP::Term RPFP::RemoveLabelsRec(hash_map<ast,Term> &memo, const Term &t){
+  RPFP::Term RPFP::RemoveLabelsRec(hash_map<ast,Term> &memo, const Term &t, 
+				   std::vector<label_struct > &lbls){
     if(memo.find(t) != memo.end())
       return memo[t];
     Term res(ctx);
     if (t.is_app()){
       func_decl f = t.decl();
-      if(t.num_args() == 1 && f.name().str().substr(0,3) == "lbl"){
-	res = RemoveLabelsRec(memo,t.arg(0));
+      std::vector<symbol> names;
+      bool pos;
+      if(t.is_label(pos,names)){
+	res = RemoveLabelsRec(memo,t.arg(0),lbls);
+	for(unsigned i = 0; i < names.size(); i++)
+	  lbls.push_back(label_struct(names[i],res,pos));
       }
       else {
 	int nargs = t.num_args();
 	std::vector<Term> args;
 	for(int i = 0; i < nargs; i++)
-	  args.push_back(RemoveLabelsRec(memo,t.arg(i)));
+	  args.push_back(RemoveLabelsRec(memo,t.arg(i),lbls));
 	res = f(nargs,&args[0]);
       }
     }
     else if (t.is_quantifier())
-      res = CloneQuantifier(t,RemoveLabelsRec(memo,t.body()));
+      res = CloneQuantifier(t,RemoveLabelsRec(memo,t.body(),lbls));
     else
       res = t;
     memo[t] = res;
     return res;
   }
 
-  RPFP::Term RPFP::RemoveLabels(const Term &t){
+  RPFP::Term RPFP::RemoveLabels(const Term &t, std::vector<label_struct > &lbls){
     hash_map<ast,Term> memo ;
-    return RemoveLabelsRec(memo,t);
+    return RemoveLabelsRec(memo,t,lbls);
   }
 
   Z3User::Term Z3User::SubstBoundRec(hash_map<int,hash_map<ast,Term> > &memo, hash_map<int,Term> &subst, int level, const Term &t)
@@ -1733,7 +1738,8 @@ namespace Duality {
 			    arg.decl().get_decl_kind() == Uninterpreted);
   }
 
-  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses){
+  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses,
+			 std::vector<std::vector<label_struct> > &clause_labels){
     hash_map<func_decl,Node *> pmap;
     func_decl fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort());
     
@@ -1800,6 +1806,7 @@ namespace Duality {
 
     // create the edges
 
+    clause_labels.resize(clauses.size());
     for(unsigned i = 0; i < clauses.size(); i++){
       Term clause = clauses[i];
       Term body = clause.arg(0);
@@ -1830,7 +1837,7 @@ namespace Duality {
       hash_map<ast,Term> scan_memo;
       std::vector<Node *> Children;
       body = ScanBody(scan_memo,body,pmap,Relparams,Children);
-      body = RemoveLabels(body);
+      body = RemoveLabels(body,clause_labels[i]);
       body = body.simplify();
 
       // Create the edge

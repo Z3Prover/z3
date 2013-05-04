@@ -622,11 +622,20 @@ namespace Duality {
 	  
       */
       
+      struct label_struct {
+	symbol name;
+	expr value;
+	bool pos;
+	label_struct(const symbol &s, const expr &e, bool b)
+	: name(s), value(e), pos(b) {}
+      };
+
       
 #ifdef WIN32
        __declspec(dllexport)
 #endif
-	 void FromClauses(const std::vector<Term> &clauses);
+	 void FromClauses(const std::vector<Term> &clauses,
+			 std::vector<std::vector<label_struct> > &clause_labels);
 
        void FromFixpointContext(fixedpoint fp, std::vector<Term> &queries);
 
@@ -707,10 +716,9 @@ namespace Duality {
 		        std::vector<func_decl> &res,
                         std::vector<Node *> &nodes);
 
+      Term RemoveLabelsRec(hash_map<ast,Term> &memo, const Term &t, std::vector<label_struct> &lbls);
 
-      Term RemoveLabelsRec(hash_map<ast,Term> &memo, const Term &t);
-
-      Term RemoveLabels(const Term &t);
+      Term RemoveLabels(const Term &t, std::vector<label_struct > &lbls);
 
       Term GetAnnotation(Node *n);
 

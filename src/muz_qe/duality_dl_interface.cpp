@@ -52,6 +52,7 @@ namespace Duality {
     
     DualityStatus status;
     std::vector<expr> clauses;
+    std::vector<std::vector<RPFP::label_struct> > clause_labels;
     hash_map<RPFP::Edge *,int> map;  // edges to clauses
     Solver::Counterexample cex;
 
@@ -157,7 +158,7 @@ void dl_interface::check_reset() {
   }
   
   // creates 1-1 map between clauses and rpfp edges
-  _d->rpfp->FromClauses(clauses);
+  _d->rpfp->FromClauses(clauses,_d->clause_labels);
 
   // populate the edge-to-clause map
   for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
@@ -256,6 +257,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   }
   out << "  )\n";
   
+
   // reference the proofs of all the children, in syntactic order
   // "true" means the child is not needed
   

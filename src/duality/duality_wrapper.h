@@ -454,6 +454,7 @@ namespace Duality {
 	bool is_app() const {return raw()->get_kind() == AST_APP;}
         bool is_quantifier() const {return raw()->get_kind() == AST_QUANTIFIER;}
         bool is_var() const {return raw()->get_kind() == AST_VAR;}
+	bool is_label (bool &pos,std::vector<symbol> &names) const ;
 
         // operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
         func_decl decl() const {return func_decl(ctx(),to_app(raw())->get_decl());}
