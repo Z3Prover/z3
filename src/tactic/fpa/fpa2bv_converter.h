@@ -31,23 +31,39 @@ typedef enum { BV_RM_TIES_TO_AWAY=0, BV_RM_TIES_TO_EVEN=1, BV_RM_TO_NEGATIVE=2, 
 
 class fpa2bv_model_converter;
 
+struct func_decl_triple {
+        func_decl_triple () { f_sgn = 0; f_sig = 0; f_exp = 0; }
+        func_decl_triple (func_decl * sgn, func_decl * sig, func_decl * exp)
+        {
+            f_sgn = sgn;
+            f_sig = sig;
+            f_exp = exp;
+        }
+        func_decl * f_sgn;
+        func_decl * f_sig;        
+        func_decl * f_exp;        
+    };
+
 class fpa2bv_converter {
     ast_manager              & m;
     basic_simplifier_plugin    m_simp;
     float_util                 m_util;
-    mpf_manager                 & m_mpf_manager;
+    mpf_manager              & m_mpf_manager;
     unsynch_mpz_manager      & m_mpz_manager;
     bv_util                    m_bv_util;    
     float_decl_plugin        * m_plugin;
 
     obj_map<func_decl, expr*>  m_const2bv;
     obj_map<func_decl, expr*>  m_rm_const2bv;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;        
+    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
     
 public:
     fpa2bv_converter(ast_manager & m);    
     ~fpa2bv_converter();
 
     float_util & fu() { return m_util; }
+    bv_util & bu() { return m_bv_util; }
 
     bool is_float(sort * s) { return m_util.is_float(s); }
     bool is_float(expr * e) { return is_app(e) && m_util.is_float(to_app(e)->get_decl()->get_range()); }
@@ -66,8 +82,10 @@ public:
 
     void mk_rounding_mode(func_decl * f, expr_ref & result);
     void mk_value(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_const(func_decl * f, expr_ref & result);
+    void mk_const(func_decl * f, expr_ref & result);    
     void mk_rm_const(func_decl * f, expr_ref & result);
+    void mk_uninterpreted_function(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_var(unsigned base_inx, sort * srt, expr_ref & result);
 
     void mk_plus_inf(func_decl * f, expr_ref & result);
     void mk_minus_inf(func_decl * f, expr_ref & result);
@@ -100,10 +118,12 @@ public:
     void mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
-    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    
 
     obj_map<func_decl, expr*> const & const2bv() const { return m_const2bv; }
     obj_map<func_decl, expr*> const & rm_const2bv() const { return m_rm_const2bv; }
+    obj_map<func_decl, func_decl*> const & uf2bvuf() const { return m_uf2bvuf; }
+    obj_map<func_decl, func_decl_triple> const & uf23bvuf() const { return m_uf23bvuf; }
 
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector extra_assertions;
@@ -148,10 +168,14 @@ class fpa2bv_model_converter : public model_converter {
     ast_manager               & m;
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;        
+    obj_map<func_decl, func_decl_triple>  m_uf23bvuf;
 
 public:
     fpa2bv_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv) : 
+                                            obj_map<func_decl, expr*> const & rm_const2bv,
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf,      
+                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf) : 
       m(m) {
           // Just create a copy?
           for (obj_map<func_decl, expr*>::iterator it = const2bv.begin();
@@ -169,6 +193,21 @@ public:
                m_rm_const2bv.insert(it->m_key, it->m_value);
                m.inc_ref(it->m_key);
                m.inc_ref(it->m_value);
+          }
+          for (obj_map<func_decl, func_decl*>::iterator it = uf2bvuf.begin();
+               it != uf2bvuf.end();
+               it++) 
+          {
+               m_uf2bvuf.insert(it->m_key, it->m_value);
+               m.inc_ref(it->m_key);
+               m.inc_ref(it->m_value);
+          }
+          for (obj_map<func_decl, func_decl_triple>::iterator it = uf23bvuf.begin();
+               it != uf23bvuf.end();
+               it++) 
+          {
+               m_uf23bvuf.insert(it->m_key, it->m_value);
+               m.inc_ref(it->m_key);               
           }
       }
 
@@ -202,6 +241,8 @@ protected:
 
 model_converter * mk_fpa2bv_model_converter(ast_manager & m, 
                                             obj_map<func_decl, expr*> const & const2bv,
-                                            obj_map<func_decl, expr*> const & rm_const2bv);
+                                            obj_map<func_decl, expr*> const & rm_const2bv,
+                                            obj_map<func_decl, func_decl*> const & uf2bvuf,      
+                                            obj_map<func_decl, func_decl_triple> const & uf23bvuf);
 
 #endif
