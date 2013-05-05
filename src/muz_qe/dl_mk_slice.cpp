@@ -120,12 +120,11 @@ namespace datalog {
             obj_map<rule, rule*>::iterator end = m_rule2slice.end();
             expr_ref fml(m);
             for (; it != end; ++it) {
-                TRACE("dl", 
-                      it->m_key->display(m_ctx, tout << "orig:\n");
-                      it->m_value->display(m_ctx, tout << "new:\n"););
-                
                 it->m_value->to_formula(fml);
                 m_pinned_exprs.push_back(fml);
+                TRACE("dl", 
+                      tout << "orig: " << mk_pp(fml, m) << "\n";
+                      it->m_value->display(m_ctx, tout << "new:\n"););                
                 m_sliceform2rule.insert(fml, it->m_key);                
             }
         }
@@ -202,9 +201,10 @@ namespace datalog {
             proof* p0_new = m_new_proof.find(p0);            
             expr* fact0   = m.get_fact(p0);
             TRACE("dl", tout << "fact0: " << mk_pp(fact0, m) << "\n";);
-            rule* orig0    = m_sliceform2rule.find(fact0);
-            /* rule* slice0   = */ m_rule2slice.find(orig0);
-            /* unsigned_vector const& renaming0 = m_renaming.find(orig0); */
+            rule* orig0;
+            if (!m_sliceform2rule.find(fact0, orig0)) {
+                return false;
+            }
             premises.push_back(p0_new);
             rule_ref r1(rm), r2(rm), r3(rm);
             r1 = orig0;
@@ -214,9 +214,10 @@ namespace datalog {
                 proof* p1_new = m_new_proof.find(p1);
                 expr* fact1   = m.get_fact(p1);
                 TRACE("dl", tout << "fact1: " << mk_pp(fact1, m) << "\n";);
-                rule* orig1     = m_sliceform2rule.find(fact1);
-                /* rule* slice1    = */ m_rule2slice.find(orig1);
-                /* unsigned_vector const& renaming1 =  m_renaming.find(orig1); TBD */
+                rule* orig1 = 0;
+                if (!m_sliceform2rule.find(fact1, orig1)) {
+                    return false;
+                }
                 premises.push_back(p1_new);
 
                 // TODO: work with substitutions.
@@ -241,6 +242,9 @@ namespace datalog {
             proof* new_p = m.mk_hyper_resolve(premises.size(), premises.c_ptr(), concl, positions, substs);
             m_pinned_exprs.push_back(new_p);
             m_pinned_rules.push_back(r1.get());
+            TRACE("dl", 
+                  tout << "orig: " << mk_pp(slice_concl, m) << "\n";
+                  r1->display(m_ctx, tout << "new:"););
             m_sliceform2rule.insert(slice_concl, r1.get());
             m_rule2slice.insert(r1.get(), 0);
             m_renaming.insert(r1.get(), unsigned_vector());

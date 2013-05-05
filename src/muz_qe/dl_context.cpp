@@ -234,6 +234,7 @@ namespace datalog {
         m_vars(m),
         m_rule_set(*this),
         m_transformed_rule_set(*this),
+        m_rule_fmls_head(0),
         m_rule_fmls(m),
         m_background(m),
         m_mc(0),
@@ -243,8 +244,6 @@ namespace datalog {
         m_last_answer(m),
         m_engine(LAST_ENGINE),
         m_cancel(false) {
-        
-        //register plugins for builtin tables
     }
 
     context::~context() {
@@ -254,6 +253,9 @@ namespace datalog {
     void context::reset() {
         m_trail.reset();
         m_rule_set.reset();
+        m_rule_fmls_head = 0;
+        m_rule_fmls.reset();
+        m_rule_names.reset();
         m_argument_var_names.reset();
         m_preds.reset();
         m_preds_by_name.reset();
@@ -457,13 +459,18 @@ namespace datalog {
     void context::flush_add_rules() {
         datalog::rule_manager& rm = get_rule_manager();
         scoped_proof_mode _scp(m, generate_proof_trace()?PGM_FINE:PGM_DISABLED);
-        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
-            expr* fml = m_rule_fmls[i].get();
+        while (m_rule_fmls_head < m_rule_fmls.size()) {
+            expr* fml = m_rule_fmls[m_rule_fmls_head].get();
             proof* p = generate_proof_trace()?m.mk_asserted(fml):0;
-            rm.mk_rule(fml, p, m_rule_set, m_rule_names[i]);
+            rm.mk_rule(fml, p, m_rule_set, m_rule_names[m_rule_fmls_head]);
+            ++m_rule_fmls_head;
         }
-        m_rule_fmls.reset();
-        m_rule_names.reset();
+        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
+        rule_ref r(m_rule_manager);
+        for (; it != end; ++it) {
+            r = *it;
+            check_rule(r);
+        }
     }
 
     //
@@ -958,18 +965,21 @@ namespace datalog {
         engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}
 
         DL_ENGINE get_engine() const { return m_engine; }
+
         void operator()(expr* e) {
             if (is_quantifier(e)) {
                 m_engine = QPDR_ENGINE;
             }
-            else if (a.is_int_real(e) && m_engine != QPDR_ENGINE) {
-                m_engine = PDR_ENGINE;
-            }
-            else if (is_var(e) && m.is_bool(e)) {
-                m_engine = PDR_ENGINE;
-            }
-            else if (dt.is_datatype(m.get_sort(e))) {
-                m_engine = PDR_ENGINE;
+            else if (m_engine != QPDR_ENGINE) {
+                if (a.is_int_real(e)) {
+                    m_engine = PDR_ENGINE;
+                }
+                else if (is_var(e) && m.is_bool(e)) {
+                    m_engine = PDR_ENGINE;
+                }
+                else if (dt.is_datatype(m.get_sort(e))) {
+                    m_engine = PDR_ENGINE;
+                }
             }
         }
     };
@@ -1002,7 +1012,7 @@ namespace datalog {
         if (m_engine == LAST_ENGINE) {
             expr_fast_mark1 mark;
             engine_type_proc proc(m);
-            m_engine = DATALOG_ENGINE;
+            m_engine = DATALOG_ENGINE;            
             for (unsigned i = 0; m_engine == DATALOG_ENGINE && i < m_rule_set.get_num_rules(); ++i) {
                 rule * r = m_rule_set.get_rule(i);
                 quick_for_each_expr(proc, mark, r->get_head());
@@ -1011,42 +1021,43 @@ namespace datalog {
                 }
                 m_engine = proc.get_engine();
             }
+            for (unsigned i = m_rule_fmls_head; m_engine == DATALOG_ENGINE && i < m_rule_fmls.size(); ++i) {
+                expr* fml = m_rule_fmls[i].get();
+                while (is_quantifier(fml)) {
+                    fml = to_quantifier(fml)->get_expr();
+                }
+                quick_for_each_expr(proc, mark, fml);
+                m_engine = proc.get_engine();
+            }
         }
     }
 
     lbool context::query(expr* query) {
-        new_query();
-        rule_set::iterator it = m_rule_set.begin(), end = m_rule_set.end();
-        rule_ref r(m_rule_manager);
-        for (; it != end; ++it) {
-            r = *it;
-            check_rule(r);
-        }        
-        switch(get_engine()) {
+        m_mc = mk_skip_model_converter();
+        m_last_status = OK;
+        m_last_answer = 0;
+        switch (get_engine()) {
         case DATALOG_ENGINE:
+            flush_add_rules();
             return rel_query(query);
         case PDR_ENGINE:
         case QPDR_ENGINE:
+            flush_add_rules();
             return pdr_query(query);
         case BMC_ENGINE:
         case QBMC_ENGINE:
+            flush_add_rules();
             return bmc_query(query);
         case TAB_ENGINE:
+            flush_add_rules();
             return tab_query(query);
         case CLP_ENGINE:
+            flush_add_rules();
             return clp_query(query);
         default:
             UNREACHABLE();
             return rel_query(query);
         }
-    }
-
-    void context::new_query() {
-        m_mc = mk_skip_model_converter();
-
-        flush_add_rules();
-        m_last_status = OK;
-        m_last_answer = 0;
     }
 
     model_ref context::get_model() {
@@ -1277,7 +1288,7 @@ namespace datalog {
         datalog::rule_manager& rm = get_rule_manager();
         
         // ensure that rules are all using bound variables.
-        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+        for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             ptr_vector<sort> sorts;
             get_free_vars(m_rule_fmls[i].get(), sorts);
             if (!sorts.empty()) {
@@ -1295,7 +1306,7 @@ namespace datalog {
             rules.push_back(fml);
             names.push_back((*it)->name());
         }
-        for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
+        for (unsigned i = m_rule_fmls_head; i < m_rule_fmls.size(); ++i) {
             rules.push_back(m_rule_fmls[i].get());
             names.push_back(m_rule_names[i]);            
         }

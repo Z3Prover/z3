@@ -32,6 +32,7 @@ Revision History:
 #include "dl_mk_slice.h"
 #include "dl_mk_unfold.h"
 #include "dl_mk_coalesce.h"
+#include "model_smt2_pp.h"
 
 using namespace pdr;
 
@@ -134,10 +135,10 @@ lbool dl_interface::query(expr * query) {
     }
     query_pred = m_ctx.get_rules().get_output_predicate();
 
-
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
     m_pdr_rules.replace_rules(m_ctx.get_rules());
     m_pdr_rules.close();
+    m_ctx.record_transformed_rules();
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
     
@@ -151,6 +152,7 @@ lbool dl_interface::query(expr * query) {
     
     if (m_pdr_rules.get_rules().empty()) {
         m_context->set_unsat();
+        IF_VERBOSE(1, model_smt2_pp(verbose_stream(), m, *m_context->get_model(),0););
         return l_false;
     }
         
