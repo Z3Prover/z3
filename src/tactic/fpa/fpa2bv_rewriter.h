@@ -166,9 +166,11 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     bool pre_visit(expr * t)
     {
+        TRACE("fpa2bv", tout << "pre_visit: " << mk_ismt2_pp(t, m()) << std::endl;);
+
         if (is_quantifier(t)) {            
             quantifier * q = to_quantifier(t);            
-            TRACE("fpa2bv", tout << "pre_visit [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
+            TRACE("fpa2bv", tout << "pre_visit quantifier [" << q->get_id() << "]: " << mk_ismt2_pp(q->get_expr(), m()) << std::endl;);
             sort_ref_vector new_bindings(m_manager);
             for (unsigned i = 0 ; i < q->get_num_decls(); i++)
                 new_bindings.push_back(q->get_decl_sort(i));
@@ -199,17 +201,9 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                 unsigned ebits = m_conv.fu().get_ebits(s);
                 unsigned sbits = m_conv.fu().get_sbits(s);
                 name_buffer.reset();
-                name_buffer << n << ".exp";
+                name_buffer << n << ".bv";
                 new_decl_names.push_back(symbol(name_buffer.c_str()));
-                new_decl_sorts.push_back(m_conv.bu().mk_sort(ebits));
-                name_buffer.reset();
-                name_buffer << n << ".sig";
-                new_decl_names.push_back(symbol(name_buffer.c_str()));
-                new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits-1));
-                name_buffer.reset();
-                name_buffer << n << ".sgn";
-                new_decl_names.push_back(symbol(name_buffer.c_str()));
-                new_decl_sorts.push_back(m_conv.bu().mk_sort(1));                
+                new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits+ebits)); 
             }
             else {
                 new_decl_sorts.push_back(s);
@@ -231,19 +225,26 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
 
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) { 
         if (t->get_idx() >= m_bindings.size())
-            return false;        
+            return false;
         unsigned inx = m_bindings.size() - t->get_idx() - 1;        
         if (m_mappings[inx] == 0)
         {
-            unsigned shift = 0;
-            for (unsigned i = m_bindings.size() - 1; i > inx; i--)
-                if (m_conv.is_float(m_bindings[i].get())) shift += 2;
-            expr_ref new_var(m());
-            if (m_conv.is_float(t->get_sort()))
-                m_conv.mk_var(t->get_idx() + shift, t->get_sort(), new_var);
+            expr_ref new_exp(m());
+            sort * s = t->get_sort();
+            if (m_conv.is_float(s))
+            {
+                expr_ref new_var(m());
+                unsigned ebits = m_conv.fu().get_ebits(s);
+                unsigned sbits = m_conv.fu().get_sbits(s);
+                new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
+                m_conv.mk_triple(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
+                                 m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
+                                 m_conv.bu().mk_extract(ebits-1, 0, new_var),
+                                 new_exp);
+            }
             else
-                new_var = m().mk_var(t->get_idx() + shift, t->get_sort());
-            m_mappings[inx] = new_var;
+                new_exp = m().mk_var(t->get_idx(), s);
+            m_mappings[inx] = new_exp;
         }
         result = m_mappings[inx].get();
         result_pr = 0;        
