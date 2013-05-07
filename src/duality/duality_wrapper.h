@@ -1282,8 +1282,10 @@ namespace Duality {
       m().inc_ref(a.raw());
       return to_expr(a.raw());
     }
-    
-    
+
+    typedef double clock_t;
+    clock_t current_time();
+    inline void output_time(std::ostream &os, clock_t time){os << time;}
 };
 
 // to make Duality::ast hashable
