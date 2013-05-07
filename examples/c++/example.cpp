@@ -906,6 +906,28 @@ void enum_sort_example() {
     std::cout << "2: " << result_goal.as_expr() << std::endl;
 }
 
+void expr_vector_example() {
+    context c;
+    const unsigned N = 10;
+
+    expr_vector x(c);
+
+    for (unsigned i = 0; i < N; i++) { 
+        std::stringstream x_name; 
+        x_name << "x_" << i;
+        x.push_back(c.int_const(x_name.str().c_str()));
+    }
+    
+    solver s(c);
+    for (unsigned i = 0; i < N; i++) {
+        s.add(x[i] >= 1);
+    }
+
+    std::cout << s << "\n" << "solving...\n" << s.check() << "\n";
+    model m = s.get_model();
+    std::cout << "solution\n" << m;
+}
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
@@ -941,6 +963,7 @@ int main() {
 	incremental_example2(); std::cout << "\n";
 	incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
+        expr_vector_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {
