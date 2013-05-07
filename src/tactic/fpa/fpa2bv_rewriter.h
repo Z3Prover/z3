@@ -30,7 +30,8 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     expr_ref_vector            m_out;    
     fpa2bv_converter         & m_conv;
     sort_ref_vector            m_bindings;    
-    expr_ref_vector            m_mappings;
+    expr_ref_vector            m_mappings;    
+
 
     unsigned long long         m_max_memory;
     unsigned                   m_max_steps;
@@ -227,25 +228,24 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         if (t->get_idx() >= m_bindings.size())
             return false;
         unsigned inx = m_bindings.size() - t->get_idx() - 1;        
-        if (m_mappings[inx] == 0)
+
+        expr_ref new_exp(m());
+        sort * s = t->get_sort();
+        if (m_conv.is_float(s))
         {
-            expr_ref new_exp(m());
-            sort * s = t->get_sort();
-            if (m_conv.is_float(s))
-            {
-                expr_ref new_var(m());
-                unsigned ebits = m_conv.fu().get_ebits(s);
-                unsigned sbits = m_conv.fu().get_sbits(s);
-                new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
-                m_conv.mk_triple(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
-                                 m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
-                                 m_conv.bu().mk_extract(ebits-1, 0, new_var),
-                                 new_exp);
-            }
-            else
-                new_exp = m().mk_var(t->get_idx(), s);
-            m_mappings[inx] = new_exp;
+            expr_ref new_var(m());
+            unsigned ebits = m_conv.fu().get_ebits(s);
+            unsigned sbits = m_conv.fu().get_sbits(s);
+            new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(sbits+ebits));
+            m_conv.mk_triple(m_conv.bu().mk_extract(sbits+ebits-1, sbits+ebits-1, new_var),
+                                m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var),
+                                m_conv.bu().mk_extract(ebits-1, 0, new_var),
+                                new_exp);
         }
+        else
+            new_exp = m().mk_var(t->get_idx(), s);
+        m_mappings[inx] = new_exp;
+
         result = m_mappings[inx].get();
         result_pr = 0;        
         TRACE("fpa2bv", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
