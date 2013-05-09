@@ -240,6 +240,10 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
     out << " " << cex.tree->Eval(&edge,edge.F.IndParams[i]);
   out << ")\n";
 
+  // print the rule number
+
+  out << " rule!" << node.Outgoing->map->number;
+
   // print the substitution
 
   out << "  (subst\n";
