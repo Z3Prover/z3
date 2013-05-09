@@ -672,6 +672,8 @@ namespace Duality {
 
       TermTree *GetGoalTree(Node *root);
 
+      int EvalTruth(hash_map<ast,int> &memo, Edge *e, const Term &f);
+
     private:
       
 
@@ -733,10 +735,8 @@ namespace Duality {
 
      Term ProjectFormula(std::vector<Term> &keep_vec, const Term &f);
 
-    public:
       int SubtermTruth(hash_map<ast,int> &memo, const Term &);
 
-    private:
       void ImplicantRed(hash_map<ast,int> &memo, const Term &f, std::vector<Term> &lits,
 			hash_set<ast> *done, bool truth, hash_set<ast> &dont_cares);
 

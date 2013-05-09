@@ -270,7 +270,7 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
     hash_map<ast,int> memo;
     for(unsigned j = 0; j < labels.size(); j++){
       RPFP::label_struct &lab = labels[j];
-      int truth = cex.tree->SubtermTruth(memo,lab.value);
+      int truth = cex.tree->EvalTruth(memo,&edge,lab.value);
       if(truth == 1 && lab.pos || truth == 0 && !lab.pos)
 	out << " " << lab.name;
     }

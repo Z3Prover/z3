@@ -833,6 +833,10 @@ namespace Duality {
     return res;
   }
 
+  int RPFP::EvalTruth(hash_map<ast,int> &memo, Edge *e, const Term &f){
+    Term tl = Localize(e, f);
+    return SubtermTruth(memo,tl);
+  }
 
 #ifdef Z3OPS
   static Z3_subterm_truth *stt;
