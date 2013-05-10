@@ -249,6 +249,8 @@ namespace z3 {
         array & operator=(array const & s);
     public:
         array(unsigned sz):m_size(sz) { m_array = new T[sz]; }
+        template<typename T2>
+        array(ast_vector_tpl<T2> const & v);
         ~array() { delete[] m_array; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
@@ -939,49 +941,6 @@ namespace z3 {
     inline expr udiv(expr const & a, int b) { return udiv(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr udiv(int a, expr const & b) { return udiv(b.ctx().num_val(a, b.get_sort()), b); }
 
-    // Basic functions for creating quantified formulas.
-    // The C API should be used for creating quantifiers with patterns, weights, many variables, etc.
-    inline expr forall(expr const & x, expr const & b) {
-        check_context(x, b);
-        Z3_app vars[] = {(Z3_app) x}; 
-        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr forall(expr const & x1, expr const & x2, expr const & b) {
-        check_context(x1, b); check_context(x2, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
-        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
-        check_context(x1, b); check_context(x2, b); check_context(x3, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
-        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
-        check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
-        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr exists(expr const & x, expr const & b) {
-        check_context(x, b);
-        Z3_app vars[] = {(Z3_app) x}; 
-        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr exists(expr const & x1, expr const & x2, expr const & b) {
-        check_context(x1, b); check_context(x2, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
-        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
-        check_context(x1, b); check_context(x2, b); check_context(x3, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
-        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
-        check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
-        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
-        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
-    }
-    
     template<typename T> class cast_ast;
 
     template<> class cast_ast<ast> {
@@ -1043,6 +1002,67 @@ namespace z3 {
         friend std::ostream & operator<<(std::ostream & out, ast_vector_tpl const & v) { out << Z3_ast_vector_to_string(v.ctx(), v); return out; }
     };
 
+    template<typename T>
+    template<typename T2>
+    array<T>::array(ast_vector_tpl<T2> const & v) {
+        m_array = new T[v.size()];
+        m_size  = v.size();
+        for (unsigned i = 0; i < m_size; i++) {
+            m_array[i] = v[i];
+        }
+    }
+
+    // Basic functions for creating quantified formulas.
+    // The C API should be used for creating quantifiers with patterns, weights, many variables, etc.
+    inline expr forall(expr const & x, expr const & b) {
+        check_context(x, b);
+        Z3_app vars[] = {(Z3_app) x}; 
+        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr forall(expr const & x1, expr const & x2, expr const & b) {
+        check_context(x1, b); check_context(x2, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
+        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
+        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr forall(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
+        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr forall(expr_vector const & xs, expr const & b) {
+        array<Z3_app> vars(xs);  
+        Z3_ast r = Z3_mk_forall_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr exists(expr const & x, expr const & b) {
+        check_context(x, b);
+        Z3_app vars[] = {(Z3_app) x}; 
+        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 1, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr exists(expr const & x1, expr const & x2, expr const & b) {
+        check_context(x1, b); check_context(x2, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2}; 
+        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 2, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3 }; 
+        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 3, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr exists(expr const & x1, expr const & x2, expr const & x3, expr const & x4, expr const & b) {
+        check_context(x1, b); check_context(x2, b); check_context(x3, b); check_context(x4, b);
+        Z3_app vars[] = {(Z3_app) x1, (Z3_app) x2, (Z3_app) x3, (Z3_app) x4 }; 
+        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, 4, vars, 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    inline expr exists(expr_vector const & xs, expr const & b) {
+        array<Z3_app> vars(xs);  
+        Z3_ast r = Z3_mk_exists_const(b.ctx(), 0, vars.size(), vars.ptr(), 0, 0, b); b.check_error(); return expr(b.ctx(), r);
+    }
+    
     class func_entry : public object {
         Z3_func_entry m_entry;
         void init(Z3_func_entry e) {
