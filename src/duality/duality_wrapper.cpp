@@ -450,7 +450,7 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     ptr_vector< ::ast>_assumptions(size);
     for(int i = 0; i < size; i++)
       _assumptions[i] = linear_assumptions[i];
-    ::vector<int> _parents(parents.size());
+    ::vector<int> _parents; _parents.resize(parents.size());
     for(unsigned i = 0; i < parents.size(); i++)
       _parents[i] = parents[i];
     ptr_vector< ::ast> _theory(theory.size());
