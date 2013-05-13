@@ -25,6 +25,7 @@ void array_rewriter::updt_params(params_ref const & _p) {
     array_rewriter_params p(_p);
     m_sort_store = p.sort_store();
     m_expand_select_store = p.expand_select_store();
+    m_expand_store_eq = p.expand_store_eq();
 }
 
 void array_rewriter::get_param_descrs(param_descrs & r) {
@@ -365,3 +366,40 @@ br_status array_rewriter::mk_set_subset(expr * arg1, expr * arg2, expr_ref & res
     return BR_REWRITE3;
 }
 
+br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
+    if (!m_expand_store_eq) {
+        return BR_FAILED;
+    }
+    expr* lhs1 = lhs;
+    while (m_util.is_store(lhs1)) {
+        lhs1 = to_app(lhs1)->get_arg(0);
+    }
+    expr* rhs1 = rhs;
+    while (m_util.is_store(rhs1)) {
+        rhs1 = to_app(rhs1)->get_arg(0);
+    }
+    if (lhs1 != rhs1) {
+        return BR_FAILED;
+    }
+    ptr_buffer<expr> fmls, args;
+    expr* e;
+    expr_ref tmp1(m()), tmp2(m());
+#define MK_EQ()                                                         \
+    while (m_util.is_store(e)) {                                        \
+        args.push_back(lhs);                                            \
+        args.append(to_app(e)->get_num_args()-2,to_app(e)->get_args()+1); \
+        mk_select(args.size(), args.c_ptr(), tmp1);                     \
+        args[0] = rhs;                                                  \
+        mk_select(args.size(), args.c_ptr(), tmp2);                     \
+        fmls.push_back(m().mk_eq(tmp1, tmp2));                          \
+        e = to_app(e)->get_arg(0);                                      \
+        args.reset();                                                   \
+    }                                                \
+    
+    e = lhs;
+    MK_EQ();
+    e = rhs;
+    MK_EQ();
+    result = m().mk_and(fmls.size(), fmls.c_ptr());
+    return BR_REWRITE_FULL;
+}
