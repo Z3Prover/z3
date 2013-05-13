@@ -65,7 +65,7 @@ namespace smt {
         class parent_trail;
 
         struct GExt : public Ext {
-            typedef literal explanation;
+            typedef std::pair<literal,unsigned> explanation;
         };
 
         class atom {
@@ -113,15 +113,18 @@ namespace smt {
         // a negative cycle.
         class nc_functor {
             literal_vector m_antecedents;
+            unsigned_vector m_coeffs;
             theory_utvpi& m_super;
         public:
             nc_functor(theory_utvpi& s) : m_super(s) {}
-            void reset() { m_antecedents.reset(); }
+            void reset() { m_antecedents.reset(); m_coeffs.reset(); }
             literal_vector const& get_lits() const { return m_antecedents; }
+            unsigned_vector const& get_coeffs() const { return m_coeffs; }
 
-            void operator()(literal const & ex) {
-                if (ex != null_literal) {
-                    m_antecedents.push_back(ex);
+            void operator()(std::pair<literal,unsigned> const & ex) {
+                if (ex.first != null_literal) {
+                    m_antecedents.push_back(ex.first);
+                    m_coeffs.push_back(ex.second);
                 }
             }
 

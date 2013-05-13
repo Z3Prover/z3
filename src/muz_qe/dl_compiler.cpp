@@ -499,8 +499,7 @@ namespace datalog {
                 expr * arg = a->get_arg(i);
                 if(is_app(arg)) {
                     app * c = to_app(arg); //argument is a constant
-                    SASSERT(c->get_num_args()==0);
-                    SASSERT(m_context.get_decl_util().is_numeral_ext(arg));
+                    SASSERT(m.is_value(c));
                     reg_idx new_reg;
                     make_select_equal_and_project(single_res, c, single_res_expr.size(), new_reg, acc);
                     if(single_res!=t_reg) {

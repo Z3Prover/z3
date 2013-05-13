@@ -197,6 +197,15 @@ namespace smt {
         inc_conflicts();
         literal_vector const& lits = m_nc_functor.get_lits();
         context & ctx = get_context();
+        IF_VERBOSE(2, 
+                   verbose_stream() << "conflict:\n";
+                   for (unsigned i = 0; i < lits.size(); ++i) {
+                       ast_manager& m = get_manager();
+                       expr_ref e(m);
+                       ctx.literal2expr(lits[i], e);
+                       verbose_stream() << mk_pp(e, m) << "\n";
+                   }
+                   verbose_stream() << "\n";);                   
         TRACE("utvpi", 
               tout << "conflict: ";
               for (unsigned i = 0; i < lits.size(); ++i) {
@@ -213,7 +222,9 @@ namespace smt {
         vector<parameter> params;
         if (get_manager().proofs_enabled()) {
             params.push_back(parameter(symbol("farkas")));
-            params.resize(lits.size()+1, parameter(rational(1)));
+            for (unsigned i = 0; i < m_nc_functor.get_coeffs().size(); ++i) {
+                params.push_back(parameter(rational(m_nc_functor.get_coeffs()[i])));
+            }
         } 
         
         ctx.set_conflict(
@@ -620,28 +631,28 @@ namespace smt {
         edge_id id = m_graph.get_num_edges();
         th_var w1 = to_var(v1), w2 = to_var(v2);
         if (terms.size() == 1 && pos1) {
-            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, l);
-            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, l);
+            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, std::make_pair(l,2));
+            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, std::make_pair(l,2));
         }
         else if (terms.size() == 1 && !pos1) {
-            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, l);
-            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, l);
+            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, std::make_pair(l,2));
+            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, std::make_pair(l,2));
         }
         else if (pos1 && pos2) {
-            m_graph.add_edge(neg(w2), pos(w1), -weight, l);
-            m_graph.add_edge(neg(w1), pos(w2), -weight, l);
+            m_graph.add_edge(neg(w2), pos(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(neg(w1), pos(w2), -weight, std::make_pair(l,1));
         }
         else if (pos1 && !pos2) {
-            m_graph.add_edge(pos(w2), pos(w1), -weight, l);
-            m_graph.add_edge(neg(w1), neg(w2), -weight, l);
+            m_graph.add_edge(pos(w2), pos(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(neg(w1), neg(w2), -weight, std::make_pair(l,1));
         }
         else if (!pos1 && pos2) {
-            m_graph.add_edge(neg(w2), neg(w1), -weight, l);
-            m_graph.add_edge(pos(w1), pos(w2), -weight, l);
+            m_graph.add_edge(neg(w2), neg(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(pos(w1), pos(w2), -weight, std::make_pair(l,1));
         }
         else {
-            m_graph.add_edge(pos(w1), neg(w2), -weight, l);
-            m_graph.add_edge(pos(w2), neg(w1), -weight, l);
+            m_graph.add_edge(pos(w1), neg(w2), -weight, std::make_pair(l,1));
+            m_graph.add_edge(pos(w2), neg(w1), -weight, std::make_pair(l,1));
         }        
         return id;
     }

@@ -37,6 +37,7 @@ Revision History:
 #include"bool_rewriter.h"
 #include"dl_mk_backwards.h"
 #include"dl_mk_loop_counter.h"
+#include "for_each_expr.h"
 
 namespace datalog {
 
@@ -47,7 +48,8 @@ namespace datalog {
         m(ctx.get_manager()), 
         rm(ctx.get_rule_manager()),
         m_inner_ctx(m, ctx.get_fparams()),
-        a(m) {
+        a(m),
+        m_pinned(m) {
             params_ref params;
             params.set_sym("default_relation", symbol("karr_relation"));
             params.set_sym("engine", symbol("datalog"));
@@ -201,29 +203,27 @@ namespace datalog {
                 return 0;
             }
         }
-
         mk_loop_counter lc(m_ctx);
         mk_backwards bwd(m_ctx);
 
         scoped_ptr<rule_set> src_loop = lc(source);
         TRACE("dl", src_loop->display(tout << "source loop\n"););
 
-        // run propagation forwards, then backwards
-        scoped_ptr<rule_set> src_annot = update_using_propagation(*src_loop, *src_loop);
-        TRACE("dl", src_annot->display(tout << "updated using propagation\n"););
+        get_invariants(*src_loop);
 
-#if 0
         // figure out whether to update same rules as used for saturation.
-        scoped_ptr<rule_set> rev_source = bwd(*src_annot);
-        src_annot = update_using_propagation(*src_annot, *rev_source);
-#endif
+        scoped_ptr<rule_set> rev_source = bwd(*src_loop);
+        get_invariants(*rev_source);        
+        scoped_ptr<rule_set> src_annot = update_rules(*src_loop);
         rule_set* rules = lc.revert(*src_annot);
         rules->inherit_predicates(source);
         TRACE("dl", rules->display(tout););
+        m_pinned.reset();
+        m_fun2inv.reset();
         return rules;
     }
 
-    rule_set* mk_karr_invariants::update_using_propagation(rule_set const& src, rule_set const& srcref) {
+    void mk_karr_invariants::get_invariants(rule_set const& src) {
         m_inner_ctx.reset();
         rel_context& rctx = m_inner_ctx.get_rel_context();
         ptr_vector<func_decl> heads;
@@ -232,19 +232,41 @@ namespace datalog {
             m_inner_ctx.register_predicate(*fit, false);
         }
         m_inner_ctx.ensure_opened();
-        m_inner_ctx.replace_rules(srcref);
+        m_inner_ctx.replace_rules(src);
         m_inner_ctx.close();
-        rule_set::decl2rules::iterator dit  = srcref.begin_grouped_rules();
-        rule_set::decl2rules::iterator dend = srcref.end_grouped_rules();
+        rule_set::decl2rules::iterator dit  = src.begin_grouped_rules();
+        rule_set::decl2rules::iterator dend = src.end_grouped_rules();
         for (; dit != dend; ++dit) {
             heads.push_back(dit->m_key);
         }
         m_inner_ctx.rel_query(heads.size(), heads.c_ptr());
-        
-        rule_set* dst = alloc(rule_set, m_ctx);
+
+        // retrieve invariants.
+        dit = src.begin_grouped_rules();
+        for (; dit != dend; ++dit) {
+            func_decl* p = dit->m_key;
+            relation_base* rb = rctx.try_get_relation(p);
+            if (rb) {
+                expr_ref fml(m);
+                rb->to_formula(fml);                
+                if (m.is_true(fml)) {
+                    continue;
+                }
+                expr* inv = 0;
+                if (m_fun2inv.find(p, inv)) {
+                    fml = m.mk_and(inv, fml);
+                }
+                m_pinned.push_back(fml);
+                m_fun2inv.insert(p, fml);
+            }
+        }
+    }        
+
+    rule_set* mk_karr_invariants::update_rules(rule_set const& src) {
+        scoped_ptr<rule_set> dst = alloc(rule_set, m_ctx);
         rule_set::iterator it = src.begin(), end = src.end();
         for (; it != end; ++it) {
-            update_body(rctx, *dst, **it);
+            update_body(*dst, **it);
         }
         if (m_ctx.get_model_converter()) {
             add_invariant_model_converter* kmc = alloc(add_invariant_model_converter, m);
@@ -252,10 +274,8 @@ namespace datalog {
             rule_set::decl2rules::iterator gend = src.end_grouped_rules();
             for (; git != gend; ++git) {
                 func_decl* p = git->m_key;
-                expr_ref fml(m);
-                relation_base* rb = rctx.try_get_relation(p);
-                if (rb) {
-                    rb->to_formula(fml);
+                expr* fml = 0;
+                if (m_fun2inv.find(p, fml)) {
                     kmc->add(p, fml);                    
                 }
             }
@@ -263,10 +283,10 @@ namespace datalog {
         }
 
         dst->inherit_predicates(src);
-        return dst;
+        return dst.detach();
     }
 
-    void mk_karr_invariants::update_body(rel_context& rctx, rule_set& rules, rule& r) { 
+    void mk_karr_invariants::update_body(rule_set& rules, rule& r) { 
         unsigned utsz = r.get_uninterpreted_tail_size();
         unsigned tsz  = r.get_tail_size();
         app_ref_vector tail(m);
@@ -275,17 +295,17 @@ namespace datalog {
             tail.push_back(r.get_tail(i));
         }
         for (unsigned i = 0; i < utsz; ++i) {
-            func_decl* q = r.get_decl(i);            
-            relation_base* rb = rctx.try_get_relation(r.get_decl(i));
-            if (rb) {
-                rb->to_formula(fml);
+            func_decl* q = r.get_decl(i); 
+            expr* fml = 0;
+            if (m_fun2inv.find(q, fml)) {
                 expr_safe_replace rep(m);
                 for (unsigned j = 0; j < q->get_arity(); ++j) {
                     rep.insert(m.mk_var(j, q->get_domain(j)), 
                                r.get_tail(i)->get_arg(j));
                 }
-                rep(fml);
-                tail.push_back(to_app(fml));
+                expr_ref tmp(fml, m);
+                rep(tmp);
+                tail.push_back(to_app(tmp));
             }
         }
         rule* new_rule = &r;
@@ -1029,16 +1049,17 @@ namespace datalog {
     class karr_relation_plugin::filter_equal_fn : public relation_mutator_fn {
         unsigned m_col;
         rational m_value;
+        bool    m_valid;
     public:
         filter_equal_fn(relation_manager & m, const relation_element & value, unsigned col) 
             : m_col(col) {
             arith_util arith(m.get_context().get_manager());
-            VERIFY(arith.is_numeral(value, m_value));            
+            m_valid = arith.is_numeral(value, m_value) && m_value.is_int();
         }
 
         virtual void operator()(relation_base & _r) {
             karr_relation & r = get(_r);
-            if (m_value.is_int()) {
+            if (m_valid) {
                 r.get_ineqs();
                 vector<rational> row;
                 row.resize(r.get_signature().size());
@@ -1054,7 +1075,7 @@ namespace datalog {
 
     relation_mutator_fn * karr_relation_plugin::mk_filter_equal_fn(const relation_base & r, 
         const relation_element & value, unsigned col) {
-        if(check_kind(r)) {
+        if (check_kind(r)) {
             return alloc(filter_equal_fn, get_manager(), value, col);
         }
         return 0;

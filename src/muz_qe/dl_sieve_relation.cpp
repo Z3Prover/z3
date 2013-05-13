@@ -158,7 +158,7 @@ namespace datalog {
             inner_sig_singleton.push_back(s[i]);
             inner_columns[i] = inner.can_handle_signature(inner_sig_singleton);
         }
-#if Z3DEBUG
+#if Z3DEBUG 
         //we assume that if a relation plugin can handle two sets of columns separetely, 
         //it can also handle them in one relation
         relation_signature inner_sig;
@@ -246,7 +246,8 @@ namespace datalog {
 
     relation_base * sieve_relation_plugin::mk_full(func_decl* p, const relation_signature & s) {
         relation_signature empty_sig;
-        relation_base * inner = get_manager().mk_full_relation(empty_sig, p, null_family_id);
+        relation_plugin& plugin = get_manager().get_appropriate_plugin(s);
+        relation_base * inner = plugin.mk_full(p, empty_sig, null_family_id);
         svector<bool> inner_cols;
         inner_cols.resize(s.size(), false);
         return mk_from_inner(s, inner_cols, inner);
