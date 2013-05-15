@@ -283,7 +283,7 @@ namespace datalog {
             // copy output predicates without any rule (bit-blasting not really needed)
             const func_decl_set& decls = source.get_output_predicates();
             for (func_decl_set::iterator I = decls.begin(), E = decls.end(); I != E; ++I) {
-                if (!result->contains(*I))
+                if (!source.contains(*I))
                     result->set_output_predicate(*I);
             }
             
