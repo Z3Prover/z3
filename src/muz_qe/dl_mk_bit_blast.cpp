@@ -279,6 +279,13 @@ namespace datalog {
                     result->add_rule(r);
                 }
             }
+
+            // copy output predicates without any rule (bit-blasting not really needed)
+            const func_decl_set& decls = source.get_output_predicates();
+            for (func_decl_set::iterator I = decls.begin(), E = decls.end(); I != E; ++I) {
+                if (!result->contains(*I))
+                    result->set_output_predicate(*I);
+            }
             
             if (m_context.get_model_converter()) {               
                 filter_model_converter* fmc = alloc(filter_model_converter, m);
