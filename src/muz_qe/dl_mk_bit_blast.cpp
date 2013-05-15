@@ -141,13 +141,17 @@ namespace datalog {
         func_decl_ref_vector const& new_funcs() const { return m_new_funcs; }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
-            bool found = false;
-            for (unsigned j = 0; !found && j < num; ++j) {
-                found = m_util.is_mkbv(args[j]);                
-            }
-            if (!found) {
+            if (num == 0) {
+                if (m_src->is_output_predicate(f))
+                    m_dst->set_output_predicate(f);
                 return BR_FAILED;
             }
+
+            for (unsigned i = 0; i < num; ++i) {
+                if (!m_util.is_mkbv(args[i]))
+                    return BR_FAILED;
+            }
+
             // 
             // f(mk_bv(args),...)
             // 
@@ -260,7 +264,7 @@ namespace datalog {
             m_rewriter.m_cfg.set_dst(result);
             for (unsigned i = 0; !m_context.canceled() && i < sz; ++i) {
                 rule * r = source.get_rule(i);
-                r->to_formula(fml);                
+                r->to_formula(fml);
                 if (blast(r, fml)) {
                     proof_ref pr(m);
                     if (m_context.generate_proof_trace()) {
