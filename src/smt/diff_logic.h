@@ -306,14 +306,6 @@ private:
         return true;
     }
 
-    // Update the assignment of variable v, that is,
-    // m_assignment[v] += inc
-    // This method also stores the old value of v in the assignment stack.
-    void acc_assignment(dl_var v, const numeral & inc) {
-        TRACE("diff_logic_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
-        m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
-        m_assignment[v] += inc;
-    }
 
     // Restore the assignment using the information in m_assignment_stack.
     // This method is called when make_feasible fails.
@@ -827,6 +819,16 @@ public:
         }
     }
 
+    // Update the assignment of variable v, that is,
+    // m_assignment[v] += inc
+    // This method also stores the old value of v in the assignment stack.
+    void acc_assignment(dl_var v, const numeral & inc) {
+        TRACE("diff_logic_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
+        m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
+        m_assignment[v] += inc;
+    }
+
+
     struct every_var_proc {
         bool operator()(dl_var v) const {
             return true;
@@ -835,6 +837,36 @@ public:
 
     void display(std::ostream & out) const {
         display_core(out, every_var_proc());
+    }
+
+    void display_agl(std::ostream & out) const {
+        uint_set vars;
+        typename edges::const_iterator it  = m_edges.begin();
+        typename edges::const_iterator end = m_edges.end();
+        for (; it != end; ++it) {
+            edge const& e = *it;
+            if (e.is_enabled()) {
+                vars.insert(e.get_source());
+                vars.insert(e.get_target());
+            }
+        }
+        out << "digraph "" {\n";
+        
+        unsigned n = m_assignment.size();
+        for (unsigned v = 0; v < n; v++) {
+            if (vars.contains(v)) {
+                out << "\"" << v << "\" [label=\"" << v << ":" << m_assignment[v] << "\"]\n";
+            }
+        }
+        it = m_edges.begin();
+        for (; it != end; ++it) {
+            edge const& e = *it;
+            if (e.is_enabled()) {
+                out << "\"" << e.get_source() << "\"->\"" << e.get_target() << "\"[label=\"" << e.get_weight() << "\"]\n";
+            }
+        }
+
+        out << "}\n";
     }
 
     template<typename FilterAssignmentProc>
@@ -997,6 +1029,38 @@ public:
                 m_next_scc_id++;
             }
             m_roots.pop_back();
+        }
+    }
+
+    void compute_zero_succ(dl_var v, int_vector& succ) {
+        unsigned n = m_assignment.size();
+        m_dfs_time.reset();
+        m_dfs_time.resize(n, -1);
+        m_dfs_time[v] = 0;
+        succ.push_back(v);
+        numeral gamma;
+        for (unsigned i = 0; i < succ.size(); ++i) {
+            v = succ[i];
+            edge_id_vector & edges = m_out_edges[v];
+            typename edge_id_vector::iterator it  = edges.begin();
+            typename edge_id_vector::iterator end = edges.end();
+            for (; it != end; ++it) {
+                edge_id e_id = *it;
+                edge & e     = m_edges[e_id];
+                if (!e.is_enabled()) {
+                    continue;
+                }
+                SASSERT(e.get_source() == v);
+                set_gamma(e, gamma);
+                if (gamma.is_zero()) {
+                    dl_var target = e.get_target();
+                    if (m_dfs_time[target] == -1) {
+                        succ.push_back(target);
+                        m_dfs_time[target] = 0;
+                    }
+                }
+            }
+
         }
     }
 

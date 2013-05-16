@@ -262,7 +262,11 @@ namespace smt {
 
     private:        
 
-        rational mk_value(theory_var v);
+        rational mk_value(theory_var v, bool is_int);
+
+        bool is_parity_ok(unsigned v) const;
+
+        void enforce_parity();
 
         void validate_model();
 
