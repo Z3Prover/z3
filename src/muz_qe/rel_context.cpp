@@ -32,6 +32,7 @@ Revision History:
 #include"dl_sparse_table.h"
 #include"dl_table.h"
 #include"dl_table_relation.h"
+#include"aig_exporter.h"
 
 namespace datalog {
 
@@ -126,6 +127,13 @@ namespace datalog {
                 break;
             }
             TRACE("dl", m_context.display(tout););
+
+            if (m_context.get_params().dump_aig().size()) {
+                const char *filename = static_cast<const char*>(m_context.get_params().dump_aig().c_ptr());
+                aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
+                aig(std::ofstream(filename, std::ios_base::binary));
+                exit(0);
+            }
 
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 
