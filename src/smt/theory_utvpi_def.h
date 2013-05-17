@@ -33,7 +33,17 @@ Revision History:
 
  3. Solve for x^+ and x^-
  4. Check parity condition for integers (see Lahiri and Musuvathi 05)
- 5. extract model for M(x) := (M(x^+)- M(x^-))/2
+    This checks if x^+ and x^- are in the same component but of different
+    parities.
+ 5. Enforce parity on variables. This checks if x^+ and x^- have different
+    parities. If they have different parities, the assignment to one  
+    of the variables is decremented (choose the variable that is not tightly
+    constrained with 0). 
+    The process that adjusts parities converges: Suppose we break a parity
+    of a different variable y while fixing x's parity. A cyclic breaking/fixing
+    of parities implies there is a strongly connected component between x, y
+    and the two polarities of the variables. This contradicts the test in 4.
+ 6. extract model for M(x) := (M(x^+)- M(x^-))/2
 
 --*/
 
@@ -677,6 +687,17 @@ namespace smt {
     }
 
  
+    /**
+       \brief adjust values for variables in the difference graph
+              such that for variables of integer sort it is
+              the case that x^+ - x^- is even.
+       The informal justification for the procedure enforce_parity is that
+       the graph does not contain a strongly connected component where
+       x^+ and x+- are connected. They can be independently changed.
+       Since we would like variables representing 0 (zero) map to 0,
+       we selectively update the subgraph that can be updated without
+       changing the value of zero (which should be 0).
+     */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
        unsigned_vector todo;
@@ -693,10 +714,10 @@ namespace smt {
         }
         while (!todo.empty()) {
             unsigned i = todo.back();
+            todo.pop_back();
             if (is_parity_ok(i)) {
                 continue;
             }
-            todo.pop_back();
             th_var v1 = to_var(i);
             th_var v2 = neg(v1);
             TRACE("utvpi", tout << "disparity: " << v1 << "\n";);
@@ -708,18 +729,20 @@ namespace smt {
                     (to_var(m_zero_int) == zero_v[j]) ||
                     (neg(to_var(m_zero_int)) == zero_v[j]);                
             }
+            // variables that are tightly connected 
+            // to 0 should not have their values changed.
             if (found0) {
                 zero_v.reset();
                 m_graph.compute_zero_succ(v2, zero_v);
             }
             TRACE("utvpi", 
                   for (unsigned j = 0; j < zero_v.size(); ++j) {
-                      tout << "increment: " << zero_v[j] << "\n";
+                      tout << "decrement: " << zero_v[j] << "\n";
                   });
 
             for (unsigned j = 0; j < zero_v.size(); ++j) {
                 int v = zero_v[j];
-                m_graph.acc_assignment(v, numeral(1));
+                m_graph.acc_assignment(v, numeral(-1));
                 th_var k = from_var(v);
                 if (!is_parity_ok(k)) {
                     TRACE("utvpi", tout << "new disparity: " << k << "\n";);
@@ -727,6 +750,15 @@ namespace smt {
                 }
             }            
         }
+        SASSERT(m_graph.is_feasible());
+        DEBUG_CODE(
+            for (unsigned i = 0; i < sz; ++i) {
+                enode* e = get_enode(i);
+                if (a.is_int(e->get_owner()) && !is_parity_ok(i)) {
+                    IF_VERBOSE(0, verbose_stream() << "disparities not fixed\n";);
+                    UNREACHABLE();
+                }            
+            });
     }
     
 
@@ -735,11 +767,9 @@ namespace smt {
     void theory_utvpi<Ext>::init_model(model_generator & m) {    
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
-        // TBD: enforce strong or tight coherence
         enforce_parity();
         compute_delta();   
-        // DEBUG_CODE(validate_model(););
-        validate_model();
+        DEBUG_CODE(validate_model(););
     }
 
     template<typename Ext>    
@@ -849,9 +879,7 @@ namespace smt {
         numeral val = val1 - val2;
         rational num = val.get_rational() + (m_delta * val.get_infinitesimal().to_rational());
         num = num/rational(2);
-        if (is_int && !num.is_int()) {
-            num = floor(num);
-        }
+        SASSERT(!is_int || num.is_int());
         TRACE("utvpi", 
               expr* n = get_enode(v)->get_owner();
               tout << mk_pp(n, get_manager()) << " |-> (" << val1 << " - " << val2 << ")/2 = " << num << "\n";);
