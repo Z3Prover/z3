@@ -48,7 +48,7 @@ namespace datalog {
     }
 
     void aig_exporter::mk_latch_vars(unsigned n) {
-        for (int i = m_latch_vars.size() - 1; i <= (int)n; ++i) {
+        for (unsigned i = m_latch_vars.size(); i <= n; ++i) {
             m_latch_vars.push_back(m.mk_fresh_const("latch_var", m.mk_bool_sort()));
             m_latch_varsp.push_back(m.mk_fresh_const("latch_varp", m.mk_bool_sort()));
         }
