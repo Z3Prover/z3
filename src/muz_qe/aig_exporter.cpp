@@ -23,16 +23,13 @@ namespace datalog {
         m_latch_vars(m), m_latch_varsp(m), m_ruleid_var_set(m), m_ruleid_varp_set(m)
     {
         std::set<func_decl*> predicates;
-        unsigned num_variables = 0;
         for (rule_set::decl2rules::iterator I = m_rules.begin_grouped_rules(),
             E = m_rules.end_grouped_rules(); I != E; ++I) {
             predicates.insert(I->m_key);
-            num_variables = std::max(num_variables, I->m_key->get_arity());
         }
 
         for (fact_vector::const_iterator I = facts->begin(), E = facts->end(); I != E; ++I) {
             predicates.insert(I->first);
-            num_variables = std::max(num_variables, I->first->get_arity());
         }
 
         // reserve pred id = 0 for initalization purposes
@@ -48,11 +45,19 @@ namespace datalog {
             m_ruleid_var_set.push_back(m.mk_fresh_const("rule_id", m.mk_bool_sort()));
             m_ruleid_varp_set.push_back(m.mk_fresh_const("rule_id_p", m.mk_bool_sort()));
         }
+    }
 
-        for (unsigned i = 0; i < num_variables; ++i) {
+    void aig_exporter::mk_latch_vars(unsigned n) {
+        for (int i = m_latch_vars.size() - 1; i <= (int)n; ++i) {
             m_latch_vars.push_back(m.mk_fresh_const("latch_var", m.mk_bool_sort()));
             m_latch_varsp.push_back(m.mk_fresh_const("latch_varp", m.mk_bool_sort()));
         }
+        SASSERT(m_latch_vars.size() > n);
+    }
+
+    expr* aig_exporter::get_latch_var(unsigned i, const expr_ref_vector& vars) {
+        mk_latch_vars(i);
+        return vars.get(i);
     }
 
     void aig_exporter::assert_pred_id(func_decl *decl, const expr_ref_vector& vars, expr_ref_vector& exprs) {
@@ -72,7 +77,7 @@ namespace datalog {
         const expr_ref_vector& vars, expr_ref_vector& eqs) {
         for (unsigned i = 0; i < h->get_num_args(); ++i) {
             expr *arg = h->get_arg(i);
-            expr *latchvar = vars.get(i);
+            expr *latchvar = get_latch_var(i, vars);
 
             if (is_var(arg)) {
                 var *v = to_var(arg);
@@ -140,7 +145,7 @@ namespace datalog {
                 assert_pred_id(I->first, m_ruleid_varp_set, exprs);
 
                 for (unsigned i = 0; i < I->second.size(); ++i) {
-                    exprs.push_back(m.mk_eq(m_latch_varsp.get(i), I->second[i]));
+                    exprs.push_back(m.mk_eq(get_latch_var(i, m_latch_varsp), I->second[i]));
                 }
 
                 transition_function.push_back(m.mk_and(exprs.size(), exprs.c_ptr()));
@@ -231,6 +236,9 @@ namespace datalog {
         if (m_aig_expr_id_map.find(e, id))
             return id;
 
+        if (is_uninterp_const(e))
+            return get_var(e);
+
         switch (e->get_kind()) {
         case AST_APP: {
             const app *a = to_app(e);
@@ -243,9 +251,6 @@ namespace datalog {
                 }
                 m_aig_expr_id_map.insert(e, id);
                 return id;
-
-            case null_decl_kind:
-                return get_var(a);
 
             case OP_NOT:
                 return neg(expr_to_aig(a->get_arg(0)));

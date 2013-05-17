@@ -49,6 +49,8 @@ namespace datalog {
 
         std::stringstream m_buffer;
 
+        void mk_latch_vars(unsigned n);
+        expr* get_latch_var(unsigned i, const expr_ref_vector& vars);
         void assert_pred_id(func_decl *decl, const expr_ref_vector& vars, expr_ref_vector& exprs);
         void collect_var_substs(substitution& subst, const app *h,
             const expr_ref_vector& vars, expr_ref_vector& eqs);
