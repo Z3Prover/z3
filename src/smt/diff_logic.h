@@ -24,6 +24,7 @@ Revision History:
 #include"statistics.h"
 #include"trace.h"
 #include"warning.h"
+#include"uint_set.h"
 
 typedef int dl_var;
 
