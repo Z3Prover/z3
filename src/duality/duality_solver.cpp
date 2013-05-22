@@ -77,6 +77,7 @@ namespace Duality {
     virtual void InductionFailure(RPFP::Edge *edge, const std::vector<RPFP::Node *> &children){}
     virtual void UpdateUnderapprox(RPFP::Node *node, const RPFP::Transformer &update){}
     virtual void Reject(RPFP::Edge *edge, const std::vector<RPFP::Node *> &Children){}
+    virtual void Message(const std::string &msg){}
     virtual ~Reporter(){}
   };
 
@@ -1154,7 +1155,7 @@ namespace Duality {
       }
 #endif
       if(!full_scan && candidates.empty()){
-	std::cout << "No candidates from updates. Trying full scan.\n";
+	reporter->Message("No candidates from updates. Trying full scan.");
 	GenCandidatesFromInductionFailure(true);
       }
     }
@@ -2192,6 +2193,9 @@ namespace Duality {
       for(unsigned i = 0; i < children.size(); i++)
 	s << " " << children[i]->number;
       s << std::endl;
+    }
+    virtual void Message(const std::string &msg){
+      ev(); s << "msg " << msg << std::endl;
     }
     
   };
