@@ -434,6 +434,7 @@ namespace Duality {
 	hash_map<func_decl,int> relMap;
 	hash_map<ast,Term> varMap;
 	Edge *map;
+	Term labeled;
 	
       Edge(Node *_Parent, const Transformer &_F, const std::vector<Node *> &_Children, RPFP *_owner, int _number)
 	: F(_F), Parent(_Parent), Children(_Children), dual(expr(_owner->ctx)) {
@@ -634,8 +635,7 @@ namespace Duality {
 #ifdef WIN32
        __declspec(dllexport)
 #endif
-	 void FromClauses(const std::vector<Term> &clauses,
-			 std::vector<std::vector<label_struct> > &clause_labels);
+       void FromClauses(const std::vector<Term> &clauses);
 
        void FromFixpointContext(fixedpoint fp, std::vector<Term> &queries);
 
@@ -673,6 +673,10 @@ namespace Duality {
       TermTree *GetGoalTree(Node *root);
 
       int EvalTruth(hash_map<ast,int> &memo, Edge *e, const Term &f);
+
+      void GetLabels(Edge *e, std::vector<symbol> &labels);
+
+      int GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos);
 
     private:
       

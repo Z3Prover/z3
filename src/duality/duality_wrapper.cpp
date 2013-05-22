@@ -25,6 +25,7 @@ Revision History:
 #include "statistics.h"
 #include "expr_abstract.h"
 #include "stopwatch.h"
+#include "model_smt2_pp.h"
 
 namespace Duality {
 
@@ -534,15 +535,17 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     std::cout << mk_pp(raw(), m()) << std::endl;
   }
 
-#if 0
   void model::show() const {
-    std::cout << Z3_model_to_string(ctx(), m_model) << std::endl;
+    model_smt2_pp(std::cout, m(), *m_model, 0);
+    std::cout << std::endl;
   }
   
-  Z3_ast ast_to_track = 0;
-#endif
 
   void include_ast_show(ast &a){
+    a.show();
+  }
+
+  void include_model_show(model &a){
     a.show();
   }
 

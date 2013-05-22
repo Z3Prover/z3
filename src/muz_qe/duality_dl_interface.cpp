@@ -161,7 +161,7 @@ void dl_interface::check_reset() {
   }
   
   // creates 1-1 map between clauses and rpfp edges
-  _d->rpfp->FromClauses(clauses,_d->clause_labels);
+  _d->rpfp->FromClauses(clauses);
 
   // populate the edge-to-clause map
   for(unsigned i = 0; i < _d->rpfp->edges.size(); ++i)
@@ -265,16 +265,12 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
   out << "  )\n";
   
   out << "  (labels";
-  std::vector<RPFP::label_struct> &labels = d->dd()->clause_labels[orig_clause];
-  {
-    hash_map<ast,int> memo;
-    for(unsigned j = 0; j < labels.size(); j++){
-      RPFP::label_struct &lab = labels[j];
-      int truth = cex.tree->EvalTruth(memo,&edge,lab.value);
-      if(truth == 1 && lab.pos || truth == 0 && !lab.pos)
-	out << " " << lab.name;
-    }
+  std::vector<symbol> labels;
+  cex.tree->GetLabels(&edge,labels);
+  for(unsigned j = 0; j < labels.size(); j++){
+    out << " " << labels[j];
   }
+  
   out << "  )\n";
 
   // reference the proofs of all the children, in syntactic order

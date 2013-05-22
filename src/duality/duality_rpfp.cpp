@@ -838,6 +838,95 @@ namespace Duality {
     return SubtermTruth(memo,tl);
   }
 
+  /** Compute truth values of all boolean subterms in current model.
+      Assumes formulas has been simplified by Z3, so only boolean ops
+      ands and, or, not. Returns result in memo. 
+  */
+
+  int RPFP::GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos){
+    if(memo[labpos].find(f) != memo[labpos].end()){
+      return memo[labpos][f];
+    }
+    int res;
+    if(f.is_app()){
+      int nargs = f.num_args();
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == Implies){
+	res = GetLabelsRec(memo,!f.arg(0) || f.arg(1), labels, labpos);
+	goto done;
+      }
+      if(k == And) {
+	res = 1; 
+	for(int i = 0; i < nargs; i++){
+	  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
+	  if(ar == 0){
+	    res = 0;
+	    goto done;
+	  }
+	  if(ar == 2)res = 2; 
+	}
+	goto done;
+      }
+      else if(k == Or) {
+	res = 0;
+	for(int i = 0; i < nargs; i++){
+	  int ar = GetLabelsRec(memo,f.arg(i), labels, labpos);
+	  if(ar == 1){
+	    res = 1;
+	    goto done;
+	  }
+	  if(ar == 2)res = 2; 
+	}
+	goto done;
+      }
+      else if(k == Not) {
+	int ar = GetLabelsRec(memo,f.arg(0), labels, !labpos);
+	res = (ar == 0) ? 1 : ((ar == 1) ? 0 : 2);
+	goto done;
+      }
+    }
+    {
+      bool pos; std::vector<symbol> names;
+      if(f.is_label(pos,names)){
+	res = GetLabelsRec(memo,f.arg(0), labels, labpos);
+	if(pos == labpos && res == (pos ? 1 : 0))
+	  for(unsigned i = 0; i < names.size(); i++)
+	    labels.push_back(names[i]);
+	goto done;
+      }
+    }
+    {
+      expr bv = dualModel.eval(f);
+      if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
+	 bv.arg(0).is_array()){
+	bv = EvalArrayEquality(bv);
+      }
+      // Hack!!!! array equalities can occur negatively!
+      if(bv.is_app() && bv.decl().get_decl_kind() == Not && 
+	 bv.arg(0).decl().get_decl_kind() == Equal &&
+	 bv.arg(0).arg(0).is_array()){
+	bv = dualModel.eval(!EvalArrayEquality(bv.arg(0)));
+      }
+      if(eq(bv,ctx.bool_val(true)))
+	res = 1;
+      else if(eq(bv,ctx.bool_val(false)))
+	res = 0;
+      else
+	res = 2;
+    }
+  done:
+    memo[labpos][f] = res;
+    return res;
+  }
+
+  void RPFP::GetLabels(Edge *e, std::vector<symbol> &labels){
+    if(!e->map || e->map->labeled.null())
+      return;
+    Term tl = Localize(e, e->map->labeled);
+    hash_map<ast,int> memo[2];
+    GetLabelsRec(memo,tl,labels,true);
+  }
+
 #ifdef Z3OPS
   static Z3_subterm_truth *stt;
 #endif
@@ -1742,8 +1831,7 @@ namespace Duality {
 			    arg.decl().get_decl_kind() == Uninterpreted);
   }
 
-  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses,
-			 std::vector<std::vector<label_struct> > &clause_labels){
+  void RPFP::FromClauses(const std::vector<Term> &unskolemized_clauses){
     hash_map<func_decl,Node *> pmap;
     func_decl fail_pred = ctx.fresh_func_decl("@Fail", ctx.bool_sort());
     
@@ -1810,7 +1898,6 @@ namespace Duality {
 
     // create the edges
 
-    clause_labels.resize(clauses.size());
     for(unsigned i = 0; i < clauses.size(); i++){
       Term clause = clauses[i];
       Term body = clause.arg(0);
@@ -1841,13 +1928,15 @@ namespace Duality {
       hash_map<ast,Term> scan_memo;
       std::vector<Node *> Children;
       body = ScanBody(scan_memo,body,pmap,Relparams,Children);
-      body = RemoveLabels(body,clause_labels[i]);
+      Term labeled = body;
+      std::vector<label_struct > lbls;  // TODO: throw this away for now
+      body = RemoveLabels(body,lbls);
       body = body.simplify();
 
       // Create the edge
       Transformer T = CreateTransformer(Relparams,Indparams,body);
-      // Edge *edge = 
-      CreateEdge(Parent,T,Children);
+      Edge *edge = CreateEdge(Parent,T,Children);
+      edge->labeled = labeled;; // remember for label extraction
       // edges.push_back(edge);
     }
   }
