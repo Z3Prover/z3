@@ -852,7 +852,7 @@ namespace Duality {
       int nargs = f.num_args();
       decl_kind k = f.decl().get_decl_kind();
       if(k == Implies){
-	res = GetLabelsRec(memo,!f.arg(0) || f.arg(1), labels, labpos);
+	res = GetLabelsRec(memo,f.arg(1) || !f.arg(0), labels, labpos);
 	goto done;
       }
       if(k == And) {
@@ -946,7 +946,7 @@ namespace Duality {
       int nargs = f.num_args();
       decl_kind k = f.decl().get_decl_kind();
       if(k == Implies){
-	ImplicantRed(memo,!f.arg(0) || f.arg(1),lits,done,truth,dont_cares);
+	ImplicantRed(memo,f.arg(1) || !f.arg(0) ,lits,done,truth,dont_cares);
 	goto done;
       }
       if(k == Iff){
