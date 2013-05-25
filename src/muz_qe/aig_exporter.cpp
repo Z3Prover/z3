@@ -265,6 +265,8 @@ namespace datalog {
 
         case AST_VAR:
             return get_var(e);
+        default:
+            UNREACHABLE();
         }
         
         UNREACHABLE();

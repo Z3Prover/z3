@@ -66,8 +66,9 @@ namespace datalog {
             m_ctx.ensure_opened();
             m_solver.reset();
             m_goals.reset();
-            func_decl *head_decl = rm.mk_query(query, m_ctx.get_rules());
+            rm.mk_query(query, m_ctx.get_rules());
             m_ctx.apply_default_transformation();
+            func_decl *head_decl = m_ctx.get_rules().get_output_predicate();
 
             expr_ref head(m_ctx.get_rules().get_predicate_rules(head_decl)[0]->get_head(), m);
             ground(head);
