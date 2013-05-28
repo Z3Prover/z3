@@ -676,7 +676,7 @@ namespace Duality {
 
       void GetLabels(Edge *e, std::vector<symbol> &labels);
 
-      int GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos);
+      //      int GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos);
 
     private:
       
@@ -767,6 +767,8 @@ namespace Duality {
 
       Term ModelValueAsConstraint(const Term &t);
 
+      void GetLabelsRec(hash_map<ast,int> &memo, const Term &f, std::vector<symbol> &labels,
+			hash_set<ast> *done, bool truth);
     };
     
     /** RPFP solver base class. */

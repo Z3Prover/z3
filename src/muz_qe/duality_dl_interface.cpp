@@ -117,7 +117,8 @@ void dl_interface::check_reset() {
 #endif
 
 
-  lbool dl_interface::query(::expr * query) {
+lbool dl_interface::query(::expr * query) {
+
   // TODO: you can only call this once!
   // we restore the initial state in the datalog context
   m_ctx.ensure_opened();

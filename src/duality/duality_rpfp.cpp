@@ -810,6 +810,13 @@ namespace Duality {
       }
     }
     {
+      bool pos; std::vector<symbol> names;
+      if(f.is_label(pos,names)){
+	res = SubtermTruth(memo,f.arg(0));
+	goto done;
+      }
+    }
+    {
       expr bv = dualModel.eval(f);
       if(bv.is_app() && bv.decl().get_decl_kind() == Equal && 
 	 bv.arg(0).is_array()){
@@ -843,6 +850,7 @@ namespace Duality {
       ands and, or, not. Returns result in memo. 
   */
 
+#if 0
   int RPFP::GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos){
     if(memo[labpos].find(f) != memo[labpos].end()){
       return memo[labpos][f];
@@ -918,13 +926,72 @@ namespace Duality {
     memo[labpos][f] = res;
     return res;
   }
+#endif
+
+  void RPFP::GetLabelsRec(hash_map<ast,int> &memo, const Term &f, std::vector<symbol> &labels,
+			  hash_set<ast> *done, bool truth){
+    if(done[truth].find(f) != done[truth].end())
+      return; /* already processed */
+    if(f.is_app()){
+      int nargs = f.num_args();
+      decl_kind k = f.decl().get_decl_kind();
+      if(k == Implies){
+	GetLabelsRec(memo,f.arg(1) || !f.arg(0) ,labels,done,truth);
+	goto done;
+      }
+      if(k == Iff){
+	int b = SubtermTruth(memo,f.arg(0));
+	if(b == 2)
+	  throw "disaster in GetLabelsRec";
+	GetLabelsRec(memo,f.arg(1),labels,done,truth ? b : !b);
+	goto done;
+      }
+      if(truth ? k == And : k == Or) {
+	for(int i = 0; i < nargs; i++)
+	  GetLabelsRec(memo,f.arg(i),labels,done,truth);
+	goto done;
+      }
+      if(truth ? k == Or : k == And) {
+	for(int i = 0; i < nargs; i++){
+	  Term a = f.arg(i);
+	  timer_start("SubtermTruth");
+	  int b = SubtermTruth(memo,a);
+	  timer_stop("SubtermTruth");
+	  if(truth ? (b == 1) : (b == 0)){
+	    GetLabelsRec(memo,a,labels,done,truth);
+	    goto done;
+	  }
+	}
+	/* Unreachable! */
+	throw "error in RPFP::GetLabelsRec";
+	goto done;
+      }
+      else if(k == Not) {
+	GetLabelsRec(memo,f.arg(0),labels,done,!truth);
+	goto done;
+      }
+      else {
+	bool pos; std::vector<symbol> names;
+	if(f.is_label(pos,names)){
+	  GetLabelsRec(memo,f.arg(0), labels, done, truth);
+	  if(pos == truth)
+	    for(unsigned i = 0; i < names.size(); i++)
+	      labels.push_back(names[i]);
+	  goto done;
+	}
+      }
+    }
+  done:
+    done[truth].insert(f);
+  }
 
   void RPFP::GetLabels(Edge *e, std::vector<symbol> &labels){
     if(!e->map || e->map->labeled.null())
       return;
     Term tl = Localize(e, e->map->labeled);
-    hash_map<ast,int> memo[2];
-    GetLabelsRec(memo,tl,labels,true);
+    hash_map<ast,int> memo;
+    hash_set<ast> done[2];
+    GetLabelsRec(memo,tl,labels,done,true);
   }
 
 #ifdef Z3OPS

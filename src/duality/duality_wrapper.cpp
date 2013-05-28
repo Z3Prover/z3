@@ -30,9 +30,6 @@ Revision History:
 namespace Duality {
 
   solver::solver(Duality::context& c) : object(c), the_model(c) {
-    // TODO: the following is a HACK to enable proofs in the old smt solver
-    // When we stop using that solver, this hack can be removed
-    m().toggle_proof_mode(PGM_FINE);  
     params_ref p;
     p.set_bool("proof", true); // this is currently useless
     p.set_bool("model", true); 
