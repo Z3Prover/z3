@@ -119,13 +119,13 @@
                  :pattern (?select (?select (?asElems e) a) i))))
 (assert (forall ((x Int) (f Int) (a0 Int))
                 (!
-                 (or (<= (+ a0 (* -1 (?fClosedTime f))) 0)
+                 (or (<= (+ a0 (* (- 1) (?fClosedTime f))) 0)
                      (not (= (?isAllocated x a0) 1))
                      (= (?isAllocated (?select f x) a0) 1))
                  :pattern (?isAllocated (?select f x) a0))))
 (assert (forall ((a Int) (e Int) (i Int) (a0 Int))
                 (!
-                 (or (<= (+ a0 (* -1 (?eClosedTime e))) 0)
+                 (or (<= (+ a0 (* (- 1) (?eClosedTime e))) 0)
                      (not (= (?isAllocated a a0) 1))
                      (= (?isAllocated (?select (?select e a) i) a0) 1))
                  :pattern (?isAllocated (?select (?select e a) i) a0))))
@@ -281,13 +281,13 @@
                   :pattern (IntsAllocated h (?StructGet_ s f)))))
 (assert  (forall ((x Int) (f Int) (a0 Int))
                  (!
-                  (or (<= (+ a0 (* -1 (?fClosedTime f))) 0)
+                  (or (<= (+ a0 (* (- 1) (?fClosedTime f))) 0)
                       (not (?isAllocated_ x a0))
                       (?isAllocated_ (?select f x) a0))
                   :pattern (?isAllocated_ (?select f x) a0))))
 (assert  (forall ((a Int) (e Int) (i Int) (a0 Int))
                  (!
-                  (or (<= (+ a0 (* -1 (?eClosedTime e))) 0)
+                  (or (<= (+ a0 (* (- 1) (?eClosedTime e))) 0)
                       (not (?isAllocated_ a a0))
                       (?isAllocated_ (?select (?select e a) i) a0))
                   :pattern (?isAllocated_ (?select (?select e a) i) a0))))
