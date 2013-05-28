@@ -952,6 +952,26 @@ void exists_expr_vector_example() {
     std::cout << ex << std::endl;
 }
 
+void substitute_example() {
+    std::cout << "substitute example\n";
+    context c;
+    expr x(c);
+    x = c.int_const("x");
+    expr f(c);
+    f = (x == 2) || (x == 1);
+    std::cout << f << std::endl;
+
+    expr two(c), three(c);
+    two   = c.int_val(2);
+    three = c.int_val(3);
+    Z3_ast from[] = { two };
+    Z3_ast to[]   = { three };
+    expr new_f(c);
+    new_f = to_expr(c, Z3_substitute(c, f, 1, from, to));
+    
+    std::cout << new_f << std::endl;
+}
+
 int main() {
     try {
         demorgan(); std::cout << "\n";
@@ -983,12 +1003,13 @@ int main() {
         tactic_example9(); std::cout << "\n";
         tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
-	incremental_example1(); std::cout << "\n";
-	incremental_example2(); std::cout << "\n";
-	incremental_example3(); std::cout << "\n";
+        incremental_example1(); std::cout << "\n";
+        incremental_example2(); std::cout << "\n";
+        incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
+        substitute_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {
