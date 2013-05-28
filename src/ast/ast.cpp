@@ -1305,6 +1305,10 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
 }
 
 void ast_manager::init() {
+    // TODO: the following is a HACK to enable proofs in the old smt solver
+    // When we stop using that solver, this hack can be removed
+    m_proof_mode = PGM_FINE;
+
     m_int_real_coercions = true;
     m_debug_ref_count = false;
     m_fresh_id = 0;
