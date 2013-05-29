@@ -248,6 +248,8 @@ namespace Duality {
   RPFP::Term RPFP::Localize(Edge *e, const Term &t){
     timer_start("Localize");
     hash_map<ast,Term> memo;
+    if(e->F.IndParams.size() > 0 && e->varMap.empty())
+      SetEdgeMaps(e); // TODO: why is this needed?
     Term res = LocalizeRec(e,memo,t);
     timer_stop("Localize");
     return res;

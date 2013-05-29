@@ -257,7 +257,9 @@ namespace Duality {
       };
       
       
+    public:
       model dualModel;
+    private:
       literals dualLabels;
       std::list<stack_entry> stack;
       std::vector<Term> axioms; // only saved here for printing purposes

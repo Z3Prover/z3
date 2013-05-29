@@ -35,6 +35,7 @@ Revision History:
 #include "dl_mk_coalesce.h"
 #include "expr_abstract.h"
 #include "model_smt2_pp.h"
+#include "model_v2_pp.h"
 
 // template class symbol_table<family_id>;
 
@@ -218,6 +219,8 @@ expr_ref dl_interface::get_cover_delta(int level, ::func_decl* pred_orig) {
 void dl_interface::reset_statistics() {
 }
 
+static hash_set<func_decl> *local_func_decls;
+
 static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexample &cex) {
   context &ctx = d->dd()->ctx;
   RPFP::Node &node = *cex.root;
@@ -261,6 +264,8 @@ static void print_proof(dl_interface *d, std::ostream& out, Solver::Counterexamp
       symbol name = t.get_quantifier_bound_name(j);
       expr skolem = ctx.constant(symbol(ctx,name),sort(ctx,the_sort));
       out << "    (= " << skolem << " " << cex.tree->Eval(&edge,skolem) << ")\n";
+      expr local_skolem = cex.tree->Localize(&edge,skolem);
+      (*local_func_decls).insert(local_skolem.decl());
     }
   }
   out << "  )\n";
@@ -298,7 +303,28 @@ void dl_interface::display_certificate(std::ostream& out) {
   else if(_d->status == StatusRefutation){
     out << "(derivation\n";
     // negation of the query is the last clause -- prove it
+    hash_set<func_decl> locals;
+    local_func_decls = &locals;
     print_proof(this,out,_d->cex);
+    out << ")\n";
+    out << "(model \n";
+    ::model mod(m_ctx.get_manager());
+    model orig_model = _d->cex.tree->dualModel;
+    for(unsigned i = 0; i < orig_model.num_consts(); i++){
+      func_decl cnst = orig_model.get_const_decl(i);
+      if(locals.find(cnst) == locals.end()){
+	expr thing = orig_model.get_const_interp(cnst);
+	mod.register_decl(to_func_decl(cnst.raw()),to_expr(thing.raw()));
+      }
+    }
+    for(unsigned i = 0; i < orig_model.num_funcs(); i++){
+      func_decl cnst = orig_model.get_func_decl(i);
+      if(locals.find(cnst) == locals.end()){
+	func_interp thing = orig_model.get_func_interp(cnst);
+	mod.register_decl(to_func_decl(cnst.raw()),thing);
+      }
+    }
+    model_v2_pp(out,mod);
     out << ")\n";
   }
 }

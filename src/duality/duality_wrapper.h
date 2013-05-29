@@ -688,10 +688,10 @@ namespace Duality {
         
         void show() const;
 
-        unsigned num_consts() const;
-        unsigned num_funcs() const;
-        func_decl get_const_decl(unsigned i) const;
-        func_decl get_func_decl(unsigned i) const;
+        unsigned num_consts() const {return m_model.get()->get_num_constants();}
+        unsigned num_funcs() const {return m_model.get()->get_num_functions();}
+        func_decl get_const_decl(unsigned i) const {return func_decl(ctx(),m_model.get()->get_constant(i));}
+        func_decl get_func_decl(unsigned i) const {return func_decl(ctx(),m_model.get()->get_function(i));}
         unsigned size() const;
         func_decl operator[](unsigned i) const;
 
