@@ -145,6 +145,8 @@ namespace datalog {
             instruction_block & acc);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
+        void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
+            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
         void make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
             reg_idx & result, instruction_block & acc);
         /**

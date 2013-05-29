@@ -71,6 +71,8 @@ namespace datalog {
         virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
             unsigned col);
         virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+        virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols);
         virtual relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t, 
             const relation_base & src, unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * src_cols);
         virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 

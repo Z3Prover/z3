@@ -354,6 +354,21 @@ namespace datalog {
         return alloc(tr_mutator_fn, tfun);
     }
 
+    relation_transformer_fn * table_relation_plugin::mk_filter_interpreted_and_project_fn(const relation_base & t,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) {
+        if (!t.from_table())
+            return 0;
+
+        const table_relation & tr = static_cast<const table_relation &>(t);
+        table_transformer_fn * tfun = get_manager().mk_filter_interpreted_and_project_fn(tr.get_table(),
+            condition, removed_col_cnt, removed_cols);
+        SASSERT(tfun);
+
+        relation_signature sig;
+        relation_signature::from_project(t.get_signature(), removed_col_cnt, removed_cols, sig);
+        return alloc(tr_transformer_fn, sig, tfun);
+    }
+
     class table_relation_plugin::tr_intersection_filter_fn : public relation_intersection_filter_fn {
         scoped_ptr<table_intersection_filter_fn> m_tfun;
     public:
