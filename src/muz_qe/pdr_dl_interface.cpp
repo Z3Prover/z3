@@ -133,6 +133,12 @@ lbool dl_interface::query(expr * query) {
             --num_unfolds;
         }
     }
+
+    if (m_ctx.get_rules().get_output_predicates().empty()) {
+        m_context->set_unsat();
+        return l_false;
+    }
+
     query_pred = m_ctx.get_rules().get_output_predicate();
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););

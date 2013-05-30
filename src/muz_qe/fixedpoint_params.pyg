@@ -62,6 +62,7 @@ def_module_params('fixedpoint',
                           ('print_statistics',  BOOL, False, 'print statistics'),
 			  ('use_utvpi', BOOL, False, 'experimental use UTVPI strategy'),
 	                  ('tab_selection', SYMBOL, 'weight', 'selection method for tabular strategy: weight (default), first, var-use'),
+                          ('dump_aig', SYMBOL, '', 'Dump clauses in AIG text format (AAG) to the given file name'),
                           ))
 
 

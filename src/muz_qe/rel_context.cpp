@@ -18,6 +18,9 @@ Revision History:
     Extracted from dl_context
 
 --*/
+
+#define Z3_HASSEL_TABLE
+
 #include"rel_context.h"
 #include"dl_context.h"
 #include"dl_compiler.h"
@@ -30,8 +33,13 @@ Revision History:
 #include"dl_mk_karr_invariants.h"
 #include"dl_finite_product_relation.h"
 #include"dl_sparse_table.h"
+#ifdef Z3_HASSEL_TABLE
+# include"dl_hassel_table.h"
+# include"dl_hassel_diff_table.h"
+#endif
 #include"dl_table.h"
 #include"dl_table_relation.h"
+#include"aig_exporter.h"
 
 namespace datalog {
 
@@ -86,6 +94,10 @@ namespace datalog {
         get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
 
+#ifdef Z3_HASSEL_TABLE
+        get_rmanager().register_plugin(alloc(hassel_table_plugin, get_rmanager()));
+        get_rmanager().register_plugin(alloc(hassel_diff_table_plugin, get_rmanager()));
+#endif
 
         // register plugins for builtin relations
 
@@ -126,6 +138,14 @@ namespace datalog {
                 break;
             }
             TRACE("dl", m_context.display(tout););
+
+            if (m_context.get_params().dump_aig().size()) {
+                const char *filename = static_cast<const char*>(m_context.get_params().dump_aig().c_ptr());
+                aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
+                std::ofstream strm(filename, std::ios_base::binary);
+                aig(strm);
+                exit(0);
+            }
 
             compiler::compile(m_context, m_context.get_rules(), m_code, termination_code);
 

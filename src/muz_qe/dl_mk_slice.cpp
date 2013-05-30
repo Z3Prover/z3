@@ -710,6 +710,7 @@ namespace datalog {
     void mk_slice::declare_predicates(rule_set const& src, rule_set& dst) {
         obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
         ptr_vector<sort> domain;
+        bool has_output = false;
         func_decl* f;
         for (; it != end; ++it) {
             domain.reset();
@@ -731,7 +732,12 @@ namespace datalog {
             }
             else if (src.is_output_predicate(p)) {
                 dst.set_output_predicate(p);
+                has_output = true;
             }
+        }
+        // disable slicing if the output predicates don't occur in rules.
+        if (!has_output) {
+            m_predicates.reset();
         }
     }
 

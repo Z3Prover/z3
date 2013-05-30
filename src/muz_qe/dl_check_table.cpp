@@ -82,6 +82,34 @@ namespace datalog {
         return alloc(join_fn, *this, t1, t2, col_cnt, cols1, cols2);    
     }
 
+    class check_table_plugin::join_project_fn : public table_join_fn {
+        scoped_ptr<table_join_fn> m_tocheck;
+        scoped_ptr<table_join_fn> m_checker;
+    public:
+        join_project_fn(check_table_plugin& p, const table_base & t1, const table_base & t2,
+                        unsigned col_cnt, const unsigned * cols1, const unsigned * cols2,
+                        unsigned removed_col_cnt, const unsigned * removed_cols) {
+            m_tocheck = p.get_manager().mk_join_project_fn(tocheck(t1), tocheck(t2), col_cnt, cols1, cols2, removed_col_cnt, removed_cols);
+            m_checker = p.get_manager().mk_join_project_fn(checker(t1), checker(t2), col_cnt, cols1, cols2, removed_col_cnt, removed_cols);
+        }
+
+        virtual table_base* operator()(const table_base & t1, const table_base & t2) {
+            table_base* ttocheck = (*m_tocheck)(tocheck(t1), tocheck(t2));
+            table_base* tchecker = (*m_checker)(checker(t1), checker(t2));
+            check_table* result = alloc(check_table, get(t1).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            return result;
+        }
+    };
+
+    table_join_fn * check_table_plugin::mk_join_project_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
+            const unsigned * removed_cols) {
+        if (!check_kind(t1) || !check_kind(t2)) {
+            return 0;
+        }
+        return alloc(join_project_fn, *this, t1, t2, col_cnt, cols1, cols2, removed_col_cnt, removed_cols);    
+    }
+
     class check_table_plugin::union_fn : public table_union_fn {
         scoped_ptr<table_union_fn> m_tocheck;
         scoped_ptr<table_union_fn> m_checker;
@@ -120,7 +148,6 @@ namespace datalog {
         }
 
         table_base* operator()(table_base const& src) {
-            IF_VERBOSE(1, verbose_stream() << __FUNCTION__ << "\n";);
             table_base* tchecker = (*m_checker)(checker(src));
             table_base* ttocheck = (*m_tocheck)(tocheck(src));
             check_table* result = alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
@@ -133,6 +160,31 @@ namespace datalog {
             return 0;
         }
         return alloc(project_fn, *this, t, col_cnt, removed_cols);        
+    }
+
+    class check_table_plugin::select_equal_and_project_fn : public table_transformer_fn {
+        scoped_ptr<table_transformer_fn> m_checker;
+        scoped_ptr<table_transformer_fn> m_tocheck;
+    public:
+        select_equal_and_project_fn(check_table_plugin& p, const table_base & t, const table_element & value, unsigned col) {
+            m_checker = p.get_manager().mk_select_equal_and_project_fn(checker(t), value, col);
+            m_tocheck = p.get_manager().mk_select_equal_and_project_fn(tocheck(t), value, col);
+        }
+
+        table_base* operator()(table_base const& src) {
+            table_base* tchecker = (*m_checker)(checker(src));
+            table_base* ttocheck = (*m_tocheck)(tocheck(src));
+            check_table* result = alloc(check_table, get(src).get_plugin(), tchecker->get_signature(), ttocheck, tchecker);
+            return result;
+        }
+    };
+
+    table_transformer_fn * check_table_plugin::mk_select_equal_and_project_fn(const table_base & t, 
+            const table_element & value, unsigned col) {
+        if (!check_kind(t)) {
+            return 0;
+        }
+        return alloc(select_equal_and_project_fn, *this, t, value, col);        
     }
 
     class check_table_plugin::rename_fn : public table_transformer_fn {
@@ -229,6 +281,33 @@ namespace datalog {
     table_mutator_fn * check_table_plugin::mk_filter_interpreted_fn(const table_base & t, app * condition) {
         if (check_kind(t)) {
             return alloc(filter_interpreted_fn, *this, t, condition);
+        }
+        return 0;
+    }
+
+    class check_table_plugin::filter_interpreted_and_project_fn : public table_transformer_fn {
+        scoped_ptr<table_transformer_fn> m_checker;
+        scoped_ptr<table_transformer_fn> m_tocheck;
+    public:
+        filter_interpreted_and_project_fn(check_table_plugin& p, const table_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols)
+        {
+            m_checker = p.get_manager().mk_filter_interpreted_and_project_fn(checker(t), condition, removed_col_cnt, removed_cols);
+            m_tocheck = p.get_manager().mk_filter_interpreted_and_project_fn(tocheck(t), condition, removed_col_cnt, removed_cols); 
+        }
+
+        table_base* operator()(table_base const& src) {
+            table_base* tchecker = (*m_checker)(checker(src));
+            table_base* ttocheck = (*m_tocheck)(tocheck(src));
+            check_table* result = alloc(check_table, get(src).get_plugin(), ttocheck->get_signature(), ttocheck, tchecker);
+            return result;
+        }
+    };
+
+    table_transformer_fn * check_table_plugin::mk_filter_interpreted_and_project_fn(const table_base & t,
+        app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) {
+        if (check_kind(t)) {
+            return alloc(filter_interpreted_and_project_fn, *this, t, condition, removed_col_cnt, removed_cols);
         }
         return 0;
     }

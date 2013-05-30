@@ -124,6 +124,15 @@ class horn_tactic : public tactic {
 
         enum formula_kind { IS_RULE, IS_QUERY, IS_NONE };
 
+        bool is_implication(expr* f) {
+            expr* e1;
+            while (is_forall(f)) {
+                f = to_quantifier(f)->get_expr();
+            }
+            while (m.is_implies(f, e1, f)) ;
+            return is_predicate(f);
+        }
+
         formula_kind get_formula_kind(expr_ref& f) {
             expr_ref tmp(f);
             normalize(tmp);
@@ -149,7 +158,10 @@ class horn_tactic : public tactic {
                 }
             }
             if (head) {
-                // f = m.mk_implies(f, head);
+                if (!is_implication(f)) {
+                    f = m.mk_and(body.size(), body.c_ptr());
+                    f = m.mk_implies(f, head);
+                }
                 return IS_RULE;
             }
             else {
@@ -200,6 +212,7 @@ class horn_tactic : public tactic {
                     break;
                 default: 
                     msg << "formula is not in Horn fragment: " << mk_pp(g->form(i), m) << "\n";
+                    TRACE("horn", tout << msg.str(););
                     throw tactic_exception(msg.str().c_str());
                 }
             }
@@ -230,7 +243,15 @@ class horn_tactic : public tactic {
                     model_converter_ref & mc, 
                     proof_converter_ref & pc) {
 
-            lbool is_reachable = m_ctx.query(q);
+            lbool is_reachable = l_undef;
+
+            try {
+                is_reachable = m_ctx.query(q);
+            }
+            catch (default_exception& ex) {
+                IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+                throw ex;
+            }
             g->inc_depth();
 
             bool produce_models = g->models_enabled();

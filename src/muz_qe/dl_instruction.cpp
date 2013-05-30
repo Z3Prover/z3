@@ -526,6 +526,64 @@ namespace datalog {
         return alloc(instr_filter_interpreted, reg, condition);
     }
 
+    class instr_filter_interpreted_and_project : public instruction {
+        reg_idx m_src;
+        reg_idx m_res;
+        app_ref m_cond;
+        unsigned_vector m_cols;
+    public:
+        instr_filter_interpreted_and_project(reg_idx src, app_ref & condition,
+            unsigned col_cnt, const unsigned * removed_cols, reg_idx result)
+            : m_src(src), m_cond(condition), m_cols(col_cnt, removed_cols),
+              m_res(result) {}
+
+        virtual bool perform(execution_context & ctx) {
+            if (!ctx.reg(m_src)) {
+                ctx.make_empty(m_res);
+                return true;
+            }
+
+            relation_transformer_fn * fn;
+            relation_base & reg = *ctx.reg(m_src);
+            if (!find_fn(reg, fn)) {
+                fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.c_ptr());
+                if (!fn) {
+                    throw default_exception(
+                        "trying to perform unsupported filter_interpreted_and_project operation on a relation of kind %s",
+                        reg.get_plugin().get_name().bare_str());
+                }
+                store_fn(reg, fn);
+            }
+
+            ctx.set_reg(m_res, (*fn)(reg));
+
+            if (ctx.eager_emptiness_checking() && ctx.reg(m_res)->empty()) {
+                ctx.make_empty(m_res);
+            }
+            return true;
+        }
+
+        virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
+            out << "filter_interpreted_and_project " << m_src << " into " << m_res;
+            out << " using " << mk_pp(m_cond, m_cond.get_manager());
+            out << " deleting columns ";
+            print_container(m_cols, out);
+        }
+
+        virtual void make_annotations(execution_context & ctx) {
+            std::stringstream s;
+            std::string a = "rel_src";
+            ctx.get_register_annotation(m_src, a);
+            s << "filter_interpreted_and_project " << mk_pp(m_cond, m_cond.get_manager());
+            ctx.set_register_annotation(m_res, s.str());
+        }
+    };
+
+    instruction * instruction::mk_filter_interpreted_and_project(reg_idx reg, app_ref & condition,
+        unsigned col_cnt, const unsigned * removed_cols, reg_idx result) {
+        return alloc(instr_filter_interpreted_and_project, reg, condition, col_cnt, removed_cols, result);
+    }
+
 
     class instr_union : public instruction {
         reg_idx m_src;
@@ -592,6 +650,7 @@ namespace datalog {
                 }
             }
 
+            SASSERT(r_src.get_signature().size() == r_tgt.get_signature().size());
             TRACE("dl_verbose", r_tgt.display(tout <<"pre-union:"););
 
             (*fn)(r_tgt, r_src, r_delta);

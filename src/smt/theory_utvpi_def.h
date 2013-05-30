@@ -33,7 +33,17 @@ Revision History:
 
  3. Solve for x^+ and x^-
  4. Check parity condition for integers (see Lahiri and Musuvathi 05)
- 5. extract model for M(x) := (M(x^+)- M(x^-))/2
+    This checks if x^+ and x^- are in the same component but of different
+    parities.
+ 5. Enforce parity on variables. This checks if x^+ and x^- have different
+    parities. If they have different parities, the assignment to one  
+    of the variables is decremented (choose the variable that is not tightly
+    constrained with 0). 
+    The process that adjusts parities converges: Suppose we break a parity
+    of a different variable y while fixing x's parity. A cyclic breaking/fixing
+    of parities implies there is a strongly connected component between x, y
+    and the two polarities of the variables. This contradicts the test in 4.
+ 6. extract model for M(x) := (M(x^+)- M(x^-))/2
 
 --*/
 
@@ -197,6 +207,15 @@ namespace smt {
         inc_conflicts();
         literal_vector const& lits = m_nc_functor.get_lits();
         context & ctx = get_context();
+        IF_VERBOSE(2, 
+                   verbose_stream() << "conflict:\n";
+                   for (unsigned i = 0; i < lits.size(); ++i) {
+                       ast_manager& m = get_manager();
+                       expr_ref e(m);
+                       ctx.literal2expr(lits[i], e);
+                       verbose_stream() << mk_pp(e, m) << "\n";
+                   }
+                   verbose_stream() << "\n";);                   
         TRACE("utvpi", 
               tout << "conflict: ";
               for (unsigned i = 0; i < lits.size(); ++i) {
@@ -213,7 +232,9 @@ namespace smt {
         vector<parameter> params;
         if (get_manager().proofs_enabled()) {
             params.push_back(parameter(symbol("farkas")));
-            params.resize(lits.size()+1, parameter(rational(1)));
+            for (unsigned i = 0; i < m_nc_functor.get_coeffs().size(); ++i) {
+                params.push_back(parameter(rational(m_nc_functor.get_coeffs()[i])));
+            }
         } 
         
         ctx.set_conflict(
@@ -386,7 +407,6 @@ namespace smt {
     template<typename Ext>
     final_check_status theory_utvpi<Ext>::final_check_eh() {
         SASSERT(is_consistent());
-        TRACE("utvpi", display(tout););
         if (can_propagate()) {
             propagate();
             return FC_CONTINUE;
@@ -413,7 +433,7 @@ namespace smt {
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
             enode* e = get_enode(i);
-            if (a.is_int(e->get_owner())) {
+            if (!a.is_int(e->get_owner())) {
                 continue;
             }
             th_var v1 = to_var(i);
@@ -500,7 +520,7 @@ namespace smt {
     
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_term(app* n) {
-		TRACE("utvpi", tout << mk_pp(n, get_manager()) << "\n";);
+        TRACE("utvpi", tout << mk_pp(n, get_manager()) << "\n";);
         context& ctx = get_context();
         
         bool cl = m_test.linearize(n);
@@ -508,7 +528,7 @@ namespace smt {
             found_non_utvpi_expr(n);
             return null_theory_var;
         }
-		
+
         coeffs coeffs;
         rational w;
         mk_coeffs(m_test.get_linearization(), coeffs, w);
@@ -620,28 +640,28 @@ namespace smt {
         edge_id id = m_graph.get_num_edges();
         th_var w1 = to_var(v1), w2 = to_var(v2);
         if (terms.size() == 1 && pos1) {
-            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, l);
-            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, l);
+            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, std::make_pair(l,2));
+            m_graph.add_edge(neg(w1), pos(w1), -weight-weight, std::make_pair(l,2));
         }
         else if (terms.size() == 1 && !pos1) {
-            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, l);
-            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, l);
+            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, std::make_pair(l,2));
+            m_graph.add_edge(pos(w1), neg(w1), -weight-weight, std::make_pair(l,2));
         }
         else if (pos1 && pos2) {
-            m_graph.add_edge(neg(w2), pos(w1), -weight, l);
-            m_graph.add_edge(neg(w1), pos(w2), -weight, l);
+            m_graph.add_edge(neg(w2), pos(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(neg(w1), pos(w2), -weight, std::make_pair(l,1));
         }
         else if (pos1 && !pos2) {
-            m_graph.add_edge(pos(w2), pos(w1), -weight, l);
-            m_graph.add_edge(neg(w1), neg(w2), -weight, l);
+            m_graph.add_edge(pos(w2), pos(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(neg(w1), neg(w2), -weight, std::make_pair(l,1));
         }
         else if (!pos1 && pos2) {
-            m_graph.add_edge(neg(w2), neg(w1), -weight, l);
-            m_graph.add_edge(pos(w1), pos(w2), -weight, l);
+            m_graph.add_edge(neg(w2), neg(w1), -weight, std::make_pair(l,1));
+            m_graph.add_edge(pos(w1), pos(w2), -weight, std::make_pair(l,1));
         }
         else {
-            m_graph.add_edge(pos(w1), neg(w2), -weight, l);
-            m_graph.add_edge(pos(w2), neg(w1), -weight, l);
+            m_graph.add_edge(pos(w1), neg(w2), -weight, std::make_pair(l,1));
+            m_graph.add_edge(pos(w2), neg(w1), -weight, std::make_pair(l,1));
         }        
         return id;
     }
@@ -656,12 +676,98 @@ namespace smt {
         return m_graph.is_feasible();
     }
 
+
+    template<typename Ext>
+    bool theory_utvpi<Ext>::is_parity_ok(unsigned i) const {
+        th_var v1 = to_var(i);
+        th_var v2 = neg(v1);
+        rational r1 = m_graph.get_assignment(v1).get_rational();
+        rational r2 = m_graph.get_assignment(v2).get_rational();
+        return r1.is_even() == r2.is_even();
+    }
+
+ 
+    /**
+       \brief adjust values for variables in the difference graph
+              such that for variables of integer sort it is
+              the case that x^+ - x^- is even.
+       The informal justification for the procedure enforce_parity is that
+       the graph does not contain a strongly connected component where
+       x^+ and x+- are connected. They can be independently changed.
+       Since we would like variables representing 0 (zero) map to 0,
+       we selectively update the subgraph that can be updated without
+       changing the value of zero (which should be 0).
+     */
+    template<typename Ext>
+    void theory_utvpi<Ext>::enforce_parity() {
+       unsigned_vector todo;
+        
+        unsigned sz = get_num_vars();
+        for (unsigned i = 0; i < sz; ++i) {
+            enode* e = get_enode(i);
+            if (a.is_int(e->get_owner()) && !is_parity_ok(i)) {
+                todo.push_back(i);
+            }            
+        }
+        if (todo.empty()) {
+            return;
+        }
+        while (!todo.empty()) {
+            unsigned i = todo.back();
+            todo.pop_back();
+            if (is_parity_ok(i)) {
+                continue;
+            }
+            th_var v1 = to_var(i);
+            th_var v2 = neg(v1);
+            TRACE("utvpi", tout << "disparity: " << v1 << "\n";);
+            int_vector zero_v;
+            m_graph.compute_zero_succ(v1, zero_v);
+            bool found0 = false;
+            for (unsigned j = 0; !found0 && j < zero_v.size(); ++j) {
+                found0 = 
+                    (to_var(m_zero_int) == zero_v[j]) ||
+                    (neg(to_var(m_zero_int)) == zero_v[j]);                
+            }
+            // variables that are tightly connected 
+            // to 0 should not have their values changed.
+            if (found0) {
+                zero_v.reset();
+                m_graph.compute_zero_succ(v2, zero_v);
+            }
+            TRACE("utvpi", 
+                  for (unsigned j = 0; j < zero_v.size(); ++j) {
+                      tout << "decrement: " << zero_v[j] << "\n";
+                  });
+
+            for (unsigned j = 0; j < zero_v.size(); ++j) {
+                int v = zero_v[j];
+                m_graph.acc_assignment(v, numeral(-1));
+                th_var k = from_var(v);
+                if (!is_parity_ok(k)) {
+                    TRACE("utvpi", tout << "new disparity: " << k << "\n";);
+                    todo.push_back(k);
+                }
+            }            
+        }
+        SASSERT(m_graph.is_feasible());
+        DEBUG_CODE(
+            for (unsigned i = 0; i < sz; ++i) {
+                enode* e = get_enode(i);
+                if (a.is_int(e->get_owner()) && !is_parity_ok(i)) {
+                    IF_VERBOSE(0, verbose_stream() << "disparities not fixed\n";);
+                    UNREACHABLE();
+                }            
+            });
+    }
+    
+
     // models:
     template<typename Ext>
     void theory_utvpi<Ext>::init_model(model_generator & m) {    
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
-        // TBD: enforce strong or tight coherence?
+        enforce_parity();
         compute_delta();   
         DEBUG_CODE(validate_model(););
     }
@@ -677,7 +783,8 @@ namespace smt {
             }
             bool ok = true;
             expr* e = ctx.bool_var2expr(b);
-            switch(ctx.get_assignment(b)) {
+            lbool assign = ctx.get_assignment(b);
+            switch(assign) {
             case l_true:
                 ok = eval(e);
                 break;
@@ -687,7 +794,23 @@ namespace smt {
             default:
                 break;
             }
-            CTRACE("utvpi", !ok, tout << "validation failed:  " << mk_pp(e, get_manager()) << "\n";);
+            CTRACE("utvpi", !ok, 
+                   tout << "validation failed:\n";
+                   tout << "Assignment: " << assign << "\n";
+                   m_atoms[i].display(*this, tout);
+                   tout << "\n";
+                   display(tout);
+                   m_graph.display_agl(tout);
+                   );
+            if (!ok) {
+                std::cout << "validation failed:\n";
+                std::cout << "Assignment: " << assign << "\n";
+                m_atoms[i].display(*this, std::cout);
+                std::cout << "\n";
+                display(std::cout);
+                m_graph.display_agl(std::cout);
+
+            }
             // CTRACE("utvpi",  ok, tout << "validation success: " << mk_pp(e, get_manager()) << "\n";);
             SASSERT(ok);
         }
@@ -740,7 +863,7 @@ namespace smt {
             return eval_num(e1);
         }
         if (is_uninterp_const(e)) {
-            return mk_value(mk_var(e));
+            return mk_value(mk_var(e), a.is_int(e));
         }
         TRACE("utvpi", tout << "expression not handled: " << mk_pp(e, get_manager()) << "\n";);
         UNREACHABLE();
@@ -749,23 +872,28 @@ namespace smt {
 
 
     template<typename Ext>    
-    rational theory_utvpi<Ext>::mk_value(th_var v) {
+        rational theory_utvpi<Ext>::mk_value(th_var v, bool is_int) {
         SASSERT(v != null_theory_var);
         numeral val1 = m_graph.get_assignment(to_var(v));
         numeral val2 = m_graph.get_assignment(neg(to_var(v)));
         numeral val = val1 - val2;
         rational num = val.get_rational() + (m_delta * val.get_infinitesimal().to_rational());
         num = num/rational(2);
-        num = floor(num);
+        SASSERT(!is_int || num.is_int());
+        TRACE("utvpi", 
+              expr* n = get_enode(v)->get_owner();
+              tout << mk_pp(n, get_manager()) << " |-> (" << val1 << " - " << val2 << ")/2 = " << num << "\n";);
+
         return num;
     }
     
     template<typename Ext>    
     model_value_proc * theory_utvpi<Ext>::mk_value(enode * n, model_generator & mg) {
         theory_var v = n->get_th_var(get_id());
-        rational num = mk_value(v);
+        bool is_int = a.is_int(n->get_owner());
+        rational num = mk_value(v, is_int);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, a.is_int(n->get_owner())));
+        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int));
     }
 
     /**

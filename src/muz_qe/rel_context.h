@@ -28,10 +28,9 @@ Revision History:
 namespace datalog {
 
     class context;
+    typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
     class rel_context {
-        typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
-
         context&           m_context;
         ast_manager&       m;
         relation_manager   m_rmanager;

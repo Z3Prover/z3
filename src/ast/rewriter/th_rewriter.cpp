@@ -169,7 +169,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     st = m_dt_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_f_rw.get_fid())
                     st = m_f_rw.mk_eq_core(args[0], args[1], result);
-
+                else if (s_fid == m_ar_rw.get_fid())
+                    st = m_ar_rw.mk_eq_core(args[0], args[1], result);
+                
                 if (st != BR_FAILED)
                     return st;
             }

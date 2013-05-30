@@ -720,6 +720,13 @@ namespace datalog {
         return t.get_plugin().mk_filter_interpreted_fn(t, condition);
     }
 
+    relation_transformer_fn * relation_manager::mk_filter_interpreted_and_project_fn(const relation_base & t,
+                                                                                 app * condition,
+                                                                                 unsigned removed_col_cnt,
+                                                                                 const unsigned * removed_cols) {
+        return t.get_plugin().mk_filter_interpreted_and_project_fn(t, condition, removed_col_cnt, removed_cols);
+    }
+
 
     class relation_manager::default_relation_select_equal_and_project_fn : public relation_transformer_fn {
         scoped_ptr<relation_mutator_fn> m_filter;
@@ -1383,6 +1390,45 @@ namespace datalog {
         if(!res) {
             res = alloc(default_table_filter_interpreted_fn, ctx, t.get_signature().size(), condition);
         }
+        return res;
+    }
+
+
+    class relation_manager::default_table_filter_interpreted_and_project_fn 
+            : public table_transformer_fn {
+        scoped_ptr<table_mutator_fn> m_filter;
+        scoped_ptr<table_transformer_fn> m_project;
+        app_ref m_condition;
+        unsigned_vector m_removed_cols;
+    public:
+        default_table_filter_interpreted_and_project_fn(context & ctx, table_mutator_fn * filter,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) 
+                : m_filter(filter), m_condition(condition, ctx.get_manager()),
+                m_removed_cols(removed_col_cnt, removed_cols) {}
+
+        virtual table_base* operator()(const table_base & tb) {
+            table_base *t2 = tb.clone();
+            (*m_filter)(*t2);
+            if (!m_project) {
+                relation_manager & rmgr = t2->get_plugin().get_manager();
+                m_project = rmgr.mk_project_fn(*t2, m_removed_cols.size(), m_removed_cols.c_ptr());
+                if (!m_project) {
+                    throw default_exception("projection does not exist");
+                }
+            }
+            return (*m_project)(*t2);
+        }
+    };
+
+    table_transformer_fn * relation_manager::mk_filter_interpreted_and_project_fn(const table_base & t,
+        app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) {
+        table_transformer_fn * res = t.get_plugin().mk_filter_interpreted_and_project_fn(t, condition, removed_col_cnt, removed_cols);
+        if (res)
+            return res;
+
+        table_mutator_fn * filter = mk_filter_interpreted_fn(t, condition);
+        SASSERT(filter);
+        res = alloc(default_table_filter_interpreted_and_project_fn, get_context(), filter, condition, removed_col_cnt, removed_cols);
         return res;
     }
 

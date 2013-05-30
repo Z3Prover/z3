@@ -54,7 +54,7 @@ def init_project_def():
     add_lib('smt_tactic', ['smt'], 'smt/tactic')
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     # TODO: split muz_qe into muz, qe. Perhaps, we should also consider breaking muz into muz and pdr.
-    add_lib('muz_qe', ['smt', 'sat', 'smt2parser'])
+    add_lib('muz_qe', ['smt', 'sat', 'smt2parser', 'aig_tactic'])
     add_lib('smtlogic_tactics', ['arith_tactics', 'bv_tactics', 'nlsat_tactic', 'smt_tactic', 'aig_tactic', 'muz_qe'], 'tactic/smtlogics')
     add_lib('ufbv_tactic', ['normal_forms', 'core_tactics', 'macros', 'smt_tactic', 'rewriter'], 'tactic/ufbv')
     add_lib('portfolio', ['smtlogic_tactics', 'ufbv_tactic', 'fpa', 'aig_tactic', 'muz_qe', 'sls_tactic', 'subpaving_tactic'], 'tactic/portfolio')

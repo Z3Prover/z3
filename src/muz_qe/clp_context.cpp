@@ -67,8 +67,10 @@ namespace datalog {
             m_solver.reset();
             m_goals.reset();
             rm.mk_query(query, m_ctx.get_rules());
-            expr_ref head(m);
-            head = m_ctx.get_rules().last()->get_head();
+            m_ctx.apply_default_transformation();
+            func_decl *head_decl = m_ctx.get_rules().get_output_predicate();
+
+            expr_ref head(m_ctx.get_rules().get_predicate_rules(head_decl)[0]->get_head(), m);
             ground(head);
             m_goals.push_back(to_app(head));
             return search(20, 0);
@@ -125,6 +127,10 @@ namespace datalog {
             m_var_subst(e, m_ground.size(), m_ground.c_ptr(), e);
         }
 
+        static bool rule_sort_fn(const rule *r1, const rule *r2) {
+            return r1->get_uninterpreted_tail_size() < r2->get_uninterpreted_tail_size();
+        }
+
         lbool search(unsigned depth, unsigned index) {
             if (index == m_goals.size()) {
                 return l_true;
@@ -135,7 +141,10 @@ namespace datalog {
             IF_VERBOSE(1, verbose_stream() << "search " << depth << " " << index << "\n";);
             unsigned num_goals = m_goals.size();
             app* head = m_goals[index].get();
-            rule_vector const& rules = m_ctx.get_rules().get_predicate_rules(head->get_decl());
+
+            rule_vector rules(m_ctx.get_rules().get_predicate_rules(head->get_decl()));
+            std::stable_sort(rules.begin(), rules.end(), rule_sort_fn);
+
             lbool status = l_false;
             for (unsigned i = 0; i < rules.size(); ++i) {
                 rule* r = rules[i];
