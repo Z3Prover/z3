@@ -103,7 +103,6 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_subpaving_cmds(ctx);
 
     g_cmd_context = &ctx;
-    register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     
     bool result = true;
