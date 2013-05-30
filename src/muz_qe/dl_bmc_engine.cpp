@@ -297,6 +297,7 @@ namespace datalog {
                 r->to_formula(fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
+                proof_ref p(m);
                 if (r0) {
                     VERIFY(unifier.unify_rules(*r0.get(), 0, *r2.get()));
                     expr_ref_vector sub1 = unifier.get_rule_subst(*r0.get(), true);
@@ -306,7 +307,10 @@ namespace datalog {
                     r1->to_formula(concl);
                     scoped_proof _sp(m);
                     
-                    proof* p = r->get_proof();
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -319,13 +323,17 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = r->get_proof();
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
                     if (sub.empty()) {
                         pr = p;
                     }
                     else {
                         substs.push_back(sub);
-                        pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
+                        proof* ps[1] = { p };
+                        pr = m.mk_hyper_resolve(1, ps, concl, positions, substs);
                     }
                     r0 = r2;
                 }
@@ -1211,6 +1219,15 @@ namespace datalog {
                 r->to_formula(fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
+                proof_ref p(m);
+                {
+                    scoped_proof _sp(m);
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
+                }
+
                 if (r0) {
                     VERIFY(unifier.unify_rules(*r0.get(), 0, *r2.get()));
                     expr_ref_vector sub1 = unifier.get_rule_subst(*r0.get(), true);
@@ -1218,9 +1235,8 @@ namespace datalog {
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
                     r1->to_formula(concl);
-                    scoped_proof _sp(m);
                     
-                    proof* p = r->get_proof();
+                    scoped_proof _sp(m);
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -1233,13 +1249,13 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = r->get_proof();
                     if (sub.empty()) {
                         pr = p;
                     }
                     else {
                         substs.push_back(sub);
-                        pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
+                        proof * ps[1] = { p };
+                        pr = m.mk_hyper_resolve(1, ps, concl, positions, substs);
                     }
                     r0 = r2;
                 }
