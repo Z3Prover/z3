@@ -307,7 +307,7 @@ void dl_interface::display_certificate(std::ostream& out) {
     local_func_decls = &locals;
     print_proof(this,out,_d->cex);
     out << ")\n";
-    out << "(model \n";
+    out << "(model \n\"";
     ::model mod(m_ctx.get_manager());
     model orig_model = _d->cex.tree->dualModel;
     for(unsigned i = 0; i < orig_model.num_consts(); i++){
@@ -325,7 +325,7 @@ void dl_interface::display_certificate(std::ostream& out) {
       }
     }
     model_v2_pp(out,mod);
-    out << ")\n";
+    out << "\")\n";
   }
 }
 
