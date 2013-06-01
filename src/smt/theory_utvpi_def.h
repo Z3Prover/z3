@@ -418,9 +418,6 @@ namespace smt {
             return FC_GIVEUP;
         }
         else {
-            m_graph.set_to_zero(to_var(m_zero_int), to_var(m_zero_real));
-            m_graph.set_to_zero(neg(to_var(m_zero_int)), neg(to_var(m_zero_real)));
-            m_graph.set_to_zero(to_var(m_zero_int), neg(to_var(m_zero_int)));
             return FC_DONE;
         }
     }
@@ -691,16 +688,33 @@ namespace smt {
        \brief adjust values for variables in the difference graph
               such that for variables of integer sort it is
               the case that x^+ - x^- is even.
-       The informal justification for the procedure enforce_parity is that
-       the graph does not contain a strongly connected component where
-       x^+ and x+- are connected. They can be independently changed.
-       Since we would like variables representing 0 (zero) map to 0,
-       we selectively update the subgraph that can be updated without
-       changing the value of zero (which should be 0).
+       The informal justification for the procedure enforce_parity relies
+       on a set of properties:
+       1. the graph does not contain a strongly connected component where
+          x^+ and x+- are connected. They can be independently changed.
+          This is checked prior to enforce_parity.
+       2. When x^+ - x^- is odd, the values are adjusted by first 
+          decrementing the value of x^+, provided x^- is not 0-dependent.
+          Otherwise decrement x^-. 
+          x^- is "0-dependent" if there is a set of tight 
+          inequalities from x^+ to x^-.
+       3. The affinity to x^+ (the same component of x^+) ensures that 
+          the parity is broken only a finite number of times when 
+          traversing that component. Namely, suppose that the parity of y
+          gets broken when fixing 'x'. Then first note that 'y' cannot 
+          be equal to 'x'. If it were, then we have a state where:
+             parity(x^+) != parity(x^-) and 
+             parity(y^+) == parity(y^-)
+          but x^+ and y^+ are tightly connected and x^- and y^- are
+          also tightly connected using two copies of the same inequalities.
+          This is a contradiction.
+          Thus, 'y' cannot be equal to 'x' if 'y's parity gets broken when
+          repairing 'x'.
+                 
      */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
-       unsigned_vector todo;
+        unsigned_vector todo;
         
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
@@ -712,6 +726,8 @@ namespace smt {
         if (todo.empty()) {
             return;
         }
+        IF_VERBOSE(2, verbose_stream() << "disparity: " << todo.size() << "\n";);
+        unsigned iter = 0;
         while (!todo.empty()) {
             unsigned i = todo.back();
             todo.pop_back();
@@ -720,21 +736,17 @@ namespace smt {
             }
             th_var v1 = to_var(i);
             th_var v2 = neg(v1);
-            TRACE("utvpi", tout << "disparity: " << v1 << "\n";);
+
+            // IF_VERBOSE(1, verbose_stream() << "disparity: " << v1 << "\n";);
             int_vector zero_v;
             m_graph.compute_zero_succ(v1, zero_v);
-            bool found0 = false;
-            for (unsigned j = 0; !found0 && j < zero_v.size(); ++j) {
-                found0 = 
-                    (to_var(m_zero_int) == zero_v[j]) ||
-                    (neg(to_var(m_zero_int)) == zero_v[j]);                
+            for (unsigned j = 0; j < zero_v.size(); ++j) {
+                if (zero_v[j] == v2) {
+                    zero_v.reset();
+                    m_graph.compute_zero_succ(v2, zero_v);
+                }
             }
-            // variables that are tightly connected 
-            // to 0 should not have their values changed.
-            if (found0) {
-                zero_v.reset();
-                m_graph.compute_zero_succ(v2, zero_v);
-            }
+
             TRACE("utvpi", 
                   for (unsigned j = 0; j < zero_v.size(); ++j) {
                       tout << "decrement: " << zero_v[j] << "\n";
@@ -745,10 +757,23 @@ namespace smt {
                 m_graph.acc_assignment(v, numeral(-1));
                 th_var k = from_var(v);
                 if (!is_parity_ok(k)) {
-                    TRACE("utvpi", tout << "new disparity: " << k << "\n";);
+                    // IF_VERBOSE(1, verbose_stream() << "new disparity: " << k << "\n";);
                     todo.push_back(k);
                 }
-            }            
+            }         
+            if (iter >= 10000) {
+                IF_VERBOSE(1,
+                           verbose_stream() << "decrement: ";
+                           for (unsigned j = 0; j < zero_v.size(); ++j) {
+                               rational r = m_graph.get_assignment(zero_v[j]).get_rational();
+                               verbose_stream() << zero_v[j] << " (" << r << ") ";
+                           }
+                           verbose_stream() << "\n";);
+                if (!is_parity_ok(i)) {
+                    IF_VERBOSE(1, verbose_stream() << "Parity not fixed\n";);
+                }
+            }
+            ++iter;
         }
         SASSERT(m_graph.is_feasible());
         DEBUG_CODE(
@@ -764,10 +789,13 @@ namespace smt {
 
     // models:
     template<typename Ext>
-    void theory_utvpi<Ext>::init_model(model_generator & m) {    
+    void theory_utvpi<Ext>::init_model(model_generator & m) {            
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         enforce_parity();
+        m_graph.set_to_zero(to_var(m_zero_int), to_var(m_zero_real));
+        m_graph.set_to_zero(neg(to_var(m_zero_int)), neg(to_var(m_zero_real)));
+        m_graph.set_to_zero(to_var(m_zero_int), neg(to_var(m_zero_int)));
         compute_delta();   
         DEBUG_CODE(validate_model(););
     }

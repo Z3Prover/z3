@@ -1561,15 +1561,16 @@ namespace pdr {
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
             m_fparams.m_arith_eager_eq_axioms = false;
-            if (classify.is_utvpi() && m_params.use_utvpi()) {
+            if (classify.is_dl()) {
+                m_fparams.m_arith_mode = AS_DIFF_LOGIC;
+                m_fparams.m_arith_expand_eqs = true;
+            }
+            else if (classify.is_utvpi() && m_params.use_utvpi()) {
                 IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                 m_fparams.m_arith_mode = AS_UTVPI;
                 m_fparams.m_arith_expand_eqs = true;                
             }
-            else if (classify.is_dl()) {
-                m_fparams.m_arith_mode = AS_DIFF_LOGIC;
-                m_fparams.m_arith_expand_eqs = true;
-            }
+
         }
         if (!use_mc && m_params.use_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));

@@ -19,7 +19,6 @@ Revision History:
 
 --*/
 
-#define Z3_HASSEL_TABLE
 
 #include"rel_context.h"
 #include"dl_context.h"
@@ -33,10 +32,6 @@ Revision History:
 #include"dl_mk_karr_invariants.h"
 #include"dl_finite_product_relation.h"
 #include"dl_sparse_table.h"
-#ifdef Z3_HASSEL_TABLE
-# include"dl_hassel_table.h"
-# include"dl_hassel_diff_table.h"
-#endif
 #include"dl_table.h"
 #include"dl_table_relation.h"
 #include"aig_exporter.h"
@@ -94,10 +89,6 @@ namespace datalog {
         get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
         get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
 
-#ifdef Z3_HASSEL_TABLE
-        get_rmanager().register_plugin(alloc(hassel_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(hassel_diff_table_plugin, get_rmanager()));
-#endif
 
         // register plugins for builtin relations
 
