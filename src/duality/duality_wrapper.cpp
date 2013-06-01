@@ -296,6 +296,7 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     st.display(ss);
     std::string stats = ss.str();
     int pos = stats.find("decisions:");
+    if(pos < 0) return 0; // for some reason, decisions are not reported if there are none
     pos += 10;
     int end = stats.find('\n',pos);
     std::string val = stats.substr(pos,end-pos);
