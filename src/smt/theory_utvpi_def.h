@@ -714,8 +714,7 @@ namespace smt {
      */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
-        unsigned_vector todo;
-        
+        unsigned_vector todo;        
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
             enode* e = get_enode(i);
@@ -726,8 +725,6 @@ namespace smt {
         if (todo.empty()) {
             return;
         }
-        IF_VERBOSE(2, verbose_stream() << "disparity: " << todo.size() << "\n";);
-        unsigned iter = 0;
         while (!todo.empty()) {
             unsigned i = todo.back();
             todo.pop_back();
@@ -737,17 +734,18 @@ namespace smt {
             th_var v1 = to_var(i);
             th_var v2 = neg(v1);
 
-            // IF_VERBOSE(1, verbose_stream() << "disparity: " << v1 << "\n";);
             int_vector zero_v;
             m_graph.compute_zero_succ(v1, zero_v);
             for (unsigned j = 0; j < zero_v.size(); ++j) {
                 if (zero_v[j] == v2) {
                     zero_v.reset();
                     m_graph.compute_zero_succ(v2, zero_v);
+                    break;
                 }
             }
 
             TRACE("utvpi", 
+                  tout << "Disparity: " << v1 << "\n";
                   for (unsigned j = 0; j < zero_v.size(); ++j) {
                       tout << "decrement: " << zero_v[j] << "\n";
                   });
@@ -757,23 +755,9 @@ namespace smt {
                 m_graph.acc_assignment(v, numeral(-1));
                 th_var k = from_var(v);
                 if (!is_parity_ok(k)) {
-                    // IF_VERBOSE(1, verbose_stream() << "new disparity: " << k << "\n";);
                     todo.push_back(k);
                 }
             }         
-            if (iter >= 10000) {
-                IF_VERBOSE(1,
-                           verbose_stream() << "decrement: ";
-                           for (unsigned j = 0; j < zero_v.size(); ++j) {
-                               rational r = m_graph.get_assignment(zero_v[j]).get_rational();
-                               verbose_stream() << zero_v[j] << " (" << r << ") ";
-                           }
-                           verbose_stream() << "\n";);
-                if (!is_parity_ok(i)) {
-                    IF_VERBOSE(1, verbose_stream() << "Parity not fixed\n";);
-                }
-            }
-            ++iter;
         }
         SASSERT(m_graph.is_feasible());
         DEBUG_CODE(
