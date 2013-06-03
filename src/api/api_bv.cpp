@@ -121,10 +121,20 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             unsigned sz = Z3_get_bv_sort_size(c, s);
             rational max_bound = power(rational(2), sz);
             Z3_ast bound = Z3_mk_numeral(c, max_bound.to_string().c_str(), int_s);
-            Z3_ast pred = Z3_mk_bvslt(c, n, Z3_mk_int(c, 0, s));        
+            Z3_inc_ref(c, bound);
+            Z3_ast zero = Z3_mk_int(c, 0, s);
+            Z3_inc_ref(c, zero);
+            Z3_ast pred = Z3_mk_bvslt(c, n, zero);        
+            Z3_inc_ref(c, pred);
             // if n <_sigend 0 then r - s^sz else r
             Z3_ast args[2] = { r, bound };
-            Z3_ast res = Z3_mk_ite(c, pred, Z3_mk_sub(c, 2, args), r);
+            Z3_ast sub = Z3_mk_sub(c, 2, args);
+            Z3_inc_ref(c, sub);
+            Z3_ast res = Z3_mk_ite(c, pred, sub, r);
+            Z3_dec_ref(c, bound);
+            Z3_dec_ref(c, pred);
+            Z3_dec_ref(c, sub);
+            Z3_dec_ref(c, zero);
             RETURN_Z3(res);
         }
         else {
@@ -156,7 +166,14 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
             SET_ERROR_CODE(Z3_INVALID_ARG);
             return 0;
         }
-        return Z3_mk_bvshl(c, Z3_mk_int64(c, 1, s), Z3_mk_int64(c, sz - 1, s));
+        Z3_ast x = Z3_mk_int64(c, 1, s);
+        Z3_inc_ref(c, x);
+        Z3_ast y = Z3_mk_int64(c, sz - 1, s);
+        Z3_inc_ref(c, y);
+        Z3_ast result = Z3_mk_bvshl(c, x, y);
+        Z3_dec_ref(c, x);
+        Z3_dec_ref(c, y);
+        return result;
         Z3_CATCH_RETURN(0);
     }
 
@@ -177,17 +194,40 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         RESET_ERROR_CODE();
         if (is_signed) {
             Z3_ast zero = Z3_mk_int(c, 0, Z3_get_sort(c, t1));
+            Z3_inc_ref(c, zero);
             Z3_ast r = Z3_mk_bvadd(c, t1, t2);
-            Z3_ast args[2] = { Z3_mk_bvslt(c, zero, t1), Z3_mk_bvslt(c, zero, t2) };
+            Z3_inc_ref(c, r);
+            Z3_ast l1 = Z3_mk_bvslt(c, zero, t1);
+            Z3_inc_ref(c, l1);
+            Z3_ast l2 = Z3_mk_bvslt(c, zero, t2);
+            Z3_inc_ref(c, l2);
+            Z3_ast args[2] = { l1, l2 };
             Z3_ast args_pos = Z3_mk_and(c, 2, args);
-            return Z3_mk_implies(c, args_pos, Z3_mk_bvslt(c, zero, r));
+            Z3_inc_ref(c, args_pos);
+            Z3_ast result = Z3_mk_implies(c, args_pos, Z3_mk_bvslt(c, zero, r));
+            Z3_dec_ref(c, r);
+            Z3_dec_ref(c, l1);
+            Z3_dec_ref(c, l2);
+            Z3_dec_ref(c, args_pos);
+            Z3_dec_ref(c, zero);
+            return result;
         }
         else {
             unsigned sz = Z3_get_bv_sort_size(c, Z3_get_sort(c, t1));
             t1 = Z3_mk_zero_ext(c, 1, t1);
+            Z3_inc_ref(c, t1);
             t2 = Z3_mk_zero_ext(c, 1, t2);
+            Z3_inc_ref(c, t2);
             Z3_ast r = Z3_mk_bvadd(c, t1, t2);
-            return Z3_mk_eq(c, Z3_mk_extract(c, sz, sz, r), Z3_mk_int(c, 0, Z3_mk_bv_sort(c, 1)));
+            Z3_inc_ref(c, r);
+            Z3_ast ex = Z3_mk_extract(c, sz, sz, r);
+            Z3_inc_ref(c, ex);
+            Z3_ast result = Z3_mk_eq(c, ex, Z3_mk_int(c, 0, Z3_mk_bv_sort(c, 1)));
+            Z3_dec_ref(c, t1);
+            Z3_dec_ref(c, t2);
+            Z3_dec_ref(c, ex);
+            Z3_dec_ref(c, r);
+            return result;
         }
         Z3_CATCH_RETURN(0);
     }
@@ -197,10 +237,26 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_ast zero = Z3_mk_int(c, 0, Z3_get_sort(c, t1));
+        Z3_inc_ref(c, zero);
         Z3_ast r = Z3_mk_bvadd(c, t1, t2);
-        Z3_ast args[2] = { Z3_mk_bvslt(c, t1, zero), Z3_mk_bvslt(c, t2, zero) };
+        Z3_inc_ref(c, r);
+        Z3_ast l1 = Z3_mk_bvslt(c, t1, zero);
+        Z3_inc_ref(c, l1);
+        Z3_ast l2 = Z3_mk_bvslt(c, t2, zero);
+        Z3_inc_ref(c, l2);
+        Z3_ast args[2] = { l1, l2 };
         Z3_ast args_neg = Z3_mk_and(c, 2, args);
-        return Z3_mk_implies(c, args_neg, Z3_mk_bvslt(c, r, zero));
+        Z3_inc_ref(c, args_neg);
+        Z3_ast lt = Z3_mk_bvslt(c, r, zero);
+        Z3_inc_ref(c, lt);
+        Z3_ast result = Z3_mk_implies(c, args_neg, lt);
+        Z3_dec_ref(c, lt);
+        Z3_dec_ref(c, l1);
+        Z3_dec_ref(c, l2);
+        Z3_dec_ref(c, r);
+        Z3_dec_ref(c, args_neg);
+        Z3_dec_ref(c, zero);
+        return result;
         Z3_CATCH_RETURN(0);
     }
 
@@ -208,12 +264,28 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     Z3_ast Z3_API Z3_mk_bvsub_no_overflow(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2) {
         Z3_TRY;
         RESET_ERROR_CODE();
-        Z3_sort s = Z3_get_sort(c, t2);
         Z3_ast minus_t2 = Z3_mk_bvneg(c, t2);
+        Z3_inc_ref(c, minus_t2);
+        Z3_sort s = Z3_get_sort(c, t2);
         Z3_ast min = Z3_mk_bvsmin(c, s);
-        return Z3_mk_ite(c, Z3_mk_eq(c, t2, min), 
-                         Z3_mk_bvslt(c, t1, Z3_mk_int(c, 0, s)),
-                         Z3_mk_bvadd_no_overflow(c, t1, minus_t2, true));
+        Z3_inc_ref(c, min);
+        Z3_ast x = Z3_mk_eq(c, t2, min);
+        Z3_inc_ref(c, x);
+        Z3_ast zero = Z3_mk_int(c, 0, s);
+        Z3_inc_ref(c, zero);
+        Z3_ast y = Z3_mk_bvslt(c, t1, zero);
+        Z3_inc_ref(c, y);
+        Z3_ast z = Z3_mk_bvadd_no_overflow(c, t1, minus_t2, true);
+        Z3_inc_ref(c, z);
+        Z3_ast result = Z3_mk_ite(c, x, y, z);
+        mk_c(c)->save_ast_trail(to_app(result));
+        Z3_dec_ref(c, minus_t2);
+        Z3_dec_ref(c, min);
+        Z3_dec_ref(c, x);
+        Z3_dec_ref(c, y);
+        Z3_dec_ref(c, z);
+        Z3_dec_ref(c, zero);
+        return result;
         Z3_CATCH_RETURN(0);
     }
 
@@ -222,10 +294,19 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         RESET_ERROR_CODE();
         if (is_signed) {
             Z3_ast zero = Z3_mk_int(c, 0, Z3_get_sort(c, t1));
-            if (Z3_get_error_code(c) != Z3_OK) return 0;
+            Z3_inc_ref(c, zero);
             Z3_ast minus_t2 = Z3_mk_bvneg(c, t2);
-            if (Z3_get_error_code(c) != Z3_OK) return 0;
-            return Z3_mk_implies(c, Z3_mk_bvslt(c, zero, t2), Z3_mk_bvadd_no_underflow(c, t1, minus_t2));
+            Z3_inc_ref(c, minus_t2);
+            Z3_ast x = Z3_mk_bvslt(c, zero, t2);
+            Z3_inc_ref(c, x);
+            Z3_ast y = Z3_mk_bvadd_no_underflow(c, t1, minus_t2);
+            Z3_inc_ref(c, y);
+            Z3_ast result = Z3_mk_implies(c, x, y);
+            Z3_dec_ref(c, zero);
+            Z3_dec_ref(c, minus_t2);
+            Z3_dec_ref(c, x);
+            Z3_dec_ref(c, y);
+            return result;
         }
         else {
             return Z3_mk_bvule(c, t2, t1);
@@ -267,12 +348,24 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_TRY;
         RESET_ERROR_CODE();
         Z3_sort s = Z3_get_sort(c, t1);
-        if (Z3_get_error_code(c) != Z3_OK) return 0;
         Z3_ast min = Z3_mk_bvmsb(c, s);
-        if (Z3_get_error_code(c) != Z3_OK) return 0;
-        Z3_ast args[2] = { Z3_mk_eq(c, t1, min),
-                           Z3_mk_eq(c, t2, Z3_mk_int(c, -1, s)) };
-        return Z3_mk_not(c, Z3_mk_and(c, 2, args));
+        Z3_inc_ref(c, min);
+        Z3_ast x = Z3_mk_eq(c, t1, min);
+        Z3_inc_ref(c, x);
+        Z3_ast y = Z3_mk_int(c, -1, s);
+        Z3_inc_ref(c, y);
+        Z3_ast z = Z3_mk_eq(c, t2, y);
+        Z3_inc_ref(c, z);
+        Z3_ast args[2] = { x, z };
+        Z3_ast u = Z3_mk_and(c, 2, args);
+        Z3_inc_ref(c, u);
+        Z3_ast result = Z3_mk_not(c, u);
+        Z3_dec_ref(c, min);
+        Z3_dec_ref(c, x);
+        Z3_dec_ref(c, y);
+        Z3_dec_ref(c, z);
+        Z3_dec_ref(c, u);
+        return result;
         Z3_CATCH_RETURN(0);
     }
     

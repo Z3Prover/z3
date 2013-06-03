@@ -2084,7 +2084,7 @@ namespace qe {
             
             flet<bool> fl1(m_fparams.m_model, true);
             flet<bool> fl2(m_fparams.m_simplify_bit2int, true);
-            flet<bool> fl3(m_fparams.m_arith_enum_const_mod, true);
+            //flet<bool> fl3(m_fparams.m_arith_enum_const_mod, true);
             flet<bool> fl4(m_fparams.m_bv_enable_int2bv2int, true);
             flet<bool> fl5(m_fparams.m_array_canonize_simplify, true);
             flet<unsigned> fl6(m_fparams.m_relevancy_lvl, 0);

@@ -33,6 +33,7 @@ void theory_arith_params::updt_params(params_ref const & _p) {
     m_arith_int_eq_branching = p.arith_int_eq_branch();
     m_arith_ignore_int = p.arith_ignore_int();
     m_arith_bound_prop = static_cast<bound_prop_mode>(p.arith_propagation_mode());
+    m_arith_enum_const_mod = true;
 }
 
 

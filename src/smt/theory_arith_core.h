@@ -408,7 +408,7 @@ namespace smt {
             mk_axiom(eqz, upper);
             rational k;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) && 
-                k.is_pos() && k < rational(512)) {
+                k.is_pos() && k < rational(8)) {
                 rational j(0);
 #if 1
                 literal_buffer lits;
