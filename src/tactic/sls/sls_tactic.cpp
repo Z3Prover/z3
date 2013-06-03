@@ -1370,7 +1370,7 @@ class sls_tactic : public tactic {
 
         void updt_params(params_ref const & p) {        
             m_produce_models = p.get_bool("produce_models", false);        
-            m_max_restarts = p.get_uint("sls_restarts", -1);
+            m_max_restarts = p.get_uint("sls_restarts", (unsigned)-1);
             m_tracker.set_random_seed(p.get_uint("random_seed", 0));
             m_plateau_limit = p.get_uint("plateau_limit", 100);
         }
@@ -1612,7 +1612,7 @@ class sls_tactic : public tactic {
         lbool search(goal_ref const & g) {        
             lbool res = l_undef;
             double score = 0.0, old_score = 0.0;
-            unsigned new_const = -1, new_bit = 0;        
+            unsigned new_const = (unsigned)-1, new_bit = 0;        
             mpz new_value;
             move_type move;
             
@@ -1631,7 +1631,7 @@ class sls_tactic : public tactic {
                     checkpoint();
             
                     old_score = score;
-                    new_const = -1;
+                    new_const = (unsigned)-1;
                         
                     ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(g);
 
