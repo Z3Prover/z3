@@ -7,6 +7,8 @@
 
 open Z3enums
 
+exception Error = Z3native.Exception
+
 (* Some helpers. *)
 let null = Z3native.mk_null()
 let is_null o = (Z3native.is_null o)
@@ -283,7 +285,7 @@ struct
       Z3native.ast_map_to_string (z3obj_gnc x) (z3obj_gno x)
   end
 
-  let get_hash_code ( x : ast ) = Z3native.get_ast_hash (z3obj_gnc x) (z3obj_gno x)
+  let hash ( x : ast ) = Z3native.get_ast_hash (z3obj_gnc x) (z3obj_gno x)
   let get_id ( x : ast ) = Z3native.get_ast_id (z3obj_gnc x) (z3obj_gno x)
   let get_ast_kind ( x : ast ) = (ast_kind_of_int (Z3native.get_ast_kind (z3obj_gnc x) (z3obj_gno x)))
     
@@ -304,7 +306,7 @@ struct
   let to_sexpr ( x : ast ) = Z3native.ast_to_string (z3obj_gnc x) (z3obj_gno x)
 
 
-  let ( = ) ( a : ast ) ( b : ast ) = (a == b) ||
+  let equal ( a : ast ) ( b : ast ) = (a == b) ||
     if (z3obj_gnc a) != (z3obj_gnc b) then 
       false 
     else 
@@ -314,8 +316,6 @@ struct
     if (get_id a) < (get_id b) then -1 else
       if (get_id a) > (get_id b) then 1 else
 	0
-	  
-  let ( < ) (a : ast) (b : ast) = (compare a b)
     
   let translate ( x : ast ) ( to_ctx : context ) = 
     if (z3obj_gnc x) == (context_gno to_ctx) then 
@@ -361,7 +361,7 @@ struct
     let f ( e : sort ) = match e with Sort(a) -> (AST.ptr_of_ast a) in 
     Array.of_list (List.map f a)
     
-  let ( = ) : sort -> sort -> bool = fun a b ->
+  let equal : sort -> sort -> bool = fun a b ->
     (a == b) ||
       if (gnc a) != (gnc b) then 
 	false 
@@ -424,7 +424,7 @@ sig
   val mk_const_decl : context -> Symbol.symbol -> Sort.sort -> func_decl
   val mk_const_decl_s : context -> string -> Sort.sort -> func_decl
   val mk_fresh_const_decl : context -> string -> Sort.sort -> func_decl
-  val ( = ) : func_decl -> func_decl -> bool
+  val equal : func_decl -> func_decl -> bool
   val to_string : func_decl -> string
   val get_id : func_decl -> int
   val get_arity : func_decl -> int
@@ -498,7 +498,7 @@ end = struct
     let get_float ( x : parameter ) = 
       match x with
 	| P_Dbl(x) -> x
-	| _ -> raise (Z3native.Exception "parameter is not a double")
+	| _ -> raise (Z3native.Exception "parameter is not a float")
           
     let get_symbol ( x : parameter ) =
       match x with
@@ -545,7 +545,7 @@ end = struct
     create_pdr ctx prefix [] range
 
 
-  let ( = ) ( a : func_decl ) ( b : func_decl ) = (a == b) ||
+  let equal ( a : func_decl ) ( b : func_decl ) = (a == b) ||
     if (gnc a) != (gnc b) then 
       false 
     else 
@@ -605,12 +605,8 @@ sig
   end
   val add_bool : params -> Symbol.symbol -> bool -> unit
   val add_int : params -> Symbol.symbol -> int -> unit
-  val add_double : params -> Symbol.symbol -> float -> unit
+  val add_float : params -> Symbol.symbol -> float -> unit
   val add_symbol : params -> Symbol.symbol -> Symbol.symbol -> unit
-  val add_s_bool : params -> string -> bool -> unit
-  val add_s_int : params -> string -> int -> unit
-  val add_s_double : params -> string -> float -> unit
-  val add_s_symbol : params -> string -> Symbol.symbol -> unit
   val mk_params : context -> params
   val to_string : params -> string
 end = struct
@@ -650,23 +646,11 @@ end = struct
   let add_int ( x : params )  (name : Symbol.symbol ) ( value : int ) =
     Z3native.params_set_uint (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) value
       
-  let add_double ( x : params ) ( name : Symbol.symbol ) ( value : float ) =
+  let add_float ( x : params ) ( name : Symbol.symbol ) ( value : float ) =
     Z3native.params_set_double (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) value
 
   let add_symbol ( x : params ) ( name : Symbol.symbol ) ( value : Symbol.symbol ) =
     Z3native.params_set_symbol (z3obj_gnc x) (z3obj_gno x) (Symbol.gno name) (Symbol.gno value)
-
-  let add_s_bool ( x : params ) ( name : string ) ( value : bool ) =
-    add_bool x (Symbol.mk_string (z3obj_gc x) name) value
-      
-  let add_s_int ( x : params) ( name : string ) ( value : int ) =
-    add_int x (Symbol.mk_string (z3obj_gc x) name) value
-      
-  let add_s_double ( x : params ) ( name : string ) ( value : float ) =
-    add_double x (Symbol.mk_string (z3obj_gc x) name) value
-
-  let add_s_symbol ( x : params ) ( name : string ) ( value : Symbol.symbol ) =
-    add_symbol x (Symbol.mk_string (z3obj_gc x) name) value
 
   let mk_params ( ctx : context ) =
     let res : params = { m_ctx = ctx ;
@@ -734,8 +718,6 @@ sig
   val is_xor : expr -> bool
   val is_not : expr -> bool
   val is_implies : expr -> bool
-  val is_label : expr -> bool
-  val is_label_lit : expr -> bool
   val is_oeq : expr -> bool
   val mk_const : context -> Symbol.symbol -> Sort.sort -> expr
   val mk_const_s : context -> string -> Sort.sort -> expr
@@ -857,8 +839,6 @@ end = struct
   let is_xor ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_XOR)
   let is_not ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_NOT)
   let is_implies ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_IMPLIES)
-  let is_label ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_LABEL)
-  let is_label_lit ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_LABEL_LIT)
   let is_oeq ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_OEQ)
 
   let mk_const ( ctx : context ) ( name : Symbol.symbol ) ( range : sort ) =
@@ -1530,20 +1510,20 @@ struct
 	
     let mk_real2int ( ctx : context ) ( t : expr ) =
       (expr_of_ptr ctx (Z3native.mk_real2int (context_gno ctx) (Expr.gno t)))
-  end
 
-  module AlgebraicNumber =
-  struct    
-    let to_upper ( x : expr ) ( precision : int ) =
-      expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_upper (Expr.gnc x) (Expr.gno x) precision)
-	
-    let to_lower ( x : expr ) precision =
-      expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_lower (Expr.gnc x) (Expr.gno x) precision)
-	
-    let to_decimal_string ( x : expr ) ( precision : int ) = 
-      Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision	
-
-    let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
+    module AlgebraicNumber =
+    struct    
+      let to_upper ( x : expr ) ( precision : int ) =
+	expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_upper (Expr.gnc x) (Expr.gno x) precision)
+	  
+      let to_lower ( x : expr ) precision =
+	expr_of_ptr (Expr.gc x) (Z3native.get_algebraic_number_lower (Expr.gnc x) (Expr.gno x) precision)
+	  
+      let to_decimal_string ( x : expr ) ( precision : int ) = 
+	Z3native.get_numeral_decimal_string (Expr.gnc x) (Expr.gno x) precision	
+	  
+      let to_string ( x : expr ) = Z3native.get_numeral_string (Expr.gnc x) (Expr.gno x)      
+    end
   end
 
   let is_int ( x : expr ) =
@@ -2052,13 +2032,11 @@ struct
     let f i = func_decl_of_ptr (z3obj_gc x) (Z3native.model_get_func_decl (z3obj_gnc x) (z3obj_gno x) i) in
     let g i = func_decl_of_ptr (z3obj_gc x) (Z3native.model_get_const_decl (z3obj_gnc x) (z3obj_gno x) i) in
     (mk_list f n_funcs) @ (mk_list g n_consts)
-      
-  exception ModelEvaluationFailedException of string
-      
+            
   let eval ( x : model ) ( t : expr ) ( completion : bool ) =
     let (r, v) = (Z3native.model_eval (z3obj_gnc x) (z3obj_gno x) (Expr.gno t) completion) in
     if not r then
-      raise (ModelEvaluationFailedException "evaluation failed")
+      None
     else
       expr_of_ptr (z3obj_gc x) v
 
@@ -2353,7 +2331,7 @@ struct
 	if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
 	  (Entry.create_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
 	else 
-	  (Entry.create_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
+	  (Entry.create_sd k (Z3native.stats_get_float_value (z3obj_gnc x) (z3obj_gno x) i))
       ) in
       mk_list f n
 
