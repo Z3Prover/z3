@@ -323,8 +323,8 @@ struct
     else
       ast_of_ptr to_ctx (Z3native.translate (z3obj_gnc x) (z3obj_gno x) (context_gno to_ctx))
 
+  let unwrap_ast ( x : ast ) = (z3obj_gno x)
   let wrap_ast ( ctx : context ) ( ptr : Z3native.ptr ) = ast_of_ptr ctx ptr
-  let unwrap_ast ( x : ast ) = (z3obj_gno x)      
 end
 
 open AST
@@ -678,6 +678,19 @@ end = struct
     res
 
   let to_string ( x : params ) = Z3native.params_to_string (z3obj_gnc x) (z3obj_gno x)
+
+  let update_param_value ( ctx : context ) ( id : string) ( value : string )=
+    Z3native.update_param_value (context_gno ctx) id value
+
+  let get_param_value ( ctx : context ) ( id : string ) =
+    let (r, v) = (Z3native.get_param_value (context_gno ctx) id) in
+    if not r then
+      None
+    else 
+      Some v
+
+  let set_print_mode ( ctx : context ) ( value : ast_print_mode ) =
+    Z3native.set_ast_print_mode (context_gno ctx) (int_of_ast_print_mode value)
 end
 
 (** General expressions (terms) *)
@@ -1106,7 +1119,7 @@ struct
 end
 
 
-module Array_ = 
+module Array = 
 struct
   let mk_sort ( ctx : context ) ( domain : sort ) ( range : sort ) =
     sort_of_ptr ctx (Z3native.mk_array_sort (context_gno ctx) (Sort.gno domain) (Sort.gno range))
@@ -1389,7 +1402,7 @@ struct
 end
 
 
-module List_ = 
+module List = 
 struct     
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( elem_sort : sort ) =
     let (r, _, _, _, _, _, _) = (Z3native.mk_list_sort (context_gno ctx) (Symbol.gno name) (Sort.gno elem_sort)) in
@@ -2558,26 +2571,6 @@ struct
   let mk_fixedpoint ( ctx : context ) = create ctx
 end
 
-module Options =
-struct
-
-  let update_param_value ( ctx : context ) ( id : string) ( value : string )=
-    Z3native.update_param_value (context_gno ctx) id value
-
-  let get_param_value ( ctx : context ) ( id : string ) =
-    let (r, v) = (Z3native.get_param_value (context_gno ctx) id) in
-    if not r then
-      None
-    else 
-      Some v
-
-  let set_print_mode ( ctx : context ) ( value : ast_print_mode ) =
-    Z3native.set_ast_print_mode (context_gno ctx) (int_of_ast_print_mode value)
-
-  let toggle_warning_messages ( enabled: bool ) =
-    Z3native.toggle_warning_messages enabled
-end
-
 
 module SMT =
 struct
@@ -2692,3 +2685,7 @@ let get_global_param ( id : string ) =
 
 let global_param_reset_all =
   Z3native.global_param_reset_all
+
+let toggle_warning_messages ( enabled: bool ) =
+  Z3native.toggle_warning_messages enabled
+

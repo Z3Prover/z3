@@ -27,7 +27,20 @@
 *)
 type context
 
-(** Create a context object *)
+(** Create a context object 
+    The following parameters can be set:
+    
+    - proof  (Boolean)           Enable proof generation
+    - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+    - trace  (Boolean)           Tracing support for VCC
+    - trace_file_name (String)   Trace out file for VCC traces
+    - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+    - well_sorted_check          type checker
+    - auto_config                use heuristics to automatically select solver and configure it
+    - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+    - model_validate             validate models produced by solvers
+    - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver    
+*)
 val mk_context : (string * string) list -> context
 
 (** Interaction logging for Z3
@@ -220,15 +233,6 @@ sig
      @return A copy of the AST which is associated with the other context.  *)
   val translate : ast -> context -> ast
 
-  (** Wraps an AST.
-
-     This function is used for transitions between native and 
-     managed objects. Note that the native ast that is passed must be a 
-     native object obtained from Z3 (e.g., through {!unwrap_ast})
-     and that it must have a correct reference count (see e.g., 
-      <c>Z3native.inc_ref</c>). *)
-  val wrap_ast : context -> Z3native.z3_ast -> ast
-
   (** Unwraps an AST.
      This function is used for transitions between native and 
      managed objects. It returns the native pointer to the AST. Note that 
@@ -238,6 +242,15 @@ sig
      <c>Z3native.inc_ref</c>).
      {!wrap_ast} *)
   val unwrap_ast : ast -> Z3native.ptr
+
+  (** Wraps an AST.
+
+     This function is used for transitions between native and 
+     managed objects. Note that the native ast that is passed must be a 
+     native object obtained from Z3 (e.g., through {!unwrap_ast})
+     and that it must have a correct reference count (see e.g., 
+      <c>Z3native.inc_ref</c>). *)
+  val wrap_ast : context -> Z3native.z3_ast -> ast
 end
 
 (** The Sort module implements type information for ASTs *)
@@ -432,6 +445,36 @@ sig
 
   (** A string representation of the parameter set. *)
   val to_string : params -> string
+
+  (** Update a mutable configuration parameter.
+     
+     The list of all configuration parameters can be obtained using the Z3 executable:
+     <c>z3.exe -p</c>
+     Only a few configuration parameters are mutable once the context is created.
+     An exception is thrown when trying to modify an immutable parameter.
+     {!get_param_value} *)
+  val update_param_value : context -> string -> string -> unit
+
+  (** Get a configuration parameter.
+     
+     Returns None if the parameter value does not exist.
+     {!update_param_value} *)
+  val get_param_value : context -> string -> string option
+
+  (** Selects the format used for pretty-printing expressions.
+     
+     The default mode for pretty printing expressions is to produce
+     SMT-LIB style output where common subexpressions are printed 
+     at each occurrence. The mode is called PRINT_SMTLIB_FULL.
+     To print shared common subexpressions only once, 
+     use the PRINT_LOW_LEVEL mode.
+     To print in way that conforms to SMT-LIB standards and uses let
+     expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
+     {!AST.to_string}
+     {!Quantifier.Pattern.to_string}
+     {!FuncDecl.to_string}
+     {!Sort.to_string} *)
+  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
 end
 
 (** General Expressions (terms) *)
@@ -737,7 +780,7 @@ sig
 end
 
 (** Functions to manipulate Array expressions *)
-module Array_ :
+module Array :
 sig
   (** Create a new array sort. *)
   val mk_sort : context -> Sort.sort -> Sort.sort -> Sort.sort
@@ -790,7 +833,7 @@ sig
      The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
      and <c>i</c> must have the sort <c>domain</c>.
      The sort of the result is <c>range</c>.
-     {!Array_.mk_sort}
+     {!Array.mk_sort}
      {!mk_store} *)
   val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -806,7 +849,7 @@ sig
      on all indices except for <c>i</c>, where it maps to <c>v</c> 
      (and the <c>select</c> of <c>a</c> with 
      respect to <c>i</c> may be a different value).
-     {!Array_.mk_sort}
+     {!Array.mk_sort}
      {!mk_select} *)
   val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
 
@@ -814,7 +857,7 @@ sig
      
      The resulting term is an array, such that a <c>select</c>on an arbitrary index 
      produces the value <c>v</c>.
-     {!Array_.mk_sort}
+     {!Array.mk_sort}
      {!mk_select} *)
   val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
 
@@ -823,7 +866,7 @@ sig
      Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
      The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
      <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
-     {!Array_.mk_sort}
+     {!Array.mk_sort}
      {!mk_select}
      {!mk_store} *)
   val mk_map : context -> FuncDecl.func_decl -> Expr.expr list -> Expr.expr
@@ -1069,7 +1112,7 @@ sig
 end
 
 (** Functions to manipulate List expressions *)
-module List_ :
+module List :
 sig
   (** Create a new list sort. *)
   val mk_sort : context -> Symbol.symbol -> Sort.sort -> Sort.sort
@@ -2824,50 +2867,6 @@ sig
   val mk_fixedpoint : context -> fixedpoint
 end
 
-(** Global and context options
-    
-    Note: This module contains functions that set parameters/options for context 
-    objects as well as functions that set options that are used globally, across 
-    contexts.*)
-module Options :
-sig
-  (** Update a mutable configuration parameter.
-     
-     The list of all configuration parameters can be obtained using the Z3 executable:
-     <c>z3.exe -ini?</c>
-     Only a few configuration parameters are mutable once the context is created.
-     An exception is thrown when trying to modify an immutable parameter.
-     {!get_param_value} *)
-  val update_param_value : context -> string -> string -> unit
-
-  (** Get a configuration parameter.
-     
-     Returns None if the parameter value does not exist.
-     {!update_param_value} *)
-  val get_param_value : context -> string -> string option
-
-  (** Selects the format used for pretty-printing expressions.
-     
-     The default mode for pretty printing expressions is to produce
-     SMT-LIB style output where common subexpressions are printed 
-     at each occurrence. The mode is called PRINT_SMTLIB_FULL.
-     To print shared common subexpressions only once, 
-     use the PRINT_LOW_LEVEL mode.
-     To print in way that conforms to SMT-LIB standards and uses let
-     expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
-     {!AST.to_string}
-     {!Quantifier.Pattern.to_string}
-     {!FuncDecl.to_string}
-     {!Sort.to_string} *)
-  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
-
-  (** Enable/disable printing of warning messages to the console.
-
-     Note that this function is static and effects the behaviour of 
-     all contexts globally. *)
-  val toggle_warning_messages : bool -> unit
-end
-
 (** Functions for handling SMT and SMT2 expressions and files *)
 module SMT :
 sig
@@ -2954,4 +2953,11 @@ val get_global_param : string -> string option
     This command will not affect already created objects (such as tactics and solvers)
     {!set_global_param}
 *)
+
 val global_param_reset_all : unit
+
+  (** Enable/disable printing of warning messages to the console.
+
+     Note that this function is static and effects the behaviour of 
+     all contexts globally. *)
+  val toggle_warning_messages : bool -> unit
