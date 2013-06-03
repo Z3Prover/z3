@@ -756,9 +756,27 @@ and goal_prec =
         the first conjunct in the body of an implication is position 1
         the second conjunct in the body of an implication is position 2
 
+<<<<<<< HEAD
         For general implications where the head is a disjunction, the
         first n positions correspond to the n disjuncts in the head.
         The next m positions correspond to the m conjuncts in the body.
+=======
+(** Create a context object 
+    The following parameters can be set:
+    
+    - proof  (Boolean)           Enable proof generation
+    - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+    - trace  (Boolean)           Tracing support for VCC
+    - trace_file_name (String)   Trace out file for VCC traces
+    - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+    - well_sorted_check          type checker
+    - auto_config                use heuristics to automatically select solver and configure it
+    - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+    - model_validate             validate models produced by solvers
+    - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver    
+*)
+val mk_context : (string * string) list -> context
+>>>>>>> Updates to ML API.
 
         The premises can be universally quantified so that the most
         general non-ground form is:
@@ -1084,6 +1102,7 @@ val mk_symbol: context -> symbol_refined -> symbol
 external mk_int_symbol : context -> int -> symbol
 	= "camlidl_z3_Z3_mk_int_symbol"
 
+<<<<<<< HEAD
 (**
        Summary: Create a Z3 symbol using a C string.
        Symbols are used to name several term and type constructors.
@@ -1137,6 +1156,27 @@ type sort_refined =
   | Sort_datatype of datatype_constructor array
   | Sort_relation of sort array
   | Sort_unknown
+=======
+  (** Unwraps an AST.
+     This function is used for transitions between native and 
+     managed objects. It returns the native pointer to the AST. Note that 
+     AST objects are reference counted and unwrapping an AST disables automatic
+     reference counting, i.e., all references to the IntPtr that is returned 
+     must be handled externally and through native calls (see e.g., 
+     <c>Z3native.inc_ref</c>).
+     {!wrap_ast} *)
+  val unwrap_ast : ast -> Z3native.ptr
+
+  (** Wraps an AST.
+
+     This function is used for transitions between native and 
+     managed objects. Note that the native ast that is passed must be a 
+     native object obtained from Z3 (e.g., through {!unwrap_ast})
+     and that it must have a correct reference count (see e.g., 
+      <c>Z3native.inc_ref</c>). *)
+  val wrap_ast : context -> Z3native.z3_ast -> ast
+end
+>>>>>>> Updates to ML API.
 
 
 (**
@@ -1693,6 +1733,7 @@ external mk_bvnot : context -> ast -> ast
 external mk_bvredand : context -> ast -> ast
 	= "camlidl_z3_Z3_mk_bvredand"
 
+<<<<<<< HEAD
 (**
        Summary: \[ [ mk_bvredor c t1 ] \]
        Take disjunction of bits in vector, return vector of length 1.
@@ -1701,6 +1742,41 @@ external mk_bvredand : context -> ast -> ast
 *)
 external mk_bvredor : context -> ast -> ast
 	= "camlidl_z3_Z3_mk_bvredor"
+=======
+  (** A string representation of the parameter set. *)
+  val to_string : params -> string
+
+  (** Update a mutable configuration parameter.
+     
+     The list of all configuration parameters can be obtained using the Z3 executable:
+     <c>z3.exe -p</c>
+     Only a few configuration parameters are mutable once the context is created.
+     An exception is thrown when trying to modify an immutable parameter.
+     {!get_param_value} *)
+  val update_param_value : context -> string -> string -> unit
+
+  (** Get a configuration parameter.
+     
+     Returns None if the parameter value does not exist.
+     {!update_param_value} *)
+  val get_param_value : context -> string -> string option
+
+  (** Selects the format used for pretty-printing expressions.
+     
+     The default mode for pretty printing expressions is to produce
+     SMT-LIB style output where common subexpressions are printed 
+     at each occurrence. The mode is called PRINT_SMTLIB_FULL.
+     To print shared common subexpressions only once, 
+     use the PRINT_LOW_LEVEL mode.
+     To print in way that conforms to SMT-LIB standards and uses let
+     expressions to share common sub-expressions use PRINT_SMTLIB_COMPLIANT.
+     {!AST.to_string}
+     {!Quantifier.Pattern.to_string}
+     {!FuncDecl.to_string}
+     {!Sort.to_string} *)
+  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
+end
+>>>>>>> Updates to ML API.
 
 (**
        Summary: \[ [ mk_bvand c t1 t2 ] \]
@@ -1931,6 +2007,7 @@ external mk_bvugt : context -> ast -> ast -> ast
 external mk_bvsgt : context -> ast -> ast -> ast
 	= "camlidl_z3_Z3_mk_bvsgt"
 
+<<<<<<< HEAD
 (**
        Summary: \[ [ mk_concat c t1 t2 ] \]
        Concatenate the given bit-vectors.
@@ -1941,6 +2018,106 @@ external mk_bvsgt : context -> ast -> ast -> ast
 *)
 external mk_concat : context -> ast -> ast -> ast
 	= "camlidl_z3_Z3_mk_concat"
+=======
+(** Functions to manipulate Array expressions *)
+module Array :
+sig
+  (** Create a new array sort. *)
+  val mk_sort : context -> Sort.sort -> Sort.sort -> Sort.sort
+
+  (** Indicates whether the term is an array store.        
+     It satisfies select(store(a,i,v),j) = if i = j then v else select(a,j). 
+     Array store takes at least 3 arguments.  *)
+  val is_store : Expr.expr -> bool
+
+  (** Indicates whether the term is an array select. *)
+  val is_select : Expr.expr -> bool
+
+  (** Indicates whether the term is a constant array.        
+     For example, select(const(v),i) = v holds for every v and i. The function is unary. *)
+  val is_constant_array : Expr.expr -> bool
+
+  (** Indicates whether the term is a default array.        
+     For example default(const(v)) = v. The function is unary. *)
+  val is_default_array : Expr.expr -> bool
+
+  (** Indicates whether the term is an array map.     
+     It satisfies map[f](a1,..,a_n)[i] = f(a1[i],...,a_n[i]) for every i. *)
+  val is_array_map : Expr.expr -> bool
+
+  (** Indicates whether the term is an as-array term.        
+     An as-array term is n array value that behaves as the function graph of the 
+     function passed as parameter. *)
+  val is_as_array : Expr.expr -> bool
+
+  (** Indicates whether the term is of an array sort. *)
+  val is_array : Expr.expr -> bool
+
+  (** The domain of the array sort. *)
+  val get_domain : Sort.sort -> Sort.sort
+  
+  (** The range of the array sort. *)
+  val get_range : Sort.sort -> Sort.sort
+  
+  (** Create an array constant. *)        
+  val mk_const : context -> Symbol.symbol -> Sort.sort -> Sort.sort -> Expr.expr
+  
+  (** Create an array constant. *)        
+  val mk_const_s : context -> string -> Sort.sort -> Sort.sort -> Expr.expr
+  
+  (** Array read.       
+     
+     The argument <c>a</c> is the array and <c>i</c> is the index 
+     of the array that gets read.      
+     
+     The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
+     and <c>i</c> must have the sort <c>domain</c>.
+     The sort of the result is <c>range</c>.
+     {!Array.mk_sort}
+     {!mk_store} *)
+  val mk_select : context -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Array update.       
+     
+     The node <c>a</c> must have an array sort <c>[domain -> range]</c>, 
+     <c>i</c> must have sort <c>domain</c>,
+     <c>v</c> must have sort range. The sort of the result is <c>[domain -> range]</c>.
+     The semantics of this function is given by the theory of arrays described in the SMT-LIB
+     standard. See http://smtlib.org for more details.
+     The result of this function is an array that is equal to <c>a</c> 
+     (with respect to <c>select</c>)
+     on all indices except for <c>i</c>, where it maps to <c>v</c> 
+     (and the <c>select</c> of <c>a</c> with 
+     respect to <c>i</c> may be a different value).
+     {!Array.mk_sort}
+     {!mk_select} *)
+  val mk_store : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr
+
+  (** Create a constant array.
+     
+     The resulting term is an array, such that a <c>select</c>on an arbitrary index 
+     produces the value <c>v</c>.
+     {!Array.mk_sort}
+     {!mk_select} *)
+  val mk_const_array : context -> Sort.sort -> Expr.expr -> Expr.expr
+
+  (** Maps f on the argument arrays.
+     
+     Eeach element of <c>args</c> must be of an array sort <c>[domain_i -> range_i]</c>.
+     The function declaration <c>f</c> must have type <c> range_1 .. range_n -> range</c>.
+     <c>v</c> must have sort range. The sort of the result is <c>[domain_i -> range]</c>.
+     {!Array.mk_sort}
+     {!mk_select}
+     {!mk_store} *)
+  val mk_map : context -> FuncDecl.func_decl -> Expr.expr list -> Expr.expr
+
+  (** Access the array default value.
+     
+     Produces the default range value, for arrays that can be represented as 
+     finite maps with a default range value.     *)
+  val mk_term_array : context -> Expr.expr -> Expr.expr
+end
+>>>>>>> Updates to ML API.
 
 (**
        Summary: \[ [ mk_extract c high low t1 ] \]
@@ -2259,12 +2436,20 @@ external mk_set_sort : context -> sort -> sort
 external mk_empty_set : context -> sort -> ast
 	= "camlidl_z3_Z3_mk_empty_set"
 
+<<<<<<< HEAD
 (**
         Summary: Create the full set.
         def_API('mk_full_set', AST, (_in(CONTEXT), _in(SORT)))
 *)
 external mk_full_set : context -> sort -> ast
 	= "camlidl_z3_Z3_mk_full_set"
+=======
+(** Functions to manipulate List expressions *)
+module List :
+sig
+  (** Create a new list sort. *)
+  val mk_sort : context -> Symbol.symbol -> Sort.sort -> Sort.sort
+>>>>>>> Updates to ML API.
 
 (**
        Summary: Add an element to a set.
@@ -8806,6 +8991,7 @@ external theory_get_num_apps : theory -> int
 external theory_get_app : theory -> int -> ast
 	= "camlidl_z3V3_Z3_theory_get_app"
 
+<<<<<<< HEAD
 (**
        {2 {L Deprecated Injective functions API}}
 *)
@@ -9135,6 +9321,12 @@ external get_model_func_decl : context -> model -> int -> func_decl
 *)
 external eval_func_decl : context -> model -> func_decl -> bool * ast
 	= "camlidl_z3V3_Z3_eval_func_decl"
+=======
+(** Functions for handling SMT and SMT2 expressions and files *)
+module SMT :
+sig
+  (** Convert a benchmark into an SMT-LIB formatted string.
+>>>>>>> Updates to ML API.
 
 (**
        Summary: \[ [ is_array_value c v ] \]
@@ -9586,3 +9778,44 @@ val set_new_relevant_callback : theory -> (ast -> unit) -> unit
 
 end
 
+<<<<<<< HEAD
+=======
+(** Set a global (or module) parameter, which is shared by all Z3 contexts.
+    
+    When a Z3 module is initialized it will use the value of these parameters
+    when Z3_params objects are not provided.
+    The name of parameter can be composed of characters [a-z][A-Z], digits [0-9], '-' and '_'. 
+    The character '.' is a delimiter (more later).
+    The parameter names are case-insensitive. The character '-' should be viewed as an "alias" for '_'.
+    Thus, the following parameter names are considered equivalent: "pp.decimal-precision"  and "PP.DECIMAL_PRECISION".
+    This function can be used to set parameters for a specific Z3 module.
+    This can be done by using <module-name>.<parameter-name>.
+    For example:
+    (set_global_param "pp.decimal" "true")
+    will set the parameter "decimal" in the module "pp" to true.
+*)
+val set_global_param : string -> string -> unit
+
+(** Get a global (or module) parameter.
+                   
+    Returns None if the parameter does not exist.
+    The caller must invoke #Z3_global_param_del_value to delete the value returned at \c param_value.
+    This function cannot be invoked simultaneously from different threads without synchronization.
+    The result string stored in param_value is stored in a shared location.
+*)
+val get_global_param : string -> string option
+
+(** Restore the value of all global (and module) parameters.
+    
+    This command will not affect already created objects (such as tactics and solvers)
+    {!set_global_param}
+*)
+
+val global_param_reset_all : unit
+
+  (** Enable/disable printing of warning messages to the console.
+
+     Note that this function is static and effects the behaviour of 
+     all contexts globally. *)
+  val toggle_warning_messages : bool -> unit
+>>>>>>> Updates to ML API.
