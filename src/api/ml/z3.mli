@@ -5,6 +5,11 @@
    @author CM Wintersteiger (cwinter) 2012-12-17
 *)
 
+(** General Z3 exceptions 
+
+    Many functions in this API may throw an exception; if they do, it is this one.*)
+exception Error
+
 (** Context objects.
 
     Most interactions with Z3 are interpreted in some context; many users will only 
@@ -188,7 +193,7 @@ sig
 
   (** The AST's hash code.
      @return A hash code *)
-  val get_hash_code : ast -> int
+  val hash : ast -> int
 
   (** A unique identifier for the AST (unique among all ASTs). *)
   val get_id : ast -> int
@@ -220,14 +225,11 @@ sig
   (** Comparison operator.
      @return True if the two ast's are from the same context 
      and represent the same sort; false otherwise. *)
-  val ( = ) : ast -> ast -> bool
+  val equal : ast -> ast -> bool
 
   (** Object Comparison.
      @return Negative if the first ast should be sorted before the second, positive if after else zero. *)
   val compare : ast -> ast -> int
-
-  (** Operator < *)
-  val ( < ) : ast -> ast -> int
 
   (** Translates (copies) the AST to another context.
      @return A copy of the AST which is associated with the other context.  *)
@@ -263,7 +265,7 @@ sig
   (** Comparison operator.
      @return True if the two sorts are from the same context 
      and represent the same sort; false otherwise. *)
-  val ( = ) : sort -> sort -> bool
+  val equal : sort -> sort -> bool
 
   (** Returns a unique identifier for the sort. *)
   val get_id : sort -> int
@@ -310,7 +312,7 @@ sig
     (** The int value of the parameter.*)
     val get_int : parameter -> int
 
-    (** The double value of the parameter.*)
+    (** The float value of the parameter.*)
     val get_float : parameter -> float
 
     (** The Symbol.Symbol value of the parameter.*)
@@ -351,7 +353,7 @@ sig
 
   (** Comparison operator.
       @return True if a and b are from the same context and represent the same func_decl; false otherwise. *)
-  val ( = ) : func_decl -> func_decl -> bool
+  val equal : func_decl -> func_decl -> bool
 
   (** A string representations of the function declaration. *)
   val to_string : func_decl -> string
@@ -423,22 +425,10 @@ sig
   val add_int : params -> Symbol.symbol -> int -> unit
 
   (** Adds a parameter setting. *)
-  val add_double : params -> Symbol.symbol -> float -> unit
+  val add_float : params -> Symbol.symbol -> float -> unit
 
   (** Adds a parameter setting. *)
   val add_symbol : params -> Symbol.symbol -> Symbol.symbol -> unit
-
-  (** Adds a parameter setting. *)
-  val add_s_bool : params -> string -> bool -> unit
-
-  (** Adds a parameter setting. *)
-  val add_s_int : params -> string -> int -> unit
-
-  (** Adds a parameter setting. *)
-  val add_s_double : params -> string -> float -> unit
-
-  (** Adds a parameter setting. *)
-  val add_s_symbol : params -> string -> Symbol.symbol -> unit
 
   (** Creates a new parameter set *)
   val mk_params : context -> params
@@ -583,16 +573,7 @@ sig
 
   (** Indicates whether the term is an implication *)
   val is_implies : Expr.expr -> bool
-
-  (** Indicates whether the term is a label (used by the Boogie Verification condition generator).
-     The label has two parameters, a string and a Boolean polarity. It takes one argument, a formula. *)
-  val is_label : Expr.expr -> bool
-  
-  (** Indicates whether the term is a label literal (used by the Boogie Verification condition generator).                     
-     A label literal has a set of string parameters. It takes no arguments.
-     let is_label_lit ( x : expr ) = (FuncDecl.get_decl_kind (get_func_decl x) == OP_LABEL_LIT) *)
-  val is_label_lit : Expr.expr -> bool
-  
+ 
   (** Indicates whether the term is a binary equivalence modulo namings. 
      This binary predicate is used in proof terms.
      It captures equisatisfiability and equivalence modulo renamings. *)
@@ -1261,29 +1242,29 @@ sig
        The semantics of this function follows the SMT-LIB standard for the function to_int.
        The argument must be of real sort. *)
     val mk_real2int : context -> Expr.expr -> Expr.expr
-  end
-
-  (** Algebraic Numbers *)
-  module AlgebraicNumber :
-  sig
-    (** Return a upper bound for a given real algebraic number. 
-	The interval isolating the number is smaller than 1/10^precision.
-	{!is_algebraic_number}   
-	@return A numeral Expr of sort Real *)
-    val to_upper : Expr.expr -> int -> Expr.expr
-
-    (** Return a lower bound for the given real algebraic number. 
-	The interval isolating the number is smaller than 1/10^precision.
-	{!is_algebraic_number}
-	@return A numeral Expr of sort Real *)
-    val to_lower : Expr.expr -> int -> Expr.expr
-
-    (** Returns a string representation in decimal notation. 
-	The result has at most as many decimal places as the int argument provided.*)
-    val to_decimal_string : Expr.expr -> int -> string
-
-    (** Returns a string representation of the numeral. *)
-    val to_string : Expr.expr -> string
+      
+    (** Algebraic Numbers *)
+    module AlgebraicNumber :
+    sig
+      (** Return a upper bound for a given real algebraic number. 
+	  The interval isolating the number is smaller than 1/10^precision.
+	  {!is_algebraic_number}   
+	  @return A numeral Expr of sort Real *)
+      val to_upper : Expr.expr -> int -> Expr.expr
+	
+      (** Return a lower bound for the given real algebraic number. 
+	  The interval isolating the number is smaller than 1/10^precision.
+	  {!is_algebraic_number}
+	  @return A numeral Expr of sort Real *)
+      val to_lower : Expr.expr -> int -> Expr.expr
+	
+      (** Returns a string representation in decimal notation. 
+	  The result has at most as many decimal places as the int argument provided.*)
+      val to_decimal_string : Expr.expr -> int -> string
+	
+      (** Returns a string representation of the numeral. *)
+      val to_string : Expr.expr -> string
+    end
   end
 
   (** Indicates whether the term is of integer sort. *)
@@ -2389,19 +2370,16 @@ sig
   (** All symbols that have an interpretation in the model. *)
   val get_decls : model -> FuncDecl.func_decl list
 
-  (** A ModelEvaluationFailedException is thrown when an expression cannot be evaluated by the model. *)
-  exception ModelEvaluationFailedException of string
-
   (** Evaluates an expression in the current model.
       
       This function may fail if the argument contains quantifiers, 
       is partial (MODEL_PARTIAL enabled), or if it is not well-sorted.
       In this case a <c>ModelEvaluationFailedException</c> is thrown.
   *)
-  val eval : model -> Expr.expr -> bool -> Expr.expr
+  val eval : model -> Expr.expr -> bool -> Expr.expr option
 
   (** Alias for <c>eval</c>. *)
-  val evaluate : model -> Expr.expr -> bool -> Expr.expr
+  val evaluate : model -> Expr.expr -> bool -> Expr.expr option
 
   (** The number of uninterpreted sorts that the model has an interpretation for. *)
   val get_num_sorts : model -> int
@@ -2438,7 +2416,7 @@ sig
   type probe 
 
   (** Execute the probe over the goal. 
-     <returns>A probe always produce a double value.
+     <returns>A probe always produce a float value.
      "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns> *)
   val apply : probe -> Goal.goal -> float
 
@@ -2637,7 +2615,7 @@ sig
       (** True if the entry is uint-valued. *)
       val is_int : statistics_entry -> bool
 	
-      (** True if the entry is double-valued. *)
+      (** True if the entry is float-valued. *)
       val is_float : statistics_entry -> bool
 	
       (** The string representation of the the entry's value. *)
@@ -2954,10 +2932,11 @@ val get_global_param : string -> string option
     {!set_global_param}
 *)
 
-val global_param_reset_all : unit
-
-  (** Enable/disable printing of warning messages to the console.
-
-     Note that this function is static and effects the behaviour of 
-     all contexts globally. *)
-  val toggle_warning_messages : bool -> unit
+val global_param_reset_all : unit -> unit
+  
+(** Enable/disable printing of warning messages to the console.
+    
+    Note that this function is static and effects the behaviour of 
+    all contexts globally. *)
+val toggle_warning_messages : bool -> unit
+  
