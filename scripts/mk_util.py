@@ -1350,26 +1350,30 @@ class MLComponent(Component):
             mk_dir(os.path.join(BUILD_DIR, sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
             for f in filter(lambda f: f.endswith('.ml'), os.listdir(self.src_dir)):
-                out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
-                str = '\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f)
-                if IS_WINDOWS: str = str.replace('/','\\')
+                out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
+                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
+                out.write(str)
+            for f in filter(lambda f: f.endswith('.mli'), os.listdir(self.src_dir)):
+                out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
+                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
                 out.write(str)
             for f in filter(lambda f: f.endswith('.c'), os.listdir(self.src_dir)):
-                out.write('%s/%s: %s/%s\n' % (sub_dir,f,src_dir,f))
-                str = '\t%s %s/%s %s/%s\n' % (CP_CMD,src_dir,f,sub_dir,f)
-                if IS_WINDOWS: str = str.replace('/','\\')
+                out.write('%s: %s\n' % (os.path.join(sub_dir,f),os.path.join(src_dir,f)))
+                str = '\t%s %s %s\n' % (CP_CMD,os.path.join(src_dir,f),os.path.join(sub_dir,f))
                 out.write(str)
             modules = ["z3enums", "z3native", "z3"]  # dependencies in this order!
             prev = ''
             for m in modules:
-                out.write('%s/%s.mli: %s/%s.ml %s\n' % (sub_dir,m,sub_dir,m,prev))
-                out.write('\t%s -I %s -i -c %s/%s.ml > %s/%s.mli\n' % (OCAMLC,sub_dir,sub_dir,m,sub_dir,m))
-                prev = prev + ' ' + sub_dir + '/' + m + '.mli'
+                fn = os.path.join(self.src_dir, ('%s.mli' % m))
+                if not os.path.exists(fn):
+                    out.write('%s.mli: %s.ml %s\n' % (os.path.join(sub_dir,m),os.path.join(sub_dir,m),prev))
+                    out.write('\t%s -I %s -i -c %s.ml > %s.mli\n' % (OCAMLC,sub_dir,os.path.join(sub_dir, m),os.path.join(sub_dir, m)))
+                prev = prev + ' ' + os.path.join(sub_dir, m) + '.mli'
             cmis = ''
             for m in modules:
-                out.write('%s/%s.cmi: %s/%s.mli\n' % (sub_dir,m,sub_dir,m))
-                out.write('\t%s -I %s -c %s/%s.mli\n' % (OCAMLC,sub_dir,sub_dir,m))
-                cmis = cmis + ' ' + sub_dir + '/' + m + '.cmi'
+                out.write('%s.cmi: %s.mli\n' % (os.path.join(sub_dir,m),os.path.join(sub_dir,m)))
+                out.write('\t%s -I %s -c %s.mli\n' % (OCAMLC,sub_dir,os.path.join(sub_dir,m)))
+                cmis = cmis + ' ' + os.path.join(sub_dir,m) + '.cmi'
             out.write('api/ml/libz3ml$(LIB_EXT): api/ml/z3native.c %s$(SO_EXT)\n' % get_component(Z3_DLL_COMPONENT).dll_name)
             out.write('\t$(CXX) $(CXXFLAGS) -I %s -I %s %s/z3native.c $(CXX_OUT_FLAG)api/ml/z3native$(OBJ_EXT)\n' % (OCAML_LIB, api_src, sub_dir))
             out.write('\t$(AR) $(AR_FLAGS) $(AR_OUTFLAG)api/ml/libz3ml$(LIB_EXT) api/ml/z3native$(OBJ_EXT)\n')

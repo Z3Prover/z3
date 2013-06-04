@@ -8,7 +8,7 @@
 (** General Z3 exceptions 
 
     Many functions in this API may throw an exception; if they do, it is this one.*)
-exception Error
+exception Error of string
 
 (** Context objects.
 
@@ -55,11 +55,11 @@ module Log :
 sig
   (** Open an interaction log file. 
       @return True if opening the log file succeeds, false otherwise. *)
-  (* CMW: "open" seems to be a reserved keyword? *)
+  (* CMW: "open" is a reserved keyword. *)
   val open_ : string -> bool
 
   (** Closes the interaction log. *)
-  val close : unit
+  val close : unit -> unit
 
   (** Appends a user-provided string to the interaction log. *)
   val append : string -> unit
