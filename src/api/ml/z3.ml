@@ -34,7 +34,7 @@ struct
     )
 
   let create_context settings =
-    let cfg = Z3native.mk_config in
+    let cfg = Z3native.mk_config () in
     let f e = (Z3native.set_param_value cfg (fst e) (snd e)) in
     (List.iter f settings) ;
     let v = Z3native.mk_context_rc cfg in
@@ -101,12 +101,12 @@ end
 
 module Version =
 struct
-  let major = let (x, _, _, _) = Z3native.get_version in x
-  let minor = let (_, x, _, _) = Z3native.get_version in x
-  let build = let (_, _, x, _) = Z3native.get_version in x
-  let revision = let (_, _, _, x) = Z3native.get_version in x
+  let major = let (x, _, _, _) = Z3native.get_version () in x
+  let minor = let (_, x, _, _) = Z3native.get_version () in x
+  let build = let (_, _, x, _) = Z3native.get_version () in x
+  let revision = let (_, _, _, x) = Z3native.get_version () in x
   let to_string = 
-    let (mj, mn, bld, rev) = Z3native.get_version in
+    let (mj, mn, bld, rev) = Z3native.get_version () in
     string_of_int mj ^ "." ^
       string_of_int mn ^ "." ^
       string_of_int bld ^ "." ^
@@ -609,6 +609,10 @@ sig
   val add_symbol : params -> Symbol.symbol -> Symbol.symbol -> unit
   val mk_params : context -> params
   val to_string : params -> string
+
+  val update_param_value : context -> string -> string -> unit
+  val get_param_value : context -> string -> string option
+  val set_print_mode : context -> Z3enums.ast_print_mode -> unit
 end = struct
   type params = z3_native_object
 
@@ -1099,7 +1103,7 @@ struct
 end
 
 
-module Array = 
+module Z3Array = 
 struct
   let mk_sort ( ctx : context ) ( domain : sort ) ( range : sort ) =
     sort_of_ptr ctx (Z3native.mk_array_sort (context_gno ctx) (Sort.gno domain) (Sort.gno range))
@@ -1382,7 +1386,7 @@ struct
 end
 
 
-module List = 
+module Z3List = 
 struct     
   let mk_sort ( ctx : context ) ( name : Symbol.symbol ) ( elem_sort : sort ) =
     let (r, _, _, _, _, _, _) = (Z3native.mk_list_sort (context_gno ctx) (Symbol.gno name) (Sort.gno elem_sort)) in
@@ -2038,7 +2042,7 @@ struct
     if not r then
       None
     else
-      expr_of_ptr (z3obj_gc x) v
+      Some(expr_of_ptr (z3obj_gc x) v)
 
   let evaluate ( x : model ) ( t : expr ) ( completion : bool ) =
     eval x t completion
@@ -2331,7 +2335,7 @@ struct
 	if (Z3native.stats_is_uint (z3obj_gnc x) (z3obj_gno x) i) then
 	  (Entry.create_si k (Z3native.stats_get_uint_value (z3obj_gnc x) (z3obj_gno x) i))
 	else 
-	  (Entry.create_sd k (Z3native.stats_get_float_value (z3obj_gnc x) (z3obj_gno x) i))
+	  (Entry.create_sd k (Z3native.stats_get_double_value (z3obj_gnc x) (z3obj_gno x) i))
       ) in
       mk_list f n
 
@@ -2667,3 +2671,6 @@ let global_param_reset_all =
 let toggle_warning_messages ( enabled: bool ) =
   Z3native.toggle_warning_messages enabled
 
+
+module Array = Z3Array
+module List = Z3List
