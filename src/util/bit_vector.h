@@ -69,6 +69,7 @@ public:
         m_num_bits(0),
         m_capacity(num_words(reserve_num_bits)),
         m_data(alloc_svect(unsigned, m_capacity)) {
+        memset(m_data, 0, m_capacity * sizeof(unsigned));
     }
 
     bit_vector(bit_vector const & source):

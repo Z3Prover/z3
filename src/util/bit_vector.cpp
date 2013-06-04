@@ -22,6 +22,8 @@ Revision History:
 
 #define DEFAULT_CAPACITY 2
 
+#define MK_MASK(_num_bits_) ((1U << _num_bits_) - 1)
+
 void bit_vector::expand_to(unsigned new_capacity) {
     unsigned * new_data     = alloc_svect(unsigned, new_capacity);
     memset(new_data, 0, new_capacity * sizeof(unsigned));
@@ -51,7 +53,7 @@ void bit_vector::resize(unsigned new_size, bool val) {
     unsigned ewidx   = num_words(new_size);
     unsigned * begin = m_data + bwidx;
     unsigned pos     = m_num_bits % 32;
-    unsigned mask    = (1 << pos) - 1;
+    unsigned mask    = MK_MASK(pos);
     int      cval;
 
     if (val) {
@@ -128,7 +130,7 @@ bool bit_vector::operator==(bit_vector const & source) const {
             return false;
     }
     unsigned bit_rest = source.m_num_bits % 32;
-    unsigned mask = (1 << bit_rest) - 1;
+    unsigned mask = MK_MASK(bit_rest);
     if (mask == 0) mask = UINT_MAX;
     return (m_data[i] & mask) == (source.m_data[i] & mask);
 }
@@ -149,7 +151,7 @@ bit_vector & bit_vector::operator|=(bit_vector const & source) {
         unsigned i = 0;
         for (i = 0; i < n2 - 1; i++)
             m_data[i] |= source.m_data[i];
-        unsigned mask = (1 << bit_rest) - 1;
+        unsigned mask = MK_MASK(bit_rest);
         m_data[i] |= source.m_data[i] & mask;
     }
     return *this;
@@ -175,7 +177,7 @@ bit_vector & bit_vector::operator&=(bit_vector const & source) {
         else {
             for (i = 0; i < n2 - 1; i++)
                 m_data[i] &= source.m_data[i];
-            unsigned mask = (1 << bit_rest) - 1;
+            unsigned mask = MK_MASK(bit_rest);
             m_data[i] &= (source.m_data[i] & mask);
             
         }
