@@ -124,13 +124,23 @@ class horn_tactic : public tactic {
 
         enum formula_kind { IS_RULE, IS_QUERY, IS_NONE };
 
+        bool is_implication(expr* f) {
+            expr* e1;
+            while (is_forall(f)) {
+                f = to_quantifier(f)->get_expr();
+            }
+            while (m.is_implies(f, e1, f)) ;
+            return is_predicate(f);
+        }
+
         formula_kind get_formula_kind(expr_ref& f) {
-            normalize(f);
+            expr_ref tmp(f);
+            normalize(tmp);
             ast_mark mark;
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
             expr* a = 0, *a1 = 0;
-            datalog::flatten_or(f, args);
+            datalog::flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
                 check_predicate(mark, a);
@@ -147,12 +157,15 @@ class horn_tactic : public tactic {
                     body.push_back(m.mk_not(a));
                 }
             }
-            f = m.mk_and(body.size(), body.c_ptr());
             if (head) {
-                f = m.mk_implies(f, head);
+                if (!is_implication(f)) {
+                    f = m.mk_and(body.size(), body.c_ptr());
+                    f = m.mk_implies(f, head);
+                }
                 return IS_RULE;
             }
             else {
+                f = m.mk_and(body.size(), body.c_ptr());
                 return IS_QUERY;
             }
         }
@@ -171,7 +184,7 @@ class horn_tactic : public tactic {
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
-            if (produce_proofs) {
+            if (produce_proofs) {                
                 if (!m_ctx.get_params().generate_proof_trace()) {
                     params_ref params = m_ctx.get_params().p;
                     params.set_bool("generate_proof_trace", true);
@@ -199,6 +212,7 @@ class horn_tactic : public tactic {
                     break;
                 default: 
                     msg << "formula is not in Horn fragment: " << mk_pp(g->form(i), m) << "\n";
+                    TRACE("horn", tout << msg.str(););
                     throw tactic_exception(msg.str().c_str());
                 }
             }
@@ -229,7 +243,15 @@ class horn_tactic : public tactic {
                     model_converter_ref & mc, 
                     proof_converter_ref & pc) {
 
-            lbool is_reachable = m_ctx.query(q);
+            lbool is_reachable = l_undef;
+
+            try {
+                is_reachable = m_ctx.query(q);
+            }
+            catch (default_exception& ex) {
+                IF_VERBOSE(1, verbose_stream() << ex.msg() << "\n";);
+                throw ex;
+            }
             g->inc_depth();
 
             bool produce_models = g->models_enabled();
@@ -239,10 +261,13 @@ class horn_tactic : public tactic {
             switch (is_reachable) {
             case l_true: {
                 // goal is unsat
-                g->assert_expr(m.mk_false());
                 if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
+                    g->assert_expr(m.mk_false(), proof, 0);
+                }
+                else {
+                    g->assert_expr(m.mk_false());
                 }
                 break;    
             }

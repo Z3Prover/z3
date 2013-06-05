@@ -96,7 +96,7 @@ void * small_object_allocator::allocate(size_t size) {
     return memory::allocate(size);
 #endif
     m_alloc_size += size;
-    if (size > SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT)) 
+    if (size > SMALL_OBJ_SIZE - (1 << PTR_ALIGNMENT))
         return memory::allocate(size);
 #ifdef Z3DEBUG
     size_t osize = size;

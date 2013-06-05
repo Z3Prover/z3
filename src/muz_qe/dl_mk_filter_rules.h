@@ -45,17 +45,22 @@ namespace datalog {
             filter_key(ast_manager & m) : new_pred(m), filter_args(m) {}
 
             unsigned hash() const {
-                return new_pred->hash() ^ int_vector_hash(filter_args);
+                unsigned r = new_pred->hash();
+                for (unsigned i = 0; i < filter_args.size(); ++i) {
+                    r ^= filter_args[i]->hash();
+                }
+                return r;
             }
             bool operator==(const filter_key & o) const {
                 return o.new_pred==new_pred && vectors_equal(o.filter_args, filter_args);
             }
         };
 
-        typedef map<filter_key*, func_decl*, obj_ptr_hash<filter_key>, deref_eq<filter_key> > filter_cache;
+        typedef obj_map<filter_key, func_decl*> filter_cache;
 
         context &                                 m_context;
-        ast_manager &                             m_manager;
+        ast_manager &                             m;
+        rule_manager &                            rm;
         filter_cache                              m_tail2filter;
         rule_set *                                m_result;
         rule *                                    m_current;

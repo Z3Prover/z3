@@ -21,6 +21,7 @@ Revision History:
 #define _SMALL_OBJECT_ALLOCATOR_H_
 
 #include"machine.h"
+#include"debug.h"
 
 class small_object_allocator {
     static const unsigned CHUNK_SIZE     = (8192 - sizeof(void*)*2);
@@ -52,8 +53,8 @@ public:
 
 inline void * operator new(size_t s, small_object_allocator & r) { return r.allocate(s); }
 inline void * operator new[](size_t s, small_object_allocator & r) { return r.allocate(s); }
-inline void operator delete(void * p, size_t s, small_object_allocator & r) { r.deallocate(s,p); }
-inline void operator delete[](void * p, size_t s, small_object_allocator & r) { r.deallocate(s,p); }
+inline void operator delete(void * p, small_object_allocator & r) { UNREACHABLE(); }
+inline void operator delete[](void * p, small_object_allocator & r) { UNREACHABLE(); }
 
 #endif /* _SMALL_OBJECT_ALLOCATOR_H_ */
 

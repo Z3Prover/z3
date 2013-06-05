@@ -37,6 +37,8 @@ namespace datalog {
     ast_manager & get_ast_manager_from_rel_manager(const relation_manager & rm);
     context & get_context_from_rel_manager(const relation_manager & rm);
 
+    typedef func_decl_set decl_set;
+
 #if DL_LEAK_HUNTING
     void leak_guard_check(const symbol & s);
 #endif
@@ -329,6 +331,10 @@ namespace datalog {
             virtual mutator_fn * mk_filter_interpreted_fn(const base_object & t, app * condition)
             { return 0; }
 
+            virtual transformer_fn * mk_filter_interpreted_and_project_fn(const base_object & t,
+                app * condition, unsigned removed_col_cnt, const unsigned * removed_cols)
+            { return 0; }
+
             virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t, 
                     const element & value, unsigned col) { return 0; }
 
@@ -452,8 +458,8 @@ namespace datalog {
         class convenient_join_fn : public join_fn {
             signature m_result_sig;
         protected:
-            const unsigned_vector m_cols1;
-            const unsigned_vector m_cols2;
+            unsigned_vector m_cols1;
+            unsigned_vector m_cols2;
 
             convenient_join_fn(const signature & o1_sig, const signature & o2_sig, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2) 
@@ -468,8 +474,8 @@ namespace datalog {
         class convenient_join_project_fn : public join_fn {
             signature m_result_sig;
         protected:
-            const unsigned_vector m_cols1;
-            const unsigned_vector m_cols2;
+            unsigned_vector m_cols1;
+            unsigned_vector m_cols2;
             //it is non-const because it needs to be modified in sparse_table version of the join_project operator
             unsigned_vector m_removed_cols;
 
@@ -496,7 +502,7 @@ namespace datalog {
 
         class convenient_project_fn : public convenient_transformer_fn {
         protected:
-            const unsigned_vector m_removed_cols;
+            unsigned_vector m_removed_cols;
 
             convenient_project_fn(const signature & orig_sig, unsigned col_cnt, const unsigned * removed_cols) 
                     : m_removed_cols(col_cnt, removed_cols) {
@@ -654,6 +660,7 @@ namespace datalog {
 
     typedef sort * relation_sort;
     typedef ptr_vector<sort> relation_signature_base0;
+    typedef ptr_hash<sort> relation_sort_hash;
 
     typedef app * relation_element;
     typedef app_ref relation_element_ref;
@@ -737,8 +744,8 @@ namespace datalog {
 
         struct hash {
             unsigned operator()(relation_signature const& s) const { 
-                relation_sort const* sorts = s.c_ptr();
-                return string_hash(reinterpret_cast<char const*>(sorts), sizeof(*sorts)*s.size(), 12); }
+                return obj_vector_hash<relation_signature>(s);
+            }
         };
 
         struct eq {
@@ -814,9 +821,11 @@ namespace datalog {
 
     typedef uint64 table_sort;
     typedef svector<table_sort> table_signature_base0;
+    typedef uint64_hash table_sort_hash;
 
     typedef uint64 table_element;
     typedef svector<table_element> table_fact;
+    typedef uint64_hash table_element_hash;
 
     struct table_traits {
         typedef table_plugin plugin;
@@ -879,8 +888,8 @@ namespace datalog {
     public:
         struct hash {
             unsigned operator()(table_signature const& s) const { 
-                table_sort const* sorts = s.c_ptr();
-                return string_hash(reinterpret_cast<char const*>(sorts), sizeof(*sorts)*s.size(), 12); }
+                return svector_hash<table_sort_hash>()(s);
+            }
         };
 
         struct eq {

@@ -659,7 +659,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 typedef void (*TESTFUN)(unsigned bvsize, bool is_signed);
 
 void tst_no_overflow() {
-
+    disable_debug("heap");
     unsigned bvsizes[BVSIZES] = { 1, 16, 32, 42 };
     TESTFUN tests[TESTNUM] = { test_add, test_sub, test_mul };
 

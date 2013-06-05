@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include"var_subst.h"
-#include"used_vars.h"
 #include"ast_ll_pp.h"
 #include"ast_pp.h"
 #include"ast_smt2_pp.h"
@@ -40,7 +39,7 @@ void var_subst::operator()(expr * n, unsigned num_args, expr * const * args, exp
           tout << mk_ismt2_pp(result, m_reducer.m()) << "\n";);
 }
 
-void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
+void unused_vars_eliminator::operator()(quantifier* q, expr_ref & result) {
     SASSERT(is_well_sorted(m, q));
     if (is_ground(q->get_expr())) {
         // ignore patterns if the body is a ground formula.
@@ -51,17 +50,17 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
         result = q;
         return;
     }
-    used_vars used;
-    used.process(q->get_expr());
+    m_used.reset();
+    m_used.process(q->get_expr());
     unsigned num_patterns = q->get_num_patterns();
     for (unsigned i = 0; i < num_patterns; i++)
-        used.process(q->get_pattern(i));
+        m_used.process(q->get_pattern(i));
     unsigned num_no_patterns = q->get_num_no_patterns();
     for (unsigned i = 0; i < num_no_patterns; i++)
-        used.process(q->get_no_pattern(i));
+        m_used.process(q->get_no_pattern(i));
 
     unsigned num_decls = q->get_num_decls();
-    if (used.uses_all_vars(num_decls)) {
+    if (m_used.uses_all_vars(num_decls)) {
         q->set_no_unused_vars();
         result = q;
         return;
@@ -70,7 +69,7 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
     ptr_buffer<sort>  used_decl_sorts; 
     buffer<symbol>    used_decl_names;
     for (unsigned i = 0; i < num_decls; ++i) {
-        if (used.contains(num_decls - i - 1)) {
+        if (m_used.contains(num_decls - i - 1)) {
             used_decl_sorts.push_back(q->get_decl_sort(i));
             used_decl_names.push_back(q->get_decl_name(i));
         }
@@ -79,10 +78,10 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
     unsigned         num_removed = 0;
     expr_ref_buffer  var_mapping(m);
     int              next_idx = 0;
-    unsigned         sz = used.get_max_found_var_idx_plus_1();
+    unsigned         sz = m_used.get_max_found_var_idx_plus_1();
 
     for (unsigned i = 0; i < num_decls; ++i) {
-        sort * s = used.contains(i);
+        sort * s = m_used.contains(i);
         if (s) {
             var_mapping.push_back(m.mk_var(next_idx, s));
             next_idx++;
@@ -95,7 +94,7 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
     // (VAR 0) is in the first position of var_mapping.
 
     for (unsigned i = num_decls; i < sz; i++) {
-        sort * s = used.contains(i);
+        sort * s = m_used.contains(i);
         if (s)
             var_mapping.push_back(m.mk_var(i - num_removed, s));
         else
@@ -110,9 +109,8 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
     std::reverse(var_mapping.c_ptr(), var_mapping.c_ptr() + var_mapping.size());
 
     expr_ref  new_expr(m);
-    var_subst subst(m);
     
-    subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr(), new_expr);
+    m_subst(q->get_expr(), var_mapping.size(), var_mapping.c_ptr(), new_expr);
     
     if (num_removed == num_decls) {
         result = new_expr;
@@ -124,11 +122,11 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
     expr_ref_buffer new_no_patterns(m);
     
     for (unsigned i = 0; i < num_patterns; i++) {
-        subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_patterns.push_back(tmp);
     }
     for (unsigned i = 0; i < num_no_patterns; i++) {
-        subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
+        m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr(), tmp);
         new_no_patterns.push_back(tmp);
     }
     
@@ -145,7 +143,12 @@ void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
                              num_no_patterns,
                              new_no_patterns.c_ptr());
     to_quantifier(result)->set_no_unused_vars();
-    SASSERT(is_well_sorted(m, result));
+    SASSERT(is_well_sorted(m, result));    
+}
+
+void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & result) {
+    unused_vars_eliminator el(m);
+    el(q, result);
 }
 
 void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref & result) {
@@ -161,9 +164,7 @@ void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref
           tout << "\n----->\n" << mk_ismt2_pp(result, m) << "\n";);
 }
 
-static void get_free_vars_offset(expr* e, unsigned offset, ptr_vector<sort>& sorts) {
-    ast_mark mark;
-    ptr_vector<expr> todo;
+static void get_free_vars_offset(ast_mark& mark, ptr_vector<expr>& todo, unsigned offset, expr* e, ptr_vector<sort>& sorts) {
     todo.push_back(e);
     while (!todo.empty()) {
         e = todo.back();
@@ -175,7 +176,9 @@ static void get_free_vars_offset(expr* e, unsigned offset, ptr_vector<sort>& sor
         switch(e->get_kind()) {
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(e);
-            get_free_vars_offset(q->get_expr(), offset+q->get_num_decls(), sorts);
+            ast_mark mark1;
+            ptr_vector<expr> todo1;
+            get_free_vars_offset(mark1, todo1, offset+q->get_num_decls(), q->get_expr(), sorts);
             break;
         }
         case AST_VAR: {
@@ -207,5 +210,11 @@ static void get_free_vars_offset(expr* e, unsigned offset, ptr_vector<sort>& sor
 
 
 void get_free_vars(expr* e, ptr_vector<sort>& sorts) {
-    get_free_vars_offset(e, 0, sorts);
+    ast_mark mark;
+    ptr_vector<expr> todo;
+    get_free_vars_offset(mark, todo, 0, e, sorts);
+}
+
+void get_free_vars(ast_mark& mark, ptr_vector<expr>& todo, expr* e, ptr_vector<sort>& sorts) {
+    get_free_vars_offset(mark, todo, 0, e, sorts);
 }

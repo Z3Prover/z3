@@ -450,7 +450,7 @@ void test_bvneg() {
 void tst_api() {
     test_apps();
     test_bvneg();
-    bv_invariant();
+    // bv_invariant();
 }
 #else
 void tst_api() {

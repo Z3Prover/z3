@@ -25,7 +25,6 @@ Revision History:
 #include "dl_mk_rule_inliner.h"
 #include "dl_rule.h"
 #include "dl_rule_transformer.h"
-#include "dl_mk_extract_quantifiers.h"
 #include "smt2parser.h"
 #include "pdr_context.h"
 #include "pdr_dl_interface.h"
@@ -33,7 +32,7 @@ Revision History:
 #include "dl_mk_slice.h"
 #include "dl_mk_unfold.h"
 #include "dl_mk_coalesce.h"
-#include "pdr_quantifiers.h"
+#include "model_smt2_pp.h"
 
 using namespace pdr;
 
@@ -57,41 +56,36 @@ dl_interface::~dl_interface() {
 // re-use existing context.
 // 
 void dl_interface::check_reset() {
-    datalog::rule_ref_vector const& new_rules = m_ctx.get_rules().get_rules();
+    datalog::rule_set const& new_rules = m_ctx.get_rules();
     datalog::rule_ref_vector const& old_rules = m_old_rules.get_rules();  
     bool is_subsumed = !old_rules.empty();
-    for (unsigned i = 0; is_subsumed && i < new_rules.size(); ++i) {
+    for (unsigned i = 0; is_subsumed && i < new_rules.get_num_rules(); ++i) {
         is_subsumed = false;
         for (unsigned j = 0; !is_subsumed && j < old_rules.size(); ++j) {
-            if (m_ctx.check_subsumes(*old_rules[j], *new_rules[i])) {
+            if (m_ctx.check_subsumes(*old_rules[j], *new_rules.get_rule(i))) {
                 is_subsumed = true;
             }
         }
         if (!is_subsumed) {
-            TRACE("pdr", new_rules[i]->display(m_ctx, tout << "Fresh rule "););
+            TRACE("pdr", new_rules.get_rule(i)->display(m_ctx, tout << "Fresh rule "););
             m_context->reset();
         }
     }
-    m_old_rules.reset();
-    m_old_rules.add_rules(new_rules.size(), new_rules.c_ptr());
+    m_old_rules.replace_rules(new_rules);
 }
 
 
 lbool dl_interface::query(expr * query) {
     //we restore the initial state in the datalog context
     m_ctx.ensure_opened();
-    m_pdr_rules.reset();
     m_refs.reset();
     m_pred2slice.reset();
     ast_manager& m =                      m_ctx.get_manager();
-    datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
+    datalog::rule_manager& rm = m_ctx.get_rule_manager();
 
     datalog::rule_set        old_rules(m_ctx.get_rules());
     func_decl_ref            query_pred(m);
-    datalog::rule_ref_vector query_rules(rule_manager);
-    datalog::rule_ref        query_rule(rule_manager);
-    rule_manager.mk_query(query, query_pred, query_rules, query_rule);
-    m_ctx.add_rules(query_rules);
+    rm.mk_query(query, m_ctx.get_rules());
     expr_ref bg_assertion = m_ctx.get_background_assertion();
 
     check_reset();
@@ -107,7 +101,6 @@ lbool dl_interface::query(expr * query) {
           );
 
 
-    m_ctx.set_output_predicate(query_pred);
     m_ctx.apply_default_transformation();
 
     if (m_ctx.get_params().slice()) {
@@ -115,8 +108,6 @@ lbool dl_interface::query(expr * query) {
         datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
         transformer.register_plugin(slice);
         m_ctx.transform_rules(transformer);
-        query_pred = slice->get_predicate(query_pred.get());
-        m_ctx.set_output_predicate(query_pred);
         
         // track sliced predicates.
         obj_map<func_decl, func_decl*> const& preds = slice->get_predicates();
@@ -142,23 +133,20 @@ lbool dl_interface::query(expr * query) {
             --num_unfolds;
         }
     }
-    // remove universal quantifiers from body.
 
+    if (m_ctx.get_rules().get_output_predicates().empty()) {
+        m_context->set_unsat();
+        return l_false;
+    }
 
-
-    datalog::mk_extract_quantifiers* extract_quantifiers = alloc(datalog::mk_extract_quantifiers, m_ctx);
-    datalog::rule_transformer extract_q_tr(m_ctx);
-    extract_q_tr.register_plugin(extract_quantifiers);
-    m_ctx.transform_rules(extract_q_tr);
-    
+    query_pred = m_ctx.get_rules().get_output_predicate();
 
     IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
-    m_pdr_rules.add_rules(m_ctx.get_rules());
+    m_pdr_rules.replace_rules(m_ctx.get_rules());
     m_pdr_rules.close();
+    m_ctx.record_transformed_rules();
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
-
-    quantifier_model_checker quantifier_mc(*m_context, m, extract_quantifiers->quantifiers(), m_pdr_rules);
     
     datalog::scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
@@ -170,23 +158,11 @@ lbool dl_interface::query(expr * query) {
     
     if (m_pdr_rules.get_rules().empty()) {
         m_context->set_unsat();
+        IF_VERBOSE(1, model_smt2_pp(verbose_stream(), m, *m_context->get_model(),0););
         return l_false;
     }
         
-    lbool result;
-    while (true) {
-        result = m_context->solve();
-        if (result == l_true && extract_quantifiers->has_quantifiers()) {
-            result = quantifier_mc.check();
-            if (result != l_false) {
-                return result;
-            }
-            // else continue
-        }
-        else {
-            return result;
-        }
-    }
+    return m_context->solve();
 
 }
 

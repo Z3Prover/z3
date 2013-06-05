@@ -230,10 +230,10 @@ namespace datalog {
         }
     }
 
-    bool mk_rule_inliner::inlining_allowed(func_decl * pred)
+    bool mk_rule_inliner::inlining_allowed(rule_set const& source, func_decl * pred)
     {
         if (//these three conditions are important for soundness
-            m_context.is_output_predicate(pred) ||
+            source.is_output_predicate(pred) ||
             m_preds_with_facts.contains(pred) ||
             m_preds_with_neg_occurrence.contains(pred) ||
             //this condition is used for breaking of cycles among inlined rules
@@ -260,7 +260,7 @@ namespace datalog {
         unsigned rcnt = orig.get_num_rules();
         for (unsigned i=0; i<rcnt; i++) {
             rule * r = orig.get_rule(i);
-            if (inlining_allowed(r->get_decl())) {
+            if (inlining_allowed(orig, r->get_decl())) {
                 res->add_rule(r);
             }
         }
@@ -324,7 +324,7 @@ namespace datalog {
                 unsigned pt_len = r->get_positive_tail_size();
                 for (unsigned ti = 0; ti<pt_len; ++ti) {
                     func_decl * tail_pred = r->get_decl(ti);
-                    if (!inlining_allowed(tail_pred)) {
+                    if (!inlining_allowed(orig, tail_pred)) {
                         continue;
                     }
                     unsigned tail_pred_head_cnt = m_head_pred_ctr.get(tail_pred);
@@ -359,7 +359,7 @@ namespace datalog {
 
             func_decl * head_pred = r->get_decl();
 
-            if (inlining_allowed(head_pred)) {
+            if (inlining_allowed(orig, head_pred)) {
                 //we have already processed inlined rules
                 continue;
             }
@@ -368,7 +368,7 @@ namespace datalog {
             unsigned pt_len = r->get_positive_tail_size();
             for (unsigned ti = 0; ti<pt_len; ++ti) {
                 func_decl * pred = r->get_decl(ti);
-                if (!inlining_allowed(pred)) {
+                if (!inlining_allowed(orig, pred)) {
                     continue;
                 }
                 if (m_head_pred_ctr.get(pred)<=1) {
@@ -417,14 +417,14 @@ namespace datalog {
             const rule_vector& pred_rules = candidate_inlined_set->get_predicate_rules(pred);
             rule_vector::const_iterator iend = pred_rules.end();
             for (rule_vector::const_iterator iit = pred_rules.begin(); iit!=iend; ++iit) {
-                transform_rule(*iit, m_inlined_rules);
+                transform_rule(orig, *iit, m_inlined_rules);
             }
         }
 
         TRACE("dl", tout << "inlined rules after mutual inlining:\n" << m_inlined_rules;  );
     }
 
-    bool mk_rule_inliner::transform_rule(rule * r0, rule_set& tgt) {
+    bool mk_rule_inliner::transform_rule(rule_set const& orig, rule * r0, rule_set& tgt) {
         bool modified = false;
         rule_ref_vector todo(m_rm);
         todo.push_back(r0);
@@ -436,7 +436,7 @@ namespace datalog {
 
             unsigned i = 0;
 
-            for  (; i < pt_len && !inlining_allowed(r->get_decl(i)); ++i) {};
+            for  (; i < pt_len && !inlining_allowed(orig, r->get_decl(i)); ++i) {};
 
             SASSERT(!has_quantifier(*r.get()));
 
@@ -478,12 +478,12 @@ namespace datalog {
             // this relation through inlining, 
             // so we don't add its rules to the result
 
-            something_done |= !inlining_allowed(pred) && transform_rule(r, tgt);
+            something_done |= !inlining_allowed(orig, pred) && transform_rule(orig, r, tgt);
         }
 
         if (something_done && m_mc) {
             for (rule_set::iterator rit = orig.begin(); rit!=rend; ++rit) {
-                if (inlining_allowed((*rit)->get_decl())) {
+                if (inlining_allowed(orig, (*rit)->get_decl())) {
                     datalog::del_rule(m_mc, **rit);
                 }
             }
@@ -505,9 +505,6 @@ namespace datalog {
 
         unsigned head_arity = head_pred->get_arity();
 
-        //var_idx_set head_vars;
-        //var_idx_set same_strat_vars;
-        //collect_vars(m, r->get_head(), head_vars);
 
         unsigned pt_len = r->get_positive_tail_size();
         for (unsigned ti=0; ti<pt_len; ++ti) {
@@ -518,7 +515,6 @@ namespace datalog {
             SASSERT(pred_strat<=head_strat);
 
             if (pred_strat==head_strat) {
-                //collect_vars(m, r->get_head(), same_strat_vars);
                 if (pred->get_arity()>head_arity
                     || (pred->get_arity()==head_arity && pred->get_id()>=head_pred->get_id()) ) {
                     return false;
@@ -667,7 +663,7 @@ namespace datalog {
         return et->get_data().m_value;
     }
 
-    void mk_rule_inliner::add_rule(rule* r, unsigned i) {
+    void mk_rule_inliner::add_rule(rule_set const& source, rule* r, unsigned i) {
         svector<bool>& can_remove = m_head_visitor.can_remove();
         svector<bool>& can_expand = m_head_visitor.can_expand();
         app* head = r->get_head();
@@ -676,7 +672,7 @@ namespace datalog {
         m_head_index.insert(head);
         m_pinned.push_back(r);
             
-        if (m_context.is_output_predicate(headd) ||
+        if (source.is_output_predicate(headd) ||
             m_preds_with_facts.contains(headd)) {
             can_remove.set(i, false);
             TRACE("dl", output_predicate(m_context, head, tout << "cannot remove: " << i << " "); tout << "\n";);
@@ -692,7 +688,7 @@ namespace datalog {
             tl_sz == 1
             && r->get_positive_tail_size() == 1 
             && !m_preds_with_facts.contains(r->get_decl(0)) 
-            && !m_context.is_output_predicate(r->get_decl(0));
+            && !source.is_output_predicate(r->get_decl(0));
         can_expand.set(i, can_exp);
     }
 
@@ -710,7 +706,6 @@ namespace datalog {
 #define PRT(_x_) ((_x_)?"T":"F")
 
     bool mk_rule_inliner::inline_linear(scoped_ptr<rule_set>& rules) {
-        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
         bool done_something = false;        
         unsigned sz = rules->get_num_rules();
 
@@ -731,7 +726,7 @@ namespace datalog {
         svector<bool>& can_expand = m_head_visitor.can_expand();
 
         for (unsigned i = 0; i < sz; ++i) {
-            add_rule(acc[i].get(), i);
+            add_rule(*rules, acc[i].get(), i);
         }
 
         // initialize substitution.
@@ -808,7 +803,7 @@ namespace datalog {
                 TRACE("dl", r->display(m_context, tout); r2->display(m_context, tout); rl_res->display(m_context, tout); );
 
                 del_rule(r, i);
-                add_rule(rl_res.get(), i);
+                add_rule(*rules, rl_res.get(), i);
                 
 
                 r = rl_res;
@@ -828,13 +823,15 @@ namespace datalog {
             }
         }
         if (done_something) {
-            rules = alloc(rule_set, m_context);
+            scoped_ptr<rule_set> res = alloc(rule_set, m_context);
             for (unsigned i = 0; i < sz; ++i) {
                 if (valid.get(i)) {
-                    rules->add_rule(acc[i].get());
+                    res->add_rule(acc[i].get());
                 }
             }
-            TRACE("dl", rules->display(tout););
+            res->inherit_predicates(*rules);
+            TRACE("dl", res->display(tout););
+            rules = res.detach();
         }        
         return done_something;
     }
@@ -871,8 +868,14 @@ namespace datalog {
             // try eager inlining
             if (do_eager_inlining(res)) {
                 something_done = true;
-            }
+            }            
             TRACE("dl", res->display(tout << "after eager inlining\n"););
+        }    
+        if (something_done) {
+            res->inherit_predicates(source);
+        }
+        else {
+            res = alloc(rule_set, source);
         }
 
         if (m_context.get_params().inline_linear() && inline_linear(res)) {

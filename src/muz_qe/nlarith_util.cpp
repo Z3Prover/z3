@@ -1028,7 +1028,6 @@ namespace nlarith {
         };
 
         class sqrt_subst : public isubst {
-            bool m_even;
             sqrt_form const& m_s;
         public:
             sqrt_subst(imp& i, sqrt_form const& s): isubst(i), m_s(s) {}

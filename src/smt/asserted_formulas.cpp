@@ -408,7 +408,7 @@ void asserted_formulas::apply_quasi_macros() {
     TRACE("before_quasi_macros", display(tout););
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);      
-    quasi_macros proc(m_manager, m_macro_manager, *m_bsimp, m_simplifier);    
+    quasi_macros proc(m_manager, m_macro_manager, m_simplifier);    
     while (proc(m_asserted_formulas.size() - m_asserted_qhead, 
                 m_asserted_formulas.c_ptr() + m_asserted_qhead, 
                 m_asserted_formula_prs.c_ptr() + m_asserted_qhead,

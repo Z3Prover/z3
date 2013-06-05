@@ -31,7 +31,6 @@ namespace smt2 {
     
     class scanner {
     private:
-        cmd_context &      m_ctx;
         bool               m_interactive;
         int                m_spos; // position in the current line of the stream
         char               m_curr;  // current char;

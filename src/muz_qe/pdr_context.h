@@ -303,6 +303,7 @@ namespace pdr {
         mutable model_search m_search;
         lbool                m_last_result;
         unsigned             m_inductive_lvl;
+        unsigned             m_expanded_lvl;
         ptr_vector<core_generalizer>  m_core_generalizers;
         stats                m_stats;
         volatile bool        m_cancel;
@@ -366,7 +367,7 @@ namespace pdr {
         expr_ref          get_answer();
 
         bool              is_dl() const { return m_fparams.m_arith_mode == AS_DIFF_LOGIC; }
-
+        bool              is_utvpi() const { return m_fparams.m_arith_mode == AS_UTVPI; }
 
         void collect_statistics(statistics& st) const;
         void reset_statistics();

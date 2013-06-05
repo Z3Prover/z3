@@ -243,7 +243,6 @@ namespace smt2 {
     }
     
     scanner::scanner(cmd_context & ctx, std::istream& stream, bool interactive):
-        m_ctx(ctx),
         m_interactive(interactive), 
         m_spos(0),
         m_curr(0), // avoid Valgrind warning

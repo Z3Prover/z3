@@ -242,13 +242,13 @@ br_status float_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     // expand as using ite's
-    result = m().mk_ite(mk_eq_nan(arg1),
+    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
                         arg2,
                         m().mk_ite(mk_eq_nan(arg2), 
                                    arg1,
                                    m().mk_ite(m_util.mk_lt(arg1, arg2),
-                                              arg1,
-                                              arg2)));
+                                           arg1,
+                                           arg2)));
     return BR_REWRITE_FULL;
 }
 
@@ -262,7 +262,7 @@ br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     // expand as using ite's
-    result = m().mk_ite(mk_eq_nan(arg1), 
+    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
                         arg2,
                         m().mk_ite(mk_eq_nan(arg2), 
                                    arg1,

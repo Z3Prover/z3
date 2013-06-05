@@ -1417,6 +1417,7 @@ namespace fm {
         
         fm(ast_manager & _m):
             m(_m),
+            m_is_variable(0),
             m_allocator("fm-elim"),
             m_util(m),
             m_bvar2expr(m),
@@ -1424,6 +1425,9 @@ namespace fm {
             m_new_fmls(m),
             m_inconsistent_core(m) {
             m_cancel = false;
+            updt_params();
+            m_counter = 0;
+            m_inconsistent = false;
         }
         
         ~fm() {
@@ -2525,13 +2529,13 @@ public:
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
-
-    virtual tactic * translate(ast_manager & m) {
-        return alloc(qe_lite_tactic, m, m_params);
-    }
         
     virtual ~qe_lite_tactic() {
         dealloc(m_imp);
+    }
+
+    virtual tactic * translate(ast_manager & m) {
+        return alloc(qe_lite_tactic, m, m_params);
     }
 
     virtual void updt_params(params_ref const & p) {

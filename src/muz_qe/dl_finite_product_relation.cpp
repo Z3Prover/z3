@@ -129,7 +129,7 @@ namespace datalog {
         for(unsigned i=0; i<n; i++) {
             if(table_columns[i]) {
                 table_sort t_sort;
-                TRUSTME( rmgr.relation_sort_to_table(s[i], t_sort) );
+                VERIFY( rmgr.relation_sort_to_table(s[i], t_sort) );
                 table_sig.push_back(t_sort);
             }
             else {
@@ -1291,8 +1291,8 @@ namespace datalog {
                 m_renaming_for_inner_rel(m_manager) {
             relation_manager & rmgr = r.get_manager();
 
-            idx_set cond_columns;
-            collect_vars(m_manager, m_cond, cond_columns);
+            rule_manager& rm = r.get_context().get_rule_manager();
+            idx_set& cond_columns = rm.collect_vars(m_cond);
 
             unsigned sig_sz = r.get_signature().size();
             for(unsigned i=0; i<sig_sz; i++) {
@@ -1789,7 +1789,7 @@ namespace datalog {
                 m_sig2table[i]=m_table_sig.size();
                 table_sort srt;
                 //the table columns must have table-friendly sorts
-                TRUSTME( get_manager().relation_sort_to_table(rel_sig[i], srt) );
+                VERIFY( get_manager().relation_sort_to_table(rel_sig[i], srt) );
                 m_table_sig.push_back(srt);
                 m_table2sig.push_back(i);
             }

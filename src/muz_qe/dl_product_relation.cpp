@@ -269,7 +269,7 @@ namespace datalog {
             unsigned_vector r1_tables_indexes;
             unsigned_vector r2_tables_indexes;
             for (unsigned i = 0; i < num_rels1; ++i) {
-                if(is_tableish_relation(*r1[i])) {
+                if (is_tableish_relation(*r1[i])) {
                     r1_tables_indexes.push_back(i);
                     continue;
                 }
@@ -291,7 +291,7 @@ namespace datalog {
                 if (!found) {
                     relation_plugin & r1_plugin = get_nonsieve_plugin(*r1[i]);
                     relation_base* rel2;
-                    if(r1_plugin.can_handle_signature(r2_sig)) {
+                    if (r1_plugin.can_handle_signature(r2_sig)) {
                         rel2 = r1_plugin.mk_full(p, r2_sig, r1_kind);
                     }
                     else {
@@ -307,7 +307,7 @@ namespace datalog {
                 }
             }
             for (unsigned i = 0; i < num_rels2; ++i) {
-                if(is_tableish_relation(*r2[i])) {
+                if (is_tableish_relation(*r2[i])) {
                     r2_tables_indexes.push_back(i);
                     continue;
                 }
@@ -315,7 +315,7 @@ namespace datalog {
                     relation_plugin & r2_plugin = get_nonsieve_plugin(*r2[i]);
                     family_id r2_kind = get_nonsieve_kind(*r2[i]);
                     relation_base* rel1;
-                    if(r2_plugin.can_handle_signature(r1_sig)) {
+                    if (r2_plugin.can_handle_signature(r1_sig)) {
                         rel1 = r2_plugin.mk_full(p, r1_sig, r2_kind);
                     }
                     else {
@@ -331,7 +331,7 @@ namespace datalog {
                 }
             }
 
-            if(!r1_tables_indexes.empty() && !r2_tables_indexes.empty()) {
+            if (!r1_tables_indexes.empty() && !r2_tables_indexes.empty()) {
                 //We may perhaps want to group the table relations by kinds so that tables of the same kind
                 //get joined...
 

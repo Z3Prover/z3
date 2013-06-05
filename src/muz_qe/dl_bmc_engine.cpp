@@ -44,7 +44,6 @@ namespace datalog {
     public:
         qlinear(bmc& b): b(b), m(b.m), m_bv(m), m_bit_width(1) {}
 
-
         lbool check() {
             setup();
             m_bit_width = 4;
@@ -298,6 +297,7 @@ namespace datalog {
                 r->to_formula(fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
+                proof_ref p(m);
                 if (r0) {
                     VERIFY(unifier.unify_rules(*r0.get(), 0, *r2.get()));
                     expr_ref_vector sub1 = unifier.get_rule_subst(*r0.get(), true);
@@ -307,7 +307,10 @@ namespace datalog {
                     r1->to_formula(concl);
                     scoped_proof _sp(m);
                     
-                    proof* p = r->get_proof();
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -320,13 +323,17 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = r->get_proof();
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
                     if (sub.empty()) {
                         pr = p;
                     }
                     else {
                         substs.push_back(sub);
-                        pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
+                        proof* ps[1] = { p };
+                        pr = m.mk_hyper_resolve(1, ps, concl, positions, substs);
                     }
                     r0 = r2;
                 }
@@ -1005,7 +1012,6 @@ namespace datalog {
                     symbol is_name(_name.str().c_str());
                     std::stringstream _name2;
                     _name2 << "get_succ#" << i;
-                    symbol acc_name(_name2.str().c_str());
                     ptr_vector<accessor_decl> accs;
                     type_ref tr(0);
                     accs.push_back(mk_accessor_decl(name, tr));
@@ -1213,6 +1219,15 @@ namespace datalog {
                 r->to_formula(fml);
                 r2 = r;
                 rm.substitute(r2, sub.size(), sub.c_ptr());
+                proof_ref p(m);
+                {
+                    scoped_proof _sp(m);
+                    p = r->get_proof();
+                    if (!p) {
+                        p = m.mk_asserted(fml);
+                    }
+                }
+
                 if (r0) {
                     VERIFY(unifier.unify_rules(*r0.get(), 0, *r2.get()));
                     expr_ref_vector sub1 = unifier.get_rule_subst(*r0.get(), true);
@@ -1220,9 +1235,8 @@ namespace datalog {
                     apply_subst(sub, sub2);
                     unifier.apply(*r0.get(), 0, *r2.get(), r1);
                     r1->to_formula(concl);
-                    scoped_proof _sp(m);
                     
-                    proof* p = r->get_proof();
+                    scoped_proof _sp(m);
                     proof* premises[2] = { pr, p };
                     
                     positions.push_back(std::make_pair(0, 1));
@@ -1235,13 +1249,13 @@ namespace datalog {
                 else {
                     r2->to_formula(concl);
                     scoped_proof _sp(m);
-                    proof* p = r->get_proof();
                     if (sub.empty()) {
                         pr = p;
                     }
                     else {
                         substs.push_back(sub);
-                        pr = m.mk_hyper_resolve(1, &p, concl, positions, substs);
+                        proof * ps[1] = { p };
+                        pr = m.mk_hyper_resolve(1, ps, concl, positions, substs);
                     }
                     r0 = r2;
                 }
@@ -1416,19 +1430,12 @@ namespace datalog {
     lbool bmc::query(expr* query) {
         m_solver.reset();
         m_answer = 0;
-
         m_ctx.ensure_opened();
         m_rules.reset();
-
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
-        datalog::rule_set        old_rules(m_ctx.get_rules());
-        datalog::rule_ref_vector query_rules(rule_manager);
-        datalog::rule_ref        query_rule(rule_manager);
-        rule_manager.mk_query(query, m_query_pred, query_rules, query_rule);
-        m_ctx.add_rules(query_rules);
-        expr_ref bg_assertion = m_ctx.get_background_assertion();
-        
-        m_ctx.set_output_predicate(m_query_pred);
+        datalog::rule_set old_rules(m_ctx.get_rules());
+        rule_manager.mk_query(query, m_ctx.get_rules());
+        expr_ref bg_assertion = m_ctx.get_background_assertion();        
         m_ctx.apply_default_transformation();
         
         if (m_ctx.get_params().slice()) {
@@ -1436,10 +1443,9 @@ namespace datalog {
             datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
             transformer.register_plugin(slice);
             m_ctx.transform_rules(transformer);
-            m_query_pred = slice->get_predicate(m_query_pred.get());
-            m_ctx.set_output_predicate(m_query_pred);
         }
-        m_rules.add_rules(m_ctx.get_rules());
+        m_query_pred = m_ctx.get_rules().get_output_predicate();
+        m_rules.replace_rules(m_ctx.get_rules());
         m_rules.close();
         m_ctx.reopen();
         m_ctx.replace_rules(old_rules);

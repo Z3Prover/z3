@@ -432,23 +432,28 @@ typedef svector<unsigned> unsigned_vector;
 typedef svector<char> char_vector;
 typedef svector<double> double_vector;
 
-template<typename Hash>
-struct vector_hash {
+template<typename Hash, typename Vec>
+struct vector_hash_tpl {
     Hash m_hash;
-    typedef vector<typename Hash::data> data;
+    typedef Vec data;
 
     unsigned operator()(data const& v, unsigned idx) const { return m_hash(v[idx]); }
 
-    vector_hash(Hash const& h = Hash()):m_hash(h) {}
+    vector_hash_tpl(Hash const& h = Hash()):m_hash(h) {}
 
     unsigned operator()(data const& v) const {
         if (v.empty()) {
             return 778;
         }
-        return get_composite_hash<data, default_kind_hash_proc<data>, vector_hash>(v, v.size());
+        return get_composite_hash<data, default_kind_hash_proc<data>, vector_hash_tpl>(v, v.size());
     }
-
 };
+
+template<typename Hash>
+struct vector_hash : public vector_hash_tpl<Hash, vector<typename Hash::data> > {};
+
+template<typename Hash>
+struct svector_hash : public vector_hash_tpl<Hash, svector<typename Hash::data> > {};
 
 
 #endif /* _VECTOR_H_ */

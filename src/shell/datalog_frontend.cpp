@@ -43,17 +43,7 @@ static datalog::context * g_ctx = 0;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
-static smt_params * g_params;
 
-datalog_params::datalog_params():
-    m_default_table("sparse"),
-    m_default_table_checked(false)
-{}
-
-// void datalog_params::register_params(ini_params& p) {
-//    p.register_symbol_param("DEFAULT_TABLE", m_default_table, "Datalog engine: default table (sparse)");
-//    p.register_bool_param("DEFAULT_TABLE_CHECKED", m_default_table_checked, "Wrap default table with a sanity checker");
-// }
 
 static void display_statistics(
     std::ostream& out,
@@ -61,7 +51,6 @@ static void display_statistics(
     datalog::rule_set& orig_rules,
     datalog::instruction_block& code,
     datalog::execution_context& ex_ctx,
-    smt_params& params,
     bool verbose
     ) 
 {
@@ -109,7 +98,7 @@ static void display_statistics(
 
 static void display_statistics() {
     if (g_ctx) {
-        display_statistics(std::cout, *g_ctx, *g_orig_rules, *g_code, *g_ectx, *g_params, true);
+        display_statistics(std::cout, *g_ctx, *g_orig_rules, *g_code, *g_ectx, true);
     }
 }
 
@@ -127,7 +116,6 @@ static void on_ctrl_c(int) {
 
 unsigned read_datalog(char const * file) {
     IF_VERBOSE(1, verbose_stream() << "Z3 Datalog Engine\n";);
-    datalog_params dl_params;
     smt_params     s_params;
     ast_manager m;
     g_overall_time.start();
@@ -135,8 +123,6 @@ unsigned read_datalog(char const * file) {
     signal(SIGINT, on_ctrl_c);
     params_ref params;
     params.set_sym("engine", symbol("datalog"));
-    params.set_sym("default_table", dl_params.m_default_table);
-    params.set_bool("default_table_checked", dl_params.m_default_table_checked);
 
     datalog::context ctx(m, s_params, params);
     datalog::relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
@@ -175,8 +161,6 @@ unsigned read_datalog(char const * file) {
     TRACE("dl_compiler", ctx.display(tout););
 
     datalog::rule_set original_rules(ctx.get_rules());
-    datalog::decl_set original_predicates;
-    ctx.collect_predicates(original_predicates);
 
     datalog::instruction_block rules_code;
     datalog::instruction_block termination_code;
@@ -188,7 +172,6 @@ unsigned read_datalog(char const * file) {
     g_orig_rules = &original_rules;
     g_code = &rules_code;
     g_ectx = &ex_ctx;
-    g_params = &s_params;
 
     try {    
         g_piece_timer.reset();
@@ -237,7 +220,6 @@ unsigned read_datalog(char const * file) {
                 termination_code.reset();
                 ex_ctx.reset();
                 ctx.reopen();
-                ctx.restrict_predicates(original_predicates);
                 ctx.replace_rules(original_rules);
                 ctx.close();
             }
@@ -248,7 +230,7 @@ unsigned read_datalog(char const * file) {
               rules_code.display(ctx.get_rel_context(), tout););
         
         if (ctx.get_params().output_tuples()) {
-            ctx.get_rel_context().display_output_facts(std::cout);
+            ctx.get_rel_context().display_output_facts(ctx.get_rules(), std::cout);
         }
 
         display_statistics(
@@ -257,7 +239,6 @@ unsigned read_datalog(char const * file) {
             original_rules, 
             rules_code,
             ex_ctx,
-            s_params,
             false);
 
     }
@@ -269,7 +250,6 @@ unsigned read_datalog(char const * file) {
             original_rules, 
             rules_code,
             ex_ctx,
-            s_params,
             true);
         return ERR_MEMOUT;
     }

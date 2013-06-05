@@ -300,7 +300,7 @@ std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
 //
 // -----------------------------------
 
-char const * g_ast_kind_names[] = {"application", "variable", "quantifier", "sort", "function declaration" };
+static char const * g_ast_kind_names[] = {"application", "variable", "quantifier", "sort", "function declaration" };
 
 char const * get_ast_kind_name(ast_kind k) {
     return g_ast_kind_names[k];
@@ -2755,7 +2755,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         app const * cls   = to_app(f1);
         unsigned num_args = cls->get_num_args();
 #ifdef Z3DEBUG
-        vector<bool> found;
+        svector<bool> found;
 #endif
         for (unsigned i = 0; i < num_args; i++) {
             expr * lit = cls->get_arg(i);

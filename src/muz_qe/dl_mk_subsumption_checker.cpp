@@ -21,11 +21,8 @@ Revision History:
 
 #include <sstream>
 #include"ast_pp.h"
-
 #include "rewriter.h"
 #include "rewriter_def.h"
-
-
 #include"dl_mk_subsumption_checker.h"
 #include"dl_table_relation.h"
 
@@ -82,7 +79,7 @@ namespace datalog {
     void mk_subsumption_checker::on_discovered_total_relation(func_decl * pred, rule * r) {
         //this should be rule marking a new relation as total
         SASSERT(!m_total_relations.contains(pred));
-        SASSERT(!r || pred==r->get_head()->get_decl());
+        SASSERT(!r || pred==r->get_decl());
         SASSERT(!r || is_total_rule(r));
 
         m_total_relations.insert(pred);
@@ -102,7 +99,7 @@ namespace datalog {
             rule_set::iterator rend = rules.end();
             for(rule_set::iterator rit = rules.begin(); rit!=rend; ++rit) {
                 rule * r = *rit;
-                func_decl * head_pred = r->get_head()->get_decl();
+                func_decl * head_pred = r->get_decl();
                 if(is_total_rule(r) && !m_total_relations.contains(head_pred)) {
                     on_discovered_total_relation(head_pred, r);
                     new_discovered = true;
@@ -196,10 +193,10 @@ namespace datalog {
         for(rule_set::iterator rit = rbegin; rit!=rend; ++rit) {
 
             rule * r = *rit;
-            func_decl * head_pred = r->get_head()->get_decl();
+            func_decl * head_pred = r->get_decl();
 
             if(m_total_relations.contains(head_pred)) {
-                if(!m_context.is_output_predicate(head_pred) ||
+                if(!orig.is_output_predicate(head_pred) ||
                         total_relations_with_included_rules.contains(head_pred)) {
                     //We just skip definitions of total non-output relations as 
                     //we'll eliminate them from the problem.
@@ -217,7 +214,7 @@ namespace datalog {
                         modified = true;
                     }
                     tgt.add_rule(totality_rule);
-                    SASSERT(totality_rule->get_head()->get_decl()==head_pred);
+                    SASSERT(totality_rule->get_decl()==head_pred);
                 }
                 else {
                     modified = true;
@@ -244,30 +241,30 @@ namespace datalog {
             tgt.add_rule(new_rule);
             subs_index.add(new_rule);
         }
+        tgt.inherit_predicates(orig);
         TRACE("dl",
             tout << "original set size: "<<orig.get_num_rules()<<"\n"
                  << "reduced set size: "<<tgt.get_num_rules()<<"\n"; );
         return modified;
     }
 
-    void mk_subsumption_checker::scan_for_relations_total_due_to_facts() {
+    void mk_subsumption_checker::scan_for_relations_total_due_to_facts(rule_set const& source) {
         relation_manager& rm = m_context.get_rel_context().get_rmanager();
 
-        decl_set candidate_preds;
-        m_context.collect_predicates(candidate_preds);
+        decl_set const& candidate_preds = m_context.get_predicates();
 
         decl_set::iterator end = candidate_preds.end();
         for(decl_set::iterator it = candidate_preds.begin(); it!=end; ++it) {
             func_decl * pred = *it;
 
-            if(m_total_relations.contains(pred)) { continue; } //already total
+            if (m_total_relations.contains(pred)) { continue; } //already total
 
             relation_base * rel = rm.try_get_relation(pred);
 
-            if(!rel || !rel->knows_exact_size()) { continue; }
+            if (!rel || !rel->knows_exact_size()) { continue; }
 
             unsigned arity = pred->get_arity();
-            if(arity>30) { continue; }
+            if (arity > 30) { continue; }
 
             //for now we only check booleans domains
             for(unsigned i=0; i<arity; i++) {
@@ -307,7 +304,7 @@ namespace datalog {
         rule_set::iterator rend = rules.end();
         for(rule_set::iterator rit = rules.begin(); rit!=rend; ++rit) {
             rule * r = *rit;
-            func_decl * pred = r->get_head()->get_decl();
+            func_decl * pred = r->get_decl();
 
             if(r->get_tail_size()!=0) { continue; }
 
@@ -324,9 +321,7 @@ namespace datalog {
             if(!m_ground_unconditional_rule_heads.contains(pred)) {
                 m_ground_unconditional_rule_heads.insert(pred, alloc(obj_hashtable<app>));
             }
-            obj_hashtable<app> * head_store;
-            m_ground_unconditional_rule_heads.find(pred, head_store);
-            head_store->insert(head);
+            m_ground_unconditional_rule_heads.find(pred)->insert(head);
 
         next_rule:;
         }
@@ -337,14 +332,14 @@ namespace datalog {
 
         m_have_new_total_rule = false;
         collect_ground_unconditional_rule_heads(source);
-        scan_for_relations_total_due_to_facts();
+        scan_for_relations_total_due_to_facts(source);
         scan_for_total_rules(source);
 
         m_have_new_total_rule = false;
         rule_set * res = alloc(rule_set, m_context);
         bool modified = transform_rules(source, *res);
 
-        if(!m_have_new_total_rule && !modified) {
+        if (!m_have_new_total_rule && !modified) {
             dealloc(res);
             return 0;
         }
@@ -353,7 +348,7 @@ namespace datalog {
         //During the construction of the new set we may discover new total relations
         //(by quantifier elimination on the uninterpreted tails).
         SASSERT(m_new_total_relation_discovery_during_transformation || !m_have_new_total_rule);
-        while(m_have_new_total_rule) {
+        while (m_have_new_total_rule) {
             m_have_new_total_rule = false;
 
             rule_set * old = res;

@@ -200,6 +200,7 @@ func_decl * float_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_par
     }
     else {
         m_manager->raise_exception("sort of floating point constant was not specified");
+        UNREACHABLE();
     }
 
     SASSERT(is_sort_of(s, m_family_id, FLOAT_SORT));

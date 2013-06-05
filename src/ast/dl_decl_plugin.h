@@ -169,11 +169,11 @@ namespace datalog {
 
         app* mk_le(expr* a, expr* b);
 
-        bool is_lt(expr* a) { return is_app_of(a, m_fid, OP_DL_LT); }
+        bool is_lt(const expr* a) const { return is_app_of(a, m_fid, OP_DL_LT); }
 
-        bool is_numeral(expr* c) const { return is_app_of(c, m_fid, OP_DL_CONSTANT); }
+        bool is_numeral(const expr* c) const { return is_app_of(c, m_fid, OP_DL_CONSTANT); }
 
-        bool is_numeral(expr* e, uint64& v) const;
+        bool is_numeral(const expr* e, uint64& v) const;
 
         //
         // Utilities for extracting constants 

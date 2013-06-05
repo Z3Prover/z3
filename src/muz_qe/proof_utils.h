@@ -36,6 +36,12 @@ public:
     */
     static void permute_unit_resolution(proof_ref& pr);
 
+    /**
+       \brief Push instantiations created in hyper-resolutions up to leaves.
+       This produces a "ground" proof where leaves are annotated by instantiations.
+    */
+    static void push_instantiations_up(proof_ref& pr);
+
 };
 
 #endif

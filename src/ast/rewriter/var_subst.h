@@ -20,6 +20,7 @@ Notes:
 #define _VAR_SUBST_H_
 
 #include"rewriter.h"
+#include"used_vars.h"
 
 /**
    \brief Alias for var_shifter class.
@@ -53,6 +54,15 @@ public:
 /**
    \brief Eliminate the unused variables from \c q. Store the result in \c r.
 */
+class unused_vars_eliminator {
+    ast_manager& m;
+    var_subst    m_subst;
+    used_vars    m_used;
+public:
+    unused_vars_eliminator(ast_manager& m): m(m), m_subst(m) {}
+    void operator()(quantifier* q, expr_ref& r);
+};
+
 void elim_unused_vars(ast_manager & m, quantifier * q, expr_ref & r);
 
 /**
@@ -72,6 +82,8 @@ void instantiate(ast_manager & m, quantifier * q, expr * const * exprs, expr_ref
    Return the sorts of the free variables.
 */
 void get_free_vars(expr* e, ptr_vector<sort>& sorts);
+
+void get_free_vars(ast_mark& mark, ptr_vector<expr>& todo, expr* e, ptr_vector<sort>& sorts);
 
 #endif
 

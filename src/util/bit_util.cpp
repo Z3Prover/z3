@@ -19,6 +19,7 @@ Revision History:
 #include"bit_util.h"
 #include"util.h"
 #include"debug.h"
+#include <cstring>
 
 /**
    \brief (Debugging version) Return the position of the most significant (set) bit of a
@@ -67,7 +68,11 @@ unsigned msb_pos(unsigned v) {
 */
 unsigned nlz_core(unsigned x) {
     SASSERT(x != 0);
+#ifdef __GNUC__
+    return __builtin_clz(x);
+#else
     return 31 - msb_pos(x);
+#endif
 }
 
 /**
@@ -92,8 +97,15 @@ unsigned nlz(unsigned sz, unsigned const * data) {
 */
 unsigned ntz_core(unsigned x) {
     SASSERT(x != 0);
+#ifdef __GNUC__
+    return __builtin_ctz(x);
+#else
     float f = static_cast<float>(x & static_cast<unsigned>(-static_cast<int>(x)));
-    return (*reinterpret_cast<unsigned *>(&f) >> 23) - 0x7f;
+    unsigned u;
+    SASSERT(sizeof(u) == sizeof(f));
+    memcpy(&u, &f, sizeof(u));
+    return (u >> 23) - 0x7f;
+#endif
 }
 
 /**

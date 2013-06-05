@@ -50,8 +50,9 @@ namespace datalog {
         typedef hashtable<c_info, c_info_hash, default_eq<c_info> > in_progress_table;
         typedef svector<c_info> todo_stack;
 
-        context &			m_context;
-        ast_manager &       m_manager;
+        context &	    m_context;
+        ast_manager &       m;
+        rule_manager &      rm;
         rule_ref_vector     m_rules;
         bool                m_modified;
         todo_stack          m_todo;
@@ -71,13 +72,13 @@ namespace datalog {
         bool is_unbound_argument(rule * r, unsigned head_index);
         bool has_unbound_head_var(rule * r);
 
-        void detect_tasks(unsigned rule_index);
+        void detect_tasks(rule_set const& source, unsigned rule_index);
         void add_task(func_decl * pred, unsigned arg_index);
-        void try_compress(unsigned rule_index);
-        void add_decompression_rules(unsigned rule_index);
+        void try_compress(rule_set const& source, unsigned rule_index);
+        void add_decompression_rules(rule_set const& source, unsigned rule_index);
         void mk_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index, rule_ref& res);
-        void add_decompression_rule(rule * r, unsigned tail_index, unsigned arg_index);
-        void replace_by_decompression_rule(unsigned rule_index, unsigned tail_index, unsigned arg_index);
+        void add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index);
+        void replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index);
         void reset();
     public:
         mk_unbound_compressor(context & ctx);

@@ -660,8 +660,7 @@ namespace realclosure {
                 return; // interval was already saved.
             to_restore.push_back(v);
             inc_ref(v);
-	    void * mem = allocator().allocate(sizeof(mpbqi));
-            v->m_old_interval = new (mem) mpbqi();
+            v->m_old_interval = new (allocator()) mpbqi();
             set_interval(*(v->m_old_interval), v->m_interval);
         }
         void save_interval(value * v) {
@@ -1237,8 +1236,7 @@ namespace realclosure {
         }
 
         sign_condition * mk_sign_condition(unsigned qidx, int sign, sign_condition * prev_sc) {
-	    void * mem = allocator().allocate(sizeof(sign_condition));
-            return new (mem) sign_condition(qidx, sign, prev_sc);
+            return new (allocator()) sign_condition(qidx, sign, prev_sc);
         }
 
         /**
@@ -1246,7 +1244,7 @@ namespace realclosure {
            This method does not set the interval. It remains (-oo, oo)
         */
         rational_function_value * mk_rational_function_value_core(extension * ext, unsigned num_sz, value * const * num, unsigned den_sz, value * const * den) {
-            rational_function_value * r = alloc(rational_function_value, ext);
+            rational_function_value * r = new (allocator()) rational_function_value(ext);
             inc_ref(ext);
             set_p(r->num(), num_sz, num);
             if (ext->is_algebraic()) {
@@ -1283,7 +1281,7 @@ namespace realclosure {
         */
         void mk_infinitesimal(symbol const & n, symbol const & pp_n, numeral & r) {
             unsigned idx = next_infinitesimal_idx();
-            infinitesimal * eps = alloc(infinitesimal, idx, n, pp_n);
+            infinitesimal * eps = new (allocator()) infinitesimal(idx, n, pp_n);
             m_extensions[extension::INFINITESIMAL].push_back(eps);
 
             set_lower(eps->interval(), mpbq(0));
@@ -1335,7 +1333,7 @@ namespace realclosure {
 
         void mk_transcendental(symbol const & n, symbol const & pp_n, mk_interval & proc, numeral & r) {
             unsigned idx = next_transcendental_idx();
-            transcendental * t = alloc(transcendental, idx, n, pp_n, proc);
+            transcendental * t = new (allocator()) transcendental(idx, n, pp_n, proc);
             m_extensions[extension::TRANSCENDENTAL].push_back(t);
             
             while (contains_zero(t->interval())) {
@@ -1798,8 +1796,7 @@ namespace realclosure {
            M and scs will be empty after this operation.
         */
         sign_det * mk_sign_det(mpz_matrix & M_s, scoped_polynomial_seq const & prs, int_buffer const & taqrs, scoped_polynomial_seq const & qs, scoped_sign_conditions & scs) {
-	    void * mem = allocator().allocate(sizeof(sign_det));
-            sign_det * r = new (mem) sign_det();
+            sign_det * r = new (allocator()) sign_det();
             r->M_s.swap(M_s);
             set_array_p(r->m_prs, prs);
             r->m_taqrs.set(allocator(), taqrs.size(), taqrs.c_ptr());
@@ -1814,8 +1811,7 @@ namespace realclosure {
          */
         algebraic * mk_algebraic(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, sign_det * sd, unsigned sc_idx) {
             unsigned idx = next_algebraic_idx();
-	    void * mem = allocator().allocate(sizeof(algebraic));
-            algebraic * r = new (mem) algebraic(idx);
+            algebraic * r = new (allocator()) algebraic(idx);
             m_extensions[extension::ALGEBRAIC].push_back(r);
             
             set_p(r->m_p, p_sz, p);
@@ -2561,8 +2557,7 @@ namespace realclosure {
         }
 
         rational_value * mk_rational() {
-	    void * mem = allocator().allocate(sizeof(rational_value));
-            return new (mem) rational_value();
+            return new (allocator()) rational_value();
         }
 
         /**

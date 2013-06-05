@@ -27,6 +27,21 @@ public class Context extends IDisposable
 
     /**
      * Constructor.
+     * <remarks>
+     * The following parameters can be set:        
+     *     - proof  (Boolean)           Enable proof generation
+     *     - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+     *     - trace  (Boolean)           Tracing support for VCC
+     *     - trace_file_name (String)   Trace out file for VCC traces
+     *     - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+     *     - well_sorted_check          type checker
+     *     - auto_config                use heuristics to automatically select solver and configure it
+     *     - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+     *     - model_validate             validate models produced by solvers
+     *     - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
+     * Note that in previous versions of Z3, this constructor was also used to set global and 
+     * module parameters. For this purpose we should now use <see cref="Global.setParameter"/>
+     * </remarks>
      **/
     public Context(Map<String, String> settings) throws Z3Exception
     {

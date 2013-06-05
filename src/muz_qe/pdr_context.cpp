@@ -43,6 +43,7 @@ Notes:
 #include "ast_ll_pp.h"
 #include "proof_checker.h"
 #include "smt_value_sort.h"
+#include "proof_utils.h"
 
 namespace pdr {
 
@@ -275,7 +276,7 @@ namespace pdr {
                 src.pop_back();
             }
             else if (is_invariant(tgt_level, curr, false, assumes_level)) {
-                
+
                 add_property(curr, assumes_level?tgt_level:infty_level);
                 TRACE("pdr", tout << "is invariant: "<< pp_level(tgt_level) << " " << mk_pp(curr, m) << "\n";);              
                 src[i] = src.back();
@@ -596,7 +597,7 @@ namespace pdr {
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);
         rw(fml);
-        if (ctx.is_dl()) {
+        if (ctx.is_dl() || ctx.is_utvpi()) {
             hoist_non_bool_if(fml);
         }
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
@@ -1225,6 +1226,7 @@ namespace pdr {
           m_search(m_params.bfs_model_search()),
           m_last_result(l_undef),
           m_inductive_lvl(0),
+          m_expanded_lvl(0),
           m_cancel(false)
     {
     }
@@ -1285,7 +1287,7 @@ namespace pdr {
             obj_hashtable<func_decl>::iterator itf = deps.begin(), endf = deps.end();
             for (; itf != endf; ++itf) {
                 TRACE("pdr", tout << mk_pp(pred, m) << " " << mk_pp(*itf, m) << "\n";);
-                VERIFY (rels.find(*itf, pt_user));
+                pt_user = rels.find(*itf);
                 pt_user->add_use(pt);                
             }
         }      
@@ -1357,9 +1359,10 @@ namespace pdr {
         bool m_is_bool_arith;
         bool m_has_arith;
         bool m_is_dl;
+        bool m_is_utvpi;
     public:
         classifier_proc(ast_manager& m, datalog::rule_set& rules):
-            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false) {
+            m(m), a(m), m_is_bool(true), m_is_bool_arith(true), m_has_arith(false), m_is_dl(false), m_is_utvpi(false) {
             classify(rules);
         }
         void operator()(expr* e) {
@@ -1405,6 +1408,7 @@ namespace pdr {
 
         bool is_dl() const { return m_is_dl; }
 
+        bool is_utvpi() const { return m_is_utvpi; }
 
     private:
 
@@ -1425,6 +1429,7 @@ namespace pdr {
             mark.reset();
  
             m_is_dl = false;
+            m_is_utvpi = false;
             if (m_has_arith) {
                 ptr_vector<expr> forms;
                 for (it = rules.begin(); it != end; ++it) {  
@@ -1436,6 +1441,7 @@ namespace pdr {
                     }         
                 }
                 m_is_dl = is_difference_logic(m, forms.size(), forms.c_ptr());
+                m_is_utvpi = m_is_dl || is_utvpi_logic(m, forms.size(), forms.c_ptr());
             }
         }
 
@@ -1559,6 +1565,12 @@ namespace pdr {
                 m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                 m_fparams.m_arith_expand_eqs = true;
             }
+            else if (classify.is_utvpi() && m_params.use_utvpi()) {
+                IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
+                m_fparams.m_arith_mode = AS_UTVPI;
+                m_fparams.m_arith_expand_eqs = true;                
+            }
+
         }
         if (!use_mc && m_params.use_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
@@ -1680,6 +1692,9 @@ namespace pdr {
         proof = m_search.get_proof_trace(*this);
         TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
         apply(m, m_pc.get(), proof);
+        TRACE("pdr", tout << "PDR trace: " << mk_pp(proof, m) << "\n";);
+        // proof_utils::push_instantiations_up(proof);
+        // TRACE("pdr", tout << "PDR up: " << mk_pp(proof, m) << "\n";);
         return proof;
     }
 
@@ -1711,6 +1726,7 @@ namespace pdr {
         bool reachable;
         while (true) {
             checkpoint();
+            m_expanded_lvl = lvl;
             reachable = check_reachability(lvl);
             if (reachable) {
                 throw model_exception();
@@ -1769,6 +1785,10 @@ namespace pdr {
     void context::expand_node(model_node& n) {
         SASSERT(n.is_open());
         expr_ref_vector cube(m);
+        
+        if (n.level() < m_expanded_lvl) {
+            m_expanded_lvl = n.level();
+        }
 
         if (n.pt().is_reachable(n.state())) {
             TRACE("pdr", tout << "reachable\n";);
@@ -1835,7 +1855,7 @@ namespace pdr {
         if (m_params.simplify_formulas_pre()) {
             simplify_formulas();
         }
-        for (unsigned lvl = 0; lvl <= max_prop_lvl; lvl++) {
+        for (unsigned lvl = m_expanded_lvl; lvl <= max_prop_lvl; lvl++) {
             checkpoint();
             bool all_propagated = true;
             decl2rel::iterator it = m_rels.begin(), end = m_rels.end();

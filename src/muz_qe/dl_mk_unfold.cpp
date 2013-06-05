@@ -56,6 +56,7 @@ namespace datalog {
         for (; it != end; ++it) {
             expand_tail(**it, 0, source, *rules);
         }
+        rules->inherit_predicates(source);
         return rules;
     }
 

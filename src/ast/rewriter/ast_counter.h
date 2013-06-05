@@ -38,6 +38,7 @@ public:
     
     counter(bool stay_non_negative = true) : m_stay_non_negative(stay_non_negative) {}
     
+    void reset() { m_data.reset(); }
     iterator begin() const { return m_data.begin(); }
     iterator end() const { return m_data.end(); }    
     void update(unsigned el, int delta);
@@ -71,6 +72,7 @@ protected:
     ptr_vector<sort> m_sorts;
     expr_fast_mark1  m_visited;
     ptr_vector<expr> m_todo;
+    ast_mark         m_mark;
     unsigned_vector  m_scopes;
     unsigned get_max_var(bool & has_var);    
 public:

@@ -232,20 +232,20 @@ namespace datalog {
         fml = m.mk_implies(fml, r.get_head());
         TRACE("dl", r.display(m_ctx, tout); tout << mk_pp(fml, m) << "\n";);
         
-        rule_ref_vector added_rules(rm);
+        rule_set added_rules(m_ctx);
         proof_ref pr(m); 
         rm.mk_rule(fml, pr, added_rules);
         if (r.get_proof()) {
             // use def-axiom to encode that new rule is a weakening of the original.
             proof* p1 = r.get_proof();
-            for (unsigned i = 0; i < added_rules.size(); ++i) {
-                rule* r2 = added_rules[i].get();
+            for (unsigned i = 0; i < added_rules.get_num_rules(); ++i) {
+                rule* r2 = added_rules.get_rule(i);
                 r2->to_formula(fml);
                 pr = m.mk_modus_ponens(m.mk_def_axiom(m.mk_implies(m.get_fact(p1), fml)), p1);
                 r2->set_proof(m, pr);
             }
         }
-        rules.add_rules(added_rules.size(), added_rules.c_ptr());
+        rules.add_rules(added_rules);
     }
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
@@ -286,7 +286,10 @@ namespace datalog {
 
         // model convertion: identity function.
 
-        if (!instantiated) {
+        if (instantiated) {
+            result->inherit_predicates(source);
+        }
+        else {
             dealloc(result);
             result = 0;
         }

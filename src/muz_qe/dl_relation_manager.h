@@ -22,7 +22,6 @@ Revision History:
 
 #include"map.h"
 #include"vector.h"
-
 #include"dl_base.h"
 
 namespace datalog {
@@ -35,8 +34,8 @@ namespace datalog {
     class finite_product_relation_plugin;
     class sieve_relation;
     class sieve_relation_plugin;
+    class rule_set;
 
-    typedef hashtable<func_decl * , ptr_hash<func_decl>, ptr_eq<func_decl> > decl_set;
 
     class relation_manager {
         class empty_signature_relation_join_fn;
@@ -56,6 +55,7 @@ namespace datalog {
         class default_table_filter_equal_fn;
         class default_table_filter_identical_fn;
         class default_table_filter_interpreted_fn;
+        class default_table_filter_interpreted_and_project_fn;
         class default_table_negation_filter_fn;
         class default_table_filter_not_equal_fn;
         class default_table_select_equal_and_project_fn;
@@ -153,7 +153,6 @@ namespace datalog {
             }
         }
 
-        void collect_predicates(decl_set & res) const;
         void collect_non_empty_predicates(decl_set & res) const;
         void restrict_predicates(const decl_set & preds);
 
@@ -352,6 +351,9 @@ namespace datalog {
 
         relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
 
+        relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
+
         /**
             \brief Operations that returns all rows of \c t for which is column \c col equal to \c value
             with the column \c col removed.
@@ -524,6 +526,9 @@ namespace datalog {
 
         table_mutator_fn * mk_filter_interpreted_fn(const table_base & t, app * condition);
 
+        table_transformer_fn * mk_filter_interpreted_and_project_fn(const table_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
+
         /**
             \brief Operations that returns all rows of \c t for which is column \c col equal to \c value
             with the column \c col removed.
@@ -595,7 +600,7 @@ namespace datalog {
 
         void display(std::ostream & out) const;
         void display_relation_sizes(std::ostream & out) const;
-        void display_output_tables(std::ostream & out) const;
+        void display_output_tables(rule_set const& rules, std::ostream & out) const;
 
     private:
         relation_intersection_filter_fn * try_mk_default_filter_by_intersection_fn(const relation_base & t, 
@@ -607,7 +612,7 @@ namespace datalog {
     /**
        This is a helper class for relation_plugins whose relations can be of various kinds.
     */
-    template<class Spec, class Hash=int_vector_hash_proc<Spec>, class Eq=vector_eq_proc<Spec> >
+    template<class Spec, class Hash, class Eq=vector_eq_proc<Spec> >
     class rel_spec_store {
         typedef relation_signature::hash r_hash;
         typedef relation_signature::eq r_eq;
@@ -663,17 +668,15 @@ namespace datalog {
                 SASSERT(res_idx<m_allocated_kinds.size());
                 ids.insert(spec, res_idx);
 
-                family_id2spec * idspecs;
-                VERIFY( m_kind_specs.find(sig, idspecs) );
+                family_id2spec * idspecs = m_kind_specs.find(sig);
                 idspecs->insert(m_allocated_kinds[res_idx], spec);
             }
             return m_allocated_kinds[res_idx];
         }
 
         void get_relation_spec(const relation_signature & sig, family_id kind, Spec & spec) {
-            family_id2spec * idspecs;
-            VERIFY( m_kind_specs.find(sig, idspecs) );
-            VERIFY( idspecs->find(kind, spec) );
+            family_id2spec * idspecs = m_kind_specs.find(sig);
+            spec = idspecs->find(kind);
         }
 
     };

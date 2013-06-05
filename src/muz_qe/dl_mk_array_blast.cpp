@@ -145,7 +145,6 @@ namespace datalog {
         expr_ref_vector conjs(m), new_conjs(m);
         expr_ref tmp(m);
         expr_safe_replace sub(m);
-        uint_set lhs_vars, rhs_vars;
         bool change = false;
         bool inserted = false;
 
@@ -161,10 +160,8 @@ namespace datalog {
             
             if (is_store_def(e, x, y)) {
                 // enforce topological order consistency:
-                uint_set lhs;
-                collect_vars(m, x, lhs_vars);
-                collect_vars(m, y, rhs_vars);
-                lhs = lhs_vars;
+                uint_set lhs = rm.collect_vars(x);
+                uint_set rhs_vars = rm.collect_vars(y);
                 lhs &= rhs_vars;
                 if (!lhs.empty()) {
                     TRACE("dl", tout << "unusable equality " << mk_pp(e, m) << "\n";);
@@ -182,7 +179,6 @@ namespace datalog {
             }
         }
         
-        rule_ref_vector new_rules(rm);
         expr_ref fml1(m), fml2(m), body(m), head(m);
         r.to_formula(fml1);
         body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
@@ -199,12 +195,12 @@ namespace datalog {
 
         fml2 = m.mk_implies(body, head);
         proof_ref p(m);
+        rule_set new_rules(m_ctx);
         rm.mk_rule(fml2, p, new_rules, r.name());
-        SASSERT(new_rules.size() == 1);
 
-        TRACE("dl", new_rules[0]->display(m_ctx, tout << "new rule\n"););
+        TRACE("dl", new_rules.last()->display(m_ctx, tout << "new rule\n"););
         rule_ref new_rule(rm);
-        if (m_simplifier.transform_rule(new_rules[0].get(), new_rule)) {
+        if (m_simplifier.transform_rule(new_rules.last(), new_rule)) {
             rules.add_rule(new_rule.get());
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
         }
@@ -214,6 +210,7 @@ namespace datalog {
     rule_set * mk_array_blast::operator()(rule_set const & source) {
 
         rule_set* rules = alloc(rule_set, m_ctx);
+        rules->inherit_predicates(source);
         rule_set::iterator it = source.begin(), end = source.end();
         bool change = false;
         for (; !m_ctx.canceled() && it != end; ++it) {

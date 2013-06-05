@@ -113,6 +113,7 @@ public:
     heap(int s, const LT & lt = LT()):LT(lt) {
         m_values.push_back(-1);
         set_bounds(s);
+        CASSERT("heap", check_invariant());
     }
 
     bool empty() const { 
@@ -124,12 +125,14 @@ public:
     }
 
     void reset() {
+        CASSERT("heap", check_invariant());
         if (empty()) {
             return;
         }
         memset(m_value2indices.begin(), 0, sizeof(int) * m_value2indices.size());
         m_values.reset();
         m_values.push_back(-1);
+        CASSERT("heap", check_invariant());
     }
 
     void clear() { 
@@ -138,6 +141,7 @@ public:
 
     void set_bounds(int s) { 
         m_value2indices.resize(s, 0); 
+        CASSERT("heap", check_invariant());
     }
     
     unsigned get_bounds() const {
@@ -145,8 +149,10 @@ public:
     }
 
     void reserve(int s) {
+        CASSERT("heap", check_invariant());
         if (s > static_cast<int>(m_value2indices.size()))
             set_bounds(s);
+        CASSERT("heap", check_invariant());
     }
 
     int min_value() const {
@@ -155,6 +161,7 @@ public:
     }
 
     int erase_min() {
+        CASSERT("heap", check_invariant());
         SASSERT(!empty());
         SASSERT(m_values.size() >= 2);
         int result                  = m_values[1];
@@ -176,6 +183,7 @@ public:
     }
 
     void erase(int val) {
+        CASSERT("heap", check_invariant());
         SASSERT(contains(val));
         int idx      = m_value2indices[val];
         if (idx == static_cast<int>(m_values.size()) - 1) {
@@ -210,12 +218,14 @@ public:
     }
 
     void insert(int val) {
+        CASSERT("heap", check_invariant());
         SASSERT(is_valid_value(val));
         int idx              = static_cast<int>(m_values.size());
         m_value2indices[val] = idx;
         m_values.push_back(val);
         SASSERT(idx == static_cast<int>(m_values.size()) - 1);
         move_up(idx);
+        CASSERT("heap", check_invariant());
     }
 
     iterator begin() { 
@@ -235,8 +245,14 @@ public:
     }
 
     void swap(heap & other) {
-        m_values.swap(other.m_values);
-        m_value2indices.swap(other.m_value2indices);
+        if (this != &other) {
+            CASSERT("heap", other.check_invariant());
+            CASSERT("heap", check_invariant());
+            m_values.swap(other.m_values);
+            m_value2indices.swap(other.m_value2indices);
+            CASSERT("heap", other.check_invariant());
+            CASSERT("heap", check_invariant());
+        }
     }
 
     /**

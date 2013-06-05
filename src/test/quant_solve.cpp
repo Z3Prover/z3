@@ -28,6 +28,7 @@ static void validate_quant_solution(ast_manager& m, expr* fml, expr* guard, qe::
     (*rep)(fml1);
     expr_ref tmp(m);
     tmp = m.mk_not(m.mk_implies(guard, fml1));
+    std::cout << "validating: " << mk_pp(tmp, m) << "\n";
     smt_params fp;
     smt::kernel solver(m, fp);
     solver.assert_expr(tmp);
@@ -174,11 +175,11 @@ static void test_quant_solve1() {
     app* xy[2] = { x, y };
 
 
+    test_quant_solver(m, x, "(and (<= (* 2 x) y) (>= x z) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (<= x y) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (<= (* 2 x) y) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (>= x y) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (>= (* 2 x) y) (= (mod x 2) 0))");
-    test_quant_solver(m, x, "(and (<= (* 2 x) y) (>= x z) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(and (<= (* 2 x) y) (>= (* 3 x) z) (= (mod x 2) 0))");
     test_quant_solver(m, x, "(>= (* 2 x) a)");
     test_quant_solver(m, x, "(<= (* 2 x) a)");
@@ -242,6 +243,7 @@ static void test_quant_solve1() {
 
 
 void tst_quant_solve() {
+    disable_debug("heap");
 
     test_quant_solve1();   
 

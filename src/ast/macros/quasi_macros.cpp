@@ -22,10 +22,9 @@ Revision History:
 #include"uint_set.h"
 #include"var_subst.h"
 
-quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm, basic_simplifier_plugin & p, simplifier & s) :
+quasi_macros::quasi_macros(ast_manager & m, macro_manager & mm, simplifier & s) :
   m_manager(m),
   m_macro_manager(mm),
-  m_bsimp(p), 
   m_simplifier(s),
   m_new_vars(m),
   m_new_eqs(m),

@@ -83,7 +83,7 @@ namespace datalog {
 
         expr_ref_vector get_tail_conjs(rule const& r);
 
-        void declare_predicates();
+        void declare_predicates(rule_set const& src, rule_set& dst);
          
         bool rule_updated(rule const& r);
 

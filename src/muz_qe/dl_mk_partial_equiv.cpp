@@ -23,7 +23,7 @@ Revision History:
 namespace datalog {
 
     bool mk_partial_equivalence_transformer::is_symmetry(rule const* r) {
-        func_decl* p = r->get_head()->get_decl();
+        func_decl* p = r->get_decl();
         return 
             p->get_arity() == 2 &&
             p->get_domain(0) == p->get_domain(1) &&
@@ -38,7 +38,7 @@ namespace datalog {
 
 
     bool mk_partial_equivalence_transformer::is_transitivity(rule const* r) {
-        func_decl* p = r->get_head()->get_decl();
+        func_decl* p = r->get_decl();
         if (p->get_arity() != 2 ||
             p->get_domain(0) != p->get_domain(1) ||
             r->get_tail_size() != 2 ||
@@ -144,6 +144,7 @@ namespace datalog {
             dealloc(res);
             return 0;
         }
+        res->inherit_predicates(source);
 
         return res;
     }

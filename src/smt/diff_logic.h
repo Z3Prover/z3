@@ -21,8 +21,10 @@ Revision History:
 
 #include"vector.h"
 #include"heap.h"
+#include"statistics.h"
 #include"trace.h"
 #include"warning.h"
+#include"uint_set.h"
 
 typedef int dl_var;
 
@@ -118,7 +120,7 @@ const edge_id null_edge_id = -1;
 
 template<typename Ext>
 class dl_graph {
-    struct statistics {
+    struct stats {
         unsigned m_propagation_cost;
         unsigned m_implied_literal_cost;
         unsigned m_num_implied_literals;
@@ -131,16 +133,16 @@ class dl_graph {
             m_num_helpful_implied_literals = 0;
             m_num_relax = 0;
         }
-        statistics() { reset(); }
-        void display(std::ostream& out) const {
-            out << "num. prop. steps.     " << m_propagation_cost << "\n";
-            out << "num. impl. steps.     " << m_implied_literal_cost << "\n";
-            out << "num. impl. lits.      " << m_num_implied_literals << "\n";
-            out << "num. impl. conf lits. " << m_num_helpful_implied_literals << "\n";
-            out << "num. bound relax.     " << m_num_relax << "\n";
+        stats() { reset(); }
+        void collect_statistics(::statistics& st) const {
+            st.update("dl prop steps", m_propagation_cost);
+            st.update("dl impl steps", m_implied_literal_cost);
+            st.update("dl impl lits",  m_num_implied_literals);
+            st.update("dl impl conf lits", m_num_helpful_implied_literals);
+            st.update("dl bound relax", m_num_relax);
         }
     };
-    statistics m_stats;
+    stats m_stats;
     typedef typename Ext::numeral     numeral;
     typedef typename Ext::explanation explanation;
     typedef vector<numeral> assignment;
@@ -264,7 +266,6 @@ class dl_graph {
             m_assignment[e.get_target()] - m_assignment[e.get_source()] <= e.get_weight();
     }
 
-
 public:
     // An assignment is feasible if all edges are feasible.
     bool is_feasible() const {
@@ -306,14 +307,6 @@ private:
         return true;
     }
 
-    // Update the assignment of variable v, that is,
-    // m_assignment[v] += inc
-    // This method also stores the old value of v in the assignment stack.
-    void acc_assignment(dl_var v, const numeral & inc) {
-        TRACE("diff_logic_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
-        m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
-        m_assignment[v] += inc;
-    }
 
     // Restore the assignment using the information in m_assignment_stack.
     // This method is called when make_feasible fails.
@@ -472,8 +465,9 @@ public:
         m_bw(m_mark) {
     }
 
-    void display_statistics(std::ostream& out) const {
-        m_stats.display(out);
+
+    void collect_statistics(::statistics& st) const {
+        m_stats.collect_statistics(st);
     }
 
     // Create/Initialize a variable with the given id.
@@ -655,10 +649,8 @@ public:
             throw default_exception("edges are not inconsistent");
         }
        
-#if 1
-        // experimental feature:
+        // allow theory to introduce shortcut lemmas.
         prune_edges(edges, f);
-#endif
 
         for (unsigned i = 0; i < edges.size(); ++i) {
             edge const& e = m_edges[edges[i]];
@@ -752,7 +744,6 @@ public:
         f.new_edge(src, dst, idx2-idx1+1, edges.begin()+idx1);
     }
 
-
     // Create a new scope.
     // That is, save the number of edges in the graph.
     void push() {
@@ -829,6 +820,16 @@ public:
         }
     }
 
+    // Update the assignment of variable v, that is,
+    // m_assignment[v] += inc
+    // This method also stores the old value of v in the assignment stack.
+    void acc_assignment(dl_var v, const numeral & inc) {
+        TRACE("diff_logic_bug", tout << "update v: " << v << " += " << inc << " m_assignment[v] " << m_assignment[v] << "\n";);
+        m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
+        m_assignment[v] += inc;
+    }
+
+
     struct every_var_proc {
         bool operator()(dl_var v) const {
             return true;
@@ -837,6 +838,36 @@ public:
 
     void display(std::ostream & out) const {
         display_core(out, every_var_proc());
+    }
+
+    void display_agl(std::ostream & out) const {
+        uint_set vars;
+        typename edges::const_iterator it  = m_edges.begin();
+        typename edges::const_iterator end = m_edges.end();
+        for (; it != end; ++it) {
+            edge const& e = *it;
+            if (e.is_enabled()) {
+                vars.insert(e.get_source());
+                vars.insert(e.get_target());
+            }
+        }
+        out << "digraph "" {\n";
+        
+        unsigned n = m_assignment.size();
+        for (unsigned v = 0; v < n; v++) {
+            if (vars.contains(v)) {
+                out << "\"" << v << "\" [label=\"" << v << ":" << m_assignment[v] << "\"]\n";
+            }
+        }
+        it = m_edges.begin();
+        for (; it != end; ++it) {
+            edge const& e = *it;
+            if (e.is_enabled()) {
+                out << "\"" << e.get_source() << "\"->\"" << e.get_target() << "\"[label=\"" << e.get_weight() << "\"]\n";
+            }
+        }
+
+        out << "}\n";
     }
 
     template<typename FilterAssignmentProc>
@@ -999,6 +1030,38 @@ public:
                 m_next_scc_id++;
             }
             m_roots.pop_back();
+        }
+    }
+
+    void compute_zero_succ(dl_var v, int_vector& succ) {
+        unsigned n = m_assignment.size();
+        m_dfs_time.reset();
+        m_dfs_time.resize(n, -1);
+        m_dfs_time[v] = 0;
+        succ.push_back(v);
+        numeral gamma;
+        for (unsigned i = 0; i < succ.size(); ++i) {
+            v = succ[i];
+            edge_id_vector & edges = m_out_edges[v];
+            typename edge_id_vector::iterator it  = edges.begin();
+            typename edge_id_vector::iterator end = edges.end();
+            for (; it != end; ++it) {
+                edge_id e_id = *it;
+                edge & e     = m_edges[e_id];
+                if (!e.is_enabled()) {
+                    continue;
+                }
+                SASSERT(e.get_source() == v);
+                set_gamma(e, gamma);
+                if (gamma.is_zero()) {
+                    dl_var target = e.get_target();
+                    if (m_dfs_time[target] == -1) {
+                        succ.push_back(target);
+                        m_dfs_time[target] = 0;
+                    }
+                }
+            }
+
         }
     }
 
@@ -1643,7 +1706,3 @@ public:
 
 #endif /* _DIFF_LOGIC_H_ */
 
-#if 0
-
-
-#endif

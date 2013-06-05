@@ -45,6 +45,9 @@ Revision History:
 #include"model2expr.h"
 #include"smt_params.h"
 #include"dl_rule_transformer.h"
+#include"expr_abstract.h"
+#include"expr_functors.h"
+#include"clp_context.h"
 
 namespace datalog {
 
@@ -76,6 +79,18 @@ namespace datalog {
         typedef obj_map<const func_decl, svector<symbol> > pred2syms;
         typedef obj_map<const sort, sort_domain*> sort_domain_map;
 
+        class contains_pred : public i_expr_pred {
+            context const& ctx;
+        public:
+            contains_pred(context& ctx): ctx(ctx) {}
+            virtual ~contains_pred() {}
+            
+            virtual bool operator()(expr* e) {
+                return ctx.is_predicate(e);
+            }
+        };
+
+
         ast_manager &      m;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
@@ -84,16 +99,22 @@ namespace datalog {
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
         rule_manager       m_rule_manager;
+        unused_vars_eliminator m_elim_unused_vars;
+        expr_abstractor        m_abstractor;
+        contains_pred      m_contains_p;
+        check_pred         m_check_pred;
         rule_transformer   m_transf;
         trail_stack<context> m_trail;
         ast_ref_vector     m_pinned;
         app_ref_vector     m_vars;
+        svector<symbol>    m_names;
         sort_domain_map    m_sorts;
         func_decl_set      m_preds;
         sym2decl           m_preds_by_name;
         pred2syms          m_argument_var_names;
         rule_set           m_rule_set;
         rule_set           m_transformed_rule_set;
+        unsigned           m_rule_fmls_head;
         expr_ref_vector    m_rule_fmls;
         svector<symbol>    m_rule_names;
         expr_ref_vector    m_background;
@@ -104,6 +125,7 @@ namespace datalog {
         scoped_ptr<bmc>                 m_bmc;
         scoped_ptr<rel_context>         m_rel;
         scoped_ptr<tab>                 m_tab;
+        scoped_ptr<clp>                 m_clp;
 
         bool               m_closed;
         bool               m_saturation_was_run;
@@ -185,7 +207,17 @@ namespace datalog {
          */
         void register_predicate(func_decl * pred, bool named);
 
-        bool is_predicate(func_decl * pred) const;
+        /**
+           Restrict reltaions to set of predicates.
+         */
+        void restrict_predicates(func_decl_set const& preds);
+
+        /**
+           \brief Retrieve predicates
+        */
+        func_decl_set const& get_predicates() const { return m_preds; }
+        bool is_predicate(func_decl* pred) const { return m_preds.contains(pred); }
+        bool is_predicate(expr * e) const { return is_app(e) && is_predicate(to_app(e)->get_decl()); }
 
         /**
            \brief If a predicate name has a \c func_decl object assigned, return pointer to it;
@@ -238,11 +270,9 @@ namespace datalog {
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
             symbol const *  relation_names);
 
-        void set_output_predicate(func_decl * pred);
-        bool is_output_predicate(func_decl * pred);
-        const decl_set & get_output_predicates();
+        void set_output_predicate(func_decl * pred) { m_rule_set.set_output_predicate(pred); }
 
-        rule_set const & get_rules() { flush_add_rules(); return m_rule_set; }
+        rule_set & get_rules() { flush_add_rules(); return m_rule_set; }
 
         void get_rules_as_formulas(expr_ref_vector& fmls, svector<symbol>& names);
 
@@ -252,7 +282,6 @@ namespace datalog {
         bool has_facts(func_decl * pred) const;
         
         void add_rule(rule_ref& r);
-        void add_rules(rule_ref_vector& rs);
         
         void assert_expr(expr* e);
         expr_ref get_background_assertion();
@@ -330,7 +359,8 @@ namespace datalog {
 
         void transform_rules(); 
         void transform_rules(rule_transformer& transf); 
-        void replace_rules(rule_set & rs);
+        void transform_rules(rule_transformer::plugin* plugin);
+        void replace_rules(rule_set const& rs);
         void record_transformed_rules();
 
         void apply_default_transformation(); 
@@ -338,14 +368,6 @@ namespace datalog {
         void collect_params(param_descrs& r);
         
         void updt_params(params_ref const& p);
-
-        void collect_predicates(decl_set & res);
-        /**
-           \brief Restrict the set of used predicates to \c res.
-
-           The function deallocates unsused relations, it does not deal with rules.
-         */
-        void restrict_predicates(const decl_set & res);
 
         void display_rules(std::ostream & out) const {
             m_rule_set.display(out);
@@ -457,9 +479,9 @@ namespace datalog {
 
         void ensure_tab();
 
-        void ensure_rel();
+        void ensure_clp();
 
-        void new_query();
+        void ensure_rel();
 
         lbool rel_query(expr* query);
 
@@ -468,6 +490,8 @@ namespace datalog {
         lbool bmc_query(expr* query);
 
         lbool tab_query(expr* query);
+
+        lbool clp_query(expr* query);
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);

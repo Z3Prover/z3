@@ -132,7 +132,7 @@ namespace pdr {
             for_each_expr(collect_decls, m_relation_info[i].m_body);
         }
         for (unsigned i = 0; i < rules.size(); ++i) {
-            bound_decls.insert(rules[i]->get_head()->get_decl());
+            bound_decls.insert(rules[i]->get_decl());
         }
         for (unsigned i = 0; i < rules.size(); ++i) {
             unsigned u_sz = rules[i]->get_uninterpreted_tail_size();

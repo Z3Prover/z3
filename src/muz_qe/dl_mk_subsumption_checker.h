@@ -64,8 +64,8 @@ namespace datalog {
         /** Function to be called when a new total relation is discovered */
         void on_discovered_total_relation(func_decl * pred, rule * r);
 
-        void scan_for_total_rules(const rule_set & rules);
-        void scan_for_relations_total_due_to_facts();
+        void scan_for_total_rules(rule_set const& rules);
+        void scan_for_relations_total_due_to_facts(rule_set const& rules);
 
         void collect_ground_unconditional_rule_heads(const rule_set & rules);
 

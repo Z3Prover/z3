@@ -55,8 +55,13 @@ namespace datalog {
         rule_manager&   rm;
         context         m_inner_ctx;
         arith_util      a;
-        void update_body(rel_context& rctx, rule_set& result, rule& r);
+        obj_map<func_decl, expr*>      m_fun2inv;
+        ast_ref_vector m_pinned;
 
+        void get_invariants(rule_set const& src);
+
+        void update_body(rule_set& result, rule& r);
+        rule_set* update_rules(rule_set const& src);
     public:
         mk_karr_invariants(context & ctx, unsigned priority);
 
@@ -89,12 +94,7 @@ namespace datalog {
         {}            
         
         virtual bool can_handle_signature(const relation_signature & sig) {
-            for (unsigned i = 0; i < sig.size(); ++i) {
-                if (a.is_int(sig[i])) {
-                    return true;
-                }
-            }
-            return false;
+            return true;
         }
 
         static symbol get_name() { return symbol("karr_relation"); }

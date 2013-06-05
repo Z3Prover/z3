@@ -35,7 +35,7 @@ namespace datalog {
 
     rule_set * mk_coi_filter::operator()(rule_set const & source)
     {
-        if (source.get_num_rules()==0) {
+        if (source.empty()) {
             return 0;
         }
 
@@ -43,7 +43,7 @@ namespace datalog {
         decl_set pruned_preds;
         ptr_vector<func_decl> todo;
         {
-            const decl_set& output_preds = m_context.get_output_predicates();
+            const decl_set& output_preds = source.get_output_predicates();
             decl_set::iterator oend = output_preds.end();
             for (decl_set::iterator it = output_preds.begin(); it!=oend; ++it) {
                 todo.push_back(*it);
@@ -70,6 +70,7 @@ namespace datalog {
         }
 
         scoped_ptr<rule_set> res = alloc(rule_set, m_context);
+        res->inherit_predicates(source);
 
         rule_set::iterator rend = source.end();
         for (rule_set::iterator rit = source.begin(); rit!=rend; ++rit) {

@@ -67,7 +67,7 @@ class quasi_macros_tactic : public tactic {
             simp.register_plugin(bvsimp);
                 
             macro_manager mm(m_manager, simp);
-            quasi_macros qm(m_manager, mm, *bsimp, simp);
+            quasi_macros qm(m_manager, mm, simp);
             bool more = true;
         
             expr_ref_vector forms(m_manager), new_forms(m_manager);

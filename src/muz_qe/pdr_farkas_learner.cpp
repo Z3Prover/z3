@@ -216,6 +216,9 @@ namespace pdr {
             }            
             res = m.mk_not(res);
             th_rewriter rw(m);
+            params_ref params;
+            params.set_bool("gcd_rounding", true);
+            rw.updt_params(params);
             proof_ref pr(m);
             expr_ref tmp(m);
             rw(res, tmp, pr);
@@ -418,11 +421,10 @@ namespace pdr {
 
     class farkas_learner::constant_replacer_cfg : public default_rewriter_cfg
     {
-        ast_manager& m;
         const obj_map<expr, expr *>& m_translation;
     public:
-        constant_replacer_cfg(ast_manager& m, const obj_map<expr, expr *>& translation)
-            : m(m), m_translation(translation)
+        constant_replacer_cfg(const obj_map<expr, expr *>& translation)
+            : m_translation(translation)
         { }
 
         bool get_subst(expr * s, expr * & t, proof * & t_pr) {

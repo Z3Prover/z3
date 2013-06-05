@@ -47,6 +47,11 @@ namespace datalog {
             AD_BOUND
         };
 
+        struct a_flag_hash {
+            typedef a_flag data;
+            unsigned operator()(a_flag x) const { return x; }
+        };
+
         struct adornment : public svector<a_flag> {
 
             void populate(app * lit, const var_idx_set & bound_vars);
@@ -71,7 +76,7 @@ namespace datalog {
                 return m_pred==o.m_pred && m_adornment==o.m_adornment;
             }
             unsigned hash() const {
-                return m_pred->hash()^int_vector_hash(m_adornment);
+                return m_pred->hash()^svector_hash<a_flag_hash>()(m_adornment);
             }
         };
 
@@ -88,21 +93,21 @@ namespace datalog {
         typedef obj_map<func_decl, adornment> pred_adornment_map;
         typedef obj_map<func_decl, func_decl *> pred2pred;
 
-        context &			m_context;
-        ast_manager &       m_manager;
-        rule_ref_vector     m_rules;
-        ast_ref_vector      m_pinned;
-        rule_ref            m_goal_rule;
+        context &	       m_context;
+        ast_manager &          m;
+        rule_manager&          rm;
+        ast_ref_vector         m_pinned;
         /**
            \brief Predicates from the original set that appear in a head of a rule
          */
-        func_decl_set       m_extentional;
+        func_decl_set          m_extentional;
 
         //adornment_set m_processed;
         vector<adornment_desc> m_todo;
-        adornment_map m_adorned_preds;
-        pred_adornment_map m_adornments;
-        pred2pred m_magic_preds;
+        adornment_map          m_adorned_preds;
+        pred_adornment_map     m_adornments;
+        pred2pred              m_magic_preds;
+        func_decl_ref          m_goal;
         
         void reset();
 
@@ -110,16 +115,16 @@ namespace datalog {
 
         int pop_bound(unsigned_vector & cont, rule * r, const var_idx_set & bound_vars);
         app * create_magic_literal(app * l);
-        void create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated);
+        void create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated, rule_set& result);
         app * adorn_literal(app * lit, const var_idx_set & bound_vars);
-        void transform_rule(const adornment & head_adornment,  rule * r);
-        void create_transfer_rule(const adornment_desc & d);
+        void transform_rule(const adornment & head_adornment,  rule * r, rule_set& result);
+        void create_transfer_rule(const adornment_desc & d, rule_set& result);
     public:
         /**
            \brief Create magic sets rule transformer for \c goal_rule. When applying the transformer,
            the \c goal_rule must be present in the \c rule_set that is being transformed.
          */
-        mk_magic_sets(context & ctx, rule * goal_rule);
+        mk_magic_sets(context & ctx, func_decl* goal);
         
         rule_set * operator()(rule_set const & source);
     };

@@ -41,7 +41,7 @@ namespace datalog {
         typedef hashtable<unsigned, u_hash, u_eq> int_set;
         typedef u_map<unsigned> int2int;
         typedef u_map<unsigned_vector> int2ints;
-        typedef map<func_decl *, reg_idx, ptr_hash<func_decl>,ptr_eq<func_decl> > pred2idx;
+        typedef obj_map<func_decl, reg_idx> pred2idx;
         typedef unsigned_vector var_vector;
         typedef ptr_vector<func_decl> func_decl_vector;
 
@@ -114,6 +114,8 @@ namespace datalog {
         reg_idx m_new_reg;
         vector<relation_signature> m_reg_signatures;
         obj_pair_map<sort, app, reg_idx> m_constant_registers;
+        obj_pair_map<sort, decl, reg_idx> m_total_registers;
+        obj_map<decl, reg_idx> m_empty_tables_registers;
         instruction_observer m_instruction_observer;
 
         /**
@@ -143,6 +145,8 @@ namespace datalog {
             instruction_block & acc);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
+        void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
+            const unsigned_vector & removed_cols, reg_idx & result, instruction_block & acc);
         void make_select_equal_and_project(reg_idx src, const relation_element & val, unsigned col,
             reg_idx & result, instruction_block & acc);
         /**
@@ -163,20 +167,20 @@ namespace datalog {
            with empty signature.
         */
         void make_assembling_code(rule* compiled_rule, func_decl* head_pred, reg_idx src, const svector<assembling_column_info> & acis0,
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool & dealloc, instruction_block & acc);
 
         void make_dealloc_non_void(reg_idx r, instruction_block & acc);
 
         void make_add_constant_column(func_decl* pred, reg_idx src, const relation_sort & s, const relation_element & val,
-            reg_idx & result, instruction_block & acc);
+            reg_idx & result, bool & dealloc, instruction_block & acc);
 
         void make_add_unbound_column(rule* compiled_rule, unsigned col_idx, func_decl* pred, reg_idx src, const relation_sort & s, reg_idx & result, 
-            instruction_block & acc);
+            bool & dealloc, instruction_block & acc);
         void make_full_relation(func_decl* pred, const relation_signature & sig, reg_idx & result, 
             instruction_block & acc);
 
-        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, ptr_vector<expr>& single_res_expr,
-                                              instruction_block& acc);
+        void add_unbound_columns_for_negation(rule* compiled_rule, func_decl* pred, reg_idx& single_res, expr_ref_vector& single_res_expr,
+                                              bool & dealloc, instruction_block& acc);
         
         void make_duplicate_column(reg_idx src, unsigned col, reg_idx & result, instruction_block & acc);
         
@@ -207,6 +211,12 @@ namespace datalog {
            The rules are evaluated in the order their heads appear in the \c head_preds vector.
          */
         void compile_preds(const func_decl_vector & head_preds, const func_decl_set & widened_preds,
+            const pred2idx * input_deltas, const pred2idx & output_deltas, instruction_block & acc);
+
+        /**
+           \brief Generate code to evaluate predicates in a stratum based on their non-recursive rules.
+         */
+        void compile_preds_init(const func_decl_vector & head_preds, const func_decl_set & widened_preds,
             const pred2idx * input_deltas, const pred2idx & output_deltas, instruction_block & acc);
 
         void make_inloop_delta_transition(const pred2idx & global_head_deltas, 

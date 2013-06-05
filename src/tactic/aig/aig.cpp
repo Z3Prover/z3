@@ -869,11 +869,7 @@ struct aig_manager::imp {
 
         void mk_ite(aig * n) {
             aig_lit c, t, e;
-#ifdef Z3DEBUG
-            bool ok =
-#endif
-            m.is_ite(n, c, t, e);
-            SASSERT(ok);
+            VERIFY(m.is_ite(n, c, t, e));
             if (c.is_inverted()) {
                 c.invert();
                 std::swap(t, e);

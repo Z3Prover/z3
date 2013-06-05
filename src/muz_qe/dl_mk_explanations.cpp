@@ -80,8 +80,8 @@ namespace datalog {
 
         virtual bool can_handle_signature(const relation_signature & s) {
             unsigned n=s.size();
-            for(unsigned i=0; i<n; i++) {
-                if(!get_context().get_decl_util().is_rule_sort(s[i])) {
+            for (unsigned i=0; i<n; i++) {
+                if (!get_context().get_decl_util().is_rule_sort(s[i])) {
                     return false;
                 }
             }
@@ -142,7 +142,7 @@ namespace datalog {
                     
             DEBUG_CODE(
                 unsigned sz = s.size();
-                for(unsigned i=0;i<sz; i++) {
+                for (unsigned i=0;i<sz; i++) {
                     SASSERT( p.get_context().get_decl_util().is_rule_sort(s[i]) );
                 }
                 );
@@ -162,13 +162,13 @@ namespace datalog {
             m_data.resize(get_signature().size());
         }
         void unite_with_data(const relation_fact & f) {
-            if(empty()) {
+            if (empty()) {
                 assign_data(f);
                 return;
             }
             unsigned n=get_signature().size();
             SASSERT(f.size()==n);
-            for(unsigned i=0; i<n; i++) {
+            for (unsigned i=0; i<n; i++) {
                 SASSERT(!is_undefined(i));
                 m_data[i] = get_plugin().mk_union(m_data[i], f[i]);
             }
@@ -193,12 +193,12 @@ namespace datalog {
             return m_data[col_idx]==0;
         }
         bool no_undefined() const {
-            if(empty()) {
+            if (empty()) {
                 return true;
             }
             unsigned n = get_signature().size();
-            for(unsigned i=0; i<n; i++) {
-                if(is_undefined(i)) {
+            for (unsigned i=0; i<n; i++) {
+                if (is_undefined(i)) {
                     return false;
                 }
             }
@@ -231,14 +231,14 @@ namespace datalog {
 
         virtual relation_base * complement(func_decl* pred) const {
             explanation_relation * res = static_cast<explanation_relation *>(get_plugin().mk_empty(get_signature()));
-            if(empty()) {
+            if (empty()) {
                 res->set_undefined();
             }
             return res;
         }
 
         void display_explanation(app * expl, std::ostream & out) const {
-            if(expl) {
+            if (expl) {
                 //TODO: some nice explanation output
                 ast_smt_pp pp(get_plugin().get_ast_manager());
                 pp.display_expr_smt2(out, expl);
@@ -249,13 +249,13 @@ namespace datalog {
         }
 
         virtual void display(std::ostream & out) const {
-            if(empty()) {
+            if (empty()) {
                 out << "<empty explanation relation>\n";
                 return;
             }
             unsigned sz = get_signature().size();
-            for(unsigned i=0; i<sz; i++) {
-                if(i!=0) {
+            for (unsigned i=0; i<sz; i++) {
+                if (i!=0) {
                     out << ", ";
                 }
                 display_explanation(m_data[0], out);
@@ -305,7 +305,7 @@ namespace datalog {
             explanation_relation_plugin & plugin = r1.get_plugin();
 
             explanation_relation * res = static_cast<explanation_relation *>(plugin.mk_empty(get_result_signature()));
-            if(!r1.empty() && !r2.empty()) {
+            if (!r1.empty() && !r2.empty()) {
                 res->m_empty = false;
                 SASSERT(res->m_data.empty());
                 res->m_data.append(r1.m_data);
@@ -317,10 +317,10 @@ namespace datalog {
 
     relation_join_fn * explanation_relation_plugin::mk_join_fn(const relation_base & r1, const relation_base & r2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
-        if(&r1.get_plugin()!=this || &r2.get_plugin()!=this) {
+        if (&r1.get_plugin()!=this || &r2.get_plugin()!=this) {
             return 0;
         }
-        if(col_cnt!=0) {
+        if (col_cnt!=0) {
             return 0;
         }
         return alloc(join_fn, r1.get_signature(), r2.get_signature());
@@ -337,7 +337,7 @@ namespace datalog {
             explanation_relation_plugin & plugin = r.get_plugin();
 
             explanation_relation * res = static_cast<explanation_relation *>(plugin.mk_empty(get_result_signature()));
-            if(!r.empty()) {
+            if (!r.empty()) {
                 relation_fact proj_data = r.m_data;
                 project_out_vector_columns(proj_data, m_removed_cols);
                 res->assign_data(proj_data);
@@ -348,7 +348,7 @@ namespace datalog {
 
     relation_transformer_fn * explanation_relation_plugin::mk_project_fn(const relation_base & r, unsigned col_cnt, 
             const unsigned * removed_cols) {
-        if(&r.get_plugin()!=this) {
+        if (&r.get_plugin()!=this) {
             return 0;
         }
         return alloc(project_fn, r.get_signature(), col_cnt, removed_cols);
@@ -365,7 +365,7 @@ namespace datalog {
             explanation_relation_plugin & plugin = r.get_plugin();
 
             explanation_relation * res = static_cast<explanation_relation *>(plugin.mk_empty(get_result_signature()));
-            if(!r.empty()) {
+            if (!r.empty()) {
                 relation_fact permutated_data = r.m_data;
                 permutate_by_cycle(permutated_data, m_cycle);
                 res->assign_data(permutated_data);
@@ -389,16 +389,16 @@ namespace datalog {
             explanation_relation * delta = delta0 ? static_cast<explanation_relation *>(delta0) : 0;
             explanation_relation_plugin & plugin = tgt.get_plugin();
 
-            if(!src.no_undefined() || !tgt.no_undefined() || (delta && !delta->no_undefined())) {
+            if (!src.no_undefined() || !tgt.no_undefined() || (delta && !delta->no_undefined())) {
                 UNREACHABLE();
             }
-            if(src.empty()) {
+            if (src.empty()) {
                 return;
             }
-            if(plugin.m_relation_level_explanations) {
+            if (plugin.m_relation_level_explanations) {
                 tgt.unite_with_data(src.m_data);
-                if(delta) {
-                    if(!m_delta_union_fun) {
+                if (delta) {
+                    if (!m_delta_union_fun) {
                         m_delta_union_fun = plugin.get_manager().mk_union_fn(*delta, src);
                         SASSERT(m_delta_union_fun);
                     }
@@ -406,9 +406,9 @@ namespace datalog {
                 }
             }
             else {
-                if(tgt.empty()) {
+                if (tgt.empty()) {
                     tgt.assign_data(src.m_data);
-                    if(delta && delta->empty()) {
+                    if (delta && delta->empty()) {
                         delta->assign_data(src.m_data);
                     }
                 }
@@ -423,11 +423,11 @@ namespace datalog {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);
             explanation_relation * delta = delta0 ? static_cast<explanation_relation *>(delta0) : 0;
 
-            if(src.empty()) {
+            if (src.empty()) {
                 return;
             }
             tgt.set_undefined();
-            if(delta) {
+            if (delta) {
                 delta->set_undefined();
             }
         }
@@ -435,10 +435,10 @@ namespace datalog {
 
     relation_union_fn * explanation_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src, 
             const relation_base * delta) {
-        if(!check_kind(tgt) || (delta && !check_kind(*delta))) {
+        if (!check_kind(tgt) || (delta && !check_kind(*delta))) {
             return 0;
         }
-        if(!check_kind(src)) {
+        if (!check_kind(src)) {
             //this is to handle the product relation
             return alloc(foreign_union_fn);
         }
@@ -460,7 +460,7 @@ namespace datalog {
         virtual void operator()(relation_base & r0) {
             explanation_relation & r = static_cast<explanation_relation &>(r0);
 
-            if(!r.is_undefined(m_col_idx)) {
+            if (!r.is_undefined(m_col_idx)) {
                 UNREACHABLE();
             }
 
@@ -468,7 +468,7 @@ namespace datalog {
             ptr_vector<expr> subst_arg;
             subst_arg.resize(sz, 0);
             unsigned ofs = sz-1;
-            for(unsigned i=0; i<sz; i++) {
+            for (unsigned i=0; i<sz; i++) {
                 SASSERT(!r.is_undefined(i) || !contains_var(m_new_rule, i));
                 subst_arg[ofs-i] = r.m_data.get(i);
             }
@@ -480,26 +480,26 @@ namespace datalog {
 
     relation_mutator_fn * explanation_relation_plugin::mk_filter_interpreted_fn(const relation_base & r, 
             app * cond) {
-        if(&r.get_plugin()!=this) {
+        if (&r.get_plugin()!=this) {
             return 0;
         }
         ast_manager & m = get_ast_manager();
-        if(!m.is_eq(cond)) {
+        if (!m.is_eq(cond)) {
             return 0;
         }
         expr * arg1 = cond->get_arg(0);
         expr * arg2 = cond->get_arg(1);
 
-        if(is_var(arg2)) {
+        if (is_var(arg2)) {
             std::swap(arg1, arg2);
         }
 
-        if(!is_var(arg1) || !is_app(arg2)) {
+        if (!is_var(arg1) || !is_app(arg2)) {
             return 0;
         }
         var * col_var = to_var(arg1);
         app * new_rule = to_app(arg2);
-        if(!get_context().get_decl_util().is_rule_sort(col_var->get_sort())) {
+        if (!get_context().get_decl_util().is_rule_sort(col_var->get_sort())) {
             return 0;
         }
         unsigned col_idx = col_var->get_idx();
@@ -511,7 +511,7 @@ namespace datalog {
     class explanation_relation_plugin::negation_filter_fn : public relation_intersection_filter_fn {
     public:
         virtual void operator()(relation_base & r, const relation_base & neg) {
-            if(!neg.empty()) {
+            if (!neg.empty()) {
                 r.reset();
             }
         }
@@ -520,43 +520,42 @@ namespace datalog {
     relation_intersection_filter_fn * explanation_relation_plugin::mk_filter_by_negation_fn(const relation_base & r, 
             const relation_base & neg, unsigned joined_col_cnt, const unsigned * t_cols, 
             const unsigned * negated_cols) {
-        if(&r.get_plugin()!=this || &neg.get_plugin()!=this) {
+        if (&r.get_plugin()!=this || &neg.get_plugin()!=this) {
             return 0;
         }
         return alloc(negation_filter_fn);
     }
 
     class explanation_relation_plugin::intersection_filter_fn : public relation_intersection_filter_fn {
-        explanation_relation_plugin & m_plugin;
         func_decl_ref m_union_decl;
     public:
         intersection_filter_fn(explanation_relation_plugin & plugin)
-            : m_plugin(plugin), m_union_decl(plugin.m_union_decl) {}
+            : m_union_decl(plugin.m_union_decl) {}
 
         virtual void operator()(relation_base & tgt0, const relation_base & src0) {
             explanation_relation & tgt = static_cast<explanation_relation &>(tgt0);
             const explanation_relation & src = static_cast<const explanation_relation &>(src0);
 
-            if(src.empty()) {
+            if (src.empty()) {
                 tgt.reset();
                 return;
             }
-            if(tgt.empty()) {
+            if (tgt.empty()) {
                 return;
             }
             unsigned sz = tgt.get_signature().size();
-            for(unsigned i=0; i<sz; i++) {
-                if(src.is_undefined(i)) {
+            for (unsigned i=0; i<sz; i++) {
+                if (src.is_undefined(i)) {
                     continue;
                 }
                 app * curr_src = src.m_data.get(i);
-                if(tgt.is_undefined(i)) {
+                if (tgt.is_undefined(i)) {
                     tgt.m_data.set(i, curr_src);
                     continue;
                 }
                 app * curr_tgt = tgt.m_data.get(i);
-                if(curr_tgt->get_decl()==m_union_decl.get()) {
-                    if(curr_tgt->get_arg(0)==curr_src || curr_tgt->get_arg(1)==curr_src) {
+                if (curr_tgt->get_decl()==m_union_decl.get()) {
+                    if (curr_tgt->get_arg(0)==curr_src || curr_tgt->get_arg(1)==curr_src) {
                         tgt.m_data.set(i, curr_src);
                         continue;
                     }
@@ -570,18 +569,18 @@ namespace datalog {
     relation_intersection_filter_fn * explanation_relation_plugin::mk_filter_by_intersection_fn(
             const relation_base & tgt, const relation_base & src, unsigned joined_col_cnt, 
             const unsigned * tgt_cols, const unsigned * src_cols) {
-        if(&tgt.get_plugin()!=this || &src.get_plugin()!=this) {
+        if (&tgt.get_plugin()!=this || &src.get_plugin()!=this) {
             return 0;
         }
         //this checks the join is one to one on all columns
-        if(tgt.get_signature()!=src.get_signature()
+        if (tgt.get_signature()!=src.get_signature()
             || joined_col_cnt!=tgt.get_signature().size()
             || !containers_equal(tgt_cols, tgt_cols+joined_col_cnt, src_cols, src_cols+joined_col_cnt)) {
             return 0;
         }
         counter ctr;
         ctr.count(joined_col_cnt, tgt_cols);
-        if(ctr.get_max_counter_value()>1 || (joined_col_cnt && ctr.get_max_positive()!=joined_col_cnt-1)) {
+        if (ctr.get_max_counter_value()>1 || (joined_col_cnt && ctr.get_max_positive()!=joined_col_cnt-1)) {
             return 0;
         }
         return alloc(intersection_filter_fn, *this);
@@ -595,23 +594,23 @@ namespace datalog {
     // -----------------------------------
 
 
-    mk_explanations::mk_explanations(context & ctx, bool relation_level) 
-            : plugin(50000),
-            m_manager(ctx.get_manager()),
-            m_context(ctx),
-            m_decl_util(ctx.get_decl_util()),
-            m_relation_level(relation_level),
-            m_pinned(m_manager) {
+    mk_explanations::mk_explanations(context & ctx) 
+        : plugin(50000),
+          m_manager(ctx.get_manager()),
+          m_context(ctx),
+          m_decl_util(ctx.get_decl_util()),
+          m_relation_level(ctx.explanations_on_relation_level()),
+          m_pinned(m_manager) {
         m_e_sort = m_decl_util.mk_rule_sort();
         m_pinned.push_back(m_e_sort);
 
         relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
-        symbol er_symbol = explanation_relation_plugin::get_name(relation_level);
+        symbol er_symbol = explanation_relation_plugin::get_name(m_relation_level);
         m_er_plugin = static_cast<explanation_relation_plugin *>(rmgr.get_relation_plugin(er_symbol));
-        if(!m_er_plugin) {
-            m_er_plugin = alloc(explanation_relation_plugin, relation_level, rmgr);
+        if (!m_er_plugin) {
+            m_er_plugin = alloc(explanation_relation_plugin, m_relation_level, rmgr);
             rmgr.register_plugin(m_er_plugin);
-            if(!m_relation_level) {
+            if (!m_relation_level) {
                 DEBUG_CODE(
                     finite_product_relation_plugin * dummy;
                     SASSERT(!rmgr.try_get_finite_product_relation_plugin(*m_er_plugin, dummy));
@@ -620,7 +619,7 @@ namespace datalog {
             }
         }
         DEBUG_CODE(
-            if(!m_relation_level) {
+            if (!m_relation_level) {
                 finite_product_relation_plugin * dummy;
                 SASSERT(rmgr.try_get_finite_product_relation_plugin(*m_er_plugin, dummy));
             }
@@ -668,7 +667,7 @@ namespace datalog {
 
     func_decl * mk_explanations::get_e_decl(func_decl * orig_decl) {
         decl_map::obj_map_entry * e = m_e_decl_map.insert_if_not_there2(orig_decl, 0);
-        if(e->get_data().m_value==0) {
+        if (e->get_data().m_value==0) {
             relation_signature e_domain;
             e_domain.append(orig_decl->get_arity(), orig_decl->get_domain());
             e_domain.push_back(m_e_sort);
@@ -677,7 +676,7 @@ namespace datalog {
             m_pinned.push_back(new_decl);
             e->get_data().m_value = new_decl;
 
-            if(m_relation_level) {
+            if (m_relation_level) {
                 assign_rel_level_kind(new_decl, orig_decl);
             }
         }
@@ -716,13 +715,13 @@ namespace datalog {
         app_ref_vector e_tail(m_manager);
         svector<bool> neg_flags;
         unsigned pos_tail_sz = r->get_positive_tail_size();
-        for(unsigned i=0; i<pos_tail_sz; i++) {
+        for (unsigned i=0; i<pos_tail_sz; i++) {
             unsigned e_var = next_var++;
             e_tail.push_back(get_e_lit(r->get_tail(i), e_var));
             neg_flags.push_back(false);
         }
         unsigned tail_sz = r->get_tail_size();
-        for(unsigned i=pos_tail_sz; i<tail_sz; i++) {
+        for (unsigned i=pos_tail_sz; i<tail_sz; i++) {
             e_tail.push_back(r->get_tail(i));
             neg_flags.push_back(r->is_neg_tail(i));
         }
@@ -730,9 +729,9 @@ namespace datalog {
         symbol rule_repr = get_rule_symbol(r);
 
         expr_ref_vector rule_expr_args(m_manager);
-        for(unsigned tail_idx=0; tail_idx<pos_tail_sz; tail_idx++) {
+        for (unsigned tail_idx=0; tail_idx<pos_tail_sz; tail_idx++) {
             app * tail = e_tail.get(tail_idx);
-            if(true || m_relation_level) {
+            if (true || m_relation_level) {
                 //this adds the explanation term of the tail
                 rule_expr_args.push_back(tail->get_arg(tail->get_num_args()-1));
             }
@@ -754,37 +753,32 @@ namespace datalog {
         return m_context.get_rule_manager().mk(e_head, e_tail.size(), e_tail.c_ptr(), neg_flags.c_ptr());
     }
 
-    void mk_explanations::transform_rules(const rule_set & orig, rule_set & tgt) {
-        rule_set::iterator rit = orig.begin();
-        rule_set::iterator rend = orig.end();
-        for(; rit!=rend; ++rit) {
+    void mk_explanations::transform_rules(const rule_set & src, rule_set & dst) {
+        rule_set::iterator rit = src.begin();
+        rule_set::iterator rend = src.end();
+        for (; rit!=rend; ++rit) {
             rule * e_rule = get_e_rule(*rit);
-            tgt.add_rule(e_rule);
+            dst.add_rule(e_rule);
         }
 
         //add rules that will (for output predicates) copy facts from explained relations back to
         //the original ones
         expr_ref_vector lit_args(m_manager);
-        decl_set::iterator pit = m_original_preds.begin();
-        decl_set::iterator pend = m_original_preds.end();
-        for(; pit!=pend; ++pit) {
+        decl_set::iterator pit = src.get_output_predicates().begin();
+        decl_set::iterator pend = src.get_output_predicates().end();
+        for (; pit != pend; ++pit) {
             func_decl * orig_decl = *pit;
-
-            if(!m_context.is_output_predicate(orig_decl)) {
-                continue;
-            }
 
             lit_args.reset();
             unsigned arity = orig_decl->get_arity();
-            for(unsigned i=0; i<arity; i++) {
+            for (unsigned i=0; i<arity; i++) {
                 lit_args.push_back(m_manager.mk_var(i, orig_decl->get_domain(i)));
             }
             app_ref orig_lit(m_manager.mk_app(orig_decl, lit_args.c_ptr()), m_manager);
             app_ref e_lit(get_e_lit(orig_lit, arity), m_manager);
             app * tail[] = { e_lit.get() };
-            tgt.add_rule(m_context.get_rule_manager().mk(orig_lit, 1, tail, 0));
+            dst.add_rule(m_context.get_rule_manager().mk(orig_lit, 1, tail, 0));
         }
-
     }
 
     void mk_explanations::translate_rel_level_relation(relation_manager & rmgr, relation_base & orig, 
@@ -799,7 +793,7 @@ namespace datalog {
         sieve_relation * srels[] = { 
             static_cast<sieve_relation *>(&prod_rel[0]),
             static_cast<sieve_relation *>(&prod_rel[1]) };
-        if(&srels[0]->get_inner().get_plugin()==m_er_plugin) {
+        if (&srels[0]->get_inner().get_plugin()==m_er_plugin) {
             std::swap(srels[0], srels[1]);
         }
         SASSERT(&srels[0]->get_inner().get_plugin()==&orig.get_plugin());
@@ -821,10 +815,9 @@ namespace datalog {
         }
     }
 
-    void mk_explanations::transform_facts(relation_manager & rmgr) {
+    void mk_explanations::transform_facts(relation_manager & rmgr, rule_set const& src, rule_set& dst) {
 
-
-        if(!m_e_fact_relation) {
+        if (!m_e_fact_relation) {
             relation_signature expl_singleton_sig;
             expl_singleton_sig.push_back(m_e_sort);
 
@@ -836,29 +829,26 @@ namespace datalog {
             SASSERT(&expl_singleton->get_plugin()==m_er_plugin);
             m_e_fact_relation = static_cast<explanation_relation *>(expl_singleton);
         }
-        
-
-
-        decl_set::iterator it = m_original_preds.begin();
-        decl_set::iterator end = m_original_preds.end();
-        for(; it!=end; ++it) {
+        func_decl_set const& predicates = m_context.get_predicates();
+        decl_set::iterator it = predicates.begin();
+        decl_set::iterator end = predicates.end();
+        for (; it!=end; ++it) {
             func_decl * orig_decl = *it;
             func_decl * e_decl = get_e_decl(orig_decl);
 
-            if(m_context.is_output_predicate(orig_decl)) {
-                m_context.set_output_predicate(e_decl);
-            }
-
-            if(!rmgr.try_get_relation(orig_decl)) {
-                //there are no facts for this predicate
+            if (!rmgr.try_get_relation(orig_decl) &&
+                !src.contains(orig_decl)) {
+                // there are no facts or rules for this predicate
                 continue;
             }
+
+            dst.inherit_predicate(src, orig_decl, e_decl);
 
             relation_base & orig_rel = rmgr.get_relation(orig_decl);
             relation_base & e_rel = rmgr.get_relation(e_decl);
             SASSERT(e_rel.empty()); //the e_rel should be a new relation
-
-            if(m_relation_level) {
+            
+            if (m_relation_level) {
                 translate_rel_level_relation(rmgr, orig_rel, e_rel);
             }
             else {
@@ -869,18 +859,19 @@ namespace datalog {
                 SASSERT(union_fun);
                 (*union_fun)(e_rel, *aux_extended_rel);
             }
-
         }
     }
 
     rule_set * mk_explanations::operator()(rule_set const & source) {
 
-        if(source.get_num_rules()==0) {
+        if (source.empty()) {
             return 0;
         }
-        m_context.collect_predicates(m_original_preds);
+        if (!m_context.generate_explanations()) {
+            return 0;
+        }
         rule_set * res = alloc(rule_set, m_context);
-        transform_facts(m_context.get_rel_context().get_rmanager());
+        transform_facts(m_context.get_rel_context().get_rmanager(), source, *res);
         transform_rules(source, *res);
         return res;
     }
