@@ -48,12 +48,17 @@ namespace smt {
             *mem                = DEFAULT_WATCH_LIST_SIZE;
             ++mem;
             m_data              = reinterpret_cast<char*>(mem); 
+            SASSERT( begin_lits_core() % sizeof(literal) == 0 );
         }
         else {
             unsigned curr_begin_bin = begin_lits_core();
             unsigned curr_capacity  = end_lits_core();
             unsigned bin_bytes      = curr_capacity - curr_begin_bin;
-            unsigned new_capacity   = (curr_capacity * 3 + sizeof(clause *)) >> 1;
+            /* dvitek: Added +3&~3U to fix alignment issues on
+             * sparc64/solaris. ("literal"s must be 4-byte aligned).  Should
+             * also help performance elsewhere.
+             */
+            unsigned new_capacity   = (((curr_capacity * 3 + sizeof(clause *)) >> 1)+3)&~3U;
             unsigned * mem          = reinterpret_cast<unsigned*>(alloc_svect(char, new_capacity + HEADER_SIZE));
             unsigned curr_end_cls   = end_cls_core();
 #ifdef _AMD64_
@@ -71,6 +76,7 @@ namespace smt {
             memcpy(reinterpret_cast<char *>(mem) + new_begin_bin, m_data + curr_begin_bin, bin_bytes);
             destroy();
             m_data = reinterpret_cast<char *>(mem);
+            SASSERT( begin_lits_core() % sizeof(literal) == 0 );
         }
     }
     
