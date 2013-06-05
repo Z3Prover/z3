@@ -79,14 +79,13 @@ namespace Duality {
 dl_interface::dl_interface(datalog::context& dl_ctx) :  m_ctx(dl_ctx)
 
 {
-  _d = alloc(duality_data,dl_ctx.get_manager());
-  _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
-  _d->rpfp = alloc(RPFP,_d->ls);
+  _d = 0;
 }
 
 
 dl_interface::~dl_interface() {
-  dealloc(_d);
+  if(_d)
+    dealloc(_d);
 }
 
 
@@ -120,9 +119,21 @@ void dl_interface::check_reset() {
 
 lbool dl_interface::query(::expr * query) {
 
-  // TODO: you can only call this once!
   // we restore the initial state in the datalog context
   m_ctx.ensure_opened();
+
+  // if there is old data, get the cex and dispose (later)
+  Solver::Counterexample old_cex;
+  duality_data *old_data = _d;
+  if(old_data)
+    old_cex = old_data->cex;
+
+  // make a new problem and solver
+  _d = alloc(duality_data,m_ctx.get_manager());
+  _d->ls = alloc(RPFP::iZ3LogicSolver,_d->ctx);
+  _d->rpfp = alloc(RPFP,_d->ls);
+
+
 
   expr_ref_vector rules(m_ctx.get_manager());
   svector< ::symbol> names;  
@@ -173,6 +184,8 @@ lbool dl_interface::query(::expr * query) {
 
   Solver *rs = Solver::Create("duality", _d->rpfp);
 
+  rs->LearnFrom(old_cex); // new solver gets hints from old cex
+
   // set its options
   IF_VERBOSE(1, rs->SetOption("report","1"););
   rs->SetOption("full_expand",m_ctx.get_params().full_expand() ? "1" : "0");
@@ -193,6 +206,12 @@ lbool dl_interface::query(::expr * query) {
   _d->status = ans ? StatusModel : StatusRefutation;
   _d->cex = rs->GetCounterexample();
   
+  if(old_data){
+    old_data->cex.tree = 0; // we own it now
+    dealloc(old_data);
+  }
+
+
   dealloc(rs);
 
   // true means the RPFP problem is SAT, so the query is UNSAT

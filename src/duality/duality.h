@@ -803,7 +803,7 @@ namespace Duality {
 	  is chiefly useful for abstraction refinement, when we want to
 	  solve a series of similar problems. */
 
-      virtual void LearnFrom(Solver *old_solver) = 0;
+      virtual void LearnFrom(Counterexample &old_cex) = 0;
 
       virtual ~Solver(){}
 

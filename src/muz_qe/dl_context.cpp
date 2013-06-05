@@ -198,6 +198,7 @@ namespace datalog {
     void context::push() {
         m_trail.push_scope();
         m_trail.push(restore_rules(m_rule_set));
+        m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_rule_fmls));
         m_trail.push(restore_vec_size_trail<context,expr_ref_vector>(m_background));
     }
 

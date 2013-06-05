@@ -160,6 +160,9 @@ namespace Duality {
       Heuristic(RPFP *_rpfp){
 	rpfp = _rpfp;
       }
+
+      virtual ~Heuristic(){}
+
       virtual void Update(RPFP::Node *node){
 	scores[node].updates++;
       }
@@ -247,6 +250,7 @@ namespace Duality {
       heuristic = !cex.tree ? (Heuristic *)(new LocalHeuristic(rpfp))
 	: (Heuristic *)(new ReplayHeuristic(rpfp,cex));
 #endif
+      cex.tree = 0; // heuristic now owns it
       unwinding = new RPFP(rpfp->ls);
       unwinding->HornClauses = rpfp->HornClauses;
       indset = new Covering(this);
@@ -254,8 +258,10 @@ namespace Duality {
       CreateEdgesByChildMap();
       CreateLeaves();
 #ifndef TOP_DOWN
-      if(FeasibleEdges)NullaryCandidates();
-      else InstantiateAllEdges();
+      if(!StratifiedInlining){
+        if(FeasibleEdges)NullaryCandidates();
+        else InstantiateAllEdges();
+      }
 #else
       for(unsigned i = 0; i < leaves.size(); i++)
 	if(!SatisfyUpperBound(leaves[i]))
@@ -289,8 +295,8 @@ namespace Duality {
     }
 #endif
 
-    virtual void LearnFrom(Solver *old_solver){
-      cex = old_solver->GetCounterexample();
+    virtual void LearnFrom(Counterexample &old_cex){
+      cex = old_cex;
     }
 
     /** Return the counterexample */
@@ -778,8 +784,14 @@ namespace Duality {
       std::vector<Node *> nchs(chs.size());
       for(unsigned i = 0; i < chs.size(); i++){
 	Node *child = chs[i];
-	if(TopoSort[child] < TopoSort[node->map])
-	  nchs[i] = LeafMap[child];
+	if(TopoSort[child] < TopoSort[node->map]){
+	  Node *leaf = LeafMap[child];
+	  nchs[i] = leaf;
+	  if(unexpanded.find(leaf) != unexpanded.end()){
+	    unexpanded.erase(leaf);
+	    insts_of_node[child].push_back(leaf);
+	  }
+	}
 	else {
 	  if(StratifiedLeafMap.find(child) == StratifiedLeafMap.end()){
 	    RPFP::Node *nchild = CreateNodeInstance(child,StratifiedLeafCount--);
@@ -1450,7 +1462,7 @@ namespace Duality {
 #ifdef EFFORT_BOUNDED_STRAT
 	start_decs = tree->CumulativeDecisions();
 #endif
-	// while(ExpandSomeNodes(true)); // do high-priority expansions
+	while(ExpandSomeNodes(true)); // do high-priority expansions
 	while (true)
 	{
 #ifndef WITH_CHILDREN
@@ -1999,11 +2011,15 @@ namespace Duality {
 
     class ReplayHeuristic : public Heuristic {
 
-      Counterexample &old_cex;
+      Counterexample old_cex;
     public:
       ReplayHeuristic(RPFP *_rpfp, Counterexample &_old_cex)
 	: Heuristic(_rpfp), old_cex(_old_cex)
       {
+      }
+
+      ~ReplayHeuristic(){
+	delete old_cex.tree;
       }
 
       // Maps nodes of derivation tree into old cex
