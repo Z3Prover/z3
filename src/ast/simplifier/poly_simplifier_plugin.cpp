@@ -285,6 +285,7 @@ bool poly_simplifier_plugin::merge_monomials(bool inv, expr * n1, expr * n2, exp
         else
             result = m_manager.mk_app(m_fid, m_MUL, mk_numeral(k1), b);
     }
+    TRACE("merge_monomials", tout << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) << "\n" << mk_pp(result, m_manager) << "\n";);
     return true;
 }
 
