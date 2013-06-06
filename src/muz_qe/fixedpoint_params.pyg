@@ -64,6 +64,7 @@ def_module_params('fixedpoint',
 	                  ('use_underapprox', BOOL, False, 'DUALITY: Use underapproximations'),
 			  ('stratified_inlining', BOOL, False, 'DUALITY: Use stratified inlining'),
 			  ('recursion_bound', UINT, UINT_MAX, 'DUALITY: Recursion bound for stratified inlining'),
+			  ('profile', BOOL, False, 'DUALITY: profile run time'),
                           ))
 
 

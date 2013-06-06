@@ -41,6 +41,7 @@ Revision History:
 
 
 #include "duality.h"
+#include "duality_profiling.h"
 
 // using namespace Duality;
 
@@ -202,6 +203,11 @@ lbool dl_interface::query(::expr * query) {
   // Solve!
   bool ans = rs->Solve();
   
+  // profile!
+
+  if(m_ctx.get_params().profile())
+    print_profile(std::cout);
+
   // save the result and counterexample if there is one
   _d->status = ans ? StatusModel : StatusRefutation;
   _d->cex = rs->GetCounterexample();
