@@ -684,6 +684,7 @@ namespace Duality {
 
     bool CandidateFeasible(const Candidate &cand){
       if(!FeasibleEdges) return true;
+      timer_start("CandidateFeasible");
       RPFP *checker = new RPFP(rpfp->ls);
       // std::cout << "Checking feasibility of extension " << cand.edge->Parent->number << std::endl;
       checker->Push();
@@ -691,8 +692,10 @@ namespace Duality {
       Node *root = checker->CloneNode(cand.edge->Parent);
 #ifdef BOUNDED
       for(unsigned i = 0; i < cand.Children.size(); i++)
-	if(NodePastRecursionBound(cand.Children[i]))
+	if(NodePastRecursionBound(cand.Children[i])){
+	  timer_stop("CandidateFeasible");
 	  return false;
+	}
 #endif      
 #ifdef NEW_CAND_SEL
       GenNodeSolutionFromIndSet(cand.edge->Parent,root->Bound);
@@ -710,6 +713,7 @@ namespace Duality {
       if(!res)reporter->Reject(cand.edge,cand.Children);
       checker->Pop(1);
       delete checker;
+      timer_stop("CandidateFeasible");
       return res;
     }
 
@@ -749,12 +753,15 @@ namespace Duality {
     int StratifiedLeafCount;
 
     bool DoStratifiedInlining(){
+      timer_start("StratifiedInlining");
       DoTopoSort();
       for(unsigned i = 0; i < leaves.size(); i++){
 	Node *node = leaves[i];
 	bool res = SatisfyUpperBound(node);
-	if(!res)
+	if(!res){
+	  timer_stop("StratifiedInlining");
 	  return false;
+	}
       }
       // don't leave any dangling nodes!
 #ifndef EFFORT_BOUNDED_STRAT
@@ -762,6 +769,7 @@ namespace Duality {
 	if(!leaves[i]->Outgoing)
 	  MakeLeaf(leaves[i],true);    
 #endif
+      timer_stop("StratifiedInlining");
       return true;
     }
     
@@ -1333,6 +1341,7 @@ namespace Duality {
 
     /** Extend the unwinding, keeping it solved. */
     bool Extend(Candidate &cand){
+      timer_start("Extend");
       Node *node = CreateNodeInstance(cand.edge->Parent);
       CreateEdgeInstance(cand.edge,node,cand.Children);
       UpdateBackEdges(node);
@@ -1344,11 +1353,13 @@ namespace Duality {
 	ExpandUnderapproxNodes(cex.tree, cex.root);
 #endif
 	if(UseUnderapprox) BuildFullCex(node);
+	timer_stop("Extend");
 	return res;
       }
 #ifdef EARLY_EXPAND
       TryExpandNode(node);
 #endif
+      timer_stop("Extend");
       return res;
     }
 
