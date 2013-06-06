@@ -340,7 +340,8 @@ void dl_interface::display_certificate(std::ostream& out) {
       func_decl cnst = orig_model.get_func_decl(i);
       if(locals.find(cnst) == locals.end()){
 	func_interp thing = orig_model.get_func_interp(cnst);
-	mod.register_decl(to_func_decl(cnst.raw()),thing);
+	::func_interp *thing_raw = thing;
+	mod.register_decl(to_func_decl(cnst.raw()),thing_raw->copy());
       }
     }
     model_v2_pp(out,mod);

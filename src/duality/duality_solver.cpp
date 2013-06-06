@@ -200,6 +200,9 @@ namespace Duality {
 	    best.insert(*it);
       }
 #endif
+
+      /** Called when done expanding a tree */
+      virtual void Done() {}
     };
     
 
@@ -749,7 +752,8 @@ namespace Duality {
       DoTopoSort();
       for(unsigned i = 0; i < leaves.size(); i++){
 	Node *node = leaves[i];
-	if(!SatisfyUpperBound(node))
+	bool res = SatisfyUpperBound(node);
+	if(!res)
 	  return false;
       }
       // don't leave any dangling nodes!
@@ -1429,6 +1433,7 @@ namespace Duality {
 	tree->AssertNode(top); // assert the negation of the top-level spec
 	timer_start("Build");
 	bool res = Build();
+	heuristic->Done();
 	timer_stop("Build");
 	timer_start("Pop");
 	tree->Pop(1);
@@ -2019,12 +2024,20 @@ namespace Duality {
       }
 
       ~ReplayHeuristic(){
-	delete old_cex.tree;
+	if(old_cex.tree)
+	  delete old_cex.tree;
       }
 
       // Maps nodes of derivation tree into old cex
       hash_map<Node *, Node*> cex_map;
       
+      void Done() {
+	cex_map.clear();
+	if(old_cex.tree)
+	  delete old_cex.tree;
+	old_cex.tree = 0; // only replay once!
+      }
+
       void ShowNodeAndChildren(Node *n){
 	std::cout << n->Name.name() << ": ";
 	std::vector<Node *> &chs = n->Outgoing->Children;
@@ -2033,8 +2046,18 @@ namespace Duality {
 	std::cout << std::endl;
       }
 
+      // HACK: When matching relation names, we drop suffixes used to
+      // make the names unique between runs. For compatibility
+      // with boggie, we drop suffixes beginning with @@
+      std::string BaseName(const std::string &name){
+	int pos = name.find("@@");
+	if(pos >= 1)
+	  return name.substr(0,pos);
+	return name;
+      }
+
       virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool high_priority){
-	if(!high_priority){
+	if(!high_priority || !old_cex.tree){
 	  Heuristic::ChooseExpand(choices,best,false);
 	  return;
 	}
@@ -2053,7 +2076,7 @@ namespace Duality {
 	    if(old_parent && old_parent->Outgoing){
 	      std::vector<Node *> &old_chs = old_parent->Outgoing->Children;
 	      for(unsigned i = 0, j=0; i < chs.size(); i++){
-		if(j < old_chs.size() && chs[i]->Name.name() == old_chs[j]->Name.name())
+		if(j < old_chs.size() && BaseName(chs[i]->Name.name().str()) == BaseName(old_chs[j]->Name.name().str()))
 		  cex_map[chs[i]] = old_chs[j++];
 		else {
 		  std::cout << "unmatched child: " << chs[i]->Name.name() << std::endl;
