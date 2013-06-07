@@ -223,7 +223,7 @@ public:
     app * mk_rem(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_REM, arg1, arg2); }
     app * mk_max(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MAX, arg1, arg2); }
     app * mk_min(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MIN, arg1, arg2); }
-    app * mk_abs(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1, arg2); }
+    app * mk_abs(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1); }
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_SQRT, arg1, arg2); }
     app * mk_round(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
     app * mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
