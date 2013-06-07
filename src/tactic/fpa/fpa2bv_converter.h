@@ -116,6 +116,9 @@ public:
     void mk_is_nzero(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_pzero(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_is_inf(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_is_normal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
+    void mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
     void mk_to_float(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     void mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result);    

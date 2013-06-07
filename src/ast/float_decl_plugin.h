@@ -61,9 +61,12 @@ enum float_op_kind {
     OP_FLOAT_GT,
     OP_FLOAT_LE,
     OP_FLOAT_GE,
+    OP_FLOAT_IS_INF,
     OP_FLOAT_IS_ZERO,
-    OP_FLOAT_IS_NZERO,
+    OP_FLOAT_IS_NORMAL,
+    OP_FLOAT_IS_SUBNORMAL,    
     OP_FLOAT_IS_PZERO,
+    OP_FLOAT_IS_NZERO,
     OP_FLOAT_IS_SIGN_MINUS,
 
     OP_TO_FLOAT,
@@ -237,7 +240,10 @@ public:
     app * mk_le(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_GE, arg1, arg2); }
 
+    app * mk_is_inf(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_INF, arg1); }
     app * mk_is_zero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_ZERO, arg1); }
+    app * mk_is_normal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NORMAL, arg1); }
+    app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SUBNORMAL, arg1); }
     app * mk_is_nzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NZERO, arg1); }
     app * mk_is_pzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_PZERO, arg1); }
     app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SIGN_MINUS, arg1); }
