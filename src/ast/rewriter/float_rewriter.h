@@ -66,6 +66,7 @@ public:
     br_status mk_is_zero(expr * arg1, expr_ref & result);
     br_status mk_is_nzero(expr * arg1, expr_ref & result);
     br_status mk_is_pzero(expr * arg1, expr_ref & result);
+    br_status mk_is_nan(expr * arg1, expr_ref & result);
     br_status mk_is_inf(expr * arg1, expr_ref & result);
     br_status mk_is_normal(expr * arg1, expr_ref & result);
     br_status mk_is_subnormal(expr * arg1, expr_ref & result);

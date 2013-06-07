@@ -256,6 +256,7 @@ func_decl * float_decl_plugin::mk_unary_rel_decl(decl_kind k, unsigned num_param
     case OP_FLOAT_IS_NZERO: name = "isNZero";   break;
     case OP_FLOAT_IS_PZERO: name = "isPZero";   break;        
     case OP_FLOAT_IS_SIGN_MINUS: name = "isSignMinus";  break;
+    case OP_FLOAT_IS_NAN: name = "isNaN";  break;
     case OP_FLOAT_IS_INF: name = "isInfinite";  break;
     case OP_FLOAT_IS_NORMAL: name = "isNormal";  break;
     case OP_FLOAT_IS_SUBNORMAL: name = "isSubnormal";  break;
@@ -418,6 +419,7 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_FLOAT_IS_NZERO:
     case OP_FLOAT_IS_PZERO:
     case OP_FLOAT_IS_SIGN_MINUS: 
+    case OP_FLOAT_IS_NAN:
     case OP_FLOAT_IS_INF:
     case OP_FLOAT_IS_NORMAL:
     case OP_FLOAT_IS_SUBNORMAL:
@@ -479,6 +481,7 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("<=", OP_FLOAT_LE));
     op_names.push_back(builtin_name(">=", OP_FLOAT_GE));
 
+    op_names.push_back(builtin_name("isNaN", OP_FLOAT_IS_NAN));
     op_names.push_back(builtin_name("isInfinite", OP_FLOAT_IS_INF));
     op_names.push_back(builtin_name("isZero", OP_FLOAT_IS_ZERO));
     op_names.push_back(builtin_name("isNZero", OP_FLOAT_IS_NZERO));
