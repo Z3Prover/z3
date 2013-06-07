@@ -679,7 +679,7 @@ namespace Duality {
             return *this; 
         }
         
-        expr eval(expr const & n, bool model_completion=false) const {
+        expr eval(expr const & n, bool model_completion=true) const {
 	  ::model * _m = m_model.get();
 	  expr_ref result(ctx().m());
 	  _m->eval(n, result, model_completion);
