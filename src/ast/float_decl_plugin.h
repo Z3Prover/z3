@@ -178,6 +178,7 @@ public:
     family_id get_fid() const { return m_fid; }
     family_id get_family_id() const { return m_fid; }
     arith_util & au() { return m_a_util; }
+    float_decl_plugin & plugin() { return *m_plugin; }
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
     sort * mk_rm_sort() { return m().mk_sort(m_fid, ROUNDING_MODE_SORT); }
@@ -211,7 +212,7 @@ public:
 
     bool is_nan(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nan(v); } 
     bool is_plus_inf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pinf(v); }
-    bool is_minus_inf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_ninf(v); }
+    bool is_minus_inf(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_ninf(v); }    
     bool is_zero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_zero(v); }
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_value(n, v) && fm().is_nzero(v); }
