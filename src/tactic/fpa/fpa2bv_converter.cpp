@@ -1621,6 +1621,21 @@ void fpa2bv_converter::mk_is_pzero(func_decl * f, unsigned num, expr * const * a
     m_simp.mk_and(a0_is_pos, a0_is_zero, result);
 }
 
+void fpa2bv_converter::mk_is_inf(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    mk_is_inf(args[0], result);
+}
+
+void fpa2bv_converter::mk_is_normal(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    mk_is_normal(args[0], result);
+}
+
+void fpa2bv_converter::mk_is_subnormal(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    mk_is_denormal(args[0], result);
+}
+
 void fpa2bv_converter::mk_is_sign_minus(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     mk_is_neg(args[0], result);
