@@ -560,9 +560,11 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   {
     static stopwatch sw;
     static bool started = false;
-    if(!started)
+    if(!started){
       sw.start();
-    return sw.get_seconds();
+	  started = true;
+	}
+    return sw.get_current_seconds();
   }
 
 }
