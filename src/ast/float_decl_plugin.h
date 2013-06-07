@@ -61,6 +61,7 @@ enum float_op_kind {
     OP_FLOAT_GT,
     OP_FLOAT_LE,
     OP_FLOAT_GE,
+    OP_FLOAT_IS_NAN,
     OP_FLOAT_IS_INF,
     OP_FLOAT_IS_ZERO,
     OP_FLOAT_IS_NORMAL,
@@ -240,6 +241,7 @@ public:
     app * mk_le(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_GE, arg1, arg2); }
 
+    app * mk_is_nan(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NAN, arg1); }
     app * mk_is_inf(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_INF, arg1); }
     app * mk_is_zero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_ZERO, arg1); }
     app * mk_is_normal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NORMAL, arg1); }

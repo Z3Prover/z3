@@ -1621,6 +1621,11 @@ void fpa2bv_converter::mk_is_pzero(func_decl * f, unsigned num, expr * const * a
     m_simp.mk_and(a0_is_pos, a0_is_zero, result);
 }
 
+void fpa2bv_converter::mk_is_nan(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
+    SASSERT(num == 1);
+    mk_is_nan(args[0], result);
+}
+
 void fpa2bv_converter::mk_is_inf(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 1);
     mk_is_inf(args[0], result);
