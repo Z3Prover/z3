@@ -42,7 +42,7 @@ Revision History:
 #define NEW_EXPAND
 #define EARLY_EXPAND
 // #define TOP_DOWN
-#define EFFORT_BOUNDED_STRAT
+// #define EFFORT_BOUNDED_STRAT
 #define SKIP_UNDERAPPROX_NODES
 
 
@@ -793,6 +793,18 @@ namespace Duality {
 #endif
       Edge *edge = node->map->Outgoing;
       std::vector<Node *> &chs = edge->Children;
+
+      // make sure we don't create a covered node in this process!
+
+      for(unsigned i = 0; i < chs.size(); i++){
+	Node *child = chs[i];
+	if(TopoSort[child] < TopoSort[node->map]){
+	  Node *leaf = LeafMap[child];
+	  if(!indset->Contains(leaf))
+	    return node->Outgoing;
+	}
+      }
+
       std::vector<Node *> nchs(chs.size());
       for(unsigned i = 0; i < chs.size(); i++){
 	Node *child = chs[i];
@@ -808,6 +820,7 @@ namespace Duality {
 	  if(StratifiedLeafMap.find(child) == StratifiedLeafMap.end()){
 	    RPFP::Node *nchild = CreateNodeInstance(child,StratifiedLeafCount--);
 	    MakeLeaf(nchild);
+	    nchild->Annotation.SetEmpty();
 	    StratifiedLeafMap[child] = nchild;
 	    indset->SetDominated(nchild);
 	  }
