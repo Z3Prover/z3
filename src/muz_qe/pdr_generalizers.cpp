@@ -147,6 +147,177 @@ namespace pdr {
     }
 
 
+    core_convex_hull_generalizer::core_convex_hull_generalizer(context& ctx):
+        core_generalizer(ctx),
+        m(ctx.get_manager()),
+        a(m),
+        m_sigma(m),
+        m_trail(m) {
+        m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
+        m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
+    }
+    
+    void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
+        manager& pm = n.pt().get_pdr_manager();
+        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
+        if (core.empty()) {
+            return;
+        }        
+        if (!m_left.contains(n.pt().head())) {
+            expr_ref left(m), right(m);
+            m_left.insert(n.pt().head(), 0);
+            unsigned sz = n.pt().sig_size();        
+            for (unsigned i = 0; i < sz; ++i) {
+                func_decl* fn0 = n.pt().sig(i);
+                sort* srt = fn0->get_range();
+                if (a.is_int_real(srt)) {
+                    func_decl* fn1 = pm.o2n(fn0, 0);
+                    left  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                    right = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                    m_left.insert(fn1, left);
+                    m_right.insert(fn1, right);
+                    m_trail.push_back(left);
+                    m_trail.push_back(right);
+                }
+            }
+        }
+        unsigned sz = n.pt().sig_size();        
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* left, *right;
+            func_decl* fn0 = n.pt().sig(i);
+            func_decl* fn1 = pm.o2n(fn0, 0);
+            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
+                eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(left, right)));
+            }
+        }
+        if (!mk_convex(core, 0, conv1)) {
+            IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
+            return;
+        }
+        conv1.append(eqs);
+        conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
+        conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
+        expr_ref fml = n.pt().get_formulas(n.level(), false);
+        expr_ref_vector fmls(m);
+        datalog::flatten_and(fml, fmls);
+        for (unsigned i = 0; i < fmls.size(); ++i) {
+            fml = m.mk_not(fmls[i].get());
+            core2.reset();
+            datalog::flatten_and(fml, core2);
+            if (!mk_convex(core2, 1, conv2)) {
+                IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core2), m) << "\n";);
+                continue;
+            }
+            conv2.append(conv1);
+            expr_ref state = pm.mk_and(conv2);
+            TRACE("pdr", tout << "Check:\n" << mk_pp(state, m) << "\n";
+                  tout << "New formula:\n" << mk_pp(pm.mk_and(core), m) << "\n";
+                  tout << "Old formula:\n" << mk_pp(fml, m) << "\n";
+
+                  );
+            model_node nd(0, state, n.pt(), n.level());
+            if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
+                TRACE("pdr", 
+                      tout << mk_pp(state, m) << "\n";
+                      tout << "Generalized to:\n" << mk_pp(pm.mk_and(conv2), m) << "\n";);
+                IF_VERBOSE(0,
+                           verbose_stream() << mk_pp(state, m) << "\n";
+                           verbose_stream() << "Generalized to:\n" << mk_pp(pm.mk_and(conv2), m) << "\n";);
+                core.reset();
+                core.append(conv2);
+            }            
+        }
+    }
+
+    bool core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
+        conv.reset();
+        for (unsigned i = 0; i < core.size(); ++i) {
+            mk_convex(core[i], index, conv);
+        }
+        return !conv.empty();
+    }
+
+    void core_convex_hull_generalizer::mk_convex(expr* fml, unsigned index, expr_ref_vector& conv) {
+        expr_ref result(m), r1(m), r2(m);
+        expr* e1, *e2;        
+        bool is_not = m.is_not(fml, fml);
+        if (a.is_le(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+            result = a.mk_le(r1, r2);
+        }
+        else if (a.is_ge(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+            result = a.mk_ge(r1, r2);
+        }
+        else if (a.is_gt(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+            result = a.mk_gt(r1, r2);
+        }
+        else if (a.is_lt(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+            result = a.mk_lt(r1, r2);
+        }
+        else if (m.is_eq(fml, e1, e2) && a.is_int_real(e1) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+            result = m.mk_eq(r1, r2);
+        }
+        else {
+            TRACE("pdr", tout << "Did not handle " << mk_pp(fml, m) << "\n";);
+            return;
+        }
+        if (is_not) {
+            result = m.mk_not(result);
+        }
+        conv.push_back(result);
+    }
+
+    
+    bool core_convex_hull_generalizer::translate(func_decl* f, unsigned index, expr_ref& result) {
+        expr* tmp;
+        if (index == 0 && m_left.find(f, tmp)) {
+            result = tmp;
+            return true;
+        }
+        if (index == 1 && m_right.find(f, tmp)) {
+            result = tmp;
+            return true;
+        }
+        return false;
+    }
+
+
+    bool core_convex_hull_generalizer::mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result) {
+        if (!is_app(term)) {
+            return false;
+        }
+        app* app = to_app(term);
+        expr* e1, *e2;
+        expr_ref r1(m), r2(m);
+        if (translate(app->get_decl(), index, result)) {
+            return true;
+        }
+        if (a.is_add(term, e1, e2) && mk_convex(e1, index, is_mul, r1) && mk_convex(e2, index, is_mul, r2)) {
+            result = a.mk_add(r1, r2);
+            return true;
+        }
+        if (a.is_sub(term, e1, e2) && mk_convex(e1, index, is_mul, r1) && mk_convex(e2, index, is_mul, r2)) {
+            result = a.mk_sub(r1, r2);
+            return true;
+        }
+        if (a.is_mul(term, e1, e2) && mk_convex(e1, index, true, r1) && mk_convex(e2, index, true, r2)) {
+            result = a.mk_mul(r1, r2);
+            return true;
+        }
+        if (a.is_numeral(term)) {
+            if (is_mul) {
+                result = term;
+            }
+            else {
+                result = a.mk_mul(m_sigma[index].get(), term);
+            }
+            return true;
+        }
+        IF_VERBOSE(0, verbose_stream() << "Not handled: " << mk_pp(term, m) << "\n";);
+        return false;
+    }
+
+
     // ---------------------------------
     // core_arith_inductive_generalizer 
     // NB. this is trying out some ideas for generalization in
