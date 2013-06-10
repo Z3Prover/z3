@@ -205,7 +205,7 @@ namespace Duality {
 	if(rit != e->relMap.end())
 	  res = RedDualRela(e,args,(rit->second));
 	else {
-	  if (args.size() == 0 && f.get_decl_kind() == Uninterpreted)
+	  if (args.size() == 0 && f.get_decl_kind() == Uninterpreted && !ls->is_constant(f))
 	    {
 	      res = HideVariable(t,e->number);
 	    }
@@ -518,6 +518,12 @@ namespace Duality {
 	stack.back().nodes.push_back(n);
 	slvr.add(n->dual);
       }
+  }
+
+  /** Declare a constant in the background theory. */
+
+  void RPFP::DeclareConstant(const FuncDecl &f){
+    ls->declare_constant(f);
   }
 
   /** Assert a background axiom. Background axioms can be used to provide the
@@ -1828,7 +1834,7 @@ namespace Duality {
     return RemoveLabelsRec(memo,t,lbls);
   }
 
-  Z3User::Term Z3User::SubstBoundRec(hash_map<int,hash_map<ast,Term> > &memo, hash_map<int,Term> &subst, int level, const Term &t)
+  RPFP::Term RPFP::SubstBoundRec(hash_map<int,hash_map<ast,Term> > &memo, hash_map<int,Term> &subst, int level, const Term &t)
   {
     std::pair<ast,Term> foo(t,expr(ctx));
     std::pair<hash_map<ast,Term>::iterator, bool> bar = memo[level].insert(foo);
@@ -1839,6 +1845,8 @@ namespace Duality {
 	func_decl f = t.decl();
 	std::vector<Term> args;
 	int nargs = t.num_args();
+	if(nargs == 0)
+	  ls->declare_constant(f);  // keep track of background constants
 	for(int i = 0; i < nargs; i++)
 	  args.push_back(SubstBoundRec(memo, subst, level, t.arg(i)));
 	res = f(args.size(),&args[0]);
@@ -1858,7 +1866,7 @@ namespace Duality {
     return res;
   }
 
-  Z3User::Term Z3User::SubstBound(hash_map<int,Term> &subst, const Term &t){
+  RPFP::Term RPFP::SubstBound(hash_map<int,Term> &subst, const Term &t){
     hash_map<int,hash_map<ast,Term> > memo;
     return SubstBoundRec(memo, subst, 0, t);
   }
@@ -2037,7 +2045,7 @@ namespace Duality {
 	int nargs = t.num_args();
 	for(int i = 0; i < nargs; i++)
 	  WriteEdgeVars(e, memo, t.arg(i),s);
-	if (nargs == 0 && f.get_decl_kind() == Uninterpreted){
+	if (nargs == 0 && f.get_decl_kind() == Uninterpreted && !ls->is_constant(f)){
 	  Term rename = HideVariable(t,e->number);
 	  Term value = dualModel.eval(rename);
 	  s << " (= " << t << " " << value << ")\n";
