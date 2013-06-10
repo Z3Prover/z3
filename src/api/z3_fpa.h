@@ -25,6 +25,8 @@ extern "C" {
 
     /**
         \brief Create a rounding mode sort.
+
+        \param c logical context.
      
         def_API('Z3_mk_fpa_rounding_mode_sort', SORT, (_in(CONTEXT),))
     */
@@ -32,6 +34,8 @@ extern "C" {
 
     /**
         \brief Create a numeral of rounding mode sort which represents the NearestTiesToEven rounding mode.
+
+        \param c logical context.
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_even', AST, (_in(CONTEXT),))
     */
@@ -39,6 +43,8 @@ extern "C" {
 
     /**
         \brief Create a numeral of rounding mode sort which represents the NearestTiesToAway rounding mode.
+
+        \param c logical context.
      
         def_API('Z3_mk_fpa_round_nearest_ties_to_away', AST, (_in(CONTEXT),))
     */
@@ -46,6 +52,8 @@ extern "C" {
 
     /**
         \brief Create a numeral of rounding mode sort which represents the TowardPositive rounding mode.
+
+        \param c logical context.
      
         def_API('Z3_mk_fpa_round_toward_positive', AST, (_in(CONTEXT),))
     */
@@ -54,28 +62,41 @@ extern "C" {
     /**
         \brief Create a numeral of rounding mode sort which represents the TowardNegative rounding mode.
      
+        \param c logical context.
+
         def_API('Z3_mk_fpa_round_toward_negative', AST, (_in(CONTEXT),))
     */
     Z3_ast Z3_API Z3_mk_fpa_round_toward_negative(__in Z3_context c);    
 
     /**
         \brief Create a numeral of rounding mode sort which represents the TowardZero rounding mode.
+
+        \param c logical context.
      
         def_API('Z3_mk_fpa_round_toward_zero', AST, (_in(CONTEXT),))
     */
     Z3_ast Z3_API Z3_mk_fpa_round_toward_zero(__in Z3_context c);
 
+
+
     /**
         \brief Create a floating point sort.
-     
-        def_API('Z3_mk_fpa_sort', SORT, (_in(CONTEXT), _in(UINT), _in(UINT)))
+
+        \param c logical context.
+        \param ebits number of exponent bits
+        \param sbits number of significand bits
 
         \remark ebits must be larger than 1 and sbits must be larger than 2.
+     
+        def_API('Z3_mk_fpa_sort', SORT, (_in(CONTEXT), _in(UINT), _in(UINT)))        
     */
     Z3_sort Z3_API Z3_mk_fpa_sort(__in Z3_context c, __in unsigned ebits, __in unsigned sbits);
 
     /**
         \brief Create a NaN of sort s.
+
+        \param c logical context.
+        \param s target sort 
      
         def_API('Z3_mk_fpa_nan', AST, (_in(CONTEXT),_in(SORT)))
     */
@@ -83,15 +104,40 @@ extern "C" {
 
     /**
         \brief Create a floating point infinity of sort s.
+
+        \param c logical context.
+        \param s target sort 
+        \param negative indicates whether the result should be negative
      
         When \c negative is true, -Inf will be generated instead of +Inf.
 
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
     Z3_ast Z3_API Z3_mk_fpa_inf(__in Z3_context c, __in Z3_sort s, __in Z3_bool negative);
-  
+
+    /**
+       \brief Create a numeral of floating point sort. 
+       
+       This function can be use to create numerals that fit in a double value.
+       It is slightly faster than #Z3_mk_numeral since it is not necessary to parse a string.
+
+       \params c logical context.
+       \params v value.
+       \params ty sort.
+
+       ty must be a floating point sort
+
+       \sa Z3_mk_numeral
+
+       def_API('Z3_mk_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
+    */
+    Z3_ast Z3_API Z3_mk_double(__in Z3_context c, __in double v, __in Z3_sort ty);
+
     /**
         \brief Floating-point absolute value
+
+        \param c logical context.
+        \param t floating-point term.
 
         t must have floating point sort.
      
@@ -102,6 +148,9 @@ extern "C" {
     /**
         \brief Floating-point negation
 
+        \param c logical context.
+        \param t floating-point term.
+
         t must have floating point sort.
      
         def_API('Z3_mk_fpa_neg', AST, (_in(CONTEXT),_in(AST)))
@@ -111,7 +160,12 @@ extern "C" {
     /**
         \brief Floating-point addition
 
-        rm must be of FPA rounding mode sort, t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param rm rounding mode
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        rm must be of FPA rounding mode sort, t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_add', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
@@ -120,7 +174,12 @@ extern "C" {
     /**
         \brief Floating-point subtraction
 
-        rm must be of FPA rounding mode sort, t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param rm rounding mode
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        rm must be of FPA rounding mode sort, t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_sub', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
@@ -129,7 +188,12 @@ extern "C" {
     /**
         \brief Floating-point multiplication
 
-        rm must be of FPA rounding mode sort, t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param rm rounding mode
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        rm must be of FPA rounding mode sort, t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_mul', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
@@ -138,7 +202,12 @@ extern "C" {
     /**
         \brief Floating-point division
 
-        The nodes rm must be of FPA rounding mode sort t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param rm rounding mode
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        The nodes rm must be of FPA rounding mode sort t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_div', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST)))
     */
@@ -147,9 +216,14 @@ extern "C" {
     /**
         \brief Floating-point fused multiply-add.
 
+        \param c logical context.
+        \param rm rounding mode
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
         The result is round((t1 * t2) + t3)
 
-        rm must be of FPA rounding mode sort, t1, t2, and t3 must have floating point sort.
+        rm must be of FPA rounding mode sort, t1, t2, and t3 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_fma', AST, (_in(CONTEXT),_in(AST),_in(AST),_in(AST),_in(AST)))
     */
@@ -157,6 +231,10 @@ extern "C" {
    
     /**
         \brief Floating-point square root
+
+        \param c logical context.
+        \param rm rounding mode
+        \param t floating-point term.
 
         rm must be of FPA rounding mode sort, t must have floating point sort.
      
@@ -167,7 +245,11 @@ extern "C" {
     /**
         \brief Floating-point remainder
 
-        t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_rem', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */
@@ -176,27 +258,39 @@ extern "C" {
     /**
         \brief Floating-point equality
 
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
         Note that this is IEEE 754 equality (as opposed to SMT-LIB =).
 
-        t1 and t2 must have floating point sort.
+        t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_eq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_eq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
    
      /**
-        \brief Floating-point less-than or equal        
+        \brief Floating-point less than or equal        
 
-        t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1 and t2 must have the same floating point sort.
      
-        def_API('Z3_mk_fpa_leq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_le', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_leq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_le(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
      /**
         \brief Floating-point less-than
 
-        t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_lt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
@@ -204,18 +298,26 @@ extern "C" {
     
     
     /**
-        \brief Floating-point greater-than or equal        
+        \brief Floating-point greater than or equal
 
-        t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1 and t2 must have the same floating point sort.
      
-        def_API('Z3_mk_fpa_geq', AST, (_in(CONTEXT),_in(AST),_in(AST)))
+        def_API('Z3_mk_fpa_ge', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
-    Z3_ast Z3_API Z3_mk_fpa_geq(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
+    Z3_ast Z3_API Z3_mk_fpa_ge(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
     /**
         \brief Floating-point greater-than
 
-        t1 and t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1 and t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_gt', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
@@ -223,6 +325,9 @@ extern "C" {
    
     /**
         \brief Predicate indicating whether t is a normal floating point number
+
+        \param c logical context.
+        \param t floating-point term.
 
         t must have floating point sort.
      
@@ -233,6 +338,9 @@ extern "C" {
     /**
         \brief Predicate indicating whether t is a subnormal floating point number
 
+        \param c logical context.
+        \param t floating-point term.
+
         t must have floating point sort.
      
         def_API('Z3_mk_fpa_is_subnormal', AST, (_in(CONTEXT),_in(AST)))
@@ -241,6 +349,9 @@ extern "C" {
 
     /**
         \brief Predicate indicating whether t is a floating point number with zero value, i.e., +0 or -0.
+
+        \param c logical context.
+        \param t floating-point term.
 
         t must have floating point sort.
      
@@ -251,6 +362,9 @@ extern "C" {
    /**
         \brief Predicate indicating whether t is a floating point number representing +Inf or -Inf
 
+        \param c logical context.
+        \param t floating-point term.
+
         t must have floating point sort.
      
         def_API('Z3_mk_fpa_is_inf', AST, (_in(CONTEXT),_in(AST)))
@@ -259,6 +373,9 @@ extern "C" {
 
     /**
         \brief Predicate indicating whether t is a NaN
+
+        \param c logical context.
+        \param t floating-point term.
 
         t must have floating point sort.
      
@@ -269,7 +386,11 @@ extern "C" {
     /**
         \brief Minimum of floating point numbers
 
-        t1, t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1, t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_min', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
@@ -278,20 +399,44 @@ extern "C" {
     /**
         \brief Maximum of floating point numbers
 
-        t1, t2 must have floating point sort.
+        \param c logical context.
+        \param t1 floating-point term.
+        \param t2 floating-point term.
+
+        t1, t2 must have the same floating point sort.
      
         def_API('Z3_mk_fpa_max', AST, (_in(CONTEXT),_in(AST),_in(AST)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_max(__in Z3_context c, __in Z3_ast t1, __in Z3_ast t2);
 
     /**
-        \brief Conversion of a floating point number to sort s.
+        \brief Conversion of a floating point number to another floating-point sort s.
+
+        Produces a term that represents the conversion of a floating-point term t to a different
+        floating point sort s. If necessary, rounding according to rm is applied. 
+
+        \param c logical context.
+        \param s floating-point sort.
+        \param rm rounding mode.
+        \param t floating-point term.        
 
         s must be a floating point sort, rm must have rounding mode sort, and t must have floating point sort.
      
         def_API('Z3_mk_fpa_convert', AST, (_in(CONTEXT),_in(SORT),_in(AST),_in(AST)))
     */      
     Z3_ast Z3_API Z3_mk_fpa_convert(__in Z3_context c, __in Z3_sort s, __in Z3_ast rm, __in Z3_ast t);
+
+    /**
+        \brief Conversion of a floating point term to a bit-vector term in IEEE754 format.
+
+        \param c logical context.        
+        \param t floating-point term.        
+
+        t must have floating point sort. The size of the resulting bit-vector is automatically determined.
+     
+        def_API('Z3_mk_fpa_to_ieee_bv', AST, (_in(CONTEXT),_in(AST)))
+    */      
+    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t);
    
 #ifdef __cplusplus
 };

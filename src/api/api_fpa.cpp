@@ -122,6 +122,19 @@ extern "C" {
         RETURN_Z3(r);
         Z3_CATCH_RETURN(0);
     }
+
+    Z3_ast Z3_API Z3_mk_double(Z3_context c, double v, Z3_sort ty) {
+        Z3_TRY;
+        LOG_Z3_mk_double(c, v, ty);
+        RESET_ERROR_CODE();
+        api::context * ctx = mk_c(c);
+        float_util fu(ctx->m());
+        mpf tmp;
+        fu.fm().set(tmp, fu.get_ebits(to_sort(ty)), fu.get_sbits(to_sort(ty)), v);
+        Z3_ast r = of_ast(fu.mk_value(tmp));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
     
     Z3_ast Z3_API Z3_mk_fpa_abs(Z3_context c, Z3_ast t) {
         Z3_TRY;
@@ -223,9 +236,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
    
-    Z3_ast Z3_API Z3_mk_fpa_leq(Z3_context c, Z3_ast t1, Z3_ast t2) {
+    Z3_ast Z3_API Z3_mk_fpa_le(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_leq(c, t1, t2);
+        LOG_Z3_mk_fpa_le(c, t1, t2);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         Z3_ast r = of_ast(float_util(ctx->m()).mk_le(to_expr(t1), to_expr(t2)));
@@ -243,9 +256,9 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
     
-    Z3_ast Z3_API Z3_mk_fpa_geq(Z3_context c, Z3_ast t1, Z3_ast t2) {
+    Z3_ast Z3_API Z3_mk_fpa_ge(Z3_context c, Z3_ast t1, Z3_ast t2) {
         Z3_TRY;
-        LOG_Z3_mk_fpa_geq(c, t1, t2);
+        LOG_Z3_mk_fpa_ge(c, t1, t2);
         RESET_ERROR_CODE();
         api::context * ctx = mk_c(c);
         Z3_ast r = of_ast(float_util(ctx->m()).mk_ge(to_expr(t1), to_expr(t2)));
@@ -347,4 +360,13 @@ extern "C" {
         Z3_CATCH_RETURN(0);
     }
 
+    Z3_ast Z3_API Z3_mk_fpa_to_ieee_bv(__in Z3_context c, __in Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_mk_fpa_to_ieee_bv(c, t);
+        RESET_ERROR_CODE();        
+        api::context * ctx = mk_c(c);
+        Z3_ast r = of_ast(float_util(ctx->m()).mk_to_ieee_bv(to_expr(t)));
+        RETURN_Z3(r);
+        Z3_CATCH_RETURN(0);
+    }
 };
