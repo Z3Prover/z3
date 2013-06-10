@@ -647,6 +647,12 @@ extern "C" {
         else if (fid == mk_c(c)->get_datalog_fid() && k == datalog::DL_FINITE_SORT) {
             return Z3_FINITE_DOMAIN_SORT;
         }
+        else if (fid == mk_c(c)->get_fpa_fid() && k == FLOAT_SORT) {
+            return Z3_FLOATING_POINT_SORT;
+        }
+        else if (fid == mk_c(c)->get_fpa_fid() && k == ROUNDING_MODE_SORT) {
+            return Z3_FLOATING_POINT_ROUNDING_MODE_SORT;
+        }
         else {
             return Z3_UNKNOWN_SORT;
         }

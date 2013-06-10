@@ -2022,6 +2022,17 @@ namespace test_mapi
             // Console.WriteLine("{0}", ctx.MkEq(s1, t1));	    
         }
 
+        public static void FloatingPointExample(Context ctx)
+        {
+            Console.WriteLine("FloatingPointExample");
+
+            FPSort s = ctx.MkFPSort(11, 53);
+            Console.WriteLine("Sort: {0}", s);
+
+            FPNum n = (FPNum) ctx.MkNumeral("0.125", s);
+            Console.WriteLine("Numeral: {0}", n.ToString());
+        }
+
         static void Main(string[] args)
         {
             try
@@ -2063,6 +2074,7 @@ namespace test_mapi
                     FindSmallModelExample(ctx);
                     SimplifierExample(ctx);
                     FiniteDomainExample(ctx);
+                    FloatingPointExample(ctx);
                 }
 
                 // These examples need proof generation turned on.

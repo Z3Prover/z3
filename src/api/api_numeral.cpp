@@ -23,13 +23,15 @@ Revision History:
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"algebraic_numbers.h"
+#include"float_decl_plugin.h"
 
 bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     sort * _ty = to_sort(ty);
     family_id fid  = _ty->get_family_id();
     if (fid != mk_c(c)->get_arith_fid() && 
         fid != mk_c(c)->get_bv_fid() &&
-        fid != mk_c(c)->get_datalog_fid()) {
+        fid != mk_c(c)->get_datalog_fid() &&
+        fid != mk_c(c)->get_fpa_fid()) {
         return false;
     }
     return true;
@@ -69,7 +71,19 @@ extern "C" {
             }
             ++m;
         }
-        ast * a = mk_c(c)->mk_numeral_core(rational(n), to_sort(ty));
+        ast * a = 0;
+        sort * _ty = to_sort(ty);
+        if (_ty->get_family_id() == mk_c(c)->get_fpa_fid())
+        {
+            // avoid expanding floats into huge rationals.
+            float_util & fu = mk_c(c)->float_util();
+            scoped_mpf t(fu.fm());
+            fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_TOWARD_ZERO, n);
+            a = fu.mk_value(t);
+            mk_c(c)->save_ast_trail(a);
+        }
+        else
+            a = mk_c(c)->mk_numeral_core(rational(n), _ty);
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(0);
     }
@@ -131,7 +145,8 @@ extern "C" {
         expr* e = to_expr(a);
         return 
             mk_c(c)->autil().is_numeral(e) ||
-            mk_c(c)->bvutil().is_numeral(e);
+            mk_c(c)->bvutil().is_numeral(e) ||
+            mk_c(c)->float_util().is_value(e);
         Z3_CATCH_RETURN(Z3_FALSE);
     }
 
@@ -155,7 +170,7 @@ extern "C" {
         if (mk_c(c)->datalog_util().is_numeral(e, v)) {
             r = rational(v, rational::ui64());
             return Z3_TRUE;
-        }
+        }		
         return Z3_FALSE;            
         Z3_CATCH_RETURN(Z3_FALSE);
     }
@@ -172,8 +187,16 @@ extern "C" {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return "";
+            // floats are separated from all others to avoid huge rationals.
+            float_util & fu = mk_c(c)->float_util();
+            scoped_mpf tmp(fu.fm());
+            if (mk_c(c)->float_util().is_numeral(to_expr(a), tmp)) {
+                return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
+            }
+            else {
+                SET_ERROR_CODE(Z3_INVALID_ARG);
+                return "";
+            }
         }
         Z3_CATCH_RETURN("");
     }
