@@ -79,10 +79,6 @@ namespace Duality {
 
       int CumulativeDecisions();
 
-      Term SubstBoundRec(hash_map<int,hash_map<ast,Term> > &memo, hash_map<int,Term> &subst, int level, const Term &t);
-
-      Term SubstBound(hash_map<int,Term> &subst, const Term &t);
-
   private:
 
       void SummarizeRec(hash_set<ast> &memo, std::vector<expr> &lits, int &ops, const Term &t);
@@ -162,6 +158,12 @@ namespace Duality {
 				  bool weak = false
 				  ) = 0;
            
+	   /** Declare a constant in the background theory. */
+	   virtual void declare_constant(const func_decl &f) = 0;
+
+	   /** Is this a background constant? */
+	   virtual bool is_constant(const func_decl &f) = 0;
+
            /** Assert a background axiom. */
            virtual void assert_axiom(const expr &axiom) = 0;
 
@@ -224,10 +226,24 @@ namespace Duality {
 	  islvr->write_interpolation_problem(file_name,assumptions,theory);
 #endif
 	}
+
+	/** Declare a constant in the background theory. */
+	virtual void declare_constant(const func_decl &f){
+	  bckg.insert(f);
+	}
+	
+	/** Is this a background constant? */
+	virtual bool is_constant(const func_decl &f){
+	  return bckg.find(f) != bckg.end();
+	}
+
         ~iZ3LogicSolver(){
           // delete ictx;
           delete islvr;
         }
+      private:
+	hash_set<func_decl> bckg;
+
       };
 
 #if 0
@@ -477,6 +493,10 @@ namespace Duality {
        * */
       
       void AssertNode(Node *n);
+
+      /** Declare a constant in the background theory. */
+
+      void DeclareConstant(const FuncDecl &f);
 
       /** Assert a background axiom. Background axioms can be used to provide the
        *  theory of auxilliary functions or relations. All symbols appearing in
@@ -771,6 +791,12 @@ namespace Duality {
 
       void GetLabelsRec(hash_map<ast,int> &memo, const Term &f, std::vector<symbol> &labels,
 			hash_set<ast> *done, bool truth);
+
+      Term SubstBoundRec(hash_map<int,hash_map<ast,Term> > &memo, hash_map<int,Term> &subst, int level, const Term &t);
+
+      Term SubstBound(hash_map<int,Term> &subst, const Term &t);
+
+
     };
     
     /** RPFP solver base class. */
