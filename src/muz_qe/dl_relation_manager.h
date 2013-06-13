@@ -55,6 +55,7 @@ namespace datalog {
         class default_table_filter_equal_fn;
         class default_table_filter_identical_fn;
         class default_table_filter_interpreted_fn;
+        class default_table_filter_interpreted_and_project_fn;
         class default_table_negation_filter_fn;
         class default_table_filter_not_equal_fn;
         class default_table_select_equal_and_project_fn;
@@ -350,6 +351,9 @@ namespace datalog {
 
         relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
 
+        relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
+
         /**
             \brief Operations that returns all rows of \c t for which is column \c col equal to \c value
             with the column \c col removed.
@@ -521,6 +525,9 @@ namespace datalog {
             unsigned col);
 
         table_mutator_fn * mk_filter_interpreted_fn(const table_base & t, app * condition);
+
+        table_transformer_fn * mk_filter_interpreted_and_project_fn(const table_base & t, app * condition,
+            unsigned removed_col_cnt, const unsigned * removed_cols);
 
         /**
             \brief Operations that returns all rows of \c t for which is column \c col equal to \c value

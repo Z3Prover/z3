@@ -331,6 +331,10 @@ namespace datalog {
             virtual mutator_fn * mk_filter_interpreted_fn(const base_object & t, app * condition)
             { return 0; }
 
+            virtual transformer_fn * mk_filter_interpreted_and_project_fn(const base_object & t,
+                app * condition, unsigned removed_col_cnt, const unsigned * removed_cols)
+            { return 0; }
+
             virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t, 
                     const element & value, unsigned col) { return 0; }
 
@@ -454,8 +458,8 @@ namespace datalog {
         class convenient_join_fn : public join_fn {
             signature m_result_sig;
         protected:
-            const unsigned_vector m_cols1;
-            const unsigned_vector m_cols2;
+            unsigned_vector m_cols1;
+            unsigned_vector m_cols2;
 
             convenient_join_fn(const signature & o1_sig, const signature & o2_sig, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2) 
@@ -470,8 +474,8 @@ namespace datalog {
         class convenient_join_project_fn : public join_fn {
             signature m_result_sig;
         protected:
-            const unsigned_vector m_cols1;
-            const unsigned_vector m_cols2;
+            unsigned_vector m_cols1;
+            unsigned_vector m_cols2;
             //it is non-const because it needs to be modified in sparse_table version of the join_project operator
             unsigned_vector m_removed_cols;
 
@@ -498,7 +502,7 @@ namespace datalog {
 
         class convenient_project_fn : public convenient_transformer_fn {
         protected:
-            const unsigned_vector m_removed_cols;
+            unsigned_vector m_removed_cols;
 
             convenient_project_fn(const signature & orig_sig, unsigned col_cnt, const unsigned * removed_cols) 
                     : m_removed_cols(col_cnt, removed_cols) {

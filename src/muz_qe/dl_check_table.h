@@ -35,13 +35,16 @@ namespace datalog {
         unsigned m_count;
     protected:
         class join_fn;
+        class join_project_fn;
         class union_fn;
         class transformer_fn;
         class rename_fn;
         class project_fn;
+        class select_equal_and_project_fn;
         class filter_equal_fn;
         class filter_identical_fn;
         class filter_interpreted_fn;
+        class filter_interpreted_and_project_fn;
         class filter_by_negation_fn;
 
     public:
@@ -54,10 +57,15 @@ namespace datalog {
 
         virtual table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
+        virtual table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
+            const unsigned * removed_cols);
         virtual table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src, 
             const table_base * delta);
         virtual table_transformer_fn * mk_project_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * removed_cols);
+        virtual table_transformer_fn * mk_select_equal_and_project_fn(const table_base & t, 
+            const table_element & value, unsigned col);
         virtual table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
             const unsigned * permutation_cycle);
         virtual table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt, 
@@ -65,6 +73,8 @@ namespace datalog {
         virtual table_mutator_fn * mk_filter_equal_fn(const table_base & t, const table_element & value, 
             unsigned col);
         virtual table_mutator_fn * mk_filter_interpreted_fn(const table_base & t, app * condition);
+        virtual table_transformer_fn * mk_filter_interpreted_and_project_fn(const table_base & t,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols);
         virtual table_intersection_filter_fn * mk_filter_by_negation_fn(
             const table_base & t, 
             const table_base & negated_obj, unsigned joined_col_cnt, 

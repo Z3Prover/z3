@@ -260,6 +260,8 @@ namespace datalog {
         static instruction * mk_filter_equal(ast_manager & m, reg_idx reg, const relation_element & value, unsigned col);
         static instruction * mk_filter_identical(reg_idx reg, unsigned col_cnt, const unsigned * identical_cols);
         static instruction * mk_filter_interpreted(reg_idx reg, app_ref & condition);
+        static instruction * mk_filter_interpreted_and_project(reg_idx src, app_ref & condition,
+            unsigned col_cnt, const unsigned * removed_cols, reg_idx result);
         static instruction * mk_union(reg_idx src, reg_idx tgt, reg_idx delta);
         static instruction * mk_widen(reg_idx src, reg_idx tgt, reg_idx delta);
         static instruction * mk_projection(reg_idx src, unsigned col_cnt, const unsigned * removed_cols, 
