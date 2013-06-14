@@ -83,17 +83,21 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
         rational q;
         mpf q_mpf;
         if (m_util.au().is_numeral(args[1], q)) {        
+            TRACE("fp_rewriter", tout << "q: " << q << std::endl; );
             mpf v;
             m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
             result = m_util.mk_value(v);
-            m_util.fm().del(v);            
+            m_util.fm().del(v);
+            TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
-        else if (m_util.is_value(args[1], q_mpf)) {            
+        else if (m_util.is_value(args[1], q_mpf)) {
+            TRACE("fp_rewriter", tout << "q: " << m_util.fm().to_string(q_mpf) << std::endl; );
             mpf v;
             m_util.fm().set(v, ebits, sbits, rm, q_mpf);
             result = m_util.mk_value(v);
             m_util.fm().del(v);
+            TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
             return BR_DONE;
         }
         else 
@@ -117,11 +121,11 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
             return BR_FAILED;
 
         TRACE("fp_rewriter", tout << "q: " << q << ", e: " << e << "\n";);
-
         mpf v;
 	    m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
         result = m_util.mk_value(v);
-        m_util.fm().del(v);
+        m_util.fm().del(v);        
+        TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
         return BR_DONE;
     }
     else {
