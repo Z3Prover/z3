@@ -3532,7 +3532,7 @@ namespace Microsoft.Z3
         /// Floating-point absolute value
         /// </summary>
         /// <param name="t">floating point term</param>
-        FPExpr MkFPAbs(FPExpr t) 
+        public FPExpr MkFPAbs(FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_abs(this.nCtx, t.NativeObject));
@@ -3542,7 +3542,7 @@ namespace Microsoft.Z3
         /// Floating-point negation
         /// </summary>
         /// <param name="t">floating point term</param>
-        FPExpr MkFPNeg(FPExpr t) 
+        public FPExpr MkFPNeg(FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_neg(this.nCtx, t.NativeObject));
@@ -3554,7 +3554,7 @@ namespace Microsoft.Z3
         /// <param name="rm">rounding mode term</param>
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPAdd(FPRMExpr rm, FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_add(this.nCtx, rm.NativeObject, t1.NativeObject, t2.NativeObject));
@@ -3566,7 +3566,7 @@ namespace Microsoft.Z3
         /// <param name="rm">rounding mode term</param>
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPSub(FPRMExpr rm, FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_sub(this.nCtx, rm.NativeObject, t1.NativeObject, t2.NativeObject));
@@ -3578,7 +3578,7 @@ namespace Microsoft.Z3
         /// <param name="rm">rounding mode term</param>
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPMul(FPRMExpr rm, FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_mul(this.nCtx, rm.NativeObject, t1.NativeObject, t2.NativeObject));
@@ -3590,7 +3590,7 @@ namespace Microsoft.Z3
         /// <param name="rm">rounding mode term</param>
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPDiv(FPRMExpr rm, FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_div(this.nCtx, rm.NativeObject, t1.NativeObject, t2.NativeObject));
@@ -3606,7 +3606,7 @@ namespace Microsoft.Z3
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
         /// <param name="t3">floating point term</param>
-        FPExpr MkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3) 
+        public FPExpr MkFPFMA(FPRMExpr rm, FPExpr t1, FPExpr t2, FPExpr t3) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_fma(this.nCtx, rm.NativeObject, t1.NativeObject, t2.NativeObject, t3.NativeObject));
@@ -3616,7 +3616,7 @@ namespace Microsoft.Z3
         /// Floating-point square root
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        FPExpr MkFPSqrt(FPRMExpr rm, FPExpr t) 
+        public FPExpr MkFPSqrt(FPRMExpr rm, FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_sqrt(this.nCtx, rm.NativeObject, t.NativeObject));
@@ -3627,7 +3627,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPRem(FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPRem(FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_rem(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3641,7 +3641,7 @@ namespace Microsoft.Z3
         /// </remarks>
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        BoolExpr MkFPEq(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPEq(FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_eq(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3652,7 +3652,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        BoolExpr MkFPLe(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPLe(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_le(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3663,7 +3663,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        BoolExpr MkFPLt(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPLt(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_lt(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3674,7 +3674,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        BoolExpr MkFPGe(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPGe(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_ge(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3685,7 +3685,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        BoolExpr MkFPGt(FPExpr t1, FPExpr t2) 
+        public BoolExpr MkFPGt(FPExpr t1, FPExpr t2) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_gt(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3695,7 +3695,7 @@ namespace Microsoft.Z3
         /// Predicate indicating whether t is a normal floating point number
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        BoolExpr MkFPIsNormal(FPExpr t) 
+        public BoolExpr MkFPIsNormal(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_is_normal(this.nCtx, t.NativeObject));
@@ -3705,7 +3705,7 @@ namespace Microsoft.Z3
         /// Predicate indicating whether t is a subnormal floating point number
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        BoolExpr MkFPIsSubnormal(FPExpr t) 
+        public BoolExpr MkFPIsSubnormal(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_is_subnormal(this.nCtx, t.NativeObject));
@@ -3715,7 +3715,7 @@ namespace Microsoft.Z3
         /// Predicate indicating whether t is a floating point number with zero value, i.e., +0 or -0.
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        BoolExpr MkFPIsZero(FPExpr t) 
+        public BoolExpr MkFPIsZero(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_is_zero(this.nCtx, t.NativeObject));
@@ -3725,7 +3725,7 @@ namespace Microsoft.Z3
         /// Predicate indicating whether t is a floating point number representing +Inf or -Inf
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        BoolExpr MkFPIsInf(FPExpr t) 
+        public BoolExpr MkFPIsInf(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_is_inf(this.nCtx, t.NativeObject));
@@ -3735,7 +3735,7 @@ namespace Microsoft.Z3
         /// Predicate indicating whether t is a NaN
         /// </summary>        
         /// <param name="t">floating point term</param>        
-        BoolExpr MkFPIsNaN(FPExpr t) 
+        public BoolExpr MkFPIsNaN(FPExpr t) 
         {            
             Contract.Ensures(Contract.Result<BoolExpr>() != null);
             return new BoolExpr(this, Native.Z3_mk_fpa_is_nan(this.nCtx, t.NativeObject));
@@ -3746,7 +3746,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPMin(FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPMin(FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_min(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3757,7 +3757,7 @@ namespace Microsoft.Z3
         /// </summary>        
         /// <param name="t1">floating point term</param>
         /// <param name="t2">floating point term</param>
-        FPExpr MkFPMax(FPExpr t1, FPExpr t2) 
+        public FPExpr MkFPMax(FPExpr t1, FPExpr t2) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_max(this.nCtx, t1.NativeObject, t2.NativeObject));
@@ -3773,7 +3773,7 @@ namespace Microsoft.Z3
         /// <param name="s">floating point sort</param>
         /// <param name="rm">floating point rounding mode term</param>
         /// <param name="t">floating point term</param>
-        FPExpr MkFPConvert(FPSort s, FPRMExpr rm, FPExpr t) 
+        public FPExpr MkFPConvert(FPSort s, FPRMExpr rm, FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_convert(this.nCtx, s.NativeObject, rm.NativeObject, t.NativeObject));
@@ -3786,7 +3786,7 @@ namespace Microsoft.Z3
         /// The size of the resulting bit-vector is automatically determined.
         /// </remarks>
         /// <param name="t">floating point term</param>    
-        FPExpr MkFPToIEEEBV(FPExpr t) 
+        public FPExpr MkFPToIEEEBV(FPExpr t) 
         {
             Contract.Ensures(Contract.Result<FPNum>() != null);
             return new FPExpr(this, Native.Z3_mk_fpa_to_ieee_bv(this.nCtx, t.NativeObject));
