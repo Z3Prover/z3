@@ -1698,6 +1698,10 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         expr_ref sgn(m), sig(m), exp(m), lz(m);
         unpack(x, sgn, sig, exp, lz, true);
 
+        dbg_decouple("fpa2bv_to_float_x_sig", sig);
+        dbg_decouple("fpa2bv_to_float_x_exp", exp);
+        dbg_decouple("fpa2bv_to_float_lz", lz);
+
         expr_ref res_sgn(m), res_sig(m), res_exp(m);
 
         res_sgn = sgn;
@@ -1710,10 +1714,13 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         SASSERT(m_bv_util.get_bv_size(sgn) == 1);
         SASSERT(m_bv_util.get_bv_size(sig) == from_sbits);
         SASSERT(m_bv_util.get_bv_size(exp) == from_ebits);
+        SASSERT(m_bv_util.get_bv_size(lz) == from_ebits);
 
-        if (from_sbits < (to_sbits + 3))
+        if (from_sbits < (to_sbits + 3)) 
+        {
             // make sure that sig has at least to_sbits + 3
             res_sig = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, to_sbits+3-from_sbits));
+        } 
         else if (from_sbits > (to_sbits + 3))
         {
             // collapse the extra bits into a sticky bit.
@@ -1734,7 +1741,9 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         exponent_overflow = m.mk_false();
 
         if (from_ebits < (to_ebits + 2))
-            res_exp = m_bv_util.mk_sign_extend(to_ebits+2-from_ebits, exp);
+        {                        
+            res_exp = m_bv_util.mk_sign_extend(to_ebits-from_ebits+2, exp);            
+        }
         else if (from_ebits > (to_ebits + 2))
         {
             expr_ref high(m), low(m), lows(m), high_red_or(m), high_red_and(m), h_or_eq(m), h_and_eq(m);
@@ -1747,7 +1756,7 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
             high_red_and = m.mk_app(m_bv_util.get_fid(), OP_BREDAND, high.get());
 
             zero1 = m_bv_util.mk_numeral(0, 1);
-            m_simp.mk_eq(high_red_and, one1, h_and_eq);            
+            m_simp.mk_eq(high_red_and, one1, h_and_eq);
             m_simp.mk_eq(high_red_or, zero1, h_or_eq);
             m_simp.mk_eq(lows, zero1, s_is_zero);
             m_simp.mk_eq(lows, one1, s_is_one);
@@ -1763,10 +1772,18 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         else
             res_exp = exp;
 
+        // subtract lz for subnormal numbers.
+        expr_ref lz_ext(m);
+        lz_ext = m_bv_util.mk_zero_extend(to_ebits-from_ebits+2, lz);
+        res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
         SASSERT(m_bv_util.get_bv_size(res_exp) == to_ebits+2);
+
+        dbg_decouple("fpa2bv_to_float_res_sig", res_sig);
+        dbg_decouple("fpa2bv_to_float_res_exp", res_exp);
 
         expr_ref rounded(m);
         round(s, rm, res_sgn, res_sig, res_exp, rounded);
+        
 
         expr_ref is_neg(m), sig_inf(m);
         m_simp.mk_eq(sgn, one1, is_neg);
@@ -1781,7 +1798,7 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         mk_ite(c4, v4, result, result);
         mk_ite(c3, v3, result, result);
         mk_ite(c2, v2, result, result);
-        mk_ite(c1, v1, result, result);
+        mk_ite(c1, v1, result, result);        
     }
     else {
         // .. other than that, we only support rationals for asFloat
@@ -1826,7 +1843,7 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         m_util.fm().del(v);
     }
 
-    SASSERT(is_well_sorted(m, result));
+    SASSERT(is_well_sorted(m, result));    
 }
 
 void fpa2bv_converter::mk_to_ieee_bv(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
@@ -2161,7 +2178,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef _DEBUG
-    return;
+    
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));
