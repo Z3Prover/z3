@@ -210,7 +210,7 @@ namespace Microsoft.Z3
         public Status Check(params Expr[] assumptions)
         {
             Z3_lbool r;
-            if (assumptions == null)
+            if (assumptions == null || assumptions.Length == 0)
                 r = (Z3_lbool)Native.Z3_solver_check(Context.nCtx, NativeObject);
             else
                 r = (Z3_lbool)Native.Z3_solver_check_assumptions(Context.nCtx, NativeObject, (uint)assumptions.Length, AST.ArrayToNative(assumptions));
