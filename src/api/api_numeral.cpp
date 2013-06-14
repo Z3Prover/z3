@@ -58,6 +58,8 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG);
             RETURN_Z3(0);
         }
+        sort * _ty = to_sort(ty);
+        bool is_float = mk_c(c)->float_util().is_float(_ty);
         std::string fixed_num;
         char const* m = n;
         while (*m) {
@@ -65,14 +67,15 @@ extern "C" {
                   ('/' == *m) || ('-' == *m) ||
                   (' ' == *m) || ('\n' == *m) ||
                   ('.' == *m) || ('e' == *m) ||
-                  ('E' == *m))) {
+                  ('E' == *m) ||
+                  (('p' == *m) && is_float) || 
+                  (('P' == *m)) && is_float)) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR);
                 return 0;
             }
             ++m;
         }
-        ast * a = 0;
-        sort * _ty = to_sort(ty);
+        ast * a = 0;        
         if (_ty->get_family_id() == mk_c(c)->get_fpa_fid())
         {
             // avoid expanding floats into huge rationals.
