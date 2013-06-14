@@ -2029,8 +2029,46 @@ namespace test_mapi
             FPSort s = ctx.MkFPSort(11, 53);
             Console.WriteLine("Sort: {0}", s);
 
-            FPNum n = (FPNum) ctx.MkNumeral("0.125", s);
-            Console.WriteLine("Numeral: {0}", n.ToString());
+            FPNum x = (FPNum)ctx.MkNumeral("-1e1", s);
+            Console.WriteLine("Numeral: {0}", x.ToString());
+
+            FPNum y = (FPNum)ctx.MkNumeral("-10", s);
+            Console.WriteLine("Numeral: {0}", y.ToString());
+
+            FPNum z = (FPNum)ctx.MkNumeral("-1.25p3", s);
+            Console.WriteLine("Numeral: {0}", z.ToString());
+
+            BoolExpr a = ctx.MkAnd(ctx.MkFPEq(x, y), ctx.MkFPEq(y, z));
+
+            Check(ctx, ctx.MkNot(a), Status.UNSATISFIABLE);
+
+            x = ctx.MkFPNaN(s);
+            FPExpr c = (FPExpr)ctx.MkConst("y", s);
+
+            // Note: We need to use a special solver for QF_FPA here; the 
+            // general solver does not support FPA yet.
+
+            Solver slvr = ctx.MkSolver("QF_FPA");
+            slvr.Add(ctx.MkFPEq(x, c));
+            if (slvr.Check() != Status.UNSATISFIABLE) // nothing is equal to NaN according to floating-point equality.
+                throw new TestFailedException();
+
+            slvr = ctx.MkSolver("QF_FPA");
+            slvr.Add(ctx.MkEq(x, c)); // NaN is equal to NaN according to normal equality.
+            if (slvr.Check() != Status.SATISFIABLE)
+                throw new TestFailedException();
+
+
+            x = (FPNum)ctx.MkNumeral("-1e1", s);
+            y = (FPNum)ctx.MkNumeral("-10", s);
+            FPExpr q = (FPExpr)ctx.MkConst("q", s);
+            FPNum mh = (FPNum)ctx.MkNumeral("100", s);
+            slvr = ctx.MkSolver("QF_FPA");
+            // Let's prove -1e1 * -10 == +100
+            slvr.Add(ctx.MkEq(ctx.MkFPMul(ctx.MkFPRMNearestTiesToAway(), x, y), q));
+            slvr.Add(ctx.MkNot(ctx.MkFPEq(q, mh)));
+            if (slvr.Check() != Status.UNSATISFIABLE)
+                throw new TestFailedException();
         }
 
         static void Main(string[] args)
@@ -2050,30 +2088,30 @@ namespace test_mapi
                 // These examples need model generation turned on.
                 using (Context ctx = new Context(new Dictionary<string, string>() { { "model", "true" } }))
                 {
-                    BasicTests(ctx);
-                    CastingTest(ctx);
-                    SudokuExample(ctx);
-                    QuantifierExample1(ctx);
-                    QuantifierExample2(ctx);
-                    LogicExample(ctx);
-                    ParOrExample(ctx);
-                    FindModelExample1(ctx);
-                    FindModelExample2(ctx);
-                    PushPopExample1(ctx);
-                    ArrayExample1(ctx);
-                    ArrayExample3(ctx);
-                    BitvectorExample1(ctx);
-                    BitvectorExample2(ctx);
-                    ParserExample1(ctx);
-                    ParserExample2(ctx);
-                    ParserExample4(ctx);
-                    ParserExample5(ctx);
-                    ITEExample(ctx);
-                    EvalExample1(ctx);
-                    EvalExample2(ctx);
-                    FindSmallModelExample(ctx);
-                    SimplifierExample(ctx);
-                    FiniteDomainExample(ctx);
+                    //BasicTests(ctx);
+                    //CastingTest(ctx);
+                    //SudokuExample(ctx);
+                    //QuantifierExample1(ctx);
+                    //QuantifierExample2(ctx);
+                    //LogicExample(ctx);
+                    //ParOrExample(ctx);
+                    //FindModelExample1(ctx);
+                    //FindModelExample2(ctx);
+                    //PushPopExample1(ctx);
+                    //ArrayExample1(ctx);
+                    //ArrayExample3(ctx);
+                    //BitvectorExample1(ctx);
+                    //BitvectorExample2(ctx);
+                    //ParserExample1(ctx);
+                    //ParserExample2(ctx);
+                    //ParserExample4(ctx);
+                    //ParserExample5(ctx);
+                    //ITEExample(ctx);
+                    //EvalExample1(ctx);
+                    //EvalExample2(ctx);
+                    //FindSmallModelExample(ctx);
+                    //SimplifierExample(ctx);
+                    //FiniteDomainExample(ctx);
                     FloatingPointExample(ctx);
                 }
 
@@ -2099,7 +2137,7 @@ namespace test_mapi
                 {
                     QuantifierExample3(ctx);
                     QuantifierExample4(ctx);
-                }                
+                }
 
                 Log.Close();
                 if (Log.isOpen())
