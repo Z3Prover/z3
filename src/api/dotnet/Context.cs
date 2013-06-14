@@ -3499,7 +3499,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="v">A string representing the value in decimal notation.</param>
         /// <param name="s">floating point sort.</param>        
-        public FPNum MkFPNaN(double v, FPSort s)
+        public FPNum MkFPNaN(FPSort s)
         {
             Contract.Ensures(Contract.Result<FPRMNum>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_nan(nCtx, s.NativeObject));
@@ -3511,7 +3511,7 @@ namespace Microsoft.Z3
         /// <param name="v">A string representing the value in decimal notation.</param>
         /// <param name="s">floating point sort.</param>   
         /// <param name="negative">indicates whether the result should be negative.</param>
-        public FPNum MkFPInf(double v, FPSort s, bool negative)
+        public FPNum MkFPInf(FPSort s, bool negative)
         {
             Contract.Ensures(Contract.Result<FPRMNum>() != null);
             return new FPNum(this, Native.Z3_mk_fpa_inf(nCtx, s.NativeObject, negative ? 1 : 0));
