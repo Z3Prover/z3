@@ -2088,30 +2088,30 @@ namespace test_mapi
                 // These examples need model generation turned on.
                 using (Context ctx = new Context(new Dictionary<string, string>() { { "model", "true" } }))
                 {
-                    //BasicTests(ctx);
-                    //CastingTest(ctx);
-                    //SudokuExample(ctx);
-                    //QuantifierExample1(ctx);
-                    //QuantifierExample2(ctx);
-                    //LogicExample(ctx);
-                    //ParOrExample(ctx);
-                    //FindModelExample1(ctx);
-                    //FindModelExample2(ctx);
-                    //PushPopExample1(ctx);
-                    //ArrayExample1(ctx);
-                    //ArrayExample3(ctx);
-                    //BitvectorExample1(ctx);
-                    //BitvectorExample2(ctx);
-                    //ParserExample1(ctx);
-                    //ParserExample2(ctx);
-                    //ParserExample4(ctx);
-                    //ParserExample5(ctx);
-                    //ITEExample(ctx);
-                    //EvalExample1(ctx);
-                    //EvalExample2(ctx);
-                    //FindSmallModelExample(ctx);
-                    //SimplifierExample(ctx);
-                    //FiniteDomainExample(ctx);
+                    BasicTests(ctx);
+                    CastingTest(ctx);
+                    SudokuExample(ctx);
+                    QuantifierExample1(ctx);
+                    QuantifierExample2(ctx);
+                    LogicExample(ctx);
+                    ParOrExample(ctx);
+                    FindModelExample1(ctx);
+                    FindModelExample2(ctx);
+                    PushPopExample1(ctx);
+                    ArrayExample1(ctx);
+                    ArrayExample3(ctx);
+                    BitvectorExample1(ctx);
+                    BitvectorExample2(ctx);
+                    ParserExample1(ctx);
+                    ParserExample2(ctx);
+                    ParserExample4(ctx);
+                    ParserExample5(ctx);
+                    ITEExample(ctx);
+                    EvalExample1(ctx);
+                    EvalExample2(ctx);
+                    FindSmallModelExample(ctx);
+                    SimplifierExample(ctx);
+                    FiniteDomainExample(ctx);
                     FloatingPointExample(ctx);
                 }
 
