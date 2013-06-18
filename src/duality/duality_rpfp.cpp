@@ -217,8 +217,12 @@ namespace Duality {
       }
     else if (t.is_quantifier())
       {
+	std::vector<expr> pats;
+	t.get_patterns(pats);
+	for(unsigned i = 0; i < pats.size(); i++)
+	  pats[i] = LocalizeRec(e,memo,pats[i]);
 	Term body = LocalizeRec(e,memo,t.body());
-	res = CloneQuantifier(t,body);
+	res = clone_quantifier(t, body, pats);
       }
     else res = t;
     return res;
@@ -1853,7 +1857,11 @@ namespace Duality {
       }
     else if (t.is_quantifier()){
       int bound = t.get_quantifier_num_bound();
-      res = CloneQuantifier(t,SubstBoundRec(memo, subst, level + bound, t.body()));
+      std::vector<expr> pats;
+      t.get_patterns(pats);
+      for(unsigned i = 0; i < pats.size(); i++)
+	pats[i] = SubstBoundRec(memo, subst, level + bound, pats[i]);
+      res = clone_quantifier(t, SubstBoundRec(memo, subst, level + bound, t.body()), pats);
     }
     else if (t.is_var()) {
       int idx = t.get_index_value();

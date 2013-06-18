@@ -326,6 +326,26 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return q.ctx().cook(q.m().update_quantifier(to_quantifier(q.raw()), to_expr(b.raw())));
   }
 
+  expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns){
+    quantifier *thing = to_quantifier(q.raw());
+    bool is_forall = thing->is_forall();
+    unsigned num_patterns = patterns.size();
+    std::vector< ::expr *> _patterns(num_patterns);
+    for(unsigned i = 0; i < num_patterns; i++)
+      _patterns[i] = to_expr(patterns[i].raw());
+    return q.ctx().cook(q.m().update_quantifier(thing, is_forall, num_patterns, &_patterns[0], to_expr(b.raw())));
+  }
+
+  void expr::get_patterns(std::vector<expr> &pats) const {
+    quantifier *thing = to_quantifier(raw());
+    unsigned num_patterns = thing->get_num_patterns();
+    :: expr * const *it = thing->get_patterns();
+    pats.resize(num_patterns);
+    for(unsigned i = 0; i < num_patterns; i++)
+      pats[i] = expr(ctx(),it[i]);
+  }
+
+
   func_decl context::fresh_func_decl(char const * prefix, const std::vector<sort> &domain, sort const & range){
     std::vector < ::sort * > _domain(domain.size());
     for(unsigned i = 0; i < domain.size(); i++)
@@ -545,6 +565,10 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
 
   void include_model_show(model &a){
     a.show();
+  }
+
+  void show_ast(::ast *a, ast_manager &m) {
+    std::cout << mk_pp(a, m) << std::endl;
   }
 
   bool expr::is_label (bool &pos,std::vector<symbol> &names) const {

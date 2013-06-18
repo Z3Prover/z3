@@ -556,10 +556,14 @@ namespace Duality {
 	
 	friend expr clone_quantifier(const expr &, const expr &);
 
+        friend expr clone_quantifier(const expr &q, const expr &b, const std::vector<expr> &patterns);
+
         friend std::ostream & operator<<(std::ostream & out, expr const & m){
 	  m.ctx().print_expr(out,m);
 	  return out;
 	}
+
+	void get_patterns(std::vector<expr> &pats) const ;
 
 	unsigned get_quantifier_num_bound() const {
 	  return to_quantifier(raw())->get_num_decls();
