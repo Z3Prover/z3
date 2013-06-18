@@ -282,6 +282,10 @@ namespace Duality {
       return res;
     }
 
+    void Cancel(){
+      // TODO
+    }
+
 #if 0
     virtual void Restart(RPFP *_rpfp){
       rpfp = _rpfp;

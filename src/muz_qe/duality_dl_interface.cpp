@@ -201,7 +201,13 @@ lbool dl_interface::query(::expr * query) {
   }
 
   // Solve!
-  bool ans = rs->Solve();
+  bool ans;
+  try {
+    ans = rs->Solve();
+  }
+  catch (Duality::solver::cancel_exception &exn){
+    throw default_exception("duality canceled");
+  }
   
   // profile!
 
@@ -361,6 +367,8 @@ expr_ref dl_interface::get_answer() {
 }
 
 void dl_interface::cancel() {
+  if(_d && _d->ls)
+    _d->ls->cancel();
 }
 
 void dl_interface::cleanup() {

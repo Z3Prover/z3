@@ -937,6 +937,7 @@ namespace datalog {
         if (m_bmc.get()) m_bmc->cancel();
         if (m_rel.get()) m_rel->cancel();
         if (m_tab.get()) m_tab->cancel();
+	if (m_duality.get()) m_duality->cancel();
     }
 
     void context::cleanup() {
