@@ -773,10 +773,11 @@ namespace Duality {
     protected:
         ::solver *m_solver;
         model the_model;
+	bool canceled;
     public:
         solver(context & c);
-        solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; }
-        solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver;}
+        solver(context & c, ::solver *s):object(c),the_model(c) { m_solver = s; canceled = false;}
+        solver(solver const & s):object(s), the_model(s.the_model) { m_solver = s.m_solver; canceled = false;}
         ~solver() {
 	  if(m_solver)
 	    dealloc(m_solver);
@@ -788,12 +789,18 @@ namespace Duality {
 	    the_model = s.the_model;
             return *this; 
         }
+	struct cancel_exception {};
+	void checkpoint(){
+	  if(canceled)
+	    throw(cancel_exception());
+	}
         // void set(params const & p) { Z3_solver_set_params(ctx(), m_solver, p); check_error(); }
         void push() { m_solver->push(); }
         void pop(unsigned n = 1) { m_solver->pop(n); }
         // void reset() { Z3_solver_reset(ctx(), m_solver); check_error(); }
         void add(expr const & e) { m_solver->assert_expr(e); }
         check_result check() { 
+	  checkpoint();
 	  lbool r = m_solver->check_sat(0,0);
 	  model_ref m;
 	  m_solver->get_model(m);
@@ -808,6 +815,7 @@ namespace Duality {
 	  return res;
 	}
         check_result check(unsigned n, expr * const assumptions, unsigned *core_size = 0, expr *core = 0) {
+	  checkpoint();
 	  std::vector< ::expr *> _assumptions(n);
 	  for (unsigned i = 0; i < n; i++) {
 	    _assumptions[i] = to_expr(assumptions[i]);
@@ -854,6 +862,11 @@ namespace Duality {
 	
 	int get_num_decisions(); 
 
+	void cancel(){
+	  canceled = true;
+	  if(m_solver)
+	    m_solver->cancel();
+	}
     };
 
 #if 0

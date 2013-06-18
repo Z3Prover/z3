@@ -174,6 +174,10 @@ namespace Duality {
 						    const std::vector<expr> &assumptions,
 						    const std::vector<expr> &theory
 						    ){}
+
+	   /** Cancel, throw Canceled object if possible. */
+	   virtual void cancel(){ }
+
 	   virtual ~LogicSolver(){}
       };
 
@@ -225,7 +229,10 @@ namespace Duality {
 #if 0
 	  islvr->write_interpolation_problem(file_name,assumptions,theory);
 #endif
+
 	}
+
+	void cancel(){islvr->cancel();}
 
 	/** Declare a constant in the background theory. */
 	virtual void declare_constant(const func_decl &f){
@@ -835,6 +842,13 @@ namespace Duality {
 
       static Solver *Create(const std::string &solver_class, RPFP *rpfp);
 
+      /** This can be called asynchrnously to cause Solve to throw a
+	  Canceled exception at some time in the future.
+       */
+      virtual void Cancel() = 0;
 
+      /** Object thrown on cancellation */
+      struct Canceled {};
+      
     };
 }

@@ -36,6 +36,7 @@ namespace Duality {
     p.set_bool("unsat_core", true); 
     scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
     m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+    canceled = false;
   }
 
 expr context::constant(const std::string &name, const sort &ty){ 
