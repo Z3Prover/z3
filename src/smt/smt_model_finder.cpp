@@ -94,13 +94,21 @@ namespace smt {
             }
 
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
-            
+
             void insert(expr * n, unsigned generation) {
                 if (m_elems.contains(n))
                     return;
                 m_manager.inc_ref(n);
                 m_elems.insert(n, generation);
                 SASSERT(!m_manager.is_model_value(n));
+            }
+
+            void remove(expr * n) {
+                // We can only remove n if it is in m_elems, AND m_inv was not initialized yet.
+                SASSERT(m_elems.contains(n));
+                SASSERT(m_inv.empty());
+                m_elems.erase(n);
+                m_manager.dec_ref(n);
             }
             
             void display(std::ostream & out) const {
@@ -525,6 +533,30 @@ namespace smt {
                 }
             }
 
+            // For each instantiation_set, reemove entries that do not evaluate to values.
+            void cleanup_instantiation_sets() {
+                ptr_vector<expr> to_delete;
+                ptr_vector<node>::const_iterator it  = m_nodes.begin();
+                ptr_vector<node>::const_iterator end = m_nodes.end();
+                for (; it != end; ++it) {
+                    node * curr = *it;
+                    if (curr->is_root()) {
+                        instantiation_set * s = curr->get_instantiation_set();
+                        to_delete.reset();
+                        obj_map<expr, unsigned> const & elems = s->get_elems();
+                        for (obj_map<expr, unsigned>::iterator it = elems.begin(); it != elems.end(); it++) {
+                            expr * n     = it->m_key;
+                            expr * n_val = eval(n, true);
+                            if (!m_manager.is_value(n_val))
+                                to_delete.push_back(n);
+                        }
+                        for (ptr_vector<expr>::iterator it = to_delete.begin(); it != to_delete.end(); it++) {
+                            s->remove(*it);
+                        }
+                    }
+                }
+            }
+
             void display_nodes(std::ostream & out) const {
                 display_key2node(out, m_uvars);
                 display_A_f_is(out);                
@@ -545,6 +577,7 @@ namespace smt {
                     r = 0;
                 else
                     r = tmp;
+                TRACE("model_finder", tout << "eval\n" << mk_pp(n, m_manager) << "\n----->\n" << mk_pp(r, m_manager) << "\n";);
                 m_eval_cache.insert(n, r);
                 m_eval_cache_range.push_back(r);
                 return r;
@@ -1047,6 +1080,7 @@ namespace smt {
 
         public:
             void fix_model(expr_ref_vector & new_constraints) {
+                cleanup_instantiation_sets();
                 m_new_constraints = &new_constraints;
                 func_decl_set partial_funcs;
                 collect_partial_funcs(partial_funcs);
