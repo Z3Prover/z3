@@ -73,6 +73,23 @@ namespace pdr {
         virtual void collect_statistics(statistics& st) const;
     };
 
+    class core_convex_hull_generalizer : public core_generalizer {
+        ast_manager&    m;
+        arith_util      a;
+        expr_ref_vector m_sigma;
+        expr_ref_vector m_trail;
+        obj_map<func_decl, expr*> m_left;
+        obj_map<func_decl, expr*> m_right;
+        bool mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv);
+        void mk_convex(expr* fml, unsigned index, expr_ref_vector& conv);
+        bool mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result);
+        bool translate(func_decl* fn, unsigned index, expr_ref& result);
+    public:
+        core_convex_hull_generalizer(context& ctx);
+        virtual ~core_convex_hull_generalizer() {}
+        virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
+    };	
+
     class core_multi_generalizer : public core_generalizer {
         core_bool_inductive_generalizer m_gen;
     public:

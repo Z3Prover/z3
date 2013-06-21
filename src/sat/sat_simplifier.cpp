@@ -632,7 +632,8 @@ namespace sat {
         case 1:
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
             propagate_unit(c[0]);
-            remove_clause(c);
+            // propagate_unit will delete c.
+            // remove_clause(c);
             return;
         case 2:
             TRACE("elim_lit", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
@@ -823,7 +824,8 @@ namespace sat {
                 }
                 if (sz == 1) {
                     propagate_unit(c[0]);
-                    remove_clause(c);
+                    // propagate_unit will delete c.
+                    // remove_clause(c);
                     continue;
                 }
                 if (sz == 2) {

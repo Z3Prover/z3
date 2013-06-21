@@ -1572,6 +1572,9 @@ namespace pdr {
             }
 
         }
+        if (m_params.use_convex_hull_generalizer()) {
+            m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this));
+        }
         if (!use_mc && m_params.use_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));
         }

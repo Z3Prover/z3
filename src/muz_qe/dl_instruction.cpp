@@ -528,9 +528,9 @@ namespace datalog {
 
     class instr_filter_interpreted_and_project : public instruction {
         reg_idx m_src;
-        reg_idx m_res;
         app_ref m_cond;
         unsigned_vector m_cols;
+        reg_idx m_res;
     public:
         instr_filter_interpreted_and_project(reg_idx src, app_ref & condition,
             unsigned col_cnt, const unsigned * removed_cols, reg_idx result)

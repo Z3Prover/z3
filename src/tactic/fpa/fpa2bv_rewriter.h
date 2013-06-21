@@ -29,9 +29,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     ast_manager              & m_manager;    
     expr_ref_vector            m_out;    
     fpa2bv_converter         & m_conv;
-    sort_ref_vector            m_bindings;    
-    expr_ref_vector            m_mappings;    
-
+    sort_ref_vector            m_bindings;
 
     unsigned long long         m_max_memory;
     unsigned                   m_max_steps;
@@ -42,8 +40,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
         m_manager(m),
         m_out(m),
         m_conv(c),
-        m_bindings(m),
-        m_mappings(m) {
+        m_bindings(m) {
         updt_params(p);
         // We need to make sure that the mananger has the BV plugin loaded.
         symbol s_bv("bv");
@@ -135,6 +132,10 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
             case OP_FLOAT_IS_ZERO: m_conv.mk_is_zero(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_NZERO: m_conv.mk_is_nzero(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_PZERO: m_conv.mk_is_pzero(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_NAN: m_conv.mk_is_nan(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_INF: m_conv.mk_is_inf(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_NORMAL: m_conv.mk_is_normal(f, num, args, result); return BR_DONE;
+            case OP_FLOAT_IS_SUBNORMAL: m_conv.mk_is_subnormal(f, num, args, result); return BR_DONE;
             case OP_FLOAT_IS_SIGN_MINUS: m_conv.mk_is_sign_minus(f, num, args, result); return BR_DONE;
             case OP_TO_FLOAT: m_conv.mk_to_float(f, num, args, result); return BR_DONE;
             case OP_TO_IEEE_BV: m_conv.mk_to_ieee_bv(f, num, args, result); return BR_DONE;
@@ -177,7 +178,6 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                 new_bindings.push_back(q->get_decl_sort(i));
             SASSERT(new_bindings.size() == q->get_num_decls());
             m_bindings.append(new_bindings);
-            m_mappings.resize(m_bindings.size(), 0);
         }
         return true;
     }
@@ -215,8 +215,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                                    new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                    old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
         result_pr = 0;
-        m_bindings.shrink(old_sz);
-        m_mappings.shrink(old_sz);
+        m_bindings.shrink(old_sz);        
         TRACE("fpa2bv", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " << 
                 mk_ismt2_pp(old_q->get_expr(), m()) << std::endl <<
                 " new body: " << mk_ismt2_pp(new_body, m()) << std::endl;
@@ -243,10 +242,9 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
                                 new_exp);
         }
         else
-            new_exp = m().mk_var(t->get_idx(), s);
-        m_mappings[inx] = new_exp;
+            new_exp = m().mk_var(t->get_idx(), s);        
 
-        result = m_mappings[inx].get();
+        result = new_exp;
         result_pr = 0;        
         TRACE("fpa2bv", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
         return true;
