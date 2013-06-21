@@ -993,8 +993,22 @@ namespace nlsat {
                         }
                         return;
                     }
-                    else if (s == -1 && !is_even) {
-                        atom_sign = -atom_sign;
+                    else {
+                        // We have shown the current factor is a constant MODULO the sign of the leading coefficient (of the equation used to rewrite the factor). 
+                        if (!info.m_lc_const) {
+                            // If the leading coefficient is not a constant, we must store this information as an extra assumption.
+                            if (d % 2 == 0 || // d is even
+                                is_even ||  // rewriting a factor of even degree, sign flip doesn't matter
+                                _a->get_kind() == atom::EQ) {  // rewriting an equation, sign flip doesn't matter
+                                info.add_lc_diseq();
+                            }
+                            else {
+                                info.add_lc_ineq();
+                            }
+                        }
+                        if (s == -1 && !is_even) {
+                            atom_sign = -atom_sign;
+                        }
                     }
                 }
                 else {
