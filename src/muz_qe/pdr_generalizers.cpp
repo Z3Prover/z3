@@ -156,40 +156,19 @@ namespace pdr {
         m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
         m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
     }
-    
+
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
+        method2(n, core, uses_level);
+    }
+
+    // use the entire region as starting point for generalization.
+    void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector& core, bool& uses_level) {    
         manager& pm = n.pt().get_pdr_manager();
         expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
         if (core.empty()) {
             return;
         }        
-        if (!m_left.contains(n.pt().head())) {
-            expr_ref left(m), right(m);
-            m_left.insert(n.pt().head(), 0);
-            unsigned sz = n.pt().sig_size();        
-            for (unsigned i = 0; i < sz; ++i) {
-                func_decl* fn0 = n.pt().sig(i);
-                sort* srt = fn0->get_range();
-                if (a.is_int_real(srt)) {
-                    func_decl* fn1 = pm.o2n(fn0, 0);
-                    left  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
-                    right = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
-                    m_left.insert(fn1, left);
-                    m_right.insert(fn1, right);
-                    m_trail.push_back(left);
-                    m_trail.push_back(right);
-                }
-            }
-        }
-        unsigned sz = n.pt().sig_size();        
-        for (unsigned i = 0; i < sz; ++i) {
-            expr* left, *right;
-            func_decl* fn0 = n.pt().sig(i);
-            func_decl* fn1 = pm.o2n(fn0, 0);
-            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
-                eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(left, right)));
-            }
-        }
+        add_variables(n, eqs);
         if (!mk_convex(core, 0, conv1)) {
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
             return;
@@ -227,6 +206,100 @@ namespace pdr {
                 core.reset();
                 core.append(conv2);
             }            
+        }
+    }
+
+    // take as starting point two points from different regions.
+    void core_convex_hull_generalizer::method2(model_node& n, expr_ref_vector& core, bool& uses_level) { 
+        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m);
+        if (core.empty()) {
+            return;
+        }
+        manager& pm = n.pt().get_pdr_manager();
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
+        expr_ref goal(pm.mk_and(core));
+        ctx.assert_expr(goal);
+        lbool r = ctx.check();
+        if (r != l_true) {
+            IF_VERBOSE(0, verbose_stream() << "unexpected result from satisfiability check\n";);
+            return;
+        }
+        add_variables(n, conv1);
+        model_ref mdl;
+        ctx.get_model(mdl);
+
+        unsigned sz = n.pt().sig_size();        
+        for (unsigned i = 0; i < sz; ++i) {
+            expr_ref_vector constr(m);
+            expr* left, *right;
+            func_decl* fn0 = n.pt().sig(i);
+            func_decl* fn1 = pm.o2n(fn0, 0);
+            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
+                expr_ref val(m);
+                mdl->eval(fn1, val);
+                if (val) {
+                    conv1.push_back(m.mk_eq(left, val));
+                    constr.push_back(m.mk_eq(right, val));
+                }
+            }
+            expr_ref new_model = pm.mk_and(constr);
+            m_trail.push_back(new_model);
+            m_trail.push_back(goal);
+            m_models.insert(goal, new_model);
+        }
+        conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
+        conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
+
+        obj_map<expr, expr*>::iterator it = m_models.begin(), end = m_models.end();
+        for (; it != end; ++it) {
+            if (it->m_key == goal) {
+                continue;
+            }
+            conv1.push_back(it->m_value);
+            expr_ref state = pm.mk_and(conv1);
+            TRACE("pdr", tout << "Try:\n" << mk_pp(state, m) << "\n";);
+            model_node nd(0, state, n.pt(), n.level());
+            if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
+                IF_VERBOSE(0,
+                           verbose_stream() << mk_pp(state, m) << "\n";
+                           verbose_stream() << "Generalized to:\n" << mk_pp(pm.mk_and(conv2), m) << "\n";);
+                core.reset();
+                core.append(conv2);
+                return;
+            }
+            conv1.pop_back();
+        }         
+    }
+
+    void core_convex_hull_generalizer::add_variables(model_node& n, expr_ref_vector& eqs) {
+        manager& pm = n.pt().get_pdr_manager();
+        if (!m_left.contains(n.pt().head())) {
+            expr_ref left(m), right(m);
+            m_left.insert(n.pt().head(), 0);
+            unsigned sz = n.pt().sig_size();        
+            for (unsigned i = 0; i < sz; ++i) {
+                func_decl* fn0 = n.pt().sig(i);
+                sort* srt = fn0->get_range();
+                if (a.is_int_real(srt)) {
+                    func_decl* fn1 = pm.o2n(fn0, 0);
+                    left  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                    right = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                    m_left.insert(fn1, left);
+                    m_right.insert(fn1, right);
+                    m_trail.push_back(left);
+                    m_trail.push_back(right);
+                }
+            }
+        }
+        unsigned sz = n.pt().sig_size();        
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* left, *right;
+            func_decl* fn0 = n.pt().sig(i);
+            func_decl* fn1 = pm.o2n(fn0, 0);
+            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
+                eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(left, right)));
+            }
         }
     }
 
