@@ -226,7 +226,7 @@ struct fpa2bv_rewriter_cfg : public default_rewriter_cfg {
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) { 
         if (t->get_idx() >= m_bindings.size())
             return false;
-        unsigned inx = m_bindings.size() - t->get_idx() - 1;        
+        // unsigned inx = m_bindings.size() - t->get_idx() - 1;        
 
         expr_ref new_exp(m());
         sort * s = t->get_sort();
