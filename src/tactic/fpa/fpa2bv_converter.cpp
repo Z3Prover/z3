@@ -1270,6 +1270,11 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     SASSERT(is_well_sorted(m, f_sig));
     SASSERT(is_well_sorted(m, f_exp));
 
+    SASSERT(m_bv_util.get_bv_size(e_sig) == 2 * sbits);
+    SASSERT(m_bv_util.get_bv_size(f_sig) == 2 * sbits);
+    SASSERT(m_bv_util.get_bv_size(e_exp) == ebits + 2);
+    SASSERT(m_bv_util.get_bv_size(f_exp) == ebits + 2);
+
     expr_ref res_sgn(m), res_sig(m), res_exp(m);
     
     expr_ref exp_delta(m);
@@ -1278,43 +1283,39 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
 
     // cap the delta    
     expr_ref cap(m), cap_le_delta(m);
-    cap = m_bv_util.mk_numeral(sbits+3, ebits+2);
-    cap_le_delta = m_bv_util.mk_ule(exp_delta, cap);
+    cap = m_bv_util.mk_numeral(2*sbits, ebits+2);
+    cap_le_delta = m_bv_util.mk_ule(cap, exp_delta);
     m_simp.mk_ite(cap_le_delta, cap, exp_delta, exp_delta);
     SASSERT(m_bv_util.get_bv_size(exp_delta) == ebits+2);
+    SASSERT(is_well_sorted(m, exp_delta));
     dbg_decouple("fpa2bv_fma_add_exp_delta_capped", exp_delta);
     
-    // Alignment shift with sticky bit computation.    
-    expr_ref big_f_sig(m);
-    big_f_sig = m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits+4));    
-    SASSERT(is_well_sorted(m, big_f_sig));
-
+    // Alignment shift with sticky bit computation.
     expr_ref shifted_big(m), shifted_f_sig(m), sticky_raw(m);
-    shifted_big = m_bv_util.mk_bv_lshr(big_f_sig, m_bv_util.mk_concat(m_bv_util.mk_numeral(0, (2*(sbits+4))-(ebits+2)), exp_delta));
-    shifted_f_sig = m_bv_util.mk_extract((2*(sbits+4)-1), (sbits+4), shifted_big);
-    SASSERT(is_well_sorted(m, shifted_f_sig));
-
-    sticky_raw = m_bv_util.mk_extract(sbits+3, 0, shifted_big);    
+    shifted_big = m_bv_util.mk_bv_lshr(f_sig, m_bv_util.mk_zero_extend((2*sbits)-(ebits+2), exp_delta));
+    shifted_f_sig = m_bv_util.mk_zero_extend(sbits, m_bv_util.mk_extract(2*sbits-1, sbits, shifted_big));
+    sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big); 
+    SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == 2 * sbits);
+    SASSERT(is_well_sorted(m, shifted_f_sig));    
+       
     expr_ref sticky(m), sticky_eq(m), nil_sbit4(m), one_sbit4(m); 
-    nil_sbit4 = m_bv_util.mk_numeral(0, sbits+4);
-    one_sbit4 = m_bv_util.mk_numeral(1, sbits+4);
-    m_simp.mk_eq(sticky_raw, nil_sbit4, sticky_eq);
-    m_simp.mk_ite(sticky_eq, nil_sbit4, one_sbit4, sticky);
+    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw));
     SASSERT(is_well_sorted(m, sticky));
     
     expr * or_args[2] = { shifted_f_sig, sticky };
     shifted_f_sig = m_bv_util.mk_bv_or(2, or_args);
     SASSERT(is_well_sorted(m, shifted_f_sig));
 
-    expr_ref eq_sgn(m);
-    m_simp.mk_eq(e_sgn, f_sgn, eq_sgn);
-    
-    // two extra bits for catching the overflow.
+    // Significant addition.
+    // Two extra bits for catching the overflow.
     e_sig = m_bv_util.mk_zero_extend(2, e_sig);
     shifted_f_sig = m_bv_util.mk_zero_extend(2, shifted_f_sig);
 
-    SASSERT(m_bv_util.get_bv_size(e_sig) == sbits+6);
-    SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == sbits+6);
+    expr_ref eq_sgn(m);
+    m_simp.mk_eq(e_sgn, f_sgn, eq_sgn);
+
+    SASSERT(m_bv_util.get_bv_size(e_sig) == 2*sbits + 2);
+    SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == 2*sbits + 2);
 
     dbg_decouple("fpa2bv_fma_add_e_sig", e_sig);
     dbg_decouple("fpa2bv_fma_add_shifted_f_sig", shifted_f_sig);
@@ -1330,14 +1331,22 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     dbg_decouple("fpa2bv_fma_add_sum", sum);
 
     expr_ref sign_bv(m), n_sum(m);
-    sign_bv = m_bv_util.mk_extract(sbits+4, sbits+4, sum);        
+    sign_bv = m_bv_util.mk_extract(2*sbits+1, 2*sbits+1, sum);        
     n_sum = m_bv_util.mk_bv_neg(sum);
 
+    expr_ref res_sig_eq(m), sig_abs(m), one_1(m);
+    one_1 = m_bv_util.mk_numeral(1, 1);
+    m_simp.mk_eq(sign_bv, one_1, res_sig_eq);
+    m_simp.mk_ite(res_sig_eq, n_sum, sum, sig_abs);
     dbg_decouple("fpa2bv_fma_add_sign_bv", sign_bv);    
     dbg_decouple("fpa2bv_fma_add_n_sum", n_sum);         
-    
-    family_id bvfid = m_bv_util.get_fid();
+    dbg_decouple("fpa2bv_fma_add_sig_abs", sig_abs);
 
+    res_exp = m_bv_util.mk_bv_sub(e_exp, c_lz_ext);
+    
+    // Result could overflow into 4.xxx ...
+
+    family_id bvfid = m_bv_util.get_fid();
     expr_ref res_sgn_c1(m), res_sgn_c2(m), res_sgn_c3(m);
     expr_ref not_e_sgn(m), not_f_sgn(m), not_sign_bv(m);
     not_e_sgn = m_bv_util.mk_bv_not(e_sgn);
@@ -1348,21 +1357,15 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     res_sgn_c3 = m.mk_app(bvfid, OP_BAND, e_sgn, f_sgn);
     expr * res_sgn_or_args[3] = { res_sgn_c1, res_sgn_c2, res_sgn_c3 };   
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
-
-    expr_ref res_sig_eq(m), sig_abs(m), one_1(m);
-    one_1 = m_bv_util.mk_numeral(1, 1);
-    m_simp.mk_eq(sign_bv, one_1, res_sig_eq);
-    m_simp.mk_ite(res_sig_eq, n_sum, sum, sig_abs);
-
-    dbg_decouple("fpa2bv_fma_add_sig_abs", sig_abs);
-
-    res_sig = m_bv_util.mk_extract(sbits+3, 0, sig_abs);
-    res_exp = m_bv_util.mk_bv_sub(e_exp, c_lz_ext);
+    
+    sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
+    sticky = m_bv_util.mk_zero_extend(sbits+7, m.mk_app(bvfid, OP_BREDOR, sticky_raw));
+    res_sig = m_bv_util.mk_extract(2*sbits-1, sbits-4, sig_abs);
+    SASSERT(m_bv_util.get_bv_size(res_sig) == sbits+4);
     
     expr_ref is_zero_sig(m), nil_sbits4(m);
     nil_sbits4 = m_bv_util.mk_numeral(0, sbits+4);
     m_simp.mk_eq(res_sig, nil_sbits4, is_zero_sig);
-
     SASSERT(is_well_sorted(m, is_zero_sig));
 
     dbg_decouple("fpa2bv_fma_is_zero_sig", is_zero_sig);
@@ -1511,7 +1514,7 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     rest_ext = m_bv_util.mk_concat(rest, m_bv_util.mk_numeral(0, 4));    
     m_simp.mk_ite(q_is_odd, m_bv_util.mk_bv_add(rest_ext, m_bv_util.mk_numeral(8, sbits+4)),
                             rest_ext,
-                            res_sig);    
+                            res_sig);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
 
@@ -2313,7 +2316,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
     #ifdef _DEBUG
-    return;
+    //return;
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
     new_e = m.mk_fresh_const(prefix, m.get_sort(e));
