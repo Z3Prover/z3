@@ -1822,7 +1822,7 @@ def update_version():
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
         mk_version_dot_h(major, minor, build, revision)
-        update_all_assembly_infos(major, minor, build, revision)
+        mk_all_assembly_infos(major, minor, build, revision)
         mk_def_files()
         
 # Update files with the version number
@@ -1837,49 +1837,32 @@ def mk_version_dot_h(major, minor, build, revision):
     if VERBOSE:
         print("Generated '%s'" % os.path.join(c.src_dir, 'version.h'))
 
-# Update version number in AssemblyInfo.cs files
-def update_all_assembly_infos(major, minor, build, revision):
+# Generate AssemblyInfo.cs files with the right version numbers by using AssemblyInfo files as a template
+def mk_all_assembly_infos(major, minor, build, revision):
     for c in get_components():
         if c.has_assembly_info():
-            assembly = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs')
+            assembly = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo')
             if os.path.exists(assembly):
                 # It is a CS file
-                update_assembly_info_version(assembly,
-                                             major, minor, build, revision, False)
+                mk_assembly_info_version(assembly, major, minor, build, revision)
             else:
-                assembly = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs')
-                if os.path.exists(assembly):
-                    # It is a cpp file
-                    update_assembly_info_version(assembly,
-                                                 major, minor, build, revision, True)
-                else:
-                    raise MKException("Failed to find assembly info file at '%s'" % os.path.join(c.src_dir, c.assembly_info_dir))
+                raise MKException("Failed to find assembly info file 'AssemblyInfo' at '%s'" % os.path.join(c.src_dir, c.assembly_info_dir))
                     
                 
-# Update version number in the given AssemblyInfo.cs files
-def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is_cpp=False):
-    if is_cpp:
-        ver_pat   = re.compile('[assembly:AssemblyVersionAttribute\("[\.\d]*"\) *')
-        fver_pat  = re.compile('[assembly:AssemblyFileVersionAttribute\("[\.\d]*"\) *')
-    else:
-        ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
-        fver_pat  = re.compile('[assembly: AssemblyFileVersion\("[\.\d]*"\) *')
+# Generate version number in the given 'AssemblyInfo.cs' file using 'AssemblyInfo' as a template.
+def mk_assembly_info_version(assemblyinfo, major, minor, build, revision):
+    ver_pat   = re.compile('[assembly: AssemblyVersion\("[\.\d]*"\) *')
+    fver_pat  = re.compile('[assembly: AssemblyFileVersion\("[\.\d]*"\) *')
     fin  = open(assemblyinfo, 'r')
-    tmp  = '%s.new' % assemblyinfo
+    tmp  = '%s.cs' % assemblyinfo
     fout = open(tmp, 'w')
     num_updates = 0
     for line in fin:
         if ver_pat.match(line):
-            if is_cpp:
-                fout.write('[assembly:AssemblyVersionAttribute("%s.%s.%s.%s")];\n' % (major, minor, build, revision))
-            else:
-                fout.write('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
+            fout.write('[assembly: AssemblyVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
             num_updates = num_updates + 1
         elif fver_pat.match(line):
-            if is_cpp:
-                fout.write('[assembly:AssemblyFileVersionAttribute("%s.%s.%s.%s")];\n' % (major, minor, build, revision))
-            else:
-                fout.write('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
+            fout.write('[assembly: AssemblyFileVersion("%s.%s.%s.%s")]\n' % (major, minor, build, revision))
             num_updates = num_updates + 1
         else:
             fout.write(line)
@@ -1888,7 +1871,6 @@ def update_assembly_info_version(assemblyinfo, major, minor, build, revision, is
     assert num_updates == 2, "unexpected number of version number updates"
     fin.close()
     fout.close()
-    shutil.move(tmp, assemblyinfo)
     if VERBOSE:
         print("Updated '%s'" % assemblyinfo)
 
