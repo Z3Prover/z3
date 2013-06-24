@@ -1113,7 +1113,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     mk_nzero(f, nzero); 
     mk_pzero(f, pzero);
     mk_minus_inf(f, ninf);
-    mk_plus_inf(f, pinf);        
+    mk_plus_inf(f, pinf);
 
     expr_ref x_is_nan(m), x_is_zero(m), x_is_pos(m), x_is_neg(m), x_is_inf(m);
     expr_ref y_is_nan(m), y_is_zero(m), y_is_pos(m), y_is_neg(m), y_is_inf(m);
@@ -1227,6 +1227,13 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     b_exp_ext = m_bv_util.mk_sign_extend(2, b_exp);
     c_exp_ext = m_bv_util.mk_sign_extend(2, c_exp);
 
+    dbg_decouple("fpa2bv_fma_a_sig", a_sig_ext);
+    dbg_decouple("fpa2bv_fma_b_sig", b_sig_ext);
+    dbg_decouple("fpa2bv_fma_c_sig", c_sig);
+    dbg_decouple("fpa2bv_fma_a_exp", a_exp_ext);
+    dbg_decouple("fpa2bv_fma_b_exp", b_exp_ext);
+    dbg_decouple("fpa2bv_fma_c_exp", c_exp_ext);
+
     expr_ref mul_sgn(m), mul_sig(m), mul_exp(m);
     expr * signs[2] = { a_sgn, b_sgn };
 
@@ -1254,6 +1261,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     expr_ref swap_cond(m);
     swap_cond = m_bv_util.mk_sle(mul_exp, c_exp_ext);
     SASSERT(is_well_sorted(m, swap_cond));
+    dbg_decouple("fpa2bv_fma_swap_cond", swap_cond);
 
     expr_ref e_sgn(m), e_sig(m), e_exp(m), f_sgn(m), f_sig(m), f_exp(m);
     m_simp.mk_ite(swap_cond, c_sgn, mul_sgn, e_sgn);
@@ -1292,15 +1300,19 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     
     // Alignment shift with sticky bit computation.
     expr_ref shifted_big(m), shifted_f_sig(m), sticky_raw(m);
-    shifted_big = m_bv_util.mk_bv_lshr(f_sig, m_bv_util.mk_zero_extend((2*sbits)-(ebits+2), exp_delta));
-    shifted_f_sig = m_bv_util.mk_zero_extend(sbits, m_bv_util.mk_extract(2*sbits-1, sbits, shifted_big));
+    shifted_big = m_bv_util.mk_bv_lshr(
+                    m_bv_util.mk_concat(f_sig, m_bv_util.mk_numeral(0, sbits)), 
+                    m_bv_util.mk_zero_extend((3*sbits)-(ebits+2), exp_delta));
+    shifted_f_sig = m_bv_util.mk_zero_extend(sbits, m_bv_util.mk_extract(3*sbits-1, 2*sbits, shifted_big));
     sticky_raw = m_bv_util.mk_extract(sbits-1, 0, shifted_big); 
     SASSERT(m_bv_util.get_bv_size(shifted_f_sig) == 2 * sbits);
     SASSERT(is_well_sorted(m, shifted_f_sig));    
        
-    expr_ref sticky(m), sticky_eq(m), nil_sbit4(m), one_sbit4(m); 
+    expr_ref sticky(m); 
     sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw));
     SASSERT(is_well_sorted(m, sticky));
+    dbg_decouple("fpa2bv_fma_f_sig_sticky_raw", sticky_raw);
+    dbg_decouple("fpa2bv_fma_f_sig_sticky", sticky);
     
     expr * or_args[2] = { shifted_f_sig, sticky };
     shifted_f_sig = m_bv_util.mk_bv_or(2, or_args);
