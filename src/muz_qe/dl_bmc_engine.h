@@ -30,7 +30,7 @@ Revision History:
 namespace datalog {
     class context;
 
-    class bmc {
+    class bmc : public engine_base {
         context&         m_ctx;
         ast_manager&     m;
         smt_params       m_fparams;

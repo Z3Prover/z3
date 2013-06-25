@@ -1,6 +1,6 @@
 
 #include "qe.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "dl_decl_plugin.h"
 #include "obj_pair_hashtable.h"
 #include "ast_pp.h"
@@ -35,7 +35,7 @@ namespace qe {
 
     class dl_plugin : public qe_solver_plugin {
         typedef obj_pair_map<app,  expr, eq_atoms*> eqs_cache;
-        scoped_ptr<expr_replacer> m_replace;
+        expr_safe_replace         m_replace;
         datalog::dl_decl_util     m_util;
         expr_ref_vector           m_trail;
         eqs_cache                 m_eqs_cache;
@@ -44,7 +44,7 @@ namespace qe {
     public:
         dl_plugin(i_solver_context& ctx, ast_manager& m) : 
             qe_solver_plugin(m, m.mk_family_id("datalog_relation"), ctx),
-            m_replace(mk_default_expr_replacer(m)),
+            m_replace(m),
             m_util(m),
             m_trail(m)
         {
@@ -140,7 +140,7 @@ namespace qe {
 
         void subst_small_domain(contains_app & x,eq_atoms& eqs, unsigned v,expr_ref & fml) {
             expr_ref vl(m_util.mk_numeral(v, m.get_sort(x.x())), m);
-            m_replace->apply_substitution(x.x(), vl, fml);
+            m_replace.apply_substitution(x.x(), vl, fml);
         }
 
         // assumes that all disequalities can be satisfied.
@@ -148,15 +148,15 @@ namespace qe {
             SASSERT(w <= eqs.num_eqs());
             if (w < eqs.num_eqs()) {
                 expr* e = eqs.eq(w);
-                m_replace->apply_substitution(x.x(), e, fml);
+                m_replace.apply_substitution(x.x(), e, fml);
             }
             else {               
                 for (unsigned i = 0; i < eqs.num_eqs(); ++i) {
-                    m_replace->apply_substitution(eqs.eq_atom(i), m.mk_false(), fml);
+                    m_replace.apply_substitution(eqs.eq_atom(i), m.mk_false(), fml);
                 }
 
                 for (unsigned i = 0; i < eqs.num_neqs(); ++i) {
-                    m_replace->apply_substitution(eqs.neq_atom(i), m.mk_true(), fml);
+                    m_replace.apply_substitution(eqs.neq_atom(i), m.mk_true(), fml);
                 }
             }
         }

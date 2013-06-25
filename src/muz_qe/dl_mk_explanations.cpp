@@ -604,7 +604,7 @@ namespace datalog {
         m_e_sort = m_decl_util.mk_rule_sort();
         m_pinned.push_back(m_e_sort);
 
-        relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
+        relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
         symbol er_symbol = explanation_relation_plugin::get_name(m_relation_level);
         m_er_plugin = static_cast<explanation_relation_plugin *>(rmgr.get_relation_plugin(er_symbol));
         if (!m_er_plugin) {
@@ -637,7 +637,7 @@ namespace datalog {
     void mk_explanations::assign_rel_level_kind(func_decl * e_decl, func_decl * orig) {
         SASSERT(m_relation_level);
 
-        relation_manager & rmgr = m_context.get_rel_context().get_rmanager();
+        relation_manager & rmgr = m_context.get_rel_context()->get_rmanager();
         unsigned sz = e_decl->get_arity();
         relation_signature sig;
         rmgr.from_predicate(e_decl, sig);
@@ -871,7 +871,7 @@ namespace datalog {
             return 0;
         }
         rule_set * res = alloc(rule_set, m_context);
-        transform_facts(m_context.get_rel_context().get_rmanager(), source, *res);
+        transform_facts(m_context.get_rel_context()->get_rmanager(), source, *res);
         transform_rules(source, *res);
         return res;
     }

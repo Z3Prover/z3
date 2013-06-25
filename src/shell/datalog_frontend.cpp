@@ -75,7 +75,7 @@ static void display_statistics(
 
         out << "--------------\n";
         out << "instructions  \n";
-        code.display(ctx.get_rel_context(), out);
+        code.display(*ctx.get_rel_context(), out);
 
         out << "--------------\n";
         out << "big relations \n";
@@ -83,7 +83,7 @@ static void display_statistics(
     }
     out << "--------------\n";
     out << "relation sizes\n";
-    ctx.get_rel_context().get_rmanager().display_relation_sizes(out);
+    ctx.get_rel_context()->get_rmanager().display_relation_sizes(out);
 
     if (verbose) {
         out << "--------------\n";
@@ -125,7 +125,7 @@ unsigned read_datalog(char const * file) {
     params.set_sym("engine", symbol("datalog"));
 
     datalog::context ctx(m, s_params, params);
-    datalog::relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
+    datalog::relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
     datalog::relation_plugin & inner_plg = *rmgr.get_relation_plugin(symbol("tr_hashtable"));
     SASSERT(&inner_plg);
     rmgr.register_plugin(alloc(datalog::finite_product_relation_plugin, inner_plg, rmgr));
@@ -187,7 +187,7 @@ unsigned read_datalog(char const * file) {
             
             datalog::compiler::compile(ctx, ctx.get_rules(), rules_code, termination_code);
             
-            TRACE("dl_compiler", rules_code.display(ctx.get_rel_context(), tout););
+            TRACE("dl_compiler", rules_code.display(*ctx.get_rel_context(), tout););
             
             rules_code.make_annotations(ex_ctx);
             
@@ -227,10 +227,10 @@ unsigned read_datalog(char const * file) {
         
 
         TRACE("dl_compiler", ctx.display(tout);
-              rules_code.display(ctx.get_rel_context(), tout););
+              rules_code.display(*ctx.get_rel_context(), tout););
         
         if (ctx.get_params().output_tuples()) {
-            ctx.get_rel_context().display_output_facts(ctx.get_rules(), std::cout);
+            ctx.get_rel_context()->display_output_facts(ctx.get_rules(), std::cout);
         }
 
         display_statistics(

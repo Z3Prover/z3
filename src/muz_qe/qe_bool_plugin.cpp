@@ -25,18 +25,18 @@ Notes:
 --*/
 
 #include "qe.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "ast_pp.h"
 #include "model_evaluator.h"
 
 
 namespace qe {
     class bool_plugin : public qe_solver_plugin {
-        scoped_ptr<expr_replacer> m_replace;
+        expr_safe_replace m_replace;
     public:
         bool_plugin(i_solver_context& ctx, ast_manager& m):
             qe_solver_plugin(m, m.get_basic_family_id(), ctx),
-            m_replace(mk_default_expr_replacer(m))
+            m_replace(m)
         {}
         
         virtual void assign(contains_app& x, expr* fml, rational const& vl) {
@@ -51,7 +51,7 @@ namespace qe {
         virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
             SASSERT(vl.is_one() || vl.is_zero());
             expr* tf = (vl.is_one())?m.mk_true():m.mk_false();
-            m_replace->apply_substitution(x.x(), tf, 0, fml);
+            m_replace.apply_substitution(x.x(), tf, fml);
             if (def) {
                 *def = tf;
             }
@@ -103,12 +103,12 @@ namespace qe {
                 app* a = to_app(e);
                 expr* e1;
                 if (m_ctx.is_var(a, idx)) {
-                    m_replace->apply_substitution(a, m.mk_true(), 0, fml);
+                    m_replace.apply_substitution(a, m.mk_true(), fml);
                     m_ctx.elim_var(idx, fml, m.mk_true());
                     return true;
                 }
                 else if (m.is_not(e, e1) && m_ctx.is_var(e1, idx)) {
-                    m_replace->apply_substitution(to_app(e1), m.mk_false(), 0, fml);         
+                    m_replace.apply_substitution(to_app(e1), m.mk_false(), fml);         
                     m_ctx.elim_var(idx, fml, m.mk_false());
                     return true;           
                 }
@@ -148,7 +148,7 @@ namespace qe {
                 }
                 // only occurrences of 'x' must be in positive atoms
                 def = m.mk_true();
-                m_replace->apply_substitution(x, def, 0, fml);
+                m_replace.apply_substitution(x, def, fml);
                 return true;
             }
             else if (!p && n) {
@@ -161,7 +161,7 @@ namespace qe {
                     if (x != *it && contains_x(*it)) return false;
                 }
                 def = m.mk_false();
-                m_replace->apply_substitution(x, def, 0, fml);
+                m_replace.apply_substitution(x, def, fml);
                 return true;            
             }
             else if (contains_x(fml)) {

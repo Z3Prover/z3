@@ -23,6 +23,7 @@ Revision History:
 #include "lbool.h"
 #include "dl_rule.h"
 #include "dl_rule_set.h"
+#include "dl_util.h"
 #include "statistics.h"
 
 namespace datalog {
@@ -33,7 +34,7 @@ namespace pdr {
 
     class context;
 
-    class dl_interface {
+    class dl_interface : public datalog::engine_base {
         datalog::context& m_ctx;
         datalog::rule_set m_pdr_rules;
         datalog::rule_set m_old_rules;
@@ -47,31 +48,31 @@ namespace pdr {
         dl_interface(datalog::context& ctx); 
         ~dl_interface();
         
-        lbool query(expr* query);
+        virtual lbool query(expr* query);
 
-        void cancel();
+        virtual void cancel();
 
-        void cleanup();
+        virtual void cleanup();
 
-        void display_certificate(std::ostream& out) const;
+        virtual void display_certificate(std::ostream& out) const;
 
-        void collect_statistics(statistics& st) const;
+        virtual void collect_statistics(statistics& st) const;
 
-        void reset_statistics();
+        virtual void reset_statistics();
 
-        expr_ref get_answer();
+        virtual expr_ref get_answer();
 
-        unsigned get_num_levels(func_decl* pred);
+        virtual unsigned get_num_levels(func_decl* pred);
 
-        expr_ref get_cover_delta(int level, func_decl* pred);
+        virtual expr_ref get_cover_delta(int level, func_decl* pred);
        
-        void add_cover(int level, func_decl* pred, expr* property);
+        virtual void add_cover(int level, func_decl* pred, expr* property);
                
-        void updt_params();
+        virtual void updt_params();
 
-        model_ref get_model();
+        virtual model_ref get_model();
 
-        proof_ref get_proof();
+        virtual proof_ref get_proof();
         
     };
 }

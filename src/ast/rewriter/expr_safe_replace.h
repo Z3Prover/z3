@@ -39,6 +39,8 @@ public:
 
     void operator()(expr* src, expr_ref& e);
 
+    void apply_substitution(expr* s, expr* def, expr_ref& t);
+
     void reset();
 };
 

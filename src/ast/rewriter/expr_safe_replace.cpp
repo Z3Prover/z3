@@ -106,3 +106,10 @@ void expr_safe_replace::reset() {
     m_dst.reset();
     m_subst.reset();
 }
+
+void expr_safe_replace::apply_substitution(expr* s, expr* def, expr_ref& t) {
+    reset();
+    insert(s, def);
+    (*this)(t, t);
+    reset();
+}
