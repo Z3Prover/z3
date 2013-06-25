@@ -367,8 +367,14 @@ expr_ref dl_interface::get_answer() {
 }
 
 void dl_interface::cancel() {
+#if 0
   if(_d && _d->ls)
     _d->ls->cancel();
+#else
+  // HACK: duality can't cancel at all times, we just exit here
+  std::cout << "(error \"duality canceled\")\nunknown\n";
+  exit(0);
+#endif
 }
 
 void dl_interface::cleanup() {
