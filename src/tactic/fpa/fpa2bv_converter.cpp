@@ -1309,7 +1309,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     SASSERT(is_well_sorted(m, shifted_f_sig));    
        
     expr_ref sticky(m); 
-    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw));
+    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw.get()));
     SASSERT(is_well_sorted(m, sticky));
     dbg_decouple("fpa2bv_fma_f_sig_sticky_raw", sticky_raw);
     dbg_decouple("fpa2bv_fma_f_sig_sticky", sticky);
@@ -1371,7 +1371,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
     
     sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
-    sticky = m_bv_util.mk_zero_extend(sbits+7, m.mk_app(bvfid, OP_BREDOR, sticky_raw));
+    sticky = m_bv_util.mk_zero_extend(sbits+7, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
     res_sig = m_bv_util.mk_extract(2*sbits-1, sbits-4, sig_abs);
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits+4);
     
@@ -1485,12 +1485,12 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     // This is algorithm 10.2 in the Handbook of Floating-Point Arithmetic
     expr_ref Q(m), R(m), S(m), T(m);
 
-    const mpz & p2 = fu().fm().m_powers2(sbits-1);
+    const mpz & p2 = fu().fm().m_powers2(sbits);
     Q = m_bv_util.mk_numeral(p2, sbits+2);
-    R = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(zero1, sig_prime), Q);
+    R = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(sig_prime, zero1), Q);
     S = Q;
 
-    for (unsigned i = 0; i < sbits; i++) {
+    for (unsigned i = 0; i <= sbits; i++) {
         dbg_decouple("fpa2bv_sqrt_Q", Q);
         dbg_decouple("fpa2bv_sqrt_R", R);
 
@@ -1523,10 +1523,10 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     rest = m_bv_util.mk_extract(sbits, 1, Q);
     m_simp.mk_eq(last, one1, q_is_odd);
     dbg_decouple("fpa2bv_sqrt_q_is_odd", q_is_odd);
-    rest_ext = m_bv_util.mk_concat(rest, m_bv_util.mk_numeral(0, 4));    
+    rest_ext = m_bv_util.mk_zero_extend(1, m_bv_util.mk_concat(rest, m_bv_util.mk_numeral(0, 3)));
     m_simp.mk_ite(q_is_odd, m_bv_util.mk_bv_add(rest_ext, m_bv_util.mk_numeral(8, sbits+4)),
                             rest_ext,
-                            res_sig);
+                            res_sig);    
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
 
