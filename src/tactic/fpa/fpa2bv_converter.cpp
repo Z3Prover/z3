@@ -1299,7 +1299,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     SASSERT(is_well_sorted(m, shifted_f_sig));    
        
     expr_ref sticky(m), sticky_eq(m), nil_sbit4(m), one_sbit4(m); 
-    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw));
+    sticky = m_bv_util.mk_zero_extend(2*sbits-1, m.mk_app(m_bv_util.get_fid(), OP_BREDOR, sticky_raw.get()));
     SASSERT(is_well_sorted(m, sticky));
     
     expr * or_args[2] = { shifted_f_sig, sticky };
@@ -1359,7 +1359,7 @@ void fpa2bv_converter::mk_fusedma(func_decl * f, unsigned num, expr * const * ar
     res_sgn = m_bv_util.mk_bv_or(3, res_sgn_or_args);
     
     sticky_raw = m_bv_util.mk_extract(sbits-5, 0, sig_abs);
-    sticky = m_bv_util.mk_zero_extend(sbits+7, m.mk_app(bvfid, OP_BREDOR, sticky_raw));
+    sticky = m_bv_util.mk_zero_extend(sbits+7, m.mk_app(bvfid, OP_BREDOR, sticky_raw.get()));
     res_sig = m_bv_util.mk_extract(2*sbits-1, sbits-4, sig_abs);
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits+4);
     
