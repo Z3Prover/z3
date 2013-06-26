@@ -57,6 +57,7 @@ namespace datalog {
         arith_util      a;
         obj_map<func_decl, expr*>      m_fun2inv;
         ast_ref_vector m_pinned;
+        volatile bool  m_cancel;
 
         void get_invariants(rule_set const& src);
 

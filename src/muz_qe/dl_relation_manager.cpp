@@ -614,6 +614,60 @@ namespace datalog {
         return t.get_plugin().mk_project_fn(t, col_cnt, removed_cols);
     }
 
+    class relation_manager::default_relation_filter_interpreted_and_project_fn : public relation_transformer_fn {
+        scoped_ptr<relation_mutator_fn>     m_filter;
+        scoped_ptr<relation_transformer_fn> m_project;
+        unsigned_vector                     m_removed_cols;
+    public:
+        /**
+            This constructor should be used only if we know that the projection operation
+            exists for the result of the join.
+        */
+        default_relation_filter_interpreted_and_project_fn(
+            relation_mutator_fn* filter,
+            unsigned removed_col_cnt,
+            const unsigned * removed_cols)
+            : m_filter(filter), 
+              m_project(0), 
+              m_removed_cols(removed_col_cnt, removed_cols) {}
+
+        virtual relation_base * operator()(const relation_base & t) {
+            scoped_rel<relation_base> t1 = t.clone();
+            (*m_filter)(*t1);
+            if( !m_project) {
+                relation_manager & rmgr = t1->get_plugin().get_manager();
+                m_project = rmgr.mk_project_fn(*t1, m_removed_cols.size(), m_removed_cols.c_ptr());
+                if (!m_project) {
+                    throw default_exception("projection does not exist");
+                }
+            }
+            return (*m_project)(*t1);
+        }
+    };
+
+    relation_transformer_fn * relation_manager::mk_filter_interpreted_and_project_fn(
+        const relation_base & t, app * condition,
+        unsigned removed_col_cnt, const unsigned * removed_cols) {
+
+        relation_transformer_fn* res = 
+            t.get_plugin().mk_filter_interpreted_and_project_fn(
+                t, 
+                condition,
+                removed_col_cnt,
+                removed_cols);
+
+        if (!res) {
+            relation_mutator_fn* filter_fn = mk_filter_interpreted_fn(t, condition);
+            if (filter_fn) {
+                res = alloc(default_relation_filter_interpreted_and_project_fn, 
+                            filter_fn,
+                            removed_col_cnt,
+                            removed_cols);
+            }
+        }
+        return res;
+    }
+
 
     class relation_manager::default_relation_join_project_fn : public relation_join_fn {
         scoped_ptr<relation_join_fn> m_join;
@@ -719,14 +773,6 @@ namespace datalog {
     relation_mutator_fn * relation_manager::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
         return t.get_plugin().mk_filter_interpreted_fn(t, condition);
     }
-
-    relation_transformer_fn * relation_manager::mk_filter_interpreted_and_project_fn(const relation_base & t,
-                                                                                 app * condition,
-                                                                                 unsigned removed_col_cnt,
-                                                                                 const unsigned * removed_cols) {
-        return t.get_plugin().mk_filter_interpreted_and_project_fn(t, condition, removed_col_cnt, removed_cols);
-    }
-
 
     class relation_manager::default_relation_select_equal_and_project_fn : public relation_transformer_fn {
         scoped_ptr<relation_mutator_fn> m_filter;

@@ -48,8 +48,11 @@ namespace api {
         if (!m.has_plugin(name)) {
             m.register_plugin(name, alloc(datalog::dl_decl_plugin));
         }        
-        datalog::relation_manager& r = m_context.get_rel_context().get_rmanager();
-        r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
+        datalog::rel_context* rel = m_context.get_rel_context();
+        if (rel) {
+            datalog::relation_manager& r = rel->get_rmanager();
+            r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
+        }
     }        
     
     void fixedpoint_context::reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) {

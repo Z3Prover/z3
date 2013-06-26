@@ -205,6 +205,7 @@ namespace datalog {
     };
     
     clp::clp(context& ctx):
+        engine_base(ctx.get_manager(), "clp"),
         m_imp(alloc(imp, ctx)) {        
     }
     clp::~clp() {

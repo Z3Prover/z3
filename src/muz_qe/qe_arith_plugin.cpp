@@ -20,7 +20,7 @@ Revision History:
 
 #include "qe.h"
 #include "ast_pp.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "bool_rewriter.h"
 #include "bv_decl_plugin.h"
 #include "arith_decl_plugin.h"
@@ -93,7 +93,7 @@ namespace qe {
         expr_ref     m_one_r;
         expr_ref     m_tmp;
     public: 
-        scoped_ptr<expr_replacer>  m_replace;
+        expr_safe_replace          m_replace;
         
         bool_rewriter              m_bool_rewriter;
         arith_rewriter             m_arith_rewriter;
@@ -111,7 +111,7 @@ namespace qe {
             m_zero_r(m_arith.mk_numeral(numeral(0), false), m),
             m_one_r(m_arith.mk_numeral(numeral(1), false), m),
             m_tmp(m), 
-            m_replace(mk_default_expr_replacer(m)),
+            m_replace(m),
             m_bool_rewriter(m),
             m_arith_rewriter(m) {
         }
@@ -827,7 +827,7 @@ namespace qe {
             while (index <= up) {
                 expr* n = mk_numeral(index);
                 result = body;
-                m_replace->apply_substitution(x, n, result);
+                m_replace.apply_substitution(x, n, result);
                 ors.push_back(result);
                 ++index;
             }
@@ -857,7 +857,7 @@ namespace qe {
             mk_flat_and(e1, body, result);
             app_ref z(m);
             mk_bounded_var(up, z_bv, z);
-            m_replace->apply_substitution(x, z, result);
+            m_replace.apply_substitution(x, z, result);
         }        
 
 
@@ -966,7 +966,7 @@ namespace qe {
                   << mk_pp(e, m) << "\n";
                   );
             expr_ref result(fml, m);
-            m_replace->apply_substitution(x, e, result);
+            m_replace.apply_substitution(x, e, result);
             simplify(result);
             TRACE("qe", 
                   tout << "singular solved:\n" 
@@ -1044,7 +1044,7 @@ namespace qe {
                   tout << " = 0\n";
                   );
             expr_ref result(fml, m);
-            m_replace->apply_substitution(x, p1, result);
+            m_replace.apply_substitution(x, p1, result);
             simplify(result);            
             m_ctx.elim_var(index-1, result, p1);
             TRACE("qe", tout << "Reduced: " << mk_pp(result, m) << "\n";);
@@ -2080,7 +2080,7 @@ public:
                 app* atm = atoms[i];        
                 t1 = m_util.mk_add(m_util.mk_mul(coeffs[i], z), terms[i]);
                 m_util.mk_divides(divisors[i], t1, new_atom);
-                m_util.m_replace->apply_substitution(atm, new_atom.get(), result);
+                m_util.m_replace.apply_substitution(atm, new_atom.get(), result);
                 
                 m_ctx.add_constraint(false, mk_not(atm), new_atom);
                 m_ctx.add_constraint(false, mk_not(new_atom), atm);
@@ -2121,7 +2121,7 @@ public:
                 m_util.simplify(mod_term2);
                 m_ctx.add_constraint(false, m.mk_eq(mod_term2, m_util.mk_zero(mod_term2)));
 
-                m_util.m_replace->apply_substitution(atm, z1, result);  
+                m_util.m_replace.apply_substitution(atm, z1, result);  
 
                 //
                 // conjoin (coeff*z + rest - z1) mod k == 0 to result
@@ -2153,7 +2153,7 @@ public:
             for (unsigned i = 0; i < sz; ++i) {
                 app* e = bounds.atoms(is_strict, is_lower)[i];
                 m_ctx.add_constraint(true, mk_not(e));
-                m_util.m_replace->apply_substitution(e, m.mk_false(), result);
+                m_util.m_replace.apply_substitution(e, m.mk_false(), result);
             }            
         }
 
@@ -2162,7 +2162,7 @@ public:
             for (unsigned i = 0; i < sz; ++i) {
                 app* e = bounds.atoms(is_strict, !is_lower)[i];
                 m_ctx.add_constraint(true, e);
-                m_util.m_replace->apply_substitution(e, m.mk_true(), result); 
+                m_util.m_replace.apply_substitution(e, m.mk_true(), result); 
             }
         }
 
@@ -2276,7 +2276,7 @@ public:
                     else {
                         m_ctx.add_constraint(true, e);
                     }
-                    m_util.m_replace->apply_substitution(atm, m.mk_true(), result);
+                    m_util.m_replace.apply_substitution(atm, m.mk_true(), result);
                     continue;
                 }
            
@@ -2293,7 +2293,7 @@ public:
                     (same_strict && i < index);
 
                 mk_bound(result_is_strict, is_lower, a, t, b, s, tmp);
-                m_util.m_replace->apply_substitution(e, tmp.get(), result);
+                m_util.m_replace.apply_substitution(e, tmp.get(), result);
 
                 TRACE("qe", 
                       tout << (result_is_strict?"strict result":"non-strict result") << "\n";
@@ -2330,7 +2330,7 @@ public:
                 s = x_t.mk_term(b, s);
                 b = x_t.mk_coeff(b);
                 m_util.mk_resolve(x, strict_resolve, a, t, b, s, tmp);
-                m_util.m_replace->apply_substitution(e, tmp.get(), result);
+                m_util.m_replace.apply_substitution(e, tmp.get(), result);
                 
                 m_ctx.add_constraint(true, mk_not(e), tmp);
 
@@ -2398,7 +2398,7 @@ public:
         weights_t                    m_weights;
         th_rewriter                  m_rewriter;        
         nlarith::util                m_util;
-        scoped_ptr<expr_replacer>    m_replacer;
+        expr_safe_replace            m_replace;
         expr_ref_vector              m_trail;
         factor_rewriter_star         m_factor_rw;
         bool                         m_produce_models;
@@ -2407,7 +2407,7 @@ public:
             qe_solver_plugin(m, m.mk_family_id("arith"), ctx),
             m_rewriter(m),
             m_util(m),
-            m_replacer(mk_default_expr_replacer(m)),
+            m_replace(m),
             m_trail(m),
             m_factor_rw(m),
             m_produce_models(produce_models) {
@@ -2480,12 +2480,11 @@ public:
             SASSERT(vl.is_unsigned());
             SASSERT(vl.get_unsigned() < brs->size());
             unsigned j = vl.get_unsigned();
-            expr_substitution sub(m);
+            m_replace.reset();            
             for (unsigned i = 0; i < brs->preds().size(); ++i) {
-                sub.insert(to_app(brs->preds(i)), brs->subst(j)[i]);
+                m_replace.insert(brs->preds(i), brs->subst(j)[i]);
             }
-            m_replacer->set_substitution(&sub);
-            (*m_replacer)(fml);
+            m_replace(fml);
             expr_ref tmp(m.mk_and(brs->constraints(j), fml), m);
             m_factor_rw(tmp, fml);
             if (def) {

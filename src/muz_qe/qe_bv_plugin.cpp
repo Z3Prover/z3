@@ -21,19 +21,19 @@ Notes:
 --*/
 
 #include "qe.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "bv_decl_plugin.h"
 #include "model_evaluator.h"
 
 namespace qe {
 
     class bv_plugin : public qe_solver_plugin {
-        scoped_ptr<expr_replacer> m_replace;
-        bv_util      m_bv;
+        expr_safe_replace m_replace;
+        bv_util           m_bv;
     public:
         bv_plugin(i_solver_context& ctx, ast_manager& m): 
             qe_solver_plugin(m, m.mk_family_id("bv"), ctx),
-            m_replace(mk_default_expr_replacer(m)),
+            m_replace(m),
             m_bv(m)
         {}
 
@@ -48,7 +48,7 @@ namespace qe {
 
         virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
             app_ref c(m_bv.mk_numeral(vl, m_bv.get_bv_size(x.x())), m);
-            m_replace->apply_substitution(x.x(), c, 0, fml);
+            m_replace.apply_substitution(x.x(), c, fml);
             if (def) {
                 *def = m_bv.mk_numeral(vl, m_bv.get_bv_size(x.x()));
             }

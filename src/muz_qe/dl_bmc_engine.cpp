@@ -1416,6 +1416,7 @@ namespace datalog {
     };
     
     bmc::bmc(context& ctx): 
+        engine_base(ctx.get_manager(), "bmc"),
         m_ctx(ctx), 
         m(ctx.get_manager()), 
         m_solver(m, m_fparams),

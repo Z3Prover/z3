@@ -44,6 +44,7 @@ Notes:
 #include "proof_checker.h"
 #include "smt_value_sort.h"
 #include "proof_utils.h"
+#include "dl_boogie_proof.h"
 
 namespace pdr {
 
@@ -1063,7 +1064,7 @@ namespace pdr {
         ast_manager& m = pt.get_manager();
         datalog::context& dctx = ctx.get_context();
         datalog::rule_manager& rm = dctx.get_rule_manager();
-        datalog::rule_unifier unifier(dctx);
+        datalog::rule_unifier unif(dctx);
         datalog::dl_decl_util util(m);
         datalog::rule_ref r0(rm), r1(rm);
         obj_map<expr, proof*> cache;
@@ -1072,7 +1073,7 @@ namespace pdr {
         proof_ref_vector trail(m);
         datalog::rule_ref_vector rules_trail(rm);
         proof* pr = 0;
-        unifier.set_normalize(false);
+        unif.set_normalize(true);
         todo.push_back(m_root);
         update_models();
         while (!todo.empty()) {
@@ -1134,14 +1135,14 @@ namespace pdr {
                 substs.push_back(binding); // TODO base substitution.
                 for (unsigned i = 1; i < rls.size(); ++i) {
                     datalog::rule& src = *rls[i];
-                    bool unified = unifier.unify_rules(*reduced_rule, 0, src);
+                    bool unified = unif.unify_rules(*reduced_rule, 0, src);
                     if (!unified) {
                         IF_VERBOSE(0,
                                    verbose_stream() << "Could not unify rules: ";
                                    reduced_rule->display(dctx, verbose_stream());
                                    src.display(dctx, verbose_stream()););
                     }
-                    expr_ref_vector sub1 = unifier.get_rule_subst(*reduced_rule, true);
+                    expr_ref_vector sub1 = unif.get_rule_subst(*reduced_rule, true);
                     TRACE("pdr",
                           for (unsigned k = 0; k < sub1.size(); ++k) {
                               tout << mk_pp(sub1[k].get(), m) << " ";
@@ -1160,8 +1161,8 @@ namespace pdr {
                     }
 
                     positions.push_back(std::make_pair(i,0));
-                    substs.push_back(unifier.get_rule_subst(src, false));
-                    VERIFY(unifier.apply(*reduced_rule.get(), 0, src, r3));
+                    substs.push_back(unif.get_rule_subst(src, false));
+                    VERIFY(unif.apply(*reduced_rule.get(), 0, src, r3));
                     reduced_rule = r3;
                 }
 
@@ -1620,6 +1621,12 @@ namespace pdr {
             IF_VERBOSE(1, verbose_stream() << "\n"; m_search.display(verbose_stream()););  
             m_last_result = l_true;
             validate();
+
+            IF_VERBOSE(1, 
+                       if (m_params.print_boogie_certificate()) {
+                           display_certificate(verbose_stream());
+                       });
+
             return l_true;
         }
         catch (inductive_exception) {
@@ -2129,7 +2136,15 @@ namespace pdr {
             break;
         }
         case l_true: {
-            strm << mk_pp(mk_sat_answer(), m);
+            if (m_params.print_boogie_certificate()) {
+                datalog::boogie_proof bp(m);
+                bp.set_proof(get_proof());
+                bp.set_model(0);
+                bp.pp(strm);
+            }
+            else {
+                strm << mk_pp(mk_sat_answer(), m);
+            }
             break;
         }
         case l_undef: {

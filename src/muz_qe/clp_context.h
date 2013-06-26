@@ -22,23 +22,24 @@ Revision History:
 #include "ast.h"
 #include "lbool.h"
 #include "statistics.h"
+#include "dl_util.h"
 
 namespace datalog {
     class context;
 
-    class clp {
+    class clp : public datalog::engine_base {
         class imp;
         imp* m_imp;
     public:
         clp(context& ctx);
         ~clp();
-        lbool query(expr* query);
-        void cancel();
-        void cleanup();
-        void reset_statistics();
-        void collect_statistics(statistics& st) const;
-        void display_certificate(std::ostream& out) const;        
-        expr_ref get_answer();
+        virtual lbool query(expr* query);
+        virtual void cancel();
+        virtual void cleanup();
+        virtual void reset_statistics();
+        virtual void collect_statistics(statistics& st) const;
+        virtual void display_certificate(std::ostream& out) const;        
+        virtual expr_ref get_answer();
     };
 };
 

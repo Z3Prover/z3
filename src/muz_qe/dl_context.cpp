@@ -45,6 +45,7 @@ Revision History:
 #include"dl_mk_bit_blast.h"
 #include"dl_mk_array_blast.h"
 #include"dl_mk_karr_invariants.h"
+#include"dl_mk_magic_symbolic.h"
 #include"dl_mk_quantifier_abstraction.h"
 #include"dl_mk_quantifier_instantiation.h"
 #include"datatype_decl_plugin.h"
@@ -238,11 +239,13 @@ namespace datalog {
         m_rule_fmls(m),
         m_background(m),
         m_mc(0),
+        m_rel(0),
+        m_engine(0),
         m_closed(false),
         m_saturation_was_run(false),
         m_last_status(OK),
         m_last_answer(m),
-        m_engine(LAST_ENGINE),
+        m_engine_type(LAST_ENGINE),
         m_cancel(false) {
     }
 
@@ -260,8 +263,7 @@ namespace datalog {
         m_preds.reset();
         m_preds_by_name.reset();
         reset_dealloc_values(m_sorts);
-        m_pdr = 0;
-        m_bmc = 0;
+        m_engine = 0;
         m_rel = 0;
     }
 
@@ -432,8 +434,7 @@ namespace datalog {
 
     void context::set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
             symbol const * relation_names) {
-        if (relation_name_cnt > 0) {
-            ensure_rel();
+        if (m_rel && relation_name_cnt > 0) {
             m_rel->set_predicate_representation(pred, relation_name_cnt, relation_names);
         }
     }
@@ -445,7 +446,7 @@ namespace datalog {
 
         register_predicate(new_pred, true);
 
-        if (m_rel.get()) {
+        if (m_rel) {
             m_rel->inherit_predicate_kind(new_pred, orig_pred);
         }
         return new_pred;
@@ -542,64 +543,18 @@ namespace datalog {
     }
 
     unsigned context::get_num_levels(func_decl* pred) {
-        switch(get_engine()) {
-        case DATALOG_ENGINE:
-            throw default_exception("get_num_levels is not supported for datalog engine");
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            ensure_pdr();
-            return m_pdr->get_num_levels(pred);
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            throw default_exception("get_num_levels is not supported for bmc");
-        case TAB_ENGINE:
-            throw default_exception("get_num_levels is not supported for tab");
-        case CLP_ENGINE:
-            throw default_exception("get_num_levels is not supported for clp");
-        default:
-            throw default_exception("unknown engine");
-        } 
+        ensure_engine();
+        return m_engine->get_num_levels(pred);
     }
 
     expr_ref context::get_cover_delta(int level, func_decl* pred) {
-        switch(get_engine()) {
-        case DATALOG_ENGINE:
-            throw default_exception("operation is not supported for datalog engine");
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            ensure_pdr();
-            return m_pdr->get_cover_delta(level, pred);
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            throw default_exception("operation is not supported for BMC engine");
-        case TAB_ENGINE:
-            throw default_exception("operation is not supported for TAB engine");
-        case CLP_ENGINE:
-            throw default_exception("operation is not supported for CLP engine");
-        default:
-            throw default_exception("unknown engine");
-        } 
+        ensure_engine();
+        return m_engine->get_cover_delta(level, pred);
     }
 
     void context::add_cover(int level, func_decl* pred, expr* property) {
-        switch(get_engine()) {
-        case DATALOG_ENGINE:
-            throw default_exception("operation is not supported for datalog engine");
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            ensure_pdr();
-            m_pdr->add_cover(level, pred, property);
-            break;
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            throw default_exception("operation is not supported for BMC engine");
-        case TAB_ENGINE:
-            throw default_exception("operation is not supported for TAB engine");
-        case CLP_ENGINE:
-            throw default_exception("operation is not supported for CLP engine");
-        default:
-            throw default_exception("unknown engine");
-        } 
+        ensure_engine();
+        m_engine->add_cover(level, pred, property);
     }
 
     void context::check_uninterpreted_free(rule_ref& r) {
@@ -743,7 +698,7 @@ namespace datalog {
 
     void context::add_fact(func_decl * pred, const relation_fact & fact) {
         if (get_engine() == DATALOG_ENGINE) {
-            ensure_rel();
+            ensure_engine();
             m_rel->add_fact(pred, fact);
         }
         else {
@@ -769,7 +724,7 @@ namespace datalog {
 
     void context::add_table_fact(func_decl * pred, const table_fact & fact) {
         if (get_engine() == DATALOG_ENGINE) {
-            ensure_rel();
+            ensure_engine();
             m_rel->add_fact(pred, fact);
         }
         else {
@@ -907,6 +862,9 @@ namespace datalog {
         m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
         m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
         m_transf.register_plugin(alloc(datalog::mk_karr_invariants, *this, 36010));
+        if (get_params().magic()) {
+            m_transf.register_plugin(alloc(datalog::mk_magic_symbolic, *this, 36020));
+        }
         transform_rules(m_transf);
     }
 
@@ -917,7 +875,7 @@ namespace datalog {
 
     void context::updt_params(params_ref const& p) {
         m_params_ref.copy(p);
-        if (m_pdr.get()) m_pdr->updt_params();        
+        if (m_engine.get()) m_engine->updt_params();
     }
 
     expr_ref context::get_background_assertion() {
@@ -940,45 +898,39 @@ namespace datalog {
         m_cancel = true;
         m_last_status = CANCELED;
         m_transf.cancel();
-        if (m_pdr.get()) m_pdr->cancel();
-        if (m_bmc.get()) m_bmc->cancel();
-        if (m_tab.get()) m_tab->cancel();
-        if (m_rel.get()) m_rel->set_cancel(true);
+        if (m_engine) m_engine->cancel();
     }
 
     void context::cleanup() {
         m_cancel = false;
         m_last_status = OK;
-        if (m_pdr.get()) m_pdr->cleanup();
-        if (m_bmc.get()) m_bmc->cleanup();
-        if (m_tab.get()) m_tab->cleanup();
-        if (m_rel.get()) m_rel->set_cancel(false);
+        if (m_engine) m_engine->cleanup();
     }
 
     class context::engine_type_proc {
         ast_manager&  m;
         arith_util    a;
         datatype_util dt;
-        DL_ENGINE     m_engine;
+        DL_ENGINE     m_engine_type;
 
     public:
-        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine(DATALOG_ENGINE) {}
+        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine_type(DATALOG_ENGINE) {}
 
-        DL_ENGINE get_engine() const { return m_engine; }
+        DL_ENGINE get_engine() const { return m_engine_type; }
 
         void operator()(expr* e) {
             if (is_quantifier(e)) {
-                m_engine = QPDR_ENGINE;
+                m_engine_type = QPDR_ENGINE;
             }
-            else if (m_engine != QPDR_ENGINE) {
+            else if (m_engine_type != QPDR_ENGINE) {
                 if (a.is_int_real(e)) {
-                    m_engine = PDR_ENGINE;
+                    m_engine_type = PDR_ENGINE;
                 }
                 else if (is_var(e) && m.is_bool(e)) {
-                    m_engine = PDR_ENGINE;
+                    m_engine_type = PDR_ENGINE;
                 }
                 else if (dt.is_datatype(m.get_sort(e))) {
-                    m_engine = PDR_ENGINE;
+                    m_engine_type = PDR_ENGINE;
                 }
             }
         }
@@ -988,46 +940,46 @@ namespace datalog {
         symbol e = m_params.engine();
         
         if (e == symbol("datalog")) {
-            m_engine = DATALOG_ENGINE;
+            m_engine_type = DATALOG_ENGINE;
         }
         else if (e == symbol("pdr")) {
-            m_engine = PDR_ENGINE;
+            m_engine_type = PDR_ENGINE;
         }
         else if (e == symbol("qpdr")) {
-            m_engine = QPDR_ENGINE;
+            m_engine_type = QPDR_ENGINE;
         }
         else if (e == symbol("bmc")) {
-            m_engine = BMC_ENGINE;
+            m_engine_type = BMC_ENGINE;
         }
         else if (e == symbol("qbmc")) {
-            m_engine = QBMC_ENGINE;
+            m_engine_type = QBMC_ENGINE;
         }
         else if (e == symbol("tab")) {
-            m_engine = TAB_ENGINE;
+            m_engine_type = TAB_ENGINE;
         }
         else if (e == symbol("clp")) {
-            m_engine = CLP_ENGINE;
+            m_engine_type = CLP_ENGINE;
         }
 
-        if (m_engine == LAST_ENGINE) {
+        if (m_engine_type == LAST_ENGINE) {
             expr_fast_mark1 mark;
             engine_type_proc proc(m);
-            m_engine = DATALOG_ENGINE;            
-            for (unsigned i = 0; m_engine == DATALOG_ENGINE && i < m_rule_set.get_num_rules(); ++i) {
+            m_engine_type = DATALOG_ENGINE;            
+            for (unsigned i = 0; m_engine_type == DATALOG_ENGINE && i < m_rule_set.get_num_rules(); ++i) {
                 rule * r = m_rule_set.get_rule(i);
                 quick_for_each_expr(proc, mark, r->get_head());
                 for (unsigned j = 0; j < r->get_tail_size(); ++j) {
                     quick_for_each_expr(proc, mark, r->get_tail(j));
                 }
-                m_engine = proc.get_engine();
+                m_engine_type = proc.get_engine();
             }
-            for (unsigned i = m_rule_fmls_head; m_engine == DATALOG_ENGINE && i < m_rule_fmls.size(); ++i) {
+            for (unsigned i = m_rule_fmls_head; m_engine_type == DATALOG_ENGINE && i < m_rule_fmls.size(); ++i) {
                 expr* fml = m_rule_fmls[i].get();
                 while (is_quantifier(fml)) {
                     fml = to_quantifier(fml)->get_expr();
                 }
                 quick_for_each_expr(proc, mark, fml);
-                m_engine = proc.get_engine();
+                m_engine_type = proc.get_engine();
             }
         }
     }
@@ -1038,170 +990,78 @@ namespace datalog {
         m_last_answer = 0;
         switch (get_engine()) {
         case DATALOG_ENGINE:
-            flush_add_rules();
-            return rel_query(query);
         case PDR_ENGINE:
         case QPDR_ENGINE:
-            flush_add_rules();
-            return pdr_query(query);
         case BMC_ENGINE:
         case QBMC_ENGINE:
-            flush_add_rules();
-            return bmc_query(query);
         case TAB_ENGINE:
-            flush_add_rules();
-            return tab_query(query);
         case CLP_ENGINE:
             flush_add_rules();
-            return clp_query(query);
+            break;
         default:
             UNREACHABLE();
-            return rel_query(query);
         }
+        ensure_engine();
+        return m_engine->query(query);
     }
 
     model_ref context::get_model() {
-        switch(get_engine()) {
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            ensure_pdr();
-            return m_pdr->get_model();
-        default:
-            return model_ref(alloc(model, m));
-        }        
+        ensure_engine();
+        return m_engine->get_model();
     }
 
     proof_ref context::get_proof() {
-        switch(get_engine()) {
-        case PDR_ENGINE:
-        case QPDR_ENGINE:
-            ensure_pdr();
-            return m_pdr->get_proof();
-        default:
-            return proof_ref(m.mk_asserted(m.mk_true()), m);
-        }                
+        ensure_engine();
+        return m_engine->get_proof();
     }
 
-    void context::ensure_pdr() {
-        if (!m_pdr.get()) {
-            m_pdr = alloc(pdr::dl_interface, *this);
+    void context::ensure_engine() {
+        if (!m_engine.get()) {
+            switch (get_engine()) {
+            case PDR_ENGINE:
+            case QPDR_ENGINE:
+                m_engine = alloc(pdr::dl_interface, *this);
+                break;
+            case DATALOG_ENGINE:
+                m_rel = alloc(rel_context, *this);
+                m_engine = m_rel;
+                break;
+            case BMC_ENGINE:
+            case QBMC_ENGINE:
+                m_engine = alloc(bmc, *this);
+                break;
+            case TAB_ENGINE:
+                m_engine = alloc(tab, *this);
+                break;
+            case CLP_ENGINE:
+                m_engine = alloc(clp, *this);
+                break;
+            }
         }
     }
 
-    lbool context::pdr_query(expr* query) {
-        ensure_pdr();
-        return m_pdr->query(query);
-    }
-
-    void context::ensure_bmc() {
-        if (!m_bmc.get()) {
-            m_bmc = alloc(bmc, *this);
+    lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {        
+        ensure_engine();
+        if (m_rel) {
+            return m_rel->query(num_rels, rels);
+        }
+        else {
+            return l_undef;
         }
     }
-
-    lbool context::bmc_query(expr* query) {
-        ensure_bmc();
-        return m_bmc->query(query);
-    }
-
-    void context::ensure_tab() {
-        if (!m_tab.get()) {
-            m_tab = alloc(tab, *this);
-        }
-    }
-
-    void context::ensure_clp() {
-        if (!m_clp.get()) {
-            m_clp = alloc(clp, *this);
-        }
-    }
-
-    lbool context::tab_query(expr* query) {
-        ensure_tab();
-        return m_tab->query(query);
-    }
-
-    lbool context::clp_query(expr* query) {
-        ensure_clp();
-        return m_clp->query(query);
-    }
-
-    void context::ensure_rel() {
-        if (!m_rel.get()) {
-            m_rel = alloc(rel_context, *this);
-        }
-    }
-
-    lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {
-        ensure_rel();
-        return m_rel->query(num_rels, rels);
-    }
-    
-    lbool context::rel_query(expr* query) {
-        ensure_rel();
-        return m_rel->query(query);
-    }
-
-    
+        
     expr* context::get_answer_as_formula() {
         if (m_last_answer) {
             return m_last_answer.get();
         }
-        switch(get_engine()) {
-        case PDR_ENGINE: 
-        case QPDR_ENGINE:
-            ensure_pdr();
-            m_last_answer = m_pdr->get_answer();
-            return m_last_answer.get();
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            ensure_bmc();
-            m_last_answer = m_bmc->get_answer();
-            return m_last_answer.get();
-        case DATALOG_ENGINE:
-            ensure_rel();
-            m_last_answer = m_rel->get_last_answer();
-            return m_last_answer.get();
-        case TAB_ENGINE:
-            ensure_tab();
-            m_last_answer = m_tab->get_answer();
-            return m_last_answer.get();
-        case CLP_ENGINE:
-            ensure_clp();
-            m_last_answer = m_clp->get_answer();
-            return m_last_answer.get();
-        default:
-            UNREACHABLE();
-        }
-        m_last_answer = m.mk_false();
+        ensure_engine();
+        m_last_answer = m_engine->get_answer();
         return m_last_answer.get();
     }
 
-    bool context::display_certificate(std::ostream& out) {
-        switch(get_engine()) {
-        case DATALOG_ENGINE:            
-            return false;
-        case PDR_ENGINE: 
-        case QPDR_ENGINE: 
-            ensure_pdr();
-            m_pdr->display_certificate(out);
-            return true;
-        case BMC_ENGINE:
-        case QBMC_ENGINE:
-            ensure_bmc();
-            m_bmc->display_certificate(out);
-            return true;
-        case TAB_ENGINE:
-            ensure_tab();
-            m_tab->display_certificate(out);
-            return true;
-        case CLP_ENGINE:
-            ensure_clp();
-            m_clp->display_certificate(out);
-            return true;
-        default: 
-            return false;
-        }        
+    void context::display_certificate(std::ostream& out) {
+        ensure_engine();
+        m_engine->display_certificate(out);
     }
 
     void context::display_profile(std::ostream& out) const {
@@ -1219,26 +1079,14 @@ namespace datalog {
     }
 
     void context::reset_statistics() {
-        if (m_pdr) {
-            m_pdr->reset_statistics();
-        }
-        if (m_bmc) {
-            m_bmc->reset_statistics();
-        }
-        if (m_tab) {
-            m_tab->reset_statistics();
+        if (m_engine) {
+            m_engine->reset_statistics();
         }
     }
 
     void context::collect_statistics(statistics& st) const {
-        if (m_pdr) {
-            m_pdr->collect_statistics(st);
-        }
-        if (m_bmc) {
-            m_bmc->collect_statistics(st);
-        }
-        if (m_tab) {
-            m_tab->collect_statistics(st);
+        if (m_engine) {
+            m_engine->collect_statistics(st);
         }
     }
 
@@ -1246,8 +1094,7 @@ namespace datalog {
     execution_result context::get_status() { return m_last_status; }
 
     bool context::result_contains_fact(relation_fact const& f) {
-        ensure_rel();
-        return m_rel->result_contains_fact(f);
+        return m_rel && m_rel->result_contains_fact(f);
     }
     
     // NB: algebraic data-types declarations will not be printed.

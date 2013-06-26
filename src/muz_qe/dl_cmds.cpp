@@ -328,9 +328,7 @@ private:
     void print_certificate(cmd_context& ctx) {
         if (m_dl_ctx->get_params().print_certificate()) {
             datalog::context& dlctx = m_dl_ctx->dlctx();
-            if (!dlctx.display_certificate(ctx.regular_stream())) {
-                throw cmd_exception("certificates are not supported for the selected engine");
-            }
+            dlctx.display_certificate(ctx.regular_stream());
             ctx.regular_stream() << "\n";
         }
     }

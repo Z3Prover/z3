@@ -1,7 +1,7 @@
 
 #include "qe.h"
 #include "array_decl_plugin.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
 
@@ -11,13 +11,13 @@ namespace qe {
 
     class array_plugin : public qe_solver_plugin {
 
-        scoped_ptr<expr_replacer> m_replace;
+        expr_safe_replace m_replace;
 
     public:
 
         array_plugin(i_solver_context& ctx, ast_manager& m) : 
             qe_solver_plugin(m, m.mk_family_id("array"), ctx),
-            m_replace(mk_default_expr_replacer(m))
+            m_replace(m)
         {
         }
 
@@ -123,7 +123,7 @@ namespace qe {
             if (m_ctx.is_var(a, idx) && 
                 !m_ctx.contains(idx)(rhs)) {
                 expr_ref result(fml, m);
-                m_replace->apply_substitution(a, rhs, result);
+                m_replace.apply_substitution(a, rhs, result);
                 m_ctx.elim_var(idx, result, rhs);
                 return true;
             }                 
@@ -175,7 +175,7 @@ namespace qe {
                       tout << "eq: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";
                       );
                 expr_ref result(fml, m);
-                m_replace->apply_substitution(A, store_B_i_t, result);
+                m_replace.apply_substitution(A, store_B_i_t, result);
                 m_ctx.add_var(B);
                 m_ctx.elim_var(idx, result, store_B_i_t);
                 return true;
@@ -248,7 +248,7 @@ namespace qe {
                       tout << "eq: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";
                       );
                 expr_ref result(fml, m);
-                m_replace->apply_substitution(A, store_t, result);
+                m_replace.apply_substitution(A, store_t, result);
                 m_ctx.elim_var(idx, result, store_t);
                 return true;
             }        

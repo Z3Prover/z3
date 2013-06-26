@@ -121,17 +121,14 @@ namespace datalog {
         model_converter_ref m_mc;
         proof_converter_ref m_pc;
 
-        scoped_ptr<pdr::dl_interface>   m_pdr;
-        scoped_ptr<bmc>                 m_bmc;
-        scoped_ptr<rel_context>         m_rel;
-        scoped_ptr<tab>                 m_tab;
-        scoped_ptr<clp>                 m_clp;
+        rel_context*                    m_rel;
+        scoped_ptr<engine_base>         m_engine;
 
         bool               m_closed;
         bool               m_saturation_was_run;
         execution_result   m_last_status;
         expr_ref           m_last_answer;
-        DL_ENGINE          m_engine;
+        DL_ENGINE          m_engine_type;
         volatile bool      m_cancel;
 
 
@@ -161,7 +158,7 @@ namespace datalog {
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
         fixedpoint_params const&  get_params() const { return m_params; }
-        DL_ENGINE get_engine() { configure_engine(); return m_engine; }
+        DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
@@ -454,14 +451,14 @@ namespace datalog {
         /**
            \brief Display a certificate for reachability and/or unreachability.
         */
-        bool display_certificate(std::ostream& out);
+        void display_certificate(std::ostream& out);
 
         /**
            \brief query result if it contains fact.
          */
         bool result_contains_fact(relation_fact const& f);
 
-        rel_context& get_rel_context() { ensure_rel(); return *m_rel; }
+        rel_context* get_rel_context() { ensure_engine(); return m_rel; }
 
     private:
 
@@ -473,25 +470,7 @@ namespace datalog {
 
         void flush_add_rules();
 
-        void ensure_pdr();
-
-        void ensure_bmc();
-
-        void ensure_tab();
-
-        void ensure_clp();
-
-        void ensure_rel();
-
-        lbool rel_query(expr* query);
-
-        lbool pdr_query(expr* query);
-
-        lbool bmc_query(expr* query);
-
-        lbool tab_query(expr* query);
-
-        lbool clp_query(expr* query);
+        void ensure_engine();
 
         void check_quantifier_free(rule_ref& r);        
         void check_uninterpreted_free(rule_ref& r);

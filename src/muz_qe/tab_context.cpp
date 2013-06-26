@@ -1657,6 +1657,7 @@ namespace datalog {
     };
 
     tab::tab(context& ctx):
+        datalog::engine_base(ctx.get_manager(),"tabulation"),
         m_imp(alloc(imp, ctx)) {        
     }
     tab::~tab() {

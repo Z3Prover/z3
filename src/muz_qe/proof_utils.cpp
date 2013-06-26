@@ -608,3 +608,5 @@ void proof_utils::push_instantiations_up(proof_ref& pr) {
     push_instantiations_up_cl push(pr.get_manager());
     push(pr);
 }
+
+
