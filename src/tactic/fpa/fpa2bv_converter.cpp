@@ -1485,16 +1485,16 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
     // This is algorithm 10.2 in the Handbook of Floating-Point Arithmetic
     expr_ref Q(m), R(m), S(m), T(m);
 
-    const mpz & p2 = fu().fm().m_powers2(sbits);
-    Q = m_bv_util.mk_numeral(p2, sbits+2);
-    R = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(sig_prime, zero1), Q);
+    const mpz & p2 = fu().fm().m_powers2(sbits+3);
+    Q = m_bv_util.mk_numeral(p2, sbits+5);
+    R = m_bv_util.mk_bv_sub(m_bv_util.mk_concat(sig_prime, m_bv_util.mk_numeral(0, 4)), Q);
     S = Q;
 
-    for (unsigned i = 0; i <= sbits; i++) {
+    for (unsigned i = 0; i < sbits + 3; i++) {
         dbg_decouple("fpa2bv_sqrt_Q", Q);
         dbg_decouple("fpa2bv_sqrt_R", R);
 
-        S = m_bv_util.mk_concat(zero1, m_bv_util.mk_extract(sbits+1, 1, S));
+        S = m_bv_util.mk_concat(zero1, m_bv_util.mk_extract(sbits+4, 1, S));
         
         expr_ref twoQ_plus_S(m);
         twoQ_plus_S = m_bv_util.mk_bv_add(m_bv_util.mk_concat(Q, zero1), m_bv_util.mk_concat(zero1, S));
@@ -1502,31 +1502,40 @@ void fpa2bv_converter::mk_sqrt(func_decl * f, unsigned num, expr * const * args,
 
         dbg_decouple("fpa2bv_sqrt_T", T);
 
-        SASSERT(m_bv_util.get_bv_size(Q) == sbits + 2);
-        SASSERT(m_bv_util.get_bv_size(R) == sbits + 2);
-        SASSERT(m_bv_util.get_bv_size(S) == sbits + 2);
-        SASSERT(m_bv_util.get_bv_size(T) == sbits + 3);
+        SASSERT(m_bv_util.get_bv_size(Q) == sbits + 5);
+        SASSERT(m_bv_util.get_bv_size(R) == sbits + 5);
+        SASSERT(m_bv_util.get_bv_size(S) == sbits + 5);
+        SASSERT(m_bv_util.get_bv_size(T) == sbits + 6);
 
         expr_ref t_lt_0(m);
-        m_simp.mk_eq(m_bv_util.mk_extract(sbits+2, sbits+2, T), one1, t_lt_0);        
+        m_simp.mk_eq(m_bv_util.mk_extract(sbits+5, sbits+5, T), one1, t_lt_0);        
         
-        m_simp.mk_ite(t_lt_0, Q,    
-                              m_bv_util.mk_bv_add(Q, S),
+        expr * or_args[2] = { Q, S };
+
+        m_simp.mk_ite(t_lt_0, Q,
+                              m_bv_util.mk_bv_or(2, or_args),
                               Q);
-        m_simp.mk_ite(t_lt_0, m_bv_util.mk_concat(m_bv_util.mk_extract(sbits, 0, R), zero1), 
-                              m_bv_util.mk_extract(sbits+1, 0, T), 
+        m_simp.mk_ite(t_lt_0, m_bv_util.mk_concat(m_bv_util.mk_extract(sbits+3, 0, R), zero1), 
+                              m_bv_util.mk_extract(sbits+4, 0, T), 
                               R);
     }
-    
+
+    expr_ref is_exact(m);
+    m_simp.mk_eq(R, m_bv_util.mk_numeral(0, sbits+5), is_exact);
+    dbg_decouple("fpa2bv_sqrt_is_exact", is_exact);    
+
     expr_ref rest(m), last(m), q_is_odd(m), rest_ext(m);
     last = m_bv_util.mk_extract(0, 0, Q);
-    rest = m_bv_util.mk_extract(sbits, 1, Q);
-    m_simp.mk_eq(last, one1, q_is_odd);
-    dbg_decouple("fpa2bv_sqrt_q_is_odd", q_is_odd);
-    rest_ext = m_bv_util.mk_zero_extend(1, m_bv_util.mk_concat(rest, m_bv_util.mk_numeral(0, 3)));
-    m_simp.mk_ite(q_is_odd, m_bv_util.mk_bv_add(rest_ext, m_bv_util.mk_numeral(8, sbits+4)),
-                            rest_ext,
-                            res_sig);    
+    rest = m_bv_util.mk_extract(sbits+3, 1, Q);
+    dbg_decouple("fpa2bv_sqrt_last", last);
+    dbg_decouple("fpa2bv_sqrt_rest", rest);
+    rest_ext = m_bv_util.mk_zero_extend(1, rest);
+    expr_ref sticky(m);
+    m_simp.mk_ite(is_exact, m_bv_util.mk_zero_extend(sbits+3, last),
+                            m_bv_util.mk_numeral(1, sbits+4),
+                            sticky);
+    expr * or_args[2] = { rest_ext, sticky };
+    res_sig = m_bv_util.mk_bv_or(2, or_args);
 
     SASSERT(m_bv_util.get_bv_size(res_sig) == sbits + 4);
 
