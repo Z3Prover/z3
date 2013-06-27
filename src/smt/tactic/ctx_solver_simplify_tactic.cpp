@@ -23,7 +23,7 @@ Notes:
 #include"smt_kernel.h"
 #include"ast_pp.h"
 #include"mk_simplified_app.h"
-
+#include"ast_util.h"
 
 class ctx_solver_simplify_tactic : public tactic {
     ast_manager&          m;
@@ -104,7 +104,7 @@ protected:
             return;
         ptr_vector<expr> fmls;
         g.get_formulas(fmls);
-        fml = m.mk_and(fmls.size(), fmls.c_ptr());
+        fml = mk_and(m, fmls.size(), fmls.c_ptr());
         m_solver.push();
         reduce(fml);
         m_solver.pop(1);
@@ -119,7 +119,7 @@ protected:
         {
             m_solver.push();
             expr_ref fml1(m);
-            fml1 = m.mk_and(fmls.size(), fmls.c_ptr());
+            fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
             fml1 = m.mk_iff(fml, fml1);
             fml1 = m.mk_not(fml1);
             m_solver.assert_expr(fml1);
