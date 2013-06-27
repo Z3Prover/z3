@@ -95,5 +95,36 @@ bool is_clause(ast_manager & m, expr * n);
 unsigned get_clause_num_literals(ast_manager & m, expr * cls);
 expr * get_clause_literal(ast_manager & m, expr * cls, unsigned idx);
 
+// -----------------------------------
+//
+// Goodies for creating Boolean expressions
+//
+// -----------------------------------
+
+/**
+   Return (and args[0] ... args[num_args-1]) if num_args >= 2
+   Return args[0]                            if num_args == 1
+   Return true                               if num_args == 0
+ */
+expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args);
+
+/**
+   Return (or args[0] ... args[num_args-1]) if num_args >= 2
+   Return args[0]                           if num_args == 1
+   Return false                             if num_args == 0
+ */
+expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args);
+
+/**
+   Return a          if arg = (not a)
+   Retur (not arg)   otherwise
+ */
+expr * mk_not(ast_manager & m, expr * arg);
+
+/**
+   Return the expression (and (not (= args[0] args[1])) (not (= args[0] args[2])) ... (not (= args[num_args-2] args[num_args-1])))
+*/
+expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args);
+
 #endif /* _AST_UTIL_H_ */
 
