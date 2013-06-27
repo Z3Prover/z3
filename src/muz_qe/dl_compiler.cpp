@@ -42,7 +42,7 @@ namespace datalog {
             return;
         }
         relation_signature sig;
-        m_context.get_rel_context().get_rmanager().from_predicate(pred, sig);
+        m_context.get_rel_context()->get_rmanager().from_predicate(pred, sig);
         reg_idx reg = get_fresh_register(sig);
         e->get_data().m_value=reg;
 
@@ -606,7 +606,7 @@ namespace datalog {
                 }
                 SASSERT(is_app(e));
                 relation_sort arg_sort;
-                m_context.get_rel_context().get_rmanager().from_predicate(neg_pred, i, arg_sort);
+                m_context.get_rel_context()->get_rmanager().from_predicate(neg_pred, i, arg_sort);
                 reg_idx new_reg;
                 bool new_dealloc;
                 make_add_constant_column(head_pred, filtered_res, arg_sort, to_app(e), new_reg, new_dealloc, acc);
@@ -1252,7 +1252,7 @@ namespace datalog {
         func_decl_set::iterator fdit = preds.begin();
         func_decl_set::iterator fdend = preds.end();
         for(; fdit!=fdend; ++fdit) {
-            if(!m_context.get_rel_context().get_rmanager().is_saturated(*fdit)) {
+            if(!m_context.get_rel_context()->get_rmanager().is_saturated(*fdit)) {
                 return false;
             }
         }
@@ -1337,7 +1337,7 @@ namespace datalog {
 
         acc.set_observer(0);
 
-        TRACE("dl", execution_code.display(m_context.get_rel_context(), tout););
+        TRACE("dl", execution_code.display(*m_context.get_rel_context(), tout););
     }
 
 

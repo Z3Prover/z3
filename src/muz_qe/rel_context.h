@@ -30,7 +30,7 @@ namespace datalog {
     class context;
     typedef vector<std::pair<func_decl*,relation_fact> > fact_vector;
 
-    class rel_context {
+    class rel_context : public engine_base {
         context&           m_context;
         ast_manager&       m;
         relation_manager   m_rmanager;
@@ -59,11 +59,11 @@ namespace datalog {
         context&     get_context() const { return m_context; }
         relation_base & get_relation(func_decl * pred); 
         relation_base * try_get_relation(func_decl * pred) const; 
-        expr_ref get_last_answer() { return m_answer; }
+        virtual expr_ref get_answer() { return m_answer; }
 
         bool output_profile() const;
 
-        lbool query(expr* q);
+        virtual lbool query(expr* q);
         lbool query(unsigned num_rels, func_decl * const* rels);
 
         void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
@@ -72,6 +72,9 @@ namespace datalog {
         void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
 
         void set_cancel(bool f);
+
+        virtual void cancel() { set_cancel(true); }
+        virtual void cleanup() { set_cancel(false);}
 
         /**
            \brief Restrict the set of used predicates to \c res.

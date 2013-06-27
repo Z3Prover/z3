@@ -249,7 +249,11 @@ namespace datalog {
     }
 
     void mk_subsumption_checker::scan_for_relations_total_due_to_facts(rule_set const& source) {
-        relation_manager& rm = m_context.get_rel_context().get_rmanager();
+        rel_context* rel = m_context.get_rel_context();
+        if (!rel) {
+            return;
+        }
+        relation_manager& rm = rel->get_rmanager();
 
         decl_set const& candidate_preds = m_context.get_predicates();
 

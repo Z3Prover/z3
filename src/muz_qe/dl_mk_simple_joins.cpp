@@ -570,11 +570,15 @@ namespace datalog {
         cost estimate_size(app * t) const {
             func_decl * pred = t->get_decl();
             unsigned n=pred->get_arity();
-            relation_manager& rm = m_context.get_rel_context().get_rmanager();
+            rel_context* rel = m_context.get_rel_context();
+            if (!rel) {
+                return cost(1);
+            }
+            relation_manager& rm = rel->get_rmanager();
             if( (m_context.saturation_was_run() && rm.try_get_relation(pred))
                 || rm.is_saturated(pred)) {
                 SASSERT(rm.try_get_relation(pred)); //if it is saturated, it should exist
-                unsigned rel_size_int = m_context.get_rel_context().get_relation(pred).get_size_estimate_rows();
+                unsigned rel_size_int = rel->get_relation(pred).get_size_estimate_rows();
                 if(rel_size_int!=0) {
                     cost rel_size = static_cast<cost>(rel_size_int);
                     cost curr_size = rel_size;

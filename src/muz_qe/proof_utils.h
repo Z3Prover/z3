@@ -42,6 +42,7 @@ public:
     */
     static void push_instantiations_up(proof_ref& pr);
 
+
 };
 
 #endif

@@ -48,7 +48,7 @@ namespace datalog {
             neg.reset();
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
-            unsigned tsz = r.get_tail_size();
+            unsigned tsz  = r.get_tail_size();
             if (!source.is_output_predicate(r.get_decl())) {
                 tail.push_back(r.get_head());
                 neg.push_back(false);

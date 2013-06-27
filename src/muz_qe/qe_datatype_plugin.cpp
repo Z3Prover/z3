@@ -95,7 +95,7 @@
 
 #include "qe.h"
 #include "datatype_decl_plugin.h"
-#include "expr_replacer.h"
+#include "expr_safe_replace.h"
 #include "obj_pair_hashtable.h"
 #include "for_each_expr.h"
 #include "ast_pp.h"
@@ -415,7 +415,7 @@ namespace qe {
         typedef obj_pair_map<app, func_decl, subst_clos*> subst_map;
 
         datatype_util              m_datatype_util;
-        scoped_ptr<expr_replacer>  m_replace;
+        expr_safe_replace          m_replace;
         eqs_cache                  m_eqs_cache;
         subst_map                  m_subst_cache;
         ast_ref_vector             m_trail;
@@ -424,7 +424,7 @@ namespace qe {
         datatype_plugin(i_solver_context& ctx, ast_manager& m) : 
             qe_solver_plugin(m, m.mk_family_id("datatype"), ctx),
             m_datatype_util(m),
-            m_replace(mk_default_expr_replacer(m)),
+            m_replace(m),
             m_trail(m)
         {
         }
@@ -518,7 +518,7 @@ namespace qe {
             subst_clos* sub = 0;
             
             if (m_subst_cache.find(x.x(), c, sub)) {
-                m_replace->apply_substitution(x.x(), sub->first, 0, fml);
+                m_replace.apply_substitution(x.x(), sub->first, fml);
                 add_def(sub->first, def);
                 for (unsigned i = 0; i < sub->second.size(); ++i) {
                     m_ctx.add_var(sub->second[i]);
@@ -541,7 +541,7 @@ namespace qe {
             m_trail.push_back(t);
 
             add_def(t, def);
-            m_replace->apply_substitution(x.x(), t, 0, fml);
+            m_replace.apply_substitution(x.x(), t, fml);
             sub->first = t;
             m_subst_cache.insert(x.x(), c, sub);
         }
@@ -673,7 +673,7 @@ namespace qe {
                 fml = m.mk_and(is_c, fml);
                 app_ref fresh_x(m.mk_fresh_const("x", s), m);
                 m_ctx.add_var(fresh_x);
-                m_replace->apply_substitution(x, fresh_x, 0, fml);
+                m_replace.apply_substitution(x, fresh_x, fml);
                 add_def(fresh_x, def);
                 TRACE("qe", tout << "Add recognizer " << mk_pp(is_c, m) << "\n";);
                 return;
@@ -697,33 +697,33 @@ namespace qe {
             for (unsigned i = 0; i < eqs.num_recognizers(); ++i) {
                 app* rec = eqs.recognizer(i);
                 if (rec->get_decl() == r) {
-                    m_replace->apply_substitution(rec, m.mk_true(), fml);
+                    m_replace.apply_substitution(rec, m.mk_true(), fml);
                 }
                 else {
-                    m_replace->apply_substitution(rec, m.mk_false(), fml);
+                    m_replace.apply_substitution(rec, m.mk_false(), fml);
                 }
             }
 
             for (unsigned i = 0; i < eqs.num_unsat(); ++i) {
-                m_replace->apply_substitution(eqs.unsat_atom(i), m.mk_false(), fml);
+                m_replace.apply_substitution(eqs.unsat_atom(i), m.mk_false(), fml);
             }
 
             if (idx < eqs.num_eqs()) {
                 expr* t = eqs.eq(idx);
                 expr* c = eqs.eq_cond(idx);
                 add_def(t, def);
-                m_replace->apply_substitution(x, t, fml);
+                m_replace.apply_substitution(x, t, fml);
                 if (!m.is_true(c)) {
                     fml = m.mk_and(c, fml);
                 }
             }
             else {                
                 for (unsigned i = 0; i < eqs.num_eqs(); ++i) {
-                    m_replace->apply_substitution(eqs.eq_atom(i), m.mk_false(), fml);
+                    m_replace.apply_substitution(eqs.eq_atom(i), m.mk_false(), fml);
                 }
 
                 for (unsigned i = 0; i < eqs.num_neqs(); ++i) {
-                    m_replace->apply_substitution(eqs.neq_atom(i), m.mk_false(), fml);
+                    m_replace.apply_substitution(eqs.neq_atom(i), m.mk_false(), fml);
                 }
                 if (def) {
                     sort* s = m.get_sort(x);

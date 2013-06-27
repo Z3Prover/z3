@@ -778,11 +778,11 @@ typedef enum
         }
         or
         \nicebox{
-             (=> (and ln+1 ln+2 .. ln+m) l0)
+             (=> (and l1 l2 .. ln) l0)
         }
         or in the most general (ground) form:
         \nicebox{
-             (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1))
+             (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln))
         }
         In other words we use the following (Prolog style) convention for Horn 
         implications:
@@ -798,7 +798,7 @@ typedef enum
         general non-ground form is:
 
         \nicebox{
-             (forall (vars) (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln-1)))
+             (forall (vars) (=> (and ln+1 ln+2 .. ln+m) (or l0 l1 .. ln)))
         }
 
         The hyper-resolution rule takes a sequence of parameters.

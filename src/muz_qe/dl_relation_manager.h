@@ -42,6 +42,7 @@ namespace datalog {
         class default_relation_join_project_fn;
         class default_relation_select_equal_and_project_fn;
         class default_relation_intersection_filter_fn;
+        class default_relation_filter_interpreted_and_project_fn;
 
         class auxiliary_table_transformer_fn;
         class auxiliary_table_filter_fn;

@@ -28,6 +28,8 @@ Revision History:
 #include"substitution.h"
 #include"fixedpoint_params.hpp"
 #include"ast_counter.h"
+#include"statistics.h"
+#include"lbool.h"
 
 namespace datalog {
 
@@ -56,6 +58,42 @@ namespace datalog {
         TAB_ENGINE,
         CLP_ENGINE,
         LAST_ENGINE
+    };
+
+    class engine_base {
+        ast_manager& m;
+        std::string m_name;
+    public:
+        engine_base(ast_manager& m, char const* name): m(m), m_name(name) {}
+        virtual ~engine_base() {}
+
+        virtual expr_ref get_answer() = 0;
+        virtual lbool query(expr* q) = 0;
+
+        virtual void reset_statistics() {}
+        virtual void display_profile(std::ostream& out) const {}
+        virtual void collect_statistics(statistics& st) const {}
+        virtual unsigned get_num_levels(func_decl* pred) {
+            throw default_exception(std::string("get_num_levels is not supported for ") + m_name);
+        }
+        virtual expr_ref get_cover_delta(int level, func_decl* pred) {
+            throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
+        virtual void add_cover(int level, func_decl* pred, expr* property) {
+            throw default_exception(std::string("operation is not supported for ") + m_name);
+        }
+        virtual void display_certificate(std::ostream& out) const {
+            throw default_exception(std::string("certificates are not supported for ") + m_name);
+        }
+        virtual model_ref get_model() {
+            return model_ref(alloc(model, m));
+        }
+        virtual proof_ref get_proof() {
+            return proof_ref(m.mk_asserted(m.mk_true()), m);
+        }
+        virtual void updt_params() {}
+        virtual void cancel() {}
+        virtual void cleanup() {}
     };
 
     struct std_string_hash_proc { 

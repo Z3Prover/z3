@@ -334,8 +334,10 @@ namespace datalog {
         // TODO mc
         m_modified = false;
 
-        m_context.get_rel_context().get_rmanager().collect_non_empty_predicates(m_non_empty_rels);
-
+        rel_context* rel = m_context.get_rel_context();
+        if (rel) {
+            rel->get_rmanager().collect_non_empty_predicates(m_non_empty_rels);
+        }
         unsigned init_rule_cnt = source.get_num_rules();
         SASSERT(m_rules.empty());
         for (unsigned i=0; i<init_rule_cnt; i++) {

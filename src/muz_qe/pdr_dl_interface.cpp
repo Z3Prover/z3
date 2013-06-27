@@ -37,6 +37,7 @@ Revision History:
 using namespace pdr;
 
 dl_interface::dl_interface(datalog::context& ctx) : 
+    engine_base(ctx.get_manager(), "pdr"),
     m_ctx(ctx), 
     m_pdr_rules(ctx), 
     m_old_rules(ctx),

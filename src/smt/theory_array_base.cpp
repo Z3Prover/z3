@@ -688,7 +688,7 @@ namespace smt {
             }
         }
     }
-
+    
     void theory_array_base::propagate_select_to_store_parents(enode * r, enode * sel, svector<enode_pair> & todo) {
         SASSERT(r->get_root() == r);
         SASSERT(is_select(sel));
@@ -880,7 +880,7 @@ namespace smt {
             }
             else {
                 theory_var r    = mg_find(v);
-                void * else_val = m_else_values[r];
+                void * else_val = m_else_values[r];                
                 // DISABLED. It seems wrong, since different nodes can share the same
                 // else_val according to the mg class.
                 // SASSERT(else_val == 0 || get_context().is_relevant(UNTAG(app*, else_val)));

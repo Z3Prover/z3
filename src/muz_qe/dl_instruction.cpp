@@ -59,7 +59,7 @@ namespace datalog {
     }
 
     rel_context& execution_context::get_rel_context() { 
-        return m_context.get_rel_context(); 
+        return *m_context.get_rel_context(); 
     }
 
     struct compare_size_proc {

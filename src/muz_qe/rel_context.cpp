@@ -75,7 +75,8 @@ namespace datalog {
     };
 
     rel_context::rel_context(context& ctx)
-        : m_context(ctx), 
+        : engine_base(ctx.get_manager(), "datalog"), 
+          m_context(ctx), 
           m(ctx.get_manager()),
           m_rmanager(ctx),
           m_answer(m), 

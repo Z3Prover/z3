@@ -368,7 +368,7 @@ namespace datalog {
             collect_orphan_consts(*it, const_infos, val_fact);
             m_context.add_fact(aux_pred, val_fact);
         }
-        m_context.get_rel_context().get_rmanager().mark_saturated(aux_pred);
+        m_context.get_rel_context()->get_rmanager().mark_saturated(aux_pred);
 
         app * new_head = r->get_head();
         ptr_vector<app> new_tail;

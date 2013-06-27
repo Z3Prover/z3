@@ -49,7 +49,8 @@ namespace datalog {
         rm(ctx.get_rule_manager()),
         m_inner_ctx(m, ctx.get_fparams()),
         a(m),
-        m_pinned(m) {
+        m_pinned(m),
+        m_cancel(false) {
             params_ref params;
             params.set_sym("default_relation", symbol("karr_relation"));
             params.set_sym("engine", symbol("datalog"));
@@ -189,6 +190,7 @@ namespace datalog {
     };
 
     void mk_karr_invariants::cancel() {
+        m_cancel = true;
         m_inner_ctx.cancel();
     }
     
@@ -211,6 +213,10 @@ namespace datalog {
 
         get_invariants(*src_loop);
 
+        if (m_cancel) {
+            return 0;
+        }
+
         // figure out whether to update same rules as used for saturation.
         scoped_ptr<rule_set> rev_source = bwd(*src_loop);
         get_invariants(*rev_source);        
@@ -225,7 +231,7 @@ namespace datalog {
 
     void mk_karr_invariants::get_invariants(rule_set const& src) {
         m_inner_ctx.reset();
-        rel_context& rctx = m_inner_ctx.get_rel_context();
+        rel_context& rctx = *m_inner_ctx.get_rel_context();
         ptr_vector<func_decl> heads;
         func_decl_set const& predicates = m_ctx.get_predicates();
         for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
