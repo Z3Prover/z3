@@ -98,8 +98,13 @@ class scopes {
   }
 
   void range_add(int i, range &n){
+#if 0
 	if(i < n.lo) n.lo = i;
     if(i > n.hi) n.hi = i;
+#else
+    range rng; rng.lo = i; rng.hi = i;
+    n = range_lub(rng,n);
+#endif
   }
 
   /** Choose an element of rng1 that is near to rng2 */
