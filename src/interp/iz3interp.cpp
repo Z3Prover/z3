@@ -190,6 +190,16 @@ public:
     return true;
   }
 
+  void test_secondary(const std::vector<ast> &cnsts,
+			     const std::vector<int> &parents,
+			     std::vector<ast> &interps
+			     ){
+    int num = cnsts.size();
+    iz3secondary *sp = iz3foci::create(this,num,(int *)(parents.empty()?0:&parents[0]));
+    int res = sp->interpolate(cnsts, interps);
+    if(res != 0)
+      throw "secondary failed";
+  }                         
 
   void proof_to_interpolant(z3pf proof,
 			    const std::vector<ast> &cnsts,
@@ -198,7 +208,10 @@ public:
 			    const std::vector<ast> &theory,
 			    interpolation_options_struct *options = 0
 			    ){
-    
+#if 0
+    test_secondary(cnsts,parents,interps);
+    return;
+#endif
     profiling::timer_start("Interpolation prep");
 
     // get rid of frames not used in proof
