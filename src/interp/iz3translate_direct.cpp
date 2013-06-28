@@ -764,7 +764,7 @@ public:
 
 
 #if 1
-    //    std::cout << "lemma: " << ++lemma_count << "\n";
+    std::cout << "lemma: " << ++lemma_count << std::endl;
     if(lemma_count == SHOW_LEMMA_COUNT){
       for(unsigned i = 0; i < lits.size(); i++)
         show_lit(lits[i]);
@@ -785,6 +785,8 @@ public:
     profiling::timer_start("foci");
     int sat = secondary->interpolate(preds,itps);
     profiling::timer_stop("foci");
+
+    std::cout << "lemma done" << std::endl;
 
     // if sat, lemma isn't valid, something is wrong
     if(sat){
@@ -1337,7 +1339,7 @@ public:
     return res;
   }
 
-// #define NEW_EXTRACT_TH_LEMMA
+#define NEW_EXTRACT_TH_LEMMA
 
   void get_local_hyps(const ast &proof, std::set<ast> &res){
     std::set<ast> hyps = get_hyps(proof);

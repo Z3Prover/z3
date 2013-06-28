@@ -373,7 +373,7 @@ void dl_interface::cancel() {
 #else
   // HACK: duality can't cancel at all times, we just exit here
   std::cout << "(error \"duality canceled\")\nunknown\n";
-  exit(0);
+  abort();
 #endif
 }
 
