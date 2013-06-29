@@ -2437,7 +2437,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     t = m_bv_util.mk_bv_sub(t, lz); 
     t = m_bv_util.mk_bv_sub(t, m_bv_util.mk_sign_extend(2, e_min));
     expr_ref TINY(m);
-    TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral(-1, ebits+2));
+    TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral((unsigned)-1, ebits+2));
     
     TRACE("fpa2bv_dbg", tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
     SASSERT(is_well_sorted(m, TINY));
@@ -2481,7 +2481,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     m_simp.mk_ite(sigma_le_cap, sigma_neg, sigma_cap, sigma_neg_capped);
     dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
-    sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral(-1, sigma_size));
+    sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral((unsigned)-1, sigma_size));
     dbg_decouple("fpa2bv_rnd_sigma_lt_zero", sigma_lt_zero);
 
     sig_ext = m_bv_util.mk_concat(sig, m_bv_util.mk_numeral(0, sig_size)); 

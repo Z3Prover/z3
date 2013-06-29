@@ -218,7 +218,7 @@ protected:
                     else if (m.is_bool(arg)) {
                         res = local_simplify(a, n, id, i);
                         TRACE("ctx_solver_simplify_tactic", 
-                              tout << "Already cached: " << path_r.first << " " << mk_pp(res, m) << "\n";);
+                              tout << "Already cached: " << path_r.first << " " << mk_pp(arg, m) << " |-> " << mk_pp(res, m) << "\n";);
                         args.push_back(res);
                     }
                     else {
@@ -327,7 +327,7 @@ protected:
         tmp = m.mk_eq(result, n);
         m_solver.assert_expr(tmp);
         if (!simplify_bool(n2, result)) {
-            result = a;
+            result = a->get_arg(index);
         }
         m_solver.pop(1);
         return result;
