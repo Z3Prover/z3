@@ -474,7 +474,7 @@ namespace test_mapi
                 cells_c[i] = new BoolExpr[9];
                 for (uint j = 0; j < 9; j++)
                     cells_c[i][j] = ctx.MkAnd(ctx.MkLe(ctx.MkInt(1), X[i][j]),
-                                                ctx.MkLe(X[i][j], ctx.MkInt(9)));
+                                              ctx.MkLe(X[i][j], ctx.MkInt(9)));
             }
 
             // each row contains a digit at most once
@@ -485,7 +485,13 @@ namespace test_mapi
             // each column contains a digit at most once
             BoolExpr[] cols_c = new BoolExpr[9];
             for (uint j = 0; j < 9; j++)
-                cols_c[j] = ctx.MkDistinct(X[j]);
+            {
+                IntExpr[] column = new IntExpr[9];
+                for (uint i = 0; i < 9; i++)
+                    column[i] = X[i][j];
+
+                cols_c[j] = ctx.MkDistinct(column);
+            }
 
             // each 3x3 square contains a digit at most once
             BoolExpr[][] sq_c = new BoolExpr[3][];
@@ -2087,7 +2093,7 @@ namespace test_mapi
                 {
                     QuantifierExample3(ctx);
                     QuantifierExample4(ctx);
-                }                
+                }
 
                 Log.Close();
                 if (Log.isOpen())
