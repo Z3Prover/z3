@@ -776,7 +776,7 @@ namespace datalog {
         bool is_finite_product_relation() const { return m_special_type==ST_FINITE_PRODUCT_RELATION; }
         bool is_product_relation() const { return m_special_type==ST_PRODUCT_RELATION; }
         bool is_sieve_relation() const { return m_special_type==ST_SIEVE_RELATION; }
-       
+
         /**
            \brief If true, the relation can contain only one or zero elements.
 
@@ -805,6 +805,7 @@ namespace datalog {
         virtual void to_formula(expr_ref& fml) const = 0;
 
         bool from_table() const { return get_plugin().from_table(); }
+        virtual bool is_precise() const { return true; }
     };
 
     typedef ptr_vector<relation_base> relation_vector;

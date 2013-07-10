@@ -118,6 +118,7 @@ namespace datalog {
         friend class product_relation_plugin::filter_interpreted_fn;
 
 
+
         typedef product_relation_plugin::rel_spec rel_spec;
 
         /**
@@ -172,6 +173,15 @@ namespace datalog {
            false.
         */
         bool try_get_single_non_transparent(unsigned & idx) const;
+
+        virtual bool is_precise() const { 
+            for (unsigned i = 0; i < m_relations.size(); ++i) {
+                if (!m_relations[i]->is_precise()) {
+                    return false;
+                }
+            }
+            return true;
+        }
     };
         
 };

@@ -677,7 +677,7 @@ namespace datalog {
 
     void bound_relation::display_index(unsigned i, uint_set2 const& src, std::ostream & out) const {
         uint_set::iterator it = src.lt.begin(), end = src.lt.end();
-        out << i;
+        out << "#" << i;
         if (!src.lt.empty()) {
             out << " < ";
             for(; it != end; ++it) {
@@ -690,6 +690,9 @@ namespace datalog {
             for(; it != end; ++it) {
                 out << *it << " ";
             }
+        }
+        if (src.lt.empty() && src.le.empty()) {
+            out << " < oo";
         }
         out << "\n";
     }

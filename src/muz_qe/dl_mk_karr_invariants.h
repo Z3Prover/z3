@@ -123,6 +123,7 @@ namespace datalog {
         virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
             unsigned col);
         virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+
     private:
         bool dualizeI(matrix& dst, matrix const& src);
         void dualizeH(matrix& dst, matrix const& src);

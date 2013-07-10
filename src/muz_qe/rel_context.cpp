@@ -213,10 +213,14 @@ namespace datalog {
             expr_ref_vector ans(m);
             expr_ref e(m);
             bool some_non_empty = num_rels == 0;
+            bool is_approx = false;
             for (unsigned i = 0; i < num_rels; ++i) {
                 relation_base& rel = get_relation(rels[i]);
                 if (!rel.empty()) {
                     some_non_empty = true;
+                }
+                if (!rel.is_precise()) {
+                    is_approx = true;
                 }
                 rel.to_formula(e);
                 ans.push_back(e);
@@ -224,6 +228,10 @@ namespace datalog {
             SASSERT(!m_last_result_relation);
             if (some_non_empty) {
                 m_answer = m.mk_and(ans.size(), ans.c_ptr());
+                if (is_approx) {
+                    res = l_undef;
+                    m_context.set_status(APPROX);
+                }
             }
             else {
                 m_answer = m.mk_false();
@@ -278,6 +286,10 @@ namespace datalog {
             }
             else {
                 m_last_result_relation->to_formula(m_answer);
+                if (!m_last_result_relation->is_precise()) {
+                    m_context.set_status(APPROX);
+                    res = l_undef;
+                }
             }
         }
         
@@ -365,8 +377,15 @@ namespace datalog {
     void rel_context::set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
                                                    symbol const * relation_names) {
 
-        relation_manager & rmgr = get_rmanager();
+        TRACE("dl", 
+              tout << pred->get_name() << ": ";
+              for (unsigned i = 0; i < relation_name_cnt; ++i) {
+                  tout << relation_names[i] << " ";
+              }
+              tout << "\n";
+              );
 
+        relation_manager & rmgr = get_rmanager();
         family_id target_kind = null_family_id;
         switch (relation_name_cnt) {
         case 0: 
@@ -386,7 +405,7 @@ namespace datalog {
             }
             else {
                 relation_signature rel_sig;
-                //rmgr.from_predicate(pred, rel_sig);
+                rmgr.from_predicate(pred, rel_sig);
                 product_relation_plugin & prod_plugin = product_relation_plugin::get_plugin(rmgr);
                 rel_kind = prod_plugin.get_relation_kind(rel_sig, rel_kinds);
             }

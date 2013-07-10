@@ -48,7 +48,7 @@ namespace datalog {
         return alloc(interval_relation, *this, s, true);
     }
 
-    relation_base * interval_relation_plugin::mk_full(func_decl* p, const relation_signature & s) {
+    relation_base * interval_relation_plugin::mk_full(func_decl* p, const relation_signature & s) {        
         return alloc(interval_relation, *this, s, false);
     }
 
@@ -317,6 +317,7 @@ namespace datalog {
     interval_relation::interval_relation(interval_relation_plugin& p, relation_signature const& s, bool is_empty):
         vector_relation<interval>(p, s, is_empty, interval(p.dep())) 
     {
+        TRACE("interval_relation", tout << s.size() << "\n";);
     }    
 
     void interval_relation::add_fact(const relation_fact & f) {

@@ -56,6 +56,7 @@ namespace datalog {
         TIMEOUT,
         MEMOUT,
         INPUT_ERROR,
+        APPROX,
         CANCELED
     };
 
