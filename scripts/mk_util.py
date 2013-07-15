@@ -1089,20 +1089,19 @@ class DotNetDLLComponent(Component):
                     cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
                     cs_files.append(os.path.join(self.assembly_info_dir, cs_file))
             dllfile = '%s.dll' % self.dll_name
-            out.write('%s:' % dllfile)
+            out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
             for cs_file in cs_fp_files:
                 out.write(' ')
                 out.write(cs_file)
             out.write('\n')
-            out.write('  cd %s && csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /out:%s.dll /target:library' % (self.to_src_dir, self.dll_name))
+            out.write('  csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /linkresource:%s.dll /out:%s.dll /target:library' % (get_component(Z3_DLL_COMPONENT).dll_name, self.dll_name))
+            if VS_X64:
+                out.write(' /platform:x64')
+            else:
+                out.write(' /platform:x86')
             for cs_file in cs_files:
-                out.write(' ')
-                out.write(cs_file)
+                out.write(' %s' % os.path.join(self.to_src_dir, cs_file))
             out.write('\n')
-            # HACK
-            win_to_src_dir = self.to_src_dir.replace('/', '\\')
-            out.write('  move %s\n' % os.path.join(win_to_src_dir, dllfile))
-            out.write('  move %s.pdb\n' % os.path.join(win_to_src_dir, self.dll_name))
             out.write('%s: %s\n\n' % (self.name, dllfile))
             return
     
