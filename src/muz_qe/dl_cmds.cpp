@@ -260,7 +260,11 @@ public:
             case datalog::TIMEOUT:
                 ctx.regular_stream() << "timeout\n";
                 break;
-                
+               
+            case datalog::APPROX:
+                ctx.regular_stream() << "approximated relations\n";
+                break;
+
             case datalog::OK: 
                 UNREACHABLE();
                 break;

@@ -494,6 +494,7 @@ namespace datalog {
 
             relation_mutator_fn * fn;
             relation_base & r = *ctx.reg(m_reg);
+            TRACE("dl_verbose", r.display(tout <<"pre-filter-interpreted:\n"););
             if (!find_fn(r, fn)) {
                 fn = r.get_manager().mk_filter_interpreted_fn(r, m_cond);
                 if (!fn) {
@@ -507,7 +508,9 @@ namespace datalog {
 
             if (ctx.eager_emptiness_checking() && r.empty()) {
                 ctx.make_empty(m_reg);
-            }
+            }            
+            TRACE("dl_verbose", r.display(tout <<"post-filter-interpreted:\n"););
+
             return true;
         }
         virtual void display_head_impl(rel_context const& ctx, std::ostream & out) const {
@@ -545,6 +548,7 @@ namespace datalog {
 
             relation_transformer_fn * fn;
             relation_base & reg = *ctx.reg(m_src);
+            TRACE("dl_verbose", reg.display(tout <<"pre-filter-interpreted-and-project:\n"););
             if (!find_fn(reg, fn)) {
                 fn = reg.get_manager().mk_filter_interpreted_and_project_fn(reg, m_cond, m_cols.size(), m_cols.c_ptr());
                 if (!fn) {
@@ -560,6 +564,7 @@ namespace datalog {
             if (ctx.eager_emptiness_checking() && ctx.reg(m_res)->empty()) {
                 ctx.make_empty(m_res);
             }
+            TRACE("dl_verbose", reg.display(tout << "post-filter-interpreted-and-project:\n"););
             return true;
         }
 

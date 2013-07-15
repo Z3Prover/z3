@@ -174,8 +174,7 @@ namespace datalog {
 
     relation_base * product_relation_plugin::mk_empty(const relation_signature & s, family_id kind) {
         rel_spec spec;
-        relation_signature sig_empty;
-        m_spec_store.get_relation_spec(sig_empty, kind, spec);
+        m_spec_store.get_relation_spec(s, kind, spec);
         relation_vector inner_rels;
         unsigned rel_cnt = spec.size();
         for(unsigned i=0; i<rel_cnt; i++) {
@@ -189,8 +188,7 @@ namespace datalog {
             return alloc(product_relation, *this, s);
         }
         rel_spec spec;
-        relation_signature sig_empty;
-        m_spec_store.get_relation_spec(sig_empty, kind, spec);
+        m_spec_store.get_relation_spec(s, kind, spec);
         relation_vector inner_rels;
         unsigned rel_cnt = spec.size();
         for(unsigned i=0; i<rel_cnt; i++) {
