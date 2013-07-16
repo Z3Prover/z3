@@ -434,7 +434,9 @@ namespace datalog {
 
     void context::set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
             symbol const * relation_names) {
-        ensure_engine();
+        if (relation_name_cnt > 0) {
+            ensure_engine();
+        }
         if (relation_name_cnt > 0 && m_rel) {
             m_rel->set_predicate_representation(pred, relation_name_cnt, relation_names);
         }

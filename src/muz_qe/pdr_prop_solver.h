@@ -50,6 +50,7 @@ namespace pdr {
         model_ref*          m_model;
         bool                m_subset_based_core;
         bool                m_assumes_level;
+        bool                m_use_farkas;
         func_decl_set       m_aux_symbols;      
         bool                m_in_level;         
         unsigned            m_current_level;    // set when m_in_level
@@ -96,6 +97,8 @@ namespace pdr {
             }
             ~scoped_level() { m_lev = false; }
         };
+        
+        void set_use_farkas(bool f) { m_use_farkas = f; }
         
         void add_formula(expr * form);
         void add_level_formula(expr * form, unsigned level);

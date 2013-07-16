@@ -1556,13 +1556,13 @@ namespace pdr {
         if (use_mc) {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
-        if (m_params.use_farkas() && !classify.is_bool()) {
+        if (!classify.is_bool()) {
             m.toggle_proof_mode(PGM_FINE);
             m_fparams.m_arith_bound_prop = BP_NONE;
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
             m_fparams.m_arith_eager_eq_axioms = false;
-            if (classify.is_dl()) {
+            if (classify.is_dl() && m_params.use_utvpi()) {
                 m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                 m_fparams.m_arith_expand_eqs = true;
             }
@@ -1571,7 +1571,6 @@ namespace pdr {
                 m_fparams.m_arith_mode = AS_UTVPI;
                 m_fparams.m_arith_expand_eqs = true;                
             }
-
         }
         if (m_params.use_convex_hull_generalizer()) {
             m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this));
@@ -1800,6 +1799,7 @@ namespace pdr {
             m_expanded_lvl = n.level();
         }
 
+        n.pt().set_use_farkas(m_params.use_farkas());
         if (n.pt().is_reachable(n.state())) {
             TRACE("pdr", tout << "reachable\n";);
             close_node(n);

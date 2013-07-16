@@ -166,6 +166,8 @@ namespace pdr {
 
         prop_solver& get_solver() { return m_solver; }
 
+        void set_use_farkas(bool f) { get_solver().set_use_farkas(f); }
+
     };
 
 
