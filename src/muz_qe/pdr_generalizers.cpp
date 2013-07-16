@@ -158,7 +158,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        method2(n, core, uses_level);
+        method1(n, core, uses_level);
     }
 
     // use the entire region as starting point for generalization.
