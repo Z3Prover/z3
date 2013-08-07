@@ -18,7 +18,6 @@ Revision History:
 --*/
 
 #include "dl_mk_array_blast.h"
-#include "expr_safe_replace.h"
 
 
 namespace datalog {
@@ -31,7 +30,9 @@ namespace datalog {
         a(m),
         rm(ctx.get_rule_manager()),
         m_rewriter(m, m_params),
-        m_simplifier(ctx) {
+        m_simplifier(ctx),
+        m_sub(m),
+        m_next_var(0) {
         m_params.set_bool("expand_select_store",true);
         m_rewriter.updt_params(m_params);
     }
@@ -50,14 +51,63 @@ namespace datalog {
         }
         return false;
     }
+
+    expr* mk_array_blast::get_select(expr* e) const {
+        while (a.is_select(e)) {
+            e = to_app(e)->get_arg(0);
+        }
+        return e;
+    }
+
+    void mk_array_blast::get_select_args(expr* e, ptr_vector<expr>& args) const {
+        while (a.is_select(e)) {
+            app* ap = to_app(e);
+            for (unsigned i = 1; i < ap->get_num_args(); ++i) {
+                args.push_back(ap->get_arg(i));
+            }
+            e = ap->get_arg(0);
+        }
+    }
+     
+    bool mk_array_blast::insert_def(rule const& r, app* e, var* v) {
+        //
+        // For the Ackermann reduction we would like the arrays 
+        // to be variables, so that variables can be 
+        // assumed to represent difference (alias) 
+        // classes. Ehm., Soundness of this approach depends on 
+        // if the arrays are finite domains...
+        // 
+
+        if (!is_var(get_select(e))) {
+            return false;
+        }
+        if (v) {
+            m_sub.insert(e, v);
+            m_defs.insert(e, to_var(v));
+        }
+        else {
+            if (m_next_var == 0) {
+                ptr_vector<sort> vars;
+                r.get_vars(vars);
+                m_next_var = vars.size() + 1;
+            }
+            v = m.mk_var(m_next_var, m.get_sort(e));
+            m_sub.insert(e, v);
+            m_defs.insert(e, v);
+            ++m_next_var;
+        }
+        return true;
+    }
     
-    bool mk_array_blast::ackermanize(expr_ref& body, expr_ref& head) {
+    bool mk_array_blast::ackermanize(rule const& r, expr_ref& body, expr_ref& head) {
         expr_ref_vector conjs(m);
         flatten_and(body, conjs);
-        defs_t defs;
-        expr_safe_replace sub(m);
+        m_defs.reset();
+        m_sub.reset();
+        m_next_var = 0;
         ptr_vector<expr> todo;
         todo.push_back(head);
+        unsigned next_var = 0;
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get();
             expr* x, *y;
@@ -66,22 +116,17 @@ namespace datalog {
                     std::swap(x,y);
                 }
                 if (a.is_select(x) && is_var(y)) {
-                    //
-                    // For the Ackermann reduction we would like the arrays 
-                    // to be variables, so that variables can be 
-                    // assumed to represent difference (alias) 
-                    // classes.
-                    // 
-                    if (!is_var(to_app(x)->get_arg(0))) {
+                    if (!insert_def(r, to_app(x), to_var(y))) {
                         return false;
                     }
-                    sub.insert(x, y);
-                    defs.insert(to_app(x), to_var(y));
                 }
+            }
+            if (a.is_select(e) && !insert_def(r, to_app(e), 0)) {
+                return false;
             }
             todo.push_back(e);
         }
-        // now check that all occurrences of select have been covered.
+        // now make sure to cover all occurrences.
         ast_mark mark;
         while (!todo.empty()) {
             expr* e = todo.back();
@@ -97,22 +142,28 @@ namespace datalog {
                 return false;
             }
             app* ap = to_app(e);
-            if (a.is_select(e) && !defs.contains(ap)) {
-                return false;
+            if (a.is_select(ap) && !m_defs.contains(ap)) {
+                if (!insert_def(r, ap, 0)) {
+                    return false;
+                }
+            }
+            if (a.is_select(e)) {
+                get_select_args(e, todo);
+                continue;
             }
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
                 todo.push_back(ap->get_arg(i));
             }
         }
-        sub(body);
-        sub(head);
+        m_sub(body);
+        m_sub(head);
         conjs.reset();
 
         // perform the Ackermann reduction by creating implications
         // i1 = i2 => val1 = val2 for each equality pair:
         // (= val1 (select a_i i1))
         // (= val2 (select a_i i2))
-        defs_t::iterator it1 = defs.begin(), end = defs.end();
+        defs_t::iterator it1 = m_defs.begin(), end = m_defs.end();
         for (; it1 != end; ++it1) {
             app* a1 = it1->m_key;
             var* v1 = it1->m_value;
@@ -121,12 +172,15 @@ namespace datalog {
             for (; it2 != end; ++it2) {
                 app* a2 = it2->m_key;
                 var* v2 = it2->m_value;
-                if (a1->get_arg(0) != a2->get_arg(0)) {
+                if (get_select(a1) != get_select(a2)) {
                     continue;
                 }
                 expr_ref_vector eqs(m);
-                for (unsigned j = 1; j < a1->get_num_args(); ++j) {
-                    eqs.push_back(m.mk_eq(a1->get_arg(j), a2->get_arg(j)));
+                ptr_vector<expr> args1, args2;
+                get_select_args(a1, args1);
+                get_select_args(a2, args2);
+                for (unsigned j = 0; j < args1.size(); ++j) {
+                    eqs.push_back(m.mk_eq(args1[j], args2[j]));
                 }
                 conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.c_ptr()), m.mk_eq(v1, v2)));
             }
@@ -179,15 +233,14 @@ namespace datalog {
             }
         }
         
-        expr_ref fml1(m), fml2(m), body(m), head(m);
-        r.to_formula(fml1);
+        expr_ref fml2(m), body(m), head(m);
         body = m.mk_and(new_conjs.size(), new_conjs.c_ptr());
         head = r.get_head();
         sub(body);
         m_rewriter(body);
         sub(head);
         m_rewriter(head);
-        change = ackermanize(body, head) || change;
+        change = ackermanize(r, body, head) || change;
         if (!inserted && !change) {
             rules.add_rule(&r);
             return false;
