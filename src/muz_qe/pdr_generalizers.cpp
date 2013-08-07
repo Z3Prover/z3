@@ -158,7 +158,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        method2(n, core, uses_level);
+        method1(n, core, uses_level);
     }
 
     // use the entire region as starting point for generalization.
@@ -196,6 +196,7 @@ namespace pdr {
 
                   );
             model_node nd(0, state, n.pt(), n.level());
+            n.pt().set_use_farkas(true);
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
                 TRACE("pdr", 
                       tout << mk_pp(state, m) << "\n";
@@ -260,6 +261,7 @@ namespace pdr {
             expr_ref state = pm.mk_and(conv1);
             TRACE("pdr", tout << "Try:\n" << mk_pp(state, m) << "\n";);
             model_node nd(0, state, n.pt(), n.level());
+            n.pt().set_use_farkas(true);
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
                 IF_VERBOSE(0,
                            verbose_stream() << mk_pp(state, m) << "\n";

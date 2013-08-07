@@ -237,6 +237,7 @@ namespace pdr {
         m_proxies(m),
         m_core(0),
         m_subset_based_core(false),
+        m_use_farkas(false),
         m_in_level(false)
     {
         m_ctx->assert_expr(m_pm.get_background());
@@ -328,7 +329,11 @@ namespace pdr {
             }
         }
 
-        if (result == l_false && m_core && m.proofs_enabled() && !m_subset_based_core) {
+        if (result == l_false  && 
+            m_core && 
+            m.proofs_enabled() && 
+            m_use_farkas    && 
+            !m_subset_based_core) {
             extract_theory_core(safe);
         }
         else if (result == l_false && m_core) {

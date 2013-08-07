@@ -104,6 +104,7 @@ namespace datalog {
         interval_relation_plugin& get_plugin() const; 
 
         void filter_interpreted(app* cond);
+        virtual bool is_precise() const { return false; }
 
     private:
 

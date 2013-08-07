@@ -1305,7 +1305,7 @@ namespace z3 {
         expr as_expr() const {
             unsigned n = size();
             if (n == 0) 
-                return ctx().bool_val(false);
+                return ctx().bool_val(true);
             else if (n == 1)
                 return operator[](0);
             else {

@@ -69,6 +69,7 @@ namespace datalog {
                     unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
                     unsigned removed_col_cnt, const unsigned * removed_cols) { return 0; }
 
+
 #if 0
         virtual intersection_filter_fn * mk_filter_by_intersection_fn(
             const relation_base & t, 
@@ -138,6 +139,7 @@ namespace datalog {
 
         bool is_lt(unsigned i, unsigned j) const;
 
+        virtual bool is_precise() const { return false; }
 
     private:
         typedef uint_set2 T;

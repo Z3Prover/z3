@@ -80,12 +80,6 @@ namespace datalog {
         if(m_pred_kinds.find(pred, res)) {
             return res;
         }
-            //This is commented out as the favourite relation might not be suitable for all
-            //signatures. In the cases where it is suitable, it will be used anyway if we 
-            //now return null_family_id.
-        //else if (m_favourite_relation_plugin) {
-        //    return m_favourite_relation_plugin->get_kind();
-        //}
         else {
             return null_family_id;
         }
@@ -115,7 +109,7 @@ namespace datalog {
     void relation_manager::store_relation(func_decl * pred, relation_base * rel) {
         SASSERT(rel);
         relation_map::entry * e = m_relations.insert_if_not_there2(pred, 0);
-        if(e->get_data().m_value) {
+        if (e->get_data().m_value) {
             e->get_data().m_value->deallocate();
         }
         else {
@@ -142,7 +136,7 @@ namespace datalog {
         relation_map::iterator rend = m_relations.end();
         for(; rit!=rend; ++rit) {
             func_decl * pred = rit->m_key;
-            if(!preds.contains(pred)) {
+            if (!preds.contains(pred)) {
                 to_remove.insert(pred);
             }
         }
@@ -152,7 +146,7 @@ namespace datalog {
         for(; pit!=pend; ++pit) {
             func_decl * pred = *pit;
             relation_base * rel;
-            TRUSTME( m_relations.find(pred, rel) );
+            VERIFY( m_relations.find(pred, rel) );
             rel->deallocate();
             m_relations.remove(pred);
             get_context().get_manager().dec_ref(pred);
@@ -278,7 +272,7 @@ namespace datalog {
         SASSERT(kind>=0);
         SASSERT(kind<m_next_relation_fid);
         relation_plugin * res;
-        TRUSTME(m_kind2plugin.find(kind, res));
+        VERIFY(m_kind2plugin.find(kind, res));
         return *res;
     }
 
@@ -295,7 +289,7 @@ namespace datalog {
 
     table_relation_plugin & relation_manager::get_table_relation_plugin(table_plugin & tp) {
         table_relation_plugin * res;
-        TRUSTME( m_table_relation_plugins.find(&tp, res) );
+        VERIFY( m_table_relation_plugins.find(&tp, res) );
         return *res;
     }
 
@@ -388,7 +382,7 @@ namespace datalog {
     void relation_manager::relation_to_table(const relation_sort & sort, const relation_element & from, 
             table_element & to) {
         SASSERT(from->get_num_args()==0);
-        TRUSTME(get_context().get_decl_util().is_numeral_ext(from, to));
+        VERIFY(get_context().get_decl_util().is_numeral_ext(from, to));
     }
 
     void relation_manager::table_to_relation(const relation_sort & sort, const table_element & from, 

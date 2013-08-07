@@ -355,6 +355,8 @@ namespace datalog {
             return m_empty;
         }
 
+        virtual bool is_precise() const { return false; }
+
         virtual void add_fact(const relation_fact & f) {
             SASSERT(m_empty);
             SASSERT(!m_basis_valid);

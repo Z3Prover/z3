@@ -1079,6 +1079,12 @@ extern "C" {
             case OP_BSMUL_NO_OVFL: 
             case OP_BUMUL_NO_OVFL:
             case OP_BSMUL_NO_UDFL:
+            case OP_BSDIV_I:
+            case OP_BUDIV_I:
+            case OP_BSREM_I:
+            case OP_BUREM_I:
+            case OP_BSMOD_I:
+
                 return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();
