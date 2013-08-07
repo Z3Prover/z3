@@ -765,6 +765,7 @@ namespace pdr {
         ini_state = m.mk_and(ini_tags, pt().initial_state(), state());
         model_ref mdl;
         pt().get_solver().set_model(&mdl);
+        TRACE("pdr", tout << mk_pp(ini_state, m) << "\n";);
         VERIFY(l_true == pt().get_solver().check_conjunction_as_assumptions(ini_state));
         datalog::rule const& rl2 = pt().find_rule(*mdl);
         SASSERT(is_ini(rl2));
@@ -958,12 +959,14 @@ namespace pdr {
      */
     void model_search::update_models() {
         obj_map<expr, model*> models;
+        obj_map<expr, datalog::rule const*> rules;
         ptr_vector<model_node> todo;
         todo.push_back(m_root);
         while (!todo.empty()) {
             model_node* n = todo.back();
             if (n->get_model_ptr()) {
                 models.insert(n->state(), n->get_model_ptr());
+                rules.insert(n->state(), n->get_rule());
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
@@ -973,9 +976,13 @@ namespace pdr {
         while (!todo.empty()) {
             model_node* n = todo.back();
             model* md = 0;
+            ast_manager& m = n->pt().get_manager();
             if (!n->get_model_ptr() && models.find(n->state(), md)) {
+                TRACE("pdr", tout << mk_pp(n->state(), m) << "\n";);
                 model_ref mr(md);
                 n->set_model(mr);
+                datalog::rule const* rule = rules.find(n->state());
+                n->set_rule(rule);
             }
             todo.pop_back();
             todo.append(n->children().size(), n->children().c_ptr());
@@ -1037,10 +1044,6 @@ namespace pdr {
             }
             first = false;
             predicates.pop_back();
-            for (unsigned i = 0; i < rule->get_uninterpreted_tail_size(); ++i) {
-                subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
-                predicates.push_back(tmp);
-            }
             for (unsigned i = rule->get_uninterpreted_tail_size(); i < rule->get_tail_size(); ++i) {
                 subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
                 dctx.get_rewriter()(tmp);
@@ -1051,9 +1054,22 @@ namespace pdr {
             for (unsigned i = 0; i < constraints.size(); ++i) {
                 max_var = std::max(vc.get_max_var(constraints[i].get()), max_var);
             }
+            if (n->children().empty()) {
+                // nodes whose states are repeated 
+                // in the search tree do not have children.
+                continue;
+            }
+                  
+            SASSERT(n->children().size() == rule->get_uninterpreted_tail_size());
+
+            for (unsigned i = 0; i < rule->get_uninterpreted_tail_size(); ++i) {
+                subst.apply(2, deltas, expr_offset(rule->get_tail(i), 1), tmp);
+                predicates.push_back(tmp);
+            }
             for (unsigned i = 0; i < predicates.size(); ++i) {
                 max_var = std::max(vc.get_max_var(predicates[i].get()), max_var);
             }
+
             children.append(n->children());
         }            
         return pm.mk_and(constraints);
@@ -1230,6 +1246,7 @@ namespace pdr {
           m_expanded_lvl(0),
           m_cancel(false)
     {
+        enable_trace("pdr");
     }
 
     context::~context() {
