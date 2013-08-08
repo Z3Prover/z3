@@ -1246,7 +1246,6 @@ namespace pdr {
           m_expanded_lvl(0),
           m_cancel(false)
     {
-        enable_trace("pdr");
     }
 
     context::~context() {
