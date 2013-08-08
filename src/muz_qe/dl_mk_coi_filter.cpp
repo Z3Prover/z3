@@ -36,7 +36,6 @@ namespace datalog {
     // -----------------------------------
 
     rule_set * mk_coi_filter::operator()(rule_set const & source) {
-        TRACE("dl", tout << "Hello";);
         if (source.empty()) {
             return 0;
         }
