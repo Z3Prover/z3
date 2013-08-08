@@ -1004,7 +1004,6 @@ namespace datalog {
 
     void compiler::detect_chains(const func_decl_set & preds, func_decl_vector & ordered_preds, 
             func_decl_set & global_deltas) {
-        typedef obj_map<func_decl, func_decl *> pred2pred;
 
         SASSERT(ordered_preds.empty());
         SASSERT(global_deltas.empty());

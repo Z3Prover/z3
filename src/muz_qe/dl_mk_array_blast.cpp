@@ -107,7 +107,6 @@ namespace datalog {
         m_next_var = 0;
         ptr_vector<expr> todo;
         todo.push_back(head);
-        unsigned next_var = 0;
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get();
             expr* x, *y;

@@ -176,7 +176,7 @@ namespace datalog {
             step &s = steps[j];
 
             // TBD
-            s.m_labels;
+            // s.m_labels;
 
             // set references, compensate for reverse ordering.
             for (unsigned i = 0; i < s.m_refs.size(); ++i) {
