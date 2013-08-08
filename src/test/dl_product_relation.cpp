@@ -22,7 +22,7 @@ namespace datalog {
     void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
         context ctx(m, fparams);
-        rel_context& rctx = ctx.get_rel_context();
+        rel_context& rctx = *ctx.get_rel_context();
         ctx.updt_params(params);
         relation_manager & rmgr(rctx.get_rmanager());
 
@@ -127,7 +127,7 @@ namespace datalog {
         context ctx(m, fparams);
         ctx.updt_params(params);
         dl_decl_util dl_util(m);
-        relation_manager & rmgr = ctx.get_rel_context().get_rmanager();
+        relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
 
         relation_plugin & rel_plugin = *rmgr.get_relation_plugin(params.get_sym("default_relation", symbol("sparse")));
         SASSERT(&rel_plugin);

@@ -32,6 +32,10 @@ namespace datalog {
 
         ast_manager & m;
         context & m_context;
+
+        rule_set * bottom_up(rule_set const & source);
+        rule_set * top_down(rule_set const & source);
+
     public:
         mk_coi_filter(context & ctx, unsigned priority=45000)
             : plugin(priority),

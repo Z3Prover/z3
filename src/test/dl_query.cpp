@@ -58,7 +58,7 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    relation_manager & rel_mgr_q = ctx_b.get_rel_context().get_rmanager();
+    relation_manager & rel_mgr_q = ctx_b.get_rel_context()->get_rmanager();
 
     decl_set out_preds = ctx_b.get_rules().get_output_predicates();
     decl_set::iterator it = out_preds.begin();
@@ -69,10 +69,10 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
         func_decl * pred_q = ctx_q.try_get_predicate_decl(symbol(pred_b->get_name().bare_str()));
         SASSERT(pred_q);
 
-        relation_base & rel_b = ctx_b.get_rel_context().get_relation(pred_b);
+        relation_base & rel_b = ctx_b.get_rel_context()->get_relation(pred_b);
 
         relation_signature sig_b = rel_b.get_signature();
-        relation_signature sig_q = ctx_q.get_rel_context().get_relation(pred_q).get_signature();
+        relation_signature sig_q = ctx_q.get_rel_context()->get_relation(pred_q).get_signature();
         SASSERT(sig_b.size()==sig_q.size());
 
         std::cerr << "Queries on random facts...\n";
@@ -211,7 +211,7 @@ void tst_dl_query() {
         TRUSTME( p->parse_file(problem_file) );
         dealloc(p);
     }
-    ctx_base.get_rel_context().saturate();
+    ctx_base.get_rel_context()->saturate();
 
     for(unsigned use_restarts=0; use_restarts<=1; use_restarts++) {
         params.set_uint("initial_restart_timeout", use_restarts ? 100 : 0);
