@@ -165,8 +165,19 @@ namespace pdr {
         void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars);
 
         prop_solver& get_solver() { return m_solver; }
+        prop_solver const& get_solver() const { return m_solver; }
 
         void set_use_farkas(bool f) { get_solver().set_use_farkas(f); }
+        bool get_use_farkas() const { return get_solver().get_use_farkas(); }
+        class scoped_farkas {
+            bool m_old;
+            pred_transformer& m_p;
+        public:
+            scoped_farkas(pred_transformer& p, bool v): m_old(p.get_use_farkas()), m_p(p) {
+                p.set_use_farkas(v);
+            }
+            ~scoped_farkas() { m_p.set_use_farkas(m_old); }
+        };
 
     };
 

@@ -1801,7 +1801,7 @@ namespace pdr {
             m_expanded_lvl = n.level();
         }
 
-        n.pt().set_use_farkas(m_params.use_farkas());
+        pred_transformer::scoped_farkas sf (n.pt(), m_params.use_farkas());
         if (n.pt().is_reachable(n.state())) {
             TRACE("pdr", tout << "reachable\n";);
             close_node(n);

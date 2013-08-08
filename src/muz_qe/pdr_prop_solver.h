@@ -99,6 +99,7 @@ namespace pdr {
         };
         
         void set_use_farkas(bool f) { m_use_farkas = f; }
+        bool get_use_farkas() const { return m_use_farkas; }
         
         void add_formula(expr * form);
         void add_level_formula(expr * form, unsigned level);

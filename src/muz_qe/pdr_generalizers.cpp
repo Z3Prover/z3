@@ -196,7 +196,7 @@ namespace pdr {
 
                   );
             model_node nd(0, state, n.pt(), n.level());
-            n.pt().set_use_farkas(true);
+            pred_transformer::scoped_farkas sf(n.pt(), true);
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
                 TRACE("pdr", 
                       tout << mk_pp(state, m) << "\n";
@@ -261,7 +261,7 @@ namespace pdr {
             expr_ref state = pm.mk_and(conv1);
             TRACE("pdr", tout << "Try:\n" << mk_pp(state, m) << "\n";);
             model_node nd(0, state, n.pt(), n.level());
-            n.pt().set_use_farkas(true);
+            pred_transformer::scoped_farkas sf(n.pt(), true);
             if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
                 IF_VERBOSE(0,
                            verbose_stream() << mk_pp(state, m) << "\n";
