@@ -36,11 +36,16 @@ namespace datalog {
     // -----------------------------------
 
     rule_set * mk_coi_filter::operator()(rule_set const & source) {
+        TRACE("dl", tout << "Hello";);
         if (source.empty()) {
             return 0;
         }
-        scoped_ptr<rule_set> result = top_down(source);
-        return bottom_up(result?*result:source);
+        scoped_ptr<rule_set> result1 = top_down(source);
+        scoped_ptr<rule_set> result2 = bottom_up(result1?*result1:source);
+        if (!result2) {
+            result2 = result1;
+        }
+        return result2.detach();
     }
 
     rule_set * mk_coi_filter::bottom_up(rule_set const & source) {
@@ -102,11 +107,13 @@ namespace datalog {
                 res->add_rule(r);
             }
         }
-
         if (res->get_num_rules() == source.get_num_rules()) {
-            return 0;
-        } 
-        res->close();
+            TRACE("dl", tout << "No transformation\n";);
+            res = 0;
+        }
+        else {
+            res->close();
+        }
 
         // set to false each unreached predicate 
         if (m_context.get_model_converter()) {
@@ -122,6 +129,7 @@ namespace datalog {
         for (rule_set::decl2rules::iterator it = body2rules.begin(); it != body2rules.end(); ++it) {
             dealloc(it->m_value);
         }
+        CTRACE("dl", 0 != res, res->display(tout););
         return res.detach();
     }
 
@@ -173,6 +181,7 @@ namespace datalog {
         }
 
         if (res->get_num_rules() == source.get_num_rules()) {
+            TRACE("dl", tout << "No transformation\n";);
             res = 0;
         }
 
@@ -185,7 +194,7 @@ namespace datalog {
             }   
             m_context.add_model_converter(mc0);
         }
-
+        CTRACE("dl", 0 != res, res->display(tout););
         return res.detach();
     }
 
