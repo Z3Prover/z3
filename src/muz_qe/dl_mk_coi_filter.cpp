@@ -16,6 +16,9 @@ Author:
 
 Revision History:
 
+    Andrey Rybalchenko (rybal) 2013-8-8
+    Added bottom_up pruning.
+
 --*/
 
 
@@ -32,12 +35,104 @@ namespace datalog {
     //
     // -----------------------------------
 
-
-    rule_set * mk_coi_filter::operator()(rule_set const & source)
-    {
+    rule_set * mk_coi_filter::operator()(rule_set const & source) {
         if (source.empty()) {
             return 0;
         }
+        scoped_ptr<rule_set> result1 = top_down(source);
+        scoped_ptr<rule_set> result2 = bottom_up(result1?*result1:source);
+        if (!result2) {
+            result2 = result1;
+        }
+        return result2.detach();
+    }
+
+    rule_set * mk_coi_filter::bottom_up(rule_set const & source) {
+        decl_set all, reached;
+        ptr_vector<func_decl> todo;
+        rule_set::decl2rules body2rules;
+        // initialization for reachability
+        for (rule_set::iterator it = source.begin(); it != source.end(); ++it) {
+            rule * r = *it;
+            all.insert(r->get_decl());
+            if (r->get_uninterpreted_tail_size() == 0) {
+                if (!reached.contains(r->get_decl())) {
+                    reached.insert(r->get_decl());
+                    todo.insert(r->get_decl());
+                }
+            } 
+            else {
+                for (unsigned i = 0; i < r->get_uninterpreted_tail_size(); ++i) {
+                    func_decl * d = r->get_tail(i)->get_decl();
+                    all.insert(d);
+                    rule_set::decl2rules::obj_map_entry * e = body2rules.insert_if_not_there2(d, 0);
+                    if (!e->get_data().m_value) {
+                        e->get_data().m_value = alloc(ptr_vector<rule>);
+                    }
+                    e->get_data().m_value->push_back(r);
+                }
+            }
+        }
+        // reachability computation
+        while (!todo.empty()) {
+            func_decl * d = todo.back();
+            todo.pop_back();
+            ptr_vector<rule> * rules; 
+            if (!body2rules.find(d, rules)) continue;
+            for (ptr_vector<rule>::iterator it = rules->begin(); it != rules->end(); ++it) {
+                rule * r = *it;
+                if (reached.contains(r->get_decl())) continue;
+                bool contained = true;
+                for (unsigned i = 0; contained && i < r->get_uninterpreted_tail_size(); ++i) {
+                    contained = reached.contains(r->get_tail(i)->get_decl());
+                }
+                if (!contained) continue;
+                reached.insert(r->get_decl());
+                todo.insert(r->get_decl());
+            }
+        }
+
+        // eliminate each rule when some body predicate is not reached
+        scoped_ptr<rule_set> res = alloc(rule_set, m_context);
+        res->inherit_predicates(source);
+        for (rule_set::iterator it = source.begin(); it != source.end(); ++it) {
+            rule * r = *it;
+
+            bool contained = true;
+            for (unsigned i = 0; contained && i < r->get_uninterpreted_tail_size(); ++i) {
+                contained = reached.contains(r->get_tail(i)->get_decl());
+            }
+            if (contained) {
+                res->add_rule(r);
+            }
+        }
+        if (res->get_num_rules() == source.get_num_rules()) {
+            TRACE("dl", tout << "No transformation\n";);
+            res = 0;
+        }
+        else {
+            res->close();
+        }
+
+        // set to false each unreached predicate 
+        if (m_context.get_model_converter()) {
+            extension_model_converter* mc0 = alloc(extension_model_converter, m);
+            for (decl_set::iterator it = all.begin(); it != all.end(); ++it) {
+                if (!reached.contains(*it)) {
+                    mc0->insert(*it, m.mk_false());
+                }
+            }   
+            m_context.add_model_converter(mc0);
+        }
+        // clean up body2rules range resources
+        for (rule_set::decl2rules::iterator it = body2rules.begin(); it != body2rules.end(); ++it) {
+            dealloc(it->m_value);
+        }
+        CTRACE("dl", 0 != res, res->display(tout););
+        return res.detach();
+    }
+
+    rule_set * mk_coi_filter::top_down(rule_set const & source) {
 
         decl_set interesting_preds;
         decl_set pruned_preds;
@@ -60,7 +155,7 @@ namespace datalog {
 
             const rule_dependencies::item_set& cdeps = deps.get_deps(curr);
             rule_dependencies::item_set::iterator dend = cdeps.end();
-            for (rule_dependencies::item_set::iterator it = cdeps.begin(); it!=dend; ++it) {
+            for (rule_dependencies::item_set::iterator it = cdeps.begin(); it != dend; ++it) {
                 func_decl * dep_pred = *it;
                 if (!interesting_preds.contains(dep_pred)) {
                     interesting_preds.insert(dep_pred);
@@ -73,7 +168,7 @@ namespace datalog {
         res->inherit_predicates(source);
 
         rule_set::iterator rend = source.end();
-        for (rule_set::iterator rit = source.begin(); rit!=rend; ++rit) {
+        for (rule_set::iterator rit = source.begin(); rit != rend; ++rit) {
             rule * r = *rit;
             func_decl * pred = r->get_decl();
             if (interesting_preds.contains(pred)) {
@@ -85,6 +180,7 @@ namespace datalog {
         }
 
         if (res->get_num_rules() == source.get_num_rules()) {
+            TRACE("dl", tout << "No transformation\n";);
             res = 0;
         }
 
@@ -97,7 +193,7 @@ namespace datalog {
             }   
             m_context.add_model_converter(mc0);
         }
-
+        CTRACE("dl", 0 != res, res->display(tout););
         return res.detach();
     }
 

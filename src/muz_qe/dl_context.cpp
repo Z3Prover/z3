@@ -686,6 +686,7 @@ namespace datalog {
             check_existential_tail(r);
             check_positive_predicates(r);
             break;
+        case LAST_ENGINE:
         default:
             UNREACHABLE();
             break;
@@ -1039,6 +1040,8 @@ namespace datalog {
             case CLP_ENGINE:
                 m_engine = alloc(clp, *this);
                 break;
+            case LAST_ENGINE:
+                UNREACHABLE();
             }
         }
     }

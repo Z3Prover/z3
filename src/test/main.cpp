@@ -213,6 +213,7 @@ int main(int argc, char ** argv) {
     TST(dl_query);
     TST(quant_solve);
     TST(rcf);
+    TST(polynorm);
 }
 
 void initialize_mam() {}
