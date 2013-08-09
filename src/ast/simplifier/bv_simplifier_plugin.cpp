@@ -179,7 +179,7 @@ bool bv_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * const
     }
     SASSERT(result.get());
 
-    TRACE("bv_simplifier",
+    TRACE("bv_simplifier", 
           tout << mk_pp(f, m_manager) << "\n";
           for (unsigned i = 0; i < num_args; ++i) {
               tout << mk_pp(args[i], m_manager) << " ";
