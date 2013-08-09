@@ -162,6 +162,18 @@ namespace pdr {
     }
 
     // use the entire region as starting point for generalization.
+    // 
+    //                           Constraints:
+    // add_variables:            y = y1 + y2
+    // core: Ay <= b -> conv1:   A*y1 <= b*sigma1
+    //                           sigma1 > 0
+    //                           sigma2 > 0
+    //                           1 = sigma1 + sigma2
+    // A'y <= b'     -> conv2:   A'*y2 <= b'*sigma2
+    // 
+    // If Constraints & Transition(y0, y) is unsat, then 
+    // update with new core.
+    // 
     void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector& core, bool& uses_level) {    
         manager& pm = n.pt().get_pdr_manager();
         expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
