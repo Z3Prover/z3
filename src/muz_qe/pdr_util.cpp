@@ -42,6 +42,10 @@ Notes:
 #include "arith_decl_plugin.h"
 #include "expr_replacer.h"
 #include "model_smt2_pp.h"
+#include "poly_rewriter.h"
+#include "poly_rewriter_def.h"
+#include "arith_rewriter.h"
+
 
 
 namespace pdr {
@@ -1277,6 +1281,151 @@ namespace pdr {
         } 
         return test.is_dl();
     }  
+
+    class arith_normalizer : public poly_rewriter<arith_rewriter_core> {
+        ast_manager& m;
+        arith_util   m_util;
+        enum op_kind { LE, GE, EQ };
+    public:
+        arith_normalizer(ast_manager& m, params_ref const& p = params_ref()): poly_rewriter<arith_rewriter_core>(m, p), m(m), m_util(m) {}
+        
+        br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
+            br_status st = BR_FAILED;
+            if (m.is_eq(f)) {
+                SASSERT(num_args == 2); return mk_eq_core(args[0], args[1], result);
+            }
+
+            if (f->get_family_id() != get_fid()) {
+                return st;
+            }
+            switch (f->get_decl_kind()) {
+            case OP_NUM: st = BR_FAILED; break;
+            case OP_IRRATIONAL_ALGEBRAIC_NUM: st = BR_FAILED; break;
+            case OP_LE:  SASSERT(num_args == 2); st = mk_le_core(args[0], args[1], result); break;
+            case OP_GE:  SASSERT(num_args == 2); st = mk_ge_core(args[0], args[1], result); break;
+            case OP_LT:  SASSERT(num_args == 2); st = mk_lt_core(args[0], args[1], result); break;
+            case OP_GT:  SASSERT(num_args == 2); st = mk_gt_core(args[0], args[1], result); break;
+            default: st = BR_FAILED; break;
+            }
+            return st;
+        }      
+
+    private:
+        
+        br_status mk_eq_core(expr* arg1, expr* arg2, expr_ref& result) {
+            return mk_le_ge_eq_core(arg1, arg2, EQ, result);
+        }
+        br_status mk_le_core(expr* arg1, expr* arg2, expr_ref& result) {
+            return mk_le_ge_eq_core(arg1, arg2, LE, result);
+        }
+        br_status mk_ge_core(expr* arg1, expr* arg2, expr_ref& result) {
+            return mk_le_ge_eq_core(arg1, arg2, GE, result);
+        }
+        br_status mk_lt_core(expr* arg1, expr* arg2, expr_ref& result) {
+            result = m.mk_not(m_util.mk_ge(arg1, arg2));
+            return BR_REWRITE2;
+        }
+        br_status mk_gt_core(expr* arg1, expr* arg2, expr_ref& result) {
+            result = m.mk_not(m_util.mk_le(arg1, arg2));
+            return BR_REWRITE2;
+        }
+
+        br_status mk_le_ge_eq_core(expr* arg1, expr* arg2, op_kind kind, expr_ref& result) {
+            if (m_util.is_real(arg1)) {
+                numeral g(0);
+                get_coeffs(arg1, g);
+                get_coeffs(arg2, g);
+                if (!g.is_one() && !g.is_zero()) {
+                    SASSERT(g.is_pos());
+                    expr_ref new_arg1 = rdiv_polynomial(arg1, g);
+                    expr_ref new_arg2 = rdiv_polynomial(arg2, g);
+                    switch(kind) {
+                    case LE: result = m_util.mk_le(new_arg1, new_arg2); return BR_DONE;
+                    case GE: result = m_util.mk_ge(new_arg1, new_arg2); return BR_DONE;
+                    case EQ: result = m_util.mk_eq(new_arg1, new_arg2); return BR_DONE;
+                    }
+                }
+            }
+            return BR_FAILED;
+        }
+
+        void update_coeff(numeral const& r, numeral& g) {
+            if (g.is_zero() || abs(r) < g) {
+                g = abs(r);
+            }
+        }        
+
+        void get_coeffs(expr* e, numeral& g) {
+            rational r;
+            unsigned sz;
+            expr* const* args = get_monomials(e, sz);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* arg = args[i];
+                if (!m_util.is_numeral(arg, r)) {
+                    get_power_product(arg, r);
+                }
+                update_coeff(r, g);
+            }
+        }
+
+        expr_ref rdiv_polynomial(expr* e, numeral const& g) {
+            rational r;
+            SASSERT(g.is_pos());
+            SASSERT(!g.is_one());
+            expr_ref_vector monomes(m);
+            unsigned sz;           
+            expr* const* args = get_monomials(e, sz);
+            for (unsigned i = 0; i < sz; ++i) {
+                expr* arg = args[i];
+                if (m_util.is_numeral(arg, r)) {
+                    monomes.push_back(m_util.mk_numeral(r/g, false));
+                }
+                else {
+                    expr* p = get_power_product(arg, r);
+                    r /= g;
+                    if (r.is_one()) {
+                        monomes.push_back(p);
+                    }
+                    else {
+                        monomes.push_back(m_util.mk_mul(m_util.mk_numeral(r, false), p));
+                    }
+                }
+            }
+            expr_ref result(m);
+            mk_add(monomes.size(), monomes.c_ptr(), result);
+            return result;
+        }
+                
+    };
+    
+
+    struct arith_normalizer_cfg: public default_rewriter_cfg {
+        arith_normalizer m_r;
+        bool rewrite_patterns() const { return false; }
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+            return m_r.mk_app_core(f, num, args, result);
+        }
+        arith_normalizer_cfg(ast_manager & m, params_ref const & p):m_r(m,p) {}        
+    };
+
+    class arith_normalizer_star : public rewriter_tpl<arith_normalizer_cfg> {
+        arith_normalizer_cfg m_cfg;
+    public:
+        arith_normalizer_star(ast_manager & m, params_ref const & p):
+            rewriter_tpl<arith_normalizer_cfg>(m, false, m_cfg),
+            m_cfg(m, p) {}
+    };
+
+
+    void normalize_arithmetic(expr_ref& t) {
+        ast_manager& m = t.get_manager();
+        datalog::scoped_no_proof _sp(m);
+        params_ref p;
+        arith_normalizer_star rw(m, p);
+        expr_ref tmp(m);
+        rw(t, tmp);
+        t = tmp;                
+    }
 
 }
 

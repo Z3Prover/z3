@@ -142,6 +142,7 @@ namespace pdr {
        Assumption: the model satisfies the conjunctions.       
      */
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml);
+
     
 
     /**
@@ -149,6 +150,16 @@ namespace pdr {
      */
     void hoist_non_bool_if(expr_ref& fml);
 
+
+    /**
+       \brief normalize coefficients in polynomials so that least coefficient is 1.
+     */
+    void normalize_arithmetic(expr_ref& t);
+
+
+    /**
+       \brief determine if formulas belong to difference logic or UTVPI fragment.
+     */
     bool is_difference_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls);
 
     bool is_utvpi_logic(ast_manager& m, unsigned num_fmls, expr* const* fmls);
