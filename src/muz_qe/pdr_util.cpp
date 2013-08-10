@@ -1430,6 +1430,6 @@ namespace pdr {
 }
 
 template class rewriter_tpl<pdr::ite_hoister_cfg>;
-
+template class rewriter_tpl<pdr::arith_normalizer_cfg>;
 
 
