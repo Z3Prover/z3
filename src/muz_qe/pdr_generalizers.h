@@ -81,16 +81,20 @@ namespace pdr {
         obj_map<func_decl, expr*> m_left;
         obj_map<func_decl, expr*> m_right;
         obj_map<expr, expr*> m_models;
+        bool m_is_closure;
+        expr_ref mk_closure(expr* e);
+        bool mk_closure(expr_ref_vector& conj);
         bool mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv);
         void mk_convex(expr* fml, unsigned index, expr_ref_vector& conv);
         bool mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result);
         bool translate(func_decl* fn, unsigned index, expr_ref& result);
-        void method1(model_node& n, expr_ref_vector& core, bool& uses_level);
+        void method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         void method2(model_node& n, expr_ref_vector& core, bool& uses_level);
         void add_variables(model_node& n, expr_ref_vector& eqs);
     public:
-        core_convex_hull_generalizer(context& ctx);
+        core_convex_hull_generalizer(context& ctx, bool is_closure);
         virtual ~core_convex_hull_generalizer() {}
+        virtual void operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         virtual void operator()(model_node& n, expr_ref_vector& core, bool& uses_level);
     };	
 

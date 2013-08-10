@@ -147,18 +147,23 @@ namespace pdr {
     }
 
 
-    core_convex_hull_generalizer::core_convex_hull_generalizer(context& ctx):
+    core_convex_hull_generalizer::core_convex_hull_generalizer(context& ctx, bool is_closure):
         core_generalizer(ctx),
         m(ctx.get_manager()),
         a(m),
         m_sigma(m),
-        m_trail(m) {
+        m_trail(m),
+        m_is_closure(is_closure) {
         m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
         m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
     }
 
+    void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
+        method1(n, core, uses_level, new_cores);
+    }
+
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
-        method1(n, core, uses_level);
+        UNREACHABLE();
     }
 
     // use the entire region as starting point for generalization.
@@ -174,20 +179,27 @@ namespace pdr {
     // If Constraints & Transition(y0, y) is unsat, then 
     // update with new core.
     // 
-    void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector& core, bool& uses_level) {    
+    void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {    
         manager& pm = n.pt().get_pdr_manager();
         expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
         if (core.empty()) {
             return;
         }        
+        new_cores.push_back(std::make_pair(core, uses_level));
         add_variables(n, eqs);
         if (!mk_convex(core, 0, conv1)) {
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
             return;
         }
         conv1.append(eqs);
-        conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
-        conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        if (m_is_closure) {
+            conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
+            conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        }
+        else {
+            conv1.push_back(a.mk_ge(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
+            conv1.push_back(a.mk_ge(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        }
         conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
         expr_ref fml = n.pt().get_formulas(n.level(), false);
         expr_ref_vector fmls(m);
@@ -202,22 +214,23 @@ namespace pdr {
             }
             conv2.append(conv1);
             expr_ref state = pm.mk_and(conv2);
-            TRACE("pdr", tout << "Check:\n" << mk_pp(state, m) << "\n";
-                  tout << "New formula:\n" << mk_pp(pm.mk_and(core), m) << "\n";
-                  tout << "Old formula:\n" << mk_pp(fml, m) << "\n";
-
+            TRACE("pdr", 
+                  tout << "Check states:\n" << mk_pp(state, m) << "\n";
+                  tout << "Old states:\n"   << mk_pp(fml, m) << "\n";
                   );
             model_node nd(0, state, n.pt(), n.level());
             pred_transformer::scoped_farkas sf(n.pt(), true);
-            if (l_false == n.pt().is_reachable(nd, &conv2, uses_level)) {
+            bool uses_level1 = uses_level;
+            if (l_false == n.pt().is_reachable(nd, &conv2, uses_level1)) {
+                new_cores.push_back(std::make_pair(conv2, uses_level1));
+
+                expr_ref state1 = pm.mk_and(conv2);
                 TRACE("pdr", 
                       tout << mk_pp(state, m) << "\n";
-                      tout << "Generalized to:\n" << mk_pp(pm.mk_and(conv2), m) << "\n";);
+                      tout << "Generalized to:\n" << mk_pp(state1, m) << "\n";);
                 IF_VERBOSE(0,
                            verbose_stream() << mk_pp(state, m) << "\n";
-                           verbose_stream() << "Generalized to:\n" << mk_pp(pm.mk_and(conv2), m) << "\n";);
-                core.reset();
-                core.append(conv2);
+                           verbose_stream() << "Generalized to:\n" << mk_pp(state1, m) << "\n";);
             }            
         }
     }
@@ -317,12 +330,47 @@ namespace pdr {
         }
     }
 
+    expr_ref core_convex_hull_generalizer::mk_closure(expr* e) {
+        expr* e0, *e1, *e2;
+        expr_ref result(m);
+        if (a.is_lt(e, e1, e2)) {
+            result = a.mk_le(e1, e2);
+        }
+        else if (a.is_gt(e, e1, e2)) {
+            result = a.mk_ge(e1, e2);
+        }
+        else if (m.is_not(e, e0) && a.is_ge(e0, e1, e2)) {
+            result = a.mk_le(e1, e2);
+        }
+        else if (m.is_not(e, e0) && a.is_le(e0, e1, e2)) {
+            result = a.mk_ge(e1, e2);
+        }
+        else if (a.is_ge(e) || a.is_le(e) || m.is_eq(e) ||
+                 (m.is_not(e, e0) && (a.is_gt(e0) || a.is_lt(e0)))) {
+            result = e;
+        }
+        else {
+            IF_VERBOSE(1, verbose_stream() << "Cannot close: " << mk_pp(e, m) << "\n";);
+        }
+        return result;
+    }
+
+    bool core_convex_hull_generalizer::mk_closure(expr_ref_vector& conj) {
+        for (unsigned i = 0; i < conj.size(); ++i) {
+            conj[i] = mk_closure(conj[i].get());
+            if (!conj[i].get()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
         conv.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
             mk_convex(core[i], index, conv);
         }
-        return !conv.empty();
+        return !conv.empty() && mk_closure(conv);
     }
 
     void core_convex_hull_generalizer::mk_convex(expr* fml, unsigned index, expr_ref_vector& conv) {
