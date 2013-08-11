@@ -182,12 +182,14 @@ namespace pdr {
     void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {    
         manager& pm = n.pt().get_pdr_manager();
         expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
+        unsigned orig_size = new_cores.size();
         if (core.empty()) {
+            new_cores.push_back(std::make_pair(core, uses_level));
             return;
         }        
-        new_cores.push_back(std::make_pair(core, uses_level));
         add_variables(n, eqs);
         if (!mk_convex(core, 0, conv1)) {
+            new_cores.push_back(std::make_pair(core, uses_level));
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
             return;
         }
@@ -233,6 +235,10 @@ namespace pdr {
                            verbose_stream() << "Generalized to:\n" << mk_pp(state1, m) << "\n";);
             }            
         }
+        if (!m_is_closure || new_cores.empty()) {
+            new_cores.push_back(std::make_pair(core, uses_level));
+        }
+
     }
 
     // take as starting point two points from different regions.
