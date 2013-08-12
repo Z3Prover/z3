@@ -1578,7 +1578,9 @@ namespace pdr {
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
             m_fparams.m_arith_eager_eq_axioms = false;
-            if (m_params.use_utvpi() && !m_params.use_convex_hull_generalizer()) {
+            if (m_params.use_utvpi() && 
+                !m_params.use_convex_closure_generalizer() &&
+                !m_params.use_convex_interior_generalizer()) {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
                     m_fparams.m_arith_expand_eqs = true;
@@ -1590,8 +1592,11 @@ namespace pdr {
                 }
             }
         }
-        if (m_params.use_convex_hull_generalizer()) {
-            m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this));
+        if (m_params.use_convex_closure_generalizer()) {
+            m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this, true));
+        }
+        if (m_params.use_convex_interior_generalizer()) {
+            m_core_generalizers.push_back(alloc(core_convex_hull_generalizer, *this, false));
         }
         if (!use_mc && m_params.use_inductive_generalizer()) {
             m_core_generalizers.push_back(alloc(core_bool_inductive_generalizer, *this, 0));

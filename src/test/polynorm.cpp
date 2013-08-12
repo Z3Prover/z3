@@ -109,10 +109,12 @@ void tst_polynorm() {
     reg_decl_plugins(m);
     expr_ref fml(m);
 
-    fml = parse_fml(m, example2);
-
+    fml = parse_fml(m, example1);
     std::cout << mk_pp(fml, m) << "\n";
+    nf(fml);
 
+    fml = parse_fml(m, example2);
+    std::cout << mk_pp(fml, m) << "\n";
     nf(fml);
 
     

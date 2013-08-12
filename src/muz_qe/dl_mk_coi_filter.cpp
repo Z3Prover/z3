@@ -42,7 +42,7 @@ namespace datalog {
         scoped_ptr<rule_set> result1 = top_down(source);
         scoped_ptr<rule_set> result2 = bottom_up(result1?*result1:source);
         if (!result2) {
-            result2 = result1;
+            result2 = result1.detach();
         }
         return result2.detach();
     }
