@@ -657,7 +657,9 @@ namespace datalog {
             SASSERT(value == 1);
             return m.mk_true();
         }
-        m.raise_exception("unrecognized sort");
+        std::stringstream strm;
+        strm << "sort '" << mk_pp(s, m) << "' is not recognized as a sort that contains numeric values.\nUse Bool, BitVec, Int, Real, or a Finite domain sort";
+        m.raise_exception(strm.str().c_str());
         return 0;
     }
 
