@@ -139,7 +139,7 @@ namespace api {
             if (m_interruptable)
                 (*m_interruptable)();
             m().set_cancel(true);
-            if (m_rcf_manager.get() == 0)
+            if (m_rcf_manager.get() != 0)
                 m_rcf_manager->set_cancel(true);
         }
     }
