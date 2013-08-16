@@ -195,12 +195,13 @@ namespace pdr {
         }
         conv1.append(eqs);
         if (m_is_closure) {
-            conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
-            conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
-        }
-        else {
             conv1.push_back(a.mk_ge(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
             conv1.push_back(a.mk_ge(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
+        }
+        else {
+            // is interior:
+            conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
+            conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
         }
         conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
         expr_ref fml = n.pt().get_formulas(n.level(), false);
@@ -235,7 +236,7 @@ namespace pdr {
                            verbose_stream() << "Generalized to:\n" << mk_pp(state1, m) << "\n";);
             }            
         }
-        if (!m_is_closure || new_cores.empty()) {
+        if (!m_is_closure || new_cores.size() == orig_size) {
             new_cores.push_back(std::make_pair(core, uses_level));
         }
 

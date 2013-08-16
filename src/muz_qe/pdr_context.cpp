@@ -1881,6 +1881,11 @@ namespace pdr {
     // predicate transformer (or some unfolding of it).
     // 
     lbool context::expand_state(model_node& n, expr_ref_vector& result, bool& uses_level) {
+      TRACE("pdr", 
+            tout << "expand_state: " << n.pt().head()->get_name();
+            tout << " level: " << n.level() << "\n";
+            tout << mk_pp(n.state(), m) << "\n";);
+      
         return n.pt().is_reachable(n, &result, uses_level);
     }
 
