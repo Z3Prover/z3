@@ -26,6 +26,7 @@ Revision History:
 #include <ostream>
 
 #include "expr_abstract.h"
+#include "params.h"
 
 
 #ifndef WIN32
@@ -145,19 +146,19 @@ iz3mgr::ast iz3mgr::make(symb sym){
   return make(sym,0,0);
 }
 
-iz3mgr::ast iz3mgr::make(symb sym, ast &arg0){
+iz3mgr::ast iz3mgr::make(symb sym, const ast &arg0){
   raw_ast *a = arg0.raw();
   return make(sym,1,&a);
 }
 
-iz3mgr::ast iz3mgr::make(symb sym, ast &arg0, ast &arg1){
+iz3mgr::ast iz3mgr::make(symb sym, const ast &arg0, const ast &arg1){
   raw_ast *args[2];
   args[0] = arg0.raw();
   args[1] = arg1.raw();
   return make(sym,2,args);
 }
 
-iz3mgr::ast iz3mgr::make(symb sym, ast &arg0, ast &arg1, ast &arg2){
+iz3mgr::ast iz3mgr::make(symb sym, const ast &arg0, const ast &arg1, const ast &arg2){
   raw_ast *args[3];
   args[0] = arg0.raw();
   args[1] = arg1.raw();
@@ -199,7 +200,7 @@ iz3mgr::ast iz3mgr::make_quant(opr op, const std::vector<ast> &bvs, ast &body){
 
 // FIXME replace this with existing Z3 functionality
 
-iz3mgr::ast iz3mgr::clone(ast &t, const std::vector<ast> &_args){
+iz3mgr::ast iz3mgr::clone(const ast &t, const std::vector<ast> &_args){
   if(_args.size() == 0)
     return t;
 
@@ -240,6 +241,10 @@ iz3mgr::ast iz3mgr::clone(ast &t, const std::vector<ast> &_args){
 
 void iz3mgr::show(ast t){
   std::cout  << mk_pp(t.raw(), m()) << std::endl;
+}
+
+void iz3mgr::show_symb(symb s){
+  std::cout  << mk_pp(s, m()) << std::endl;
 }
 
 void iz3mgr::print_expr(std::ostream &s, const ast &e){
@@ -430,4 +435,199 @@ void iz3mgr::print_sat_problem(std::ostream &out, const ast &t){
   ast_smt_pp pp(m());
   pp.set_simplify_implies(false);
   pp.display_smt2(out, to_expr(t.raw()));
+}
+
+iz3mgr::ast iz3mgr::z3_simplify(const ast &e){
+    ::expr * a = to_expr(e.raw());
+    params_ref p; 
+    th_rewriter m_rw(m(), p);
+    expr_ref    result(m());
+    m_rw(a, result);
+    return cook(result);
+}
+
+
+#if 0
+static rational lcm(const rational &x, const rational &y){
+  int a = x.numerator();
+  int b = y.numerator();
+  return rational(a * b / gcd(a, b));
+}
+#endif
+
+static rational extract_lcd(std::vector<rational> &res){
+  if(res.size() == 0) return rational(1); // shouldn't happen
+  rational lcd = denominator(res[0]);
+  for(unsigned i = 1; i < res.size(); i++)
+    lcd = lcm(lcd,denominator(res[i]));
+  for(unsigned i = 0; i < res.size(); i++)
+    res[i] *= lcd;
+  return lcd;
+}
+
+void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<ast>& coeffs){
+  std::vector<rational> rats;
+  get_farkas_coeffs(proof,rats);
+  coeffs.resize(rats.size());
+  for(unsigned i = 0; i < rats.size(); i++){
+    sort *is = m().mk_sort(m_arith_fid, INT_SORT);
+    ast coeff = cook(m_arith_util.mk_numeral(rats[i],is));
+    coeffs[i] = coeff;
+  }
+}
+
+void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
+  symb s = sym(proof);
+  int numps = s->get_num_parameters();
+  rats.resize(numps-2);
+  for(int i = 2; i < numps; i++){
+    rational r;
+    bool ok = s->get_parameter(i).is_rational(r);
+    if(!ok)
+      throw "Bad Farkas coefficient";
+    {
+      ast con = conc(prem(proof,i-2));
+      ast temp = make_real(r); // for debugging
+      opr o = is_not(con) ? op(arg(con,0)) : op(con);
+      if(is_not(con) ? (o == Leq || o == Lt) : (o == Geq || o == Gt))
+	r = -r;
+    }
+    rats[i-2] = r;
+  }
+  extract_lcd(rats);
+}
+
+void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& coeffs){
+  std::vector<rational> rats;
+  get_assign_bounds_coeffs(proof,rats);
+  coeffs.resize(rats.size());
+  for(unsigned i = 0; i < rats.size(); i++){
+    coeffs[i] = make_int(rats[i]);
+  }
+}
+
+void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& rats){
+  symb s = sym(proof);
+  int numps = s->get_num_parameters();
+  rats.resize(numps-1);
+  rats[0] = rational(1);
+  for(int i = 2; i < numps; i++){
+    rational r;
+    bool ok = s->get_parameter(i).is_rational(r);
+    if(!ok)
+      throw "Bad Farkas coefficient";
+    {
+      ast con = arg(conc(proof),i-1);
+      ast temp = make_real(r); // for debugging
+#if 0
+      opr o = is_not(con) ? op(arg(con,0)) : op(con);
+      if(is_not(con) ? (o == Leq || o == Lt) : (o == Geq || o == Gt))
+#endif
+	r = -r;
+    }
+    rats[i-1] = r;
+  }
+  extract_lcd(rats);
+}
+
+  /** Set P to P + cQ, where P and Q are linear inequalities. Assumes P is 0 <= y or 0 < y. */
+
+void iz3mgr::linear_comb(ast &P, const ast &c, const ast &Q){
+  ast Qrhs;
+  bool strict = op(P) == Lt;
+  if(is_not(Q)){
+    ast nQ = arg(Q,0);
+    switch(op(nQ)){
+    case Gt:
+      Qrhs = make(Sub,arg(nQ,1),arg(nQ,0));
+      break;
+    case Lt: 
+      Qrhs = make(Sub,arg(nQ,0),arg(nQ,1));
+      break;
+    case Geq:
+      Qrhs = make(Sub,arg(nQ,1),arg(nQ,0));
+      strict = true;
+      break;
+    case Leq: 
+      Qrhs = make(Sub,arg(nQ,0),arg(nQ,1));
+      strict = true;
+      break;
+    default:
+      throw "not an inequality";
+    }
+  }
+  else {
+    switch(op(Q)){
+    case Leq:
+      Qrhs = make(Sub,arg(Q,1),arg(Q,0));
+      break;
+    case Geq: 
+      Qrhs = make(Sub,arg(Q,0),arg(Q,1));
+      break;
+    case Lt:
+      Qrhs = make(Sub,arg(Q,1),arg(Q,0));
+      strict = true;
+      break;
+    case Gt: 
+      Qrhs = make(Sub,arg(Q,0),arg(Q,1));
+      strict = true;
+      break;
+    default:
+      throw "not an inequality";
+    }
+  }
+  Qrhs = make(Times,c,Qrhs);
+  if(strict)
+    P = make(Lt,arg(P,0),make(Plus,arg(P,1),Qrhs));
+  else
+    P = make(Leq,arg(P,0),make(Plus,arg(P,1),Qrhs));
+}
+
+iz3mgr::ast iz3mgr::sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs){
+  ast zero = make_int("0");
+  ast thing = make(Leq,zero,zero);
+  for(unsigned i = 0; i < ineqs.size(); i++){
+    linear_comb(thing,coeffs[i],ineqs[i]);
+  }
+  thing = simplify_ineq(thing);
+  return thing;
+}
+
+void iz3mgr::mk_idiv(const ast& t, const rational &d, ast &whole, ast &frac){
+  opr o = op(t);
+  if(o == Plus){
+    int nargs = num_args(t);
+    for(int i = 0; i < nargs; i++)
+      mk_idiv(arg(t,i),d,whole,frac);
+    return;
+  }
+  else if(o == Times){
+    rational coeff;
+    if(is_numeral(arg(t,0),coeff)){
+      if(gcd(coeff,d) == d){
+	whole = make(Plus,whole,make(Times,make_int(coeff/d),arg(t,1)));
+	return;
+      }
+    }
+  }
+  frac = make(Plus,frac,t);
+}
+
+iz3mgr::ast iz3mgr::mk_idiv(const ast& q, const rational &d){
+  ast t = z3_simplify(q);
+  if(d == rational(1))
+    return t;
+  else {
+    ast whole = make_int("0");
+    ast frac = whole;
+    mk_idiv(t,d,whole,frac);
+    return z3_simplify(make(Plus,whole,make(Idiv,z3_simplify(frac),make_int(d))));
+  }
+}
+
+iz3mgr::ast iz3mgr::mk_idiv(const ast& t, const ast &d){
+  rational r;
+  if(is_numeral(d,r))
+    return mk_idiv(t,r);
+  return make(Idiv,t,d);
 }
