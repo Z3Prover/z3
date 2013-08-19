@@ -68,9 +68,13 @@ namespace datalog {
             m_goals.reset();
             rm.mk_query(query, m_ctx.get_rules());
             m_ctx.apply_default_transformation();
-            func_decl *head_decl = m_ctx.get_rules().get_output_predicate();
-
-            expr_ref head(m_ctx.get_rules().get_predicate_rules(head_decl)[0]->get_head(), m);
+            func_decl* head_decl = m_ctx.get_rules().get_output_predicate();
+            rule_set& rules = m_ctx.get_rules();
+            rule_vector const& rv = rules.get_predicate_rules(head_decl);
+            if (rv.empty()) {
+                return l_false;
+            }
+            expr_ref head(rv[0]->get_head(), m);
             ground(head);
             m_goals.push_back(to_app(head));
             return search(20, 0);
