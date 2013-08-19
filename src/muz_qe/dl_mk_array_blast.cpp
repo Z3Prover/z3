@@ -250,11 +250,11 @@ namespace datalog {
         rule_set new_rules(m_ctx);
         rm.mk_rule(fml2, p, new_rules, r.name());
 
-        TRACE("dl", new_rules.last()->display(m_ctx, tout << "new rule\n"););
         rule_ref new_rule(rm);
         if (m_simplifier.transform_rule(new_rules.last(), new_rule)) {
             rules.add_rule(new_rule.get());
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
+            TRACE("dl", new_rule->display(m_ctx, tout << "new rule\n"););
         }
         return true;
     }

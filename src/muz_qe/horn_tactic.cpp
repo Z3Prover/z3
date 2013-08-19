@@ -24,6 +24,7 @@ Revision History:
 #include"expr_replacer.h"
 #include"dl_rule_transformer.h"
 #include"dl_mk_slice.h"
+#include"filter_model_converter.h"
 
 class horn_tactic : public tactic {
     struct imp {
@@ -226,6 +227,9 @@ class horn_tactic : public tactic {
                 }
                 queries.reset();
                 queries.push_back(q);
+                filter_model_converter* mc1 = alloc(filter_model_converter, m);
+                mc1->insert(to_app(q)->get_decl());
+                mc = mc1;
             }
             SASSERT(queries.size() == 1);
             q = queries[0].get();
@@ -276,7 +280,13 @@ class horn_tactic : public tactic {
                 g->reset();
                 if (produce_models) {
                     model_ref md = m_ctx.get_model();
-                    mc = model2model_converter(&*md);
+                    model_converter_ref mc2 = model2model_converter(&*md);
+                    if (mc) {
+                        mc = concat(mc.get(), mc2.get());
+                    }
+                    else {
+                        mc = mc2;
+                    }
                 }
                 break;    
             }

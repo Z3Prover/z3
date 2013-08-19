@@ -1721,6 +1721,8 @@ extern "C" {
        To create constants that belong to the finite domain, 
        use the APIs for creating numerals and pass a numeric
        constant together with the sort returned by this call.
+       The numeric constant should be between 0 and the less 
+       than the size of the domain.
 
        \sa Z3_get_finite_domain_sort_size
 

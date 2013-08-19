@@ -41,6 +41,7 @@ Revision History:
 #include"expr_replacer.h"
 #include"bool_rewriter.h"
 #include"expr_safe_replace.h"
+#include"filter_model_converter.h"
 
 namespace datalog {
 
@@ -335,8 +336,14 @@ namespace datalog {
         vars.reverse();
         names.reverse();
         func_decl* qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
-        m_ctx.register_predicate(qpred, false);
+        m_ctx.register_predicate(qpred, false);        
         rules.set_output_predicate(qpred);
+        
+        if (m_ctx.get_model_converter()) {
+            filter_model_converter* mc = alloc(filter_model_converter, m);
+            mc->insert(qpred);
+            m_ctx.add_model_converter(mc);
+        }
 
         expr_ref_vector qhead_args(m);
         for (unsigned i = 0; i < vars.size(); i++) {
