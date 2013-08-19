@@ -21,6 +21,85 @@ Revision History:
 
 namespace datalog {
 
+    class mk_scale::scale_model_converter : public model_converter {
+        ast_manager& m;
+        func_decl_ref_vector m_trail;
+        arith_util   a;
+        obj_map<func_decl, func_decl*> m_new2old;
+    public:
+        scale_model_converter(ast_manager& m): m(m), m_trail(m), a(m) {}
+
+        virtual ~scale_model_converter() {}
+
+        void add_new2old(func_decl* new_f, func_decl* old_f) {
+            m_trail.push_back(old_f);
+            m_trail.push_back(new_f);
+            m_new2old.insert(new_f, old_f);
+        }
+       
+        virtual void operator()(model_ref& md) {
+            model_ref old_model = alloc(model, m);
+            obj_map<func_decl, func_decl*>::iterator it  = m_new2old.begin();
+            obj_map<func_decl, func_decl*>::iterator end = m_new2old.end();
+            for (; it != end; ++it) {
+                func_decl* old_p = it->m_value;
+                func_decl* new_p = it->m_key;
+                func_interp* old_fi = alloc(func_interp, m, old_p->get_arity());
+
+                if (new_p->get_arity() == 0) {
+                    old_fi->set_else(md->get_const_interp(new_p));
+                }
+                else {
+                    func_interp* new_fi = md->get_func_interp(new_p);
+                    expr_ref_vector subst(m);
+                    var_subst vs(m, false);
+                    expr_ref tmp(m);
+
+                    if (!new_fi) {
+                        TRACE("dl", tout << new_p->get_name() << " has no value in the current model\n";);
+                        dealloc(old_fi);
+                        continue;
+                    }
+                    for (unsigned i = 0; i < old_p->get_arity(); ++i) {
+                        subst.push_back(m.mk_var(i, old_p->get_domain(i)));
+                    }
+                    subst.push_back(a.mk_numeral(rational(1), a.mk_real()));
+
+                    // Hedge that we don't have to handle the general case for models produced
+                    // by Horn clause solvers.
+                    SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
+                    vs(new_fi->get_else(), subst.size(), subst.c_ptr(), tmp);
+                    old_fi->set_else(tmp);
+                    old_model->register_decl(old_p, old_fi);
+                }
+            }
+    
+            // register values that have not been scaled.
+            unsigned sz = md->get_num_constants();
+            for (unsigned i = 0; i < sz; ++i) {
+                func_decl* c = md->get_constant(i);
+                if (!m_new2old.contains(c)) {
+                    old_model->register_decl(c, md->get_const_interp(c));
+                }
+            }
+            sz = md->get_num_functions();
+            for (unsigned i = 0; i < sz; ++i) {
+                func_decl* f = md->get_function(i);
+                if (!m_new2old.contains(f)) {
+                    func_interp* fi = md->get_func_interp(f);
+                    old_model->register_decl(f, fi->copy());
+                }
+            }
+            md = old_model;
+            //TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
+        }
+
+        virtual model_converter * translate(ast_translation & translator) {
+            UNREACHABLE();
+            return 0;
+        }
+    };
+
 
     mk_scale::mk_scale(context & ctx, unsigned priority):
         plugin(priority),
@@ -30,21 +109,27 @@ namespace datalog {
         m_trail(m) {        
     }
 
-    mk_scale::~mk_scale() { }
+    mk_scale::~mk_scale() { 
+    }
         
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.get_params().scale()) {
             return 0;
         }
-        context& ctx = source.get_context();
         rule_manager& rm = source.get_rule_manager();
-        rule_set * result = alloc(rule_set, ctx);
+        rule_set * result = alloc(rule_set, m_ctx);
         unsigned sz = source.get_num_rules();
         rule_ref new_rule(rm);
         app_ref_vector tail(m);
         app_ref head(m);
         svector<bool> neg;
         ptr_vector<sort> vars;
+        ref<scale_model_converter> smc;
+        if (m_ctx.get_model_converter()) {
+            smc = alloc(scale_model_converter, m);
+        }
+        m_mc = smc.get();
+
         for (unsigned i = 0; i < sz; ++i) {            
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
@@ -52,15 +137,15 @@ namespace datalog {
             tail.reset();
             neg.reset();
             vars.reset();
-            r.get_vars(vars);
             m_cache.reset();
             m_trail.reset();
+            r.get_vars(vars);
             unsigned num_vars = vars.size();
-            for (unsigned j = utsz; j < tsz; ++j) {
+            for (unsigned j = 0; j < utsz; ++j) {
                 tail.push_back(mk_pred(num_vars, r.get_tail(j)));
                 neg.push_back(false);
             }
-            for (unsigned j = 0; j < utsz; ++j) {
+            for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(mk_constraint(num_vars, r.get_tail(j)));
                 neg.push_back(false);
             }
@@ -73,6 +158,11 @@ namespace datalog {
             }            
         }
         TRACE("dl", result->display(tout););
+        if (m_mc) {
+            m_ctx.add_model_converter(m_mc);
+        }
+        m_trail.reset();
+        m_cache.reset();
         return result;
     }
 
@@ -85,6 +175,9 @@ namespace datalog {
         ptr_vector<expr> args(q->get_num_args(), q->get_args());
         args.push_back(m.mk_var(num_vars, a.mk_real()));
         m_ctx.register_predicate(g, false);
+        if (m_mc) {
+            m_mc->add_new2old(g, f);
+        }
         return app_ref(m.mk_app(g, q->get_num_args() + 1, args.c_ptr()), m);
     }
 
@@ -97,10 +190,10 @@ namespace datalog {
     expr* mk_scale::linearize(unsigned num_vars, expr* e) {
         expr* r;
         if (m_cache.find(e, r)) {
-            return expr_ref(r, m);
+            return r;
         }
         if (!is_app(e)) {
-            return expr_ref(e, m);
+            return e;
         }
         expr_ref result(m);
         app* ap = to_app(e);

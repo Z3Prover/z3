@@ -37,7 +37,7 @@ namespace datalog {
     void rule_transformer::reset() {
         plugin_vector::iterator it = m_plugins.begin();
         plugin_vector::iterator end = m_plugins.end();
-        for(; it!=end; ++it) {
+        for(; it!=end; ++it) {            
             dealloc(*it);
         }
         m_plugins.reset();

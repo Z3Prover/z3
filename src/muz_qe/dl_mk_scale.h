@@ -27,17 +27,22 @@ Revision History:
 namespace datalog {
 
     class mk_scale : public rule_transformer::plugin {
+
+        class scale_model_converter;
+
         ast_manager& m;
         context&     m_ctx;
         arith_util   a;
         expr_ref_vector m_trail;
         obj_map<expr, expr*> m_cache;
-        expr*       linearize(unsigned num_vars, expr* e);
-        app_ref      mk_pred(unsigned num_vars, app* q);
-        app_ref      mk_constraint(unsigned num_vars, app* q);
+        scale_model_converter* m_mc;
+
+        expr*   linearize(unsigned num_vars, expr* e);
+        app_ref mk_pred(unsigned num_vars, app* q);
+        app_ref mk_constraint(unsigned num_vars, app* q);
     public:
         mk_scale(context & ctx, unsigned priority = 33039);
-        ~mk_scale();        
+        virtual ~mk_scale();        
         rule_set * operator()(rule_set const & source);
     };
 

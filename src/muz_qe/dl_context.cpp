@@ -48,6 +48,7 @@ Revision History:
 #include"dl_mk_magic_symbolic.h"
 #include"dl_mk_quantifier_abstraction.h"
 #include"dl_mk_quantifier_instantiation.h"
+#include"dl_mk_scale.h"
 #include"datatype_decl_plugin.h"
 
 
@@ -869,6 +870,7 @@ namespace datalog {
         if (get_params().magic()) {
             m_transf.register_plugin(alloc(datalog::mk_magic_symbolic, *this, 36020));
         }
+        m_transf.register_plugin(alloc(datalog::mk_scale, *this, 36030));
         transform_rules(m_transf);
     }
 
