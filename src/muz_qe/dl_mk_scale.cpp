@@ -106,7 +106,8 @@ namespace datalog {
         m(ctx.get_manager()),
         m_ctx(ctx),
         a(m),
-        m_trail(m) {        
+        m_trail(m),
+        m_eqs(m) {        
     }
 
     mk_scale::~mk_scale() { 
@@ -135,23 +136,23 @@ namespace datalog {
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();
             tail.reset();
-            neg.reset();
             vars.reset();
             m_cache.reset();
             m_trail.reset();
+            m_eqs.reset();
             r.get_vars(vars);
             unsigned num_vars = vars.size();
             for (unsigned j = 0; j < utsz; ++j) {
                 tail.push_back(mk_pred(num_vars, r.get_tail(j)));
-                neg.push_back(false);
             }
             for (unsigned j = utsz; j < tsz; ++j) {
                 tail.push_back(mk_constraint(num_vars, r.get_tail(j)));
-                neg.push_back(false);
             }
+            app_ref new_pred = mk_pred(num_vars, r.get_head());
+            tail.append(m_eqs);
             tail.push_back(a.mk_gt(m.mk_var(num_vars, a.mk_real()), a.mk_numeral(rational(0), false)));
-            neg.push_back(false);
-            new_rule = rm.mk(mk_pred(num_vars, r.get_head()), tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
+            neg.resize(tail.size(), false);
+            new_rule = rm.mk(new_pred, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
             result->add_rule(new_rule);                
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
@@ -166,14 +167,33 @@ namespace datalog {
         return result;
     }
 
-    app_ref mk_scale::mk_pred(unsigned num_vars, app* q) {
+    app_ref mk_scale::mk_pred(unsigned sigma_idx, app* q) {
         func_decl* f = q->get_decl();
         ptr_vector<sort> domain(f->get_arity(), f->get_domain());
         domain.push_back(a.mk_real());
         func_decl_ref g(m);
         g = m.mk_func_decl(f->get_name(), f->get_arity() + 1, domain.c_ptr(), f->get_range());
-        ptr_vector<expr> args(q->get_num_args(), q->get_args());
-        args.push_back(m.mk_var(num_vars, a.mk_real()));
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < q->get_num_args(); ++i) {
+            expr* arg = q->get_arg(i);
+            rational val;
+            if (a.is_numeral(arg, val)) {
+                if (val.is_zero()) {
+                    // arg is unchanged.
+                }
+                else if (val.is_one()) {
+                    arg = m.mk_var(sigma_idx, a.mk_real());
+                }
+                else {
+                    // create a fresh variable 'v', add 'v == sigma*arg'
+                    expr* v = m.mk_var(sigma_idx + 1 + m_eqs.size(), a.mk_real());
+                    m_eqs.push_back(m.mk_eq(v, a.mk_mul(arg, m.mk_var(sigma_idx, a.mk_real()))));
+                    arg = v;
+                }
+            }
+            args.push_back(arg);
+        }
+        args.push_back(m.mk_var(sigma_idx, a.mk_real()));
         m_ctx.register_predicate(g, false);
         if (m_mc) {
             m_mc->add_new2old(g, f);
@@ -181,13 +201,13 @@ namespace datalog {
         return app_ref(m.mk_app(g, q->get_num_args() + 1, args.c_ptr()), m);
     }
 
-    app_ref mk_scale::mk_constraint(unsigned num_vars, app* q) {
-        expr* r = linearize(num_vars, q);
+    app_ref mk_scale::mk_constraint(unsigned sigma_idx, app* q) {
+        expr* r = linearize(sigma_idx, q);
         SASSERT(is_app(r));
         return app_ref(to_app(r), m);
     }
 
-    expr* mk_scale::linearize(unsigned num_vars, expr* e) {
+    expr* mk_scale::linearize(unsigned sigma_idx, expr* e) {
         expr* r;
         if (m_cache.find(e, r)) {
             return r;
@@ -203,12 +223,12 @@ namespace datalog {
             a.is_lt(e)  || a.is_gt(e)) {
             expr_ref_vector args(m);
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                args.push_back(linearize(num_vars, ap->get_arg(i)));                
+                args.push_back(linearize(sigma_idx, ap->get_arg(i)));                
             }
             result = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
         }
         else if (a.is_numeral(e)) {
-            result = a.mk_mul(m.mk_var(num_vars, a.mk_real()), e);
+            result = a.mk_mul(m.mk_var(sigma_idx, a.mk_real()), e);
         }
         else {
             result = e;

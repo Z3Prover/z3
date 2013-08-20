@@ -34,6 +34,7 @@ namespace datalog {
         context&     m_ctx;
         arith_util   a;
         expr_ref_vector m_trail;
+        app_ref_vector m_eqs;
         obj_map<expr, expr*> m_cache;
         scale_model_converter* m_mc;
 
