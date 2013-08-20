@@ -434,9 +434,19 @@ namespace pdr {
         if (translate(app->get_decl(), index, result)) {
             return true;
         }
-        if (a.is_add(term, e1, e2) && mk_convex(e1, index, is_mul, r1) && mk_convex(e2, index, is_mul, r2)) {
-            result = a.mk_add(r1, r2);
-            return true;
+        if (a.is_add(term)) {
+            bool ok = true;
+            expr_ref_vector args(m);
+            for (unsigned i = 0; ok && i < app->get_num_args(); ++i) {
+                ok = mk_convex(app->get_arg(i), index, is_mul, r1);
+                if (ok) {
+                    args.push_back(r1);
+                }
+            }
+            if (ok) {
+                result = a.mk_add(args.size(), args.c_ptr());
+            }
+            return ok;
         }
         if (a.is_sub(term, e1, e2) && mk_convex(e1, index, is_mul, r1) && mk_convex(e2, index, is_mul, r2)) {
             result = a.mk_sub(r1, r2);
