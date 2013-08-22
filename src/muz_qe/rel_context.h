@@ -109,7 +109,7 @@ namespace datalog {
 
         void display_profile(std::ostream& out);
 
-        lbool saturate();
+        lbool saturate(scoped_query& sq);
 
     };
 };

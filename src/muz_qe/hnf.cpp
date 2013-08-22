@@ -128,7 +128,12 @@ public:
     }
 
     void set_name(symbol const& n) {
-        m_name = n;
+        if (n == symbol::null) {
+            m_name = symbol("P");
+        }
+        else {
+            m_name = n;
+        }
     }
 
     func_decl_ref_vector const& get_fresh_predicates() {

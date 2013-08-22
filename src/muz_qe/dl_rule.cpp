@@ -186,15 +186,20 @@ namespace datalog {
     }
 
     void rule_manager::mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name) {
+        DEBUG_CODE(ptr_vector<sort> sorts; 
+                   ::get_free_vars(fml, sorts); );
         expr_ref_vector fmls(m);
         proof_ref_vector prs(m);
         m_hnf.reset();
         m_hnf.set_name(name);
+        
         m_hnf(fml, p, fmls, prs);
         for (unsigned i = 0; i < m_hnf.get_fresh_predicates().size(); ++i) {
             m_ctx.register_predicate(m_hnf.get_fresh_predicates()[i], false);
         }
         for (unsigned i = 0; i < fmls.size(); ++i) {
+            DEBUG_CODE(ptr_vector<sort> sorts; 
+                       ::get_free_vars(fmls[i].get(), sorts); );
             mk_horn_rule(fmls[i].get(), prs[i].get(), rules, name);
         }
     }
@@ -265,7 +270,7 @@ namespace datalog {
         } 
         else {
             head = ensure_app(fml);
-        }
+        }        
         return index;
     }
 
@@ -490,6 +495,12 @@ namespace datalog {
 
         app * * uninterp_tail = r->m_tail; //grows upwards
         app * * interp_tail = r->m_tail+n; //grows downwards
+
+        DEBUG_CODE(ptr_vector<sort> sorts; 
+                   ::get_free_vars(head, sorts);
+                   for (unsigned i = 0; i < n; ++i) {
+                       ::get_free_vars(tail[i], sorts);
+                   });
 
         bool has_neg = false;
 

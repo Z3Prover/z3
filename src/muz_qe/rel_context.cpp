@@ -105,14 +105,12 @@ namespace datalog {
         }        
     }
 
-    lbool rel_context::saturate() {
+    lbool rel_context::saturate(scoped_query& sq) {
         m_context.ensure_closed();        
         bool time_limit = m_context.soft_timeout()!=0;
         unsigned remaining_time_limit = m_context.soft_timeout();
         unsigned restart_time = m_context.initial_restart_timeout();
-        
-        scoped_query scoped_query(m_context);
-                
+                        
         instruction_block termination_code;
 
         lbool result;
@@ -191,7 +189,7 @@ namespace datalog {
             else {
                 restart_time = static_cast<unsigned>(new_restart_time);
             }
-            scoped_query.reset();
+            sq.reset();
         }
         m_context.record_transformed_rules();
         TRACE("dl", display_profile(tout););
@@ -206,7 +204,7 @@ namespace datalog {
         }
         m_context.close();
         reset_negated_tables();
-        lbool res = saturate();
+        lbool res = saturate(_scoped_query);
 
         switch(res) {
         case l_true: {
@@ -215,7 +213,8 @@ namespace datalog {
             bool some_non_empty = num_rels == 0;
             bool is_approx = false;
             for (unsigned i = 0; i < num_rels; ++i) {
-                relation_base& rel = get_relation(rels[i]);
+                func_decl* q = m_context.get_rules().get_pred(rels[i]);
+                relation_base& rel = get_relation(q);
                 if (!rel.empty()) {
                     some_non_empty = true;
                 }
@@ -272,13 +271,14 @@ namespace datalog {
 
         if (m_context.magic_sets_for_queries()) {
             m_context.transform_rules(alloc(mk_magic_sets, m_context, query_pred));
+            query_pred = m_context.get_rules().get_pred(query_pred);
         }
 
+        lbool res = saturate(_scoped_query);
+        
         query_pred = m_context.get_rules().get_pred(query_pred);
 
-        lbool res = saturate();
-        
-        if (res != l_undef) {
+        if (res != l_undef) {            
             m_last_result_relation = get_relation(query_pred).clone();
             if (m_last_result_relation->empty()) {
                 res = l_false;

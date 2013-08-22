@@ -652,6 +652,7 @@ namespace datalog {
             if (check_pred(e)) {
                 std::ostringstream out;
                 out << "recursive predicate " << mk_ismt2_pp(e, get_manager()) << " occurs nested in body";
+                r->display(*this, out << "\n");
                 throw default_exception(out.str());
 
             }

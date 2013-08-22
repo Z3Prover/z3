@@ -108,6 +108,7 @@ void var_counter::count_vars(ast_manager & m, const app * pred, int coef) {
 unsigned var_counter::get_max_var(bool& has_var) {
     has_var = false;
     unsigned max_var = 0;
+    ptr_vector<quantifier> qs;
     while (!m_todo.empty()) {
         expr* e = m_todo.back();
         m_todo.pop_back();
@@ -117,14 +118,7 @@ unsigned var_counter::get_max_var(bool& has_var) {
         m_visited.mark(e, true);
         switch(e->get_kind()) {
         case AST_QUANTIFIER: {
-            var_counter aux_counter;
-            quantifier* q = to_quantifier(e);
-            bool has_var1 = false;
-            unsigned max_v = aux_counter.get_max_var(has_var1);
-            if (max_v > max_var + q->get_num_decls()) {
-                max_var = max_v - q->get_num_decls();
-                has_var = true;
-            }
+            qs.push_back(to_quantifier(e));
             break;                 
         }
         case AST_VAR: {
@@ -147,6 +141,20 @@ unsigned var_counter::get_max_var(bool& has_var) {
         }
     }
     m_visited.reset();
+
+    while (!qs.empty()) {
+        var_counter aux_counter;
+        quantifier* q = qs.back();
+        qs.pop_back();
+        aux_counter.m_todo.push_back(q->get_expr());
+        bool has_var1 = false;
+        unsigned max_v = aux_counter.get_max_var(has_var1);
+        if (max_v >= max_var + q->get_num_decls()) {
+            max_var = max_v - q->get_num_decls();
+            has_var = has_var || has_var1;                
+        }
+    }
+
     return max_var;
 }
 
