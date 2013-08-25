@@ -22,6 +22,7 @@ Revision History:
 
 #include"dl_context.h"
 #include"dl_rule_transformer.h"
+#include"stopwatch.h"
 
 namespace datalog {
 
@@ -86,8 +87,16 @@ namespace datalog {
         for(; it!=end && !m_context.canceled(); ++it) {
             plugin & p = **it;
 
+
+            IF_VERBOSE(1, verbose_stream() << "(transform " << typeid(p).name() << "...";);
+            stopwatch sw;
+            sw.start();
             rule_set * new_rules1 = p(*new_rules);
+            sw.stop();
+            double sec = sw.get_seconds();
+            if (sec < 0.001) sec = 0.0;
             if (!new_rules1) {
+                IF_VERBOSE(1, verbose_stream() << "no-op " << sec << "s)\n";);
                 continue;
             }
             if (p.can_destratify_negation() && 
@@ -96,6 +105,7 @@ namespace datalog {
                 warning_msg("a rule transformation skipped "
                             "because it destratified negation");
                 dealloc(new_rules1);
+                IF_VERBOSE(1, verbose_stream() << "no-op " << sec << "s)\n";);
                 continue;
             }
             modified = true;
@@ -103,6 +113,7 @@ namespace datalog {
             new_rules = new_rules1;
             new_rules->ensure_closed();
 
+            IF_VERBOSE(1, verbose_stream() << new_rules->get_num_rules() << " rules " << sec << "s)\n";);
             TRACE("dl_rule_transf", 
                 tout << typeid(p).name()<<":\n";
                 new_rules->display(tout);
