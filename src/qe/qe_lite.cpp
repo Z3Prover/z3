@@ -30,9 +30,8 @@ Revision History:
 #include "bool_rewriter.h"
 #include "var_subst.h"
 #include "uint_set.h"
-#include "dl_util.h"
+#include "qe_util.h"
 #include "th_rewriter.h"
-#include "dl_util.h"
 #include "for_each_expr.h"
 #include "expr_safe_replace.h"
 #include "cooperate.h"
@@ -696,7 +695,7 @@ namespace eq {
                     m_subst(r, m_subst_map.size(), m_subst_map.c_ptr(), new_r);
                     m_rewriter(new_r);
                     conjs.reset();
-                    datalog::flatten_and(new_r, conjs);
+                    qe::flatten_and(new_r, conjs);
                     reduced = true;
                 }
             }
@@ -2387,7 +2386,7 @@ public:
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml) {
         expr_ref_vector disjs(m);
-        datalog::flatten_or(fml, disjs);
+        qe::flatten_or(fml, disjs);
         for (unsigned i = 0; i < disjs.size(); ++i) {
             expr_ref_vector conjs(m);
             conjs.push_back(disjs[i].get());
@@ -2400,7 +2399,7 @@ public:
 
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& fmls) {
-        datalog::flatten_and(fmls);
+        qe::flatten_and(fmls);
         unsigned index;
         if (has_unique_non_ground(fmls, index)) {
             expr_ref fml(m);

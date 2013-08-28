@@ -45,6 +45,7 @@ Notes:
 #include "smt_value_sort.h"
 #include "proof_utils.h"
 #include "dl_boogie_proof.h"
+#include "qe_util.h"
 
 namespace pdr {
 
@@ -342,7 +343,7 @@ namespace pdr {
 
     void pred_transformer::add_property(expr* lemma, unsigned lvl) {
         expr_ref_vector lemmas(m);
-        datalog::flatten_and(lemma, lemmas);
+        qe::flatten_and(lemma, lemmas);
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             expr* lemma_i = lemmas[i].get();
             if (add_property1(lemma_i, lvl)) {
@@ -587,7 +588,7 @@ namespace pdr {
         for (unsigned i = ut_size; i < t_size; ++i) {
             tail.push_back(rule.get_tail(i));
         }        
-        datalog::flatten_and(tail);
+        qe::flatten_and(tail);
         for (unsigned i = 0; i < tail.size(); ++i) {
             expr_ref tmp(m);
             var_subst(m, false)(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
@@ -778,7 +779,7 @@ namespace pdr {
         ast_manager& m = pt().get_manager();
         expr_ref_vector conjs(m);
         obj_map<expr,expr*> model;
-        datalog::flatten_and(state(), conjs);
+        qe::flatten_and(state(), conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get(), *e1, *e2;
             if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
@@ -1979,7 +1980,7 @@ namespace pdr {
         expr_ref_vector mdl(m), forms(m), Phi(m);
         forms.push_back(T);
         forms.push_back(phi);
-        datalog::flatten_and(forms);        
+        qe::flatten_and(forms);        
         ptr_vector<expr> forms1(forms.size(), forms.c_ptr());
         if (use_model_generalizer) {
             Phi.append(mev.minimize_model(forms1, M));
@@ -2035,7 +2036,7 @@ namespace pdr {
             TRACE("pdr", tout << "Projected:\n" << mk_pp(phi1, m) << "\n";);
         }
         Phi.reset();
-        datalog::flatten_and(phi1, Phi);
+        qe::flatten_and(phi1, Phi);
         unsigned_vector indices;
         vector<expr_ref_vector> child_states;
         child_states.resize(preds.size(), expr_ref_vector(m));

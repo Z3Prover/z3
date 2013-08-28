@@ -18,7 +18,7 @@ Revision History:
 --*/
 
 #include "dl_mk_array_blast.h"
-
+#include "qe_util.h"
 
 namespace datalog {
 
@@ -101,7 +101,7 @@ namespace datalog {
     
     bool mk_array_blast::ackermanize(rule const& r, expr_ref& body, expr_ref& head) {
         expr_ref_vector conjs(m);
-        flatten_and(body, conjs);
+        qe::flatten_and(body, conjs);
         m_defs.reset();
         m_sub.reset();
         m_next_var = 0;
@@ -207,7 +207,7 @@ namespace datalog {
         for (unsigned i = utsz; i < tsz; ++i) {
             conjs.push_back(r.get_tail(i));
         }
-        flatten_and(conjs);
+        qe::flatten_and(conjs);
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* x, *y, *e = conjs[i].get();
             

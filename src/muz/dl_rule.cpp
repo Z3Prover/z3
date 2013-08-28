@@ -263,7 +263,7 @@ namespace datalog {
         if (m.is_implies(fml, e1, e2)) {
             expr_ref_vector es(m);
             head = ensure_app(e2);
-            datalog::flatten_and(e1, es);
+            qe::flatten_and(e1, es);
             for (unsigned i = 0; i < es.size(); ++i) {
                 body.push_back(ensure_app(es[i].get()));
             }
@@ -380,7 +380,7 @@ namespace datalog {
         for (unsigned i = 0; i < body.size(); ++i) {
             r.push_back(body[i].get());
         }
-        flatten_and(r);
+        qe::flatten_and(r);
         body.reset();
         for (unsigned i = 0; i < r.size(); ++i) {
             body.push_back(ensure_app(r[i].get()));

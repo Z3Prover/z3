@@ -30,6 +30,7 @@ Revision History:
 #include"ast_counter.h"
 #include"statistics.h"
 #include"lbool.h"
+#include"qe_util.h"
 
 namespace datalog {
 
@@ -107,18 +108,6 @@ namespace datalog {
     typedef u_map<var *> varidx2var_map;
     typedef obj_hashtable<func_decl> func_decl_set; //!< Rule dependencies.
     typedef vector<std::string> string_vector;
-
-
-    /**
-       \brief Collect top-level conjunctions and disjunctions.
-    */
-    void flatten_and(expr_ref_vector& result);
-
-    void flatten_and(expr* fml, expr_ref_vector& result);
-
-    void flatten_or(expr_ref_vector& result);
-
-    void flatten_or(expr* fml, expr_ref_vector& result);
     
     bool contains_var(expr * trm, unsigned var_idx);
 

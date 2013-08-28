@@ -214,7 +214,7 @@ private:
             m_body.push_back(e1);
             head = e2;
         }
-        datalog::flatten_and(m_body);
+        qe::flatten_and(m_body);
         if (premise) {
             p = m.mk_rewrite(fml0, mk_implies(m_body, head));
         }

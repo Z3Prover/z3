@@ -137,7 +137,7 @@ namespace pdr {
             C = pm.mk_or(Bs);
             TRACE("pdr", tout << "prop:\n" << mk_pp(A,m) << "\ngen:" << mk_pp(B, m) << "\nto: " << mk_pp(C, m) << "\n";);
             core.reset();
-            datalog::flatten_and(C, core);    
+            qe::flatten_and(C, core);    
             uses_level = true;
         }    
     }
@@ -157,7 +157,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
-        // method3(n, core, uses_level, new_cores);
+        method3(n, core, uses_level, new_cores);
         method1(n, core, uses_level, new_cores);
     }
 
@@ -194,11 +194,11 @@ namespace pdr {
         }
         expr_ref fml = n.pt().get_formulas(n.level(), false);
         expr_ref_vector fmls(m);
-        datalog::flatten_and(fml, fmls);
+        qe::flatten_and(fml, fmls);
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fml = m.mk_not(fmls[i].get());
             core2.reset();
-            datalog::flatten_and(fml, core2);
+            qe::flatten_and(fml, core2);
             if (!mk_convex(core2, 1, conv2)) {
                 IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core2), m) << "\n";);
                 continue;
@@ -332,7 +332,7 @@ namespace pdr {
         for (unsigned i = 0; i < consequences.size(); ++i) {
             es.reset();
             tmp = m.mk_not(consequences[i].get());
-            datalog::flatten_and(tmp, es);
+            qe::flatten_and(tmp, es);
             if (!mk_convex(es, i, conv)) {
                 IF_VERBOSE(0, verbose_stream() << "Failed to create convex closure\n";);
                 return;

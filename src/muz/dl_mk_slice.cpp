@@ -619,7 +619,7 @@ namespace datalog {
         for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
             conjs.push_back(r.get_tail(j));
         }
-        datalog::flatten_and(conjs);
+        qe::flatten_and(conjs);
         return conjs;
     }
 

@@ -141,7 +141,7 @@ class horn_tactic : public tactic {
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
             expr* a = 0, *a1 = 0;
-            datalog::flatten_or(tmp, args);
+            qe::flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
                 a = args[i].get(); 
                 check_predicate(mark, a);

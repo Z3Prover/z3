@@ -546,7 +546,7 @@ namespace datalog {
 
         if (modified) {
             m_conj.reset();
-            flatten_and(simp_res, m_conj);
+            qe::flatten_and(simp_res, m_conj);
             for (unsigned i = 0; i < m_conj.size(); ++i) {
                 expr* e = m_conj[i].get();
                 if (is_app(e)) {

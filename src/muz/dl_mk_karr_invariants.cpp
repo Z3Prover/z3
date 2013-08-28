@@ -430,7 +430,7 @@ namespace datalog {
             var* v, *w;
             rational n1, n2;
             expr_ref_vector conjs(m);
-            datalog::flatten_and(cond, conjs);
+            qe::flatten_and(cond, conjs);
             matrix& M = get_ineqs();
             unsigned num_columns = get_signature().size();
 
