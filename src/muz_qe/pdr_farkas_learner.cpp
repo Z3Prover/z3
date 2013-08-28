@@ -249,6 +249,7 @@ namespace pdr {
     farkas_learner::farkas_learner(smt_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
           m_pr(PROOF_MODE),
+          m_combine_farkas_coefficients(true),
           p2o(m_pr, outer_mgr),
           o2p(outer_mgr, m_pr)
     {
@@ -412,11 +413,17 @@ namespace pdr {
     void farkas_learner::combine_constraints(unsigned n, app * const * lits, rational const * coeffs, expr_ref& res)
     {
         ast_manager& m = res.get_manager();
-        constr res_c(m);
-        for(unsigned i = 0; i < n; ++i) {
-            res_c.add(coeffs[i], lits[i]);
+        if (m_combine_farkas_coefficients) {
+            constr res_c(m);
+            for(unsigned i = 0; i < n; ++i) {
+                res_c.add(coeffs[i], lits[i]);
+            }
+            res_c.get(res);
         }
-        res_c.get(res);
+        else {
+            bool_rewriter rw(m);
+            rw.mk_or(n, (expr*const*)(lits), res);
+        }
     }
 
     class farkas_learner::constant_replacer_cfg : public default_rewriter_cfg
@@ -694,7 +701,7 @@ namespace pdr {
                             tout << (b_pure?"B":"A") << " " << coef << " " << mk_pp(m.get_fact(prem), m) << "\n";
                         }
                         tout << mk_pp(m.get_fact(p), m) << "\n";
-                        );
+                      );
 
                 // NB. Taking 'abs' of coefficients is a workaround.
                 // The Farkas coefficient extraction in arith_core must be wrong.
@@ -751,6 +758,13 @@ namespace pdr {
 
         std::for_each(hyprefs.begin(), hyprefs.end(), delete_proc<expr_set>());
         simplify_lemmas(lemmas);
+    }
+
+    void farkas_learner::get_consequences(proof* root, expr_set const& bs, expr_ref_vector& consequences) {
+        TRACE("farkas_learner", tout << "get consequences\n";);
+        m_combine_farkas_coefficients = false;
+        get_lemmas(root, bs, consequences);
+        m_combine_farkas_coefficients = true;
     }
 
     void farkas_learner::get_asserted(proof* p, expr_set const& bs, ast_mark& b_closed, obj_hashtable<expr>& lemma_set, expr_ref_vector& lemmas) {

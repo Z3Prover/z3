@@ -48,6 +48,7 @@ namespace pdr {
         app_ref_vector      m_proxies;          // predicates for assumptions
         expr_ref_vector*    m_core; 
         model_ref*          m_model;
+        expr_ref_vector*    m_consequences;
         bool                m_subset_based_core;
         bool                m_assumes_level;
         bool                m_use_farkas;
@@ -84,6 +85,8 @@ namespace pdr {
         void set_core(expr_ref_vector* core) { m_core = core; }
         void set_model(model_ref* mdl) { m_model = mdl; }
         void set_subset_based_core(bool f) { m_subset_based_core = f; }
+        void set_consequences(expr_ref_vector* consequences) { m_consequences = consequences; }
+
         bool assumes_level() const { return m_assumes_level; }
         
         void add_level();

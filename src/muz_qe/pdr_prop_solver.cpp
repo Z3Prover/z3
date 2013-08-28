@@ -236,9 +236,12 @@ namespace pdr {
         m_neg_level_atoms(m),
         m_proxies(m),
         m_core(0),
+        m_model(0),
+        m_consequences(0),
         m_subset_based_core(false),
         m_use_farkas(false),
-        m_in_level(false)
+        m_in_level(false),
+        m_current_level(0)
     {
         m_ctx->assert_expr(m_pm.get_background());
     }
@@ -413,6 +416,10 @@ namespace pdr {
 
             m_core->reset();
             m_core->append(lemmas);
+
+            if (m_consequences) {
+                fl.get_consequences(pr, bs, *m_consequences);
+            }
         }
     }
 

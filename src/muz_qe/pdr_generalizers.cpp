@@ -159,6 +159,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
+        // method3(n, core, uses_level, new_cores);
         method1(n, core, uses_level, new_cores);
     }
 
@@ -187,7 +188,7 @@ namespace pdr {
             new_cores.push_back(std::make_pair(core, uses_level));
             return;
         }        
-        add_variables(n, eqs);
+        add_variables(n, 2, eqs);
         if (!mk_convex(core, 0, conv1)) {
             new_cores.push_back(std::make_pair(core, uses_level));
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
@@ -257,7 +258,7 @@ namespace pdr {
             IF_VERBOSE(0, verbose_stream() << "unexpected result from satisfiability check\n";);
             return;
         }
-        add_variables(n, conv1);
+        add_variables(n, 2, conv1);
         model_ref mdl;
         ctx.get_model(mdl);
 
@@ -267,7 +268,7 @@ namespace pdr {
             expr* left, *right;
             func_decl* fn0 = n.pt().sig(i);
             func_decl* fn1 = pm.o2n(fn0, 0);
-            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
+            if (m_vars[0].find(fn1, left) && m_vars[1].find(fn1, right)) {
                 expr_ref val(m);
                 mdl->eval(fn1, val);
                 if (val) {
@@ -306,34 +307,84 @@ namespace pdr {
         }         
     }
 
-    void core_convex_hull_generalizer::add_variables(model_node& n, expr_ref_vector& eqs) {
+    /*
+      Extract the lemmas from the transition relation that were used to establish unsatisfiability.
+      Take convex closures of conbinations of these lemmas.
+     */
+    void core_convex_hull_generalizer::method3(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {    
+        TRACE("dl", tout << "method: generalize consequences of F(R)\n";
+              for (unsigned i = 0; i < core.size(); ++i) {
+                  tout << "B:" << mk_pp(core[i], m) << "\n";
+              });
         manager& pm = n.pt().get_pdr_manager();
-        if (!m_left.contains(n.pt().head())) {
-            expr_ref left(m), right(m);
-            m_left.insert(n.pt().head(), 0);
+        bool uses_level1;
+        expr_ref_vector core1(m);
+        core1.append(core);
+        obj_hashtable<expr> bs;
+        for (unsigned i = 0; i < core.size(); ++i) {
+            bs.insert(core[i]);
+        }
+        expr_ref_vector consequences(m);
+        {
+            n.pt().get_solver().set_consequences(&consequences);
+            pred_transformer::scoped_farkas sf (n.pt(), true);
+            VERIFY(l_false == n.pt().is_reachable(n, &core1, uses_level1));        
+            n.pt().get_solver().set_consequences(0);
+        }
+        IF_VERBOSE(0,
+                   verbose_stream() << "Consequences: " << consequences.size() << "\n";
+                   for (unsigned i = 0; i < consequences.size(); ++i) {
+                       verbose_stream() << mk_pp(consequences[i].get(), m) << "\n";
+                   }
+                   verbose_stream() << "core: " << core1.size() << "\n";
+                   for (unsigned i = 0; i < core1.size(); ++i) {
+                       verbose_stream() << mk_pp(core1[i].get(), m) << "\n";
+                   });
+
+        // now create the convex closure of the consequences:
+        expr_ref_vector conv(m);
+        for (unsigned i = 0; i < consequences.size(); ++i) {
+            if (m_sigma.size() == i) {
+                m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
+            }
+            conv.push_back(a.mk_ge(m_sigma[i].get(), a.mk_numeral(rational(0), a.mk_real())));
+            ;; // mk_convex
+        }
+    }
+
+    void core_convex_hull_generalizer::add_variables(model_node& n, unsigned num_vars, expr_ref_vector& eqs) {
+        manager& pm = n.pt().get_pdr_manager();
+        if (m_vars.size() < num_vars) {
+            m_vars.resize(num_vars);
+        } 
+        if (!m_vars[0].contains(n.pt().head())) {
+            expr_ref var(m);
+            m_vars[0].insert(n.pt().head(), 0);
             unsigned sz = n.pt().sig_size();        
             for (unsigned i = 0; i < sz; ++i) {
                 func_decl* fn0 = n.pt().sig(i);
                 sort* srt = fn0->get_range();
                 if (a.is_int_real(srt)) {
                     func_decl* fn1 = pm.o2n(fn0, 0);
-                    left  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
-                    right = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
-                    m_left.insert(fn1, left);
-                    m_right.insert(fn1, right);
-                    m_trail.push_back(left);
-                    m_trail.push_back(right);
+                    for (unsigned j = 0; j < num_vars; ++j) {
+                        var  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                        m_vars[j].insert(fn1, var);
+                        m_trail.push_back(var);
+                    }
                 }
             }
         }
         unsigned sz = n.pt().sig_size();        
         for (unsigned i = 0; i < sz; ++i) {
-            expr* left, *right;
+            expr* var;
+            ptr_vector<expr> vars;
             func_decl* fn0 = n.pt().sig(i);
             func_decl* fn1 = pm.o2n(fn0, 0);
-            if (m_left.find(fn1, left) && m_right.find(fn1, right)) {
-                eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(left, right)));
+            for (unsigned j = 0; j < num_vars; ++j) {
+                VERIFY (m_vars[j].find(fn1, var));
+                vars.push_back(var);
             }
+            eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars.c_ptr())));
         }
     }
 
@@ -412,11 +463,7 @@ namespace pdr {
     
     bool core_convex_hull_generalizer::translate(func_decl* f, unsigned index, expr_ref& result) {
         expr* tmp;
-        if (index == 0 && m_left.find(f, tmp)) {
-            result = tmp;
-            return true;
-        }
-        if (index == 1 && m_right.find(f, tmp)) {
+        if (m_vars[index].find(f, tmp)) {
             result = tmp;
             return true;
         }

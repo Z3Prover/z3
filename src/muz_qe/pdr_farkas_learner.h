@@ -43,6 +43,12 @@ class farkas_learner {
     ast_manager              m_pr;
     scoped_ptr<smt::kernel>  m_ctx;
 
+    // 
+    // true:  produce a combined constraint by applying Farkas coefficients.
+    // false: produce a conjunction of the negated literals from the theory lemmas.
+    //
+    bool                     m_combine_farkas_coefficients; 
+
 
     static smt_params get_proof_params(smt_params& orig_params);
 
@@ -91,6 +97,18 @@ public:
         Traverse a proof and retrieve lemmas using the vocabulary from bs.
     */
     void get_lemmas(proof* root, expr_set const& bs, expr_ref_vector& lemmas);
+
+    /**
+       Traverse a proof and retrieve consequences of A that are used to establish ~B.
+       The assumption is that:
+
+          A => \/ ~consequences[i]  and  \/ ~consequences[i] => ~B
+
+       e.g., the second implication can be rewritten as:
+
+          B => /\ consequences[i]
+     */
+    void get_consequences(proof* root, expr_set const& bs, expr_ref_vector& consequences);
 
     /**
        \brief Simplify lemmas using subsumption.

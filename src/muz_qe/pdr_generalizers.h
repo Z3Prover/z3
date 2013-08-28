@@ -78,8 +78,7 @@ namespace pdr {
         arith_util      a;
         expr_ref_vector m_sigma;
         expr_ref_vector m_trail;
-        obj_map<func_decl, expr*> m_left;
-        obj_map<func_decl, expr*> m_right;
+        vector<obj_map<func_decl, expr*> > m_vars;
         obj_map<expr, expr*> m_models;
         bool m_is_closure;
         expr_ref mk_closure(expr* e);
@@ -90,7 +89,8 @@ namespace pdr {
         bool translate(func_decl* fn, unsigned index, expr_ref& result);
         void method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         void method2(model_node& n, expr_ref_vector& core, bool& uses_level);
-        void add_variables(model_node& n, expr_ref_vector& eqs);
+        void method3(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
+        void add_variables(model_node& n, unsigned num_vars, expr_ref_vector& eqs);
     public:
         core_convex_hull_generalizer(context& ctx, bool is_closure);
         virtual ~core_convex_hull_generalizer() {}
