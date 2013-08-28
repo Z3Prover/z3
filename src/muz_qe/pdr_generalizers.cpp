@@ -154,8 +154,6 @@ namespace pdr {
         m_sigma(m),
         m_trail(m),
         m_is_closure(is_closure) {
-        m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
-        m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
@@ -182,29 +180,18 @@ namespace pdr {
     // 
     void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {    
         manager& pm = n.pt().get_pdr_manager();
-        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), eqs(m);
+        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m);
         unsigned orig_size = new_cores.size();
         if (core.empty()) {
             new_cores.push_back(std::make_pair(core, uses_level));
             return;
         }        
-        add_variables(n, 2, eqs);
+        add_variables(n, 2, conv1);
         if (!mk_convex(core, 0, conv1)) {
             new_cores.push_back(std::make_pair(core, uses_level));
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
             return;
         }
-        conv1.append(eqs);
-        if (m_is_closure) {
-            conv1.push_back(a.mk_ge(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
-            conv1.push_back(a.mk_ge(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
-        }
-        else {
-            // is interior:
-            conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
-            conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
-        }
-        conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
         expr_ref fml = n.pt().get_formulas(n.level(), false);
         expr_ref_vector fmls(m);
         datalog::flatten_and(fml, fmls);
@@ -281,10 +268,6 @@ namespace pdr {
             m_trail.push_back(goal);
             m_models.insert(goal, new_model);
         }
-        conv1.push_back(a.mk_gt(m_sigma[0].get(), a.mk_numeral(rational(0), a.mk_real())));
-        conv1.push_back(a.mk_gt(m_sigma[1].get(), a.mk_numeral(rational(0), a.mk_real())));
-        conv1.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(m_sigma[0].get(), m_sigma[1].get())));
-
         obj_map<expr, expr*>::iterator it = m_models.begin(), end = m_models.end();
         for (; it != end; ++it) {
             if (it->m_key == goal) {
@@ -342,21 +325,76 @@ namespace pdr {
                    });
 
         // now create the convex closure of the consequences:
-        expr_ref_vector conv(m);
+        expr_ref tmp(m), zero(m);
+        expr_ref_vector conv(m), es(m), enabled(m);
+        zero = a.mk_numeral(rational(0), a.mk_real());
+        add_variables(n, consequences.size(), conv);
         for (unsigned i = 0; i < consequences.size(); ++i) {
-            if (m_sigma.size() == i) {
-                m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
+            es.reset();
+            tmp = m.mk_not(consequences[i].get());
+            datalog::flatten_and(tmp, es);
+            if (!mk_convex(es, i, conv)) {
+                IF_VERBOSE(0, verbose_stream() << "Failed to create convex closure\n";);
+                return;
             }
-            conv.push_back(a.mk_ge(m_sigma[i].get(), a.mk_numeral(rational(0), a.mk_real())));
-            ;; // mk_convex
+            es.reset();
+            //
+            // enabled[i] = not (sigma_i = 0 and z_i1 = 0 and .. and z_im = 0)
+            //
+            es.push_back(m.mk_eq(m_sigma[i].get(), zero));
+            for (unsigned j = 0; j < n.pt().sig_size(); ++j) {
+                func_decl* fn0 = n.pt().sig(j);
+                func_decl* fn1 = pm.o2n(fn0, 0);
+                expr* var;
+                VERIFY (m_vars[i].find(fn1, var));
+                es.push_back(m.mk_eq(var, zero));
+            }
+            
+            enabled.push_back(m.mk_not(m.mk_and(es.size(), es.c_ptr())));
         }
+        
+        // the convex closure was created of all consequences.
+        // now determine a subset of enabled constraints.
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
+        for (unsigned i = 0; i < conv.size(); ++i) {
+            ctx.assert_expr(conv[i].get());
+        }
+        for (unsigned i = 0; i < core.size(); ++i) {
+            ctx.assert_expr(core[i]);
+        }
+        vector<unsigned_vector> transversal;
+        while (l_true == ctx.check()) {
+            model_ref md;
+            ctx.get_model(md);
+            expr_ref_vector lits(m);
+            unsigned_vector pos;
+            for (unsigned i = 0; i < consequences.size(); ++i) {
+                if (md->eval(enabled[i].get(), tmp, false)) {
+                    if (m.is_true(tmp)) {
+                        lits.push_back(tmp);
+                        pos.push_back(i);
+                    }
+                }
+            }
+            transversal.push_back(pos);
+            SASSERT(!lits.empty());
+            tmp = m.mk_not(m.mk_and(lits.size(), lits.c_ptr()));
+            TRACE("pdr", tout << "add block: " << mk_pp(tmp, m) << "\n";);
+            ctx.assert_expr(tmp);
+        }
+        //
+        // we could no longer satisfy core using a partition.
+        // 
+        
     }
 
-    void core_convex_hull_generalizer::add_variables(model_node& n, unsigned num_vars, expr_ref_vector& eqs) {
+    void core_convex_hull_generalizer::add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls) {
         manager& pm = n.pt().get_pdr_manager();
-        if (m_vars.size() < num_vars) {
-            m_vars.resize(num_vars);
-        } 
+        while (m_vars.size() < num_vars) {
+            m_vars.resize(m_vars.size()+1);
+            m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
+        }
+
         if (!m_vars[0].contains(n.pt().head())) {
             expr_ref var(m);
             m_vars[0].insert(n.pt().head(), 0);
@@ -384,8 +422,20 @@ namespace pdr {
                 VERIFY (m_vars[j].find(fn1, var));
                 vars.push_back(var);
             }
-            eqs.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars.c_ptr())));
+            fmls.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars.c_ptr())));
         }
+        if (m_is_closure) {
+            for (unsigned i = 0; i < num_vars; ++i) {
+                fmls.push_back(a.mk_ge(m_sigma[i].get(), a.mk_numeral(rational(0), a.mk_real())));
+            }
+        }
+        else {
+            // is interior:
+            for (unsigned i = 0; i < num_vars; ++i) {
+                fmls.push_back(a.mk_gt(m_sigma[i].get(), a.mk_numeral(rational(0), a.mk_real())));
+            }
+        }
+        fmls.push_back(m.mk_eq(a.mk_numeral(rational(1), a.mk_real()), a.mk_add(num_vars, m_sigma.c_ptr())));
     }
 
     expr_ref core_convex_hull_generalizer::mk_closure(expr* e) {

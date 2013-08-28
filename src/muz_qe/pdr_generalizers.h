@@ -90,7 +90,7 @@ namespace pdr {
         void method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         void method2(model_node& n, expr_ref_vector& core, bool& uses_level);
         void method3(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
-        void add_variables(model_node& n, unsigned num_vars, expr_ref_vector& eqs);
+        void add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls);
     public:
         core_convex_hull_generalizer(context& ctx, bool is_closure);
         virtual ~core_convex_hull_generalizer() {}
