@@ -157,7 +157,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
-        method3(n, core, uses_level, new_cores);
+        //        method3(n, core, uses_level, new_cores);
         method1(n, core, uses_level, new_cores);
     }
 
@@ -180,18 +180,19 @@ namespace pdr {
     // 
     void core_convex_hull_generalizer::method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {    
         manager& pm = n.pt().get_pdr_manager();
-        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m);
+        expr_ref_vector conv1(m), conv2(m), core1(m), core2(m), fmls(m);
         unsigned orig_size = new_cores.size();
         if (core.empty()) {
             new_cores.push_back(std::make_pair(core, uses_level));
             return;
         }        
-        add_variables(n, 2, conv1);
+        add_variables(n, 2, fmls);
         if (!mk_convex(core, 0, conv1)) {
             new_cores.push_back(std::make_pair(core, uses_level));
             IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
             return;
         }
+        conv1.append(fmls);
         expr_ref fml = n.pt().get_formulas(n.level(), false);
         expr_ref_vector fmls(m);
         qe::flatten_and(fml, fmls);
