@@ -105,6 +105,11 @@ namespace datalog {
         }        
     }
 
+    lbool rel_context::saturate() {
+        scoped_query sq(m_context);
+        return saturate(sq);
+    }
+
     lbool rel_context::saturate(scoped_query& sq) {
         m_context.ensure_closed();        
         bool time_limit = m_context.soft_timeout()!=0;

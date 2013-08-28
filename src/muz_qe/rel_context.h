@@ -48,6 +48,8 @@ namespace datalog {
         
         void reset_tables();
 
+        lbool saturate(scoped_query& sq);
+
     public:
         rel_context(context& ctx);
 
@@ -109,7 +111,7 @@ namespace datalog {
 
         void display_profile(std::ostream& out);
 
-        lbool saturate(scoped_query& sq);
+        lbool saturate();
 
     };
 };

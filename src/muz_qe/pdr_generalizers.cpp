@@ -364,6 +364,7 @@ namespace pdr {
         }
         vector<unsigned_vector> transversal;
         while (l_true == ctx.check()) {
+            IF_VERBOSE(0, ctx.display(verbose_stream()););
             model_ref md;
             ctx.get_model(md);
             expr_ref_vector lits(m);
