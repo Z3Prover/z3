@@ -45,6 +45,7 @@ Notes:
 #include "poly_rewriter.h"
 #include "poly_rewriter_def.h"
 #include "arith_rewriter.h"
+#include "scoped_proof.h"
 
 
 
@@ -1072,7 +1073,7 @@ namespace pdr {
 
     void hoist_non_bool_if(expr_ref& fml) {
         ast_manager& m = fml.get_manager();
-        datalog::scoped_no_proof _sp(m);
+        scoped_no_proof _sp(m);
         params_ref p;
         ite_hoister_star ite_rw(m, p);
         expr_ref tmp(m);
@@ -1419,7 +1420,7 @@ namespace pdr {
 
     void normalize_arithmetic(expr_ref& t) {
         ast_manager& m = t.get_manager();
-        datalog::scoped_no_proof _sp(m);
+        scoped_no_proof _sp(m);
         params_ref p;
         arith_normalizer_star rw(m, p);
         expr_ref tmp(m);

@@ -19,8 +19,6 @@ Revision History:
 
 #include<sstream>
 #include<limits>
-#include"arith_simplifier_plugin.h"
-#include"basic_simplifier_plugin.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
 #include"dl_context.h"
@@ -28,6 +26,7 @@ Revision History:
 #include"ast_smt_pp.h"
 #include"ast_smt2_pp.h"
 #include"datatype_decl_plugin.h"
+#include"scoped_proof.h"
 
 
 namespace datalog {

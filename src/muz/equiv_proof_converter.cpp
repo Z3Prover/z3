@@ -19,11 +19,11 @@ Revision History:
 
 #include "equiv_proof_converter.h"
 #include "ast_pp.h"
-#include "dl_util.h"
+#include "scoped_proof.h"
 
 void equiv_proof_converter::insert(expr* fml1, expr* fml2) {
     if (fml1 != fml2) {
-        datalog::scoped_proof _sp(m);
+        scoped_proof _sp(m);
         proof_ref p1(m), p2(m), p3(m);
         p1 = m.mk_asserted(fml1);
         p2 = m.mk_rewrite(fml1, fml2);

@@ -31,6 +31,7 @@ Revision History:
 #include "rewriter_def.h"
 #include "dl_transforms.h"
 #include "dl_mk_rule_inliner.h"
+#include "scoped_proof.h"
 
 namespace datalog {
 

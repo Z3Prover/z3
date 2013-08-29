@@ -25,9 +25,10 @@ Revision History:
 #endif
 #include"ast_pp.h"
 #include"bool_rewriter.h"
+#include"for_each_expr.h"
+#include"scoped_proof.h"
 #include"dl_context.h"
 #include"dl_rule.h"
-#include"for_each_expr.h"
 #include"dl_util.h"
 
 namespace datalog {

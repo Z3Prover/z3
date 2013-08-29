@@ -46,6 +46,7 @@ Notes:
 #include "proof_utils.h"
 #include "dl_boogie_proof.h"
 #include "qe_util.h"
+#include "scoped_proof.h"
 
 namespace pdr {
 
@@ -1719,7 +1720,7 @@ namespace pdr {
     }
     
     proof_ref context::get_proof() const {
-        datalog::scoped_proof _sc(m);
+        scoped_proof _sc(m);
         proof_ref proof(m);
         SASSERT(m_last_result == l_true);
         proof = m_search.get_proof_trace(*this);
@@ -1959,7 +1960,7 @@ namespace pdr {
     void context::create_children(model_node& n) {        
         SASSERT(n.level() > 0);
         bool use_model_generalizer = m_params.use_model_generalizer();
-        datalog::scoped_no_proof _sc(m);
+        scoped_no_proof _sc(m);
  
         pred_transformer& pt = n.pt();
         model_ref M = n.get_model_ptr();

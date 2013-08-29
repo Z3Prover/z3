@@ -57,7 +57,7 @@ def init_project_def():
     add_lib('muz', ['smt', 'sat', 'smt2parser', 'aig_tactic', 'qe'])
     add_lib('transforms', ['muz'], 'muz/transforms')
     add_lib('rel', ['muz', 'transforms'], 'muz/rel')
-    add_lib('pdr', ['muz', 'transforms'], 'muz/pdr')
+    add_lib('pdr', ['muz', 'transforms', 'arith_tactics', 'smt_tactic'], 'muz/pdr')
     add_lib('clp', ['muz', 'transforms'], 'muz/clp')
     add_lib('tab', ['muz', 'transforms'], 'muz/tab')
     add_lib('bmc', ['muz', 'transforms'], 'muz/bmc')

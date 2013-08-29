@@ -29,6 +29,7 @@ Revision History:
 #include "datatype_decl_plugin.h"
 #include "for_each_expr.h"
 #include "matcher.h"
+#include "scoped_proof.h"
 
 namespace tb {
 

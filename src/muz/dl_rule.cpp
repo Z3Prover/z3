@@ -42,6 +42,7 @@ Revision History:
 #include"bool_rewriter.h"
 #include"expr_safe_replace.h"
 #include"filter_model_converter.h"
+#include"scoped_proof.h"
 
 namespace datalog {
 

@@ -31,8 +31,9 @@ Revision History:
 #include "dl_mk_slice.h"
 #include "dl_mk_unfold.h"
 #include "dl_mk_coalesce.h"
-#include "model_smt2_pp.h"
 #include "dl_transforms.h"
+#include "scoped_proof.h"
+#include "model_smt2_pp.h"
 
 using namespace pdr;
 
@@ -149,7 +150,7 @@ lbool dl_interface::query(expr * query) {
     m_ctx.reopen();
     m_ctx.replace_rules(old_rules);
     
-    datalog::scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
+    scoped_restore_proof _sc(m); // update_rules may overwrite the proof mode.
 
     m_context->set_proof_converter(m_ctx.get_proof_converter());
     m_context->set_model_converter(m_ctx.get_model_converter());
