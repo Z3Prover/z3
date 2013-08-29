@@ -90,6 +90,9 @@ namespace pdr {
         void method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         void method2(model_node& n, expr_ref_vector& core, bool& uses_level);
         void method3(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
+        bool strengthen_consequences(model_node& n, expr_ref_vector& As, expr* B);
+        bool is_unsat(expr_ref_vector const& As, expr* B);
+        bool mk_closure(model_node& n, expr_ref_vector const& Hs, expr_ref& A);
         void add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls);
     public:
         core_convex_hull_generalizer(context& ctx, bool is_closure);

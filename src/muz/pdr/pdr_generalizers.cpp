@@ -23,6 +23,7 @@ Revision History:
 #include "pdr_generalizers.h"
 #include "expr_abstract.h"
 #include "var_subst.h"
+#include "model_smt2_pp.h"
 
 
 namespace pdr {
@@ -157,7 +158,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
-        //        method3(n, core, uses_level, new_cores);
+        method3(n, core, uses_level, new_cores);
         method1(n, core, uses_level, new_cores);
     }
 
@@ -199,6 +200,7 @@ namespace pdr {
         for (unsigned i = 0; i < fmls.size(); ++i) {
             fml = m.mk_not(fmls[i].get());
             core2.reset();
+            conv2.reset();
             qe::flatten_and(fml, core2);
             if (!mk_convex(core2, 1, conv2)) {
                 IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core2), m) << "\n";);
@@ -304,10 +306,6 @@ namespace pdr {
         bool uses_level1;
         expr_ref_vector core1(m);
         core1.append(core);
-        obj_hashtable<expr> bs;
-        for (unsigned i = 0; i < core.size(); ++i) {
-            bs.insert(core[i]);
-        }
         expr_ref_vector consequences(m);
         {
             n.pt().get_solver().set_consequences(&consequences);
@@ -325,6 +323,77 @@ namespace pdr {
                        verbose_stream() << mk_pp(core1[i].get(), m) << "\n";
                    });
 
+        // Create disjunction.
+        expr_ref tmp(m);
+        for (unsigned i = 0; i < consequences.size(); ++i) {
+            consequences[i] = m.mk_not(consequences[i].get());
+        }
+        tmp = m.mk_and(core.size(), core.c_ptr());
+
+        if (!strengthen_consequences(n, consequences, tmp)) {
+            return;
+        }
+
+        IF_VERBOSE(0, verbose_stream() << "consequences strengthened\n";);
+        // Use the resulting formula to find Farkas lemmas from core.
+    }
+
+    bool core_convex_hull_generalizer::strengthen_consequences(model_node& n, expr_ref_vector& As, expr* B) {
+        expr_ref A(m), tmp(m), convA(m);
+        unsigned sz = As.size();
+        for (unsigned i = 0; i < As.size(); ++i) {
+            expr_ref_vector Hs(m);
+            Hs.push_back(As[i].get());
+            for (unsigned j = i + 1; j < As.size(); ++j) {
+                Hs.push_back(Hs[j].get());
+                bool unsat = false;
+                if (mk_closure(n, Hs, A)) {
+                    tmp = As[i].get();
+                    As[i] = A;
+                    unsat = is_unsat(As, B);
+                    As[i] = tmp;
+                }
+                if (unsat) {
+                    convA = A;
+                    As[j] = As.back();
+                    As.pop_back();
+                    --j;
+                }
+                else {
+                    Hs.pop_back();
+                }
+            }
+            if (Hs.size() > 1) {
+                As[i] = convA;
+            }
+        }
+        return sz > As.size();
+    }
+
+    bool core_convex_hull_generalizer::mk_closure(model_node& n, expr_ref_vector const& Hs, expr_ref& A) {
+        expr_ref_vector fmls(m), es(m);
+        add_variables(n, Hs.size(), fmls);
+        for (unsigned i = 0; i < Hs.size(); ++i) {
+            es.reset();
+            qe::flatten_and(Hs[i], es);
+            if (!mk_convex(es, i, fmls)) {
+                return false;
+            }
+        }
+        A = m.mk_and(fmls.size(), fmls.c_ptr());
+        return true;
+    }
+
+    bool core_convex_hull_generalizer::is_unsat(expr_ref_vector const& As, expr* B) {
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
+        for (unsigned i = 0; i < As.size(); ++i) {
+            ctx.assert_expr(As[i]);
+        }
+        ctx.assert_expr(B);
+        return l_false == ctx.check();
+    }
+
+#if 0
         // now create the convex closure of the consequences:
         expr_ref tmp(m), zero(m);
         expr_ref_vector conv(m), es(m), enabled(m);
@@ -359,19 +428,26 @@ namespace pdr {
         smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
         for (unsigned i = 0; i < conv.size(); ++i) {
             ctx.assert_expr(conv[i].get());
+            IF_VERBOSE(0, verbose_stream() << "CC: " << mk_pp(conv[i].get(), m) << "\n";);
         }
         for (unsigned i = 0; i < core.size(); ++i) {
             ctx.assert_expr(core[i]);
+            IF_VERBOSE(0, verbose_stream() << "Co: " << mk_pp(core[i], m) << "\n";);
         }
         vector<unsigned_vector> transversal;
         while (l_true == ctx.check()) {
-            IF_VERBOSE(0, ctx.display(verbose_stream()););
             model_ref md;
             ctx.get_model(md);
+            IF_VERBOSE(0, 
+                       ctx.display(verbose_stream());
+                       verbose_stream() << "\n";
+                       model_smt2_pp(verbose_stream(), m, *md.get(), 0););
             expr_ref_vector lits(m);
             unsigned_vector pos;
             for (unsigned i = 0; i < consequences.size(); ++i) {
                 if (md->eval(enabled[i].get(), tmp, false)) {
+                    IF_VERBOSE(0,
+                               verbose_stream() << mk_pp(enabled[i].get(), m) << " |-> " << mk_pp(tmp, m) << "\n";);
                     if (m.is_true(tmp)) {
                         lits.push_back(tmp);
                         pos.push_back(i);
@@ -387,44 +463,37 @@ namespace pdr {
         //
         // we could no longer satisfy core using a partition.
         // 
-        
-    }
+        IF_VERBOSE(0, verbose_stream() << "TBD: tranverse\n";);
+#endif
+
 
     void core_convex_hull_generalizer::add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls) {
         manager& pm = n.pt().get_pdr_manager();
+        SASSERT(num_vars > 0);
         while (m_vars.size() < num_vars) {
             m_vars.resize(m_vars.size()+1);
             m_sigma.push_back(m.mk_fresh_const("sigma", a.mk_real()));
         }
 
-        if (!m_vars[0].contains(n.pt().head())) {
-            expr_ref var(m);
-            m_vars[0].insert(n.pt().head(), 0);
-            unsigned sz = n.pt().sig_size();        
-            for (unsigned i = 0; i < sz; ++i) {
-                func_decl* fn0 = n.pt().sig(i);
-                sort* srt = fn0->get_range();
-                if (a.is_int_real(srt)) {
-                    func_decl* fn1 = pm.o2n(fn0, 0);
-                    for (unsigned j = 0; j < num_vars; ++j) {
-                        var  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
-                        m_vars[j].insert(fn1, var);
-                        m_trail.push_back(var);
-                    }
-                }
-            }
-        }
         unsigned sz = n.pt().sig_size();        
+
         for (unsigned i = 0; i < sz; ++i) {
             expr* var;
             ptr_vector<expr> vars;
             func_decl* fn0 = n.pt().sig(i);
             func_decl* fn1 = pm.o2n(fn0, 0);
-            for (unsigned j = 0; j < num_vars; ++j) {
-                VERIFY (m_vars[j].find(fn1, var));
-                vars.push_back(var);
+            sort* srt = fn0->get_range();
+            if (a.is_int_real(srt)) {
+                for (unsigned j = 0; j < num_vars; ++j) {
+                    if (!m_vars[j].find(fn1, var)) {
+                        var  = m.mk_fresh_const(fn1->get_name().str().c_str(), srt);
+                        m_trail.push_back(var);               
+                        m_vars[j].insert(fn1, var);
+                    }
+                    vars.push_back(var);
+                }
+                fmls.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars.c_ptr())));
             }
-            fmls.push_back(m.mk_eq(m.mk_const(fn1), a.mk_add(num_vars, vars.c_ptr())));
         }
         if (m_is_closure) {
             for (unsigned i = 0; i < num_vars; ++i) {
@@ -476,7 +545,6 @@ namespace pdr {
     }
 
     bool core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
-        conv.reset();
         for (unsigned i = 0; i < core.size(); ++i) {
             mk_convex(core[i], index, conv);
         }
