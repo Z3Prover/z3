@@ -50,52 +50,6 @@ namespace datalog {
         LAST_CACHE_MODE
     };
 
-    enum DL_ENGINE {
-        DATALOG_ENGINE,
-        PDR_ENGINE,
-        QPDR_ENGINE,
-        BMC_ENGINE,
-        QBMC_ENGINE,
-        TAB_ENGINE,
-        CLP_ENGINE,
-        LAST_ENGINE
-    };
-
-    class engine_base {
-        ast_manager& m;
-        std::string m_name;
-    public:
-        engine_base(ast_manager& m, char const* name): m(m), m_name(name) {}
-        virtual ~engine_base() {}
-
-        virtual expr_ref get_answer() = 0;
-        virtual lbool query(expr* q) = 0;
-
-        virtual void reset_statistics() {}
-        virtual void display_profile(std::ostream& out) const {}
-        virtual void collect_statistics(statistics& st) const {}
-        virtual unsigned get_num_levels(func_decl* pred) {
-            throw default_exception(std::string("get_num_levels is not supported for ") + m_name);
-        }
-        virtual expr_ref get_cover_delta(int level, func_decl* pred) {
-            throw default_exception(std::string("operation is not supported for ") + m_name);
-        }
-        virtual void add_cover(int level, func_decl* pred, expr* property) {
-            throw default_exception(std::string("operation is not supported for ") + m_name);
-        }
-        virtual void display_certificate(std::ostream& out) const {
-            throw default_exception(std::string("certificates are not supported for ") + m_name);
-        }
-        virtual model_ref get_model() {
-            return model_ref(alloc(model, m));
-        }
-        virtual proof_ref get_proof() {
-            return proof_ref(m.mk_asserted(m.mk_true()), m);
-        }
-        virtual void updt_params() {}
-        virtual void cancel() {}
-        virtual void cleanup() {}
-    };
 
     struct std_string_hash_proc { 
         unsigned operator()(const std::string & s) const 
@@ -435,14 +389,6 @@ namespace datalog {
 
     void reverse_renaming(ast_manager & m, const expr_ref_vector & src, expr_ref_vector & tgt);
 
-    /**
-       \brief Populate vector \c renaming_args so that it can be used as an argument to \c var_subst.
-         The renaming we want is one that transforms variables with numbers of indexes of \c map into the
-         values of at those indexes. If a value if \c UINT_MAX, it means we do not transform the index 
-         corresponding to it.
-    */
-    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
-            expr_ref_vector & renaming_arg);
 
     void print_renaming(const expr_ref_vector & cont, std::ostream & out);
 
@@ -634,8 +580,6 @@ namespace datalog {
         }
     }
 
-    void dealloc_ptr_vector_content(ptr_vector<relation_base> & v);
-
     /**
        \brief Add elements from an iterable object \c src into the vector \c vector.
      */
@@ -791,9 +735,6 @@ namespace datalog {
     void universal_delete(T* ptr) {
         dealloc(ptr);
     }
-
-    void universal_delete(relation_base* ptr);
-    void universal_delete(table_base* ptr);
 
     template<typename T>
     class scoped_rel {

@@ -1,6 +1,8 @@
 #ifdef _WINDOWS
 #include "dl_context.h"
 #include "dl_table.h"
+#include "dl_register_engine.h"
+#include "dl_relation_manager.h"
 
 typedef datalog::table_base* (*mk_table_fn)(datalog::relation_manager& m, datalog::table_signature& sig);
 
@@ -18,7 +20,8 @@ static void test_table(mk_table_fn mk_table) {
     sig.push_back(4);
     smt_params params;
     ast_manager ast_m;
-    datalog::context ctx(ast_m, params);    
+    datalog::register_engine re;
+    datalog::context ctx(ast_m, re, params);    
     datalog::relation_manager & m = ctx.get_rel_context()->get_rmanager();
 
     m.register_plugin(alloc(datalog::bitvector_table_plugin, m));

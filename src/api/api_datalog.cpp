@@ -18,7 +18,6 @@ Revision History:
 #include"api_datalog.h"
 #include"api_context.h"
 #include"api_util.h"
-#include"dl_context.h"
 #include"ast_pp.h"
 #include"api_ast_vector.h"
 #include"api_log_macros.h"
@@ -30,8 +29,10 @@ Revision History:
 #include"cmd_context.h"
 #include"smt2parser.h"
 #include"dl_context.h"
+#include"dl_register_engine.h"
 #include"dl_external_relation.h"
 #include"dl_decl_plugin.h"
+#include"rel_context.h"
 
 namespace api {
 
@@ -39,6 +40,7 @@ namespace api {
         void *                       m_state;
         reduce_app_callback_fptr     m_reduce_app;
         reduce_assign_callback_fptr  m_reduce_assign;
+        datalog::register_engine     m_register_engine;
         datalog::context             m_context;    
         ast_ref_vector               m_trail;        
     public:
@@ -46,7 +48,7 @@ namespace api {
             m_state(0), 
             m_reduce_app(0), 
             m_reduce_assign(0), 
-            m_context(m, p),
+            m_context(m, m_register_engine, p),
             m_trail(m) {}
 
         virtual ~fixedpoint_context() {}
@@ -59,7 +61,7 @@ namespace api {
             if (!m.has_plugin(name)) {
                 m.register_plugin(name, alloc(datalog::dl_decl_plugin));
             }        
-            datalog::rel_context* rel = m_context.get_rel_context();
+            datalog::rel_context_base* rel = m_context.get_rel_context();
             if (rel) {
                 datalog::relation_manager& r = rel->get_rmanager();
                 r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));

@@ -23,28 +23,6 @@ Revision History:
 #include"basic_simplifier_plugin.h"
 #include"arith_decl_plugin.h"
 #include"bv_decl_plugin.h"
-#include"dl_table.h"
-#include"dl_table_relation.h"
-#include"dl_rule_transformer.h"
-#include"dl_mk_coi_filter.h"
-#include"dl_mk_explanations.h"
-#include"dl_mk_filter_rules.h"
-#include"dl_mk_interp_tail_simplifier.h"
-#include"dl_mk_rule_inliner.h"
-#include"dl_mk_simple_joins.h"
-#include"dl_mk_similarity_compressor.h"
-#include"dl_mk_unbound_compressor.h"
-#include"dl_mk_subsumption_checker.h"
-#include"dl_mk_partial_equiv.h"
-#include"dl_mk_bit_blast.h"
-#include"dl_mk_array_blast.h"
-#include"dl_mk_karr_invariants.h"
-#include"dl_mk_magic_symbolic.h"
-#include"dl_mk_quantifier_abstraction.h"
-#include"dl_mk_quantifier_instantiation.h"
-#include"dl_mk_scale.h"
-#include"dl_compiler.h"
-#include"dl_instruction.h"
 #include"dl_context.h"
 #include"for_each_expr.h"
 #include"ast_smt_pp.h"
@@ -217,8 +195,9 @@ namespace datalog {
     //
     // -----------------------------------
 
-    context::context(ast_manager & m, smt_params& fp, params_ref const& pa):
+    context::context(ast_manager & m, register_engine_base& re, smt_params& fp, params_ref const& pa):
         m(m),
+        m_register_engine(re),
         m_fparams(fp),
         m_params_ref(pa),
         m_params(m_params_ref),
@@ -248,6 +227,7 @@ namespace datalog {
         m_last_answer(m),
         m_engine_type(LAST_ENGINE),
         m_cancel(false) {
+        re.set_context(this);
     }
 
     context::~context() {
@@ -780,29 +760,6 @@ namespace datalog {
         m_closed = false;
     }
 
-    void context::transform_rules() {
-        m_transf.reset();
-        m_transf.register_plugin(alloc(mk_coi_filter, *this));
-        m_transf.register_plugin(alloc(mk_filter_rules, *this));        
-        m_transf.register_plugin(alloc(mk_simple_joins, *this));
-        if (unbound_compressor()) {
-            m_transf.register_plugin(alloc(mk_unbound_compressor, *this));
-        }
-        if (similarity_compressor()) {
-            m_transf.register_plugin(alloc(mk_similarity_compressor, *this)); 
-        }
-        m_transf.register_plugin(alloc(mk_partial_equivalence_transformer, *this));
-        m_transf.register_plugin(alloc(mk_rule_inliner, *this));
-        m_transf.register_plugin(alloc(mk_interp_tail_simplifier, *this));
-
-        if (get_params().bit_blast()) {
-            m_transf.register_plugin(alloc(mk_bit_blast, *this, 22000));
-            m_transf.register_plugin(alloc(mk_interp_tail_simplifier, *this, 21000));
-        }
-
-        transform_rules(m_transf);
-    }
-
     void context::transform_rules(rule_transformer::plugin* plugin) {
         rule_transformer transformer(*this);
         transformer.register_plugin(plugin);
@@ -834,45 +791,6 @@ namespace datalog {
     }
 
     void context::apply_default_transformation() {
-        ensure_closed();
-        m_transf.reset();
-        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this));
-        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this));
-
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 35005));
-        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 35000));
-        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34990));
-        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34980));
-
-        //and another round of inlining
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34975));
-        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34970));
-        m_transf.register_plugin(alloc(datalog::mk_coi_filter, *this, 34960));
-        m_transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, *this, 34950));
-
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34940));
-        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34930));
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34920));
-        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34910));
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34900));
-        m_transf.register_plugin(alloc(datalog::mk_rule_inliner, *this, 34890));
-        m_transf.register_plugin(alloc(datalog::mk_subsumption_checker, *this, 34880));
-
-
-        if (get_params().quantify_arrays()) {
-            m_transf.register_plugin(alloc(datalog::mk_quantifier_abstraction, *this, 33000));
-            m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 32500));
-        }
-        m_transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, *this, 32000));
-
-        m_transf.register_plugin(alloc(datalog::mk_bit_blast, *this, 35000));
-        m_transf.register_plugin(alloc(datalog::mk_array_blast, *this, 36000));
-        m_transf.register_plugin(alloc(datalog::mk_karr_invariants, *this, 36010));
-        if (get_params().magic()) {
-            m_transf.register_plugin(alloc(datalog::mk_magic_symbolic, *this, 36020));
-        }
-        m_transf.register_plugin(alloc(datalog::mk_scale, *this, 36030));
-        transform_rules(m_transf);
     }
 
     void context::collect_params(param_descrs& p) {
@@ -1024,39 +942,18 @@ namespace datalog {
 
     void context::ensure_engine() {
         if (!m_engine.get()) {
-            switch (get_engine()) {
-            case PDR_ENGINE:
-            case QPDR_ENGINE:
-                m_engine = alloc(pdr::dl_interface, *this);
-                break;
-            case DATALOG_ENGINE:
-                m_rel = alloc(rel_context, *this);
-                m_engine = m_rel;
-                break;
-            case BMC_ENGINE:
-            case QBMC_ENGINE:
-                m_engine = alloc(bmc, *this);
-                break;
-            case TAB_ENGINE:
-                m_engine = alloc(tab, *this);
-                break;
-            case CLP_ENGINE:
-                m_engine = alloc(clp, *this);
-                break;
-            case LAST_ENGINE:
-                UNREACHABLE();
+            m_engine = m_register_engine.mk_engine(get_engine());
+
+            // break abstraction.
+            if (get_engine() == DATALOG_ENGINE) {
+                m_rel = dynamic_cast<rel_context_base*>(m_engine.get());
             }
-        }
+        }       
     }
 
     lbool context::rel_query(unsigned num_rels, func_decl * const* rels) {        
         ensure_engine();
-        if (m_rel) {
-            return m_rel->query(num_rels, rels);
-        }
-        else {
-            return l_undef;
-        }
+        return m_engine->query(num_rels, rels);
     }
         
     expr* context::get_answer_as_formula() {
@@ -1071,6 +968,11 @@ namespace datalog {
     void context::display_certificate(std::ostream& out) {
         ensure_engine();
         m_engine->display_certificate(out);
+    }
+
+    void context::display(std::ostream & out) const {
+        display_rules(out);
+        if (m_rel) m_rel->display_facts(out);        
     }
 
     void context::display_profile(std::ostream& out) const {

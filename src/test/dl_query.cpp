@@ -2,9 +2,11 @@
 #include "ast_pp.h"
 #include "dl_table_relation.h"
 #include "dl_context.h"
+#include "dl_register_engine.h"
 #include "smt_params.h"
 #include "stopwatch.h"
 #include "reg_decl_plugins.h"
+#include "dl_relation_manager.h"
 
 using namespace datalog;
 
@@ -50,7 +52,8 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
     dl_decl_util decl_util(m);
     random_gen ran(0);
 
-    context ctx_q(m, fparams);
+    register_engine re;
+    context ctx_q(m, re, fparams);
     params.set_bool("magic_sets_for_queries", use_magic_sets);
     ctx_q.updt_params(params);
     {
@@ -135,7 +138,8 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     dl_decl_util dl_util(m);
 
     std::cerr << "Testing queries on " << problem_dir <<"\n";
-    context ctx(m, fparams);
+    register_engine re;
+    context ctx(m, re, fparams);
     ctx.updt_params(params);
     {
         wpa_parser* p = wpa_parser::create(ctx, m);
@@ -204,7 +208,8 @@ void tst_dl_query() {
 
     std::cerr << "Testing queries on " << problem_file <<"\n";
 
-    context ctx_base(m, fparams);
+    register_engine re;
+    context ctx_base(m, re, fparams);
     ctx_base.updt_params(params);
     {
         parser* p = parser::create(ctx_base,m);

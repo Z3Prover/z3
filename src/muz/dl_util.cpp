@@ -32,14 +32,6 @@ Revision History:
 
 namespace datalog {
 
-    void universal_delete(relation_base* ptr) {
-        ptr->deallocate();
-    }
-
-    void universal_delete(table_base* ptr) {
-        ptr->deallocate();
-    }
-
 
     bool contains_var(expr * trm, unsigned var_idx) {
         ptr_vector<sort> vars;
@@ -420,18 +412,6 @@ namespace datalog {
         }
     }
 
-    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
-            expr_ref_vector & renaming_arg) {
-        ast_manager & m = renaming_arg.get_manager();
-        unsigned sz = map.size();
-        unsigned ofs = sz-1;
-        renaming_arg.resize(sz, static_cast<expr *>(0));
-        for(unsigned i=0; i<sz; i++) {
-            if(map[i]!=UINT_MAX) {
-                renaming_arg.set(ofs-i, m.mk_var(map[i], orig_sig[i]));
-            }
-        }
-    }
 
     void print_renaming(const expr_ref_vector & cont, std::ostream & out) {
         unsigned len = cont.size();
@@ -531,13 +511,6 @@ namespace datalog {
         }
     }
 
-    void dealloc_ptr_vector_content(ptr_vector<relation_base> & v) {
-        ptr_vector<relation_base>::iterator it = v.begin();
-        ptr_vector<relation_base>::iterator end = v.end();
-        for(; it!=end; ++it) {
-            (*it)->deallocate();
-        }
-    }
 
 
     // -----------------------------------

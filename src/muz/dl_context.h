@@ -28,15 +28,9 @@ Revision History:
 #include"th_rewriter.h"
 #include"str_hashtable.h"
 #include"var_subst.h"
-#include"dl_base.h"
 #include"dl_costs.h"
 #include"dl_decl_plugin.h"
-#include"dl_relation_manager.h"
 #include"dl_rule_set.h"
-#include"pdr_dl_interface.h"
-#include"dl_bmc_engine.h"
-#include"tab_context.h"
-#include"rel_context.h"
 #include"lbool.h"
 #include"statistics.h"
 #include"params.h"
@@ -47,7 +41,7 @@ Revision History:
 #include"dl_rule_transformer.h"
 #include"expr_abstract.h"
 #include"expr_functors.h"
-#include"clp_context.h"
+#include"dl_engine_base.h"
 
 namespace datalog {
 
@@ -58,6 +52,84 @@ namespace datalog {
         INPUT_ERROR,
         APPROX,
         CANCELED
+    };
+
+    class relation_manager;
+
+    typedef sort * relation_sort;
+    typedef uint64 table_element;
+    typedef svector<table_element> table_fact;
+
+    typedef app * relation_element;
+    typedef app_ref relation_element_ref;
+
+    class relation_fact : public app_ref_vector {
+    public:
+        class el_proxy {
+            friend class relation_fact;
+
+            relation_fact & m_parent;
+            unsigned m_idx;
+
+            el_proxy(relation_fact & parent, unsigned idx) : m_parent(parent), m_idx(idx) {}
+        public:
+            operator relation_element() const {
+                return m_parent.get(m_idx);
+            }
+            relation_element operator->() const {
+                return m_parent.get(m_idx);
+            }
+            relation_element operator=(const relation_element & val) const {
+                m_parent.set(m_idx, val);
+                return m_parent.get(m_idx);
+            }
+            relation_element operator=(const el_proxy & val) {
+                m_parent.set(m_idx, val);
+                return m_parent.get(m_idx);
+            }
+        };
+
+        typedef const relation_element * iterator;
+
+        relation_fact(ast_manager & m) : app_ref_vector(m) {}
+        relation_fact(ast_manager & m, unsigned sz) : app_ref_vector(m) { resize(sz); }
+        relation_fact(context & ctx);
+        
+        iterator begin() const { return c_ptr(); }
+        iterator end() const { return c_ptr()+size(); }
+
+        relation_element operator[](unsigned i) const { return get(i); }
+        el_proxy operator[](unsigned i) { return el_proxy(*this, i); }
+    };
+
+    // attempt to modularize context code.
+    class rel_context_base : public engine_base {
+    public:
+        rel_context_base(ast_manager& m, char const* name): engine_base(m, name) {}
+        virtual ~rel_context_base() {}
+        virtual relation_manager & get_rmanager() = 0;
+        virtual const relation_manager & get_rmanager() const = 0;
+        virtual relation_base & get_relation(func_decl * pred) = 0;
+        virtual relation_base * try_get_relation(func_decl * pred) const = 0;
+        virtual bool is_empty_relation(func_decl* pred) const = 0;
+        virtual expr_ref try_get_formula(func_decl * pred) const = 0;
+        virtual void display_output_facts(rule_set const& rules, std::ostream & out) const = 0;
+        virtual void display_facts(std::ostream & out) const = 0;
+        virtual void display_profile(std::ostream& out) = 0;
+        virtual void restrict_predicates(func_decl_set const& predicates) = 0;
+        virtual bool result_contains_fact(relation_fact const& f) = 0;
+        virtual void add_fact(func_decl* pred, relation_fact const& fact) = 0;
+        virtual void add_fact(func_decl* pred, table_fact const& fact) = 0;
+        virtual bool has_facts(func_decl * pred) const = 0;
+        virtual void store_relation(func_decl * pred, relation_base * rel) = 0;
+        virtual void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) = 0;
+        virtual void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
+                                                  symbol const * relation_names) = 0;
+        virtual bool output_profile() const = 0;
+        virtual void collect_non_empty_predicates(func_decl_set& preds) = 0;
+        virtual void transform_rules() = 0;
+        virtual bool try_get_size(func_decl* pred, unsigned& rel_sz) const = 0;
+        virtual lbool saturate() = 0;
     };
 
     class context {
@@ -93,6 +165,7 @@ namespace datalog {
 
 
         ast_manager &      m;
+        register_engine_base& m_register_engine;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
         fixedpoint_params  m_params;
@@ -122,7 +195,7 @@ namespace datalog {
         model_converter_ref m_mc;
         proof_converter_ref m_pc;
 
-        rel_context*                    m_rel;
+        rel_context_base*               m_rel;
         scoped_ptr<engine_base>         m_engine;
 
         bool               m_closed;
@@ -143,7 +216,7 @@ namespace datalog {
 
 
     public:
-        context(ast_manager & m, smt_params& fp, params_ref const& p = params_ref());
+        context(ast_manager & m, register_engine_base& re, smt_params& fp, params_ref const& p = params_ref());
         ~context();
         void reset();
 
@@ -160,6 +233,7 @@ namespace datalog {
         smt_params & get_fparams() const { return m_fparams; }
         fixedpoint_params const&  get_params() const { return m_params; }
         DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
+        register_engine_base& get_register_engine() { return m_register_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
@@ -355,7 +429,6 @@ namespace datalog {
         proof_converter_ref& get_proof_converter() { return m_pc; }
         void add_proof_converter(proof_converter* pc) { m_pc = concat(m_pc.get(), pc); }
 
-        void transform_rules(); 
         void transform_rules(rule_transformer& transf); 
         void transform_rules(rule_transformer::plugin* plugin);
         void replace_rules(rule_set const& rs);
@@ -371,10 +444,7 @@ namespace datalog {
             m_rule_set.display(out);
         }
 
-        void display(std::ostream & out) const {
-            display_rules(out);
-            if (m_rel) m_rel->display_facts(out);
-        }
+        void display(std::ostream & out) const;
 
         void display_smt2(unsigned num_queries, expr* const* queries, std::ostream& out);
 
@@ -459,7 +529,7 @@ namespace datalog {
          */
         bool result_contains_fact(relation_fact const& f);
 
-        rel_context* get_rel_context() { ensure_engine(); return m_rel; }
+        rel_context_base* get_rel_context() { ensure_engine(); return m_rel; }
 
     private:
 

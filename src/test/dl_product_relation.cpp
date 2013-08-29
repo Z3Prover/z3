@@ -1,7 +1,9 @@
 #ifdef _WINDOWS
 #include "dl_context.h"
+#include "dl_register_engine.h"
 #include "dl_finite_product_relation.h"
 #include "dl_sparse_table.h"
+#include "rel_context.h"
 
 namespace datalog {
 
@@ -21,8 +23,9 @@ namespace datalog {
 
     void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
-        context ctx(m, fparams);
-        rel_context& rctx = *ctx.get_rel_context();
+        register_engine re;
+        context ctx(m, re, fparams);
+        rel_context_base& rctx = *ctx.get_rel_context();
         ctx.updt_params(params);
         relation_manager & rmgr(rctx.get_rmanager());
 
@@ -124,7 +127,8 @@ namespace datalog {
 
     void test_finite_product_relation(smt_params fparams, params_ref& params) {
         ast_manager m;
-        context ctx(m, fparams);
+        register_engine re;
+        context ctx(m, re, fparams);
         ctx.updt_params(params);
         dl_decl_util dl_util(m);
         relation_manager & rmgr = ctx.get_rel_context()->get_rmanager();
