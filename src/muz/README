@@ -1,1 +1,2 @@
-muZ and Quantifier Elimination modules
+muZ: routines related to solving satisfiability of Horn clauses and 
+solving Datalog programs.
