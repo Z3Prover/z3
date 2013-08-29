@@ -158,7 +158,7 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::operator()(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores) {
-        method3(n, core, uses_level, new_cores);
+        // method3(n, core, uses_level, new_cores);
         method1(n, core, uses_level, new_cores);
     }
 
@@ -188,11 +188,7 @@ namespace pdr {
             return;
         }        
         add_variables(n, 2, fmls);
-        if (!mk_convex(core, 0, conv1)) {
-            new_cores.push_back(std::make_pair(core, uses_level));
-            IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core), m) << "\n";);
-            return;
-        }
+        mk_convex(core, 0, conv1);
         conv1.append(fmls);
         expr_ref fml = n.pt().get_formulas(n.level(), false);
         fmls.reset();
@@ -202,10 +198,7 @@ namespace pdr {
             core2.reset();
             conv2.reset();
             qe::flatten_and(fml, core2);
-            if (!mk_convex(core2, 1, conv2)) {
-                IF_VERBOSE(0, verbose_stream() << "Non-convex: " << mk_pp(pm.mk_and(core2), m) << "\n";);
-                continue;
-            }
+            mk_convex(core2, 1, conv2);
             conv2.append(conv1);
             expr_ref state = pm.mk_and(conv2);
             TRACE("pdr", 
@@ -323,12 +316,29 @@ namespace pdr {
                        verbose_stream() << mk_pp(core1[i].get(), m) << "\n";
                    });
 
-        // Create disjunction.
         expr_ref tmp(m);
-        for (unsigned i = 0; i < consequences.size(); ++i) {
-            consequences[i] = m.mk_not(consequences[i].get());
+
+        // Check that F(R) => \/ consequences
+        {
+            expr_ref_vector cstate(m);
+            for (unsigned i = 0; i < consequences.size(); ++i) {
+                cstate.push_back(m.mk_not(consequences[i].get()));
+            }
+            tmp = m.mk_and(cstate.size(), cstate.c_ptr());
+            model_node nd(0, tmp, n.pt(), n.level());
+            pred_transformer::scoped_farkas sf (n.pt(), false);            
+            VERIFY(l_false == n.pt().is_reachable(nd, &core1, uses_level1));            
         }
+
+        // Create disjunction.
         tmp = m.mk_and(core.size(), core.c_ptr());
+
+        // Check that \/ consequences => not (core)
+        if (!is_unsat(consequences, tmp)) {
+            IF_VERBOSE(0, verbose_stream() << "Consequences don't contradict the core\n";);
+            return;
+        }
+        IF_VERBOSE(0, verbose_stream() << "Consequences contradict core\n";);
 
         if (!strengthen_consequences(n, consequences, tmp)) {
             return;
@@ -345,15 +355,15 @@ namespace pdr {
             expr_ref_vector Hs(m);
             Hs.push_back(As[i].get());
             for (unsigned j = i + 1; j < As.size(); ++j) {
-                Hs.push_back(Hs[j].get());
+                Hs.push_back(As[j].get());
                 bool unsat = false;
-                if (mk_closure(n, Hs, A)) {
-                    tmp = As[i].get();
-                    As[i] = A;
-                    unsat = is_unsat(As, B);
-                    As[i] = tmp;
-                }
+                mk_convex(n, Hs, A);
+                tmp = As[i].get();
+                As[i] = A;
+                unsat = is_unsat(As, B);
+                As[i] = tmp;                
                 if (unsat) {
+                    IF_VERBOSE(0, verbose_stream() << "New convex: " << mk_pp(convA, m) << "\n";);
                     convA = A;
                     As[j] = As.back();
                     As.pop_back();
@@ -370,102 +380,26 @@ namespace pdr {
         return sz > As.size();
     }
 
-    bool core_convex_hull_generalizer::mk_closure(model_node& n, expr_ref_vector const& Hs, expr_ref& A) {
+    void core_convex_hull_generalizer::mk_convex(model_node& n, expr_ref_vector const& Hs, expr_ref& A) {
         expr_ref_vector fmls(m), es(m);
         add_variables(n, Hs.size(), fmls);
         for (unsigned i = 0; i < Hs.size(); ++i) {
             es.reset();
             qe::flatten_and(Hs[i], es);
-            if (!mk_convex(es, i, fmls)) {
-                return false;
-            }
+            mk_convex(es, i, fmls);
         }
         A = m.mk_and(fmls.size(), fmls.c_ptr());
-        return true;
     }
 
     bool core_convex_hull_generalizer::is_unsat(expr_ref_vector const& As, expr* B) {
         smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
-        for (unsigned i = 0; i < As.size(); ++i) {
-            ctx.assert_expr(As[i]);
-        }
+        expr_ref disj(m);
+        disj = m.mk_or(As.size(), As.c_ptr());
+        ctx.assert_expr(disj);
         ctx.assert_expr(B);
+        std::cout << "Checking\n" << mk_pp(disj, m) << "\n" << mk_pp(B, m) << "\n";
         return l_false == ctx.check();
     }
-
-#if 0
-        // now create the convex closure of the consequences:
-        expr_ref tmp(m), zero(m);
-        expr_ref_vector conv(m), es(m), enabled(m);
-        zero = a.mk_numeral(rational(0), a.mk_real());
-        add_variables(n, consequences.size(), conv);
-        for (unsigned i = 0; i < consequences.size(); ++i) {
-            es.reset();
-            tmp = m.mk_not(consequences[i].get());
-            qe::flatten_and(tmp, es);
-            if (!mk_convex(es, i, conv)) {
-                IF_VERBOSE(0, verbose_stream() << "Failed to create convex closure\n";);
-                return;
-            }
-            es.reset();
-            //
-            // enabled[i] = not (sigma_i = 0 and z_i1 = 0 and .. and z_im = 0)
-            //
-            es.push_back(m.mk_eq(m_sigma[i].get(), zero));
-            for (unsigned j = 0; j < n.pt().sig_size(); ++j) {
-                func_decl* fn0 = n.pt().sig(j);
-                func_decl* fn1 = pm.o2n(fn0, 0);
-                expr* var;
-                VERIFY (m_vars[i].find(fn1, var));
-                es.push_back(m.mk_eq(var, zero));
-            }
-            
-            enabled.push_back(m.mk_not(m.mk_and(es.size(), es.c_ptr())));
-        }
-        
-        // the convex closure was created of all consequences.
-        // now determine a subset of enabled constraints.
-        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
-        for (unsigned i = 0; i < conv.size(); ++i) {
-            ctx.assert_expr(conv[i].get());
-            IF_VERBOSE(0, verbose_stream() << "CC: " << mk_pp(conv[i].get(), m) << "\n";);
-        }
-        for (unsigned i = 0; i < core.size(); ++i) {
-            ctx.assert_expr(core[i]);
-            IF_VERBOSE(0, verbose_stream() << "Co: " << mk_pp(core[i], m) << "\n";);
-        }
-        vector<unsigned_vector> transversal;
-        while (l_true == ctx.check()) {
-            model_ref md;
-            ctx.get_model(md);
-            IF_VERBOSE(0, 
-                       ctx.display(verbose_stream());
-                       verbose_stream() << "\n";
-                       model_smt2_pp(verbose_stream(), m, *md.get(), 0););
-            expr_ref_vector lits(m);
-            unsigned_vector pos;
-            for (unsigned i = 0; i < consequences.size(); ++i) {
-                if (md->eval(enabled[i].get(), tmp, false)) {
-                    IF_VERBOSE(0,
-                               verbose_stream() << mk_pp(enabled[i].get(), m) << " |-> " << mk_pp(tmp, m) << "\n";);
-                    if (m.is_true(tmp)) {
-                        lits.push_back(tmp);
-                        pos.push_back(i);
-                    }
-                }
-            }
-            transversal.push_back(pos);
-            SASSERT(!lits.empty());
-            tmp = m.mk_not(m.mk_and(lits.size(), lits.c_ptr()));
-            TRACE("pdr", tout << "add block: " << mk_pp(tmp, m) << "\n";);
-            ctx.assert_expr(tmp);
-        }
-        //
-        // we could no longer satisfy core using a partition.
-        // 
-        IF_VERBOSE(0, verbose_stream() << "TBD: tranverse\n";);
-#endif
-
 
     void core_convex_hull_generalizer::add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls) {
         manager& pm = n.pt().get_pdr_manager();
@@ -544,35 +478,41 @@ namespace pdr {
         return true;
     }
 
-    bool core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
+    void core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
         for (unsigned i = 0; i < core.size(); ++i) {
             mk_convex(core[i], index, conv);
         }
-        return !conv.empty() && mk_closure(conv);
+        mk_closure(conv);
     }
 
     void core_convex_hull_generalizer::mk_convex(expr* fml, unsigned index, expr_ref_vector& conv) {
         expr_ref result(m), r1(m), r2(m);
         expr* e1, *e2;        
         bool is_not = m.is_not(fml, fml);
-        if (a.is_le(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+        if (a.is_le(fml, e1, e2)) {
+            mk_convex(e1, index, false, r1);
+            mk_convex(e2, index, false, r2);
             result = a.mk_le(r1, r2);
         }
-        else if (a.is_ge(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+        else if (a.is_ge(fml, e1, e2)) {
+            mk_convex(e1, index, false, r1);
+            mk_convex(e2, index, false, r2);
             result = a.mk_ge(r1, r2);
         }
-        else if (a.is_gt(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+        else if (a.is_gt(fml, e1, e2)) {
+            mk_convex(e1, index, false, r1);
+            mk_convex(e2, index, false, r2);
             result = a.mk_gt(r1, r2);
         }
-        else if (a.is_lt(fml, e1, e2) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+        else if (a.is_lt(fml, e1, e2)) {
+            mk_convex(e1, index, false, r1);
+            mk_convex(e2, index, false, r2);
             result = a.mk_lt(r1, r2);
         }
-        else if (m.is_eq(fml, e1, e2) && a.is_int_real(e1) && mk_convex(e1, index, false, r1) && mk_convex(e2, index, false, r2)) {
+        else if (m.is_eq(fml, e1, e2) && a.is_int_real(e1)) {
+            mk_convex(e1, index, false, r1);
+            mk_convex(e2, index, false, r2);
             result = m.mk_eq(r1, r2);
-        }
-        else {
-            TRACE("pdr", tout << "Did not handle " << mk_pp(fml, m) << "\n";);
-            return;
         }
         if (is_not) {
             result = m.mk_not(result);
@@ -591,49 +531,46 @@ namespace pdr {
     }
 
 
-    bool core_convex_hull_generalizer::mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result) {
+    void core_convex_hull_generalizer::mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result) {
         if (!is_app(term)) {
-            return false;
+            result = term;
+            return;
         }
         app* app = to_app(term);
         expr* e1, *e2;
         expr_ref r1(m), r2(m);
-        if (translate(app->get_decl(), index, result)) {
-            return true;
-        }
         if (a.is_add(term)) {
-            bool ok = true;
             expr_ref_vector args(m);
-            for (unsigned i = 0; ok && i < app->get_num_args(); ++i) {
-                ok = mk_convex(app->get_arg(i), index, is_mul, r1);
-                if (ok) {
-                    args.push_back(r1);
-                }
+            for (unsigned i = 0; i < app->get_num_args(); ++i) {
+                mk_convex(app->get_arg(i), index, is_mul, r1);
+                args.push_back(r1);                
             }
-            if (ok) {
-                result = a.mk_add(args.size(), args.c_ptr());
-            }
-            return ok;
+            result = a.mk_add(args.size(), args.c_ptr());
         }
-        if (a.is_sub(term, e1, e2) && mk_convex(e1, index, is_mul, r1) && mk_convex(e2, index, is_mul, r2)) {
+        else if (a.is_sub(term, e1, e2)) {
+            mk_convex(e1, index, is_mul, r1);
+            mk_convex(e2, index, is_mul, r2);
             result = a.mk_sub(r1, r2);
-            return true;
         }
-        if (a.is_mul(term, e1, e2) && mk_convex(e1, index, true, r1) && mk_convex(e2, index, true, r2)) {
+        else if (a.is_mul(term, e1, e2)) {
+            mk_convex(e1, index, true, r1);
+            mk_convex(e2, index, true, r2);
             result = a.mk_mul(r1, r2);
-            return true;
         }
-        if (a.is_numeral(term)) {
+        else if (a.is_numeral(term)) {
             if (is_mul) {
                 result = term;
             }
             else {
                 result = a.mk_mul(m_sigma[index].get(), term);
             }
-            return true;
         }
-        IF_VERBOSE(0, verbose_stream() << "Not handled: " << mk_pp(term, m) << "\n";);
-        return false;
+        else if (translate(app->get_decl(), index, result)) {
+            // no-op
+        }
+        else {
+            result = term;
+        }
     }
 
 
@@ -1088,3 +1025,74 @@ namespace pdr {
         }
     }
 };
+
+#if 0
+        // now create the convex closure of the consequences:
+        expr_ref tmp(m), zero(m);
+        expr_ref_vector conv(m), es(m), enabled(m);
+        zero = a.mk_numeral(rational(0), a.mk_real());
+        add_variables(n, consequences.size(), conv);
+        for (unsigned i = 0; i < consequences.size(); ++i) {
+            es.reset();
+            tmp = m.mk_not(consequences[i].get());
+            qe::flatten_and(tmp, es);
+            mk_convex(es, i, conv);
+            es.reset();
+            //
+            // enabled[i] = not (sigma_i = 0 and z_i1 = 0 and .. and z_im = 0)
+            //
+            es.push_back(m.mk_eq(m_sigma[i].get(), zero));
+            for (unsigned j = 0; j < n.pt().sig_size(); ++j) {
+                func_decl* fn0 = n.pt().sig(j);
+                func_decl* fn1 = pm.o2n(fn0, 0);
+                expr* var;
+                VERIFY (m_vars[i].find(fn1, var));
+                es.push_back(m.mk_eq(var, zero));
+            }
+            
+            enabled.push_back(m.mk_not(m.mk_and(es.size(), es.c_ptr())));
+        }
+        
+        // the convex closure was created of all consequences.
+        // now determine a subset of enabled constraints.
+        smt::kernel ctx(m, m_ctx.get_fparams(), m_ctx.get_params().p);
+        for (unsigned i = 0; i < conv.size(); ++i) {
+            ctx.assert_expr(conv[i].get());
+            IF_VERBOSE(0, verbose_stream() << "CC: " << mk_pp(conv[i].get(), m) << "\n";);
+        }
+        for (unsigned i = 0; i < core.size(); ++i) {
+            ctx.assert_expr(core[i]);
+            IF_VERBOSE(0, verbose_stream() << "Co: " << mk_pp(core[i], m) << "\n";);
+        }
+        vector<unsigned_vector> transversal;
+        while (l_true == ctx.check()) {
+            model_ref md;
+            ctx.get_model(md);
+            IF_VERBOSE(0, 
+                       ctx.display(verbose_stream());
+                       verbose_stream() << "\n";
+                       model_smt2_pp(verbose_stream(), m, *md.get(), 0););
+            expr_ref_vector lits(m);
+            unsigned_vector pos;
+            for (unsigned i = 0; i < consequences.size(); ++i) {
+                if (md->eval(enabled[i].get(), tmp, false)) {
+                    IF_VERBOSE(0,
+                               verbose_stream() << mk_pp(enabled[i].get(), m) << " |-> " << mk_pp(tmp, m) << "\n";);
+                    if (m.is_true(tmp)) {
+                        lits.push_back(tmp);
+                        pos.push_back(i);
+                    }
+                }
+            }
+            transversal.push_back(pos);
+            SASSERT(!lits.empty());
+            tmp = m.mk_not(m.mk_and(lits.size(), lits.c_ptr()));
+            TRACE("pdr", tout << "add block: " << mk_pp(tmp, m) << "\n";);
+            ctx.assert_expr(tmp);
+        }
+        //
+        // we could no longer satisfy core using a partition.
+        // 
+        IF_VERBOSE(0, verbose_stream() << "TBD: tranverse\n";);
+#endif
+

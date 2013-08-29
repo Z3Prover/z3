@@ -423,6 +423,7 @@ namespace pdr {
         else {
             bool_rewriter rw(m);
             rw.mk_or(n, (expr*const*)(lits), res);
+            res = m.mk_not(res);
         }
     }
 
