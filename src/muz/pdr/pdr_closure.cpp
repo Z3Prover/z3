@@ -135,6 +135,7 @@ namespace pdr {
             result = e;
         }
         else {
+            result = e;
             IF_VERBOSE(1, verbose_stream() << "Cannot close: " << mk_pp(e, m) << "\n";);
         }
         return result;        
