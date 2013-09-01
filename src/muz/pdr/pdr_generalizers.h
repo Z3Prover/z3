@@ -21,6 +21,7 @@ Revision History:
 #define _PDR_GENERALIZERS_H_
 
 #include "pdr_context.h"
+#include "pdr_closure.h"
 #include "arith_decl_plugin.h"
 
 namespace pdr {
@@ -73,45 +74,15 @@ namespace pdr {
         virtual void collect_statistics(statistics& st) const;
     };
 
-    // Arithmetic scaling functor.
-    // Variables are replaced using 
-    // m_translate. Constants are replaced by
-    // multiplication with a variable 'k' (scale factor).
-    class scaler {
-        ast_manager&          m;
-        arith_util            a;
-        obj_map<expr, expr*>  m_cache[2];
-        expr*                 m_k;
-        obj_map<func_decl, expr*>* m_translate;
-    public:
-        scaler(ast_manager& m): m(m), a(m), m_translate(0) {}        
-        expr_ref operator()(expr* e, expr* k, obj_map<func_decl, expr*>* translate = 0);
-        expr_ref undo_k(expr* e, expr* k);
-    private:
-        expr_ref scale(expr* e, bool is_mul);
-    };
 
     class core_convex_hull_generalizer : public core_generalizer {
         ast_manager&    m;
-        arith_util      a;
-        expr_ref_vector m_sigma;
-        expr_ref_vector m_trail;
-        vector<obj_map<func_decl, expr*> > m_vars;
         obj_map<expr, expr*> m_models;
         bool m_is_closure;
-        expr_ref mk_closure(expr* e);
-        bool mk_closure(expr_ref_vector& conj);
-        void mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv);
-        void mk_convex(expr* fml, unsigned index, expr_ref_vector& conv);
-        void mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result);
-        bool translate(func_decl* fn, unsigned index, expr_ref& result);
         void method1(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
-        void method2(model_node& n, expr_ref_vector& core, bool& uses_level);
         void method3(model_node& n, expr_ref_vector const& core, bool uses_level, cores& new_cores);
         bool strengthen_consequences(model_node& n, expr_ref_vector& As, expr* B);
         bool is_unsat(expr_ref_vector const& As, expr* B);
-        void mk_convex(model_node& n, expr_ref_vector const& Hs, expr_ref& A);
-        void add_variables(model_node& n, unsigned num_vars, expr_ref_vector& fmls);
     public:
         core_convex_hull_generalizer(context& ctx, bool is_closure);
         virtual ~core_convex_hull_generalizer() {}
