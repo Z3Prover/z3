@@ -135,8 +135,8 @@ namespace pdr {
             result = e;
         }
         else {
-            result = e;
             IF_VERBOSE(1, verbose_stream() << "Cannot close: " << mk_pp(e, m) << "\n";);
+            result = m.mk_true();
         }
         return result;        
     }
@@ -145,9 +145,9 @@ namespace pdr {
         expr_ref_vector fmls(m);
         qe::flatten_and(fml, fmls);
         for (unsigned i = 0; i < fmls.size(); ++i) {
-            fmls[i] = close_fml(fmls[i].get());
+            fmls[i] = close_fml(fmls[i].get());            
         }
-        return expr_ref(m.mk_and(fmls.size(), fmls.c_ptr()), m);
+        return qe::mk_and(fmls);
     }
 
     expr_ref closure::relax(unsigned i, expr* fml) {

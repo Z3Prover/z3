@@ -116,11 +116,10 @@ namespace pdr {
     
     void core_farkas_generalizer::operator()(model_node& n, expr_ref_vector& core, bool& uses_level) {
         ast_manager& m  = n.pt().get_manager();
-        manager& pm = n.pt().get_pdr_manager();
         if (core.empty()) return;
-        expr_ref A(m), B(pm.mk_and(core)), C(m);
+        expr_ref A(m), B(qe::mk_and(core)), C(m);
         expr_ref_vector Bs(m);
-        pm.get_or(B, Bs);
+        qe::flatten_or(B, Bs);
         A = n.pt().get_propagation_formula(m_ctx.get_pred_transformers(), n.level());
 
         bool change = false;
@@ -130,13 +129,13 @@ namespace pdr {
             if (m_farkas_learner.get_lemma_guesses(A, B, lemmas)) {
                 TRACE("pdr", 
                       tout << "Old core:\n" << mk_pp(B, m) << "\n";
-                      tout << "New core:\n" << mk_pp(pm.mk_and(lemmas), m) << "\n";);            
-                Bs[i] = pm.mk_and(lemmas);
+                      tout << "New core:\n" << mk_pp(qe::mk_and(lemmas), m) << "\n";);            
+                Bs[i] = qe::mk_and(lemmas);
                 change = true;
             }
         }
         if (change) {
-            C = pm.mk_or(Bs);
+            C = qe::mk_or(Bs);
             TRACE("pdr", tout << "prop:\n" << mk_pp(A,m) << "\ngen:" << mk_pp(B, m) << "\nto: " << mk_pp(C, m) << "\n";);
             core.reset();
             qe::flatten_and(C, core);    
@@ -688,7 +687,7 @@ namespace pdr {
             for (unsigned i = 0; i < rules.size(); ++i) {
                 fmls.push_back(m.mk_not(mk_transition_rule(reps, level, *rules[i])));           
             }
-            fml = pm.mk_and(fmls);
+            fml = qe::mk_and(fmls);
             TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
             return fml;
         }
@@ -744,7 +743,7 @@ namespace pdr {
                 }                
             }
 
-            expr_ref result = pm.mk_and(conjs);
+            expr_ref result = qe::mk_and(conjs);
             TRACE("pdr", tout << mk_pp(result, m) << "\n";);
             return result;
         }
