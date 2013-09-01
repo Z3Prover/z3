@@ -23,6 +23,7 @@ Revision History:
 #include "pdr_generalizers.h"
 #include "expr_abstract.h"
 #include "var_subst.h"
+#include "expr_safe_replace.h"
 #include "model_smt2_pp.h"
 
 
@@ -147,6 +148,49 @@ namespace pdr {
         m_farkas_learner.collect_statistics(st);
     }
 
+    expr_ref scaler::operator()(expr* e, expr* k, obj_map<func_decl, expr*>* translate) {
+        m_cache[0].reset();
+        m_cache[1].reset();
+        m_translate = translate;
+        m_k = k;
+        return scale(e, false);
+    }
+
+    expr_ref scaler::scale(expr* e, bool is_mul) {
+        expr* r;
+        if (m_cache[is_mul].find(e, r)) {
+            return expr_ref(r, m);
+        }
+        if (!is_app(e)) {
+            return expr_ref(e, m);
+        }
+        app* ap = to_app(e);
+        if (m_translate && m_translate->find(ap->get_decl(), r)) {
+            return expr_ref(r, m);
+        }
+        if (!is_mul && a.is_numeral(e)) {
+            return expr_ref(a.mk_mul(m_k, e), m);
+        }
+        expr_ref_vector args(m);
+        bool is_mul_rec = is_mul || a.is_mul(e);
+        for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+            args.push_back(scale(ap->get_arg(i), is_mul_rec));
+        }
+        expr_ref result(m);
+        result = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
+        m_cache[is_mul].insert(e, result);
+        return result;
+    }
+
+    expr_ref scaler::undo_k(expr* e, expr* k) {
+        expr_safe_replace sub(m);
+        th_rewriter rw(m);
+        expr_ref result(e, m);
+        sub.insert(k, a.mk_numeral(rational(1), false));
+        sub(result);
+        rw(result);
+        return result;
+    }
 
     core_convex_hull_generalizer::core_convex_hull_generalizer(context& ctx, bool is_closure):
         core_generalizer(ctx),
@@ -479,98 +523,11 @@ namespace pdr {
     }
 
     void core_convex_hull_generalizer::mk_convex(expr_ref_vector const& core, unsigned index, expr_ref_vector& conv) {
+        scaler sc(m);
         for (unsigned i = 0; i < core.size(); ++i) {
-            mk_convex(core[i], index, conv);
+            conv.push_back(sc(core[i], m_sigma[index].get(), &m_vars[index]));                  
         }
         mk_closure(conv);
-    }
-
-    void core_convex_hull_generalizer::mk_convex(expr* fml, unsigned index, expr_ref_vector& conv) {
-        expr_ref result(m), r1(m), r2(m);
-        expr* e1, *e2;        
-        bool is_not = m.is_not(fml, fml);
-        if (a.is_le(fml, e1, e2)) {
-            mk_convex(e1, index, false, r1);
-            mk_convex(e2, index, false, r2);
-            result = a.mk_le(r1, r2);
-        }
-        else if (a.is_ge(fml, e1, e2)) {
-            mk_convex(e1, index, false, r1);
-            mk_convex(e2, index, false, r2);
-            result = a.mk_ge(r1, r2);
-        }
-        else if (a.is_gt(fml, e1, e2)) {
-            mk_convex(e1, index, false, r1);
-            mk_convex(e2, index, false, r2);
-            result = a.mk_gt(r1, r2);
-        }
-        else if (a.is_lt(fml, e1, e2)) {
-            mk_convex(e1, index, false, r1);
-            mk_convex(e2, index, false, r2);
-            result = a.mk_lt(r1, r2);
-        }
-        else if (m.is_eq(fml, e1, e2) && a.is_int_real(e1)) {
-            mk_convex(e1, index, false, r1);
-            mk_convex(e2, index, false, r2);
-            result = m.mk_eq(r1, r2);
-        }
-        if (is_not) {
-            result = m.mk_not(result);
-        }
-        conv.push_back(result);
-    }
-
-    
-    bool core_convex_hull_generalizer::translate(func_decl* f, unsigned index, expr_ref& result) {
-        expr* tmp;
-        if (m_vars[index].find(f, tmp)) {
-            result = tmp;
-            return true;
-        }
-        return false;
-    }
-
-
-    void core_convex_hull_generalizer::mk_convex(expr* term, unsigned index, bool is_mul, expr_ref& result) {
-        if (!is_app(term)) {
-            result = term;
-            return;
-        }
-        app* app = to_app(term);
-        expr* e1, *e2;
-        expr_ref r1(m), r2(m);
-        if (a.is_add(term)) {
-            expr_ref_vector args(m);
-            for (unsigned i = 0; i < app->get_num_args(); ++i) {
-                mk_convex(app->get_arg(i), index, is_mul, r1);
-                args.push_back(r1);                
-            }
-            result = a.mk_add(args.size(), args.c_ptr());
-        }
-        else if (a.is_sub(term, e1, e2)) {
-            mk_convex(e1, index, is_mul, r1);
-            mk_convex(e2, index, is_mul, r2);
-            result = a.mk_sub(r1, r2);
-        }
-        else if (a.is_mul(term, e1, e2)) {
-            mk_convex(e1, index, true, r1);
-            mk_convex(e2, index, true, r2);
-            result = a.mk_mul(r1, r2);
-        }
-        else if (a.is_numeral(term)) {
-            if (is_mul) {
-                result = term;
-            }
-            else {
-                result = a.mk_mul(m_sigma[index].get(), term);
-            }
-        }
-        else if (translate(app->get_decl(), index, result)) {
-            // no-op
-        }
-        else {
-            result = term;
-        }
     }
 
 

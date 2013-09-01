@@ -73,6 +73,24 @@ namespace pdr {
         virtual void collect_statistics(statistics& st) const;
     };
 
+    // Arithmetic scaling functor.
+    // Variables are replaced using 
+    // m_translate. Constants are replaced by
+    // multiplication with a variable 'k' (scale factor).
+    class scaler {
+        ast_manager&          m;
+        arith_util            a;
+        obj_map<expr, expr*>  m_cache[2];
+        expr*                 m_k;
+        obj_map<func_decl, expr*>* m_translate;
+    public:
+        scaler(ast_manager& m): m(m), a(m), m_translate(0) {}        
+        expr_ref operator()(expr* e, expr* k, obj_map<func_decl, expr*>* translate = 0);
+        expr_ref undo_k(expr* e, expr* k);
+    private:
+        expr_ref scale(expr* e, bool is_mul);
+    };
+
     class core_convex_hull_generalizer : public core_generalizer {
         ast_manager&    m;
         arith_util      a;
