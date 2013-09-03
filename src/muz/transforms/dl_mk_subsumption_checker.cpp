@@ -252,7 +252,6 @@ namespace datalog {
         if (!rel) {
             return;
         }
-        relation_manager& rm = rel->get_rmanager();
 
         func_decl_set const& candidate_preds = m_context.get_predicates();
 
