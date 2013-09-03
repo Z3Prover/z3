@@ -1066,11 +1066,14 @@ namespace datalog {
 
             unsigned res_fact_size = res->m_fact_size;
             unsigned res_data_size = res_fact_size*t.row_count();
+            if (res_fact_size != 0 && (res_data_size / res_fact_size) != t.row_count()) {
+                throw default_exception("multiplication overflow");
+            }
 
             res->m_data.resize_data(res_data_size);
 
-            //here we can separate data creatin and insertion into hashmap, since we know
-            //that no row will become duplicit
+            //here we can separate data creating and insertion into hashmap, since we know
+            //that no row will become duplicate
 
             //create the data
             const char* t_ptr = t.m_data.begin();

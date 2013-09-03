@@ -275,6 +275,9 @@ namespace datalog {
         //the following two operations allow breaking of the object invariant!
         void resize_data(unsigned sz) {
             m_data_size = sz;
+            if (sz + sizeof(uint64) < sz) {
+                throw default_exception("overflow resizing data section for sparse table");
+            }
             m_data.resize(sz + sizeof(uint64));
         }
 

@@ -29,6 +29,7 @@ Revision History:
 #include<memory.h>
 #include"memory_manager.h"
 #include"hash.h"
+#include"z3_exception.h"
 
 // disable warning for constant 'if' expressions.
 // these are used heavily in templates.
@@ -67,9 +68,14 @@ class vector {
         else {
             SASSERT(capacity() > 0);
             unsigned old_capacity = reinterpret_cast<unsigned *>(m_data)[CAPACITY_IDX];
+            unsigned old_capacity_T = sizeof(T) * old_capacity + sizeof(unsigned) * 2;
             unsigned new_capacity = (3 * old_capacity + 1) >> 1;
+            unsigned new_capacity_T  = sizeof(T) * new_capacity + sizeof(unsigned) * 2;
             unsigned size         = reinterpret_cast<unsigned *>(m_data)[SIZE_IDX];
-            unsigned * mem        = reinterpret_cast<unsigned*>(memory::allocate(sizeof(T) * new_capacity + sizeof(unsigned) * 2));
+            if (new_capacity <= old_capacity || new_capacity_T <= old_capacity_T) {
+                throw default_exception("Overflow encountered when expanding vector");
+            }
+            unsigned * mem        = reinterpret_cast<unsigned*>(memory::allocate(new_capacity_T));
             *mem                  = new_capacity; 
             mem ++;
             *mem                  = size;         
