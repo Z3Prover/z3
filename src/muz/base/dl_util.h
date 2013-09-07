@@ -719,7 +719,7 @@ namespace datalog {
         T& operator*() { return *m_t; }
         const T& operator*() const { return *m_t; }
         operator bool() const { return m_t!=0; }
-        T* get() { return m_t; }
+        T* get() const { return m_t; }
         /**
            \brief Remove object from \c scoped_rel without deleting it.
         */
