@@ -81,9 +81,9 @@ namespace datalog {
     }
 
     unsigned entry_storage::get_size_estimate_bytes() const {
-        unsigned sz = m_data.capacity();
+        size_t sz = m_data.capacity();
         sz += m_data_indexer.capacity()*sizeof(storage_indexer::entry);
-        return sz;
+        return static_cast<unsigned>(sz);
     }
 
     // -----------------------------------
@@ -283,7 +283,7 @@ namespace datalog {
 
     class sparse_table::general_key_indexer : public key_indexer {
         typedef svector<store_offset> offset_vector;
-        typedef u_map<offset_vector> index_map;
+        typedef size_t_map<offset_vector> index_map;
 
         index_map m_map;
         mutable entry_storage m_keys;
@@ -641,8 +641,8 @@ namespace datalog {
         unsigned t1_entry_size = t1.m_fact_size;
         unsigned t2_entry_size = t2.m_fact_size;
 
-        unsigned t1idx = 0;
-        unsigned t1end = t1.m_data.after_last_offset();
+        size_t t1idx = 0;
+        size_t t1end = t1.m_data.after_last_offset();
 
         TRACE("dl_table_relation", 
               tout << "joined_col_cnt: " << joined_col_cnt << "\n";
@@ -654,8 +654,8 @@ namespace datalog {
               );
 
         if (joined_col_cnt == 0) {
-            unsigned t2idx = 0;
-            unsigned t2end = t2.m_data.after_last_offset();
+            size_t t2idx = 0;
+            size_t t2end = t2.m_data.after_last_offset();
 
             for (; t1idx!=t1end; t1idx+=t1_entry_size) {
                 for (t2idx = 0; t2idx != t2end; t2idx += t2_entry_size) {
@@ -1064,8 +1064,8 @@ namespace datalog {
             sparse_table_plugin & plugin = t.get_plugin();
             sparse_table * res = static_cast<sparse_table *>(plugin.mk_empty(get_result_signature()));
 
-            unsigned res_fact_size = res->m_fact_size;
-            unsigned res_data_size = res_fact_size*t.row_count();
+            size_t res_fact_size = res->m_fact_size;
+            size_t res_data_size = res_fact_size*t.row_count();
             if (res_fact_size != 0 && (res_data_size / res_fact_size) != t.row_count()) {
                 throw default_exception("multiplication overflow");
             }
@@ -1084,7 +1084,7 @@ namespace datalog {
             }
 
             //and insert them into the hash-map
-            for (unsigned i=0; i!=res_data_size; i+=res_fact_size) {
+            for (size_t i = 0; i != res_data_size; i += res_fact_size) {
                 TRUSTME(res->m_data.insert_offset(i));
             }
 
@@ -1161,7 +1161,7 @@ namespace datalog {
                 }
                 if (key_modified) {
                     t2_offsets = t2_indexer.get_matching_offsets(t1_key);
-                    key_modified=false;
+                    key_modified = false;
                 }
 
                 if (t2_offsets.empty()) {
@@ -1171,12 +1171,16 @@ namespace datalog {
                     res.push_back(t1_ofs);
                 }
                 else {
-                    key_indexer::offset_iterator it = t2_offsets.begin();
+                    key_indexer::offset_iterator it  = t2_offsets.begin();
                     key_indexer::offset_iterator end = t2_offsets.end();
                     for (; it!=end; ++it) {
                         store_offset ofs = *it;
-                        if (!m_intersection_content.contains(ofs)) {
-                            m_intersection_content.insert(ofs);
+                        unsigned offs2 = static_cast<unsigned>(ofs);
+                        if (ofs != offs2) {
+                            throw default_exception("Z3 cannot perform negation with excessively large tables");
+                        }
+                        if (!m_intersection_content.contains(offs2)) {
+                            m_intersection_content.insert(offs2);
                             res.push_back(ofs);
                         }
                     }

@@ -931,6 +931,9 @@ class ExtraExeComponent(ExeComponent):
     def main_component(self):
         return False
 
+    def require_mem_initializer(self):
+        return False
+
 def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
@@ -1227,7 +1230,7 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write(os.path.join(self.to_ex_dir, cppfile))
         out.write('\n')
-        out.write('\t%s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
+        out.write('\t%s $(OS_DEFINES) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
         # Add include dir components
         out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
         out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
@@ -1399,7 +1402,8 @@ def mk_config():
             'LINK_OUT_FLAG=/Fe\n'
             'SO_EXT=.dll\n'
             'SLINK=cl\n'
-            'SLINK_OUT_FLAG=/Fe\n')
+            'SLINK_OUT_FLAG=/Fe\n'
+	    'OS_DEFINES=/D _WINDOWS\n')
         extra_opt = ''
         if GIT_HASH:
             extra_opt = '%s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
@@ -1447,6 +1451,7 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
     else:
         global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS
+	OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
@@ -1488,18 +1493,21 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+	    OS_DEFINES     = '-D_LINUX'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+	    OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname[:6] ==  'CYGWIN':
             CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+	    OS_DEFINES     = '-D_CYGWIN'
             SO_EXT      = '.dll'
             SLIBFLAGS   = '-shared'
         else:
@@ -1534,6 +1542,7 @@ def mk_config():
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
         config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
+	config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
             print('Host platform:  %s' % sysname)
             print('C++ Compiler:   %s' % CXX)
