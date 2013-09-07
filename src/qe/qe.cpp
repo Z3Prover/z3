@@ -482,7 +482,7 @@ namespace qe {
         }
 
         void nnf_iff(app* a, bool p) {
-            SASSERT(m.is_iff(a) || m.is_xor(a));
+            SASSERT(m.is_iff(a) || m.is_xor(a) || m.is_eq(a));
             expr* a0 = a->get_arg(0);
             expr* a1 = a->get_arg(1);
 
@@ -616,7 +616,7 @@ namespace qe {
                 else if (m.is_ite(a)) {
                     nnf_ite(a, p);
                 }
-                else if (m.is_iff(a)) {
+                else if (m.is_iff(a) || (m.is_eq(a) && m.is_bool(a->get_arg(0)))) {
                     nnf_iff(a, p);
                 }
                 else if (m.is_xor(a)) {
@@ -1926,6 +1926,7 @@ namespace qe {
                     plugin(x).get_num_branches(contains(x), fml, num_branches)) {
                     return true;
                 }
+                TRACE("qe", tout << "setting variable " << mk_pp(x, m) << " free\n";);
                 m_free_vars.push_back(x);
                 m_current->del_var(x);
             }
@@ -2493,6 +2494,7 @@ namespace qe {
 
         // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
         virtual void elim_var(unsigned idx, expr* fml, expr* def) {
+            TRACE("qe", tout << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << "\n";);
             *m_fml = fml;
             m_vars->set(idx, m_vars->get(m_vars->size()-1));
             m_vars->pop_back();

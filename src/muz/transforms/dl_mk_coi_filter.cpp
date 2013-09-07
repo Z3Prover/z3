@@ -52,10 +52,14 @@ namespace datalog {
         ptr_vector<func_decl> todo;
         rule_set::decl2rules body2rules;
         // initialization for reachability
+            rel_context_base* rc = m_context.get_rel_context();
         for (rule_set::iterator it = source.begin(); it != source.end(); ++it) {
             rule * r = *it;
             all.insert(r->get_decl());
-            if (r->get_uninterpreted_tail_size() == 0) {
+            bool non_empty = 
+                (rc && !rc->is_empty_relation(r->get_decl())) ||
+                r->get_uninterpreted_tail_size() == 0;
+            if (non_empty) {
                 if (!reached.contains(r->get_decl())) {
                     reached.insert(r->get_decl());
                     todo.insert(r->get_decl());
