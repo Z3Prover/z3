@@ -97,9 +97,9 @@ namespace datalog {
 
     class entry_storage {
     public:
-        typedef unsigned store_offset;
+        typedef size_t store_offset;
     private:
-        typedef svector<char> storage;
+        typedef svector<char, size_t> storage;
 
         class offset_hash_proc {
             storage & m_storage;
@@ -130,7 +130,7 @@ namespace datalog {
 
         unsigned m_entry_size;
         unsigned m_unique_part_size;
-        unsigned m_data_size;
+        size_t m_data_size;
         /**
            Invariant: Every or all but one blocks of length \c m_entry_size in the \c m_data vector
            are unique sequences of bytes and have their offset stored in the \c m_data_indexer hashtable. 
@@ -214,7 +214,7 @@ namespace datalog {
                 SASSERT(m_reserve==m_data_size-m_entry_size);
                 return;
             }
-            m_reserve=m_data_size;
+            m_reserve = m_data_size;
             resize_data(m_data_size+m_entry_size);
         }
 
@@ -273,7 +273,7 @@ namespace datalog {
 
 
         //the following two operations allow breaking of the object invariant!
-        void resize_data(unsigned sz) {
+        void resize_data(size_t sz) {
             m_data_size = sz;
             if (sz + sizeof(uint64) < sz) {
                 throw default_exception("overflow resizing data section for sparse table");

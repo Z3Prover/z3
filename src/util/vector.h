@@ -37,7 +37,7 @@ Revision History:
 #pragma warning(disable:4127)
 #endif
 
-template<typename T, bool CallDestructors=true>
+template<typename T, bool CallDestructors=true, typename SZ = unsigned>
 class vector {
 #define SIZE_IDX     -1
 #define CAPACITY_IDX -2
@@ -52,13 +52,13 @@ class vector {
     }
 
     void free_memory() { 
-        memory::deallocate(reinterpret_cast<char*>(reinterpret_cast<unsigned*>(m_data) - 2));
+        memory::deallocate(reinterpret_cast<char*>(reinterpret_cast<SZ*>(m_data) - 2));
     }
 
     void expand_vector() {
         if (m_data == 0) {
-            unsigned capacity = 2;
-            unsigned * mem    = reinterpret_cast<unsigned*>(memory::allocate(sizeof(T) * capacity + sizeof(unsigned) * 2));
+            SZ capacity = 2;
+            SZ * mem    = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));
             *mem              = capacity; 
             mem++;
             *mem              = 0;        
@@ -67,15 +67,15 @@ class vector {
         }
         else {
             SASSERT(capacity() > 0);
-            unsigned old_capacity = reinterpret_cast<unsigned *>(m_data)[CAPACITY_IDX];
-            unsigned old_capacity_T = sizeof(T) * old_capacity + sizeof(unsigned) * 2;
-            unsigned new_capacity = (3 * old_capacity + 1) >> 1;
-            unsigned new_capacity_T  = sizeof(T) * new_capacity + sizeof(unsigned) * 2;
-            unsigned size         = reinterpret_cast<unsigned *>(m_data)[SIZE_IDX];
+            SZ old_capacity = reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX];
+            SZ old_capacity_T = sizeof(T) * old_capacity + sizeof(SZ) * 2;
+            SZ new_capacity = (3 * old_capacity + 1) >> 1;
+            SZ new_capacity_T = sizeof(T) * new_capacity + sizeof(SZ) * 2;
+            SZ size         = reinterpret_cast<SZ *>(m_data)[SIZE_IDX];
             if (new_capacity <= old_capacity || new_capacity_T <= old_capacity_T) {
                 throw default_exception("Overflow encountered when expanding vector");
             }
-            unsigned * mem        = reinterpret_cast<unsigned*>(memory::allocate(new_capacity_T));
+            SZ * mem        = reinterpret_cast<SZ*>(memory::allocate(new_capacity_T));
             *mem                  = new_capacity; 
             mem ++;
             *mem                  = size;         
@@ -87,9 +87,9 @@ class vector {
     }
 
     void copy_core(vector const & source) {
-        unsigned size      = source.size();
-        unsigned capacity  = source.capacity();
-        unsigned * mem     = reinterpret_cast<unsigned*>(memory::allocate(sizeof(T) * capacity + sizeof(unsigned) * 2));
+        SZ size      = source.size();
+        SZ capacity  = source.capacity();
+        SZ * mem     = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));
         *mem = capacity; 
         mem++;
         *mem = size; 
@@ -122,8 +122,8 @@ public:
         m_data(0) {
     }
 
-    vector(unsigned s) {
-        unsigned * mem = reinterpret_cast<unsigned*>(memory::allocate(sizeof(T) * s + sizeof(unsigned) * 2));
+    vector(SZ s) {
+        SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));
         *mem = s; 
         mem++;
         *mem = s; 
@@ -137,7 +137,7 @@ public:
         }
     }
 
-    vector(unsigned s, T const & elem):
+    vector(SZ s, T const & elem):
         m_data(0) {
         resize(s, elem);
     }
@@ -150,9 +150,9 @@ public:
         SASSERT(size() == source.size());
     }
 
-    vector(unsigned s, T const * data):
+    vector(SZ s, T const * data):
         m_data(0) {
-        for (unsigned i = 0; i < s; i++) {
+        for (SZ i = 0; i < s; i++) {
             push_back(data[i]);
         }
     }
@@ -186,26 +186,26 @@ public:
             if (CallDestructors) {
                 destroy_elements();
             }
-            reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] = 0;
+            reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = 0;
         }
     }
 
     bool empty() const { 
-        return m_data == 0 || reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] == 0; 
+        return m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0; 
     }
 
-    unsigned size() const { 
+    SZ size() const { 
         if (m_data == 0) {
             return 0;  
         }
-        return reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]; 
+        return reinterpret_cast<SZ *>(m_data)[SIZE_IDX]; 
     }
 
-    unsigned capacity() const { 
+    SZ capacity() const { 
         if (m_data == 0) {
             return 0;
         }
-        return reinterpret_cast<unsigned *>(m_data)[CAPACITY_IDX]; 
+        return reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]; 
     }
 
     iterator begin() { 
@@ -226,41 +226,41 @@ public:
 
     void set_end(iterator it) {
         if (m_data) {
-            unsigned new_sz = static_cast<unsigned>(it - m_data);
+            SZ new_sz = static_cast<SZ>(it - m_data);
             if (CallDestructors) {
                 iterator e = end();
                 for(; it != e; ++it) {
                     it->~T();
                 }
             }
-            reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] = new_sz;
+            reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = new_sz;
         }
         else {
             SASSERT(it == 0);
         }
     }
 
-    T & operator[](unsigned idx) { 
+    T & operator[](SZ idx) { 
         SASSERT(idx < size()); 
         return m_data[idx]; 
     }
 
-    T const & operator[](unsigned idx) const { 
+    T const & operator[](SZ idx) const { 
         SASSERT(idx < size()); 
         return m_data[idx];
     }
 
-    T & get(unsigned idx) { 
+    T & get(SZ idx) { 
         SASSERT(idx < size()); 
         return m_data[idx]; 
     }
 
-    T const & get(unsigned idx) const { 
+    T const & get(SZ idx) const { 
         SASSERT(idx < size()); 
         return m_data[idx];
     }
 
-    void set(unsigned idx, T const & val) { 
+    void set(SZ idx, T const & val) { 
         SASSERT(idx < size()); 
         m_data[idx] = val;
     }
@@ -280,15 +280,15 @@ public:
         if (CallDestructors) {
             back().~T(); 
         }
-        reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]--; 
+        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--; 
     }
 
     void push_back(T const & elem) {
-        if (m_data == 0 || reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] == reinterpret_cast<unsigned *>(m_data)[CAPACITY_IDX]) {
+        if (m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
-        new (m_data + reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]) T(elem); 
-        reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]++;
+        new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(elem); 
+        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]++;
     }
 
     void insert(T const & elem) {
@@ -303,7 +303,7 @@ public:
         for(; pos != e; ++pos, ++prev) {
             *prev = *pos;
         }
-        reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]--;
+        reinterpret_cast<SZ *>(m_data)[SIZE_IDX]--;
     }
 
     void erase(T const & elem) {
@@ -313,9 +313,9 @@ public:
         }
     }
 
-    void shrink(unsigned s) {
+    void shrink(SZ s) {
         if (m_data) {
-            SASSERT(s <= reinterpret_cast<unsigned *>(m_data)[SIZE_IDX]);
+            SASSERT(s <= reinterpret_cast<SZ *>(m_data)[SIZE_IDX]);
             if (CallDestructors) {
                 iterator it = m_data + s;
                 iterator e  = end();
@@ -323,21 +323,21 @@ public:
                     it->~T();
                 }
             }
-            reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] = s;
+            reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = s;
         }
         else {
             SASSERT(s == 0);
         }
     }
 
-    void resize(unsigned s, T const & elem=T()) {
-        unsigned sz = size();
+    void resize(SZ s, T const & elem=T()) {
+        SZ sz = size();
         if (s <= sz) { shrink(s); return; }
         while (s > capacity()) {
             expand_vector();
         }
         SASSERT(m_data != 0);
-        reinterpret_cast<unsigned *>(m_data)[SIZE_IDX] = s;
+        reinterpret_cast<SZ *>(m_data)[SIZE_IDX] = s;
         iterator it  = m_data + sz;
         iterator end = m_data + s;
         for(; it != end; ++it) {
@@ -346,13 +346,13 @@ public:
     }
 
     void append(vector<T, CallDestructors> const & other) {
-        for(unsigned i = 0; i < other.size(); ++i) {
+        for(SZ i = 0; i < other.size(); ++i) {
             push_back(other[i]);
         }
     }
 
-    void append(unsigned sz, T const * data) {
-        for(unsigned i = 0; i < sz; ++i) {
+    void append(SZ sz, T const * data) {
+        for(SZ i = 0; i < sz; ++i) {
             push_back(data[i]);
         }
     }
@@ -366,8 +366,8 @@ public:
     }
 
     void reverse() {
-        unsigned sz = size();
-        for (unsigned i = 0; i < sz/2; ++i) {
+        SZ sz = size();
+        for (SZ i = 0; i < sz/2; ++i) {
            std::swap(m_data[i], m_data[sz-i-1]);
        }
     }
@@ -392,7 +392,7 @@ public:
     }
 
     // set pos idx with elem. If idx >= size, then expand using default.
-    void setx(unsigned idx, T const & elem, T const & d) {
+    void setx(SZ idx, T const & elem, T const & d) {
         if (idx >= size()) {
             resize(idx+1, d);
         }
@@ -400,14 +400,14 @@ public:
     }
 
     // return element at position idx, if idx >= size, then return default
-    T const & get(unsigned idx, T const & d) const {
+    T const & get(SZ idx, T const & d) const {
         if (idx >= size()) {
             return d;
         }
         return m_data[idx];
     }
 
-    void reserve(unsigned s, T const & d = T()) {
+    void reserve(SZ s, T const & d = T()) {
         if (s > size())
             resize(s, d);
     }
@@ -423,14 +423,14 @@ public:
     ptr_vector(unsigned s, T * const * data):vector<T *, false>(s, const_cast<T**>(data)) {}
 };
 
-template<typename T>
-class svector : public vector<T, false> {
+template<typename T, typename SZ = unsigned>
+class svector : public vector<T, false, SZ> {
 public:
-    svector():vector<T, false>() {}
-    svector(unsigned s):vector<T, false>(s) {}
-    svector(unsigned s, T const & elem):vector<T, false>(s, elem) {}
-    svector(svector const & source):vector<T, false>(source) {}
-    svector(unsigned s, T const * data):vector<T, false>(s, data) {}
+    svector():vector<T, false, SZ>() {}
+    svector(SZ s):vector<T, false, SZ>(s) {}
+    svector(SZ s, T const & elem):vector<T, false, SZ>(s, elem) {}
+    svector(svector const & source):vector<T, false, SZ>(source) {}
+    svector(SZ s, T const * data):vector<T, false, SZ>(s, data) {}
 };
 
 typedef svector<int> int_vector;
