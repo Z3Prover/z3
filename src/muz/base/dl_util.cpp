@@ -30,8 +30,31 @@ Revision History:
 #include"dl_context.h"
 #include"dl_rule.h"
 #include"dl_util.h"
+#include"stopwatch.h"
 
 namespace datalog {
+
+    static unsigned verbose_action_inside = 0;
+
+    verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(0) {
+        IF_VERBOSE(m_lvl, 
+                   (verbose_stream() << msg << "...").flush(); 
+                   m_sw = alloc(stopwatch); 
+                   m_sw->start(););
+    }
+
+    verbose_action::~verbose_action() {
+        double sec = 0.0;
+        if (m_sw) m_sw->stop();
+        sec = m_sw?m_sw->get_seconds():0.0;
+        if (sec < 0.001) sec = 0.0;
+        IF_VERBOSE(m_lvl, 
+                   (verbose_stream() << sec << "s\n").flush();
+                   );
+        dealloc(m_sw);
+    }
+
+
 
 
     bool contains_var(expr * trm, unsigned var_idx) {

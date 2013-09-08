@@ -54,6 +54,7 @@ Revision History:
 
 #include"dl_mk_magic_symbolic.h"
 #include"dl_context.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

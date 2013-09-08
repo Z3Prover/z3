@@ -26,6 +26,8 @@ Revision History:
 #include "dl_mk_quantifier_instantiation.h"
 #include "dl_context.h"
 #include "pattern_inference.h"
+#include "fixedpoint_params.hpp"
+
 
 namespace datalog {
 

@@ -39,16 +39,15 @@ namespace datalog {
 
     bool table_relation_plugin::can_handle_signature(const relation_signature & s) {
         table_signature tsig;
-        if(!get_manager().relation_signature_to_table(s, tsig)) {
-            return false;
-        }
-        return m_table_plugin.can_handle_signature(tsig);
+        return 
+            get_manager().relation_signature_to_table(s, tsig) &&
+            m_table_plugin.can_handle_signature(tsig);
     }
 
 
     relation_base * table_relation_plugin::mk_empty(const relation_signature & s) {
         table_signature tsig;
-        if(!get_manager().relation_signature_to_table(s, tsig)) {
+        if (!get_manager().relation_signature_to_table(s, tsig)) {
             return 0;
         }
         table_base * t = m_table_plugin.mk_empty(tsig);
@@ -92,6 +91,7 @@ namespace datalog {
 
             TRACE("dl_table_relation", tout << "# join => "; tres->display(tout););
             if(&tres->get_plugin()!=&plugin.m_table_plugin) {
+                IF_VERBOSE(1, verbose_stream() << "new type returned\n";);
                 //Operation returned a table of different type than the one which is associated with
                 //this plugin. We need to get a correct table_relation_plugin and create the relation 
                 //using it.

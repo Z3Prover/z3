@@ -77,9 +77,9 @@ namespace pdr {
     pred_transformer::pred_transformer(context& ctx, manager& pm, func_decl* head): 
         pm(pm), m(pm.get_manager()),
         ctx(ctx), m_head(head, m), 
-        m_sig(m), m_solver(pm, head->get_name()),
+        m_sig(m), m_solver(pm, ctx.get_params(), head->get_name()),
         m_invariants(m), m_transition(m), m_initial_state(m), 
-        m_reachable(pm, pm.get_params()) {}
+        m_reachable(pm, (datalog::PDR_CACHE_MODE)ctx.get_params().cache_mode()) {}
 
     pred_transformer::~pred_transformer() {
         rule2inst::iterator it2 = m_rule2inst.begin(), end2 = m_rule2inst.end();
@@ -1239,7 +1239,7 @@ namespace pdr {
           m_params(params),
           m(m),
           m_context(0),
-          m_pm(m_fparams, params, m),
+          m_pm(m_fparams, params.max_num_contexts(), m),
           m_query_pred(m),
           m_query(0),
           m_search(m_params.bfs_model_search()),

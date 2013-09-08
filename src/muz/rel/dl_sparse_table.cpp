@@ -24,6 +24,7 @@ Revision History:
 
 namespace datalog {
 
+
     // -----------------------------------
     //
     // entry_storage
@@ -415,7 +416,7 @@ namespace datalog {
             }
             //We will change the content of the reserve; which does not change the 'high-level' 
             //content of the table.
-            sparse_table & t = const_cast<sparse_table &>(m_table);
+            sparse_table & t = const_cast<sparse_table&>(m_table);
             t.write_into_reserve(m_key_fact.c_ptr());
 
             store_offset res;
@@ -461,6 +462,8 @@ namespace datalog {
 
     sparse_table::key_indexer& sparse_table::get_key_indexer(unsigned key_len, 
             const unsigned * key_cols) const {
+            verbose_action  _va("get_key_indexer");
+
 #if Z3DEBUG
         //We allow indexes only on non-functional columns because we want to be able to modify them 
         //without having to worry about updating indexes.
@@ -506,6 +509,7 @@ namespace datalog {
     }
 
     bool sparse_table::add_fact(const char * data) {
+        verbose_action  _va("add_fact", 3);
         m_data.write_into_reserve(data);
         return add_reserve_content();
     }
@@ -520,6 +524,7 @@ namespace datalog {
     }
 
     bool sparse_table::contains_fact(const table_fact & f) const {
+        verbose_action  _va("contains_fact", 2);
         sparse_table & t = const_cast<sparse_table &>(*this);
         t.write_into_reserve(f.c_ptr());
         unsigned func_col_cnt = get_signature().functional_columns();
@@ -542,6 +547,7 @@ namespace datalog {
     }
 
     bool sparse_table::fetch_fact(table_fact & f) const {
+        verbose_action  _va("fetch_fact", 2);
         const table_signature & sig = get_signature();
         SASSERT(f.size() == sig.size());
         if (sig.functional_columns() == 0) {
@@ -567,6 +573,7 @@ namespace datalog {
        This is ok as long as we do not allow indexing on functional columns.
     */
     void sparse_table::ensure_fact(const table_fact & f) {
+        verbose_action  _va("ensure_fact", 2);
         const table_signature & sig = get_signature();
         if (sig.functional_columns() == 0) {
             add_fact(f);
@@ -586,6 +593,7 @@ namespace datalog {
     }
 
     void sparse_table::remove_fact(const table_element*  f) {
+        verbose_action  _va("remove_fact", 2);
         //first insert the fact so that we find it's original location and remove it
         write_into_reserve(f);
         if (!m_data.remove_reserve_content()) {
@@ -638,6 +646,7 @@ namespace datalog {
             unsigned joined_col_cnt, const unsigned * t1_joined_cols, const unsigned * t2_joined_cols,
             const unsigned * removed_cols, bool tables_swapped, sparse_table & result) {
 
+        verbose_action _va("join_project", 1);
         unsigned t1_entry_size = t1.m_fact_size;
         unsigned t2_entry_size = t2.m_fact_size;
 
@@ -737,15 +746,21 @@ namespace datalog {
         reset();
     }
 
+    sparse_table const& sparse_table_plugin::get(table_base const& t) { return dynamic_cast<sparse_table const&>(t); }
+    sparse_table& sparse_table_plugin::get(table_base& t) { return dynamic_cast<sparse_table&>(t); }
+    sparse_table const* sparse_table_plugin::get(table_base const* t) { return dynamic_cast<sparse_table const*>(t); }
+    sparse_table* sparse_table_plugin::get(table_base* t) { return dynamic_cast<sparse_table*>(t); }
+
+
     void sparse_table_plugin::reset() {
         table_pool::iterator it = m_pool.begin();
         table_pool::iterator end = m_pool.end();
         for (; it!=end; ++it) {
             sp_table_vector * vect = it->m_value;
-            sp_table_vector::iterator it = vect->begin();
-            sp_table_vector::iterator end = vect->end();
-            for (; it!=end; ++it) {
-                (*it)->destroy(); //calling deallocate() would only put the table back into the pool
+            sp_table_vector::iterator vit = vect->begin();
+            sp_table_vector::iterator vend = vect->end();
+            for (; vit!=vend; ++vit) {
+                (*vit)->destroy(); //calling deallocate() would only put the table back into the pool
             }
             dealloc(vect);
         }
@@ -759,6 +774,7 @@ namespace datalog {
     }
 
     void sparse_table_plugin::recycle(sparse_table * t) {
+        verbose_action  _va("recycle", 2);
         const table_signature & sig = t->get_signature();
         t->reset();
 
@@ -785,7 +801,7 @@ namespace datalog {
     }
 
     sparse_table * sparse_table_plugin::mk_clone(const sparse_table & t) {
-        sparse_table * res = static_cast<sparse_table *>(mk_empty(t.get_signature()));
+        sparse_table * res = get(mk_empty(t.get_signature()));
         res->m_data = t.m_data;
         return res;
     }
@@ -813,12 +829,13 @@ namespace datalog {
 
         virtual table_base * operator()(const table_base & tb1, const table_base & tb2) {
 
-            const sparse_table & t1 = static_cast<const sparse_table &>(tb1);
-            const sparse_table & t2 = static_cast<const sparse_table &>(tb2);
+            verbose_action  _va("join_project");
+            const sparse_table & t1 = get(tb1);
+            const sparse_table & t2 = get(tb2);
 
             sparse_table_plugin & plugin = t1.get_plugin();
 
-            sparse_table * res = static_cast<sparse_table *>(plugin.mk_empty(get_result_signature()));
+            sparse_table * res = get(plugin.mk_empty(get_result_signature()));
 
             //If we join with some intersection, want to iterate over the smaller table and
             //do indexing into the bigger one. If we simply do a product, we want the bigger
@@ -868,10 +885,10 @@ namespace datalog {
     class sparse_table_plugin::union_fn : public table_union_fn {
     public:
         virtual void operator()(table_base & tgt0, const table_base & src0, table_base * delta0) {
-
-            sparse_table & tgt = static_cast<sparse_table &>(tgt0);
-            const sparse_table & src = static_cast<const sparse_table &>(src0);
-            sparse_table * delta = static_cast<sparse_table *>(delta0);
+            verbose_action  _va("union");
+            sparse_table & tgt = get(tgt0);
+            const sparse_table & src = get(src0);
+            sparse_table * delta = get(delta0);
 
             unsigned fact_size = tgt.m_fact_size;
             const char* ptr = src.m_data.begin();
@@ -927,12 +944,13 @@ namespace datalog {
         }
 
         virtual table_base * operator()(const table_base & tb) {
-            const sparse_table & t = static_cast<const sparse_table &>(tb);
+            verbose_action  _va("project");
+            const sparse_table & t = get(tb);
 
             unsigned t_fact_size = t.m_fact_size;
 
             sparse_table_plugin & plugin = t.get_plugin();
-            sparse_table * res = static_cast<sparse_table *>(plugin.mk_empty(get_result_signature()));
+            sparse_table * res = get(plugin.mk_empty(get_result_signature()));
 
             const sparse_table::column_layout & src_layout = t.m_column_layout;
             const sparse_table::column_layout & tgt_layout = res->m_column_layout;
@@ -970,10 +988,11 @@ namespace datalog {
         }
 
         virtual table_base * operator()(const table_base & tb) {
-            const sparse_table & t = static_cast<const sparse_table &>(tb);
+            verbose_action  _va("select_equal_and_project");
+            const sparse_table & t = get(tb);
 
             sparse_table_plugin & plugin = t.get_plugin();
-            sparse_table * res = static_cast<sparse_table *>(plugin.mk_empty(get_result_signature()));
+            sparse_table * res = get(plugin.mk_empty(get_result_signature()));
 
             const sparse_table::column_layout & t_layout = t.m_column_layout;
             const sparse_table::column_layout & res_layout = res->m_column_layout;
@@ -1056,13 +1075,14 @@ namespace datalog {
         }
 
         virtual table_base * operator()(const table_base & tb) {
+            verbose_action  _va("rename");
 
-            const sparse_table & t = static_cast<const sparse_table &>(tb);
+            const sparse_table & t = get(tb);
 
             unsigned t_fact_size = t.m_fact_size;
 
             sparse_table_plugin & plugin = t.get_plugin();
-            sparse_table * res = static_cast<sparse_table *>(plugin.mk_empty(get_result_signature()));
+            sparse_table * res = get(plugin.mk_empty(get_result_signature()));
 
             size_t res_fact_size = res->m_fact_size;
             size_t res_data_size = res_fact_size*t.row_count();
@@ -1117,12 +1137,12 @@ namespace datalog {
         negation_filter_fn(const table_base & tgt, const table_base & neg, 
                     unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * negated_cols) 
                 : convenient_table_negation_filter_fn(tgt, neg, joined_col_cnt, t_cols, negated_cols) {
-            unsigned neg_fisrt_func = neg.get_signature().first_functional();
+            unsigned neg_first_func = neg.get_signature().first_functional();
             counter ctr;
             ctr.count(m_cols2);
             m_joining_neg_non_functional = ctr.get_max_counter_value() == 1
-                && ctr.get_positive_count() == neg_fisrt_func 
-                && (neg_fisrt_func == 0 || ctr.get_max_positive() == neg_fisrt_func-1);
+                && ctr.get_positive_count() == neg_first_func 
+                && (neg_first_func == 0 || ctr.get_max_positive() == neg_first_func-1);
         }
 
         /**
@@ -1133,9 +1153,7 @@ namespace datalog {
                 bool tgt_is_first, svector<store_offset> & res) {
             SASSERT(res.empty());
 
-            if (!tgt_is_first) {
-                m_intersection_content.reset();
-            }
+            m_intersection_content.reset();
 
             unsigned joined_col_cnt = m_cols1.size();
             unsigned t1_entry_size = t1.m_data.entry_size();
@@ -1194,8 +1212,10 @@ namespace datalog {
         }
 
         virtual void operator()(table_base & tgt0, const table_base & neg0) {
-            sparse_table & tgt = static_cast<sparse_table &>(tgt0);
-            const sparse_table & neg = static_cast<const sparse_table &>(neg0);
+            sparse_table & tgt = get(tgt0);
+            const sparse_table & neg = get(neg0);
+           
+            verbose_action  _va("filter_by_negation");
 
             if (m_cols1.size() == 0) {
                 if (!neg.empty()) {
@@ -1215,12 +1235,9 @@ namespace datalog {
                 collect_intersection_offsets(tgt, neg, true, to_remove);
             }
 
-            if (to_remove.empty()) {
-                return;
-            }
 
             //the largest offsets are at the end, so we can remove them one by one
-            while(!to_remove.empty()) {
+            while (!to_remove.empty()) {
                 store_offset removed_ofs = to_remove.back();
                 to_remove.pop_back();
                 tgt.m_data.remove_offset(removed_ofs);
@@ -1240,6 +1257,148 @@ namespace datalog {
         }
         return alloc(negation_filter_fn, t, negated_obj, joined_col_cnt, t_cols, negated_cols);
     }
+
+    /**
+           T \ (S1 Join S2)
+
+           t_cols    - columns from T
+           s_cols    - columns from (S1 Join S2) that are equated
+           src1_cols - columns from S1 equated with columns from S2
+           src2_cols - columns from S2 equated with columns from S1
+
+           t1_cols    - columns from T that map into S1
+           s1_cols    - matching columns from s_cols for t1_cols
+           t2s1_cols  - columns from T that map into S2, and columns from src1 that join src2
+           s2_cols    - matching columns from t2s1_cols
+
+           columns from s2 that are equal to a column from s1 that is in s_cols:
+
+           - ...
+           
+    */
+
+    class sparse_table_plugin::negated_join_fn : public table_intersection_join_filter_fn {
+        typedef sparse_table::store_offset store_offset;
+        typedef sparse_table::key_value key_value;
+        typedef sparse_table::key_indexer key_indexer;
+        unsigned_vector m_t1_cols;
+        unsigned_vector m_s1_cols;
+        unsigned_vector m_t2_cols;
+        unsigned_vector m_s2_cols;
+        unsigned_vector m_src1_cols;
+    public:
+        negated_join_fn(        
+            table_base const& src1,
+            unsigned_vector const& t_cols,
+            unsigned_vector const& src_cols,
+            unsigned_vector const& src1_cols,
+            unsigned_vector const& src2_cols):
+            m_src1_cols(src1_cols) {
+
+            // split t_cols and src_cols according to src1, and src2
+
+            unsigned src1_size = src1.get_signature().size();
+            for (unsigned i = 0; i < t_cols.size(); ++i) {
+                if (src_cols[i] < src1_size) {
+                    m_t1_cols.push_back(t_cols[i]);
+                    m_s1_cols.push_back(src_cols[i]);
+                }
+                else {
+                    m_t2_cols.push_back(t_cols[i]);
+                    m_s2_cols.push_back(src_cols[i]);                    
+                }
+            }
+            m_s2_cols.append(src2_cols);
+        }
+
+        virtual void operator()(table_base & _t, const table_base & _s1, const table_base& _s2) {
+
+            verbose_action  _va("negated_join");
+            sparse_table& t = get(_t);
+            svector<store_offset> to_remove;
+            collect_to_remove(t, get(_s1), get(_s2), to_remove);
+            for (unsigned i = 0; i < to_remove.size(); ++i) {
+                t.m_data.remove_offset(to_remove[i]);
+            }
+            t.reset_indexes();
+        }
+
+    private:
+        void collect_to_remove(sparse_table& t, sparse_table const& s1, sparse_table const& s2, svector<store_offset>& to_remove) {
+            key_value s1_key, s2_key;
+            SASSERT(&s1 != &s2);
+            SASSERT(m_s1_cols.size() == m_t1_cols.size());
+            SASSERT(m_s2_cols.size() == m_t2_cols.size() + m_src1_cols.size());
+            s1_key.resize(m_s1_cols.size());
+            s2_key.resize(m_s2_cols.size());
+            key_indexer & s1_indexer = s1.get_key_indexer(m_s1_cols.size(), m_s1_cols.c_ptr());
+            key_indexer & s2_indexer = s2.get_key_indexer(m_s2_cols.size(), m_s2_cols.c_ptr());
+
+            store_offset t_after_last = t.m_data.after_last_offset();
+            key_indexer::query_result s1_offsets, s2_offsets;
+            unsigned t_entry_size = t.m_data.entry_size();
+            for (store_offset t_ofs = 0; t_ofs < t_after_last; t_ofs += t_entry_size) {
+
+                if (update_key(s1_key, 0, t, t_ofs, m_t1_cols)) {
+                    s1_offsets = s1_indexer.get_matching_offsets(s1_key);
+                }
+                key_indexer::offset_iterator it  = s1_offsets.begin();
+                key_indexer::offset_iterator end = s1_offsets.end();
+                for (; it != end; ++it) {
+                    store_offset s1_ofs = *it;
+                    bool upd1 = update_key(s2_key, 0, t, t_ofs, m_t2_cols);
+                    bool upd2 = update_key(s2_key, m_t2_cols.size(), s1, s1_ofs, m_src1_cols);
+                    if (upd1 || upd2) {
+                        s2_offsets = s2_indexer.get_matching_offsets(s2_key);
+                    }
+                    if (!s2_offsets.empty()) {
+                        to_remove.push_back(t_ofs);
+                        break;
+                    }
+                }                
+            }                       
+        }
+
+        inline bool update_key(key_value& key, unsigned key_offset, sparse_table const& t, store_offset ofs, unsigned_vector const& cols) {
+            bool modified = false;
+            unsigned sz = cols.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                table_element val = t.get_cell(ofs, cols[i]);
+                modified = update_key(key[i+key_offset], val) || modified;
+            }
+            return modified;
+        }
+
+        inline bool update_key(table_element& tgt, table_element src) {
+            if (tgt == src) {
+                return false;
+            }
+            else {
+                tgt = src;
+                return true;
+            }
+        }
+        
+    };
+
+    table_intersection_join_filter_fn* sparse_table_plugin::mk_filter_by_negated_join_fn(
+        const table_base & t, 
+
+
+        const table_base & src1, 
+        const table_base & src2, 
+        unsigned_vector const& t_cols,
+        unsigned_vector const& src_cols,
+        unsigned_vector const& src1_cols,
+        unsigned_vector const& src2_cols) {
+        if (check_kind(t) && check_kind(src1) && check_kind(src2)) {            
+            return alloc(negated_join_fn, src1, t_cols, src_cols, src1_cols, src2_cols);
+        }
+        else {
+            return 0;
+        }
+    }
+
 
     unsigned sparse_table::get_size_estimate_bytes() const {
         unsigned sz = 0;

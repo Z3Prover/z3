@@ -166,14 +166,13 @@ namespace pdr {
         return res;
     }
     
-    manager::manager(smt_params& fparams, fixedpoint_params const& params, ast_manager& manager) :
+    manager::manager(smt_params& fparams, unsigned max_num_contexts, ast_manager& manager) :
         m(manager),
         m_fparams(fparams),
-        m_params(params),
         m_brwr(m),
         m_mux(m, get_state_suffixes()),
         m_background(m.mk_true(), m),
-        m_contexts(fparams, params, m),
+        m_contexts(fparams, max_num_contexts, m),
         m_next_unique_num(0)
     {        
     }

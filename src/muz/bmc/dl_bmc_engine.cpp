@@ -32,6 +32,7 @@ Revision History:
 #include "dl_transforms.h"
 #include "dl_mk_rule_inliner.h"
 #include "scoped_proof.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

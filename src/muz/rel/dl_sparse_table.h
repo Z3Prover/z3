@@ -48,6 +48,7 @@ namespace datalog {
         class project_fn;
         class negation_filter_fn;
         class select_equal_and_project_fn;
+        class negated_join_fn;
 
         typedef ptr_vector<sparse_table> sp_table_vector;
         typedef map<table_signature, sp_table_vector *, 
@@ -93,6 +94,20 @@ namespace datalog {
         virtual table_intersection_filter_fn * mk_filter_by_negation_fn(const table_base & t, 
                 const table_base & negated_obj, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * negated_cols);
+        virtual table_intersection_join_filter_fn* mk_filter_by_negated_join_fn(
+            const table_base & t, 
+            const table_base & src1, 
+            const table_base & src2, 
+            unsigned_vector const& t_cols,
+            unsigned_vector const& src_cols,
+            unsigned_vector const& src1_cols,
+            unsigned_vector const& src2_cols);
+
+        static sparse_table const& get(table_base const&);
+        static sparse_table& get(table_base&);
+        static sparse_table const* get(table_base const*);
+        static sparse_table* get(table_base*);
+
     };
 
     class entry_storage {

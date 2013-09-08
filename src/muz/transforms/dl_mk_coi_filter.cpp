@@ -52,14 +52,10 @@ namespace datalog {
         ptr_vector<func_decl> todo;
         rule_set::decl2rules body2rules;
         // initialization for reachability
-            rel_context_base* rc = m_context.get_rel_context();
         for (rule_set::iterator it = source.begin(); it != source.end(); ++it) {
             rule * r = *it;
             all.insert(r->get_decl());
-            bool non_empty = 
-                (rc && !rc->is_empty_relation(r->get_decl())) ||
-                r->get_uninterpreted_tail_size() == 0;
-            if (non_empty) {
+            if (r->get_uninterpreted_tail_size() == 0) {
                 if (!reached.contains(r->get_decl())) {
                     reached.insert(r->get_decl());
                     todo.insert(r->get_decl());
@@ -76,6 +72,17 @@ namespace datalog {
                     e->get_data().m_value->push_back(r);
                 }
             }
+        }
+        rel_context_base* rc = m_context.get_rel_context();
+        if (rc) {
+            func_decl_set::iterator fit = all.begin(), fend = all.end();
+            for (; fit != fend; ++fit) {
+                if (!rc->is_empty_relation(*fit) &&
+                    !reached.contains(*fit)) {
+                    reached.insert(*fit);
+                    todo.insert(*fit);
+                }
+            }                 
         }
         // reachability computation
         while (!todo.empty()) {

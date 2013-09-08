@@ -232,10 +232,9 @@ unsigned read_datalog(char const * file) {
         TRACE("dl_compiler", ctx.display(tout);
               rules_code.display(*ctx.get_rel_context(), tout););
         
-        if (ctx.get_params().output_tuples()) {
+        if (ctx.output_tuples()) {
             ctx.get_rel_context()->display_output_facts(ctx.get_rules(), std::cout);
         }
-
         display_statistics(
             std::cout,
             ctx,

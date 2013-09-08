@@ -35,6 +35,30 @@ namespace datalog {
     class context;
     class relation_manager;
 
+    template<typename T>
+    class scoped_rel {
+        T* m_t;
+    public:
+        scoped_rel(T* t) : m_t(t) {}
+        ~scoped_rel() { if (m_t) { universal_delete(m_t); } }
+        scoped_rel() : m_t(0) {}
+        scoped_rel& operator=(T* t) { if (m_t && t != m_t) { universal_delete(m_t); } m_t = t;  return *this; }
+        T* operator->() { return m_t; }
+        const T* operator->() const { return m_t; }
+        T& operator*() { return *m_t; }
+        const T& operator*() const { return *m_t; }
+        operator bool() const { return m_t!=0; }
+        T* get() const { return m_t; }
+        /**
+           \brief Remove object from \c scoped_rel without deleting it.
+        */
+        T* release() {
+            T* res = m_t;
+            m_t = 0;
+            return res;
+        }
+    };
+
     ast_manager & get_ast_manager_from_rel_manager(const relation_manager & rm);
     context & get_context_from_rel_manager(const relation_manager & rm);
 
@@ -208,6 +232,11 @@ namespace datalog {
             virtual void operator()(base_object & t, const base_object & intersected_obj) = 0;
         };
 
+        class intersection_join_filter_fn : public base_fn {
+        public:
+            virtual void operator()(base_object & t, const base_object & inter1, const base_object& inter2) = 0;
+        };
+
         class default_join_project_fn;
 
         /**
@@ -303,6 +332,7 @@ namespace datalog {
         protected:
             //see \c relation_manager for documentation of the operations
 
+
             virtual join_fn * mk_join_fn(const base_object & t1, const base_object & t2,
                 unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return 0; }
 
@@ -348,10 +378,22 @@ namespace datalog {
                 const unsigned * t_cols, const unsigned * src_cols) 
             { return 0; }
 
+
             virtual intersection_filter_fn * mk_filter_by_negation_fn(const base_object & t, 
                 const base_object & negated_obj, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * negated_cols) 
             { return 0; }
+
+            virtual intersection_join_filter_fn * mk_filter_by_negated_join_fn(
+                const base_object & t, 
+                const base_object & src1, 
+                const base_object & src2, 
+                unsigned_vector const& t_cols,
+                unsigned_vector const& src_cols,
+                unsigned_vector const& src1_cols,
+                unsigned_vector const& src2_cols) 
+            { return 0; }
+
         };
 
         class base_ancestor {
@@ -685,6 +727,7 @@ namespace datalog {
     typedef relation_infrastructure::union_fn relation_union_fn;
     typedef relation_infrastructure::mutator_fn relation_mutator_fn;
     typedef relation_infrastructure::intersection_filter_fn relation_intersection_filter_fn;
+    typedef relation_infrastructure::intersection_join_filter_fn relation_intersection_join_filter_fn;
 
     typedef relation_infrastructure::convenient_join_fn convenient_relation_join_fn;
     typedef relation_infrastructure::convenient_join_project_fn convenient_relation_join_project_fn;
@@ -807,6 +850,7 @@ namespace datalog {
     typedef table_infrastructure::union_fn table_union_fn;
     typedef table_infrastructure::mutator_fn table_mutator_fn;
     typedef table_infrastructure::intersection_filter_fn table_intersection_filter_fn;
+    typedef table_infrastructure::intersection_join_filter_fn table_intersection_join_filter_fn;
 
     typedef table_infrastructure::convenient_join_fn convenient_table_join_fn;
     typedef table_infrastructure::convenient_join_project_fn convenient_table_join_project_fn;

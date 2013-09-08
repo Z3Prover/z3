@@ -30,6 +30,7 @@ Revision History:
 #include "for_each_expr.h"
 #include "matcher.h"
 #include "scoped_proof.h"
+#include "fixedpoint_params.hpp"
 
 namespace tb {
 

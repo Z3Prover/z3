@@ -37,7 +37,6 @@ Notes:
 #include "rewriter_def.h"
 #include "util.h"
 #include "pdr_manager.h"
-#include "pdr_prop_solver.h"
 #include "pdr_util.h"
 #include "arith_decl_plugin.h"
 #include "expr_replacer.h"
