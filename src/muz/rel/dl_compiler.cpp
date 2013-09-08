@@ -869,7 +869,6 @@ namespace datalog {
                                                     bool & dealloc, instruction_block & acc) {
         uint_set pos_vars;
         u_map<expr*> neg_vars;
-        u_map<unsigned> occs;
         ast_manager& m = m_context.get_manager();
         unsigned pt_len = r->get_positive_tail_size();
         unsigned ut_len = r->get_uninterpreted_tail_size();
@@ -885,12 +884,6 @@ namespace datalog {
                 if (is_var(e)) {
                     unsigned idx = to_var(e)->get_idx();
                     neg_vars.insert(idx, e);
-                    if (!occs.contains(idx)) {
-                        occs.insert(idx, 1);
-                    }
-                    else {
-                        occs.find(idx)++;
-                    }
                 }
             }
         }
@@ -901,15 +894,11 @@ namespace datalog {
                 pos_vars.insert(to_var(e)->get_idx());
             }
         }
-        // add negative variables that are not in positive, but only
-        // for variables that occur more than once. 
+        // add negative variables that are not in positive
         u_map<expr*>::iterator it = neg_vars.begin(), end = neg_vars.end();
         for (; it != end; ++it) {
             unsigned v = it->m_key;
             expr* e = it->m_value;
-            if (occs.find(v) == 1) {
-                continue;
-            }
             if (!pos_vars.contains(v)) {
                 single_res_expr.push_back(e);
                 reg_idx new_single_res;
