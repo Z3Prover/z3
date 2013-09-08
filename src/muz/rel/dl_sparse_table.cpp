@@ -1132,6 +1132,7 @@ namespace datalog {
            If tgt_is_first is false, contains the same items as \c res.
         */
         idx_set m_intersection_content;
+        
 
     public:
         negation_filter_fn(const table_base & tgt, const table_base & neg, 
