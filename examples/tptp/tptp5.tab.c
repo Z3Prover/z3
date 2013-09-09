@@ -107,7 +107,7 @@ struct pTreeNode {
     pTree children[MAX_CHILDREN+1];
 };
 //-----------------------------------------------------------------------------
-int yyerror( char *s ) { 
+int yyerror( char const *s ) { 
 
     fprintf( stderr, "%s in line %d at item \"%s\".\n", s, yylineno, yytext); 
 	return 0;
