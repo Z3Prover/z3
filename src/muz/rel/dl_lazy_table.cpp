@@ -19,7 +19,7 @@ Revision History:
 
 #include "dl_lazy_table.h"
 #include "dl_relation_manager.h"
-#include <strstream>
+#include <sstream>
 
 namespace datalog {
 
@@ -53,7 +53,6 @@ namespace datalog {
         virtual table_base* operator()(const table_base& _t1, const table_base& _t2) {
             lazy_table const& t1 = get(_t1);
             lazy_table const& t2 = get(_t2);
-            lazy_table_plugin& p = t1.get_lplugin();
             lazy_table_ref* tr = alloc(lazy_table_join, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr(), t1, t2, get_result_signature());
             return alloc(lazy_table, tr);
         }

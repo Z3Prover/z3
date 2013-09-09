@@ -34,8 +34,6 @@ Revision History:
 
 namespace datalog {
 
-    static unsigned verbose_action_inside = 0;
-
     verbose_action::verbose_action(char const* msg, unsigned lvl): m_lvl(lvl), m_sw(0) {
         IF_VERBOSE(m_lvl, 
                    (verbose_stream() << msg << "...").flush(); 

@@ -156,7 +156,7 @@ namespace datalog {
         virtual table_base::iterator begin() const;
         virtual table_base::iterator end() const;
 
-        lazy_table_ref* ref() const { return m_ref.get(); }
+        lazy_table_ref* get_ref() const { return m_ref.get(); }
         void set(lazy_table_ref* r) { m_ref = r; }
     };
 
@@ -184,8 +184,8 @@ namespace datalog {
             : lazy_table_ref(t1.get_lplugin(), sig), 
               m_cols1(col_cnt, cols1), 
               m_cols2(col_cnt, cols2),
-              m_t1(t1.ref()),
-              m_t2(t2.ref()) { }
+              m_t1(t1.get_ref()),
+              m_t2(t2.get_ref()) { }
         virtual ~lazy_table_join() {}
         virtual lazy_table_kind kind() const { return LAZY_TABLE_JOIN; }
         unsigned_vector const& cols1() const { return m_cols1; }
@@ -203,7 +203,7 @@ namespace datalog {
         lazy_table_project(unsigned col_cnt, const unsigned * cols, lazy_table const& src, table_signature const& sig)
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
-              m_src(src.ref()) {}
+              m_src(src.get_ref()) {}
         virtual ~lazy_table_project() {}
         
         virtual lazy_table_kind kind() const { return LAZY_TABLE_PROJECT; }
@@ -219,7 +219,7 @@ namespace datalog {
         lazy_table_rename(unsigned col_cnt, const unsigned * cols, lazy_table const& src, table_signature const& sig)
             : lazy_table_ref(src.get_lplugin(), sig), 
               m_cols(col_cnt, cols), 
-              m_src(src.ref()) {}
+              m_src(src.get_ref()) {}
         virtual ~lazy_table_rename() {}
         
         virtual lazy_table_kind kind() const { return LAZY_TABLE_RENAME; }
@@ -233,7 +233,7 @@ namespace datalog {
         ref<lazy_table_ref>      m_src;
     public:
         lazy_table_filter_identical(unsigned col_cnt, const unsigned * cols, lazy_table const& src)
-            : lazy_table_ref(src.get_lplugin(), src.get_signature()), m_cols(col_cnt, cols), m_src(src.ref()) {}
+            : lazy_table_ref(src.get_lplugin(), src.get_signature()), m_cols(col_cnt, cols), m_src(src.get_ref()) {}
         virtual ~lazy_table_filter_identical() {}
         
         virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_IDENTICAL; }
@@ -251,7 +251,7 @@ namespace datalog {
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), 
             m_col(col), 
             m_value(value), 
-            m_src(src.ref()) {}
+            m_src(src.get_ref()) {}
         virtual ~lazy_table_filter_equal() {}
         
         virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_EQUAL; }
@@ -267,7 +267,7 @@ namespace datalog {
     public:
         lazy_table_filter_interpreted(lazy_table const& src, app* condition)
             : lazy_table_ref(src.get_lplugin(), src.get_signature()), 
-              m_condition(condition, src.get_lplugin().get_ast_manager()), m_src(src.ref()) {}
+              m_condition(condition, src.get_lplugin().get_ast_manager()), m_src(src.get_ref()) {}
         virtual ~lazy_table_filter_interpreted() {}
         
         virtual lazy_table_kind kind() const { return LAZY_TABLE_FILTER_INTERPRETED; }
@@ -286,8 +286,8 @@ namespace datalog {
         lazy_table_filter_by_negation(lazy_table const& tgt, lazy_table const& src, 
                                       unsigned_vector const& c1, unsigned_vector const& c2) 
         : lazy_table_ref(tgt.get_lplugin(), tgt.get_signature()),
-            m_tgt(tgt.ref()), 
-            m_src(src.ref()), 
+            m_tgt(tgt.get_ref()), 
+            m_src(src.get_ref()), 
             m_cols1(c1),
             m_cols2(c2) {}
         virtual ~lazy_table_filter_by_negation() {}
