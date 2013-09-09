@@ -52,6 +52,7 @@ Subsumption transformation (remove rule):
 #include "rewriter.h"
 #include "rewriter_def.h"
 #include "dl_mk_rule_inliner.h"
+#include "fixedpoint_params.hpp"
 
 namespace datalog {
 

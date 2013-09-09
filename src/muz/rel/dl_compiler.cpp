@@ -882,7 +882,8 @@ namespace datalog {
             for (unsigned j = 0; j < neg_len; ++j) {
                 expr * e = neg_tail->get_arg(j);
                 if (is_var(e)) {
-                    neg_vars.insert(to_var(e)->get_idx(), e);
+                    unsigned idx = to_var(e)->get_idx();
+                    neg_vars.insert(idx, e);
                 }
             }
         }
@@ -893,7 +894,7 @@ namespace datalog {
                 pos_vars.insert(to_var(e)->get_idx());
             }
         }
-        // add negative variables that are not in positive:
+        // add negative variables that are not in positive
         u_map<expr*>::iterator it = neg_vars.begin(), end = neg_vars.end();
         for (; it != end; ++it) {
             unsigned v = it->m_key;

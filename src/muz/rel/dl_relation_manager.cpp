@@ -167,8 +167,13 @@ namespace datalog {
         register_relation_plugin_impl(tr_plugin);
         m_table_relation_plugins.insert(plugin, tr_plugin);
 
+        if (plugin->get_name()==get_context().default_table()) {
+            m_favourite_table_plugin    = plugin;
+            m_favourite_relation_plugin = tr_plugin;
+        }
+
         symbol checker_name = get_context().default_table_checker();
-        if(get_context().default_table_checked() && get_table_plugin(checker_name)) {
+        if (get_context().default_table_checked() && get_table_plugin(checker_name)) {
             if( m_favourite_table_plugin &&
                 (plugin==m_favourite_table_plugin || plugin->get_name()==checker_name) ) {
                 symbol checked_name = get_context().default_table();
@@ -178,7 +183,7 @@ namespace datalog {
                 register_plugin(checking_plugin);
                 m_favourite_table_plugin = checking_plugin;
             }
-            if(m_favourite_relation_plugin && m_favourite_relation_plugin->from_table()) {
+            if (m_favourite_relation_plugin && m_favourite_relation_plugin->from_table()) {
                 table_relation_plugin * fav_rel_plugin = 
                     static_cast<table_relation_plugin *>(m_favourite_relation_plugin);
                 if(&fav_rel_plugin->get_table_plugin()==plugin || plugin->get_name()==checker_name) {
@@ -577,6 +582,7 @@ namespace datalog {
         relation_plugin * p2 = &t2.get_plugin();
 
         relation_join_fn * res = p1->mk_join_fn(t1, t2, col_cnt, cols1, cols2);
+        
         if(!res && p1!=p2) {
             res = p2->mk_join_fn(t1, t2, col_cnt, cols1, cols2);
         }
@@ -1537,6 +1543,19 @@ namespace datalog {
         }
         return res;
     }
+
+    
+    table_intersection_join_filter_fn* relation_manager::mk_filter_by_negated_join_fn(
+        const table_base & t, 
+        const table_base & src1, 
+        const table_base & src2, 
+        unsigned_vector const& t_cols,
+        unsigned_vector const& src_cols,
+        unsigned_vector const& src1_cols,
+        unsigned_vector const& src2_cols) {
+        return t.get_plugin().mk_filter_by_negated_join_fn(t, src1, src2, t_cols, src_cols, src1_cols, src2_cols);
+    }
+
 
 
     class relation_manager::default_table_select_equal_and_project_fn : public table_transformer_fn {

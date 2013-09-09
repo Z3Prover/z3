@@ -33,6 +33,7 @@ Revision History:
 #include"dl_mk_quantifier_instantiation.h"
 #include"dl_mk_subsumption_checker.h"
 #include"dl_mk_scale.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

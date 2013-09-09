@@ -26,7 +26,6 @@ Revision History:
 #include"horn_subsume_model_converter.h"
 #include"replace_proof_converter.h"
 #include"substitution.h"
-#include"fixedpoint_params.hpp"
 #include"ast_counter.h"
 #include"statistics.h"
 #include"lbool.h"
@@ -42,6 +41,14 @@ namespace datalog {
     class pentagon_relation;
     class relation_fact;
     class relation_signature;
+
+    class verbose_action {
+        unsigned  m_lvl;
+        class stopwatch* m_sw;
+    public:
+        verbose_action(char const* msg, unsigned lvl = 1);
+        ~verbose_action();
+    };
 
     enum PDR_CACHE_MODE {
         NO_CACHE,
@@ -706,29 +713,6 @@ namespace datalog {
         dealloc(ptr);
     }
 
-    template<typename T>
-    class scoped_rel {
-        T* m_t;
-    public:
-        scoped_rel(T* t) : m_t(t) {}
-        ~scoped_rel() { if (m_t) { universal_delete(m_t); } }
-        scoped_rel() : m_t(0) {}
-        scoped_rel& operator=(T* t) { if (m_t) { universal_delete(m_t); } m_t = t;  return *this; }
-        T* operator->() { return m_t; }
-        const T* operator->() const { return m_t; }
-        T& operator*() { return *m_t; }
-        const T& operator*() const { return *m_t; }
-        operator bool() const { return m_t!=0; }
-        T* get() const { return m_t; }
-        /**
-           \brief Remove object from \c scoped_rel without deleting it.
-        */
-        T* release() {
-            T* res = m_t;
-            m_t = 0;
-            return res;
-        }
-    };
 
     /**
        \brief If it is possible to convert the beginning of \c s to uint64,

@@ -23,6 +23,8 @@ Revision History:
 #include "dl_context.h"
 #include "expr_safe_replace.h"
 #include "expr_abstract.h"
+#include"fixedpoint_params.hpp"
+
 
 namespace datalog {
 

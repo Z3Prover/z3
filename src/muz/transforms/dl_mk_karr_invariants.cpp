@@ -39,6 +39,7 @@ Revision History:
 #include"dl_mk_karr_invariants.h"
 #include"dl_mk_backwards.h"
 #include"dl_mk_loop_counter.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

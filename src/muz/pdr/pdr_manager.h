@@ -78,7 +78,6 @@ namespace pdr {
     {
         ast_manager&      m;
         smt_params& m_fparams;
-        fixedpoint_params const& m_params;
         
         mutable bool_rewriter m_brwr;
         
@@ -99,12 +98,10 @@ namespace pdr {
         void add_new_state(func_decl * s);
         
     public:
-        manager(smt_params& fparams, fixedpoint_params const& params, 
-                ast_manager & manager);
+        manager(smt_params& fparams, unsigned max_num_contexts, ast_manager & manager);
         
         ast_manager& get_manager() const { return m; }
         smt_params& get_fparams() const { return m_fparams; }
-        fixedpoint_params const& get_params() const { return m_params; }
         bool_rewriter& get_brwr() const { return m_brwr; }
 
         expr_ref mk_and(unsigned sz, expr* const* exprs);

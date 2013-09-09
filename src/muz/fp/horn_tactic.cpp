@@ -27,6 +27,7 @@ Revision History:
 #include"dl_mk_slice.h"
 #include"filter_model_converter.h"
 #include"dl_transforms.h"
+#include"fixedpoint_params.hpp"
 
 class horn_tactic : public tactic {
     struct imp {

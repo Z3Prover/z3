@@ -47,7 +47,7 @@ namespace pdr {
         void add_disjuncted_formula(expr * f);
         
     public:
-        reachable_cache(pdr::manager & pm, fixedpoint_params const& params);
+        reachable_cache(pdr::manager & pm, datalog::PDR_CACHE_MODE cm);
         
         void add_init(app * f)   { add_disjuncted_formula(f); }
         

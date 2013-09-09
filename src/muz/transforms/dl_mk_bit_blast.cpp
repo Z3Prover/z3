@@ -24,6 +24,7 @@ Revision History:
 #include "expr_safe_replace.h"
 #include "filter_model_converter.h"
 #include "dl_mk_interp_tail_simplifier.h"
+#include "fixedpoint_params.hpp"
 
 namespace datalog {
 

@@ -565,6 +565,19 @@ namespace datalog {
         }
 
         /**
+           combined filter by negation with a join.
+         */
+        table_intersection_join_filter_fn* mk_filter_by_negated_join_fn(
+            const table_base & t, 
+            const table_base & src1, 
+            const table_base & src2, 
+            unsigned_vector const& t_cols,
+            unsigned_vector const& src_cols,
+            unsigned_vector const& src1_cols,
+            unsigned_vector const& src2_cols);
+
+
+        /**
             \c t must contain at least one functional column.
 
             Created object takes ownership of the \c mapper object.

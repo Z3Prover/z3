@@ -151,7 +151,7 @@ public:
     void set_index(int idx) { m_symbol_index = idx; }
 };
 
-TreeNode* MkToken(alloc_region& r, char* token, int symbolIndex) { 
+TreeNode* MkToken(alloc_region& r, char const* token, int symbolIndex) { 
     TreeNode* ss;
     char* symbol = tptp_lval[symbolIndex];
     ss = new (r) TreeNode(r, symbol, NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL);

@@ -43,6 +43,8 @@ Revision History:
 #include"expr_functors.h"
 #include"dl_engine_base.h"
 
+struct fixedpoint_params;
+
 namespace datalog {
 
     enum execution_result {
@@ -168,7 +170,7 @@ namespace datalog {
         register_engine_base& m_register_engine;
         smt_params &       m_fparams;
         params_ref         m_params_ref;
-        fixedpoint_params  m_params;
+        fixedpoint_params*  m_params;
         dl_decl_util       m_decl_util;
         th_rewriter        m_rewriter;
         var_subst          m_var_subst;
@@ -231,33 +233,35 @@ namespace datalog {
         ast_manager & get_manager() const { return m; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
-        fixedpoint_params const&  get_params() const { return m_params; }
+        fixedpoint_params const&  get_params() const { return *m_params; }
         DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
         register_engine_base& get_register_engine() { return m_register_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
         dl_decl_util & get_decl_util()  { return m_decl_util; }
 
-        bool generate_proof_trace() const { return m_params.generate_proof_trace(); }
-        bool output_profile() const { return m_params.output_profile(); }
-        bool fix_unbound_vars() const { return m_params.fix_unbound_vars(); }
-        symbol default_table() const { return m_params.default_table(); }
-        symbol default_relation() const { return m_params.default_relation(); } // external_relation_plugin::get_name()); 
-        symbol default_table_checker() const { return m_params.default_table_checker(); }
-        bool default_table_checked() const { return m_params.default_table_checked(); }
-        bool dbg_fpr_nonempty_relation_signature() const { return m_params.dbg_fpr_nonempty_relation_signature(); }
-        unsigned dl_profile_milliseconds_threshold() const { return m_params.profile_timeout_milliseconds(); }
-        bool all_or_nothing_deltas() const { return m_params.all_or_nothing_deltas(); }
-        bool compile_with_widening() const { return m_params.compile_with_widening(); }
-        bool unbound_compressor() const { return m_params.unbound_compressor(); }
-        bool similarity_compressor() const { return m_params.similarity_compressor(); }
-        unsigned similarity_compressor_threshold() const { return m_params.similarity_compressor_threshold(); }
-        unsigned soft_timeout() const { return m_fparams.m_soft_timeout; }
-        unsigned initial_restart_timeout() const { return m_params.initial_restart_timeout(); } 
-        bool generate_explanations() const { return m_params.generate_explanations(); }
-        bool explanations_on_relation_level() const { return m_params.explanations_on_relation_level(); }
-        bool magic_sets_for_queries() const { return m_params.magic_sets_for_queries();  }
-        bool eager_emptiness_checking() const { return m_params.eager_emptiness_checking(); }
+        bool generate_proof_trace() const;
+        bool output_profile() const;
+        bool output_tuples() const;
+        bool use_map_names() const;
+        bool fix_unbound_vars() const;
+        symbol default_table() const;
+        symbol default_relation() const;
+        symbol default_table_checker() const;
+        bool default_table_checked() const;
+        bool dbg_fpr_nonempty_relation_signature() const;
+        unsigned dl_profile_milliseconds_threshold() const;
+        bool all_or_nothing_deltas() const;
+        bool compile_with_widening() const;
+        bool unbound_compressor() const;
+        bool similarity_compressor() const;
+        unsigned similarity_compressor_threshold() const;
+        unsigned soft_timeout() const;
+        unsigned initial_restart_timeout() const;
+        bool generate_explanations() const;
+        bool explanations_on_relation_level() const;
+        bool magic_sets_for_queries() const;
+        bool eager_emptiness_checking() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 

@@ -28,6 +28,7 @@ Revision History:
 #include "pdr_manager.h"
 #include "pdr_prop_solver.h"
 #include "pdr_reachable_cache.h"
+#include "fixedpoint_params.hpp"
 
 
 namespace datalog {

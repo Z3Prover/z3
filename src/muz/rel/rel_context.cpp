@@ -31,6 +31,7 @@ Revision History:
 #include"dl_interval_relation.h"
 #include"karr_relation.h"
 #include"dl_finite_product_relation.h"
+#include"dl_lazy_table.h"
 #include"dl_sparse_table.h"
 #include"dl_table.h"
 #include"dl_table_relation.h"
@@ -45,6 +46,7 @@ Revision History:
 #include"dl_mk_rule_inliner.h"
 #include"dl_mk_interp_tail_simplifier.h"
 #include"dl_mk_bit_blast.h"
+#include"fixedpoint_params.hpp"
 
 
 namespace datalog {
@@ -96,17 +98,19 @@ namespace datalog {
 
         // register plugins for builtin tables
 
-        get_rmanager().register_plugin(alloc(sparse_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(hashtable_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(bitvector_table_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(equivalence_table_plugin, get_rmanager()));
+        relation_manager& rm = get_rmanager();
 
+        rm.register_plugin(alloc(sparse_table_plugin, rm));
+        rm.register_plugin(alloc(hashtable_table_plugin, rm));
+        rm.register_plugin(alloc(bitvector_table_plugin, rm));
+        rm.register_plugin(alloc(equivalence_table_plugin, rm));
+        rm.register_plugin(lazy_table_plugin::mk_sparse(rm));
 
         // register plugins for builtin relations
 
-        get_rmanager().register_plugin(alloc(bound_relation_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(interval_relation_plugin, get_rmanager()));
-        get_rmanager().register_plugin(alloc(karr_relation_plugin, get_rmanager()));
+        rm.register_plugin(alloc(bound_relation_plugin, rm));
+        rm.register_plugin(alloc(interval_relation_plugin, rm));
+        rm.register_plugin(alloc(karr_relation_plugin, rm));
     }
 
     rel_context::~rel_context() {

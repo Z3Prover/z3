@@ -30,6 +30,7 @@ Notes:
 #include"scoped_ctrl_c.h"
 #include"scoped_timer.h"
 #include"trail.h"
+#include"fixedpoint_params.hpp"
 #include<iomanip>
 
 

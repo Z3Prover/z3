@@ -18,6 +18,7 @@ Revision History:
 
 #include"dl_mk_scale.h"
 #include"dl_context.h"
+#include"fixedpoint_params.hpp"
 
 namespace datalog {
 

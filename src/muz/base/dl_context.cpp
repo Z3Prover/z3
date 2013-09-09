@@ -27,6 +27,7 @@ Revision History:
 #include"ast_smt2_pp.h"
 #include"datatype_decl_plugin.h"
 #include"scoped_proof.h"
+#include"fixedpoint_params.hpp"
 
 
 namespace datalog {
@@ -199,7 +200,7 @@ namespace datalog {
         m_register_engine(re),
         m_fparams(fp),
         m_params_ref(pa),
-        m_params(m_params_ref),
+        m_params(alloc(fixedpoint_params, m_params_ref)),
         m_decl_util(m),
         m_rewriter(m),
         m_var_subst(m),
@@ -262,6 +263,31 @@ namespace datalog {
     const context::sort_domain & context::get_sort_domain(relation_sort s) const {
         return *m_sorts.find(s);
     }
+
+
+    bool context::generate_proof_trace() const { return m_params->generate_proof_trace(); }
+    bool context::output_profile() const { return m_params->output_profile(); }
+    bool context::output_tuples() const { return m_params->output_tuples(); }
+    bool context::use_map_names() const { return m_params->use_map_names(); }
+    bool context::fix_unbound_vars() const { return m_params->fix_unbound_vars(); }
+    symbol context::default_table() const { return m_params->default_table(); }
+    symbol context::default_relation() const { return m_params->default_relation(); } // external_relation_plugin::get_name()); 
+    symbol context::default_table_checker() const { return m_params->default_table_checker(); }
+    bool context::default_table_checked() const { return m_params->default_table_checked(); }
+    bool context::dbg_fpr_nonempty_relation_signature() const { return m_params->dbg_fpr_nonempty_relation_signature(); }
+    unsigned context::dl_profile_milliseconds_threshold() const { return m_params->profile_timeout_milliseconds(); }
+    bool context::all_or_nothing_deltas() const { return m_params->all_or_nothing_deltas(); }
+    bool context::compile_with_widening() const { return m_params->compile_with_widening(); }
+    bool context::unbound_compressor() const { return m_params->unbound_compressor(); }
+    bool context::similarity_compressor() const { return m_params->similarity_compressor(); }
+    unsigned context::similarity_compressor_threshold() const { return m_params->similarity_compressor_threshold(); }
+    unsigned context::soft_timeout() const { return m_fparams.m_soft_timeout; }
+    unsigned context::initial_restart_timeout() const { return m_params->initial_restart_timeout(); } 
+    bool context::generate_explanations() const { return m_params->generate_explanations(); }
+    bool context::explanations_on_relation_level() const { return m_params->explanations_on_relation_level(); }
+    bool context::magic_sets_for_queries() const { return m_params->magic_sets_for_queries();  }
+    bool context::eager_emptiness_checking() const { return m_params->eager_emptiness_checking(); }
+
 
     void context::register_finite_sort(sort * s, sort_kind k) {
         m_pinned.push_back(s);
@@ -861,7 +887,7 @@ namespace datalog {
     };
 
     void context::configure_engine() {
-        symbol e = m_params.engine();
+        symbol e = m_params->engine();
         
         if (e == symbol("datalog")) {
             m_engine_type = DATALOG_ENGINE;
@@ -1082,9 +1108,9 @@ namespace datalog {
         expr_ref fml(m);
         expr_ref_vector rules(m);
         svector<symbol> names;
-        bool use_fixedpoint_extensions = m_params.print_with_fixedpoint_extensions();
-        bool print_low_level = m_params.print_low_level_smt2();
-        bool do_declare_vars = m_params.print_with_variable_declarations();
+        bool use_fixedpoint_extensions = m_params->print_with_fixedpoint_extensions();
+        bool print_low_level = m_params->print_low_level_smt2();
+        bool do_declare_vars = m_params->print_with_variable_declarations();
 
 #define PP(_e_) if (print_low_level) out << mk_smt_pp(_e_, m); else ast_smt2_pp(out, _e_, env);
 
