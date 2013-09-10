@@ -46,6 +46,7 @@ Revision History:
 #include"dl_mk_rule_inliner.h"
 #include"dl_mk_interp_tail_simplifier.h"
 #include"dl_mk_bit_blast.h"
+#include"dl_mk_separate_negated_tails.h"
 #include"fixedpoint_params.hpp"
 
 
@@ -281,6 +282,7 @@ namespace datalog {
         transf.register_plugin(alloc(mk_partial_equivalence_transformer, m_context));
         transf.register_plugin(alloc(mk_rule_inliner, m_context));
         transf.register_plugin(alloc(mk_interp_tail_simplifier, m_context));
+        transf.register_plugin(alloc(mk_separate_negated_tails, m_context));
 
         if (m_context.get_params().bit_blast()) {
             transf.register_plugin(alloc(mk_bit_blast, m_context, 22000));

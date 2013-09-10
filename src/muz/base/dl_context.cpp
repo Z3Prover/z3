@@ -232,6 +232,7 @@ namespace datalog {
 
     context::~context() {
         reset();
+        dealloc(m_params);        
     }
 
     void context::reset() {
