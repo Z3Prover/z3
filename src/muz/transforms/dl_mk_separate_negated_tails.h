@@ -1,5 +1,5 @@
 /*++
-Copyright (c) 2006 Microsoft Corporation
+Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
@@ -20,9 +20,6 @@ Abstract:
     => 
        P(x)    :- Exists y, z . Q(x,y), !R(y,z), TN(z).
        TN(z)   :- !T(z,u).
-
-
-
 
 Author:
 

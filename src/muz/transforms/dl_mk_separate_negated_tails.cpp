@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2013 Microsoft Corporation
+
+Module Name:
+
+    mk_separate_negated_tails.cpp
+
+Abstract:
+
+    <see header>
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2013-09-09
+
+Revision History:
+
+--*/
 
 #include "dl_mk_separate_negated_tails.h"
 #include "dl_context.h"
