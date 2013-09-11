@@ -675,9 +675,11 @@ namespace datalog {
         case PDR_ENGINE:
             check_existential_tail(r);
             check_positive_predicates(r);
+            check_uninterpreted_free(r);
             break;
         case QPDR_ENGINE:
             check_positive_predicates(r);
+            check_uninterpreted_free(r);
             break;
         case BMC_ENGINE:
             check_positive_predicates(r);

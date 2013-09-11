@@ -223,6 +223,7 @@ public:
         dlctx.updt_params(m_params);
         unsigned timeout   = m_dl_ctx->get_params().timeout(); 
         cancel_eh<datalog::context> eh(dlctx);
+        bool query_exn = false;
         lbool status = l_undef;
         {
             scoped_ctrl_c ctrlc(eh);
@@ -237,6 +238,7 @@ public:
             }
             catch (z3_exception& ex) {
                 ctx.regular_stream() << "(error \"query failed: " << ex.msg() << "\")" << std::endl;
+                query_exn = true;
             }
         }
         switch (status) {
@@ -269,7 +271,7 @@ public:
                 break;
 
             case datalog::OK: 
-                UNREACHABLE();
+                SASSERT(query_exn);
                 break;
 
             case datalog::CANCELED:
