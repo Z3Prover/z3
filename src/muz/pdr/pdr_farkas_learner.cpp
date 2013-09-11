@@ -46,6 +46,9 @@ namespace pdr {
         app_ref_vector   m_ineqs;
         vector<rational> m_coeffs;
 
+        unsigned m_time;
+        unsigned_vector m_roots, m_size, m_his, m_reps, m_ts;
+
         void mk_coerce(expr*& e1, expr*& e2) {
             if (a.is_int(e1) && a.is_real(e2)) {
                 e1 = a.mk_to_real(e1);
@@ -146,7 +149,7 @@ namespace pdr {
         }
         
     public:
-        constr(ast_manager& m) : m(m), a(m), m_ineqs(m) {}
+        constr(ast_manager& m) : m(m), a(m), m_ineqs(m), m_time(0) {}
 
         /** add a multiple of constraint c to the current constr */
         void add(rational const & coef, app * c) {
@@ -180,12 +183,133 @@ namespace pdr {
                       tout << m_coeffs[i] << ": " << mk_pp(m_ineqs[i].get(), m) << "\n";
                   }
                   );
+            
+            res = extract_consequence(0, m_coeffs.size());
+
+#if 1
+            // partition equalities into variable disjoint sets.
+            // take the conjunction of these instead of the
+            // linear combination.
+            partition_ineqs();
+            expr_ref_vector lits(m);
+            unsigned lo = 0;
+            for (unsigned i = 0; i < m_his.size(); ++i) {
+                unsigned hi = m_his[i];
+                lits.push_back(extract_consequence(lo, hi));
+                lo = hi;
+            }
+            res = qe::mk_or(lits);
+            IF_VERBOSE(2, { if (lits.size() > 1) { verbose_stream() << "combined lemma: " << mk_pp(res, m) << "\n"; } });
+#endif
+        }
+
+    private:
+
+        // partition inequalities into variable disjoint sets.
+        void partition_ineqs() {
+            m_roots.reset();
+            m_size.reset();
+            m_reps.reset();
+            m_his.reset();
+            ++m_time;
+            for (unsigned i = 0; i < m_ineqs.size(); ++i) {
+                m_reps.push_back(process_term(m_ineqs[i].get()));
+            }
+            unsigned head = 0;
+            while (head < m_ineqs.size()) {
+                unsigned r = find(m_reps[head]);
+                unsigned tail = head;
+                for (unsigned i = head+1; i < m_ineqs.size(); ++i) {
+                    if (find(m_reps[i]) == r) {
+                        ++tail;
+                        if (tail != i) {
+                            SASSERT(tail < i);
+                            std::swap(m_reps[tail], m_reps[i]);
+                            app_ref tmp(m);
+                            tmp = m_ineqs[i].get();
+                            m_ineqs[i] = m_ineqs[tail].get();
+                            m_ineqs[tail] = tmp;
+                            std::swap(m_coeffs[tail], m_coeffs[i]);
+                        }
+                    }
+                }
+                head = tail + 1;
+                m_his.push_back(head);
+            }
+        }
+
+        unsigned find(unsigned idx) {
+            if (m_ts.size() <= idx) {
+                m_roots.resize(idx+1);
+                m_size.resize(idx+1);
+                m_ts.resize(idx+1); 
+                m_roots[idx] = idx;
+                m_ts[idx] = m_time;
+                m_size[idx] = 1;                
+                return idx;
+            }
+            if (m_ts[idx] != m_time) {
+                m_size[idx] = 1;
+                m_ts[idx]    = m_time;
+                m_roots[idx] = idx;
+                return idx;
+            }
+            while (true) {
+                if (m_roots[idx] == idx) {
+                    return idx;
+                }
+                idx = m_roots[idx];
+            }
+        }
+
+        void merge(unsigned i, unsigned j) {
+            i = find(i);
+            j = find(j);
+            if (i == j) {
+                return;
+            }
+            if (m_size[i] > m_size[j]) {
+                std::swap(i, j);
+            }
+            m_roots[i] = j;
+            m_size[j] += m_size[i];
+        }
+
+        unsigned process_term(expr* e) {
+            unsigned r = e->get_id();
+            ptr_vector<expr> todo;
+            ast_mark mark;
+            todo.push_back(e);
+            while (!todo.empty()) {
+                e = todo.back();
+                todo.pop_back();
+                if (mark.is_marked(e)) {
+                    continue;
+                }
+                mark.mark(e, true);
+                if (is_uninterp(e)) {
+                    merge(r, e->get_id());
+                }
+                if (is_app(e)) {
+                    app* a = to_app(e);
+                    for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                        todo.push_back(a->get_arg(i));
+                    }
+                }
+            }
+            return r;
+        }
+
+
+        expr_ref extract_consequence(unsigned lo, unsigned hi) {
+            bool is_int = is_int_sort();
             app_ref zero(a.mk_numeral(rational::zero(), is_int), m);
+            expr_ref res(m);
             res = zero;
             bool is_strict = false;
             bool is_eq     = true;
             expr* x, *y;
-            for (unsigned i = 0; i < m_coeffs.size(); ++i) {
+            for (unsigned i = lo; i < hi; ++i) {
                 app* c = m_ineqs[i].get();
                 if (m.is_eq(c, x, y)) {
                     mul(m_coeffs[i],  x, res);
@@ -220,12 +344,12 @@ namespace pdr {
             params.set_bool("gcd_rounding", true);
             rw.updt_params(params);
             proof_ref pr(m);
-            expr_ref tmp(m);
-            rw(res, tmp, pr);
-            fix_dl(tmp);
-            res = tmp;
+            expr_ref result(m);
+            rw(res, result, pr);
+            fix_dl(result);
+            return result;            
         }
-
+        
         // patch: swap addends to make static 
         // features recognize difference constraint.
         void fix_dl(expr_ref& r) {
