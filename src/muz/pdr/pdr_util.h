@@ -143,8 +143,6 @@ namespace pdr {
      */
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml);
 
-    
-
     /**
        \brief hoist non-boolean if expressions.
      */

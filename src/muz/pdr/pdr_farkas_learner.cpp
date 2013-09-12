@@ -151,6 +151,11 @@ namespace pdr {
     public:
         constr(ast_manager& m) : m(m), a(m), m_ineqs(m), m_time(0) {}
 
+        void reset() {
+            m_ineqs.reset();
+            m_coeffs.reset();
+        }
+
         /** add a multiple of constraint c to the current constr */
         void add(rational const & coef, app * c) {
             bool is_pos = true;
@@ -300,7 +305,6 @@ namespace pdr {
             return r;
         }
 
-
         expr_ref extract_consequence(unsigned lo, unsigned hi) {
             bool is_int = is_int_sort();
             app_ref zero(a.mk_numeral(rational::zero(), is_int), m);
@@ -373,12 +377,17 @@ namespace pdr {
     farkas_learner::farkas_learner(smt_params& params, ast_manager& outer_mgr) 
         : m_proof_params(get_proof_params(params)), 
           m_pr(PROOF_MODE),
+          m_constr(0),
           m_combine_farkas_coefficients(true),
           p2o(m_pr, outer_mgr),
           o2p(outer_mgr, m_pr)
     {
         reg_decl_plugins(m_pr);
         m_ctx = alloc(smt::kernel, m_pr, m_proof_params);
+    }
+
+    farkas_learner::~farkas_learner() {
+        dealloc(m_constr);
     }
 
     smt_params farkas_learner::get_proof_params(smt_params& orig_params) {
@@ -538,11 +547,14 @@ namespace pdr {
     {
         ast_manager& m = res.get_manager();
         if (m_combine_farkas_coefficients) {
-            constr res_c(m);
-            for(unsigned i = 0; i < n; ++i) {
-                res_c.add(coeffs[i], lits[i]);
+            if (!m_constr) {
+                m_constr = alloc(constr, m);
             }
-            res_c.get(res);
+            m_constr->reset();
+            for (unsigned i = 0; i < n; ++i) {
+                m_constr->add(coeffs[i], lits[i]);
+            }
+            m_constr->get(res);
         }
         else {
             bool_rewriter rw(m);

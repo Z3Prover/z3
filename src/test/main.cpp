@@ -214,6 +214,7 @@ int main(int argc, char ** argv) {
     TST(quant_solve);
     TST(rcf);
     TST(polynorm);
+    TST(qe_arith);
 }
 
 void initialize_mam() {}

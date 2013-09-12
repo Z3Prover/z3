@@ -42,6 +42,7 @@ class farkas_learner {
     smt_params               m_proof_params;
     ast_manager              m_pr;
     scoped_ptr<smt::kernel>  m_ctx;
+    constr*                  m_constr;
 
     // 
     // true:  produce a combined constraint by applying Farkas coefficients.
@@ -79,6 +80,8 @@ class farkas_learner {
 
 public:
     farkas_learner(smt_params& params, ast_manager& m);
+
+    ~farkas_learner();
 
     /**
        All ast objects have the ast_manager which was passed as 
