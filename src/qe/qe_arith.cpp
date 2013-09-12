@@ -168,7 +168,7 @@ namespace qe {
         unsigned find_max(model& mdl, bool do_pos) {
             unsigned result;
             bool found = false;
-            rational found_val(0), r;
+            rational found_val(0), r, found_c;
             expr_ref val(m);
             for (unsigned i = 0; i < m_ineq_terms.size(); ++i) {
                 rational const& ac = m_ineq_coeffs[i];
@@ -180,11 +180,15 @@ namespace qe {
                     if (!found || r > found_val) {
                         result = i;
                         found_val = r;
+                        found_c = ac;
                         found = true;
                     }
                 }
             }
             SASSERT(found);
+            if (a.is_int(m_var->x()) && !found_c.is_one()) {
+                throw cant_project();
+            }
             return result;
         }
 
