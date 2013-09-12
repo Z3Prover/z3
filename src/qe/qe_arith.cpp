@@ -67,7 +67,7 @@ namespace qe {
                 ts.push_back(a.mk_numeral(mul*mul1, m.get_sort(t)));
             }
             else if ((*m_var)(t)) {
-                IF_VERBOSE(1, verbose_stream() << mk_pp(t, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "can't project:" << mk_pp(t, m) << "\n";);
                 throw cant_project();
             }
             else if (mul.is_one()) {
@@ -111,6 +111,7 @@ namespace qe {
                 is_strict = false;
             }            
             else {
+                IF_VERBOSE(1, verbose_stream() << "can't project:" << mk_pp(lit, m) << "\n";);
                 throw cant_project();
             }
             if (ts.empty()) {
@@ -125,6 +126,9 @@ namespace qe {
         void project(model& model, expr_ref_vector& lits) {
             unsigned num_pos = 0;
             unsigned num_neg = 0;
+            m_ineq_terms.reset();
+            m_ineq_coeffs.reset();
+            m_ineq_strict.reset();
             expr_ref_vector new_lits(m);
             for (unsigned i = 0; i < lits.size(); ++i) {
                 rational c(0);
@@ -134,12 +138,16 @@ namespace qe {
                     m_ineq_coeffs.push_back(c);
                     m_ineq_terms.push_back(t);
                     m_ineq_strict.push_back(is_strict);
-                    if (c.is_pos()) {
+                    if (c.is_zero()) {
+                        m_rw(lits[i].get(), t);
+                        new_lits.push_back(t);
+                    }
+                    else if (c.is_pos()) {
                         ++num_pos;
                     }
                     else {
                         ++num_neg;
-                    }
+                    }                    
                 }
                 else {
                     new_lits.push_back(lits[i].get());
@@ -208,14 +216,15 @@ namespace qe {
             expr_ref as = mk_mul(abs(ac), s);
             expr_ref ts = mk_add(bt, as);
             expr*    z  = a.mk_numeral(rational(0), m.get_sort(t));
-            expr_ref result(m);
+            expr_ref result1(m), result2(m);
             if (m_ineq_strict[i] || m_ineq_strict[j]) {
-                result = a.mk_lt(ts, z);
+                result1 = a.mk_lt(ts, z);
             }
             else {
-                result = a.mk_le(ts, z);
+                result1 = a.mk_le(ts, z);
             }
-            return result;
+            m_rw(result1, result2);
+            return result2;
         }
 
         // ax + t <= 0
@@ -232,12 +241,15 @@ namespace qe {
             expr* s = m_ineq_terms[j].get();
             expr_ref bt = mk_mul(abs(bc), t);
             expr_ref as = mk_mul(abs(ac), s);
+            expr_ref result1(m), result2(m);
             if (m_ineq_strict[j] && !m_ineq_strict[i]) {
-                return expr_ref(a.mk_lt(bt, as), m);
+                result1 = a.mk_lt(bt, as);
             }
             else {
-                return expr_ref(a.mk_le(bt, as), m);
+                result1 = a.mk_le(bt, as);
             }
+            m_rw(result1, result2);
+            return result2;
         }
 
 
@@ -257,26 +269,37 @@ namespace qe {
             app_ref_vector new_vars(m);
             expr_ref_vector result(lits);
             for (unsigned i = 0; i < vars.size(); ++i) {
-                m_var = alloc(contains_app, m, vars[i].get());
+                app* v = vars[i].get();
+                m_var = alloc(contains_app, m, v);
                 try {
                     project(model, result);
+                    TRACE("qe", tout << "projected: " << mk_pp(v, m) << " ";
+                          for (unsigned i = 0; i < result.size(); ++i) {
+                              tout << mk_pp(result[i].get(), m) << "\n";
+                          });
                 }
                 catch (cant_project) {
-                    new_vars.push_back(vars[i].get());
+                    IF_VERBOSE(1, verbose_stream() << "can't project:" << mk_pp(v, m) << "\n";);
+                    new_vars.push_back(v);
                 }
             }
             vars.reset();
             vars.append(new_vars);
-            expr_ref res1(m);
-            expr_ref tmp = qe::mk_and(result);
-            m_rw(tmp, res1);
-            return res1;
+            return qe::mk_and(result);
         }  
     };
 
     expr_ref arith_project(model& model, app_ref_vector& vars, expr_ref_vector const& lits) {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
+        return ap(model, vars, lits);
+    }
+
+    expr_ref arith_project(model& model, app_ref_vector& vars, expr* fml) {
+        ast_manager& m = vars.get_manager();
+        arith_project_util ap(m);
+        expr_ref_vector lits(m);
+        qe::flatten_and(fml, lits);
         return ap(model, vars, lits);
     }
 
