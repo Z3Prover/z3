@@ -17,6 +17,9 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
     buffer << "(declare-const x Real)\n"
            << "(declare-const y Real)\n"
            << "(declare-const z Real)\n"
+           << "(declare-const u Real)\n"
+           << "(declare-const v Real)\n"
+           << "(declare-const t Real)\n"
            << "(declare-const a Real)\n"
            << "(declare-const b Real)\n"
            << "(assert " << str << ")\n";
@@ -31,6 +34,7 @@ static char const* example1 = "(and (<= x 3.0) (<= (* 3.0 x) y) (<= z y))";
 static char const* example2 = "(and (<= z x) (<= x 3.0) (<= (* 3.0 x) y) (<= z y))";
 static char const* example3 = "(and (<= z x) (<= x 3.0) (< (* 3.0 x) y) (<= z y))";
 static char const* example4 = "(and (<= z x) (<= x 3.0) (not (>= (* 3.0 x) y)) (<= z y))";
+static char const* example5 = "(and (<= y x) (<= z x) (<= x u) (<= x v) (<= x t))";
 
 static void test(char const *ex) {
     smt_params params;
@@ -61,4 +65,5 @@ void tst_qe_arith() {
     test(example2);
     test(example3);
     test(example4);
+    test(example5);
 }
