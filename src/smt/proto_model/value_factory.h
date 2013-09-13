@@ -180,10 +180,24 @@ public:
         value_set * set  = get_value_set(s);
         bool is_new      = false;
         expr * result    = 0;
+        sort_info* s_info = s->get_info();
+        sort_size const* sz = s_info?&s_info->get_num_elements():0;
+        bool has_max = false;
+        Number max_size;
+        if (sz && sz->is_finite()) {
+            if (sz->size() < UINT_MAX) {
+                unsigned usz = static_cast<unsigned>(sz->size());
+                max_size = Number(usz);
+                has_max = true;
+            }
+        }
         Number & next    = set->m_next;
         while (!is_new) {
             result = mk_value(next, s, is_new);
             next++;
+            if (has_max && next >= max_size) {
+                return 0;
+            }
         }
         SASSERT(result != 0);
         return result;

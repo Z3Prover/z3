@@ -105,8 +105,8 @@ static void test2(char const *ex) {
         names.push_back(vars[i]->get_decl()->get_name());
         sorts.push_back(m.get_sort(vars[i].get()));
     }
-    expr_abstract(m, 0, 3, bound.c_ptr(), fml, fml2);
-    fml2 = m.mk_exists(3, sorts.c_ptr(), names.c_ptr(), fml2);
+    expr_abstract(m, 0, bound.size(), bound.c_ptr(), fml, fml2);
+    fml2 = m.mk_exists(boud.size(), sorts.c_ptr(), names.c_ptr(), fml2);
     qe::expr_quant_elim qe(m, params);
     expr_ref pr1 = qe::arith_project(*md, vars, lits);
     qe(m.mk_true(), fml2, pr2);

@@ -212,8 +212,6 @@ namespace pdr {
 
         // partition inequalities into variable disjoint sets.
         void partition_ineqs() {
-            m_roots.reset();
-            m_size.reset();
             m_reps.reset();
             m_his.reset();
             ++m_time;
