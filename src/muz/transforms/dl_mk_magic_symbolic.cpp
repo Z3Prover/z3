@@ -54,7 +54,6 @@ Revision History:
 
 #include"dl_mk_magic_symbolic.h"
 #include"dl_context.h"
-#include"fixedpoint_params.hpp"
 
 namespace datalog {
 
@@ -68,7 +67,7 @@ namespace datalog {
     mk_magic_symbolic::~mk_magic_symbolic() { }
         
     rule_set * mk_magic_symbolic::operator()(rule_set const & source) {
-        if (!m_ctx.get_params().magic()) {
+        if (!m_ctx.magic()) {
             return 0;
         }
         context& ctx = source.get_context();

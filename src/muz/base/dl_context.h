@@ -262,6 +262,12 @@ namespace datalog {
         bool explanations_on_relation_level() const;
         bool magic_sets_for_queries() const;
         bool eager_emptiness_checking() const;
+        bool bit_blast() const;
+        bool karr() const;
+        bool scale() const;
+        bool magic() const;
+        bool quantify_arrays() const;
+        bool instantiate_quantifiers() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 

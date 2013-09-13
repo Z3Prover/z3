@@ -289,6 +289,13 @@ namespace datalog {
     bool context::magic_sets_for_queries() const { return m_params->magic_sets_for_queries();  }
     bool context::eager_emptiness_checking() const { return m_params->eager_emptiness_checking(); }
 
+    bool context::bit_blast() const { return m_params->bit_blast(); }
+    bool context::karr() const { return m_params->karr(); }
+    bool context::scale() const { return m_params->scale(); }
+    bool context::magic() const { return m_params->magic(); }
+    bool context::quantify_arrays() const { return m_params->quantify_arrays(); }
+    bool context::instantiate_quantifiers() const { return m_params->instantiate_quantifiers(); }
+
 
     void context::register_finite_sort(sort * s, sort_kind k) {
         m_pinned.push_back(s);

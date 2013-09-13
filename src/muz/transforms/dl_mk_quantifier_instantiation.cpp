@@ -26,7 +26,6 @@ Revision History:
 #include "dl_mk_quantifier_instantiation.h"
 #include "dl_context.h"
 #include "pattern_inference.h"
-#include "fixedpoint_params.hpp"
 
 
 namespace datalog {
@@ -251,8 +250,7 @@ namespace datalog {
     }
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
-        TRACE("dl", tout << m_ctx.get_params().instantiate_quantifiers() << "\n";);
-        if (!m_ctx.get_params().instantiate_quantifiers()) {
+        if (!m_ctx.instantiate_quantifiers()) {
             return 0;
         }
         bool has_quantifiers = false;

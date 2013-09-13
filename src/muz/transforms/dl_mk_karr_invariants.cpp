@@ -39,7 +39,6 @@ Revision History:
 #include"dl_mk_karr_invariants.h"
 #include"dl_mk_backwards.h"
 #include"dl_mk_loop_counter.h"
-#include"fixedpoint_params.hpp"
 
 namespace datalog {
 
@@ -197,7 +196,7 @@ namespace datalog {
     }
     
     rule_set * mk_karr_invariants::operator()(rule_set const & source) {
-        if (!m_ctx.get_params().karr()) {
+        if (!m_ctx.karr()) {
             return 0;
         }
         rule_set::iterator it = source.begin(), end = source.end();

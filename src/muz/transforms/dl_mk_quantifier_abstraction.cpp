@@ -300,8 +300,7 @@ namespace datalog {
     }
         
     rule_set * mk_quantifier_abstraction::operator()(rule_set const & source) {
-        TRACE("dl", tout << "quantify " << source.get_num_rules() << " " << m_ctx.get_params().quantify_arrays() << "\n";);
-        if (!m_ctx.get_params().quantify_arrays()) {
+        if (!m_ctx.quantify_arrays()) {
             return 0;
         }
         unsigned sz = source.get_num_rules();

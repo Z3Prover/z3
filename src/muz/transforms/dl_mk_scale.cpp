@@ -115,7 +115,7 @@ namespace datalog {
     }
         
     rule_set * mk_scale::operator()(rule_set const & source) {
-        if (!m_ctx.get_params().scale()) {
+        if (!m_ctx.scale()) {
             return 0;
         }
         rule_manager& rm = source.get_rule_manager();
