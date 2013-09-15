@@ -65,7 +65,7 @@ public:
   typedef hash_set<ast> AstHashSet;
   AstHashSet equivs_visited;                // proofs already checked for equivalences
 
-  typedef pair<hash_map<ast,Iproof::node>, hash_map<ast,Iproof::node> > AstToIpf;
+  typedef std::pair<hash_map<ast,Iproof::node>, hash_map<ast,Iproof::node> > AstToIpf;
   AstToIpf translation;                     // Z3 proof nodes to Iproof nodes
   
   AstToInt frame_map;                      // map assertions to frames
