@@ -39,6 +39,7 @@ using namespace stl_ext;
 
 
 static int lemma_count = 0;
+static int nll_lemma_count = 0;
 #define SHOW_LEMMA_COUNT -1
 
 // One half of a resolution. We need this to distinguish
@@ -764,7 +765,8 @@ public:
 
 
 #if 1
-    std::cout << "lemma: " << ++lemma_count << std::endl;
+    ++lemma_count;
+    // std::cout << "lemma: " << lemma_count << std::endl;
     if(lemma_count == SHOW_LEMMA_COUNT){
       for(unsigned i = 0; i < lits.size(); i++)
         show_lit(lits[i]);
@@ -1339,7 +1341,7 @@ public:
     return res;
   }
 
-#define NEW_EXTRACT_TH_LEMMA
+  // #define NEW_EXTRACT_TH_LEMMA
 
   void get_local_hyps(const ast &proof, std::set<ast> &res){
     std::set<ast> hyps = get_hyps(proof);
@@ -1374,7 +1376,7 @@ public:
       }
     }
 #ifdef NEW_EXTRACT_TH_LEMMA
-    bool lemma_nll = nargs > 1;
+    bool lemma_nll = nprems > 1;
     if(nll && !lemma_nll){
       lemma_nll = false;
       // std::cout << "lemma count = " << nll_lemma_count << "\n";
@@ -1396,7 +1398,7 @@ public:
     try {
       res = extract_th_lemma_common(lits,nll,lemma_nll);
     }
-#if 0
+#if 1
     catch (const invalid_lemma &) {
       std::cout << "\n\nlemma: " << my_count;
       std::cout << "\n\nproof node: \n";
