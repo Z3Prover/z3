@@ -189,11 +189,12 @@ public:
             max_size = Number(usz);
             has_max = true;
         }
+        Number start = set->m_next;
         Number & next    = set->m_next;
         while (!is_new) {
             result = mk_value(next, s, is_new);
             next++;
-            if (has_max && next > max_size + set->m_next) {
+            if (has_max && next > max_size + start) {
                 return 0;
             }
         }
