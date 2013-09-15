@@ -916,7 +916,7 @@ namespace Duality {
 	return true;
       }
 #ifdef UNDERAPPROX_NODES
-      if(0 && last_decisions > 5000){
+      if(UseUnderapprox && last_decisions > 500){
 	std::cout << "making an underapprox\n";
 	ExpandNodeFromCoverFail(node);
       }
@@ -1642,7 +1642,7 @@ namespace Duality {
       std::set<Node *> old_choices;
 
       void ExpansionChoices(std::set<Node *> &best, bool high_priority){
-	if(!underapprox || constrained){
+	if(!underapprox || constrained || high_priority){
 	  ExpansionChoicesFull(best, high_priority);
 	  return;
 	}

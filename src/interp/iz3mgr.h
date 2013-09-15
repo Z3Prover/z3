@@ -224,11 +224,11 @@ class iz3mgr  {
   ast make(opr op, const ast &arg0, const ast &arg1, const ast &arg2);
   ast make(symb sym, const std::vector<ast> &args);
   ast make(symb sym);
-  ast make(symb sym, ast &arg0);
-  ast make(symb sym, ast &arg0, ast &arg1);
-  ast make(symb sym, ast &arg0, ast &arg1, ast &arg2);
+  ast make(symb sym, const ast &arg0);
+  ast make(symb sym, const ast &arg0, const ast &arg1);
+  ast make(symb sym, const ast &arg0, const ast &arg1, const ast &arg2);
   ast make_quant(opr op, const std::vector<ast> &bvs, ast &body);
-  ast clone(ast &t, const std::vector<ast> &args);
+  ast clone(const ast &t, const std::vector<ast> &args);
 
   ast_manager &m() {return m_manager;}
 
@@ -276,6 +276,12 @@ class iz3mgr  {
     return ast();
   }
   
+  void get_args(const ast &t, std::vector<ast> &res){
+    res.resize(num_args(t));
+    for(unsigned i = 0; i < res.size(); i++)
+      res[i] = arg(t,i);
+  }
+
   symb sym(ast t){
     return to_app(t.raw())->get_decl();
   }
@@ -304,6 +310,19 @@ class iz3mgr  {
       return r.to_string();
     assert(0);
     return "NaN";
+  }
+
+  bool is_numeral(const ast& t, rational &r){
+    expr* e = to_expr(t.raw());
+    assert(e);
+    return m_arith_util.is_numeral(e, r);
+  }
+
+  rational get_coeff(const ast& t){
+    rational res;
+    if(op(t) == Times && is_numeral(arg(t,0),res))
+      return res;
+    return rational(1);
   }
 
   int get_quantifier_num_bound(const ast &t) {
@@ -337,6 +356,54 @@ class iz3mgr  {
     return to_func_decl(s)->get_range();
   }
 
+  int get_num_parameters(const symb &s){
+    return to_func_decl(s)->get_num_parameters();
+  }
+
+  ast get_ast_parameter(const symb &s, int idx){
+    return cook(to_func_decl(s)->get_parameters()[idx].get_ast());
+  }
+
+  enum lemma_theory {ArithTheory,UnknownTheory};
+
+  lemma_theory get_theory_lemma_theory(const ast &proof){
+    symb s = sym(proof);
+    ::symbol p0;
+    bool ok = s->get_parameter(0).is_symbol(p0);
+    if(!ok) return UnknownTheory;
+    std::string foo(p0.bare_str());
+    if(foo == "arith")
+      return ArithTheory;
+    return UnknownTheory;
+  }
+
+  enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,UnknownKind};
+
+  lemma_kind get_theory_lemma_kind(const ast &proof){
+    symb s = sym(proof);
+    ::symbol p0;
+    bool ok = s->get_parameter(1).is_symbol(p0);
+    if(!ok) return UnknownKind;
+    std::string foo(p0.bare_str());
+    if(foo == "farkas")
+      return FarkasKind;
+    if(foo == "triangle-eq")
+      return is_not(arg(conc(proof),0)) ? Eq2LeqKind : Leq2EqKind;
+    if(foo == "gcd-test")
+      return GCDTestKind;
+    if(foo == "assign-bounds")
+      return AssignBoundsKind;
+    return UnknownKind;
+  }
+
+  void get_farkas_coeffs(const ast &proof, std::vector<ast>& coeffs);
+
+  void get_farkas_coeffs(const ast &proof, std::vector<rational>& rats);
+
+  void get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& rats);
+
+  void get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& rats);
+
   bool is_true(ast t){
     return op(t) == True;
   }
@@ -357,6 +424,10 @@ class iz3mgr  {
     return op(t) == Not;
   }
   
+  /** Simplify an expression using z3 simplifier */
+
+  ast z3_simplify(const ast& e);
+
   // Some constructors that simplify things
 
   ast mk_not(ast x){
@@ -389,6 +460,41 @@ class iz3mgr  {
     return make(Or,x,y);
   }
 
+  ast mk_implies(ast x, ast y){
+    opr ox = op(x);
+    opr oy = op(y);
+    if(ox == True) return y;
+    if(oy == False) return mk_not(x);
+    if(ox == False) return mk_true();
+    if(oy == True) return y;
+    if(x == y) return mk_true();
+    return make(Implies,x,y);
+  }
+
+  ast mk_or(const std::vector<ast> &x){
+    ast res = mk_false();
+    for(unsigned i = 0; i < x.size(); i++)
+      res = mk_or(res,x[i]);
+    return res;
+  }
+
+  ast mk_and(const std::vector<ast> &x){
+    std::vector<ast> conjs;
+    for(unsigned i = 0; i < x.size(); i++){
+      const ast &e = x[i];
+      opr o = op(e);
+      if(o == False)
+	return mk_false();
+      if(o != True)
+	conjs.push_back(e);
+    }
+    if(conjs.size() == 0)
+      return mk_true();
+    if(conjs.size() == 1)
+      return conjs[0];
+    return make(And,conjs);
+  }
+
   ast mk_equal(ast x, ast y){
     if(x == y) return make(True);
     opr ox = op(x);
@@ -419,11 +525,74 @@ class iz3mgr  {
     return cook(m_arith_util.mk_numeral(rational(s.c_str()),r));
   }
 
+  ast make_int(const rational &s) {
+    sort *r = m().mk_sort(m_arith_fid, INT_SORT);
+    return cook(m_arith_util.mk_numeral(s,r));
+  }
+
+  ast make_real(const std::string &s) {
+    sort *r = m().mk_sort(m_arith_fid, REAL_SORT);
+    return cook(m_arith_util.mk_numeral(rational(s.c_str()),r));
+  }
+
+  ast make_real(const rational &s) {
+    sort *r = m().mk_sort(m_arith_fid, REAL_SORT);
+    return cook(m_arith_util.mk_numeral(s,r));
+  }
 
   ast mk_false() { return make(False); }
 
   ast mk_true() { return make(True); }
 
+  ast mk_fresh_constant(char const * prefix, type s){
+    return cook(m().mk_fresh_const(prefix, s));
+  }
+
+  type bool_type() {
+    ::sort *s = m().mk_sort(m_basic_fid, BOOL_SORT); 
+    return s;
+  }
+
+  type int_type()  {
+    ::sort *s = m().mk_sort(m_arith_fid, INT_SORT); 
+    return s;
+  }
+
+  type real_type()  {
+    ::sort *s = m().mk_sort(m_arith_fid, REAL_SORT); 
+    return s;
+  }
+
+  type array_type(type d, type r) {
+    parameter params[2]  = { parameter(d), parameter(to_sort(r)) };
+    ::sort * s =  m().mk_sort(m_array_fid, ARRAY_SORT, 2, params);
+    return s;
+  }
+
+  symb function(const std::string &str_name, unsigned arity, type *domain, type range) {
+    ::symbol name = ::symbol(str_name.c_str());
+    std::vector< ::sort *> sv(arity);
+    for(unsigned i = 0; i < arity; i++)
+      sv[i] = domain[i];
+    ::func_decl* d = m().mk_func_decl(name,arity,&sv[0],range);
+    return d;
+  }
+  
+  void linear_comb(ast &P, const ast &c, const ast &Q);
+
+  ast sum_inequalities(const std::vector<ast> &coeffs, const std::vector<ast> &ineqs);
+
+  ast simplify_ineq(const ast &ineq){
+    ast res = make(op(ineq),arg(ineq,0),z3_simplify(arg(ineq,1)));
+    return res;
+  }
+
+  void mk_idiv(const ast& t, const rational &d, ast &whole, ast &frac);
+
+  ast mk_idiv(const ast& t, const rational &d);
+
+  ast mk_idiv(const ast& t, const ast &d);
+  
   /** methods for destructing proof terms */
 
   pfrule pr(const z3pf &t);
@@ -436,6 +605,8 @@ class iz3mgr  {
   
   /** For debugging */
   void show(ast);
+
+  void show_symb(symb s);
 
   /** Constructor */
 

@@ -1496,6 +1496,7 @@ def mk_config():
             if test_foci2(CXX,FOCI2LIB):
                 LDFLAGS  = '%s %s' % (LDFLAGS,FOCI2LIB)
                 SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
+                CPPFLAGS = '%s -D_FOCI2' % CPPFLAGS
             else:
                 print "FAILED\n"
                 FOCI2 = False

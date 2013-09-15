@@ -34,6 +34,10 @@ public:
   virtual ast quantify(ast e, const range &rng){return e;}
   virtual ~iz3translation(){}
 
+  /** This is thrown when the proof cannot be translated. */
+  struct unsupported {
+  };
+
   static iz3translation *create(iz3mgr &mgr,
 				iz3secondary *secondary,
 				const std::vector<ast> &frames,
@@ -49,7 +53,11 @@ public:
 };
 
 //#define IZ3_TRANSLATE_DIRECT2
+#ifndef _FOCI2
 #define IZ3_TRANSLATE_DIRECT
+#else
+#define IZ3_TRANSLATE_FULL
+#endif
 
 #endif
 

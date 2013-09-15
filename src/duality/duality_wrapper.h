@@ -515,39 +515,39 @@ namespace Duality {
         }
 
         friend expr operator+(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_ADD,a,b));
+	  return a.ctx().make(Plus,a,b); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_ADD,a,b));
         }
 
         friend expr operator*(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_MUL,a,b));
+	  return a.ctx().make(Times,a,b); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_MUL,a,b));
 	}
 
         friend expr operator/(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_DIV,a,b));
+	  return a.ctx().make(Div,a,b); //  expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_DIV,a,b));
         }
 	
         friend expr operator-(expr const & a) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_UMINUS,a));
+	  return a.ctx().make(Uminus,a); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_UMINUS,a));
         }
 
         friend expr operator-(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_SUB,a,b));
+	  return a.ctx().make(Sub,a,b); // expr(a.ctx(),a.m().mk_app(a.ctx().m_arith_fid,OP_SUB,a,b));
         }
 
         friend expr operator<=(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LE,a,b));
+	  return a.ctx().make(Leq,a,b); // expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LE,a,b));
 	}
 
         friend expr operator>=(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GE,a,b));
+	  return a.ctx().make(Geq,a,b); //expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GE,a,b));
         }
 	
         friend expr operator<(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LT,a,b));
+	  return a.ctx().make(Lt,a,b); expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_LT,a,b));
         }
         
         friend expr operator>(expr const & a, expr const & b) {
-	  return expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GT,a,b));
+	  return a.ctx().make(Gt,a,b); expr(a.ctx(),a.m().mk_app(a.m().get_basic_family_id(),OP_GT,a,b));
 	}
 
         expr simplify() const;

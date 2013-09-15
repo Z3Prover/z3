@@ -1636,7 +1636,8 @@ namespace Duality {
     dont_cares.insert(b);
     resolve_ite_memo.clear();
     timer_start("UnderapproxFormula");
-    Term eu = UnderapproxFormula(root->Outgoing->dual,dont_cares);
+    Term dual = root->Outgoing->dual.null() ? ctx.bool_val(true) : root->Outgoing->dual;
+    Term eu = UnderapproxFormula(dual,dont_cares);
     timer_stop("UnderapproxFormula");
     /* combine with children */
     chu.push_back(eu);
@@ -1944,6 +1945,8 @@ namespace Duality {
 
     for(unsigned i = 0; i < clauses.size(); i++){
       Term &clause = clauses[i];
+      if(clause.is_app() && clause.decl().get_decl_kind() == Uninterpreted)
+	clause = implies(ctx.bool_val(true),clause);
       if(!canonical_clause(clause))
 	clause = implies((!clause).simplify(),ctx.bool_val(false));
       Term head = clause.arg(1);
