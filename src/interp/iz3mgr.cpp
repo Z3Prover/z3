@@ -494,6 +494,12 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
     }
     rats[i-2] = r;
   }
+  if(rats.size() != 0 && rats[0].is_neg()){
+    for(unsigned i = 0; i < rats.size(); i++){
+      assert(rats[i].is_neg());
+      rats[i] = -rats[i];
+    }
+  }
   extract_lcd(rats);
 }
 
@@ -519,11 +525,10 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
     {
       ast con = arg(conc(proof),i-1);
       ast temp = make_real(r); // for debugging
-#if 0
       opr o = is_not(con) ? op(arg(con,0)) : op(con);
       if(is_not(con) ? (o == Leq || o == Lt) : (o == Geq || o == Gt))
-#endif
 	r = -r;
+      r = -r;
     }
     rats[i-1] = r;
   }

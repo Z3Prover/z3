@@ -888,15 +888,21 @@ public:
     for(unsigned i = 0; i < farkas_coeffs.size(); i++)
       my_coeffs.push_back(farkas_coeffs[i]);
 #else
-    std::vector<ast> &my_coeffs = farkas_coeffs;
+    std::vector<ast> my_coeffs;
 #endif
     std::vector<ast> my_cons;
-    for(int i = 0; i < nargs; i++)
+    for(int i = 1; i < nargs; i++){
       my_cons.push_back(mk_not(arg(con,i)));
+      my_coeffs.push_back(farkas_coeffs[i]);
+    }
+    ast farkas_con = normalize_inequality(sum_inequalities(farkas_coeffs,my_cons));
+    my_cons.push_back(mk_not(farkas_con));
+    my_coeffs.push_back(make_int("1"));
     std::vector<Iproof::node> my_hyps;
     for(int i = 0; i < nargs; i++)
       my_hyps.push_back(iproof->make_hypothesis(my_cons[i]));
     ast res = iproof->make_farkas(mk_false(),my_hyps,my_cons,my_coeffs);
+    res = iproof->make_cut_rule(farkas_con,farkas_coeffs[0],arg(con,0),res);
     return res;
   }
 
@@ -973,10 +979,12 @@ public:
 	// assume the premise is x = y
 	ast x = arg(conc(prem(proof,0)),0);
 	ast y = arg(conc(prem(proof,0)),1);
+#if 0
 	AstSet &hyps = get_hyps(proof);
 	std::vector<ast> hyps_vec; hyps_vec.resize(hyps.size());
 	std::copy(hyps.begin(),hyps.end(),hyps_vec.begin());
-	res = iproof->make_congruence(x,y,con,hyps_vec,args[0]);
+#endif
+	res = iproof->make_congruence(conc(prem(proof,0)),con,args[0]);
 	break;
       }
       case PR_REFLEXIVITY: {
@@ -984,11 +992,11 @@ public:
 	break;
       }
       case PR_SYMMETRY: {
-	res = iproof->make_symmetry(con,args[0]);
+	res = iproof->make_symmetry(con,conc(prem(proof,0)),args[0]);
 	break;
       }
       case PR_MODUS_PONENS: {
-	res = iproof->make_mp(conc(prem(proof,0)),arg(conc(prem(proof,1)),1),args[0],args[1]);
+	res = iproof->make_mp(conc(prem(proof,1)),args[0],args[1]);
 	break;
       }
       case PR_TH_LEMMA: {

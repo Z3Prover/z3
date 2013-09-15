@@ -82,7 +82,7 @@ class iz3proof_itp : public iz3mgr {
   /** Make a Symmetry node. This takes a derivation of |- x = y and
       produces | y = x */
 
-  virtual node make_symmetry(ast con, node prem) = 0;
+  virtual node make_symmetry(ast con, const ast &premcon, node prem) = 0;
 
   /** Make a transitivity node. This takes derivations of |- x = y
       and |- y = z produces | x = z */
@@ -92,12 +92,12 @@ class iz3proof_itp : public iz3mgr {
   /** Make a congruence node. This takes a derivation of |- x_i = y_i
       and produces |- f(...x_i,...) = f(...,y_i,...) */
   
-  virtual node make_congruence(const ast &x, const ast &y, const ast &con, const std::vector<ast> &hyps, const ast &prem1) = 0;
+  virtual node make_congruence(const ast &xi_eq_yi, const ast &con, const ast &prem1) = 0;
 
   /** Make a modus-ponens node. This takes derivations of |- x
       and |- x = y and produces |- y */
   
-  virtual node make_mp(const ast &x, const ast &y, const ast &prem1, const ast &prem2) = 0;
+  virtual node make_mp(const ast &x_eq_y, const ast &prem1, const ast &prem2) = 0;
 
   /** Make a farkas proof node. */
 

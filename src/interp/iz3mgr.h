@@ -460,6 +460,17 @@ class iz3mgr  {
     return make(Or,x,y);
   }
 
+  ast mk_implies(ast x, ast y){
+    opr ox = op(x);
+    opr oy = op(y);
+    if(ox == True) return y;
+    if(oy == False) return mk_not(x);
+    if(ox == False) return mk_true();
+    if(oy == True) return y;
+    if(x == y) return mk_true();
+    return make(Implies,x,y);
+  }
+
   ast mk_or(const std::vector<ast> &x){
     ast res = mk_false();
     for(unsigned i = 0; i < x.size(); i++)
@@ -468,10 +479,20 @@ class iz3mgr  {
   }
 
   ast mk_and(const std::vector<ast> &x){
-    ast res = mk_true();
-    for(unsigned i = 0; i < x.size(); i++)
-      res = mk_and(res,x[i]);
-    return res;
+    std::vector<ast> conjs;
+    for(unsigned i = 0; i < x.size(); i++){
+      const ast &e = x[i];
+      opr o = op(e);
+      if(o == False)
+	return mk_false();
+      if(o != True)
+	conjs.push_back(e);
+    }
+    if(conjs.size() == 0)
+      return mk_true();
+    if(conjs.size() == 1)
+      return conjs[0];
+    return make(And,conjs);
   }
 
   ast mk_equal(ast x, ast y){
