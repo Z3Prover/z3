@@ -1343,6 +1343,7 @@ class sls_tactic : public tactic {
             m_zero(m_mpz_manager.mk_z(0)),
             m_one(m_mpz_manager.mk_z(1)),
             m_two(m_mpz_manager.mk_z(2)),
+            m_cancel(false),
             m_bv_util(m),
             m_tracker(m, m_bv_util, m_mpz_manager, m_powers)
         {
