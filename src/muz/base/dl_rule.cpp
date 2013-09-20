@@ -43,6 +43,7 @@ Revision History:
 #include"expr_safe_replace.h"
 #include"filter_model_converter.h"
 #include"scoped_proof.h"
+#include"datatype_decl_plugin.h"
 
 namespace datalog {
 
@@ -881,15 +882,26 @@ namespace datalog {
     }
 
     struct uninterpreted_function_finder_proc {
+        ast_manager& m;
+        datatype_util m_dt;
         bool m_found;
         func_decl* m_func;
-        uninterpreted_function_finder_proc() : m_found(false), m_func(0) {}
+        uninterpreted_function_finder_proc(ast_manager& m): 
+            m(m), m_dt(m), m_found(false), m_func(0) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
             if (is_uninterp(n)) {
                 m_found = true;
                 m_func = n->get_decl();
+            }
+            else if (m_dt.is_accessor(n)) {
+                sort* s = m.get_sort(n->get_arg(0));
+                SASSERT(m_dt.is_datatype(s));
+                if (m_dt.get_datatype_constructors(s)->size() > 1) {
+                    m_found = true;
+                    m_func = n->get_decl();
+                }
             }
         }
 
@@ -900,15 +912,16 @@ namespace datalog {
     // non-predicates may appear only in the interpreted tail, it is therefore 
     // sufficient only to check the tail.
     //
-    bool rule::has_uninterpreted_non_predicates(func_decl*& f) const {
+    bool rule::has_uninterpreted_non_predicates(ast_manager& m, func_decl*& f) const {
         unsigned sz = get_tail_size();
-        uninterpreted_function_finder_proc proc;
+        uninterpreted_function_finder_proc proc(m);
         expr_mark visited;
         for (unsigned i = get_uninterpreted_tail_size(); i < sz && !proc.found(f); ++i) {
             for_each_expr(proc, visited, get_tail(i));
         }
         return proc.found(f);
     }
+
 
     struct quantifier_finder_proc {
         bool m_exist;
