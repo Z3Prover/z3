@@ -820,6 +820,7 @@ public:
         }
     }
 
+private:
     // Update the assignment of variable v, that is,
     // m_assignment[v] += inc
     // This method also stores the old value of v in the assignment stack.
@@ -828,6 +829,12 @@ public:
         m_assignment_stack.push_back(assignment_trail(v, m_assignment[v]));
         m_assignment[v] += inc;
     }
+
+public:
+
+    void inc_assignment(dl_var v, numeral const& inc) {
+        m_assignment[v] += inc;
+    }    
 
 
     struct every_var_proc {

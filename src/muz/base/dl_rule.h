@@ -293,7 +293,7 @@ namespace datalog {
         */
         bool is_in_tail(const func_decl * p, bool only_positive=false) const;
 
-        bool has_uninterpreted_non_predicates(func_decl*& f) const;
+        bool has_uninterpreted_non_predicates(ast_manager& m, func_decl*& f) const;
         void has_quantifiers(bool& existential, bool& universal) const;
         bool has_quantifiers() const;
         bool has_negation() const;

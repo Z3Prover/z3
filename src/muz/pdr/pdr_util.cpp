@@ -112,8 +112,8 @@ namespace pdr {
             set_value(e, val);
         }
         else {
-            IF_VERBOSE(3, verbose_stream() << "Not evaluated " << mk_pp(e, m) << "\n";);
-            TRACE("pdr", tout << "Variable is not tracked: " << mk_pp(e, m) << "\n";);
+            IF_VERBOSE(3, verbose_stream() << "Not evaluated " << mk_pp(e, m) << " := " << mk_pp(val, m) << "\n";);
+            TRACE("pdr", tout << "Variable is not tracked: " << mk_pp(e, m) << " := " << mk_pp(val, m) << "\n";);
             set_x(e);
         }
     }
@@ -672,7 +672,19 @@ namespace pdr {
             eval_array_eq(e, arg1, arg2);
         }
         else if (is_x(arg1) || is_x(arg2)) {
-            set_x(e);
+            expr_ref eq(m), vl(m);
+            eq = m.mk_eq(arg1, arg2);
+            m_model->eval(eq, vl);
+            if (m.is_true(vl)) {
+                set_bool(e, true);                
+            }
+            else if (m.is_false(vl)) {
+                set_bool(e, false);
+            }
+            else {
+                TRACE("pdr", tout << "cannot evaluate: " << mk_pp(vl, m) <<  "\n";);
+                set_x(e);
+            }
         }
         else if (m.is_bool(arg1)) {
             bool val = is_true(arg1) == is_true(arg2);

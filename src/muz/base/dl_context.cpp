@@ -576,7 +576,7 @@ namespace datalog {
 
     void context::check_uninterpreted_free(rule_ref& r) {
         func_decl* f = 0;
-        if (r->has_uninterpreted_non_predicates(f)) {
+        if (r->has_uninterpreted_non_predicates(m, f)) {
             std::stringstream stm;
             stm << "Uninterpreted '" 
                 << f->get_name() 

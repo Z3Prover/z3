@@ -6449,7 +6449,7 @@ class Tactic:
 
 def _to_goal(a):
     if isinstance(a, BoolRef):
-        goal = Goal()
+        goal = Goal(ctx = a.ctx)
         goal.add(a)
         return goal
     else:
