@@ -752,7 +752,8 @@ namespace smt {
 
             for (unsigned j = 0; j < zero_v.size(); ++j) {
                 int v = zero_v[j];
-                m_graph.acc_assignment(v, numeral(-1));
+                
+                m_graph.inc_assignment(v, numeral(-1));
                 th_var k = from_var(v);
                 if (!is_parity_ok(k)) {
                     todo.push_back(k);
