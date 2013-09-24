@@ -31,7 +31,6 @@ namespace datalog {
         rm(ctx.get_rule_manager()),
         m_rewriter(m, m_params),
         m_simplifier(ctx),
-        m_sub(m),
         m_next_var(0) {
         m_params.set_bool("expand_select_store",true);
         m_rewriter.updt_params(m_params);
@@ -82,7 +81,6 @@ namespace datalog {
             return false;
         }
         if (v) {
-            m_sub.insert(e, v);
             m_defs.insert(e, to_var(v));
         }
         else {
@@ -92,71 +90,113 @@ namespace datalog {
                 m_next_var = vars.size() + 1;
             }
             v = m.mk_var(m_next_var, m.get_sort(e));
-            m_sub.insert(e, v);
             m_defs.insert(e, v);
             ++m_next_var;
         }
         return true;
     }
+
+    bool mk_array_blast::is_select_eq_var(expr* e, app*& s, var*& v) const {
+        expr* x, *y;
+        if (m.is_eq(e, x, y) || m.is_iff(e, x, y)) {
+            if (a.is_select(y)) {
+                std::swap(x,y);
+            }
+            if (a.is_select(x) && is_var(y)) {
+                s = to_app(x);
+                v = to_var(y);
+                return true;
+            }
+        }
+        return false;
+    }
+
     
     bool mk_array_blast::ackermanize(rule const& r, expr_ref& body, expr_ref& head) {
-        expr_ref_vector conjs(m);
+        expr_ref_vector conjs(m), trail(m);
         qe::flatten_and(body, conjs);
         m_defs.reset();
-        m_sub.reset();
         m_next_var = 0;
         ptr_vector<expr> todo;
-        todo.push_back(head);
+        obj_map<expr, expr*> cache;
+        ptr_vector<expr> args;
+        app_ref e1(m);
+        app* s;
+        var* v;
+
         for (unsigned i = 0; i < conjs.size(); ++i) {
             expr* e = conjs[i].get();
-            expr* x, *y;
-            if (m.is_eq(e, x, y) || m.is_iff(e, x, y)) {
-                if (a.is_select(y)) {
-                    std::swap(x,y);
-                }
-                if (a.is_select(x) && is_var(y)) {
-                    if (!insert_def(r, to_app(x), to_var(y))) {
-                        return false;
-                    }
-                }
+            if (is_select_eq_var(e, s, v)) {
+                todo.append(s->get_num_args(), s->get_args());
             }
-            if (a.is_select(e) && !insert_def(r, to_app(e), 0)) {
-                return false;
+            else {
+                todo.push_back(e);
             }
-            todo.push_back(e);
         }
-        // now make sure to cover all occurrences.
-        ast_mark mark;
         while (!todo.empty()) {
             expr* e = todo.back();
-            todo.pop_back();
-            if (mark.is_marked(e)) {
+            if (cache.contains(e)) {
+                todo.pop_back();
                 continue;
             }
-            mark.mark(e, true);
             if (is_var(e)) {
+                cache.insert(e, e);
+                todo.pop_back();
                 continue;
             }
             if (!is_app(e)) {
                 return false;
             }
             app* ap = to_app(e);
-            if (a.is_select(ap) && !m_defs.contains(ap)) {
-                if (!insert_def(r, ap, 0)) {
-                    return false;
+            bool valid = true;
+            args.reset();
+            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
+                expr* arg;
+                if (cache.find(ap->get_arg(i), arg)) {
+                    args.push_back(arg);
+                }
+                else {
+                    todo.push_back(ap->get_arg(i));
+                    valid = false;
                 }
             }
-            if (a.is_select(e)) {
-                get_select_args(e, todo);
-                continue;
+            if (valid) {
+                todo.pop_back();
+                e1 = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
+                trail.push_back(e1);
+                if (a.is_select(ap)) {
+                    if (m_defs.find(e1, v)) {
+                        cache.insert(e, v);
+                    }
+                    else if (!insert_def(r, e1, 0)) {
+                        return false;                        
+                    }
+                    else {
+                        cache.insert(e, m_defs.find(e1));
+                    }
+                }
+                else {
+                    cache.insert(e, e1);
+                }
+            }            
+        }
+        for (unsigned i = 0; i < conjs.size(); ++i) {
+            expr* e = conjs[i].get();
+            if (is_select_eq_var(e, s, v)) {
+                args.reset();
+                for (unsigned j = 0; j < s->get_num_args(); ++j) {
+                    args.push_back(cache.find(s->get_arg(j)));
+                }
+                e1 = m.mk_app(s->get_decl(), args.size(), args.c_ptr());
+                if (!m_defs.contains(e1) && !insert_def(r, e1, v)) {
+                    return false;
+                }
+                conjs[i] = m.mk_eq(v, m_defs.find(e1));
             }
-            for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                todo.push_back(ap->get_arg(i));
+            else {
+                conjs[i] = cache.find(e);
             }
         }
-        m_sub(body);
-        m_sub(head);
-        conjs.reset();
 
         // perform the Ackermann reduction by creating implications
         // i1 = i2 => val1 = val2 for each equality pair:
@@ -171,6 +211,7 @@ namespace datalog {
             for (; it2 != end; ++it2) {
                 app* a2 = it2->m_key;
                 var* v2 = it2->m_value;
+                TRACE("dl", tout << mk_pp(a1, m) << " " << mk_pp(a2, m) << "\n";);
                 if (get_select(a1) != get_select(a2)) {
                     continue;
                 }
@@ -184,10 +225,7 @@ namespace datalog {
                 conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.c_ptr()), m.mk_eq(v1, v2)));
             }
         }
-        if (!conjs.empty()) {
-            conjs.push_back(body);
-            body = m.mk_and(conjs.size(), conjs.c_ptr());
-        }
+        body = m.mk_and(conjs.size(), conjs.c_ptr());        
         m_rewriter(body);   
         return true;
     }

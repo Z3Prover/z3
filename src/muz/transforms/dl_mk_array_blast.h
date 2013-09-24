@@ -44,7 +44,6 @@ namespace datalog {
         mk_interp_tail_simplifier m_simplifier;
 
         defs_t            m_defs;
-        expr_safe_replace m_sub;
         unsigned          m_next_var;
 
         bool blast(rule& r, rule_set& new_rules);
@@ -58,6 +57,8 @@ namespace datalog {
         void get_select_args(expr* e, ptr_vector<expr>& args) const;
 
         bool insert_def(rule const& r, app* e, var* v);
+
+        bool is_select_eq_var(expr* e, app*& s, var*& v) const;
 
     public:
         /**
