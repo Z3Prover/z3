@@ -29,20 +29,26 @@ void tst_expr_substitution() {
     reg_decl_plugins(m);
     bv_util bv(m);
 
-    expr_ref a(m), b(m), c(m);
+    expr_ref a(m), b(m), c(m), d(m);
     expr_ref x(m);
+    expr_ref   new_a(m);
+    proof_ref  pr(m);
     x = m.mk_const(symbol("x"), bv.mk_sort(8));
     a = mk_bv_and(bv, mk_bv_xor(bv, x,bv.mk_numeral(8,8)), mk_bv_xor(bv,x,x));
     b = x;
     c = bv.mk_bv_sub(x, bv.mk_numeral(4, 8));
 
     expr_substitution subst(m);
-    subst.insert(b, c);
     th_rewriter   rw(m);
+
+    // normalizing c does not help.
+    rw(c, d, pr);
+    subst.insert(b, d);
+
     rw.set_substitution(&subst);
-    
-    expr_ref   new_a(m);
-    proof_ref  pr(m);
+   
+
+    enable_trace("th_rewriter_step");
     rw(a, new_a, pr);
 
     std::cout << mk_pp(new_a, m) << "\n";
