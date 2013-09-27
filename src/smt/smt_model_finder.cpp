@@ -975,9 +975,11 @@ namespace smt {
                         // Moreover, a model assigns an arbitrary intepretation to these sorts using "model_values" a model value.
                         // If these module values "leak" inside the logical context, they may affect satisfiability.
                         // 
-                        // n->insert(m_model->get_some_value(n->get_sort()), 0);
-                        // TODO: we can use get_some_value if the sort n->get_sort() does not depend on any uninterpreted sorts.
-                        n->insert(m_manager.mk_fresh_const("elem", n->get_sort()), 0);
+                        sort * ns = n->get_sort();
+                        if (m_manager.is_fully_interp(ns))
+                            n->insert(m_model->get_some_value(ns), 0);
+                        else
+                            n->insert(m_manager.mk_fresh_const("elem", ns), 0);
                     }
                 }
             }
