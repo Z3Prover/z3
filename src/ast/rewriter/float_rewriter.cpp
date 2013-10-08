@@ -354,7 +354,7 @@ br_status float_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_minus_inf(arg1)) {
         // -oo < arg2 -->  not(arg2 = -oo) and not(arg2 = NaN)
         result = m().mk_and(m().mk_not(m().mk_eq(arg2, arg1)), mk_neq_nan(arg2));
-        return BR_REWRITE2;
+        return BR_REWRITE3;
     }
     if (m_util.is_minus_inf(arg2)) {
         // arg1 < -oo  --> false
@@ -369,7 +369,7 @@ br_status float_rewriter::mk_lt(expr * arg1, expr * arg2, expr_ref & result) {
     if (m_util.is_plus_inf(arg2)) {
         // arg1 < +oo --> not(arg1 = +oo) and not(arg1 = NaN)
         result = m().mk_and(m().mk_not(m().mk_eq(arg1, arg2)), mk_neq_nan(arg1));
-        return BR_REWRITE2;
+        return BR_REWRITE3;
     }
 
     scoped_mpf v1(m_util.fm()), v2(m_util.fm());

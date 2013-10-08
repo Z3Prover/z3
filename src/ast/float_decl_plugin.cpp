@@ -85,6 +85,24 @@ bool float_decl_plugin::is_value(expr * n, mpf & val) {
         m_fm.set(val, m_values[to_app(n)->get_decl()->get_parameter(0).get_ext_id()]);
         return true;
     }
+    else if (is_app_of(n, m_family_id, OP_FLOAT_MINUS_INF)) {
+        unsigned ebits = to_app(n)->get_decl()->get_range()->get_parameter(0).get_int();
+        unsigned sbits = to_app(n)->get_decl()->get_range()->get_parameter(1).get_int();
+        m_fm.mk_ninf(ebits, sbits, val);
+        return true;
+    }
+    else if (is_app_of(n, m_family_id, OP_FLOAT_PLUS_INF)) {
+        unsigned ebits = to_app(n)->get_decl()->get_range()->get_parameter(0).get_int();
+        unsigned sbits = to_app(n)->get_decl()->get_range()->get_parameter(1).get_int();
+        m_fm.mk_pinf(ebits, sbits, val);
+        return true;
+    }
+    else if (is_app_of(n, m_family_id, OP_FLOAT_NAN)) {
+        unsigned ebits = to_app(n)->get_decl()->get_range()->get_parameter(0).get_int();
+        unsigned sbits = to_app(n)->get_decl()->get_range()->get_parameter(1).get_int();
+        m_fm.mk_nan(ebits, sbits, val);
+        return true;
+    }
     return false;
 }
 
@@ -523,6 +541,9 @@ bool float_decl_plugin::is_value(app * e) const {
     case OP_RM_TOWARD_NEGATIVE:
     case OP_RM_TOWARD_ZERO:
     case OP_FLOAT_VALUE:
+    case OP_FLOAT_PLUS_INF:
+    case OP_FLOAT_MINUS_INF:
+    case OP_FLOAT_NAN:
         return true;
     case OP_TO_FLOAT:
         return m_manager->is_value(e->get_arg(0));
