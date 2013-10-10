@@ -490,7 +490,11 @@ br_status float_rewriter::mk_is_sign_minus(expr * arg1, expr_ref & result) {
 br_status float_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
     scoped_mpf v1(m_util.fm()), v2(m_util.fm());
     if (m_util.is_value(arg1, v1) && m_util.is_value(arg2, v2)) {
-        result = (v1 == v2) ? m().mk_true() : m().mk_false();
+        // Note: == is the floats-equality, here we need normal equality.
+        result = (m_fm.is_nan(v1) && m_fm.is_nan(v2)) ? m().mk_true() :
+                 (m_fm.is_zero(v1) && m_fm.is_zero(v2) && m_fm.sgn(v1)!=m_fm.sgn(v2)) ? m().mk_false() :
+                 (v1 == v2) ? m().mk_true() :
+                 m().mk_false();
         return BR_DONE;
     }
 
