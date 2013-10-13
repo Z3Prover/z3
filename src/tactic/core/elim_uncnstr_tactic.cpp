@@ -38,7 +38,6 @@ class elim_uncnstr_tactic : public tactic {
             typedef std::pair<expr *, unsigned> frame;
             svector<frame>   m_stack;
             ptr_vector<app>  m_vars;
-            expr_sparse_mark m_uncnstr_vars;
             
             bool visit(expr * t) {
                 if (m_visited.is_marked(t)) {

@@ -1448,6 +1448,10 @@ namespace datalog {
             transformer.register_plugin(slice);
             m_ctx.transform_rules(transformer);
         }
+        if (m_ctx.get_rules().get_output_predicates().empty()) {
+            return l_false;
+        }
+
         m_query_pred = m_ctx.get_rules().get_output_predicate();
         m_rules.replace_rules(m_ctx.get_rules());
         m_rules.close();
