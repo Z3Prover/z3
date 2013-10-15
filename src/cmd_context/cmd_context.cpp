@@ -335,10 +335,10 @@ cmd_context::~cmd_context() {
     if (m_main_ctx) {
         set_verbose_stream(std::cerr);
     }
-    reset(true); 
     finalize_cmds();
     finalize_tactic_cmds();
     finalize_probes();
+    reset(true); 
     m_solver = 0;
     m_check_sat_result = 0;
 }
