@@ -10,7 +10,7 @@ Abstract:
 
 Author:
 
-    Anh-Phan Dung (t-anphan) 2013-10-14
+    Anh-Dung Phan (t-anphan) 2013-10-14
 
 Notes:
 

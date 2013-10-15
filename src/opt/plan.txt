@@ -1,0 +1,9 @@
+Create file with command-line extensions.
+Similar to muz\fp\dl_cmds:
+ - Add command (minimize <term>)
+ - Add command (assert-weighted <expr> <weight> [:id]) the weight is a positive 
+   rational number, 1 can be handled as a special case sd not weighted SAT, 
+   but as ordinary MAXSAT (e.g., using Fu Malik algorithm. This is a sample).
+   Identifier is optional and used to group constraints together. 
+   The F# sample illustrates what is meant.
+
