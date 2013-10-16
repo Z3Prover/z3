@@ -38,26 +38,24 @@ namespace opt {
     class fu_malik {
         ast_manager& m;
         solver& s;
-        expr_ref_vector& m_soft;
+        expr_ref_vector m_soft;
         expr_ref_vector m_aux;
     public:
-        fu_malik(ast_manager& m, solver& s, expr_ref_vector& soft):
+        fu_malik(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
             s(s),
             m_soft(soft),
-            m_aux_vars(m)
+            m_aux(m)
         {
-            m_aux.reset();
             for (unsigned i = 0; i < m_soft.size(); i++) {
-                m_aux.push_back(m.mk_fresh_const("p",m.mk_bool()));
-                s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
+                s.assert_expr(m.mk_or(soft[i], m_aux[i].get()));
             }
         }
 
 
         /**
-           \brief Implement one step of the Fu&Malik algorithm.
-           See fu_malik_maxsat function for more details.
+           \brief One step of the Fu&Malik algorithm.
            
            Input:    soft constraints + aux-vars (aka answer literals) 
            Output:   done/not-done  when not done return updated set of soft-constraints and aux-vars. 
@@ -85,7 +83,7 @@ namespace opt {
             s.get_unsat_core(core);
 
             // update soft-constraints and aux_vars
-            for (i = 0; i < m_soft.size(); i++) {
+            for (unsigned i = 0; i < m_soft.size(); i++) {
                 
                 bool found = false;
                 for (unsigned j = 0; !found && j < core.size(); ++j) {
@@ -108,36 +106,49 @@ namespace opt {
     private:
 
         void assert_at_most_one(expr_ref_vector const& block_vars) {
-            
+            expr_ref has_one(m), no_one(m), at_most_one(m);
+            mk_at_most_one(block_vars.size(), block_vars.c_ptr(), has_one, no_one);
+            at_most_one = m.mk_or(has_one, no_one);
+            s.assert_expr(at_most_one);
         }
 
-#if 0
-        expr_ref mk_at_most_one(unsigned n, expr* const * vars) {
-            if (n <= 1) {
-                return expr_ref(m.mk_true(), m);
+        void mk_at_most_one(unsigned n, expr* const * vars, expr_ref& has_one, expr_ref& no_one) {
+            if (n == 1) {
+                has_one = vars[0];
+                no_one = m.mk_not(vars[0]);
             }
-            unsigned mid = n/2;
-            
+            else {
+                unsigned mid = n/2;
+                expr_ref has_one1(m), has_one2(m), no_one1(m), no_one2(m);
+                mk_at_most_one(mid,   vars,     has_one1, no_one1);
+                mk_at_most_one(n-mid, vars+mid, has_one2, no_one2);
+                has_one = m.mk_or(m.mk_and(has_one1, no_one2), m.mk_and(has_one2, no_one1));
+                no_one  = m.mk_and(no_one1, no_one2);
+            }
         }
-#endif
 
     };
+
+    // TBD: the vector of soft constraints gets updated
+    // but we really want to return the maximal set of
+    // original soft constraints that are satisfied.
+    // so we need to read out of the model what soft constraints
+    // were satisfied. 
 
     
     lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints) {
         ast_manager m = soft_constraints.get_manager();
-        lbool is_sat = s.check();
-        if (is_sat != l_true) {
-            return is_sat;
+        lbool is_sat = s.check_sat(0,0);
+        if (!soft_constraints.empty() && is_sat == l_true) {
+            s.push();
+            fu_malik fm(m, s, soft_constraints);
+            while (!fm.step());
+            s.pop(1);
         }
-        if (soft_constraints.empty()) {
-            return is_sat;
-        }
-        s.push();
-        fu_malik fm(m, s, soft_constraints);
-        while (!fm.step());
-        s.pop();
-        // we are done and soft_constraints has been updated with the max-sat assignment.
+        // we are done and soft_constraints has 
+        // been updated with the max-sat assignment.
+
+        return is_sat;
     }
 };
 

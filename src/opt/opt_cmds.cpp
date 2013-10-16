@@ -18,6 +18,8 @@ Notes:
 #include "opt_cmds.h"
 #include "cmd_context.h"
 #include "ast_pp.h"
+#include "smt_solver.h"
+#include "fu_malik.h"
 
 class opt_context {
     ast_manager& m;
@@ -35,7 +37,7 @@ public:
         m_weights.push_back(w);
     }
         
-    expr_ref_vector const& formulas() const { return m_formulas; }
+    expr_ref_vector const & formulas() const { return m_formulas; }
     vector<rational> const& weights() const { return m_weights; }
 };
 
@@ -93,7 +95,6 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        std::cout << "TODO: " << mk_pp(m_formula, ctx.m()) << " " << m_weight << "\n";
         m_opt_ctx->add_formula(m_formula, m_weight);
         reset(ctx);
     }
@@ -141,22 +142,51 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
+        ast_manager& m = m_term.get_manager();
         std::cout << "TODO: " << mk_pp(m_term, ctx.m()) << "\n";
         // Here is how to retrieve the soft constraints
-        m_opt_ctx->formulas();
-        m_opt_ctx->weights();
-        get_background(ctx);
-        // reset m_opt_ctx?
-    }
+        expr_ref_vector const& fmls = m_opt_ctx->formulas();
+        vector<rational> const& ws  = m_opt_ctx->weights();
 
-private:
-    void get_background(cmd_context& ctx) {
+        // TODO: move most functionaltiy to separate module, because it is going to grow..
+        ref<solver> s;
+        symbol logic;
+        params_ref p;
+        p.set_bool("model", true);
+        p.set_bool("unsat_core", true);        
+        s = mk_smt_solver(m, p, logic);
+
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
-            // Need a solver object that supports soft constraints
-            // m_solver.assert_expr(*it);
+            s->assert_expr(*it);
         }
+        expr_ref_vector fmls_copy(fmls);
+        if (is_maxsat_problem(ws)) {
+            lbool is_sat = opt::fu_malik_maxsat(*s, fmls_copy);
+            std::cout << "is-sat: " << is_sat << "\n";
+            if (is_sat == l_true) {
+                for (unsigned i = 0; i < fmls_copy.size(); ++i) {
+                    std::cout << mk_pp(fmls_copy[i].get(), m) << "\n";
+                }
+            }
+        }
+        else {
+            NOT_IMPLEMENTED_YET();
+        }
+
+        // handle optimization criterion.        
+    }
+
+private:
+
+    bool is_maxsat_problem(vector<rational> const& ws) const {
+        for (unsigned i = 0; i < ws.size(); ++i) {
+            if (!ws[i].is_one()) {
+                return false;
+            }
+        }
+        return true;
     }
 
 };
