@@ -7,3 +7,11 @@ Similar to muz\fp\dl_cmds:
    Identifier is optional and used to group constraints together. 
    The F# sample illustrates what is meant.
 
+Next steps:
+        - replace solver by opt_solver.
+        - create a file called opt_solver, copy most from smt_solver into it.
+            Add some functions to enable/disable post-optimization on feasiable state.
+        - Add methods to theory_arith.h to enable/disable post-optimization
+        - Add method(s) to theory_arith.h to register objective functions.
+        - Add post-optimization step to theory_arith_core.h
+        - (Figure out how to do multi-objective in this framework directly besides naive loop)
