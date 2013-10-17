@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
     Fu&Malik built-in optimization method.
-    Adapted from sample code.
+    Adapted from sample code in C.
 
 Author:
 
@@ -23,7 +23,7 @@ Notes:
 
 namespace opt {
     /**
-       takes solver with hard constraints added.
+       Takes solver with hard constraints added.
        Returns a maximal satisfying subset of soft_constraints
        that are still consistent with the solver state.
     */
