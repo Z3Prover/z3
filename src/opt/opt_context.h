@@ -19,6 +19,7 @@ Notes:
 #define _OPT_CONTEXT_H_
 
 #include "ast.h"
+#include "solver.h"
 
 namespace opt {
 
@@ -30,6 +31,7 @@ namespace opt {
 
         expr_ref_vector m_objectives;
         svector<bool>   m_is_max;
+        ref<::solver>     m_solver;
 
     public:
         context(ast_manager& m):
@@ -51,6 +53,10 @@ namespace opt {
 
         void add_hard_constraint(expr* f) {
             m_hard_constraints.push_back(f);
+        }
+
+        void set_solver(::solver* s) {
+            m_solver = s;
         }
 
         void optimize();

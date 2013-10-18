@@ -19,7 +19,7 @@ Notes:
 #ifndef _OPT_OBJECTIVES_H_
 #define _OPT_OBJECTIVES_H_
 
-#include "solver.h"
+#include "opt_solver.h"
 
 namespace opt {
     /**
@@ -27,7 +27,7 @@ namespace opt {
        Returns an optimal assignment to objective functions.
     */
     
-    lbool optimize_objectives(solver& s, 
+    lbool optimize_objectives(opt_solver& s, 
                           expr_ref_vector& objectives, svector<bool> const& is_max,
                           vector<optional<rational> >& values);
 };

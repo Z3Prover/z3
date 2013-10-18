@@ -18,11 +18,11 @@ Notes:
 
 
 #include "opt_context.h"
-#include "smt_solver.h"
 #include "fu_malik.h"
 #include "weighted_maxsat.h"
 #include "optimize_objectives.h"
 #include "ast_pp.h"
+#include "opt_solver.h"
 
 namespace opt {
 
@@ -30,12 +30,14 @@ namespace opt {
 
         expr_ref_vector const& fmls = m_soft_constraints;
 
-        ref<solver> s;
-        symbol logic;
-        params_ref p;
-        p.set_bool("model", true);
-        p.set_bool("unsat_core", true);        
-        s = mk_smt_solver(m, p, logic);
+        if (!m_solver) {
+            symbol logic;
+            params_ref p;
+            p.set_bool("model", true);
+            p.set_bool("unsat_core", true);        
+            set_solver(alloc(opt_solver, m, p, logic));
+        }
+        solver* s = m_solver.get();
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s->assert_expr(m_hard_constraints[i].get());
@@ -64,7 +66,9 @@ namespace opt {
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
-            is_sat = optimize_objectives(*s, m_objectives, m_is_max, values);
+            // SASSERT(instanceof(*s, opt_solver));
+            // if (!instsanceof ...) { throw ... invalid usage ..} 
+            is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, m_is_max, values);
             std::cout << "is-sat: " << is_sat << "\n";
             if (is_sat != l_true) {
                 return;

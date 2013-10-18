@@ -985,6 +985,15 @@ namespace smt {
         // -----------------------------------
         virtual bool get_value(enode * n, expr_ref & r);
 
+        // -----------------------------------
+        //
+        // Optimization
+        //
+        // -----------------------------------
+
+        void min(theory_var v);
+        theory_var set_objective(app* term);
+
 
         // -----------------------------------
         //

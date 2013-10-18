@@ -28,7 +28,7 @@ namespace opt {
        that are still consistent with the solver state.
     */
     
-    lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints);
+    lbool fu_malik_maxsat(::solver& s, expr_ref_vector& soft_constraints);
 };
 
 #endif

@@ -949,6 +949,24 @@ namespace smt {
     }
 
     /**
+       \brief minimize the given variable.
+       TODO: max_min returns a bool. What does this do?
+     */
+    template<typename Ext>
+    void theory_arith<Ext>::min(theory_var v) {
+        max_min(v, false);
+    }
+
+    // set_objective(expr* term) internalizes the arithmetic term and creates
+    // a row for it if it is not already internalized. Then return the variable 
+    // corresponding to the term.
+    // TODO handle case where internalize fails. e.g., check for this in a suitable way.
+    template<typename Ext>
+    theory_var theory_arith<Ext>::set_objective(app* term) {
+        return internalize_term_core(term);
+    }
+
+    /**
        \brief Maximize (Minimize) the given temporary row.
        Return true if succeeded.
     */

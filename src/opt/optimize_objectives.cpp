@@ -17,15 +17,18 @@ Notes:
 
 --*/
 
+#ifndef _OPT_OBJECTIVE_H_
+#define _OPT_OBJECTIVE_H_
 
 #include "optimize_objectives.h"
+#include "opt_solver.h"
 
 namespace opt {
 
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool mathsat_style_opt(solver& s, 
+    lbool mathsat_style_opt(opt_solver& s, 
                           expr_ref_vector& objectives, svector<bool> const& is_max,
                           vector<optional<rational> >& values) {
         lbool is_sat;
@@ -52,9 +55,11 @@ namespace opt {
        Returns an optimal assignment to objective functions.
     */
     
-    lbool optimize_objectives(solver& s, 
+    lbool optimize_objectives(opt_solver& s, 
                           expr_ref_vector& objectives, svector<bool> const& is_max,
                           vector<optional<rational> >& values) {
         return mathsat_style_opt(s, objectives, is_max, values);
     }
 }
+
+#endif
