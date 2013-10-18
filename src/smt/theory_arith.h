@@ -36,6 +36,7 @@ Revision History:
 #include"grobner.h"
 #include"arith_simplifier_plugin.h"
 #include"arith_eq_solver.h"
+#include"theory_opt.h"
 
 namespace smt {
     
@@ -80,7 +81,7 @@ namespace smt {
     */
 
     template<typename Ext>
-    class theory_arith : public theory, private Ext {
+    class theory_arith : public theory, public theory_opt, private Ext {
     public:
         typedef typename Ext::numeral     numeral;
         typedef typename Ext::inf_numeral inf_numeral;
@@ -855,7 +856,6 @@ namespace smt {
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
         bool max_min(row & r, bool max);
-        bool max_min(theory_var v, bool max);
         bool max_min(svector<theory_var> const & vars);
 
         // -----------------------------------
@@ -985,15 +985,14 @@ namespace smt {
         // -----------------------------------
         virtual bool get_value(enode * n, expr_ref & r);
 
+
         // -----------------------------------
         //
         // Optimization
         //
         // -----------------------------------
-
-        void min(theory_var v);
-        theory_var set_objective(app* term);
-
+        virtual bool max_min(theory_var v, bool max);
+        virtual theory_var add_objective(app* term);
 
         // -----------------------------------
         //

@@ -43,17 +43,21 @@ namespace opt {
         m_context.pop(n);
     }
 
-#define ACCESS_ARITHMETIC_CLASS(_code_)                                 \
-    smt::context& ctx = m_context.get_context();                        \
-    smt::theory_id arith_id = m_context.m().get_family_id("arith");     \
-    smt::theory* arith_theory = ctx.get_theory(arith_id);               \
-    if (typeid(smt::theory_mi_arith) == typeid(*arith_theory)) {        \
-        smt::theory_mi_arith& th = dynamic_cast<smt::theory_mi_arith&>(*arith_theory); \
-        _code_;                                                         \
-    }                                                                   \
-    else if (typeid(smt::theory_i_arith) == typeid(*arith_theory)) {   \
-        smt::theory_i_arith& th = dynamic_cast<smt::theory_i_arith&>(*arith_theory); \
-        _code_;                                                         \
+
+    smt::theory_opt& opt_solver::get_optimizer() {
+        smt::context& ctx = m_context.get_context();                        
+        smt::theory_id arith_id = m_context.m().get_family_id("arith");     
+        smt::theory* arith_theory = ctx.get_theory(arith_id);               
+        if (typeid(smt::theory_mi_arith) == typeid(*arith_theory)) {        
+            return dynamic_cast<smt::theory_mi_arith&>(*arith_theory); 
+        }                                                                   
+        else if (typeid(smt::theory_i_arith) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_i_arith&>(*arith_theory); 
+        }
+        else {
+            UNREACHABLE();
+            return dynamic_cast<smt::theory_mi_arith&>(*arith_theory); 
+        }
     }
 
     
@@ -61,7 +65,7 @@ namespace opt {
         TRACE("opt_solver_na2as", tout << "smt_opt_solver::check_sat_core: " << num_assumptions << "\n";);
         lbool r = m_context.check(num_assumptions, assumptions);
         if (r == l_true &&& m_objective_enabled) {
-            ACCESS_ARITHMETIC_CLASS(th.min(m_objective_var););
+            VERIFY(get_optimizer().max_min(m_objective_var, false));
         }
         return r;
     }
@@ -113,7 +117,7 @@ namespace opt {
     }
     
     void opt_solver::set_objective(app* term) {
-        ACCESS_ARITHMETIC_CLASS(m_objective_var = th.set_objective(term););
+        m_objective_var = get_optimizer().add_objective(term);
     }
     
     void opt_solver::toggle_objective(bool enable) {

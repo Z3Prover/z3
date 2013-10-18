@@ -26,6 +26,7 @@ Notes:
 #include"smt_kernel.h"
 #include"smt_params.h"
 #include"smt_types.h"
+#include"theory_opt.h"
 
 namespace opt {
 
@@ -60,6 +61,8 @@ namespace opt {
 
         void set_objective(app* term);
         void toggle_objective(bool enable);
+    private:
+        smt::theory_opt& get_optimizer();
     };
 }
 
