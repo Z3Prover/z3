@@ -28,11 +28,11 @@ namespace smt {
     public:
         virtual bool maximize(theory_var v) { UNREACHABLE(); return false; };
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
-		virtual inf_eps_rational<rational> get_objective_value(theory_var v) { 
+        virtual inf_eps_rational<rational> get_objective_value(theory_var v) { 
             UNREACHABLE(); 
             inf_eps_rational<rational> r(rational(1), rational(0)); 
             return r; 
-		}
+        }
     };
 }
 

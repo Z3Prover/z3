@@ -14,6 +14,13 @@ Author:
 
 Notes:
 
+    TODO:
+
+    - type check objective term and assertions. It should pass basic sanity being
+      integer, real (, bit-vector) or other supported objective function type.
+
+    - add appropriate statistics tracking to opt::context
+
 --*/
 #ifndef _OPT_CONTEXT_H_
 #define _OPT_CONTEXT_H_
@@ -31,7 +38,7 @@ namespace opt {
 
         expr_ref_vector m_objectives;
         svector<bool>   m_is_max;
-        ref<::solver>     m_solver;
+        ref<solver>     m_solver;
 
     public:
         context(ast_manager& m):
@@ -55,11 +62,14 @@ namespace opt {
             m_hard_constraints.push_back(f);
         }
 
-        void set_solver(::solver* s) {
+        void set_solver(solver* s) {
             m_solver = s;
         }
 
         void optimize();
+
+        void cancel();
+        void reset_cancel();
 
     private:
         bool is_maxsat_problem() const;

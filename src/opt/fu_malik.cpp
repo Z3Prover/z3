@@ -37,13 +37,13 @@ namespace opt {
 
     class fu_malik {
         ast_manager& m;
-        ::solver& s;
+        solver& s;
         expr_ref_vector m_soft;
         expr_ref_vector m_aux;
 
     public:
 
-        fu_malik(ast_manager& m, ::solver& s, expr_ref_vector const& soft):
+        fu_malik(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
             s(s),
             m_soft(soft),
@@ -132,7 +132,7 @@ namespace opt {
 
     };
     
-    lbool fu_malik_maxsat(::solver& s, expr_ref_vector& soft_constraints) {
+    lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints) {
         ast_manager& m = soft_constraints.get_manager();
         lbool is_sat = s.check_sat(0,0);
         if (!soft_constraints.empty() && is_sat == l_true) {

@@ -14,12 +14,26 @@ Author:
 
 Notes:
 
+    TODO:
+    - integrate with parameters. 
+      Parameter infrastructure lets us control setttings, such as 
+      timeouts and control which backend optimization approach to 
+      use during experiments.
+
+    - Display statistics properly on exit when configured to do so.
+      Also add appropriate statistics tracking to opt::context
+
+    - Deal with push/pop (later)
+
+    - Revisit weighted constraints if we want to group them using identifiers.
+
 --*/
 #include "opt_cmds.h"
 #include "cmd_context.h"
 #include "ast_pp.h"
-
 #include "opt_context.h"
+#include "cancel_eh.h"
+#include "scoped_ctrl_c.h"
 
 
 class opt_context {
@@ -37,13 +51,13 @@ public:
 
 
 class assert_weighted_cmd : public cmd {
-    opt_context* m_opt_ctx;
-    unsigned   m_idx;
-    expr*      m_formula;
-    rational   m_weight;
+    opt_context& m_opt_ctx;
+    unsigned     m_idx;
+    expr*        m_formula;
+    rational     m_weight;
 
 public:
-    assert_weighted_cmd(cmd_context& ctx, opt_context* opt_ctx):
+    assert_weighted_cmd(cmd_context& ctx, opt_context& opt_ctx):
         cmd("assert-weighted"),
         m_opt_ctx(opt_ctx),
         m_idx(0),
@@ -52,7 +66,7 @@ public:
     {}
 
     virtual ~assert_weighted_cmd() {
-        dealloc(m_opt_ctx);
+        dealloc(&m_opt_ctx);
     }
 
     virtual void reset(cmd_context & ctx) { 
@@ -94,7 +108,7 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        (*m_opt_ctx)().add_soft_constraint(m_formula, m_weight);
+        m_opt_ctx().add_soft_constraint(m_formula, m_weight);
         reset(ctx);
     }
 
@@ -103,23 +117,18 @@ public:
 
 };
 
-// what amounts to check-sat, but uses the *single* objective function.
-// alternative is to register multiple objective functions using
-// minimize/maximize and then use check-sat or some variant of it 
-// to do the feasibility check.
 class min_maximize_cmd : public cmd {
-    bool m_is_max;
-    opt_context* m_opt_ctx;
+    bool         m_is_max;
+    opt_context& m_opt_ctx;
 
 public:
-    min_maximize_cmd(cmd_context& ctx, opt_context* opt_ctx, bool is_max):
+    min_maximize_cmd(cmd_context& ctx, opt_context& opt_ctx, bool is_max):
         cmd(is_max?"maximize":"minimize"),
         m_is_max(is_max),
         m_opt_ctx(opt_ctx)
     {}
 
-    virtual void reset(cmd_context & ctx) { 
-    }
+    virtual void reset(cmd_context & ctx) { }
 
     virtual char const * get_usage() const { return "<term>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "check sat modulo objective function";}
@@ -129,9 +138,7 @@ public:
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_EXPR; }
 
     virtual void set_next_arg(cmd_context & ctx, expr * t) {
-        // TODO: type check objective term. It should pass basic sanity being
-        // integer, real (, bit-vector) or other supported objective function type.
-        (*m_opt_ctx)().add_objective(t, m_is_max);
+        m_opt_ctx().add_objective(t, m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -140,14 +147,12 @@ public:
 
     virtual void execute(cmd_context & ctx) {
     }
-
-
 };
 
 class optimize_cmd : public cmd {
-    opt_context* m_opt_ctx;
+    opt_context& m_opt_ctx;
 public:
-    optimize_cmd(opt_context* opt_ctx):
+    optimize_cmd(opt_context& opt_ctx):
         cmd("optimize"),
         m_opt_ctx(opt_ctx)
     {}
@@ -159,25 +164,33 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-
+        opt::context& opt = m_opt_ctx();
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
-            (*m_opt_ctx)().add_hard_constraint(*it);
+            opt.add_hard_constraint(*it);
         }
-        (*m_opt_ctx)().optimize();
-
-  
+        cancel_eh<opt::context> eh(opt);
+        {
+            scoped_ctrl_c ctrlc(eh);
+            cmd_context::scoped_watch sw(ctx);
+            try {
+                opt.optimize();
+            }
+            catch (z3_error& ex) {
+                ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
+            }
+            catch (z3_exception& ex) {
+                ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
+            }
+        }
     }
-private:
-
-
 };
 
 void install_opt_cmds(cmd_context & ctx) {
     opt_context* opt_ctx = alloc(opt_context, ctx);
-    ctx.insert(alloc(assert_weighted_cmd, ctx, opt_ctx));
-    ctx.insert(alloc(min_maximize_cmd, ctx, opt_ctx, true));
-    ctx.insert(alloc(min_maximize_cmd, ctx, opt_ctx, false));
-    ctx.insert(alloc(optimize_cmd, opt_ctx));
+    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
+    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
+    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
+    ctx.insert(alloc(optimize_cmd, *opt_ctx));
 }

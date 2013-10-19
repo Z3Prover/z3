@@ -14,6 +14,13 @@ Author:
 
 Notes:
 
+    TODO:
+
+    - there are race conditions for cancelation.
+    - it would also be a good idea to maintain a volatile bool to track
+      cancelation and then bail out of loops inside optimize() and derived
+      functions.
+
 --*/
 
 #include "opt_context.h"
@@ -93,6 +100,18 @@ namespace opt {
             }
         }
         return true;
+    }
+
+    void context::cancel() {
+        if (m_solver) {
+            m_solver->cancel();
+        }
+    }
+
+    void context::reset_cancel() {
+        if (m_solver) {
+            m_solver->reset_cancel();
+        }
     }
 
 }
