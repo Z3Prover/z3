@@ -24,8 +24,9 @@ Notes:
 namespace smt {
     class theory_opt {
     public:
-        virtual bool max_min(theory_var v, bool max) { UNREACHABLE(); return false; };
+        virtual bool max(theory_var v) { UNREACHABLE(); return false; };
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
+        virtual optional<rational> get_objective_value(theory_var v) { UNREACHABLE(); optional<rational> r; return r;}
     };
 }
 

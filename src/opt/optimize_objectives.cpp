@@ -22,6 +22,7 @@ Notes:
 
 #include "optimize_objectives.h"
 #include "opt_solver.h"
+#include "arith_decl_plugin.h"
 
 namespace opt {
 
@@ -31,23 +32,47 @@ namespace opt {
     lbool mathsat_style_opt(opt_solver& s, 
                           expr_ref_vector& objectives, svector<bool> const& is_max,
                           vector<optional<rational> >& values) {
-        lbool is_sat;
-        is_sat = s.check_sat(0,0);
-        if (is_sat != l_true) {
-            return is_sat;
+        enable_trace("maximize");        
+        // First check_sat call for initialize theories
+        lbool is_sat = s.check_sat(0, 0);
+        if (is_sat == l_false) {
+            return l_false;
         }
-        // assume that s is instrumented to produce locally optimal assignments.
 
+        // Assume there is only one objective function
+        ast_manager& m = objectives.get_manager();
+        arith_util autil(m);
+        app* objective = is_max[0] ? (app*) objectives[0].get() : autil.mk_uminus(objectives[0].get());
+        s.set_objective(objective);
+        s.toggle_objective(true);
+        is_sat = s.check_sat(0, 0);        
+        
         while (is_sat != l_false) {
-            model_ref model;
-            s.get_model(model);
-            // extract values for objectives.
-            // store them in values.
-            // assert there must be something better.
-            is_sat = s.check_sat(0,0);
-        }
-        return l_true;
+            // Extract values for objectives.
+            optional<rational> rat;
+            rat = s.get_objective_value();
 
+            // Unbounded objective
+            if (!rat) {
+                values.reset();
+                values.push_back(rat);
+                return l_true;
+            }
+            
+            // If values have initial data, they will be dropped.
+            values.reset();
+            values.push_back(rat);
+            
+            // Assert there must be something better.            
+            expr_ref_vector assumptions(m);
+            expr* bound = m.mk_fresh_const("bound", m.mk_bool_sort());
+            assumptions.push_back(bound);
+            expr* r = autil.mk_numeral(*rat, false);
+            s.assert_expr(m.mk_eq(bound, is_max[0] ? autil.mk_gt(objectives[0].get(), r) : autil.mk_lt(objectives[0].get(), r)));
+            is_sat = s.check_sat(1, assumptions.c_ptr());            
+        }              
+                
+        return l_true;
     }
 
     /**

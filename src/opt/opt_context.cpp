@@ -73,8 +73,13 @@ namespace opt {
             if (is_sat != l_true) {
                 return;
             }
+
             for (unsigned i = 0; i < values.size(); ++i) {
-                // display
+                if (values[i]) {
+                    std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> " << *values[i] << "\n";
+                } else {
+                    std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> unbounded\n";
+                }
             }
         }     
 

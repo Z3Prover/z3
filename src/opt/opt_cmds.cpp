@@ -22,18 +22,32 @@ Notes:
 #include "opt_context.h"
 
 
+class opt_context {
+    cmd_context& ctx;
+    scoped_ptr<opt::context> m_opt;
+public:
+    opt_context(cmd_context& ctx): ctx(ctx) {}
+    opt::context& operator()() { 
+        if (!m_opt) {
+            m_opt = alloc(opt::context, ctx.m());
+        }
+        return *m_opt;
+    }
+};
+
+
 class assert_weighted_cmd : public cmd {
-    opt::context* m_opt_ctx;
+    opt_context* m_opt_ctx;
     unsigned   m_idx;
-    expr_ref   m_formula;
+    expr*      m_formula;
     rational   m_weight;
 
 public:
-    assert_weighted_cmd(cmd_context& ctx, opt::context* opt_ctx):
+    assert_weighted_cmd(cmd_context& ctx, opt_context* opt_ctx):
         cmd("assert-weighted"),
         m_opt_ctx(opt_ctx),
         m_idx(0),
-        m_formula(ctx.m()),
+        m_formula(0),
         m_weight(0)
     {}
 
@@ -42,6 +56,9 @@ public:
     }
 
     virtual void reset(cmd_context & ctx) { 
+        if (m_formula) {
+            ctx.m().dec_ref(m_formula);
+        }
         m_idx = 0; 
         m_formula = 0;
     }
@@ -68,6 +85,7 @@ public:
             throw cmd_exception("Invalid type for expression. Expected Boolean type.");
         }
         m_formula = t;
+        ctx.m().inc_ref(t);
         ++m_idx;
     }
 
@@ -76,7 +94,7 @@ public:
     }
 
     virtual void execute(cmd_context & ctx) {
-        m_opt_ctx->add_soft_constraint(m_formula, m_weight);
+        (*m_opt_ctx)().add_soft_constraint(m_formula, m_weight);
         reset(ctx);
     }
 
@@ -91,10 +109,10 @@ public:
 // to do the feasibility check.
 class min_maximize_cmd : public cmd {
     bool m_is_max;
-    opt::context* m_opt_ctx;
+    opt_context* m_opt_ctx;
 
 public:
-    min_maximize_cmd(cmd_context& ctx, opt::context* opt_ctx, bool is_max):
+    min_maximize_cmd(cmd_context& ctx, opt_context* opt_ctx, bool is_max):
         cmd(is_max?"maximize":"minimize"),
         m_is_max(is_max),
         m_opt_ctx(opt_ctx)
@@ -113,7 +131,7 @@ public:
     virtual void set_next_arg(cmd_context & ctx, expr * t) {
         // TODO: type check objective term. It should pass basic sanity being
         // integer, real (, bit-vector) or other supported objective function type.
-        m_opt_ctx->add_objective(t, m_is_max);
+        (*m_opt_ctx)().add_objective(t, m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
@@ -127,9 +145,9 @@ public:
 };
 
 class optimize_cmd : public cmd {
-    opt::context* m_opt_ctx;
+    opt_context* m_opt_ctx;
 public:
-    optimize_cmd(opt::context* opt_ctx):
+    optimize_cmd(opt_context* opt_ctx):
         cmd("optimize"),
         m_opt_ctx(opt_ctx)
     {}
@@ -145,9 +163,9 @@ public:
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
-            m_opt_ctx->add_hard_constraint(*it);
+            (*m_opt_ctx)().add_hard_constraint(*it);
         }
-        m_opt_ctx->optimize();
+        (*m_opt_ctx)().optimize();
 
   
     }
@@ -157,7 +175,7 @@ private:
 };
 
 void install_opt_cmds(cmd_context & ctx) {
-    opt::context* opt_ctx = alloc(opt::context, ctx.m());
+    opt_context* opt_ctx = alloc(opt_context, ctx);
     ctx.insert(alloc(assert_weighted_cmd, ctx, opt_ctx));
     ctx.insert(alloc(min_maximize_cmd, ctx, opt_ctx, true));
     ctx.insert(alloc(min_maximize_cmd, ctx, opt_ctx, false));

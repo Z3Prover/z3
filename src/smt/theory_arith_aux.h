@@ -956,7 +956,16 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::add_objective(app* term) {
-        return internalize_term(term);
+        return internalize_term_core(term);
+    }
+
+    template<typename Ext>
+    optional<rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
+        optional<rational> rat;        
+        if (m_objective.is_rational()) {
+            rat = m_objective.get_rational();            
+        };
+        return rat; 
     }
 
     /**
@@ -1106,7 +1115,7 @@ namespace smt {
        \brief Maximize/Minimize the given variable. The bounds of v are update if procedure succeeds.
     */
     template<typename Ext>
-    bool theory_arith<Ext>::max_min(theory_var v, bool max) { 
+    bool theory_arith<Ext>::max_min(theory_var v, bool max) {
         TRACE("maximize", tout << (max ? "maximizing" : "minimizing") << " v" << v << "...\n";);
         SASSERT(valid_row_assignment());
         SASSERT(satisfy_bounds());
@@ -1130,7 +1139,10 @@ namespace smt {
             TRACE("maximize", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
+            m_objective = get_value(v);            
+
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
+            
             return true;
         }
         return false;

@@ -37,6 +37,8 @@ namespace opt {
         symbol              m_logic;
         bool                m_objective_enabled;
         smt::theory_var     m_objective_var;
+        ast_manager&        m_manager;
+        optional<rational>  m_objective_value;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -61,6 +63,8 @@ namespace opt {
 
         void set_objective(app* term);
         void toggle_objective(bool enable);
+        
+        optional<rational> get_objective_value();
     private:
         smt::theory_opt& get_optimizer();
     };

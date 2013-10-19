@@ -855,6 +855,7 @@ namespace smt {
         theory_var pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain);
         template<bool invert>
         void add_tmp_row_entry(row & r, numeral const & coeff, theory_var v);
+        bool max_min(theory_var v, bool max);
         bool max_min(row & r, bool max);
         bool max_min(svector<theory_var> const & vars);
 
@@ -991,8 +992,10 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
-        virtual bool max_min(theory_var v, bool max);
+        virtual bool max(theory_var v) { return max_min(v, true); }
         virtual theory_var add_objective(app* term);
+        virtual optional<rational> get_objective_value(theory_var v);
+        inf_rational m_objective;
 
         // -----------------------------------
         //

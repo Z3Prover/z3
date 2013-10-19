@@ -7,6 +7,7 @@ namespace opt {
 
     opt_solver::opt_solver(ast_manager & m, params_ref const & p, symbol const & l):
         solver_na2as(m),
+        m_manager(m),
         m_params(p),
         m_context(m, m_params),
         m_objective_enabled(false) {
@@ -48,6 +49,7 @@ namespace opt {
         smt::context& ctx = m_context.get_context();                        
         smt::theory_id arith_id = m_context.m().get_family_id("arith");     
         smt::theory* arith_theory = ctx.get_theory(arith_id);               
+        
         if (typeid(smt::theory_mi_arith) == typeid(*arith_theory)) {        
             return dynamic_cast<smt::theory_mi_arith&>(*arith_theory); 
         }                                                                   
@@ -64,8 +66,14 @@ namespace opt {
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_solver_na2as", tout << "smt_opt_solver::check_sat_core: " << num_assumptions << "\n";);
         lbool r = m_context.check(num_assumptions, assumptions);
-        if (r == l_true &&& m_objective_enabled) {
-            VERIFY(get_optimizer().max_min(m_objective_var, false));
+        if (r == l_true && m_objective_enabled) {
+            bool is_bounded = get_optimizer().max(m_objective_var);
+            if (is_bounded) {
+                m_objective_value = get_optimizer().get_objective_value(m_objective_var);
+            } else {
+                optional<rational> r;
+                m_objective_value = r;
+            }
         }
         return r;
     }
@@ -123,4 +131,9 @@ namespace opt {
     void opt_solver::toggle_objective(bool enable) {
         m_objective_enabled = enable;
     }
+
+    optional<rational> opt_solver::get_objective_value() {
+        return m_objective_value;
+    }
+
 }
