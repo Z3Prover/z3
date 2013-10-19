@@ -18,7 +18,6 @@ Revision History:
 #include"api_datalog.h"
 #include"api_context.h"
 #include"api_util.h"
-#include"dl_context.h"
 #include"ast_pp.h"
 #include"api_ast_vector.h"
 #include"api_log_macros.h"
@@ -29,104 +28,126 @@ Revision History:
 #include"dl_cmds.h"
 #include"cmd_context.h"
 #include"smt2parser.h"
+#include"dl_context.h"
+#include"dl_register_engine.h"
+#include"dl_external_relation.h"
+#include"dl_decl_plugin.h"
+#include"rel_context.h"
 
 namespace api {
-    
-    fixedpoint_context::fixedpoint_context(ast_manager& m, smt_params& p) : 
-        m_state(0), 
-        m_reduce_app(0), 
-        m_reduce_assign(0), 
-        m_context(m, p),
-        m_trail(m) {}
-    
-    
-    void fixedpoint_context::set_state(void* state) {
-        SASSERT(!m_state);
-        m_state = state;
-        symbol name("datalog_relation");
-        ast_manager& m = m_context.get_manager();
-        if (!m.has_plugin(name)) {
-            m.register_plugin(name, alloc(datalog::dl_decl_plugin));
-        }        
-        datalog::relation_manager& r = m_context.get_rel_context().get_rmanager();
-        r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
-    }        
-    
-    void fixedpoint_context::reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) {
-        expr* r = 0;
-        if (m_reduce_app) {
-            m_reduce_app(m_state, f, num_args, args, &r);
-            result = r;
-            m_trail.push_back(f);
-            for (unsigned i = 0; i < num_args; ++i) {
-                m_trail.push_back(args[i]);
-            }
-            m_trail.push_back(r);
-        }
-        // allow fallthrough.
-        if (r == 0) {
+
+    class fixedpoint_context : public datalog::external_relation_context {
+        void *                       m_state;
+        reduce_app_callback_fptr     m_reduce_app;
+        reduce_assign_callback_fptr  m_reduce_assign;
+        datalog::register_engine     m_register_engine;
+        datalog::context             m_context;    
+        ast_ref_vector               m_trail;        
+    public:
+        fixedpoint_context(ast_manager& m, smt_params& p): 
+            m_state(0), 
+            m_reduce_app(0), 
+            m_reduce_assign(0), 
+            m_context(m, m_register_engine, p),
+            m_trail(m) {}
+
+        virtual ~fixedpoint_context() {}
+        family_id get_family_id() const { return const_cast<datalog::context&>(m_context).get_decl_util().get_family_id(); }
+        void set_state(void* state) {
+            SASSERT(!m_state);
+            m_state = state;
+            symbol name("datalog_relation");
             ast_manager& m = m_context.get_manager();
-            result = m.mk_app(f, num_args, args);
-        }
-    }
-    
-    // overwrite terms passed in outs vector with values computed by function.
-    void fixedpoint_context::reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) {
-        if (m_reduce_assign) {
-            m_trail.push_back(f);
-            for (unsigned i = 0; i < num_args; ++i) {
-                m_trail.push_back(args[i]);
+            if (!m.has_plugin(name)) {
+                m.register_plugin(name, alloc(datalog::dl_decl_plugin));
+            }        
+            datalog::rel_context_base* rel = m_context.get_rel_context();
+            if (rel) {
+                datalog::relation_manager& r = rel->get_rmanager();
+                r.register_plugin(alloc(datalog::external_relation_plugin, *this, r));
             }
-            m_reduce_assign(m_state, f, num_args, args, num_out, outs);
         }
-    }
-
-
-    void fixedpoint_context::add_rule(expr* rule, symbol const& name) {
-        m_context.add_rule(rule, name);
-    }   
-
-    void fixedpoint_context::update_rule(expr* rule, symbol const& name) {
-        m_context.update_rule(rule, name);
-    }   
-
-    void fixedpoint_context::add_table_fact(func_decl* r, unsigned num_args, unsigned args[]) {
-        m_context.add_table_fact(r, num_args, args);
-    }   
-
-    unsigned fixedpoint_context::get_num_levels(func_decl* pred) {
-        return m_context.get_num_levels(pred);
-    }
-
-    expr_ref fixedpoint_context::get_cover_delta(int level, func_decl* pred) {
-        return m_context.get_cover_delta(level, pred);
-    }
-
-    void fixedpoint_context::add_cover(int level, func_decl* pred, expr* predicate) {
-        m_context.add_cover(level, pred, predicate);
-    }
-
-    std::string fixedpoint_context::get_last_status() {
-        datalog::execution_result status = m_context.get_status();
-        switch(status) {
-        case datalog::INPUT_ERROR:
-            return "input error";        
-        case datalog::OK:
-            return "ok";
-        case datalog::TIMEOUT:            
-            return "timeout";
-        default:
-            UNREACHABLE();
-            return "unknown";
+        void set_reduce_app(reduce_app_callback_fptr f) { 
+            m_reduce_app = f; 
         }
-    } 
-
-    std::string fixedpoint_context::to_string(unsigned num_queries, expr*const* queries) {
-        std::stringstream str;
-        m_context.display_smt2(num_queries, queries, str);
-        return str.str();
-    } 
-
+        void set_reduce_assign(reduce_assign_callback_fptr f) { 
+            m_reduce_assign = f; 
+        }
+        virtual void reduce(func_decl* f, unsigned num_args, expr * const* args, expr_ref& result) {
+            expr* r = 0;
+            if (m_reduce_app) {
+                m_reduce_app(m_state, f, num_args, args, &r);
+                result = r;
+                m_trail.push_back(f);
+                for (unsigned i = 0; i < num_args; ++i) {
+                    m_trail.push_back(args[i]);
+                }
+                m_trail.push_back(r);
+            }
+            // allow fallthrough.
+            if (r == 0) {
+                ast_manager& m = m_context.get_manager();
+                result = m.mk_app(f, num_args, args);
+            }
+        }
+        virtual void reduce_assign(func_decl* f, unsigned num_args, expr * const* args, unsigned num_out, expr* const* outs) {
+            if (m_reduce_assign) {
+                m_trail.push_back(f);
+                for (unsigned i = 0; i < num_args; ++i) {
+                    m_trail.push_back(args[i]);
+                }
+                m_reduce_assign(m_state, f, num_args, args, num_out, outs);
+            }
+        }
+        datalog::context& ctx() { return m_context; }
+        void add_rule(expr* rule, symbol const& name) {
+            m_context.add_rule(rule, name);
+        }
+        void update_rule(expr* rule, symbol const& name) {
+            m_context.update_rule(rule, name);
+        }
+        void add_table_fact(func_decl* r, unsigned num_args, unsigned args[]) {
+            m_context.add_table_fact(r, num_args, args);
+        }
+        std::string get_last_status() {
+            datalog::execution_result status = m_context.get_status();
+            switch(status) {
+            case datalog::INPUT_ERROR:
+                return "input error";        
+            case datalog::OK:
+                return "ok";
+            case datalog::TIMEOUT:            
+                return "timeout";
+            case datalog::APPROX:
+                return "approximated";
+            default:
+                UNREACHABLE();
+                return "unknown";
+            }
+        }
+        std::string to_string(unsigned num_queries, expr*const* queries) {
+            std::stringstream str;
+            m_context.display_smt2(num_queries, queries, str);
+            return str.str();
+        }
+        void cancel() { 
+            m_context.cancel(); 
+        }
+        void reset_cancel() { 
+            m_context.reset_cancel(); 
+        }
+        unsigned get_num_levels(func_decl* pred) {
+            return m_context.get_num_levels(pred);
+        }
+        expr_ref get_cover_delta(int level, func_decl* pred) {
+            return m_context.get_cover_delta(level, pred);
+        }
+        void add_cover(int level, func_decl* pred, expr* predicate) {
+            m_context.add_cover(level, pred, predicate);
+        }
+        void collect_param_descrs(param_descrs & p) { m_context.collect_params(p); }
+        void updt_params(params_ref const& p) { m_context.updt_params(p); }
+    };         
 };
 
 extern "C" {
@@ -266,7 +287,7 @@ extern "C" {
         lbool r = l_undef;
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
-        api::context::set_interruptable(*(mk_c(c)), eh);        
+        api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
             scoped_timer timer(timeout, &eh);
             try {
@@ -291,7 +312,7 @@ extern "C" {
         lbool r = l_undef;
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         cancel_eh<api::fixedpoint_context> eh(*to_fixedpoint_ref(d));
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_timer timer(timeout, &eh);
             try {
@@ -358,7 +379,7 @@ extern "C" {
             v->m_ast_vector.push_back(coll.m_queries[i].get());
         }
         for (unsigned i = 0; i < coll.m_rels.size(); ++i) {
-            to_fixedpoint_ref(d)->ctx().register_predicate(coll.m_rels[i].get());
+            to_fixedpoint_ref(d)->ctx().register_predicate(coll.m_rels[i].get(), true);
         }
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
@@ -415,7 +436,7 @@ extern "C" {
     void Z3_API Z3_fixedpoint_register_relation(Z3_context c,Z3_fixedpoint d, Z3_func_decl f) {
         Z3_TRY;
         LOG_Z3_fixedpoint_register_relation(c, d, f);
-        to_fixedpoint_ref(d)->ctx().register_predicate(to_func_decl(f));
+        to_fixedpoint_ref(d)->ctx().register_predicate(to_func_decl(f), true);
         Z3_CATCH;
     }
 

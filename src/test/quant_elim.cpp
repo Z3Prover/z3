@@ -76,6 +76,7 @@ static void test_formula(lbool expected_outcome, char const* fml) {
 }
 
 void tst_quant_elim() {
+    disable_debug("heap");
 
     test_formula(l_undef, "(exists ((p1 Bool) (q1 Bool) (r1 Bool))\
                                     (and (or (not p1) (not q1) r1)\

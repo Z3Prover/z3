@@ -53,7 +53,7 @@ public:
 };
 
 //#define IZ3_TRANSLATE_DIRECT2
-#ifndef _FOCI2
+#ifdef _FOCI2
 #define IZ3_TRANSLATE_DIRECT
 #else
 #define IZ3_TRANSLATE_FULL

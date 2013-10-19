@@ -200,6 +200,7 @@ func_decl * float_decl_plugin::mk_float_const_decl(decl_kind k, unsigned num_par
     }
     else {
         m_manager->raise_exception("sort of floating point constant was not specified");
+        UNREACHABLE();
     }
 
     SASSERT(is_sort_of(s, m_family_id, FLOAT_SORT));
@@ -254,7 +255,11 @@ func_decl * float_decl_plugin::mk_unary_rel_decl(decl_kind k, unsigned num_param
     case OP_FLOAT_IS_ZERO: name = "isZero";  break;
     case OP_FLOAT_IS_NZERO: name = "isNZero";   break;
     case OP_FLOAT_IS_PZERO: name = "isPZero";   break;        
-    case OP_FLOAT_IS_SIGN_MINUS: name = "isSignMinus";  break;        
+    case OP_FLOAT_IS_SIGN_MINUS: name = "isSignMinus";  break;
+    case OP_FLOAT_IS_NAN: name = "isNaN";  break;
+    case OP_FLOAT_IS_INF: name = "isInfinite";  break;
+    case OP_FLOAT_IS_NORMAL: name = "isNormal";  break;
+    case OP_FLOAT_IS_SUBNORMAL: name = "isSubnormal";  break;
     default:
         UNREACHABLE();
         break;
@@ -353,27 +358,22 @@ func_decl * float_decl_plugin::mk_to_float(decl_kind k, unsigned num_parameters,
         sort * fp = mk_float_sort(domain[2]->get_parameter(0).get_int(), domain[1]->get_parameter(0).get_int()+1);
         symbol name("asFloat");
         return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-        }
+    }    
     else {
         // .. Otherwise we only know how to convert rationals/reals. 
         if (!(num_parameters == 2 && parameters[0].is_int() && parameters[1].is_int())) 
             m_manager->raise_exception("expecting two integer parameters to asFloat");        
         if (arity != 2 && arity != 3)
             m_manager->raise_exception("invalid number of arguments to asFloat operator");
-        if (!is_rm_sort(domain[0]) || domain[1] != m_real_sort)
+        if (arity == 3 && domain[2] != m_int_sort)
+            m_manager->raise_exception("sort mismatch");     
+        if (!is_rm_sort(domain[0]) ||
+            !(domain[1] == m_real_sort || is_sort_of(domain[1], m_family_id, FLOAT_SORT)))
             m_manager->raise_exception("sort mismatch");
-        if (arity == 2) {            
-            sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
-            symbol name("asFloat");
-            return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-        }
-        else {
-            if (domain[2] != m_int_sort)
-                m_manager->raise_exception("sort mismatch");     
-            sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
-            symbol name("asFloat");
-            return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));
-        }
+        
+        sort * fp = mk_float_sort(parameters[0].get_int(), parameters[1].get_int());
+        symbol name("asFloat");
+        return m_manager->mk_func_decl(name, arity, domain, fp, func_decl_info(m_family_id, k, num_parameters, parameters));            
     }
 }
 
@@ -419,6 +419,10 @@ func_decl * float_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_FLOAT_IS_NZERO:
     case OP_FLOAT_IS_PZERO:
     case OP_FLOAT_IS_SIGN_MINUS: 
+    case OP_FLOAT_IS_NAN:
+    case OP_FLOAT_IS_INF:
+    case OP_FLOAT_IS_NORMAL:
+    case OP_FLOAT_IS_SUBNORMAL:
         return mk_unary_rel_decl(k, num_parameters, parameters, arity, domain, range);
     case OP_FLOAT_ABS: 
     case OP_FLOAT_UMINUS:
@@ -477,9 +481,13 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("<=", OP_FLOAT_LE));
     op_names.push_back(builtin_name(">=", OP_FLOAT_GE));
 
+    op_names.push_back(builtin_name("isNaN", OP_FLOAT_IS_NAN));
+    op_names.push_back(builtin_name("isInfinite", OP_FLOAT_IS_INF));
     op_names.push_back(builtin_name("isZero", OP_FLOAT_IS_ZERO));
     op_names.push_back(builtin_name("isNZero", OP_FLOAT_IS_NZERO));
     op_names.push_back(builtin_name("isPZero", OP_FLOAT_IS_PZERO));
+    op_names.push_back(builtin_name("isNormal", OP_FLOAT_IS_NORMAL));
+    op_names.push_back(builtin_name("isSubnormal", OP_FLOAT_IS_SUBNORMAL));
     op_names.push_back(builtin_name("isSignMinus", OP_FLOAT_IS_SIGN_MINUS));
 
     op_names.push_back(builtin_name("min", OP_FLOAT_MIN));
@@ -494,6 +502,15 @@ void float_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
 void float_decl_plugin::get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name("FP", FLOAT_SORT));
     sort_names.push_back(builtin_name("RoundingMode", ROUNDING_MODE_SORT));
+}
+
+expr * float_decl_plugin::get_some_value(sort * s) {
+    SASSERT(s->is_sort_of(m_family_id, FLOAT_SORT));    
+    mpf tmp;
+    m_fm.mk_nan(s->get_parameter(0).get_int(), s->get_parameter(1).get_int(), tmp);
+    expr * res = this->mk_value(tmp);
+    m_fm.del(tmp);
+    return res;
 }
 
 bool float_decl_plugin::is_value(app * e) const {

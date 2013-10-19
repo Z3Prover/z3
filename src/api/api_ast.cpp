@@ -46,7 +46,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_int_symbol(c, i);
         RESET_ERROR_CODE();
-        if (i < 0 || (unsigned)i >= (SIZE_MAX >> PTR_ALIGNMENT)) {
+        if (i < 0 || (size_t)i >= (SIZE_MAX >> PTR_ALIGNMENT)) {
             SET_ERROR_CODE(Z3_IOB);
             return 0;
         }
@@ -682,7 +682,7 @@ extern "C" {
         th_rewriter m_rw(m, p);
         expr_ref    result(m);
         cancel_eh<th_rewriter> eh(m_rw);
-        api::context::set_interruptable(*(mk_c(c)), eh);
+        api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
@@ -1072,6 +1072,16 @@ extern "C" {
             case OP_BV2INT:    return Z3_OP_BV2INT;
             case OP_CARRY:     return Z3_OP_CARRY;
             case OP_XOR3:      return Z3_OP_XOR3;
+            case OP_BSMUL_NO_OVFL: 
+            case OP_BUMUL_NO_OVFL:
+            case OP_BSMUL_NO_UDFL:
+            case OP_BSDIV_I:
+            case OP_BUDIV_I:
+            case OP_BSREM_I:
+            case OP_BUREM_I:
+            case OP_BSMOD_I:
+
+                return Z3_OP_UNINTERPRETED;
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;

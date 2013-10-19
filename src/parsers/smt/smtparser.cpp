@@ -1472,7 +1472,7 @@ private:
 
                     SASSERT(sorts.size() > 0);
 
-                    idbuilder* pop_q = new (region) pop_quantifier(this, (head_symbol == m_forall), weight, qid, skid, patterns, no_patterns, sorts, vars, local_scope, current);
+                    idbuilder* pop_q = new (region) pop_quantifier(this, (head_symbol == m_forall), weight, qid, skid, patterns, no_patterns, sorts, vars, local_scope);
 
                     expr_ref_vector * empty_v = alloc(expr_ref_vector, m_manager);
                     up.push_back(new (region) parse_frame(current, pop_q, empty_v, 0, m_binding_level));
@@ -2522,7 +2522,7 @@ private:
     class pop_quantifier : public idbuilder {
     public:
         pop_quantifier(smtparser * smt, bool is_forall, int weight, symbol const& qid, symbol const& skid, expr_ref_buffer & patterns, expr_ref_buffer & no_patterns, sort_ref_buffer & sorts, 
-                       svector<symbol>& vars, symbol_table<idbuilder*> & local_scope, proto_expr* p_expr):
+                       svector<symbol>& vars, symbol_table<idbuilder*> & local_scope):
             m_smt(smt),
             m_is_forall(is_forall),
             m_weight(weight),
@@ -2531,8 +2531,7 @@ private:
             m_patterns(m_smt->m_manager),
             m_no_patterns(m_smt->m_manager),
             m_sorts(m_smt->m_manager),
-            m_local_scope(local_scope),
-            m_p_expr(p_expr) {
+            m_local_scope(local_scope) {
             SASSERT(sorts.size() == vars.size());
 
             m_vars.append(vars);
@@ -2619,7 +2618,6 @@ private:
         sort_ref_buffer            m_sorts;
         svector<symbol>            m_vars;
         symbol_table<idbuilder*>&  m_local_scope;
-        proto_expr*                m_p_expr;
     };
 
     class builtin_builder : public idbuilder {

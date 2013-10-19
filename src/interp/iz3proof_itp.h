@@ -94,6 +94,11 @@ class iz3proof_itp : public iz3mgr {
   
   virtual node make_congruence(const ast &xi_eq_yi, const ast &con, const ast &prem1) = 0;
 
+  /** Make a congruence node. This takes derivations of |- x_i1 = y_i1, |- x_i2 = y_i2,...
+      and produces |- f(...x_i1...x_i2...) = f(...y_i1...y_i2...) */
+
+  virtual node make_congruence(const std::vector<ast> &xi_eq_yi, const ast &con, const std::vector<ast> &prems) = 0;
+
   /** Make a modus-ponens node. This takes derivations of |- x
       and |- x = y and produces |- y */
   

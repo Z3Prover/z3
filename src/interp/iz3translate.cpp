@@ -895,7 +895,7 @@ public:
       my_cons.push_back(mk_not(arg(con,i)));
       my_coeffs.push_back(farkas_coeffs[i]);
     }
-    ast farkas_con = normalize_inequality(sum_inequalities(farkas_coeffs,my_cons));
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
     my_cons.push_back(mk_not(farkas_con));
     my_coeffs.push_back(make_int("1"));
     std::vector<Iproof::node> my_hyps;
@@ -976,15 +976,10 @@ public:
 	break;
       }
       case PR_MONOTONICITY: {
-	// assume the premise is x = y
-	ast x = arg(conc(prem(proof,0)),0);
-	ast y = arg(conc(prem(proof,0)),1);
-#if 0
-	AstSet &hyps = get_hyps(proof);
-	std::vector<ast> hyps_vec; hyps_vec.resize(hyps.size());
-	std::copy(hyps.begin(),hyps.end(),hyps_vec.begin());
-#endif
-	res = iproof->make_congruence(conc(prem(proof,0)),con,args[0]);
+	std::vector<ast> eqs; eqs.resize(args.size());
+	for(unsigned i = 0; i < args.size(); i++)
+	  eqs[i] = conc(prem(proof,i));
+	res = iproof->make_congruence(eqs,con,args);
 	break;
       }
       case PR_REFLEXIVITY: {
@@ -1049,6 +1044,9 @@ public:
 	  default:
 	    throw unsupported();
 	  }
+	  break;
+	case ArrayTheory: // nothing fancy for this
+	  res = iproof->make_axiom(lits);
 	  break;
 	default:
 	  throw unsupported();

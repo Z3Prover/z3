@@ -44,6 +44,21 @@ namespace Microsoft.Z3
         /// <summary>
         /// Constructor.
         /// </summary>
+        /// <remarks>
+        /// The following parameters can be set:        
+        ///     - proof  (Boolean)           Enable proof generation
+        ///     - debug_ref_count (Boolean)  Enable debug support for Z3_ast reference counting 
+        ///     - trace  (Boolean)           Tracing support for VCC
+        ///     - trace_file_name (String)   Trace out file for VCC traces
+        ///     - timeout (unsigned)         default timeout (in milliseconds) used for solvers
+        ///     - well_sorted_check          type checker
+        ///     - auto_config                use heuristics to automatically select solver and configure it
+        ///     - model                      model generation for solvers, this parameter can be overwritten when creating a solver
+        ///     - model_validate             validate models produced by solvers
+        ///     - unsat_core                 unsat-core generation for solvers, this parameter can be overwritten when creating a solver
+        /// Note that in previous versions of Z3, this constructor was also used to set global and module parameters. 
+        /// For this purpose we should now use <see cref="Global.SetParameter"/>
+        /// </remarks>
         public Context(Dictionary<string, string> settings)
             : base()
         {
@@ -288,6 +303,9 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
+	/// <param name="name">The name used to identify the sort</param>
+	/// <param size="size">The size of the sort</param>
+	/// <returns>The result is a sort</returns>
         /// </summary>
         public FiniteDomainSort MkFiniteDomainSort(Symbol name, ulong size)
         {
@@ -300,6 +318,11 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create a new finite domain sort.
+	/// <param name="name">The name used to identify the sort</param>
+	/// <param size="size">The size of the sort</param>
+	/// <returns>The result is a sort</returns>
+	/// Elements of the sort are created using <seealso cref="MkNumeral"/>, 
+	/// and the elements range from 0 to <tt>size-1</tt>.
         /// </summary>
         public FiniteDomainSort MkFiniteDomainSort(string name, ulong size)
         {

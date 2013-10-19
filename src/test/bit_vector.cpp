@@ -276,12 +276,35 @@ static void tst_bv_reset() {
     }
 }
 
+static void tst_eq() {
+    bit_vector b1, b2, b3;
+    b1.resize(32);
+    b2.resize(32);
+    b3.resize(32);
+
+    b1.set(3, true);
+    SASSERT(b1 != b2);
+    SASSERT(!(b1 == b2));
+    SASSERT(b2 == b3);
+
+    b3.set(3, true);
+    SASSERT(b1 == b3);
+    SASSERT(!(b1 != b3));
+    
+    b2.set(31, true);
+    b3.set(31);
+    b3.unset(3);
+    SASSERT(b2 == b3);
+    SASSERT(!(b2 != b3));
+}
+
 void tst_bit_vector() {
     tst_crash();
     tst_shift(); 
     tst_or();
     tst_and();
     tst_bv_reset();
+    tst_eq();
     return;
     tst2();
     for (unsigned i = 0; i < 20; i++) {

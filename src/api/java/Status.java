@@ -12,7 +12,7 @@ package com.microsoft.z3;
 public enum Status
 {
     // / Used to signify an unsatisfiable status.
-    UNSATISFIABLE(1),
+    UNSATISFIABLE(-1),
 
     // / Used to signify an unknown status.
     UNKNOWN(0),

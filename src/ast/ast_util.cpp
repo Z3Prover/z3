@@ -1,3 +1,21 @@
+/*++
+Copyright (c) 2006 Microsoft Corporation
+
+Module Name:
+
+    ast_util.cpp
+
+Abstract:
+
+    Helper functions
+
+Author:
+
+    Leonardo de Moura (leonardo) 2007-06-08.
+
+Revision History:
+
+--*/
 #include "ast_util.h"
 
 app * mk_list_assoc_app(ast_manager & m, func_decl * f, unsigned num_args, expr * const * args) {
@@ -137,4 +155,39 @@ expr * get_clause_literal(ast_manager & m, expr * cls, unsigned idx) {
     }
     SASSERT(m.is_or(cls));
     return to_app(cls)->get_arg(idx);
+}
+
+expr * mk_and(ast_manager & m, unsigned num_args, expr * const * args) {
+    if (num_args == 0)
+        return m.mk_true();
+    else if (num_args == 1)
+        return args[0];
+    else
+        return m.mk_and(num_args, args);
+}
+
+expr * mk_or(ast_manager & m, unsigned num_args, expr * const * args) {
+    if (num_args == 0)
+        return m.mk_false();
+    else if (num_args == 1)
+        return args[0];
+    else
+        return m.mk_or(num_args, args);
+}
+
+expr * mk_not(ast_manager & m, expr * arg) {
+    expr * atom;
+    if (m.is_not(arg, atom))
+        return atom;
+    else
+        return m.mk_not(arg);
+}
+
+expr * expand_distinct(ast_manager & m, unsigned num_args, expr * const * args) {
+    expr_ref_buffer new_diseqs(m);
+    for (unsigned i = 0; i < num_args; i++) {
+        for (unsigned j = i + 1; j < num_args; j++)
+            new_diseqs.push_back(m.mk_not(m.mk_eq(args[i], args[j])));
+    }
+    return mk_and(m, new_diseqs.size(), new_diseqs.c_ptr());
 }

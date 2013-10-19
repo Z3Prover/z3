@@ -165,7 +165,10 @@ extern "C" {
         }
         for (unsigned i = 0; i < num_bound; ++i) {
             app* a = to_app(bound[i]);
-            SASSERT(a->get_kind() == AST_APP);
+            if (a->get_kind() != AST_APP) {
+                SET_ERROR_CODE(Z3_INVALID_ARG);
+                RETURN_Z3(0);
+            }
             symbol s(to_app(a)->get_decl()->get_name());
             names.push_back(of_symbol(s));
             types.push_back(of_sort(mk_c(c)->m().get_sort(a)));

@@ -25,7 +25,8 @@ Revision History:
 #include "bool_rewriter.h"
 #include "var_subst.h"
 #include "ast_pp.h"
-
+#include "ast_counter.h"
+#include "expr_safe_replace.h"
 
 //
 // Bring quantifiers of common type into prenex form.
@@ -42,7 +43,7 @@ public:
     
     void operator()(expr* fml, app_ref_vector& vars, bool& is_fa, expr_ref& result) {
         quantifier_type qt = Q_none_pos;
-        pull_quantifiers(fml, qt, vars, result);
+        pull_quantifier(fml, qt, vars, result);
         TRACE("qe_verbose", 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
@@ -52,7 +53,7 @@ public:
     
     void pull_exists(expr* fml, app_ref_vector& vars, expr_ref& result) {
         quantifier_type qt = Q_exists_pos;
-        pull_quantifiers(fml, qt, vars, result);
+        pull_quantifier(fml, qt, vars, result);
         TRACE("qe_verbose", 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
@@ -61,7 +62,7 @@ public:
     void pull_quantifier(bool is_forall, expr_ref& fml, app_ref_vector& vars) {
         quantifier_type qt = is_forall?Q_forall_pos:Q_exists_pos;
         expr_ref result(m);
-        pull_quantifiers(fml, qt, vars, result);
+        pull_quantifier(fml, qt, vars, result);
         TRACE("qe_verbose", 
               tout << mk_pp(fml, m) << "\n";
               tout << mk_pp(result, m) << "\n";);
@@ -78,7 +79,57 @@ public:
         expr * const * exprs = (expr* const*) (vars.c_ptr() + vars.size()- nd);
         instantiate(m, q, exprs, result);
     }
-    
+
+    unsigned pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names) {
+        unsigned index = var_counter().get_next_var(fml);
+        while (is_quantifier(fml) && (is_forall == to_quantifier(fml)->is_forall())) {
+            quantifier* q = to_quantifier(fml);
+            index += q->get_num_decls();
+            if (names) {
+                names->append(q->get_num_decls(), q->get_decl_names());
+            }
+            if (sorts) {
+                sorts->append(q->get_num_decls(), q->get_decl_sorts());
+            }
+            fml = q->get_expr();
+        }
+        if (!has_quantifiers(fml)) {
+            return index;
+        }
+        app_ref_vector vars(m);
+        pull_quantifier(is_forall, fml, vars);
+        if (vars.empty()) {
+            return index;
+        }
+        // replace vars by de-bruijn indices
+        expr_safe_replace rep(m);
+        svector<symbol> bound_names;
+        ptr_vector<sort> bound_sorts;
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            app* v = vars[i].get();
+            if (names) {
+                bound_names.push_back(v->get_decl()->get_name());
+            }                
+            if (sorts) {
+                bound_sorts.push_back(m.get_sort(v));
+            }
+            rep.insert(v, m.mk_var(index++, m.get_sort(v)));
+        }
+        if (names && !bound_names.empty()) {
+            bound_names.reverse();
+            bound_names.append(*names);
+            names->reset();
+            names->append(bound_names);
+        }
+        if (sorts && !bound_sorts.empty()) {
+            bound_sorts.reverse();
+            bound_sorts.append(*sorts);
+            sorts->reset();
+            sorts->append(bound_sorts);
+        }
+        rep(fml);
+        return index;
+    }    
     
 private:
     
@@ -143,7 +194,7 @@ private:
     }
     
     
-    void pull_quantifiers(expr* fml, quantifier_type& qt, app_ref_vector& vars, expr_ref& result) {
+    void pull_quantifier(expr* fml, quantifier_type& qt, app_ref_vector& vars, expr_ref& result) {
         
         if (!has_quantifiers(fml)) {
             result = fml;
@@ -159,7 +210,7 @@ private:
             if (m.is_and(fml)) {
                 num_args = a->get_num_args();
                 for (unsigned i = 0; i < num_args; ++i) {
-                    pull_quantifiers(a->get_arg(i), qt, vars, tmp);
+                    pull_quantifier(a->get_arg(i), qt, vars, tmp);
                     args.push_back(tmp);
                 }
                 m_rewriter.mk_and(args.size(), args.c_ptr(), result);
@@ -167,25 +218,25 @@ private:
             else if (m.is_or(fml)) {
                 num_args = to_app(fml)->get_num_args();
                 for (unsigned i = 0; i < num_args; ++i) {
-                    pull_quantifiers(to_app(fml)->get_arg(i), qt, vars, tmp);
+                    pull_quantifier(to_app(fml)->get_arg(i), qt, vars, tmp);
                     args.push_back(tmp);
                 }
                 m_rewriter.mk_or(args.size(), args.c_ptr(), result);
             }
             else if (m.is_not(fml)) {
-                pull_quantifiers(to_app(fml)->get_arg(0), negate(qt), vars, tmp);
+                pull_quantifier(to_app(fml)->get_arg(0), negate(qt), vars, tmp);
                 negate(qt);
                 result = m.mk_not(tmp);
             }
             else if (m.is_implies(fml)) {
-                pull_quantifiers(to_app(fml)->get_arg(0), negate(qt), vars, tmp);
+                pull_quantifier(to_app(fml)->get_arg(0), negate(qt), vars, tmp);
                 negate(qt);
-                pull_quantifiers(to_app(fml)->get_arg(1), qt, vars, result);
+                pull_quantifier(to_app(fml)->get_arg(1), qt, vars, result);
                 result = m.mk_implies(tmp, result);
             }
             else if (m.is_ite(fml)) {
-                pull_quantifiers(to_app(fml)->get_arg(1), qt, vars, tmp);
-                pull_quantifiers(to_app(fml)->get_arg(2), qt, vars, result);
+                pull_quantifier(to_app(fml)->get_arg(1), qt, vars, tmp);
+                pull_quantifier(to_app(fml)->get_arg(2), qt, vars, result);
                 result = m.mk_ite(to_app(fml)->get_arg(0), tmp, result);
             }
             else {
@@ -203,7 +254,7 @@ private:
             }
             set_quantifier_type(qt, q->is_forall());
             extract_quantifier(q, vars, tmp);
-            pull_quantifiers(tmp, qt, vars, result);
+            pull_quantifier(tmp, qt, vars, result);
             break;
         }
         case AST_VAR:
@@ -215,6 +266,7 @@ private:
             break;
         }
     }
+
 };   
 
 quantifier_hoister::quantifier_hoister(ast_manager& m) {
@@ -237,3 +289,6 @@ void quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, app_ref_
     m_impl->pull_quantifier(is_forall, fml, vars);
 }
 
+unsigned quantifier_hoister::pull_quantifier(bool is_forall, expr_ref& fml, ptr_vector<sort>* sorts, svector<symbol>* names) {
+    return m_impl->pull_quantifier(is_forall, fml, sorts, names);
+}

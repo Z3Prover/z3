@@ -61,9 +61,13 @@ enum float_op_kind {
     OP_FLOAT_GT,
     OP_FLOAT_LE,
     OP_FLOAT_GE,
+    OP_FLOAT_IS_NAN,
+    OP_FLOAT_IS_INF,
     OP_FLOAT_IS_ZERO,
-    OP_FLOAT_IS_NZERO,
+    OP_FLOAT_IS_NORMAL,
+    OP_FLOAT_IS_SUBNORMAL,    
     OP_FLOAT_IS_PZERO,
+    OP_FLOAT_IS_NZERO,
     OP_FLOAT_IS_SIGN_MINUS,
 
     OP_TO_FLOAT,
@@ -140,6 +144,7 @@ public:
                                      unsigned arity, sort * const * domain, sort * range);
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
     virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    virtual expr * get_some_value(sort * s);
     virtual bool is_value(app* e) const;
     virtual bool is_unique_value(app* e) const { return is_value(e); }
     
@@ -222,7 +227,7 @@ public:
     app * mk_rem(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_REM, arg1, arg2); }
     app * mk_max(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MAX, arg1, arg2); }
     app * mk_min(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_MIN, arg1, arg2); }
-    app * mk_abs(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1, arg2); }
+    app * mk_abs(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_ABS, arg1); }
     app * mk_sqrt(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_SQRT, arg1, arg2); }
     app * mk_round(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_ROUND_TO_INTEGRAL, arg1, arg2); }
     app * mk_fused_ma(expr * arg1, expr * arg2, expr * arg3, expr * arg4) {
@@ -236,7 +241,11 @@ public:
     app * mk_le(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_LE, arg1, arg2); }
     app * mk_ge(expr * arg1, expr * arg2) { return m().mk_app(m_fid, OP_FLOAT_GE, arg1, arg2); }
 
+    app * mk_is_nan(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NAN, arg1); }
+    app * mk_is_inf(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_INF, arg1); }
     app * mk_is_zero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_ZERO, arg1); }
+    app * mk_is_normal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NORMAL, arg1); }
+    app * mk_is_subnormal(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SUBNORMAL, arg1); }
     app * mk_is_nzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_NZERO, arg1); }
     app * mk_is_pzero(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_PZERO, arg1); }
     app * mk_is_sign_minus(expr * arg1) { return m().mk_app(m_fid, OP_FLOAT_IS_SIGN_MINUS, arg1); }

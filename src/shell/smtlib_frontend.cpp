@@ -55,13 +55,19 @@ static void display_statistics() {
 }
 
 static void on_timeout() {
-    display_statistics();
-    exit(0);
+    #pragma omp critical (g_display_stats) 
+    {
+        display_statistics();
+        exit(0);
+    }
 }
 
 static void on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
-    display_statistics();
+    #pragma omp critical (g_display_stats) 
+    {
+        display_statistics();
+    }
     raise(SIGINT);
 }
 
@@ -84,9 +90,12 @@ unsigned read_smtlib_file(char const * benchmark_file) {
         }
     }
     
-    display_statistics();
-    register_on_timeout_proc(0);
-    g_solver = 0;
+    #pragma omp critical (g_display_stats) 
+    {
+        display_statistics();
+        register_on_timeout_proc(0);
+        g_solver = 0;
+    }
     return solver.get_error_code();
 }
 
@@ -105,7 +114,6 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_subpaving_cmds(ctx);
 
     g_cmd_context = &ctx;
-    register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     
     bool result = true;
@@ -121,8 +129,12 @@ unsigned read_smtlib2_commands(char const * file_name) {
         result = parse_smt2_commands(ctx, std::cin, true);
     }
     
-    display_statistics();
-    g_cmd_context = 0;
+
+    #pragma omp critical (g_display_stats) 
+    {
+        display_statistics();
+        g_cmd_context = 0;
+    }
     return result ? 0 : 1;
 }
 

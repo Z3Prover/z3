@@ -68,6 +68,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
      and yields a proof of false. */
   symb leq2eq;
 
+  /* Equality to inequality. eq2leq(p, q) takes a proof p of x=y, and
+     a proof q ~(x <= y) and and yields a proof of false. */
+  symb eq2leq;
+
   /* Proof term cong(p,q) takes a proof p of x=y and a proof
      q of t != t<y/x> and returns a proof of false. */
   symb cong;
@@ -84,6 +88,9 @@ class iz3proof_itp_impl : public iz3proof_itp {
   /* Modus ponens. modpon(p,e,q) takes proofs p of P, e of P=Q
      and q of ~Q and returns a proof of false. */
   symb modpon;
+
+  /* This represents a lack of a proof */
+  ast no_proof;
 
   // This is used to represent an infinitessimal value
   ast epsilon;
@@ -102,13 +109,15 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
-  ast make_contra_node(const ast &pf, const std::vector<ast> &lits){
+  ast make_contra_node(const ast &pf, const std::vector<ast> &lits, int pfok = -1){
     if(lits.size() == 0)
       return pf;
     std::vector<ast> reslits;
     reslits.push_back(make(contra,pf,mk_false()));
     for(unsigned i = 0; i < lits.size(); i++){
-      ast bar = make(rotate_sum,lits[i],pf);
+      ast bar;
+      if(pfok & (1 << i)) bar = make(rotate_sum,lits[i],pf);
+      else bar = no_proof;
       ast foo = make(contra,bar,lits[i]);
       reslits.push_back(foo);
     }
@@ -127,6 +136,11 @@ class iz3proof_itp_impl : public iz3proof_itp {
     }
     else
       return pv->range_contained(r,rng) ? LitA : LitB;
+  }
+
+  bool term_common(const ast &t){
+    prover::range r = pv->ast_scope(t);
+    return pv->ranges_intersect(r,rng) && !pv->range_contained(r,rng);
   }
 
   /** Make a resolution node with given pivot literal and premises.
@@ -267,24 +281,59 @@ class iz3proof_itp_impl : public iz3proof_itp {
       if(!(f == pivot)){
 	ast ph = get_placeholder(mk_not(arg(pivot1,1)));
 	ast pf = arg(pivot1,0);
-	ast thing = subst_term_and_simp(ph,pf,arg(f,0));
+	ast thing = pf == no_proof ? no_proof : subst_term_and_simp(ph,pf,arg(f,0));
 	ast newf = make(contra,thing,arg(f,1));
 	res.push_back(newf);
       }
     }
   }
+  
+  bool is_negative_equality(const ast &e){
+    if(op(e) == Not){
+      opr o = op(arg(e,0));
+      return o == Equal || o == Iff;
+    }
+    return false;
+  }
 
-  ast resolve_contra(const ast &pivot1, const ast &conj1,
+  int count_negative_equalities(const std::vector<ast> &resolvent){
+    int res = 0;
+    for(unsigned i = 0; i < resolvent.size(); i++)
+      if(is_negative_equality(arg(resolvent[i],1)))
+	res++;
+    return res;
+  }
+
+  ast resolve_contra_nf(const ast &pivot1, const ast &conj1,
 		     const ast &pivot2, const ast &conj2){
     std::vector<ast> resolvent;
     collect_contra_resolvents(0,pivot1,pivot2,conj2,resolvent);
     collect_contra_resolvents(1,pivot2,pivot1,conj1,resolvent);
+    if(count_negative_equalities(resolvent) > 1)
+      throw proof_error();
     if(resolvent.size() == 1) // we have proved a contradiction
       return simplify(arg(resolvent[0],0)); // this is the proof -- get interpolant
     return make(And,resolvent);
   }
 
-   
+  ast resolve_contra(const ast &pivot1, const ast &conj1,
+			  const ast &pivot2, const ast &conj2){
+#if 0
+    int nargs = num_args(conj1);
+    for(int i = 0; i < nargs; i++){
+      ast foo = arg(conj1,i);
+      if(!(foo == pivot1) && is_negative_equality(arg(foo,1)))
+	return resolve_contra_nf(pivot2, conj2, pivot1, conj1);
+    }
+#endif
+    if(arg(pivot1,0) != no_proof)
+      return resolve_contra_nf(pivot1, conj1, pivot2, conj2);
+    if(arg(pivot2,0) != no_proof)
+      return resolve_contra_nf(pivot2, conj2, pivot1, conj1);
+    return resolve_with_quantifier(pivot1, conj1, pivot2, conj2);
+  }
+
+
   bool is_contra_itp(const ast &pivot1, ast itp2, ast &pivot2){
     if(op(itp2) == And){
       int nargs = num_args(itp2);
@@ -408,7 +457,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   /* This is where the real work happens. Here, we simplify the
-     proof obtained by cut elimination, obtaining a interpolant. */
+     proof obtained by cut elimination, obtaining an interpolant. */
 
   struct cannot_simplify {};
   hash_map<ast,ast> simplify_memo;
@@ -424,19 +473,23 @@ class iz3proof_itp_impl : public iz3proof_itp {
     if(bar.second){
       int nargs = num_args(e);
       std::vector<ast> args(nargs);
-      for(int i = 0; i < nargs; i++)
+      bool placeholder_arg = false;
+      for(int i = 0; i < nargs; i++){
 	args[i] = simplify_rec(arg(e,i));
+	placeholder_arg |= is_placeholder(args[i]);
+      }
       try {
 	opr f = op(e);
 	if(f == Equal && args[0] == args[1]) res = mk_true();
 	else if(f == And) res = my_and(args);
 	else if(f == Or) res = my_or(args);
 	else if(f == Idiv) res = mk_idiv(args[0],args[1]);
-	else if(f == Uninterpreted){
+	else if(f == Uninterpreted && !placeholder_arg){
 	  symb g = sym(e);
 	  if(g == rotate_sum) res = simplify_rotate(args);
 	  else if(g == symm) res = simplify_symm(args);
 	  else if(g == modpon) res = simplify_modpon(args);
+	  else if(g == sum) res = simplify_sum(args);
 #if 0
 	  else if(g == cong) res = simplify_cong(args);
 	  else if(g == modpon) res = simplify_modpon(args);
@@ -462,17 +515,26 @@ class iz3proof_itp_impl : public iz3proof_itp {
       symb g = sym(pf);
       if(g == sum) return simplify_rotate_sum(pl,pf);
       if(g == leq2eq) return simplify_rotate_leq2eq(pl,args[0],pf);
+      if(g == eq2leq) return simplify_rotate_eq2leq(pl,args[0],pf);
       if(g == cong) return simplify_rotate_cong(pl,args[0],pf);
+      if(g == modpon) return simplify_rotate_modpon(pl,args[0],pf);
       // if(g == symm) return simplify_rotate_symm(pl,args[0],pf);
     }
     throw cannot_simplify();
   }
 
+  ast simplify_sum(std::vector<ast> &args){
+    ast cond = mk_true();
+    ast ineq = args[0];
+    if(!is_ineq(ineq)) throw cannot_simplify();
+    sum_cond_ineq(ineq,cond,args[1],args[2]);
+    return my_implies(cond,ineq);
+  }
+
   ast simplify_rotate_sum(const ast &pl, const ast &pf){
     ast cond = mk_true();
     ast ineq = make(Leq,make_int("0"),make_int("0"));
-    rotate_sum_rec(pl,pf,cond,ineq);
-    return ineq;
+    return rotate_sum_rec(pl,pf,cond,ineq);
   }
 
   void sum_cond_ineq(ast &ineq, ast &cond, const ast &coeff2, const ast &ineq2){
@@ -481,18 +543,26 @@ class iz3proof_itp_impl : public iz3proof_itp {
       sum_cond_ineq(ineq,cond,coeff2,arg(ineq2,1));
       cond = my_and(cond,arg(ineq2,0));
     }
-    else if(o == Leq || o == Lt)
-      ineq = sum_ineq(make_int("1"),ineq,coeff2,ineq2);
+    else if(is_ineq(ineq2))
+      linear_comb(ineq,coeff2,ineq2);
     else
       throw cannot_simplify();
   }
   
+  bool is_ineq(const ast &ineq){
+    opr o = op(ineq);
+    if(o == Not) o = op(arg(ineq,0));
+    return o == Leq || o == Lt || o == Geq || o == Gt;
+  }
+
   // divide both sides of inequality by a non-negative integer divisor
   ast idiv_ineq(const ast &ineq, const ast &divisor){
     return make(op(ineq),mk_idiv(arg(ineq,0),divisor),mk_idiv(arg(ineq,1),divisor));
   }
   
   ast rotate_sum_rec(const ast &pl, const ast &pf, ast &cond, ast &ineq){
+    if(pf == pl)
+      return my_implies(cond,simplify_ineq(ineq));
     if(op(pf) == Uninterpreted && sym(pf) == sum){
       if(arg(pf,2) == pl){
 	sum_cond_ineq(ineq,cond,make_int("1"),arg(pf,0));
@@ -510,22 +580,54 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast equality = arg(neg_equality,0);
       ast x = arg(equality,0);
       ast y = arg(equality,1);
-      ast xleqy = arg(pf,1);
-      ast yleqx = arg(pf,2);
+      ast xleqy = round_ineq(arg(pf,1));
+      ast yleqx = round_ineq(arg(pf,2));
       ast itpeq;
       if(get_term_type(x) == LitA)
-	itpeq = make(Equal,x,make(Plus,x,get_ineq_rhs(xleqy)));
+	itpeq = make(Equal,x,z3_simplify(make(Plus,x,get_ineq_rhs(xleqy))));
       else if(get_term_type(y) == LitA)
-	itpeq = make(Equal,make(Plus,y,get_ineq_rhs(yleqx)),y);
+	itpeq = make(Equal,z3_simplify(make(Plus,y,get_ineq_rhs(yleqx))),y);
       else 
 	throw cannot_simplify();
       ast cond = mk_true();
       ast ineq = make(Leq,make_int("0"),make_int("0"));
       sum_cond_ineq(ineq,cond,make_int("-1"),xleqy);
       sum_cond_ineq(ineq,cond,make_int("-1"),yleqx);
-      cond = my_and(cond,ineq);
+      cond = z3_simplify(my_and(cond,ineq));
       return my_implies(cond,itpeq);
     }
+    throw cannot_simplify();
+  }
+
+  ast round_ineq(const ast &ineq){
+    if(!is_ineq(ineq))
+      throw cannot_simplify();
+    ast res = simplify_ineq(ineq);
+    if(op(res) == Lt)
+      res = make(Leq,arg(res,0),make(Sub,arg(res,1),make_int("1")));
+    return res;
+  }
+
+  ast simplify_rotate_eq2leq(const ast &pl, const ast &neg_equality, const ast &pf){
+    if(pl == arg(pf,1)){
+      ast cond = mk_true();
+      ast equa = sep_cond(arg(pf,0),cond);
+      if(op(equa) == Equal)
+	return my_implies(cond,z3_simplify(make(Leq,make_int("0"),make(Sub,arg(equa,1),arg(equa,0)))));
+      if(op(equa) == True)
+	return my_implies(cond,z3_simplify(make(Leq,make_int("0"),make_int("0"))));
+    }
+    throw cannot_simplify();
+  }
+
+  ast simplify_rotate_modpon(const ast &pl, const ast &neg_equality, const ast &pf){
+    if(pl == arg(pf,2)){
+      std::vector<ast> args; args.resize(3);
+      args[0] = arg(pf,0);
+      args[1] = arg(pf,1);
+      args[2] = mk_true();
+      return simplify_modpon(args);
+    }    
     throw cannot_simplify();
   }
 
@@ -564,8 +666,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
       return mk_true();
     ast cond = mk_true();
     ast equa = sep_cond(args[0],cond);
-    if(op(equa) == Equal)
-      return my_implies(cond,make(Equal,arg(equa,1),arg(equa,0)));
+    if(is_equivrel(equa))
+      return my_implies(cond,make(op(equa),arg(equa,1),arg(equa,0)));
     throw cannot_simplify();
   }
 
@@ -575,10 +677,118 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast P = sep_cond(args[0],cond);
       ast notQ = sep_cond(args[2],cond);
       ast Q = mk_not(notQ);
-      ast d = mk_not(delta(P,Q));
+      ast d = op(notQ) == True ? P : op(P) == True ? notQ : mk_not(delta(P,Q));
       return my_implies(cond,d);
     }
+    else {
+      ast cond = mk_true();
+      ast P = sep_cond(args[0],cond);
+      ast PeqQ = sep_cond(args[1],cond);
+      ast Q2 = sep_cond(args[2],cond);
+      ast P1 = arg(PeqQ,0);
+      ast Q1 = arg(PeqQ,1);
+      if(op(P) == True){
+	if(is_equivrel(P1) && is_equivrel(Q1)){ // special case of transitivity
+	  if(arg(P1,0) == arg(Q1,0))
+	    if(op(args[2]) == True)
+	      return my_implies(cond,make(op(P1),arg(P1,1),arg(Q1,1)));
+	}
+	if(op(args[2]) == True)
+	  throw cannot_simplify(); // return my_implies(cond,make(rewrite(P1,Q1)));
+	ast A_rewrites = mk_true();
+	ast foo = commute_rewrites(P1,Q1,mk_not(Q2),A_rewrites);
+	return my_implies(cond,my_implies(my_implies(A_rewrites,foo),mk_false()));
+      }
+      else if(op(args[2]) == True){
+	ast P2 = apply_common_rewrites(P,P,P1,cond);
+	ast A_rewrites = mk_true();
+	if(is_equivrel(P2)){
+	  try {
+	    ast foo = commute_rewrites(arg(P2,0),arg(P2,1),arg(Q1,1),A_rewrites);
+	    ast P3 = make(op(P1),arg(P1,0),foo);
+	    if(P3 == P2)
+	      return my_implies(cond,Q1);
+	    // return my_implies(cond,make(rewrite,my_implies(A_rewrites,P3),Q1));
+	  }
+	  catch(const rewrites_failed &){
+	    std::cout << "foo!\n";
+	  }
+	}
+	ast Q2 = apply_all_rewrites(P2,P1,Q1);
+	return my_implies(cond,Q2);
+      }
+    }
     throw cannot_simplify();
+  }
+
+  bool is_equivrel(const ast &p){
+    opr o = op(p);
+    return o == Equal || o == Iff;
+  }
+  
+  struct rewrites_failed{};
+
+  /* Suppose p in Lang(B) and A |- p -> q and B |- q -> r. Return a z in Lang(B) such that
+     B |- p -> z and A |- z -> q. Collect any side conditions in "rules". */
+
+  ast commute_rewrites(const ast &p, const ast &q, const ast &r, ast &rules){
+    if(q == r)
+      return p;
+    if(p == q)
+      return r;
+    else {
+      ast rew = make(Equal,q,r);
+      if(get_term_type(rew) == LitB){
+	apply_common_rewrites(p,p,q,rules); // A rewrites must be over comon vocab
+	return r;
+      }
+    }
+    if(sym(p) != sym(q) || sym(q) != sym(r))
+      throw rewrites_failed();
+    int nargs = num_args(p);
+    if(nargs != num_args(q) || nargs != num_args(r))
+      throw rewrites_failed();
+    std::vector<ast> args; args.resize(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = commute_rewrites(arg(p,i),arg(q,i),arg(r,i),rules);
+    return clone(p,args);
+  }
+
+  ast apply_common_rewrites(const ast &p, const ast &q, const ast &r, ast &rules){
+    if(q == r)
+      return p;
+    ast rew = make(Equal,q,r);
+    if(term_common(rew)){
+      if(p != q)
+	throw rewrites_failed();
+      rules = my_and(rules,rew);
+      return r;
+    }
+    if(sym(p) != sym(q) || sym(q) != sym(r))
+      return p;
+    int nargs = num_args(p);
+    if(nargs != num_args(q) || nargs != num_args(r))
+      return p;
+    std::vector<ast> args; args.resize(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = apply_common_rewrites(arg(p,i),arg(q,i),arg(r,i),rules);
+    return clone(p,args);
+  }
+
+  ast apply_all_rewrites(const ast &p, const ast &q, const ast &r){
+    if(q == r)
+      return p;
+    if(p == q)
+      return r;
+    if(sym(p) != sym(q) || sym(q) != sym(r))
+      throw rewrites_failed();
+    int nargs = num_args(p);
+    if(nargs != num_args(q) || nargs != num_args(r))
+      throw rewrites_failed();
+    std::vector<ast> args; args.resize(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = apply_all_rewrites(arg(p,i),arg(q,i),arg(r,i));
+    return clone(p,args);
   }
 
   ast delta(const ast &x, const ast &y){
@@ -617,6 +827,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
   ast triv_interp(const symb &rule, const std::vector<ast> &premises){
     std::vector<ast> ps; ps.resize(premises.size());
     std::vector<ast> conjs;
+    int mask = 0;
     for(unsigned i = 0; i < ps.size(); i++){
       ast p = premises[i];
       switch(get_term_type(p)){
@@ -627,12 +838,14 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	ps[i] = mk_true();
 	break;
       default:
-	ps[i] = get_placeholder(p);
+	ps[i] = get_placeholder(p); // can only prove consequent!
+	if(i == ps.size()-1)
+	  mask |= (1 << conjs.size());
 	conjs.push_back(p);
       }
     }
     ast ref = make(rule,ps);
-    ast res = make_contra_node(ref,conjs);
+    ast res = make_contra_node(ref,conjs,mask);
     return res;
   }
 
@@ -689,8 +902,30 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
   /** Make an axiom node. The conclusion must be an instance of an axiom. */
   virtual node make_axiom(const std::vector<ast> &conclusion){
-    throw proof_error();
-}
+    prover::range frng = pv->range_full();
+    int nargs = conclusion.size();
+    std::vector<ast> largs(nargs);
+    std::vector<ast> eqs;
+    std::vector<ast> pfs;
+    
+    for(int i = 0; i < nargs; i++){
+      ast argpf;
+      ast lit = conclusion[i];
+      largs[i] = localize_term(lit,frng,argpf);
+      frng = pv->range_glb(frng,pv->ast_scope(largs[i]));
+      if(largs[i] != lit){
+	eqs.push_back(make_equiv(largs[i],lit));
+	pfs.push_back(argpf);
+      }
+    }
+    
+    int frame = pv->range_max(frng);
+    ast itp = make_assumption(frame,largs);
+    
+    for(unsigned i = 0; i < eqs.size(); i++)
+      itp = make_mp(eqs[i],itp,pfs[i]);
+    return itp;
+  }
 
   /** Make a Contra node. This rule takes a derivation of the form
      Gamma |- False and produces |- \/~Gamma. */
@@ -880,6 +1115,45 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return itp;
   }
 
+  int find_congruence_position(const ast &p, const ast &con){
+      // find the argument position of x and y
+    const ast &x = arg(p,0);
+    const ast &y = arg(p,1);
+    int nargs = num_args(arg(con,0));
+    for(int i = 0; i < nargs; i++)
+      if(x == arg(arg(con,0),i) && y == arg(arg(con,1),i))
+	return i;
+    throw proof_error();
+  }
+
+  /** Make a congruence node. This takes derivations of |- x_i1 = y_i1, |- x_i2 = y_i2,...
+      and produces |- f(...x_i1...x_i2...) = f(...y_i1...y_i2...) */
+  
+  node make_congruence(const std::vector<ast> &p, const ast &con, const std::vector<ast> &prems){
+    if(p.size() == 0)
+      throw proof_error();
+    if(p.size() == 1)
+      return make_congruence(p[0],con,prems[0]);
+    ast thing = con;
+    ast res = mk_true();
+    for(unsigned i = 0; i < p.size(); i++){
+      int pos = find_congruence_position(p[i],thing);
+      ast next = subst_in_arg_pos(pos,arg(p[i],1),arg(thing,0));
+      ast goal = make(op(thing),arg(thing,0),next);
+      ast equa = make_congruence(p[i],goal,prems[i]);
+      if(i == 0)
+	res = equa;
+      else {
+	ast trace = make(op(con),arg(con,0),arg(thing,0));
+	ast equiv = make(Iff,trace,make(op(trace),arg(trace,0),next));
+	ast foo = make_congruence(goal,equiv,equa);
+	res = make_mp(equiv,res,foo);
+      }
+      thing = make(op(thing),next,arg(thing,1));
+    }
+    return res;
+  }
+
   /* Interpolate a mixed congruence axiom. */
 
   virtual ast make_mixed_congruence(const ast &x, const ast &y, const ast &p, const ast &con, const ast &prem1){
@@ -1037,7 +1311,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 			     get_placeholder(mk_not(con)),
 			     get_placeholder(xleqy),
 			     get_placeholder(yleqx)),
-			conjs);
+			     conjs,1);
     }
     }
     return itp;
@@ -1054,6 +1328,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: { // mixed equality
+#if 0
       ast mid = get_placeholder(make(Equal,x,y));
       if(get_term_type(y) == LitA){
 	std::swap(x,y);
@@ -1065,6 +1340,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast zleqmid = make(Leq,make_int("0"),mid);
       ast fark = make(contra,make_int("1"),mk_not(xleqy));
       itp = make(And,zleqmid,fark);
+#endif
+      std::vector<ast> conjs; conjs.resize(2);
+      conjs[0] = make(Equal,x,y);
+      conjs[1] = mk_not(xleqy);
+      itp = make(eq2leq,get_placeholder(conjs[0]),get_placeholder(conjs[1]));
+      itp = make_contra_node(itp,conjs);
     }
     }
     return itp;
@@ -1083,10 +1364,17 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: {
+      std::vector<ast> conjs; conjs.resize(2);
+      conjs[0] = tleqc;
+      conjs[1] = mk_not(con);
+      itp = make(sum,get_placeholder(conjs[0]),d,get_placeholder(conjs[1]));
+      itp = make_contra_node(itp,conjs);
+#if 0
       ast t = arg(tleqc,0);
       ast c = arg(tleqc,1);
       ast thing = make(contra,make_int("1"),mk_not(con));
       itp = make(And,make(Leq,make_int("0"),make(Idiv,get_placeholder(tleqc),d)),thing);
+#endif
     }
     }
     std::vector<ast> conc; conc.push_back(con);
@@ -1095,6 +1383,130 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
 
+  
+  // create a fresh variable for localization
+  ast fresh_localization_var(const ast &term, int frame){
+    std::ostringstream s;
+    s << "%" << (localization_vars.size());
+    ast var = make_var(s.str().c_str(),get_type(term));
+    pv->sym_range(sym(var)) = pv->range_full(); // make this variable global
+    localization_vars.push_back(LocVar(var,term,frame));
+    return var;
+  }
+  
+  struct LocVar {                           // localization vars
+    ast var;                                // a fresh variable
+    ast term;                               // term it represents
+    int frame;                              // frame in which it's defined
+    LocVar(ast v, ast t, int f){var=v;term=t;frame=f;}
+  };
+
+  std::vector<LocVar> localization_vars;         // localization vars in order of creation
+  hash_map<ast,ast> localization_map;            // maps terms to their localization vars
+  hash_map<ast,ast> localization_pf_map;         // maps terms to proofs of their localizations
+
+  /* "localize" a term e to a given frame range, creating new symbols to
+     represent non-local subterms. This returns the localized version e_l,
+     as well as a proof thet e_l = l. 
+  */
+
+  ast make_refl(const ast &e){
+    return mk_true(); // TODO: is this right?
+  }
+
+
+  ast make_equiv(const ast &x, const ast &y){
+    if(get_type(x) == bool_type())
+      return make(Iff,x,y);
+    else
+      return make(Equal,x,y);
+  }
+
+  ast localize_term(ast e, const prover::range &rng, ast &pf){
+    ast orig_e = e;
+    pf = make_refl(e);  // proof that e = e
+
+    prover::range erng = pv->ast_scope(e);
+    if(!(erng.lo > erng.hi) && pv->ranges_intersect(pv->ast_scope(e),rng)){
+      return e; // this term occurs in range, so it's O.K.
+    }
+
+    hash_map<ast,ast>::iterator it = localization_map.find(e);
+    if(it != localization_map.end()){
+      pf = localization_pf_map[e];
+      return it->second;
+    }
+
+    // if is is non-local, we must first localize the arguments to
+    // the range of its function symbol
+    
+    int nargs = num_args(e);
+    if(nargs > 0 /*  && (!is_local(e) || flo <= hi || fhi >= lo) */){
+      prover::range frng = rng;
+      if(op(e) == Uninterpreted){
+	symb f = sym(e);
+	prover::range srng = pv->sym_range(f);
+	if(pv->ranges_intersect(srng,rng)) // localize to desired range if possible
+	  frng = pv->range_glb(srng,rng);
+      }
+      std::vector<ast> largs(nargs);
+      std::vector<ast> eqs;
+      std::vector<ast> pfs;
+      for(int i = 0; i < nargs; i++){
+	ast argpf;
+	largs[i] = localize_term(arg(e,i),frng,argpf);
+	frng = pv->range_glb(frng,pv->ast_scope(largs[i]));
+	if(largs[i] != arg(e,i)){
+	  eqs.push_back(make_equiv(largs[i],arg(e,i)));
+	  pfs.push_back(argpf);
+	}
+      }
+
+      e = clone(e,largs);
+      if(pfs.size())
+	pf = make_congruence(eqs,make_equiv(e,orig_e),pfs);
+      // assert(is_local(e));
+    }
+
+    if(pv->ranges_intersect(pv->ast_scope(e),rng))
+      return e; // this term occurs in range, so it's O.K.
+
+    // choose a frame for the constraint that is close to range
+    int frame = pv->range_near(pv->ast_scope(e),rng);
+
+    ast new_var = fresh_localization_var(e,frame);
+    localization_map[e] = new_var;
+    std::vector<ast> foo; foo.push_back(make_equiv(new_var,e));
+    ast bar = make_assumption(frame,foo);
+    pf = make_transitivity(new_var,e,orig_e,bar,pf);
+    localization_pf_map[orig_e] = pf;
+    return new_var;
+  }
+
+  node make_resolution(ast pivot, node premise1, node premise2) {
+    std::vector<ast> lits;
+    return make_resolution(pivot,lits,premise1,premise2);
+  }  
+
+  ast resolve_with_quantifier(const ast &pivot1, const ast &conj1,
+			      const ast &pivot2, const ast &conj2){
+   if(is_not(arg(pivot1,1)))
+      return resolve_with_quantifier(pivot2,conj2,pivot1,conj1);
+    ast eqpf;
+    ast P = arg(pivot1,1);
+    ast Ploc = localize_term(P, rng, eqpf);
+    ast pPloc = make_hypothesis(Ploc);
+    ast pP = make_mp(make(Iff,Ploc,P),pPloc,eqpf);
+    ast rP = make_resolution(P,conj1,pP);
+    ast nP = mk_not(P);
+    ast nPloc = mk_not(Ploc);
+    ast neqpf = make_congruence(make(Iff,Ploc,P),make(Iff,nPloc,nP),eqpf);
+    ast npPloc = make_hypothesis(nPloc);
+    ast npP = make_mp(make(Iff,nPloc,nP),npPloc,neqpf);
+    ast nrP = make_resolution(nP,conj2,npP);
+    ast res = make_resolution(Ploc,rP,nrP);
+    return res;
+  }
 
   ast get_contra_coeff(const ast &f){
     ast c = arg(f,0);
@@ -1129,6 +1541,15 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return l;
   }
 
+  bool is_placeholder(const ast &e){
+    if(op(e) == Uninterpreted){
+      std::string name = string_of_symbol(sym(e));
+      if(name.size() > 2 && name[0] == '@' and name[1] == 'p')
+	return true;
+    }
+    return false;
+  }
+
 public:
   iz3proof_itp_impl(prover *p, const prover::range &r, bool w)
     : iz3proof_itp(*p)
@@ -1144,11 +1565,13 @@ public:
     sum = function("@sum",3,boolintbooldom,bool_type());
     rotate_sum = function("@rotsum",2,boolbooldom,bool_type());
     leq2eq = function("@leq2eq",3,boolboolbooldom,bool_type());
+    eq2leq = function("@eq2leq",2,boolbooldom,bool_type());
     cong = function("@cong",3,boolintbooldom,bool_type());
     exmid = function("@exmid",3,boolboolbooldom,bool_type());
     symm = function("@symm",1,booldom,bool_type());
     epsilon = make_var("@eps",int_type());
     modpon = function("@mp",3,boolboolbooldom,bool_type());
+    no_proof = make_var("@nop",bool_type());
   }
 
 };

@@ -29,6 +29,10 @@ bool assertions_enabled();
 #include<crtdbg.h>
 #endif
 
+#ifndef __has_builtin
+# define __has_builtin(x) 0
+#endif
+
 #include"error_codes.h"
 #include"warning.h"
 
@@ -53,7 +57,14 @@ bool is_debug_enabled(const char * tag);
 #define SASSERT(COND) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })
 #define CASSERT(TAG, COND) DEBUG_CODE(if (assertions_enabled() && is_debug_enabled(TAG) && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); INVOKE_DEBUGGER(); })
 #define XASSERT(COND, EXTRA_CODE) DEBUG_CODE(if (assertions_enabled() && !(COND)) { notify_assertion_violation(__FILE__, __LINE__, #COND); { EXTRA_CODE } INVOKE_DEBUGGER(); })
+
+#if (defined(__GNUC__) && ((__GNUC__ * 100 + __GNUC_MINOR__) >= 405)) || __has_builtin(__builtin_unreachable)
+// only available in gcc >= 4.5 and in newer versions of clang
+# define UNREACHABLE() __builtin_unreachable()
+#else
 #define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNREACHABLE CODE WAS REACHED."); INVOKE_DEBUGGER();)
+#endif
+
 #define NOT_IMPLEMENTED_YET() { std::cerr << "NOT IMPLEMENTED YET!\n"; UNREACHABLE(); exit(ERR_NOT_IMPLEMENTED_YET); } ((void) 0)
 
 #ifdef Z3DEBUG

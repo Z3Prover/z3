@@ -1,0 +1,12 @@
+muZ: routines related to solving satisfiability of Horn clauses and 
+solving Datalog programs.
+
+- base - contains base routines and the main context for
+         maintaining fixedpoint solvers
+- transforms - common rule transformations
+- rel - relational algebra based Datalog engine
+- pdr - PDR based Horn clause solver
+- clp - Dart/Symbolic execution-based solver
+- tab - Tabulation based solver
+- bmc - Bounded model checking based solver
+- fp  - main exported routines

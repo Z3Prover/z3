@@ -137,7 +137,6 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
     r.resize(A.n());
     scoped_mpz_matrix B(mm);
     mm.linear_independent_rows(A, r.c_ptr(), B);
-    SASSERT(r.size() == ex_sz);
     for (unsigned i = 0; i < ex_sz; i++) {
         SASSERT(r[i] == ex_r[i]);
     }
@@ -164,7 +163,6 @@ void tst_rcf() {
     enable_trace("rcf_clean");
     enable_trace("rcf_clean_bug");
     tst_denominators();
-    return;
     tst1();
     tst2();
     { int A[] = {0, 1, 1, 1, 0, 1, 1, 1, -1}; int c[] = {10, 4, -4}; int b[] = {-2, 4, 6}; tst_solve(3, A, b, c, true); }

@@ -30,7 +30,7 @@ class recurse_expr : public Visitor {
     vector<T, CallDestructors>                m_results2;
 
     bool is_cached(expr * n) const { T c; return m_cache.find(n, c); }
-    T get_cached(expr * n) const { T c; m_cache.find(n, c); return c; }
+    T get_cached(expr * n) const { return m_cache.find(n); }
     void cache_result(expr * n, T c) { m_cache.insert(n, c); }
     
     void visit(expr * n, bool & visited);

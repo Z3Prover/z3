@@ -85,7 +85,6 @@ namespace subpaving {
     };
 
     class context_mpf_wrapper : public context_wrapper<context_mpf> {
-        f2n<mpf_manager> &            m_fm;
         unsynch_mpq_manager &         m_qm;
         scoped_mpf                    m_c;
         scoped_mpf_vector             m_as;
@@ -103,7 +102,6 @@ namespace subpaving {
     public:
         context_mpf_wrapper(f2n<mpf_manager> & fm, params_ref const & p, small_object_allocator * a):
             context_wrapper<context_mpf>(fm, p, a),
-            m_fm(fm),
             m_qm(fm.m().mpq_manager()),
             m_c(fm.m()),
             m_as(fm.m()),
@@ -145,7 +143,6 @@ namespace subpaving {
     };
 
     class context_hwf_wrapper : public context_wrapper<context_hwf> {
-        f2n<hwf_manager> &            m_fm;
         unsynch_mpq_manager &         m_qm;
         hwf                           m_c;
         svector<hwf>                  m_as;
@@ -166,7 +163,6 @@ namespace subpaving {
     public:
         context_hwf_wrapper(f2n<hwf_manager> & fm, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
             context_wrapper<context_hwf>(fm, p, a),
-            m_fm(fm),
             m_qm(qm) {
         }
 

@@ -43,7 +43,7 @@ namespace karr {
         hilbert_basis hb;
         for (unsigned i = 0; i < src.size(); ++i) {
             vector<rational> v(src.A[i]);
-            v.append(src.b[i]);
+            v.push_back(src.b[i]);
             hb.add_eq(v, rational(0));
         }
         for (unsigned i = 0; i < 1 + src.A[0].size(); ++i) {
@@ -54,7 +54,6 @@ namespace karr {
         SASSERT(is_sat == l_true);
         dst.reset();
         unsigned basis_size = hb.get_basis_size();
-        bool first_initial = true;
         for (unsigned i = 0; i < basis_size; ++i) {
             bool is_initial;
             vector<rational> soln;
@@ -165,6 +164,30 @@ namespace karr {
         return v;
     }
 
+#if 0
+    static vector<rational> V(int i, int j, int k, int l, int m) {
+        vector<rational> v;
+        v.push_back(rational(i));
+        v.push_back(rational(j));
+        v.push_back(rational(k));
+        v.push_back(rational(l));
+        v.push_back(rational(m));
+        return v;
+    }
+#endif
+
+    static vector<rational> V(int i, int j, int k, int l, int x, int y, int z) {
+        vector<rational> v;
+        v.push_back(rational(i));
+        v.push_back(rational(j));
+        v.push_back(rational(k));
+        v.push_back(rational(l));
+        v.push_back(rational(x));
+        v.push_back(rational(y));
+        v.push_back(rational(z));
+        return v;
+    }
+
 #define R(_x_) rational(_x_)
 
 
@@ -206,8 +229,66 @@ namespace karr {
         e2.display(std::cout << "e2\n");        
     }
 
+    void tst2() {
+        /**
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 0 0 0  = 0
+           0 0 0 0 1 0 0  = 0
+           0 0 0 0 -1 0 0  = 0
+           0 1 0 0 0 0 0  = 0
+           0 -1 0 0 0 0 0  = 0
+           0 0 0 2 0 0 0  = 0
+           0 0 0 -2 0 0 0  = 0
+        */
+
+        matrix ND;
+        ND.A.push_back(V(0,0,0,0,1,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,0,-1,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,1,0,0,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,-1,0,0,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,2,0,0,0));  ND.b.push_back(R(0));
+        ND.A.push_back(V(0,0,0,-2,0,0,0));  ND.b.push_back(R(0));
+
+        ND.display(std::cout << "ND\n");
+
+        matrix N;
+        dualizeH(N, ND);
+
+        N.display(std::cout << "N\n");
+
+        
+    }
+
+    void tst3() {
+        /**
+           0 0 0 0 1 0 0  = 0
+           0 0 0 0 -1 0 0  = 0
+           0 1 0 0 0 0 0  = 0
+           0 -1 0 0 0 0 0  = 0
+           0 0 0 2 0 0 0  = 0
+           0 0 0 -2 0 0 0  = 0
+        */
+
+        matrix ND;
+        ND.A.push_back(V(1,0));   ND.b.push_back(R(0));
+        ND.A.push_back(V(0,2));   ND.b.push_back(R(0));
+
+        ND.display(std::cout << "ND\n");
+
+        matrix N;
+        dualizeH(N, ND);
+
+        N.display(std::cout << "N\n");
+
+        
+    }
+
 };
 
 void tst_karr() {
+    karr::tst3();
+    return;
     karr::tst1();
 }

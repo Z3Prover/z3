@@ -408,7 +408,7 @@ void asserted_formulas::apply_quasi_macros() {
     TRACE("before_quasi_macros", display(tout););
     expr_ref_vector  new_exprs(m_manager);
     proof_ref_vector new_prs(m_manager);      
-    quasi_macros proc(m_manager, m_macro_manager, *m_bsimp, m_simplifier);    
+    quasi_macros proc(m_manager, m_macro_manager, m_simplifier);    
     while (proc(m_asserted_formulas.size() - m_asserted_qhead, 
                 m_asserted_formulas.c_ptr() + m_asserted_qhead, 
                 m_asserted_formula_prs.c_ptr() + m_asserted_qhead,
@@ -653,7 +653,7 @@ void asserted_formulas::propagate_values() {
         // will be (silently) eliminated, and models produced by Z3 will not contain them.
         flush_cache(); 
     }
-    TRACE("propagate_values", tout << "afer:\n"; display(tout););
+    TRACE("propagate_values", tout << "after:\n"; display(tout););
 }
 
 void asserted_formulas::propagate_booleans() {

@@ -220,6 +220,7 @@ static void on_ctrl_c(int) {
     raise(SIGINT);
 }
 
+#if 0
 static void validate_sat(hilbert_basis& hb) {
     ast_manager m;
     reg_decl_plugins(m);
@@ -239,6 +240,7 @@ static void validate_sat(hilbert_basis& hb) {
     lbool r = sol->check_sat(0,0);
     std::cout << r << "\n";
 }
+#endif
 
 static void saturate_basis(hilbert_basis& hb) {
     signal(SIGINT, on_ctrl_c);
@@ -508,6 +510,35 @@ static void tst15() {
     saturate_basis(hb);
 }
 
+static void tst16() {
+    hilbert_basis hb;
+    hb.add_le(vec(1, 0), R(100));
+    saturate_basis(hb);
+}
+
+static void tst17() {
+    hilbert_basis hb;
+    hb.add_eq(vec(1,  0), R(0));
+    hb.add_eq(vec(-1, 0), R(0));
+    hb.add_eq(vec(0,  2), R(0));
+    hb.add_eq(vec(0, -2), R(0));
+    saturate_basis(hb);
+
+}
+
+static void tst18() {
+    hilbert_basis hb;
+    hb.add_eq(vec(0, 1), R(0));
+    hb.add_eq(vec(1, -1), R(2));
+    saturate_basis(hb);    
+}
+
+static void tst19() {
+    hilbert_basis hb;
+    hb.add_eq(vec(0,  1, 0), R(0));
+    hb.add_eq(vec(1, -1, 0), R(2));
+    saturate_basis(hb);    
+}
 
 void tst_hilbert_basis() {
     std::cout << "hilbert basis test\n";
@@ -515,6 +546,13 @@ void tst_hilbert_basis() {
 //    return;
 
     g_use_ordered_support = true;
+
+    tst18();
+    return;
+
+    tst19();
+    return;
+    tst17();
 
     if (true) {
         tst1();
@@ -537,6 +575,7 @@ void tst_hilbert_basis() {
         tst13();
         tst14();
         tst15();
+        tst16();
         gorrila_test(0, 4, 3, 20, 5);
         gorrila_test(1, 4, 3, 20, 5);
         //gorrila_test(2, 4, 3, 20, 5);

@@ -1849,11 +1849,9 @@ namespace smt {
         unsigned            m_curr_max_generation;  // temporary var used to store a copy of m_max_generation
         unsigned            m_num_args;
         unsigned            m_oreg;
-        unsigned            m_ireg;
         enode *             m_n1;
         enode *             m_n2;
         enode *             m_app;
-        instruction *       m_alt;
         const bind *        m_b;
         ptr_vector<enode>   m_used_enodes;
         unsigned            m_curr_used_enodes_size;

@@ -31,34 +31,15 @@ Revision History:
 
 using namespace smt;
 
+
 template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th, std::ostream& out) const {
+std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th, std::ostream& out) const { 
     context& ctx = th.get_context();
     lbool asgn = ctx.get_assignment(m_bvar);
     //SASSERT(asgn == l_undef || ((asgn == l_true) == m_true));
     bool sign = (l_undef == asgn) || m_true;
     return out << literal(m_bvar, sign) 
                << " " << mk_pp(ctx.bool_var2expr(m_bvar), th.get_manager()) << " "; 
-}
-
-template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::eq_atom::display(theory_diff_logic const& th, std::ostream& out) const {
-    atom::display(th, out);
-    lbool asgn = th.get_context().get_assignment(this->m_bvar);
-    if (l_undef == asgn) {
-        out << "unassigned\n";
-    }
-    else {
-        out << mk_pp(m_le.get(), m_le.get_manager()) << " " 
-            << mk_pp(m_ge.get(), m_ge.get_manager()) << "\n";
-    }
-    return out;
-}
-
-template<typename Ext>
-std::ostream& theory_diff_logic<Ext>::le_atom::display(theory_diff_logic const& th, std::ostream& out) const { 
-    atom::display(th, out);
-    lbool asgn = th.get_context().get_assignment(this->m_bvar);
     if (l_undef == asgn) {
         out << "unassigned\n";
     }
@@ -94,7 +75,6 @@ void theory_diff_logic<Ext>::init(context * ctx) {
     e = ctx->mk_enode(zero, false, false, true);
     SASSERT(!is_attached_to_var(e));
     m_zero_real = mk_var(e);
-
 }
 
 
@@ -277,7 +257,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         k -= this->m_epsilon; 
     }
     edge_id neg = m_graph.add_edge(target, source, k, ~l);
-    le_atom * a = alloc(le_atom, bv, pos, neg);
+    atom * a = alloc(atom, bv, pos, neg);
     m_atoms.push_back(a);
     m_bool_var2atom.insert(bv, a);
 
@@ -318,7 +298,7 @@ template<typename Ext>
 void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
     m_stats.m_num_assertions++;
     atom * a = 0;
-    m_bool_var2atom.find(v, a);
+    VERIFY (m_bool_var2atom.find(v, a));
     SASSERT(a);
     SASSERT(get_context().get_assignment(v) != l_undef);
     SASSERT((get_context().get_assignment(v) == l_true) == is_true);    
@@ -330,10 +310,11 @@ void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
 template<typename Ext>
 void theory_diff_logic<Ext>::collect_statistics(::statistics & st) const {
     st.update("dl conflicts", m_stats.m_num_conflicts);
-    st.update("dl propagations", m_stats.m_num_th2core_prop);
     st.update("dl asserts", m_stats.m_num_assertions);
     st.update("core->dl eqs", m_stats.m_num_core2th_eqs);
+    st.update("core->dl diseqs", m_stats.m_num_core2th_diseqs);
     m_arith_eq_adapter.collect_statistics(st);
+    m_graph.collect_statistics(st);
 }
 
 template<typename Ext>
@@ -374,15 +355,6 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     // either will already be zero (as we don't do mixed constraints).
     m_graph.set_to_zero(m_zero_int, m_zero_real);
     SASSERT(is_consistent());
-
-    
-#if 0
- TBD:
-    if (propagate_cheap_equalities()) {
-        return FC_CONTINUE;
-    }
-#endif
-
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
     }
@@ -506,59 +478,12 @@ bool theory_diff_logic<Ext>::propagate_atom(atom* a) {
     if (ctx.inconsistent()) {
         return false;
     }
-    switch(a->kind()) {
-    case LE_ATOM: {
-        int edge_id = dynamic_cast<le_atom*>(a)->get_asserted_edge();
-        if (!m_graph.enable_edge(edge_id)) {
-            set_neg_cycle_conflict();
-            return false;
-        }
-#if 0
-        if (m_params.m_arith_bound_prop != BP_NONE) {
-            svector<int> subsumed;
-            m_graph.find_subsumed1(edge_id, subsumed);
-            for (unsigned i = 0; i < subsumed.size(); ++i) {
-                int subsumed_edge_id = subsumed[i];
-                literal l = m_graph.get_explanation(subsumed_edge_id);
-                context & ctx = get_context();
-                region& r = ctx.get_region();
-                ++m_stats.m_num_th2core_prop;
-                ctx.assign(l, new (r) implied_bound_justification(*this, subsumed_edge_id, edge_id));
-            }
-
-        }
-#endif
-        break;
-    }
-    case EQ_ATOM: 
-        if (!a->is_true()) {
-            SASSERT(ctx.get_assignment(a->get_bool_var()) == l_false);
-            // eq_atom * ea = dynamic_cast<eq_atom*>(a);
-        }
-        break;
+    int edge_id = a->get_asserted_edge();
+    if (!m_graph.enable_edge(edge_id)) {
+        set_neg_cycle_conflict();
+        return false;
     }
     return true;
-}
-
-
-
-template<typename Ext>
-void theory_diff_logic<Ext>::mark_as_modified_since_eq_prop() {
-    if (!m_modified_since_eq_prop) {
-        get_context().push_trail(value_trail<context, bool>(m_modified_since_eq_prop));
-        m_modified_since_eq_prop = true;
-    }
-}
-
-template<typename Ext>
-void theory_diff_logic<Ext>::unmark_as_modified_since_eq_prop() {
-    get_context().push_trail(value_trail<context, bool>(m_modified_since_eq_prop));
-    m_modified_since_eq_prop = false;
-}
-
-template<typename Ext>
-void theory_diff_logic<Ext>::del_clause_eh(clause* cls) {
-    
 }
 
 template<typename Ext>
@@ -609,7 +534,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     atom* a = 0;
     m_bool_var2atom.find(bv, a);
     SASSERT(a);
-    edge_id e_id = static_cast<le_atom*>(a)->get_pos();
+    edge_id e_id = a->get_pos();
 
     literal_vector lits;
     for (unsigned i = 0; i < num_edges; ++i) {
@@ -633,11 +558,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
                    lits.size(), lits.c_ptr(), 
                    params.size(), params.c_ptr());
     }
-    clause_del_eh* del_eh = alloc(theory_diff_logic_del_eh, *this);
-    clause* cls = ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
-    if (!cls) {
-        dealloc(del_eh);
-    }
+    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
     if (dump_lemmas()) {
         char const * logic = m_is_lia ? "QF_LIA" : "QF_LRA";
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
@@ -677,7 +598,6 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     literal_vector const& lits = m_nc_functor.get_lits();
     context & ctx = get_context();
     TRACE("arith_conflict", 
-          //display(tout);
           tout << "conflict: ";
           for (unsigned i = 0; i < lits.size(); ++i) {
               ctx.display_literal_info(tout, lits[i]);
@@ -802,7 +722,6 @@ theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
 
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
-    mark_as_modified_since_eq_prop();
     theory_var v = theory::mk_var(n);
     TRACE("diff_logic_vars", tout << "mk_var: " << v << "\n";);
     m_graph.init_var(v);
@@ -810,10 +729,6 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
     return v;
 }
 
-template<typename Ext>
-bool theory_diff_logic<Ext>::is_interpreted(app* n) const {
-    return n->get_family_id() == get_family_id();
-}
 
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(app* n) {
@@ -854,7 +769,6 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_asserted_atoms   .reset();
     m_stats            .reset();
     m_scopes           .reset();
-    m_modified_since_eq_prop = false;
     m_asserted_qhead        = 0;
     m_num_core_conflicts    = 0;
     m_num_propagation_calls = 0;
@@ -862,70 +776,6 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_is_lia                = true;
     m_non_diff_logic_exprs  = false;
     theory::reset_eh();
-}
-
-
-template<typename Ext>
-bool theory_diff_logic<Ext>::propagate_cheap_equalities() {
-    bool result = false;
-    TRACE("dl_new_eq", get_context().display(tout););
-    context& ctx = get_context();
-    region&  reg = ctx.get_region();
-    SASSERT(m_eq_prop_info_set.empty());
-    SASSERT(m_eq_prop_infos.empty());
-    if (m_modified_since_eq_prop) {
-        m_graph.compute_zero_edge_scc(m_scc_id);
-        int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++) {
-            rational delta_r;
-            theory_var x_v = expand(true, v, delta_r);
-            numeral delta(delta_r);
-            int scc_id = m_scc_id[x_v];
-            if (scc_id != -1) {
-                delta += m_graph.get_assignment(x_v);
-                TRACE("eq_scc", tout << v << " " << x_v << " " << scc_id << " " << delta << "\n";);
-                eq_prop_info info(scc_id, delta);
-                typename eq_prop_info_set::entry * entry = m_eq_prop_info_set.find_core(&info);
-                if (entry == 0) {
-                    eq_prop_info * new_info = alloc(eq_prop_info, scc_id, delta, v);
-                    m_eq_prop_info_set.insert(new_info);
-                    m_eq_prop_infos.push_back(new_info);
-                }
-                else {
-                    // new equality found
-                    theory_var r = entry->get_data()->get_root();
-                    
-                    enode * n1 = get_enode(v);
-                    enode * n2 = get_enode(r);
-                    if (n1->get_root() != n2->get_root()) {
-                        // r may be an alias (i.e., it is not realy in the graph). So, I should expand it. 
-                        // nsb: ?? 
-                        rational r_delta;
-                        theory_var x_r = expand(true, r, r_delta);
-                        
-                        justification* j = new (reg) implied_eq_justification(*this, x_v, x_r, m_graph.get_timestamp());
-                        (void)j;
-
-                        m_stats.m_num_th2core_eqs++;
-                        // TBD: get equality into core.
-
-                        NOT_IMPLEMENTED_YET();
-                        // new_eq_eh(x_v, x_r, *j);
-                        result = true;
-                    }
-                }
-            }
-        }
-        m_eq_prop_info_set.reset();
-        std::for_each(m_eq_prop_infos.begin(), m_eq_prop_infos.end(), delete_proc<eq_prop_info>());
-        m_eq_prop_infos.reset();
-        unmark_as_modified_since_eq_prop();        
-    }
-
-    TRACE("dl_new_eq", get_context().display(tout););
-    SASSERT(!m_modified_since_eq_prop);
-
-    return result;
 }
 
 
@@ -1001,30 +851,9 @@ bool theory_diff_logic<Ext>::is_consistent() const {
         lbool asgn = ctx.get_assignment(bv);        
         if (ctx.is_relevant(ctx.bool_var2expr(bv)) && asgn != l_undef) {
             SASSERT((asgn == l_true) == a->is_true());
-            switch(a->kind()) {
-            case LE_ATOM: {
-                le_atom* le = dynamic_cast<le_atom*>(a);
-                int edge_id = le->get_asserted_edge();
-                SASSERT(m_graph.is_enabled(edge_id));
-                SASSERT(m_graph.is_feasible(edge_id));
-                break;
-            }
-            case EQ_ATOM: {
-                eq_atom* ea = dynamic_cast<eq_atom*>(a);
-                bool_var bv1 = ctx.get_bool_var(ea->get_le());                    
-                bool_var bv2 = ctx.get_bool_var(ea->get_ge());
-                lbool val1 = ctx.get_assignment(bv1);
-                lbool val2 = ctx.get_assignment(bv2);
-                if (asgn == l_true) {
-                    SASSERT(val1 == l_true);
-                    SASSERT(val2 == l_true);
-                }
-                else {
-                    SASSERT(val1 == l_false || val2 == l_false);
-                }
-                break;
-            }
-            }
+            int edge_id = a->get_asserted_edge();
+            SASSERT(m_graph.is_enabled(edge_id));
+            SASSERT(m_graph.is_feasible(edge_id));
         }
     }
     return m_graph.is_feasible();
@@ -1087,7 +916,6 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         // assign the corresponding equality literal.
         //
 
-        mark_as_modified_since_eq_prop();
 
         app_ref eq(m), s2(m), t2(m);
         app* s1 = get_enode(s)->get_owner();
@@ -1141,10 +969,6 @@ void theory_diff_logic<Ext>::new_diseq_eh(theory_var v1, theory_var v2) {
     m_arith_eq_adapter.new_diseq_eh(v1, v2);
 }
 
-
-template<typename Ext>
-void theory_diff_logic<Ext>::relevant_eh(app* e) {
-}
 
 
 struct imp_functor {

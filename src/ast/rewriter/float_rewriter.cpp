@@ -58,6 +58,10 @@ br_status float_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     case OP_FLOAT_IS_ZERO:   SASSERT(num_args == 1); st = mk_is_zero(args[0], result); break;
     case OP_FLOAT_IS_NZERO:  SASSERT(num_args == 1); st = mk_is_nzero(args[0], result); break;
     case OP_FLOAT_IS_PZERO:  SASSERT(num_args == 1); st = mk_is_pzero(args[0], result); break;
+    case OP_FLOAT_IS_NAN:    SASSERT(num_args == 1); st = mk_is_nan(args[0], result); break;
+    case OP_FLOAT_IS_INF:    SASSERT(num_args == 1); st = mk_is_inf(args[0], result); break;
+    case OP_FLOAT_IS_NORMAL: SASSERT(num_args == 1); st = mk_is_normal(args[0], result); break;
+    case OP_FLOAT_IS_SUBNORMAL: SASSERT(num_args == 1); st = mk_is_subnormal(args[0], result); break;
     case OP_FLOAT_IS_SIGN_MINUS: SASSERT(num_args == 1); st = mk_is_sign_minus(args[0], result); break;
     case OP_TO_IEEE_BV:      SASSERT(num_args == 1); st = mk_to_ieee_bv(args[0], result); break;
     }
@@ -77,14 +81,27 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
             return BR_FAILED;
         
         rational q;
-        if (!m_util.au().is_numeral(args[1], q))
+        mpf q_mpf;
+        if (m_util.au().is_numeral(args[1], q)) {        
+            TRACE("fp_rewriter", tout << "q: " << q << std::endl; );
+            mpf v;
+            m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
+            result = m_util.mk_value(v);
+            m_util.fm().del(v);
+            // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
+            return BR_DONE;
+        }
+        else if (m_util.is_value(args[1], q_mpf)) {
+            TRACE("fp_rewriter", tout << "q: " << m_util.fm().to_string(q_mpf) << std::endl; );
+            mpf v;
+            m_util.fm().set(v, ebits, sbits, rm, q_mpf);
+            result = m_util.mk_value(v);
+            m_util.fm().del(v);
+            // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
+            return BR_DONE;
+        }
+        else 
             return BR_FAILED;
-        
-        mpf v;
-        m_util.fm().set(v, ebits, sbits, rm, q.to_mpq());
-        result = m_util.mk_value(v);
-        m_util.fm().del(v);
-        return BR_DONE;
     }
     else if (num_args == 3 && 
              m_util.is_rm(m().get_sort(args[0])) && 
@@ -104,11 +121,11 @@ br_status float_rewriter::mk_to_float(func_decl * f, unsigned num_args, expr * c
             return BR_FAILED;
 
         TRACE("fp_rewriter", tout << "q: " << q << ", e: " << e << "\n";);
-
         mpf v;
 	    m_util.fm().set(v, ebits, sbits, rm, q.to_mpq(), e.to_mpq().numerator());
         result = m_util.mk_value(v);
-        m_util.fm().del(v);
+        m_util.fm().del(v);        
+        // TRACE("fp_rewriter", tout << "result: " << result << std::endl; );
         return BR_DONE;
     }
     else {
@@ -217,8 +234,7 @@ br_status float_rewriter::mk_abs(expr * arg1, expr_ref & result) {
         result = arg1;
         return BR_DONE;
     }
-    sort * s = m().get_sort(arg1);
-    result = m().mk_ite(m_util.mk_lt(arg1, m_util.mk_pzero(s)),
+    result = m().mk_ite(m_util.mk_is_sign_minus(arg1),
                         m_util.mk_uminus(arg1),
                         arg1);
     return BR_REWRITE2;
@@ -234,13 +250,13 @@ br_status float_rewriter::mk_min(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     // expand as using ite's
-    result = m().mk_ite(mk_eq_nan(arg1),
+    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
                         arg2,
                         m().mk_ite(mk_eq_nan(arg2), 
                                    arg1,
                                    m().mk_ite(m_util.mk_lt(arg1, arg2),
-                                              arg1,
-                                              arg2)));
+                                           arg1,
+                                           arg2)));
     return BR_REWRITE_FULL;
 }
 
@@ -254,7 +270,7 @@ br_status float_rewriter::mk_max(expr * arg1, expr * arg2, expr_ref & result) {
         return BR_DONE;
     }
     // expand as using ite's
-    result = m().mk_ite(mk_eq_nan(arg1), 
+    result = m().mk_ite(m().mk_or(mk_eq_nan(arg1), m().mk_and(m_util.mk_is_zero(arg1), m_util.mk_is_zero(arg2))),
                         arg2,
                         m().mk_ite(mk_eq_nan(arg2), 
                                    arg1,
@@ -414,6 +430,46 @@ br_status float_rewriter::mk_is_pzero(expr * arg1, expr_ref & result) {
     scoped_mpf v(m_util.fm());
     if (m_util.is_value(arg1, v)) {
         result = (m_util.fm().is_pzero(v)) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_is_nan(expr * arg1, expr_ref & result) {
+    scoped_mpf v(m_util.fm());
+    if (m_util.is_value(arg1, v)) {
+        result = (m_util.fm().is_nan(v)) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_is_inf(expr * arg1, expr_ref & result) {
+    scoped_mpf v(m_util.fm());
+    if (m_util.is_value(arg1, v)) {
+        result = (m_util.fm().is_inf(v)) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_is_normal(expr * arg1, expr_ref & result) {
+    scoped_mpf v(m_util.fm());
+    if (m_util.is_value(arg1, v)) {
+        result = (m_util.fm().is_normal(v)) ? m().mk_true() : m().mk_false();
+        return BR_DONE;
+    }
+
+    return BR_FAILED;
+}
+
+br_status float_rewriter::mk_is_subnormal(expr * arg1, expr_ref & result) {
+    scoped_mpf v(m_util.fm());
+    if (m_util.is_value(arg1, v)) {
+        result = (m_util.fm().is_denormal(v)) ? m().mk_true() : m().mk_false();
         return BR_DONE;
     }
 

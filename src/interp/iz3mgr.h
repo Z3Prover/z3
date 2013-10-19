@@ -364,7 +364,7 @@ class iz3mgr  {
     return cook(to_func_decl(s)->get_parameters()[idx].get_ast());
   }
 
-  enum lemma_theory {ArithTheory,UnknownTheory};
+  enum lemma_theory {ArithTheory,ArrayTheory,UnknownTheory};
 
   lemma_theory get_theory_lemma_theory(const ast &proof){
     symb s = sym(proof);
@@ -374,6 +374,8 @@ class iz3mgr  {
     std::string foo(p0.bare_str());
     if(foo == "arith")
       return ArithTheory;
+    if(foo == "array")
+      return ArrayTheory;
     return UnknownTheory;
   }
 

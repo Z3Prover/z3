@@ -28,6 +28,7 @@ COMPILE_TIME_ASSERT(sizeof(unsigned) == 4);
 #define BV_DEFAULT_CAPACITY 2
 
 class bit_vector {
+protected:
     unsigned    m_num_bits; 
     unsigned    m_capacity; //!< in words
     unsigned *  m_data;
@@ -37,7 +38,8 @@ class bit_vector {
     }
     
     static unsigned num_words(unsigned num_bits) { 
-        return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        // return (num_bits % 32) == 0 ? (num_bits / 32) : ((num_bits / 32) + 1);
+        return (num_bits + 31) / 32;
     }
 
     void expand_to(unsigned new_capacity);
@@ -61,6 +63,13 @@ public:
         m_num_bits(0),
         m_capacity(0),
         m_data(0) {
+    }
+
+    bit_vector(unsigned reserve_num_bits) :
+        m_num_bits(0),
+        m_capacity(num_words(reserve_num_bits)),
+        m_data(alloc_svect(unsigned, m_capacity)) {
+        memset(m_data, 0, m_capacity * sizeof(unsigned));
     }
 
     bit_vector(bit_vector const & source):
@@ -106,7 +115,7 @@ public:
     }
 
     bool empty() const {
-        return m_num_bits != 0;
+        return m_num_bits == 0;
     }
 
     unsigned num_words() const { 
@@ -171,9 +180,9 @@ public:
             resize(sz, val);
     }
 
-    bool operator==(bit_vector const & other);
+    bool operator==(bit_vector const & other) const;
 
-    bool operator!=(bit_vector const & other) { return !operator==(other); }
+    bool operator!=(bit_vector const & other) const { return !operator==(other); }
 
     bit_vector & operator=(bit_vector const & source) {
         m_num_bits = source.m_num_bits;
@@ -203,7 +212,7 @@ inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {
    This class should be used if the reset is frequently called.
 */
 class fr_bit_vector : private bit_vector {
-    svector<unsigned> m_one_idxs;
+    unsigned_vector m_one_idxs;
 public:
     void reset();
 

@@ -18,6 +18,7 @@ Author:
 #include"ast_pp.h"
 #include"ast_util.h"
 #include"ast_smt2_pp.h"
+#include"ast_ll_pp.h"
 
 poly_simplifier_plugin::poly_simplifier_plugin(symbol const & fname, ast_manager & m, decl_kind add, decl_kind mul, decl_kind uminus, decl_kind sub,
                                                decl_kind num):
@@ -173,7 +174,7 @@ void poly_simplifier_plugin::mk_monomial(unsigned num_args, expr * * args, expr_
         result = args[0];
         break;
     default:
-        std::sort(args, args + num_args, monomial_element_lt_proc(*this));
+        std::stable_sort(args, args + num_args, monomial_element_lt_proc(*this));
         result = mk_mul(num_args, args);
         SASSERT(wf_monomial(result));
         break;
@@ -284,6 +285,7 @@ bool poly_simplifier_plugin::merge_monomials(bool inv, expr * n1, expr * n2, exp
         else
             result = m_manager.mk_app(m_fid, m_MUL, mk_numeral(k1), b);
     }
+    TRACE("merge_monomials", tout << mk_pp(n1, m_manager) << "\n" << mk_pp(n2, m_manager) << "\n" << mk_pp(result, m_manager) << "\n";);
     return true;
 }
 
@@ -465,7 +467,9 @@ void poly_simplifier_plugin::mk_sum_of_monomials(expr_ref_vector & monomials, ex
         result = monomials.get(0);
         break;
     default: {
-        std::sort(monomials.c_ptr(), monomials.c_ptr() + monomials.size(), monomial_lt_proc(*this));
+        TRACE("mk_sum_sort", tout << "before\n"; for (unsigned i = 0; i < monomials.size(); i++) tout << mk_ll_pp(monomials.get(i), m_manager) << "\n";);
+        std::stable_sort(monomials.c_ptr(), monomials.c_ptr() + monomials.size(), monomial_lt_proc(*this));
+        TRACE("mk_sum_sort", tout << "after\n";  for (unsigned i = 0; i < monomials.size(); i++) tout << mk_ll_pp(monomials.get(i), m_manager) << "\n";);
         if (is_simple_sum_of_monomials(monomials)) {
             mk_sum_of_monomials_core(monomials.size(), monomials.c_ptr(), result);
             return;

@@ -120,6 +120,7 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_set_ui(m_tmp, max_l);
     mpz_add(m_uint64_max, m_uint64_max, m_tmp);
     mpz_init(m_int64_max);
+    mpz_init(m_int64_min);
 
     max_l = static_cast<unsigned>(INT64_MAX % static_cast<int64>(UINT_MAX));
     max_h = static_cast<unsigned>(INT64_MAX / static_cast<int64>(UINT_MAX));
@@ -128,6 +129,8 @@ mpz_manager<SYNCH>::mpz_manager():
     mpz_mul(m_int64_max, m_tmp, m_int64_max);
     mpz_set_ui(m_tmp, max_l);
     mpz_add(m_int64_max, m_tmp, m_int64_max);
+    mpz_neg(m_int64_min, m_int64_max);
+    mpz_sub_ui(m_int64_min, m_int64_min, 1);
 #endif
     
     mpz one(1);
@@ -152,6 +155,7 @@ mpz_manager<SYNCH>::~mpz_manager() {
     deallocate(m_arg[1]);
     mpz_clear(m_uint64_max);
     mpz_clear(m_int64_max);
+    mpz_clear(m_int64_min);
 #endif
     if (SYNCH)
         omp_destroy_nest_lock(&m_lock);
@@ -1299,9 +1303,9 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
     if (is_small(a))
         return true;
 #ifndef _MP_GMP
-    if (!is_uint64(a)) 
+    if (!is_abs_uint64(a)) 
         return false;
-    uint64 num = get_uint64(a);
+    uint64 num = big_abs_to_uint64(a);
     uint64 msb = static_cast<uint64>(1) << 63;
     uint64 msb_val = msb & num;
     if (a.m_val >= 0) {
@@ -1317,7 +1321,7 @@ bool mpz_manager<SYNCH>::is_int64(mpz const & a) const {
     }
 #else
     // GMP version
-    return mpz_cmp(*a.m_ptr, m_int64_max) <= 0;
+    return mpz_cmp(m_int64_min, *a.m_ptr) <= 0 && mpz_cmp(*a.m_ptr, m_int64_max) <= 0;
 #endif
 }
 
@@ -1327,14 +1331,7 @@ uint64 mpz_manager<SYNCH>::get_uint64(mpz const & a) const {
         return static_cast<uint64>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(a.m_ptr->m_size > 0);
-    if (a.m_ptr->m_size == 1)
-        return digits(a)[0];
-    if (sizeof(digit_t) == sizeof(uint64))
-        // 64-bit machine
-        return digits(a)[0];
-    else 
-        // 32-bit machine
-        return ((static_cast<uint64>(digits(a)[1]) << 32) | (static_cast<uint64>(digits(a)[0])));
+    return big_abs_to_uint64(a);
 #else
     // GMP version
     if (sizeof(uint64) == sizeof(unsigned long)) {
@@ -1359,7 +1356,7 @@ int64 mpz_manager<SYNCH>::get_int64(mpz const & a) const {
         return static_cast<int64>(a.m_val);
 #ifndef _MP_GMP
     SASSERT(is_int64(a));
-    uint64 num = get_uint64(a);
+    uint64 num = big_abs_to_uint64(a);
     if (a.m_val < 0) {
         if (num != 0 && (num << 1) == 0)
             return INT64_MIN;

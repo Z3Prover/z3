@@ -2,6 +2,7 @@
 #include "ast_pp.h"
 #include "arith_decl_plugin.h"
 #include "dl_context.h"
+#include "dl_register_engine.h"
 #include "smt_params.h"
 #include "reg_decl_plugins.h"
 
@@ -12,8 +13,8 @@ static void dparse_string(char const* str) {
     ast_manager m;
     smt_params params;
     reg_decl_plugins(m);
-
-    context ctx(m, params);
+    register_engine re;
+    context ctx(m, re, params);
     parser* p = parser::create(ctx,m);
 
     bool res=p->parse_string(str);
@@ -39,8 +40,9 @@ static void dparse_file(char const* file) {
     ast_manager m;
     smt_params params;
     reg_decl_plugins(m);
+    register_engine re;
 
-    context ctx(m, params);
+    context ctx(m, re, params);
     parser* p = parser::create(ctx,m);
 
     if (!p->parse_file(file)) {

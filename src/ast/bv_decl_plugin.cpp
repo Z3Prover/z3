@@ -210,6 +210,10 @@ func_decl * bv_decl_plugin::mk_unary(ptr_vector<func_decl> & decls, decl_kind k,
 
 func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain) {
+    if (bv_size == 0) {
+        m_manager->raise_exception("bit-vector size must be greater than zero");
+    }
+
     force_ptr_array_size(m_int2bv, bv_size + 1);
 
     if (arity != 1) {
@@ -415,6 +419,9 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
         return 0;
     }
     unsigned bv_size = parameters[1].get_int();
+    if (bv_size == 0) {
+        m_manager->raise_exception("bit-vector size must be greater than zero");
+    }
     // TODO: sign an error if the parameters[0] is out of range, that is, it is a value not in [0, 2^{bv_size})
     // This cannot be enforced now, since some Z3 modules try to generate these invalid numerals.
     // After SMT-COMP, I should find all offending modules.
@@ -766,7 +773,7 @@ bool bv_recognizers::is_zero(expr const * n) const {
     return decl->get_parameter(0).get_rational().is_zero();
 }
 
-bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) {
+bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, expr*& b) const {
     if (!is_extract(e)) return false;
     low = get_extract_low(e);
     high = get_extract_high(e);
@@ -774,7 +781,7 @@ bool bv_recognizers::is_extract(expr const* e, unsigned& low, unsigned& high, ex
     return true;
 }
 
-bool bv_recognizers::is_bv2int(expr const* e, expr*& r) {
+bool bv_recognizers::is_bv2int(expr const* e, expr*& r) const {
     if (!is_bv2int(e)) return false;
     r = to_app(e)->get_arg(0);
     return true;

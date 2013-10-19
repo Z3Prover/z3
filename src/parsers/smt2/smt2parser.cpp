@@ -1159,7 +1159,7 @@ namespace smt2 {
             m_num_expr_frames++;
             unsigned num_vars = parse_sorted_vars();
             if (num_vars == 0)
-                throw parser_exception("invalied quantifier, list of sorted variables is empty");
+                throw parser_exception("invalid quantifier, list of sorted variables is empty");
         }
 
         symbol parse_indexed_identifier_core() {

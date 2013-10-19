@@ -292,7 +292,7 @@ def check_java():
         print("Finding jni.h...")
 
     if JNI_HOME != None:
-        if not os.path.exists(path.join(JNI_HOME, 'jni.h')):
+        if not os.path.exists(os.path.join(JNI_HOME, 'jni.h')):
             raise MKException("Failed to detect jni.h '%s'; the environment variable JNI_HOME is probably set to the wrong path." % os.path.join(JNI_HOME))
     else:        
         # Search for jni.h in the library directories...
@@ -952,6 +952,9 @@ class ExtraExeComponent(ExeComponent):
     def main_component(self):
         return False
 
+    def require_mem_initializer(self):
+        return False
+
 def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
@@ -1117,20 +1120,19 @@ class DotNetDLLComponent(Component):
                     cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
                     cs_files.append(os.path.join(self.assembly_info_dir, cs_file))
             dllfile = '%s.dll' % self.dll_name
-            out.write('%s:' % dllfile)
+            out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
             for cs_file in cs_fp_files:
                 out.write(' ')
                 out.write(cs_file)
             out.write('\n')
-            out.write('  cd %s && csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /out:%s.dll /target:library' % (self.to_src_dir, self.dll_name))
+            out.write('  csc /noconfig /unsafe+ /nowarn:1701,1702 /nostdlib+ /errorreport:prompt /warn:4 /define:DEBUG;TRACE /reference:mscorlib.dll /reference:System.Core.dll /reference:System.dll /reference:System.Numerics.dll /debug+ /debug:full /filealign:512 /optimize- /linkresource:%s.dll /out:%s.dll /target:library' % (get_component(Z3_DLL_COMPONENT).dll_name, self.dll_name))
+            if VS_X64:
+                out.write(' /platform:x64')
+            else:
+                out.write(' /platform:x86')
             for cs_file in cs_files:
-                out.write(' ')
-                out.write(cs_file)
+                out.write(' %s' % os.path.join(self.to_src_dir, cs_file))
             out.write('\n')
-            # HACK
-            win_to_src_dir = self.to_src_dir.replace('/', '\\')
-            out.write('  move %s\n' % os.path.join(win_to_src_dir, dllfile))
-            out.write('  move %s.pdb\n' % os.path.join(win_to_src_dir, self.dll_name))
             out.write('%s: %s\n\n' % (self.name, dllfile))
             return
     
@@ -1256,7 +1258,7 @@ class CppExampleComponent(ExampleComponent):
             out.write(' ')
             out.write(os.path.join(self.to_ex_dir, cppfile))
         out.write('\n')
-        out.write('\t%s $(EXAMP_DEBUG_FLAG) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
+        out.write('\t%s $(OS_DEFINES) $(EXAMP_DEBUG_FLAG) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), exefile))
         # Add include dir components
         out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
         out.write(' -I%s' % get_component(CPP_COMPONENT).to_src_dir)
@@ -1428,7 +1430,8 @@ def mk_config():
             'LINK_OUT_FLAG=/Fe\n'
             'SO_EXT=.dll\n'
             'SLINK=cl\n'
-            'SLINK_OUT_FLAG=/Fe\n')
+            'SLINK_OUT_FLAG=/Fe\n'
+	    'OS_DEFINES=/D _WINDOWS\n')
         extra_opt = ''
         if GIT_HASH:
             extra_opt = '%s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
@@ -1476,6 +1479,7 @@ def mk_config():
                 print('Java Compiler:  %s' % JAVAC)
     else:
         global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG
+	OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
@@ -1526,18 +1530,21 @@ def mk_config():
             SLIBFLAGS = '-dynamiclib'
         elif sysname == 'Linux':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+	    OS_DEFINES     = '-D_LINUX'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+	    OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname[:6] ==  'CYGWIN':
             CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+	    OS_DEFINES     = '-D_CYGWIN'
             SO_EXT      = '.dll'
             SLIBFLAGS   = '-shared'
         else:
@@ -1573,6 +1580,7 @@ def mk_config():
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
         config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
+	config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
             print('Host platform:  %s' % sysname)
             print('C++ Compiler:   %s' % CXX)

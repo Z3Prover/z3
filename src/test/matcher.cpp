@@ -26,7 +26,7 @@ void tst_match(ast_manager & m, app * t, app * i) {
     substitution s(m);
     s.reserve(2, 10); // reserving a big number of variables to be safe.
 
-    matcher      match(m);
+    matcher      match;
     std::cout << "Is " << mk_pp(i, m) << " an instance of " << mk_pp(t, m) << "\n";
     if (match(t, i, s)) {
         std::cout << "yes\n";

@@ -179,7 +179,7 @@ bool bv_simplifier_plugin::reduce(func_decl * f, unsigned num_args, expr * const
     }
     SASSERT(result.get());
 
-    TRACE("bv_simplifier",
+    TRACE("bv_simplifier", 
           tout << mk_pp(f, m_manager) << "\n";
           for (unsigned i = 0; i < num_args; ++i) {
               tout << mk_pp(args[i], m_manager) << " ";
@@ -636,7 +636,31 @@ bool bv_simplifier_plugin::try_mk_extract(unsigned high, unsigned low, expr * ar
         if (!all_found) {
             return false;
         }
-        result = m_manager.mk_app(m_fid, a->get_decl_kind(), new_args.size(), new_args.c_ptr());
+        // We should not use mk_app because it does not guarantee that the result would be in simplified form.
+        // result = m_manager.mk_app(m_fid, a->get_decl_kind(), new_args.size(), new_args.c_ptr());
+        if (is_app_of(a, m_fid, OP_BAND))
+            mk_bv_and(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BOR))
+            mk_bv_or(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BXOR))
+            mk_bv_xor(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BNOR))
+            mk_bv_nor(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BNAND))
+            mk_bv_nand(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BNOT)) {
+            SASSERT(new_args.size() == 1);
+            mk_bv_not(new_args[0], result);
+        }
+        else if (is_app_of(a, m_fid, OP_BADD))
+            mk_add(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BMUL))
+            mk_mul(new_args.size(), new_args.c_ptr(), result);
+        else if (is_app_of(a, m_fid, OP_BSUB))
+            mk_sub(new_args.size(), new_args.c_ptr(), result);
+        else {
+            UNREACHABLE();
+        }
         return true;
     }
     else if (m_manager.is_ite(a)) {
@@ -747,16 +771,16 @@ void bv_simplifier_plugin::mk_bv_eq(expr* a1, expr* a2, expr_ref& result) {
         expr * arg1    = *it1;
         expr * arg2    = *it2;
         TRACE("expr_bv_util", tout << "low1: " << low1 << " low2: " << low2 << "\n";
-              ast_ll_pp(tout, m_manager, arg1); 
-              ast_ll_pp(tout, m_manager, arg2););
+              tout << mk_pp(arg1, m_manager) << "\n";
+              tout << mk_pp(arg2, m_manager) << "\n";);
         unsigned sz1  = get_bv_size(arg1);
         unsigned sz2  = get_bv_size(arg2);
         SASSERT(low1 < sz1 && low2 < sz2);
         unsigned rsz1 = sz1 - low1;
         unsigned rsz2 = sz2 - low2;
         TRACE("expr_bv_util", tout << "rsz1: " << rsz1 << " rsz2: " << rsz2 << "\n";
-              ast_ll_pp(tout, m_manager, arg1); ast_ll_pp(tout, m_manager, arg2););
-
+              tout << mk_pp(arg1, m_manager) << "\n";
+              tout << mk_pp(arg2, m_manager) << "\n";);
 
         if (rsz1 == rsz2) {
             mk_extract(sz1 - 1, low1, arg1, lhs);
@@ -826,9 +850,9 @@ void bv_simplifier_plugin::mk_eq_core(expr * arg1, expr * arg2, expr_ref & resul
         }        
         m_bsimp.mk_and(tmps.size(), tmps.c_ptr(), result);
         TRACE("mk_eq_bb", 
-              ast_ll_pp(tout, m_manager, arg1);
-              ast_ll_pp(tout, m_manager, arg2);
-              ast_ll_pp(tout, m_manager, result););
+              tout << mk_pp(arg1, m_manager) << "\n";
+              tout << mk_pp(arg2, m_manager) << "\n";
+              tout << mk_pp(result, m_manager) << "\n";);
         return;
     }
 #endif

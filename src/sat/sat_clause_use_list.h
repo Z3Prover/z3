@@ -20,6 +20,7 @@ Revision History:
 #define _SAT_CLAUSE_USE_LIST_H_
 
 #include"sat_types.h"
+#include"trace.h"
 
 namespace sat {
 
@@ -35,6 +36,7 @@ namespace sat {
 #endif
     public:
         clause_use_list() {
+            STRACE("clause_use_list_bug", tout << "[cul_created] " << this << "\n";);
 #ifdef LAZY_USE_LIST
             m_size = 0; 
 #endif
@@ -51,22 +53,33 @@ namespace sat {
         bool empty() const { return size() == 0; }
         
         void insert(clause & c) { 
-            SASSERT(!m_clauses.contains(&c)); SASSERT(!c.was_removed()); 
+            STRACE("clause_use_list_bug", tout << "[cul_insert] " << this << " " << &c << "\n";);
+            SASSERT(!m_clauses.contains(&c)); 
+            SASSERT(!c.was_removed()); 
             m_clauses.push_back(&c); 
 #ifdef LAZY_USE_LIST
             m_size++; 
 #endif
         }
+
         void erase_not_removed(clause & c) { 
+            STRACE("clause_use_list_bug", tout << "[cul_erase_not_removed] " << this << " " << &c << "\n";);
 #ifdef LAZY_USE_LIST
-            SASSERT(m_clauses.contains(&c)); SASSERT(!c.was_removed()); m_clauses.erase(&c); m_size--; 
+            SASSERT(m_clauses.contains(&c)); 
+            SASSERT(!c.was_removed()); 
+            m_clauses.erase(&c); 
+            m_size--; 
 #else
             m_clauses.erase(&c);
 #endif
         }
+
         void erase(clause & c) { 
+            STRACE("clause_use_list_bug", tout << "[cul_erase] " << this << " " << &c << "\n";);
 #ifdef LAZY_USE_LIST
-            SASSERT(m_clauses.contains(&c)); SASSERT(c.was_removed()); m_size--; 
+            SASSERT(m_clauses.contains(&c)); 
+            SASSERT(c.was_removed()); 
+            m_size--; 
 #else
             m_clauses.erase(&c);
 #endif
@@ -80,6 +93,7 @@ namespace sat {
         }
         
         bool check_invariant() const;
+
         // iterate & compress
         class iterator {
             clause_vector & m_clauses;

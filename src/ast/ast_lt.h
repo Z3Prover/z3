@@ -22,6 +22,7 @@ Revision History:
 class ast;
 
 bool lt(ast * n1, ast * n2);
+bool is_sorted(unsigned num, expr * const * ns);
 
 struct ast_to_lt {
     bool operator()(ast * n1, ast * n2) const { return lt(n1, n2); }

@@ -223,6 +223,7 @@ class inf_rational {
     }
 
     friend inline inf_rational operator*(const rational & r1, const inf_rational & r2);
+    friend inline inf_rational operator*(const inf_rational & r1, const rational & r2);
     friend inline inf_rational operator/(const inf_rational & r1, const rational & r2);
 
     inf_rational & operator++() {
@@ -424,6 +425,10 @@ inline inf_rational operator*(const rational & r1, const inf_rational & r2) {
     result.m_first  *= r1;
     result.m_second *= r1;
     return result;
+}
+
+inline inf_rational operator*(const inf_rational & r1, const rational & r2) {
+    return r2 * r1;
 }
 
 inline inf_rational operator/(const inf_rational & r1, const rational & r2) {

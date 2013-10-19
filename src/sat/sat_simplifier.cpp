@@ -146,8 +146,11 @@ namespace sat {
         m_need_cleanup = false;
         m_use_list.init(s.num_vars());
         init_visited();
-        if (learned)
+        bool learned_in_use_lists = false;
+        if (learned) {
             register_clauses(s.m_learned);
+            learned_in_use_lists = true;
+        }
         register_clauses(s.m_clauses);
 
         if (!learned && (m_elim_blocked_clauses || m_elim_blocked_clauses_at == m_num_calls))
@@ -179,7 +182,7 @@ namespace sat {
         if (!m_need_cleanup) {
             if (vars_eliminated) {
                 // must remove learned clauses with eliminated variables
-                cleanup_clauses(s.m_learned, true, true);
+                cleanup_clauses(s.m_learned, true, true, learned_in_use_lists);
             }
             CASSERT("sat_solver", s.check_invariant());
             TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
@@ -187,8 +190,8 @@ namespace sat {
             return;
         }
         cleanup_watches();
-        cleanup_clauses(s.m_learned, true, vars_eliminated);
-        cleanup_clauses(s.m_clauses, false, vars_eliminated);
+        cleanup_clauses(s.m_learned, true, vars_eliminated,  learned_in_use_lists);
+        cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
         TRACE("after_simplifier", s.display(tout); tout << "model_converter:\n"; s.m_mc.display(tout););
         CASSERT("sat_solver", s.check_invariant());
         free_memory();
@@ -221,7 +224,7 @@ namespace sat {
         }
     }
 
-    void simplifier::cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated) {
+    void simplifier::cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists) {
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
         clause_vector::iterator end = cs.end();
@@ -245,7 +248,7 @@ namespace sat {
                 }
             }
 
-            if (cleanup_clause(c)) {
+            if (cleanup_clause(c, in_use_lists)) {
                 s.del_clause(c);
                 continue;
             }
@@ -516,7 +519,7 @@ namespace sat {
        
        Return true if the clause is satisfied
     */
-    bool simplifier::cleanup_clause(clause & c) {
+    bool simplifier::cleanup_clause(clause & c, bool in_use_list) {
         bool r = false;
         unsigned sz = c.size();
         unsigned j  = 0;
@@ -529,7 +532,11 @@ namespace sat {
                 break;
             case l_false:
                 m_need_cleanup = true;
-                m_use_list.get(l).erase_not_removed(c);
+                if (in_use_list && !c.frozen()) {
+                    // Remark: if in_use_list is false, then the given clause was not added to the use lists.
+                    // Remark: frozen clauses are not added to the use lists.
+                    m_use_list.get(l).erase_not_removed(c);
+                }
                 break;
             case l_true:
                 r = true;
@@ -611,7 +618,7 @@ namespace sat {
         clause_use_list & occurs = m_use_list.get(l);
         occurs.erase_not_removed(c);
         m_sub_counter -= occurs.size()/2;
-        if (cleanup_clause(c)) {
+        if (cleanup_clause(c, true /* clause is in the use lists */)) {
             // clause was satisfied
             TRACE("elim_lit", tout << "clause was satisfied\n";);
             remove_clause(c);
@@ -625,7 +632,8 @@ namespace sat {
         case 1:
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
             propagate_unit(c[0]);
-            remove_clause(c);
+            // propagate_unit will delete c.
+            // remove_clause(c);
             return;
         case 2:
             TRACE("elim_lit", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
@@ -805,7 +813,7 @@ namespace sat {
             m_sub_counter--;
             TRACE("subsumption", tout << "next: " << c << "\n";);
             if (s.m_trail.size() > m_last_sub_trail_sz) {
-                if (cleanup_clause(c)) {
+                if (cleanup_clause(c, true /* clause is in the use_lists */)) {
                     remove_clause(c);
                     continue;
                 }
@@ -816,7 +824,8 @@ namespace sat {
                 }
                 if (sz == 1) {
                     propagate_unit(c[0]);
-                    remove_clause(c);
+                    // propagate_unit will delete c.
+                    // remove_clause(c);
                     continue;
                 }
                 if (sz == 2) {

@@ -1194,7 +1194,6 @@ enum pattern_op_kind {
    heurisitic quantifier instantiation.
 */
 class pattern_decl_plugin : public decl_plugin {
-    sort * m_list;
 public:
     virtual decl_plugin * mk_fresh() { return alloc(pattern_decl_plugin); }
 

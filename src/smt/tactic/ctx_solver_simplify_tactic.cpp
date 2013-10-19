@@ -23,7 +23,7 @@ Notes:
 #include"smt_kernel.h"
 #include"ast_pp.h"
 #include"mk_simplified_app.h"
-
+#include"ast_util.h"
 
 class ctx_solver_simplify_tactic : public tactic {
     ast_manager&          m;
@@ -33,10 +33,14 @@ class ctx_solver_simplify_tactic : public tactic {
     arith_util            m_arith;
     mk_simplified_app     m_mk_app;
     func_decl_ref         m_fn;
+    obj_map<sort, func_decl*> m_fns;
     unsigned              m_num_steps;
+    volatile bool         m_cancel;
 public:
     ctx_solver_simplify_tactic(ast_manager & m, params_ref const & p = params_ref()):
-        m(m), m_params(p), m_solver(m, m_front_p),  m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0) {
+        m(m), m_params(p), m_solver(m, m_front_p),  
+        m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0), 
+        m_cancel(false) {
         sort* i_sort = m_arith.mk_int();
         m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
     }
@@ -45,7 +49,13 @@ public:
         return alloc(ctx_solver_simplify_tactic, m, m_params);
     }
 
-    virtual ~ctx_solver_simplify_tactic() {}
+    virtual ~ctx_solver_simplify_tactic() {
+        obj_map<sort, func_decl*>::iterator it = m_fns.begin(), end = m_fns.end();
+        for (; it != end; ++it) {
+            m.dec_ref(it->m_value);
+        }
+        m_fns.reset();
+    }
 
     virtual void updt_params(params_ref const & p) {
         m_solver.updt_params(p);
@@ -76,23 +86,53 @@ public:
     virtual void cleanup() {
         reset_statistics();
         m_solver.reset();
+        m_cancel = false;
     }
+
 protected:
+
     virtual void set_cancel(bool f) {
         m_solver.set_cancel(f);
+        m_cancel = false;
     }
 
     void reduce(goal& g) {
         SASSERT(g.is_well_sorted());
-        m_num_steps = 0;
         expr_ref fml(m);
         tactic_report report("ctx-solver-simplify", g);
         if (g.inconsistent())
             return;
         ptr_vector<expr> fmls;
         g.get_formulas(fmls);
-        fml = m.mk_and(fmls.size(), fmls.c_ptr());
+        fml = mk_and(m, fmls.size(), fmls.c_ptr());
+        m_solver.push();
         reduce(fml);
+        m_solver.pop(1);
+        SASSERT(m_solver.get_scope_level() == 0);
+        TRACE("ctx_solver_simplify_tactic",
+              for (unsigned i = 0; i < fmls.size(); ++i) {
+                  tout << mk_pp(fmls[i], m) << "\n";
+              }
+              tout << "=>\n";
+              tout << mk_pp(fml, m) << "\n";);
+        DEBUG_CODE(
+        {
+            m_solver.push();
+            expr_ref fml1(m);
+            fml1 = mk_and(m, fmls.size(), fmls.c_ptr());
+            fml1 = m.mk_iff(fml, fml1);
+            fml1 = m.mk_not(fml1);
+            m_solver.assert_expr(fml1);
+            lbool is_sat = m_solver.check();
+            TRACE("ctx_solver_simplify_tactic", tout << "is non-equivalence sat?: " << is_sat << "\n";);
+            if (is_sat != l_false) {
+                TRACE("ctx_solver_simplify_tactic", 
+                      tout << "result is not equivalent to input\n";
+                      tout << mk_pp(fml1, m) << "\n";);
+                UNREACHABLE();
+            }
+            m_solver.pop(1);
+        });
         g.reset();
         g.assert_expr(fml, 0, 0); 
         IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(ctx-solver-simplify :num-steps " << m_num_steps << ")\n";);
@@ -106,21 +146,23 @@ protected:
         svector<bool>    is_checked;
         svector<unsigned> parent_ids, self_ids;
         expr_ref_vector fresh_vars(m), trail(m);
-        expr_ref res(m);
-        obj_map<expr,std::pair<unsigned, expr*> > cache;
+        expr_ref res(m), tmp(m);
+        obj_map<expr,std::pair<unsigned, expr*> > cache;        
         unsigned id = 1;
-        expr* n = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
-        expr* n2, *fml;
+        expr_ref n2(m), fml(m);
         unsigned path_id = 0, self_pos = 0;
         app * a;
         unsigned sz;
         std::pair<unsigned,expr*> path_r;
         ptr_vector<expr> found;
+        expr_ref_vector args(m);
+        expr_ref n = mk_fresh(id, m.mk_bool_sort());
+        trail.push_back(n);        
 
         fml = result.get();
-        m_solver.assert_expr(m.mk_not(m.mk_iff(fml, n)));
+        tmp = m.mk_not(m.mk_iff(fml, n));
+        m_solver.assert_expr(tmp);
 
-        trail.push_back(n);        
         todo.push_back(fml);
         names.push_back(n);
         is_checked.push_back(false);
@@ -128,9 +170,9 @@ protected:
         self_ids.push_back(0);        
         m_solver.push();
 
-        while (!todo.empty()) {            
+        while (!todo.empty() && !m_cancel) {            
             expr_ref res(m);
-            ptr_buffer<expr> args;
+            args.reset();
             expr* e = todo.back();
             unsigned pos = parent_ids.back();
             n = names.back();
@@ -139,11 +181,8 @@ protected:
             if (cache.contains(e)) {
                 goto done;
             }
-            if (!m.is_bool(e)) {
-                res = e;
-                goto done;
-            }
             if (m.is_bool(e) && !checked && simplify_bool(n, res)) {
+                TRACE("ctx_solver_simplify_tactic", tout << "simplified: " << mk_pp(e, m) << " |-> " << mk_pp(res, m) << "\n";);                
                 goto done;
             }
             if (!is_app(e)) {
@@ -164,35 +203,35 @@ protected:
             found.reset(); // arguments already simplified.
             for (unsigned i = 0; i < sz; ++i) {
                 expr* arg = a->get_arg(i);
-                if (!m.is_bool(arg)) {
-                    args.push_back(arg);
-                }
-                else if (cache.find(arg, path_r) && !found.contains(arg)) {
+                if (cache.find(arg, path_r) && !found.contains(arg)) {
                     //
                     // This is a single traversal version of the context
                     // simplifier. It simplifies only the first occurrence of 
-                    // a formula with respect to the context.
+                    // a sub-term with respect to the context.
                     //
                                         
                     found.push_back(arg);
                     if (path_r.first == self_pos) {
-                        TRACE("ctx_solver_simplify_tactic", tout << "cached " << mk_pp(arg, m) << "\n";);
+                        TRACE("ctx_solver_simplify_tactic", tout << "cached " << mk_pp(arg, m) << " |-> " << mk_pp(path_r.second, m) << "\n";);
                         args.push_back(path_r.second);
                     }
-                    else {
+                    else if (m.is_bool(arg)) {
                         res = local_simplify(a, n, id, i);
                         TRACE("ctx_solver_simplify_tactic", 
-                              tout << "Already cached: " << path_r.first << " " << mk_pp(res, m) << "\n";);
+                              tout << "Already cached: " << path_r.first << " " << mk_pp(arg, m) << " |-> " << mk_pp(res, m) << "\n";);
+                        args.push_back(res);
+                    }
+                    else {
                         args.push_back(arg);
                     }
                 }
                 else if (!n2 && !found.contains(arg)) {                
-                    n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
+                    n2 = mk_fresh(id, m.get_sort(arg));
+                    trail.push_back(n2);
                     todo.push_back(arg);
                     parent_ids.push_back(self_pos);
                     self_ids.push_back(0);
                     names.push_back(n2);
-                    trail.push_back(n2);
                     args.push_back(n2);
                     is_checked.push_back(false);
                 }
@@ -205,7 +244,8 @@ protected:
             // child needs to be visited.
             if (n2) {
                 m_solver.push();
-                m_solver.assert_expr(m.mk_eq(res, n));
+                tmp = m.mk_eq(res, n);
+                m_solver.assert_expr(tmp);
                 continue;
             }
         
@@ -224,12 +264,14 @@ protected:
             is_checked.pop_back();
             m_solver.pop(1);
         }
-        VERIFY(cache.find(fml, path_r));
-        result = path_r.second;
+        if (!m_cancel) {
+            VERIFY(cache.find(fml, path_r));
+            result = path_r.second;
+        }
     }
 
     bool simplify_bool(expr* n, expr_ref& res) {
-
+        expr_ref tmp(m);
         m_solver.push();
         m_solver.assert_expr(n);
         lbool is_sat = m_solver.check();
@@ -240,7 +282,8 @@ protected:
         }
 
         m_solver.push();
-        m_solver.assert_expr(m.mk_not(n));
+        tmp = m.mk_not(n);
+        m_solver.assert_expr(tmp);
         is_sat = m_solver.check();
         m_solver.pop(1);
         if (is_sat == l_false) {
@@ -251,11 +294,25 @@ protected:
         return false;
     }
 
+    expr_ref mk_fresh(unsigned& id, sort* s) {
+        func_decl* fn;
+        if (m.is_bool(s)) {
+            fn = m_fn;
+        }
+        else if (!m_fns.find(s, fn)) {
+            fn = m.mk_func_decl(symbol(0xbeef101 + id), m_arith.mk_int(), s);
+            m.inc_ref(fn);
+            m_fns.insert(s, fn);
+        }
+        return expr_ref(m.mk_app(fn, m_arith.mk_numeral(rational(id++), true)), m);
+    }
+
+
     expr_ref local_simplify(app* a, expr* n, unsigned& id, unsigned index) {
         SASSERT(index < a->get_num_args());
         SASSERT(m.is_bool(a->get_arg(index)));
-        expr_ref n2(m), result(m);
-        n2 = m.mk_app(m_fn, m_arith.mk_numeral(rational(id++), true));
+        expr_ref n2(m), result(m), tmp(m);
+        n2 = mk_fresh(id, m.get_sort(a->get_arg(index)));
         ptr_buffer<expr> args;
         for (unsigned i = 0; i < a->get_num_args(); ++i) {
             if (i == index) {
@@ -267,9 +324,10 @@ protected:
         }
         m_mk_app(a->get_decl(), args.size(), args.c_ptr(), result);
         m_solver.push();
-        m_solver.assert_expr(m.mk_eq(result, n));
+        tmp = m.mk_eq(result, n);
+        m_solver.assert_expr(tmp);
         if (!simplify_bool(n2, result)) {
-            result = a;
+            result = a->get_arg(index);
         }
         m_solver.pop(1);
         return result;

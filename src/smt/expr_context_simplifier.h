@@ -57,9 +57,7 @@ private:
 
 class expr_strong_context_simplifier {
     ast_manager& m_manager;
-    smt_params & m_params;
     arith_util    m_arith;
-    unsigned      m_id;
     func_decl_ref m_fn;
     smt::kernel   m_solver;
     

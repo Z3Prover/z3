@@ -64,6 +64,7 @@ void bv_rewriter::updt_local_params(params_ref const & _p) {
     m_split_concat_eq = p.split_concat_eq();
     m_udiv2mul = p.udiv2mul();
     m_bvnot2arith = p.bvnot2arith();
+    m_bv_sort_ac = p.bv_sort_ac();
     m_mkbv2num = _p.get_bool("mkbv2num", false);
 }
 
@@ -1315,7 +1316,7 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         return BR_REWRITE2;
     }
 
-    if (!flattened && !merged && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero()))) {
+    if (!flattened && !merged && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero())) && (!m_bv_sort_ac || is_sorted(num, args))) {
         return BR_FAILED;
     }
 
@@ -1331,6 +1332,8 @@ br_status bv_rewriter::mk_bv_or(unsigned num, expr * const * args, expr_ref & re
         result = new_args[0];
         return BR_DONE;
     default:
+        if (m_bv_sort_ac)
+            std::sort(new_args.begin(), new_args.end(), ast_to_lt());
         result = m_util.mk_bv_or(new_args.size(), new_args.c_ptr());
         return BR_DONE;
     }
@@ -1456,7 +1459,8 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
         return BR_REWRITE3;
     } 
 
-    if (!merged && !flattened && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero() && v1 != (rational::power_of_two(sz) - numeral(1)))))
+    if (!merged && !flattened && (num_coeffs == 0 || (num_coeffs == 1 && !v1.is_zero() && v1 != (rational::power_of_two(sz) - numeral(1)))) &&
+        (!m_bv_sort_ac || is_sorted(num, args)))
         return BR_FAILED;
 
     ptr_buffer<expr> new_args;
@@ -1497,6 +1501,8 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
         }
         __fallthrough;
     default:
+        if (m_bv_sort_ac)
+            std::sort(new_args.begin(), new_args.end(), ast_to_lt());
         result = m_util.mk_bv_xor(new_args.size(), new_args.c_ptr());
         return BR_DONE;
     }

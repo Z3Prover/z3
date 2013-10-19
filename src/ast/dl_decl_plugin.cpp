@@ -326,6 +326,7 @@ namespace datalog {
         }
         unsigned index0;
         sort* last_sort = 0;
+        SASSERT(num_params > 0);
         for (unsigned i = 0; i < num_params; ++i) {
             parameter const& p = params[i];
             if (!p.is_int()) {
@@ -636,9 +637,13 @@ namespace datalog {
 
     app* dl_decl_util::mk_numeral(uint64 value, sort* s) {
         if (is_finite_sort(s)) {
+            uint64 sz = 0;
+            if (try_get_size(s, sz) && sz <= value) {
+                m.raise_exception("value is out of bounds");
+            }
             parameter params[2] = { parameter(rational(value, rational::ui64())), parameter(s) };
             return m.mk_const(m.mk_func_decl(m_fid, OP_DL_CONSTANT, 2, params, 0, (sort*const*)0));
-        }
+        }        
         if (m_arith.is_int(s) || m_arith.is_real(s)) {
             return m_arith.mk_numeral(rational(value, rational::ui64()), s);
         }
@@ -652,13 +657,15 @@ namespace datalog {
             SASSERT(value == 1);
             return m.mk_true();
         }
-        m.raise_exception("unrecognized sort");
+        std::stringstream strm;
+        strm << "sort '" << mk_pp(s, m) << "' is not recognized as a sort that contains numeric values.\nUse Bool, BitVec, Int, Real, or a Finite domain sort";
+        m.raise_exception(strm.str().c_str());
         return 0;
     }
 
-    bool dl_decl_util::is_numeral(expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral(const expr* e, uint64& v) const {
         if (is_numeral(e)) {
-            app* c = to_app(e);
+            const app* c = to_app(e);
             SASSERT(c->get_decl()->get_num_parameters() == 2);
             parameter const& p = c->get_decl()->get_parameter(0);
             SASSERT(p.is_rational());

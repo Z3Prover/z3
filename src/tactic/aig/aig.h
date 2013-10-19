@@ -70,7 +70,6 @@ public:
     void max_sharing(aig_ref & r);
     void to_formula(aig_ref const & r, expr_ref & result);
     void to_formula(aig_ref const & r, goal & result);
-    void to_cnf(aig_ref const & r, goal & result);
     void display(std::ostream & out, aig_ref const & r) const;
     void display_smt2(std::ostream & out, aig_ref const & r) const;
     unsigned get_num_aigs() const;

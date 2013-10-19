@@ -585,6 +585,9 @@ class FuncDeclRef(AstRef):
     def as_ast(self):
         return Z3_func_decl_to_ast(self.ctx_ref(), self.ast)
 
+    def as_func_decl(self):
+	return self.ast
+
     def name(self):
         """Return the name of the function declaration `self`.
         
@@ -3853,32 +3856,6 @@ def is_array(a):
     """
     return isinstance(a, ArrayRef)
 
-def is_select(a):
-    """Return `True` if `a` is a Z3 array select.
-    
-    >>> a = Array('a', IntSort(), IntSort())
-    >>> is_select(a)
-    False
-    >>> i = Int('i')
-    >>> is_select(a[i])
-    True
-    """
-    return is_app_of(a, Z3_OP_SELECT)
-
-def is_store(a):
-    """Return `True` if `a` is a Z3 array store.
-    
-    >>> a = Array('a', IntSort(), IntSort())
-    >>> is_store(a)
-    False
-    >>> i = Int('i')
-    >>> is_store(a[i])
-    False
-    >>> is_store(Store(a, i, i + 1))
-    True
-    """
-    return is_app_of(a, Z3_OP_STORE)
-
 def is_const_array(a):
     """Return `True` if `a` is a Z3 constant array.
 
@@ -4069,7 +4046,8 @@ def is_select(a):
     >>> a = Array('a', IntSort(), IntSort())
     >>> is_select(a)
     False
-    >>> is_select(a[0])
+    >>> i = Int('i')
+    >>> is_select(a[i])
     True
     """
     return is_app_of(a, Z3_OP_SELECT)

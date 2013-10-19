@@ -268,6 +268,8 @@ public:
     bool is_int_real(expr const * n) const { return is_int_real(get_sort(n)); }
 
     MATCH_UNARY(is_uminus);
+    MATCH_UNARY(is_to_real);
+    MATCH_UNARY(is_to_int);
     MATCH_BINARY(is_sub);
     MATCH_BINARY(is_add);
     MATCH_BINARY(is_mul);
