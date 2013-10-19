@@ -18,15 +18,21 @@ Notes:
 
 --*/
 
+#include "inf_eps_rational.h"
+
 #ifndef _THEORY_OPT_H_
 #define _THEORY_OPT_H_
 
 namespace smt {
     class theory_opt {
     public:
-        virtual bool max(theory_var v) { UNREACHABLE(); return false; };
+        virtual bool maximize(theory_var v) { UNREACHABLE(); return false; };
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
-        virtual optional<rational> get_objective_value(theory_var v) { UNREACHABLE(); optional<rational> r; return r;}
+		virtual inf_eps_rational<rational> get_objective_value(theory_var v) { 
+            UNREACHABLE(); 
+            inf_eps_rational<rational> r(rational(1), rational(0)); 
+            return r; 
+		}
     };
 }
 

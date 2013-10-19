@@ -19,6 +19,7 @@ Revision History:
 #ifndef _THEORY_ARITH_AUX_H_
 #define _THEORY_ARITH_AUX_H_
 
+#include"inf_eps_rational.h"
 #include"theory_arith.h"
 
 namespace smt {
@@ -960,12 +961,10 @@ namespace smt {
     }
 
     template<typename Ext>
-    optional<rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
-        optional<rational> rat;        
-        if (m_objective.is_rational()) {
-            rat = m_objective.get_rational();            
-        };
-        return rat; 
+    inf_eps_rational<rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
+        inf_eps_rational<rational> val;        
+        val = m_objective.get_rational();
+        return val; 
     }
 
     /**

@@ -16,7 +16,6 @@ Notes:
 
 --*/
 
-
 #include "opt_context.h"
 #include "fu_malik.h"
 #include "weighted_maxsat.h"
@@ -62,7 +61,7 @@ namespace opt {
         }
 
         if (!m_objectives.empty()) {
-            vector<optional<rational> > values;
+            vector<inf_eps_rational<rational> > values;
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
@@ -75,11 +74,7 @@ namespace opt {
             }
 
             for (unsigned i = 0; i < values.size(); ++i) {
-                if (values[i]) {
-                    std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> " << *values[i] << "\n";
-                } else {
-                    std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> unbounded\n";
-                }
+                std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> " << values[i].to_string() << "\n";                
             }
         }     
 
