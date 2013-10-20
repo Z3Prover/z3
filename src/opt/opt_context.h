@@ -32,13 +32,12 @@ namespace opt {
 
     class context {
         ast_manager& m;
-        expr_ref_vector m_hard_constraints;
+        expr_ref_vector  m_hard_constraints;
         expr_ref_vector  m_soft_constraints;
         vector<rational> m_weights;
-
-        expr_ref_vector m_objectives;
-        svector<bool>   m_is_max;
-        ref<solver>     m_solver;
+        app_ref_vector   m_objectives;
+        svector<bool>    m_is_max;
+        ref<solver>      m_solver;
 
     public:
         context(ast_manager& m):
@@ -53,7 +52,7 @@ namespace opt {
             m_weights.push_back(w);
         }
 
-        void add_objective(expr* t, bool is_max) {
+        void add_objective(app* t, bool is_max) {
             m_objectives.push_back(t);
             m_is_max.push_back(is_max);
         }

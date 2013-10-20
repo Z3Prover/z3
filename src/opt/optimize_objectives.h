@@ -28,8 +28,8 @@ namespace opt {
     */
     
     lbool optimize_objectives(opt_solver& s, 
-                          expr_ref_vector& objectives, svector<bool> const& is_max,
-                          vector<inf_eps_rational<rational> >& values);
+                              app_ref_vector& objectives, svector<bool> const& is_max,
+                              vector<inf_eps_rational<rational> >& values);
 };
 
 #endif

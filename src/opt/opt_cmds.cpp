@@ -138,7 +138,10 @@ public:
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_EXPR; }
 
     virtual void set_next_arg(cmd_context & ctx, expr * t) {
-        m_opt_ctx().add_objective(t, m_is_max);
+        if (!is_app(t)) {
+            throw cmd_exception("malformed objective term: it cannot be a quantifier or bound variable");
+        }
+        m_opt_ctx().add_objective(to_app(t), m_is_max);
     }
 
     virtual void failure_cleanup(cmd_context & ctx) {
