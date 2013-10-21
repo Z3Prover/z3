@@ -2670,7 +2670,3 @@ let global_param_reset_all =
 
 let toggle_warning_messages ( enabled: bool ) =
   Z3native.toggle_warning_messages enabled
-
-
-module Array = Z3Array
-module List = Z3List
