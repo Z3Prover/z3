@@ -761,7 +761,7 @@ sig
 end
 
 (** Functions to manipulate Array expressions *)
-module Array :
+module Z3Array :
 sig
   (** Create a new array sort. *)
   val mk_sort : context -> Sort.sort -> Sort.sort -> Sort.sort
@@ -1093,7 +1093,7 @@ sig
 end
 
 (** Functions to manipulate List expressions *)
-module List :
+module Z3List :
 sig
   (** Create a new list sort. *)
   val mk_sort : context -> Symbol.symbol -> Sort.sort -> Sort.sort
