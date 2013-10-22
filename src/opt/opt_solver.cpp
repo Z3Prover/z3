@@ -2,6 +2,7 @@
 #include"opt_solver.h"
 #include"smt_context.h"
 #include"theory_arith.h"
+#include"theory_diff_logic.h"
 
 namespace opt {
 
@@ -54,6 +55,12 @@ namespace opt {
         }                                                                   
         else if (typeid(smt::theory_i_arith) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_i_arith&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_rdl&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_rdl&>(*arith_theory); 
+        }
+        else if (typeid(smt::theory_idl&) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_idl&>(*arith_theory); 
         }
         else {
             UNREACHABLE();

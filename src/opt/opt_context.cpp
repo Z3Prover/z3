@@ -78,7 +78,7 @@ namespace opt {
             // SASSERT(instanceof(*s, opt_solver));
             // if (!instsanceof ...) { throw ... invalid usage ..} 
             is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, values);
-            std::cout << "is-sat: " << is_sat << "\n";
+            std::cout << "is-sat: " << is_sat << std::endl;
 
             if (is_sat != l_true) {
                 return;
@@ -88,15 +88,14 @@ namespace opt {
                 if (!m_is_max[i]) {
                     values[i].neg();
                 }
-                std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> " << values[i].to_string() << "\n";                
+                std::cout << "objective value: " << mk_pp(m_objectives[i].get(), m) << " -> " << values[i].to_string() << std::endl;                
             }
         }     
 
         if (m_objectives.empty() && m_soft_constraints.empty()) {
             is_sat = s->check_sat(0,0);
-            std::cout << "nothing to optimize: is-sat " << is_sat << "\n";
+            std::cout << "nothing to optimize: is-sat " << is_sat << std::endl;
         }
-
     }
         
     bool context::is_maxsat_problem() const {

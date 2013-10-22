@@ -996,5 +996,23 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
     m_graph.explain_subsumed_lazy(bridge_edge, subsumed_edge, f);
 }
 
+template<typename Ext>
+bool theory_diff_logic<Ext>::maximize(theory_var v) {
+    NOT_IMPLEMENTED_YET();
+    return false;
+}
+
+template<typename Ext>
+theory_var theory_diff_logic<Ext>::add_objective(app* term) {
+    // Internalizing may not succeed since objective can be LRA
+    return null_theory_var; 
+}
+
+template<typename Ext>
+inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theory_var v) { 
+    inf_eps_rational<inf_rational> val(m_objective);     
+    return val; 
+}
+
 #endif /* _THEORY_DIFF_LOGIC_DEF_H_ */
 

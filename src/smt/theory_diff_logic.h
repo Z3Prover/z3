@@ -37,7 +37,7 @@ Revision History:
 #include"smt_model_generator.h"
 #include"numeral_factory.h"
 #include"smt_clause.h"
-
+#include"theory_opt.h"
 
 // The DL theory can represent term such as n + k, where n is an enode and k is a numeral.
 namespace smt {
@@ -59,7 +59,7 @@ namespace smt {
     };
 
     template<typename Ext>
-    class theory_diff_logic : public theory, private Ext {
+    class theory_diff_logic : public theory, public theory_opt, private Ext {
         
         typedef typename Ext::numeral numeral;
 
@@ -296,6 +296,18 @@ namespace smt {
         
         virtual void collect_statistics(::statistics & st) const;
 
+        
+        // -----------------------------------
+        //
+        // Optimization
+        //
+        // -----------------------------------
+
+        virtual bool maximize(theory_var v);
+        virtual theory_var add_objective(app* term);
+        virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
+        inf_rational m_objective;      
+
     private:        
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
@@ -373,6 +385,53 @@ namespace smt {
         numeral m_epsilon;
         srdl_ext() : m_epsilon(s_integer(0),true) {}
     };
+
+    // Solve minimum cost flow problem using Network Simplex algorithm
+    class network_simplex {
+        svector<dl_var>  m_nodes;
+        svector<edge_id> m_edges;
+        // Denote costs c_ij on edge (i, j)
+        vector<rational> m_costs;
+        // Denote supply/demand b_i on node i
+        vector<rational> m_capacities;
+
+        // Keep optimal solution of the min cost flow problem
+        inf_rational m_objective;
+
+    public:
+        // Create a spanning tree using Kruskal algorithm
+        virtual svector<edge_id> & create_spanning_tree();
+            
+        // A spanning tree is a basis in network simplex.
+        // Check whether the edges' associated costs could be reduced
+        virtual rational calculate_reduced_costs(svector<edge_id> & spanning_tree);
+
+        // If all reduced costs are non-negative, the current flow is optimal
+        virtual bool is_optimal(svector<edge_id> & spanning_tree);
+
+        // Choose an edge with negative reduced cost
+        virtual edge_id choose_entering_edge();
+
+        // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
+        edge_id choose_leaving_edge();
+
+        virtual bool is_unbounded();
+
+        // Minimize cost flows
+        // Return true if found an optimal solution, and return false if unbounded
+        virtual bool minimize();
+    };
+
+    /* Notes:
+
+        We need a function to reduce DL constraints to min cost flow problem 
+        and another function to convert from min cost flow solution to DL solution.
+
+        It remains unclear how to convert DL assignment to a basic feasible solution of Network Simplex.
+        A naive approach is to run Kruskal in order to get a spanning tree.
+
+        The network_simplex class hasn't had multiple pivoting strategies yet.
+    */
 
 
     typedef theory_diff_logic<idl_ext>  theory_idl;
