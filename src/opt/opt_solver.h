@@ -1,21 +1,22 @@
 /*++
-Copyright (c) 2012 Microsoft Corporation
+Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    smt_solver.h
+    opt_solver.h
 
 Abstract:
 
-    Wraps smt::kernel as a solver for the external API and cmd_context.
+    Wraps smt::kernel as a solver for optimization
 
 Author:
 
-    Leonardo (leonardo) 2012-10-21
+    Anh-Dung Phan (t-anphan) 2013-10-16
 
 Notes:
+
+    Based directly on smt_solver.
    
-    Variant of smt_solver that exposes kernel object.
 --*/
 #ifndef _OPT_SOLVER_H_
 #define _OPT_SOLVER_H_
@@ -33,13 +34,16 @@ Notes:
 namespace opt {
 
     class opt_solver : public solver_na2as {
+    public:
+        typedef inf_eps_rational<inf_rational> inf_value;
+    private:
         smt_params          m_params;
         smt::kernel         m_context;
         progress_callback * m_callback;
         symbol              m_logic;
         bool                m_objective_enabled;
-        smt::theory_var     m_objective_var;
-        inf_eps_rational<inf_rational>  m_objective_value;
+        svector<smt::theory_var>  m_objective_vars;
+        vector<inf_value>         m_objective_values;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -62,10 +66,18 @@ namespace opt {
         virtual expr * get_assertion(unsigned idx) const;
         virtual void display(std::ostream & out) const;
 
-        void set_objective(app* term);
-        void toggle_objective(bool enable);
+        smt::theory_var add_objective(app* term);
+        void reset_objectives();
+
+        vector<inf_value> const& get_objective_values();
         
-        inf_eps_rational<inf_rational> get_objective_value();
+        class toggle_objective {
+            opt_solver& s;
+            bool m_old_value;
+        public:
+            toggle_objective(opt_solver& s, bool new_value);
+            ~toggle_objective();
+        };
     private:
         smt::theory_opt& get_optimizer();
     };

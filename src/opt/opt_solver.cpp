@@ -66,12 +66,16 @@ namespace opt {
         TRACE("opt_solver_na2as", tout << "opt_opt_solver::check_sat_core: " << num_assumptions << "\n";);
         lbool r = m_context.check(num_assumptions, assumptions);
         if (r == l_true && m_objective_enabled) {
-            bool is_bounded = get_optimizer().maximize(m_objective_var);
-            if (is_bounded) {
-                m_objective_value = get_optimizer().get_objective_value(m_objective_var);
-            } else {
-                inf_eps_rational<inf_rational> r(rational(1), inf_rational(0));
-                m_objective_value = r;
+            m_objective_values.reset();
+            for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
+                smt::theory_var v = m_objective_vars[i];
+                bool is_bounded = get_optimizer().maximize(v);
+                if (is_bounded) {
+                    m_objective_values.push_back(get_optimizer().get_objective_value(v));
+                } else {
+                    inf_eps_rational<inf_rational> r(rational(1), inf_rational(0));
+                    m_objective_values.push_back(r);
+                }
             }
         }
         return r;
@@ -123,16 +127,27 @@ namespace opt {
         m_context.display(out);
     }
     
-    void opt_solver::set_objective(app* term) {
-        m_objective_var = get_optimizer().add_objective(term);
+    smt::theory_var opt_solver::add_objective(app* term) {
+        m_objective_vars.push_back(get_optimizer().add_objective(term));
+        return m_objective_vars.back();
     }
     
-    void opt_solver::toggle_objective(bool enable) {
-        m_objective_enabled = enable;
+    vector<opt_solver::inf_value> const& opt_solver::get_objective_values() {
+        return m_objective_values;
     }
 
-    inf_eps_rational<inf_rational> opt_solver::get_objective_value() {
-        return m_objective_value;
+    void opt_solver::reset_objectives() {
+        m_objective_vars.reset();
+        m_objective_values.reset();
     }
+
+    opt_solver::toggle_objective::toggle_objective(opt_solver& s, bool new_value): s(s), m_old_value(s.m_objective_enabled) {
+        s.m_objective_enabled = new_value;
+    }
+
+    opt_solver::toggle_objective::~toggle_objective() {
+        s.m_objective_enabled = m_old_value;
+    }
+
 
 }

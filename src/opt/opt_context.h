@@ -52,10 +52,7 @@ namespace opt {
             m_weights.push_back(w);
         }
 
-        void add_objective(app* t, bool is_max) {
-            m_objectives.push_back(t);
-            m_is_max.push_back(is_max);
-        }
+        void add_objective(app* t, bool is_max);
 
         void add_hard_constraint(expr* f) {
             m_hard_constraints.push_back(f);

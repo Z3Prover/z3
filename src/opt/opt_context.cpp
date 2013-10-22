@@ -29,6 +29,9 @@ Notes:
 #include "optimize_objectives.h"
 #include "ast_pp.h"
 #include "opt_solver.h"
+#include "arith_decl_plugin.h"
+#include "th_rewriter.h"
+
 
 namespace opt {
 
@@ -74,7 +77,7 @@ namespace opt {
             }
             // SASSERT(instanceof(*s, opt_solver));
             // if (!instsanceof ...) { throw ... invalid usage ..} 
-            is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, m_is_max, values);
+            is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, values);
             std::cout << "is-sat: " << is_sat << "\n";
 
             if (is_sat != l_true) {
@@ -82,6 +85,9 @@ namespace opt {
             }
 
             for (unsigned i = 0; i < values.size(); ++i) {
+                if (!m_is_max[i]) {
+                    values[i].neg();
+                }
                 std::cout << "objective function: " << mk_pp(m_objectives[i].get(), m) << " -> " << values[i].to_string() << "\n";                
             }
         }     
@@ -114,5 +120,19 @@ namespace opt {
             m_solver->reset_cancel();
         }
     }
+
+    void context::add_objective(app* t, bool is_max) {
+        expr_ref t1(t, m), t2(m);
+        th_rewriter rw(m);
+        if (!is_max) {
+            arith_util a(m);
+            t1 = a.mk_uminus(t);
+        }
+        rw(t1, t2);
+        SASSERT(is_app(t2));
+        m_objectives.push_back(to_app(t2));
+        m_is_max.push_back(is_max);
+    }
+
 
 }

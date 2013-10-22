@@ -15,6 +15,26 @@ Author:
 
 Notes:
 
+
+    Suppose we obtain solution t1 = k1, ..., tn = kn-epsilon
+    Assert:
+      t1 > k1 \/ t2 > k2 \/ ... \/ tn >= kn
+    If this solution is satisfiable, then for each t_i, maximize the 
+    assignment and assert the new frontier.
+    Claim: we don't necessarily have to freeze assignments of 
+    t_i when optimizing assignment for t_j
+    because the state will always satisfy the disjunction.
+    If one of the k_i is unbounded, then omit a disjunction for it.
+    Claim: the end result (when the constraints are no longer feasible) 
+    is Pareto optimal, but convergence will probably not be as fast
+    as when fixing one parameter at a time.
+    E.g., a different approach is first to find a global maximal for one
+    variable. Then add a method to "freeze" that variable at the extremum if it is finite.
+    To do this, add lower and upper bounds for that variable using infinitesimals.
+    If the variable is unbounded, then this is of course not sufficient by itself.
+        
+    
+
 --*/
 
 #ifndef _OPT_OBJECTIVE_H_
@@ -31,13 +51,14 @@ namespace opt {
     */
     lbool mathsat_style_opt(
         opt_solver& s, 
-        app_ref_vector& objectives, 
-        svector<bool> const& is_max,
+        app_ref_vector const& objectives, 
         vector<inf_eps_rational<inf_rational> >& values) 
     {
-        SASSERT(is_max.size() == objectives.size());
+        ast_manager& m = objectives.get_manager();
+        arith_util autil(m);
 
-        // First check_sat call for initialize theories
+        s.reset_objectives();
+        // First check_sat call to initialize theories
         lbool is_sat = s.check_sat(0, 0);
         if (is_sat == l_false) {
             return is_sat;
@@ -45,38 +66,41 @@ namespace opt {
 
         s.push();
 
-        // Temporarily ignore the assertion to run the first objective function
-        //SASSERT(is_max.size() == 1);
-        ast_manager& m = objectives.get_manager();
-        arith_util autil(m);
-        bool ismax = is_max[0];
-        app_ref objective_var(m), objective_term(m), obj_eq(m);
-        objective_term = ismax?objectives[0].get():autil.mk_uminus(objectives[0].get());
-        sort* srt = m.get_sort(objective_term);
-        objective_var = m.mk_fresh_const("objective", srt);
-        obj_eq = autil.mk_eq(objective_var, objective_term);
-        s.assert_expr(obj_eq);
-        s.set_objective(objective_var);  // NSB review: I would change signature of set_objective to take is_max and decide whether to add equation.
-                                         // Otherwise, the difference logic backends will not work.
-        s.toggle_objective(true);
+        opt_solver::toggle_objective _t(s, true);
+
+        for (unsigned i = 0; i < objectives.size(); ++i) {
+            s.add_objective(objectives[i]);            
+        }
+
         is_sat = s.check_sat(0, 0);
                 
         while (is_sat == l_true) {
             // Extract values for objectives
-            inf_eps_rational<inf_rational> val;
-            val = ismax ? s.get_objective_value() : -s.get_objective_value();
-
-            // Check whether objective is unbounded
-
             values.reset();
-            values.push_back(val);
+            values.append(s.get_objective_values());
+            IF_VERBOSE(1, 
+                       for (unsigned i = 0; i < values.size(); ++i) {
+                           verbose_stream() << values[i] << " ";
+                       }
+                       verbose_stream() << "\n";);
+            expr_ref_vector disj(m);
+            expr_ref constraint(m), num(m);
+            for (unsigned i = 0; i < objectives.size(); ++i) {
 
-            if (!val.get_infinity().is_zero()) {
-                break;
+                if (!values[i].get_infinity().is_zero()) {
+                    continue;
+                }
+                num = autil.mk_numeral(values[i].get_rational(), m.get_sort(objectives[i]));
+                
+                SASSERT(values[i].get_infinitesimal().is_nonpos());
+                if (values[i].get_infinitesimal().is_neg()) {
+                    disj.push_back(autil.mk_ge(objectives[i], num));
+                }
+                else {
+                    disj.push_back(autil.mk_gt(objectives[i], num));
+                }
             }
- 
-            expr_ref constraint(m);                       
-            constraint = autil.mk_gt(objective_term, autil.mk_numeral(val.get_rational(), srt));
+            constraint = m.mk_or(disj.size(), disj.c_ptr());
             s.assert_expr(constraint);
             is_sat = s.check_sat(0, 0);
         }      
@@ -86,7 +110,6 @@ namespace opt {
         if (is_sat == l_undef) {
             return is_sat;
         }
-        //SASSERT(is_sat == l_false); // NSB review: not really water-tight with cancellation and with infinitesimal solutions.
         return l_true;
     }
 
@@ -96,9 +119,9 @@ namespace opt {
     */
     
     lbool optimize_objectives(opt_solver& s, 
-                          app_ref_vector& objectives, svector<bool> const& is_max,
+                          app_ref_vector& objectives, 
                           vector<inf_eps_rational<inf_rational> >& values) {
-        return mathsat_style_opt(s, objectives, is_max, values);
+        return mathsat_style_opt(s, objectives, values);
     }
 }
 
