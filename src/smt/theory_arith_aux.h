@@ -961,9 +961,8 @@ namespace smt {
     }
 
     template<typename Ext>
-    inf_eps_rational<rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
-        inf_eps_rational<rational> val;        
-        val = m_objective.get_rational();
+    inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
+        inf_eps_rational<inf_rational> val(m_objective);     
         return val; 
     }
 

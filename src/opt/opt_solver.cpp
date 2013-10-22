@@ -70,7 +70,7 @@ namespace opt {
             if (is_bounded) {
                 m_objective_value = get_optimizer().get_objective_value(m_objective_var);
             } else {
-                inf_eps_rational<rational> r(rational(1), rational(0));
+                inf_eps_rational<inf_rational> r(rational(1), inf_rational(0));
                 m_objective_value = r;
             }
         }
@@ -131,7 +131,7 @@ namespace opt {
         m_objective_enabled = enable;
     }
 
-    inf_eps_rational<rational> opt_solver::get_objective_value() {
+    inf_eps_rational<inf_rational> opt_solver::get_objective_value() {
         return m_objective_value;
     }
 

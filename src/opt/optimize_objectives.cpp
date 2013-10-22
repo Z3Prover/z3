@@ -33,23 +33,20 @@ namespace opt {
         opt_solver& s, 
         app_ref_vector& objectives, 
         svector<bool> const& is_max,
-        vector<inf_eps_rational<rational> >& values) 
+        vector<inf_eps_rational<inf_rational> >& values) 
     {
         SASSERT(is_max.size() == objectives.size());
 
-        enable_trace("maximize");        // NSB review: OK for now for debugging. Otherwise, use command-line /tr:maximize
-
         // First check_sat call for initialize theories
         lbool is_sat = s.check_sat(0, 0);
-        if (is_sat != l_false) {
+        if (is_sat == l_false) {
             return is_sat;
         }
 
         s.push();
 
-
-        // Assume there is only one objective function
-        SASSERT(is_max.size() == 1);
+        // Temporarily ignore the assertion to run the first objective function
+        //SASSERT(is_max.size() == 1);
         ast_manager& m = objectives.get_manager();
         arith_util autil(m);
         bool ismax = is_max[0];
@@ -62,20 +59,19 @@ namespace opt {
         s.set_objective(objective_var);  // NSB review: I would change signature of set_objective to take is_max and decide whether to add equation.
                                          // Otherwise, the difference logic backends will not work.
         s.toggle_objective(true);
-        is_sat = s.check_sat(0, 0);        
+        is_sat = s.check_sat(0, 0);
                 
         while (is_sat == l_true) {
             // Extract values for objectives
-            inf_eps_rational<rational> val;
-            val = is_max[0] ? s.get_objective_value() : -s.get_objective_value();
+            inf_eps_rational<inf_rational> val;
+            val = ismax ? s.get_objective_value() : -s.get_objective_value();
 
             // Check whether objective is unbounded
-            // NSB: review: what if optimal is 1-epsilon. Then the check also fails.
 
             values.reset();
             values.push_back(val);
 
-            if (!val.is_rational()) {
+            if (!val.get_infinity().is_zero()) {
                 break;
             }
  
@@ -90,7 +86,7 @@ namespace opt {
         if (is_sat == l_undef) {
             return is_sat;
         }
-        SASSERT(is_sat == l_false); // NSB review: not really water-tight with cancellation and with infinitesimal solutions.
+        //SASSERT(is_sat == l_false); // NSB review: not really water-tight with cancellation and with infinitesimal solutions.
         return l_true;
     }
 
@@ -101,7 +97,7 @@ namespace opt {
     
     lbool optimize_objectives(opt_solver& s, 
                           app_ref_vector& objectives, svector<bool> const& is_max,
-                          vector<inf_eps_rational<rational> >& values) {
+                          vector<inf_eps_rational<inf_rational> >& values) {
         return mathsat_style_opt(s, objectives, is_max, values);
     }
 }

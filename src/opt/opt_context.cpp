@@ -68,7 +68,7 @@ namespace opt {
         }
 
         if (!m_objectives.empty()) {
-            vector<inf_eps_rational<rational> > values;
+            vector<inf_eps_rational<inf_rational> > values;
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
@@ -76,6 +76,7 @@ namespace opt {
             // if (!instsanceof ...) { throw ... invalid usage ..} 
             is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, m_is_max, values);
             std::cout << "is-sat: " << is_sat << "\n";
+
             if (is_sat != l_true) {
                 return;
             }
