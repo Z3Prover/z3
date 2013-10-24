@@ -397,33 +397,54 @@ namespace smt {
         // Denote costs c_ij on edge (i, j)
         vector<rational> m_costs;
         // Denote supply/demand b_i on node i
-        vector<rational> m_capacities;
+        vector<rational> m_potentials;
 
         // Keep optimal solution of the min cost flow problem
         inf_rational m_objective;
 
+        // Data structure of spanning trees
+        svector<dl_var> m_pred;
+        svector<int> m_depth;
+        svector<dl_var> m_thread;
+
     public:
-        // Create a spanning tree using Kruskal algorithm
-        virtual svector<edge_id> & create_spanning_tree();
+        // Initialize the network with a feasible spanning tree
+        virtual void initialize();
+
+        virtual void compute_potentials();
+
+        virtual void compute_flows();
             
-        // A spanning tree is a basis in network simplex.
-        // Check whether the edges' associated costs could be reduced
-        virtual rational calculate_reduced_costs(svector<edge_id> & spanning_tree);
-
         // If all reduced costs are non-negative, the current flow is optimal
-        virtual bool is_optimal(svector<edge_id> & spanning_tree);
-
-        // Choose an edge with negative reduced cost
-        virtual edge_id choose_entering_edge();
+        // If not optimal, return a violated edge in the corresponding variable
+        virtual bool is_optimal(edge_id & violated_edge);
 
         // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
-        edge_id choose_leaving_edge();
+        virtual edge_id choose_leaving_edge();
+
+        virtual void update_tree(edge_id entering_edge, edge_id leaving_edge);
 
         virtual bool is_unbounded();
 
+        // Compute the optimal solution
+        virtual void compute_solution();
+
         // Minimize cost flows
         // Return true if found an optimal solution, and return false if unbounded
-        virtual bool minimize();
+        bool minimize() {
+            initialize();
+            compute_potentials();
+            compute_flows();
+            edge_id entering_edge;
+            while (!is_optimal(entering_edge)) {
+                edge_id leaving_edge = choose_leaving_edge();
+                update_tree(entering_edge, leaving_edge);
+
+                if (is_unbounded())
+                    return false;
+            }
+            return true;
+        }
     };
 
     /* Notes:
@@ -432,7 +453,7 @@ namespace smt {
         and another function to convert from min cost flow solution to DL solution.
 
         It remains unclear how to convert DL assignment to a basic feasible solution of Network Simplex.
-        A naive approach is to run Kruskal in order to get a spanning tree.
+        A naive approach is to run an algorithm on max flow in order to get a spanning tree.
 
         The network_simplex class hasn't had multiple pivoting strategies yet.
     */

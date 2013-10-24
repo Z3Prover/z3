@@ -1038,8 +1038,8 @@ void theory_diff_logic<Ext>::internalize_objective(app * n, objective_term & obj
     // Compile term into objective_term format
     rational r;
     if (m_util.is_numeral(n, r)) {
-	    theory_var v = mk_num(n, r);
-	    objective.push_back(std::make_pair(v, r));
+        theory_var v = mk_num(n, r);
+        objective.push_back(std::make_pair(v, r));
     }
     else if (m_util.is_add(n)) {
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
@@ -1047,22 +1047,23 @@ void theory_diff_logic<Ext>::internalize_objective(app * n, objective_term & obj
         };
     }
     else if (m_util.is_mul(n)) {
-	    SASSERT(n->get_num_args() == 2);
-	    rational r;
-	    app * lhs = to_app(n->get_arg(0));
-	    app * rhs = to_app(n->get_arg(1));
-	    SASSERT(m_util.is_numeral(lhs, r) || m_util.is_numeral(rhs, r));
+        SASSERT(n->get_num_args() == 2);
+        rational r;
+        app * lhs = to_app(n->get_arg(0));
+        app * rhs = to_app(n->get_arg(1));
+        SASSERT(m_util.is_numeral(lhs, r) || m_util.is_numeral(rhs, r));
 
         if (!m_util.is_numeral(lhs, r))
-		    std::swap(lhs, rhs);
-	    m_util.is_numeral(lhs, r);
-	    theory_var v = mk_var(rhs);
-	    objective.push_back(std::make_pair(v, r));
+	        std::swap(lhs, rhs);
+
+        m_util.is_numeral(lhs, r);
+        theory_var v = mk_var(rhs);
+        objective.push_back(std::make_pair(v, r));
     }
     else {
-	    theory_var v = mk_var(n);
-	    rational r(1);
-	    objective.push_back(std::make_pair(v, r));
+        theory_var v = mk_var(n);
+        rational r(1);
+        objective.push_back(std::make_pair(v, r));
     }
 }
 
