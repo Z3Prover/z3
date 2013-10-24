@@ -1290,13 +1290,13 @@ namespace sat {
     bool solver::resolve_conflict() {
         while (true) {
             bool r = resolve_conflict_core();
+            CASSERT("sat_check_marks", check_marks());
             // after pop, clauses are reinitialized, this may trigger another conflict.
             if (!r) 
                 return false;
             if (!inconsistent())
                 return true;
         }
-        CASSERT("sat_check_marks", check_marks());
     }
 
     bool solver::resolve_conflict_core() {
@@ -1323,7 +1323,7 @@ namespace sat {
             TRACE("sat_conflict", tout << "not_l: " << m_not_l << "\n";);
             process_antecedent(m_not_l, num_marks);
         }
-        
+
         literal consequent = m_not_l;
         justification js   = m_conflict;
         
@@ -1399,6 +1399,8 @@ namespace sat {
                 dyn_sub_res();
             TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
         }
+        else
+            reset_lemma_var_marks();
         
         literal_vector::iterator it  = m_lemma.begin();
         literal_vector::iterator end = m_lemma.end();
