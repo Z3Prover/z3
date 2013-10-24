@@ -306,7 +306,11 @@ namespace smt {
         virtual bool maximize(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
-        inf_rational m_objective;      
+
+        typedef vector <std::pair<theory_var, rational> > objective_term;
+        vector<objective_term> m_objectives;
+
+        void internalize_objective(app * n, objective_term & objective);
 
     private:        
 

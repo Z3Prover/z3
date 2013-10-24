@@ -998,20 +998,72 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::maximize(theory_var v) {
+    IF_VERBOSE(1,
+                objective_term objective = m_objectives[v];
+                for (unsigned i = 0; i < objective.size(); ++i) {
+	                verbose_stream() << "coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
+                }
+                verbose_stream() << "\n";);
     NOT_IMPLEMENTED_YET();
     return false;
 }
 
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::add_objective(app* term) {
-    // Internalizing may not succeed since objective can be LRA
-    return null_theory_var; 
+    objective_term objective;
+    internalize_objective(term, objective);
+    m_objectives.push_back(objective);
+    return m_objectives.size()-1; 
 }
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theory_var v) { 
-    inf_eps_rational<inf_rational> val(m_objective);     
+	inf_rational objective;
+    inf_eps_rational<inf_rational> val(objective);     
     return val; 
+}
+
+template<typename Ext>
+void theory_diff_logic<Ext>::internalize_objective(app * n, objective_term & objective) {
+    // TODO: Need some simplification on n to ensure no bad case 
+    SASSERT(!m_util.is_div(n));
+    SASSERT(!m_util.is_idiv(n));
+    SASSERT(!m_util.is_mod(n));
+    SASSERT(!m_util.is_rem(n));
+    SASSERT(!m_util.is_to_real(n));
+    SASSERT(!m_util.is_to_int(n));
+    SASSERT(!m_util.is_power(n));
+    SASSERT(!m_util.is_irrational_algebraic_numeral(n));
+
+    // Compile term into objective_term format
+    rational r;
+    if (m_util.is_numeral(n, r)) {
+	    theory_var v = mk_num(n, r);
+	    objective.push_back(std::make_pair(v, r));
+    }
+    else if (m_util.is_add(n)) {
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            internalize_objective(to_app(n->get_arg(i)), objective);
+        };
+    }
+    else if (m_util.is_mul(n)) {
+	    SASSERT(n->get_num_args() == 2);
+	    rational r;
+	    app * lhs = to_app(n->get_arg(0));
+	    app * rhs = to_app(n->get_arg(1));
+	    SASSERT(m_util.is_numeral(lhs, r) || m_util.is_numeral(rhs, r));
+
+        if (!m_util.is_numeral(lhs, r))
+		    std::swap(lhs, rhs);
+	    m_util.is_numeral(lhs, r);
+	    theory_var v = mk_var(rhs);
+	    objective.push_back(std::make_pair(v, r));
+    }
+    else {
+	    theory_var v = mk_var(n);
+	    rational r(1);
+	    objective.push_back(std::make_pair(v, r));
+    }
 }
 
 #endif /* _THEORY_DIFF_LOGIC_DEF_H_ */
