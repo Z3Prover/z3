@@ -976,6 +976,13 @@ namespace smt {
     }
 
     template<typename Ext>
+    bool theory_arith<Ext>::maximize(theory_var v) {
+        bool r = max_min(v, true); 
+        return r || at_upper(v);
+    }
+
+
+    template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
         inf_eps_rational<inf_rational> val(m_objective);     
         return val; 
