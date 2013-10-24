@@ -912,6 +912,16 @@ namespace smt {
        
        If no x_i imposes a restriction on x_j, then return null_theory_var.
        That is, x_j is free to move to its upper bound (lower bound).
+
+       Get the equations for x_j:
+
+       x_i1 = coeff_1 * x_j + rest_1
+       ...
+       x_in = coeff_n * x_j + rest_n
+
+       gain_k := (upper_bound(x_ik) - value(x_ik))/coeff_k
+
+
     */
     template<typename Ext>
     theory_var theory_arith<Ext>::pick_var_to_leave(theory_var x_j, bool inc, numeral & a_ij, inf_numeral & gain) {
@@ -939,10 +949,15 @@ namespace smt {
                             x_i  = s;
                             a_ij = coeff;
                             gain = curr_gain;
+                            TRACE("maximize", 
+                                  tout << "x_i: v" << x_i << ", gain: " << gain << "\n";
+                                  tout << "value(s): (" << get_value(s) << " - " << b->get_value() << ")/" << coeff << "\n";
+                                  display_row(tout, r, true);
+                                  );
                         }
                     }
                 }
-                TRACE("maximize", tout << "x_j: v" << x_i << ", gain: " << gain << "\n";);
+                TRACE("maximize", tout << "x_i: v" << x_i << ", gain: " << gain << "\n";);
             }
         }
         TRACE("maximize", tout << "x_i v" << x_i << "\n";);
@@ -982,7 +997,7 @@ namespace smt {
         theory_var x_j = null_theory_var;
         bool inc       = false;
         numeral a_ij, curr_a_ij, coeff, curr_coeff;
-        inf_numeral curr_gain, gain;
+        inf_numeral gain, curr_gain;
 #ifdef _TRACE
         unsigned i = 0;
 #endif
@@ -1071,19 +1086,45 @@ namespace smt {
                 continue;
             }
 
-            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";);
+            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
+                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
+                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
+                  tout << "value x_i: " << get_value(x_i) << "\n";
+                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
+                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
+                  tout << "value x_j: " << get_value(x_j) << "\n";
+                  );
+            pivot<true>(x_i, x_j, a_ij, false);
+
+            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
+                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
+                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
+                  tout << "value x_i: " << get_value(x_i) << "\n";
+                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
+                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
+                  tout << "value x_j: " << get_value(x_j) << "\n";
+
+                  );
+
+            SASSERT(is_non_base(x_i));
+            SASSERT(is_base(x_j));
+
             bool move_xi_to_lower;
             if (inc) 
                 move_xi_to_lower = a_ij.is_pos();
             else
                 move_xi_to_lower = a_ij.is_neg();
-            pivot<true>(x_i, x_j, a_ij, false);
-            SASSERT(is_non_base(x_i));
-            SASSERT(is_base(x_j));
-            if (move_xi_to_lower)
-                update_value(x_i, lower_bound(x_i) - get_value(x_i));
-            else
-                update_value(x_i, upper_bound(x_i) - get_value(x_i));
+            move_to_bound(x_i, move_xi_to_lower);
+
+            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
+                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
+                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
+                  tout << "value x_i: " << get_value(x_i) << "\n";
+                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
+                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
+                  tout << "value x_j: " << get_value(x_j) << "\n";
+                  );
+
             row & r2 = m_rows[get_var_row(x_j)];
             coeff.neg();
             add_tmp_row(r, coeff, r2);
@@ -1091,6 +1132,65 @@ namespace smt {
             SASSERT(valid_row_assignment());
             SASSERT(satisfy_bounds());
         }
+    }
+
+    /**
+       Move the variable x_i maximally towards its bound as long as 
+       bounds of other variables are not violated.
+    */
+
+    template<typename Ext>
+    void theory_arith<Ext>::move_to_bound(theory_var x_i, bool move_to_lower) {
+        inf_numeral delta, delta_abs;
+
+        if (move_to_lower) {
+            delta = lower_bound(x_i) - get_value(x_i);
+            SASSERT(!delta.is_pos());
+        }
+        else {
+            delta = upper_bound(x_i) - get_value(x_i);
+            SASSERT(!delta.is_neg());
+        }
+
+        TRACE("maximize", tout << "Original delta: " << delta << "\n";);
+
+        delta_abs = abs(delta);
+        //
+        // Decrease absolute value of delta according to bounds on rows where x_i is used.
+        //
+        column & c = m_columns[x_i];
+        typename svector<col_entry>::iterator it  = c.begin_entries();
+        typename svector<col_entry>::iterator end = c.end_entries();
+        for (; it != end && delta_abs.is_pos(); ++it) {
+            if (!it->is_dead()) {
+                row & r = m_rows[it->m_row_id];
+                theory_var s = r.get_base_var();
+                if (s != null_theory_var && !is_quasi_base(s)) {
+                    numeral const & coeff = r[it->m_row_idx].m_coeff;
+                    SASSERT(!coeff.is_zero());
+                    bool inc_s = coeff.is_pos() ? move_to_lower : !move_to_lower; // NSB: review this..
+                    bound * b = get_bound(s, inc_s);
+                    if (b) {
+                        inf_numeral delta2 = abs((get_value(s) - b->get_value())/coeff);
+                        if (delta2 < delta_abs) {
+                            delta_abs = delta2;
+                        }
+                    }
+                }
+            }
+        }
+
+
+        if (move_to_lower) {
+            delta = -delta_abs;
+        }
+        else {
+            delta = delta_abs;
+        }
+
+        TRACE("maximize", tout << "Safe delta: " << delta << "\n";);
+
+        update_value(x_i, delta);
     }
 
     /**
