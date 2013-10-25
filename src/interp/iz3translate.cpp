@@ -829,6 +829,42 @@ public:
     return make_int(d);
   }
 
+  ast get_bounded_variable(const ast &ineq, bool &lb){
+    ast nineq = normalize_inequality(ineq);
+    ast lhs = arg(nineq,0);
+    switch(op(lhs)){
+    case Uninterpreted: 
+      lb = false;
+      return lhs;
+    case Times:
+      if(arg(lhs,0) == make_int(rational(1)))
+	lb = false;
+      else if(arg(lhs,0) == make_int(rational(-1)))
+	lb = true;
+      else 
+	throw unsupported();
+      return arg(lhs,1);
+    default:
+      throw unsupported();
+    }
+  }
+
+  rational get_term_coefficient(const ast &t1, const ast &v){
+    ast t = arg(normalize_inequality(t1),0);
+    if(op(t) == Plus){
+      int nargs = num_args(t);
+      for(int i = 0; i < nargs; i++){
+	if(get_linear_var(arg(t,i)) == v)
+	  return get_coeff(arg(t,i));
+      }
+    }
+    else
+      if(get_linear_var(t) == v)
+	return get_coeff(t);
+    return rational(0);
+  }
+
+
   Iproof::node GCDtoDivRule(const ast &proof, bool pol, std::vector<rational> &coeffs, std::vector<Iproof::node> &prems, ast &cut_con){
     // gather the summands of the desired polarity
     std::vector<Iproof::node>  my_prems;
@@ -843,6 +879,24 @@ public:
       }
     }
     ast my_con = sum_inequalities(my_coeffs,my_prem_cons);
+
+    // handle generalized GCD test. sadly, we dont' get the coefficients...
+    if(coeffs[0].is_zero()){
+      bool lb;
+      int xtra_prem = 0;
+      ast bv = get_bounded_variable(conc(prem(proof,0)),lb);
+      rational bv_coeff = get_term_coefficient(my_con,bv);
+      if(bv_coeff.is_pos() != lb)
+	xtra_prem = 1;
+      if(bv_coeff.is_neg())
+	bv_coeff = -bv_coeff;
+
+      my_prems.push_back(prems[xtra_prem]);
+      my_coeffs.push_back(make_int(bv_coeff));
+      my_prem_cons.push_back(conc(prem(proof,xtra_prem)));
+      my_con = sum_inequalities(my_coeffs,my_prem_cons);
+    }
+
     my_con = normalize_inequality(my_con);
     Iproof::node hyp = iproof->make_hypothesis(mk_not(my_con));
     my_prems.push_back(hyp);
@@ -961,6 +1015,12 @@ public:
       else
 	lits.push_back(from_ast(con));
 
+      // special case 
+      if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST && pr(prem(proof,1)) == PR_REWRITE ) {
+	res = iproof->make_axiom(lits);
+	return res;
+      }
+
       // translate all the premises
       std::vector<Iproof::node> args(nprems);
       for(unsigned i = 0; i < nprems; i++)
@@ -1057,6 +1117,10 @@ public:
 	res = iproof->make_hypothesis(conc(proof));
 	break;
       }
+      case PR_QUANT_INST: {
+	res = iproof->make_axiom(lits);
+	break;
+      }
       default:
 	assert(0 && "translate_main: unsupported proof rule");
 	throw unsupported();
@@ -1064,6 +1128,11 @@ public:
     }
 
     return res;
+  }
+
+  void clear_translation(){
+    translation.first.clear();
+    translation.second.clear();
   }
 
   // We actually compute the interpolant here and then produce a proof consisting of just a lemma
@@ -1075,6 +1144,7 @@ public:
       ast itp = translate_main(proof);
       itps.push_back(itp);
       delete iproof;
+      clear_translation();
     }
     // Very simple proof -- lemma of the empty clause with computed interpolation
     iz3proof::node Ipf = dst.make_lemma(std::vector<ast>(),itps);  // builds result in dst

@@ -325,6 +325,13 @@ class iz3mgr  {
     return rational(1);
   }
 
+  ast get_linear_var(const ast& t){
+    rational res;
+    if(op(t) == Times && is_numeral(arg(t,0),res))
+      return arg(t,1);
+    return t;
+  }
+
   int get_quantifier_num_bound(const ast &t) {
     return to_quantifier(t.raw())->get_num_decls();
   }
