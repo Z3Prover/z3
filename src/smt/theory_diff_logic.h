@@ -38,6 +38,7 @@ Revision History:
 #include"numeral_factory.h"
 #include"smt_clause.h"
 #include"theory_opt.h"
+#include"network_flow_def.h"
 
 // The DL theory can represent term such as n + k, where n is an enode and k is a numeral.
 namespace smt {
@@ -312,6 +313,8 @@ namespace smt {
 
         void internalize_objective(app * n, objective_term & objective);
 
+        network_flow<Ext> m_network_flow;
+
     private:        
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
@@ -389,75 +392,6 @@ namespace smt {
         numeral m_epsilon;
         srdl_ext() : m_epsilon(s_integer(0),true) {}
     };
-
-    // Solve minimum cost flow problem using Network Simplex algorithm
-    class network_simplex {
-        svector<dl_var>  m_nodes;
-        svector<edge_id> m_edges;
-        // Denote costs c_ij on edge (i, j)
-        vector<rational> m_costs;
-        // Denote supply/demand b_i on node i
-        vector<rational> m_potentials;
-
-        // Keep optimal solution of the min cost flow problem
-        inf_rational m_objective;
-
-        // Data structure of spanning trees
-        svector<dl_var> m_pred;
-        svector<int> m_depth;
-        svector<dl_var> m_thread;
-
-    public:
-        // Initialize the network with a feasible spanning tree
-        virtual void initialize();
-
-        virtual void compute_potentials();
-
-        virtual void compute_flows();
-            
-        // If all reduced costs are non-negative, the current flow is optimal
-        // If not optimal, return a violated edge in the corresponding variable
-        virtual bool is_optimal(edge_id & violated_edge);
-
-        // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
-        virtual edge_id choose_leaving_edge();
-
-        virtual void update_tree(edge_id entering_edge, edge_id leaving_edge);
-
-        virtual bool is_unbounded();
-
-        // Compute the optimal solution
-        virtual void compute_solution();
-
-        // Minimize cost flows
-        // Return true if found an optimal solution, and return false if unbounded
-        bool minimize() {
-            initialize();
-            compute_potentials();
-            compute_flows();
-            edge_id entering_edge;
-            while (!is_optimal(entering_edge)) {
-                edge_id leaving_edge = choose_leaving_edge();
-                update_tree(entering_edge, leaving_edge);
-
-                if (is_unbounded())
-                    return false;
-            }
-            return true;
-        }
-    };
-
-    /* Notes:
-
-        We need a function to reduce DL constraints to min cost flow problem 
-        and another function to convert from min cost flow solution to DL solution.
-
-        It remains unclear how to convert DL assignment to a basic feasible solution of Network Simplex.
-        A naive approach is to run an algorithm on max flow in order to get a spanning tree.
-
-        The network_simplex class hasn't had multiple pivoting strategies yet.
-    */
-
 
     typedef theory_diff_logic<idl_ext>  theory_idl;
     typedef theory_diff_logic<sidl_ext> theory_fidl;
