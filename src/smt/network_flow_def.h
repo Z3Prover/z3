@@ -166,12 +166,10 @@ namespace smt {
         SASSERT(m_is_optimal);
         flows.reset();
         flows.append(m_flows);
-        numeral cost(0);
+        objective = numeral::zero();
         for (unsigned int i = 0; i < m_flows.size(); ++i) {
-            // FIXME: this * operator is not supported
-            cost += m_costs[i] * m_flows[i];
+            objective += m_costs[i] * m_flows[i];
         }
-        objective = cost;
     }
 
     // Minimize cost flows
