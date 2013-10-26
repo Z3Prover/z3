@@ -38,31 +38,30 @@ namespace smt {
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
     class network_flow : private Ext {
-        struct GExt : public Ext {
-            typedef literal explanation;
-        };
-
         typedef dl_var node;
-        typedef dl_edge<GExt> edge;
-        typedef dl_graph<GExt> graph;     
-        typedef typename Ext::numeral numeral;        
+        typedef dl_edge<Ext> edge;
+        typedef dl_graph<Ext> graph;     
+        typedef typename Ext::numeral numeral;
+        typedef typename Ext::fin_numeral fin_numeral;
         graph m_graph;
 
         // Denote supply/demand b_i on node i
         vector<numeral> m_balances;
 
+        // Duals of flows which are convenient to compute dual solutions
         vector<numeral> m_potentials;
 
         // Keep optimal solution of the min cost flow problem
-        inf_rational m_objective;
+        inf_int_rational m_objective;
+
+        // Costs on edges
+        vector<fin_numeral> const & m_costs;
 
         // Basic feasible flows
         vector<numeral> m_flows;
 
-        // Denote the spanning tree of basic edges
-        vector<edge> m_basics;
-        // Denote non-basic edges with flow 0 for uncapicitated networks
-        vector<edge> m_nonbasics;
+        // An element is true if the corresponding edge points upwards (compared to the root node)
+        svector<bool> m_upwards;
 
         // Store the parent of a node in the spanning tree
         svector<node> m_pred;
@@ -71,7 +70,12 @@ namespace smt {
         // Store the pointer to the next node in depth first search ordering
         svector<node> m_thread;
 
+        bool m_is_optimal;
+
     public:
+
+        network_flow(graph & g, vector<fin_numeral> const & costs);
+
         // Initialize the network with a feasible spanning tree
         void initialize();
 
@@ -81,13 +85,13 @@ namespace smt {
             
         // If all reduced costs are non-negative, the current flow is optimal
         // If not optimal, return a violating edge in the corresponding variable
-        bool is_optimal(edge & violating_edge);
+        bool is_optimal(edge_id & violating_edge);
 
         // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
-        edge choose_leaving_edge(const edge & entering_edge);
+        edge_id choose_leaving_edge(edge_id entering_edge);
 
-        void update_basics(const edge & entering_edge, const edge & leaving_edge);
-
+        void update_spanning_tree(edge_id entering_edge, edge_id leaving_edge);
+        
         bool is_unbounded();
 
         // Compute the optimal solution

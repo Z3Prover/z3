@@ -38,7 +38,7 @@ Revision History:
 #include"numeral_factory.h"
 #include"smt_clause.h"
 #include"theory_opt.h"
-#include"network_flow_def.h"
+#include"network_flow.h"
 
 // The DL theory can represent term such as n + k, where n is an enode and k is a numeral.
 namespace smt {
@@ -307,14 +307,13 @@ namespace smt {
         virtual bool maximize(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
+        numeral m_objective_value;
 
         typedef vector <std::pair<theory_var, rational> > objective_term;
         vector<objective_term> m_objectives;
-        vector<rational>       m_objective_vars;
+        vector<rational>       m_objective_consts;
 
-        void internalize_objective(app * n, objective_term & objective);
-
-        network_flow<Ext> m_network_flow;
+        bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 
     private:        
 
@@ -368,6 +367,7 @@ namespace smt {
         // TODO: It doesn't need to be a rational, but a bignum integer.
         static const bool m_int_theory = true;
         typedef rational numeral;
+        typedef rational fin_numeral;
         numeral     m_epsilon;
         idl_ext() : m_epsilon(1) {}
     };
@@ -376,6 +376,7 @@ namespace smt {
         // TODO: It doesn't need to be a rational, but a bignum integer.
         static const bool m_int_theory = true;
         typedef s_integer numeral;
+        typedef s_integer fin_numeral;
         numeral m_epsilon;
         sidl_ext() : m_epsilon(1) {}
     };
@@ -383,13 +384,15 @@ namespace smt {
     struct rdl_ext {
         static const bool m_int_theory = false;
         typedef inf_int_rational numeral;
-        numeral      m_epsilon;
+        typedef rational fin_numeral;
+        numeral      m_epsilon;        
         rdl_ext() : m_epsilon(rational(), true) {}
     };
 
     struct srdl_ext {
         static const bool m_int_theory = false;
         typedef inf_s_integer numeral;
+        typedef s_integer fin_numeral;
         numeral m_epsilon;
         srdl_ext() : m_epsilon(s_integer(0),true) {}
     };

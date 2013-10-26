@@ -28,6 +28,7 @@ Revision History:
 #include"ast_pp.h"
 #include"warning.h"
 #include"smt_model_generator.h"
+#include"network_flow_def.h"
 
 using namespace smt;
 
@@ -55,8 +56,6 @@ std::ostream& theory_diff_logic<Ext>::atom::display(theory_diff_logic const& th,
 template<typename Ext>
 void theory_diff_logic<Ext>::nc_functor::reset() {
     m_antecedents.reset();
-    m_objectives.reset();
-    m_objective_vars.reset();
 }
 
 
@@ -777,6 +776,8 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_agility               = 0.5;
     m_is_lia                = true;
     m_non_diff_logic_exprs  = false;
+    m_objectives      .reset();
+    m_objective_consts.reset();
     theory::reset_eh();
 }
 
@@ -1000,14 +1001,51 @@ void theory_diff_logic<Ext>::get_implied_bound_antecedents(edge_id bridge_edge, 
 
 template<typename Ext>
 bool theory_diff_logic<Ext>::maximize(theory_var v) {
+    objective_term const& objective = m_objectives[v];
+
     IF_VERBOSE(1,
-               objective_term const& objective = m_objectives[v];
                for (unsigned i = 0; i < objective.size(); ++i) {
                    verbose_stream() << "coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
                }
-               verbose_stream() << m_objective_vars[v] << "\n";);
+               verbose_stream() << m_objective_consts[v] << "\n";);
     NOT_IMPLEMENTED_YET();
-    return false;
+    // Double the number of edges in the new graph
+
+    // NSB review: what about disabled edges? They should not be added, right?
+    // For efficiency we probably want to reuse m_graph and keep extra edges on the side or add them to 
+    // m_graph as well. 
+    dl_graph<GExt> g;
+    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
+    dl_var offset = m_graph.get_num_edges();
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dl_edge<GExt> const & e = es[i];
+        if (e.is_enabled()) {
+            g.enable_edge(g.add_edge(e.get_source(), e.get_target(), e.get_weight(), e.get_explanation()));
+            g.enable_edge(g.add_edge(e.get_target() + offset, e.get_source() + offset, e.get_weight(), e.get_explanation()));
+        }
+    }
+
+    // Objective coefficients now become costs
+    vector<fin_numeral> base_costs, aux_costs;
+    for (unsigned i = 0; i < objective.size(); ++i) {
+        fin_numeral cost(objective[i].second);
+        base_costs.push_back(cost);
+        aux_costs.push_back(-cost);
+    }
+    vector<fin_numeral> costs;
+    costs.append(base_costs);
+    costs.append(aux_costs);
+    
+    network_flow<GExt> net_flow(g, costs);
+    bool is_optimal = net_flow.min_cost();
+    if (is_optimal) {
+        numeral objective_value;
+        vector<numeral> flows;
+        net_flow.get_optimal_solution(objective_value, flows);
+        m_objective_value = objective_value.get_rational();
+        // TODO: return the model of the optimal solution        
+    }
+    return is_optimal;
 }
 
 template<typename Ext>
@@ -1015,59 +1053,55 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
     objective_term objective;
     theory_var result = m_objectives.size();
     rational q(1), r(0);
-    if (!internalize_objective(term, q, r, objective)) {
-        result = null_theory_var;
+    if (internalize_objective(term, q, r, objective)) {
+        m_objectives.push_back(objective);
+        m_objective_consts.push_back(r);
     }
     else {
-        m_objectives.push_back(objective);
-        m_objective_vars.push_back(r);
+        result = null_theory_var;
     }
     return result; 
 }
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theory_var v) { 
+    NOT_IMPLEMENTED_YET();
     inf_rational objective;
     inf_eps_rational<inf_rational> val(objective);     
     return val; 
 }
 
 template<typename Ext>
-bool theory_diff_logic<Ext>::internalize_objective(app * n, rational& q, objective_term & objective) {
+bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {
 
     // Compile term into objective_term format
     rational r;
+    expr* x, *y;
     if (m_util.is_numeral(n, r)) {
         q += r;
     }
     else if (m_util.is_add(n)) {
-        for (unsigned i = 0; i < n->get_num_args(); ++i) {
-            if (!internalize_objective(to_app(n->get_arg(i)), objective)) {
+        for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+            if (!internalize_objective(to_app(n)->get_arg(i), m, q, objective)) {
                 return false;
             }
-        };
+        }
     }
-    else if (m_util.is_mul(n)) {
-        SASSERT(n->get_num_args() == 2);
-        rational r;
-        app * lhs = to_app(n->get_arg(0));
-        app * rhs = to_app(n->get_arg(1));
-        SASSERT(m_util.is_numeral(lhs, r) || m_util.is_numeral(rhs, r));
-
-        if (!m_util.is_numeral(lhs, r))
-            std::swap(lhs, rhs);
-        
-        m_util.is_numeral(lhs, r);
-        theory_var v = mk_var(rhs);
-        objective.push_back(std::make_pair(v, r));
+    else if (m_util.is_mul(n, x, y) && m_util.is_numeral(x, r)) {
+        return internalize_objective(y, m*r, q, objective);
     }
-    else if (n->get_family_id() == m_util.get_family_id()) {
+    else if (m_util.is_mul(n, y, x) && m_util.is_numeral(x, r)) {
+        return internalize_objective(y, m*r, q, objective);
+    }
+    else if (!is_app(n)) {
+        return false;
+    }
+    else if (to_app(n)->get_family_id() == m_util.get_family_id()) {
         return false;
     }
     else {
-        theory_var v = mk_var(n);
-        rational r(1);
-        objective.push_back(std::make_pair(v, r));
+        theory_var v = mk_var(to_app(n));
+        objective.push_back(std::make_pair(v, m));
     }
     return true;
 }

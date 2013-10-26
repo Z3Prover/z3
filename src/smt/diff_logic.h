@@ -932,21 +932,23 @@ public:
     }
 
     // Return true if there is an edge source --> target.
-    // If there is such edge, return it in parameter e.
-    bool get_edge(dl_var source, dl_var target, edge & e) {
+    // If there is such edge, return its edge_id in parameter id.
+    bool get_edge_id(dl_var source, dl_var target, edge_id & id) {
         edge_id_vector & edges = m_out_edges[source];
         typename edge_id_vector::iterator it  = edges.begin();
         typename edge_id_vector::iterator end = edges.end();
-        bool found = false;
         for (; it != end; ++it) {
-            edge_id e_id = *it;
-            edge & e0    = m_edges[e_id];
-            if (e0.is_enabled() && e0.get_target() == target && !found) {
-                e     = e0;
-                found = true;
+            id = *it;
+            edge & e = m_edges[id];
+            if (e.is_enabled() && e.get_target() == target) {
+                return true;
             }
         }
-        return found;
+        return false;
+    }
+
+    edges const & get_all_edges() const {
+        return m_edges;
     }
 
     template<typename Functor>
