@@ -310,6 +310,7 @@ namespace smt {
 
         typedef vector <std::pair<theory_var, rational> > objective_term;
         vector<objective_term> m_objectives;
+        vector<rational>       m_objective_vars;
 
         void internalize_objective(app * n, objective_term & objective);
 
