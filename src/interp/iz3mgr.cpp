@@ -640,3 +640,93 @@ iz3mgr::ast iz3mgr::mk_idiv(const ast& t, const ast &d){
     return mk_idiv(t,r);
   return make(Idiv,t,d);
 }
+
+
+// does variable occur in expression?
+int iz3mgr::occurs_in1(hash_map<ast,bool> &occurs_in_memo,ast var, ast e){
+  std::pair<ast,bool> foo(e,false);
+  std::pair<hash_map<ast,bool>::iterator,bool> bar = occurs_in_memo.insert(foo);
+  bool &res = bar.first->second;
+  if(bar.second){
+    if(e == var) res = true;
+    int nargs = num_args(e);
+    for(int i = 0; i < nargs; i++)
+      res |= occurs_in1(occurs_in_memo,var,arg(e,i));
+  }
+  return res;
+}
+
+int iz3mgr::occurs_in(ast var, ast e){
+  hash_map<ast,bool> memo;
+  return occurs_in1(memo,var,e);
+}
+
+
+// find a controlling equality for a given variable v in a term
+// a controlling equality is of the form v = t, which, being
+// false would force the formula to have the specifid truth value
+// returns t, or null if no such
+
+iz3mgr::ast iz3mgr::cont_eq(hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e){
+  if(is_not(e)) return cont_eq(cont_eq_memo, !truth,v,arg(e,0));
+  if(cont_eq_memo.find(e) != cont_eq_memo.end())
+    return ast();
+  cont_eq_memo.insert(e);
+  if(!truth && op(e) == Equal){
+    if(arg(e,0) == v) return(arg(e,1));
+    if(arg(e,1) == v) return(arg(e,0));
+  }
+  if((!truth && op(e) == And) || (truth && op(e) == Or)){
+    int nargs = num_args(e);
+    for(int i = 0; i < nargs; i++){
+      ast res = cont_eq(cont_eq_memo, truth, v, arg(e,i));
+      if(!res.null()) return res;
+    }
+  }
+  if(truth && op(e) == Implies){
+    ast res = cont_eq(cont_eq_memo, !truth, v, arg(e,0));
+    if(!res.null()) return res;
+    res = cont_eq(cont_eq_memo, truth, v, arg(e,1));
+    if(!res.null()) return res;
+  }
+  return ast();
+}
+
+  // substitute a term t for unbound occurrences of variable v in e
+  
+iz3mgr::ast iz3mgr::subst(hash_map<ast,ast> &subst_memo, ast var, ast t, ast e){
+  if(e == var) return t;
+  std::pair<ast,ast> foo(e,ast());
+  std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
+  ast &res = bar.first->second;
+  if(bar.second){
+    int nargs = num_args(e);
+    std::vector<ast> args(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = subst(subst_memo,var,t,arg(e,i));
+    opr f = op(e);
+    if(f == Equal && args[0] == args[1]) res = mk_true();
+    else res = clone(e,args);
+  }
+  return res;
+}
+
+iz3mgr::ast iz3mgr::subst(ast var, ast t, ast e){
+  hash_map<ast,ast> memo;
+  return subst(memo,var,t,e);
+}
+
+  // apply a quantifier to a formula, with some optimizations
+  // 1) bound variable does not occur -> no quantifier
+  // 2) bound variable must be equal to some term -> substitute
+
+iz3mgr::ast iz3mgr::apply_quant(opr quantifier, ast var, ast e){
+  if(!occurs_in(var,e))return e;
+  hash_set<ast> cont_eq_memo; 
+  ast cterm = cont_eq(cont_eq_memo, quantifier == Forall, var, e);
+  if(!cterm.null()){
+    return subst(var,cterm,e);
+  }
+  std::vector<ast> bvs; bvs.push_back(var);
+  return make_quant(quantifier,bvs,e);
+}

@@ -1141,7 +1141,8 @@ public:
     std::vector<ast> itps;
     for(int i = 0; i < frames -1; i++){
       iproof = iz3proof_itp::create(this,range_downward(i),weak_mode());
-      ast itp = translate_main(proof);
+      Iproof::node ipf = translate_main(proof);
+      ast itp = iproof->interpolate(ipf);
       itps.push_back(itp);
       delete iproof;
       clear_translation();

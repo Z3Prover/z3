@@ -2056,10 +2056,25 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return new_var;
   }
 
+  ast add_quants(ast e){
+    for(int i = localization_vars.size() - 1; i >= 0; i--){
+      LocVar &lv = localization_vars[i];
+      opr quantifier = (pv->in_range(lv.frame,rng)) ? Exists : Forall; 
+      e = apply_quant(quantifier,lv.var,e);
+    }
+    return e;
+  }
+
   node make_resolution(ast pivot, node premise1, node premise2) {
     std::vector<ast> lits;
     return make_resolution(pivot,lits,premise1,premise2);
   }  
+
+  /* Return an interpolant from a proof of false */
+  ast interpolate(const node &pf){
+    // proof of false must be a formula, with quantified symbols
+    return add_quants(pf);
+  }
 
   ast resolve_with_quantifier(const ast &pivot1, const ast &conj1,
 			      const ast &pivot2, const ast &conj2){

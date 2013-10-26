@@ -407,6 +407,10 @@ extern "C" {
 	cnsts_vec[i] = a;
       }
       Z3_ast tree = parents_vector_to_tree(ctx,num,cnsts,parents);
+      for(int i = 0; i < num_theory; i++){
+	expr *a = to_expr(theory[i]);
+	cnsts_vec.push_back(a);
+      }
       iz3pp(mk_c(ctx)->m(),cnsts_vec,to_expr(tree),f);
       Z3_dec_ref(ctx,tree);
     }

@@ -219,11 +219,8 @@ public:
   AstToAst localization_map;                // maps terms to their localization vars
 
   typedef hash_map<ast,bool> AstToBool;
-  AstToBool occurs_in_memo;                // memo of occurs_in function
 
-  AstHashSet cont_eq_memo;                // memo of cont_eq function
 
-  AstToAst subst_memo;                    // memo of subst function
 
   iz3secondary *secondary;                // the secondary prover
 
@@ -613,83 +610,6 @@ public:
     }    
   }
 
-  // does variable occur in expression?
-  int occurs_in1(ast var, ast e){
-    std::pair<ast,bool> foo(e,false);
-    std::pair<AstToBool::iterator,bool> bar = occurs_in_memo.insert(foo);
-    bool &res = bar.first->second;
-    if(bar.second){
-      if(e == var) res = true;
-      int nargs = num_args(e);
-      for(int i = 0; i < nargs; i++)
-	res |= occurs_in1(var,arg(e,i));
-    }
-    return res;
-  }
-
-  int occurs_in(ast var, ast e){
-    occurs_in_memo.clear();
-    return occurs_in1(var,e);
-  }
-  
-  // find a controlling equality for a given variable v in a term
-  // a controlling equality is of the form v = t, which, being
-  // false would force the formula to have the specifid truth value
-  // returns t, or null if no such
-
-  ast cont_eq(bool truth, ast v, ast e){
-    if(is_not(e)) return cont_eq(!truth,v,arg(e,0));
-    if(cont_eq_memo.find(e) != cont_eq_memo.end())
-      return ast();
-    cont_eq_memo.insert(e);
-    if(!truth && op(e) == Equal){
-      if(arg(e,0) == v) return(arg(e,1));
-      if(arg(e,1) == v) return(arg(e,0));
-    }
-    if((!truth && op(e) == And) || (truth && op(e) == Or)){
-      int nargs = num_args(e);
-      for(int i = 0; i < nargs; i++){
-	ast res = cont_eq(truth, v, arg(e,i));
-	if(!res.null()) return res;
-      }
-    }
-    return ast();
-  }
-
-  // substitute a term t for unbound occurrences of variable v in e
-  
-  ast subst(ast var, ast t, ast e){
-    if(e == var) return t;
-    std::pair<ast,ast> foo(e,ast());
-    std::pair<AstToAst::iterator,bool> bar = subst_memo.insert(foo);
-    ast &res = bar.first->second;
-    if(bar.second){
-      int nargs = num_args(e);
-      std::vector<ast> args(nargs);
-      for(int i = 0; i < nargs; i++)
-	args[i] = subst(var,t,arg(e,i));
-      opr f = op(e);
-      if(f == Equal && args[0] == args[1]) res = mk_true();
-      else res = clone(e,args);
-    }
-    return res;
-  }
-
-  // apply a quantifier to a formula, with some optimizations
-  // 1) bound variable does not occur -> no quantifier
-  // 2) bound variable must be equal to some term -> substitute
-
-  ast apply_quant(opr quantifier, ast var, ast e){
-    if(!occurs_in(var,e))return e;
-    cont_eq_memo.clear();
-    ast cterm = cont_eq(quantifier == Forall, var, e);
-    if(!cterm.null()){
-      subst_memo.clear();
-      return subst(var,cterm,e);
-    }
-    std::vector<ast> bvs; bvs.push_back(var);
-    return make_quant(quantifier,bvs,e);
-  }
 
   // add quantifiers over the localization vars
   // to an interpolant for frames lo-hi

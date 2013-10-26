@@ -612,6 +612,20 @@ class iz3mgr  {
 
   z3pf conc(const z3pf &t){return arg(t,num_prems(t));}
   
+
+  /* quantifier handling */
+
+  // substitute a term t for unbound occurrences of variable v in e
+  
+  ast subst(ast var, ast t, ast e);
+
+  // apply a quantifier to a formula, with some optimizations
+  // 1) bound variable does not occur -> no quantifier
+  // 2) bound variable must be equal to some term -> substitute
+
+  ast apply_quant(opr quantifier, ast var, ast e);
+
+
   /** For debugging */
   void show(ast);
 
@@ -662,6 +676,11 @@ class iz3mgr  {
   ast mki(family_id fid, decl_kind sk, int n, raw_ast **args);
   ast make(opr op, int n, raw_ast **args);
   ast make(symb sym, int n, raw_ast **args);
+  int occurs_in1(stl_ext::hash_map<ast,bool> &occurs_in_memo, ast var, ast e);
+  int occurs_in(ast var, ast e);
+  ast cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e);
+  ast subst(stl_ext::hash_map<ast,ast> &subst_memo, ast var, ast t, ast e);
+
 
   family_id                  m_basic_fid;
   family_id                  m_array_fid;

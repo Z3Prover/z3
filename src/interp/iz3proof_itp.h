@@ -118,6 +118,9 @@ class iz3proof_itp : public iz3mgr {
      is an affine term divisble by d and c is an integer constant */
   virtual node make_cut_rule(const ast &tleqc, const ast &d, const ast &con, const ast &prem) = 0;
 
+  /* Return an interpolant from a proof of false */
+  virtual ast interpolate(const node &pf) = 0;
+
   /** Create proof object to construct an interpolant. */
   static iz3proof_itp *create(prover *p, const prover::range &r, bool _weak);
 
