@@ -1005,7 +1005,37 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
                 }
                 verbose_stream() << "\n";);
     NOT_IMPLEMENTED_YET();
-    return false;
+    // Double the number of edges in the new graph
+    dl_graph<GExt> g;
+    vector<dl_edge<GExt>> es = m_graph.get_all_edges();
+    dl_var offset = m_graph.get_num_edges();
+    for (unsigned i = 0; i < es.size(); ++i) {
+        dl_edge<GExt> e(es[i]);
+        g.enable_edge(g.add_edge(e));
+        g.enable_edge(g.add_edge(e.get_target() + offset, e.get_source() + offset, e.get_weight(), e.get_explanation()));
+    }
+
+    // Objective coefficients now become costs
+    vector<numeral> base_costs, aux_costs;
+    for (unsigned i = 0; i < m_objectives[v].size(); ++i) {
+        numeral cost(m_objectives[v][i].second);
+        base_costs.push_back(cost);
+        aux_costs.push_back(-cost);
+    }
+    vector<numeral> costs;
+    costs.append(base_costs);
+    costs.append(aux_costs);
+    
+    network_flow<GExt> net_flow(g, costs);
+    bool is_optimal = net_flow.min_cost();
+    if (is_optimal) {
+        numeral objective_value;
+        vector<numeral> flows;
+        net_flow.get_optimal_solution(objective_value, flows);
+        m_objective_value = objective_value.get_rational();
+        // TODO: return the model of the optimal solution        
+    }
+    return is_optimal;
 }
 
 template<typename Ext>
@@ -1018,6 +1048,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theory_var v) { 
+    NOT_IMPLEMENTED_YET();
 	inf_rational objective;
     inf_eps_rational<inf_rational> val(objective);     
     return val; 
