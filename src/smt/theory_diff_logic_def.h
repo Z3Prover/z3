@@ -1010,8 +1010,8 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
     vector<dl_edge<GExt>> es = m_graph.get_all_edges();
     dl_var offset = m_graph.get_num_edges();
     for (unsigned i = 0; i < es.size(); ++i) {
-        dl_edge<GExt> e(es[i]);
-        g.enable_edge(g.add_edge(e));
+        dl_edge<GExt> & e = es[i];
+        g.enable_edge(g.add_edge(e.get_source(), e.get_target(), e.get_weight(), e.get_explanation()));
         g.enable_edge(g.add_edge(e.get_target() + offset, e.get_source() + offset, e.get_weight(), e.get_explanation()));
     }
 
