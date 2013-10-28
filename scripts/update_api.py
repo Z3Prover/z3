@@ -1211,9 +1211,11 @@ def mk_ml():
             ml_i.write(')')
         ml_native.write('\n')
         ml_i.write('\n')
-        ml_native.write('      = "n_%s"\n' % ml_method_name(name))
         if len(ip) > 5:
-            ml_native.write('        "n_%s_bytecode"\n' % ml_method_name(name))
+            ml_native.write('      = "n_%s_bytecode"\n' % ml_method_name(name))
+            ml_native.write('        "n_%s"\n' % ml_method_name(name))
+        else:
+            ml_native.write('      = "n_%s"\n' % ml_method_name(name))
         ml_native.write('\n')
     ml_native.write('  end\n\n')
     ml_i.write('\n(**/**)\n');
