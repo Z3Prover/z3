@@ -1015,7 +1015,7 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
     for (unsigned i = 0; i < objective.size(); ++i) {
         fin_numeral balance(objective[i].second);
         balances[objective[i].first] = balance;
-    }
+    }    
     
     network_flow<GExt> net_flow(m_graph, balances);
     bool is_optimal = net_flow.min_cost();

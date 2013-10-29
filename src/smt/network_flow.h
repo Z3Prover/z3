@@ -47,7 +47,7 @@ namespace smt {
         typedef dl_graph<Ext> graph;     
         typedef typename Ext::numeral numeral;
         typedef typename Ext::fin_numeral fin_numeral;
-        graph & m_graph;
+        graph m_graph;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;
@@ -84,6 +84,9 @@ namespace smt {
 
         // Initialize the network with a feasible spanning tree
         void initialize();
+
+        bool get_edge_id(dl_var source, dl_var target, edge_id & id);
+
 
         void update_potentials();
 
