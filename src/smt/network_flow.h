@@ -38,6 +38,10 @@ namespace smt {
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
     class network_flow : private Ext {
+        enum edge_state {
+            NON_BASIS = 0,
+            BASIS = 1
+        };
         typedef dl_var node;
         typedef dl_edge<Ext> edge;
         typedef dl_graph<Ext> graph;     
@@ -46,56 +50,66 @@ namespace smt {
         graph m_graph;
 
         // Denote supply/demand b_i on node i
-        vector<numeral> m_balances;
+        vector<fin_numeral> m_balances;
 
         // Duals of flows which are convenient to compute dual solutions
         vector<numeral> m_potentials;
 
         // Keep optimal solution of the min cost flow problem
-        inf_int_rational m_objective;
+        numeral m_objective_value;
 
         // Costs on edges
-        vector<fin_numeral> const & m_costs;
+        vector<fin_numeral> m_costs;
 
         // Basic feasible flows
         vector<numeral> m_flows;
+        
+        svector<edge_state> m_states;
 
         // An element is true if the corresponding edge points upwards (compared to the root node)
         svector<bool> m_upwards;
 
-        // Store the parent of a node in the spanning tree
+        // Store the parent of a node i in the spanning tree
         svector<node> m_pred;
-        // Store the number of edge on the path to the root
+        // Store the number of edge on the path from node i to the root
         svector<int> m_depth;
-        // Store the pointer to the next node in depth first search ordering
+        // Store the pointer from node i to the next node in depth first search ordering
         svector<node> m_thread;
+        // Reverse orders of m_thread
+        svector<node> m_rev_thread;
+        // Store a final node of the sub tree rooted at node i
+        svector<node> m_final;
+        // Number of nodes in the sub tree rooted at node i
+        svector<int> m_num_node;
 
-        bool m_is_optimal;
+        edge_id m_entering_edge;
+        edge_id m_leaving_edge;
+        node m_join_node;
+        numeral m_delta;
 
     public:
 
-        network_flow(graph & g, vector<fin_numeral> const & costs);
+        network_flow(graph & g, vector<fin_numeral> const & balances);
 
         // Initialize the network with a feasible spanning tree
         void initialize();
 
-        void compute_potentials();
+        void update_potentials();
 
-        void compute_flows();
+        void update_flows();
             
-        // If all reduced costs are non-negative, the current flow is optimal
-        // If not optimal, return a violating edge in the corresponding variable
-        bool is_optimal(edge_id & violating_edge);
+        // If all reduced costs are non-negative, return false since the current spanning tree is optimal
+        // Otherwise return true and update m_entering_edge
+        bool choose_entering_edge();
 
         // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
-        edge_id choose_leaving_edge(edge_id entering_edge);
+        // Return false if the problem is unbounded
+        bool choose_leaving_edge();
 
-        void update_spanning_tree(edge_id entering_edge, edge_id leaving_edge);
+        void update_spanning_tree();
         
-        bool is_unbounded();
-
         // Compute the optimal solution
-        void get_optimal_solution(numeral & objective, vector<numeral> & flows);
+        numeral get_optimal_solution(vector<numeral> & result, bool is_dual);
 
         // Minimize cost flows
         // Return true if found an optimal solution, and return false if unbounded

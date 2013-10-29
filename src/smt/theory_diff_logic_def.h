@@ -1016,34 +1016,26 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
     // m_graph as well. 
     dl_graph<GExt> g;
     vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
-    dl_var offset = m_graph.get_num_edges();
     for (unsigned i = 0; i < es.size(); ++i) {
         dl_edge<GExt> const & e = es[i];
         if (e.is_enabled()) {
             g.enable_edge(g.add_edge(e.get_source(), e.get_target(), e.get_weight(), e.get_explanation()));
-            g.enable_edge(g.add_edge(e.get_target() + offset, e.get_source() + offset, e.get_weight(), e.get_explanation()));
         }
     }
 
-    // Objective coefficients now become costs
-    vector<fin_numeral> base_costs, aux_costs;
+    // Objective coefficients now become balances
+    vector<fin_numeral> balances;
     for (unsigned i = 0; i < objective.size(); ++i) {
-        fin_numeral cost(objective[i].second);
-        base_costs.push_back(cost);
-        aux_costs.push_back(-cost);
+        fin_numeral balance(objective[i].second);
+        balances.push_back(balance);
     }
-    vector<fin_numeral> costs;
-    costs.append(base_costs);
-    costs.append(aux_costs);
     
-    network_flow<GExt> net_flow(g, costs);
+    network_flow<GExt> net_flow(g, balances);
     bool is_optimal = net_flow.min_cost();
     if (is_optimal) {
-        numeral objective_value;
-        vector<numeral> flows;
-        net_flow.get_optimal_solution(objective_value, flows);
-        m_objective_value = objective_value.get_rational();
-        // TODO: return the model of the optimal solution        
+        vector<numeral> potentials;
+        m_objective_value = net_flow.get_optimal_solution(potentials, true);
+        // TODO: return the model of the optimal solution from potential        
     }
     return is_optimal;
 }
