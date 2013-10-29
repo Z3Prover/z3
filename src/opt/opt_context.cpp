@@ -59,14 +59,15 @@ namespace opt {
                 is_sat = opt::fu_malik_maxsat(*s, fmls_copy);
             }
             else {
-                is_sat = weighted_maxsat(*s, fmls_copy, m_weights);
+                is_sat = weighted_maxsat(get_opt_solver(*s), fmls_copy, m_weights);
             }
             std::cout << "is-sat: " << is_sat << "\n";
             if (is_sat != l_true) {
                 return;
             }
+            std::cout << "Satisfying soft constraints\n";
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
-                std::cout << "Satisfying soft constraint: " << mk_pp(fmls_copy[i].get(), m) << "\n";
+                std::cout << mk_pp(fmls_copy[i].get(), m) << "\n";
             }            
         }
 
@@ -75,9 +76,7 @@ namespace opt {
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
-            // SASSERT(instanceof(*s, opt_solver));
-            // if (!instsanceof ...) { throw ... invalid usage ..} 
-            is_sat = optimize_objectives(dynamic_cast<opt_solver&>(*s), m_objectives, values);
+            is_sat = optimize_objectives(get_opt_solver(*s), m_objectives, values);
             std::cout << "is-sat: " << is_sat << std::endl;
 
             if (is_sat != l_true) {
@@ -106,6 +105,13 @@ namespace opt {
             }
         }
         return true;
+    }
+
+    opt_solver& context::get_opt_solver(solver& s) {
+        if (typeid(opt_solver) != typeid(s)) {
+            throw default_exception("BUG: optimization context has not been initialized correctly");
+        }
+        return dynamic_cast<opt_solver&>(s);
     }
 
     void context::cancel() {

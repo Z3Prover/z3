@@ -78,6 +78,9 @@ namespace opt {
             toggle_objective(opt_solver& s, bool new_value);
             ~toggle_objective();
         };
+
+        smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
+        
     private:
         smt::theory_opt& get_optimizer();
     };

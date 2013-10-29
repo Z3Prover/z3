@@ -30,6 +30,8 @@ Notes:
 
 namespace opt {
 
+    class opt_solver;
+
     class context {
         ast_manager& m;
         expr_ref_vector  m_hard_constraints;
@@ -69,6 +71,8 @@ namespace opt {
 
     private:
         bool is_maxsat_problem() const;
+
+        opt_solver& get_opt_solver(solver& s); 
 
     };
 

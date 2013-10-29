@@ -18,7 +18,7 @@ Notes:
 #ifndef _OPT_WEIGHTED_MAX_SAT_H_
 #define _OPT_WEIGHTED_MAX_SAT_H_
 
-#include "solver.h"
+#include "opt_solver.h"
 
 namespace opt {
     /**
@@ -27,7 +27,7 @@ namespace opt {
        that are still consistent with the solver state.
     */
     
-    lbool weighted_maxsat(solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights);
+    lbool weighted_maxsat(opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights);
 };
 
 #endif
