@@ -166,6 +166,9 @@ namespace opt {
         }
         lbool result = s.check_sat_core(0,0);
         wth->get_assignment(soft_constraints);
+        if (!soft_constraints.empty() && result == l_false) {
+            result = l_true;
+        }
         return result;
     }
 };
