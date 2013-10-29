@@ -1008,34 +1008,25 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
                    verbose_stream() << "coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
                }
                verbose_stream() << m_objective_consts[v] << "\n";);
-    NOT_IMPLEMENTED_YET();
-    // Double the number of edges in the new graph
-
-    // NSB review: what about disabled edges? They should not be added, right?
-    // For efficiency we probably want to reuse m_graph and keep extra edges on the side or add them to 
-    // m_graph as well. 
-    dl_graph<GExt> g;
-    vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
-    for (unsigned i = 0; i < es.size(); ++i) {
-        dl_edge<GExt> const & e = es[i];
-        if (e.is_enabled()) {
-            g.enable_edge(g.add_edge(e.get_source(), e.get_target(), e.get_weight(), e.get_explanation()));
-        }
-    }
 
     // Objective coefficients now become balances
-    vector<fin_numeral> balances;
+    vector<fin_numeral> balances(m_graph.get_num_nodes());
+    balances.fill(fin_numeral::zero());
     for (unsigned i = 0; i < objective.size(); ++i) {
         fin_numeral balance(objective[i].second);
-        balances.push_back(balance);
+        balances[objective[i].first] = balance;
     }
     
-    network_flow<GExt> net_flow(g, balances);
+    network_flow<GExt> net_flow(m_graph, balances);
     bool is_optimal = net_flow.min_cost();
     if (is_optimal) {
         vector<numeral> potentials;
         m_objective_value = net_flow.get_optimal_solution(potentials, true);
+        std::cout << "Objective value of " << v << ": " << m_objective_value << std::endl;
         // TODO: return the model of the optimal solution from potential        
+    } 
+    else {
+        std::cout << "Unbounded" << std::endl;
     }
     return is_optimal;
 }

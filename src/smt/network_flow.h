@@ -47,7 +47,7 @@ namespace smt {
         typedef dl_graph<Ext> graph;     
         typedef typename Ext::numeral numeral;
         typedef typename Ext::fin_numeral fin_numeral;
-        graph m_graph;
+        graph & m_graph;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;
@@ -57,10 +57,7 @@ namespace smt {
 
         // Keep optimal solution of the min cost flow problem
         numeral m_objective_value;
-
-        // Costs on edges
-        vector<fin_numeral> m_costs;
-
+        
         // Basic feasible flows
         vector<numeral> m_flows;
         
@@ -79,17 +76,11 @@ namespace smt {
         svector<node> m_rev_thread;
         // Store a final node of the sub tree rooted at node i
         svector<node> m_final;
-        // Number of nodes in the sub tree rooted at node i
-        svector<int> m_num_node;
 
         edge_id m_entering_edge;
         edge_id m_leaving_edge;
         node m_join_node;
         numeral m_delta;
-
-    public:
-
-        network_flow(graph & g, vector<fin_numeral> const & balances);
 
         // Initialize the network with a feasible spanning tree
         void initialize();
@@ -107,13 +98,21 @@ namespace smt {
         bool choose_leaving_edge();
 
         void update_spanning_tree();
-        
-        // Compute the optimal solution
-        numeral get_optimal_solution(vector<numeral> & result, bool is_dual);
 
+        std::string pp_vector(std::string const & label, svector<int> v, bool has_header = false);
+        std::string pp_vector(std::string const & label, vector<numeral> v, bool has_header = false);
+
+    public:
+
+        network_flow(graph & g, vector<fin_numeral> const & balances);        
+        
         // Minimize cost flows
         // Return true if found an optimal solution, and return false if unbounded
         bool min_cost();
+
+        // Compute the optimal solution
+        numeral get_optimal_solution(vector<numeral> & result, bool is_dual);
+
     };
 }
 
