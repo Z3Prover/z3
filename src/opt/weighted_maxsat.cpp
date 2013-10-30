@@ -216,6 +216,7 @@ namespace opt {
             ctx.register_plugin(wth);
         }
         
+        opt_solver::scoped_push _s(s);
         for (unsigned i = 0; i < soft_constraints.size(); ++i) {
             wth->assert_weighted(soft_constraints[i].get(), weights[i]);
         }

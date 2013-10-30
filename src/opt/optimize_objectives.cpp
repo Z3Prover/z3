@@ -46,17 +46,6 @@ Notes:
 
 namespace opt {
 
-    class scoped_push {
-        opt_solver& s;
-    public:
-        scoped_push(opt_solver& s):s(s) {
-            s.push();
-        }
-        ~scoped_push() {
-            s.pop(1);
-        }
-    };
-
     void optimize_objectives::set_cancel(bool f) {
         m_cancel = true;
     }
@@ -86,7 +75,7 @@ namespace opt {
             return is_sat;
         }
 
-        scoped_push _push(s);
+        opt_solver::scoped_push _push(s);
 
         opt_solver::toggle_objective _t(s, true);
 

@@ -82,6 +82,13 @@ namespace opt {
             ~toggle_objective();
         };
 
+        class scoped_push {
+            opt_solver& s;
+        public:
+            scoped_push(opt_solver& s):s(s) { s.push();  }
+            ~scoped_push() { s.pop(1); }
+        };
+
         smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
         
     private:
