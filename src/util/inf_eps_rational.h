@@ -127,6 +127,10 @@ class inf_eps_rational {
         return m_r.get_uint64();
     }
 
+    Numeral const& get_numeral() const {
+        return m_r;
+    }
+
     rational const& get_rational() const {
         return m_r.get_rational();
     }

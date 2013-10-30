@@ -307,7 +307,11 @@ namespace smt {
         virtual bool maximize(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
-        numeral m_objective_value;
+        virtual expr* block_lower_bound(theory_var v, inf_rational const& val);
+
+        // TBD: why are these public?:
+        numeral                        m_objective_value;
+
 
         typedef vector <std::pair<theory_var, rational> > objective_term;
         vector<objective_term> m_objectives;

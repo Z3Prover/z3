@@ -996,6 +996,7 @@ namespace smt {
         virtual bool maximize(theory_var v);
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
+        virtual expr* block_lower_bound(theory_var v, inf_rational const& val);
         inf_rational m_objective_value;
 
         // -----------------------------------

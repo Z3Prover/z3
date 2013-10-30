@@ -26,10 +26,26 @@ namespace opt {
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    
-    lbool optimize_objectives(opt_solver& s, 
-                              app_ref_vector& objectives, 
-                              vector<inf_eps_rational<inf_rational> >& values);
+
+    class optimize_objectives {
+        ast_manager& m;
+        opt_solver& s;
+        volatile bool m_cancel;
+    public:
+        optimize_objectives(ast_manager& m, opt_solver& s): m(m), s(s), m_cancel(false) {}
+
+        lbool operator()(app_ref_vector& objectives, vector<inf_eps>& values);
+
+        void set_cancel(bool f);
+
+    private:
+        
+        lbool basic_opt(app_ref_vector&  objectives, vector<inf_eps>& values);
+
+        void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src);
+
+    };
+
 };
 
 #endif

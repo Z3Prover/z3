@@ -965,10 +965,11 @@ namespace smt {
     }
 
     //
-    // set_objective(expr* term) internalizes the arithmetic term and creates
+    // add_objective(expr* term) internalizes the arithmetic term and creates
     // a row for it if it is not already internalized. 
     // Then return the variable corresponding to the term.
     //
+
 
     template<typename Ext>
     theory_var theory_arith<Ext>::add_objective(app* term) {
@@ -981,6 +982,20 @@ namespace smt {
         return r || at_upper(v);
     }
 
+    template<typename Ext>
+    expr* theory_arith<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+        ast_manager& m = get_manager();
+        expr* obj = get_enode(v)->get_owner();
+        expr_ref e(m);
+        e = m_util.mk_numeral(val.get_rational(), m.get_sort(obj));
+
+        if (val.get_infinitesimal().is_neg()) {
+            return m_util.mk_ge(obj, e);
+        }
+        else {
+            return m_util.mk_gt(obj, e);
+        }
+    }
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) { 

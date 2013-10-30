@@ -34,6 +34,7 @@ namespace smt {
             inf_eps_rational<inf_rational> r(rational(1), inf_rational(0)); 
             return r; 
         }
+        virtual expr* block_lower_bound(theory_var v, inf_rational const& val) { return 0; }
     };
 }
 

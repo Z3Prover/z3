@@ -33,17 +33,19 @@ Notes:
 
 namespace opt {
 
+    typedef inf_eps_rational<inf_rational> inf_eps;
+
+
     class opt_solver : public solver_na2as {
-    public:
-        typedef inf_eps_rational<inf_rational> inf_value;
     private:
         smt_params          m_params;
         smt::kernel         m_context;
+        ast_manager&        m;
         progress_callback * m_callback;
         symbol              m_logic;
         bool                m_objective_enabled;
         svector<smt::theory_var>  m_objective_vars;
-        vector<inf_value>         m_objective_values;
+        vector<inf_eps>         m_objective_values;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -69,7 +71,8 @@ namespace opt {
         smt::theory_var add_objective(app* term);
         void reset_objectives();
 
-        vector<inf_value> const& get_objective_values();
+        vector<inf_eps> const& get_objective_values();
+        expr_ref block_lower_bound(unsigned obj_index, inf_eps const& val);
         
         class toggle_objective {
             opt_solver& s;

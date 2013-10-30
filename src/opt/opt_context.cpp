@@ -76,7 +76,8 @@ namespace opt {
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
-            is_sat = optimize_objectives(get_opt_solver(*s), m_objectives, values);
+            optimize_objectives obj(m, get_opt_solver(*s)); // TBD: make an attribute
+            is_sat = obj(m_objectives, values);
             std::cout << "is-sat: " << is_sat << std::endl;
 
             if (is_sat != l_true) {

@@ -6,10 +6,11 @@
 
 namespace opt {
 
-    opt_solver::opt_solver(ast_manager & m, params_ref const & p, symbol const & l):
-        solver_na2as(m),
+    opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, symbol const & l):
+        solver_na2as(mgr),
         m_params(p),
-        m_context(m, m_params),
+        m_context(mgr, m_params),
+        m(mgr),
         m_objective_enabled(false) {
         m_logic = l;
         if (m_logic != symbol::null)
@@ -139,8 +140,20 @@ namespace opt {
         return m_objective_vars.back();
     }
     
-    vector<opt_solver::inf_value> const& opt_solver::get_objective_values() {
+    vector<inf_eps> const& opt_solver::get_objective_values() {
         return m_objective_values;
+    }
+    
+    expr_ref opt_solver::block_lower_bound(unsigned var, inf_eps const& val) {
+        if (val.get_infinity().is_pos()) {
+            return expr_ref(m.mk_false(), m);
+        }
+        else if (val.get_infinity().is_neg()) {
+            return expr_ref(m.mk_true(), m);
+        }
+        else {
+            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], val.get_numeral()), m);
+        }
     }
 
     void opt_solver::reset_objectives() {

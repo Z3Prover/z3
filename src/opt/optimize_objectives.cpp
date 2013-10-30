@@ -46,83 +46,92 @@ Notes:
 
 namespace opt {
 
+    class scoped_push {
+        opt_solver& s;
+    public:
+        scoped_push(opt_solver& s):s(s) {
+            s.push();
+        }
+        ~scoped_push() {
+            s.pop(1);
+        }
+    };
+
+    void optimize_objectives::set_cancel(bool f) {
+        m_cancel = true;
+    }
+
+    void optimize_objectives::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src) {
+        for (unsigned i = 0; i < src.size(); ++i) {
+            if (src[i] > dst[i]) {
+                dst[i] = src[i];
+            }
+        }
+    }
+
+
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool mathsat_style_opt(
-        opt_solver& s, 
-        app_ref_vector const& objectives, 
-        vector<inf_eps_rational<inf_rational> >& values) 
+    lbool optimize_objectives::basic_opt(app_ref_vector& objectives, vector<inf_eps>& values)
     {
         ast_manager& m = objectives.get_manager();
         arith_util autil(m);
 
         s.reset_objectives();
+        values.reset();
         // First check_sat call to initialize theories
         lbool is_sat = s.check_sat(0, 0);
         if (is_sat == l_false) {
             return is_sat;
         }
 
-        s.push();
+        scoped_push _push(s);
 
         opt_solver::toggle_objective _t(s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
-            s.add_objective(objectives[i]);            
+            s.add_objective(objectives[i].get());
+            values.push_back(inf_eps(rational(-1),inf_rational(0)));
         }
 
         is_sat = s.check_sat(0, 0);
+        
                 
-        while (is_sat == l_true) {
-            // Extract values for objectives
-            values.reset();
-            values.append(s.get_objective_values());
+        while (is_sat == l_true && !m_cancel) {
+            set_max(values, s.get_objective_values());
             IF_VERBOSE(1, 
                        for (unsigned i = 0; i < values.size(); ++i) {
                            verbose_stream() << values[i] << " ";
                        }
                        verbose_stream() << "\n";);
             expr_ref_vector disj(m);
-            expr_ref constraint(m), num(m);
-            for (unsigned i = 0; i < objectives.size(); ++i) {
+            expr_ref constraint(m);
 
-                if (!values[i].get_infinity().is_zero()) {
-                    continue;
-                }
-                num = autil.mk_numeral(values[i].get_rational(), m.get_sort(objectives[i]));
-                
-                SASSERT(values[i].get_infinitesimal().is_nonpos());
-                if (values[i].get_infinitesimal().is_neg()) {
-                    disj.push_back(autil.mk_ge(objectives[i], num));
-                }
-                else {
-                    disj.push_back(autil.mk_gt(objectives[i], num));
-                }
+            for (unsigned i = 0; i < objectives.size(); ++i) {
+                inf_eps const& v = values[i];
+                disj.push_back(s.block_lower_bound(i, v));
             }
             constraint = m.mk_or(disj.size(), disj.c_ptr());
             s.assert_expr(constraint);
             is_sat = s.check_sat(0, 0);
         }      
 
-        s.pop(1);
-       
-        if (is_sat == l_undef) {
-            return is_sat;
+        
+        if (m_cancel || is_sat == l_undef) {
+            return l_undef;
         }
-        return l_true;
+        return l_true;        
     }
 
     /**
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    
-    lbool optimize_objectives(opt_solver& s, 
-                          app_ref_vector& objectives, 
-                          vector<inf_eps_rational<inf_rational> >& values) {
-        return mathsat_style_opt(s, objectives, values);
+    lbool optimize_objectives::operator()(app_ref_vector& objectives, vector<inf_eps>& values) {
+        return basic_opt(objectives, values);
     }
+
 }
 
 #endif

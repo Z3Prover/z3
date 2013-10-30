@@ -1054,6 +1054,42 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theor
 }
 
 template<typename Ext>
+expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+    ast_manager& m = get_manager();
+    objective_term const& t = m_objectives[v];
+    expr_ref e(m), f(m), f2(m);
+    // hacky implementation for now.
+    if (t.size() == 1 && t[0].second.is_one()) {
+        f = get_enode(t[0].first)->get_owner();
+    }
+    else if (t.size() == 1 && t[0].second.is_minus_one()) {
+        f = m_util.mk_uminus(get_enode(t[0].first)->get_owner());
+    }
+    else if (t.size() == 2 && t[0].second.is_one() && t[1].second.is_minus_one()) {
+        f = get_enode(t[0].first)->get_owner();
+        f2 = get_enode(t[1].first)->get_owner();
+        f = m_util.mk_sub(f, f2); 
+    }
+    else if (t.size() == 2 && t[1].second.is_one() && t[0].second.is_minus_one()) {
+        f = get_enode(t[1].first)->get_owner();
+        f2 = get_enode(t[0].first)->get_owner();
+        f = m_util.mk_sub(f, f2);
+    }
+    else {
+        NOT_IMPLEMENTED_YET();
+    }
+    inf_rational new_val = val - inf_rational(m_objective_consts[v]);
+    e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
+    
+    if (new_val.get_infinitesimal().is_neg()) {
+        return m_util.mk_ge(f, e);
+    }
+    else {
+        return m_util.mk_gt(f, e);
+    }
+}
+
+template<typename Ext>
 bool theory_diff_logic<Ext>::internalize_objective(expr * n, rational const& m, rational& q, objective_term & objective) {
 
     // Compile term into objective_term format
