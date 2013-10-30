@@ -35,11 +35,8 @@ Notes:
 
 namespace smt {
 
-    template<typename T>
-    std::string pp_vector(std::string const & label, svector<T> v, bool has_header = false);
-
-    template<typename T>
-    std::string pp_vector(std::string const & label, vector<T> v, bool has_header = false);
+    template<typename TV>
+    std::string pp_vector(std::string const & label, TV v, bool has_header = false);
 
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
@@ -91,7 +88,7 @@ namespace smt {
         // Initialize the network with a feasible spanning tree
         void initialize();
 
-        bool get_edge_id(dl_var source, dl_var target, edge_id & id);
+        edge_id get_edge_id(dl_var source, dl_var target);
 
 
         void update_potentials();
