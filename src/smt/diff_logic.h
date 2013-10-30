@@ -281,6 +281,8 @@ public:
 
     unsigned get_num_edges() const { return m_edges.size(); }
 
+    unsigned get_num_nodes() const { return m_out_edges.size(); }
+
     dl_var get_source(edge_id id) const {  return m_edges[id].get_source(); }
 
     dl_var get_target(edge_id id) const {  return m_edges[id].get_target(); }
