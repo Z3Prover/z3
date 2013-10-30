@@ -24,15 +24,15 @@ Notes:
 namespace smt {
 
     class theory_weighted_maxsat : public theory {
-        app_ref_vector           m_vars;
-        expr_ref_vector          m_fmls;
+        app_ref_vector           m_vars;       // Auxiliary variables per soft clause
+        expr_ref_vector          m_fmls;       // Formulas per soft clause
         vector<rational>         m_weights;    // weights of theory variables.
         svector<theory_var>      m_costs;      // set of asserted theory variables
         svector<theory_var>      m_cost_save;  // set of asserted theory variables
         rational                 m_cost;       // current sum of asserted costs
         rational                 m_min_cost;   // current minimal cost assignment.
         u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
-        u_map<bool_var>          m_var2bool;   // theory_var -> bool_var
+        svector<bool_var>        m_var2bool;   // theory_var -> bool_var
     public:
         theory_weighted_maxsat(ast_manager& m):
             theory(m.mk_family_id("weighted_maxsat")),
@@ -80,7 +80,8 @@ namespace smt {
                 theory_var v = mk_var(x);
                 ctx.attach_th_var(x, this, v);
                 m_bool2var.insert(bv, v);
-                m_var2bool.insert(v, bv);
+                SASSERT(v == m_var2bool.size());
+                m_var2bool.push_back(bv);
             }
         }
 
@@ -130,18 +131,24 @@ namespace smt {
             return false;
         }
 
+        void reset() {
+            reset_eh();
+        }
 
         virtual void reset_eh() {
             theory::reset_eh();
             m_vars.reset();
+            m_fmls.reset();
             m_weights.reset();
             m_costs.reset();
             m_cost.reset();
-            m_min_cost.reset();
             m_cost_save.reset();
+            m_min_cost.reset();
+            m_bool2var.reset();
+            m_var2bool.reset();
         }
 
-        virtual theory * mk_fresh(context * new_ctx) { UNREACHABLE(); return 0;} // TBD
+        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_weighted_maxsat, new_ctx->get_manager()); }
         virtual bool internalize_atom(app * atom, bool gate_ctx) { return false; }
         virtual bool internalize_term(app * term) { return false; }
         virtual void new_eq_eh(theory_var v1, theory_var v2) { }
@@ -199,11 +206,16 @@ namespace opt {
         smt::context& ctx = s.get_context();                        
         smt::theory_id th_id = m.get_family_id("weighted_maxsat");
         smt::theory* th = ctx.get_theory(th_id);               
-        if (!th) {
-            th = alloc(smt::theory_weighted_maxsat, m);
-            ctx.register_plugin(th);
+        smt::theory_weighted_maxsat* wth;
+        if (th) {
+            wth = dynamic_cast<smt::theory_weighted_maxsat*>(th);
+            wth->reset();
         }
-        smt::theory_weighted_maxsat* wth = dynamic_cast<smt::theory_weighted_maxsat*>(th);
+        else {
+            wth = alloc(smt::theory_weighted_maxsat, m);
+            ctx.register_plugin(wth);
+        }
+        
         for (unsigned i = 0; i < soft_constraints.size(); ++i) {
             wth->assert_weighted(soft_constraints[i].get(), weights[i]);
         }
