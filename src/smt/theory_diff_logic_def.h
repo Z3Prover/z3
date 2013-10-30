@@ -1007,7 +1007,7 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
         for (unsigned i = 0; i < objective.size(); ++i) {
             verbose_stream() << "coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
         }
-        verbose_stream() << m_objective_consts[v] << "\n";);
+        verbose_stream() << "free coefficient " << m_objective_consts[v] << "\n";);
 
     // Objective coefficients now become balances
     vector<fin_numeral> balances(m_graph.get_num_nodes());
@@ -1024,9 +1024,9 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
         m_objective_value = net_flow.get_optimal_solution(potentials, true);
         std::cout << "Objective value of var " << v << ": " << m_objective_value << std::endl;
         // TODO: return the model of the optimal solution from potentials
-        IF_VERBOSE(1,
+        TRACE("network_flow",
             for (unsigned i = 0; i < potentials.size(); ++i) {
-                verbose_stream() << "v" << i << " -> " << potentials[i] << "\n";
+                tout << "v" << i << " -> " << potentials[i] << "\n";
             });
 
     } 

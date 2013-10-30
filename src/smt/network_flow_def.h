@@ -59,6 +59,8 @@ namespace smt {
         m_thread.resize(num_nodes);
         m_rev_thread.resize(num_nodes);
         m_final.resize(num_nodes);
+
+        m_step = 0;
     }
 
     template<typename Ext>
@@ -69,6 +71,7 @@ namespace smt {
         unsigned num_edges = m_graph.get_num_edges();
         node root = num_nodes;
         m_pred[root] = -1;
+        m_depth[root] = 0;
         m_thread[root] = 0;
         m_rev_thread[0] = root;
         m_final[root] = root - 1;
@@ -121,11 +124,12 @@ namespace smt {
                 tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
                 tout << pp_vector("Potentials", m_potentials) << pp_vector("Flows", m_flows);
             });
+        TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
     }
 
     template<typename Ext>
     edge_id network_flow<Ext>::get_edge_id(dl_var source, dl_var target) {
-        // m_upwards decides which node is the real source
+        // m_upwards[source] decides which node is the real source
         edge_id id;
         VERIFY(m_upwards[source] ? m_graph.get_edge_id(source, target, id) : m_graph.get_edge_id(target, source, id));
         return id;
@@ -137,8 +141,7 @@ namespace smt {
         node src = m_graph.get_source(m_entering_edge);
         node tgt = m_graph.get_target(m_entering_edge); 
         numeral cost = m_graph.get_weight(m_entering_edge);
-        numeral change = m_upwards[src] ? (cost - m_potentials[src] + m_potentials[tgt]) : 
-                            (-cost + m_potentials[src] - m_potentials[tgt]);
+        numeral change = m_upwards[src] ? (-cost + m_potentials[src] - m_potentials[tgt]) : (cost - m_potentials[src] + m_potentials[tgt]);
         node last = m_thread[m_final[src]];
         for (node u = src; u != last; u = m_thread[u]) {
             m_potentials[u] += change;
@@ -149,7 +152,7 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
         TRACE("network_flow", tout << "update_flows...\n";);
-        numeral val = m_state[m_entering_edge] == NON_BASIS ? numeral::zero() : m_delta;
+        numeral val = m_states[m_entering_edge] == BASIS ? numeral::zero() : m_delta;
         m_flows[m_entering_edge] += val;
         node source = m_graph.get_source(m_entering_edge);
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
@@ -160,6 +163,7 @@ namespace smt {
         for (unsigned u = target; u != m_join_node; u = m_pred[u]) {
             edge_id e_id = get_edge_id(u, m_pred[u]);
             m_flows[e_id] += m_upwards[u] ? val : -val;
+            TRACE("network_flow", tout << u << ", " << m_pred[u] << ", " << e_id << ", " << m_upwards[u] << ", " << val;);
         }
         TRACE("network_flow", tout << pp_vector("Flows", m_flows, true););
     }
@@ -217,7 +221,7 @@ namespace smt {
         // Send flows along the path from source to the ancestor
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
             edge_id e_id = get_edge_id(u, m_pred[u]);
-            numeral d = m_upwards[u] ? m_flows[e_id] : infty;
+            numeral d = m_upwards[u] ? infty : m_flows[e_id];
             if (d < m_delta) {
                 m_delta = d;
                 src = u;
@@ -250,75 +254,88 @@ namespace smt {
 
     template<typename Ext>
     void network_flow<Ext>::update_spanning_tree() {        
-        node src_in = m_graph.get_source(m_entering_edge);
-        node tgt_in = m_graph.get_target(m_entering_edge);
-        node src_out = m_graph.get_source(m_leaving_edge);
-        node tgt_out = m_graph.get_target(m_leaving_edge);
+        node p = m_graph.get_source(m_entering_edge);
+        node q = m_graph.get_target(m_entering_edge);
+        node u = m_graph.get_source(m_leaving_edge);
+        node v = m_graph.get_target(m_leaving_edge);
+
         TRACE("network_flow", { 
-            tout << "update_spanning_tree: (" << src_in << ", " << tgt_in << ") enters, (";
-            tout << src_out << ", " << tgt_out << ") leaves\n";
+            tout << "update_spanning_tree: (" << p << ", " << q << ") enters, (";
+            tout << u << ", " << v << ") leaves\n";
         });
-        node root = m_graph.get_num_nodes();
 
-        node x = m_final[src_in];
+        node x = m_final[p];
         node y = m_thread[x];
-        node z = m_final[src_out];
+        node z = m_final[q];
 
-        // Update m_pred (for nodes in the stem from tgt_in to tgt_out)
-        node u = tgt_in;
-        node last = m_pred[tgt_out];
-        node parent = src_in;
-        while (u != last) {
-            node next = m_pred[u];  
-            m_pred[u] = parent;
-            m_upwards[u] = !m_upwards[u];
-            parent = u;
-            u = next;
+        // Update m_pred (for nodes in the stem from q to v)
+        node n = q;
+        node last = m_pred[v];
+        node parent = p;
+        while (n != last) {
+            node next = m_pred[n];  
+            m_pred[n] = parent;
+            m_upwards[n] = !m_upwards[n];
+            parent = n;
+            n = next;
         }
+
+        TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
 
         // Graft T_q and T_r'
-        m_thread[x] = src_out;
+        m_thread[x] = q;
         m_thread[z] = y;
-        u = src_out;
-        while (u != m_final[src_out]) {
-            m_depth[u] += 1 + m_depth[src_in];
-            u = m_pred[u];
+        n = u;
+        last = m_final[u];
+        while (n != last) {
+            m_depth[n] += 1 + m_depth[p];
+            n = m_pred[n];
         }
 
-        node gamma = m_thread[m_final[src_in]];
-        for (node u = src_in; u != gamma; u = m_pred[u]) {
-            m_final[u] = z;
+        node gamma = m_thread[m_final[p]];        
+        n = p;
+        last = m_pred[gamma];
+        while (n != last) {
+            m_final[n] = z;
+            n = m_pred[n];
         }
+
+        TRACE("network_flow", tout << "Update T_r'\n";);
 
         // Update T_r'
-        node phi = m_thread[tgt_out];
-        node theta = m_thread[m_final[tgt_out]];
+        node phi = m_rev_thread[v];
+        node theta = m_thread[m_final[v]];
         m_thread[phi] = theta;
 
-        gamma = m_thread[m_final[tgt_out]];
-        // REVIEW: check f(u) is not in T_v
-        node delta = m_final[src_out] != m_final[tgt_out] ? m_final[src_out] : m_rev_thread[tgt_out];
-        for (node u = src_in; u != gamma; u = m_pred[u]) {
-            m_final[u] = delta;
+        gamma = m_thread[m_final[v]];
+        // REVIEW: check f(n) is not in T_v
+        node delta = m_final[u] != m_final[v] ? m_final[u] : phi;
+        n = u;
+        last = m_pred[gamma];
+        while (n != last) {
+            m_final[n] = delta;
+            n = m_pred[n];
         }
 
         // Reroot T_v at q
-        if (src_out != tgt_in) {
-            node u = m_pred[src_out];
-            m_thread[m_final[src_out]] = u;
-            last = tgt_in;            
+        if (u != q) {
+            TRACE("network_flow", tout << "Reroot T_v at q\n";);
+
+            node n = m_pred[q];
+            m_thread[m_final[q]] = n;
+            last = v;            
             node alpha1, alpha2;
             unsigned count = 0;
-            while (u != last) {
-                // Find all immediate successors of u
-                node t1 = m_thread[u];
+            while (n != last) {
+                // Find all immediate successors of n
+                node t1 = m_thread[n];
                 node t2 = m_thread[m_final[t1]];
                 node t3 = m_thread[m_final[t2]];
-                if (t1 = m_pred[u]) {
+                if (t1 = m_pred[n]) {
                     alpha1 = t2;
                     alpha2 = t3;
                 }
-                else if (t2 = m_pred[u]) {
+                else if (t2 == m_pred[n]) {
                     alpha1 = t1;
                     alpha2 = t3;
                 }
@@ -326,18 +343,18 @@ namespace smt {
                     alpha1 = t1;
                     alpha2 = t2;
                 }                
-                m_thread[u] = alpha1;
+                m_thread[n] = alpha1;
                 m_thread[m_final[alpha1]] = alpha2;
-                u = m_pred[u];
-                m_thread[m_final[alpha2]] = u;
+                n = m_pred[n];
+                m_thread[m_final[alpha2]] = n;
                 // Decrease depth of all children in the subtree
                 ++count;
-                int d = m_depth[u] - count;
-                for (node v = m_thread[u]; v != m_final[u]; v = m_thread[v]) {
-                    m_depth[v] -= d;
+                int d = m_depth[n] - count;
+                for (node m = m_thread[n]; m != m_final[n]; m = m_thread[m]) {
+                    m_depth[m] -= d;
                 }
             }
-            m_thread[m_final[alpha2]] = src_out;
+            m_thread[m_final[alpha2]] = v;
         }
 
         TRACE("network_flow", {
@@ -345,6 +362,36 @@ namespace smt {
             tout << pp_vector("Reverse Threads", m_rev_thread) << pp_vector("Last Successors", m_final);
             tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
             });
+    }
+
+    template<typename Ext>
+    std::string network_flow<Ext>::display_spanning_tree() {
+        ++m_step;;
+        std::ostringstream oss;
+        std::string prefix = "T";
+        prefix.append(std::to_string(m_step));
+        prefix.append("_");
+        unsigned root = m_graph.get_num_nodes() - 1;
+        for (unsigned i = 0; i < root; ++i) {
+            oss << prefix << i << "[shape=circle,label=\"" << prefix << i << " [" << m_potentials[i] << "]\"];\n";
+        }
+        oss << prefix << root << "[shape=doublecircle,label=\"" << prefix << root << " [" << m_potentials[root] << "]\"];\n";
+        
+        vector<edge> const & es = m_graph.get_all_edges();
+        for (unsigned i = 0; i < es.size(); ++i) {
+            edge const & e = es[i];
+            if (e.is_enabled()) {
+                oss << prefix << e.get_source() << " -> " << prefix << e.get_target();
+                if (m_states[i] == BASIS) {
+                    oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "\"];\n";
+                }
+                else {
+                    oss << "[label=\"" << m_flows[i] << "\"];\n";
+                }
+            }
+        }
+        oss << std::endl;
+        return oss.str();
     }
 
     // Minimize cost flows
@@ -355,11 +402,13 @@ namespace smt {
         while (choose_entering_edge()) {
             bool bounded = choose_leaving_edge();
             if (!bounded) return false;
+            update_flows();
             if (m_entering_edge != m_leaving_edge) {
                 m_states[m_entering_edge] = BASIS;
                 m_states[m_leaving_edge] = NON_BASIS;
                 update_spanning_tree();
-                update_potentials();
+                update_potentials();                
+                TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
             }
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);

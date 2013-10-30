@@ -85,6 +85,8 @@ namespace smt {
         node m_join_node;
         numeral m_delta;
 
+        unsigned m_step;
+
         // Initialize the network with a feasible spanning tree
         void initialize();
 
@@ -104,6 +106,8 @@ namespace smt {
         bool choose_leaving_edge();
 
         void update_spanning_tree();
+
+        std::string display_spanning_tree();
 
     public:
 
