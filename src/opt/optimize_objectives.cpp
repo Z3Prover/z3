@@ -67,28 +67,28 @@ namespace opt {
         ast_manager& m = objectives.get_manager();
         arith_util autil(m);
 
-        s.reset_objectives();
+        s->reset_objectives();
         values.reset();
         // First check_sat call to initialize theories
-        lbool is_sat = s.check_sat(0, 0);
+        lbool is_sat = s->check_sat(0, 0);
         if (is_sat == l_false) {
             return is_sat;
         }
 
-        opt_solver::scoped_push _push(s);
+        opt_solver::scoped_push _push(*s);
 
-        opt_solver::toggle_objective _t(s, true);
+        opt_solver::toggle_objective _t(*s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
-            s.add_objective(objectives[i].get());
+            s->add_objective(objectives[i].get());
             values.push_back(inf_eps(rational(-1),inf_rational(0)));
         }
 
-        is_sat = s.check_sat(0, 0);
+        is_sat = s->check_sat(0, 0);
         
                 
         while (is_sat == l_true && !m_cancel) {
-            set_max(values, s.get_objective_values());
+            set_max(values, s->get_objective_values());
             IF_VERBOSE(1, 
                        for (unsigned i = 0; i < values.size(); ++i) {
                            verbose_stream() << values[i] << " ";
@@ -99,11 +99,11 @@ namespace opt {
 
             for (unsigned i = 0; i < objectives.size(); ++i) {
                 inf_eps const& v = values[i];
-                disj.push_back(s.block_lower_bound(i, v));
+                disj.push_back(s->block_lower_bound(i, v));
             }
             constraint = m.mk_or(disj.size(), disj.c_ptr());
-            s.assert_expr(constraint);
-            is_sat = s.check_sat(0, 0);
+            s->assert_expr(constraint);
+            is_sat = s->check_sat(0, 0);
         }      
 
         
@@ -117,7 +117,8 @@ namespace opt {
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    lbool optimize_objectives::operator()(app_ref_vector& objectives, vector<inf_eps>& values) {
+    lbool optimize_objectives::operator()(opt_solver& solver, app_ref_vector& objectives, vector<inf_eps>& values) {
+        s = &solver;
         return basic_opt(objectives, values);
     }
 

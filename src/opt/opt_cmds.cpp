@@ -170,11 +170,16 @@ public:
         reset(ctx);
     }
 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+        return parametric_cmd::next_arg_kind(ctx);
+    }
+
+
     virtual void execute(cmd_context & ctx) {
         params_ref p = ctx.params().merge_default_params(ps());
         opt::context& opt = m_opt_ctx();
         opt.updt_params(p);
-        unsigned timeout   = p.get_uint("timeout", UINT_MAX);
+        unsigned timeout = p.get_uint("timeout", UINT_MAX);
 
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();

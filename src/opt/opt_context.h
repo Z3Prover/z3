@@ -27,6 +27,7 @@ Notes:
 
 #include "ast.h"
 #include "solver.h"
+#include "optimize_objectives.h"
 
 namespace opt {
 
@@ -41,7 +42,7 @@ namespace opt {
         svector<bool>    m_is_max;
         ref<solver>      m_solver;
         params_ref       m_params;
-        
+        optimize_objectives m_opt_objectives;
     public:
         context(ast_manager& m);
 

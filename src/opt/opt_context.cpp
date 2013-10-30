@@ -26,7 +26,6 @@ Notes:
 #include "opt_context.h"
 #include "fu_malik.h"
 #include "weighted_maxsat.h"
-#include "optimize_objectives.h"
 #include "ast_pp.h"
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
@@ -39,7 +38,8 @@ namespace opt {
         m(m),
         m_hard_constraints(m),
         m_soft_constraints(m),
-        m_objectives(m)
+        m_objectives(m),
+        m_opt_objectives(m)
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
@@ -83,8 +83,7 @@ namespace opt {
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
-            optimize_objectives obj(m, get_opt_solver(*s)); // TBD: make an attribute
-            is_sat = obj(m_objectives, values);
+            is_sat = m_opt_objectives(get_opt_solver(*s), m_objectives, values);
             std::cout << "is-sat: " << is_sat << std::endl;
 
             if (is_sat != l_true) {
@@ -126,12 +125,14 @@ namespace opt {
         if (m_solver) {
             m_solver->cancel();
         }
+        m_opt_objectives.set_cancel(true);
     }
 
     void context::reset_cancel() {
         if (m_solver) {
             m_solver->reset_cancel();
         }
+        m_opt_objectives.set_cancel(false);
     }
 
     void context::add_objective(app* t, bool is_max) {
