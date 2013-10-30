@@ -28,9 +28,9 @@ namespace smt {
         expr_ref_vector          m_fmls;
         vector<rational>         m_weights;    // weights of theory variables.
         svector<theory_var>      m_costs;      // set of asserted theory variables
+        svector<theory_var>      m_cost_save;  // set of asserted theory variables
         rational                 m_cost;       // current sum of asserted costs
         rational                 m_min_cost;   // current minimal cost assignment.
-        svector<theory_var>      m_assignment; // current best assignment.
         u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
         u_map<bool_var>          m_var2bool;   // theory_var -> bool_var
     public:
@@ -40,10 +40,19 @@ namespace smt {
             m_fmls(m)
         {}
 
+        /**
+           \brief return the complement of variables that are currently assigned.
+        */
         void get_assignment(expr_ref_vector& result) {
             result.reset();
-            for (unsigned i = 0; i < m_assignment.size(); ++i) {
-                result.push_back(m_fmls[m_assignment[i]].get());
+            std::sort(m_cost_save.begin(), m_cost_save.end());
+            for (unsigned i = 0, j = 0; i < m_vars.size(); ++i) {
+                if (j < m_cost_save.size() && m_cost_save[j] == i) {
+                    ++j;
+                }
+                else {
+                    result.push_back(m_fmls[i].get());
+                }
             }
         }
 
@@ -70,8 +79,8 @@ namespace smt {
                 ctx.set_enode_flag(bv, true);
                 theory_var v = mk_var(x);
                 ctx.attach_th_var(x, this, v);
-                m_bool2var.insert(bv,v);
-                m_var2bool.insert(v,bv);
+                m_bool2var.insert(bv, v);
+                m_var2bool.insert(v, bv);
             }
         }
 
@@ -86,11 +95,10 @@ namespace smt {
             m_vars.push_back(var);
             m_fmls.push_back(fml);
             m_min_cost += w;
-            // std::cout << mk_pp(var, m) << " " << w << " " << m_min_cost << "\n";
         }
 
         virtual void assign_eh(bool_var v, bool is_true) {
-            IF_VERBOSE(2, verbose_stream() << "Assign " << v << " " << is_true << "\n";);
+            IF_VERBOSE(3, verbose_stream() << "Assign " << v << " " << is_true << "\n";);
             if (is_true) {
                 context& ctx = get_context();
                 theory_var tv = m_bool2var[v];
@@ -130,7 +138,7 @@ namespace smt {
             m_costs.reset();
             m_cost.reset();
             m_min_cost.reset();
-            m_assignment.reset();
+            m_cost_save.reset();
         }
 
         virtual theory * mk_fresh(context * new_ctx) { UNREACHABLE(); return 0;} // TBD
@@ -147,7 +155,7 @@ namespace smt {
         public:
             compare_cost(theory_weighted_maxsat& t):m_th(t) {}
             bool operator() (theory_var v, theory_var w) const { 
-                return m_th.m_weights[v] < m_th.m_weights[w]; 
+                return m_th.m_weights[v] > m_th.m_weights[w]; 
             }
         };
 
@@ -168,8 +176,8 @@ namespace smt {
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             if (m_cost < m_min_cost) {
                 m_min_cost = weight;
-                m_assignment.reset();
-                m_assignment.append(m_costs);
+                m_cost_save.reset();
+                m_cost_save.append(m_costs);
             }
             return !lits.empty();
         }        
