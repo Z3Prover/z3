@@ -1,3 +1,23 @@
+/*++
+Copyright (c) 2013 Microsoft Corporation
+
+Module Name:
+
+    opt_solver.cpp
+
+Abstract:
+
+    Wraps smt::kernel as a solver for optimization
+
+Author:
+
+    Anh-Dung Phan (t-anphan) 2013-10-16
+
+Notes:
+
+    Based directly on smt_solver.
+   
+--*/
 #include"reg_decl_plugins.h"
 #include"opt_solver.h"
 #include"smt_context.h"

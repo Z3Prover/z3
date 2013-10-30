@@ -15,13 +15,8 @@ Author:
 Notes:
 
     TODO:
-    - integrate with parameters. 
-      Parameter infrastructure lets us control setttings, such as 
-      timeouts and control which backend optimization approach to 
-      use during experiments.
 
-    - Display statistics properly on exit when configured to do so.
-      Also add appropriate statistics tracking to opt::context
+    - Add appropriate statistics tracking to opt::context
 
     - Deal with push/pop (later)
 
