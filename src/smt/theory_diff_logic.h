@@ -185,7 +185,13 @@ namespace smt {
 
         arith_factory *                m_factory;
         rational                       m_delta;
-        nc_functor                     m_nc_functor;        
+        nc_functor                     m_nc_functor;   
+
+        // For optimization purpose
+        typedef vector <std::pair<theory_var, rational> > objective_term;
+        vector<objective_term>          m_objectives;
+        vector<rational>                m_objective_consts;
+        numeral                        m_objective_value;
 
         // Set a conflict due to a negative cycle.
         void set_neg_cycle_conflict();
@@ -308,14 +314,6 @@ namespace smt {
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
         virtual expr* block_lower_bound(theory_var v, inf_rational const& val);
-
-        // TBD: why are these public?:
-        numeral                        m_objective_value;
-
-
-        typedef vector <std::pair<theory_var, rational> > objective_term;
-        vector<objective_term> m_objectives;
-        vector<rational>       m_objective_consts;
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 

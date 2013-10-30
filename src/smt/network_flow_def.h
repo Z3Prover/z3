@@ -125,10 +125,10 @@ namespace smt {
             edge_id e_id;
             get_edge_id(u, v, e_id);
             if (m_upwards[u]) {
-                m_potentials[u] = m_potentials[v] + m_graph.get_weight(e_id);
+                m_potentials[u] = m_potentials[v] - m_graph.get_weight(e_id);
             }
             else {
-                m_potentials[u] = m_potentials[v] - m_graph.get_weight(e_id);
+                m_potentials[u] = m_potentials[v] + m_graph.get_weight(e_id);
             }
             u = m_thread[u];
         }
