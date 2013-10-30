@@ -1030,7 +1030,7 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
         balances.push_back(balance);
     }
     
-    network_flow<GExt> net_flow(g, balances);
+    network_flow<GExt> net_flow(m_graph, balances);
     bool is_optimal = net_flow.min_cost();
     if (is_optimal) {
         vector<numeral> potentials;

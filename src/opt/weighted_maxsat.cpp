@@ -19,20 +19,23 @@ Notes:
 #include "weighted_maxsat.h"
 #include "smt_theory.h"
 #include "smt_context.h"
+#include "ast_pp.h"
 
 namespace smt {
 
     class theory_weighted_maxsat : public theory {
-        expr_ref_vector          m_vars;
+        app_ref_vector           m_vars;
         expr_ref_vector          m_fmls;
         vector<rational>         m_weights;    // weights of theory variables.
         svector<theory_var>      m_costs;      // set of asserted theory variables
         rational                 m_cost;       // current sum of asserted costs
         rational                 m_min_cost;   // current minimal cost assignment.
         svector<theory_var>      m_assignment; // current best assignment.
+        u_map<theory_var>        m_bool2var;   // bool_var -> theory_var
+        u_map<bool_var>          m_var2bool;   // theory_var -> bool_var
     public:
         theory_weighted_maxsat(ast_manager& m):
-            theory(m.get_family_id("weighted_maxsat")),
+            theory(m.mk_family_id("weighted_maxsat")),
             m_vars(m),
             m_fmls(m)
         {}
@@ -44,37 +47,58 @@ namespace smt {
             }
         }
 
+        virtual void init_search_eh() {
+            context & ctx = get_context();
+            ast_manager& m = get_manager();
+            for (unsigned i = 0; i < m_vars.size(); ++i) {
+                app* var = m_vars[i].get();  
+                bool_var bv;
+                enode* x;
+                if (!ctx.e_internalized(var)) {
+                    x = ctx.mk_enode(var, false, true, true);
+                }
+                else {
+                    x = ctx.get_enode(var);
+                }
+                if (ctx.b_internalized(var)) {
+                    bv = ctx.get_bool_var(var);
+                }
+                else {
+                    bv = ctx.mk_bool_var(var);
+                }
+                ctx.set_var_theory(bv, get_id());
+                ctx.set_enode_flag(bv, true);
+                theory_var v = mk_var(x);
+                ctx.attach_th_var(x, this, v);
+                m_bool2var.insert(bv,v);
+                m_var2bool.insert(v,bv);
+            }
+        }
+
         void assert_weighted(expr* fml, rational const& w) {
             context & ctx = get_context();
             ast_manager& m = get_manager();
-            expr_ref var(m);
+            app_ref var(m), wfml(m);
             var = m.mk_fresh_const("w", m.mk_bool_sort());
-            ctx.internalize(fml, false);  // TBD: assume or require simplification?
-            ctx.internalize(var, false);
-            enode* x, *y;
-            x = ctx.get_enode(fml);
-            y = ctx.get_enode(var);
-            theory_var v = mk_var(y);
-            SASSERT(v == m_vars.size());
-            SASSERT(v == m_weights.size());
+            wfml = m.mk_or(var, fml);
+            ctx.assert_expr(wfml);
+            m_weights.push_back(w);
             m_vars.push_back(var);
             m_fmls.push_back(fml);
-            ctx.attach_th_var(y, this, v);
-            literal lx(ctx.get_bool_var(fml));
-            literal ly(ctx.get_bool_var(var));
-            ctx.mk_th_axiom(get_id(), lx, ly);
-            m_weights.push_back(w);
             m_min_cost += w;
+            // std::cout << mk_pp(var, m) << " " << w << " " << m_min_cost << "\n";
         }
 
         virtual void assign_eh(bool_var v, bool is_true) {
+            IF_VERBOSE(2, verbose_stream() << "Assign " << v << " " << is_true << "\n";);
             if (is_true) {
                 context& ctx = get_context();
-                rational const& w = m_weights[v];
+                theory_var tv = m_bool2var[v];
+                rational const& w = m_weights[tv];
                 ctx.push_trail(value_trail<context, rational>(m_cost));
                 ctx.push_trail(push_back_vector<context, svector<theory_var> >(m_costs));
                 m_cost += w;
-                m_costs.push_back(v);
+                m_costs.push_back(tv);
                 if (m_cost > m_min_cost) {
                     block();
                 }
@@ -82,14 +106,22 @@ namespace smt {
         }
 
         virtual final_check_status final_check_eh() {
-            if (m_cost < m_min_cost) {
-                m_min_cost = m_cost;
-                m_assignment.reset();
-                m_assignment.append(m_costs);
+            if (block()) {
+                return FC_CONTINUE;
             }
-            block();
-            return FC_DONE;
+            else {
+                return FC_DONE;
+            }
         }
+
+        virtual bool use_diseqs() const { 
+            return false;
+        }
+
+        virtual bool build_models() const { 
+            return false;
+        }
+
 
         virtual void reset_eh() {
             theory::reset_eh();
@@ -104,8 +136,8 @@ namespace smt {
         virtual theory * mk_fresh(context * new_ctx) { UNREACHABLE(); return 0;} // TBD
         virtual bool internalize_atom(app * atom, bool gate_ctx) { return false; }
         virtual bool internalize_term(app * term) { return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2) { UNREACHABLE(); }
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) { UNREACHABLE(); }
+        virtual void new_eq_eh(theory_var v1, theory_var v2) { }
+        virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
 
 
     private:
@@ -119,7 +151,7 @@ namespace smt {
             }
         };
 
-        void block() {
+        bool block() {
             ast_manager& m = get_manager();
             context& ctx = get_context();
             literal_vector lits;
@@ -129,14 +161,17 @@ namespace smt {
             rational weight(0);
             for (unsigned i = 0; i < costs.size() && weight < m_min_cost; ++i) {
                 weight += m_weights[costs[i]];
-                lits.push_back(~literal(costs[i]));
+                lits.push_back(~literal(m_var2bool[costs[i]]));
             }
-            justification * js = 0;
-            if (m.proofs_enabled()) {
-                js = new (ctx.get_region()) 
-                    theory_lemma_justification(get_id(), ctx, lits.size(), lits.c_ptr());
+            IF_VERBOSE(2, verbose_stream() << "block: " << m_costs.size() << " " << lits.size() << " " << m_min_cost << "\n";);
+
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            if (m_cost < m_min_cost) {
+                m_min_cost = weight;
+                m_assignment.reset();
+                m_assignment.append(m_costs);
             }
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+            return !lits.empty();
         }        
     };
 
