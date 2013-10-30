@@ -35,6 +35,12 @@ Notes:
 
 namespace smt {
 
+    template<typename T>
+    std::string pp_vector(std::string const & label, svector<T> v, bool has_header = false);
+
+    template<typename T>
+    std::string pp_vector(std::string const & label, vector<T> v, bool has_header = false);
+
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
     class network_flow : private Ext {
@@ -101,9 +107,6 @@ namespace smt {
         bool choose_leaving_edge();
 
         void update_spanning_tree();
-
-        std::string pp_vector(std::string const & label, svector<int> v, bool has_header = false);
-        std::string pp_vector(std::string const & label, vector<numeral> v, bool has_header = false);
 
     public:
 

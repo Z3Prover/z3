@@ -984,7 +984,7 @@ namespace smt {
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) { 
-        inf_eps_rational<inf_rational> val(m_objective);     
+        inf_eps_rational<inf_rational> val(m_objective_value);     
         return val; 
     }
 
@@ -1244,7 +1244,7 @@ namespace smt {
             TRACE("maximize", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
-            m_objective = get_value(v);            
+            m_objective_value = get_value(v);            
 
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
             

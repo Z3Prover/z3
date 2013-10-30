@@ -1022,11 +1022,11 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
     if (is_optimal) {
         vector<numeral> potentials;
         m_objective_value = net_flow.get_optimal_solution(potentials, true);
-        std::cout << "Objective value of " << v << ": " << m_objective_value << std::endl;
+        std::cout << "Objective value of var " << v << ": " << m_objective_value << std::endl;
         // TODO: return the model of the optimal solution from potential        
     } 
     else {
-        std::cout << "Unbounded" << std::endl;
+        std::cout << "Unbounded objective" << std::endl;
     }
     return is_optimal;
 }
@@ -1048,10 +1048,9 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 
 template<typename Ext>
 inf_eps_rational<inf_rational> theory_diff_logic<Ext>::get_objective_value(theory_var v) { 
-    NOT_IMPLEMENTED_YET();
-    inf_rational objective;
-    inf_eps_rational<inf_rational> val(objective);     
-    return val; 
+    rational r = m_objective_value.get_rational().to_rational();
+    rational i = m_objective_value.get_infinitesimal().to_rational();    
+    return inf_eps_rational<inf_rational>(inf_rational(r, i));
 }
 
 template<typename Ext>

@@ -24,6 +24,42 @@ Notes:
 
 namespace smt {
 
+    template<typename T>
+    std::string pp_vector(std::string const & label, svector<T> v, bool has_header) {
+        std::ostringstream oss;
+        if (has_header) {
+            oss << "Index ";
+            for (unsigned i = 0; i < v.size(); ++i) {
+                oss << i << " ";
+            }
+            oss << std::endl;
+        }
+        oss << label << " ";
+        for (unsigned i = 0; i < v.size(); ++i) {
+            oss << v[i] << " ";
+        }
+        oss << std::endl;
+        return oss.str();
+    }
+
+    template<typename T>
+    std::string pp_vector(std::string const & label, vector<T> v, bool has_header) {
+        std::ostringstream oss;
+        if (has_header) {
+            oss << "Index ";
+            for (unsigned i = 0; i < v.size(); ++i) {
+                oss << i << " ";
+            }
+            oss << std::endl;
+        }
+        oss << label << " ";
+        for (unsigned i = 0; i < v.size(); ++i) {
+            oss << v[i] << " ";
+        }
+        oss << std::endl;
+        return oss.str();
+    }
+
     template<typename Ext>
     network_flow<Ext>::network_flow(graph & g, vector<fin_numeral> const & balances) :
         m_graph(g),
@@ -32,7 +68,6 @@ namespace smt {
         unsigned num_edges = m_graph.get_num_edges();
 
         m_balances.resize(num_nodes);
-
         m_potentials.resize(num_nodes);                        
 
         m_upwards.resize(num_nodes);
@@ -78,14 +113,32 @@ namespace smt {
             m_rev_thread[i + 1] = i;
             m_states[num_edges + i] = BASIS;
             node src = m_upwards[i] ? i : root;
-            node tgt = m_upwards[i] ? root : i;
-            
+            node tgt = m_upwards[i] ? root : i;            
             m_flows[num_edges + i] = m_upwards[i] ? m_balances[i] : -m_balances[i];
             m_graph.enable_edge(m_graph.add_edge(src, tgt, numeral::one(), explanation()));
         }
 
-        TRACE("network_flow", tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread) 
-                                   << pp_vector("Reverse Threads", m_rev_thread) << pp_vector("Last Successors", m_final) << pp_vector("Depths", m_depth););
+        // Compute initial potentials
+        node u = m_thread[root];
+        while (u != root) {
+            node v = m_pred[u];   
+            edge_id e_id;
+            get_edge_id(u, v, e_id);
+            if (m_upwards[u]) {
+                m_potentials[u] = m_potentials[v] + m_graph.get_weight(e_id);
+            }
+            else {
+                m_potentials[u] = m_potentials[v] - m_graph.get_weight(e_id);
+            }
+            u = m_thread[u];
+        }
+
+        TRACE("network_flow", {
+                tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
+                tout << pp_vector("Reverse Threads", m_rev_thread) << pp_vector("Last Successors", m_final);
+                tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
+                tout << pp_vector("Potentials", m_potentials) << pp_vector("Flows", m_flows);
+            });
     }
 
     template<typename Ext>
@@ -144,12 +197,15 @@ namespace smt {
                 // TODO: add multiple pivoting strategies
                 if (cost < numeral::zero()) {
                     m_entering_edge = e_id;
-                    TRACE("network_flow", tout << "Found entering edge " << e_id << " between node " << source << " and node " << target << "...\n";);
+                    TRACE("network_flow", {
+                        tout << "Found entering edge " << e_id << " between node ";
+                        tout << source << " and node " << target << "...\n";
+                    });
                     return true;
                 }
             }
         }
-        TRACE("network_flow", tout << "Found no entering edge... It's probably optimal.\n";);
+        TRACE("network_flow", tout << "Found no entering edge...\n";);
         return false;
     }
 
@@ -192,7 +248,7 @@ namespace smt {
         for (unsigned u = target; u != m_join_node; u = m_pred[u]) {
             edge_id e_id;
             get_edge_id(u, m_pred[u], e_id);
-            numeral d = m_upwards[u] ? infty : m_flows[e_id];
+            numeral d = m_upwards[u] ? m_flows[e_id] : infty;
             if (d <= m_delta) {
                 m_delta = d;
                 src = u;
@@ -202,7 +258,10 @@ namespace smt {
 
         if (m_delta < infty) {
             get_edge_id(src, tgt, m_leaving_edge);
-            TRACE("network_flow", tout << "Found leaving edge " << m_leaving_edge << " between node " << src << " and node " << tgt << "...\n";);
+            TRACE("network_flow", { 
+                tout << "Found leaving edge " << m_leaving_edge;
+                tout << " between node " << src << " and node " << tgt << "...\n";
+                });
             return true;
         }
         TRACE("network_flow", tout << "Can't find a leaving edge... The problem is unbounded.\n";);
@@ -215,12 +274,12 @@ namespace smt {
         node tgt_in = m_graph.get_target(m_entering_edge);
         node src_out = m_graph.get_source(m_leaving_edge);
         node tgt_out = m_graph.get_target(m_leaving_edge);
-        TRACE("network_flow", tout << "update_spanning_tree: (" << src_in << ", " << tgt_in << ") enters, (" 
-                                   << src_out << ", " << tgt_out << ") leaves\n";);
+        TRACE("network_flow", { 
+            tout << "update_spanning_tree: (" << src_in << ", " << tgt_in << ") enters, (";
+            tout << src_out << ", " << tgt_out << ") leaves\n";
+        });
         node root = m_graph.get_num_nodes();
 
-        node rev_thread_out = m_rev_thread[src_out];
-        
         node x = m_final[src_in];
         node y = m_thread[x];
         node z = m_final[src_out];
@@ -232,6 +291,8 @@ namespace smt {
         while (u != last) {
             node next = m_pred[u];  
             m_pred[u] = parent;
+            m_upwards[u] = !m_upwards[u];
+            parent = u;
             u = next;
         }
 
@@ -245,8 +306,7 @@ namespace smt {
         }
 
         node gamma = m_thread[m_final[src_in]];
-        last = m_pred[gamma] != -1 ? gamma : root;
-        for (node u = src_in; u != last; u = m_pred[u]) {
+        for (node u = src_in; u != gamma; u = m_pred[u]) {
             m_final[u] = z;
         }
 
@@ -258,8 +318,7 @@ namespace smt {
         gamma = m_thread[m_final[tgt_out]];
         // REVIEW: check f(u) is not in T_v
         node delta = m_final[src_out] != m_final[tgt_out] ? m_final[src_out] : m_rev_thread[tgt_out];
-        last = m_pred[gamma] != -1 ? gamma : root;
-        for (node u = src_in; u != last; u = m_pred[u]) {
+        for (node u = src_in; u != gamma; u = m_pred[u]) {
             m_final[u] = delta;
         }
 
@@ -301,44 +360,11 @@ namespace smt {
             m_thread[m_final[alpha2]] = src_out;
         }
 
-        TRACE("network_flow", tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread) 
-                                   << pp_vector("Reverse Threads", m_rev_thread) << pp_vector("Last Successors", m_final) << pp_vector("Depths", m_depth););
-    }     
-
-    template<typename Ext>
-    std::string network_flow<Ext>::pp_vector(std::string const & label, svector<int> v, bool has_header) {
-        std::ostringstream oss;
-        if (has_header) {
-            oss << "Index ";
-            for (unsigned i = 0; i < v.size(); ++i) {
-                oss << i << " ";
-            }
-            oss << std::endl;
-        }
-        oss << label << " ";
-        for (unsigned i = 0; i < v.size(); ++i) {
-            oss << v[i] << " ";
-        }
-        oss << std::endl;
-        return oss.str();
-    }
-
-    template<typename Ext>
-    std::string network_flow<Ext>::pp_vector(std::string const & label, vector<numeral> v, bool has_header) {
-        std::ostringstream oss;
-        if (has_header) {
-            oss << "Index ";
-            for (unsigned i = 0; i < v.size(); ++i) {
-                oss << i << " ";
-            }
-            oss << std::endl;
-        }
-        oss << label << " ";
-        for (unsigned i = 0; i < v.size(); ++i) {
-            oss << v[i] << " ";
-        }
-        oss << std::endl;
-        return oss.str();
+        TRACE("network_flow", {
+            tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
+            tout << pp_vector("Reverse Threads", m_rev_thread) << pp_vector("Last Successors", m_final);
+            tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
+            });
     }
 
     // Minimize cost flows
@@ -356,6 +382,7 @@ namespace smt {
                 update_potentials();
             }
         }
+        TRACE("network_flow", tout << "Found optimal solution.\n";);
         return true;
     }
 
@@ -363,9 +390,14 @@ namespace smt {
     template<typename Ext>
     typename network_flow<Ext>::numeral network_flow<Ext>::get_optimal_solution(vector<numeral> & result, bool is_dual) {
         m_objective_value = numeral::zero();
-        for (unsigned i = 0; i < m_flows.size(); ++i) {
-            fin_numeral cost = m_graph.get_weight(i).get_rational();
-            m_objective_value += cost * m_flows[i];
+        vector<edge> const & es = m_graph.get_all_edges();
+        fin_numeral cost;
+        for (unsigned i = 0; i < es.size(); ++i) {
+            edge const & e = es[i];
+            if (e.is_enabled() && m_states[i] == BASIS) {
+                cost = e.get_weight().get_rational();
+                m_objective_value += cost * m_flows[i];
+            }
         }
         result.reset();
         if (is_dual) {            
