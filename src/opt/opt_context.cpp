@@ -35,16 +35,23 @@ Notes:
 
 namespace opt {
 
+    context::context(ast_manager& m):
+        m(m),
+        m_hard_constraints(m),
+        m_soft_constraints(m),
+        m_objectives(m)
+    {
+        m_params.set_bool("model", true);
+        m_params.set_bool("unsat_core", true);
+    }
+
     void context::optimize() {
 
         expr_ref_vector const& fmls = m_soft_constraints;
 
         if (!m_solver) {
             symbol logic;
-            params_ref p;
-            p.set_bool("model", true);
-            p.set_bool("unsat_core", true);        
-            set_solver(alloc(opt_solver, m, p, logic));
+            set_solver(alloc(opt_solver, m, m_params, logic));
         }
         solver* s = m_solver.get();
 
@@ -138,6 +145,20 @@ namespace opt {
         SASSERT(is_app(t2));
         m_objectives.push_back(to_app(t2));
         m_is_max.push_back(is_max);
+    }
+
+    void context::collect_statistics(statistics& stats) {
+        if (m_solver) {
+            m_solver->collect_statistics(stats);
+        }
+    }
+
+    void context::updt_params(params_ref& p) {
+        m_params.append(p);
+        if (m_solver) {
+            m_solver->updt_params(m_params);
+        }
+        
     }
 
 
