@@ -26,7 +26,6 @@ Notes:
 #include "opt_context.h"
 #include "fu_malik.h"
 #include "weighted_maxsat.h"
-#include "optimize_objectives.h"
 #include "ast_pp.h"
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
@@ -35,16 +34,24 @@ Notes:
 
 namespace opt {
 
+    context::context(ast_manager& m):
+        m(m),
+        m_hard_constraints(m),
+        m_soft_constraints(m),
+        m_objectives(m),
+        m_opt_objectives(m)
+    {
+        m_params.set_bool("model", true);
+        m_params.set_bool("unsat_core", true);
+    }
+
     void context::optimize() {
 
         expr_ref_vector const& fmls = m_soft_constraints;
 
         if (!m_solver) {
             symbol logic;
-            params_ref p;
-            p.set_bool("model", true);
-            p.set_bool("unsat_core", true);        
-            set_solver(alloc(opt_solver, m, p, logic));
+            set_solver(alloc(opt_solver, m, m_params, logic));
         }
         solver* s = m_solver.get();
 
@@ -76,8 +83,7 @@ namespace opt {
             for (unsigned i = 0; i < fmls_copy.size(); ++i) {
                 s->assert_expr(fmls_copy[i].get());
             }
-            optimize_objectives obj(m, get_opt_solver(*s)); // TBD: make an attribute
-            is_sat = obj(m_objectives, values);
+            is_sat = m_opt_objectives(get_opt_solver(*s), m_objectives, values);
             std::cout << "is-sat: " << is_sat << std::endl;
 
             if (is_sat != l_true) {
@@ -119,12 +125,14 @@ namespace opt {
         if (m_solver) {
             m_solver->cancel();
         }
+        m_opt_objectives.set_cancel(true);
     }
 
     void context::reset_cancel() {
         if (m_solver) {
             m_solver->reset_cancel();
         }
+        m_opt_objectives.set_cancel(false);
     }
 
     void context::add_objective(app* t, bool is_max) {
@@ -138,6 +146,20 @@ namespace opt {
         SASSERT(is_app(t2));
         m_objectives.push_back(to_app(t2));
         m_is_max.push_back(is_max);
+    }
+
+    void context::collect_statistics(statistics& stats) {
+        if (m_solver) {
+            m_solver->collect_statistics(stats);
+        }
+    }
+
+    void context::updt_params(params_ref& p) {
+        m_params.append(p);
+        if (m_solver) {
+            m_solver->updt_params(m_params);
+        }
+        
     }
 
 

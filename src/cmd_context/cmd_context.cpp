@@ -1119,7 +1119,6 @@ void cmd_context::insert_aux_pdecl(pdecl * p) {
 }
 
 void cmd_context::reset(bool finalize) {
-    m_check_sat_result = 0;
     m_logic = symbol::null;
     m_check_sat_result = 0;
     m_numeral_as_real = false;

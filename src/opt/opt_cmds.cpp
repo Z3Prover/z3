@@ -15,17 +15,10 @@ Author:
 Notes:
 
     TODO:
-    - integrate with parameters. 
-      Parameter infrastructure lets us control setttings, such as 
-      timeouts and control which backend optimization approach to 
-      use during experiments.
 
-    - Display statistics properly on exit when configured to do so.
-      Also add appropriate statistics tracking to opt::context
+    - Add appropriate statistics tracking to opt::context
 
     - Deal with push/pop (later)
-
-    - Revisit weighted constraints if we want to group them using identifiers.
 
 --*/
 #include "opt_cmds.h"
@@ -34,6 +27,8 @@ Notes:
 #include "opt_context.h"
 #include "cancel_eh.h"
 #include "scoped_ctrl_c.h"
+#include "scoped_timer.h"
+#include "parametric_cmd.h"
 
 
 class opt_context {
@@ -152,30 +147,49 @@ public:
     }
 };
 
-class optimize_cmd : public cmd {
+class optimize_cmd : public parametric_cmd {
     opt_context& m_opt_ctx;
 public:
     optimize_cmd(opt_context& opt_ctx):
-        cmd("optimize"),
+        parametric_cmd("optimize"),
         m_opt_ctx(opt_ctx)
     {}
-    virtual char const * get_descr(cmd_context & ctx) const { return "check sat modulo objective function";}
-    virtual unsigned get_arity() const { return 0; }
-    virtual void prepare(cmd_context & ctx) {}
+
+    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+        insert_timeout(p);
+        insert_max_memory(p);
+        p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
+    }
+
+    virtual char const * get_main_descr() const { return "check sat modulo objective function";}
+    virtual char const * get_usage() const { return "(<keyword> <value>)*"; }
+    virtual void prepare(cmd_context & ctx) {
+        parametric_cmd::prepare(ctx);
+    }
     virtual void failure_cleanup(cmd_context & ctx) {
         reset(ctx);
     }
 
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+        return parametric_cmd::next_arg_kind(ctx);
+    }
+
+
     virtual void execute(cmd_context & ctx) {
+        params_ref p = ctx.params().merge_default_params(ps());
         opt::context& opt = m_opt_ctx();
+        opt.updt_params(p);
+        unsigned timeout = p.get_uint("timeout", UINT_MAX);
+
         ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
         ptr_vector<expr>::const_iterator end = ctx.end_assertions();
         for (; it != end; ++it) {
             opt.add_hard_constraint(*it);
         }
-        cancel_eh<opt::context> eh(opt);
+        cancel_eh<opt::context> eh(opt);        
         {
             scoped_ctrl_c ctrlc(eh);
+            scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
             try {
                 opt.optimize();
@@ -187,6 +201,21 @@ public:
                 ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
             }
         }
+        if (p.get_bool("print_statistics", false)) {
+            display_statistics(ctx);
+        }
+    }
+private:
+
+    void display_statistics(cmd_context& ctx) {
+        statistics stats;
+        unsigned long long max_mem = memory::get_max_used_memory();
+        unsigned long long mem = memory::get_allocation_size();
+        stats.update("time", ctx.get_seconds());
+        stats.update("memory", static_cast<double>(mem)/static_cast<double>(1024*1024));
+        stats.update("max memory", static_cast<double>(max_mem)/static_cast<double>(1024*1024));
+        m_opt_ctx().collect_statistics(stats);
+        stats.display_smt2(ctx.regular_stream());        
     }
 };
 

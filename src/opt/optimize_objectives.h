@@ -29,12 +29,12 @@ namespace opt {
 
     class optimize_objectives {
         ast_manager& m;
-        opt_solver& s;
+        opt_solver*  s;
         volatile bool m_cancel;
     public:
-        optimize_objectives(ast_manager& m, opt_solver& s): m(m), s(s), m_cancel(false) {}
+        optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false) {}
 
-        lbool operator()(app_ref_vector& objectives, vector<inf_eps>& values);
+        lbool operator()(opt_solver& s, app_ref_vector& objectives, vector<inf_eps>& values);
 
         void set_cancel(bool f);
 

@@ -27,6 +27,7 @@ Notes:
 
 #include "ast.h"
 #include "solver.h"
+#include "optimize_objectives.h"
 
 namespace opt {
 
@@ -40,14 +41,10 @@ namespace opt {
         app_ref_vector   m_objectives;
         svector<bool>    m_is_max;
         ref<solver>      m_solver;
-
+        params_ref       m_params;
+        optimize_objectives m_opt_objectives;
     public:
-        context(ast_manager& m):
-            m(m),
-            m_hard_constraints(m),
-            m_soft_constraints(m),
-            m_objectives(m)
-        {}
+        context(ast_manager& m);
 
         void add_soft_constraint(expr* f, rational const& w) {
             m_soft_constraints.push_back(f);
@@ -68,6 +65,10 @@ namespace opt {
 
         void cancel();
         void reset_cancel();
+
+        void collect_statistics(statistics& stats);
+
+        void updt_params(params_ref& p);
 
     private:
         bool is_maxsat_problem() const;
