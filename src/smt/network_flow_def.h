@@ -108,13 +108,8 @@ namespace smt {
         node u = m_thread[root];
         while (u != root) {
             node v = m_pred[u];   
-            edge_id e_id = get_edge_id(u, v);
-            if (m_upwards[u]) {
-                m_potentials[u] = m_potentials[v] - m_graph.get_weight(e_id);
-            }
-            else {
-                m_potentials[u] = m_potentials[v] + m_graph.get_weight(e_id);
-            }
+            edge_id e_id = get_edge_id(u, v);            
+            m_potentials[u] = m_potentials[v] + (m_upwards[u] ? - m_graph.get_weight(e_id) : m_graph.get_weight(e_id));
             u = m_thread[u];
         }
 
@@ -163,7 +158,6 @@ namespace smt {
         for (unsigned u = target; u != m_join_node; u = m_pred[u]) {
             edge_id e_id = get_edge_id(u, m_pred[u]);
             m_flows[e_id] += m_upwards[u] ? val : -val;
-            TRACE("network_flow", tout << u << ", " << m_pred[u] << ", " << e_id << ", " << m_upwards[u] << ", " << val;);
         }
         TRACE("network_flow", tout << pp_vector("Flows", m_flows, true););
     }
@@ -175,10 +169,10 @@ namespace smt {
         for (unsigned int i = 0; i < es.size(); ++i) {
             edge const & e = es[i];
             edge_id e_id;
-            node source   = e.get_source();
-            node target   = e.get_target();
+            node source = e.get_source();
+            node target = e.get_target();
             if (e.is_enabled() && m_graph.get_edge_id(source, target, e_id) && m_states[e_id] == NON_BASIS) {
-                numeral cost  = e.get_weight() - m_potentials[source] + m_potentials[target];
+                numeral cost = e.get_weight() - m_potentials[source] + m_potentials[target];
                 // Choose the first negative-cost edge to be the violating edge
                 // TODO: add multiple pivoting strategies
                 if (cost.is_neg()) {
@@ -285,8 +279,8 @@ namespace smt {
         // Graft T_q and T_r'
         m_thread[x] = q;
         m_thread[z] = y;
-        n = u;
-        last = m_final[u];
+        n = q;
+        last = m_final[q];
         while (n != last) {
             m_depth[n] += 1 + m_depth[p];
             n = m_pred[n];
@@ -373,9 +367,11 @@ namespace smt {
         prefix.append("_");
         unsigned root = m_graph.get_num_nodes() - 1;
         for (unsigned i = 0; i < root; ++i) {
-            oss << prefix << i << "[shape=circle,label=\"" << prefix << i << " [" << m_potentials[i] << "]\"];\n";
+            oss << prefix << i << "[shape=circle,label=\"" << prefix << i << " [";
+            oss << m_potentials[i] << "/" << m_balances[i] << "]\"];\n";
         }
-        oss << prefix << root << "[shape=doublecircle,label=\"" << prefix << root << " [" << m_potentials[root] << "]\"];\n";
+        oss << prefix << root << "[shape=doublecircle,label=\"" << prefix << root << " [";
+        oss << m_potentials[root] << "/" << m_balances[root] << "]\"];\n";
         
         vector<edge> const & es = m_graph.get_all_edges();
         for (unsigned i = 0; i < es.size(); ++i) {
@@ -383,10 +379,10 @@ namespace smt {
             if (e.is_enabled()) {
                 oss << prefix << e.get_source() << " -> " << prefix << e.get_target();
                 if (m_states[i] == BASIS) {
-                    oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "\"];\n";
+                    oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
                 }
                 else {
-                    oss << "[label=\"" << m_flows[i] << "\"];\n";
+                    oss << "[label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
                 }
             }
         }
