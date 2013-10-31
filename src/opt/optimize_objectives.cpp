@@ -43,7 +43,7 @@ Notes:
 #include "optimize_objectives.h"
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
-#include "smt_context.h"
+#include "theory_arith.h"
 
 namespace opt {
 
@@ -115,6 +115,7 @@ namespace opt {
     }
 
     lbool optimize_objectives::update_upper() {
+        NOT_IMPLEMENTED_YET();
         return l_undef;
     }
 

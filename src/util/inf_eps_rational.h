@@ -143,15 +143,15 @@ class inf_eps_rational {
         return m_infty;
     }
 
-    static const inf_eps_rational & zero() {
+    static inf_eps_rational zero() {
         return inf_eps_rational(Numeral::zero());
     }
 
-    static const inf_eps_rational & one() {
+    static inf_eps_rational one() {
         return inf_eps_rational(Numeral::one());
     }
 
-    static const inf_eps_rational & minus_one() {
+    static inf_eps_rational minus_one() {
         return inf_eps_rational(Numeral::minus_one());
     }
 

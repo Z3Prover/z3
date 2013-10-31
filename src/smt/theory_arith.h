@@ -432,7 +432,7 @@ namespace smt {
         bool                    m_eager_gcd; // true if gcd should be applied at every add_row
         unsigned                m_final_check_idx;
 
-        inf_rational            m_objective_value;
+        inf_eps_rational<inf_rational>   m_objective_value;
 
         // backtracking
         svector<bound_trail>    m_bound_trail;
