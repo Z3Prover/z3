@@ -367,7 +367,7 @@ namespace smt {
     // -----------------------------------
 
     template<typename Ext>
-    theory_arith<Ext>::atom::atom(bool_var bv, theory_var v, numeral const & k, atom_kind kind):
+    theory_arith<Ext>::atom::atom(bool_var bv, theory_var v, inf_numeral const & k, atom_kind kind):
         bound(v, inf_numeral::zero(), B_LOWER, true),
         m_bvar(bv),
         m_k(k),
@@ -998,6 +998,22 @@ namespace smt {
     }
 
     template<typename Ext>
+    expr* theory_arith<Ext>::block_upper_bound(theory_var v, inf_numeral const& val) {
+        ast_manager& m = get_manager();
+        context& ctx = get_context();
+        std::ostringstream strm;
+        strm << val << " <= " << v;
+        expr* b = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
+        bool_var bv = ctx.mk_bool_var(b);
+        atom* a = alloc(atom, bv, v, val, A_LOWER);
+        m_unassigned_atoms[v]++;
+        m_var_occs[v].push_back(a);
+        m_atoms.push_back(a);
+        insert_bv2a(bv, a);
+        return b;
+    }
+
+    template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) {
         return m_objective_value; 
     }
@@ -1117,15 +1133,6 @@ namespace smt {
                   );
             pivot<true>(x_i, x_j, a_ij, false);
 
-            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
-                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
-                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
-                  tout << "value x_i: " << get_value(x_i) << "\n";
-                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
-                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
-                  tout << "value x_j: " << get_value(x_j) << "\n";
-
-                  );
 
             SASSERT(is_non_base(x_i));
             SASSERT(is_base(x_j));
@@ -1136,15 +1143,6 @@ namespace smt {
             else
                 move_xi_to_lower = a_ij.is_neg();
             move_to_bound(x_i, move_xi_to_lower);
-
-            TRACE("maximize", tout << "max: " << max << ", x_i: v" << x_i << ", x_j: v" << x_j << ", a_ij: " << a_ij << ", coeff: " << coeff << "\n";
-                  if (upper(x_i)) tout << "upper x_i: " << upper_bound(x_i) << " ";
-                  if (lower(x_i)) tout << "lower x_i: " << lower_bound(x_i) << " ";
-                  tout << "value x_i: " << get_value(x_i) << "\n";
-                  if (upper(x_j)) tout << "upper x_j: " << upper_bound(x_j) << " ";
-                  if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
-                  tout << "value x_j: " << get_value(x_j) << "\n";
-                  );
 
             row & r2 = m_rows[get_var_row(x_j)];
             coeff.neg();

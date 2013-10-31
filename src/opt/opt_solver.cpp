@@ -77,6 +77,9 @@ namespace opt {
         else if (typeid(smt::theory_i_arith) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_i_arith&>(*arith_theory); 
         }
+        else if (typeid(smt::theory_inf_arith) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_inf_arith&>(*arith_theory); 
+        }
         else if (typeid(smt::theory_rdl&) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_rdl&>(*arith_theory); 
         }
@@ -172,7 +175,8 @@ namespace opt {
             return expr_ref(m.mk_true(), m);
         }
         else {
-            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], val.get_numeral()), m);
+            inf_rational n = val.get_numeral();            
+            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], n), m);
         }
     }
 

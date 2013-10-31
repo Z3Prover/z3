@@ -801,7 +801,7 @@ namespace smt {
     void theory_arith<Ext>::mk_bound_axioms(atom * a1) {
         theory_var v = a1->get_var();
         literal   l1(a1->get_bool_var()); 
-        numeral const & k1(a1->get_k());
+        inf_numeral const & k1(a1->get_k());
         atom_kind kind1 = a1->get_atom_kind();
         TRACE("mk_bound_axioms", tout << "making bound axioms for v" << v << " " << kind1 << " " << k1 << "\n";);
         atoms & occs = m_var_occs[v];
@@ -810,7 +810,7 @@ namespace smt {
         for (; it != end; ++it) {
             atom * a2 = *it;
             literal l2(a2->get_bool_var());
-            numeral const & k2 = a2->get_k();
+            inf_numeral const & k2 = a2->get_k();
             atom_kind kind2    = a2->get_atom_kind();
             SASSERT(k1 != k2 || kind1 != kind2);
             SASSERT(a2->get_var() == v);
@@ -880,7 +880,7 @@ namespace smt {
         ctx.set_var_theory(bv, get_id());
         rational _k;
         m_util.is_numeral(rhs, _k);
-        numeral   k(_k);
+        inf_numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
         m_unassigned_atoms[v]++;
@@ -2475,7 +2475,7 @@ namespace smt {
             bool_var bv = a->get_bool_var();
             literal  l(bv);
             if (get_context().get_assignment(bv) == l_undef) {
-                numeral const & k2 = a->get_k();
+                inf_numeral const & k2 = a->get_k();
                 delta.reset();
                 if (a->get_atom_kind() == A_LOWER) {
                     // v >= k  k >= k2  |-  v >= k2

@@ -27,14 +27,16 @@ Notes:
 namespace smt {
     class theory_opt {
     public:
+        typedef inf_eps_rational<inf_rational> inf_eps;
         virtual bool maximize(theory_var v) { UNREACHABLE(); return false; };
         virtual theory_var add_objective(app* term) { UNREACHABLE(); return null_theory_var; }
-        virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v) { 
+        virtual inf_eps get_objective_value(theory_var v) { 
             UNREACHABLE(); 
-            inf_eps_rational<inf_rational> r(rational(1), inf_rational(0)); 
-            return r; 
+            return inf_eps(rational(1), inf_rational(0));
         }
         virtual expr* block_lower_bound(theory_var v, inf_rational const& val) { return 0; }
+
+
     };
 }
 
