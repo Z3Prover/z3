@@ -96,21 +96,23 @@ namespace opt {
 
     lbool optimize_objectives::update_lower() {
         lbool is_sat = s->check_sat(0, 0); 
-        set_max(m_lower, s->get_objective_values());
-        IF_VERBOSE(1, 
-                   for (unsigned i = 0; i < m_lower.size(); ++i) {
-                       verbose_stream() << m_lower[i] << " ";
-                   }
-                   verbose_stream() << "\n";);
-        expr_ref_vector disj(m);
-        expr_ref constraint(m);
-        
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
-            inf_eps const& v = m_lower[i];
-            disj.push_back(s->block_lower_bound(i, v));
+        if (is_sat == l_true) {
+            set_max(m_lower, s->get_objective_values());
+            IF_VERBOSE(1, 
+                       for (unsigned i = 0; i < m_lower.size(); ++i) {
+                           verbose_stream() << m_lower[i] << " ";
+                       }
+                       verbose_stream() << "\n";);
+            expr_ref_vector disj(m);
+            expr_ref constraint(m);
+            
+            for (unsigned i = 0; i < m_lower.size(); ++i) {
+                inf_eps const& v = m_lower[i];
+                disj.push_back(s->block_lower_bound(i, v));
+            }
+            constraint = m.mk_or(disj.size(), disj.c_ptr());
+            s->assert_expr(constraint);
         }
-        constraint = m.mk_or(disj.size(), disj.c_ptr());
-        s->assert_expr(constraint);
         return is_sat;
     }
 
