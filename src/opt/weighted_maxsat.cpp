@@ -26,6 +26,8 @@ namespace smt {
     class theory_weighted_maxsat : public theory {
         app_ref_vector           m_vars;       // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;       // Formulas per soft clause
+        app_ref                  m_min_cost_atom; // atom tracking modified lower bound
+        bool_var                 m_min_cost_bv;   // min cost Boolean variable
         vector<rational>         m_weights;    // weights of theory variables.
         svector<theory_var>      m_costs;      // set of asserted theory variables
         svector<theory_var>      m_cost_save;  // set of asserted theory variables
@@ -37,7 +39,8 @@ namespace smt {
         theory_weighted_maxsat(ast_manager& m):
             theory(m.mk_family_id("weighted_maxsat")),
             m_vars(m),
-            m_fmls(m)
+            m_fmls(m),
+            m_min_cost_atom(m)
         {}
 
         /**
@@ -59,6 +62,7 @@ namespace smt {
         virtual void init_search_eh() {
             context & ctx = get_context();
             ast_manager& m = get_manager();
+            m_var2bool.reset();
             for (unsigned i = 0; i < m_vars.size(); ++i) {
                 app* var = m_vars[i].get();  
                 bool_var bv;
@@ -82,6 +86,20 @@ namespace smt {
                 m_bool2var.insert(bv, v);
                 SASSERT(v == m_var2bool.size());
                 m_var2bool.push_back(bv);
+                SASSERT(ctx.bool_var2enode(bv));
+            }
+            if (m_min_cost_atom) {
+                app* var = m_min_cost_atom;
+                if (!ctx.e_internalized(var)) {
+                    ctx.mk_enode(var, false, true, true);
+                }
+                if (ctx.b_internalized(var)) {
+                    m_min_cost_bv = ctx.get_bool_var(var);
+                }
+                else {
+                    m_min_cost_bv = ctx.mk_bool_var(var);
+                }                
+                ctx.set_enode_flag(m_min_cost_bv, true);
             }
         }
 
@@ -98,6 +116,23 @@ namespace smt {
             m_min_cost += w;
         }
 
+        rational const& get_min_cost() const { 
+            return m_min_cost; 
+        }
+
+        expr* set_min_cost(rational const& c) { 
+            ast_manager& m = get_manager();
+            std::ostringstream strm;
+            strm << "cost <= " << c;
+            m_min_cost = c; 
+            m_min_cost_atom = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
+            return m_min_cost_atom;
+        }
+
+        bool found_solution() const {
+            return !m_cost_save.empty();
+        }
+
         virtual void assign_eh(bool_var v, bool is_true) {
             IF_VERBOSE(3, verbose_stream() << "Assign " << v << " " << is_true << "\n";);
             if (is_true) {
@@ -109,13 +144,13 @@ namespace smt {
                 m_cost += w;
                 m_costs.push_back(tv);
                 if (m_cost > m_min_cost) {
-                    block();
+                    block(false);
                 }
             }
         }
 
         virtual final_check_status final_check_eh() {
-            if (block()) {
+            if (block(true)) {
                 return FC_CONTINUE;
             }
             else {
@@ -146,6 +181,7 @@ namespace smt {
             m_min_cost.reset();
             m_bool2var.reset();
             m_var2bool.reset();
+            m_min_cost_atom = 0;
         }
 
         virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_weighted_maxsat, new_ctx->get_manager()); }
@@ -166,7 +202,7 @@ namespace smt {
             }
         };
 
-        bool block() {
+        bool block(bool is_final) {
             ast_manager& m = get_manager();
             context& ctx = get_context();
             literal_vector lits;
@@ -178,22 +214,52 @@ namespace smt {
                 weight += m_weights[costs[i]];
                 lits.push_back(~literal(m_var2bool[costs[i]]));
             }
+            if (m_min_cost_atom) {
+                lits.push_back(~literal(m_min_cost_bv));
+            }
             IF_VERBOSE(2, verbose_stream() << "block: " << m_costs.size() << " " << lits.size() << " " << m_min_cost << "\n";);
 
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            if (m_cost < m_min_cost) {
+            if (is_final && m_cost < m_min_cost) {
                 m_min_cost = weight;
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
             }
             return !lits.empty();
         }        
+
+        
     };
 
 }
 
 namespace opt {
 
+    /**
+       Iteratively increase min-cost until there is an assignment during
+       final_check that satisfies min_cost.
+    */
+
+    static lbool iterative_weighted_maxsat(opt_solver& s, smt::theory_weighted_maxsat& wth) {
+        ast_manager& m = s.get_context().get_manager();
+        rational cost = wth.get_min_cost();
+        rational log_cost(1), tmp(1);
+        while (tmp < cost) {
+            ++log_cost;
+            tmp *= rational(2);
+        }
+        expr_ref_vector bounds(m);
+        expr_ref bound(m);
+        lbool result = l_false;
+        while (log_cost <= cost && !wth.found_solution() && result != l_undef) {
+            std::cout << "cost: " << log_cost << "\n";
+            bound = wth.set_min_cost(log_cost);
+            bounds.push_back(bound);
+            result = s.check_sat_core(1,bounds.c_ptr()+bounds.size()-1);
+            log_cost *= rational(2);
+        }
+        return result;
+    }
 
     /**
        Takes solver with hard constraints added.
@@ -220,7 +286,12 @@ namespace opt {
         for (unsigned i = 0; i < soft_constraints.size(); ++i) {
             wth->assert_weighted(soft_constraints[i].get(), weights[i]);
         }
+#if 0
         lbool result = s.check_sat_core(0,0);
+#else
+        lbool result = iterative_weighted_maxsat(s, *wth);
+#endif
+
         wth->get_assignment(soft_constraints);
         if (!soft_constraints.empty() && result == l_false) {
             result = l_true;
