@@ -933,7 +933,7 @@ public:
         return found;
     }
 
-    // Return true if there is an edge source --> target.
+    // Return true if there is an edge source --> target (also counting disabled edges).
     // If there is such edge, return its edge_id in parameter id.
     bool get_edge_id(dl_var source, dl_var target, edge_id & id) {
         edge_id_vector & edges = m_out_edges[source];
@@ -942,7 +942,7 @@ public:
         for (; it != end; ++it) {
             id = *it;
             edge & e = m_edges[id];
-            if (e.is_enabled() && e.get_target() == target) {
+            if (e.get_target() == target) {
                 return true;
             }
         }

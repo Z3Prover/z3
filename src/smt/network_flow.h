@@ -66,14 +66,15 @@ namespace smt {
         
         svector<edge_state> m_states;
 
-        // An element is true if the corresponding edge points upwards (compared to the root node)
+        // m_upwards[i] is true if the corresponding edge 
+        // (i, m_pred[i]) points upwards (pointing toward the root node)
         svector<bool> m_upwards;
 
         // Store the parent of a node i in the spanning tree
         svector<node> m_pred;
         // Store the number of edge on the path from node i to the root
         svector<int> m_depth;
-        // Store the pointer from node i to the next node in depth first search ordering
+        // Store the pointer from node i to the next node in depth-first search order
         svector<node> m_thread;
         // Reverse orders of m_thread
         svector<node> m_rev_thread;
