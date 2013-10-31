@@ -31,6 +31,8 @@ namespace opt {
         ast_manager& m;
         opt_solver*  s;
         volatile bool m_cancel;
+        vector<inf_eps> m_lower;
+        vector<inf_eps> m_upper;
     public:
         optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false) {}
 
@@ -40,9 +42,13 @@ namespace opt {
 
     private:
         
-        lbool basic_opt(app_ref_vector&  objectives, vector<inf_eps>& values);
+        lbool basic_opt(app_ref_vector& objectives);
 
         void set_max(vector<inf_eps>& dst, vector<inf_eps> const& src);
+
+        lbool update_lower();
+
+        lbool update_upper();
 
     };
 

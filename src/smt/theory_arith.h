@@ -1121,11 +1121,33 @@ namespace smt {
         }
         smi_ext() : m_int_epsilon(s_integer(1)), m_real_epsilon(s_integer(0), true) {}
     };
+
+    class inf_ext {
+    public:
+        typedef rational     numeral;
+        typedef inf_eps_rational<inf_rational>      inf_numeral;
+        inf_numeral   m_int_epsilon;
+        inf_numeral   m_real_epsilon;
+        numeral fractional_part(inf_numeral const& n) {
+            SASSERT(n.is_rational());
+            return n.get_rational() - floor(n);
+        }
+        static numeral fractional_part(numeral const & n) {
+            return n - floor(n);
+        }
+        static inf_numeral mk_inf_numeral(numeral const & n, numeral const & r) {
+            return inf_numeral(inf_rational(n, r));
+        }
+        inf_ext() : m_int_epsilon(inf_rational(rational(1))), m_real_epsilon(inf_rational(rational(0), true)) {}
+    };
+
     
     typedef theory_arith<mi_ext> theory_mi_arith;
     typedef theory_arith<i_ext> theory_i_arith;
+    typedef smt::theory_arith<inf_ext> theory_inf_arith;
     // typedef theory_arith<si_ext> theory_si_arith;
     // typedef theory_arith<smi_ext> theory_smi_arith;
+
     
 };
 
