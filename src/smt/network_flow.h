@@ -42,8 +42,9 @@ namespace smt {
     template<typename Ext>
     class network_flow : private Ext {
         enum edge_state {
-            NON_BASIS = 0,
-            BASIS = 1
+            LOWER = 1,
+            BASIS = 0,
+            UPPER = -1
         };
         typedef dl_var node;
         typedef dl_edge<Ext> edge;
@@ -85,6 +86,7 @@ namespace smt {
         edge_id m_leaving_edge;
         node m_join_node;
         numeral m_delta;
+        bool m_in_edge_dir;
 
         unsigned m_step;
 

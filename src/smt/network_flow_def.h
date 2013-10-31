@@ -99,7 +99,7 @@ namespace smt {
 
         m_flows.resize(num_nodes + num_edges);
         m_states.resize(num_nodes + num_edges);
-        m_states.fill(NON_BASIS);
+        m_states.fill(LOWER);
 
         // Create artificial edges from/to root node to/from other nodes and initialize the spanning tree
         for (unsigned i = 0; i < num_nodes; ++i) {
@@ -149,7 +149,7 @@ namespace smt {
         node src = m_graph.get_source(m_entering_edge);
         node tgt = m_graph.get_target(m_entering_edge); 
         numeral cost = m_graph.get_weight(m_entering_edge);
-        numeral change = m_upwards[src] ? (-cost + m_potentials[src] - m_potentials[tgt]) : (cost - m_potentials[src] + m_potentials[tgt]);
+        numeral change = m_upwards[src] ? (-cost - m_potentials[src] + m_potentials[tgt]) : (cost + m_potentials[src] - m_potentials[tgt]);
         node last = m_thread[m_final[src]];
         for (node u = src; u != last; u = m_thread[u]) {
             m_potentials[u] += change;
@@ -160,7 +160,7 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
         TRACE("network_flow", tout << "update_flows...\n";);
-        numeral val = m_states[m_entering_edge] == BASIS ? numeral::zero() : m_delta;
+        numeral val = fin_numeral(m_states[m_entering_edge]) * m_delta;
         m_flows[m_entering_edge] += val;
         node source = m_graph.get_source(m_entering_edge);
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
@@ -182,9 +182,8 @@ namespace smt {
         for (unsigned i = 0; i < es.size(); ++i) {
             node src = m_graph.get_source(i);
             node tgt = m_graph.get_target(i);
-            if (m_states[i] == NON_BASIS) {
-                numeral cost = m_graph.get_weight(i);
-                numeral change = cost - m_potentials[src] + m_potentials[tgt];
+            if (m_states[i] != BASIS) {
+                numeral change = fin_numeral(m_states[i]) * (m_graph.get_weight(i) + m_potentials[src] - m_potentials[tgt]);
                 // Choose the first negative-cost edge to be the violating edge
                 // TODO: add multiple pivoting strategies
                 if (change.is_neg()) {
@@ -206,6 +205,11 @@ namespace smt {
         TRACE("network_flow", tout << "choose_leaving_edge...\n";);
         node source = m_graph.get_source(m_entering_edge);
         node target = m_graph.get_target(m_entering_edge);
+        if (m_states[m_entering_edge] == UPPER) {
+            node temp = source;
+            source = target;
+            target = temp;
+        }
         node u = source, v = target;
         while (u != v) {
             if (m_depth[u] > m_depth[v])
@@ -232,6 +236,7 @@ namespace smt {
                 m_delta = d;
                 src = u;
                 tgt = m_pred[u];
+                m_in_edge_dir = true;
             }
         }
 
@@ -243,6 +248,7 @@ namespace smt {
                 m_delta = d;
                 src = u;
                 tgt = m_pred[u];
+                m_in_edge_dir = false;
             }
         }
 
@@ -269,18 +275,13 @@ namespace smt {
             node temp = u;
             u = v;
             v = temp;
-        }        
-        node n = p;
-        while (n != -1) {
-            if (n == v) {
-                // q should be in T_v so swap p and q
-                node temp = p;
-                p = q;
-                q = temp;
-                break;
-            }
-            n = m_pred[n];
-        }        
+        }  
+        if ((m_states[m_entering_edge] == UPPER) == m_in_edge_dir) {
+            // q should be in T_v so swap p and q
+            node temp = p;
+            p = q;
+            q = temp;
+        }
 
         TRACE("network_flow", { 
             tout << "update_spanning_tree: (" << p << ", " << q << ") enters, (";
@@ -292,7 +293,7 @@ namespace smt {
         node z = m_final[q];
 
         // Update m_pred (for nodes in the stem from q to v)
-        n = q;
+        node n = q;
         node last = m_pred[v];
         node parent = p;
         while (n != last) {
@@ -302,9 +303,11 @@ namespace smt {
             n = next;
         }
         n = v;
-        while (n != q) {
+        while (n != q && n != -1) {
             node next = m_pred[n];
-            m_upwards[n] = !m_upwards[next];
+            if (next != -1) {
+                m_upwards[n] = !m_upwards[next];
+            }
             n = next;
         }
         m_upwards[q] = true;
@@ -356,7 +359,7 @@ namespace smt {
             last = q;            
             node alpha1, alpha2 = -1;
             unsigned count = 0;
-            while (n != last) {
+            while (n != last && n != -1) {
                 // Find all immediate successors of n
                 node t1 = m_thread[n];
                 node t2 = m_thread[m_final[t1]];
@@ -374,15 +377,15 @@ namespace smt {
                     alpha2 = t2;
                 }                
                 m_thread[n] = alpha1;
-                m_thread[m_final[alpha1]] = alpha2;
-                n = m_pred[n];
-                m_thread[m_final[alpha2]] = n;
+                m_thread[m_final[alpha1]] = alpha2;                                
                 // Decrease depth of all children in the subtree
                 ++count;
                 int d = m_depth[n] - count;
                 for (node m = m_thread[n]; m != m_final[n]; m = m_thread[m]) {
                     m_depth[m] -= d;
                 }
+                n = m_pred[n];
+                m_thread[m_final[alpha2]] = n;
             }
             if (alpha2 != -1) {
                 m_thread[m_final[alpha2]] = v;
@@ -441,10 +444,13 @@ namespace smt {
             update_flows();
             if (m_entering_edge != m_leaving_edge) {
                 m_states[m_entering_edge] = BASIS;
-                m_states[m_leaving_edge] = NON_BASIS;
+                m_states[m_leaving_edge] = (m_flows[m_leaving_edge].is_zero()) ? LOWER : UPPER;
                 update_spanning_tree();
                 update_potentials();                
                 TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+            } 
+            else {
+                m_states[m_leaving_edge] = m_states[m_leaving_edge] == LOWER ? UPPER : LOWER;
             }
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);
