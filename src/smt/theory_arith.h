@@ -273,14 +273,14 @@ namespace smt {
         class atom : public bound {
         protected:
             bool_var    m_bvar;
-            numeral     m_k;
+            inf_numeral m_k;
             unsigned    m_atom_kind:2;   // atom kind
             unsigned    m_is_true:1;     // cache: true if the atom was assigned to true.
         public:
-            atom(bool_var bv, theory_var v, numeral const & k, atom_kind kind);
+            atom(bool_var bv, theory_var v, inf_numeral const & k, atom_kind kind);
             atom_kind get_atom_kind() const { return static_cast<atom_kind>(m_atom_kind); }
             virtual ~atom() {}
-            numeral const & get_k() const { return m_k; }
+            inf_numeral const & get_k() const { return m_k; }
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_is_true; }
             void assign_eh(bool is_true, inf_numeral const & epsilon);
@@ -999,7 +999,7 @@ namespace smt {
         virtual theory_var add_objective(app* term);
         virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
         virtual expr* block_lower_bound(theory_var v, inf_rational const& val);
-        
+        virtual expr* block_upper_bound(theory_var v, inf_numeral const& val);
         // -----------------------------------
         //
         // Pretty Printing
