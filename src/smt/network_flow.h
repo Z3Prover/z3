@@ -112,6 +112,8 @@ namespace smt {
 
         std::string display_spanning_tree();
 
+        bool check_well_formed();
+
     public:
 
         network_flow(graph & g, vector<fin_numeral> const & balances);        
