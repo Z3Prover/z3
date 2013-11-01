@@ -40,15 +40,15 @@ public:
 
   static iz3translation *create(iz3mgr &mgr,
 				iz3secondary *secondary,
-				const std::vector<ast> &frames,
+				const std::vector<std::vector<ast> > &frames,
 				const std::vector<int> &parents,
                                 const std::vector<ast> &theory);
 
  protected:
  iz3translation(iz3mgr &mgr,
-	 const std::vector<ast> &_cnsts,
-	 const std::vector<int> &_parents,
-	 const std::vector<ast> &_theory)
+		const std::vector<std::vector<ast> > &_cnsts,
+		const std::vector<int> &_parents,
+		const std::vector<ast> &_theory)
    : iz3base(mgr,_cnsts,_parents,_theory)  {}
 };
 

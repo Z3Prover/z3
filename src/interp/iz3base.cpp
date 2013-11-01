@@ -201,6 +201,26 @@ void iz3base::initialize(const std::vector<ast> &_parts, const std::vector<int> 
     add_frame_range(SHRT_MIN, _theory[i]);
     add_frame_range(SHRT_MAX, _theory[i]);
   }
+  for(unsigned i = 0; i < cnsts.size(); i++)
+    frame_map[cnsts[i]] = i;
+  for(unsigned i = 0; i < theory.size(); i++)
+    frame_map[theory[i]] = INT_MAX;
+}
+
+void iz3base::initialize(const std::vector<std::vector<ast> > &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory){
+  cnsts.resize(_parts.size());
+  theory = _theory;
+  for(unsigned i = 0; i < _parts.size(); i++)
+    for(unsigned j = 0; j < _parts[i].size(); j++){
+      cnsts[i] = make(And,_parts[i]);
+      add_frame_range(i, _parts[i][j]);
+      frame_map[_parts[i][j]] = i;
+    }  
+  for(unsigned i = 0; i < _theory.size(); i++){
+    add_frame_range(SHRT_MIN, _theory[i]);
+    add_frame_range(SHRT_MAX, _theory[i]);
+    frame_map[theory[i]] = INT_MAX;
+  }
 }
 
 void iz3base::check_interp(const std::vector<ast> &itps, std::vector<ast> &theory){

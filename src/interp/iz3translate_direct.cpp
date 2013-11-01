@@ -200,7 +200,6 @@ public:
 
   Iproof *iproof;                            // the interpolating proof we are constructing
 
-  AstToInt frame_map;                      // map assertions to frames
   int frames;                               // number of frames
 
   typedef std::set<ast> AstSet;
@@ -250,9 +249,7 @@ public:
     if(!bar.second) return res;
     if(pr(proof) == PR_ASSERTED){
       ast ass = conc(proof);
-      AstToInt::iterator it = frame_map.find(ass);
-      assert(it != frame_map.end());
-      res = it->second;
+      res = frame_of_assertion(ass);
     }
     else {
       unsigned nprems = num_prems(proof);
@@ -590,9 +587,7 @@ public:
     pfrule dk = pr(proof);
     if(dk == PR_ASSERTED){
       ast ass = conc(proof);
-      AstToInt::iterator it = frame_map.find(ass);
-      assert(it != frame_map.end());
-      frame = it->second;
+      frame = frame_of_assertion(ass);
       if(frame >= frames) frame = frames-1; // can happen if a theory fact
       antes.push_back(std::pair<ast,int>(ass,frame));
       return;
@@ -1655,16 +1650,12 @@ public:
 
   iz3translation_direct(iz3mgr &mgr,
 			iz3secondary *_secondary,
-			const std::vector<ast> &cnsts,
+			const std::vector<std::vector<ast> > &cnsts,
 			const std::vector<int> &parents,
 			const std::vector<ast> &theory)
     : iz3translation(mgr, cnsts, parents, theory)
   {
     secondary = _secondary;
-    for(unsigned i = 0; i < cnsts.size(); i++)
-      frame_map[cnsts[i]] = i;
-    for(unsigned i = 0; i < theory.size(); i++)
-      frame_map[theory[i]] = INT_MAX;
     frames = cnsts.size();
     traced_lit = ast();
   }
@@ -1693,7 +1684,7 @@ public:
 
 iz3translation *iz3translation::create(iz3mgr &mgr,
 				       iz3secondary *secondary,
-				       const std::vector<ast> &cnsts,
+				       const std::vector<std::vector<ast> > &cnsts,
 				       const std::vector<int> &parents,
 				       const std::vector<ast> &theory){
   return new iz3translation_direct(mgr,secondary,cnsts,parents,theory);

@@ -232,8 +232,13 @@ public:
     iz3secondary *sp = iz3foci::create(this,num,parents_vec.empty()?0:&parents_vec[0]);
     sp_killer.set(sp); // kill this on exit
 	  
+#define BINARY_INTERPOLATION
+#ifndef BINARY_INTERPOLATION    
     // create a translator
-    iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec,parents_vec,theory);
+    std::vector<std::vector<ast> > cnsts_vec_vec(cnsts_vec.size());
+    for(unsigned i = 0; i < cnsts_vec.size(); i++)
+      cnsts_vec_vec[i].push_back(cnsts_vec[i]);
+    iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec_vec,parents_vec,theory);
     tr_killer.set(tr);
     
     // set the translation options, if needed
@@ -258,7 +263,43 @@ public:
       interps_vec[i] = tr->quantify(interps_vec[i],tr->range_downward(i)); 
     }
     profiling::timer_stop("Proof interpolation");
-       
+#else
+    iz3base the_base(*this,cnsts_vec,parents_vec,theory);
+
+    profiling::timer_stop("Interpolation prep");
+    
+    for(int i = 0; i < num-1; i++){
+      range rng = the_base.range_downward(i);
+      std::vector<std::vector<ast> > cnsts_vec_vec(2);
+      for(unsigned j = 0; j < cnsts_vec.size(); j++){
+	bool is_A = the_base.in_range(j,rng);
+	cnsts_vec_vec[is_A ? 0 : 1].push_back(cnsts_vec[j]);
+      }
+
+      killme<iz3translation> tr_killer_i;
+      iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec_vec,std::vector<int>(),theory);
+      tr_killer_i.set(tr);
+    
+      // set the translation options, if needed
+      if(options)
+	for(hash_map<std::string,std::string>::iterator it = options->map.begin(), en = options->map.end(); it != en; ++it)
+	  tr->set_option(it->first, it->second);
+      
+      // create a proof object to hold the translation
+      iz3proof pf(tr);
+      
+      // translate into an interpolatable proof
+      profiling::timer_start("Proof translation");
+      tr->translate(proof,pf);
+      profiling::timer_stop("Proof translation");
+      
+      // translate the proof into interpolants
+      profiling::timer_start("Proof interpolation");
+      interps_vec[i] = pf.interpolate(tr->range_downward(0),tr->weak_mode());
+      interps_vec[i] = tr->quantify(interps_vec[i],tr->range_downward(0)); 
+      profiling::timer_stop("Proof interpolation");
+    }
+#endif       
     // put back in the removed frames
     fr.fix_interpolants(interps_vec);
 

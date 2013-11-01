@@ -68,7 +68,6 @@ public:
   typedef std::pair<hash_map<ast,Iproof::node>, hash_map<ast,Iproof::node> > AstToIpf;
   AstToIpf translation;                     // Z3 proof nodes to Iproof nodes
   
-  AstToInt frame_map;                      // map assertions to frames
   int frames;                               // number of frames
 
   typedef std::set<ast> AstSet;
@@ -98,6 +97,12 @@ public:
  
 #define from_ast(x) (x)
 
+  // #define NEW_LOCALITY
+
+#ifdef NEW_LOCALITY
+  range rng; // the range of frames in the "A" part of the interpolant
+#endif
+
   // determine locality of a proof term
   // return frame of derivation if local, or -1 if not
   // result INT_MAX means the proof term is a tautology
@@ -110,9 +115,13 @@ public:
     if(!bar.second) return res;
     if(pr(proof) == PR_ASSERTED){
       ast ass = conc(proof);
-      AstToInt::iterator it = frame_map.find(ass);
-      assert(it != frame_map.end());
-      res = it->second;
+      res = frame_of_assertion(ass);
+#ifdef NEW_LOCALITY
+      if(in_range(res,rng))
+	res = range_max(rng);
+      else
+	res = frames-1;
+#endif
     }
     else {
       unsigned nprems = num_prems(proof);
@@ -165,6 +174,7 @@ public:
     }
     return res;
   }
+
 
   AstSet &get_hyps(ast proof){
     std::pair<ast,AstSet > foo(proof,AstSet());
@@ -279,7 +289,7 @@ public:
     }
   }
   
-
+#if 0
   // clear the localization variables
   void clear_localization(){
     localization_vars.clear();
@@ -534,6 +544,7 @@ public:
     if(hi >= frames) return frames - 1;
     return hi;
   }
+#endif
 
   int num_lits(ast ast){
     opr dk = op(ast);
@@ -1197,6 +1208,10 @@ public:
   iz3proof::node translate(ast proof, iz3proof &dst){
     std::vector<ast> itps;
     for(int i = 0; i < frames -1; i++){
+#ifdef NEW_LOCALITY
+      rng = range_downward(i);
+      locality.clear();
+#endif
       iproof = iz3proof_itp::create(this,range_downward(i),weak_mode());
       Iproof::node ipf = translate_main(proof);
       ast itp = iproof->interpolate(ipf);
@@ -1211,15 +1226,11 @@ public:
 
   iz3translation_full(iz3mgr &mgr,
 			iz3secondary *_secondary,
-			const std::vector<ast> &cnsts,
+		      const std::vector<std::vector<ast> > &cnsts,
 			const std::vector<int> &parents,
 			const std::vector<ast> &theory)
     : iz3translation(mgr, cnsts, parents, theory)
   {
-    for(unsigned i = 0; i < cnsts.size(); i++)
-      frame_map[cnsts[i]] = i;
-    for(unsigned i = 0; i < theory.size(); i++)
-      frame_map[theory[i]] = INT_MAX;
     frames = cnsts.size();
     traced_lit = ast();
   }
@@ -1235,7 +1246,7 @@ public:
 
 iz3translation *iz3translation::create(iz3mgr &mgr,
 				       iz3secondary *secondary,
-				       const std::vector<ast> &cnsts,
+				       const std::vector<std::vector<ast> > &cnsts,
 				       const std::vector<int> &parents,
 				       const std::vector<ast> &theory){
   return new iz3translation_full(mgr,secondary,cnsts,parents,theory);

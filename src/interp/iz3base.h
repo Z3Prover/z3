@@ -74,6 +74,15 @@ class iz3base : public iz3mgr, public scopes {
     weak = false;
   }
 
+  iz3base(const iz3mgr& other,
+	  const std::vector<std::vector<ast> > &_cnsts,
+	 const std::vector<int> &_parents,
+	 const std::vector<ast> &_theory)
+   : iz3mgr(other), scopes(_parents)  {
+    initialize(_cnsts,_parents,_theory);
+    weak = false;
+  }
+
   iz3base(const iz3mgr& other)
    : iz3mgr(other), scopes()  {
     weak = false;
@@ -107,6 +116,14 @@ class iz3base : public iz3mgr, public scopes {
     return make(And,cs);
   }
   
+  int frame_of_assertion(const ast &ass){
+    stl_ext::hash_map<ast,int>::iterator it = frame_map.find(ass);
+    if(it == frame_map.end())
+      throw "unknown assertion";
+    return it->second;
+  }
+  
+
   void to_parents_vec_representation(const std::vector<ast> &_cnsts,
 				     const ast &tree,
 				     std::vector<ast> &cnsts,
@@ -132,12 +149,15 @@ class iz3base : public iz3mgr, public scopes {
   stl_ext::hash_map<symb,range> sym_range_hash;
   stl_ext::hash_map<ast,ranges> ast_ranges_hash;
   stl_ext::hash_map<ast,ast> simplify_memo;
+  stl_ext::hash_map<ast,int> frame_map;                      // map assertions to frames
 
+  int frames;                               // number of frames
 
   void add_frame_range(int frame, ast t);
 
   void initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
 
+  void initialize(const std::vector<std::vector<ast> > &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
 
   bool is_literal(ast n);
   void gather_conjuncts_rec(ast n, std::vector<ast> &conjuncts, stl_ext::hash_set<ast> &memo);
