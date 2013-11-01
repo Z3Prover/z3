@@ -44,6 +44,8 @@ Notes:
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
 #include "theory_arith.h"
+#include "ast_pp.h"
+#include "model_pp.h"
 
 namespace opt {
 
@@ -68,6 +70,7 @@ namespace opt {
         arith_util autil(m);
 
         opt_solver::scoped_push _push(*s);
+        opt_solver::toggle_objective _t(*s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
             m_vars.push_back(s->add_objective(objectives[i].get()));
@@ -76,7 +79,6 @@ namespace opt {
         lbool is_sat = l_true;
         // ready to test: is_sat = update_upper();
         while (is_sat == l_true && !m_cancel) {
-            opt_solver::toggle_objective _t(*s, true);
             is_sat = update_lower();
         }      
         
@@ -89,12 +91,15 @@ namespace opt {
     lbool optimize_objectives::update_lower() {
         lbool is_sat = s->check_sat(0, 0); 
         if (is_sat == l_true) {
+            model_ref md;
+            s->get_model(md);
             set_max(m_lower, s->get_objective_values());
             IF_VERBOSE(1, 
                        for (unsigned i = 0; i < m_lower.size(); ++i) {
                            verbose_stream() << m_lower[i] << " ";
                        }
-                       verbose_stream() << "\n";);
+                       verbose_stream() << "\n";
+                       model_pp(verbose_stream(), *md););
             expr_ref_vector disj(m);
             expr_ref constraint(m);
             

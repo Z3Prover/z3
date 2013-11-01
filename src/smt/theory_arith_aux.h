@@ -979,6 +979,9 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::maximize(theory_var v) {
         bool r = max_min(v, true); 
+        if (!r && at_upper(v)) {
+            m_objective_value = get_value(v);
+        }
         return r || at_upper(v);
     }
 

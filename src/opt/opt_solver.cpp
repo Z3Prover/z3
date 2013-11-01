@@ -98,13 +98,14 @@ namespace opt {
         lbool r = m_context.check(num_assumptions, assumptions);
         if (r == l_true && m_objective_enabled) {
             m_objective_values.reset();
+            smt::theory_opt& opt = get_optimizer();
             for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
                 smt::theory_var v = m_objective_vars[i];
-                bool is_bounded = get_optimizer().maximize(v);
+                bool is_bounded = opt.maximize(v);
                 if (is_bounded) {
-                    m_objective_values.push_back(get_optimizer().get_objective_value(v));
+                    m_objective_values.push_back(opt.get_objective_value(v));
                 } else {
-                    inf_eps_rational<inf_rational> r(rational(1), inf_rational(0));
+                    inf_eps r(rational(1), inf_rational(0));
                     m_objective_values.push_back(r);
                 }
             }
