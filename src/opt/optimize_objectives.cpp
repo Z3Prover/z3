@@ -68,7 +68,6 @@ namespace opt {
         arith_util autil(m);
 
         opt_solver::scoped_push _push(*s);
-        opt_solver::toggle_objective _t(*s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
             m_vars.push_back(s->add_objective(objectives[i].get()));
@@ -77,6 +76,7 @@ namespace opt {
         lbool is_sat = l_true;
         // ready to test: is_sat = update_upper();
         while (is_sat == l_true && !m_cancel) {
+            opt_solver::toggle_objective _t(*s, true);
             is_sat = update_lower();
         }      
         
@@ -117,20 +117,22 @@ namespace opt {
         smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
 
         expr_ref bound(m);
-        lbool is_sat = l_true;
 
-        for (unsigned i = 0; i < m_lower.size(); ++i) {
+        for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
             if (m_lower[i] < m_upper[i]) {
                 opt_solver::scoped_push _push(*s);
                 smt::theory_var v = m_vars[i]; 
+                // TBD: this version just works for m_upper[i] being infinity.
                 bound = th.block_upper_bound(v, m_upper[i]);
                 expr* bounds[1] = { bound };
-                is_sat = s->check_sat(1, bounds);
-                if (is_sat) {
+                lbool is_sat = s->check_sat(1, bounds);
+                if (is_sat == l_true) {
                     IF_VERBOSE(1, verbose_stream() << "Setting lower bound for " << v << " to " << m_upper[i] << "\n";);
                     m_lower[i] = m_upper[i];
                 }
-                // else: TBD extract Farkas coefficients.
+                else if (is_sat == l_false) {
+                    // else: TBD extract Farkas coefficients.
+                }
             }
         }
         return l_true;

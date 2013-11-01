@@ -1005,7 +1005,7 @@ namespace smt {
         strm << val << " <= " << v;
         expr* b = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
         bool_var bv = ctx.mk_bool_var(b);
-        atom* a = alloc(atom, bv, v, val, A_LOWER);
+        atom* a = alloc(atom, bv, v, val+Ext::m_real_epsilon, A_LOWER);
         m_unassigned_atoms[v]++;
         m_var_occs[v].push_back(a);
         m_atoms.push_back(a);
