@@ -189,8 +189,9 @@ namespace smt {
 
         // For optimization purpose
         typedef vector <std::pair<theory_var, rational> > objective_term;
-        vector<objective_term>          m_objectives;
-        vector<rational>                m_objective_consts;
+        vector<objective_term>         m_objectives;
+        vector<rational>               m_objective_consts;
+        vector<vector<numeral> >       m_objective_assignments;
         numeral                        m_objective_value;
 
         // Set a conflict due to a negative cycle.

@@ -778,6 +778,7 @@ void theory_diff_logic<Ext>::reset_eh() {
     m_non_diff_logic_exprs  = false;
     m_objectives      .reset();
     m_objective_consts.reset();
+    m_objective_assignments.reset();
     theory::reset_eh();
 }
 
@@ -1023,7 +1024,7 @@ bool theory_diff_logic<Ext>::maximize(theory_var v) {
         vector<numeral> potentials;
         m_objective_value = net_flow.get_optimal_solution(potentials, true);
         std::cout << "Objective value of var " << v << ": " << m_objective_value << std::endl;
-        // TODO: return the model of the optimal solution from potentials
+        m_objective_assignments[v] = potentials;
         TRACE("network_flow",
             for (unsigned i = 0; i < potentials.size(); ++i) {
                 tout << "v" << i << " -> " << potentials[i] << "\n";
@@ -1041,9 +1042,11 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
     objective_term objective;
     theory_var result = m_objectives.size();
     rational q(1), r(0);
+    vector<numeral> vr;
     if (internalize_objective(term, q, r, objective)) {
         m_objectives.push_back(objective);
         m_objective_consts.push_back(r);
+        m_objective_assignments.push_back(vr);
     }
     else {
         result = null_theory_var;
@@ -1063,7 +1066,6 @@ expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
-    // hacky implementation for now.
     if (t.size() == 1 && t[0].second.is_one()) {
         f = get_enode(t[0].first)->get_owner();
     }
@@ -1081,8 +1083,34 @@ expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const
         f = m_util.mk_sub(f, f2);
     }
     else {
-        NOT_IMPLEMENTED_YET();
+        expr_ref_vector disj(m);
+        vector<numeral> const & ns = m_objective_assignments[v];
+        inf_rational val;
+        rational r, s;
+        for (unsigned i = 0; i < t.size(); ++i) {
+            r = ns[i].get_rational().to_rational();
+            s = ns[i].get_infinitesimal().to_rational(); 
+            val = inf_rational(r, s);
+            f = get_enode(t[i].first)->get_owner();
+            e = m_util.mk_numeral(val.get_rational(), m.get_sort(f));
+            if (t[i].second.is_neg() && val.get_infinitesimal().is_pos()) {
+                disj.push_back(m_util.mk_le(f, e));
+            }
+            else if (t[i].second.is_neg()) {
+                disj.push_back(m_util.mk_lt(f, e));
+            }
+            else if (t[i].second.is_pos() && val.get_infinitesimal().is_neg()) {
+                disj.push_back(m_util.mk_ge(f, e));
+            }
+            else if (t[i].second.is_pos()) {
+                disj.push_back(m_util.mk_gt(f, e));
+            }
+            else {
+            }
+        }
+        return m.mk_or(disj.size(), disj.c_ptr());
     }
+
     inf_rational new_val = val - inf_rational(m_objective_consts[v]);
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     

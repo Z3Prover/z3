@@ -308,7 +308,7 @@ namespace smt {
         m_thread[z] = y;
         n = q;
         last = m_final[q];
-        while (n != last) {
+        while (n != last && n != -1) {
             m_depth[n] += 1 + m_depth[p];
             n = m_pred[n];
         }
@@ -495,7 +495,7 @@ namespace smt {
         // m_pred is predecessor link
         // m_depth depth counting from a root note.
         // m_graph
-
+#if 0
         node root = m_pred.size()-1;
         for (unsigned i = 0; i < m_upwards.size(); ++i) {
             if (m_upwards[i]) {
@@ -509,8 +509,7 @@ namespace smt {
         // m_thread forms a spanning tree over [0..root]
         // union-find structure:
         svector<int> roots(root+1, -1);
-
-#if 0              
+              
         for (unsigned i = 0; i < m_thread.size(); ++i) {
             if (m_states[i] == BASIS) {
                 node x = m_thread[i];
