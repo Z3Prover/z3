@@ -77,6 +77,9 @@ namespace opt {
         else if (typeid(smt::theory_i_arith) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_i_arith&>(*arith_theory); 
         }
+        else if (typeid(smt::theory_inf_arith) == typeid(*arith_theory)) {   
+            return dynamic_cast<smt::theory_inf_arith&>(*arith_theory); 
+        }
         else if (typeid(smt::theory_rdl&) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_rdl&>(*arith_theory); 
         }
