@@ -160,7 +160,7 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
         TRACE("network_flow", tout << "update_flows...\n";);
-        numeral val = fin_numeral(m_states[m_entering_edge]) * m_delta;
+        numeral val = fin_numeral(m_states[m_entering_edge]) * (*m_delta);
         m_flows[m_entering_edge] += val;
         node source = m_graph.get_source(m_entering_edge);
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
@@ -223,17 +223,14 @@ namespace smt {
         }
         // Found first common ancestor of source and target
         m_join_node = u;
-        TRACE("network_flow", tout << "Found join node " << m_join_node << std::endl;);
-        // FIXME: need to get truly infinite value
-        numeral infty = numeral(INT_MAX);
-        m_delta = infty; 
+        TRACE("network_flow", tout << "Found join node " << m_join_node << std::endl;);    
+        m_delta.set_invalid();
         node src, tgt;
         // Send flows along the path from source to the ancestor
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
-            edge_id e_id = get_edge_id(u, m_pred[u]);
-            numeral d = m_upwards[u] ? m_flows[e_id] : infty;
-            if (d < m_delta) {
-                m_delta = d;
+            edge_id e_id = get_edge_id(u, m_pred[u]);            
+            if (m_upwards[u] && (!m_delta || m_flows[e_id] < *m_delta)) {
+                m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
                 m_in_edge_dir = true;
@@ -243,16 +240,15 @@ namespace smt {
         // Send flows along the path from target to the ancestor
         for (unsigned u = target; u != m_join_node; u = m_pred[u]) {
             edge_id e_id = get_edge_id(u, m_pred[u]);
-            numeral d = m_upwards[u] ? infty : m_flows[e_id];
-            if (d <= m_delta) {
-                m_delta = d;
+            if (!m_upwards[u] && (!m_delta || m_flows[e_id] <= *m_delta)) {
+                m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
                 m_in_edge_dir = false;
             }
         }
 
-        if (m_delta < infty) {
+        if (m_delta) {
             m_leaving_edge = get_edge_id(src, tgt);
             TRACE("network_flow", { 
                 tout << "Found leaving edge " << m_leaving_edge;
@@ -295,22 +291,14 @@ namespace smt {
         // Update m_pred (for nodes in the stem from q to v)
         node n = q;
         node last = m_pred[v];
-        node parent = p;
-        while (n != last) {
+        node prev = p;
+        while (n != last && n != -1) {
             node next = m_pred[n];  
-            m_pred[n] = parent;            
-            parent = n;
+            m_pred[n] = prev;          
+            m_upwards[n] = !m_upwards[prev];
+            prev = n;
             n = next;
-        }
-        n = v;
-        while (n != q && n != -1) {
-            node next = m_pred[n];
-            if (next != -1) {
-                m_upwards[n] = !m_upwards[next];
-            }
-            n = next;
-        }
-        m_upwards[q] = true;
+        }     
 
         TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
 
@@ -339,7 +327,7 @@ namespace smt {
         node theta = m_thread[m_final[v]];
         
         gamma = m_thread[m_final[v]];
-        // REVIEW: check f(u) is not in T_v
+        // Check that f(u) is not in T_v
         node delta = m_final[u] != m_final[v] ? m_final[u] : phi;
         n = u;
         last = m_pred[gamma];
@@ -355,10 +343,9 @@ namespace smt {
             TRACE("network_flow", tout << "Reroot T_v at q\n";);
 
             node n = v;
-            m_thread[m_final[q]] = n;
             last = q;            
-            node alpha1, alpha2 = -1;
-            unsigned count = 0;
+            node alpha1, alpha2;
+            node prev = q;
             while (n != last && n != -1) {
                 // Find all immediate successors of n
                 node t1 = m_thread[n];
@@ -378,18 +365,15 @@ namespace smt {
                 }                
                 m_thread[n] = alpha1;
                 m_thread[m_final[alpha1]] = alpha2;                                
-                // Decrease depth of all children in the subtree
-                ++count;
-                int d = m_depth[n] - count;
-                for (node m = m_thread[n]; m != m_final[n]; m = m_thread[m]) {
-                    m_depth[m] -= d;
-                }
-                n = m_pred[n];
-                m_thread[m_final[alpha2]] = n;
+                m_thread[m_final[alpha2]] = prev;
+                prev = n;
+                n = m_pred[n];                
             }
-            if (alpha2 != -1) {
-                m_thread[m_final[alpha2]] = v;
-            }
+            m_thread[m_final[q]] = prev;
+        }
+
+        for (node n = m_thread[v]; m_pred[n] != -1; n = m_pred[n]) {
+            m_depth[n] = m_depth[m_pred[n]] + 1;
         }
 
         for (unsigned i = 0; i < m_thread.size(); ++i) {

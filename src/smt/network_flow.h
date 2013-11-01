@@ -85,7 +85,7 @@ namespace smt {
         edge_id m_entering_edge;
         edge_id m_leaving_edge;
         node m_join_node;
-        numeral m_delta;
+        optional<numeral> m_delta;
         bool m_in_edge_dir;
 
         unsigned m_step;
