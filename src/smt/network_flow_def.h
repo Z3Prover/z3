@@ -45,8 +45,20 @@ namespace smt {
 
     template<typename Ext>
     network_flow<Ext>::network_flow(graph & g, vector<fin_numeral> const & balances) :
-        m_graph(g),
         m_balances(balances) {
+        // Network flow graph has the edges in the reversed order compared to constraint graph
+        // We only take enabled edges from the original graph
+        for (unsigned i = 0; i < g.get_num_nodes(); ++i) {
+            m_graph.init_var(i);
+        }
+        vector<edge> const & es = g.get_all_edges();
+        for (unsigned i = 0; i < es.size(); ++i) {
+            edge const & e = es[i];
+            if (e.is_enabled()) {
+                m_graph.add_edge(e.get_target(), e.get_source(), e.get_weight(), explanation());
+            }
+        }
+        
         unsigned num_nodes = m_graph.get_num_nodes() + 1;
         unsigned num_edges = m_graph.get_num_edges();
 
@@ -87,9 +99,9 @@ namespace smt {
 
         m_flows.resize(num_nodes + num_edges);
         m_states.resize(num_nodes + num_edges);
-        m_states.fill(NON_BASIS);
+        m_states.fill(LOWER);
 
-        // Create artificial edges and initialize the spanning tree
+        // Create artificial edges from/to root node to/from other nodes and initialize the spanning tree
         for (unsigned i = 0; i < num_nodes; ++i) {
             m_upwards[i] = !m_balances[i].is_neg();
             m_pred[i] = root;
@@ -101,12 +113,13 @@ namespace smt {
             node src = m_upwards[i] ? i : root;
             node tgt = m_upwards[i] ? root : i;            
             m_flows[num_edges + i] = m_upwards[i] ? m_balances[i] : -m_balances[i];
-            m_graph.enable_edge(m_graph.add_edge(src, tgt, numeral::one(), explanation()));
+            m_graph.add_edge(src, tgt, numeral::one(), explanation());
         }
 
         // Compute initial potentials
         node u = m_thread[root];
         while (u != root) {
+            bool direction = m_upwards[u];
             node v = m_pred[u];   
             edge_id e_id = get_edge_id(u, v);            
             m_potentials[u] = m_potentials[v] + (m_upwards[u] ? - m_graph.get_weight(e_id) : m_graph.get_weight(e_id));
@@ -120,6 +133,7 @@ namespace smt {
                 tout << pp_vector("Potentials", m_potentials) << pp_vector("Flows", m_flows);
             });
         TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+        SASSERT(check_well_formed());
     }
 
     template<typename Ext>
@@ -136,7 +150,7 @@ namespace smt {
         node src = m_graph.get_source(m_entering_edge);
         node tgt = m_graph.get_target(m_entering_edge); 
         numeral cost = m_graph.get_weight(m_entering_edge);
-        numeral change = m_upwards[src] ? (-cost + m_potentials[src] - m_potentials[tgt]) : (cost - m_potentials[src] + m_potentials[tgt]);
+        numeral change = m_upwards[src] ? (-cost - m_potentials[src] + m_potentials[tgt]) : (cost + m_potentials[src] - m_potentials[tgt]);
         node last = m_thread[m_final[src]];
         for (node u = src; u != last; u = m_thread[u]) {
             m_potentials[u] += change;
@@ -147,7 +161,7 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
         TRACE("network_flow", tout << "update_flows...\n";);
-        numeral val = m_states[m_entering_edge] == BASIS ? numeral::zero() : m_delta;
+        numeral val = fin_numeral(m_states[m_entering_edge]) * (*m_delta);
         m_flows[m_entering_edge] += val;
         node source = m_graph.get_source(m_entering_edge);
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
@@ -166,20 +180,18 @@ namespace smt {
     bool network_flow<Ext>::choose_entering_edge() {
         TRACE("network_flow", tout << "choose_entering_edge...\n";);
         vector<edge> const & es = m_graph.get_all_edges();
-        for (unsigned int i = 0; i < es.size(); ++i) {
-            edge const & e = es[i];
-            edge_id e_id;
-            node source = e.get_source();
-            node target = e.get_target();
-            if (e.is_enabled() && m_graph.get_edge_id(source, target, e_id) && m_states[e_id] == NON_BASIS) {
-                numeral cost = e.get_weight() - m_potentials[source] + m_potentials[target];
+        for (unsigned i = 0; i < es.size(); ++i) {
+            node src = m_graph.get_source(i);
+            node tgt = m_graph.get_target(i);
+            if (m_states[i] != BASIS) {
+                numeral change = fin_numeral(m_states[i]) * (m_graph.get_weight(i) + m_potentials[src] - m_potentials[tgt]);
                 // Choose the first negative-cost edge to be the violating edge
                 // TODO: add multiple pivoting strategies
-                if (cost.is_neg()) {
-                    m_entering_edge = e_id;
+                if (change.is_neg()) {
+                    m_entering_edge = i;
                     TRACE("network_flow", {
-                        tout << "Found entering edge " << e_id << " between node ";
-                        tout << source << " and node " << target << "...\n";
+                        tout << "Found entering edge " << i << " between node ";
+                        tout << src << " and node " << tgt << "...\n";
                     });
                     return true;
                 }
@@ -194,6 +206,11 @@ namespace smt {
         TRACE("network_flow", tout << "choose_leaving_edge...\n";);
         node source = m_graph.get_source(m_entering_edge);
         node target = m_graph.get_target(m_entering_edge);
+        if (m_states[m_entering_edge] == UPPER) {
+            node temp = source;
+            source = target;
+            target = temp;
+        }
         node u = source, v = target;
         while (u != v) {
             if (m_depth[u] > m_depth[v])
@@ -207,34 +224,32 @@ namespace smt {
         }
         // Found first common ancestor of source and target
         m_join_node = u;
-        TRACE("network_flow", tout << "Found join node " << m_join_node << std::endl;);
-        // FIXME: need to get truly infinite value
-        numeral infty = numeral(INT_MAX);
-        m_delta = infty; 
+        TRACE("network_flow", tout << "Found join node " << m_join_node << std::endl;);    
+        m_delta.set_invalid();
         node src, tgt;
         // Send flows along the path from source to the ancestor
         for (unsigned u = source; u != m_join_node; u = m_pred[u]) {
-            edge_id e_id = get_edge_id(u, m_pred[u]);
-            numeral d = m_upwards[u] ? infty : m_flows[e_id];
-            if (d < m_delta) {
-                m_delta = d;
+            edge_id e_id = get_edge_id(u, m_pred[u]);            
+            if (m_upwards[u] && (!m_delta || m_flows[e_id] < *m_delta)) {
+                m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
+                m_in_edge_dir = true;
             }
         }
 
         // Send flows along the path from target to the ancestor
         for (unsigned u = target; u != m_join_node; u = m_pred[u]) {
             edge_id e_id = get_edge_id(u, m_pred[u]);
-            numeral d = m_upwards[u] ? m_flows[e_id] : infty;
-            if (d <= m_delta) {
-                m_delta = d;
+            if (!m_upwards[u] && (!m_delta || m_flows[e_id] <= *m_delta)) {
+                m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
+                m_in_edge_dir = false;
             }
         }
 
-        if (m_delta < infty) {
+        if (m_delta) {
             m_leaving_edge = get_edge_id(src, tgt);
             TRACE("network_flow", { 
                 tout << "Found leaving edge " << m_leaving_edge;
@@ -249,9 +264,21 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_spanning_tree() {        
         node p = m_graph.get_source(m_entering_edge);
-        node q = m_graph.get_target(m_entering_edge);
+        node q = m_graph.get_target(m_entering_edge);        
         node u = m_graph.get_source(m_leaving_edge);
         node v = m_graph.get_target(m_leaving_edge);
+        // v is parent of u so T_u does not contain root node
+        if (m_pred[u] == v) {
+            node temp = u;
+            u = v;
+            v = temp;
+        }  
+        if ((m_states[m_entering_edge] == UPPER) == m_in_edge_dir) {
+            // q should be in T_v so swap p and q
+            node temp = p;
+            p = q;
+            q = temp;
+        }
 
         TRACE("network_flow", { 
             tout << "update_spanning_tree: (" << p << ", " << q << ") enters, (";
@@ -265,14 +292,14 @@ namespace smt {
         // Update m_pred (for nodes in the stem from q to v)
         node n = q;
         node last = m_pred[v];
-        node parent = p;
-        while (n != last) {
+        node prev = p;
+        while (n != last && n != -1) {
             node next = m_pred[n];  
-            m_pred[n] = parent;
-            m_upwards[n] = !m_upwards[n];
-            parent = n;
+            m_pred[n] = prev;          
+            m_upwards[n] = !m_upwards[prev];
+            prev = n;
             n = next;
-        }
+        }     
 
         TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
 
@@ -289,7 +316,7 @@ namespace smt {
         node gamma = m_thread[m_final[p]];        
         n = p;
         last = m_pred[gamma];
-        while (n != last) {
+        while (n != last && n != -1) {
             m_final[n] = z;
             n = m_pred[n];
         }
@@ -299,33 +326,33 @@ namespace smt {
         // Update T_r'
         node phi = m_rev_thread[v];
         node theta = m_thread[m_final[v]];
-        m_thread[phi] = theta;
-
+        
         gamma = m_thread[m_final[v]];
-        // REVIEW: check f(n) is not in T_v
+        // Check that f(u) is not in T_v
         node delta = m_final[u] != m_final[v] ? m_final[u] : phi;
         n = u;
         last = m_pred[gamma];
-        while (n != last) {
+        while (n != last && n != -1) {
             m_final[n] = delta;
             n = m_pred[n];
         }
 
+        m_thread[phi] = theta;
+
         // Reroot T_v at q
-        if (u != q) {
+        if (v != q) {
             TRACE("network_flow", tout << "Reroot T_v at q\n";);
 
-            node n = m_pred[q];
-            m_thread[m_final[q]] = n;
-            last = v;            
+            node n = v;
+            last = q;            
             node alpha1, alpha2;
-            unsigned count = 0;
-            while (n != last) {
+            node prev = q;
+            while (n != last && n != -1) {
                 // Find all immediate successors of n
                 node t1 = m_thread[n];
                 node t2 = m_thread[m_final[t1]];
                 node t3 = m_thread[m_final[t2]];
-                if (t1 = m_pred[n]) {
+                if (t1 == m_pred[n]) {
                     alpha1 = t2;
                     alpha2 = t3;
                 }
@@ -338,18 +365,22 @@ namespace smt {
                     alpha2 = t2;
                 }                
                 m_thread[n] = alpha1;
-                m_thread[m_final[alpha1]] = alpha2;
-                n = m_pred[n];
-                m_thread[m_final[alpha2]] = n;
-                // Decrease depth of all children in the subtree
-                ++count;
-                int d = m_depth[n] - count;
-                for (node m = m_thread[n]; m != m_final[n]; m = m_thread[m]) {
-                    m_depth[m] -= d;
-                }
+                m_thread[m_final[alpha1]] = alpha2;                                
+                m_thread[m_final[alpha2]] = prev;
+                prev = n;
+                n = m_pred[n];                
             }
-            m_thread[m_final[alpha2]] = v;
+            m_thread[m_final[q]] = prev;
         }
+
+        for (node n = m_thread[v]; m_pred[n] != -1; n = m_pred[n]) {
+            m_depth[n] = m_depth[m_pred[n]] + 1;
+        }
+
+        for (unsigned i = 0; i < m_thread.size(); ++i) {
+            m_rev_thread[m_thread[i]] = i;
+        }
+        SASSERT(check_well_formed());
 
         TRACE("network_flow", {
             tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
@@ -376,14 +407,12 @@ namespace smt {
         vector<edge> const & es = m_graph.get_all_edges();
         for (unsigned i = 0; i < es.size(); ++i) {
             edge const & e = es[i];
-            if (e.is_enabled()) {
-                oss << prefix << e.get_source() << " -> " << prefix << e.get_target();
-                if (m_states[i] == BASIS) {
-                    oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
-                }
-                else {
-                    oss << "[label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
-                }
+            oss << prefix << e.get_source() << " -> " << prefix << e.get_target();
+            if (m_states[i] == BASIS) {
+                oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
+            }
+            else {
+                oss << "[label=\"" << m_flows[i] << "/" << e.get_weight() << "\"];\n";
             }
         }
         oss << std::endl;
@@ -396,15 +425,19 @@ namespace smt {
     bool network_flow<Ext>::min_cost() {
         initialize();
         while (choose_entering_edge()) {
+            SASSERT(check_well_formed());
             bool bounded = choose_leaving_edge();
             if (!bounded) return false;
             update_flows();
             if (m_entering_edge != m_leaving_edge) {
                 m_states[m_entering_edge] = BASIS;
-                m_states[m_leaving_edge] = NON_BASIS;
+                m_states[m_leaving_edge] = (m_flows[m_leaving_edge].is_zero()) ? LOWER : UPPER;
                 update_spanning_tree();
                 update_potentials();                
                 TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+            } 
+            else {
+                m_states[m_leaving_edge] = m_states[m_leaving_edge] == LOWER ? UPPER : LOWER;
             }
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);
@@ -418,7 +451,7 @@ namespace smt {
         vector<edge> const & es = m_graph.get_all_edges();
         for (unsigned i = 0; i < es.size(); ++i) {
             edge const & e = es[i];
-            if (e.is_enabled() && m_states[i] == BASIS) {
+            if (m_states[i] == BASIS) {
                 m_objective_value += e.get_weight().get_rational() * m_flows[i];
             }
         }
@@ -431,6 +464,70 @@ namespace smt {
         }
         return m_objective_value;
     }
+
+    static unsigned find(svector<int>& roots, unsigned x) {
+        unsigned old_x = x;
+        while (roots[x] >= 0) {
+            x = roots[x];
+        }
+        roots[old_x] = x;
+        return x;
+    }
+
+    static void merge(svector<int>& roots, unsigned x, unsigned y) {
+        x = find(roots, x);
+        y = find(roots, y);
+        SASSERT(roots[x] < 0 && roots[y] < 0);
+        if (x == y) {
+            return;
+        }
+        if (roots[x] > roots[y]) {
+            std::swap(x, y);
+        }
+        SASSERT(roots[x] <= roots[y]);
+        roots[y] = x;
+        roots[x] += roots[y];
+    }
+
+    template<typename Ext>
+    bool network_flow<Ext>::check_well_formed() {
+        // m_thread is depth-first stack
+        // m_pred is predecessor link
+        // m_depth depth counting from a root note.
+        // m_graph
+
+        node root = m_pred.size()-1;
+        for (unsigned i = 0; i < m_upwards.size(); ++i) {
+            if (m_upwards[i]) {
+                node p = m_pred[i];
+                edge_id e = get_edge_id(i, p);
+                // we are either the root or the predecessor points up.
+                SASSERT(p == root || m_upwards[p]);
+            }
+        }
+
+        // m_thread forms a spanning tree over [0..root]
+        // union-find structure:
+        svector<int> roots(root+1, -1);
+
+#if 0              
+        for (unsigned i = 0; i < m_thread.size(); ++i) {
+            if (m_states[i] == BASIS) {
+                node x = m_thread[i];
+                node y = i;
+                // we are now going to check the edge between x and y:
+                SASSERT(find(roots, x) != find(roots, y));
+                merge(roots, x, y);
+            }
+            else {
+                // ? LOWER, UPPER
+            }
+        }
+#endif
+        
+        return true;
+    }
+
 }
 
 #endif

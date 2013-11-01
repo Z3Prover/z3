@@ -175,7 +175,8 @@ namespace opt {
             return expr_ref(m.mk_true(), m);
         }
         else {
-            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], val.get_numeral()), m);
+            inf_rational n = val.get_numeral();            
+            return expr_ref(get_optimizer().block_lower_bound(m_objective_vars[var], n), m);
         }
     }
 

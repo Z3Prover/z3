@@ -42,8 +42,9 @@ namespace smt {
     template<typename Ext>
     class network_flow : private Ext {
         enum edge_state {
-            NON_BASIS = 0,
-            BASIS = 1
+            LOWER = 1,
+            BASIS = 0,
+            UPPER = -1
         };
         typedef dl_var node;
         typedef dl_edge<Ext> edge;
@@ -66,14 +67,15 @@ namespace smt {
         
         svector<edge_state> m_states;
 
-        // An element is true if the corresponding edge points upwards (compared to the root node)
+        // m_upwards[i] is true if the corresponding edge 
+        // (i, m_pred[i]) points upwards (pointing toward the root node)
         svector<bool> m_upwards;
 
         // Store the parent of a node i in the spanning tree
         svector<node> m_pred;
         // Store the number of edge on the path from node i to the root
         svector<int> m_depth;
-        // Store the pointer from node i to the next node in depth first search ordering
+        // Store the pointer from node i to the next node in depth-first search order
         svector<node> m_thread;
         // Reverse orders of m_thread
         svector<node> m_rev_thread;
@@ -83,7 +85,8 @@ namespace smt {
         edge_id m_entering_edge;
         edge_id m_leaving_edge;
         node m_join_node;
-        numeral m_delta;
+        optional<numeral> m_delta;
+        bool m_in_edge_dir;
 
         unsigned m_step;
 
@@ -108,6 +111,8 @@ namespace smt {
         void update_spanning_tree();
 
         std::string display_spanning_tree();
+
+        bool check_well_formed();
 
     public:
 

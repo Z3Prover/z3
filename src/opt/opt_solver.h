@@ -91,7 +91,6 @@ namespace opt {
 
         smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
         
-    private:
         smt::theory_opt& get_optimizer();
     };
 }

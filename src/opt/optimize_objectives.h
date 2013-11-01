@@ -33,6 +33,7 @@ namespace opt {
         volatile bool m_cancel;
         vector<inf_eps> m_lower;
         vector<inf_eps> m_upper;
+        svector<smt::theory_var> m_vars;
     public:
         optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false) {}
 

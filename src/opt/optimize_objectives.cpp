@@ -66,24 +66,16 @@ namespace opt {
     */
     lbool optimize_objectives::basic_opt(app_ref_vector& objectives) {
         arith_util autil(m);
-        s->reset_objectives();
-        m_lower.reset();
-        m_upper.reset();
-        // First check_sat call to initialize theories
-        lbool is_sat = s->check_sat(0, 0);
-        if (is_sat != l_true) {
-            return is_sat;
-        }
 
         opt_solver::scoped_push _push(*s);
         opt_solver::toggle_objective _t(*s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
-            s->add_objective(objectives[i].get());
-            m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
-            m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+            m_vars.push_back(s->add_objective(objectives[i].get()));
         }
-                
+          
+        lbool is_sat = l_true;
+        // ready to test: is_sat = update_upper();
         while (is_sat == l_true && !m_cancel) {
             is_sat = update_lower();
         }      
@@ -117,8 +109,31 @@ namespace opt {
     }
 
     lbool optimize_objectives::update_upper() {
-        NOT_IMPLEMENTED_YET();
-        return l_undef;
+        smt::theory_opt& opt = s->get_optimizer();
+        
+        if (typeid(smt::theory_inf_arith) != typeid(opt)) {
+            return l_true;
+        }
+        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
+
+        expr_ref bound(m);
+        lbool is_sat = l_true;
+
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            if (m_lower[i] < m_upper[i]) {
+                opt_solver::scoped_push _push(*s);
+                smt::theory_var v = m_vars[i]; 
+                bound = th.block_upper_bound(v, m_upper[i]);
+                expr* bounds[1] = { bound };
+                is_sat = s->check_sat(1, bounds);
+                if (is_sat) {
+                    IF_VERBOSE(1, verbose_stream() << "Setting lower bound for " << v << " to " << m_upper[i] << "\n";);
+                    m_lower[i] = m_upper[i];
+                }
+                // else: TBD extract Farkas coefficients.
+            }
+        }
+        return l_true;
     }
 
     /**
@@ -127,10 +142,22 @@ namespace opt {
     */
     lbool optimize_objectives::operator()(opt_solver& solver, app_ref_vector& objectives, vector<inf_eps>& values) {
         s = &solver;
-        lbool result = basic_opt(objectives);
-        values.reset();
-        values.append(m_lower);
-        return result;
+        s->reset_objectives();
+        m_lower.reset();
+        m_upper.reset();
+        for (unsigned i = 0; i < objectives.size(); ++i) {
+            m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
+            m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+        }
+
+        // First check_sat call to initialize theories
+        lbool is_sat = s->check_sat(0, 0);
+        if (is_sat == l_true) {
+            is_sat = basic_opt(objectives);
+            values.reset();
+            values.append(m_lower);
+        }
+        return is_sat;
     }
 
 }

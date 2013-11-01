@@ -428,7 +428,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::display_atom(std::ostream & out, atom * a, bool show_sign) const {
         theory_var      v = a->get_var();
-        numeral const & k = a->get_k();
+        inf_numeral const & k = a->get_k();
         enode *         e = get_enode(v);
         if (show_sign) {
             if (!a->is_true()) 
