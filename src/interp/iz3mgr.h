@@ -413,6 +413,10 @@ class iz3mgr  {
 
   void get_assign_bounds_coeffs(const ast &proof, std::vector<ast>& rats);
 
+  void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rational>& rats);
+  
+  void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<ast>& rats);
+
   bool is_true(ast t){
     return op(t) == True;
   }

@@ -96,6 +96,19 @@ struct iz3checker : iz3base {
       lbool result = s->check_sat(0,0);
       if(result != l_false){
 	err << "interpolant " << i << " is incorrect";
+
+	s->pop(1);
+	for(unsigned j = 0; j < theory.size(); j++)
+	  s->assert_expr(to_expr(theory[j].raw()));
+	for(unsigned j = 0; j < cnsts.size(); j++)
+	  if(in_range(j,range_downward(i)))
+	    s->assert_expr(to_expr(cnsts[j].raw()));
+	if(i != num-1)
+	  s->assert_expr(to_expr(mk_not(itp[i]).raw()));
+	lbool result = s->check_sat(0,0);
+	if(result != l_false)
+	  err << "interpolant " << i << " is not implied by its downeard closurn";
+
 	return false;
       }
       s->pop(1);

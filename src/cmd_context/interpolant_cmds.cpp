@@ -31,6 +31,8 @@ Notes:
 #include"pp_params.hpp"
 #include"iz3interp.h"
 #include"iz3checker.h"
+#include"iz3profiling.h"
+#include"interp_params.hpp"
 
 static void show_interpolant_and_maybe_check(cmd_context & ctx,
 					     ptr_vector<ast> &cnsts,
@@ -81,6 +83,10 @@ static void show_interpolant_and_maybe_check(cmd_context & ctx,
   for(unsigned i = 0; i < interps.size(); i++){
     ctx.m().dec_ref(interps[i]);
   }
+
+  interp_params itp_params(m_params);
+  if(itp_params.profile())
+    profiling::print(ctx.regular_stream());
 
 }
 

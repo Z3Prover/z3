@@ -626,7 +626,7 @@ public:
     if(!is_literal_or_lit_iff(lit)){
       if(is_not(lit)) std::cout << "~";
       std::cout << "[";
-      print_expr(std::cout,abslit);
+      // print_expr(std::cout,abslit);
       std::cout << "]";
     }
     else
@@ -960,6 +960,52 @@ public:
     return res;
   }
 
+  ast AssignBoundsRule2Farkas(const ast &proof, const ast &con, std::vector<Iproof::node> prems){
+    std::vector<ast> farkas_coeffs;
+    get_assign_bounds_rule_coeffs(proof,farkas_coeffs);
+    std::vector<ast> lits;
+    int nargs = num_prems(proof)+1;
+    if(nargs != (int)(farkas_coeffs.size()))
+      throw "bad assign-bounds theory lemma";
+    std::vector<ast> my_coeffs;
+    std::vector<ast> my_cons;
+    for(int i = 1; i < nargs; i++){
+      my_cons.push_back(conc(prem(proof,i-1)));
+      my_coeffs.push_back(farkas_coeffs[i]);
+    }
+    ast farkas_con = normalize_inequality(sum_inequalities(my_coeffs,my_cons));
+    std::vector<Iproof::node> my_hyps;
+    for(int i = 1; i < nargs; i++)
+      my_hyps.push_back(prems[i-1]);
+    my_cons.push_back(mk_not(farkas_con));
+    my_coeffs.push_back(make_int("1"));
+    my_hyps.push_back(iproof->make_hypothesis(mk_not(farkas_con)));    
+    ast res = iproof->make_farkas(mk_false(),my_hyps,my_cons,my_coeffs);
+    res = iproof->make_cut_rule(farkas_con,farkas_coeffs[0],conc(proof),res);
+    return res;
+  }
+
+  Iproof::node RewriteClause(Iproof::node clause, const ast &rew){
+    if(pr(rew) == PR_MONOTONICITY){
+      int nequivs = num_prems(rew);
+      for(int i = 0; i < nequivs; i++){
+	Iproof::node equiv_pf = translate_main(prem(rew,i),false);
+	ast equiv = conc(prem(rew,i));
+	clause = iproof->make_mp(equiv,clause,equiv_pf);
+      }
+      return clause;
+    }
+    if(pr(rew) == PR_TRANSITIVITY){
+      clause = RewriteClause(clause,prem(rew,0));
+      clause = RewriteClause(clause,prem(rew,1));
+      return clause;
+    }
+    if(pr(rew) == PR_REWRITE){
+      return clause; // just hope the rewrite does nothing!
+    }
+    throw unsupported();
+  }
+
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1015,11 +1061,19 @@ public:
       else
 	lits.push_back(from_ast(con));
 
-      // special case 
+      // pattern match some idioms
       if(dk == PR_MODUS_PONENS && pr(prem(proof,0)) == PR_QUANT_INST && pr(prem(proof,1)) == PR_REWRITE ) {
 	res = iproof->make_axiom(lits);
 	return res;
       }
+      if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or){
+	Iproof::node clause = translate_main(prem(proof,0),true);
+	res = RewriteClause(clause,prem(proof,1));
+	return res;
+      }
+
+      if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
+	std::cout << "foo!\n";
 
       // translate all the premises
       std::vector<Iproof::node> args(nprems);
@@ -1098,7 +1152,10 @@ public:
 	    break;
 	  }
 	  case AssignBoundsKind: {
-	    res = AssignBounds2Farkas(proof,conc(proof));
+	    if(args.size() > 0)
+	      res =  AssignBoundsRule2Farkas(proof, conc(proof), args);
+	    else
+	      res = AssignBounds2Farkas(proof,conc(proof));
 	    break;
 	  }
 	  default:

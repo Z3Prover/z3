@@ -391,7 +391,9 @@ lbool iz3interpolate(ast_manager &_m_manager,
   iz3mgr::ast _tree = itp.cook(tree);
   std::vector<iz3mgr::ast> _cnsts;
   itp.assert_conjuncts(s,_cnsts,_tree);
+  profiling::timer_start("solving");
   lbool res = s.check_sat(0,0);
+  profiling::timer_stop("solving");
   if(res == l_false){
     ast *proof = s.get_proof();
     iz3mgr::ast _proof = itp.cook(proof);

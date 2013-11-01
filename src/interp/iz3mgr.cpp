@@ -536,6 +536,56 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
     }
     rats[i-1] = r;
   }
+  if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
+    for(unsigned i = 1; i < rats.size(); i++){
+      if(!rats[i].is_neg())
+	throw "Bad Farkas coefficients";
+      rats[i] = -rats[i];
+    }
+  }
+  extract_lcd(rats);
+}
+
+void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<ast>& coeffs){
+  std::vector<rational> rats;
+  get_assign_bounds_rule_coeffs(proof,rats);
+  coeffs.resize(rats.size());
+  for(unsigned i = 0; i < rats.size(); i++){
+    coeffs[i] = make_int(rats[i]);
+  }
+}
+
+void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rational>& rats){
+  symb s = sym(proof);
+  int numps = s->get_num_parameters();
+  rats.resize(numps-1);
+  rats[0] = rational(1);
+  ast conseq = arg(conc(proof),0);
+  opr conseq_o = is_not(conseq) ? op(arg(conseq,0)) : op(conseq);
+  bool conseq_neg = is_not(conseq) ? (conseq_o == Leq || conseq_o == Lt) : (conseq_o == Geq || conseq_o == Gt);
+  for(int i = 2; i < numps; i++){
+    rational r;
+    bool ok = s->get_parameter(i).is_rational(r);
+    if(!ok)
+      throw "Bad Farkas coefficient";
+    {
+      ast con = conc(prem(proof,i-2));
+      ast temp = make_real(r); // for debugging
+      opr o = is_not(con) ? op(arg(con,0)) : op(con);
+      if(is_not(con) ? (o == Leq || o == Lt) : (o == Geq || o == Gt))
+	r = -r;
+      if(conseq_neg)
+	r = -r;
+    }
+    rats[i-1] = r;
+  }
+  if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
+    for(unsigned i = 1; i < rats.size(); i++){
+      if(!rats[i].is_neg())
+	throw "Bad Farkas coefficients";
+      rats[i] = -rats[i];
+    }
+  }
   extract_lcd(rats);
 }
 

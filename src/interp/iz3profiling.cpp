@@ -24,18 +24,26 @@ Revision History:
 #include <string>
 #include <string.h>
 #include <stdlib.h>
+#include "stopwatch.h"
 
 
 // FIXME fill in these stubs
 
-#define clock_t int
+#define clock_t double
 
-static clock_t current_time(){
-  return 0;
+static  double current_time()
+{
+  static stopwatch sw;
+  static bool started = false;
+  if(!started){
+    sw.start();
+    started = true;
+  }
+  return sw.get_current_seconds();
 }
 
 static void output_time(std::ostream &os, clock_t time){
-  os << ((double)time)/1000;
+  os << time;
 }
 
 
