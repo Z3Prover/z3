@@ -76,8 +76,8 @@ namespace opt {
         }
           
         lbool is_sat = l_true;
-        // ready to test: 
-        is_sat = update_upper();
+        // Disabled while testing and tuning:
+        // is_sat = update_upper();
         opt_solver::toggle_objective _t(*s, true);
 
         while (is_sat == l_true && !m_cancel) {
