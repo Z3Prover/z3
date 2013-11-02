@@ -927,6 +927,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::assign_eh(bool_var v, bool is_true) {
+        TRACE("arith", tout << "v" << v << " " << is_true << "\n";);
         atom * a = get_bv2a(v);
         if (!a) return;
         SASSERT(get_context().get_assignment(a->get_bool_var()) != l_undef);
@@ -2421,6 +2422,8 @@ namespace smt {
                     if (val == l_undef)
                         continue;
                     // TODO: check if the following line is a bottleneck
+                    TRACE("arith", tout << "v" << a->get_bool_var() << " " << (val == l_true) << "\n";);
+
                     a->assign_eh(val == l_true, get_epsilon(a->get_var()));
                     if (val != l_undef && a->get_bound_kind() == b->get_bound_kind()) {
                         SASSERT((ctx.get_assignment(bv) == l_true) == a->is_true());
@@ -2789,6 +2792,9 @@ namespace smt {
                 if (is_int(v))
                     continue;
                 inf_numeral const & val = get_value(v);
+                if (Ext::is_infinite(val)) {
+                    continue;
+                }
                 rational value = val.get_rational().to_rational() + m_epsilon.to_rational() * val.get_infinitesimal().to_rational();
                 theory_var v2;
                 if (mapping.find(value, v2)) {

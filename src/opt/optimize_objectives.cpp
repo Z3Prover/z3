@@ -70,14 +70,16 @@ namespace opt {
         arith_util autil(m);
 
         opt_solver::scoped_push _push(*s);
-        opt_solver::toggle_objective _t(*s, true);
 
         for (unsigned i = 0; i < objectives.size(); ++i) {
             m_vars.push_back(s->add_objective(objectives[i].get()));
         }
           
         lbool is_sat = l_true;
-        // ready to test: is_sat = update_upper();
+        // ready to test: 
+        is_sat = update_upper();
+        opt_solver::toggle_objective _t(*s, true);
+
         while (is_sat == l_true && !m_cancel) {
             is_sat = update_lower();
         }      
@@ -99,7 +101,8 @@ namespace opt {
                            verbose_stream() << m_lower[i] << " ";
                        }
                        verbose_stream() << "\n";
-                       model_pp(verbose_stream(), *md););
+                       // model_pp(verbose_stream(), *md);
+                       );
             expr_ref_vector disj(m);
             expr_ref constraint(m);
             
@@ -115,24 +118,38 @@ namespace opt {
 
     lbool optimize_objectives::update_upper() {
         smt::theory_opt& opt = s->get_optimizer();
-        
+
+        IF_VERBOSE(1, verbose_stream() << typeid(opt).name() << "\n";);
         if (typeid(smt::theory_inf_arith) != typeid(opt)) {
             return l_true;
         }
         smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
 
         expr_ref bound(m);
+        expr_ref_vector bounds(m);
+
+        opt_solver::scoped_push _push(*s);
+        //
+        // NB: we have to create all bound expressions before calling check_sat
+        // because the state after check_sat is not at base level.
+        //
 
         for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
             if (m_lower[i] < m_upper[i]) {
-                opt_solver::scoped_push _push(*s);
+                SASSERT(m_upper[i].get_infinity().is_pos());
                 smt::theory_var v = m_vars[i]; 
-                // TBD: this version just works for m_upper[i] being infinity.
                 bound = th.block_upper_bound(v, m_upper[i]);
-                expr* bounds[1] = { bound };
-                lbool is_sat = s->check_sat(1, bounds);
+                bounds.push_back(bound);
+            }
+            else {
+                bounds.push_back(0);
+            }
+        }
+        for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
+            if (m_lower[i] < m_upper[i]) {
+                lbool is_sat = s->check_sat(1, bounds.c_ptr() + i);
                 if (is_sat == l_true) {
-                    IF_VERBOSE(1, verbose_stream() << "Setting lower bound for " << v << " to " << m_upper[i] << "\n";);
+                    IF_VERBOSE(2, verbose_stream() << "Setting lower bound for v" << m_vars[i] << " to " << m_upper[i] << "\n";);
                     m_lower[i] = m_upper[i];
                 }
                 else if (is_sat == l_false) {

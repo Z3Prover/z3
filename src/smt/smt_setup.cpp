@@ -737,6 +737,9 @@ namespace smt {
             else
                 m_context.register_plugin(alloc(smt::theory_rutvpi, m_manager));          
             break;
+        case AS_OPTINF:
+            m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
+            break;
         default:
             if (m_params.m_arith_int_only)
                 m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));

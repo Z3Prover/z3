@@ -1005,14 +1005,23 @@ namespace smt {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         std::ostringstream strm;
-        strm << val << " <= " << v;
-        expr* b = m.mk_fresh_const(strm.str().c_str(), m.mk_bool_sort());
+        strm << val << " <= v" << v;
+        expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
         bool_var bv = ctx.mk_bool_var(b);
-        atom* a = alloc(atom, bv, v, val+Ext::m_real_epsilon, A_LOWER);
+        ctx.set_var_theory(bv, get_id());
+        // ctx.set_enode_flag(bv, true);
+        inf_numeral val1 = val;
+        if (!Ext::is_infinite(val)) {
+            val1 += Ext::m_real_epsilon;
+        }
+        atom* a = alloc(atom, bv, v, val1, A_LOWER);
         m_unassigned_atoms[v]++;
         m_var_occs[v].push_back(a);
         m_atoms.push_back(a);
         insert_bv2a(bv, a);
+        TRACE("arith", tout << mk_pp(b, m) << "\n";
+              display_atom(tout, a, false);
+              display_atoms(tout););
         return b;
     }
 

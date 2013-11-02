@@ -1067,6 +1067,7 @@ namespace smt {
         static inf_numeral mk_inf_numeral(numeral const & n, numeral const & r) {
             return inf_numeral(n, r);
         }
+        static bool is_infinite(inf_numeral const& ) { return false; }
         mi_ext() : m_int_epsilon(rational(1)), m_real_epsilon(rational(0), true) {}
     };
 
@@ -1083,6 +1084,8 @@ namespace smt {
             UNREACHABLE();
             return inf_numeral(n);
         }
+        static bool is_infinite(inf_numeral const& ) { return false; }
+
         i_ext() : m_int_epsilon(1), m_real_epsilon(1) {}
     };
 
@@ -1099,6 +1102,8 @@ namespace smt {
             UNREACHABLE();
             return inf_numeral(n);
         }
+        static bool is_infinite(inf_numeral const& ) { return false; }
+
         si_ext(): m_int_epsilon(s_integer(1)), m_real_epsilon(s_integer(1)) {}
     };
     
@@ -1119,6 +1124,8 @@ namespace smt {
         static inf_numeral mk_inf_numeral(numeral const& n, numeral const& i) {
             return inf_numeral(n, i);
         }
+        static bool is_infinite(inf_numeral const& ) { return false; }
+
         smi_ext() : m_int_epsilon(s_integer(1)), m_real_epsilon(s_integer(0), true) {}
     };
 
@@ -1138,6 +1145,10 @@ namespace smt {
         static inf_numeral mk_inf_numeral(numeral const & n, numeral const & r) {
             return inf_numeral(inf_rational(n, r));
         }
+        static bool is_infinite(inf_numeral const& n) { 
+            return !n.get_infinity().is_zero(); 
+        }
+
         inf_ext() : m_int_epsilon(inf_rational(rational(1))), m_real_epsilon(inf_rational(rational(0), true)) {}
     };
 
