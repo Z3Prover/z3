@@ -1,0 +1,11 @@
+def_module_params('opt', 
+                  description='optimization parameters',
+                  export=True,
+                  params=(('timeout', UINT, UINT_MAX, 'set timeout'),
+                          ('engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
+                          ))
+
+
+
+
+
