@@ -101,13 +101,7 @@ namespace opt {
             smt::theory_opt& opt = get_optimizer();
             for (unsigned i = 0; i < m_objective_vars.size(); ++i) {
                 smt::theory_var v = m_objective_vars[i];
-                bool is_bounded = opt.maximize(v);
-                if (is_bounded) {
-                    m_objective_values.push_back(opt.get_objective_value(v));
-                } else {
-                    inf_eps r(rational(1), inf_rational(0));
-                    m_objective_values.push_back(r);
-                }
+                m_objective_values.push_back(opt.maximize(v));
             }
         }
         return r;

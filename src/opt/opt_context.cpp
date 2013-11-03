@@ -17,9 +17,6 @@ Notes:
     TODO:
 
     - there are race conditions for cancelation.
-    - it would also be a good idea to maintain a volatile bool to track
-      cancelation and then bail out of loops inside optimize() and derived
-      functions.
 
 --*/
 
@@ -30,6 +27,7 @@ Notes:
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
 #include "th_rewriter.h"
+#include "opt_params.hpp"
 
 
 namespace opt {
@@ -154,12 +152,17 @@ namespace opt {
         }
     }
 
+    void context::collect_param_descrs(param_descrs & r) {
+        opt_params::collect_param_descrs(r);
+    }
+    
     void context::updt_params(params_ref& p) {
         m_params.append(p);
         if (m_solver) {
             m_solver->updt_params(m_params);
         }
-        
+        opt_params _p(m_params);
+        m_opt_objectives.set_engine(_p.engine());        
     }
 
 

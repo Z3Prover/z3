@@ -159,6 +159,7 @@ public:
         insert_timeout(p);
         insert_max_memory(p);
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
+        opt::context::collect_param_descrs(p);
     }
 
     virtual char const * get_main_descr() const { return "check sat modulo objective function";}

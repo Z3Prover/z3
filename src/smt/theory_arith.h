@@ -90,6 +90,7 @@ namespace smt {
         static const int    dead_row_id = -1;
     protected:
         bool proofs_enabled() const { return get_manager().proofs_enabled(); }
+        bool coeffs_enabled() const { return proofs_enabled() || m_bound_watch != null_bool_var; }
         
         struct linear_monomial {
             numeral     m_coeff;
@@ -995,11 +996,19 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
-        virtual bool maximize(theory_var v);
+        virtual inf_eps_rational<inf_rational> maximize(theory_var v);
         virtual theory_var add_objective(app* term);
-        virtual inf_eps_rational<inf_rational> get_objective_value(theory_var v);
         virtual expr* block_lower_bound(theory_var v, inf_rational const& val);
-        virtual expr* block_upper_bound(theory_var v, inf_numeral const& val);
+        expr* block_upper_bound(theory_var v, inf_numeral const& val);
+        void enable_record_conflict(expr* bound);
+        void record_conflict(unsigned num_lits, literal const * lits, 
+                          unsigned num_eqs, enode_pair const * eqs,
+                          unsigned num_params, parameter* params);
+        inf_eps_rational<inf_rational> conflict_minimize();
+    private:
+        bool_var m_bound_watch;
+        inf_eps_rational<inf_rational> m_upper_bound;
+    public:
         // -----------------------------------
         //
         // Pretty Printing

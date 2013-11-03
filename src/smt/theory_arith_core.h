@@ -879,7 +879,7 @@ namespace smt {
         bool_var bv    = ctx.mk_bool_var(n);
         ctx.set_var_theory(bv, get_id());
         rational _k;
-        m_util.is_numeral(rhs, _k);
+        VERIFY(m_util.is_numeral(rhs, _k));
         inf_numeral   k(_k);
         atom * a = alloc(atom, bv, v, k, kind);
         mk_bound_axioms(a);
@@ -1315,7 +1315,8 @@ namespace smt {
         m_assume_eq_head(0),
         m_nl_rounds(0),
         m_nl_gb_exhausted(false),
-        m_nl_new_exprs(m) {
+        m_nl_new_exprs(m),
+        m_bound_watch(null_bool_var) {
     }
 
     template<typename Ext>
@@ -1980,7 +1981,7 @@ namespace smt {
               tout << "is_below_lower: " << below_lower(x_i) << ", is_above_upper: " << above_upper(x_i) << "\n";);
         antecedents& ante = get_antecedents();
         explain_bound(r, idx, !is_below, delta, ante);
-        b->push_justification(ante, numeral(1), proofs_enabled());
+        b->push_justification(ante, numeral(1), coeffs_enabled());
        
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), 
@@ -2123,8 +2124,8 @@ namespace smt {
     void theory_arith<Ext>::sign_bound_conflict(bound * b1, bound * b2) {
         SASSERT(b1->get_var() == b2->get_var());
         antecedents& ante = get_antecedents();
-        b1->push_justification(ante, numeral(1), proofs_enabled());
-        b2->push_justification(ante, numeral(1), proofs_enabled());
+        b1->push_justification(ante, numeral(1), coeffs_enabled());
+        b2->push_justification(ante, numeral(1), coeffs_enabled());
 
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), ante, is_int(b1->get_var()), "farkas");
         TRACE("arith_conflict", tout << "bound conflict\n";);
@@ -2383,7 +2384,7 @@ namespace smt {
                 if (!b->has_justification())
                     continue;
                 if (!relax_bounds() || delta.is_zero()) {
-                    b->push_justification(ante, it->m_coeff, proofs_enabled());
+                    b->push_justification(ante, it->m_coeff, coeffs_enabled());
                     continue;
                 }
                 numeral coeff = it->m_coeff;
@@ -2445,7 +2446,7 @@ namespace smt {
                 SASSERT(!is_b_lower || k_2 <= k_1);
                 SASSERT(is_b_lower  || k_2 >= k_1);
                 if (new_atom == 0) {
-                    b->push_justification(ante, coeff, proofs_enabled());
+                    b->push_justification(ante, coeff, coeffs_enabled());
                     continue;
                 }
                 SASSERT(!is_b_lower || k_2 < k_1);
@@ -2459,7 +2460,7 @@ namespace smt {
                     delta -= coeff*(k_2 - k_1);
                 }
                 TRACE("propagate_bounds", tout << "delta (after replace): " << delta << "\n";);
-                new_atom->push_justification(ante, coeff, proofs_enabled());
+                new_atom->push_justification(ante, coeff, coeffs_enabled());
                 SASSERT(delta >= inf_numeral::zero());
             }
         }
@@ -2659,13 +2660,13 @@ namespace smt {
               for (unsigned i = 0; i < num_literals; i++) {
                   ctx.display_detailed_literal(tout, lits[i]);
                   tout << " ";
-                  if (proofs_enabled()) {
+                  if (coeffs_enabled()) {
                       tout << "bound: " << bounds.lit_coeffs()[i] << "\n";
                   }
               }
               for (unsigned i = 0; i < num_eqs; i++) {
                   tout << "#" << eqs[i].first->get_owner_id() << "=#" << eqs[i].second->get_owner_id() << " ";
-                  if (proofs_enabled()) {
+                  if (coeffs_enabled()) {
                       tout << "bound: " << bounds.eq_coeffs()[i] << "\n";
                   }
               }
@@ -2673,6 +2674,7 @@ namespace smt {
                   tout << bounds.params(proof_rule)[i] << "\n";
               }
               tout << "\n";);
+        record_conflict(num_literals, lits, num_eqs, eqs, bounds.num_params(), bounds.params(proof_rule));
         ctx.set_conflict(
             ctx.mk_justification(
                 ext_theory_conflict_justification(get_id(), r, num_literals, lits, num_eqs, eqs, 
@@ -2689,8 +2691,8 @@ namespace smt {
         typename vector<row_entry>::const_iterator end = r.end_entries();
         for (; it != end; ++it) {
             if (!it->is_dead() && is_fixed(it->m_var)) {
-                lower(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());
-                upper(it->m_var)->push_justification(antecedents, it->m_coeff, proofs_enabled());                
+                lower(it->m_var)->push_justification(antecedents, it->m_coeff, coeffs_enabled());
+                upper(it->m_var)->push_justification(antecedents, it->m_coeff, coeffs_enabled());                
             }
         }
     }

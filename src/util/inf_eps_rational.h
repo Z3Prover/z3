@@ -155,6 +155,11 @@ class inf_eps_rational {
         return inf_eps_rational(Numeral::minus_one());
     }
 
+    static inf_eps_rational infinity() {
+        return inf_eps_rational(rational::one(), Numeral::zero());
+    }
+
+
     inf_eps_rational & operator=(const inf_eps_rational & r) {
         m_infty = r.m_infty;
         m_r = r.m_r;
@@ -176,6 +181,16 @@ class inf_eps_rational {
     inf_eps_rational & operator-=(const inf_eps_rational & r) { 
         m_infty  -= r.m_infty;
         m_r      -= r.m_r;
+	return *this; 
+    }
+
+    inf_eps_rational & operator-=(const inf_rational & r) { 
+        m_r      -= r;
+	return *this; 
+    }
+
+    inf_eps_rational & operator+=(const inf_rational & r) { 
+        m_r      += r;
 	return *this; 
     }
 

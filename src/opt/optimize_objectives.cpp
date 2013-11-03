@@ -62,26 +62,18 @@ namespace opt {
         }
     }
 
-
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool optimize_objectives::basic_opt(app_ref_vector& objectives) {
-        arith_util autil(m);
-
-        opt_solver::scoped_push _push(*s);
-
-        for (unsigned i = 0; i < objectives.size(); ++i) {
-            m_vars.push_back(s->add_objective(objectives[i].get()));
-        }
-          
+    lbool optimize_objectives::basic_opt() {
+        opt_solver::toggle_objective _t(*s, true);          
         lbool is_sat = l_true;
-        // Disabled while testing and tuning:
-        // is_sat = update_upper();
-        opt_solver::toggle_objective _t(*s, true);
 
         while (is_sat == l_true && !m_cancel) {
-            is_sat = update_lower();
+            is_sat = s->check_sat(0, 0); 
+            if (is_sat == l_true) {
+                update_lower();
+            }
         }      
         
         if (m_cancel || is_sat == l_undef) {
@@ -90,72 +82,116 @@ namespace opt {
         return l_true;        
     }
 
-    lbool optimize_objectives::update_lower() {
-        lbool is_sat = s->check_sat(0, 0); 
-        if (is_sat == l_true) {
-            model_ref md;
-            s->get_model(md);
-            set_max(m_lower, s->get_objective_values());
-            IF_VERBOSE(1, 
-                       for (unsigned i = 0; i < m_lower.size(); ++i) {
-                           verbose_stream() << m_lower[i] << " ";
-                       }
-                       verbose_stream() << "\n";
-                       // model_pp(verbose_stream(), *md);
-                       );
-            expr_ref_vector disj(m);
-            expr_ref constraint(m);
-            
-            for (unsigned i = 0; i < m_lower.size(); ++i) {
-                inf_eps const& v = m_lower[i];
-                disj.push_back(s->block_lower_bound(i, v));
-            }
-            constraint = m.mk_or(disj.size(), disj.c_ptr());
-            s->assert_expr(constraint);
+    /*
+        Enumerate locally optimal assignments until fixedpoint.
+    */
+    lbool optimize_objectives::farkas_opt() {
+        smt::theory_opt& opt = s->get_optimizer();
+
+        IF_VERBOSE(1, verbose_stream() << typeid(opt).name() << "\n";);
+        if (typeid(smt::theory_inf_arith) != typeid(opt)) {
+            return l_undef;
         }
-        return is_sat;
+
+        opt_solver::toggle_objective _t(*s, true);
+        lbool is_sat= l_true;
+
+        while (is_sat == l_true && !m_cancel) {
+            is_sat = update_upper();
+        }      
+        
+        if (m_cancel || is_sat == l_undef) {
+            return l_undef;
+        }
+        return l_true;        
+    }
+
+    void optimize_objectives::update_lower() {
+        model_ref md;
+        s->get_model(md);
+        set_max(m_lower, s->get_objective_values());
+        IF_VERBOSE(1, 
+                   for (unsigned i = 0; i < m_lower.size(); ++i) {
+                       verbose_stream() << m_lower[i] << " ";
+                   }
+                   verbose_stream() << "\n";
+                   // model_pp(verbose_stream(), *md);
+                   );
+        expr_ref_vector disj(m);
+        expr_ref constraint(m);
+        
+        for (unsigned i = 0; i < m_lower.size(); ++i) {
+            inf_eps const& v = m_lower[i];
+            disj.push_back(s->block_lower_bound(i, v));
+        }
+        constraint = m.mk_or(disj.size(), disj.c_ptr());
+        s->assert_expr(constraint);
     }
 
     lbool optimize_objectives::update_upper() {
         smt::theory_opt& opt = s->get_optimizer();
 
-        IF_VERBOSE(1, verbose_stream() << typeid(opt).name() << "\n";);
-        if (typeid(smt::theory_inf_arith) != typeid(opt)) {
-            return l_true;
-        }
+        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
+
         smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
 
         expr_ref bound(m);
         expr_ref_vector bounds(m);
 
         opt_solver::scoped_push _push(*s);
+
         //
         // NB: we have to create all bound expressions before calling check_sat
         // because the state after check_sat is not at base level.
         //
 
+        vector<inf_eps> mid;
+
         for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
             if (m_lower[i] < m_upper[i]) {
-                SASSERT(m_upper[i].get_infinity().is_pos());
                 smt::theory_var v = m_vars[i]; 
-                bound = th.block_upper_bound(v, m_upper[i]);
+                mid.push_back((m_upper[i]+m_lower[i])/rational(2));
+                bound = th.block_upper_bound(v, mid[i]);
                 bounds.push_back(bound);
             }
             else {
                 bounds.push_back(0);
+                mid.push_back(inf_eps());
             }
         }
+        bool progress = false;
         for (unsigned i = 0; i < m_lower.size() && !m_cancel; ++i) {
-            if (m_lower[i] < m_upper[i]) {
+            if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
+                th.enable_record_conflict(bounds[i].get());
                 lbool is_sat = s->check_sat(1, bounds.c_ptr() + i);
-                if (is_sat == l_true) {
+                th.enable_record_conflict(0);
+                switch(is_sat) {
+                case l_true:
                     IF_VERBOSE(2, verbose_stream() << "Setting lower bound for v" << m_vars[i] << " to " << m_upper[i] << "\n";);
-                    m_lower[i] = m_upper[i];
+                    m_lower[i] = mid[i];
+                    update_lower();
+                    break;
+                case l_false:
+                    if (!th.conflict_minimize().get_infinity().is_zero()) {
+                        // bounds is not in the core. The context is unsat.
+                        m_upper[i] = m_lower[i];
+                        return l_false;
+                    }
+                    else {
+                        m_upper[i] = std::min(m_upper[i], th.conflict_minimize());
+                    }
+                    break;
+                default:
+                    return l_undef;
                 }
-                else if (is_sat == l_false) {
-                    // else: TBD extract Farkas coefficients.
-                }
+                progress = true;
             }
+        }
+        if (m_cancel) {
+            return l_undef;
+        }
+        if (!progress) {
+            return l_false;
         }
         return l_true;
     }
@@ -177,7 +213,24 @@ namespace opt {
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
         if (is_sat == l_true) {
-            is_sat = basic_opt(objectives);
+            opt_solver::scoped_push _push(*s);
+            
+            for (unsigned i = 0; i < objectives.size(); ++i) {
+                m_vars.push_back(s->add_objective(objectives[i].get()));
+            }
+
+            if (m_engine == symbol("basic")) {
+                is_sat = basic_opt();
+            }
+            else if (m_engine == symbol("farkas")) {
+                is_sat = farkas_opt();
+            }
+            else {
+                // TODO: implement symba engine
+                // report error on bad configuration.
+                NOT_IMPLEMENTED_YET();
+                UNREACHABLE();
+            }
             values.reset();
             values.append(m_lower);
         }

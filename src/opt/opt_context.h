@@ -68,6 +68,8 @@ namespace opt {
 
         void collect_statistics(statistics& stats);
 
+        static void collect_param_descrs(param_descrs & r);
+
         void updt_params(params_ref& p);
 
     private:

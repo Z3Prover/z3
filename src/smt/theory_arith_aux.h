@@ -21,6 +21,8 @@ Revision History:
 
 #include"inf_eps_rational.h"
 #include"theory_arith.h"
+#include"smt_farkas_util.h"
+#include"th_rewriter.h"
 
 namespace smt {
 
@@ -977,14 +979,20 @@ namespace smt {
     }
 
     template<typename Ext>
-    bool theory_arith<Ext>::maximize(theory_var v) {
+    inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
         bool r = max_min(v, true); 
-        if (!r && at_upper(v)) {
+        if (at_upper(v)) {
             m_objective_value = get_value(v);
         }
-        return r || at_upper(v);
+        else if (!r) {
+            m_objective_value = inf_eps_rational<inf_rational>::infinity();
+        }
+        return m_objective_value;        
     }
 
+    /**
+       \brief: assert val < v
+    */
     template<typename Ext>
     expr* theory_arith<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
         ast_manager& m = get_manager();
@@ -1000,6 +1008,9 @@ namespace smt {
         }
     }
 
+    /**
+      \brief assert val <= v
+    */
     template<typename Ext>
     expr* theory_arith<Ext>::block_upper_bound(theory_var v, inf_numeral const& val) {
         ast_manager& m = get_manager();
@@ -1007,28 +1018,153 @@ namespace smt {
         std::ostringstream strm;
         strm << val << " <= v" << v;
         expr* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
-        bool_var bv = ctx.mk_bool_var(b);
-        ctx.set_var_theory(bv, get_id());
-        // ctx.set_enode_flag(bv, true);
-        inf_numeral val1 = val;
-        if (!Ext::is_infinite(val)) {
-            val1 += Ext::m_real_epsilon;
+        if (!ctx.b_internalized(b)) {
+            bool_var bv = ctx.mk_bool_var(b);
+            ctx.set_var_theory(bv, get_id());
+            // ctx.set_enode_flag(bv, true);
+            atom* a = alloc(atom, bv, v, val, A_LOWER);
+            m_unassigned_atoms[v]++;
+            m_var_occs[v].push_back(a);
+            m_atoms.push_back(a);
+            insert_bv2a(bv, a);
+            TRACE("arith", tout << mk_pp(b, m) << "\n";
+                  display_atom(tout, a, false););
         }
-        atom* a = alloc(atom, bv, v, val1, A_LOWER);
-        m_unassigned_atoms[v]++;
-        m_var_occs[v].push_back(a);
-        m_atoms.push_back(a);
-        insert_bv2a(bv, a);
-        TRACE("arith", tout << mk_pp(b, m) << "\n";
-              display_atom(tout, a, false);
-              display_atoms(tout););
         return b;
     }
 
+
+    /**
+       \brief enable watching bound atom.       
+     */
     template<typename Ext>
-    inf_eps_rational<inf_rational> theory_arith<Ext>::get_objective_value(theory_var v) {
-        return m_objective_value; 
+    void theory_arith<Ext>::enable_record_conflict(expr* bound) {
+        m_params.m_arith_bound_prop = BP_NONE;
+        SASSERT(propagation_mode() == BP_NONE); // bound propagtion rules are not (yet) handled.
+        if (bound) {
+            context& ctx = get_context();
+            m_bound_watch = ctx.get_bool_var(bound);
+        }
+        else {
+            m_bound_watch = null_bool_var;
+        }        
+        m_upper_bound = -inf_eps_rational<inf_rational>::infinity();
     }
+
+    /**
+       \brief 
+          pos < 0
+       == 
+          r(Ax <= b) + q(v <= val) 
+       == 
+          val' <= q*v & q*v <= q*val
+      
+          q*v - val' >= 0
+
+       => 
+          (q*v - val' - q*v)/q >= -v
+       ==
+          val/q <= v
+     */
+
+    template<typename Ext>
+    void theory_arith<Ext>::record_conflict(
+        unsigned num_lits, literal const * lits, 
+        unsigned num_eqs, enode_pair const * eqs,
+        unsigned num_params, parameter* params) {
+        ast_manager& m = get_manager();
+        context& ctx = get_context();
+        if (null_bool_var == m_bound_watch) {
+            return;
+        }
+        unsigned idx = num_lits;
+        for (unsigned i = 0; i < num_lits; ++i) {
+            if (m_bound_watch == lits[i].var()) {
+                //SASSERT(!lits[i].sign());
+                idx = i;
+                break;
+            }
+        }
+        if (idx == num_lits) {
+            return;
+        }
+        SASSERT(num_params == 1 + num_lits + num_eqs);
+        SASSERT(params[0].is_symbol());
+        SASSERT(params[0].get_symbol() == symbol("farkas")); // for now, just handle this rule.
+        farkas_util farkas(m);
+        expr_ref tmp(m), vq(m);
+        expr* x, *y, *e;
+        rational q;
+        for (unsigned i = 0; i < num_lits; ++i) {
+            parameter const& pa = params[i+1];
+            SASSERT(pa.is_rational());
+            if (idx == i) {
+                q = abs(pa.get_rational());
+                continue;
+            }
+            ctx.literal2expr(~lits[i], tmp);
+            farkas.add(abs(pa.get_rational()), to_app(tmp));
+        }
+        for (unsigned i = 0; i < num_eqs; ++i) {
+            enode_pair const& p = eqs[i];
+            x = p.first->get_owner();
+            y = p.second->get_owner();
+            tmp = m.mk_not(m.mk_eq(x,y));
+            parameter const& pa = params[1 + num_lits + i];
+            SASSERT(pa.is_rational());
+            farkas.add(abs(pa.get_rational()), to_app(tmp));
+        }
+        tmp = farkas.get();
+        std::cout << tmp << "\n";
+        atom* a = get_bv2a(m_bound_watch);
+        SASSERT(a);
+        expr_ref_vector  terms(m);
+        vector<rational> mults;
+        bool strict = false;
+        if (m_util.is_le(tmp, x, y) || m_util.is_ge(tmp, y, x)) {
+        }
+        else if (m_util.is_lt(tmp, x, y) || m_util.is_gt(tmp, y, x)) {
+            strict = true;
+        }
+        else if (m.is_eq(tmp, x, y)) {            
+        }
+        else {
+            UNREACHABLE();
+        }
+        e = var2expr(a->get_var());
+        q = -q*farkas.get_normalize_factor();
+        SASSERT(!m_util.is_int(e) || q.is_int());  // TBD: not fully handled.
+        if (q.is_one()) {
+            vq = e;
+        }
+        else {
+            vq = m_util.mk_mul(m_util.mk_numeral(q, q.is_int()), e);
+        }
+        vq = m_util.mk_add(m_util.mk_sub(x, y), vq);
+        if (!q.is_one()) {
+            vq = m_util.mk_div(vq, m_util.mk_numeral(q, q.is_int()));
+        }
+        th_rewriter rw(m);
+        rw(vq, tmp);
+        IF_VERBOSE(1, verbose_stream() << tmp << "\n";);
+        VERIFY(m_util.is_numeral(tmp, q));
+        if (m_upper_bound < q) {
+            m_upper_bound = q;
+            if (strict) {
+                m_upper_bound -= get_epsilon(a->get_var());
+            }
+        }
+    }
+
+    /**
+       \brief find the minimal upper bound on the variable that was last enabled
+              for conflict recording.
+     */
+    template<typename Ext>
+    inf_eps_rational<inf_rational> theory_arith<Ext>::conflict_minimize() {
+        return m_upper_bound;
+    }
+    
 
     /**
        \brief Maximize (Minimize) the given temporary row.
