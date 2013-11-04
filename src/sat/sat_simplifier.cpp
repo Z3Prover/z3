@@ -407,7 +407,7 @@ namespace sat {
                 remove_clause(c2);
                 m_num_subsumed++;
             }
-            else {
+            else if (!c2.was_removed()) {
                 // subsumption resolution
                 TRACE("subsumption_resolution", tout << c1 << " sub-ref(" << *l_it << ") " << c2 << "\n";);
                 elim_lit(c2, *l_it);
