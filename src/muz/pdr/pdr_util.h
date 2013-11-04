@@ -144,12 +144,6 @@ namespace pdr {
     void reduce_disequalities(model& model, unsigned threshold, expr_ref& fml);
 
     /**
-       \brief hoist non-boolean if expressions.
-     */
-    void hoist_non_bool_if(expr_ref& fml);
-
-
-    /**
        \brief normalize coefficients in polynomials so that least coefficient is 1.
      */
     void normalize_arithmetic(expr_ref& t);

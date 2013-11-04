@@ -1030,68 +1030,6 @@ namespace pdr {
         fml = m.mk_and(conjs.size(), conjs.c_ptr());        
     }
 
-    // 
-    // (f (if c1 (if c2 e1 e2) e3) b c) -> 
-    // (if c1 (if c2 (f e1 b c)
-
-    class ite_hoister {
-        ast_manager& m;
-    public:
-        ite_hoister(ast_manager& m): m(m) {}
-
-        br_status mk_app_core(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
-            if (m.is_ite(f)) {
-                return BR_FAILED;
-            }
-            for (unsigned i = 0; i < num_args; ++i) {
-                expr* c, *t, *e;
-                if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
-                    expr_ref e1(m), e2(m);
-                    ptr_vector<expr> args1(num_args, args);
-                    args1[i] = t;
-                    e1 = m.mk_app(f, num_args, args1.c_ptr());
-                    if (t == e) {
-                        result = e1;
-                        return BR_REWRITE1;
-                    }
-                    args1[i] = e;
-                    e2 = m.mk_app(f, num_args, args1.c_ptr());
-                    result = m.mk_app(f, num_args, args);
-                    result = m.mk_ite(c, e1, e2);
-                    return BR_REWRITE3;
-                }
-            }
-            return BR_FAILED;
-        }
-    };
-
-    struct ite_hoister_cfg: public default_rewriter_cfg {
-        ite_hoister m_r;
-        bool rewrite_patterns() const { return false; }
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            return m_r.mk_app_core(f, num, args, result);
-        }
-        ite_hoister_cfg(ast_manager & m, params_ref const & p):m_r(m) {}        
-    };
-
-    class ite_hoister_star : public rewriter_tpl<ite_hoister_cfg> {
-        ite_hoister_cfg m_cfg;
-    public:
-        ite_hoister_star(ast_manager & m, params_ref const & p):
-            rewriter_tpl<ite_hoister_cfg>(m, false, m_cfg),
-            m_cfg(m, p) {}
-    };
-
-    void hoist_non_bool_if(expr_ref& fml) {
-        ast_manager& m = fml.get_manager();
-        scoped_no_proof _sp(m);
-        params_ref p;
-        ite_hoister_star ite_rw(m, p);
-        expr_ref tmp(m);
-        ite_rw(fml, tmp);
-        fml = tmp;        
-    }
-
     class test_diff_logic {
         ast_manager& m;
         arith_util a;
@@ -1441,7 +1379,6 @@ namespace pdr {
 
 }
 
-template class rewriter_tpl<pdr::ite_hoister_cfg>;
 template class rewriter_tpl<pdr::arith_normalizer_cfg>;
 
 

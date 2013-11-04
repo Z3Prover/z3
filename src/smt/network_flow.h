@@ -93,7 +93,7 @@ namespace smt {
         // Initialize the network with a feasible spanning tree
         void initialize();
 
-        edge_id get_edge_id(dl_var source, dl_var target);
+        edge_id get_edge_id(dl_var source, dl_var target) const;
 
 
         void update_potentials();
@@ -111,6 +111,9 @@ namespace smt {
         void update_spanning_tree();
 
         std::string display_spanning_tree();
+
+        bool edge_in_tree(edge_id id) const;
+        bool edge_in_tree(node src, node dst) const;
 
         bool check_well_formed();
 

@@ -47,6 +47,7 @@ Notes:
 #include "dl_boogie_proof.h"
 #include "qe_util.h"
 #include "scoped_proof.h"
+#include "blast_term_ite_tactic.h"
 
 namespace pdr {
 
@@ -601,7 +602,7 @@ namespace pdr {
         th_rewriter rw(m);
         rw(fml);
         if (ctx.is_dl() || ctx.is_utvpi()) {
-            hoist_non_bool_if(fml);
+            blast_term_ite(fml);
         }
         TRACE("pdr", tout << mk_pp(fml, m) << "\n";);
         SASSERT(is_ground(fml));

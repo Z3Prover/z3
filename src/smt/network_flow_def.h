@@ -137,7 +137,7 @@ namespace smt {
     }
 
     template<typename Ext>
-    edge_id network_flow<Ext>::get_edge_id(dl_var source, dl_var target) {
+    edge_id network_flow<Ext>::get_edge_id(dl_var source, dl_var target) const {
         // m_upwards[source] decides which node is the real source
         edge_id id;
         VERIFY(m_upwards[source] ? m_graph.get_edge_id(source, target, id) : m_graph.get_edge_id(target, source, id));
@@ -234,6 +234,7 @@ namespace smt {
                 m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
+                SASSERT(edge_in_tree(src,tgt));
                 m_in_edge_dir = true;
             }
         }
@@ -245,6 +246,7 @@ namespace smt {
                 m_delta = m_flows[e_id];
                 src = u;
                 tgt = m_pred[u];
+                SASSERT(edge_in_tree(src,tgt));
                 m_in_edge_dir = false;
             }
         }
@@ -267,10 +269,12 @@ namespace smt {
         node q = m_graph.get_target(m_entering_edge);        
         node u = m_graph.get_source(m_leaving_edge);
         node v = m_graph.get_target(m_leaving_edge);
+
         // v is parent of u so T_u does not contain root node
         if (m_pred[u] == v) {
             std::swap(u, v);
         }  
+        SASSERT(m_pred[v] == u);
 
         for (node n = p; n != -1; n = m_pred[n]) {
             // q should be in T_v so swap p and q
@@ -285,13 +289,10 @@ namespace smt {
             tout << u << ", " << v << ") leaves\n";
         });
 
-        node x = m_final[p];
-        node y = m_thread[x];
-        node z = m_final[q];
 
         // Update m_pred (for nodes in the stem from q to v)
         node n = q;
-        node last = m_pred[v];
+        node last = m_pred[v]; // review: m_pred[v] == u holds, so why not 'u'?
         node prev = p;
         while (n != last && n != -1) {
             node next = m_pred[n];  
@@ -302,6 +303,11 @@ namespace smt {
         }     
 
         TRACE("network_flow", tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Upwards", m_upwards););
+
+        node x = m_final[p];
+        node y = m_thread[x];
+        node z = m_final[q];
+
 
         // Do this before updating data structures
         node gamma_p = m_pred[m_thread[m_final[p]]];
@@ -430,6 +436,8 @@ namespace smt {
             if (!bounded) return false;
             update_flows();
             if (m_entering_edge != m_leaving_edge) {
+				SASSERT(edge_in_tree(m_leaving_edge));
+				SASSERT(!edge_in_tree(m_entering_edge));
                 m_states[m_entering_edge] = BASIS;
                 m_states[m_leaving_edge] = (m_flows[m_leaving_edge].is_zero()) ? LOWER : UPPER;
                 update_spanning_tree();
@@ -494,6 +502,7 @@ namespace smt {
     }
 
     static int get_final(int root, svector<int> const & thread, svector<int> const & depth) {
+        // really final or should one take into account connected tree?
         int n = root;
         while (depth[thread[n]] > depth[root]) {
             n = thread[n];
@@ -502,18 +511,75 @@ namespace smt {
     }
 
     template<typename Ext>
+    bool network_flow<Ext>::edge_in_tree(edge_id id) const {
+        return m_states[id] == BASIS;
+    }
+
+    template<typename Ext>
+    bool network_flow<Ext>::edge_in_tree(node src, node dst) const {
+        return edge_in_tree(get_edge_id(src,dst));
+    }
+
+    /**
+       \brief Check invariants of main data-structures.
+
+       Spanning tree of m_graph + root is represented using:
+        
+        svector<edge_state> m_states;      edge_id |-> edge_state
+        svector<bool> m_upwards;           node |-> bool
+        svector<node> m_pred;              node |-> node
+        svector<int>  m_depth;             node |-> int
+        svector<node> m_thread;            node |-> node
+        svector<node> m_rev_thread;        node |-> node
+        svector<node> m_final;             node |-> node
+
+        m_thread[m_rev_thread[n]] == n  for each node n
+
+        Tree is determined by m_pred:
+        - m_pred[root] == -1
+        - m_pred[n] = m != n     for each node n, acyclic until reaching root.
+        - m_depth[m_pred[n]] + 1 == m_depth[n] for each n != root        
+
+        m_thread is a linked list traversing all nodes.
+        Furthermore, the nodes linked in m_thread follows a 
+        depth-first traversal order.
+
+        m_final[n] is deepest most node in a sub-tree rooted at n.
+                
+    */
+
+    template<typename Ext>
     bool network_flow<Ext>::check_well_formed() {
         node root = m_pred.size()-1;
+
+        // Check that m_thread traverses each node.
+        // This gets checked using union-find as well.
+        svector<bool> found(m_thread.size(), false);
+        found[root] = true;
+        for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+            found[x] = true;
+        }
+        for (unsigned i = 0; i < found.size(); ++i) {
+            SASSERT(found[i]);
+        }
+
+        // m_pred is acyclic, and points to root.
+        SASSERT(m_pred[root] == -1);
+        SASSERT(m_depth[root] == 0);
+        for (node i = 0; i < root; ++i) {
+            SASSERT(m_depth[m_pred[i]] < m_depth[i]);
+        }
 
         // m_upwards show correct direction
         for (unsigned i = 0; i < m_upwards.size(); ++i) {
             node p = m_pred[i];
             edge_id id;
-            SASSERT(m_upwards[i] == m_graph.get_edge_id(i, p, id));            
+            SASSERT(!m_upwards[i] || m_graph.get_edge_id(i, p, id));            
         }
 
         // m_depth[x] denotes distance from x to the root node
         for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+            SASSERT(m_depth[x] > 0);
             SASSERT(m_depth[x] == m_depth[m_pred[x]] + 1);
         }
 
@@ -540,7 +606,7 @@ namespace smt {
         
         // All nodes belong to the same spanning tree
         for (unsigned i = 0; i < roots.size(); ++i) {            
-            SASSERT(i == 0 ? roots[i] + roots.size() == 0 : roots[i] == 0);            
+            SASSERT(roots[i] + roots.size() == 0 || roots[i] >= 0);            
         }        
 
         // m_flows are zero on non-basic edges

@@ -935,13 +935,13 @@ public:
 
     // Return true if there is an edge source --> target (also counting disabled edges).
     // If there is such edge, return its edge_id in parameter id.
-    bool get_edge_id(dl_var source, dl_var target, edge_id & id) {
-        edge_id_vector & edges = m_out_edges[source];
-        typename edge_id_vector::iterator it  = edges.begin();
-        typename edge_id_vector::iterator end = edges.end();
+    bool get_edge_id(dl_var source, dl_var target, edge_id & id) const {
+        edge_id_vector const & edges = m_out_edges[source];
+        typename edge_id_vector::const_iterator it  = edges.begin();
+        typename edge_id_vector::const_iterator end = edges.end();
         for (; it != end; ++it) {
             id = *it;
-            edge & e = m_edges[id];
+            edge const & e = m_edges[id];
             if (e.get_target() == target) {
                 return true;
             }

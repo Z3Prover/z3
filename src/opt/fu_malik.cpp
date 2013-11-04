@@ -71,14 +71,15 @@ namespace opt {
            * add at-most-one constraint with blocking 
         */
 
-        bool step() {
+        lbool step() {
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step)\n";);
             expr_ref_vector assumptions(m), block_vars(m);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
             }
             lbool is_sat = s.check_sat(assumptions.size(), assumptions.c_ptr());
             if (is_sat != l_false) {
-                return true;
+                return is_sat;
             }
 
             ptr_vector<expr> core;
@@ -102,7 +103,7 @@ namespace opt {
                 s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
             }
             assert_at_most_one(block_vars);
-            return false;
+            return l_false;
         }
 
     private:
@@ -139,23 +140,28 @@ namespace opt {
             s.push();
 
             fu_malik fm(m, s, soft_constraints);
-            while (!fm.step());
+			lbool is_sat = l_true;
+            do {
+				is_sat = fm.step();
+			}
+			while (is_sat == l_false);
+			
+			if (is_sat == l_true) {
+				// Get a list of satisfying soft_constraints
+				model_ref model;
+				s.get_model(model);
 
-            // Get a list of satisfying soft_constraints
-            model_ref model;
-            s.get_model(model);
-
-            expr_ref_vector result(m);
-            for (unsigned i = 0; i < soft_constraints.size(); ++i) {
-                expr_ref val(m);
-                VERIFY(model->eval(soft_constraints[i].get(), val));
-                if (!m.is_false(val)) {
-                    result.push_back(soft_constraints[i].get());
-                }
-            }
-            soft_constraints.reset();
-            soft_constraints.append(result);
-
+				expr_ref_vector result(m);
+				for (unsigned i = 0; i < soft_constraints.size(); ++i) {
+					expr_ref val(m);
+					VERIFY(model->eval(soft_constraints[i].get(), val));
+					if (!m.is_false(val)) {
+						result.push_back(soft_constraints[i].get());
+					}
+				}
+				soft_constraints.reset();
+				soft_constraints.append(result);
+			}
             s.pop(1);
         }
         // We are done and soft_constraints has 
