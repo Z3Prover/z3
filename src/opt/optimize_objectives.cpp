@@ -151,6 +151,7 @@ namespace opt {
             if (m_lower[i] < m_upper[i]) {
                 smt::theory_var v = m_vars[i]; 
                 mid.push_back((m_upper[i]+m_lower[i])/rational(2));
+                //mid.push_back(m_upper[i]);
                 bound = th.block_upper_bound(v, mid[i]);
                 bounds.push_back(bound);
             }
@@ -164,14 +165,15 @@ namespace opt {
             if (m_lower[i] <= mid[i] && mid[i] <= m_upper[i] && m_lower[i] < m_upper[i]) {
                 th.enable_record_conflict(bounds[i].get());
                 lbool is_sat = s->check_sat(1, bounds.c_ptr() + i);
-                th.enable_record_conflict(0);
                 switch(is_sat) {
                 case l_true:
                     IF_VERBOSE(2, verbose_stream() << "Setting lower bound for v" << m_vars[i] << " to " << m_upper[i] << "\n";);
                     m_lower[i] = mid[i];
+                    th.enable_record_conflict(0);
                     update_lower();
                     break;
                 case l_false:
+                    IF_VERBOSE(2, verbose_stream() << "conflict: " << th.conflict_minimize() << "\n";);
                     if (!th.conflict_minimize().get_infinity().is_zero()) {
                         // bounds is not in the core. The context is unsat.
                         m_upper[i] = m_lower[i];
@@ -182,8 +184,10 @@ namespace opt {
                     }
                     break;
                 default:
+                    th.enable_record_conflict(0);
                     return l_undef;
                 }
+                th.enable_record_conflict(0);
                 progress = true;
             }
         }

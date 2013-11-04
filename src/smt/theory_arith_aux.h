@@ -1028,7 +1028,7 @@ namespace smt {
             m_atoms.push_back(a);
             insert_bv2a(bv, a);
             TRACE("arith", tout << mk_pp(b, m) << "\n";
-                  display_atom(tout, a, false););
+                  display_atom(tout, a, false););            
         }
         return b;
     }
@@ -1074,6 +1074,8 @@ namespace smt {
         unsigned num_params, parameter* params) {
         ast_manager& m = get_manager();
         context& ctx = get_context();
+        expr_ref tmp(m), vq(m);
+        expr* x, *y, *e;
         if (null_bool_var == m_bound_watch) {
             return;
         }
@@ -1088,12 +1090,20 @@ namespace smt {
         if (idx == num_lits) {
             return;
         }
+        for (unsigned i = 0; i < num_lits; ++i) {
+            ctx.literal2expr(lits[i], tmp);
+        }
+        for (unsigned i = 0; i < num_eqs; ++i) {
+            enode_pair const& p = eqs[i];
+            x = p.first->get_owner();
+            y = p.second->get_owner();
+            tmp = m.mk_eq(x,y);
+        }
+
         SASSERT(num_params == 1 + num_lits + num_eqs);
         SASSERT(params[0].is_symbol());
         SASSERT(params[0].get_symbol() == symbol("farkas")); // for now, just handle this rule.
         farkas_util farkas(m);
-        expr_ref tmp(m), vq(m);
-        expr* x, *y, *e;
         rational q;
         for (unsigned i = 0; i < num_lits; ++i) {
             parameter const& pa = params[i+1];
@@ -1102,20 +1112,20 @@ namespace smt {
                 q = abs(pa.get_rational());
                 continue;
             }
-            ctx.literal2expr(~lits[i], tmp);
+            ctx.literal2expr(lits[i], tmp);
             farkas.add(abs(pa.get_rational()), to_app(tmp));
         }
         for (unsigned i = 0; i < num_eqs; ++i) {
             enode_pair const& p = eqs[i];
             x = p.first->get_owner();
             y = p.second->get_owner();
-            tmp = m.mk_not(m.mk_eq(x,y));
+            tmp = m.mk_eq(x,y);
             parameter const& pa = params[1 + num_lits + i];
             SASSERT(pa.is_rational());
             farkas.add(abs(pa.get_rational()), to_app(tmp));
         }
         tmp = farkas.get();
-        std::cout << tmp << "\n";
+        // IF_VERBOSE(1, verbose_stream() << "Farkas result: " << tmp << "\n";);
         atom* a = get_bv2a(m_bound_watch);
         SASSERT(a);
         expr_ref_vector  terms(m);
@@ -1123,7 +1133,7 @@ namespace smt {
         bool strict = false;
         if (m_util.is_le(tmp, x, y) || m_util.is_ge(tmp, y, x)) {
         }
-        else if (m_util.is_lt(tmp, x, y) || m_util.is_gt(tmp, y, x)) {
+        else if (m.is_not(tmp, e) && (m_util.is_le(e, y, x) || m_util.is_ge(e, x, y))) {
             strict = true;
         }
         else if (m.is_eq(tmp, x, y)) {            
@@ -1132,7 +1142,7 @@ namespace smt {
             UNREACHABLE();
         }
         e = var2expr(a->get_var());
-        q = -q*farkas.get_normalize_factor();
+        q *= farkas.get_normalize_factor();
         SASSERT(!m_util.is_int(e) || q.is_int());  // TBD: not fully handled.
         if (q.is_one()) {
             vq = e;
@@ -1146,13 +1156,13 @@ namespace smt {
         }
         th_rewriter rw(m);
         rw(vq, tmp);
-        IF_VERBOSE(1, verbose_stream() << tmp << "\n";);
         VERIFY(m_util.is_numeral(tmp, q));
         if (m_upper_bound < q) {
             m_upper_bound = q;
             if (strict) {
                 m_upper_bound -= get_epsilon(a->get_var());
             }
+            IF_VERBOSE(1, verbose_stream() << "new upper bound: " << m_upper_bound << "\n";);
         }
     }
 
