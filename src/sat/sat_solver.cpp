@@ -596,18 +596,19 @@ namespace sat {
                     clause_offset cls_off = it->get_clause_offset();
                     clause & c = *(m_cls_allocator.get_clause(cls_off));
                     TRACE("propagate_clause_bug", tout << "processing... " << c << "\nwas_removed: " << c.was_removed() << "\n";);
-                    if (c.was_removed()) {
+                    if (c[0] == not_l)
+                        std::swap(c[0], c[1]);
+                    CTRACE("propagate_bug", c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
+                    if (c.was_removed() || c[1] != not_l) {
                         // Remark: this method may be invoked when the watch lists are not in a consistent state,
-                        // and may contain dead/removed clauses.
-                        // See: sat_simplifier.cpp
-                        // So, we must check whether the clause was marked for deletion, and ignore it.
+                        // and may contain dead/removed clauses, or clauses with removed literals.
+                        // See: method propagate_unit at sat_simplifier.cpp
+                        // So, we must check whether the clause was marked for deletion, or
+                        // c[1] != not_l
                         *it2 = *it;
                         it2++;
                         break;
                     }
-                    if (c[0] == not_l)
-                        std::swap(c[0], c[1]);
-                    CTRACE("propagate_bug", c[1] != not_l, tout << "l: " << l << " " << c << "\n";);
                     SASSERT(c[1] == not_l);
                     if (value(c[0]) == l_true) {
                         it2->set_clause(c[0], cls_off);
