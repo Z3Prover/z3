@@ -708,7 +708,7 @@ iz3mgr::ast iz3mgr::mk_idiv(const ast& t, const ast &d){
 
 
 // does variable occur in expression?
-int iz3mgr::occurs_in1(hash_map<ast,bool> &occurs_in_memo,ast var, ast e){
+int iz3mgr::occurs_in1(stl_ext::hash_map<ast,bool> &occurs_in_memo,ast var, ast e){
   std::pair<ast,bool> foo(e,false);
   std::pair<hash_map<ast,bool>::iterator,bool> bar = occurs_in_memo.insert(foo);
   bool &res = bar.first->second;
@@ -732,7 +732,7 @@ int iz3mgr::occurs_in(ast var, ast e){
 // false would force the formula to have the specifid truth value
 // returns t, or null if no such
 
-iz3mgr::ast iz3mgr::cont_eq(hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e){
+iz3mgr::ast iz3mgr::cont_eq(stl_ext::hash_set<ast> &cont_eq_memo, bool truth, ast v, ast e){
   if(is_not(e)) return cont_eq(cont_eq_memo, !truth,v,arg(e,0));
   if(cont_eq_memo.find(e) != cont_eq_memo.end())
     return ast();
@@ -759,7 +759,7 @@ iz3mgr::ast iz3mgr::cont_eq(hash_set<ast> &cont_eq_memo, bool truth, ast v, ast 
 
   // substitute a term t for unbound occurrences of variable v in e
   
-iz3mgr::ast iz3mgr::subst(hash_map<ast,ast> &subst_memo, ast var, ast t, ast e){
+iz3mgr::ast iz3mgr::subst(stl_ext::hash_map<ast,ast> &subst_memo, ast var, ast t, ast e){
   if(e == var) return t;
   std::pair<ast,ast> foo(e,ast());
   std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);

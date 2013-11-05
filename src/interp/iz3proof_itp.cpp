@@ -2058,7 +2058,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
   bool is_placeholder(const ast &e){
     if(op(e) == Uninterpreted){
       std::string name = string_of_symbol(sym(e));
-      if(name.size() > 2 && name[0] == '@' and name[1] == 'p')
+      if(name.size() > 2 && name[0] == '@' && name[1] == 'p')
 	return true;
     }
     return false;
