@@ -581,9 +581,12 @@ namespace smt {
     void theory_bv::assert_int2bv_axiom(app* n) {
         //
         // create the axiom:
-        // bv2int(n) = e mod 2^bit_width 
-        //
+        //   bv2int(n) = e mod 2^bit_width 
         // where n = int2bv(e)
+        //
+        // Create the axioms:
+        //   bit2bool(i,n) == ((e div 2^i) mod 2 != 0)
+        // for i = 0,.., sz-1
         //
         SASSERT(get_context().e_internalized(n));
         SASSERT(m_util.is_int2bv(n));
@@ -592,10 +595,12 @@ namespace smt {
 
         parameter param(m_autil.mk_int());
         expr* n_expr = n;
-        expr* lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
+        expr* e = n->get_arg(0);
+        expr_ref lhs(m), rhs(m);
+        lhs = m.mk_app(get_id(), OP_BV2INT, 1, &param, 1, &n_expr);
         unsigned sz = m_util.get_bv_size(n);
         numeral mod = power(numeral(2), sz);
-        expr* rhs = m_autil.mk_mod(n->get_arg(0), m_autil.mk_numeral(mod, true));
+        rhs = m_autil.mk_mod(e, m_autil.mk_numeral(mod, true));
 
         literal l(mk_eq(lhs, rhs, false));
         ctx.mark_as_relevant(l);
@@ -605,6 +610,24 @@ namespace smt {
               tout << mk_pp(lhs, m) << " == \n";
               tout << mk_pp(rhs, m) << "\n";
               );
+
+        expr_ref_vector n_bits(m);
+        enode * n_enode = mk_enode(n);
+        get_bits(n_enode, n_bits);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            numeral div = power(numeral(2), i);
+            mod = numeral(2);
+            rhs = m_autil.mk_idiv(e, m_autil.mk_numeral(div,true));
+            rhs = m_autil.mk_mod(rhs, m_autil.mk_numeral(mod, true));
+            rhs = m.mk_eq(rhs, m_autil.mk_numeral(rational(1), true));
+            lhs = n_bits.get(i);
+            TRACE("bv", tout << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";);
+            l = literal(mk_eq(lhs, rhs, false));
+            ctx.mark_as_relevant(l);
+            ctx.mk_th_axiom(get_id(), 1, &l);
+            
+        }
     }
 
 

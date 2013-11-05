@@ -31,7 +31,7 @@ Revision History:
 #include"ast_smt2_pp.h"
 #include"th_rewriter.h"
 #include"var_subst.h"
-#include"expr_substitution.h"
+#include"expr_safe_replace.h"
 #include"pp.h"
 #include"scoped_ctrl_c.h"
 #include"cancel_eh.h"
@@ -787,17 +787,12 @@ extern "C" {
                 RETURN_Z3(of_expr(0));
             }
         }
-
-        expr_substitution subst(m);
+        expr_safe_replace subst(m);
         for (unsigned i = 0; i < num_exprs; i++) {
             subst.insert(from[i], to[i]);
         }
-        th_rewriter   m_rw(m);
-        m_rw.set_substitution(&subst);
-        
         expr_ref   new_a(m);
-        proof_ref  pr(m);
-        m_rw(a, new_a, pr);
+        subst(a, new_a);
         mk_c(c)->save_ast_trail(new_a);
         r = new_a.get();
         RETURN_Z3(of_expr(r));

@@ -6449,7 +6449,7 @@ class Tactic:
 
 def _to_goal(a):
     if isinstance(a, BoolRef):
-        goal = Goal()
+        goal = Goal(ctx = a.ctx)
         goal.add(a)
         return goal
     else:
@@ -6932,10 +6932,10 @@ def substitute(t, *m):
     >>> x = Int('x')
     >>> y = Int('y')
     >>> substitute(x + 1, (x, y + 1))
-    2 + y
+    y + 1 + 1
     >>> f = Function('f', IntSort(), IntSort())
     >>> substitute(f(x) + f(y), (f(x), IntVal(1)), (f(y), IntVal(1)))
-    2
+    1 + 1
     """
     if isinstance(m, tuple):
         m1 = _get_args(m)
