@@ -38,4 +38,12 @@ bool iz3check(ast_manager &_m_manager,
 	      ast *tree,
 	      const ptr_vector<ast> &interps);
 
+bool iz3check(iz3mgr &mgr,
+	      solver *s,
+	      std::ostream &err,
+	      const std::vector<iz3mgr::ast> &cnsts,
+	      const std::vector<int> &parents,
+	      const std::vector<iz3mgr::ast> &interps,
+	      const ptr_vector<iz3mgr::ast> &theory);
+
 #endif

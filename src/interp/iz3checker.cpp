@@ -170,6 +170,11 @@ struct iz3checker : iz3base {
   iz3checker(ast_manager &_m)
     : iz3base(_m) {
   }
+
+  iz3checker(iz3mgr &_m)
+    : iz3base(_m) {
+  }
+
 };  
 
 template <class T>
@@ -191,6 +196,18 @@ bool iz3check(ast_manager &_m_manager,
 {
   iz3checker chk(_m_manager);
   return chk.check(s,err,chk.cook(cnsts),to_std_vector(parents),chk.cook(interps),chk.cook(theory));
+}
+
+bool iz3check(iz3mgr &mgr,
+	      solver *s,
+	      std::ostream &err,
+	      const std::vector<iz3mgr::ast> &cnsts,
+	      const std::vector<int> &parents,
+	      const std::vector<iz3mgr::ast> &interps,
+	      const std::vector<iz3mgr::ast> &theory)
+{
+  iz3checker chk(mgr);
+  return chk.check(s,err,cnsts,parents,interps,theory);
 }
 
 bool iz3check(ast_manager &_m_manager,

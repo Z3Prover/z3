@@ -626,7 +626,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       ast equa = sep_cond(arg(pf,0),cond);
       if(is_equivrel_chain(equa)){
 	ast lhs,rhs; eq_from_ineq(arg(neg_equality,0),lhs,rhs); // get inequality we need to prove
-	ast ineqs= chain_ineqs(LitA,equa,lhs,rhs); // chain must be from lhs to rhs
+	ast ineqs= chain_ineqs(op(arg(neg_equality,0)),LitA,equa,lhs,rhs); // chain must be from lhs to rhs
 	cond = my_and(cond,chain_conditions(LitA,equa)); 
 	ast Bconds = chain_conditions(LitB,equa); 
 	if(is_true(Bconds) && op(ineqs) != And)
@@ -1313,7 +1313,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
 
-  ast chain_ineqs(LitType t, const ast &chain, const ast &lhs, const ast &rhs){
+  ast chain_ineqs(opr comp_op, LitType t, const ast &chain, const ast &lhs, const ast &rhs){
     if(is_true(chain)){
       if(lhs != rhs)
 	throw "bad ineq inference";
@@ -1322,9 +1322,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast last = chain_last(chain);
     ast rest = chain_rest(chain);
     ast mid = subst_in_pos(rhs,rewrite_pos(last),rewrite_lhs(last));
-    ast cond = chain_ineqs(t,rest,lhs,mid);
+    ast cond = chain_ineqs(comp_op,t,rest,lhs,mid);
     if(is_rewrite_side(t,last)){
-      ast foo = z3_simplify(make(Leq,make_int("0"),make(Sub,mid,rhs)));
+      ast diff;
+      if(comp_op == Leq) diff = make(Sub,rhs,mid);
+      else diff = make(Sub,mid,rhs);
+      ast foo = z3_simplify(make(Leq,make_int("0"),diff));
       if(is_true(cond))
 	cond = foo;
       else {
@@ -1351,6 +1354,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	std::swap(lhs,rhs);
       if(op(rhs) == Times){
 	rhs = arg(rhs,1);
+	if(op(ineq) == Leq)
+	  std::swap(lhs,rhs);
 	return;
       }
     }
@@ -1368,16 +1373,31 @@ class iz3proof_itp_impl : public iz3proof_itp {
 
   /** Make an assumption node. The given clause is assumed in the given frame. */
   virtual node make_assumption(int frame, const std::vector<ast> &assumption){
-    if(pv->in_range(frame,rng)){
-      std::vector<ast> itp_clause;
-      for(unsigned i = 0; i < assumption.size(); i++)
-	if(get_term_type(assumption[i]) != LitA)
-	  itp_clause.push_back(assumption[i]);
-      ast res = my_or(itp_clause);
-      return res;
+    if(!weak){
+      if(pv->in_range(frame,rng)){
+	std::vector<ast> itp_clause;
+	for(unsigned i = 0; i < assumption.size(); i++)
+	  if(get_term_type(assumption[i]) != LitA)
+	    itp_clause.push_back(assumption[i]);
+	ast res = my_or(itp_clause);
+	return res;
+      }
+      else {
+	return mk_true();
+      }
     }
     else {
-      return mk_true();
+      if(pv->in_range(frame,rng)){
+	return mk_false();
+      }
+      else {
+	std::vector<ast> itp_clause;
+	for(unsigned i = 0; i < assumption.size(); i++)
+	  if(get_term_type(assumption[i]) != LitB)
+	    itp_clause.push_back(assumption[i]);
+	ast res = my_or(itp_clause);
+	return mk_not(res);
+      }
     }
   }
 
@@ -1602,17 +1622,20 @@ class iz3proof_itp_impl : public iz3proof_itp {
   virtual node make_congruence(const ast &p, const ast &con, const ast &prem1){
     ast x = arg(p,0), y = arg(p,1);
     ast itp;
+    LitType con_t = get_term_type(con);
     if(get_term_type(p) == LitA){
-      if(get_term_type(con) == LitA)
+      if(con_t == LitA)
 	itp = mk_false();
+      else if(con_t == LitB)
+	itp = p;
       else
 	itp = make_mixed_congruence(x, y, p, con, prem1);
     }
     else {
-      if(get_term_type(con) == LitA)
+      if(con_t == LitA)
 	itp = mk_not(p);
       else{
-	if(get_term_type(con) == LitB)
+	if(con_t == LitB)
 	  itp = mk_true();
 	else
 	  itp = make_mixed_congruence(x, y, p, con, prem1);
@@ -2047,30 +2070,58 @@ public:
   {
     pv = p;
     rng = r;
-    weak = w;
+    weak = false ; //w;
     type boolintbooldom[3] = {bool_type(),int_type(),bool_type()};
     type booldom[1] = {bool_type()};
     type boolbooldom[2] = {bool_type(),bool_type()};
     type boolboolbooldom[3] = {bool_type(),bool_type(),bool_type()};
     type intbooldom[2] = {int_type(),bool_type()};
     contra = function("@contra",2,boolbooldom,bool_type());
+    m().inc_ref(contra);
     sum = function("@sum",3,boolintbooldom,bool_type());
+    m().inc_ref(sum);
     rotate_sum = function("@rotsum",2,boolbooldom,bool_type());
+    m().inc_ref(rotate_sum);
     leq2eq = function("@leq2eq",3,boolboolbooldom,bool_type());
+    m().inc_ref(leq2eq);
     eq2leq = function("@eq2leq",2,boolbooldom,bool_type());
+    m().inc_ref(eq2leq);
     cong = function("@cong",3,boolintbooldom,bool_type());
+    m().inc_ref(cong);
     exmid = function("@exmid",3,boolboolbooldom,bool_type());
+    m().inc_ref(exmid);
     symm = function("@symm",1,booldom,bool_type());
+    m().inc_ref(symm);
     epsilon = make_var("@eps",int_type());
     modpon = function("@mp",3,boolboolbooldom,bool_type());
+    m().inc_ref(modpon);
     no_proof = make_var("@nop",bool_type());
     concat = function("@concat",2,boolbooldom,bool_type());
+    m().inc_ref(concat);
     top_pos = make_var("@top_pos",bool_type());
     add_pos = function("@add_pos",2,intbooldom,bool_type());
+    m().inc_ref(add_pos);
     rewrite_A = function("@rewrite_A",3,boolboolbooldom,bool_type());
+    m().inc_ref(rewrite_A);
     rewrite_B = function("@rewrite_B",3,boolboolbooldom,bool_type());
+    m().inc_ref(rewrite_B);
   }
 
+  ~iz3proof_itp_impl(){
+    m().dec_ref(contra);
+    m().dec_ref(sum);
+    m().dec_ref(rotate_sum);
+    m().dec_ref(leq2eq);
+    m().dec_ref(eq2leq);
+    m().dec_ref(cong);
+    m().dec_ref(exmid);
+    m().dec_ref(symm);
+    m().dec_ref(modpon);
+    m().dec_ref(concat);
+    m().dec_ref(add_pos);
+    m().dec_ref(rewrite_A);
+    m().dec_ref(rewrite_B);
+  }
 };
 
 iz3proof_itp *iz3proof_itp::create(prover *p, const prover::range &r, bool w){

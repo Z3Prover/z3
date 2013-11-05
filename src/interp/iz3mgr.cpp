@@ -476,6 +476,15 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<ast>& coeffs){
   }
 }
 
+static void abs_rat(std::vector<rational> &rats){
+  // check that they are all non-neg -- if neg, take abs val and warn!
+  for(unsigned i = 0; i < rats.size(); i++)
+    if(rats[i].is_neg()){
+      //      std::cout << "negative Farkas coeff!\n";
+      rats[i] = -rats[i];
+    }
+}
+
 void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
   symb s = sym(proof);
   int numps = s->get_num_parameters();
@@ -494,12 +503,15 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
     }
     rats[i-2] = r;
   }
+#if 0
   if(rats.size() != 0 && rats[0].is_neg()){
     for(unsigned i = 0; i < rats.size(); i++){
       assert(rats[i].is_neg());
       rats[i] = -rats[i];
     }
   }
+#endif
+  abs_rat(rats);
   extract_lcd(rats);
 }
 
@@ -536,6 +548,7 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
     }
     rats[i-1] = r;
   }
+#if 0
   if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
     for(unsigned i = 1; i < rats.size(); i++){
       if(!rats[i].is_neg())
@@ -543,6 +556,8 @@ void iz3mgr::get_assign_bounds_coeffs(const ast &proof, std::vector<rational>& r
       rats[i] = -rats[i];
     }
   }
+#endif
+  abs_rat(rats);
   extract_lcd(rats);
 }
 

@@ -82,6 +82,7 @@ dl_interface::dl_interface(datalog::context& dl_ctx) :
 
 {
   _d = 0;
+  dl_ctx.get_manager().toggle_proof_mode(PGM_FINE);
 }
 
 

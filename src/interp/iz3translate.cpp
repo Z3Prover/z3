@@ -881,11 +881,11 @@ public:
     std::vector<Iproof::node>  my_prems;
     std::vector<ast>  my_coeffs;
     std::vector<Iproof::node>  my_prem_cons;
-    for(unsigned i = 0; i < coeffs.size(); i++){
+    for(unsigned i = pol ? 0 : 1; i < coeffs.size(); i+= 2){
       rational &c = coeffs[i];
-      if(pol ? c.is_pos() : c.is_neg()){
+      if(c.is_pos()){
 	my_prems.push_back(prems[i]);
-	my_coeffs.push_back(pol ? make_int(c) : make_int(-c));
+	my_coeffs.push_back(make_int(c));
 	my_prem_cons.push_back(conc(prem(proof,i)));
       }
     }
