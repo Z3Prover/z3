@@ -31,6 +31,7 @@ Revision History:
 #include"theory_dummy.h"
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
+#include"theory_card.h"
 
 namespace smt {
 
@@ -790,6 +791,10 @@ namespace smt {
         m_context.register_plugin(alloc(theory_seq_empty, m_manager));
     }
 
+    void setup::setup_card() {
+        m_context.register_plugin(alloc(theory_card, m_manager));
+    }
+
     void setup::setup_unknown() {
         setup_arith();
         setup_arrays();
@@ -797,6 +802,7 @@ namespace smt {
         setup_datatypes();
         setup_dl();
         setup_seq();
+        setup_card();
     }
 
     void setup::setup_unknown(static_features & st) {

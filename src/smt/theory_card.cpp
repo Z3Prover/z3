@@ -67,7 +67,12 @@ namespace smt {
             else {
                 bv = ctx.get_bool_var(arg);
             }
-            ctx.set_var_theory(bv, get_id());
+            if (null_theory_var == ctx.get_var_theory(bv)) {
+                ctx.set_var_theory(bv, get_id());
+            }
+            else {
+                SASSERT(ctx.get_var_theory(bv) == get_id()); // TBD, fishy
+            }
             add_watch(bv, c);
         }
         return true;
@@ -122,11 +127,11 @@ namespace smt {
                     case l_true:
                     case l_undef: {
                         literal_vector& lits = get_lits();
-                        lits.push_back(literal(v));
-                        for (unsigned i = 0; i < atm->get_num_args() && lits.size() <= k + 1; ++i) {
+                        lits.push_back(~literal(c->m_bv));
+                        for (unsigned i = 0; i < atm->get_num_args() && lits.size() < k + 1; ++i) {
                             expr* arg = atm->get_arg(i);
                             if (ctx.get_assignment(arg) == l_true) {
-                                lits.push_back(literal(ctx.get_bool_var(arg)));
+                                lits.push_back(~literal(ctx.get_bool_var(arg)));
                             }
                         }
                         SASSERT(lits.size() == k + 1);
@@ -143,7 +148,7 @@ namespace smt {
                     case l_false:
                     case l_undef: {
                         literal_vector& lits = get_lits();
-                        lits.push_back(~literal(v));
+                        lits.push_back(~literal(c->m_bv));
                         for (unsigned i = 0; i < atm->get_num_args(); ++i) {
                             expr* arg = atm->get_arg(i);
                             if (ctx.get_assignment(arg) == l_false) {
@@ -266,6 +271,7 @@ namespace smt {
 
     void theory_card::add_clause(literal_vector const& lits) {
         context& ctx = get_context();
+        TRACE("card", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }
 

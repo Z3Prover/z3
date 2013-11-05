@@ -20,7 +20,7 @@ Revision History:
 #include "card_decl_plugin.h"
 
 card_decl_plugin::card_decl_plugin():
-    m_at_most_sym("at_most")
+    m_at_most_sym("at-most")
 {}
 
 func_decl * card_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
@@ -29,11 +29,11 @@ func_decl * card_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters,
     ast_manager& m = *m_manager;
     for (unsigned i = 0; i < arity; ++i) {
         if (!m.is_bool(domain[i])) {
-            m.raise_exception("invalid non-Boolean sort applied to 'at_most_k'");
+            m.raise_exception("invalid non-Boolean sort applied to 'at-most'");
         }
     }
     if (num_parameters != 1 || !parameters[0].is_int() || parameters[0].get_int() < 0) {
-        m.raise_exception("function 'at_most_k' expects one non-negative integer parameter");
+        m.raise_exception("function 'at-most' expects one non-negative integer parameter");
     }
     func_decl_info info(m_family_id, OP_AT_MOST_K, 1, parameters);
     return m.mk_func_decl(m_at_most_sym, arity, domain, m.mk_bool_sort(), info);
@@ -41,7 +41,7 @@ func_decl * card_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters,
 
 void card_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol::null) {
-        op_names.push_back(builtin_name("at-most-k", OP_AT_MOST_K));
+        op_names.push_back(builtin_name(m_at_most_sym.bare_str(), OP_AT_MOST_K));
     }
 }
 

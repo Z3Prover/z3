@@ -92,7 +92,7 @@ namespace smt {
         void setup_arith();
         void setup_dl();
         void setup_seq();
-        void setup_instgen();
+        void setup_card();
         void setup_i_arith();
         void setup_mi_arith();
     public:

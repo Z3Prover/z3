@@ -28,8 +28,6 @@ hence:
 #define _CARD_DECL_PLUGIN_H_
 
 #include"ast.h"
-
-
  
 enum card_op_kind {
     OP_AT_MOST_K,
@@ -60,9 +58,6 @@ public:
     virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned arity, sort * const * domain, sort * range);
     virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
-    virtual expr * get_some_value(sort * s);
-    virtual bool is_fully_interp(sort const * s) const;
 };
 
 

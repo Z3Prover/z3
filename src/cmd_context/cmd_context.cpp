@@ -25,6 +25,7 @@ Notes:
 #include"datatype_decl_plugin.h"
 #include"seq_decl_plugin.h"
 #include"float_decl_plugin.h"
+#include"card_decl_plugin.h"
 #include"ast_pp.h"
 #include"var_subst.h"
 #include"pp.h"
@@ -529,6 +530,7 @@ bool cmd_context::logic_has_floats() const {
     return !has_logic() || m_logic == "QF_FPA" || m_logic == "QF_FPABV";
 }
 
+
 bool cmd_context::logic_has_array_core(symbol const & s) const {
     return 
         s == "QF_AX" ||
@@ -571,6 +573,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("float"),    alloc(float_decl_plugin), logic_has_floats());
+        register_plugin(symbol("card"),     alloc(card_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module, we must register all plugins available in the manager.
