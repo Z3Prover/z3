@@ -120,6 +120,8 @@ namespace smt {
         */
         node find_rev_thread(node n, node ancestor) const;
 
+        void fix_depth(node start, node end);
+
         bool check_well_formed();
 
     public:

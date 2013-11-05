@@ -116,7 +116,6 @@ namespace smt {
         // Compute initial potentials
         node u = m_thread[root];
         while (u != root) {
-            bool direction = m_upwards[u];
             node v = m_pred[u];   
             edge_id e_id = get_edge_id(u, v);            
             m_potentials[u] = m_potentials[v] + (m_upwards[u] ? - m_graph.get_weight(e_id) : m_graph.get_weight(e_id));
@@ -204,9 +203,7 @@ namespace smt {
         node source = m_graph.get_source(m_entering_edge);
         node target = m_graph.get_target(m_entering_edge);
         if (m_states[m_entering_edge] == UPPER) {
-            node temp = source;
-            source = target;
-            target = temp;
+            std::swap(source, target);
         }
         node u = source, v = target;
         while (u != v) {
@@ -277,6 +274,18 @@ namespace smt {
             ancestor = m_thread[ancestor];
         }
         return ancestor;
+    }
+
+    template<typename Ext>
+    void network_flow<Ext>::fix_depth(node start, node end) {     
+        SASSERT(m_pred[start] != -1);
+        // Increase depths of all children in T_q by the same amount
+        int d = 1 + m_depth[m_pred[start]] - m_depth[start];
+        do {
+            m_depth[start] += d;
+            start = m_thread[start];
+        }
+        while (start != end);
     }
 
     /**
@@ -383,7 +392,6 @@ namespace smt {
 
         TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
 
-        // Graft T_q and T_r'    
         for (node n = p; n != gamma_p && n != -1; n = m_pred[n]) {
             TRACE("network_flow", tout << "1: m_final[" << n << "] |-> " << z << "\n";);
             m_final[n] = z;
@@ -393,16 +401,11 @@ namespace smt {
 
         m_thread[x] = q;
         m_thread[z] = y;
-        // Increase depths of all children in T_q
-        node last = m_thread[m_final[q]];
-        // NSB review: depth update looks wrong to me
-        for (node n = q; n != last; n = m_thread[n]) {
-            m_depth[n] += 1 + m_depth[p] - m_depth[q];
-        }
+
+        fix_depth(q, m_final[q]);
 
         TRACE("network_flow", tout << "Update T_r'\n";);
 
-        // Update T_r'
         m_thread[phi] = theta;
 
         for (node n = u; n != gamma_v && n != -1; n = m_pred[n]) {
@@ -412,7 +415,6 @@ namespace smt {
 
         TRACE("network_flow", tout << pp_vector("Last Successors", m_final, true) << pp_vector("Depths", m_depth););
 
-        // Reroot T_v at q
         if (v != q) {
             TRACE("network_flow", tout << "Reroot T_v at q\n";);
    
@@ -553,10 +555,10 @@ namespace smt {
         roots[y] = x;
     }
 
-    static int get_final(int root, svector<int> const & thread, svector<int> const & depth) {
+    static int get_final(int start, svector<int> const & thread, svector<int> const & depth) {
         // really final or should one take into account connected tree?
-        int n = root;
-        while (depth[thread[n]] > depth[root]) {
+        int n = start;
+        while (depth[thread[n]] > depth[start]) {
             n = thread[n];
         }
         return n;
