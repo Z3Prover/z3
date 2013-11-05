@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    weighted_maxsat.h
+    weighted_maxsat.cpp
 
 Abstract:
     Weighted MAXSAT module
