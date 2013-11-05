@@ -77,8 +77,6 @@ namespace smt {
         svector<int> m_depth;
         // Store the pointer from node i to the next node in depth-first search order
         svector<node> m_thread;
-        // Reverse orders of m_thread
-        svector<node> m_rev_thread;
         // Store a final node of the sub tree rooted at node i
         svector<node> m_final;
 
@@ -114,6 +112,13 @@ namespace smt {
 
         bool edge_in_tree(edge_id id) const;
         bool edge_in_tree(node src, node dst) const;
+
+        bool is_ancestor_of(node ancestor, node child) const;
+
+        /**
+           \brief find node that points to 'n' in m_thread
+        */
+        node find_rev_thread(node n, node ancestor) const;
 
         bool check_well_formed();
 

@@ -11,7 +11,7 @@ Abstract:
     
 Author:
 
-    Nikolaj Bjorner (nbjorne) 2013-11-2.
+    Nikolaj Bjorner (nbjorner) 2013-11-2.
 
 Revision History:
 

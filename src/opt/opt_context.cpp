@@ -60,6 +60,7 @@ namespace opt {
         expr_ref_vector fmls_copy(fmls);
         lbool is_sat;
         if (!fmls.empty()) {
+            // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
             if (is_maxsat_problem()) {
                 is_sat = opt::fu_malik_maxsat(*s, fmls_copy);
             }

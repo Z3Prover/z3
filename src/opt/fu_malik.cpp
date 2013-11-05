@@ -140,28 +140,28 @@ namespace opt {
             s.push();
 
             fu_malik fm(m, s, soft_constraints);
-			lbool is_sat = l_true;
+            lbool is_sat = l_true;
             do {
-				is_sat = fm.step();
-			}
-			while (is_sat == l_false);
-			
-			if (is_sat == l_true) {
-				// Get a list of satisfying soft_constraints
-				model_ref model;
-				s.get_model(model);
-
-				expr_ref_vector result(m);
-				for (unsigned i = 0; i < soft_constraints.size(); ++i) {
-					expr_ref val(m);
-					VERIFY(model->eval(soft_constraints[i].get(), val));
-					if (!m.is_false(val)) {
-						result.push_back(soft_constraints[i].get());
-					}
-				}
-				soft_constraints.reset();
-				soft_constraints.append(result);
-			}
+                is_sat = fm.step();
+            }
+            while (is_sat == l_false);
+            
+            if (is_sat == l_true) {
+                // Get a list of satisfying soft_constraints
+                model_ref model;
+                s.get_model(model);
+                
+                expr_ref_vector result(m);
+                for (unsigned i = 0; i < soft_constraints.size(); ++i) {
+                    expr_ref val(m);
+                    VERIFY(model->eval(soft_constraints[i].get(), val));
+                    if (!m.is_false(val)) {
+                        result.push_back(soft_constraints[i].get());
+                    }
+                }
+                soft_constraints.reset();
+                soft_constraints.append(result);
+            }
             s.pop(1);
         }
         // We are done and soft_constraints has 
