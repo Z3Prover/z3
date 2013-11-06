@@ -118,11 +118,15 @@ namespace smt {
         /**
            \brief find node that points to 'n' in m_thread
         */
-        node find_rev_thread(node n, node ancestor) const;
+        node find_rev_thread(node n) const;
 
         void fix_depth(node start, node end);
 
+        void swap_order(node q, node v);
+
         bool check_well_formed();
+
+        bool is_preorder_traversal(node start, node end);
 
     public:
 

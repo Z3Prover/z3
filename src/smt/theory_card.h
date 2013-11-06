@@ -30,9 +30,9 @@ namespace smt {
             bool_var m_bv;
             unsigned m_t;
             unsigned m_f;
-            app*     m_atom;
-            card(app* a, bool_var bv, unsigned k):
-                m_k(k), m_bv(bv), m_atom(a), m_t(0), m_f(0) 
+            svector<bool_var> m_args;
+            card(bool_var bv, unsigned k):
+                m_k(k), m_bv(bv), m_t(0), m_f(0) 
             {}
         };
 

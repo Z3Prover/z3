@@ -21,6 +21,7 @@ Notes:
 #define _NETWORK_FLOW_DEF_H_
 
 #include"network_flow.h"
+#include"uint_set.h"
 
 namespace smt {
 
@@ -269,7 +270,9 @@ namespace smt {
     }
 
     template<typename Ext>
-    dl_var network_flow<Ext>::find_rev_thread(node n, node ancestor) const {     
+    dl_var network_flow<Ext>::find_rev_thread(node n) const {     
+        node ancestor = m_pred[n];
+        SASSERT(ancestor != -1);
         while (m_thread[ancestor] != n) {
             ancestor = m_thread[ancestor];
         }
@@ -279,21 +282,19 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::fix_depth(node start, node end) {     
         SASSERT(m_pred[start] != -1);
-        // Increase depths of all children in T_q by the same amount
-        int d = 1 + m_depth[m_pred[start]] - m_depth[start];
-        do {
-            m_depth[start] += d;
-            start = m_thread[start];
+        m_depth[start] = m_depth[m_pred[start]]+1;
+        while (start != end) {
+            start = m_thread[start]; 
+            m_depth[start] = m_depth[m_pred[start]]+1;
         }
-        while (start != end);
     }
 
     /**
        \brief add entering_edge, remove leaving_edge from spanning tree.
 
-       Old tree:
-                    root
-                  /      \
+       Old tree:                    New tree:
+                    root                      root
+                  /      \                  /      \
                  x       y
                /   \    / \
                     u     w'
@@ -304,9 +305,6 @@ namespace smt {
                        \ 
                         q
 
-       New tree:
-                    root
-                  /      \
                  x       y
                /   \    / \
                     u     w'
@@ -350,6 +348,7 @@ namespace smt {
         // Initialize m_upwards[q] = q_upwards
 
         bool prev_upwards = q_upwards;
+#if 0
         for (node n = q, prev = p; n != u; ) {
             SASSERT(m_pred[n] != u || n == v); // the last processed node is v
             node next = m_pred[n];  
@@ -360,95 +359,78 @@ namespace smt {
             n = next;
             SASSERT(n != -1);
         }     
+#else
+        node old_pred = m_pred[q];
+        m_pred[q] = p;
+        for (node n = q; n != u; ) {
+            SASSERT(old_pred != u || n == v); // the last processed node is v
+            SASSERT(-1 != m_pred[old_pred]);
+            node next_old_pred = m_pred[old_pred];  
+            swap_order(n, old_pred);
+            std::swap(m_upwards[n], prev_upwards);
+            prev_upwards = !prev_upwards; // flip previous version of upwards.
+            n = old_pred;
+            old_pred = next_old_pred;
+        }     
 
-        // At this point m_pred and m_upwards have been updated.
-        
-        TRACE("network_flow", tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Upwards", m_upwards););
+#endif
 
-        
-        // 
-        node x = m_final[p];
-        node y = m_thread[x];
-        node z = m_final[q];
-
-        // ----
-        // update m_final.
-        
-        // Do this before updating data structures
-        node gamma_p = m_pred[m_thread[m_final[p]]];
-        node gamma_v = m_pred[m_thread[m_final[v]]];
-        node theta = m_thread[m_final[v]];
-       
-        // Check that f(u) is not in T_v
-        bool found_final_u = false;
-        for (node n = v; n != theta; n = m_thread[n]) {
-            if (n == m_final[u]) {
-                found_final_u = true;
-                break;
-            }
-        }
-        node phi = find_rev_thread(v, u);
-        node delta = found_final_u ? phi : m_final[u];
-
-        TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
-
-        for (node n = p; n != gamma_p && n != -1; n = m_pred[n]) {
-            TRACE("network_flow", tout << "1: m_final[" << n << "] |-> " << z << "\n";);
-            m_final[n] = z;
-        }
-
-        // 
-
-        m_thread[x] = q;
-        m_thread[z] = y;
+        // m_thread and m_final were updated.
+        // update the depth.
 
         fix_depth(q, m_final[q]);
-
-        TRACE("network_flow", tout << "Update T_r'\n";);
-
-        m_thread[phi] = theta;
-
-        for (node n = u; n != gamma_v && n != -1; n = m_pred[n]) {
-            TRACE("network_flow", tout << "2: m_final[" << n << "] |-> " << delta << "\n";);
-            m_final[n] = delta;
-        }
-
-        TRACE("network_flow", tout << pp_vector("Last Successors", m_final, true) << pp_vector("Depths", m_depth););
-
-        if (v != q) {
-            TRACE("network_flow", tout << "Reroot T_v at q\n";);
-   
-            node alpha1, alpha2;
-            node prev = q;
-            for (node n = v; n != q && n != -1; n = m_pred[n]) {
-                // Find all immediate successors of n
-                node t1 = m_thread[n];
-                node t2 = m_thread[m_final[t1]];
-                node t3 = m_thread[m_final[t2]];
-                if (t1 == m_pred[n]) {
-                    alpha1 = t2;
-                    alpha2 = t3;
-                }
-                else if (t2 == m_pred[n]) {
-                    alpha1 = t1;
-                    alpha2 = t3;
-                }
-                else {
-                    alpha1 = t1;
-                    alpha2 = t2;
-                }                
-                m_thread[n] = alpha1;
-                m_thread[m_final[alpha1]] = alpha2;                                
-                m_thread[m_final[alpha2]] = prev;
-                prev = n;           
-            }
-            m_thread[m_final[q]] = prev;
-        }
 
         TRACE("network_flow", {
             tout << pp_vector("Threads", m_thread, true);
             });
     }
+
+    /**
+         swap v and q in tree.
+         - fixup m_final
+         - fixup m_thread
+         - fixup m_pred
+
+         Case 1: final(q) == final(v)
+         -------
+         Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> next
+         New thread: prev -> q -*-> final(q) -> v -*-> alpha -> next
+
+         Case 2: final(q) != final(v)
+         -------
+         Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> beta -*-> final(v) -> next
+         New thread: prev -> q -*-> final(q) -> v -*-> alpha -> beta -*-> final(v) -> next
+                 
+     */
+
+    template<typename Ext>
+    void network_flow<Ext>::swap_order(node q, node v) {
+        SASSERT(q != v);
+        SASSERT(m_pred[q] == v);        
+        SASSERT(is_preorder_traversal(v, m_final[v]));
+        node prev = find_rev_thread(v);
+        node final_q = m_final[q];
+        node final_v = m_final[v];
+        node next = m_thread[final_v];
+        node alpha = find_rev_thread(q);
+
+        if (final_q == final_v) {
+            m_thread[final_q] = v;
+            m_thread[alpha] = next;
+            m_final[q] = alpha;
+            m_final[v] = alpha;
+        }
+        else {
+            node beta  = m_thread[final_q];
+            m_thread[final_q] = v;
+            m_thread[alpha] = beta;
+            m_final[q] = final_v;
+        }
+        m_thread[prev] = q;
+        m_pred[v] = q;
+        SASSERT(is_preorder_traversal(q, m_final[q]));
+    }
+    
 
     template<typename Ext>
     std::string network_flow<Ext>::display_spanning_tree() {
@@ -595,7 +577,8 @@ namespace smt {
         Furthermore, the nodes linked in m_thread follows a 
         depth-first traversal order.
 
-        m_final[n] is deepest most node in a sub-tree rooted at n.
+        m_final[n] is the last node in depth-first traversal order, 
+        starting from n, that is still a child of n.
 
         m_upwards direction of edge from i to m_pred[i] m_graph
                 
@@ -670,6 +653,118 @@ namespace smt {
         return true;
     }
 
+    template<typename Ext>
+    bool network_flow<Ext>::is_preorder_traversal(node start, node end) {
+
+        // get children of start:
+        uint_set children;
+        children.insert(start);
+        node root = m_pred.size()-1;
+        for (int i = 0; i < root; ++i) {
+            for (int j = 0; j < root; ++j) {
+                if (children.contains(m_pred[j])) {
+                    children.insert(j);
+                }
+            }
+        }
+        // visit children using m_thread
+        children.remove(start);
+        do {
+            start = m_thread[start];
+            SASSERT(children.contains(start));
+            children.remove(start);
+        }
+        while (start != end);
+        SASSERT(children.empty());
+        return true;
+    }
+
 }
 
+#endif
+
+#if 0
+
+        // At this point m_pred and m_upwards have been updated.
+        
+        TRACE("network_flow", tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Upwards", m_upwards););
+
+        
+        // 
+        node x = m_final[p];
+        node y = m_thread[x];
+        node z = m_final[q];
+
+        // ----
+        // update m_final.
+        
+        // Do this before updating data structures
+        node gamma_p = m_pred[m_thread[m_final[p]]];
+        node gamma_v = m_pred[m_thread[m_final[v]]];
+        node theta = m_thread[m_final[v]];
+       
+        // Check that f(u) is not in T_v
+        bool found_final_u = false;
+        for (node n = v; n != theta; n = m_thread[n]) {
+            if (n == m_final[u]) {
+                found_final_u = true;
+                break;
+            }
+        }
+        node phi = find_rev_thread(v);
+        node delta = found_final_u ? phi : m_final[u];
+
+        TRACE("network_flow", tout << "Graft T_q and T_r'\n";);
+
+        for (node n = p; n != gamma_p && n != -1; n = m_pred[n]) {
+            TRACE("network_flow", tout << "1: m_final[" << n << "] |-> " << z << "\n";);
+            m_final[n] = z;
+        }
+
+        // 
+
+        m_thread[x] = q;
+        m_thread[z] = y;
+
+
+        TRACE("network_flow", tout << "Update T_r'\n";);
+
+        m_thread[phi] = theta;
+
+        for (node n = u; n != gamma_v && n != -1; n = m_pred[n]) {
+            TRACE("network_flow", tout << "2: m_final[" << n << "] |-> " << delta << "\n";);
+            m_final[n] = delta;
+        }
+
+        TRACE("network_flow", tout << pp_vector("Last Successors", m_final, true) << pp_vector("Depths", m_depth););
+
+        if (v != q) {
+            TRACE("network_flow", tout << "Reroot T_v at q\n";);
+   
+            node alpha1, alpha2;
+            node prev = q;
+            for (node n = v; n != q && n != -1; n = m_pred[n]) {
+                // Find all immediate successors of n
+                node t1 = m_thread[n];
+                node t2 = m_thread[m_final[t1]];
+                node t3 = m_thread[m_final[t2]];
+                if (t1 == m_pred[n]) {
+                    alpha1 = t2;
+                    alpha2 = t3;
+                }
+                else if (t2 == m_pred[n]) {
+                    alpha1 = t1;
+                    alpha2 = t3;
+                }
+                else {
+                    alpha1 = t1;
+                    alpha2 = t2;
+                }                
+                m_thread[n] = alpha1;
+                m_thread[m_final[alpha1]] = alpha2;                                
+                m_thread[m_final[alpha2]] = prev;
+                prev = n;           
+            }
+            m_thread[m_final[q]] = prev;
+        }
 #endif
