@@ -55,21 +55,21 @@ namespace smt {
         TRACE("card", tout << "internalize: " << mk_pp(atom, m) << "\n";);
 
         SASSERT(!ctx.b_internalized(atom));
-        bool_var bv = ctx.mk_bool_var(atom);
+        bool_var abv = ctx.mk_bool_var(atom);
 
         if (k >= atom->get_num_args()) {
-            literal lit(bv);
+            literal lit(abv);
             ctx.mk_th_axiom(get_id(), 1, &lit);
             return true;
         }
 
-        card* c = alloc(card, bv, k);
+        card* c = alloc(card, abv, k);
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
             if (!ctx.b_internalized(arg)) {
                 ctx.internalize(arg, false);
             }
-            
+            bool_var bv;
             bool has_bv = false;
             if (!m.is_not(arg) && ctx.b_internalized(arg)) {
                 bv = ctx.get_bool_var(arg);
@@ -108,12 +108,13 @@ namespace smt {
         else {
             // bv <=> (and (not bv1) ... (not bv_n))
             literal_vector& lits = get_lits();
-            lits.push_back(literal(bv));
+            lits.push_back(literal(abv));
             for (unsigned i = 0; i < c->m_args.size(); ++i) {
-                ctx.mk_th_axiom(get_id(), ~literal(bv), ~literal(c->m_args[i]));
+                ctx.mk_th_axiom(get_id(), ~literal(abv), ~literal(c->m_args[i]));
                 lits.push_back(literal(c->m_args[i]));
             }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            dealloc(c);
         }
         return true;
     }
