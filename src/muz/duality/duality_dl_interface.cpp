@@ -35,6 +35,7 @@ Revision History:
 #include "model_smt2_pp.h"
 #include "model_v2_pp.h"
 #include "fixedpoint_params.hpp"
+#include "scoped_proof.h"
 
 // template class symbol_table<family_id>;
 
@@ -82,7 +83,7 @@ dl_interface::dl_interface(datalog::context& dl_ctx) :
 
 {
   _d = 0;
-  dl_ctx.get_manager().toggle_proof_mode(PGM_FINE);
+  //   dl_ctx.get_manager().toggle_proof_mode(PGM_FINE);
 }
 
 
@@ -130,6 +131,8 @@ lbool dl_interface::query(::expr * query) {
   duality_data *old_data = _d;
   if(old_data)
     old_cex = old_data->cex;
+
+  scoped_proof generate_proofs_please(m_ctx.get_manager());
 
   // make a new problem and solver
   _d = alloc(duality_data,m_ctx.get_manager());
