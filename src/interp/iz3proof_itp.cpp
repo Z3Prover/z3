@@ -636,12 +636,22 @@ class iz3proof_itp_impl : public iz3proof_itp {
     throw cannot_simplify();
   }
 
+  void reverse_modpon(std::vector<ast> &args){
+    std::vector<ast> sargs(1); sargs[0] = args[1];
+    args[1] = simplify_symm(sargs);
+    if(is_equivrel_chain(args[2]))
+      args[1] = down_chain(args[1]);
+    std::swap(args[0],args[2]);
+  }
+
   ast simplify_rotate_modpon(const ast &pl, const ast &neg_equality, const ast &pf){
-    if(pl == arg(pf,2)){
-      std::vector<ast> args; args.resize(3);
-      args[0] = arg(pf,0);
-      args[1] = arg(pf,1);
-      args[2] = mk_true();
+    std::vector<ast> args; args.resize(3);
+    args[0] = arg(pf,0);
+    args[1] = arg(pf,1);
+    args[2] = arg(pf,2);
+    if(pl == args[0])
+      reverse_modpon(args);
+    if(pl == args[2]){
       ast cond = mk_true();
       ast chain = simplify_modpon_fwd(args, cond);
       return my_implies(cond,chain);
@@ -1410,7 +1420,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return chain_cons(mk_true(),make_rewrite(t, top_pos, mk_true(), rew));
   }
 
-  ast triv_interp(const symb &rule, const std::vector<ast> &premises){
+  ast triv_interp(const symb &rule, const std::vector<ast> &premises, int mask_in){
     std::vector<ast> ps; ps.resize(premises.size());
     std::vector<ast> conjs;
     int mask = 0;
@@ -1424,7 +1434,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
 	break;
       default:
 	ps[i] = get_placeholder(p); // can only prove consequent!
-	if(i == ps.size()-1)
+	if(mask_in & (1 << i))
 	  mask |= (1 << conjs.size());
 	conjs.push_back(p);
       }
@@ -1434,12 +1444,12 @@ class iz3proof_itp_impl : public iz3proof_itp {
     return res;
   }
 
-  ast triv_interp(const symb &rule, const ast &p0, const ast &p1, const ast &p2){
+  ast triv_interp(const symb &rule, const ast &p0, const ast &p1, const ast &p2, int mask){
     std::vector<ast> ps; ps.resize(3);
     ps[0] = p0;
     ps[1] = p1;
     ps[2] = p2;
-    return triv_interp(rule,ps);
+    return triv_interp(rule,ps,mask);
   }
   
   /** Make a modus-ponens node. This takes derivations of |- x
@@ -1452,7 +1462,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
     ast q = arg(p_eq_q,1);
     ast itp;
     if(get_term_type(p_eq_q) == LitMixed){
-      itp = triv_interp(modpon,p,p_eq_q,mk_not(q));
+      int mask = 1 << 2;
+      if(op(p) == Not && is_equivrel(arg(p,0)))
+	mask |= 1; // we may need to run this rule backward if first premise is negative equality
+      itp = triv_interp(modpon,p,p_eq_q,mk_not(q),mask);
     }
     else {
       if(get_term_type(p) == LitA){
@@ -1850,7 +1863,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
       conjs[0] = make(Equal,x,y);
       conjs[1] = mk_not(xleqy);
       itp = make(eq2leq,get_placeholder(conjs[0]),get_placeholder(conjs[1]));
-      itp = make_contra_node(itp,conjs);
+      itp = make_contra_node(itp,conjs,2);
     }
     }
     return itp;
