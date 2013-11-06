@@ -23,6 +23,7 @@ Notes:
 #include"smt_context.h"
 #include"theory_arith.h"
 #include"theory_diff_logic.h"
+#include "ast_pp.h"
 
 namespace opt {
 
@@ -94,7 +95,13 @@ namespace opt {
 
     
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-        TRACE("opt_solver_na2as", tout << "opt_opt_solver::check_sat_core: " << num_assumptions << "\n";);
+        TRACE("opt_solver_na2as", {
+            tout << "opt_opt_solver::check_sat_core: " << m_context.size() << "\n";            
+            for (unsigned i = 0; i < m_context.size(); ++i) {
+                    tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
+            }
+        });
+
         lbool r = m_context.check(num_assumptions, assumptions);
         if (r == l_true && m_objective_enabled) {
             m_objective_values.reset();

@@ -69,7 +69,6 @@ namespace smt {
         m_pred.resize(num_nodes);
         m_depth.resize(num_nodes);
         m_thread.resize(num_nodes);
-        m_final.resize(num_nodes);
 
         m_step = 0;
     }
@@ -84,7 +83,6 @@ namespace smt {
         m_pred[root] = -1;
         m_depth[root] = 0;
         m_thread[root] = 0;
-        m_final[root] = root - 1;
         m_potentials[root] = numeral::zero();
 
         m_graph.init_var(root);
@@ -106,7 +104,6 @@ namespace smt {
             m_pred[i] = root;
             m_depth[i] = 1;
             m_thread[i] = i + 1;
-            m_final[i] = i;
             m_states[num_edges + i] = BASIS;
             node src = m_upwards[i] ? i : root;
             node tgt = m_upwards[i] ? root : i;            
@@ -125,7 +122,6 @@ namespace smt {
 
         TRACE("network_flow", {
                 tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
-                tout << pp_vector("Last Successors", m_final);
                 tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
                 tout << pp_vector("Potentials", m_potentials) << pp_vector("Flows", m_flows);
             });
@@ -148,7 +144,7 @@ namespace smt {
         node tgt = m_graph.get_target(m_entering_edge); 
         numeral cost = m_graph.get_weight(m_entering_edge);
         numeral change = m_upwards[src] ? (-cost - m_potentials[src] + m_potentials[tgt]) : (cost + m_potentials[src] - m_potentials[tgt]);
-        node last = m_thread[m_final[src]];
+        node last = m_thread[get_final(src)];
         for (node u = src; u != last; u = m_thread[u]) {
             m_potentials[u] += change;
         }
@@ -261,7 +257,6 @@ namespace smt {
     template<typename Ext>
     bool network_flow<Ext>::is_ancestor_of(node ancestor, node child) const {
         for (node n = child; n != -1; n = m_pred[n]) {
-            // q should be in T_v so swap p and q
             if (n == ancestor) {
                 return true;
             }
@@ -295,26 +290,15 @@ namespace smt {
        Old tree:                    New tree:
                     root                      root
                   /      \                  /      \
-                 x       y
-               /   \    / \
-                    u     w'
-                    |    /
-                    v    w
-                   / \    \
-                      z   p
-                       \ 
-                        q
-
-                 x       y
-               /   \    / \
-                    u     w'
-                         /
-                    v    w
-                   / \    \
-                      z   p
-                       \ /
-                        q
-
+                 x       y                  x       y
+               /   \    / \               /   \    / \
+                    u     s                   u      s
+                    |    /                          /
+                    v    w                    v    w
+                   / \    \                  / \    \
+                      z   p                     z   p
+                       \                         \ /
+                        q                         q
      */
 
     template<typename Ext>
@@ -359,35 +343,39 @@ namespace smt {
             n = next;
             SASSERT(n != -1);
         }     
-#else
-        node old_pred = m_pred[q];
+#else   
+        node old_pred = m_pred[q];        
+        if (q != v) {
+            for (node n = q; n != u; ) {
+                SASSERT(old_pred != u || n == v); // the last processed node is v
+                TRACE("network_flow", {
+                    tout << pp_vector("Predecessors", m_pred, true);
+                });
+                SASSERT(-1 != m_pred[old_pred]);
+                node next_old_pred = m_pred[old_pred];  
+                swap_order(n, old_pred);
+                std::swap(m_upwards[n], prev_upwards);
+                prev_upwards = !prev_upwards; // flip previous version of upwards.
+                n = old_pred;
+                old_pred = next_old_pred;
+            }     
+        }
         m_pred[q] = p;
-        for (node n = q; n != u; ) {
-            SASSERT(old_pred != u || n == v); // the last processed node is v
-            SASSERT(-1 != m_pred[old_pred]);
-            node next_old_pred = m_pred[old_pred];  
-            swap_order(n, old_pred);
-            std::swap(m_upwards[n], prev_upwards);
-            prev_upwards = !prev_upwards; // flip previous version of upwards.
-            n = old_pred;
-            old_pred = next_old_pred;
-        }     
-
 #endif
 
-        // m_thread and m_final were updated.
+        // m_thread were updated.
         // update the depth.
 
-        fix_depth(q, m_final[q]);
+        fix_depth(q, get_final(q));
 
         TRACE("network_flow", {
-            tout << pp_vector("Threads", m_thread, true);
+            tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
+            tout << pp_vector("Depths", m_depth) << pp_vector("Upwards", m_upwards);
             });
     }
 
     /**
          swap v and q in tree.
-         - fixup m_final
          - fixup m_thread
          - fixup m_pred
 
@@ -407,31 +395,27 @@ namespace smt {
     void network_flow<Ext>::swap_order(node q, node v) {
         SASSERT(q != v);
         SASSERT(m_pred[q] == v);        
-        SASSERT(is_preorder_traversal(v, m_final[v]));
+        SASSERT(is_preorder_traversal(v, get_final(v)));
         node prev = find_rev_thread(v);
-        node final_q = m_final[q];
-        node final_v = m_final[v];
+        node final_q = get_final(q);
+        node final_v = get_final(v);
         node next = m_thread[final_v];
         node alpha = find_rev_thread(q);
 
         if (final_q == final_v) {
             m_thread[final_q] = v;
             m_thread[alpha] = next;
-            m_final[q] = alpha;
-            m_final[v] = alpha;
         }
         else {
-            node beta  = m_thread[final_q];
+            node beta = m_thread[final_q];
             m_thread[final_q] = v;
             m_thread[alpha] = beta;
-            m_final[q] = final_v;
         }
         m_thread[prev] = q;
         m_pred[v] = q;
-        SASSERT(is_preorder_traversal(q, m_final[q]));
+        SASSERT(is_preorder_traversal(q, get_final(q)));
     }
     
-
     template<typename Ext>
     std::string network_flow<Ext>::display_spanning_tree() {
         ++m_step;;
@@ -537,11 +521,11 @@ namespace smt {
         roots[y] = x;
     }
 
-    static int get_final(int start, svector<int> const & thread, svector<int> const & depth) {
-        // really final or should one take into account connected tree?
+    template<typename Ext>
+    dl_var network_flow<Ext>::get_final(int start) {
         int n = start;
-        while (depth[thread[n]] > depth[start]) {
-            n = thread[n];
+        while (m_depth[m_thread[n]] > m_depth[start]) {
+            n = m_thread[n];
         }
         return n;
     }
@@ -566,7 +550,6 @@ namespace smt {
         svector<node> m_pred;              node |-> node
         svector<int>  m_depth;             node |-> int
         svector<node> m_thread;            node |-> node
-        svector<node> m_final;             node |-> node
 
         Tree is determined by m_pred:
         - m_pred[root] == -1
@@ -576,9 +559,6 @@ namespace smt {
         m_thread is a linked list traversing all nodes.
         Furthermore, the nodes linked in m_thread follows a 
         depth-first traversal order.
-
-        m_final[n] is the last node in depth-first traversal order, 
-        starting from n, that is still a child of n.
 
         m_upwards direction of edge from i to m_pred[i] m_graph
                 
@@ -593,6 +573,7 @@ namespace smt {
         svector<bool> found(m_thread.size(), false);
         found[root] = true;
         for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+            SASSERT(x != m_thread[x]);
             found[x] = true;
         }
         for (unsigned i = 0; i < found.size(); ++i) {
@@ -619,11 +600,6 @@ namespace smt {
             SASSERT(m_depth[x] == m_depth[m_pred[x]] + 1);
         }
 
-        // m_final of a node denotes the last node with a bigger depth
-        for (unsigned i = 0; i < m_final.size(); ++i) {
-            SASSERT(m_final[i] == get_final(i, m_thread, m_depth));
-        }
-
         // m_thread forms a spanning tree over [0..root]
         // Union-find structure
         svector<int> roots(m_pred.size(), -1);
@@ -635,11 +611,6 @@ namespace smt {
             merge(roots, x, y);
         }
 
-        std::cout << "roots" << std::endl;
-        for (unsigned i = 0; i < roots.size(); ++i) {
-            std::cout << i << " |-> " << roots[i] << std::endl;         
-        }
-        
         // All nodes belong to the same spanning tree
         for (unsigned i = 0; i < roots.size(); ++i) {            
             SASSERT(roots[i] + roots.size() == 0 || roots[i] >= 0);            

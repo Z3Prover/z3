@@ -127,6 +127,7 @@ namespace smt {
         bool check_well_formed();
 
         bool is_preorder_traversal(node start, node end);
+        node get_final(int start);
 
     public:
 

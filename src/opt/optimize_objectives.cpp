@@ -115,7 +115,7 @@ namespace opt {
                        verbose_stream() << m_lower[i] << " ";
                    }
                    verbose_stream() << "\n";
-                   // model_pp(verbose_stream(), *md);
+                   model_pp(verbose_stream(), *md);
                    );
         expr_ref_vector disj(m);
         expr_ref constraint(m);

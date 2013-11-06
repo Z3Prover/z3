@@ -50,8 +50,8 @@ class blast_term_ite_tactic : public tactic {
 
         bool max_steps_exceeded(unsigned num_steps) const { 
             cooperate("blast term ite");
-            if (memory::get_allocation_size() > m_max_memory)
-                throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+            // if (memory::get_allocation_size() > m_max_memory) 
+            //    throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return false;
         }
         
@@ -62,6 +62,8 @@ class blast_term_ite_tactic : public tactic {
             for (unsigned i = 0; i < num_args; ++i) {
                 expr* c, *t, *e;
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
+                    enable_trace("blast_term_ite");
+                    TRACE("blast_term_ite", result = m.mk_app(f, num_args, args); tout << result << "\n";);
                     expr_ref e1(m), e2(m);
                     ptr_vector<expr> args1(num_args, args);
                     args1[i] = t;
