@@ -594,6 +594,7 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
     }
     rats[i-1] = r;
   }
+#if 0
   if(rats[1].is_neg()){ // work around bug -- if all coeffs negative, negate them
     for(unsigned i = 1; i < rats.size(); i++){
       if(!rats[i].is_neg())
@@ -601,6 +602,8 @@ void iz3mgr::get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rationa
       rats[i] = -rats[i];
     }
   }
+#endif
+  abs_rat(rats);
   extract_lcd(rats);
 }
 
