@@ -1,3 +1,23 @@
+/*++
+Copyright (c) 2013 Microsoft Corporation
+
+Module Name:
+
+    sorting_network.h
+
+Abstract:
+
+    Utility for creating a sorting network.
+
+Author:
+
+    Nikolaj Bjorner (nbjorner) 2013-11-07
+
+Notes:
+
+    Same routine is used in Formula.
+
+--*/
 
 #include "vector.h"
 
