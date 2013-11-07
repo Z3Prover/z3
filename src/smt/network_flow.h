@@ -32,11 +32,9 @@ Notes:
 
 #include"inf_rational.h"
 #include"diff_logic.h"
+#include"spanning_tree.h"
 
 namespace smt {
-
-    template<typename TV>
-    std::string pp_vector(std::string const & label, TV v, bool has_header = false);
 
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
@@ -51,7 +49,9 @@ namespace smt {
         typedef dl_graph<Ext> graph;     
         typedef typename Ext::numeral numeral;
         typedef typename Ext::fin_numeral fin_numeral;
+
         graph m_graph;
+        thread_spanning_tree tree;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;
@@ -67,18 +67,7 @@ namespace smt {
         
         svector<edge_state> m_states;
 
-        // m_upwards[i] is true if the corresponding edge 
-        // (i, m_pred[i]) points upwards (pointing toward the root node)
-        svector<bool> m_upwards;
-
-        // Store the parent of a node i in the spanning tree
-        svector<node> m_pred;
-        // Store the number of edge on the path from node i to the root
-        svector<int> m_depth;
-        // Store the pointer from node i to the next node in depth-first search order
-        svector<node> m_thread;
-        // Store a final node of the sub tree rooted at node i
-        svector<node> m_final;
+        unsigned m_step;
 
         edge_id m_entering_edge;
         edge_id m_leaving_edge;
@@ -86,13 +75,10 @@ namespace smt {
         optional<numeral> m_delta;
         bool m_in_edge_dir;
 
-        unsigned m_step;
-
         // Initialize the network with a feasible spanning tree
         void initialize();
 
         edge_id get_edge_id(dl_var source, dl_var target) const;
-
 
         void update_potentials();
 
@@ -113,21 +99,7 @@ namespace smt {
         bool edge_in_tree(edge_id id) const;
         bool edge_in_tree(node src, node dst) const;
 
-        bool is_ancestor_of(node ancestor, node child) const;
-
-        /**
-           \brief find node that points to 'n' in m_thread
-        */
-        node find_rev_thread(node n) const;
-
-        void fix_depth(node start, node end);
-
-        void swap_order(node q, node v);
-
         bool check_well_formed();
-
-        bool is_preorder_traversal(node start, node end);
-        node get_final(int start);
 
     public:
 
