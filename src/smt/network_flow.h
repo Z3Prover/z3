@@ -51,7 +51,7 @@ namespace smt {
         typedef typename Ext::fin_numeral fin_numeral;
 
         graph m_graph;
-        thread_spanning_tree<Ext> tree;
+        spanning_tree_base m_tree;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;
@@ -66,16 +66,12 @@ namespace smt {
 
         unsigned m_step;
 
-        edge_id m_entering_edge;
-        edge_id m_leaving_edge;
-        node m_join_node;
+        edge_id m_enter_id, m_leave_id;
         optional<numeral> m_delta;
-        bool m_in_edge_dir;
+        bool m_is_swap_enter, m_is_swap_leave;
 
         // Initialize the network with a feasible spanning tree
         void initialize();
-
-        edge_id get_edge_id(dl_var source, dl_var target) const;
 
         void update_potentials();
 
@@ -94,7 +90,6 @@ namespace smt {
         std::string display_spanning_tree();
 
         bool edge_in_tree(edge_id id) const;
-        bool edge_in_tree(node src, node dst) const;
 
         bool check_well_formed();
         bool check_optimal();
