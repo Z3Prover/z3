@@ -304,7 +304,7 @@ namespace smt {
             lbool val = ctx.get_assignment(bv);
             if (inc_min(inc, val) == l_true) {
                 curr_min += abs(inc);
-                lits.push_back(literal(bv, val != l_true));
+                lits.push_back(literal(bv, val == l_true));
             }
         }
         return curr_min;
@@ -424,7 +424,7 @@ namespace smt {
             }
             else if (vars[mid].first < bv) {
                 lo = mid;
-                mid += (hi-mid)/2;
+                mid += (hi-mid)/2 + 1;
             }
             else {
                 hi = mid;

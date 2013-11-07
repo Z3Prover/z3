@@ -96,11 +96,11 @@ Notes:
         {}
         
         void operator()(vect const& in, vect& out) {
+            out.reset();
+            out.append(in);
             if (in.size() <= 1) {
                 return;
             }
-            out.reset();
-            out.append(in);
             while (!is_power_of2(out.size())) {
                 out.push_back(m_ext.mk_default());
             }

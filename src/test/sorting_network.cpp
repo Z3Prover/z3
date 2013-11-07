@@ -111,6 +111,8 @@ static void test_sorting4() {
     svector<unsigned> in;
     in.resize(5);
     test_sorting4_r(0, in);
+    in.resize(8);
+    test_sorting4_r(0, in);
 }
 
 void test_sorting3() {
