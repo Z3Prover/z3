@@ -15,11 +15,29 @@ Author:
 
 Notes:
 
-   - count number of clauses per cardinality constraint.
-   - when number of conflicts exceeds n^2 or n*log(n), then create a sorting circuit.
-     where n is the arity of the cardinality constraint.
-   - extra: do clauses get re-created? keep track of gc status of created clauses.
+   - Uses cutting plane simplification on 'k' for repeated literals.
+     In other words, if the gcd of the multiplicity of literals in c3
+     is g, then divide through by g and truncate k.
+   
+     Example:
+        ((_ at-most 3) x1 x1 x2 x2) == ((_ at-most 1) x1 x2)
 
+   - count number of clauses per cardinality constraint.
+
+   - TBD: when number of conflicts exceeds n^2 or n*log(n), 
+     then create a sorting circuit.
+     where n is the arity of the cardinality constraint.
+
+   - TBD: do clauses get re-created? keep track of gc 
+     status of created clauses.
+
+   - TBD: add conflict resolution
+     The idea is that if cardinality constraints c1, c2
+     are repeatedly asserted together, then 
+     resolve them into combined cardinality constraint c3
+     
+     c1 /\ c2 -> c3
+    
 --*/
 
 #include "theory_card.h"
