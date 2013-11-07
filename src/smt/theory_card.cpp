@@ -54,24 +54,22 @@ namespace smt {
 
         TRACE("card", tout << "internalize: " << mk_pp(atom, m) << "\n";);
 
-        if (k >= atom->get_num_args()) {
-            
-            NOT_IMPLEMENTED_YET();
-        }
-        if (k == 0) {
-            NOT_IMPLEMENTED_YET();
-        }
-        SASSERT(0 < k && k < atom->get_num_args());
         SASSERT(!ctx.b_internalized(atom));
-        bool_var bv = ctx.mk_bool_var(atom);
-        card* c = alloc(card, bv, k);
-        add_card(c);
+        bool_var abv = ctx.mk_bool_var(atom);
+
+        if (k >= atom->get_num_args()) {
+            literal lit(abv);
+            ctx.mk_th_axiom(get_id(), 1, &lit);
+            return true;
+        }
+
+        card* c = alloc(card, abv, k);
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
             if (!ctx.b_internalized(arg)) {
                 ctx.internalize(arg, false);
             }
-            
+            bool_var bv;
             bool has_bv = false;
             if (!m.is_not(arg) && ctx.b_internalized(arg)) {
                 bv = ctx.get_bool_var(arg);
@@ -100,7 +98,23 @@ namespace smt {
                 ctx.mark_as_relevant(tmp);
             }
             c->m_args.push_back(bv);
-            add_watch(bv, c);
+            if (0 < k) {
+                add_watch(bv, c);
+            }
+        }
+        if (0 < k) {
+            add_card(c);
+        }
+        else {
+            // bv <=> (and (not bv1) ... (not bv_n))
+            literal_vector& lits = get_lits();
+            lits.push_back(literal(abv));
+            for (unsigned i = 0; i < c->m_args.size(); ++i) {
+                ctx.mk_th_axiom(get_id(), ~literal(abv), ~literal(c->m_args[i]));
+                lits.push_back(literal(c->m_args[i]));
+            }
+            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            dealloc(c);
         }
         return true;
     }
@@ -309,7 +323,12 @@ namespace smt {
 
 #if 0
 
-class sorting {
+class sorting_network {
+    ast_manager&     m;
+    expr_ref_vector  m_es;
+    expr_ref_vector* m_current;
+    expr_ref_vector* m_next;
+
     void exchange(unsigned i, unsigned j, expr_ref_vector& es) {
         SASSERT(i <= j);
         if (i == j) {
@@ -338,7 +357,7 @@ class sorting {
                     next((k * i) + (k / 2) + j) = current((k * i) + (2 * j) + 1);
                 }
             }
-
+            
             std::swap(m_current, m_next);
             sort(k / 2);
             for (unsigned i = 0; i < m_es.size() / k; ++i) {
@@ -346,7 +365,7 @@ class sorting {
                     next((k * i) + (2 * j)) = current((k * i) + j);
                     next((k * i) + (2 * j) + 1) = current((k * i) + (k / 2) + j);
                 }
-
+                
                 for (unsigned j = 0; j < (k / 2) - 1; ++j) {
                     exchange(next((k * i) + (2 * j) + 1), next((k * i) + (2 * (j + 1))));
                 }
@@ -355,104 +374,98 @@ class sorting {
         }
     }
 
-        private Term[] Merge(Term[] l1, Term[] l2)
-        {
-            if (l1.Length == 0)
-            {
-                return l2;
-            }
-            else if (l2.Length == 0)
-            {
-                return l1;
-            }
-            else if (l1.Length == 1 && l2.Length == 1)
-            {
-                var merged = new Term[2];
-                merged[0] = l1[0];
-                merged[1] = l2[0];
-                Exchange(0, 1, merged);
-                return merged;
-            }
-
-            var l1o = l1.Length / 2;
-            var l2o = l2.Length / 2;
-            var l1e = (l1.Length % 2 == 1) ? l1o + 1 : l1o;
-            var l2e = (l2.Length % 2 == 1) ? l2o + 1 : l2o;
-
-            Term[] evenl1 = new Term[l1e];
-            Term[] oddl1 = new Term[l1o];
-            for (int i = 0; i < l1.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    evenl1[i / 2] = l1[i];
-                }
-                else
-                {
-                    oddl1[i / 2] = l1[i];
-                }
-            }
-
-            Term[] evenl2 = new Term[l2e];
-            Term[] oddl2 = new Term[l2o];
-            for (int i = 0; i < l2.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    evenl2[i / 2] = l2[i];
-                }
-                else
-                {
-                    oddl2[i / 2] = l2[i];
-                }
-            }
-
-            var even = Merge(evenl1, evenl2);
-            var odd = Merge(oddl1, oddl2);
-
-            Term[] merge = new Term[l1.Length + l2.Length];
-
-            for (int i = 0; i < merge.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    merge[i] = even[i / 2];
-                    if (i > 0)
-                    {
-                        Exchange(i - 1, i, merge);
-                    }
-                }
-                else
-                {
-                    if (i / 2 < odd.Length)
-                    {
-                        merge[i] = odd[i / 2];
-                    }
-                    else
-                    {
-                        merge[i] = even[(i / 2) + 1];
-                    }
-                }
-            }
-
-            return merge;
+    expr_ref_vector merge(expr_ref_vector const& l1, expr_ref_vector& l2) {
+        if (l1.empty()) {
+            return l2;
         }
+        if (l2.empty()) {
+            return l1;
+        }
+        expr_ref_vector result(m);
+        if (l1.size() == 1 && l2.size() == 1) {
+            result.push_back(l1[0]);
+            result.push_back(l2[0]);
+            exchange(0, 1, result);
+            return result;
+        }
+        unsigned l1o = l1.size()/2;
+        unsigned l2o = l2.size()/2;
+        unsigned l1e = (l1.size() % 2 == 1) ? l1o + 1 : l1o;
+        unsigned l2e = (l2.size() % 2 == 1) ? l2o + 1 : l2o;
+        expr_ref_vector evenl1(m, l1e);
+        expr_ref_vector oddl1(m, l1o);
+        expr_ref_vector evenl2(m, l2e);
+        expr_ref_vector oddl2(m, l2o);
+        for (unsigned i = 0; i < l1.size(); ++i) {
+            if (i % 2 == 0) {
+                evenl1[i/2] = l1[i];
+            }
+            else {
+                oddl1[i/2] = l1[i];
+            }
+        }
+        for (unsigned i = 0; i < l2.size(); ++i) {
+            if (i % 2 == 0) {
+                evenl2[i/2] = l2[i];
+            }
+            else {
+                oddl2[i/2] = l2[i];
+            }
+        }
+        expr_ref_vector even = merge(evenl1, evenl2);
+        expr_ref_vector odd = merge(oddl1, oddl2);
 
+        result.resize(l1.size() + l2.size());
+        for (unsigned i = 0; i < result.size(); ++i) {
+            if (i % 2 == 0) {
+                result[i] = even[i/2].get();
+                if (i > 0) {
+                    exchange(i - 1, i, result);
+                }
+            }
+            else {
+                if (i /2 < odd.size()) {
+                    result[i] = odd[i/2].get();
+                }
+                else {
+                    result[i] = even[(i/2)+1].get();
+                }
+            }
+        }
+        return result;
+    }
+
+public:
+    sorting_network(ast_manager& m):
+        m(m),
+        m_es(m),
+        m_current(0),
+        m_next(0)
+    {}
+
+    expr_ref_vector operator()(expr_ref_vector const& inputs) {
+        if (inputs.size() <= 1) {
+            return inputs;
+        }
+        m_es.reset();
+        m_es.append(inputs);
+        while (!is_power_of2(m_es.size())) {
+            m_es.push_back(m.mk_false());
+        }
+        m_es.reverse();
+        for (unsigned i = 0; i < m_es.size(); ++i) {
+            current(i) = i;
+        }
+        unsigned k = 2;
+        while (k <= m_es.size()) {
+            sort(k);
+            // TBD
+            k *= 2;
+        }
+    }
 };
 
 Sorting networks used in Formula:
-
-namespace Microsoft.Formula.Execution
-{
-    using System;
-    using System.Diagnostics.Contracts;
-    using Microsoft.Z3;
-
-    internal class SortingNetwork
-    {
-        private Term[] elements;
-        private int[] current;
-        private int[] next;
 
         public SortingNetwork(SymbolicState owner, Term[] inputs, Sort sortingDomain)
         {
@@ -506,114 +519,7 @@ namespace Microsoft.Formula.Execution
             }
         }
 
-        public Term[] Outputs
-        {
-            get { return elements; }
-        }
 
-        public int Size
-        {
-            get;
-            private set;
-        }
-
-        public SymbolicState Owner
-        {
-            get;
-            private set;
-        }
-
-
-        private void Swap()
-        {
-            var tmp = current;
-            current = next;
-            next = tmp;
-        }
-
-        private Term[] Merge(Term[] l1, Term[] l2)
-        {
-            if (l1.Length == 0)
-            {
-                return l2;
-            }
-            else if (l2.Length == 0)
-            {
-                return l1;
-            }
-            else if (l1.Length == 1 && l2.Length == 1)
-            {
-                var merged = new Term[2];
-                merged[0] = l1[0];
-                merged[1] = l2[0];
-                Exchange(0, 1, merged);
-                return merged;
-            }
-
-            var l1o = l1.Length / 2;
-            var l2o = l2.Length / 2;
-            var l1e = (l1.Length % 2 == 1) ? l1o + 1 : l1o;
-            var l2e = (l2.Length % 2 == 1) ? l2o + 1 : l2o;
-
-            Term[] evenl1 = new Term[l1e];
-            Term[] oddl1 = new Term[l1o];
-            for (int i = 0; i < l1.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    evenl1[i / 2] = l1[i];
-                }
-                else
-                {
-                    oddl1[i / 2] = l1[i];
-                }
-            }
-
-            Term[] evenl2 = new Term[l2e];
-            Term[] oddl2 = new Term[l2o];
-            for (int i = 0; i < l2.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    evenl2[i / 2] = l2[i];
-                }
-                else
-                {
-                    oddl2[i / 2] = l2[i];
-                }
-            }
-
-            var even = Merge(evenl1, evenl2);
-            var odd = Merge(oddl1, oddl2);
-
-            Term[] merge = new Term[l1.Length + l2.Length];
-
-            for (int i = 0; i < merge.Length; ++i)
-            {
-                if (i % 2 == 0)
-                {
-                    merge[i] = even[i / 2];
-                    if (i > 0)
-                    {
-                        Exchange(i - 1, i, merge);
-                    }
-                }
-                else
-                {
-                    if (i / 2 < odd.Length)
-                    {
-                        merge[i] = odd[i / 2];
-                    }
-                    else
-                    {
-                        merge[i] = even[(i / 2) + 1];
-                    }
-                }
-            }
-
-            return merge;
-        }
-    }
 }
 
 

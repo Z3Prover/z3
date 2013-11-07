@@ -47,7 +47,7 @@ void card_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol con
 
 
 app * card_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {
-    parameter param(1);
+    parameter param(k);
     return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, num_args, args, m.mk_bool_sort());
 }
 
