@@ -1253,6 +1253,10 @@ public:
 	  case FarkasKind: {
 	    std::vector<ast> farkas_coeffs, prem_cons;
 	    get_farkas_coeffs(proof,farkas_coeffs);
+	    if(farkas_coeffs.size() != nprems){
+	      pfgoto(proof);
+	      throw unsupported();
+	    }
 	    prem_cons.resize(nprems);
 	    for(unsigned i = 0; i < nprems; i++)
 	      prem_cons[i] = conc(prem(proof,i));
@@ -1279,6 +1283,10 @@ public:
 	  case GCDTestKind: {
 	    std::vector<rational> farkas_coeffs;
 	    get_farkas_coeffs(proof,farkas_coeffs);
+	    if(farkas_coeffs.size() != nprems){
+	      pfgoto(proof);
+	      throw unsupported();
+	    }
 	    std::vector<Iproof::node> my_prems; my_prems.resize(2);
 	    std::vector<ast> my_prem_cons; my_prem_cons.resize(2);
 	    std::vector<ast> my_farkas_coeffs; my_farkas_coeffs.resize(2);
