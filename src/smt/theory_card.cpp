@@ -134,6 +134,29 @@ namespace smt {
                 args.resize(args.size()-1);                
             }
         }
+        // apply cutting plane reduction:
+        if (!args.empty()) {
+            unsigned g = abs(args[0].second);
+            for (unsigned i = 1; g > 1 && i < args.size(); ++i) {
+                g = gcd(g, args[i].second);
+            }
+            if (g > 1) {
+                unsigned k = c->m_k;
+                if (k >= 0) {
+                    c->m_k /= g;
+                }
+                else {
+                    // watch out for truncation semantcs for k < 0!
+                    k = abs(k);
+                    k += (k % g);
+                    k /= g;
+                    k = -k;
+                }
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    args[i].second /= g;
+                }                
+            }
+        }        
         
         int min = 0, max = 0;
         for (unsigned i = 0; i < args.size(); ++i) {            
@@ -419,137 +442,4 @@ namespace smt {
         TRACE("card", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }
-
-
-#if 1
-
-
-#endif
-
 }
-
-
-
-#if 0
-
-        expr_ref_vector merge(expr_ref_vector const& l1, expr_ref_vector const& l2) {
-            if (l1.empty()) {
-                return l2;
-            }
-            if (l2.empty()) {
-                return l1;
-            }
-            expr_ref_vector result(m);
-            if (l1.size() == 1 && l2.size() == 1) {
-                result.push_back(l1[0]);
-                result.push_back(l2[0]);
-                exchange(0, 1, result);
-                return result;
-            }
-            unsigned l1o = l1.size()/2;
-            unsigned l2o = l2.size()/2;
-            unsigned l1e = (l1.size() % 2 == 1) ? l1o + 1 : l1o;
-            unsigned l2e = (l2.size() % 2 == 1) ? l2o + 1 : l2o;
-            expr_ref_vector evenl1(m), oddl1(m), evenl2(m), oddl2(m);
-            evenl1.resize(l1e);
-            oddl1.resize(l1o);
-            evenl2.resize(l2e);
-            oddl2.resize(l2o);
-            for (unsigned i = 0; i < l1.size(); ++i) {
-                if (i % 2 == 0) {
-                    evenl1[i/2] = l1[i];
-                }
-                else {
-                    oddl1[i/2] = l1[i];
-                }
-            }
-            for (unsigned i = 0; i < l2.size(); ++i) {
-                if (i % 2 == 0) {
-                    evenl2[i/2] = l2[i];
-                }
-                else {
-                    oddl2[i/2] = l2[i];
-                }
-            }
-            expr_ref_vector even = merge(evenl1, evenl2);
-            expr_ref_vector odd = merge(oddl1, oddl2);
-
-            result.resize(l1.size() + l2.size());
-            for (unsigned i = 0; i < result.size(); ++i) {
-                if (i % 2 == 0) {
-                    result[i] = even[i/2].get();
-                    if (i > 0) {
-                        exchange(i - 1, i, result);
-                    }
-                }
-                else {
-                    if (i /2 < odd.size()) {
-                        result[i] = odd[i/2].get();
-                    }
-                    else {
-                        result[i] = even[(i/2)+1].get();
-                    }
-                }
-            }
-            return result;
-        }
-
-Sorting networks used in Formula:
-
-        public SortingNetwork(SymbolicState owner, Term[] inputs, Sort sortingDomain)
-        {
-            Contract.Requires(owner != null && inputs != null && sortingDomain != null);
-            Contract.Requires(inputs.Length > 0);
-
-            Owner = owner;
-            Size = (int)Math.Pow(2, (int)Math.Ceiling(Math.Log(inputs.Length, 2)));
-
-            if (Size == 1)
-            {
-                elements = new Term[1];
-                elements[0] = inputs[0];
-            }
-            else if (Size > 1)
-            {
-                var defaultElement = owner.Context.MkNumeral(0, sortingDomain);
-
-                current = new int[Size];
-                next = new int[Size];
-                elements = new Term[Size];
-                for (int i = 0; i < Size; ++i)
-                {
-                    current[i] = i;
-                    elements[i] = (i < Size - inputs.Length) ? defaultElement : inputs[i - (Size - inputs.Length)];
-                }
-
-                int k = 2;
-                Term xi;
-                while (k <= Size)
-                {
-                    Sort(k);
-
-                    for (int i = 0; i < Size; ++i)
-                    {
-                        xi = owner.Context.MkFreshConst("x", sortingDomain);
-                        owner.Context.AssertCnstr(owner.Context.MkEq(xi, elements[i]));
-                        elements[i] = xi;
-                    }
-
-                    for (int i = 0; i < elements.Length / k; ++i)
-                    {
-                        for (int j = 0; j < k - 1; ++j)
-                        {
-                            owner.Context.AssertCnstr(owner.Context.MkBvUle(elements[(k * i) + j], elements[(k * i) + j + 1]));
-                        }
-                    }
-
-                    k *= 2;
-                }
-            }
-        }
-
-
-}
-
-
-#endif 
