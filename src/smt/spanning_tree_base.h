@@ -24,8 +24,6 @@ Notes:
 #include "vector.h"
 
 namespace smt {
-    typedef int node;
-
     template<typename TV>
     inline std::string pp_vector(std::string const & label, TV v, bool has_header = false) {
         std::ostringstream oss;
@@ -44,27 +42,29 @@ namespace smt {
         return oss.str();
     }
 
-    class spanning_tree_base {        
-    public:
-        spanning_tree_base() {};
-        virtual ~spanning_tree_base() {};
+    class spanning_tree_base { 
+    private:
+        typedef int node;
 
-        virtual void initialize(svector<bool> const & upwards, int num_nodes) = 0;
+    public:
+        virtual void initialize(svector<bool> const & upwards, int num_nodes) {};
+
         /**
             \brief Get all descendants of a node including itself
         */
-        virtual void get_descendants(node start, svector<node>& descendants) = 0;
+        virtual void get_descendants(node start, svector<node> & descendants) {};
         /**
             \brief Get all ancestors of a node including itself
         */
-        virtual void get_ancestors(node start, svector<node>& ancestors) = 0;
-        virtual node get_common_ancestor(node u, node v) = 0;
-        virtual void update(node p, node q, node u, node v) = 0;
-        virtual bool check_well_formed() = 0;
+        virtual void get_ancestors(node start, svector<node> & ancestors) {};
+
+        virtual node get_common_ancestor(node u, node v) {UNREACHABLE(); return -1;};
+        virtual void update(node p, node q, node u, node v) {};
+        virtual bool check_well_formed() {UNREACHABLE(); return false;};
 
         // TODO: remove these two unnatural functions
-        virtual bool get_arc_direction(node start) const = 0;
-        virtual node get_parent(node start) = 0;
+        virtual bool get_arc_direction(node start) const {UNREACHABLE(); return false;};
+        virtual node get_parent(node start) {UNREACHABLE(); return -1;};
     };
 }
 

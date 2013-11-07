@@ -32,7 +32,7 @@ Notes:
 
 #include"inf_rational.h"
 #include"diff_logic.h"
-#include"spanning_tree.h"
+#include"spanning_tree_def.h"
 
 namespace smt {
 
@@ -51,7 +51,7 @@ namespace smt {
         typedef typename Ext::fin_numeral fin_numeral;
 
         graph m_graph;
-        thread_spanning_tree tree;
+        thread_spanning_tree<Ext> tree;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;

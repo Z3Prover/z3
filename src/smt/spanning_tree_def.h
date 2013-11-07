@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    spanning_tree.cpp
+    spanning_tree_def.h
 
 Abstract:
 
@@ -15,16 +15,13 @@ Author:
 Notes:
    
 --*/
-#include <sstream>
+
+#ifndef _SPANNING_TREE_DEF_H_
+#define _SPANNING_TREE_DEF_H_
+
 #include "spanning_tree.h"
-#include "debug.h"
-#include "vector.h"
-#include "uint_set.h"
-#include "trace.h"
 
 namespace smt {
-
-    
     /**
         swap v and q in tree.
         - fixup m_thread
@@ -41,7 +38,8 @@ namespace smt {
         New thread: prev -> q -*-> final(q) -> v -*-> alpha -> beta -*-> final(v) -> next
                  
     */
-    void thread_spanning_tree::swap_order(node q, node v) {
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::swap_order(node q, node v) {
         SASSERT(q != v);
         SASSERT(m_pred[q] == v);        
         SASSERT(is_preorder_traversal(v, get_final(v)));
@@ -68,7 +66,8 @@ namespace smt {
     /**
         \brief find node that points to 'n' in m_thread
     */
-    node thread_spanning_tree::find_rev_thread(node n) const {     
+    template<typename Ext>
+    typename thread_spanning_tree<Ext>::node thread_spanning_tree<Ext>::find_rev_thread(node n) const {     
         node ancestor = m_pred[n];
         SASSERT(ancestor != -1);
         while (m_thread[ancestor] != n) {
@@ -77,7 +76,8 @@ namespace smt {
         return ancestor;
     }
 
-    void thread_spanning_tree::fix_depth(node start, node end) {     
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::fix_depth(node start, node end) {     
         SASSERT(m_pred[start] != -1);
         m_depth[start] = m_depth[m_pred[start]]+1;
         while (start != end) {
@@ -86,7 +86,8 @@ namespace smt {
         }
     }
         
-    node thread_spanning_tree::get_final(int start) {
+    template<typename Ext>
+    typename thread_spanning_tree<Ext>::node thread_spanning_tree<Ext>::get_final(int start) {
         int n = start;
         while (m_depth[m_thread[n]] > m_depth[start]) {
             n = m_thread[n];
@@ -94,7 +95,8 @@ namespace smt {
         return n;
     }
 
-    bool thread_spanning_tree::is_preorder_traversal(node start, node end) {
+    template<typename Ext>
+    bool thread_spanning_tree<Ext>::is_preorder_traversal(node start, node end) {
         // get children of start
         uint_set children;
         children.insert(start);
@@ -118,7 +120,8 @@ namespace smt {
         return true;
     }
 
-    bool thread_spanning_tree::is_ancestor_of(node ancestor, node child) {
+    template<typename Ext>
+    bool thread_spanning_tree<Ext>::is_ancestor_of(node ancestor, node child) {
         for (node n = child; n != -1; n = m_pred[n]) {
             if (n == ancestor) {
                 return true;
@@ -154,7 +157,8 @@ namespace smt {
         roots[y] = x;
     }
 
-    void thread_spanning_tree::initialize(svector<bool> const & upwards, int num_nodes) {
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::initialize(svector<bool> const & upwards, int num_nodes) {
         m_pred.resize(num_nodes + 1);
         m_depth.resize(num_nodes + 1);
         m_thread.resize(num_nodes + 1);
@@ -179,7 +183,8 @@ namespace smt {
         });
     }
 
-    node thread_spanning_tree::get_common_ancestor(node u, node v) {
+    template<typename Ext>
+    typename thread_spanning_tree<Ext>::node thread_spanning_tree<Ext>::get_common_ancestor(node u, node v) {
         while (u != v) {
             if (m_depth[u] > m_depth[v])
                 u = m_pred[u];
@@ -189,7 +194,8 @@ namespace smt {
         return u;
     }
 
-    void thread_spanning_tree::get_descendants(node start, svector<node>& descendants) {
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::get_descendants(node start, svector<node>& descendants) {
         descendants.reset();
         node u = start;
         while (m_depth[m_thread[u]] > m_depth[start]) {
@@ -198,7 +204,8 @@ namespace smt {
         }
     }
 
-    void thread_spanning_tree::get_ancestors(node start, svector<node>& ancestors) {
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::get_ancestors(node start, svector<node>& ancestors) {
         ancestors.reset();
         while (m_pred[start] != -1) {                        
             ancestors.push_back(start);
@@ -222,7 +229,8 @@ namespace smt {
                           \                         \ /
                            q                         q
         */
-    void thread_spanning_tree::update(node p, node q, node u, node v) {
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::update(node p, node q, node u, node v) {
         bool q_upwards = false;
 
         // v is parent of u so T_u does not contain root node
@@ -299,7 +307,8 @@ namespace smt {
         m_upwards direction of edge from i to m_pred[i] m_graph
                 
     */
-    bool thread_spanning_tree::check_well_formed() {
+    template<typename Ext>
+    bool thread_spanning_tree<Ext>::check_well_formed() {
         node root = m_pred.size()-1;
 
         // Check that m_thread traverses each node.
@@ -346,11 +355,15 @@ namespace smt {
         return true;
     }
 
-    bool thread_spanning_tree::get_arc_direction(node start) const {
+    template<typename Ext>
+    bool thread_spanning_tree<Ext>::get_arc_direction(node start) const {
         return m_upwards[start];
     }
 
-    node thread_spanning_tree::get_parent(node start) {
+    template<typename Ext>
+    typename thread_spanning_tree<Ext>::node thread_spanning_tree<Ext>::get_parent(node start) {
         return m_pred[start];
     }
 }
+
+#endif
