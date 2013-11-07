@@ -113,6 +113,20 @@ namespace smt {
         m_watch_trail.push_back(bv);
     }
 
+    static unsigned gcd(unsigned a, unsigned b) {
+        if (a == 0) return b;
+        if (b == 0) return a;
+        while (a != b) {
+            if (a < b) {
+                b %= a;
+            }
+            else {
+                a %= b;
+            }
+        }
+        return a;
+    }
+
     void theory_card::add_card(card* c) {
         bool_var abv = c->m_bv;
         arg_t& args = c->m_args;
@@ -141,7 +155,7 @@ namespace smt {
                 g = gcd(g, args[i].second);
             }
             if (g > 1) {
-                unsigned k = c->m_k;
+                int k = c->m_k;
                 if (k >= 0) {
                     c->m_k /= g;
                 }
