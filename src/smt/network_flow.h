@@ -59,9 +59,6 @@ namespace smt {
         // Duals of flows which are convenient to compute dual solutions
         vector<numeral> m_potentials;
 
-        // Keep optimal solution of the min cost flow problem
-        numeral m_objective_value;
-        
         // Basic feasible flows
         vector<numeral> m_flows;
         
@@ -100,6 +97,7 @@ namespace smt {
         bool edge_in_tree(node src, node dst) const;
 
         bool check_well_formed();
+        bool check_optimal();
 
     public:
 
