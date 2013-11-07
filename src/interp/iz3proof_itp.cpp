@@ -1574,33 +1574,23 @@ class iz3proof_itp_impl : public iz3proof_itp {
 }
   
   /** Make a Symmetry node. This takes a derivation of |- x = y and
-      produces | y = x */
+      produces | y = x. Ditto for ~(x=y) */
 
   virtual node make_symmetry(ast con, const ast &premcon, node prem){
+#if 0
     ast x = arg(con,0);
     ast y = arg(con,1);
     ast p = make(op(con),y,x);
+#endif
     if(get_term_type(con) != LitMixed)
       return prem; // symmetry shmymmetry...
-#if 0      
-    LitType xt = get_term_type(x);
-    LitType yt = get_term_type(y);
-    ast A_term;
-    
-    if(xt == LitA && yt == LitB)
-      A_term = x;
-    else if(yt == LitA && xt == LitB)
-      A_term = y;
-    else
-    ast itp = make(And,make(Equal,A_term,get_placeholder(p)),mk_not(con));
-#endif
-    ast em = make(exmid,con,make(symm,get_placeholder(p)),get_placeholder(mk_not(con)));
+    ast em = make(exmid,con,make(symm,get_placeholder(premcon)),get_placeholder(mk_not(con)));
     ast itp = make(And,make(contra,em,mk_false()),
-		   make(contra,make(symm,get_placeholder(mk_not(con))),p),
-		   make(contra,make(symm,get_placeholder(p)),mk_not(con)));
+		   make(contra,make(symm,get_placeholder(mk_not(con))),premcon),
+		   make(contra,make(symm,get_placeholder(premcon)),mk_not(con)));
     
     std::vector<ast> conc; conc.push_back(con);
-    itp = make_resolution(p,conc,itp,prem);
+    itp = make_resolution(premcon,conc,itp,prem);
     return itp;
   }
 

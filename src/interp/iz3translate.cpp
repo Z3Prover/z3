@@ -92,6 +92,8 @@ public:
 
   AstToAst subst_memo;                    // memo of subst function
 
+  symb commute;
+
  public:
 
  
@@ -1017,6 +1019,107 @@ public:
     throw unsupported();
   }
 
+
+  // Following code is for elimination of "commutativity" axiom
+
+  Iproof::node make_commuted_modus_ponens(const ast &proof, const std::vector<Iproof::node> &args){
+    ast pf = arg(args[1],0);
+    ast comm_equiv = arg(args[1],1); // equivalence relation with possible commutations
+    ast P = conc(prem(proof,0));
+    ast Q = conc(proof);
+    Iproof::node P_pf = args[0];
+    ast P_comm = arg(comm_equiv,0);
+    ast Q_comm = arg(comm_equiv,1);
+    if(P != P_comm)
+      P_pf = iproof->make_symmetry(P_comm,P,P_pf);
+    Iproof::node res = iproof->make_mp(comm_equiv,P_pf,pf);
+    if(Q != Q_comm)
+      res = iproof->make_symmetry(Q,Q_comm,res);
+    return res;
+  }
+
+  Iproof::node make_commuted_monotonicity(const ast &proof, const std::vector<Iproof::node> &args){
+    ast pf = arg(args[0],0);
+    ast comm_equiv = arg(args[0],1); // equivalence relation with possible commutations
+    ast con = make(Iff,make(Not,arg(comm_equiv,0)),make(Not,arg(comm_equiv,1)));
+    std::vector<ast> eqs; eqs.push_back(comm_equiv);
+    std::vector<ast> pfs; pfs.push_back(pf);
+    ast res = iproof->make_congruence(eqs,con,pfs);
+    res = make(commute,res,con);
+    return res;
+  }
+
+  Iproof::node make_commuted_symmetry(const ast &proof, const std::vector<Iproof::node> &args){
+    ast pf = arg(args[0],0);
+    ast comm_equiv = arg(args[0],1); // equivalence relation with possible commutations
+    ast con = make(Iff,arg(comm_equiv,1),arg(comm_equiv,0));
+    ast res = iproof->make_symmetry(con,comm_equiv,pf);
+    res = make(commute,res,con);
+    return res;
+  }
+
+  void unpack_commuted(const ast &proof, const ast &cm, ast &pf, ast &comm_equiv){
+    if(sym(cm) == commute){
+      pf = arg(cm,0);
+      comm_equiv = arg(cm,1);
+    }
+    else {
+      pf = cm;
+      comm_equiv = conc(proof);
+    }
+  }
+
+  Iproof::node make_commuted_transitivity(const ast &proof, const std::vector<Iproof::node> &args){
+    ast pf[2], comm_equiv[2];
+    for(int i = 0; i < 2; i++)
+      unpack_commuted(prem(proof,i),args[i],pf[i],comm_equiv[i]);
+    if(!(arg(comm_equiv[0],1) == arg(comm_equiv[1],0))){
+      ast tw = twist(prem(proof,1));
+      ast np = translate_main(tw,false); 
+      unpack_commuted(tw,np,pf[1],comm_equiv[1]);
+    }      
+    ast con = make(Iff,arg(comm_equiv[0],0),arg(comm_equiv[1],1));
+    ast res = iproof->make_transitivity(arg(comm_equiv[0],0),arg(comm_equiv[0],1),arg(comm_equiv[1],1),pf[0],pf[1]);
+    res = make(commute,res,con);
+    return res;
+  }
+
+  ast commute_equality(const ast &eq){
+    return make(Equal,arg(eq,1),arg(eq,0));
+  }
+  
+  ast commute_equality_iff(const ast &con){
+    if(op(con) != Iff || op(arg(con,0)) != Equal)
+      throw unsupported();
+    return make(Iff,commute_equality(arg(con,0)),commute_equality(arg(con,1)));
+  }
+  
+  // convert a proof of a=b <-> c=d into a proof of b=a <-> d=c
+  // TODO: memoize this?
+  ast twist(const ast &proof){
+    pfrule dk = pr(proof);
+    ast con = commute_equality_iff(conc(proof));
+    int n = num_prems(proof);
+    std::vector<ast> prs(n);
+    if(dk == PR_MONOTONICITY){
+      for(int i = 0; i < n; i++)
+	prs[i] = prem(proof,i);
+    }      
+    else
+      for(int i = 0; i < n; i++)
+	prs[i] = twist(prem(proof,i));
+    switch(dk){
+    case PR_MONOTONICITY:
+    case PR_SYMMETRY:
+    case PR_TRANSITIVITY:
+    case PR_COMMUTATIVITY:
+      prs.push_back(con);
+      return clone(proof,prs);
+    default:
+      throw unsupported();
+    }
+  }
+
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1086,25 +1189,43 @@ public:
       if(dk == PR_MODUS_PONENS && expect_clause && op(con) == Or)
 	std::cout << "foo!\n";
 
+      if(1 && dk == PR_TRANSITIVITY && pr(prem(proof,1)) == PR_COMMUTATIVITY){
+	Iproof::node clause = translate_main(prem(proof,0),true);
+	res = make(commute,clause,conc(prem(proof,0))); // HACK -- we depend on Iproof::node being same as ast.
+	return res;
+      }
+
       // translate all the premises
       std::vector<Iproof::node> args(nprems);
       for(unsigned i = 0; i < nprems; i++)
 	args[i] = translate_main(prem(proof,i),false);
 
+      for(unsigned i = 0; i < nprems; i++)
+	if(sym(args[i]) == commute
+	   && !(dk == PR_TRANSITIVITY || dk == PR_MODUS_PONENS || dk == PR_SYMMETRY ||  (dk == PR_MONOTONICITY && op(arg(con,0)) == Not)))
+	  throw unsupported();
+
       switch(dk){
       case PR_TRANSITIVITY: {
-	// assume the premises are x = y, y = z
-	ast x = arg(conc(prem(proof,0)),0);
-	ast y = arg(conc(prem(proof,0)),1);
-	ast z = arg(conc(prem(proof,1)),1);
-	res = iproof->make_transitivity(x,y,z,args[0],args[1]);
+	if(sym(args[0]) == commute || sym(args[1]) == commute)
+	  res = make_commuted_transitivity(proof,args);
+	else {
+	  // assume the premises are x = y, y = z
+	  ast x = arg(conc(prem(proof,0)),0);
+	  ast y = arg(conc(prem(proof,0)),1);
+	  ast z = arg(conc(prem(proof,1)),1);
+	  res = iproof->make_transitivity(x,y,z,args[0],args[1]);
+	}
 	break;
       }
       case PR_MONOTONICITY: {
 	std::vector<ast> eqs; eqs.resize(args.size());
 	for(unsigned i = 0; i < args.size(); i++)
 	  eqs[i] = conc(prem(proof,i));
-	res = iproof->make_congruence(eqs,con,args);
+	if(op(arg(con,0)) == Not && sym(args[0]) == commute)
+	  res = make_commuted_monotonicity(proof,args);
+	else
+	  res = iproof->make_congruence(eqs,con,args);
 	break;
       }
       case PR_REFLEXIVITY: {
@@ -1112,11 +1233,17 @@ public:
 	break;
       }
       case PR_SYMMETRY: {
-	res = iproof->make_symmetry(con,conc(prem(proof,0)),args[0]);
+	if(sym(args[0]) == commute)
+	  res = make_commuted_symmetry(proof,args);
+	else
+	  res = iproof->make_symmetry(con,conc(prem(proof,0)),args[0]);
 	break;
       }
       case PR_MODUS_PONENS: {
-	res = iproof->make_mp(conc(prem(proof,1)),args[0],args[1]);
+	if(sym(args[1]) == commute)
+	  res = make_commuted_modus_ponens(proof,args);
+	else 
+	  res = iproof->make_mp(conc(prem(proof,1)),args[0],args[1]);
 	break;
       }
       case PR_TH_LEMMA: {
@@ -1233,9 +1360,13 @@ public:
   {
     frames = cnsts.size();
     traced_lit = ast();
+    type boolbooldom[2] = {bool_type(),bool_type()};
+    commute = function("@commute",2,boolbooldom,bool_type());
+    m().inc_ref(commute);
   }
 
   ~iz3translation_full(){
+    m().dec_ref(commute);
   }
 };
 
