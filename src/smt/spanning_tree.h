@@ -19,13 +19,20 @@ Notes:
 #ifndef _SPANNING_TREE_H_
 #define _SPANNING_TREE_H_
 
+#include "diff_logic.h"
 #include "spanning_tree_base.h"
 
 namespace smt {
 
-
-    class thread_spanning_tree : virtual public spanning_tree_base {
+    template<typename Ext>
+    class thread_spanning_tree : public spanning_tree_base, private Ext {
     private:        
+        typedef dl_var node;
+        typedef dl_edge<Ext> edge;
+        typedef dl_graph<Ext> graph;     
+        typedef typename Ext::numeral numeral;
+        typedef typename Ext::fin_numeral fin_numeral;
+
         // Store the parent of a node i in the spanning tree
         svector<node> m_pred;
         // Store the number of edge on the path from node i to the root
@@ -47,8 +54,8 @@ namespace smt {
     public:
 
         void initialize(svector<bool> const & upwards, int num_nodes);
-        void get_descendants(node start, svector<node>& descendants);
-        void get_ancestors(node start, svector<node>& ancestors);
+        void get_descendants(node start, svector<node> & descendants);
+        void get_ancestors(node start, svector<node> & ancestors);
         node get_common_ancestor(node u, node v);
         void update(node p, node q, node u, node v);
         bool check_well_formed();

@@ -47,7 +47,7 @@ namespace smt {
         m_balances.resize(num_nodes);
         m_potentials.resize(num_nodes);      
 
-        tree = thread_spanning_tree();
+        tree = thread_spanning_tree<Ext>();
         m_step = 0;
     }
 
@@ -302,7 +302,6 @@ namespace smt {
     bool network_flow<Ext>::edge_in_tree(node src, node dst) const {
         return edge_in_tree(get_edge_id(src, dst));
     }
-
     
     template<typename Ext>
     bool network_flow<Ext>::check_well_formed() {
