@@ -25,14 +25,19 @@ Notes:
 
 namespace smt {
     class theory_card : public theory {
+
+        typedef svector<std::pair<bool_var, int> > arg_t;
+
         struct card {
-            unsigned m_k;
+            int      m_k;
             bool_var m_bv;
-            unsigned m_t;
-            unsigned m_f;
-            svector<bool_var> m_args;
+            int      m_current_min;
+            int      m_current_max;
+            int      m_abs_min;
+            int      m_abs_max;
+            arg_t    m_args;
             card(bool_var bv, unsigned k):
-                m_k(k), m_bv(bv), m_t(0), m_f(0) 
+                m_k(k), m_bv(bv)
             {}
         };
 
@@ -46,13 +51,19 @@ namespace smt {
         card_util                m_util;
 
         void add_watch(bool_var bv, card* c);
+        void add_card(card* c);
 
-        void add_card(card* c) {
-            m_cards.insert(c->m_bv, c);
-            m_cards_trail.push_back(c->m_bv);
-        }
         void add_clause(literal_vector const& lits);
         literal_vector& get_lits();
+
+        int find_inc(bool_var bv, svector<std::pair<bool_var, int> >const& vars);
+        void theory_card::propagate_assignment(card* c);
+        int theory_card::accumulate_max(literal_vector& lits, card* c);
+        int theory_card::accumulate_min(literal_vector& lits, card* c);
+        lbool theory_card::dec_max(int inc, lbool val);
+        lbool theory_card::inc_min(int inc, lbool val);
+        void theory_card::assign_use(bool_var v, bool is_true, card* c);
+        void theory_card::update_min_max(bool_var v, bool is_true, card* c);
         
     public:
         theory_card(ast_manager& m);

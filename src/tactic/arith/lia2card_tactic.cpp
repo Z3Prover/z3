@@ -175,54 +175,48 @@ class lia2card_tactic : public tactic {
             if (a.is_le(fml, x, y) || a.is_ge(fml, y, x)) {
                 if (is_01var(x) && a.is_numeral(y, n)) {
                     sub.insert(fml, mk_le(x, n));
-                    return;
                 }
-                if (is_01var(y) && a.is_numeral(x, n)) {
+                else if (is_01var(y) && a.is_numeral(x, n)) {
                     sub.insert(fml, mk_ge(y, n));
-                    return;
                 }
-                if (is_add(x, args) && is_unsigned(y, k)) { // x <= k
+                else if (is_add(x, args) && is_unsigned(y, k)) { // x <= k
                     sub.insert(fml, m_card.mk_at_most_k(args.size(), args.c_ptr(), k));
-                    return;
                 }                
-                if (is_add(y, args) && is_unsigned(x, k)) { // k <= y <=> not (y <= k-1)
+                else if (is_add(y, args) && is_unsigned(x, k)) { // k <= y <=> not (y <= k-1)
                     if (k == 0) 
                         sub.insert(fml, m.mk_true());
                     else 
                         sub.insert(fml, m.mk_not(m_card.mk_at_most_k(args.size(), args.c_ptr(), k-1)));
-                    return;
                 }
-                UNREACHABLE();
+                else {
+                    UNREACHABLE();
+                }
             }
-
-            if (a.is_lt(fml, x, y) || a.is_gt(fml, y, x)) {
+            else if (a.is_lt(fml, x, y) || a.is_gt(fml, y, x)) {
                 if (is_01var(x) && a.is_numeral(y, n)) {
                     sub.insert(fml, mk_le(x, n-rational(1)));
-                    return;
                 }
-                if (is_01var(y) && a.is_numeral(x, n)) {                    
+                else if (is_01var(y) && a.is_numeral(x, n)) {                    
                     sub.insert(fml, mk_ge(y, n+rational(1)));
-                    return;
                 }
-                if (is_add(x, args) && is_unsigned(y, k)) { // x < k
+                else if (is_add(x, args) && is_unsigned(y, k)) { // x < k
                     if (k == 0) 
                         sub.insert(fml, m.mk_false());                
                     else
                         sub.insert(fml, m_card.mk_at_most_k(args.size(), args.c_ptr(), k-1));
-                    return;
-                }
-                    
-                if (is_add(y, args) && is_unsigned(x, k)) { // k < y <=> not (y <= k)
+                }                    
+                else if (is_add(y, args) && is_unsigned(x, k)) { // k < y <=> not (y <= k)
                     sub.insert(fml, m.mk_not(m_card.mk_at_most_k(args.size(), args.c_ptr(), k)));
-                    return;
                 }
-                UNREACHABLE();
+                else {
+                    UNREACHABLE();
+                }
             }
-            if (m.is_eq(fml, x, y)) {
+            else if (m.is_eq(fml, x, y)) {
                 if (!is_01var(x)) {
                     std::swap(x, y);
                 }
-                if (is_01var(x) && a.is_numeral(y, n)) {
+                else if (is_01var(x) && a.is_numeral(y, n)) {
                     if (n.is_one()) {
                         sub.insert(fml, mk_01(x));
                     }
@@ -232,19 +226,21 @@ class lia2card_tactic : public tactic {
                     else {
                         sub.insert(fml, m.mk_false());
                     }
-                    return;
                 }
-                UNREACHABLE();
+                else {
+                    UNREACHABLE();
+                }
             }
-            if (is_sum(fml)) {
+            else if (is_sum(fml)) {
                 SASSERT(m_uses.contains(fml));
                 ptr_vector<expr> const& u = m_uses.find(fml);
                 for (unsigned i = 0; i < u.size(); ++i) {
                     convert_01(sub, u[i]);
                 }
-                return;
             }
-            UNREACHABLE();
+            else {
+                UNREACHABLE();
+            }
         }
 
         expr_ref mk_01(expr* x) {

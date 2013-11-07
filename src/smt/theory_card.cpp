@@ -97,25 +97,9 @@ namespace smt {
                 ctx.mk_th_axiom(get_id(), 1, &lit);
                 ctx.mark_as_relevant(tmp);
             }
-            c->m_args.push_back(bv);
-            if (0 < k) {
-                add_watch(bv, c);
-            }
+            c->m_args.push_back(std::make_pair(bv,1));
         }
-        if (0 < k) {
-            add_card(c);
-        }
-        else {
-            // bv <=> (and (not bv1) ... (not bv_n))
-            literal_vector& lits = get_lits();
-            lits.push_back(literal(abv));
-            for (unsigned i = 0; i < c->m_args.size(); ++i) {
-                ctx.mk_th_axiom(get_id(), ~literal(abv), ~literal(c->m_args[i]));
-                lits.push_back(literal(c->m_args[i]));
-            }
-            ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-            dealloc(c);
-        }
+        add_card(c);
         return true;
     }
 
@@ -128,6 +112,49 @@ namespace smt {
         cards->push_back(c);
         m_watch_trail.push_back(bv);
     }
+
+    void theory_card::add_card(card* c) {
+        bool_var abv = c->m_bv;
+        arg_t& args = c->m_args;
+
+        // sort and coalesce arguments:
+        std::sort(args.begin(), args.end());
+        for (unsigned i = 0; i + 1 < args.size(); ++i) {
+            if (args[i].first == args[i+1].first) {
+                args[i].second += args[i+1].second;
+                for (unsigned j = i+1; j + 1 < args.size(); ++j) {
+                    args[j] = args[j+1];
+                }
+                args.resize(args.size()-1);
+            }
+            if (args[i].second == 0) {
+                for (unsigned j = i; j + 1 < args.size(); ++j) {
+                    args[j] = args[j+1];
+                }
+                args.resize(args.size()-1);                
+            }
+        }
+        
+        int min = 0, max = 0;
+        for (unsigned i = 0; i < args.size(); ++i) {            
+            // update min and max:
+            int inc = args[i].second;
+            if (inc > 0) {
+                max += inc;
+            }
+            else {
+                SASSERT(inc < 0);
+                min += inc;
+            }
+            // add watch literals:
+            add_watch(args[i].first, c);
+        }
+        c->m_current_min = c->m_abs_min = min;
+        c->m_current_max = c->m_abs_max = max;
+        m_cards.insert(abv, c);
+        m_cards_trail.push_back(abv);
+    }
+
     
     
     void theory_card::reset_eh() {
@@ -149,6 +176,172 @@ namespace smt {
         m_watch_lim.reset();
     }
 
+    void theory_card::update_min_max(bool_var v, bool is_true, card* c) {
+        context& ctx = get_context();
+        ast_manager& m = get_manager();
+        arg_t const& args = c->m_args;
+        int inc = find_inc(v, args);
+        int& min = c->m_current_min;
+        int& max = c->m_current_max;
+        int  k = c->m_k;
+        // inc > 0 &  is_true -> min += inc
+        // inc < 0 &  is_true -> max += inc
+        // inc > 0 & !is_true -> max -= inc
+        // inc < 0 & !is_true -> min -= inc
+        
+        if (inc > 0 && is_true) {
+            ctx.push_trail(value_trail<context, int>(min));
+            min += inc;
+        }
+        else if (inc < 0 && is_true) {
+            ctx.push_trail(value_trail<context, int>(max));
+            max += inc;
+        }
+        else if (inc > 0 && !is_true) {
+            ctx.push_trail(value_trail<context, int>(max));
+            max -= inc;
+        }
+        else {
+            ctx.push_trail(value_trail<context, int>(min));
+            min -= inc;
+        }
+        // invariant min <= max
+        SASSERT(min <= max);
+    }
+
+    void theory_card::assign_use(bool_var v, bool is_true, card* c) {
+        update_min_max(v, is_true, c);        
+        propagate_assignment(c);
+    }
+
+    lbool theory_card::inc_min(int inc, lbool val) {
+        if (inc > 0) {
+            return val;
+        }
+        else if (inc < 0) {
+            return ~val;
+        }
+        else {
+            return l_undef;
+        }
+    }
+
+    lbool theory_card::dec_max(int inc, lbool val) {
+        if (inc > 0) {
+            return ~val;
+        }
+        else if (inc < 0) {
+            return val;
+        }
+        else {
+            return l_undef;
+        }
+    }
+
+    int theory_card::accumulate_min(literal_vector& lits, card* c) {
+        context& ctx = get_context();
+        int k = c->m_k;
+        arg_t const& args = c->m_args;
+        int curr_min = c->m_abs_min;
+        for (unsigned i = 0; i < args.size() && curr_min <= k; ++i) {
+            bool_var bv = args[i].first;
+            int inc = args[i].second;
+            lbool val = ctx.get_assignment(bv);
+            if (inc_min(inc, val) == l_true) {
+                curr_min += abs(inc);
+                lits.push_back(literal(bv, val != l_true));
+            }
+        }
+        return curr_min;
+    }    
+
+    int theory_card::accumulate_max(literal_vector& lits, card* c) {
+        context& ctx = get_context();
+        arg_t const& args = c->m_args;
+        int k = c->m_k;
+        int curr_max = c->m_abs_max;
+        for (unsigned i = 0; i < args.size() && k < curr_max; ++i) {
+            bool_var bv = args[i].first;
+            int inc = args[i].second;
+            lbool val = ctx.get_assignment(bv);
+            if (dec_max(inc, val) == l_true) {
+                curr_max -= abs(inc);
+                lits.push_back(literal(bv, val == l_true));
+            }
+        }
+        return curr_max;
+    }
+
+    void theory_card::propagate_assignment(card* c) {
+        context& ctx = get_context();
+        arg_t const& args = c->m_args;
+        bool_var abv = c->m_bv;
+        int min = c->m_current_min;
+        int max = c->m_current_max;
+        int k = c->m_k;
+
+        //
+        // if min >  k && abv != l_false -> force abv false
+        // if max <= k && abv != l_true  -> force abv true
+        // if min == k && abv == l_true  -> force positive unassigned literals false
+        // if max == k + 1 && abv == l_false -> force negative unassigned literals false
+        //
+        lbool aval = ctx.get_assignment(abv);
+        if (min > k && aval != l_false) {
+            literal_vector& lits = get_lits();
+            lits.push_back(~literal(abv));
+            int curr_min = accumulate_min(lits, c);
+            SASSERT(curr_min > k);
+            add_clause(lits);                    
+        }
+        else if (max <= k && aval != l_true) {
+            literal_vector& lits = get_lits();
+            lits.push_back(literal(abv));
+            int curr_max = accumulate_max(lits, c);
+            SASSERT(curr_max <= k);
+            add_clause(lits);                    
+        }                
+        else if (min == k && aval == l_true) {
+            literal_vector& lits = get_lits();
+            lits.push_back(~literal(abv));
+            int curr_min = accumulate_min(lits, c);
+            if (curr_min > k) {
+                add_clause(lits);
+            }
+            else {
+                SASSERT(curr_min == k);
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    bool_var bv = args[i].first;
+                    int inc = args[i].second;
+                    if (inc_min(inc, ctx.get_assignment(bv)) == l_undef) {
+                        lits.push_back(literal(bv, inc > 0)); // avoid incrementing min.
+                        add_clause(lits);
+                        lits.pop_back();                        
+                    }
+                }
+            }
+        }
+        else if (max == k + 1 && aval == l_false) {
+            literal_vector& lits = get_lits();
+            lits.push_back(literal(abv));
+            int curr_max = accumulate_max(lits, c);
+            if (curr_max <= k) {
+                add_clause(lits);
+            }
+            else if (curr_max == k + 1) {
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    bool_var bv = args[i].first;
+                    int inc = args[i].second;
+                    if (dec_max(inc, ctx.get_assignment(bv)) == l_undef) {
+                        lits.push_back(literal(bv, inc < 0)); // avoid decrementing max.
+                        add_clause(lits);
+                        lits.pop_back();                        
+                    }
+                }
+            }
+        }
+    }
+
     void theory_card::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
         ast_manager& m = get_manager();
@@ -158,125 +351,33 @@ namespace smt {
 
         if (m_watch.find(v, cards)) {
             for (unsigned i = 0; i < cards->size(); ++i) {
-                c = (*cards)[i];
-                svector<bool_var> const& args = c->m_args;
-                //
-                // is_true  && m_t + 1 > k          -> force false
-                // !is_true && m_f + 1 >= arity - k -> force true
-                //
-                if (is_true && c->m_t >= c->m_k) {
-                    unsigned k = c->m_k;
-                    // force false
-                    switch (ctx.get_assignment(c->m_bv)) {
-                    case l_true:
-                    case l_undef: {
-                        literal_vector& lits = get_lits();
-                        lits.push_back(~literal(c->m_bv));
-                        for (unsigned i = 0; i < args.size() && lits.size() < k + 1; ++i) {
-                            if (ctx.get_assignment(args[i]) == l_true) {
-                                lits.push_back(~literal(args[i]));
-                            }
-                        }
-                        SASSERT(lits.size() == k + 1);
-                        add_clause(lits);
-                        break;
-                    }
-                    default:
-                        break;
-                    }
-                }
-                else if (!is_true && c->m_k >= args.size() - c->m_f - 1) {
-                    // forced true
-                    switch (ctx.get_assignment(c->m_bv)) {
-                    case l_false:
-                    case l_undef: {
-                        unsigned deficit = args.size() - c->m_k;
-                        literal_vector& lits = get_lits();
-                        lits.push_back(literal(c->m_bv));
-                        for (unsigned i = 0; i < args.size() && lits.size() <= deficit; ++i) {
-                            if (ctx.get_assignment(args[i]) == l_false) {
-                                lits.push_back(literal(args[i]));
-                            }
-                        }
-                        add_clause(lits);
-                        break;
-                    }
-                    default:
-                        break;
-                    }
-                }
-                else if (is_true) {
-                    ctx.push_trail(value_trail<context, unsigned>(c->m_t));
-                    c->m_t++;
-                }
-                else {
-                    ctx.push_trail(value_trail<context, unsigned>(c->m_f));
-                    c->m_f++;
-                }
+                assign_use(v, is_true, (*cards)[i]);
             }
         }
         if (m_cards.find(v, c)) {
-            svector<bool_var> const& args = c->m_args;
-            SASSERT(args.size() >= c->m_f + c->m_t);
-            bool_var bv;
+            propagate_assignment(c);
+        }
+    }
 
-            TRACE("card", tout << " t:" << is_true << " k:" << c->m_k << " t:" << c->m_t << " f:" << c->m_f << "\n";);
-
-            // at most k
-            // propagate false to children that are not yet assigned.
-            // v & t1 & ... & tk => ~l_j
-            if (is_true && c->m_k <= c->m_t) {
-
-                literal_vector& lits = get_lits();
-                lits.push_back(literal(v));
-                bool done = false;
-                for (unsigned i = 0; !done && i < args.size(); ++i) {                        
-                    bv = args[i];
-                    if (ctx.get_assignment(bv) == l_true) {
-                        lits.push_back(literal(bv));
-                    }
-                    if (lits.size() > c->m_k + 1) {
-                        add_clause(lits);
-                        done = true;
-                    }
-                }
-                SASSERT(done || lits.size() == c->m_k + 1);
-                for (unsigned i = 0; !done && i < args.size(); ++i) {                        
-                    bv = args[i];
-                    if (ctx.get_assignment(bv) == l_undef) {
-                        lits.push_back(literal(bv));
-                        add_clause(lits);
-                        lits.pop_back();
-                    }
-                }
+    int theory_card::find_inc(bool_var bv, svector<std::pair<bool_var, int> >const& vars) {
+        unsigned mid = vars.size()/2;
+        unsigned lo = 0;
+        unsigned hi = vars.size()-1;
+        while (lo < hi) {            
+            if (vars[mid].first == bv) {
+                return vars[mid].second;
             }
-            // at least k+1:
-            // !v & !f1 & .. & !f_m => l_j
-            // for m + k + 1 = arity()
-            if (!is_true && args.size() <= 1 + c->m_f + c->m_k) {
-                literal_vector& lits = get_lits();
-                lits.push_back(literal(v));
-                bool done = false;
-                for (unsigned i = 0; !done && i < args.size(); ++i) {                        
-                    bv = args[i];
-                    if (ctx.get_assignment(bv) == l_false) {
-                        lits.push_back(literal(bv));
-                    }
-                    if (lits.size() > c->m_k + 1) {
-                        add_clause(lits);
-                        done = true;
-                    }
-                }
-                for (unsigned i = 0; !done && i < args.size(); ++i) {                        
-                    bv = args[i];
-                    if (ctx.get_assignment(bv) != l_false) {
-                        lits.push_back(~literal(bv));
-                        add_clause(lits);
-                        lits.pop_back();
-                    }
-                }
+            else if (vars[mid].first < bv) {
+                lo = mid;
+                mid += (hi-mid)/2;
+            }
+            else {
+                hi = mid;
+                mid = (mid-lo)/2 + lo;
             }
         }
+        SASSERT(vars[mid].first == bv);
+        return vars[mid].second;
     }
 
     void theory_card::init_search_eh() {
@@ -319,151 +420,79 @@ namespace smt {
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }
 
+
+#if 1
+
+
+#endif
+
 }
+
+
 
 #if 0
 
-class sorting_network {
-    ast_manager&     m;
-    expr_ref_vector  m_es;
-    expr_ref_vector* m_current;
-    expr_ref_vector* m_next;
-
-    void exchange(unsigned i, unsigned j, expr_ref_vector& es) {
-        SASSERT(i <= j);
-        if (i == j) {
-            return;
-        }
-        expr* ei = es[i].get();
-        expr* ej = es[j].get();
-        es[i] = m.mk_ite(mk_le(ei,ej), ei, ej);
-        es[j] = m.mk_ite(mk_le(ej,ei), ei, ej);
-    }
-
-    void sort(unsigned k) {
-        if (k == 2) {
-            for (unsigned i = 0; i < m_es.size()/2; ++i) {
-                exchange(current(2*i), current(2*i+1), m_es);
-                next(2*i) = current(2*i);
-                next(2*i+1) = current(2*i+1);
+        expr_ref_vector merge(expr_ref_vector const& l1, expr_ref_vector const& l2) {
+            if (l1.empty()) {
+                return l2;
             }
-            std::swap(m_current, m_next);
-        }
-        else {
-            
-            for (unsigned i = 0; i < m_es.size()/k; ++i) {
-                for (unsigned j = 0; j < k / 2; ++j) {
-                    next((k * i) + j) = current((k * i) + (2 * j));
-                    next((k * i) + (k / 2) + j) = current((k * i) + (2 * j) + 1);
-                }
+            if (l2.empty()) {
+                return l1;
             }
-            
-            std::swap(m_current, m_next);
-            sort(k / 2);
-            for (unsigned i = 0; i < m_es.size() / k; ++i) {
-                for (unsigned j = 0; j < k / 2; ++j) {
-                    next((k * i) + (2 * j)) = current((k * i) + j);
-                    next((k * i) + (2 * j) + 1) = current((k * i) + (k / 2) + j);
-                }
-                
-                for (unsigned j = 0; j < (k / 2) - 1; ++j) {
-                    exchange(next((k * i) + (2 * j) + 1), next((k * i) + (2 * (j + 1))));
-                }
+            expr_ref_vector result(m);
+            if (l1.size() == 1 && l2.size() == 1) {
+                result.push_back(l1[0]);
+                result.push_back(l2[0]);
+                exchange(0, 1, result);
+                return result;
             }
-            std::swap(m_current, m_next);
-        }
-    }
-
-    expr_ref_vector merge(expr_ref_vector const& l1, expr_ref_vector& l2) {
-        if (l1.empty()) {
-            return l2;
-        }
-        if (l2.empty()) {
-            return l1;
-        }
-        expr_ref_vector result(m);
-        if (l1.size() == 1 && l2.size() == 1) {
-            result.push_back(l1[0]);
-            result.push_back(l2[0]);
-            exchange(0, 1, result);
-            return result;
-        }
-        unsigned l1o = l1.size()/2;
-        unsigned l2o = l2.size()/2;
-        unsigned l1e = (l1.size() % 2 == 1) ? l1o + 1 : l1o;
-        unsigned l2e = (l2.size() % 2 == 1) ? l2o + 1 : l2o;
-        expr_ref_vector evenl1(m, l1e);
-        expr_ref_vector oddl1(m, l1o);
-        expr_ref_vector evenl2(m, l2e);
-        expr_ref_vector oddl2(m, l2o);
-        for (unsigned i = 0; i < l1.size(); ++i) {
-            if (i % 2 == 0) {
-                evenl1[i/2] = l1[i];
-            }
-            else {
-                oddl1[i/2] = l1[i];
-            }
-        }
-        for (unsigned i = 0; i < l2.size(); ++i) {
-            if (i % 2 == 0) {
-                evenl2[i/2] = l2[i];
-            }
-            else {
-                oddl2[i/2] = l2[i];
-            }
-        }
-        expr_ref_vector even = merge(evenl1, evenl2);
-        expr_ref_vector odd = merge(oddl1, oddl2);
-
-        result.resize(l1.size() + l2.size());
-        for (unsigned i = 0; i < result.size(); ++i) {
-            if (i % 2 == 0) {
-                result[i] = even[i/2].get();
-                if (i > 0) {
-                    exchange(i - 1, i, result);
-                }
-            }
-            else {
-                if (i /2 < odd.size()) {
-                    result[i] = odd[i/2].get();
+            unsigned l1o = l1.size()/2;
+            unsigned l2o = l2.size()/2;
+            unsigned l1e = (l1.size() % 2 == 1) ? l1o + 1 : l1o;
+            unsigned l2e = (l2.size() % 2 == 1) ? l2o + 1 : l2o;
+            expr_ref_vector evenl1(m), oddl1(m), evenl2(m), oddl2(m);
+            evenl1.resize(l1e);
+            oddl1.resize(l1o);
+            evenl2.resize(l2e);
+            oddl2.resize(l2o);
+            for (unsigned i = 0; i < l1.size(); ++i) {
+                if (i % 2 == 0) {
+                    evenl1[i/2] = l1[i];
                 }
                 else {
-                    result[i] = even[(i/2)+1].get();
+                    oddl1[i/2] = l1[i];
                 }
             }
-        }
-        return result;
-    }
+            for (unsigned i = 0; i < l2.size(); ++i) {
+                if (i % 2 == 0) {
+                    evenl2[i/2] = l2[i];
+                }
+                else {
+                    oddl2[i/2] = l2[i];
+                }
+            }
+            expr_ref_vector even = merge(evenl1, evenl2);
+            expr_ref_vector odd = merge(oddl1, oddl2);
 
-public:
-    sorting_network(ast_manager& m):
-        m(m),
-        m_es(m),
-        m_current(0),
-        m_next(0)
-    {}
-
-    expr_ref_vector operator()(expr_ref_vector const& inputs) {
-        if (inputs.size() <= 1) {
-            return inputs;
+            result.resize(l1.size() + l2.size());
+            for (unsigned i = 0; i < result.size(); ++i) {
+                if (i % 2 == 0) {
+                    result[i] = even[i/2].get();
+                    if (i > 0) {
+                        exchange(i - 1, i, result);
+                    }
+                }
+                else {
+                    if (i /2 < odd.size()) {
+                        result[i] = odd[i/2].get();
+                    }
+                    else {
+                        result[i] = even[(i/2)+1].get();
+                    }
+                }
+            }
+            return result;
         }
-        m_es.reset();
-        m_es.append(inputs);
-        while (!is_power_of2(m_es.size())) {
-            m_es.push_back(m.mk_false());
-        }
-        m_es.reverse();
-        for (unsigned i = 0; i < m_es.size(); ++i) {
-            current(i) = i;
-        }
-        unsigned k = 2;
-        while (k <= m_es.size()) {
-            sort(k);
-            // TBD
-            k *= 2;
-        }
-    }
-};
 
 Sorting networks used in Formula:
 
