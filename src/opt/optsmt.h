@@ -44,6 +44,8 @@ namespace opt {
 
         void add(app* t, bool is_max);
 
+        void commit_assignment(unsigned i);
+
         void set_cancel(bool f);
 
         void updt_params(params_ref& p);
@@ -51,7 +53,9 @@ namespace opt {
         void display(std::ostream& out) const;
 
         inf_eps get_value(unsigned index) const;
-
+        inf_eps get_lower(unsigned index) const;
+        inf_eps get_upper(unsigned index) const;
+        
     private:
         
         lbool basic_opt();

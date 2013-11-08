@@ -26,7 +26,7 @@ Notes:
 #define _OPT_CONTEXT_H_
 
 #include "ast.h"
-#include "solver.h"
+#include "opt_solver.h"
 #include "optsmt.h"
 #include "maxsmt.h"
 
@@ -37,7 +37,7 @@ namespace opt {
     class context {
         ast_manager&        m;
         expr_ref_vector     m_hard_constraints;
-        ref<solver>         m_solver;
+        ref<opt_solver>     m_solver;
         params_ref          m_params;
         optsmt              m_optsmt;
         maxsmt              m_maxsmt;
@@ -47,7 +47,6 @@ namespace opt {
         void add_soft_constraint(expr* f, rational const& w) { m_maxsmt.add(f, w); }
         void add_objective(app* t, bool is_max) { m_optsmt.add(t, is_max); }
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
-        void set_solver(solver* s) { m_solver = s; }
         void optimize();
         void set_cancel(bool f);
         void reset_cancel() { set_cancel(false); }
@@ -55,12 +54,6 @@ namespace opt {
         void collect_statistics(statistics& stats);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
-
-    private:
-        bool is_maxsat_problem() const;
-
-        opt_solver& get_opt_solver(solver& s); 
-
     };
 
 }

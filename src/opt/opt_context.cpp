@@ -37,38 +37,24 @@ namespace opt {
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
+        m_solver = alloc(opt_solver, m, m_params, symbol());
     }
 
     void context::optimize() {
 
-        if (!m_solver) {
-            symbol logic;
-            set_solver(alloc(opt_solver, m, m_params, logic));
-        }
-
-        // really just works for opt_solver now.
-        solver* s = m_solver.get(); 
-        opt_solver::scoped_push _sp(*s);
+        opt_solver& s = *m_solver.get(); 
+        opt_solver::scoped_push _sp(s);
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            s->assert_expr(m_hard_constraints[i].get());
+            s.assert_expr(m_hard_constraints[i].get());
         }
         
-        lbool is_sat;
-
-        is_sat = m_maxsmt(*s);
-
-        expr_ref_vector ans = m_maxsmt.get_assignment();
-        for (unsigned i = 0; i < ans.size(); ++i) {
-            s->assert_expr(ans[i].get());
-        }
-
+        lbool is_sat = m_maxsmt(s);
         if (is_sat == l_true) {           
-            is_sat = m_optsmt(opt_solver::to_opt(*s));
+            is_sat = m_optsmt(s);
         }
     }
         
-
     void context::set_cancel(bool f) {
         if (m_solver) {
             m_solver->set_cancel(f);
@@ -93,6 +79,7 @@ namespace opt {
             m_solver->updt_params(m_params);
         }
         m_optsmt.updt_params(m_params);
+        m_maxsmt.updt_params(m_params);
     }
 
 

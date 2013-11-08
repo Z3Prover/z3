@@ -132,9 +132,7 @@ namespace opt {
 
     lbool optsmt::update_upper() {
         smt::theory_opt& opt = s->get_optimizer();
-
         SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
-
         smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
 
         expr_ref bound(m);
@@ -246,13 +244,28 @@ namespace opt {
         return is_sat;
     }
 
-    inf_eps  optsmt::get_value(unsigned index) const {
-        if (m_is_max[index]) {
-            return m_lower[index];
-        }
-        else {
-            return -m_lower[index];
-        }
+    inf_eps optsmt::get_value(unsigned i) const {
+        return m_is_max[i]?m_lower[i]:-m_lower[i];
+    }
+
+    inf_eps optsmt::get_lower(unsigned i) const {
+        return m_is_max[i]?m_lower[i]:-m_upper[i];
+    }
+
+    inf_eps optsmt::get_upper(unsigned i) const {
+        return m_is_max[i]?m_upper[i]:-m_lower[i];
+    }
+
+    // force lower_bound(i) <= objective_value(i)    
+    void optsmt::commit_assignment(unsigned i) {
+        smt::theory_var v = m_vars[i];
+
+        // TBD: this should be a method on all optimization solvers.
+        smt::theory_opt& opt = s->get_optimizer();
+        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
+        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
+
+        s->assert_expr(th.block_upper_bound(v, get_lower(i)));
     }
 
     void optsmt::display(std::ostream& out) const {
