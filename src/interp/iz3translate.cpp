@@ -1253,13 +1253,23 @@ public:
 	  case FarkasKind: {
 	    std::vector<ast> farkas_coeffs, prem_cons;
 	    get_farkas_coeffs(proof,farkas_coeffs);
-	    if(farkas_coeffs.size() != nprems){
-	      pfgoto(proof);
-	      throw unsupported();
+	    if(nprems == 0) {// axiom, not rule
+	      int nargs = num_args(con);
+	      if(farkas_coeffs.size() != nargs){
+		pfgoto(proof);
+		throw unsupported();
+	      }
+	      for(unsigned i = 0; i < nargs; i++){
+		ast lit = mk_not(arg(con,i));
+		prem_cons.push_back(lit);
+		args.push_back(iproof->make_hypothesis(lit));
+	      }
 	    }
-	    prem_cons.resize(nprems);
-	    for(unsigned i = 0; i < nprems; i++)
-	      prem_cons[i] = conc(prem(proof,i));
+	    else {  // rule version (proves false)
+	      prem_cons.resize(nprems);
+	      for(unsigned i = 0; i < nprems; i++)
+		prem_cons[i] = conc(prem(proof,i));
+	    }
 	    res = iproof->make_farkas(con,args,prem_cons,farkas_coeffs);
 	    break;
 	  }
