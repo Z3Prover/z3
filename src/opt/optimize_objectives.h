@@ -33,16 +33,21 @@ namespace opt {
         volatile bool m_cancel;
         vector<inf_eps> m_lower;
         vector<inf_eps> m_upper;
+        app_ref_vector  m_objs;
         svector<smt::theory_var> m_vars;
         symbol m_engine;
     public:
-        optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false) {}
+        optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
 
-        lbool operator()(opt_solver& s, app_ref_vector& objectives, vector<inf_eps>& values);
+        lbool operator()(opt_solver& s, app_ref_vector const& objectives);
 
         void set_cancel(bool f);
 
         void set_engine(symbol const& e) { m_engine = e; }
+
+        void display(std::ostream& out) const;
+
+        inf_eps get_value(bool as_positive, unsigned index) const;
 
     private:
         

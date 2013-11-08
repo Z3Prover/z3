@@ -66,9 +66,12 @@ namespace smt {
         SASSERT(m_util.is_at_most_k(atom));
         unsigned k = m_util.get_k(atom);
 
+
         if (ctx.b_internalized(atom)) {
             return false;
         }
+
+        m_stats.m_num_predicates++;
 
         TRACE("card", tout << "internalize: " << mk_pp(atom, m) << "\n";);
 
@@ -210,7 +213,10 @@ namespace smt {
         m_cards_trail.push_back(abv);
     }
 
-    
+    void theory_card::collect_statistics(::statistics& st) const {
+        st.update("pb axioms", m_stats.m_num_axioms);
+        st.update("pb predicates", m_stats.m_num_predicates);        
+    }
     
     void theory_card::reset_eh() {
         
@@ -229,6 +235,7 @@ namespace smt {
         m_cards_lim.reset();
         m_watch_trail.reset();
         m_watch_lim.reset();
+        m_stats.reset();
     }
 
     void theory_card::update_min_max(bool_var v, bool is_true, card* c) {
@@ -470,8 +477,16 @@ namespace smt {
     }
 
     void theory_card::add_clause(literal_vector const& lits) {
+        m_stats.m_num_axioms++;
         context& ctx = get_context();
         TRACE("card", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        justification* js = 0;
+        ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+        IF_VERBOSE(0, 
+                   for (unsigned i = 0; i < lits.size(); ++i) {
+                       verbose_stream() << lits[i] << " ";
+                   }
+                   verbose_stream() << "\n";);
+        // ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }
 }

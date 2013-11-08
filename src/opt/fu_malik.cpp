@@ -132,6 +132,8 @@ namespace opt {
         }
 
     };
+
+    // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
     
     lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints) {
         ast_manager& m = soft_constraints.get_manager();

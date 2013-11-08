@@ -204,23 +204,25 @@ namespace opt {
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    lbool optimize_objectives::operator()(opt_solver& solver, app_ref_vector& objectives, vector<inf_eps>& values) {
+    lbool optimize_objectives::operator()(opt_solver& solver, app_ref_vector const& objectives) {
         s = &solver;
         s->reset_objectives();
         m_lower.reset();
         m_upper.reset();
+        m_objs.reset();
         for (unsigned i = 0; i < objectives.size(); ++i) {
             m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
             m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
+            m_objs.push_back(objectives[i]);
         }
 
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
-        if (is_sat == l_true) {
+        if (is_sat == l_true && !objectives.empty()) {
             opt_solver::scoped_push _push(*s);
             
             for (unsigned i = 0; i < objectives.size(); ++i) {
-                m_vars.push_back(s->add_objective(objectives[i].get()));
+                m_vars.push_back(s->add_objective(objectives[i]));
             }
 
             if (m_engine == symbol("basic")) {
@@ -235,11 +237,30 @@ namespace opt {
                 NOT_IMPLEMENTED_YET();
                 UNREACHABLE();
             }
-            values.reset();
-            values.append(m_lower);
         }
+
+        std::cout << "is-sat: " << is_sat << std::endl;
+        display(std::cout);
+
         return is_sat;
     }
+
+    inf_eps  optimize_objectives::get_value(bool as_positive, unsigned index) const {
+        if (as_positive) {
+            return m_lower[index];
+        }
+        else {
+            return -m_lower[index];
+        }
+    }
+
+    void optimize_objectives::display(std::ostream& out) const {
+        unsigned sz = m_objs.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            out << "objective value: " << mk_pp(m_objs[i], m) << " -> " << get_value(true, i).to_string() << std::endl;                
+        }        
+    }
+
 
 }
 

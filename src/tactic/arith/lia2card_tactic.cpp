@@ -92,6 +92,7 @@ class lia2card_tactic : public tactic {
             it = m_01s.begin(), end = m_01s.end();
             for (; it != end; ++it) {
                 if (!validate_uses(m_uses.find(*it))) {
+                    std::cout << "did not validate: " << mk_pp(*it, m) << "\n";
                     m_uses.remove(*it);
                     m_01s.remove(*it);
                     it = m_01s.begin();

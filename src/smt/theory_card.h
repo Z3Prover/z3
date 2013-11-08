@@ -28,6 +28,13 @@ namespace smt {
 
         typedef svector<std::pair<bool_var, int> > arg_t;
 
+        struct stats {
+            unsigned m_num_axioms;
+            unsigned m_num_predicates;
+            void reset() { memset(this, 0, sizeof(*this)); }
+            stats() { reset(); }
+        };
+
         struct card {
             int      m_k;
             bool_var m_bv;
@@ -49,6 +56,7 @@ namespace smt {
         unsigned_vector          m_watch_lim;
         literal_vector           m_literals;
         card_util                m_util;
+        stats                    m_stats;
 
         void add_watch(bool_var bv, card* c);
         void add_card(card* c);
@@ -84,6 +92,7 @@ namespace smt {
         virtual void init_search_eh();
         virtual void push_scope_eh();
         virtual void pop_scope_eh(unsigned num_scopes);
+        virtual void collect_statistics(::statistics & st) const;
 
     };
 };

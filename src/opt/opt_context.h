@@ -28,6 +28,7 @@ Notes:
 #include "ast.h"
 #include "solver.h"
 #include "optimize_objectives.h"
+#include "opt_maxsmt.h"
 
 namespace opt {
 
@@ -43,6 +44,7 @@ namespace opt {
         ref<solver>      m_solver;
         params_ref       m_params;
         optimize_objectives m_opt_objectives;
+        maxsmt           m_maxsmt;
     public:
         context(ast_manager& m);
 
