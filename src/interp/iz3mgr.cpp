@@ -489,9 +489,11 @@ void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){
   symb s = sym(proof);
   int numps = s->get_num_parameters();
   rats.resize(numps-2);
+#if 0
   if(num_prems(proof) < numps-2){
     std::cout << "bad farkas rule: " << num_prems(proof) << " premises should be " << numps-2 << "\n";
   }
+#endif
   for(int i = 2; i < numps; i++){
     rational r;
     bool ok = s->get_parameter(i).is_rational(r);
