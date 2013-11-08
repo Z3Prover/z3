@@ -417,6 +417,10 @@ class iz3proof_itp_impl : public iz3proof_itp {
     std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
     ast &res = bar.first->second;
     if(bar.second){
+      if(sym(e) == rotate_sum && var == get_placeholder(arg(e,0))){
+	res = e;
+	return res;
+      }
       int nargs = num_args(e);
       std::vector<ast> args(nargs);
       for(int i = 0; i < nargs; i++)
@@ -495,6 +499,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
       if(g == modpon) return simplify_rotate_modpon(pl,args[0],pf);
       // if(g == symm) return simplify_rotate_symm(pl,args[0],pf);
     }
+    if(op(pf) == Leq)
+      throw "foo!";
     throw cannot_simplify();
   }
 
@@ -1355,17 +1361,18 @@ class iz3proof_itp_impl : public iz3proof_itp {
   }
 
   void eq_from_ineq(const ast &ineq, ast &lhs, ast &rhs){
-    ast s = ineq_to_lhs(ineq);
-    ast srhs = arg(s,1);
+    //    ast s = ineq_to_lhs(ineq);
+    // ast srhs = arg(s,1);
+    ast srhs = arg(ineq,0);
     if(op(srhs) == Plus && num_args(srhs) == 2){
       lhs = arg(srhs,0);
       rhs = arg(srhs,1);
-      if(op(lhs) == Times)
-	std::swap(lhs,rhs);
+      // if(op(lhs) == Times)
+      //   std::swap(lhs,rhs);
       if(op(rhs) == Times){
 	rhs = arg(rhs,1);
-	if(op(ineq) == Leq)
-	  std::swap(lhs,rhs);
+	// if(op(ineq) == Leq)
+	//  std::swap(lhs,rhs);
 	return;
       }
     }
