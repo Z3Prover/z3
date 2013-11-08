@@ -33,9 +33,7 @@ namespace opt {
     context::context(ast_manager& m):
         m(m),
         m_hard_constraints(m),
-        m_soft_constraints(m),
-        m_objectives(m),
-        m_opt_objectives(m),
+        m_optsmt(m),
         m_maxsmt(m)
     {
         m_params.set_bool("model", true);
@@ -59,19 +57,15 @@ namespace opt {
         
         lbool is_sat;
 
-        is_sat = m_maxsmt(get_opt_solver(*s), m_soft_constraints, m_weights);
+        is_sat = m_maxsmt(get_opt_solver(*s));
 
-        for (unsigned i = 0; i < m_soft_constraints.size(); ++i) {
-            s->assert_expr(m_soft_constraints[i].get());
+        expr_ref_vector ans = m_maxsmt.get_assignment();
+        for (unsigned i = 0; i < ans.size(); ++i) {
+            s->assert_expr(ans[i].get());
         }
 
         if (is_sat == l_true) {           
-            is_sat = m_opt_objectives(get_opt_solver(*s), m_objectives);        
-        }
-
-        if (m_objectives.empty() && m_soft_constraints.empty()) {
-            is_sat = s->check_sat(0,0);
-            std::cout << "nothing to optimize: is-sat " << is_sat << std::endl;
+            is_sat = m_optsmt(get_opt_solver(*s));        
         }
     }
         
@@ -87,7 +81,7 @@ namespace opt {
         if (m_solver) {
             m_solver->cancel();
         }
-        m_opt_objectives.set_cancel(true);
+        m_optsmt.set_cancel(true);
         m_maxsmt.set_cancel(true);
     }
 
@@ -95,21 +89,8 @@ namespace opt {
         if (m_solver) {
             m_solver->reset_cancel();
         }
-        m_opt_objectives.set_cancel(false);
+        m_optsmt.set_cancel(false);
         m_maxsmt.set_cancel(false);
-    }
-
-    void context::add_objective(app* t, bool is_max) {
-        expr_ref t1(t, m), t2(m);
-        th_rewriter rw(m);
-        if (!is_max) {
-            arith_util a(m);
-            t1 = a.mk_uminus(t);
-        }
-        rw(t1, t2);
-        SASSERT(is_app(t2));
-        m_objectives.push_back(to_app(t2));
-        m_is_max.push_back(is_max);
     }
 
     void context::collect_statistics(statistics& stats) {
@@ -128,7 +109,7 @@ namespace opt {
             m_solver->updt_params(m_params);
         }
         opt_params _p(m_params);
-        m_opt_objectives.set_engine(_p.engine());        
+        m_optsmt.set_engine(_p.engine());        
     }
 
 

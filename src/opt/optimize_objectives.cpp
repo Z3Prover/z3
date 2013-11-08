@@ -46,6 +46,7 @@ Notes:
 #include "theory_arith.h"
 #include "ast_pp.h"
 #include "model_pp.h"
+#include "th_rewriter.h"
 
 namespace opt {
 
@@ -204,25 +205,24 @@ namespace opt {
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    lbool optimize_objectives::operator()(opt_solver& solver, app_ref_vector const& objectives) {
+    lbool optimize_objectives::operator()(opt_solver& solver) {
         s = &solver;
         s->reset_objectives();
         m_lower.reset();
         m_upper.reset();
-        m_objs.reset();
-        for (unsigned i = 0; i < objectives.size(); ++i) {
+        m_vars.reset();
+        for (unsigned i = 0; i < m_objs.size(); ++i) {
             m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
             m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
-            m_objs.push_back(objectives[i]);
         }
 
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
-        if (is_sat == l_true && !objectives.empty()) {
+        if (is_sat == l_true && !m_objs.empty()) {
             opt_solver::scoped_push _push(*s);
             
-            for (unsigned i = 0; i < objectives.size(); ++i) {
-                m_vars.push_back(s->add_objective(objectives[i]));
+            for (unsigned i = 0; i < m_objs.size(); ++i) {
+                m_vars.push_back(s->add_objective(m_objs[i].get()));
             }
 
             if (m_engine == symbol("basic")) {
@@ -257,8 +257,30 @@ namespace opt {
     void optimize_objectives::display(std::ostream& out) const {
         unsigned sz = m_objs.size();
         for (unsigned i = 0; i < sz; ++i) {
-            out << "objective value: " << mk_pp(m_objs[i], m) << " -> " << get_value(true, i).to_string() << std::endl;                
+            bool is_max = m_is_max[i];
+            inf_eps val = get_value(is_max, i);
+            expr_ref obj(m_objs[i], m);
+            if (!is_max) {
+                arith_util a(m);
+                th_rewriter rw(m);
+                obj = a.mk_uminus(obj);
+                rw(obj, obj);
+            }
+            out << "objective value: " << obj << " |-> " << val << std::endl;                
         }        
+    }
+
+    void optimize_objectives::add(app* t, bool is_max) {
+        expr_ref t1(t, m), t2(m);
+        th_rewriter rw(m);
+        if (!is_max) {
+            arith_util a(m);
+            t1 = a.mk_uminus(t);
+        }
+        rw(t1, t2);
+        SASSERT(is_app(t2));
+        m_objs.push_back(to_app(t2));
+        m_is_max.push_back(is_max);
     }
 
 

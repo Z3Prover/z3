@@ -24,28 +24,37 @@ Notes:
 
 namespace opt {
 
-    lbool maxsmt::operator()(opt_solver& s, expr_ref_vector& fmls, vector<rational> const& ws) {
+    lbool maxsmt::operator()(opt_solver& s) {
         lbool is_sat;
-        
-        if (fmls.empty()) {
+        m_answer.reset();
+        m_answer.append(m_soft_constraints);
+        if (m_answer.empty()) {
             is_sat = s.check_sat(0, 0);
         }
-        else if (is_maxsat_problem(ws)) {
-            is_sat = opt::fu_malik_maxsat(s, fmls);
+        else if (is_maxsat_problem(m_weights)) {
+            is_sat = opt::fu_malik_maxsat(s, m_answer);
         }
         else {
-            is_sat = weighted_maxsat(s, fmls, ws);
+            is_sat = weighted_maxsat(s, m_answer, m_weights);
         }
 
         // Infrastructure for displaying and storing solution is TBD.
         std::cout << "is-sat: " << is_sat << "\n";
         if (is_sat == l_true) {
             std::cout << "Satisfying soft constraints\n";
-            for (unsigned i = 0; i < fmls.size(); ++i) {
-                std::cout << mk_pp(fmls[i].get(), m) << "\n";
-            }           
-        } 
+            display_answer(std::cout);
+        }
         return is_sat;
+    }
+
+    expr_ref_vector maxsmt::get_assignment() const {
+        return m_answer;
+    } 
+
+    void maxsmt::display_answer(std::ostream& out) const {
+        for (unsigned i = 0; i < m_answer.size(); ++i) {
+            out << mk_pp(m_answer[i], m) << "\n";
+        } 
     }
     
     void maxsmt::set_cancel(bool f) {

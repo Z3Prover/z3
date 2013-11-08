@@ -28,18 +28,32 @@ namespace opt {
     */
 
     class maxsmt {
-        ast_manager&  m;
-        opt_solver*   s;
-        volatile bool m_cancel;
-        symbol        m_engine;
+        ast_manager&     m;
+        opt_solver*      s;
+        volatile bool    m_cancel;
+        expr_ref_vector  m_soft_constraints;
+        expr_ref_vector  m_answer;
+        vector<rational> m_weights;
+        symbol           m_engine;
     public:
-        maxsmt(ast_manager& m): m(m), s(0), m_cancel(false) {}
+        maxsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 
-        lbool operator()(opt_solver& s, expr_ref_vector& soft, vector<rational> const& weights);
+        lbool operator()(opt_solver& s);
 
         void set_cancel(bool f);
 
+        void add(expr* f, rational const& w) {
+            m_soft_constraints.push_back(f);
+            m_weights.push_back(w);
+        }
+
         void set_engine(symbol const& e) { m_engine = e; }
+
+        // TBD: rational get_value() const;
+
+        expr_ref_vector get_assignment() const;
+
+        void display_answer(std::ostream& out) const;
 
     private:
 

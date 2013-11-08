@@ -28,18 +28,21 @@ namespace opt {
     */
 
     class optimize_objectives {
-        ast_manager& m;
-        opt_solver*  s;
-        volatile bool m_cancel;
-        vector<inf_eps> m_lower;
-        vector<inf_eps> m_upper;
-        app_ref_vector  m_objs;
+        ast_manager&     m;
+        opt_solver*      s;
+        volatile bool    m_cancel;
+        vector<inf_eps>  m_lower;
+        vector<inf_eps>  m_upper;
+        app_ref_vector   m_objs;
+        svector<bool>    m_is_max;
         svector<smt::theory_var> m_vars;
         symbol m_engine;
     public:
         optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
 
-        lbool operator()(opt_solver& s, app_ref_vector const& objectives);
+        lbool operator()(opt_solver& s);
+
+        void add(app* t, bool is_max);
 
         void set_cancel(bool f);
 
