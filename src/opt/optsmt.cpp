@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    optimize_objectives.cpp
+    optsmt.cpp
 
 Abstract:
    
@@ -40,7 +40,7 @@ Notes:
 #ifndef _OPT_OBJECTIVE_H_
 #define _OPT_OBJECTIVE_H_
 
-#include "optimize_objectives.h"
+#include "optsmt.h"
 #include "opt_solver.h"
 #include "arith_decl_plugin.h"
 #include "theory_arith.h"
@@ -51,11 +51,11 @@ Notes:
 namespace opt {
 
 
-    void optimize_objectives::set_cancel(bool f) {
+    void optsmt::set_cancel(bool f) {
         m_cancel = true;
     }
 
-    void optimize_objectives::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src) {
+    void optsmt::set_max(vector<inf_eps>& dst, vector<inf_eps> const& src) {
         for (unsigned i = 0; i < src.size(); ++i) {
             if (src[i] > dst[i]) {
                 dst[i] = src[i];
@@ -66,7 +66,7 @@ namespace opt {
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool optimize_objectives::basic_opt() {
+    lbool optsmt::basic_opt() {
         opt_solver::toggle_objective _t(*s, true);          
         lbool is_sat = l_true;
 
@@ -86,7 +86,7 @@ namespace opt {
     /*
         Enumerate locally optimal assignments until fixedpoint.
     */
-    lbool optimize_objectives::farkas_opt() {
+    lbool optsmt::farkas_opt() {
         smt::theory_opt& opt = s->get_optimizer();
 
         IF_VERBOSE(1, verbose_stream() << typeid(opt).name() << "\n";);
@@ -107,7 +107,7 @@ namespace opt {
         return l_true;        
     }
 
-    void optimize_objectives::update_lower() {
+    void optsmt::update_lower() {
         model_ref md;
         s->get_model(md);
         set_max(m_lower, s->get_objective_values());
@@ -129,7 +129,7 @@ namespace opt {
         s->assert_expr(constraint);
     }
 
-    lbool optimize_objectives::update_upper() {
+    lbool optsmt::update_upper() {
         smt::theory_opt& opt = s->get_optimizer();
 
         SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
@@ -205,7 +205,7 @@ namespace opt {
        Takes solver with hard constraints added.
        Returns an optimal assignment to objective functions.
     */
-    lbool optimize_objectives::operator()(opt_solver& solver) {
+    lbool optsmt::operator()(opt_solver& solver) {
         s = &solver;
         s->reset_objectives();
         m_lower.reset();
@@ -245,7 +245,7 @@ namespace opt {
         return is_sat;
     }
 
-    inf_eps  optimize_objectives::get_value(bool as_positive, unsigned index) const {
+    inf_eps  optsmt::get_value(bool as_positive, unsigned index) const {
         if (as_positive) {
             return m_lower[index];
         }
@@ -254,7 +254,7 @@ namespace opt {
         }
     }
 
-    void optimize_objectives::display(std::ostream& out) const {
+    void optsmt::display(std::ostream& out) const {
         unsigned sz = m_objs.size();
         for (unsigned i = 0; i < sz; ++i) {
             bool is_max = m_is_max[i];
@@ -270,7 +270,7 @@ namespace opt {
         }        
     }
 
-    void optimize_objectives::add(app* t, bool is_max) {
+    void optsmt::add(app* t, bool is_max) {
         expr_ref t1(t, m), t2(m);
         th_rewriter rw(m);
         if (!is_max) {

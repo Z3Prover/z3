@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    optimize_objectives.h
+    optsmt.h
 
 Abstract:
    
@@ -27,7 +27,7 @@ namespace opt {
        Returns an optimal assignment to objective functions.
     */
 
-    class optimize_objectives {
+    class optsmt {
         ast_manager&     m;
         opt_solver*      s;
         volatile bool    m_cancel;
@@ -38,7 +38,7 @@ namespace opt {
         svector<smt::theory_var> m_vars;
         symbol m_engine;
     public:
-        optimize_objectives(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
+        optsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
 
         lbool operator()(opt_solver& s);
 
