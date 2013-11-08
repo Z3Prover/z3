@@ -28,7 +28,7 @@ Notes:
 #include "ast.h"
 #include "solver.h"
 #include "optsmt.h"
-#include "opt_maxsmt.h"
+#include "maxsmt.h"
 
 namespace opt {
 
@@ -49,8 +49,9 @@ namespace opt {
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
         void set_solver(solver* s) { m_solver = s; }
         void optimize();
-        void cancel();
-        void reset_cancel();
+        void set_cancel(bool f);
+        void reset_cancel() { set_cancel(false); }
+        void cancel() { set_cancel(true); }
         void collect_statistics(statistics& stats);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);

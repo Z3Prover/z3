@@ -27,7 +27,6 @@ Notes:
 #include "th_rewriter.h"
 #include "opt_params.hpp"
 
-
 namespace opt {
 
     context::context(ast_manager& m):
@@ -49,7 +48,7 @@ namespace opt {
 
         // really just works for opt_solver now.
         solver* s = m_solver.get(); 
-        opt_solver::scoped_push _sp(get_opt_solver(*s));
+        opt_solver::scoped_push _sp(*s);
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s->assert_expr(m_hard_constraints[i].get());
@@ -57,7 +56,7 @@ namespace opt {
         
         lbool is_sat;
 
-        is_sat = m_maxsmt(get_opt_solver(*s));
+        is_sat = m_maxsmt(*s);
 
         expr_ref_vector ans = m_maxsmt.get_assignment();
         for (unsigned i = 0; i < ans.size(); ++i) {
@@ -65,32 +64,17 @@ namespace opt {
         }
 
         if (is_sat == l_true) {           
-            is_sat = m_optsmt(get_opt_solver(*s));        
+            is_sat = m_optsmt(opt_solver::to_opt(*s));
         }
     }
         
 
-    opt_solver& context::get_opt_solver(solver& s) {
-        if (typeid(opt_solver) != typeid(s)) {
-            throw default_exception("BUG: optimization context has not been initialized correctly");
-        }
-        return dynamic_cast<opt_solver&>(s);
-    }
-
-    void context::cancel() {
+    void context::set_cancel(bool f) {
         if (m_solver) {
-            m_solver->cancel();
+            m_solver->set_cancel(f);
         }
-        m_optsmt.set_cancel(true);
-        m_maxsmt.set_cancel(true);
-    }
-
-    void context::reset_cancel() {
-        if (m_solver) {
-            m_solver->reset_cancel();
-        }
-        m_optsmt.set_cancel(false);
-        m_maxsmt.set_cancel(false);
+        m_optsmt.set_cancel(f);
+        m_maxsmt.set_cancel(f);
     }
 
     void context::collect_statistics(statistics& stats) {
@@ -108,8 +92,7 @@ namespace opt {
         if (m_solver) {
             m_solver->updt_params(m_params);
         }
-        opt_params _p(m_params);
-        m_optsmt.set_engine(_p.engine());        
+        m_optsmt.updt_params(m_params);
     }
 
 

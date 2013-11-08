@@ -47,6 +47,7 @@ Notes:
 #include "ast_pp.h"
 #include "model_pp.h"
 #include "th_rewriter.h"
+#include "opt_params.hpp"
 
 namespace opt {
 
@@ -245,8 +246,8 @@ namespace opt {
         return is_sat;
     }
 
-    inf_eps  optsmt::get_value(bool as_positive, unsigned index) const {
-        if (as_positive) {
+    inf_eps  optsmt::get_value(unsigned index) const {
+        if (m_is_max[index]) {
             return m_lower[index];
         }
         else {
@@ -258,7 +259,7 @@ namespace opt {
         unsigned sz = m_objs.size();
         for (unsigned i = 0; i < sz; ++i) {
             bool is_max = m_is_max[i];
-            inf_eps val = get_value(is_max, i);
+            inf_eps val = get_value(i);
             expr_ref obj(m_objs[i], m);
             if (!is_max) {
                 arith_util a(m);
@@ -283,6 +284,10 @@ namespace opt {
         m_is_max.push_back(is_max);
     }
 
+    void optsmt::updt_params(params_ref& p) {
+        opt_params _p(p);
+        m_engine = _p.engine();        
+    }
 
 }
 

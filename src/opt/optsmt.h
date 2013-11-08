@@ -36,7 +36,7 @@ namespace opt {
         app_ref_vector   m_objs;
         svector<bool>    m_is_max;
         svector<smt::theory_var> m_vars;
-        symbol m_engine;
+        symbol           m_engine;
     public:
         optsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_objs(m) {}
 
@@ -46,11 +46,11 @@ namespace opt {
 
         void set_cancel(bool f);
 
-        void set_engine(symbol const& e) { m_engine = e; }
+        void updt_params(params_ref& p);
 
         void display(std::ostream& out) const;
 
-        inf_eps get_value(bool as_positive, unsigned index) const;
+        inf_eps get_value(unsigned index) const;
 
     private:
         

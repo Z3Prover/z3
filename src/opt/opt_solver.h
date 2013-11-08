@@ -73,6 +73,8 @@ namespace opt {
 
         vector<inf_eps> const& get_objective_values();
         expr_ref block_lower_bound(unsigned obj_index, inf_eps const& val);
+
+        static opt_solver& to_opt(solver& s);
         
         class toggle_objective {
             opt_solver& s;
@@ -83,9 +85,9 @@ namespace opt {
         };
 
         class scoped_push {
-            opt_solver& s;
+            solver& s;
         public:
-            scoped_push(opt_solver& s):s(s) { s.push();  }
+            scoped_push(solver& s):s(s) { s.push();  }
             ~scoped_push() { s.pop(1); }
         };
 

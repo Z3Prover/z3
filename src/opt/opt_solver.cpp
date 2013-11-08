@@ -187,6 +187,13 @@ namespace opt {
         m_objective_values.reset();
     }
 
+    opt_solver& opt_solver::to_opt(solver& s) {
+        if (typeid(opt_solver) != typeid(s)) {
+            throw default_exception("BUG: optimization context has not been initialized correctly");
+        }
+        return dynamic_cast<opt_solver&>(s);
+    }
+
     opt_solver::toggle_objective::toggle_objective(opt_solver& s, bool new_value): s(s), m_old_value(s.m_objective_enabled) {
         s.m_objective_enabled = new_value;
     }
