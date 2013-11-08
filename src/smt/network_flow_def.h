@@ -40,30 +40,26 @@ namespace smt {
                 m_graph.add_edge(e.get_target(), e.get_source(), e.get_weight(), explanation());
             }
         }
-        
-        unsigned num_nodes = m_graph.get_num_nodes() + 1;
-        unsigned num_edges = m_graph.get_num_edges();
-
-        m_balances.resize(num_nodes);
-        m_potentials.resize(num_nodes);      
-
-        tree = thread_spanning_tree<Ext>();
+        m_tree = thread_spanning_tree<Ext>(m_graph);
         m_step = 0;
     }
 
     template<typename Ext>
     void network_flow<Ext>::initialize() {
         TRACE("network_flow", tout << "initialize...\n";);
-        // Create an artificial root node to construct initial spanning tree
+        // Create an artificial root node to construct initial spanning m_tree
         unsigned num_nodes = m_graph.get_num_nodes();
         unsigned num_edges = m_graph.get_num_edges();
         
         node root = num_nodes;
         m_graph.init_var(root);
+
+        m_potentials.resize(num_nodes + 1);     
         m_potentials[root] = numeral::zero();
 
+        m_balances.resize(num_nodes + 1);
         fin_numeral sum_supply = fin_numeral::zero();
-        for (unsigned i = 0; i < m_balances.size(); ++i) {
+        for (unsigned i = 0; i < num_nodes; ++i) {
             sum_supply += m_balances[i];
         }        
         m_balances[root] = -sum_supply;
@@ -73,54 +69,37 @@ namespace smt {
         m_states.resize(num_nodes + num_edges);
         m_states.fill(LOWER);
 
-        // Create artificial edges from/to root node to/from other nodes and initialize the spanning tree
+        // Create artificial edges from/to root node to/from other nodes and initialize the spanning m_tree
         svector<bool> upwards(num_nodes, false);
         for (unsigned i = 0; i < num_nodes; ++i) {
             upwards[i] = !m_balances[i].is_neg();
             m_states[num_edges + i] = BASIS;
             node src = upwards[i] ? i : root;
             node tgt = upwards[i] ? root : i;            
-            m_flows[num_edges + i] = upwards[i] ? m_balances[i] : -m_balances[i];            
+            m_flows[num_edges + i] = upwards[i] ? m_balances[i] : -m_balances[i];
+            m_potentials[i] = upwards[i] ? numeral::one() : -numeral::one();
             m_graph.add_edge(src, tgt, numeral::one(), explanation());
         }
 
-        tree.initialize(upwards, num_nodes);
-
-        // Compute initial potentials
-        svector<node> descendants;
-        tree.get_descendants(root, descendants);
-        // Skip root node
-        for (unsigned i = 1; i < descendants.size(); ++i) {
-            node u = descendants[i];
-            node v = tree.get_parent(u);   
-            edge_id e_id = get_edge_id(u, v);            
-            m_potentials[u] = m_potentials[v] + (tree.get_arc_direction(u) ? - m_graph.get_weight(e_id) : m_graph.get_weight(e_id));
-        }
+        m_tree.initialize(upwards);
 
         TRACE("network_flow", {
                 tout << pp_vector("Potentials", m_potentials, true) << pp_vector("Flows", m_flows);
             });
-        TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+        TRACE("network_flow", tout << "Spanning m_tree:\n" << display_spanning_tree(););
         SASSERT(check_well_formed());
     }
 
     template<typename Ext>
-    edge_id network_flow<Ext>::get_edge_id(dl_var source, dl_var target) const {
-        // tree.get_arc_direction(source) decides which node is the real source
-        edge_id id;
-        VERIFY(tree.get_arc_direction(source) ? m_graph.get_edge_id(source, target, id) : m_graph.get_edge_id(target, source, id));
-        return id;
-    }
-
-    template<typename Ext>
-    void network_flow<Ext>::update_potentials() {
-        TRACE("network_flow", tout << "update_potentials...\n";);
-        node src = m_graph.get_source(m_entering_edge);
-        node tgt = m_graph.get_target(m_entering_edge); 
-        numeral cost = m_graph.get_weight(m_entering_edge);
-        numeral change = m_potentials[tgt] - m_potentials[src] + (tree.get_arc_direction(src) ? -cost : cost);
+    void network_flow<Ext>::update_potentials() {        
+        node src = m_graph.get_source(m_enter_id);
+        node tgt = m_graph.get_target(m_enter_id); 
+        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(m_enter_id);
+        numeral change = m_is_swap_leave ? -cost : cost;
         svector<node> descendants;
-        tree.get_descendants(src, descendants);
+        node start = m_is_swap_enter ? src : tgt;
+        TRACE("network_flow", tout << "update_potentials of T_" << start << " with delta = " << change << "...\n";);
+        m_tree.get_descendants(start, descendants);
         for (unsigned i = 0; i < descendants.size(); ++i) {
             node u = descendants[i];
             m_potentials[u] += change;
@@ -131,23 +110,16 @@ namespace smt {
     template<typename Ext>
     void network_flow<Ext>::update_flows() {
         TRACE("network_flow", tout << "update_flows...\n";);
-        numeral val = fin_numeral(m_states[m_entering_edge]) * (*m_delta);
-        m_flows[m_entering_edge] += val;
-        node source = m_graph.get_source(m_entering_edge);
-        svector<node> ancestors;
-        tree.get_ancestors(source, ancestors);
-        for (unsigned i = 0; i < ancestors.size() && ancestors[i] != m_join_node; ++i) {
-            node u = ancestors[i];
-            edge_id e_id = get_edge_id(u, tree.get_parent(u));
-            m_flows[e_id] += tree.get_arc_direction(u) ? -val : val;
-        }
-
-        node target = m_graph.get_target(m_entering_edge);
-        tree.get_ancestors(target, ancestors);
-        for (unsigned i = 0; i < ancestors.size() && ancestors[i] != m_join_node; ++i) {
-            node u = ancestors[i];
-            edge_id e_id = get_edge_id(u, tree.get_parent(u));
-            m_flows[e_id] += tree.get_arc_direction(u) ? val : -val;
+        numeral val = *m_delta;
+        m_flows[m_enter_id] += val;
+        node src = m_graph.get_source(m_enter_id);
+        node tgt = m_graph.get_target(m_enter_id); 
+        svector<edge_id> path;
+        svector<bool> against;
+        m_tree.get_path(src, tgt, path, against);
+        for (unsigned i = 0; i < path.size(); ++i) {
+            edge_id e_id = path[i];
+            m_flows[e_id] += against[i] ? -val : val;
         }
         TRACE("network_flow", tout << pp_vector("Flows", m_flows, true););
     }
@@ -160,11 +132,10 @@ namespace smt {
             node src = m_graph.get_source(i);
             node tgt = m_graph.get_target(i);
             if (m_states[i] != BASIS) {
-                numeral change = fin_numeral(m_states[i]) * (m_graph.get_weight(i) + m_potentials[src] - m_potentials[tgt]);
-                // Choose the first negative-cost edge to be the violating edge
+                numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
                 // TODO: add multiple pivoting strategies
-                if (change.is_neg()) {
-                    m_entering_edge = i;
+                if (cost.is_pos()) {
+                    m_enter_id = i;
                     TRACE("network_flow", {
                         tout << "Found entering edge " << i << " between node ";
                         tout << src << " and node " << tgt << "...\n";
@@ -180,52 +151,28 @@ namespace smt {
     template<typename Ext>
     bool network_flow<Ext>::choose_leaving_edge() {
         TRACE("network_flow", tout << "choose_leaving_edge...\n";);
-        node source = m_graph.get_source(m_entering_edge);
-        node target = m_graph.get_target(m_entering_edge);
-        if (m_states[m_entering_edge] == UPPER) {
-            std::swap(source, target);
-        }
-        
-        m_join_node = tree.get_common_ancestor(source, target);
-
-        TRACE("network_flow", tout << "Found join node " << m_join_node << std::endl;);    
+        node src = m_graph.get_source(m_enter_id);
+        node tgt = m_graph.get_target(m_enter_id); 
         m_delta.set_invalid();
-        node src, tgt;
-
-        // Send flows along the path from source to the ancestor
-        svector<node> ancestors;
-        tree.get_ancestors(source, ancestors);
-        for (unsigned i = 0; i < ancestors.size() && ancestors[i] != m_join_node; ++i) {
-            node u = ancestors[i];
-            edge_id e_id = get_edge_id(u, tree.get_parent(u));            
-            if (tree.get_arc_direction(u) && (!m_delta || m_flows[e_id] < *m_delta)) {
+        edge_id leave_id;
+        svector<edge_id> path;
+        svector<bool> against;
+        m_tree.get_path(src, tgt, path, against);
+        for (unsigned i = 0; i < path.size(); ++i) {
+            edge_id e_id = path[i];
+            if (against[i] && (!m_delta || m_flows[e_id] <= *m_delta)) {
                 m_delta = m_flows[e_id];
-                src = u;
-                tgt = tree.get_parent(u);
-                SASSERT(edge_in_tree(src,tgt));
-                m_in_edge_dir = true;
-            }
-        }
-
-        // Send flows along the path from target to the ancestor
-        tree.get_ancestors(target, ancestors);
-        for (unsigned i = 0; i < ancestors.size() && ancestors[i] != m_join_node; ++i) {
-            node u = ancestors[i];
-            edge_id e_id = get_edge_id(u, tree.get_parent(u)); 
-            if (!tree.get_arc_direction(u) && (!m_delta || m_flows[e_id] <= *m_delta)) {
-                m_delta = m_flows[e_id];
-                src = u;
-                tgt = tree.get_parent(u);
-                SASSERT(edge_in_tree(src,tgt));
-                m_in_edge_dir = false;
+                leave_id = e_id;
             }
         }
 
         if (m_delta) {
-            m_leaving_edge = get_edge_id(src, tgt);
+            m_leave_id = leave_id;
+
             TRACE("network_flow", { 
-                tout << "Found leaving edge " << m_leaving_edge;
-                tout << " between node " << src << " and node " << tgt << "...\n";
+                tout << "Found leaving edge " << m_leave_id;
+                tout << " between node " << m_graph.get_source(m_leave_id);
+                tout << " and node " << m_graph.get_target(m_leave_id) << " with delta = " << *m_delta << "...\n";
                 });
             return true;
         }
@@ -234,13 +181,8 @@ namespace smt {
     }
 
     template<typename Ext>
-    void network_flow<Ext>::update_spanning_tree() {        
-        node p = m_graph.get_source(m_entering_edge);
-        node q = m_graph.get_target(m_entering_edge);        
-        node u = m_graph.get_source(m_leaving_edge);
-        node v = m_graph.get_target(m_leaving_edge);
-       
-        tree.update(p, q, u, v);
+    void network_flow<Ext>::update_spanning_tree() {  
+        m_tree.update(m_enter_id, m_leave_id, m_is_swap_enter, m_is_swap_leave);
     }
 
     // Minimize cost flows
@@ -252,18 +194,18 @@ namespace smt {
             bool bounded = choose_leaving_edge();
             if (!bounded) return false;
             update_flows();
-            if (m_entering_edge != m_leaving_edge) {
-				SASSERT(edge_in_tree(m_leaving_edge));
-				SASSERT(!edge_in_tree(m_entering_edge));
-                m_states[m_entering_edge] = BASIS;
-                m_states[m_leaving_edge] = (m_flows[m_leaving_edge].is_zero()) ? LOWER : UPPER;
+            if (m_enter_id != m_leave_id) {
+				SASSERT(edge_in_tree(m_leave_id));
+				SASSERT(!edge_in_tree(m_enter_id));
+                m_states[m_enter_id] = BASIS;
+                m_states[m_leave_id] = (m_flows[m_leave_id].is_zero()) ? LOWER : UPPER;
                 update_spanning_tree();
                 update_potentials();                
-                TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+                TRACE("network_flow", tout << "Spanning m_tree:\n" << display_spanning_tree(););
                 SASSERT(check_well_formed());
             } 
             else {
-                m_states[m_leaving_edge] = m_states[m_leaving_edge] == LOWER ? UPPER : LOWER;
+                m_states[m_leave_id] = m_states[m_leave_id] == LOWER ? UPPER : LOWER;
             }            
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);
@@ -297,27 +239,24 @@ namespace smt {
     bool network_flow<Ext>::edge_in_tree(edge_id id) const {
         return m_states[id] == BASIS;
     }
-
-    template<typename Ext>
-    bool network_flow<Ext>::edge_in_tree(node src, node dst) const {
-        return edge_in_tree(get_edge_id(src, dst));
-    }
     
     template<typename Ext>
     bool network_flow<Ext>::check_well_formed() {
-        SASSERT(tree.check_well_formed());
+        SASSERT(m_tree.check_well_formed());
 
         // m_flows are zero on non-basic edges
         for (unsigned i = 0; i < m_flows.size(); ++i) {
+            SASSERT(!m_flows[i].is_neg());
             SASSERT(m_states[i] == BASIS || m_flows[i].is_zero());
         }
 
-        // m_upwards show correct direction
-        for (unsigned i = 0; i < m_potentials.size(); ++i) {
-            node p = tree.get_parent(i);
-            edge_id id;
-            SASSERT(!tree.get_arc_direction(i) || m_graph.get_edge_id(i, p, id));            
-        }    
+        vector<edge> const & es = m_graph.get_all_edges();
+        for (unsigned i = 0; i < es.size(); ++i) {
+            edge const & e = es[i];
+            if (m_states[i] == BASIS) {
+                SASSERT(m_potentials[e.get_source()] - m_potentials[e.get_target()] == e.get_weight());
+            }
+        }
 
         return true;
     }
@@ -328,8 +267,7 @@ namespace smt {
         vector<edge> const & es = m_graph.get_all_edges();
         for (unsigned i = 0; i < es.size(); ++i) {
             edge const & e = es[i];
-            if (m_states[i] == BASIS) 
-            {
+            if (m_states[i] == BASIS) {
                 total_cost += e.get_weight().get_rational() * m_flows[i];
             }
         }

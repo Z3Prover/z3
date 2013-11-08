@@ -44,25 +44,27 @@ namespace smt {
         // (i, m_pred[i]) points upwards (pointing toward the root node)
         svector<bool> m_upwards;
 
+        graph & m_graph;
+
         void swap_order(node q, node v);
         node find_rev_thread(node n) const;
         void fix_depth(node start, node end);
         node get_final(int start);
-        bool is_preorder_traversal(node start, node end);
-        bool is_ancestor_of(node ancestor, node child);
+        bool is_preorder_traversal(node start, node end);        
+        edge_id get_edge_to_parent(node start) const;
+        node get_common_ancestor(node u, node v);
 
     public:
+        thread_spanning_tree(graph & g);
 
-        void initialize(svector<bool> const & upwards, int num_nodes);
+        void initialize(svector<bool> const & upwards);
         void get_descendants(node start, svector<node> & descendants);
-        void get_ancestors(node start, svector<node> & ancestors);
-        node get_common_ancestor(node u, node v);
-        void update(node p, node q, node u, node v);
+        
+        void update(edge_id enter_id, edge_id leave_id, bool & is_swap_enter, bool & is_swap_leave);
         bool check_well_formed();
-
-        // TODO: remove these two unnatural functions
-        bool get_arc_direction(node start) const;
-        node get_parent(node start);
+        void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against);
+        bool is_forward_edge(edge_id e_id) const;
+        bool is_ancestor_of(node ancestor, node child);
     };
 
 }
