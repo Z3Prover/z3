@@ -53,10 +53,6 @@ namespace opt {
             m_aux(m),
             m_assignment(m)
         {
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
-            }
             m_upper_size = m_soft.size() + 1;
         }
 
@@ -139,6 +135,10 @@ namespace opt {
             lbool is_sat = s.check_sat(0,0);
             if (!m_soft.empty() && is_sat == l_true) {
                 solver::scoped_push _sp(s);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
+                    s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                }
                 
                 lbool is_sat = l_true;                
                 do {
