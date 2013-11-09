@@ -40,9 +40,10 @@ namespace smt {
         // Store the pointer from node i to the next node in depth-first search order
         svector<node> m_thread;
 
-        // m_upwards[i] is true if the corresponding edge 
-        // (i, m_pred[i]) points upwards (pointing toward the root node)
-        svector<bool> m_upwards;
+        // i |-> edge between (i, m_pred[i])
+        svector<edge_id> m_tree;
+
+        node m_root_t2;
 
         graph & m_graph;
 
@@ -50,21 +51,24 @@ namespace smt {
         node find_rev_thread(node n) const;
         void fix_depth(node start, node end);
         node get_final(int start);
-        bool is_preorder_traversal(node start, node end);        
-        edge_id get_edge_to_parent(node start) const;
+        bool is_preorder_traversal(node start, node end);   
         node get_common_ancestor(node u, node v);
-
-    public:
-        thread_spanning_tree(graph & g);
-
-        void initialize(svector<bool> const & upwards);
-        void get_descendants(node start, svector<node> & descendants);
-        
-        void update(edge_id enter_id, edge_id leave_id, bool & is_swap_enter, bool & is_swap_leave);
-        bool check_well_formed();
-        void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against);
         bool is_forward_edge(edge_id e_id) const;
         bool is_ancestor_of(node ancestor, node child);
+
+    public:      
+        thread_spanning_tree() {};
+        thread_spanning_tree(graph & g);
+        ~thread_spanning_tree() {};
+
+        void initialize(svector<edge_id> const & tree);
+        void get_descendants(node start, svector<node> & descendants);
+        
+        void update(edge_id enter_id, edge_id leave_id);                
+        void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against);              
+        bool in_subtree_t2(node child);
+
+        bool check_well_formed();        
     };
 
 }
