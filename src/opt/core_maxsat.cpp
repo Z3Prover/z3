@@ -18,6 +18,7 @@ Notes:
 --*/
 #include "core_maxsat.h"
 #include "card_decl_plugin.h"
+#include "ast_pp.h"
 
 namespace opt {
 
@@ -36,9 +37,9 @@ namespace opt {
         solver::scoped_push _sp(s);
         for (unsigned i = 0; i < m_soft.size(); ++i) {
             expr* a = m.mk_fresh_const("p", m.mk_bool_sort());
-            aux.push_back(a);
-            s.assert_expr(m.mk_implies(a, m_soft[i].get()));
-            block_vars.insert(a);
+            aux.push_back(m.mk_not(a));
+            s.assert_expr(m.mk_or(a, m_soft[i].get()));
+            block_vars.insert(aux.back());
         }            
         while (m_answer.size() < m_upper) {
             ptr_vector<expr> vars;
@@ -60,20 +61,30 @@ namespace opt {
                         ans.push_back(m_soft[i].get());
                     }
                 }
+                TRACE("opt", tout << "sat\n";
+                      for (unsigned i = 0; i < ans.size(); ++i) {
+                          tout << mk_pp(ans[i].get(), m) << "\n";
+                      });
                 if (ans.size() > m_answer.size()) {
                     m_answer.reset();
                     m_answer.append(ans);
                 }
-                unsigned k = m_soft.size()-m_answer.size()-1; // TBD: fix this
+                unsigned k = m_soft.size()-m_answer.size()-1;
                 expr_ref fml = mk_at_most(core_vars, k);
+                TRACE("opt", tout << "add: " << fml << "\n";);
                 s.assert_expr(fml);
                 break;                    
             }
             case l_false: {
                 ptr_vector<expr> core;
                 s.get_unsat_core(core);
+                TRACE("opt", tout << "core";
+                      for (unsigned i = 0; i < core.size(); ++i) {
+                          tout << mk_pp(core[i], m) << " ";
+                      }
+                      tout << "\n";);
                 for (unsigned i = 0; i < core.size(); ++i) {
-                    core_vars.insert(core[i]);
+                    core_vars.insert(get_not(core[i]));
                     block_vars.remove(core[i]);
                 }
                 if (core.empty()) {
@@ -84,9 +95,10 @@ namespace opt {
                     // at least one core variable is True
                     expr_ref fml = mk_at_most(core_vars, 0);
                     fml = m.mk_not(fml);
+                    TRACE("opt", tout << "add: " << fml << "\n";);
                     s.assert_expr(fml);
                 }
-                --m_upper;
+                --m_upper;                
             }
             }            
         }
@@ -106,6 +118,12 @@ namespace opt {
         ptr_vector<expr> es;
         set2vector(set, es);
         return expr_ref(card.mk_at_most_k(es.size(), es.c_ptr(), k), m);
+    }
+
+    expr* core_maxsat::get_not(expr* e) const {
+        expr* result = 0;
+        VERIFY(m.is_not(e, result));
+        return result;
     }
     
     rational core_maxsat::get_lower() const {

@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    opt_maxsmt.cpp
+    maxsmt.cpp
 
 Abstract:
    
@@ -19,8 +19,10 @@ Notes:
 
 #include "maxsmt.h"
 #include "fu_malik.h"
+#include "core_maxsat.h"
 #include "weighted_maxsat.h"
 #include "ast_pp.h"
+#include "opt_params.hpp"
 
 namespace opt {
 
@@ -35,7 +37,12 @@ namespace opt {
             m_answer.append(m_soft_constraints);
         }
         else if (is_maxsat_problem(m_weights)) {
-            m_msolver = alloc(fu_malik, m, s, m_soft_constraints);
+            if (m_maxsat_engine == symbol("core_maxsat")) {
+                m_msolver = alloc(core_maxsat, m, s, m_soft_constraints);
+            }
+            else {
+                m_msolver = alloc(fu_malik, m, s, m_soft_constraints);
+            }
         }
         else {
             m_msolver = alloc(wmaxsmt, m, opt_solver::to_opt(s), m_soft_constraints, m_weights);
@@ -110,6 +117,8 @@ namespace opt {
     }
 
     void maxsmt::updt_params(params_ref& p) {
+        opt_params _p(p);
+        m_maxsat_engine = _p.maxsat_engine();        
     }
 
 

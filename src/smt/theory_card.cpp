@@ -453,19 +453,19 @@ namespace smt {
 
     void theory_card::pop_scope_eh(unsigned num_scopes) {
         unsigned sz = m_watch_lim[m_watch_lim.size()-num_scopes];
-        for (unsigned i = m_watch_trail.size(); i > sz; ) {
-            --i;
+        while (m_watch_trail.size() > sz) {
             ptr_vector<card>* cards = 0;
-            VERIFY(m_watch.find(m_watch_trail[i], cards));
+            VERIFY(m_watch.find(m_watch_trail.back(), cards));
             SASSERT(cards && !cards->empty());
             cards->pop_back();
+            m_watch_trail.pop_back();
         }
         m_watch_lim.resize(m_watch_lim.size()-num_scopes);
         sz = m_cards_lim[m_cards_lim.size()-num_scopes];
-        for (unsigned i = m_cards_trail.size(); i > sz; ) {
-            --i;
-            SASSERT(m_cards.contains(m_cards_trail[i]));
-            m_cards.remove(m_cards_trail[i]);
+        while (m_cards_trail.size() > sz) {
+            SASSERT(m_cards.contains(m_cards_trail.back()));
+            m_cards.remove(m_cards_trail.back());
+            m_cards_trail.pop_back();
         }
         m_cards_lim.resize(m_cards_lim.size()-num_scopes);
     }
@@ -482,7 +482,7 @@ namespace smt {
         TRACE("card", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-        IF_VERBOSE(0, 
+        IF_VERBOSE(1, 
                    for (unsigned i = 0; i < lits.size(); ++i) {
                        verbose_stream() << lits[i] << " ";
                    }

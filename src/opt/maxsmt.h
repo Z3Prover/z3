@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    opt_maxsmt.h
+    maxsmt.h
 
 Abstract:
    
@@ -47,6 +47,7 @@ namespace opt {
         expr_ref_vector  m_answer;
         vector<rational> m_weights;
         scoped_ptr<maxsmt_solver> m_msolver;
+        symbol           m_maxsat_engine;
     public:
         maxsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 

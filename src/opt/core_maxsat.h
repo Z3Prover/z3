@@ -44,6 +44,7 @@ namespace opt {
     private:
         void set2vector(expr_set const& set, ptr_vector<expr>& es) const;
         expr_ref mk_at_most(expr_set const& set, unsigned k);
+        expr* get_not(expr* e) const;
     };
     
 };
