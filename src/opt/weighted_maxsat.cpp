@@ -151,11 +151,9 @@ namespace smt {
 
         virtual final_check_status final_check_eh() {
             if (block(true)) {
-                return FC_CONTINUE;
-            }
-            else {
                 return FC_DONE;
             }
+            return FC_CONTINUE;
         }
 
         virtual bool use_diseqs() const { 
@@ -203,6 +201,9 @@ namespace smt {
         };
 
         bool block(bool is_final) {
+            if (m_vars.empty()) {
+                return true;
+            }
             ast_manager& m = get_manager();
             context& ctx = get_context();
             literal_vector lits;
@@ -218,6 +219,11 @@ namespace smt {
                 lits.push_back(~literal(m_min_cost_bv));
             }
             IF_VERBOSE(2, verbose_stream() << "block: " << m_costs.size() << " " << lits.size() << " " << m_min_cost << "\n";);
+            IF_VERBOSE(2, for (unsigned i = 0; i < lits.size(); ++i) {
+                    verbose_stream() << lits[i] << " ";
+                }
+                verbose_stream() << "\n";
+                );
 
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             if (is_final && m_cost < m_min_cost) {
@@ -225,7 +231,7 @@ namespace smt {
                 m_cost_save.reset();
                 m_cost_save.append(m_costs);
             }
-            return !lits.empty();
+            return false;
         }                
     };
 
@@ -259,42 +265,101 @@ namespace opt {
         return result;
     }
 
+
+    struct wmaxsmt::imp {
+        ast_manager&     m;
+        opt_solver&      s;
+        expr_ref_vector  m_soft;
+        expr_ref_vector  m_assignment;
+        rational         m_lower;
+        rational         m_upper;
+        rational         m_value;
+        vector<rational> m_weights;
+
+        imp(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights):
+            m(m), s(s), m_soft(soft_constraints), m_assignment(m), m_weights(weights)
+        {}
+        ~imp() {}
+
+        smt::theory_weighted_maxsat& ensure_theory() {
+            smt::context& ctx = s.get_context();                        
+            smt::theory_id th_id = m.get_family_id("weighted_maxsat");
+            smt::theory* th = ctx.get_theory(th_id);               
+            smt::theory_weighted_maxsat* wth;
+            if (th) {
+                wth = dynamic_cast<smt::theory_weighted_maxsat*>(th);
+                wth->reset();
+            }
+            else {
+                wth = alloc(smt::theory_weighted_maxsat, m);
+                ctx.register_plugin(wth);
+            }
+            return *wth;
+        }
+
     /**
        Takes solver with hard constraints added.
        Returns a maximal satisfying subset of weighted soft_constraints
        that are still consistent with the solver state.
     */
-    
-    lbool weighted_maxsat(opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights) {
-        ast_manager& m = soft_constraints.get_manager();
-        smt::context& ctx = s.get_context();                        
-        smt::theory_id th_id = m.get_family_id("weighted_maxsat");
-        smt::theory* th = ctx.get_theory(th_id);               
-        smt::theory_weighted_maxsat* wth;
-        if (th) {
-            wth = dynamic_cast<smt::theory_weighted_maxsat*>(th);
-            wth->reset();
-        }
-        else {
-            wth = alloc(smt::theory_weighted_maxsat, m);
-            ctx.register_plugin(wth);
-        }
         
-        opt_solver::scoped_push _s(s);
-        for (unsigned i = 0; i < soft_constraints.size(); ++i) {
-            wth->assert_weighted(soft_constraints[i].get(), weights[i]);
-        }
-#if 0
-        lbool result = s.check_sat_core(0,0);
+        lbool operator()() {
+            smt::theory_weighted_maxsat& wth = ensure_theory();
+            lbool result;
+            {
+                opt_solver::scoped_push _s(s);
+                for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    wth.assert_weighted(m_soft[i].get(), m_weights[i]);
+                }
+#if 1
+                result = s.check_sat_core(0,0);
 #else
-        lbool result = iterative_weighted_maxsat(s, *wth);
+                result = iterative_weighted_maxsat(s, *wth);
 #endif
+                
+                wth.get_assignment(m_assignment);
+                if (!m_assignment.empty() && result == l_false) {
+                    result = l_true;
+                }
+            }
+            wth.reset();
+            return result;            
+        }        
+    };
 
-        wth->get_assignment(soft_constraints);
-        if (!soft_constraints.empty() && result == l_false) {
-            result = l_true;
-        }
-        return result;
+    wmaxsmt::wmaxsmt(ast_manager& m, opt_solver& s, expr_ref_vector& soft_constraints, vector<rational> const& weights) {
+        m_imp = alloc(imp, m, s, soft_constraints, weights);
     }
+
+    wmaxsmt::~wmaxsmt() {
+        dealloc(m_imp);
+    }
+    
+    lbool wmaxsmt::operator()() {
+        return (*m_imp)();
+    }
+    rational wmaxsmt::get_lower() const {
+        NOT_IMPLEMENTED_YET();
+        return m_imp->m_lower;
+    }
+    rational wmaxsmt::get_upper() const {
+        NOT_IMPLEMENTED_YET();
+        return m_imp->m_upper;
+    }
+    rational wmaxsmt::get_value() const {
+        NOT_IMPLEMENTED_YET();
+        return m_imp->m_value;
+    }
+    expr_ref_vector wmaxsmt::get_assignment() const {
+        return m_imp->m_assignment;
+    }
+    void wmaxsmt::set_cancel(bool f) {
+        // no-op
+    }
+
+
+
+    
+
 };
 

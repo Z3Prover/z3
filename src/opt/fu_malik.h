@@ -20,6 +20,7 @@ Notes:
 #define _OPT_FU_MALIK_H_
 
 #include "solver.h"
+#include "maxsmt.h"
 
 namespace opt {
     /**
@@ -27,8 +28,21 @@ namespace opt {
        Returns a maximal satisfying subset of soft_constraints
        that are still consistent with the solver state.
     */
+
+    class fu_malik : public maxsmt_solver {
+        struct imp;
+        imp* m_imp;
+    public:
+        fu_malik(ast_manager& m, solver& s, expr_ref_vector& soft_constraints);
+        virtual ~fu_malik();
+        virtual lbool operator()();
+        virtual rational get_lower() const;
+        virtual rational get_upper() const;
+        virtual rational get_value() const;
+        virtual expr_ref_vector get_assignment() const;
+        virtual void set_cancel(bool f);
+    };
     
-    lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints);
 };
 
 #endif

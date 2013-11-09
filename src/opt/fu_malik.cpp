@@ -35,19 +35,20 @@ Notes:
 */
 namespace opt {
 
-    class fu_malik {
+    struct fu_malik::imp {
         ast_manager& m;
         solver& s;
         expr_ref_vector m_soft;
         expr_ref_vector m_aux;
+        expr_ref_vector m_assignment;
 
-    public:
 
-        fu_malik(ast_manager& m, solver& s, expr_ref_vector const& soft):
+        imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
             s(s),
             m_soft(soft),
-            m_aux(m)
+            m_aux(m),
+            m_assignment(m)
         {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
@@ -106,8 +107,6 @@ namespace opt {
             return l_false;
         }
 
-    private:
-
         void assert_at_most_one(expr_ref_vector const& block_vars) {
             expr_ref has_one(m), has_zero(m), at_most_one(m);
             mk_at_most_one(block_vars.size(), block_vars.c_ptr(), has_one, has_zero);
@@ -131,46 +130,71 @@ namespace opt {
             }
         }
 
-    };
-
-    // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
-    
-    lbool fu_malik_maxsat(solver& s, expr_ref_vector& soft_constraints) {
-        ast_manager& m = soft_constraints.get_manager();
-        lbool is_sat = s.check_sat(0,0);
-        if (!soft_constraints.empty() && is_sat == l_true) {
-            s.push();
-
-            fu_malik fm(m, s, soft_constraints);
-            lbool is_sat = l_true;
-            do {
-                is_sat = fm.step();
-            }
-            while (is_sat == l_false);
-            
-            if (is_sat == l_true) {
-                // Get a list of satisfying soft_constraints
-                model_ref model;
-                s.get_model(model);
+        // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
+        lbool operator()() {
+            lbool is_sat = s.check_sat(0,0);
+            if (!m_soft.empty() && is_sat == l_true) {
+                opt_solver::scoped_push _sp(s);
                 
-                expr_ref_vector result(m);
-                for (unsigned i = 0; i < soft_constraints.size(); ++i) {
-                    expr_ref val(m);
-                    VERIFY(model->eval(soft_constraints[i].get(), val));
-                    if (!m.is_false(val)) {
-                        result.push_back(soft_constraints[i].get());
+                lbool is_sat = l_true;
+                do {
+                    is_sat = step();
+                }
+                while (is_sat == l_false);
+                
+                if (is_sat == l_true) {
+                    // Get a list of satisfying m_soft
+                    model_ref model;
+                    s.get_model(model);
+
+                    m_assignment.reset();                    
+                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                        expr_ref val(m);
+                        VERIFY(model->eval(m_soft[i].get(), val));
+                        if (m.is_true(val)) {
+                            m_assignment.push_back(m_soft[i].get());
+                        }
                     }
                 }
-                soft_constraints.reset();
-                soft_constraints.append(result);
             }
-            s.pop(1);
+            // We are done and soft_constraints has 
+            // been updated with the max-sat assignment.            
+            return is_sat;            
         }
-        // We are done and soft_constraints has 
-        // been updated with the max-sat assignment.
 
-        return is_sat;
+    };
+
+    fu_malik::fu_malik(ast_manager& m, solver& s, expr_ref_vector& soft_constraints) {
+        m_imp = alloc(imp, m, s, soft_constraints);
     }
+    fu_malik::~fu_malik() {
+        dealloc(m_imp);
+    }
+    
+    lbool fu_malik::operator()() {
+        return (*m_imp)();
+    }
+    rational fu_malik::get_lower() const {
+        NOT_IMPLEMENTED_YET();
+        return rational(0);
+    }
+    rational fu_malik::get_upper() const {
+        NOT_IMPLEMENTED_YET();
+        return rational(m_imp->m_soft.size());
+    }
+    rational fu_malik::get_value() const {
+        NOT_IMPLEMENTED_YET();
+        return rational(m_imp->m_assignment.size());
+    }
+    expr_ref_vector fu_malik::get_assignment() const {
+        return m_imp->m_assignment;
+    }
+    void fu_malik::set_cancel(bool f) {
+        // no-op
+    }
+
+
+
 };
 
 
