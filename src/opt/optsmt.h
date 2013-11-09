@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#ifndef _OPT_OBJECTIVES_H_
-#define _OPT_OBJECTIVES_H_
+#ifndef _OPTSMT_H_
+#define _OPTSMT_H_
 
 #include "opt_solver.h"
 
@@ -52,7 +52,7 @@ namespace opt {
         void display_range_assignment(std::ostream& out) const;
 
         unsigned get_num_objectives() const { return m_vars.size(); }
-        void commit_assignment(unsigned i);
+        void commit_assignment(unsigned index);
         inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;

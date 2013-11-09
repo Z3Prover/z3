@@ -51,13 +51,13 @@ namespace opt {
     }
 
     lbool context::optimize() {
-        // TBD: add configurtion parameter
+        // TBD: add configuration parameter to select between box and pareto
         return optimize_box();
     }
 
     lbool context::optimize_box() {
         opt_solver& s = *m_solver.get(); 
-        opt_solver::scoped_push _sp(s);
+        solver::scoped_push _sp(s);
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s.assert_expr(m_hard_constraints[i].get());

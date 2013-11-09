@@ -37,8 +37,6 @@ Notes:
 
 --*/
 
-#ifndef _OPT_OBJECTIVE_H_
-#define _OPT_OBJECTIVE_H_
 
 #include "optsmt.h"
 #include "opt_solver.h"
@@ -90,7 +88,6 @@ namespace opt {
     lbool optsmt::farkas_opt() {
         smt::theory_opt& opt = s->get_optimizer();
 
-        IF_VERBOSE(1, verbose_stream() << typeid(opt).name() << "\n";);
         if (typeid(smt::theory_inf_arith) != typeid(opt)) {
             return l_undef;
         }
@@ -138,7 +135,7 @@ namespace opt {
         expr_ref bound(m);
         expr_ref_vector bounds(m);
 
-        opt_solver::scoped_push _push(*s);
+        solver::scoped_push _push(*s);
 
         //
         // NB: we have to create all bound expressions before calling check_sat
@@ -218,7 +215,7 @@ namespace opt {
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
         if (is_sat == l_true && !m_objs.empty()) {
-            opt_solver::scoped_push _push(*s);
+            solver::scoped_push _push(*s);
             
             for (unsigned i = 0; i < m_objs.size(); ++i) {
                 m_vars.push_back(s->add_objective(m_objs[i].get()));
@@ -289,8 +286,6 @@ namespace opt {
         }        
     }
 
-
-
     void optsmt::add(app* t, bool is_max) {
         expr_ref t1(t, m), t2(m);
         th_rewriter rw(m);
@@ -311,4 +306,3 @@ namespace opt {
 
 }
 
-#endif

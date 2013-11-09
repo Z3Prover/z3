@@ -130,6 +130,14 @@ public:
        \brief Display the content of this solver.
     */
     virtual void display(std::ostream & out) const;
+
+    class scoped_push {
+        solver& s;
+    public:
+        scoped_push(solver& s):s(s) { s.push();  }
+            ~scoped_push() { s.pop(1); }
+    };
+
 };
 
 #endif

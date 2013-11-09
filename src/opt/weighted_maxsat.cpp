@@ -315,7 +315,7 @@ namespace opt {
             smt::theory_weighted_maxsat& wth = ensure_theory();
             lbool result;
             {
-                opt_solver::scoped_push _s(s);
+                solver::scoped_push _s(s);
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     wth.assert_weighted(m_soft[i].get(), m_weights[i]);
                 }

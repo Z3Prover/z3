@@ -138,7 +138,7 @@ namespace opt {
         lbool operator()() {
             lbool is_sat = s.check_sat(0,0);
             if (!m_soft.empty() && is_sat == l_true) {
-                opt_solver::scoped_push _sp(s);
+                solver::scoped_push _sp(s);
                 
                 lbool is_sat = l_true;                
                 do {

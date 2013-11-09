@@ -49,8 +49,6 @@ namespace opt {
         void add_objective(app* t, bool is_max) { m_optsmt.add(t, is_max); }
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
         lbool optimize();
-        lbool optimize_pareto();
-        lbool optimize_box();
         void set_cancel(bool f);
         void reset_cancel() { set_cancel(false); }
         void cancel() { set_cancel(true); }
@@ -59,6 +57,9 @@ namespace opt {
         void display_range_assignment(std::ostream& out);
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
+    private:
+        lbool optimize_pareto();
+        lbool optimize_box();
     };
 
 }
