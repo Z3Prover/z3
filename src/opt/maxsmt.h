@@ -41,14 +41,14 @@ namespace opt {
 
     class maxsmt {
         ast_manager&     m;
-        solver*          s;
+        solver*          m_s;
         volatile bool    m_cancel;
         expr_ref_vector  m_soft_constraints;
         expr_ref_vector  m_answer;
         vector<rational> m_weights;
         scoped_ptr<maxsmt_solver> m_msolver;
     public:
-        maxsmt(ast_manager& m): m(m), s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
+        maxsmt(ast_manager& m): m(m), m_s(0), m_cancel(false), m_soft_constraints(m), m_answer(m) {}
 
         lbool operator()(solver& s);
 

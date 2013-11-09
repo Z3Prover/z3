@@ -3,6 +3,7 @@ def_module_params('opt',
                   export=True,
                   params=(('timeout', UINT, UINT_MAX, 'set timeout'),
                           ('engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
+                          ('pareto', BOOL, False, 'return a Pareto front (as opposed to a bounding box)'),
                           ))
 
 

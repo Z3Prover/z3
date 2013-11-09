@@ -28,6 +28,7 @@ namespace opt {
         lbool is_sat;
         m_answer.reset();
         m_msolver = 0;
+        m_s = &s;
         if (m_soft_constraints.empty()) {
             m_msolver = 0;
             is_sat = s.check_sat(0, 0);
@@ -80,8 +81,9 @@ namespace opt {
     }
 
     void maxsmt::commit_assignment() {
+        SASSERT(m_s);
         for (unsigned i = 0; i < m_answer.size(); ++i) {
-            s->assert_expr(m_answer[i].get());
+            m_s->assert_expr(m_answer[i].get());
         }
     }
 

@@ -204,13 +204,7 @@ namespace opt {
     lbool optsmt::operator()(opt_solver& solver) {
         s = &solver;
         s->reset_objectives();
-        m_lower.reset();
-        m_upper.reset();
         m_vars.reset();
-        for (unsigned i = 0; i < m_objs.size(); ++i) {
-            m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
-            m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
-        }
 
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
@@ -297,6 +291,8 @@ namespace opt {
         SASSERT(is_app(t2));
         m_objs.push_back(to_app(t2));
         m_is_max.push_back(is_max);
+        m_lower.push_back(inf_eps(rational(-1),inf_rational(0)));
+        m_upper.push_back(inf_eps(rational(1), inf_rational(0)));
     }
 
     void optsmt::updt_params(params_ref& p) {

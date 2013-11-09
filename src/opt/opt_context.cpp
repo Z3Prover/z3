@@ -51,8 +51,13 @@ namespace opt {
     }
 
     lbool context::optimize() {
-        // TBD: add configuration parameter to select between box and pareto
-        return optimize_box();
+        // TBD: does not work...
+        if (m_params.get_bool("pareto", false)) {
+            return optimize_pareto();
+        }
+        else {
+            return optimize_box();
+        }
     }
 
     lbool context::optimize_box() {

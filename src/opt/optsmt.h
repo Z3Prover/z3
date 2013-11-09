@@ -51,7 +51,7 @@ namespace opt {
         void display_assignment(std::ostream& out) const;
         void display_range_assignment(std::ostream& out) const;
 
-        unsigned get_num_objectives() const { return m_vars.size(); }
+        unsigned get_num_objectives() const { return m_objs.size(); }
         void commit_assignment(unsigned index);
         inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
