@@ -32,12 +32,27 @@ namespace opt {
     context::context(ast_manager& m):
         m(m),
         m_hard_constraints(m),
-        m_optsmt(m),
-        m_maxsmt(m)
+        m_optsmt(m)
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
         m_solver = alloc(opt_solver, m, m_params, symbol());
+    }
+
+    context::~context() {
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            dealloc(it->m_value);
+        }
+    }
+
+    void context::add_soft_constraint(expr* f, rational const& w, symbol const& id) { 
+        maxsmt* ms;
+        if (!m_maxsmts.find(id, ms)) {
+            ms = alloc(maxsmt, m);
+            m_maxsmts.insert(id, ms);
+        }
+        ms->add(f, w);
     }
 
     void context::optimize() {
@@ -48,8 +63,13 @@ namespace opt {
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s.assert_expr(m_hard_constraints[i].get());
         }
-        
-        lbool is_sat = m_maxsmt(s);
+                
+        lbool is_sat = l_true;
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; is_sat == l_true && it != end; ++it) {
+            maxsmt* ms = it->m_value;
+            is_sat = (*ms)(s);
+        }
         if (is_sat == l_true) {           
             is_sat = m_optsmt(s);
         }
@@ -60,7 +80,10 @@ namespace opt {
             m_solver->set_cancel(f);
         }
         m_optsmt.set_cancel(f);
-        m_maxsmt.set_cancel(f);
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            it->m_value->set_cancel(f);
+        }
     }
 
     void context::collect_statistics(statistics& stats) {
@@ -79,7 +102,10 @@ namespace opt {
             m_solver->updt_params(m_params);
         }
         m_optsmt.updt_params(m_params);
-        m_maxsmt.updt_params(m_params);
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            it->m_value->updt_params(m_params);
+        }
     }
 
 

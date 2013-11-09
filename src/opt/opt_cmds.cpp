@@ -50,6 +50,7 @@ class assert_weighted_cmd : public cmd {
     unsigned     m_idx;
     expr*        m_formula;
     rational     m_weight;
+    symbol       m_id;
 
 public:
     assert_weighted_cmd(cmd_context& ctx, opt_context& opt_ctx):
@@ -70,15 +71,22 @@ public:
         }
         m_idx = 0; 
         m_formula = 0;
+        m_id = symbol::null;
     }
 
     virtual char const * get_usage() const { return "<formula> <rational-weight>"; }
     virtual char const * get_descr(cmd_context & ctx) const { return "assert soft constraint with weight"; }
-    virtual unsigned get_arity() const { return 2; }
+    virtual unsigned get_arity() const { return VAR_ARITY; }
 
     // command invocation
     virtual void prepare(cmd_context & ctx) {}
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { if (m_idx == 0) return CPK_EXPR; return CPK_NUMERAL; }
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+        switch(m_idx) {
+        case 0: return CPK_EXPR; 
+        case 1: return CPK_NUMERAL; 
+        default: return CPK_SYMBOL;
+        }
+    }
     virtual void set_next_arg(cmd_context & ctx, rational const & val) { 
         SASSERT(m_idx == 1);
         if (!val.is_pos()) {
@@ -98,12 +106,18 @@ public:
         ++m_idx;
     }
 
+    virtual void set_next_arg(cmd_context & ctx, symbol const& s) {
+        SASSERT(m_idx > 1);
+        m_id = s;
+        ++m_idx;
+    }
+
     virtual void failure_cleanup(cmd_context & ctx) {
         reset(ctx);
     }
 
     virtual void execute(cmd_context & ctx) {
-        m_opt_ctx().add_soft_constraint(m_formula, m_weight);
+        m_opt_ctx().add_soft_constraint(m_formula, m_weight, m_id);
         reset(ctx);
     }
 

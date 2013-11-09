@@ -259,13 +259,7 @@ namespace opt {
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
         smt::theory_var v = m_vars[i];
-
-        // TBD: this should be a method on all optimization solvers.
-        smt::theory_opt& opt = s->get_optimizer();
-        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
-        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
-
-        s->assert_expr(th.block_upper_bound(v, get_lower(i)));
+        s->assert_expr(s->block_upper_bound(i, get_lower(i)));
     }
 
     void optsmt::display(std::ostream& out) const {

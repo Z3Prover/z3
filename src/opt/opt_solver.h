@@ -73,6 +73,7 @@ namespace opt {
 
         vector<inf_eps> const& get_objective_values();
         expr_ref block_lower_bound(unsigned obj_index, inf_eps const& val);
+        expr_ref block_upper_bound(unsigned obj_index, inf_eps const& val);
 
         static opt_solver& to_opt(solver& s);
         

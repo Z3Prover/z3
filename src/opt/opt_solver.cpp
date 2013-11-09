@@ -168,7 +168,15 @@ namespace opt {
     vector<inf_eps> const& opt_solver::get_objective_values() {
         return m_objective_values;
     }
-    
+
+    expr_ref opt_solver::block_upper_bound(unsigned var, inf_eps const& val) {
+        smt::theory_opt& opt = get_optimizer();
+        SASSERT(typeid(smt::theory_inf_arith) == typeid(opt));
+        smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
+        smt::theory_var v = m_objective_vars[var];
+        return expr_ref(th.block_upper_bound(v, val), m);
+    }
+ 
     expr_ref opt_solver::block_lower_bound(unsigned var, inf_eps const& val) {
         if (val.get_infinity().is_pos()) {
             return expr_ref(m.mk_false(), m);

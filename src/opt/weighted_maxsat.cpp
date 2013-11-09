@@ -226,9 +226,7 @@ namespace smt {
                 m_cost_save.append(m_costs);
             }
             return !lits.empty();
-        }        
-
-        
+        }                
     };
 
 }
