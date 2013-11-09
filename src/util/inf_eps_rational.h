@@ -303,12 +303,12 @@ class inf_eps_rational {
     }
 
     friend inline rational floor(const inf_eps_rational & r) {
-        SASSERT(r.m_infty.is_zero());
+        // SASSERT(r.m_infty.is_zero());
         return floor(r.m_r);
     }
 
     friend inline rational ceil(const inf_eps_rational & r) {
-        SASSERT(r.m_infty.is_zero());
+        // SASSERT(r.m_infty.is_zero());
         return ceil(r.m_r);
     }
 

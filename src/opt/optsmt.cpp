@@ -209,11 +209,11 @@ namespace opt {
         // First check_sat call to initialize theories
         lbool is_sat = s->check_sat(0, 0);
         if (is_sat == l_true && !m_objs.empty()) {
-            solver::scoped_push _push(*s);
-            
             for (unsigned i = 0; i < m_objs.size(); ++i) {
                 m_vars.push_back(s->add_objective(m_objs[i].get()));
-            }
+            }            
+
+            solver::scoped_push _push(*s);
 
             if (m_engine == symbol("basic")) {
                 is_sat = basic_opt();
@@ -249,8 +249,31 @@ namespace opt {
 
     // force lower_bound(i) <= objective_value(i)    
     void optsmt::commit_assignment(unsigned i) {
-        smt::theory_var v = m_vars[i];
-        s->assert_expr(s->block_upper_bound(i, get_lower(i)));
+        inf_eps mid(0);
+
+        // TBD: case analysis should be revisited
+        rational hi = get_upper(i).get_infinity();
+        rational lo = get_lower(i).get_infinity(); 
+        if (hi.is_pos() && !lo.is_neg()) {
+            mid = get_lower(i);
+        }
+        else if (hi.is_pos() && lo.is_neg()) {
+            mid = inf_eps(0);
+        }
+        else if (hi.is_pos() && lo.is_pos()) {
+            mid = inf_eps(0); // TBD: get a value from a model?
+        }
+        else if (hi.is_neg() && lo.is_neg()) {
+            mid = inf_eps(0); // TBD: get a value from a model?
+        }
+        else {
+            mid = hi;
+        }
+        m_lower[i] = mid;
+        m_upper[i] = mid;
+        TRACE("opt", tout << "set lower bound of "; display_objective(tout, i) << " to: " << mid << "\n";
+              tout << get_lower(i) << ":" << get_upper(i) << "\n";);
+        s->assert_expr(s->block_upper_bound(i, mid));
     }
 
     std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {

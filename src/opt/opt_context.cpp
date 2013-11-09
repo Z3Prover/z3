@@ -51,8 +51,7 @@ namespace opt {
     }
 
     lbool context::optimize() {
-        // TBD: does not work...
-        if (m_params.get_bool("pareto", false)) {
+        if (m_params.get_bool("pareto", false)) {            
             return optimize_pareto();
         }
         else {
