@@ -2107,7 +2107,7 @@ namespace Duality {
 		if(j < old_chs.size() && BaseName(chs[i]->Name.name().str()) == BaseName(old_chs[j]->Name.name().str()))
 		  cex_map[chs[i]] = old_chs[j++];
 		else {
-		  std::cout << "unmatched child: " << chs[i]->Name.name() << std::endl;
+		  std::cerr << "WARNING: duality: unmatched child: " << chs[i]->Name.name() << std::endl;
 		  cex_map[chs[i]] = 0;
 		}
 	      }
