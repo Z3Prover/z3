@@ -140,7 +140,7 @@ void fpa2bv_converter::mk_const(func_decl * f, expr_ref & result) {
         s_sig = m_bv_util.mk_sort(sbits-1);
         s_exp = m_bv_util.mk_sort(ebits);
 
-#ifdef _DEBUG
+#ifdef Z3DEBUG
         std::string p("fpa2bv");
         std::string name = f->get_name().str();
         
@@ -271,7 +271,7 @@ void fpa2bv_converter::mk_rm_const(func_decl * f, expr_ref & result) {
         SASSERT(is_rm_sort(f->get_range()));
 
         result = m.mk_fresh_const(
-            #ifdef _DEBUG
+            #ifdef Z3DEBUG
             "fpa2bv_rm"
             #else
             0
@@ -2345,7 +2345,7 @@ void fpa2bv_converter::mk_rounding_mode(func_decl * f, expr_ref & result)
 }
 
 void fpa2bv_converter::dbg_decouple(const char * prefix, expr_ref & e) {    
-    #ifdef _DEBUG
+    #ifdef Z3DEBUG
     return;
     // CMW: This works only for quantifier-free formulas.
     expr_ref new_e(m);
