@@ -62,7 +62,6 @@ namespace opt {
         }
 
         void commit_assignment();
-
         inf_eps get_value() const;
         inf_eps get_lower() const;
         inf_eps get_upper() const;

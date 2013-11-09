@@ -6,6 +6,7 @@ Module Name:
     opt_context.cpp
 
 Abstract:
+
     Facility for running optimization problem.
 
 Author:
@@ -14,17 +15,11 @@ Author:
 
 Notes:
 
-    TODO:
-
-    - there are race conditions for cancelation.
-
 --*/
 
 #include "opt_context.h"
 #include "ast_pp.h"
 #include "opt_solver.h"
-#include "arith_decl_plugin.h"
-#include "th_rewriter.h"
 #include "opt_params.hpp"
 
 namespace opt {
@@ -55,8 +50,12 @@ namespace opt {
         ms->add(f, w);
     }
 
-    void context::optimize() {
+    lbool context::optimize() {
+        // TBD: add configurtion parameter
+        return optimize_box();
+    }
 
+    lbool context::optimize_box() {
         opt_solver& s = *m_solver.get(); 
         opt_solver::scoped_push _sp(s);
 
@@ -73,6 +72,55 @@ namespace opt {
         if (is_sat == l_true) {           
             is_sat = m_optsmt(s);
         }
+        return is_sat;
+    }
+
+    // finds a random pareto front.
+    // enumerating more is TBD, e.g., 
+    lbool context::optimize_pareto() {
+        opt_solver& s = *m_solver.get(); 
+        opt_solver::scoped_push _sp(s);
+
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            s.assert_expr(m_hard_constraints[i].get());
+        }
+                
+        lbool is_sat = l_true;
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; is_sat == l_true && it != end; ++it) {
+            maxsmt* ms = it->m_value;
+            is_sat = (*ms)(s);
+            ms->commit_assignment();            
+        }
+        for (unsigned i = 0; is_sat == l_true && i < m_optsmt.get_num_objectives(); ++i) {
+            is_sat = m_optsmt(s);
+            m_optsmt.commit_assignment(i);
+        }
+        return is_sat;
+    }
+
+    void context::display_assignment(std::ostream& out) {
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            maxsmt* ms = it->m_value;
+            if (it->m_key != symbol::null) {
+                out << it->m_key << " : ";
+            }
+            out << ms->get_value() << "\n";
+        }
+        m_optsmt.display_assignment(out);
+    }
+
+    void context::display_range_assignment(std::ostream& out) {
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            maxsmt* ms = it->m_value;
+            if (it->m_key != symbol::null) {
+                out << it->m_key << " : ";
+            }
+            out << "[" << ms->get_lower() << ":" << ms->get_upper() << "]\n";
+        }
+        m_optsmt.display_range_assignment(out);
     }
         
     void context::set_cancel(bool f) {
@@ -86,7 +134,7 @@ namespace opt {
         }
     }
 
-    void context::collect_statistics(statistics& stats) {
+    void context::collect_statistics(statistics& stats) const {
         if (m_solver) {
             m_solver->collect_statistics(stats);
         }

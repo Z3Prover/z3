@@ -201,13 +201,14 @@ public:
         for (; it != end; ++it) {
             opt.add_hard_constraint(*it);
         }
+        lbool r = l_undef;
         cancel_eh<opt::context> eh(opt);        
         {
             scoped_ctrl_c ctrlc(eh);
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
             try {
-                opt.optimize();
+                r = opt.optimize();
             }
             catch (z3_error& ex) {
                 ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
@@ -215,6 +216,19 @@ public:
             catch (z3_exception& ex) {
                 ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
             }
+        }
+        switch(r) {
+        case l_true:
+            ctx.regular_stream() << "sat\n";
+            opt.display_assignment(ctx.regular_stream());
+            break;
+        case l_false:
+            ctx.regular_stream() << "unsat\n";
+            break;
+        case l_undef:
+            ctx.regular_stream() << "unknown\n";
+            opt.display_range_assignment(ctx.regular_stream());
+            break;
         }
         if (p.get_bool("print_statistics", false)) {
             display_statistics(ctx);

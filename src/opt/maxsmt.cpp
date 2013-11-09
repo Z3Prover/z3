@@ -28,7 +28,7 @@ namespace opt {
         lbool is_sat;
         m_answer.reset();
         m_msolver = 0;
-        if (m_answer.empty()) {
+        if (m_soft_constraints.empty()) {
             m_msolver = 0;
             is_sat = s.check_sat(0, 0);
             m_answer.append(m_soft_constraints);
@@ -46,11 +46,11 @@ namespace opt {
         }
 
         // Infrastructure for displaying and storing solution is TBD.
-        std::cout << "is-sat: " << is_sat << "\n";
-        if (is_sat == l_true) {
-            std::cout << "Satisfying soft constraints\n";
-            display_answer(std::cout);
-        }
+        IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << "\n";
+                   if (is_sat == l_true) {
+                       verbose_stream() << "Satisfying soft constraints\n";
+                       display_answer(verbose_stream());
+                   });
         return is_sat;
     }
 

@@ -44,20 +44,23 @@ namespace opt {
 
         void add(app* t, bool is_max);
 
-        void commit_assignment(unsigned i);
-
         void set_cancel(bool f);
 
         void updt_params(params_ref& p);
 
-        void display(std::ostream& out) const;
+        void display_assignment(std::ostream& out) const;
+        void display_range_assignment(std::ostream& out) const;
 
+        unsigned get_num_objectives() const { return m_vars.size(); }
+        void commit_assignment(unsigned i);
         inf_eps get_value(unsigned index) const;
         inf_eps get_lower(unsigned index) const;
         inf_eps get_upper(unsigned index) const;
         
     private:
         
+        std::ostream& display_objective(std::ostream& out, unsigned i) const;
+
         lbool basic_opt();
 
         lbool farkas_opt();

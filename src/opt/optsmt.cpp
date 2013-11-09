@@ -238,8 +238,8 @@ namespace opt {
             }
         }
 
-        std::cout << "is-sat: " << is_sat << std::endl;
-        display(std::cout);
+        IF_VERBOSE(1, verbose_stream() << "is-sat: " << is_sat << std::endl;
+                   display_assignment(verbose_stream()););
 
         return is_sat;
     }
@@ -262,21 +262,34 @@ namespace opt {
         s->assert_expr(s->block_upper_bound(i, get_lower(i)));
     }
 
-    void optsmt::display(std::ostream& out) const {
+    std::ostream& optsmt::display_objective(std::ostream& out, unsigned i) const {
+        bool is_max = m_is_max[i];
+        inf_eps val = get_value(i);
+        expr_ref obj(m_objs[i], m);
+        if (!is_max) {
+            arith_util a(m);
+            th_rewriter rw(m);
+            obj = a.mk_uminus(obj);
+            rw(obj, obj);
+        }
+        return out << obj;
+    }
+
+    void optsmt::display_assignment(std::ostream& out) const {
         unsigned sz = m_objs.size();
         for (unsigned i = 0; i < sz; ++i) {
-            bool is_max = m_is_max[i];
-            inf_eps val = get_value(i);
-            expr_ref obj(m_objs[i], m);
-            if (!is_max) {
-                arith_util a(m);
-                th_rewriter rw(m);
-                obj = a.mk_uminus(obj);
-                rw(obj, obj);
-            }
-            out << "objective value: " << obj << " |-> " << val << std::endl;                
+            display_objective(out, i) << " |-> " << get_value(i) << std::endl;                
         }        
     }
+
+    void optsmt::display_range_assignment(std::ostream& out) const {
+        unsigned sz = m_objs.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            display_objective(out, i) << " |-> [" << get_lower(i) << ":" << get_upper(i) << "]" << std::endl;                
+        }        
+    }
+
+
 
     void optsmt::add(app* t, bool is_max) {
         expr_ref t1(t, m), t2(m);

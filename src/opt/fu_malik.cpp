@@ -39,14 +39,17 @@ namespace opt {
         ast_manager& m;
         solver& s;
         expr_ref_vector m_soft;
+        expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
+        unsigned        m_upper_size;
 
 
         imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
             s(s),
             m_soft(soft),
+            m_orig_soft(soft),
             m_aux(m),
             m_assignment(m)
         {
@@ -54,6 +57,7 @@ namespace opt {
                 m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
                 s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
             }
+            m_upper_size = m_soft.size() + 1;
         }
 
 
@@ -136,9 +140,10 @@ namespace opt {
             if (!m_soft.empty() && is_sat == l_true) {
                 opt_solver::scoped_push _sp(s);
                 
-                lbool is_sat = l_true;
+                lbool is_sat = l_true;                
                 do {
                     is_sat = step();
+                    --m_upper_size;
                 }
                 while (is_sat == l_false);
                 
@@ -148,11 +153,11 @@ namespace opt {
                     s.get_model(model);
 
                     m_assignment.reset();                    
-                    for (unsigned i = 0; i < m_soft.size(); ++i) {
+                    for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
                         expr_ref val(m);
-                        VERIFY(model->eval(m_soft[i].get(), val));
+                        VERIFY(model->eval(m_orig_soft[i].get(), val));
                         if (m.is_true(val)) {
-                            m_assignment.push_back(m_soft[i].get());
+                            m_assignment.push_back(m_orig_soft[i].get());
                         }
                     }
                 }
@@ -175,15 +180,12 @@ namespace opt {
         return (*m_imp)();
     }
     rational fu_malik::get_lower() const {
-        NOT_IMPLEMENTED_YET();
         return rational(0);
     }
     rational fu_malik::get_upper() const {
-        NOT_IMPLEMENTED_YET();
-        return rational(m_imp->m_soft.size());
+        return rational(m_imp->m_upper_size);
     }
     rational fu_malik::get_value() const {
-        NOT_IMPLEMENTED_YET();
         return rational(m_imp->m_assignment.size());
     }
     expr_ref_vector fu_malik::get_assignment() const {
