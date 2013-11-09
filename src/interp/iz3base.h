@@ -103,7 +103,7 @@ class iz3base : public iz3mgr, public scopes {
   void check_interp(const std::vector<ast> &itps, std::vector<ast> &theory);
 
   /** For convenience -- is this formula SAT? */
-  bool is_sat(ast);
+  bool is_sat(const std::vector<ast> &consts, ast &_proof);
 
   /** Interpolator for clauses, to be implemented */
   virtual void interpolate_clause(std::vector<ast> &lits, std::vector<ast> &itps){

@@ -24,6 +24,8 @@ Revision History:
 #include <fstream>
 #include <iostream>
 #include <ostream>
+#include "solver.h"
+#include "../smt/smt_solver.h"
 
 
 #ifndef WIN32
@@ -254,16 +256,25 @@ void iz3base::check_interp(const std::vector<ast> &itps, std::vector<ast> &theor
 #endif
 }
 
-bool iz3base::is_sat(ast f){
-  assert(0 && "iz3base::is_sat() not implemented");
-#if 0
-  Z3_push(ctx);
-  Z3_assert_cnstr(ctx,f);
-  Z3_lbool res = Z3_check(ctx);
-  Z3_pop(ctx,1);
-  return res != Z3_L_FALSE;
-#endif
-  return false;
+bool iz3base::is_sat(const std::vector<ast> &q, ast &_proof){
+
+  params_ref p;
+  p.set_bool("proof", true); // this is currently useless
+  p.set_bool("model", true); 
+  p.set_bool("unsat_core", true); 
+  scoped_ptr<solver_factory> sf = mk_smt_solver_factory();
+  ::solver *m_solver = (*sf)(m(), p, true, true, true, ::symbol::null);
+  ::solver &s = *m_solver;
+
+  for(unsigned i = 0; i < q.size(); i++)
+    s.assert_expr(to_expr(q[i].raw()));
+  lbool res = s.check_sat(0,0);
+  if(res == l_false){
+    ::ast *proof = s.get_proof();
+    _proof = cook(proof);
+  }
+  dealloc(m_solver);
+  return res != l_false;
 }
 
 

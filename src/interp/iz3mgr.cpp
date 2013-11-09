@@ -446,6 +446,17 @@ iz3mgr::ast iz3mgr::z3_simplify(const ast &e){
     return cook(result);
 }
 
+iz3mgr::ast iz3mgr::z3_really_simplify(const ast &e){
+  ::expr * a = to_expr(e.raw());
+  params_ref simp_params;
+  simp_params.set_bool(":som",true);
+  simp_params.set_bool(":sort-sums",true);
+  th_rewriter m_rw(m(), simp_params);
+  expr_ref    result(m());
+  m_rw(a, result);
+  return cook(result);
+}
+
 
 #if 0
 static rational lcm(const rational &x, const rational &y){
@@ -483,6 +494,15 @@ static void abs_rat(std::vector<rational> &rats){
       //      std::cout << "negative Farkas coeff!\n";
       rats[i] = -rats[i];
     }
+}
+
+bool iz3mgr::is_farkas_coefficient_negative(const ast &proof, int n){
+  rational r;
+  symb s = sym(proof);
+  bool ok = s->get_parameter(n+2).is_rational(r);
+  if(!ok)
+    throw "Bad Farkas coefficient";
+  return r.is_neg();
 }
 
 void iz3mgr::get_farkas_coeffs(const ast &proof, std::vector<rational>& rats){

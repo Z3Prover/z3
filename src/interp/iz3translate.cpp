@@ -782,6 +782,16 @@ public:
     return thing;
   }
 
+  bool check_farkas(const std::vector<ast> &prems, const ast &con){
+    ast zero = make_int("0");
+    ast thing = make(Leq,zero,zero);
+    for(unsigned i = 0; i < prems.size(); i++)
+      linear_comb(thing,make_int(rational(1)),prems[i]);
+    linear_comb(thing,make_int(rational(-1)),con);
+    thing = simplify_ineq(thing);
+    return arg(thing,1) == make_int(rational(0));
+  }
+
   // get an inequality in the form t <= c or t < c, there t is affine and c constant
   ast normalize_inequality(const ast &ineq){
     ast zero = make_int("0");
@@ -1120,6 +1130,92 @@ public:
     }
   }
 
+  struct TermLt {
+    iz3mgr &m;
+    bool operator()(const ast &x, const ast &y){
+      unsigned xid = m.ast_id(x);
+      unsigned yid = m.ast_id(y);
+      return xid < yid;
+    }
+    TermLt(iz3mgr &_m) : m(_m) {}
+  };
+
+  void SortTerms(std::vector<ast> &terms){
+    TermLt foo(*this);
+    std::sort(terms.begin(),terms.end(),foo);
+  }
+
+  ast SortSum(const ast &t){
+    if(!(op(t) == Plus))
+      return t;
+    int nargs = num_args(t);
+    if(nargs < 2) return t;
+    std::vector<ast> args(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = arg(t,i);
+    SortTerms(args);
+    return make(Plus,args);
+  }
+
+  ast really_normalize_ineq(const ast &ineq){
+    ast res = normalize_inequality(ineq);
+    res = make(op(res),SortSum(arg(res,0)),arg(res,1));
+    return res;
+  }
+
+  Iproof::node reconstruct_farkas(const std::vector<ast> &prems, const std::vector<Iproof::node> &pfs, const ast &con){
+    int nprems = prems.size();
+    std::vector<ast> pcons(nprems),npcons(nprems);
+    hash_map<ast,ast> pcon_to_pf, npcon_to_pcon;
+    for(int i = 0; i < nprems; i++){
+      pcons[i] = conc(prems[i]);
+      npcons[i] = really_normalize_ineq(pcons[i]);
+      pcon_to_pf[npcons[i]] = pfs[i];
+      npcon_to_pcon[npcons[i]] = pcons[i];
+    }
+    // ast leq = make(Leq,arg(con,0),arg(con,1));
+    ast ncon = really_normalize_ineq(mk_not(con));
+    pcons.push_back(mk_not(con));
+    npcons.push_back(ncon);
+    // ast assumps = make(And,pcons);
+    ast new_proof;
+    if(is_sat(npcons,new_proof))
+      throw "Proof error!";
+    pfrule dk = pr(new_proof);
+    int nnp = num_prems(new_proof);
+    std::vector<Iproof::node> my_prems;
+    std::vector<ast> farkas_coeffs, my_pcons;
+
+    if(dk == PR_TH_LEMMA 
+       && get_theory_lemma_theory(new_proof) == ArithTheory
+       && get_theory_lemma_kind(new_proof) == FarkasKind)
+      get_farkas_coeffs(new_proof,farkas_coeffs);
+    else if(dk == PR_UNIT_RESOLUTION && nnp == 2){
+      for(int i = 0; i < nprems; i++)
+	farkas_coeffs.push_back(make_int(rational(1)));
+    }
+    else
+      throw "cannot reconstruct farkas proof";
+
+    for(int i = 0; i < nnp; i++){
+      ast p = conc(prem(new_proof,i));
+      p = really_normalize_ineq(p);
+      if(pcon_to_pf.find(p) != pcon_to_pf.end()){
+	my_prems.push_back(pcon_to_pf[p]);
+	my_pcons.push_back(npcon_to_pcon[p]);
+      }
+      else if(p == ncon){
+	my_prems.push_back(iproof->make_hypothesis(mk_not(con)));
+	my_pcons.push_back(mk_not(con));
+      }
+      else
+	throw "cannot reconstruct farkas proof";
+    }
+    Iproof::node res = iproof->make_farkas(mk_false(),my_prems,my_pcons,farkas_coeffs);
+    return res;
+  }
+
+    
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1255,11 +1351,11 @@ public:
 	    get_farkas_coeffs(proof,farkas_coeffs);
 	    if(nprems == 0) {// axiom, not rule
 	      int nargs = num_args(con);
-	      if(farkas_coeffs.size() != nargs){
+	      if(farkas_coeffs.size() != (unsigned)nargs){
 		pfgoto(proof);
 		throw unsupported();
 	      }
-	      for(unsigned i = 0; i < nargs; i++){
+	      for(int i = 0; i < nargs; i++){
 		ast lit = mk_not(arg(con,i));
 		prem_cons.push_back(lit);
 		args.push_back(iproof->make_hypothesis(lit));
@@ -1313,6 +1409,23 @@ public:
 	    else
 	      res = AssignBounds2Farkas(proof,conc(proof));
 	    break;
+	  }
+	  case EqPropagateKind: {
+	    std::vector<ast> prems(nprems);
+	    Iproof::node fps[2];
+	    ast ineq_con[2];
+	    for(int i = 0; i < nprems; i++)
+	      prems[i] = prem(proof,i);
+	    for(int i = 0; i < 2; i++){
+	      opr o = i == 0 ? Leq : Geq;
+	      ineq_con[i] = make(o, arg(con,0), arg(con,1));
+	      fps[i] = reconstruct_farkas(prems,args,ineq_con[i]);
+	    }
+	    res = iproof->make_leq2eq(arg(con,0), arg(con,1), ineq_con[0], ineq_con[1]);
+	    std::vector<Iproof::node> dummy_clause;
+	    for(int i = 0; i < 2; i++)
+	      res = iproof->make_resolution(ineq_con[i],dummy_clause,res,fps[i]);
+	    return res;
 	  }
 	  default:
 	    throw unsupported();

@@ -386,7 +386,7 @@ class iz3mgr  {
     return UnknownTheory;
   }
 
-  enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,UnknownKind};
+  enum lemma_kind {FarkasKind,Leq2EqKind,Eq2LeqKind,GCDTestKind,AssignBoundsKind,EqPropagateKind,UnknownKind};
 
   lemma_kind get_theory_lemma_kind(const ast &proof){
     symb s = sym(proof);
@@ -402,6 +402,8 @@ class iz3mgr  {
       return GCDTestKind;
     if(foo == "assign-bounds")
       return AssignBoundsKind;
+    if(foo == "eq-propagate")
+      return EqPropagateKind;
     return UnknownKind;
   }
 
@@ -416,6 +418,8 @@ class iz3mgr  {
   void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<rational>& rats);
   
   void get_assign_bounds_rule_coeffs(const ast &proof, std::vector<ast>& rats);
+
+  bool is_farkas_coefficient_negative(const ast &proof, int n);
 
   bool is_true(ast t){
     return op(t) == True;
@@ -440,6 +444,10 @@ class iz3mgr  {
   /** Simplify an expression using z3 simplifier */
 
   ast z3_simplify(const ast& e);
+
+  /** Simplify, sorting sums */
+  ast z3_really_simplify(const ast &e);
+
 
   // Some constructors that simplify things
 
