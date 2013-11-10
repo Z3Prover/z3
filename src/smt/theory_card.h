@@ -43,7 +43,7 @@ namespace smt {
             int      m_abs_min;
             int      m_abs_max;
             arg_t    m_args;
-            card(bool_var bv, unsigned k):
+            card(bool_var bv, int k):
                 m_k(k), m_bv(bv)
             {}
         };

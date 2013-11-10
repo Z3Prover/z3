@@ -63,8 +63,8 @@ namespace smt {
         context& ctx   = get_context();
         ast_manager& m = get_manager();
         unsigned num_args = atom->get_num_args();
-        SASSERT(m_util.is_at_most_k(atom));
-        unsigned k = m_util.get_k(atom);
+        SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom));
+        int k = m_util.get_k(atom);
 
 
         if (ctx.b_internalized(atom)) {
@@ -78,10 +78,16 @@ namespace smt {
         SASSERT(!ctx.b_internalized(atom));
         bool_var abv = ctx.mk_bool_var(atom);
 
-        if (k >= atom->get_num_args()) {
-            literal lit(abv);
-            ctx.mk_th_axiom(get_id(), 1, &lit);
-            return true;
+        if (k >= static_cast<int>(num_args)) {
+            bool all_pos = true;
+            for (unsigned i = 0; all_pos && i < num_args; ++i) {
+                all_pos = 0 < m_util.get_le_coeff(atom, i);
+            }
+            if (all_pos) {
+                literal lit(abv);
+                ctx.mk_th_axiom(get_id(), 1, &lit);
+                return true;
+            }
         }
 
         card* c = alloc(card, abv, k);
@@ -118,7 +124,8 @@ namespace smt {
                 ctx.mk_th_axiom(get_id(), 1, &lit);
                 ctx.mark_as_relevant(tmp);
             }
-            c->m_args.push_back(std::make_pair(bv,1));
+            int coeff = m_util.get_le_coeff(atom, i);
+            c->m_args.push_back(std::make_pair(bv, coeff));
         }
         add_card(c);
         return true;

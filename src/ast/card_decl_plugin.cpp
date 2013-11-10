@@ -107,6 +107,9 @@ bool card_util::is_le(app* a, int& k) const {
 }
 
 int card_util::get_le_coeff(app* a, unsigned index) {
+    if (is_at_most_k(a)) {
+        return 1;
+    }
     SASSERT(is_le(a));
     SASSERT(1 + index < a->get_decl()->get_num_parameters());
     return a->get_decl()->get_parameter(index + 1).get_int();
