@@ -922,6 +922,7 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_and_decl);
     DEC_REF(m_or_decl);
     DEC_REF(m_not_decl);
+    DEC_REF(m_interp_decl);
     DEC_REF(m_iff_decl);
     DEC_REF(m_xor_decl);
     DEC_REF(m_implies_decl);
