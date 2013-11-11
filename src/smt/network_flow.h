@@ -23,8 +23,6 @@ Notes:
 
     It remains unclear how to convert DL assignment to a basic feasible solution of Network Simplex.
     A naive approach is to run an algorithm on max flow in order to get a spanning tree.
-
-    The network_simplex class hasn't had multiple pivoting strategies yet.
    
 --*/
 #ifndef _NETWORK_FLOW_H_
@@ -36,20 +34,207 @@ Notes:
 
 namespace smt {
 
+    enum pivot_rule {
+        // First eligible edge pivot rule
+        // Edges are traversed in a wraparound fashion
+        FIRST_ELIGIBLE,
+        // Best eligible edge pivot rule
+        // The best edge is selected in every iteration
+        BEST_ELIGIBLE,
+        // Candidate list pivot rule
+        // Major iterations: candidate list is built from eligible edges (in a wraparound way)
+        // Minor iterations: the best edge is selected from the list
+        CANDIDATE_LIST
+    };
+
     // Solve minimum cost flow problem using Network Simplex algorithm
     template<typename Ext>
     class network_flow : private Ext {
+    private:
         enum edge_state {
             LOWER = 1,
             BASIS = 0,
             UPPER = -1
         };
+
         typedef dl_var node;
         typedef dl_edge<Ext> edge;
         typedef dl_graph<Ext> graph;     
         typedef typename Ext::numeral numeral;
         typedef typename Ext::fin_numeral fin_numeral;
 
+        class pivot_rule_impl {
+        protected:
+            graph & m_graph;
+            svector<edge_state> & m_states;
+            vector<numeral> & m_potentials;
+            edge_id & m_enter_id;
+
+        public: 
+            pivot_rule_impl() {}
+            pivot_rule_impl(graph & g, vector<numeral> & potentials, 
+                            svector<edge_state> & states, edge_id & enter_id) 
+                : m_graph(g),
+                  m_potentials(potentials),
+                  m_states(states),
+                  m_enter_id(enter_id) {
+            }
+            bool choose_entering_edge() {return false;};
+        };
+        
+        class first_eligible_pivot : pivot_rule_impl {
+        private:
+            edge_id m_next_edge;
+
+        public:
+            first_eligible_pivot(graph & g, vector<numeral> & potentials, 
+                                 svector<edge_state> & states, edge_id & enter_id) : 
+                pivot_rule_impl(g, potentials, states, enter_id),
+                m_next_edge(0) {
+            }
+
+            bool choose_entering_edge() {
+                TRACE("network_flow", tout << "choose_entering_edge...\n";);        
+                unsigned num_edges = m_graph.get_num_edges();
+                for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
+                    edge_id id = (i >= num_edges) ? (i - num_edges) : i;
+                    node src = m_graph.get_source(id);
+                    node tgt = m_graph.get_target(id);
+                    if (m_states[id] != BASIS) {
+                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                        if (cost.is_pos()) {
+                            m_enter_id = id;
+                            TRACE("network_flow", {
+                                tout << "Found entering edge " << id << " between node ";
+                                tout << src << " and node " << tgt << " with reduced cost = " << cost << "...\n";
+                            });
+                            return true;
+                        }
+                    }
+                }
+                TRACE("network_flow", tout << "Found no entering edge...\n";);
+                return false;
+            };
+        };
+
+        class best_eligible_pivot : pivot_rule_impl {
+        public:
+            best_eligible_pivot(graph & g, vector<numeral> & potentials, 
+                                 svector<edge_state> & states, edge_id & enter_id) : 
+                pivot_rule_impl(g, potentials, states, enter_id) {
+            }
+
+            bool choose_entering_edge() {
+                TRACE("network_flow", tout << "choose_entering_edge...\n";);        
+                unsigned num_edges = m_graph.get_num_edges();
+                numeral max = numeral::zero();
+                for (unsigned i = 0; i < num_edges; ++i) {
+                    node src = m_graph.get_source(i);
+                    node tgt = m_graph.get_target(i);
+                    if (m_states[i] != BASIS) {
+                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
+                        if (cost > max) {
+                            max = cost;
+                            m_enter_id = i;
+                        }
+                    }
+                }
+                if (max.is_pos()) {
+                    TRACE("network_flow", {
+                        tout << "Found entering edge " << m_enter_id << " between node ";
+                        tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
+                        tout << " with reduced cost = " << max << "...\n";
+                    });
+                    return true;
+                }
+                TRACE("network_flow", tout << "Found no entering edge...\n";);
+                return false;
+            };
+        };
+
+        class candidate_list_pivot : pivot_rule_impl {
+        private:
+            edge_id m_next_edge;
+            svector<edge_id> m_candidates;
+            unsigned num_candidates;
+            static const unsigned NUM_CANDIDATES = 10;
+
+        public:
+            candidate_list_pivot(graph & g, vector<numeral> & potentials, 
+                                 svector<edge_state> & states, edge_id & enter_id) : 
+                pivot_rule_impl(g, potentials, states, enter_id),
+                m_next_edge(0),
+                num_candidates(NUM_CANDIDATES),
+                m_candidates(num_candidates) {
+            }
+
+            bool choose_entering_edge() {
+                if (m_candidates.empty()) {
+                    // Build the candidate list
+                    unsigned num_edges = m_graph.get_num_edges();
+                    numeral max = numeral::zero();
+                    unsigned count = 0;
+                    for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
+                        edge_id id = (i >= num_edges) ? i - num_edges : i;
+                        node src = m_graph.get_source(id);
+                        node tgt = m_graph.get_target(id);
+                        if (m_states[id] != BASIS) {
+                            numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                            if (cost.is_pos()) {
+                                m_candidates[count++] = id;
+                                if (cost > max) {
+                                    max = cost;
+                                    m_enter_id = id;
+                                }
+                            }
+                            if (count >= num_candidates) break;
+                        }
+                    }
+                    m_next_edge = m_enter_id;
+                    if (max.is_pos()) {
+                        TRACE("network_flow", {
+                            tout << "Found entering edge " << m_enter_id << " between node ";
+                            tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
+                            tout << " with reduced cost = " << max << "...\n";
+                        });
+                        return true;
+                    }
+                    TRACE("network_flow", tout << "Found no entering edge...\n";);
+                    return false;
+                }
+                else {
+                    numeral max = numeral::zero();
+                    unsigned last = m_candidates.size();
+                    for (unsigned i = 0; i < last; ++i) {
+                        edge_id id = m_candidates[i];
+                        node src = m_graph.get_source(id);
+                        node tgt = m_graph.get_target(id);
+                        if (m_states[id] != BASIS) {
+                            numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                            if (cost > max) {
+                                max = cost;
+                                m_enter_id = id;
+                            }
+                            // Remove stale candidates
+                            if (!cost.is_pos()) {
+                                m_candidates[i] = m_candidates[--last];
+                            }
+                        }
+                    }
+                    if (max.is_pos()) {
+                        TRACE("network_flow", {
+                            tout << "Found entering edge " << m_enter_id << " between node ";
+                            tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
+                            tout << " with reduced cost = " << max << "...\n";
+                        });
+                        return true;
+                    }
+                    TRACE("network_flow", tout << "Found no entering edge...\n";);
+                    return false;
+                }
+            };
+        };
+        
         graph m_graph;
         thread_spanning_tree<Ext> m_tree;
 
@@ -76,9 +261,7 @@ namespace smt {
 
         void update_flows();
             
-        // If all reduced costs are non-negative, return false since the current spanning tree is optimal
-        // Otherwise return true and update m_entering_edge
-        bool choose_entering_edge();
+        bool choose_entering_edge(pivot_rule pr);
 
         // Send as much flow as possible around the cycle, the first basic edge with flow 0 will leave
         // Return false if the problem is unbounded
@@ -99,7 +282,7 @@ namespace smt {
         
         // Minimize cost flows
         // Return true if found an optimal solution, and return false if unbounded
-        bool min_cost();
+        bool min_cost(pivot_rule pr = FIRST_ELIGIBLE);
 
         // Compute the optimal solution
         numeral get_optimal_solution(vector<numeral> & result, bool is_dual);

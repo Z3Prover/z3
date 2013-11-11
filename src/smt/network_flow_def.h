@@ -130,30 +130,6 @@ namespace smt {
     }
     
     template<typename Ext>
-    bool network_flow<Ext>::choose_entering_edge() {
-        TRACE("network_flow", tout << "choose_entering_edge...\n";);        
-        unsigned num_edges = m_graph.get_num_edges();
-        for (unsigned i = 0; i < num_edges; ++i) {
-            node src = m_graph.get_source(i);
-            node tgt = m_graph.get_target(i);
-            if (m_states[i] != BASIS) {
-                numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(i);
-                // TODO: add multiple pivoting strategies
-                if (cost.is_pos()) {
-                    m_enter_id = i;
-                    TRACE("network_flow", {
-                        tout << "Found entering edge " << i << " between node ";
-                        tout << src << " and node " << tgt << " with reduced cost = " << cost << "...\n";
-                    });
-                    return true;
-                }
-            }
-        }
-        TRACE("network_flow", tout << "Found no entering edge...\n";);
-        return false;
-    }
-
-    template<typename Ext>
     bool network_flow<Ext>::choose_leaving_edge() {
         TRACE("network_flow", tout << "choose_leaving_edge...\n";);
         node src = m_graph.get_source(m_enter_id);
@@ -191,12 +167,29 @@ namespace smt {
         m_tree.update(m_enter_id, m_leave_id);
     }
 
+    // FIXME: should declare pivot as a pivot_rule_impl and refactor
+    template<typename Ext>
+    bool network_flow<Ext>::choose_entering_edge(pivot_rule pr) {
+        if (pr == FIRST_ELIGIBLE) {
+            first_eligible_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
+            return pivot.choose_entering_edge();
+        }
+        else if (pr == BEST_ELIGIBLE) {
+            best_eligible_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
+            return pivot.choose_entering_edge();
+        }
+        else {
+            candidate_list_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
+            return pivot.choose_entering_edge();
+        } 
+    }
+
     // Minimize cost flows
     // Return true if found an optimal solution, and return false if unbounded
     template<typename Ext>
-    bool network_flow<Ext>::min_cost() {
+    bool network_flow<Ext>::min_cost(pivot_rule pr) {
         initialize();
-        while (choose_entering_edge()) { 
+        while (choose_entering_edge(pr)) { 
             bool bounded = choose_leaving_edge();
             if (!bounded) return false;
             update_flows();

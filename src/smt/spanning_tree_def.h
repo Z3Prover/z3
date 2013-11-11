@@ -162,7 +162,7 @@ namespace smt {
             tout << u << ", " << v << ") leaves\n";
         });
 
-        node old_pred = m_pred[q];        
+        node old_pred = m_pred[q]; 
         // Update stem nodes from q to v
         if (q != v) {
             for (node n = q; n != u; ) {
@@ -175,18 +175,23 @@ namespace smt {
                 old_pred = next_old_pred;
             }     
         }
-        else {
-            node x = get_final(p);
-            node y = m_thread[x];
-            node z = get_final(q);
-            node t = m_thread[get_final(v)];
-            node r = find_rev_thread(v);
-            m_thread[z] = y;
-            m_thread[x] = q;
-            m_thread[r] = t;
-        }
 
-        m_pred[q] = p;        
+        // Old threads: alpha -> q -*-> f(q) -> beta | p -*-> f(p) -> gamma
+        // New threads: alpha -> beta                | p -*-> f(p) -> q -*-> f(q) -> gamma
+
+        node f_p = get_final(p);
+        node f_q = get_final(q);
+        node alpha = find_rev_thread(q);
+        node beta = m_thread[f_q];
+        node gamma = m_thread[f_p];
+
+        if (q != gamma) {
+            m_thread[alpha] = beta;
+            m_thread[f_p] = q;
+            m_thread[f_q] = gamma;
+        }
+       
+        m_pred[q] = p; 
         m_tree[q] = enter_id;
         m_root_t2 = q;
 
@@ -211,7 +216,6 @@ namespace smt {
         Spanning tree of m_graph + root is represented using:
         
         svector<edge_state> m_states;      edge_id |-> edge_state
-        svector<bool> m_upwards;           node |-> bool
         svector<node> m_pred;              node |-> node
         svector<int>  m_depth;             node |-> int
         svector<node> m_thread;            node |-> node
@@ -224,9 +228,7 @@ namespace smt {
         m_thread is a linked list traversing all nodes.
         Furthermore, the nodes linked in m_thread follows a 
         depth-first traversal order.
-
-        m_upwards direction of edge from i to m_pred[i] m_graph
-                
+        
     */
     template<typename Ext>
     bool thread_spanning_tree<Ext>::check_well_formed() {
