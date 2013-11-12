@@ -156,24 +156,29 @@ namespace smt {
         private:
             edge_id m_next_edge;
             svector<edge_id> m_candidates;
-            unsigned num_candidates;
+            unsigned m_num_candidates;
+            unsigned m_minor_step;
+            unsigned m_current_length;
             static const unsigned NUM_CANDIDATES = 10;
+            static const unsigned MINOR_STEP_LIMIT = 5;
 
         public:
             candidate_list_pivot(graph & g, vector<numeral> & potentials, 
                                  svector<edge_state> & states, edge_id & enter_id) : 
                 pivot_rule_impl(g, potentials, states, enter_id),
                 m_next_edge(0),
-                num_candidates(NUM_CANDIDATES),
-                m_candidates(num_candidates) {
+                m_minor_step(0),
+                m_current_length(0),
+                m_num_candidates(NUM_CANDIDATES),
+                m_candidates(m_num_candidates) {
             }
 
             bool choose_entering_edge() {
-                if (m_candidates.empty()) {
+                if (m_current_length == 0 || m_minor_step == MINOR_STEP_LIMIT) {
                     // Build the candidate list
                     unsigned num_edges = m_graph.get_num_edges();
                     numeral max = numeral::zero();
-                    unsigned count = 0;
+                    m_current_length = 0;
                     for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
                         edge_id id = (i >= num_edges) ? i - num_edges : i;
                         node src = m_graph.get_source(id);
@@ -181,16 +186,18 @@ namespace smt {
                         if (m_states[id] != BASIS) {
                             numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
                             if (cost.is_pos()) {
-                                m_candidates[count++] = id;
+                                m_candidates[m_current_length] = id;
+                                ++m_current_length;
                                 if (cost > max) {
                                     max = cost;
                                     m_enter_id = id;
                                 }
                             }
-                            if (count >= num_candidates) break;
+                            if (m_current_length >= m_num_candidates) break;
                         }
                     }
                     m_next_edge = m_enter_id;
+                    m_minor_step = 1;
                     if (max.is_pos()) {
                         TRACE("network_flow", {
                             tout << "Found entering edge " << m_enter_id << " between node ";
@@ -202,36 +209,37 @@ namespace smt {
                     TRACE("network_flow", tout << "Found no entering edge...\n";);
                     return false;
                 }
-                else {
-                    numeral max = numeral::zero();
-                    unsigned last = m_candidates.size();
-                    for (unsigned i = 0; i < last; ++i) {
-                        edge_id id = m_candidates[i];
-                        node src = m_graph.get_source(id);
-                        node tgt = m_graph.get_target(id);
-                        if (m_states[id] != BASIS) {
-                            numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
-                            if (cost > max) {
-                                max = cost;
-                                m_enter_id = id;
-                            }
-                            // Remove stale candidates
-                            if (!cost.is_pos()) {
-                                m_candidates[i] = m_candidates[--last];
-                            }
+
+                ++m_minor_step;
+                numeral max = numeral::zero();
+                for (unsigned i = 0; i < m_current_length; ++i) {
+                    edge_id id = m_candidates[i];
+                    node src = m_graph.get_source(id);
+                    node tgt = m_graph.get_target(id);
+                    if (m_states[id] != BASIS) {
+                        numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(id);
+                        if (cost > max) {
+                            max = cost;
+                            m_enter_id = id;
+                        }
+                        // Remove stale candidates
+                        if (!cost.is_pos()) {
+                            --m_current_length;
+                            m_candidates[i] = m_candidates[m_current_length];
+                            --i;
                         }
                     }
-                    if (max.is_pos()) {
-                        TRACE("network_flow", {
-                            tout << "Found entering edge " << m_enter_id << " between node ";
-                            tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
-                            tout << " with reduced cost = " << max << "...\n";
-                        });
-                        return true;
-                    }
-                    TRACE("network_flow", tout << "Found no entering edge...\n";);
-                    return false;
                 }
+                if (max.is_pos()) {
+                    TRACE("network_flow", {
+                        tout << "Found entering edge " << m_enter_id << " between node ";
+                        tout << m_graph.get_source(m_enter_id) << " and node " << m_graph.get_target(m_enter_id);
+                        tout << " with reduced cost = " << max << "...\n";
+                    });
+                    return true;
+                }
+                TRACE("network_flow", tout << "Found no entering edge...\n";);
+                return false;
             };
         };
         

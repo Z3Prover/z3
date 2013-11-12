@@ -333,23 +333,29 @@ namespace smt {
         SASSERT(m_pred[q] == v);        
         SASSERT(is_preorder_traversal(v, get_final(v)));
         node prev = find_rev_thread(v);
-        node final_q = get_final(q);
-        node final_v = get_final(v);
-        node next = m_thread[final_v];
+        node f_q = get_final(q);
+        node f_v = get_final(v);
+        node next = m_thread[f_v];
         node alpha = find_rev_thread(q);
 
-        if (final_q == final_v) {
-            m_thread[final_q] = v;
+        if (f_q == f_v) {
+            SASSERT(f_q != v && alpha != next);
+            m_thread[f_q] = v;
             m_thread[alpha] = next;
+            f_q = alpha;
         }
-        else {
-            node beta = m_thread[final_q];
-            m_thread[final_q] = v;
+        else {            
+            node beta = m_thread[f_q];
+            SASSERT(f_q != v && alpha != beta);
+            m_thread[f_q] = v;
             m_thread[alpha] = beta;
+            f_q = f_v;
         }
+        SASSERT(prev != q);
         m_thread[prev] = q;
         m_pred[v] = q;
-        SASSERT(is_preorder_traversal(q, get_final(q)));
+        // Notes: f_q has to be used since m_depth hasn't been updated yet.
+        SASSERT(is_preorder_traversal(q, f_q));
     }
     
     /**
