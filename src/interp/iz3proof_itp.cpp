@@ -1831,6 +1831,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: { // mixed equality
+      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed)
+	std::cerr << "WARNING: mixed term in leq2eq\n"; 
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
       conjs[1] = xleqy;

@@ -1215,7 +1215,61 @@ public:
     return res;
   }
 
-    
+  bool is_eq_propagate(const ast &proof){
+    return pr(proof) == PR_TH_LEMMA && get_theory_lemma_theory(proof) == ArithTheory && get_theory_lemma_kind(proof) == EqPropagateKind;
+  }
+
+  ast EqPropagate(const ast &con, const std::vector<ast> &prems, const std::vector<Iproof::node> &args){
+    Iproof::node fps[2];
+    ast ineq_con[2];
+    for(int i = 0; i < 2; i++){
+      opr o = i == 0 ? Leq : Geq;
+      ineq_con[i] = make(o, arg(con,0), arg(con,1));
+      fps[i] = reconstruct_farkas(prems,args,ineq_con[i]);
+    }
+    ast res = iproof->make_leq2eq(arg(con,0), arg(con,1), ineq_con[0], ineq_con[1]);
+    std::vector<Iproof::node> dummy_clause;
+    for(int i = 0; i < 2; i++)
+      res = iproof->make_resolution(ineq_con[i],dummy_clause,res,fps[i]);
+    return res;
+  }
+
+  struct CannotCombineEqPropagate {};
+
+  void CombineEqPropagateRec(const ast &proof, std::vector<ast> &prems, std::vector<Iproof::node> &args, ast &eqprem){
+    if(pr(proof) == PR_TRANSITIVITY && is_eq_propagate(prem(proof,1))){
+      CombineEqPropagateRec(prem(proof,0), prems, args, eqprem);
+      ast dummy;
+      CombineEqPropagateRec(prem(proof,1), prems, args, dummy);
+      return;
+    }
+    if(is_eq_propagate(proof)){
+      int nprems = num_prems(proof);
+      for(int i = 0; i < nprems; i++){
+	prems.push_back(prem(proof,i));
+	ast ppf = translate_main(prem(proof,i),false);
+	args.push_back(ppf);
+      }
+      return;
+    }
+    eqprem = proof;
+  }
+
+  ast CombineEqPropagate(const ast &proof){
+    std::vector<ast> prems, args;
+    ast eq1;
+    CombineEqPropagateRec(proof, prems, args, eq1);
+    ast eq2con = conc(proof);
+    if(!eq1.null())
+      eq2con = make(Equal,arg(conc(eq1),1),arg(conc(proof),1));
+    ast eq2 = EqPropagate(eq2con,prems,args);
+    if(!eq1.null()){
+      Iproof::node foo = translate_main(eq1,false);
+      eq2 = iproof->make_transitivity(arg(conc(eq1),0), arg(conc(eq1),1), arg(conc(proof),1), foo, eq2);
+    }
+    return eq2;
+  }
+
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1289,6 +1343,15 @@ public:
 	Iproof::node clause = translate_main(prem(proof,0),true);
 	res = make(commute,clause,conc(prem(proof,0))); // HACK -- we depend on Iproof::node being same as ast.
 	return res;
+      }
+      
+      if(dk == PR_TRANSITIVITY && is_eq_propagate(prem(proof,1))){
+	try {
+	  res = CombineEqPropagate(proof);
+	  return res;
+	}
+	catch(const CannotCombineEqPropagate &){
+	}
       }
 
       // translate all the premises
@@ -1412,20 +1475,10 @@ public:
 	  }
 	  case EqPropagateKind: {
 	    std::vector<ast> prems(nprems);
-	    Iproof::node fps[2];
-	    ast ineq_con[2];
-	    for(int i = 0; i < nprems; i++)
+	    for(unsigned i = 0; i < nprems; i++)
 	      prems[i] = prem(proof,i);
-	    for(int i = 0; i < 2; i++){
-	      opr o = i == 0 ? Leq : Geq;
-	      ineq_con[i] = make(o, arg(con,0), arg(con,1));
-	      fps[i] = reconstruct_farkas(prems,args,ineq_con[i]);
-	    }
-	    res = iproof->make_leq2eq(arg(con,0), arg(con,1), ineq_con[0], ineq_con[1]);
-	    std::vector<Iproof::node> dummy_clause;
-	    for(int i = 0; i < 2; i++)
-	      res = iproof->make_resolution(ineq_con[i],dummy_clause,res,fps[i]);
-	    return res;
+	    res = EqPropagate(con,prems,args);
+	    break;
 	  }
 	  default:
 	    throw unsupported();
