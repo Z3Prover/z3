@@ -69,6 +69,10 @@ namespace opt {
                     m_answer.reset();
                     m_answer.append(ans);
                 }
+                if (m_answer.size() == m_upper) {
+                    return l_true;
+                }
+                SASSERT(m_soft.size() >= m_answer.size()+1);
                 unsigned k = m_soft.size()-m_answer.size()-1;
                 expr_ref fml = mk_at_most(core_vars, k);
                 TRACE("opt", tout << "add: " << fml << "\n";);
