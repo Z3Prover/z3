@@ -22,14 +22,9 @@ Notes:
      Example:
         ((_ at-most 3) x1 x1 x2 x2) == ((_ at-most 1) x1 x2)
 
-   - count number of clauses per cardinality constraint.
-
-   - TBD: when number of conflicts exceeds n^2 or n*log(n), 
+   - When number of conflicts exceeds n*log(n), 
      then create a sorting circuit.
      where n is the arity of the cardinality constraint.
-
-   - TBD: do clauses get re-created? keep track of gc 
-     status of created clauses.
 
    - TBD: add conflict resolution
      The idea is that if cardinality constraints c1, c2
@@ -38,11 +33,18 @@ Notes:
      
      c1 /\ c2 -> c3
     
+     That is, during a propagation, assignment or conflict resolution
+     step track cutting-planes.
+
+  - TBD: profile overhead of (re)creating sorting circuits.
+    Possibly delay creating them until restart.
+
 --*/
 
 #include "theory_card.h"
 #include "smt_context.h"
 #include "ast_pp.h"
+#include "sorting_network.h"
 
 namespace smt {
     
@@ -78,19 +80,8 @@ namespace smt {
         SASSERT(!ctx.b_internalized(atom));
         bool_var abv = ctx.mk_bool_var(atom);
 
-        if (k >= static_cast<int>(num_args)) {
-            bool all_pos = true;
-            for (unsigned i = 0; all_pos && i < num_args; ++i) {
-                all_pos = 0 < m_util.get_le_coeff(atom, i);
-            }
-            if (all_pos) {
-                literal lit(abv);
-                ctx.mk_th_axiom(get_id(), 1, &lit);
-                return true;
-            }
-        }
-
-        card* c = alloc(card, abv, k);
+        card* c = alloc(card, m, atom, abv, k, get_compilation_threshold(atom));
+        
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
             if (!ctx.b_internalized(arg)) {
@@ -223,6 +214,7 @@ namespace smt {
     void theory_card::collect_statistics(::statistics& st) const {
         st.update("pb axioms", m_stats.m_num_axioms);
         st.update("pb predicates", m_stats.m_num_predicates);        
+        st.update("pb compilations", m_stats.m_num_compiles);
     }
     
     void theory_card::reset_eh() {
@@ -245,14 +237,14 @@ namespace smt {
         m_stats.reset();
     }
 
-    void theory_card::update_min_max(bool_var v, bool is_true, card* c) {
+    void theory_card::update_min_max(bool_var v, bool is_true, card& c) {
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        arg_t const& args = c->m_args;
+        arg_t const& args = c.m_args;
         int inc = find_inc(v, args);
-        int& min = c->m_current_min;
-        int& max = c->m_current_max;
-        int  k = c->m_k;
+        int& min = c.m_current_min;
+        int& max = c.m_current_max;
+        int  k = c.m_k;
         // inc > 0 &  is_true -> min += inc
         // inc < 0 &  is_true -> max += inc
         // inc > 0 & !is_true -> max -= inc
@@ -278,7 +270,7 @@ namespace smt {
         SASSERT(min <= max);
     }
 
-    void theory_card::assign_use(bool_var v, bool is_true, card* c) {
+    void theory_card::assign_use(bool_var v, bool is_true, card& c) {
         update_min_max(v, is_true, c);        
         propagate_assignment(c);
     }
@@ -307,11 +299,11 @@ namespace smt {
         }
     }
 
-    int theory_card::accumulate_min(literal_vector& lits, card* c) {
+    int theory_card::accumulate_min(literal_vector& lits, card& c) {
         context& ctx = get_context();
-        int k = c->m_k;
-        arg_t const& args = c->m_args;
-        int curr_min = c->m_abs_min;
+        int k = c.m_k;
+        arg_t const& args = c.m_args;
+        int curr_min = c.m_abs_min;
         for (unsigned i = 0; i < args.size() && curr_min <= k; ++i) {
             bool_var bv = args[i].first;
             int inc = args[i].second;
@@ -324,11 +316,11 @@ namespace smt {
         return curr_min;
     }    
 
-    int theory_card::accumulate_max(literal_vector& lits, card* c) {
+    int theory_card::accumulate_max(literal_vector& lits, card& c) {
         context& ctx = get_context();
-        arg_t const& args = c->m_args;
-        int k = c->m_k;
-        int curr_max = c->m_abs_max;
+        arg_t const& args = c.m_args;
+        int k = c.m_k;
+        int curr_max = c.m_abs_max;
         for (unsigned i = 0; i < args.size() && k < curr_max; ++i) {
             bool_var bv = args[i].first;
             int inc = args[i].second;
@@ -341,19 +333,33 @@ namespace smt {
         return curr_max;
     }
 
-    void theory_card::propagate_assignment(card* c) {
+    void theory_card::propagate_assignment(card& c) {
+        if (c.m_compiled) {
+            return;
+        }
+        if (should_compile(c)) {
+            compile_at_most(c);
+            return;
+        }
         context& ctx = get_context();
-        arg_t const& args = c->m_args;
-        bool_var abv = c->m_bv;
-        int min = c->m_current_min;
-        int max = c->m_current_max;
-        int k = c->m_k;
+        ast_manager& m = get_manager();
+        arg_t const& args = c.m_args; 
+        bool_var abv = c.m_bv;
+        int min = c.m_current_min;
+        int max = c.m_current_max;
+        int k = c.m_k;
+
+        TRACE("card", 
+              tout << mk_pp(c.m_app, m) << " min: " 
+              << min << " max: " << max << "\n";);
 
         //
         // if min >  k && abv != l_false -> force abv false
         // if max <= k && abv != l_true  -> force abv true
-        // if min == k && abv == l_true  -> force positive unassigned literals false
-        // if max == k + 1 && abv == l_false -> force negative unassigned literals false
+        // if min == k && abv == l_true  -> force positive 
+        //                                  unassigned literals false
+        // if max == k + 1 && abv == l_false -> force negative 
+        //                                  unassigned literals false
         //
         lbool aval = ctx.get_assignment(abv);
         if (min > k && aval != l_false) {
@@ -361,21 +367,21 @@ namespace smt {
             lits.push_back(~literal(abv));
             int curr_min = accumulate_min(lits, c);
             SASSERT(curr_min > k);
-            add_clause(lits);                    
+            add_clause(c, lits);                    
         }
         else if (max <= k && aval != l_true) {
             literal_vector& lits = get_lits();
             lits.push_back(literal(abv));
             int curr_max = accumulate_max(lits, c);
             SASSERT(curr_max <= k);
-            add_clause(lits);                    
+            add_clause(c, lits);                    
         }                
         else if (min == k && aval == l_true) {
             literal_vector& lits = get_lits();
             lits.push_back(~literal(abv));
             int curr_min = accumulate_min(lits, c);
             if (curr_min > k) {
-                add_clause(lits);
+                add_clause(c, lits);
             }
             else {
                 SASSERT(curr_min == k);
@@ -383,9 +389,9 @@ namespace smt {
                     bool_var bv = args[i].first;
                     int inc = args[i].second;
                     if (inc_min(inc, ctx.get_assignment(bv)) == l_undef) {
-                        lits.push_back(literal(bv, inc > 0)); // avoid incrementing min.
-                        add_clause(lits);
-                        lits.pop_back();                        
+                        literal_vector lits_save(lits); // add_clause has a side-effect on literals.
+                        lits_save.push_back(literal(bv, inc > 0)); // avoid incrementing min.
+                        add_clause(c, lits_save);
                     }
                 }
             }
@@ -395,16 +401,16 @@ namespace smt {
             lits.push_back(literal(abv));
             int curr_max = accumulate_max(lits, c);
             if (curr_max <= k) {
-                add_clause(lits);
+                add_clause(c, lits);
             }
             else if (curr_max == k + 1) {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     bool_var bv = args[i].first;
                     int inc = args[i].second;
                     if (dec_max(inc, ctx.get_assignment(bv)) == l_undef) {
-                        lits.push_back(literal(bv, inc < 0)); // avoid decrementing max.
-                        add_clause(lits);
-                        lits.pop_back();                        
+                        literal_vector lits_save(lits); // add_clause has a side-effect on literals.
+                        lits_save.push_back(literal(bv, inc < 0)); // avoid decrementing max.
+                        add_clause(c, lits_save);
                     }
                 }
             }
@@ -420,11 +426,11 @@ namespace smt {
 
         if (m_watch.find(v, cards)) {
             for (unsigned i = 0; i < cards->size(); ++i) {
-                assign_use(v, is_true, (*cards)[i]);
+                assign_use(v, is_true, *(*cards)[i]);
             }
         }
         if (m_cards.find(v, c)) {
-            propagate_assignment(c);
+            propagate_assignment(*c);
         }
     }
 
@@ -448,6 +454,203 @@ namespace smt {
         SASSERT(vars[mid].first == bv);
         return vars[mid].second;
     }
+
+    struct theory_card::sort_expr {
+        theory_card& th;
+        context&     ctx;
+        ast_manager& m;
+        expr_ref_vector m_trail;
+        sort_expr(theory_card& th):
+            th(th), 
+            ctx(th.get_context()), 
+            m(th.get_manager()), 
+            m_trail(m) {}
+        typedef expr* T;
+        typedef expr_ref_vector vector;
+
+        T mk_ite(T a, T b, T c) { 
+            if (m.is_true(a)) {
+                return b;
+            }
+            if (m.is_false(a)) {
+                return c;
+            }
+            if (b == c) {
+                return b;
+            }
+            m_trail.push_back(m.mk_ite(a, b, c));
+            return m_trail.back();
+        }
+
+        T mk_le(T a, T b) {
+            return mk_ite(b, a, m.mk_true());
+        }
+
+        T mk_default() {
+            return m.mk_false();
+        }       
+
+        literal internalize(card& ca, expr* e) {
+            obj_map<expr, literal> cache;
+            for (unsigned i = 0; i < ca.m_args.size(); ++i) {
+                cache.insert(ca.m_app->get_arg(i), literal(ca.m_args[i].first));
+            }
+            cache.insert(m.mk_false(), false_literal);
+            cache.insert(m.mk_true(),  true_literal);
+            ptr_vector<expr> todo;
+            todo.push_back(e);
+            expr *a, *b, *c;
+            literal la, lb, lc;
+            while (!todo.empty()) {
+                expr* t = todo.back();
+                if (cache.contains(t)) {
+                    todo.pop_back();
+                    continue;
+                }
+                VERIFY(m.is_ite(t, a, b, c));
+                unsigned sz = todo.size();
+                if (!cache.find(a, la)) {
+                    todo.push_back(a);
+                }
+                if (!cache.find(b, lb)) {
+                    todo.push_back(b);
+                }
+                if (!cache.find(c, lc)) {
+                    todo.push_back(c);
+                }
+                if (sz != todo.size()) {
+                    continue;
+                }
+                todo.pop_back();
+                cache.insert(t, mk_ite(ca, t, la, lb, lc));                
+            }
+            return cache.find(e);
+        }
+
+        literal mk_ite(card& ca, expr* t, literal a, literal b, literal c) {
+            if (a == true_literal) {
+                return b;
+            }
+            else if (a == false_literal) {
+                return c;
+            }
+            else if (b == true_literal && c == false_literal) {
+                return a;
+            }
+            else if (b == false_literal && c == true_literal) {
+                return ~a;
+            }
+            else if (b == c) {
+                return b;
+            }
+            else {                
+                expr_ref p(m);
+                expr* r;
+                if (ca.m_replay.find(t, r)) {
+                    p = r;
+                }
+                else {
+                    p = m.mk_fresh_const("s", m.mk_bool_sort());
+                    ca.m_replay.insert(t, p);
+                    ca.m_trail.push_back(p);
+                }
+                literal l;
+                if (ctx.b_internalized(p)) {
+                    l = literal(ctx.get_bool_var(p));
+                }
+                else {
+                    l = literal(ctx.mk_bool_var(p));
+                }
+                add_clause(~l, ~a,  b);
+                add_clause(~l,  a,  c);
+                add_clause(l,  ~a, ~b);
+                add_clause(l,   a, ~c);
+                TRACE("card", tout << p << " ::= (if ";
+                      ctx.display_detailed_literal(tout, a);
+                      ctx.display_detailed_literal(tout << " ", b);
+                      ctx.display_detailed_literal(tout << " ", c);
+                      tout << ")\n";);
+                return l;
+            }
+        }
+
+
+        // auxiliary clauses don't get garbage collected.
+        void add_clause(literal a, literal b, literal c) {
+            literal_vector& lits = th.get_lits();
+            if (a != null_literal) lits.push_back(a); 
+            if (b != null_literal) lits.push_back(b); 
+            if (c != null_literal) lits.push_back(c);         
+            justification* js = 0;
+            TRACE("card",
+                  ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
+            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX, 0);
+        }            
+
+        void add_clause(literal l1, literal l2) {
+            add_clause(l1, l2, null_literal);
+        }
+
+    };
+
+    unsigned theory_card::get_compilation_threshold(app* a) {
+        if (!m_util.is_at_most_k(a)) { 
+            return UINT_MAX;
+        }
+        unsigned num_args = a->get_num_args();
+        unsigned log = 1, n = 1;
+        while (n <= num_args) {
+            ++log;
+            n *= 2;
+        }
+        TRACE("card", tout << "threshold:" << (num_args*log) << "\n";);
+        return num_args*log;
+    }
+
+    bool theory_card::should_compile(card& c) {
+        if (!m_util.is_at_most_k(c.m_app)) {
+            return false;
+        }
+        return c.m_num_propagations >= c.m_compilation_threshold;
+    }
+
+    void theory_card::compile_at_most(card& c) {
+        ++m_stats.m_num_compiles;
+        ast_manager& m = get_manager();
+        context& ctx = get_context();
+        app* a = c.m_app;
+        SASSERT(m_util.is_at_most_k(a)); 
+        literal atmostk;
+        int k = m_util.get_k(a);
+        unsigned num_args = a->get_num_args();
+
+        sort_expr se(*this);
+        if (k >= static_cast<int>(num_args)) {
+            atmostk = true_literal;
+        }
+        else if (k < 0) {
+            atmostk = false_literal;
+        }
+        else {
+            sorting_network<sort_expr> sn(se);
+            expr_ref_vector in(m), out(m);
+            for (unsigned i = 0; i < num_args; ++i) {
+                in.push_back(c.m_app->get_arg(i));
+            }
+            sn(in, out);
+            atmostk = ~se.internalize(c, out[k].get()); // k'th output is 0.
+            TRACE("card", tout << "~atmost: " << mk_pp(out[k].get(), m) << "\n";);
+        }
+        literal thl = literal(c.m_bv);
+        se.add_clause(~thl, atmostk);
+        se.add_clause(thl, ~atmostk);
+        TRACE("card", tout << mk_pp(a, m) << "\n";);
+        // auxiliary clauses get removed when popping scopes.
+        // we have to recompile the circuit after back-tracking.
+        ctx.push_trail(value_trail<context, bool>(c.m_compiled));
+        c.m_compiled = true;
+    }
+
 
     void theory_card::init_search_eh() {
         
@@ -483,16 +686,14 @@ namespace smt {
         return m_literals;
     }
 
-    void theory_card::add_clause(literal_vector const& lits) {
+    void theory_card::add_clause(card& c, literal_vector const& lits) {
+        ++c.m_num_propagations;
         m_stats.m_num_axioms++;
         context& ctx = get_context();
-        TRACE("card", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
+        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-        IF_VERBOSE(1, 
-                   for (unsigned i = 0; i < lits.size(); ++i) {
-                       verbose_stream() << lits[i] << " ";
-                   }
+        IF_VERBOSE(1, ctx.display_literals_verbose(verbose_stream(), lits.size(), lits.c_ptr());
                    verbose_stream() << "\n";);
         // ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }

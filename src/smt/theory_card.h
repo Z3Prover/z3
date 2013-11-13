@@ -22,20 +22,25 @@ Notes:
 
 #include "smt_theory.h"
 #include "card_decl_plugin.h"
+#include "smt_clause.h"
 
 namespace smt {
     class theory_card : public theory {
 
+        struct sort_expr;
         typedef svector<std::pair<bool_var, int> > arg_t;
 
         struct stats {
             unsigned m_num_axioms;
             unsigned m_num_predicates;
+            unsigned m_num_compiles;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
 
+
         struct card {
+            app*     m_app;
             int      m_k;
             bool_var m_bv;
             int      m_current_min;
@@ -43,9 +48,17 @@ namespace smt {
             int      m_abs_min;
             int      m_abs_max;
             arg_t    m_args;
-            card(bool_var bv, int k):
-                m_k(k), m_bv(bv)
-            {}
+            unsigned m_num_propagations;
+            unsigned m_compilation_threshold;
+            bool     m_compiled;
+            obj_map<expr, expr*> m_replay;
+            expr_ref_vector m_trail;
+            card(ast_manager& m, app* a, bool_var bv, int k, unsigned threshold):
+                m_app(a), m_k(k), m_bv(bv), 
+                m_num_propagations(0), m_compilation_threshold(threshold), m_compiled(false),
+                m_trail(m)
+            {
+            }
         };
 
         u_map<ptr_vector<card>*> m_watch;  // use-list of literals.
@@ -61,18 +74,22 @@ namespace smt {
         void add_watch(bool_var bv, card* c);
         void add_card(card* c);
 
-        void add_clause(literal_vector const& lits);
+        void add_clause(card& c, literal_vector const& lits);
         literal_vector& get_lits();
 
-        int find_inc(bool_var bv, svector<std::pair<bool_var, int> >const& vars);
-        void theory_card::propagate_assignment(card* c);
-        int theory_card::accumulate_max(literal_vector& lits, card* c);
-        int theory_card::accumulate_min(literal_vector& lits, card* c);
-        lbool theory_card::dec_max(int inc, lbool val);
-        lbool theory_card::inc_min(int inc, lbool val);
-        void theory_card::assign_use(bool_var v, bool is_true, card* c);
-        void theory_card::update_min_max(bool_var v, bool is_true, card* c);
-        
+        int   find_inc(bool_var bv, svector<std::pair<bool_var, int> >const& vars);
+        void  propagate_assignment(card& c);
+        int   accumulate_max(literal_vector& lits, card& c);
+        int   accumulate_min(literal_vector& lits, card& c);
+        lbool dec_max(int inc, lbool val);
+        lbool inc_min(int inc, lbool val);
+        void  assign_use(bool_var v, bool is_true, card& c);
+        void  update_min_max(bool_var v, bool is_true, card& c);
+
+        void compile_at_most(card& c);
+        expr_ref nnf(expr* e);
+        bool     should_compile(card& c);
+        unsigned get_compilation_threshold(app* atom);
     public:
         theory_card(ast_manager& m);
         
