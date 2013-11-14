@@ -3,8 +3,9 @@ def_module_params('opt',
                   export=True,
                   params=(('timeout', UINT, UINT_MAX, 'set timeout'),
                           ('engine', SYMBOL, 'basic', "select optimization engine: 'basic', 'farkas', 'symba'"),
-	                  ('maxsat_engine', SYMBOL, 'fu_malik', "select engine for non-weighted maxsat: 'fu_malik', 'core_maxsat'"),
+	                      ('maxsat_engine', SYMBOL, 'fu_malik', "select engine for non-weighted maxsat: 'fu_malik', 'core_maxsat'"),
                           ('pareto', BOOL, False, 'return a Pareto front (as opposed to a bounding box)'),
+                          ('dump_benchmarks', BOOL, False, 'dump benchmarks for profiling'),
                           ))
 
 
