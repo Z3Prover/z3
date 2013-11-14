@@ -2249,6 +2249,36 @@ namespace Microsoft.Z3
         }
         #endregion
 
+        #region Pseudo-Boolean constraints
+
+        /// <summary>
+        /// Create an at-most-k constraint.
+        /// </summary>
+        public BoolExpr MkAtMost(BoolExpr[] args, uint k) 
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch(args);
+           return new BoolExpr(this, Native.Z3_mk_atmost(nCtx, (uint) args.Length, 
+                                                          AST.ArrayToNative(args), k));
+        }
+
+        /// <summary>
+        /// Create a pseudo-Boolean <= constraint.
+        /// </summary>
+        public BoolExpr MkPBLe(int[] coeffs, BoolExpr[] args, int k) 
+        {
+           Contract.Requires(args != null);
+           Contract.Requires(coeffs != null);
+           Contract.Requires(args.Length == coeffs.Length);
+           Contract.Requires(Contract.Result<BoolExpr[]>() != null);
+           CheckContextMatch(args);
+           return new BoolExpr(this, Native.Z3_mk_pble(nCtx, (uint) args.Length, 
+                                                          AST.ArrayToNative(args), 
+                                                          coeffs, k));
+        }
+        #endregion
+
         #region Numerals
 
         #region General Numerals
