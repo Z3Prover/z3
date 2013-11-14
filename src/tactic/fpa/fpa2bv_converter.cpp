@@ -1831,8 +1831,8 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
         rm = args[0];
         x = args[1];
 
-        unsigned from_sbits = m_util.get_sbits(m.get_sort(args[1]));
-        unsigned from_ebits = m_util.get_ebits(m.get_sort(args[1]));
+        unsigned from_sbits = m_util.get_sbits(m.get_sort(x));
+        unsigned from_ebits = m_util.get_ebits(m.get_sort(x));
         unsigned to_sbits = m_util.get_sbits(s);
         unsigned to_ebits = m_util.get_ebits(s);
 
@@ -1911,7 +1911,12 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
 
             if (from_ebits < (to_ebits + 2))
             {                        
-                res_exp = m_bv_util.mk_sign_extend(to_ebits-from_ebits+2, exp);            
+                res_exp = m_bv_util.mk_sign_extend(to_ebits-from_ebits+2, exp);
+
+                // subtract lz for subnormal numbers.
+                expr_ref lz_ext(m);
+                lz_ext = m_bv_util.mk_zero_extend(to_ebits-from_ebits+2, lz);
+                res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
             }
             else if (from_ebits > (to_ebits + 2))
             {
@@ -1936,30 +1941,33 @@ void fpa2bv_converter::mk_to_float(func_decl * f, unsigned num, expr * const * a
             
                 // Note: Upon overflow, we _could_ try to shift the significand around...
 
-                res_exp = low;
-            }
-            else
-                res_exp = exp;
+                // subtract lz for subnormal numbers.
+                expr_ref lz_ext(m), lz_rest(m), lz_redor(m), lz_redor_bool(m);
+                lz_ext = m_bv_util.mk_extract(to_ebits+1, 0, lz);
+                lz_rest = m_bv_util.mk_extract(from_ebits-1, to_ebits+2, lz);
+                lz_redor = m.mk_app(m_bv_util.get_fid(), OP_BREDOR, lz_rest.get());
+                m_simp.mk_eq(lz_redor, one1, lz_redor_bool);
+                m_simp.mk_or(exponent_overflow, lz_redor_bool, exponent_overflow);                
 
-            // subtract lz for subnormal numbers.
-            expr_ref lz_ext(m);
-            lz_ext = m_bv_util.mk_zero_extend(to_ebits-from_ebits+2, lz);
-            res_exp = m_bv_util.mk_bv_sub(res_exp, lz_ext);
+                res_exp = m_bv_util.mk_bv_sub(low, lz_ext);
+            }
+            else // from_ebits == (to_ebits + 2)
+                res_exp = m_bv_util.mk_bv_sub(exp, lz);
+
             SASSERT(m_bv_util.get_bv_size(res_exp) == to_ebits+2);
+            SASSERT(is_well_sorted(m, res_exp));
 
             dbg_decouple("fpa2bv_to_float_res_sig", res_sig);
             dbg_decouple("fpa2bv_to_float_res_exp", res_exp);
 
             expr_ref rounded(m);
-            round(s, rm, res_sgn, res_sig, res_exp, rounded);
-        
+            round(s, rm, res_sgn, res_sig, res_exp, rounded);        
 
             expr_ref is_neg(m), sig_inf(m);
             m_simp.mk_eq(sgn, one1, is_neg);
             mk_ite(is_neg, ninf, pinf, sig_inf);
                         
             dbg_decouple("fpa2bv_to_float_exp_ovf", exponent_overflow);
-
             mk_ite(exponent_overflow, sig_inf, rounded, v6);
 
             // And finally, we tie them together.
