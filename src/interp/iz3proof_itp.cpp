@@ -417,7 +417,16 @@ class iz3proof_itp_impl : public iz3proof_itp {
     std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
     ast &res = bar.first->second;
     if(bar.second){
-      if(sym(e) == rotate_sum && var == get_placeholder(arg(e,0))){
+      symb g = sym(e);
+      if(g == rotate_sum){
+	if(var == get_placeholder(arg(e,0))){
+	  res = e;
+	}
+	else 
+	  res = make(rotate_sum,arg(e,0),subst_term_and_simp_rec(var,t,arg(e,1)));
+	return res;
+      }
+      if(g == concat){
 	res = e;
 	return res;
       }
@@ -453,18 +462,26 @@ class iz3proof_itp_impl : public iz3proof_itp {
       int nargs = num_args(e);
       std::vector<ast> args(nargs);
       bool placeholder_arg = false;
+      symb g = sym(e);
+      if(g == concat){
+	res = e;
+	return res;
+      }
       for(int i = 0; i < nargs; i++){
-	args[i] = simplify_rec(arg(e,i));
+	if(i == 0 && g == rotate_sum)
+	  args[i] = arg(e,i);
+	else
+	  args[i] = simplify_rec(arg(e,i));
 	placeholder_arg |= is_placeholder(args[i]);
       }
       try {
 	opr f = op(e);
 	if(f == Equal && args[0] == args[1]) res = mk_true();
 	else if(f == And) res = my_and(args);
-	else if(f == Or) res = my_or(args);
+	else if(f == Or)
+	  res = my_or(args);
 	else if(f == Idiv) res = mk_idiv(args[0],args[1]);
 	else if(f == Uninterpreted && !placeholder_arg){
-	  symb g = sym(e);
 	  if(g == rotate_sum) res = simplify_rotate(args);
 	  else if(g == symm) res = simplify_symm(args);
 	  else if(g == modpon) res = simplify_modpon(args);
@@ -1831,6 +1848,8 @@ class iz3proof_itp_impl : public iz3proof_itp {
       itp =  mk_true();
       break;
     default: { // mixed equality
+      if(get_term_type(x) == LitMixed || get_term_type(y) == LitMixed)
+	std::cerr << "WARNING: mixed term in leq2eq\n"; 
       std::vector<ast> conjs; conjs.resize(3);
       conjs[0] = mk_not(con);
       conjs[1] = xleqy;
@@ -1943,38 +1962,45 @@ class iz3proof_itp_impl : public iz3proof_itp {
     hash_map<ast,ast>::iterator it = localization_map.find(e);
     if(it != localization_map.end()){
       pf = localization_pf_map[e];
-      return it->second;
+      e = it->second;
     }
 
-    // if is is non-local, we must first localize the arguments to
-    // the range of its function symbol
-    
-    int nargs = num_args(e);
-    if(nargs > 0 /*  && (!is_local(e) || flo <= hi || fhi >= lo) */){
-      prover::range frng = rng;
-      if(op(e) == Uninterpreted){
-	symb f = sym(e);
-	prover::range srng = pv->sym_range(f);
-	if(pv->ranges_intersect(srng,rng)) // localize to desired range if possible
-	  frng = pv->range_glb(srng,rng);
-      }
-      std::vector<ast> largs(nargs);
-      std::vector<ast> eqs;
-      std::vector<ast> pfs;
-      for(int i = 0; i < nargs; i++){
-	ast argpf;
-	largs[i] = localize_term(arg(e,i),frng,argpf);
-	frng = pv->range_glb(frng,pv->ast_scope(largs[i]));
-	if(largs[i] != arg(e,i)){
-	  eqs.push_back(make_equiv(largs[i],arg(e,i)));
-	  pfs.push_back(argpf);
+    else {
+      // if it is non-local, we must first localize the arguments to
+      // the range of its function symbol
+      
+      int nargs = num_args(e);
+      if(nargs > 0 /*  && (!is_local(e) || flo <= hi || fhi >= lo) */){
+	prover::range frng = rng;
+	if(op(e) == Uninterpreted){
+	  symb f = sym(e);
+	  prover::range srng = pv->sym_range(f);
+	  if(pv->ranges_intersect(srng,rng)) // localize to desired range if possible
+	    frng = pv->range_glb(srng,rng);
+	  else
+	    frng = srng; // this term will be localized
 	}
+	std::vector<ast> largs(nargs);
+	std::vector<ast> eqs;
+	std::vector<ast> pfs;
+	for(int i = 0; i < nargs; i++){
+	  ast argpf;
+	  largs[i] = localize_term(arg(e,i),frng,argpf);
+	  frng = pv->range_glb(frng,pv->ast_scope(largs[i]));
+	  if(largs[i] != arg(e,i)){
+	    eqs.push_back(make_equiv(largs[i],arg(e,i)));
+	    pfs.push_back(argpf);
+	  }
+	}
+	
+	e = clone(e,largs);
+	if(pfs.size())
+	  pf = make_congruence(eqs,make_equiv(e,orig_e),pfs);
+	// assert(is_local(e));
       }
-
-      e = clone(e,largs);
-      if(pfs.size())
-	pf = make_congruence(eqs,make_equiv(e,orig_e),pfs);
-      // assert(is_local(e));
+      
+      localization_pf_map[orig_e] = pf;
+      localization_map[orig_e] = e;
     }
 
     if(pv->ranges_intersect(pv->ast_scope(e),rng))
@@ -1984,7 +2010,7 @@ class iz3proof_itp_impl : public iz3proof_itp {
     int frame = pv->range_near(pv->ast_scope(e),rng);
 
     ast new_var = fresh_localization_var(e,frame);
-    localization_map[e] = new_var;
+    localization_map[orig_e] = new_var;
     std::vector<ast> foo; foo.push_back(make_equiv(new_var,e));
     ast bar = make_assumption(frame,foo);
     pf = make_transitivity(new_var,e,orig_e,bar,pf);

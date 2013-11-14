@@ -153,8 +153,10 @@ class iz3base : public iz3mgr, public scopes {
 
   int frames;                               // number of frames
 
+ protected:
   void add_frame_range(int frame, ast t);
 
+ private:
   void initialize(const std::vector<ast> &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
 
   void initialize(const std::vector<std::vector<ast> > &_parts, const std::vector<int> &_parents, const std::vector<ast> &_theory);
