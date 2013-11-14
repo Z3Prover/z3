@@ -71,8 +71,9 @@ class card_util {
 public:
     card_util(ast_manager& m):m(m), m_fid(m.mk_family_id("card")) {}
     ast_manager & get_manager() const { return m; }
+    family_id get_family_id() const { return m_fid; }
     app * mk_at_most_k(unsigned num_args, expr * const * args, unsigned k);
-    app * mk_le(unsigned num_args, int * const* coeffs, expr * const * args, int k);
+    app * mk_le(unsigned num_args, int const * coeffs, expr * const * args, int k);
     bool is_at_most_k(app *a) const;
     bool is_at_most_k(app *a, unsigned& k) const;
     int  get_k(app *a) const;

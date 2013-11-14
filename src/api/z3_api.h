@@ -874,6 +874,12 @@ typedef enum
 
       - Z3_OP_DT_ACCESSOR: datatype accessor.
 
+      - Z3_OP_PB_AT_MOST: Cardinality constraint. 
+              E.g., x + y + z <= 2
+      
+      - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
+              Example  2*x + 3*y <= 4
+
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1053,6 +1059,10 @@ typedef enum {
     Z3_OP_DT_CONSTRUCTOR=0x800,
     Z3_OP_DT_RECOGNISER,
     Z3_OP_DT_ACCESSOR,
+
+    // Pseudo Booleans
+    Z3_OP_PB_AT_MOST=0x900,
+    Z3_OP_PB_LE,
 
     Z3_OP_UNINTERPRETED         
 } Z3_decl_kind;
@@ -3757,6 +3767,29 @@ END_MLAPI_EXCLUDE
     */
     Z3_sort Z3_API Z3_get_relation_column(__in Z3_context c, __in Z3_sort s, unsigned col);
 
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode p1 + p2 + ... + pn <= k
+
+       def_API('Z3_mk_atmost', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in(UINT)))
+    */
+
+    Z3_ast Z3_API Z3_mk_atmost(__in Z3_context c, __in unsigned num_args, 
+                               __in_ecount(num_args) Z3_ast const args[], __in unsigned k);
+
+    /**
+       \brief Pseudo-Boolean relations.
+
+       Encode k1*p1 + k2*p2 + ... + kn*pn <= k
+
+       def_API('Z3_mk_pble', AST, (_in(CONTEXT), _in(UINT), _in_array(1,AST), _in_array(1,INT), _in(INT)))
+    */
+
+    Z3_ast Z3_API Z3_mk_pble(__in Z3_context c, __in unsigned num_args, 
+                             __in_ecount(num_args) Z3_ast const args[], __in_ecount(num_args) int coeffs[],
+                             __in int k);
 
     /**
        \mlonly {3 {L Function Declarations}} \endmlonly

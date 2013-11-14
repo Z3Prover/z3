@@ -73,7 +73,7 @@ namespace opt {
         */
 
         lbool step() {
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step)\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step)\n";); // add some count, add some information of # of soft constraints still possibly sat.
             expr_ref_vector assumptions(m), block_vars(m);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));

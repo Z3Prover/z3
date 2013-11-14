@@ -65,6 +65,7 @@ namespace opt {
                       for (unsigned i = 0; i < ans.size(); ++i) {
                           tout << mk_pp(ans[i].get(), m) << "\n";
                       });
+                IF_VERBOSE(1, verbose_stream() << "(maxsat.core sat: " << ans.size() << "\n";);
                 if (ans.size() > m_answer.size()) {
                     m_answer.reset();
                     m_answer.append(ans);
@@ -91,6 +92,7 @@ namespace opt {
                     core_vars.insert(get_not(core[i]));
                     block_vars.remove(core[i]);
                 }
+                IF_VERBOSE(1, verbose_stream() << "(maxsat.core unsat (core size = " << core.size() << ")\n";);
                 if (core.empty()) {
                     m_upper = m_answer.size();
                     return l_true;

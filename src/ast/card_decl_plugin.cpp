@@ -72,6 +72,16 @@ app * card_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k
     return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, num_args, args, m.mk_bool_sort());
 }
 
+app * card_util::mk_le(unsigned num_args, int const * coeffs, expr * const * args, int k) {
+    vector<parameter> params;
+    params.push_back(parameter(k));
+    for (unsigned i = 0; i < num_args; ++i) {
+        params.push_back(parameter(coeffs[i]));
+    }
+    return m.mk_app(m_fid, OP_PB_LE, params.size(), params.c_ptr(), num_args, args, m.mk_bool_sort());
+}
+
+
 bool card_util::is_at_most_k(app *a) const {
     return is_app_of(a, m_fid, OP_AT_MOST_K);
 }

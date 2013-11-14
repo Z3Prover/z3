@@ -44,7 +44,7 @@ struct z3_replayer::imp {
     size_t_map<void *>       m_heap;
     svector<z3_replayer_cmd> m_cmds;
 
-    enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY };
+    enum value_kind { INT64, UINT64, DOUBLE, STRING, SYMBOL, OBJECT, UINT_ARRAY, INT_ARRAY, SYMBOL_ARRAY, OBJECT_ARRAY };
 
     struct value { 
         value_kind m_kind;
@@ -68,6 +68,7 @@ struct z3_replayer::imp {
     vector<ptr_vector<void> >   m_obj_arrays;
     vector<svector<Z3_symbol> > m_sym_arrays;
     vector<unsigned_vector>     m_unsigned_arrays;
+    vector<svector<int> >       m_int_arrays;
 
     imp(z3_replayer & o, std::istream & in):
         m_owner(o),
@@ -293,6 +294,15 @@ struct z3_replayer::imp {
             unsigned_vector & v = m_unsigned_arrays.back();
             for (unsigned i = asz - sz; i < asz; i++) {
                 v.push_back(static_cast<unsigned>(m_args[i].m_uint));
+            }
+        }
+        if (k == INT64) {
+            aidx = m_int_arrays.size();
+            nk   = INT_ARRAY;
+            m_int_arrays.push_back(svector<int>());
+            svector<int> & v = m_int_arrays.back();
+            for (unsigned i = asz - sz; i < asz; i++) {
+                v.push_back(static_cast<int>(m_args[i].m_int));
             }
         }
         else if (k == SYMBOL) {
@@ -547,6 +557,13 @@ struct z3_replayer::imp {
         return m_unsigned_arrays[idx].c_ptr();
     }
 
+    int * get_int_array(unsigned pos) const {
+        if (pos >= m_args.size() || m_args[pos].m_kind != INT_ARRAY)
+            throw_invalid_reference();
+        unsigned idx = static_cast<unsigned>(m_args[pos].m_uint);
+        return m_int_arrays[idx].c_ptr();
+    }
+
     Z3_symbol * get_symbol_array(unsigned pos) const {
         if (pos >= m_args.size() || m_args[pos].m_kind != SYMBOL_ARRAY)
             throw_invalid_reference();
@@ -615,6 +632,7 @@ struct z3_replayer::imp {
         m_obj_arrays.reset();
         m_sym_arrays.reset();
         m_unsigned_arrays.reset();
+        m_int_arrays.reset();
     }
     
   
@@ -671,6 +689,10 @@ void * z3_replayer::get_obj(unsigned pos) const {
 
 unsigned * z3_replayer::get_uint_array(unsigned pos) const {
     return m_imp->get_uint_array(pos);
+}
+
+int * z3_replayer::get_int_array(unsigned pos) const {
+    return m_imp->get_int_array(pos);
 }
 
 Z3_symbol * z3_replayer::get_symbol_array(unsigned pos) const {
