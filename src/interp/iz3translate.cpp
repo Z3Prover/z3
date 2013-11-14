@@ -105,6 +105,42 @@ public:
   range rng; // the range of frames in the "A" part of the interpolant
 #endif
 
+  /* To handle skolemization, we have to scan the proof for skolem
+     symbols and assign each to a frame. THe assignment is heuristic.
+  */
+
+  void scan_skolems_rec(hash_set<ast> &memo, const ast &proof){
+    std::pair<hash_set<ast>::iterator,bool> bar = memo.insert(proof);
+    if(!bar.second)
+      return;
+    pfrule dk = pr(proof);
+    if(dk == PR_SKOLEMIZE){
+      ast quanted = arg(conc(proof),0);
+      if(op(quanted) == Not)
+	quanted = arg(quanted,0);
+      range r = ast_range(quanted);
+      if(range_is_empty(r))
+	r = ast_scope(quanted);
+      if(range_is_empty(r))
+	throw "can't skolemize";
+      int frame = range_max(r);
+      if(frame >= frames) frame = frames - 1;
+      add_frame_range(frame,arg(conc(proof),1));
+      r = ast_scope(arg(conc(proof),1));
+    }
+    else {
+      unsigned nprems = num_prems(proof);
+      for(unsigned i = 0; i < nprems; i++){
+	scan_skolems_rec(memo,prem(proof,i));
+      }
+    }
+  }
+
+  void scan_skolems(const ast &proof){
+    hash_set<ast> memo;
+    scan_skolems_rec(memo,proof);
+  }
+
   // determine locality of a proof term
   // return frame of derivation if local, or -1 if not
   // result INT_MAX means the proof term is a tautology
@@ -115,7 +151,8 @@ public:
     std::pair<AstToInt::iterator, bool> bar = locality.insert(foo);
     int &res = bar.first->second;
     if(!bar.second) return res;
-    if(pr(proof) == PR_ASSERTED){
+    pfrule dk = pr(proof);
+    if(dk == PR_ASSERTED){
       ast ass = conc(proof);
       res = frame_of_assertion(ass);
 #ifdef NEW_LOCALITY
@@ -124,6 +161,12 @@ public:
       else
 	res = frames-1;
 #endif
+    }
+    else if(dk == PR_QUANT_INST){
+      std::vector<ast> lits;
+      ast con = conc(proof);
+      get_Z3_lits(con, lits);
+      iproof->make_axiom(lits);
     }
     else {
       unsigned nprems = num_prems(proof);
@@ -563,6 +606,33 @@ public:
       return 1;
   }
 
+  void symbols_out_of_scope_rec(hash_set<ast> &memo, hash_set<symb> &symb_memo, int frame, const ast &t){
+    if(memo.find(t) != memo.end())
+      return;
+    memo.insert(t);
+    if(op(t) == Uninterpreted){
+      symb s = sym(t);
+      range r = sym_range(s);
+      if(!in_range(frame,r) && symb_memo.find(s) == symb_memo.end()){
+	std::cout << string_of_symbol(s) << "\n";
+	symb_memo.insert(s);
+      }
+    }
+    int nargs = num_args(t);
+    for(int i = 0; i < nargs; i++)
+      symbols_out_of_scope_rec(memo,symb_memo,frame,arg(t,i));
+  }
+
+  void symbols_out_of_scope(int frame, const ast &t){
+    hash_set<ast> memo;
+    hash_set<symb> symb_memo;
+    symbols_out_of_scope_rec(memo,symb_memo,frame,t);
+  }
+
+  void conc_symbols_out_of_scope(int frame, const ast &t){
+    symbols_out_of_scope(frame,conc(t));
+  }
+
   std::vector<ast> lit_trace;
   hash_set<ast> marked_proofs;
 
@@ -634,16 +704,34 @@ public:
     return !(f == And || f == Or || f == Iff);
   }
 
+  hash_map<int,ast> asts_by_id;
+
   void print_lit(const ast &lit){
     ast abslit = is_not(lit) ? arg(lit,0) : lit;
     if(!is_literal_or_lit_iff(lit)){
       if(is_not(lit)) std::cout << "~";
-      std::cout << "[";
-      // print_expr(std::cout,abslit);
-      std::cout << "]";
+      int id = ast_id(abslit);
+      asts_by_id[id] = abslit;
+      std::cout << "[" << id << "]";
     }
     else
       print_expr(std::cout,lit);
+  }
+
+  void expand(int id){
+    if(asts_by_id.find(id) == asts_by_id.end())
+      std::cout << "undefined\n";
+    else {
+      ast lit = asts_by_id[id];
+      std::string s = string_of_symbol(sym(lit));
+      std::cout << "(" << s;
+      unsigned nargs = num_args(lit);
+      for(unsigned i = 0; i < nargs; i++){
+	std::cout << " ";
+	print_lit(arg(lit,i));
+      }
+      std::cout << ")\n";;
+    }
   }
 
   void show_lit(const ast &lit){
@@ -682,6 +770,8 @@ public:
       print_lit(lits[i]);
       std::cout << " ";
     }
+    range r = ast_scope(con);
+    std::cout << " {" << r.lo << "," << r.hi << "}";
     std::cout << "\n";
   }
 
@@ -753,8 +843,12 @@ public:
     ast prem0 = prem(proof,0);
     Iproof::node itp = translate_main(prem0,true);
     std::vector<ast> clause;
-    get_Z3_lits(conc(prem0),clause);
+    ast conc0 = conc(prem0);
     int nprems = num_prems(proof);
+    if(nprems == 2 && conc0 == mk_not(conc(prem(proof,1))))
+      clause.push_back(conc0);
+    else
+      get_Z3_lits(conc0,clause);
     for(int position = 1; position < nprems; position++){
       ast ante =  prem(proof,position);
       ast pnode = conc(ante);
@@ -1500,6 +1594,10 @@ public:
 	res = iproof->make_axiom(lits);
 	break;
       }
+      case PR_DEF_AXIOM: { // this should only happen for formulas resulting from quantifier instantiation
+	res = iproof->make_axiom(lits);
+	break;
+      }
       default:
 	assert(0 && "translate_main: unsupported proof rule");
 	throw unsupported();
@@ -1518,6 +1616,7 @@ public:
 
   iz3proof::node translate(ast proof, iz3proof &dst){
     std::vector<ast> itps;
+    scan_skolems(proof);
     for(int i = 0; i < frames -1; i++){
 #ifdef NEW_LOCALITY
       rng = range_downward(i);
@@ -1609,6 +1708,17 @@ void iz3translation_full_pfprem(iz3translation_full *p, int i){
   p->pfprem(i);
 }
 
+void iz3translation_full_expand(iz3translation_full *p, int i){
+  p->expand(i);
+}
+
+void iz3translation_full_symbols_out_of_scope(iz3translation_full *p, int i, const iz3mgr::ast &t){
+  p->symbols_out_of_scope(i,t);
+}
+
+void iz3translation_full_conc_symbols_out_of_scope(iz3translation_full *p, int i, const iz3mgr::ast &t){
+  p->conc_symbols_out_of_scope(i,t);
+}
 
 struct stdio_fixer {
   stdio_fixer(){

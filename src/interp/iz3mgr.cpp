@@ -240,7 +240,9 @@ iz3mgr::ast iz3mgr::clone(const ast &t, const std::vector<ast> &_args){
 
 
 void iz3mgr::show(ast t){
-  std::cout  << mk_pp(t.raw(), m()) << std::endl;
+  params_ref p;
+  p.set_bool("flat_assoc",false);
+  std::cout  << mk_pp(t.raw(), m(), p) << std::endl;
 }
 
 void iz3mgr::show_symb(symb s){
@@ -248,7 +250,9 @@ void iz3mgr::show_symb(symb s){
 }
 
 void iz3mgr::print_expr(std::ostream &s, const ast &e){
-  s << mk_pp(e.raw(), m());
+  params_ref p;
+  p.set_bool("flat_assoc",false);
+  s << mk_pp(e.raw(), m(), p);
 }
 
 
