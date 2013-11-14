@@ -2171,14 +2171,14 @@ void fpa2bv_converter::mk_bot_exp(unsigned sz, expr_ref & result) {
 }
 
 void fpa2bv_converter::mk_min_exp(unsigned ebits, expr_ref & result) {
-    SASSERT(ebits > 0);
+    SASSERT(ebits >= 2);
     const mpz & z = m_mpf_manager.m_powers2.m1(ebits-1, true);
     result = m_bv_util.mk_numeral(z + mpz(1), ebits);
 }
 
 void fpa2bv_converter::mk_max_exp(unsigned ebits, expr_ref & result) {
-    SASSERT(ebits > 0);        
-    result = m_bv_util.mk_numeral(m_mpf_manager.m_powers2.m1(ebits-1, false), ebits);
+    SASSERT(ebits >= 2);        
+    result = m_bv_util.mk_numeral(m_mpf_manager.m_powers2.m1(ebits-1, false), ebits);   
 }
 
 void fpa2bv_converter::mk_leading_zeros(expr * e, unsigned max_bits, expr_ref & result) { 
@@ -2224,9 +2224,9 @@ void fpa2bv_converter::mk_bias(expr * e, expr_ref & result) {
     unsigned ebits = m_bv_util.get_bv_size(e);
     SASSERT(ebits >= 2);
 
-    expr_ref mask(m);
-    mask = m_bv_util.mk_numeral(fu().fm().m_powers2.m1(ebits-1), ebits);
-    result = m_bv_util.mk_bv_add(e, mask);
+    expr_ref bias(m);
+    bias = m_bv_util.mk_numeral(fu().fm().m_powers2.m1(ebits-1), ebits);
+    result = m_bv_util.mk_bv_add(e, bias);
 }
 
 void fpa2bv_converter::mk_unbias(expr * e, expr_ref & result) {
@@ -2440,13 +2440,12 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     t = m_bv_util.mk_bv_add(exp, m_bv_util.mk_numeral(1, ebits+2));
     t = m_bv_util.mk_bv_sub(t, lz); 
     t = m_bv_util.mk_bv_sub(t, m_bv_util.mk_sign_extend(2, e_min));
-    expr_ref TINY(m);
+    dbg_decouple("fpa2bv_rnd_t", t);
+    expr_ref TINY(m);    
     TINY = m_bv_util.mk_sle(t, m_bv_util.mk_numeral((unsigned)-1, ebits+2));
-    
-    TRACE("fpa2bv_dbg", tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
-    SASSERT(is_well_sorted(m, TINY));
-
     dbg_decouple("fpa2bv_rnd_TINY", TINY);
+    TRACE("fpa2bv_dbg", tout << "TINY = " << mk_ismt2_pp(TINY, m) << std::endl;);
+    SASSERT(is_well_sorted(m, TINY));    
 
     expr_ref beta(m);    
     beta = m_bv_util.mk_bv_add(m_bv_util.mk_bv_sub(exp, lz), m_bv_util.mk_numeral(1, ebits+2));
@@ -2459,7 +2458,7 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
     dbg_decouple("fpa2bv_rnd_e_min", e_min);
     dbg_decouple("fpa2bv_rnd_e_max", e_max);
 
-    expr_ref sigma(m), sigma_add(m), e_min_p2(m);    
+    expr_ref sigma(m), sigma_add(m);
     sigma_add = m_bv_util.mk_bv_sub(exp, m_bv_util.mk_sign_extend(2, e_min));
     sigma_add = m_bv_util.mk_bv_add(sigma_add, m_bv_util.mk_numeral(1, ebits+2));
     m_simp.mk_ite(TINY, sigma_add, lz, sigma);
@@ -2481,9 +2480,10 @@ void fpa2bv_converter::round(sort * s, expr_ref & rm, expr_ref & sgn, expr_ref &
              rs_sig(m), ls_sig(m), big_sh_sig(m), sigma_le_cap(m);
     sigma_neg = m_bv_util.mk_bv_neg(sigma);
     sigma_cap = m_bv_util.mk_numeral(sbits+2, sigma_size);
-    sigma_le_cap = m_bv_util.mk_sle(sigma_neg, sigma_cap);
+    sigma_le_cap = m_bv_util.mk_ule(sigma_neg, sigma_cap);
     m_simp.mk_ite(sigma_le_cap, sigma_neg, sigma_cap, sigma_neg_capped);
     dbg_decouple("fpa2bv_rnd_sigma_neg", sigma_neg);
+    dbg_decouple("fpa2bv_rnd_sigma_cap", sigma_cap);
     dbg_decouple("fpa2bv_rnd_sigma_neg_capped", sigma_neg_capped);
     sigma_lt_zero = m_bv_util.mk_sle(sigma, m_bv_util.mk_numeral((unsigned)-1, sigma_size));
     dbg_decouple("fpa2bv_rnd_sigma_lt_zero", sigma_lt_zero);
