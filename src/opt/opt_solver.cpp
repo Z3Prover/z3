@@ -24,6 +24,8 @@ Notes:
 #include"theory_arith.h"
 #include"theory_diff_logic.h"
 #include "ast_pp.h"
+#include "ast_smt_pp.h"
+#include "pp_params.hpp"
 
 namespace opt {
 
@@ -32,7 +34,8 @@ namespace opt {
         m_params(p),
         m_context(mgr, m_params),
         m(mgr),
-        m_objective_enabled(false) {
+        m_objective_enabled(false),
+        m_is_dump(false) {
         m_logic = l;
         if (m_logic != symbol::null)
             m_context.set_logic(m_logic);
@@ -42,6 +45,7 @@ namespace opt {
     }
 
     void opt_solver::updt_params(params_ref const & p) {
+        m_is_dump = p.get_bool("dump_benchmarks", false);
         m_params.updt_params(p);
         m_context.updt_params(p);
     }
@@ -93,7 +97,8 @@ namespace opt {
         }
     }
 
-    
+    static unsigned g_checksat_count = 0;
+
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_solver_na2as", {
             tout << "opt_opt_solver::check_sat_core: " << m_context.size() << "\n";            
@@ -103,6 +108,11 @@ namespace opt {
         });
 
         lbool r = m_context.check(num_assumptions, assumptions);
+        if (m_is_dump) {
+            std::stringstream buffer;
+            buffer << "opt_solver" << ++g_checksat_count << ".smt2";
+            to_smt2_benchmark(buffer.str().c_str(), "benchmark", "QF_BV");       
+        }
         if (r == l_true && m_objective_enabled) {
             m_objective_values.reset();
             smt::theory_opt& opt = get_optimizer();
@@ -201,6 +211,23 @@ namespace opt {
         }
         return dynamic_cast<opt_solver&>(s);
     }
+    
+    void opt_solver::to_smt2_benchmark(char const * file_name, char const * name, char const * logic, 
+                                       char const * status, char const * attributes) {
+        std::ofstream buffer(file_name);
+        ast_smt_pp pp(m);
+        pp.set_benchmark_name(name);
+        pp.set_logic(logic);
+        pp.set_status(status);
+        pp.add_attributes(attributes);
+        pp_params params;
+        pp.set_simplify_implies(params.simplify_implies());
+        for (unsigned i = 0; i < get_num_assertions(); ++i) {
+            pp.add_assumption(to_expr(get_assertion(i)));
+        }
+        pp.display_smt2(buffer, to_expr(m.mk_true()));
+        buffer.close();
+    }
 
     opt_solver::toggle_objective::toggle_objective(opt_solver& s, bool new_value): s(s), m_old_value(s.m_objective_enabled) {
         s.m_objective_enabled = new_value;
@@ -209,6 +236,5 @@ namespace opt {
     opt_solver::toggle_objective::~toggle_objective() {
         s.m_objective_enabled = m_old_value;
     }
-
 
 }

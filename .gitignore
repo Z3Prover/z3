@@ -18,6 +18,7 @@ ocamlz3
 # Emacs temp files
 \#*\#
 # Directories with generated code and documentation
+release/*
 build/*
 build-dist/*
 dist/*

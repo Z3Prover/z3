@@ -45,7 +45,8 @@ namespace opt {
         symbol              m_logic;
         bool                m_objective_enabled;
         svector<smt::theory_var>  m_objective_vars;
-        vector<inf_eps>         m_objective_values;
+        vector<inf_eps>     m_objective_values;
+        bool                m_is_dump;        
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -88,6 +89,9 @@ namespace opt {
         smt::context& get_context() { return m_context.get_context(); } // used by weighted maxsat.
         
         smt::theory_opt& get_optimizer();
+
+        void to_smt2_benchmark(char const * file_name, char const * name = "benchmarks", 
+                           char const * logic = "", char const * status = "unknown", char const * attributes = "");
     };
 }
 
