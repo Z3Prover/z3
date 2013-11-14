@@ -133,9 +133,10 @@ namespace smt {
     }
 
     static unsigned gcd(unsigned a, unsigned b) {
-        if (a == 0) return b;
-        if (b == 0) return a;
         while (a != b) {
+            if (a == 0) return b;
+            if (b == 0) return a;
+            SASSERT(a != 0 && b != 0);
             if (a < b) {
                 b %= a;
             }

@@ -109,9 +109,11 @@ namespace opt {
 
         lbool r = m_context.check(num_assumptions, assumptions);
         if (m_is_dump) {
-            std::stringstream buffer;
-            buffer << "opt_solver" << ++g_checksat_count << ".smt2";
-            to_smt2_benchmark(buffer.str().c_str(), "benchmark", "QF_BV");       
+            std::stringstream file_name;
+            file_name << "opt_solver" << ++g_checksat_count << ".smt2";
+            std::ofstream buffer(file_name.str().c_str());
+            to_smt2_benchmark(buffer, "opt_solver", "QF_BV");
+            buffer.close();
         }
         if (r == l_true && m_objective_enabled) {
             m_objective_values.reset();
@@ -212,9 +214,8 @@ namespace opt {
         return dynamic_cast<opt_solver&>(s);
     }
     
-    void opt_solver::to_smt2_benchmark(char const * file_name, char const * name, char const * logic, 
-                                       char const * status, char const * attributes) {
-        std::ofstream buffer(file_name);
+    void opt_solver::to_smt2_benchmark(std::ofstream & buffer, char const * name, char const * logic, 
+                                       char const * status, char const * attributes) {        
         ast_smt_pp pp(m);
         pp.set_benchmark_name(name);
         pp.set_logic(logic);
@@ -225,8 +226,7 @@ namespace opt {
         for (unsigned i = 0; i < get_num_assertions(); ++i) {
             pp.add_assumption(to_expr(get_assertion(i)));
         }
-        pp.display_smt2(buffer, to_expr(m.mk_true()));
-        buffer.close();
+        pp.display_smt2(buffer, to_expr(m.mk_true()));        
     }
 
     opt_solver::toggle_objective::toggle_objective(opt_solver& s, bool new_value): s(s), m_old_value(s.m_objective_enabled) {
