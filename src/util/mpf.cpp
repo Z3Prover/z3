@@ -360,6 +360,8 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
         mk_inf(ebits, sbits, x.sign, o);
     else if (is_zero(x))
         mk_zero(ebits, sbits, x.sign, o);
+    else if (x.ebits == ebits && x.sbits == sbits) 
+        set(o, x);
     else {
         set(o, x);
         unpack(o, true);
