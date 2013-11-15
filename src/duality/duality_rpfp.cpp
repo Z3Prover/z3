@@ -89,15 +89,17 @@ namespace Duality {
     if(memo.find(t) != memo.end())
       return;
     memo.insert(t);
-    decl_kind k = t.decl().get_decl_kind();
-    if(k == And || k == Or || k == Not || k == Implies || k == Iff){
-      ops++;
-      int nargs = t.num_args();
-      for(int i = 0; i < nargs; i++)
-	SummarizeRec(memo,lits,ops,t.arg(i));
+    if(t.is_app()){
+      decl_kind k = t.decl().get_decl_kind();
+      if(k == And || k == Or || k == Not || k == Implies || k == Iff){
+	ops++;
+	int nargs = t.num_args();
+	for(int i = 0; i < nargs; i++)
+	  SummarizeRec(memo,lits,ops,t.arg(i));
+	return;
+      }
     }
-    else
-      lits.push_back(t);
+    lits.push_back(t);
   }
 
   int Z3User::CumulativeDecisions(){
