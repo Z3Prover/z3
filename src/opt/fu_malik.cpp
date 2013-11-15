@@ -18,6 +18,11 @@ Notes:
 --*/
 
 #include "fu_malik.h"
+#include "smtlogics/qfbv_tactic.h"
+#include "tactic2solver.h"
+#include "goal.h"
+#include "probe.h"
+#include "smt_context.h"
 
 /**
    \brief Fu & Malik procedure for MaxSAT. This procedure is based on 
@@ -37,25 +42,29 @@ namespace opt {
 
     struct fu_malik::imp {
         ast_manager& m;
-        solver& s;
+        ref<solver>     m_s;
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
         unsigned        m_upper_size;
-
+        solver &        m_original_solver;
+        bool            m_use_new_bv_solver;       
 
         imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
-            s(s),
+            m_s(&s),
             m_soft(soft),
             m_orig_soft(soft),
             m_aux(m),
-            m_assignment(m)
+            m_assignment(m),
+            m_original_solver(s),
+            m_use_new_bv_solver(false)
         {
             m_upper_size = m_soft.size() + 1;
         }
 
+        solver& s() { return *m_s; }
 
         /**
            \brief One step of the Fu&Malik algorithm.
@@ -73,18 +82,30 @@ namespace opt {
         */
 
         lbool step() {
-            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step)\n";); // add some count, add some information of # of soft constraints still possibly sat.
+            IF_VERBOSE(0, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper_size << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
             }
-            lbool is_sat = s.check_sat(assumptions.size(), assumptions.c_ptr());
+            lbool is_sat = s().check_sat(assumptions.size(), assumptions.c_ptr());
             if (is_sat != l_false) {
                 return is_sat;
             }
 
             ptr_vector<expr> core;
-            s.get_unsat_core(core);
+            if (m_use_new_bv_solver) {
+                unsigned i = 0;
+                while (s().check_sat(core.size(), core.c_ptr()) != l_false) {
+                    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
+                    core.push_back(assumptions[i].get());
+                    ++i;
+                }
+            }
+            else {
+                s().get_unsat_core(core);
+            }
+
+            SASSERT(!core.empty());
 
             // Update soft-constraints and aux_vars
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -101,9 +122,11 @@ namespace opt {
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
                 m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
-                s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
             }
+            SASSERT (!block_vars.empty());
             assert_at_most_one(block_vars);
+            IF_VERBOSE(0, verbose_stream() << "(opt.max_sat # of non-blocked soft constraints: " << m_soft.size() - block_vars.size() << ")\n";);
             return l_false;
         }
 
@@ -111,7 +134,7 @@ namespace opt {
             expr_ref has_one(m), has_zero(m), at_most_one(m);
             mk_at_most_one(block_vars.size(), block_vars.c_ptr(), has_one, has_zero);
             at_most_one = m.mk_or(has_one, has_zero);
-            s.assert_expr(at_most_one);
+            s().assert_expr(at_most_one);
         }
 
         void mk_at_most_one(unsigned n, expr* const * vars, expr_ref& has_one, expr_ref& has_zero) {
@@ -129,15 +152,40 @@ namespace opt {
                 has_zero  = m.mk_and(has_zero1, has_zero2);
             }
         }
+        
+        void set_solver() {
+            solver& current_solver = s();
+            goal g(m, true, false);
+            unsigned num_assertions = current_solver.get_num_assertions();
+            for (unsigned i = 0; i < num_assertions; ++i) {
+                g.assert_expr(current_solver.get_assertion(i));
+            }            
+            probe *p = mk_is_qfbv_probe();
+            bool all_bv = (*p)(g).is_true();
+            if (all_bv) {
+                opt_solver & os = opt_solver::to_opt(m_original_solver);
+                smt::context & ctx = os.get_context();                
+                tactic* t = mk_qfbv_tactic(m, ctx.get_params());                       
+                // The new SAT solver hasn't supported unsat core yet
+                m_s = mk_tactic2solver(m, t);
+                SASSERT(m_s != &m_original_solver);
+                for (unsigned i = 0; i < num_assertions; ++i) {
+                    m_s->assert_expr(current_solver.get_assertion(i));
+                }
+                m_use_new_bv_solver = true;
+                IF_VERBOSE(0, verbose_stream() << "Force to use the new BV solver." << std::endl;);
+            }
+        }
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
         lbool operator()() {
-            lbool is_sat = s.check_sat(0,0);
+            set_solver();
+            lbool is_sat = s().check_sat(0,0);
             if (!m_soft.empty() && is_sat == l_true) {
-                solver::scoped_push _sp(s);
+                solver::scoped_push _sp(s());
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                    s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                    s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
                 }
                 
                 lbool is_sat = l_true;                
@@ -150,7 +198,7 @@ namespace opt {
                 if (is_sat == l_true) {
                     // Get a list of satisfying m_soft
                     model_ref model;
-                    s.get_model(model);
+                    s().get_model(model);
 
                     m_assignment.reset();                    
                     for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
