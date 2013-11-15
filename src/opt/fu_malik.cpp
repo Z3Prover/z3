@@ -48,6 +48,7 @@ namespace opt {
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
         unsigned        m_upper_size;
+
         solver &        m_original_solver;
         bool            m_use_new_bv_solver;       
 
