@@ -36,8 +36,12 @@ Notes:
      That is, during a propagation, assignment or conflict resolution
      step track cutting-planes.
 
-  - TBD: profile overhead of (re)creating sorting circuits.
-    Possibly delay creating them until restart.
+   - TBD: profile overhead of (re)creating sorting circuits.
+     Possibly delay creating them until restart.
+
+   - TBD: deal with integer overflows.
+
+   - 
 
 --*/
 
@@ -376,6 +380,7 @@ namespace smt {
             SASSERT(curr_max <= k);
             add_clause(c, lits);                    
         }                
+        // min + min_increment > k
         else if (min == k && aval == l_true) {
             literal_vector& lits = get_lits();
             lits.push_back(~literal(abv));
@@ -384,6 +389,7 @@ namespace smt {
                 add_clause(c, lits);
             }
             else {
+                // curr_min + min_increment > k
                 SASSERT(curr_min == k);
                 for (unsigned i = 0; i < args.size(); ++i) {
                     bool_var bv = args[i].first;
@@ -396,6 +402,7 @@ namespace smt {
                 }
             }
         }
+        // k < max && ... ?
         else if (max == k + 1 && aval == l_false) {
             literal_vector& lits = get_lits();
             lits.push_back(literal(abv));
@@ -493,7 +500,8 @@ namespace smt {
         literal internalize(card& ca, expr* e) {
             obj_map<expr, literal> cache;
             for (unsigned i = 0; i < ca.m_args.size(); ++i) {
-                cache.insert(ca.m_app->get_arg(i), literal(ca.m_args[i].first));
+                bool_var bv = ca.m_args[i].first;
+                cache.insert(ctx.bool_var2expr(bv), literal(bv));
             }
             cache.insert(m.mk_false(), false_literal);
             cache.insert(m.mk_true(),  true_literal);
@@ -622,7 +630,7 @@ namespace smt {
         SASSERT(m_util.is_at_most_k(a)); 
         literal atmostk;
         int k = m_util.get_k(a);
-        unsigned num_args = a->get_num_args();
+        unsigned num_args = ca.m_args.size();
 
         sort_expr se(*this);
         if (k >= static_cast<int>(num_args)) {
@@ -635,7 +643,7 @@ namespace smt {
             sorting_network<sort_expr> sn(se);
             expr_ref_vector in(m), out(m);
             for (unsigned i = 0; i < num_args; ++i) {
-                in.push_back(c.m_app->get_arg(i));
+                in.push_back(ctx.bool_var2expr(c.m_args[i].first));
             }
             sn(in, out);
             atmostk = ~se.internalize(c, out[k].get()); // k'th output is 0.
