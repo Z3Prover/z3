@@ -1588,8 +1588,7 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     v2 = x;
     
     unsigned ebits = m_util.get_ebits(f->get_range());
-    unsigned sbits = m_util.get_sbits(f->get_range());
-    SASSERT(ebits < sbits);
+    unsigned sbits = m_util.get_sbits(f->get_range());    
 
     expr_ref a_sgn(m), a_sig(m), a_exp(m), a_lz(m);
     unpack(x, a_sgn, a_sig, a_exp, a_lz, true);
@@ -1619,9 +1618,22 @@ void fpa2bv_converter::mk_round_to_integral(func_decl * f, unsigned num, expr * 
     expr_ref shift(m), r_shifted(m), l_shifted(m);
     shift = m_bv_util.mk_bv_sub(m_bv_util.mk_numeral(sbits-1, ebits+1), 
                                 m_bv_util.mk_sign_extend(1, a_exp));
-    r_shifted = m_bv_util.mk_bv_lshr(a_sig, m_bv_util.mk_zero_extend(sbits-ebits-1, shift));
+    if (sbits > (ebits+1))
+        r_shifted = m_bv_util.mk_bv_lshr(a_sig, m_bv_util.mk_zero_extend(sbits-(ebits+1), shift));
+    else if (sbits < (ebits+1))
+        r_shifted = m_bv_util.mk_extract(ebits, ebits-sbits+1, m_bv_util.mk_bv_lshr(m_bv_util.mk_zero_extend(ebits+1-sbits, a_sig), shift));
+    else // sbits == ebits+1
+        r_shifted = m_bv_util.mk_bv_lshr(a_sig, shift);
+    SASSERT(is_well_sorted(m, r_shifted));
     SASSERT(m_bv_util.get_bv_size(r_shifted) == sbits);
-    l_shifted = m_bv_util.mk_bv_shl(r_shifted, m_bv_util.mk_zero_extend(sbits-ebits-1, shift));    
+
+    if (sbits > (ebits+1))
+        l_shifted = m_bv_util.mk_bv_shl(r_shifted, m_bv_util.mk_zero_extend(sbits-(ebits+1), shift));
+    else if (sbits < (ebits+1))
+        l_shifted = m_bv_util.mk_extract(ebits, ebits-sbits+1, m_bv_util.mk_bv_shl(m_bv_util.mk_zero_extend(ebits+1-sbits, r_shifted), shift));
+    else // sbits == ebits+1
+        l_shifted = m_bv_util.mk_bv_shl(r_shifted, shift);
+    SASSERT(is_well_sorted(m, l_shifted));
     SASSERT(m_bv_util.get_bv_size(l_shifted) == sbits);
 
     res_sig = m_bv_util.mk_concat(m_bv_util.mk_numeral(0, 1), 
@@ -2239,7 +2251,7 @@ void fpa2bv_converter::mk_bias(expr * e, expr_ref & result) {
 
 void fpa2bv_converter::mk_unbias(expr * e, expr_ref & result) {
     unsigned ebits = m_bv_util.get_bv_size(e);
-    SASSERT(ebits >= 2);
+    SASSERT(ebits >= 3);
 
     expr_ref e_plus_one(m);
     e_plus_one = m_bv_util.mk_bv_add(e, m_bv_util.mk_numeral(1, ebits));
@@ -2275,6 +2287,7 @@ void fpa2bv_converter::unpack(expr * e, expr_ref & sgn, expr_ref & sig, expr_ref
 
     expr_ref denormal_sig(m), denormal_exp(m);
     denormal_sig = m_bv_util.mk_zero_extend(1, sig);   
+    SASSERT(ebits >= 3); // Note: when ebits=2 there is no 1-exponent, so mk_unbias will produce a 0.
     denormal_exp = m_bv_util.mk_numeral(1, ebits);
     mk_unbias(denormal_exp, denormal_exp);
     dbg_decouple("fpa2bv_unpack_denormal_exp", denormal_exp);    
