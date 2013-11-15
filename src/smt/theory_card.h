@@ -32,6 +32,7 @@ namespace smt {
 
         struct stats {
             unsigned m_num_axioms;
+            unsigned m_num_propagations;
             unsigned m_num_predicates;
             unsigned m_num_compiles;
             void reset() { memset(this, 0, sizeof(*this)); }
@@ -75,10 +76,12 @@ namespace smt {
         void add_card(card* c);
 
         void add_clause(card& c, literal_vector const& lits);
+        void add_assign(card& c, literal_vector const& lits, literal l);
         literal_vector& get_lits();
 
         int   find_inc(bool_var bv, svector<std::pair<bool_var, int> >const& vars);
         void  propagate_assignment(card& c);
+        int   get_max_delta(card& c);
         int   accumulate_max(literal_vector& lits, card& c);
         int   accumulate_min(literal_vector& lits, card& c);
         lbool dec_max(int inc, lbool val);

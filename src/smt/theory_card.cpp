@@ -136,6 +136,12 @@ namespace smt {
         if (a == 0) return b;
         if (b == 0) return a;
         while (a != b) {
+            if (a == 0) {
+                return b;
+            }
+            if (b == 0) {
+                return a;
+            }
             if (a < b) {
                 b %= a;
             }
@@ -171,7 +177,7 @@ namespace smt {
         if (!args.empty()) {
             unsigned g = abs(args[0].second);
             for (unsigned i = 1; g > 1 && i < args.size(); ++i) {
-                g = gcd(g, args[i].second);
+                g = gcd(g, abs(args[i].second));
             }
             if (g > 1) {
                 int k = c->m_k;
@@ -183,7 +189,7 @@ namespace smt {
                     k = abs(k);
                     k += (k % g);
                     k /= g;
-                    k = -k;
+                    c->m_k = -k;
                 }
                 for (unsigned i = 0; i < args.size(); ++i) {
                     args[i].second /= g;
@@ -213,6 +219,7 @@ namespace smt {
 
     void theory_card::collect_statistics(::statistics& st) const {
         st.update("pb axioms", m_stats.m_num_axioms);
+        st.update("pb propagations", m_stats.m_num_propagations);
         st.update("pb predicates", m_stats.m_num_predicates);        
         st.update("pb compilations", m_stats.m_num_compiles);
     }
@@ -316,6 +323,21 @@ namespace smt {
         return curr_min;
     }    
 
+    int theory_card::get_max_delta(card& c) {
+        if (m_util.is_at_most_k(c.m_app)) {
+            return 1;
+        }
+        int max = 0;
+        context& ctx = get_context();
+        for (unsigned i = 0; i < c.m_args.size(); ++i) {
+            if (c.m_args[i].second > max && ctx.get_assignment(c.m_args[i].first) == l_undef) {
+                max = c.m_args[i].second;
+            }
+        }
+        return max;
+    }
+
+
     int theory_card::accumulate_max(literal_vector& lits, card& c) {
         context& ctx = get_context();
         arg_t const& args = c.m_args;
@@ -364,19 +386,17 @@ namespace smt {
         lbool aval = ctx.get_assignment(abv);
         if (min > k && aval != l_false) {
             literal_vector& lits = get_lits();
-            lits.push_back(~literal(abv));
             int curr_min = accumulate_min(lits, c);
             SASSERT(curr_min > k);
-            add_clause(c, lits);                    
+            add_assign(c, lits, ~literal(abv));                    
         }
         else if (max <= k && aval != l_true) {
             literal_vector& lits = get_lits();
-            lits.push_back(literal(abv));
             int curr_max = accumulate_max(lits, c);
             SASSERT(curr_max <= k);
-            add_clause(c, lits);                    
+            add_assign(c, lits, literal(abv));
         }                
-        else if (min == k && aval == l_true) {
+        else if (min <= k && k < min + get_max_delta(c) && aval == l_true) {
             literal_vector& lits = get_lits();
             lits.push_back(~literal(abv));
             int curr_min = accumulate_min(lits, c);
@@ -384,37 +404,70 @@ namespace smt {
                 add_clause(c, lits);
             }
             else {
-                SASSERT(curr_min == k);
                 for (unsigned i = 0; i < args.size(); ++i) {
                     bool_var bv = args[i].first;
                     int inc = args[i].second;
-                    if (inc_min(inc, ctx.get_assignment(bv)) == l_undef) {
-                        literal_vector lits_save(lits); // add_clause has a side-effect on literals.
-                        lits_save.push_back(literal(bv, inc > 0)); // avoid incrementing min.
-                        add_clause(c, lits_save);
+                    if (curr_min + inc > k && inc_min(inc, ctx.get_assignment(bv)) == l_undef) {
+                        add_assign(c, lits, literal(bv, inc > 0));
                     }
                 }
             }
         }
-        else if (max == k + 1 && aval == l_false) {
+        else if (max - get_max_delta(c) <= k && k < max && aval == l_false) {
             literal_vector& lits = get_lits();
             lits.push_back(literal(abv));
             int curr_max = accumulate_max(lits, c);
             if (curr_max <= k) {
                 add_clause(c, lits);
             }
-            else if (curr_max == k + 1) {
+            else {
                 for (unsigned i = 0; i < args.size(); ++i) {
                     bool_var bv = args[i].first;
                     int inc = args[i].second;
-                    if (dec_max(inc, ctx.get_assignment(bv)) == l_undef) {
-                        literal_vector lits_save(lits); // add_clause has a side-effect on literals.
-                        lits_save.push_back(literal(bv, inc < 0)); // avoid decrementing max.
-                        add_clause(c, lits_save);
+                    if (curr_max - abs(inc) <= k && dec_max(inc, ctx.get_assignment(bv)) == l_undef) {
+                        add_assign(c, lits, literal(bv, inc < 0));
                     }
                 }
             }
         }
+#if 0
+        else if (aval == l_true) {
+            SASSERT(min < k);
+            literal_vector& lits = get_lits();
+            int curr_min = accumulate_min(lits, c);
+            bool all_inc = curr_min == k;
+            unsigned num_incs = 0;
+            for (unsigned i = 0; all_inc && i < args.size(); ++i) {
+                bool_var bv = args[i].first;
+                int inc = args[i].second;
+                if (inc_min(inc, ctx.get_assignment(bv)) == l_undef) {
+                    all_inc = inc + min > k;
+                    num_incs++;
+                }
+            }
+            if (num_incs > 0) {
+                std::cout << "missed T propgations " << num_incs << "\n";
+            }
+        }
+        else if (aval == l_false) {
+            literal_vector& lits = get_lits();
+            lits.push_back(literal(abv));
+            int curr_max = accumulate_max(lits, c);
+            bool all_dec = curr_max > k;
+            unsigned num_decs = 0;
+            for (unsigned i = 0; all_dec && i < args.size(); ++i) {
+                bool_var bv = args[i].first;
+                int inc = args[i].second;
+                if (dec_max(inc, ctx.get_assignment(bv)) == l_undef) {
+                    all_dec = inc + max <= k;
+                    num_decs++;
+                }
+            }
+            if (num_decs > 0) {
+                std::cout << "missed F propgations " << num_decs << "\n";
+            }
+        }
+#endif
     }
 
     void theory_card::assign_eh(bool_var v, bool is_true) {
@@ -608,10 +661,14 @@ namespace smt {
     }
 
     bool theory_card::should_compile(card& c) {
+#if 1
+        return false;
+#else
         if (!m_util.is_at_most_k(c.m_app)) {
             return false;
         }
         return c.m_num_propagations >= c.m_compilation_threshold;
+#endif
     }
 
     void theory_card::compile_at_most(card& c) {
@@ -686,6 +743,19 @@ namespace smt {
         return m_literals;
     }
 
+    void theory_card::add_assign(card& c, literal_vector const& lits, literal l) {
+        literal_vector ls;
+        ++c.m_num_propagations;
+        m_stats.m_num_propagations++;
+        context& ctx = get_context();
+        for (unsigned i = 0; i < lits.size(); ++i) {
+            ls.push_back(~lits[i]);
+        }
+        ctx.assign(l, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), ls.size(), ls.c_ptr(), l)));
+    }
+    
+                   
+
     void theory_card::add_clause(card& c, literal_vector const& lits) {
         ++c.m_num_propagations;
         m_stats.m_num_axioms++;
@@ -693,7 +763,8 @@ namespace smt {
         TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-        IF_VERBOSE(1, ctx.display_literals_verbose(verbose_stream(), lits.size(), lits.c_ptr());
+        IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
+                                                   lits.size(), lits.c_ptr());
                    verbose_stream() << "\n";);
         // ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     }

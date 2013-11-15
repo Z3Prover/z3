@@ -18,6 +18,8 @@ Notes:
 --*/
 
 #include "fu_malik.h"
+#include "smtlogics/qfbv_tactic.h"
+#include "tactic2solver.h"
 
 /**
    \brief Fu & Malik procedure for MaxSAT. This procedure is based on 
@@ -37,17 +39,18 @@ namespace opt {
 
     struct fu_malik::imp {
         ast_manager& m;
-        solver& s;
+        ref<solver>     m_s;
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
         unsigned        m_upper_size;
 
+        solver& s() { return *m_s; }
 
         imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
-            s(s),
+            m_s(&s),
             m_soft(soft),
             m_orig_soft(soft),
             m_aux(m),
@@ -78,13 +81,13 @@ namespace opt {
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
             }
-            lbool is_sat = s.check_sat(assumptions.size(), assumptions.c_ptr());
+            lbool is_sat = s().check_sat(assumptions.size(), assumptions.c_ptr());
             if (is_sat != l_false) {
                 return is_sat;
             }
 
             ptr_vector<expr> core;
-            s.get_unsat_core(core);
+            s().get_unsat_core(core);
 
             // Update soft-constraints and aux_vars
             for (unsigned i = 0; i < m_soft.size(); ++i) {
@@ -101,7 +104,7 @@ namespace opt {
                 m_aux[i] = m.mk_fresh_const("aux", m.mk_bool_sort());
                 m_soft[i] = m.mk_or(m_soft[i].get(), block_var);
                 block_vars.push_back(block_var);
-                s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
             }
             assert_at_most_one(block_vars);
             return l_false;
@@ -111,7 +114,7 @@ namespace opt {
             expr_ref has_one(m), has_zero(m), at_most_one(m);
             mk_at_most_one(block_vars.size(), block_vars.c_ptr(), has_one, has_zero);
             at_most_one = m.mk_or(has_one, has_zero);
-            s.assert_expr(at_most_one);
+            s().assert_expr(at_most_one);
         }
 
         void mk_at_most_one(unsigned n, expr* const * vars, expr_ref& has_one, expr_ref& has_zero) {
@@ -129,15 +132,30 @@ namespace opt {
                 has_zero  = m.mk_and(has_zero1, has_zero2);
             }
         }
+        
+        void set_solver() {
+            solver& original_solver = s();
+            bool all_bv = false;
+            // retrieve goal from s()
+            // extract mk_qfbv_probe
+            // run probe on goals
+            // if result is "yes", then create teh qfbv_tactic.
+            
+            if (all_bv) {
+                tactic* t = mk_qfbv_tactic(m);                
+                m_s = mk_tactic2solver(m, t);
+            }
+        }
 
         // TBD: bug when cancel flag is set, fu_malik returns is_sat == l_true instead of l_undef
         lbool operator()() {
-            lbool is_sat = s.check_sat(0,0);
+            set_solver();
+            lbool is_sat = s().check_sat(0,0);
             if (!m_soft.empty() && is_sat == l_true) {
-                solver::scoped_push _sp(s);
+                solver::scoped_push _sp(s());
                 for (unsigned i = 0; i < m_soft.size(); ++i) {
                     m_aux.push_back(m.mk_fresh_const("p", m.mk_bool_sort()));
-                    s.assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
+                    s().assert_expr(m.mk_or(m_soft[i].get(), m_aux[i].get()));
                 }
                 
                 lbool is_sat = l_true;                
@@ -150,7 +168,7 @@ namespace opt {
                 if (is_sat == l_true) {
                     // Get a list of satisfying m_soft
                     model_ref model;
-                    s.get_model(model);
+                    s().get_model(model);
 
                     m_assignment.reset();                    
                     for (unsigned i = 0; i < m_orig_soft.size(); ++i) {
