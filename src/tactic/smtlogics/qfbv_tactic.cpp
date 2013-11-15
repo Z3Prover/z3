@@ -31,15 +31,6 @@ Notes:
 
 #define MEMLIMIT 300
 
-tactic * mk_new_sat_tactic(ast_manager & m) {
-    IF_VERBOSE(0, verbose_stream() << "Try to use the new SAT solver." << std::endl;);
-    tactic * new_sat = cond(mk_or(mk_produce_proofs_probe(), mk_produce_unsat_cores_probe()),
-                            and_then(mk_simplify_tactic(m),
-                                     mk_smt_tactic()),
-                            mk_sat_tactic(m));
-    return new_sat;
-}
-
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p;
     main_p.set_bool("elim_and", true);
@@ -94,7 +85,10 @@ tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * new_sat = and_then(mk_simplify_tactic(m),
                                 mk_smt_tactic());
 #else
-    tactic * new_sat = mk_new_sat_tactic(m);
+    tactic * new_sat = cond(mk_or(mk_produce_proofs_probe(), mk_produce_unsat_cores_probe()),
+                            and_then(mk_simplify_tactic(m),
+                                     mk_smt_tactic()),
+                            mk_sat_tactic(m));
 #endif    
     
     tactic * st = using_params(and_then(preamble_st,
