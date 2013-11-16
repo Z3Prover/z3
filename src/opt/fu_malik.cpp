@@ -18,7 +18,7 @@ Notes:
 --*/
 
 #include "fu_malik.h"
-#include "smtlogics/qfbv_tactic.h"
+#include "qfbv_tactic.h"
 #include "tactic2solver.h"
 #include "goal.h"
 #include "probe.h"
