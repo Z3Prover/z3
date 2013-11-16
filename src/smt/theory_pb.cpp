@@ -196,7 +196,7 @@ namespace smt {
     lbool theory_pb::normalize_ineq(arg_t& args, int& k) {
 
         // normalize first all literals to be positive:
-        // then we can can compare them more easily.
+        // then we can compare them more easily.
         for (unsigned i = 0; i < args.size(); ++i) {
             if (args[i].first.sign()) {
                 args[i].first.neg();
@@ -451,12 +451,42 @@ namespace smt {
 
         if (m_watch.find(v, ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
-                // TBD: assign_use(v, is_true, *(*ineqs)[i]);
+                assign_watch(v, is_true, *ineqs, i);
             }
         }
         if (m_ineqs.find(v, c)) {
             // TBD: propagate_assignment(*c);
         }
+    }
+
+    void theory_pb::assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index) {
+#if 0
+        TBD
+        ineq& c = *watch[i];
+        c.m_sum;
+        unsigned w;
+        for (w = 0; w < c.m_watch_sz; ++i) {
+            if (c.m_args[w].first.var() == v) {
+                break;
+            }
+        }
+        SASSERT(w < c.m_watch_sz);
+        literal l = c.m_args[w].first;
+        int coeff = c.m_args[w].second;
+        if (is_true == !l.sign()) {
+            ctx.push_trail(value_trail<context, int>(c.m_sum));
+            c.m_sum += coeff;
+            // optional propagate
+        }
+        else {
+            unsigned deficit = c.m_max_sum - coeff;
+            for (unsigned i = c.m_watch_sz; i < c.m_args.size(); ++i) {
+                if 
+            }
+            // find a different literal to watch.
+            ctx.push_trail(value_trail<context, unsigned>(c.m_watch_sz));
+        }
+#endif
     }
 
     struct theory_pb::sort_expr {

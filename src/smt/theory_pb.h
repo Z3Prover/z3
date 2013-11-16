@@ -78,6 +78,7 @@ namespace smt {
         lbool normalize_ineq(arg_t& args, int& k);
         literal compile_arg(expr* arg);
         void add_watch(literal l, ineq* c);
+        void assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
 
         std::ostream& display(std::ostream& out, ineq& c) const;
 
