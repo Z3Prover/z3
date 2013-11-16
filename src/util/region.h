@@ -53,6 +53,7 @@ public:
         m_scopes.push_back(m_chuncks.size());
     }
 
+
     void pop_scope() {
         unsigned old_size = m_scopes.back();
         m_scopes.pop_back();
