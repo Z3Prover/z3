@@ -25,8 +25,8 @@ Notes:
 namespace smt {
 
     template<typename Ext>
-    class thread_spanning_tree : public spanning_tree_base, private Ext {
-    private:        
+    class thread_spanning_tree : public spanning_tree_base, protected Ext {
+    protected:        
         typedef dl_var node;
         typedef dl_edge<Ext> edge;
         typedef dl_graph<Ext> graph;     
@@ -57,18 +57,27 @@ namespace smt {
         bool is_ancestor_of(node ancestor, node child);
 
     public:      
-        thread_spanning_tree() {};
         thread_spanning_tree(graph & g);
-        ~thread_spanning_tree() {};
 
-        void initialize(svector<edge_id> const & tree);
+        virtual void initialize(svector<edge_id> const & tree);
         void get_descendants(node start, svector<node> & descendants);
         
-        void update(edge_id enter_id, edge_id leave_id);                
+        virtual void update(edge_id enter_id, edge_id leave_id);                
         void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against);              
         bool in_subtree_t2(node child);
 
         bool check_well_formed();        
+    };
+
+    template<typename Ext>
+    class basic_spanning_tree : public thread_spanning_tree<Ext> {
+    private:
+        graph * m_tree_graph;
+
+    public:
+        basic_spanning_tree(graph & g);
+        void initialize(svector<edge_id> const & tree);
+        void update(edge_id enter_id, edge_id leave_id);
     };
 
 }

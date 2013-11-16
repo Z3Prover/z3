@@ -41,7 +41,7 @@ namespace smt {
             }
         }
         m_step = 0;
-        m_tree = alloc(thread_spanning_tree<Ext>, m_graph);
+        m_tree = alloc(basic_spanning_tree<Ext>, m_graph);
     }
 
     template<typename Ext>

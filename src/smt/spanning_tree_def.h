@@ -412,6 +412,63 @@ namespace smt {
         SASSERT(children.empty());
         return true;
     }
+
+    // Basic spanning tree
+    template<typename Ext>
+    basic_spanning_tree<Ext>::basic_spanning_tree(graph & g) : thread_spanning_tree<Ext>(g) {        
+    }
+
+    template<typename Ext>
+    void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
+        unsigned num_nodes = m_graph.get_num_nodes();        
+        m_tree_graph = alloc(graph);
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            m_tree_graph->init_var(i);
+        }
+
+        vector<edge> const & es = m_graph.get_all_edges();
+        svector<edge_id>::const_iterator it = tree.begin(), end = tree.end();
+        for(; it != end; ++it) {
+            edge const & e = es[*it];
+            m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
+        }
+
+        node root = num_nodes - 1;
+        m_tree_graph->bfs_undirected(root, m_pred, m_depth);
+        m_tree_graph->dfs_undirected(root, m_thread);
+    }
+
+    template<typename Ext>
+    void basic_spanning_tree<Ext>::update(edge_id enter_id, edge_id leave_id) {
+        if (m_tree_graph)
+            dealloc(m_tree_graph);
+        m_tree_graph = alloc(graph);
+        unsigned num_nodes = m_graph.get_num_nodes();
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            m_tree_graph->init_var(i);
+        }
+
+        vector<edge> const & es = m_graph.get_all_edges();
+        svector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
+        for(; it != end; ++it) {
+            edge const & e = es[*it];
+            if (leave_id != *it) {
+                m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
+            }
+        }
+        m_tree_graph->add_edge(m_graph.get_source(enter_id), m_graph.get_target(enter_id), m_graph.get_weight(enter_id), explanation());
+
+        node root = num_nodes - 1;
+        m_tree_graph->bfs_undirected(root, m_pred, m_depth);
+        m_tree_graph->dfs_undirected(root, m_thread);
+
+        for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+            edge_id id;
+            VERIFY(m_graph.get_edge_id(x, m_pred[x], id));
+            m_tree[x] = id;
+        }
+    }
+
 }
 
 #endif
