@@ -27,8 +27,7 @@ namespace smt {
 
     template<typename Ext>
     network_flow<Ext>::network_flow(graph & g, vector<fin_numeral> const & balances) :
-        m_balances(balances),
-        m_tree(m_graph) {
+        m_balances(balances) {
         // Network flow graph has the edges in the reversed order compared to constraint graph
         // We only take enabled edges from the original graph
         for (unsigned i = 0; i < g.get_num_nodes(); ++i) {
@@ -42,6 +41,7 @@ namespace smt {
             }
         }
         m_step = 0;
+        m_tree = alloc(thread_spanning_tree<Ext>, m_graph);
     }
 
     template<typename Ext>
@@ -82,7 +82,7 @@ namespace smt {
             tree.push_back(m_graph.add_edge(src, tgt, numeral::one(), explanation()));
         }
 
-        m_tree.initialize(tree);
+        m_tree->initialize(tree);
 
         TRACE("network_flow", {
                 tout << pp_vector("Potentials", m_potentials, true) << pp_vector("Flows", m_flows);
@@ -96,14 +96,14 @@ namespace smt {
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id);      
         numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(m_enter_id);
-        numeral change = m_tree.in_subtree_t2(tgt) ? cost : -cost;
+        numeral change = m_tree->in_subtree_t2(tgt) ? cost : -cost;
         node start = m_graph.get_source(m_leave_id);
-        if (!m_tree.in_subtree_t2(start)) {
+        if (!m_tree->in_subtree_t2(start)) {
             start = m_graph.get_target(m_leave_id);;
         }
         TRACE("network_flow", tout << "update_potentials of T_" << start << " with change = " << change << "...\n";);
         svector<node> descendants;
-        m_tree.get_descendants(start, descendants);
+        m_tree->get_descendants(start, descendants);
         SASSERT(descendants.size() >= 1);
         for (unsigned i = 0; i < descendants.size(); ++i) {
             node u = descendants[i];           
@@ -120,7 +120,7 @@ namespace smt {
         node tgt = m_graph.get_target(m_enter_id); 
         svector<edge_id> path;
         svector<bool> against;
-        m_tree.get_path(src, tgt, path, against);
+        m_tree->get_path(src, tgt, path, against);
         SASSERT(path.size() >= 1);
         for (unsigned i = 0; i < path.size(); ++i) {
             edge_id e_id = path[i];
@@ -138,7 +138,7 @@ namespace smt {
         edge_id leave_id;
         svector<edge_id> path;
         svector<bool> against;
-        m_tree.get_path(src, tgt, path, against);
+        m_tree->get_path(src, tgt, path, against);
         SASSERT(path.size() >= 1);
         for (unsigned i = 0; i < path.size(); ++i) {
             edge_id e_id = path[i];
@@ -164,7 +164,7 @@ namespace smt {
 
     template<typename Ext>
     void network_flow<Ext>::update_spanning_tree() {  
-        m_tree.update(m_enter_id, m_leave_id);
+        m_tree->update(m_enter_id, m_leave_id);
     }
 
     // FIXME: should declare pivot as a pivot_rule_impl and refactor
@@ -240,7 +240,7 @@ namespace smt {
     
     template<typename Ext>
     bool network_flow<Ext>::check_well_formed() {
-        SASSERT(m_tree.check_well_formed());
+        SASSERT(m_tree->check_well_formed());
         SASSERT(!m_delta || !(*m_delta).is_neg());
 
         // m_flows are zero on non-basic edges

@@ -49,7 +49,7 @@ namespace smt {
 
         void swap_order(node q, node v);
         node find_rev_thread(node n) const;
-        void fix_depth(node start, node end);
+        void fix_depth(node start, node after_end);
         node get_final(int start);
         bool is_preorder_traversal(node start, node end);   
         node get_common_ancestor(node u, node v);
