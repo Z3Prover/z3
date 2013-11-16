@@ -22,6 +22,7 @@ Notes:
 #include "tactic2solver.h"
 #include "goal.h"
 #include "probe.h"
+#include "tactic.h"
 #include "smt_context.h"
 
 /**
@@ -41,16 +42,16 @@ Notes:
 namespace opt {
 
     struct fu_malik::imp {
-        ast_manager& m;
-        ref<solver>     m_s;
+        ast_manager& m;        
         expr_ref_vector m_soft;
         expr_ref_vector m_orig_soft;
         expr_ref_vector m_aux;
         expr_ref_vector m_assignment;
         unsigned        m_upper_size;
 
+        ref<solver>     m_s;
         solver &        m_original_solver;
-        bool            m_use_new_bv_solver;       
+        bool            m_use_new_bv_solver; 
 
         imp(ast_manager& m, solver& s, expr_ref_vector const& soft):
             m(m),
@@ -82,6 +83,71 @@ namespace opt {
            * add at-most-one constraint with blocking 
         */
 
+        typedef obj_hashtable<expr> expr_set;
+
+        void set2vector(expr_set const& set, expr_ref_vector & es) const {
+            es.reset();
+            expr_set::iterator it = set.begin(), end = set.end();
+            for (; it != end; ++it) {
+                es.push_back(*it);
+            }
+        }
+
+        void set_union(expr_set const& set1, expr_set const& set2, expr_set & set) const {
+            set.reset();
+            expr_set::iterator it = set1.begin(), end = set1.end();
+            for (; it != end; ++it) {
+                set.insert(*it);
+            }
+            it = set2.begin();
+            end = set2.end();
+            for (; it != end; ++it) {
+                set.insert(*it);
+            }
+        }
+
+        void quick_explain(expr_ref_vector const& assumptions, expr_ref_vector & literals, bool has_set, expr_set & core) {
+            if (has_set && s().check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
+                core.reset();
+                return;
+            }
+            
+            SASSERT(!literals.empty());
+            if (literals.size() == 1) {
+                core.reset();
+                core.insert(literals[0].get());
+                return;
+            }
+
+            unsigned mid = literals.size()/2;
+            expr_ref_vector ls1(m), ls2(m);
+            ls1.append(mid, literals.c_ptr());
+            ls2.append(literals.size()-mid, literals.c_ptr() + mid);
+#if Z3DEBUG
+            expr_ref_vector ls(m); 
+            ls.append(ls1); 
+            ls.append(ls2); 
+            SASSERT(ls.size() == literals.size());
+            for (unsigned i = 0; i < literals.size(); ++i) {
+                SASSERT(ls[i].get() == literals[i].get());
+            }
+#endif            
+            expr_ref_vector as1(m);
+            as1.append(assumptions);
+            as1.append(ls1);
+            expr_set core2;
+            quick_explain(as1, ls2, !ls1.empty(), core2);
+
+            expr_ref_vector as2(m), cs2(m);
+            as2.append(assumptions);            
+            set2vector(core2, cs2);
+            as2.append(cs2);
+            expr_set core1;
+            quick_explain(as2, ls1, !core2.empty(), core1);
+
+            set_union(core1, core2, core);
+        }
+
         lbool step() {
             IF_VERBOSE(0, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper_size << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
@@ -95,12 +161,33 @@ namespace opt {
 
             ptr_vector<expr> core;
             if (m_use_new_bv_solver) {
-                unsigned i = 0;
-                while (s().check_sat(core.size(), core.c_ptr()) != l_false) {
-                    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
-                    core.push_back(assumptions[i].get());
-                    ++i;
+                // Binary search for minimal unsat core
+                expr_set core_set;
+                expr_ref_vector empty(m);
+                quick_explain(empty, assumptions, true, core_set);
+                expr_set::iterator it = core_set.begin(), end = core_set.end();
+                for (; it != end; ++it) {
+                    core.push_back(*it);
                 }
+
+                //// Forward linear search for unsat core
+                //unsigned i = 0;
+                //while (s().check_sat(core.size(), core.c_ptr()) != l_false) {
+                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
+                //    core.push_back(assumptions[i].get());
+                //    ++i;
+                //}
+
+                //// Backward linear search for unsat core
+                //unsigned i = 0;
+                //core.append(assumptions.size(), assumptions.c_ptr());
+                //while (!core.empty() && s().check_sat(core.size()-1, core.c_ptr()) == l_false) {
+                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
+                //    core.pop_back();
+                //    ++i;
+                //}
+
+                IF_VERBOSE(0, verbose_stream() << "(opt.max_sat unsat-core of size " << core.size() << ")\n";);
             }
             else {
                 s().get_unsat_core(core);
@@ -154,7 +241,11 @@ namespace opt {
             }
         }
         
-        void set_solver() {
+        void set_solver() { 
+            opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
+            if (opt_s.is_dumping_benchmark())
+                return;
+
             solver& current_solver = s();
             goal g(m, true, false);
             unsigned num_assertions = current_solver.get_num_assertions();
@@ -163,12 +254,11 @@ namespace opt {
             }            
             probe *p = mk_is_qfbv_probe();
             bool all_bv = (*p)(g).is_true();
-            if (all_bv) {
-                opt_solver & os = opt_solver::to_opt(m_original_solver);
-                smt::context & ctx = os.get_context();                
-                tactic* t = mk_qfbv_tactic(m, ctx.get_params());                       
+            if (all_bv) {                
+                smt::context & ctx = opt_s.get_context();                
+                tactic_ref t = mk_qfbv_tactic(m, ctx.get_params());                  
                 // The new SAT solver hasn't supported unsat core yet
-                m_s = mk_tactic2solver(m, t);
+                m_s = mk_tactic2solver(m, t.get());
                 SASSERT(m_s != &m_original_solver);
                 for (unsigned i = 0; i < num_assertions; ++i) {
                     m_s->assert_expr(current_solver.get_assertion(i));
@@ -211,6 +301,11 @@ namespace opt {
                     }
                 }
             }
+            statistics st;
+            s().collect_statistics(st);
+            SASSERT(st.size() > 0);            
+            opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
+            opt_s.set_interim_stats(st);
             // We are done and soft_constraints has 
             // been updated with the max-sat assignment.            
             return is_sat;            
