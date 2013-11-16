@@ -46,7 +46,8 @@ namespace opt {
         bool                m_objective_enabled;
         svector<smt::theory_var>  m_objective_vars;
         vector<inf_eps>     m_objective_values;
-        bool                m_is_dump;        
+        bool                m_is_dump;
+        statistics          m_stats;
     public:
         opt_solver(ast_manager & m, params_ref const & p, symbol const & l);
         virtual ~opt_solver();
@@ -77,7 +78,9 @@ namespace opt {
         expr_ref block_upper_bound(unsigned obj_index, inf_eps const& val);
 
         static opt_solver& to_opt(solver& s);
-        
+        void set_interim_stats(statistics & st);
+        bool is_dumping_benchmark();
+
         class toggle_objective {
             opt_solver& s;
             bool m_old_value;

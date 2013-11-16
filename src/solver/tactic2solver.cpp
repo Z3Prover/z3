@@ -40,6 +40,7 @@ class tactic2solver : public solver_na2as {
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
+    statistics                   m_stats;
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
     virtual ~tactic2solver();
@@ -161,6 +162,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
         m_result->m_unknown = ex.msg();
     }
     m_tactic->collect_statistics(m_result->m_stats);
+    m_tactic->collect_statistics(m_stats);
     m_result->m_model = md;
     m_result->m_proof = pr;
     if (m_produce_unsat_cores) {
@@ -177,9 +179,9 @@ void tactic2solver::set_cancel(bool f) {
         m_tactic->set_cancel(f);
 }
 
-void tactic2solver::collect_statistics(statistics & st) const {
-    if (m_result.get())
-        m_result->collect_statistics(st);
+void tactic2solver::collect_statistics(statistics & st) const {    
+    st.copy(m_stats);
+    SASSERT(m_stats.size() > 0);
 }
 
 void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {

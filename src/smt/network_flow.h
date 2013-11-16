@@ -244,7 +244,7 @@ namespace smt {
         };
         
         graph m_graph;
-        thread_spanning_tree<Ext> m_tree;
+        spanning_tree_base * m_tree;
 
         // Denote supply/demand b_i on node i
         vector<fin_numeral> m_balances;

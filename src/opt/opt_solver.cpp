@@ -55,7 +55,13 @@ namespace opt {
     }
     
     void opt_solver::collect_statistics(statistics & st) const {
-        m_context.collect_statistics(st);
+        // Hack to display fu_malik statistics
+        if (m_stats.size() > 0) {
+            st.copy(m_stats);
+        }
+        else {
+            m_context.collect_statistics(st);
+        }
     }
     
     void opt_solver::assert_expr(expr * t) {
@@ -98,6 +104,10 @@ namespace opt {
     }
 
     static unsigned g_checksat_count = 0;
+
+    bool opt_solver::is_dumping_benchmark() {
+        return m_is_dump;
+    }
 
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_solver_na2as", {
@@ -212,6 +222,10 @@ namespace opt {
             throw default_exception("BUG: optimization context has not been initialized correctly");
         }
         return dynamic_cast<opt_solver&>(s);
+    }
+
+    void opt_solver::set_interim_stats(statistics & st) {
+        m_stats.copy(st);
     }
     
     void opt_solver::to_smt2_benchmark(std::ofstream & buffer, char const * name, char const * logic, 

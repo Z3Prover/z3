@@ -162,11 +162,26 @@ namespace smt {
             tout << u << ", " << v << ") leaves\n";
         });
 
+        // Old threads: alpha -> v -*-> f(v) -> beta | p -*-> f(p) -> gamma
+        // New threads: alpha -> beta                | p -*-> f(p) -> v -*-> f(v) -> gamma
+
+        node f_p = get_final(p);
+        node f_v = get_final(v);
+        node alpha = find_rev_thread(v);
+        node beta = m_thread[f_v];
+        node gamma = m_thread[f_p];
+
+        if (v != gamma) {
+            m_thread[alpha] = beta;
+            m_thread[f_p] = v;
+            m_thread[f_v] = gamma;
+        }
+
         node old_pred = m_pred[q]; 
         // Update stem nodes from q to v
         if (q != v) {
-            for (node n = q; n != u; ) {
-                SASSERT(old_pred != u || n == v); // the last processed node is v
+            for (node n = q; n != v; ) {
+                SASSERT(old_pred != u); // the last processed node is v
                 SASSERT(-1 != m_pred[old_pred]);
                 int next_old_pred = m_pred[old_pred];  
                 swap_order(n, old_pred);
@@ -175,39 +190,70 @@ namespace smt {
                 old_pred = next_old_pred;
             }     
         }
-
-        // Old threads: alpha -> q -*-> f(q) -> beta | p -*-> f(p) -> gamma
-        // New threads: alpha -> beta                | p -*-> f(p) -> q -*-> f(q) -> gamma
-
-        node f_p = get_final(p);
-        node f_q = get_final(q);
-        node alpha = find_rev_thread(q);
-        node beta = m_thread[f_q];
-        node gamma = m_thread[f_p];
-
-        if (q != gamma) {
-            m_thread[alpha] = beta;
-            m_thread[f_p] = q;
-            m_thread[f_q] = gamma;
-        }
-       
+        
         m_pred[q] = p; 
         m_tree[q] = enter_id;
         m_root_t2 = q;
+
+        node after_final_q = (v == gamma) ? beta : gamma;
+        fix_depth(q, after_final_q);
 
         SASSERT(!in_subtree_t2(p));
         SASSERT(in_subtree_t2(q));
         SASSERT(!in_subtree_t2(u));
         SASSERT(in_subtree_t2(v));
-        
-        // Update the depth.
-
-        fix_depth(q, get_final(q));
 
         TRACE("network_flow", {
             tout << pp_vector("Predecessors", m_pred, true) << pp_vector("Threads", m_thread); 
             tout << pp_vector("Depths", m_depth) << pp_vector("Tree", m_tree);
             });
+    }
+
+    /**
+        swap v and q in tree.
+        - fixup m_thread
+        - fixup m_pred
+
+        Case 1: final(q) == final(v)
+        -------
+        Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> next
+        New thread: prev -> q -*-> final(q) -> v -*-> alpha -> next
+
+        Case 2: final(q) != final(v)
+        -------
+        Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> beta -*-> final(v) -> next
+        New thread: prev -> q -*-> final(q) -> v -*-> alpha -> beta -*-> final(v) -> next
+                 
+    */
+    template<typename Ext>
+    void thread_spanning_tree<Ext>::swap_order(node q, node v) {
+        SASSERT(q != v);
+        SASSERT(m_pred[q] == v);        
+        SASSERT(is_preorder_traversal(v, get_final(v)));
+        node prev = find_rev_thread(v);
+        node f_q = get_final(q);
+        node f_v = get_final(v);
+        node next = m_thread[f_v];
+        node alpha = find_rev_thread(q);
+
+        if (f_q == f_v) {
+            SASSERT(f_q != v && alpha != next);
+            m_thread[f_q] = v;
+            m_thread[alpha] = next;
+            f_q = alpha;
+        }
+        else {            
+            node beta = m_thread[f_q];
+            SASSERT(f_q != v && alpha != beta);
+            m_thread[f_q] = v;
+            m_thread[alpha] = beta;
+            f_q = f_v;
+        }
+        SASSERT(prev != q);
+        m_thread[prev] = q;
+        m_pred[v] = q;
+        // Notes: f_q has to be used since m_depth hasn't been updated yet.
+        SASSERT(is_preorder_traversal(q, f_q));
     }
 
     /**
@@ -311,53 +357,6 @@ namespace smt {
         roots[y] = x;
     }
 
-        /**
-        swap v and q in tree.
-        - fixup m_thread
-        - fixup m_pred
-
-        Case 1: final(q) == final(v)
-        -------
-        Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> next
-        New thread: prev -> q -*-> final(q) -> v -*-> alpha -> next
-
-        Case 2: final(q) != final(v)
-        -------
-        Old thread: prev -> v -*-> alpha -> q -*-> final(q) -> beta -*-> final(v) -> next
-        New thread: prev -> q -*-> final(q) -> v -*-> alpha -> beta -*-> final(v) -> next
-                 
-    */
-    template<typename Ext>
-    void thread_spanning_tree<Ext>::swap_order(node q, node v) {
-        SASSERT(q != v);
-        SASSERT(m_pred[q] == v);        
-        SASSERT(is_preorder_traversal(v, get_final(v)));
-        node prev = find_rev_thread(v);
-        node f_q = get_final(q);
-        node f_v = get_final(v);
-        node next = m_thread[f_v];
-        node alpha = find_rev_thread(q);
-
-        if (f_q == f_v) {
-            SASSERT(f_q != v && alpha != next);
-            m_thread[f_q] = v;
-            m_thread[alpha] = next;
-            f_q = alpha;
-        }
-        else {            
-            node beta = m_thread[f_q];
-            SASSERT(f_q != v && alpha != beta);
-            m_thread[f_q] = v;
-            m_thread[alpha] = beta;
-            f_q = f_v;
-        }
-        SASSERT(prev != q);
-        m_thread[prev] = q;
-        m_pred[v] = q;
-        // Notes: f_q has to be used since m_depth hasn't been updated yet.
-        SASSERT(is_preorder_traversal(q, f_q));
-    }
-    
     /**
         \brief find node that points to 'n' in m_thread
     */
@@ -372,12 +371,11 @@ namespace smt {
     }
 
     template<typename Ext>
-    void thread_spanning_tree<Ext>::fix_depth(node start, node end) {     
-        SASSERT(m_pred[start] != -1);
-        m_depth[start] = m_depth[m_pred[start]]+1;
-        while (start != end) {
-            start = m_thread[start]; 
+    void thread_spanning_tree<Ext>::fix_depth(node start, node after_end) {
+        while (start != after_end) {
+            SASSERT(m_pred[start] != -1);
             m_depth[start] = m_depth[m_pred[start]]+1;
+            start = m_thread[start];
         }
     }
         
@@ -414,6 +412,63 @@ namespace smt {
         SASSERT(children.empty());
         return true;
     }
+
+    // Basic spanning tree
+    template<typename Ext>
+    basic_spanning_tree<Ext>::basic_spanning_tree(graph & g) : thread_spanning_tree<Ext>(g) {        
+    }
+
+    template<typename Ext>
+    void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
+        unsigned num_nodes = m_graph.get_num_nodes();        
+        m_tree_graph = alloc(graph);
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            m_tree_graph->init_var(i);
+        }
+
+        vector<edge> const & es = m_graph.get_all_edges();
+        svector<edge_id>::const_iterator it = tree.begin(), end = tree.end();
+        for(; it != end; ++it) {
+            edge const & e = es[*it];
+            m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
+        }
+
+        node root = num_nodes - 1;
+        m_tree_graph->bfs_undirected(root, m_pred, m_depth);
+        m_tree_graph->dfs_undirected(root, m_thread);
+    }
+
+    template<typename Ext>
+    void basic_spanning_tree<Ext>::update(edge_id enter_id, edge_id leave_id) {
+        if (m_tree_graph)
+            dealloc(m_tree_graph);
+        m_tree_graph = alloc(graph);
+        unsigned num_nodes = m_graph.get_num_nodes();
+        for (unsigned i = 0; i < num_nodes; ++i) {
+            m_tree_graph->init_var(i);
+        }
+
+        vector<edge> const & es = m_graph.get_all_edges();
+        svector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
+        for(; it != end; ++it) {
+            edge const & e = es[*it];
+            if (leave_id != *it) {
+                m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
+            }
+        }
+        m_tree_graph->add_edge(m_graph.get_source(enter_id), m_graph.get_target(enter_id), m_graph.get_weight(enter_id), explanation());
+
+        node root = num_nodes - 1;
+        m_tree_graph->bfs_undirected(root, m_pred, m_depth);
+        m_tree_graph->dfs_undirected(root, m_thread);
+
+        for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+            edge_id id;
+            VERIFY(m_graph.get_edge_id(x, m_pred[x], id));
+            m_tree[x] = id;
+        }
+    }
+
 }
 
 #endif

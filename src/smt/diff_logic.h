@@ -25,6 +25,7 @@ Revision History:
 #include"trace.h"
 #include"warning.h"
 #include"uint_set.h"
+#include<deque>
 
 typedef int dl_var;
 
@@ -951,6 +952,87 @@ public:
 
     edges const & get_all_edges() const {
         return m_edges;
+    }
+
+    void get_neighbours_undirected(dl_var current, svector<dl_var> & neighbours) {
+	    neighbours.reset();
+	    edge_id_vector & edges = m_out_edges[current];
+        typename edge_id_vector::iterator it = edges.begin(), end = edges.end();
+        for (; it != end; ++it) {
+            edge_id e_id = *it;
+            edge & e     = m_edges[e_id];
+            if (!e.is_enabled()) continue;
+            SASSERT(e.get_source() == current);
+            dl_var neighbour = e.get_target();
+            neighbours.push_back(neighbour);
+        }
+        edges = m_in_edges[current];
+        it = edges.begin();
+        end = edges.end();
+	    for (; it != end; ++it) {
+            edge_id e_id = *it;
+            edge & e     = m_edges[e_id];
+            if (!e.is_enabled()) continue;
+            SASSERT(e.get_target() == current);
+            dl_var neighbour = e.get_source();
+            neighbours.push_back(neighbour);
+        }
+    }
+
+    void dfs_undirected(dl_var start, svector<dl_var> & threads) {
+        threads.reset();
+        threads.resize(get_num_nodes());
+	    uint_set visited;
+	    svector<dl_var> nodes;
+	    nodes.push_back(start);
+	    dl_var prev = -1;
+	    while(!nodes.empty()) {
+		    dl_var current = nodes.back();
+            nodes.pop_back();
+		    visited.insert(current);
+		    if (prev != -1)
+			    threads[prev] = current;
+		    prev = current;
+		    svector<dl_var> neighbours;
+		    get_neighbours_undirected(current, neighbours);
+		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+			    edge_id id;
+			    SASSERT(prev == -1 || get_edge_id(prev, current, id) || get_edge_id(current, prev, id));
+			    if (!visited.contains(neighbours[i])) {
+				    nodes.push_back(neighbours[i]);
+			    }
+		    }
+	    }
+	    threads[prev] = start;
+    }
+
+    void bfs_undirected(dl_var start, svector<dl_var> & parents, svector<dl_var> & depths) {
+        parents.reset();
+        parents.resize(get_num_nodes());
+        depths.reset();
+        depths.resize(get_num_nodes());
+	    uint_set visited;
+	    std::deque<dl_var> nodes;
+	    visited.insert(start);
+	    nodes.push_front(start);
+	    while(!nodes.empty()) {
+            dl_var current = nodes.back();
+            nodes.pop_back();
+		    SASSERT(visited.contains(current));
+            svector<dl_var> neighbours;
+		    get_neighbours_undirected(current, neighbours);
+		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+			    dl_var & next = neighbours[i];
+			    edge_id id;
+			    SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id));
+			    if (!visited.contains(next)) {
+				    parents[next] = current;
+				    depths[next] = depths[current] + 1;
+				    visited.insert(next);
+				    nodes.push_front(next);
+			    }
+		    }
+	    }
     }
 
     template<typename Functor>

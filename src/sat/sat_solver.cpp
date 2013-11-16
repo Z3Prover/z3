@@ -671,6 +671,7 @@ namespace sat {
     //
     // -----------------------
     lbool solver::check() {
+        IF_VERBOSE(0, verbose_stream() << "(sat.sat-solver using the new SAT solver)\n";);
         SASSERT(scope_lvl() == 0);
 #ifdef CLONE_BEFORE_SOLVING
         if (m_mc.empty()) {
@@ -1970,7 +1971,7 @@ namespace sat {
         m_cancel = f;
     }
     
-    void solver::collect_statistics(statistics & st) {
+    void solver::collect_statistics(statistics & st) {        
         m_stats.collect_statistics(st);
         m_cleaner.collect_statistics(st);
         m_simplifier.collect_statistics(st);

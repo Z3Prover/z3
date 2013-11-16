@@ -47,14 +47,14 @@ namespace smt {
         typedef int node;
 
     public:
-        virtual void initialize(svector<edge_id> const & tree) {};
-        virtual void get_descendants(node start, svector<node> & descendants) {};
+        virtual void initialize(svector<edge_id> const & tree) = 0;
+        virtual void get_descendants(node start, svector<node> & descendants) = 0;
         
-        virtual void update(edge_id enter_id, edge_id leave_id) {};        
-        virtual void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against) {};
-        virtual bool in_subtree_t2(node child) {UNREACHABLE(); return false;};
+        virtual void update(edge_id enter_id, edge_id leave_id) = 0;
+        virtual void get_path(node start, node end, svector<edge_id> & path, svector<bool> & against) = 0;
+        virtual bool in_subtree_t2(node child) = 0;
 
-        virtual bool check_well_formed() {UNREACHABLE(); return false;};
+        virtual bool check_well_formed() = 0;
     };
 }
 
