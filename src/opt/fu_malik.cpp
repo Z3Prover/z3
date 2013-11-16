@@ -123,7 +123,15 @@ namespace opt {
             expr_ref_vector ls1(m), ls2(m);
             ls1.append(mid, literals.c_ptr());
             ls2.append(literals.size()-mid, literals.c_ptr() + mid);
-            
+#if Z3DEBUG
+            expr_ref_vector ls(m); 
+            ls.append(ls1); 
+            ls.append(ls2); 
+            SASSERT(ls.size() == literals.size());
+            for (unsigned i = 0; i < literals.size(); ++i) {
+                SASSERT(ls[i].get() == literals[i].get());
+            }
+#endif            
             expr_ref_vector as1(m);
             as1.append(assumptions);
             as1.append(ls1);
@@ -153,6 +161,7 @@ namespace opt {
 
             ptr_vector<expr> core;
             if (m_use_new_bv_solver) {
+                // Binary search for minimal unsat core
                 expr_set core_set;
                 expr_ref_vector empty(m);
                 quick_explain(empty, assumptions, true, core_set);
@@ -160,6 +169,24 @@ namespace opt {
                 for (; it != end; ++it) {
                     core.push_back(*it);
                 }
+
+                //// Forward linear search for unsat core
+                //unsigned i = 0;
+                //while (s().check_sat(core.size(), core.c_ptr()) != l_false) {
+                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
+                //    core.push_back(assumptions[i].get());
+                //    ++i;
+                //}
+
+                //// Backward linear search for unsat core
+                //unsigned i = 0;
+                //core.append(assumptions.size(), assumptions.c_ptr());
+                //while (!core.empty() && s().check_sat(core.size()-1, core.c_ptr()) == l_false) {
+                //    IF_VERBOSE(0, verbose_stream() << "(opt.max_sat get-unsat-core round " << i << ")\n";);
+                //    core.pop_back();
+                //    ++i;
+                //}
+
                 IF_VERBOSE(0, verbose_stream() << "(opt.max_sat unsat-core of size " << core.size() << ")\n";);
             }
             else {
@@ -214,7 +241,11 @@ namespace opt {
             }
         }
         
-        void set_solver() {
+        void set_solver() { 
+            opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
+            if (opt_s.is_dumping_benchmark())
+                return;
+
             solver& current_solver = s();
             goal g(m, true, false);
             unsigned num_assertions = current_solver.get_num_assertions();
@@ -223,8 +254,7 @@ namespace opt {
             }            
             probe *p = mk_is_qfbv_probe();
             bool all_bv = (*p)(g).is_true();
-            if (all_bv) {
-                opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
+            if (all_bv) {                
                 smt::context & ctx = opt_s.get_context();                
                 tactic_ref t = mk_qfbv_tactic(m, ctx.get_params());                  
                 // The new SAT solver hasn't supported unsat core yet

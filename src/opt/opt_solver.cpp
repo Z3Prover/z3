@@ -105,6 +105,10 @@ namespace opt {
 
     static unsigned g_checksat_count = 0;
 
+    bool opt_solver::is_dumping_benchmark() {
+        return m_is_dump;
+    }
+
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_solver_na2as", {
             tout << "opt_opt_solver::check_sat_core: " << m_context.size() << "\n";            

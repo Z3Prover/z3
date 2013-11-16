@@ -79,6 +79,7 @@ namespace opt {
 
         static opt_solver& to_opt(solver& s);
         void set_interim_stats(statistics & st);
+        bool is_dumping_benchmark();
 
         class toggle_objective {
             opt_solver& s;
