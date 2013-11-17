@@ -28,7 +28,8 @@ namespace smt {
     class theory_pb : public theory {
 
         struct sort_expr;
-        typedef svector<std::pair<literal, int> > arg_t;
+        typedef int64 numeral;
+        typedef svector<std::pair<literal, numeral> > arg_t;
 
         struct stats {
             unsigned m_num_axioms;
@@ -44,24 +45,52 @@ namespace smt {
             app*            m_app;
             literal         m_lit;      // literal repesenting predicate
             arg_t           m_args;     // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= m_k;
-            int             m_k;        // invariants: m_k > 0, coeffs[i] > 0
+            numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
             
             // Watch the first few positions until the sum satisfies:
             // sum coeffs[i] >= m_lower + max_coeff
             
-            int             m_max_coeff;    // maximal coefficient.
+            numeral         m_max_coeff;    // maximal coefficient.
             unsigned        m_watch_sz;     // number of literals being watched.
+            numeral         m_sum;          // sum of coefficients so far.
+            numeral         m_max_sum;      // maximal sum of watch literals.
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
-            bool            m_compiled;
+            lbool           m_compiled;
             
             ineq(app* a, literal l):
                 m_app(a),
-                m_lit(l),                
+                m_lit(l),             
+                m_max_coeff(0),
+                m_watch_sz(0),
+                m_sum(0),
+                m_max_sum(0),
                 m_num_propagations(0),
                 m_compilation_threshold(UINT_MAX),
-                m_compiled(false)
+                m_compiled(l_false)
             {}
+
+            literal lit() const { return m_lit; }
+            numeral const & k() const { return m_k; }
+
+            literal lit(unsigned i) const { return m_args[i].first; }
+            numeral const & coeff(unsigned i) const { return m_args[i].second; }
+
+            unsigned size() const { return m_args.size(); }
+
+            numeral const& sum() const { return m_sum; }
+            numeral const& max_sum() const { return m_max_sum; }
+            numeral const& max_coeff() const { return m_max_coeff; }
+            
+            unsigned watch_size() const { return m_watch_sz; }
+
+            unsigned find_lit(bool_var v, unsigned begin, unsigned end) {
+                while (lit(begin).var() != v) {
+                    ++begin;
+                    SASSERT(begin < end);
+                }
+                return begin;
+            }
         };
 
         typedef ptr_vector<ineq> watch_list;
@@ -73,12 +102,16 @@ namespace smt {
         literal_vector           m_literals;    // temporary vector
         card_util                m_util;
         stats                    m_stats;
+        ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
 
         // internalize_atom:
-        lbool normalize_ineq(arg_t& args, int& k);
+        lbool normalize_ineq(arg_t& args, numeral& k);
+        static numeral gcd(numeral a, numeral b);
         literal compile_arg(expr* arg);
-        void add_watch(literal l, ineq* c);
+        void add_watch(ineq& c, unsigned index);
+        void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
         void assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
+        void assign_ineq(ineq& c);
 
         std::ostream& display(std::ostream& out, ineq& c) const;
 
@@ -86,12 +119,15 @@ namespace smt {
         void add_assign(ineq& c, literal_vector const& lits, literal l);
         literal_vector& get_lits();
 
+        literal_vector& get_helpful_literals(ineq& c, bool negate);
+        literal_vector& get_unhelpful_literals(ineq& c, bool negate);
+
         //
         // Utilities to compile cardinality 
         // constraints into a sorting network.
         //
         void compile_ineq(ineq& c);
-        bool should_compile(ineq& c);
+        void inc_propagations(ineq& c);
         unsigned get_compilation_threshold(ineq& c);
     public:
         theory_pb(ast_manager& m);
@@ -112,7 +148,9 @@ namespace smt {
         virtual void init_search_eh();
         virtual void push_scope_eh();
         virtual void pop_scope_eh(unsigned num_scopes);
+        virtual void restart_eh();
         virtual void collect_statistics(::statistics & st) const;
+        
 
     };
 };

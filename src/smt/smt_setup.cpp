@@ -32,6 +32,7 @@ Revision History:
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
 #include"theory_card.h"
+#include"theory_pb.h"
 
 namespace smt {
 
@@ -792,7 +793,8 @@ namespace smt {
     }
 
     void setup::setup_card() {
-        m_context.register_plugin(alloc(theory_card, m_manager));
+        // m_context.register_plugin(alloc(theory_card, m_manager));
+        m_context.register_plugin(alloc(theory_pb, m_manager));
     }
 
     void setup::setup_unknown() {
