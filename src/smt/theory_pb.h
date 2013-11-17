@@ -42,7 +42,6 @@ namespace smt {
 
 
         struct ineq {
-            app*            m_app;
             literal         m_lit;      // literal repesenting predicate
             arg_t           m_args;     // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= m_k;
             numeral         m_k;        // invariants: m_k > 0, coeffs[i] > 0
@@ -58,8 +57,7 @@ namespace smt {
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
             
-            ineq(app* a, literal l):
-                m_app(a),
+            ineq(literal l):
                 m_lit(l),             
                 m_max_coeff(0),
                 m_watch_sz(0),
@@ -91,6 +89,10 @@ namespace smt {
                 }
                 return begin;
             }
+
+            void negate();
+
+            bool well_formed() const;
         };
 
         typedef ptr_vector<ineq> watch_list;
@@ -99,6 +101,8 @@ namespace smt {
         u_map<ineq*>             m_ineqs;       // per inequality.
         unsigned_vector          m_ineqs_trail;
         unsigned_vector          m_ineqs_lim;
+        ptr_vector<ineq>         m_assign_ineqs_trail;
+        unsigned_vector          m_assign_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
         card_util                m_util;
         stats                    m_stats;
