@@ -52,6 +52,7 @@ namespace smt {
 
         SASSERT(!ctx.b_internalized(atom));
         bool_var abv = ctx.mk_bool_var(atom);
+        ctx.set_var_theory(abv, get_id());
 
         ineq* c = alloc(ineq, atom, literal(abv));
         c->m_k = m_util.get_k(atom);
@@ -119,7 +120,7 @@ namespace smt {
                 n *= 2;
             }
             c->m_compilation_threshold = args.size()*log;
-            TRACE("card", tout << "threshold:" << (args.size()*log) << "\n";);
+            TRACE("card", tout << "compilation threshold: " << (args.size()*log) << "\n";);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
@@ -364,19 +365,22 @@ namespace smt {
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
-        ast_manager& m = get_manager();
         ptr_vector<ineq>* ineqs = 0;
-        ineq* c = 0;
-        TRACE("card", tout << "assign: " << mk_pp(ctx.bool_var2expr(v), m) << " <- " << is_true << "\n";);
+        TRACE("card", tout << "assign: " << literal(v, !is_true) << "\n";);
 
         if (m_watch.find(v, ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
-                assign_watch(v, is_true, *ineqs, i);
+                if (assign_watch(v, is_true, *ineqs, i)) {
+                    // i was removed from watch list.
+                    --i;
+                }
             }
         }
+        ineq* c = 0;
         if (m_ineqs.find(v, c)) {
-            assign_ineq(*c);
+            assign_ineq(*c, is_true);
         }
+        TRACE("card", display(tout););
     }
 
     literal_vector& theory_pb::get_helpful_literals(ineq& c, bool negate) {
@@ -414,7 +418,8 @@ namespace smt {
        on the assumption that inequalities are mostly units
        and/or relatively few compared to number of argumets.
      */
-    void theory_pb::assign_ineq(ineq& c) {
+    void theory_pb::assign_ineq(ineq& c, bool is_true) {
+
         context& ctx = get_context();
         numeral sum = 0, maxsum = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
@@ -430,13 +435,17 @@ namespace smt {
             }
         }
         lbool lit_assignment = ctx.get_assignment(c.lit());
-        SASSERT(lit_assignment != l_undef);
-        if (sum >= c.k() && lit_assignment == l_false) {
+
+        TRACE("card", 
+              tout << "assign: " << c.lit() << " <- " << is_true << "\n";
+              display(tout, c); );
+
+        if (sum >= c.k() && !is_true) {
             literal_vector& lits = get_helpful_literals(c, true);
             lits.push_back(c.lit());
             add_clause(c, lits);
         }
-        else if (maxsum < c.k() && lit_assignment == l_true) {
+        else if (maxsum < c.k() && is_true) {
             literal_vector& lits = get_unhelpful_literals(c, true);
             lits.push_back(~c.lit());
             add_clause(c, lits);
@@ -450,21 +459,25 @@ namespace smt {
        (inequalities are closed under negation).
        
      */
-    void theory_pb::assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned watch_index) {
+    bool theory_pb::assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned watch_index) {
+        bool removed = false;
         context& ctx = get_context();
         ineq& c = *watch[watch_index];
         numeral k = c.m_k;
         unsigned w = c.find_lit(v, 0, c.watch_size());
         numeral coeff = c.coeff(w);
+        TRACE("card", 
+              tout << "assign: " << literal(v) << " <- " << is_true << "\n";
+              display(tout, c); );
+
         if (is_true == c.lit(w).sign()) {
             //
             // sum is not increased. 
             // Adjust set of watched literals.
             //
-            del_watch(watch, watch_index, c, w);
 
             numeral tmp_sum = c.sum();
-            for (unsigned i = c.watch_size(); c.max_sum() - coeff < k + c.max_coeff() && i < c.size(); ++i) {
+            for (unsigned i = c.watch_size(); c.max_sum() < k + c.max_coeff() + coeff && i < c.size(); ++i) {
                 lbool lit_assignment = ctx.get_assignment(c.lit(i));
                 switch(lit_assignment) {
                 case l_true:
@@ -477,19 +490,17 @@ namespace smt {
                     break;
                 }
             }
+            if (c.max_sum() >= k + coeff) {
+                del_watch(watch, watch_index, c, w);
+                SASSERT(c.max_sum() >= k);
+                removed = true;
+            }
             SASSERT(tmp_sum <= c.max_sum());
+            TRACE("card", tout << "tmp_sum: " << tmp_sum << "\n"; display(tout, c); );
             if (c.max_sum() < k) {
                 //
                 // c.lit() <- false
-                // we have to add the previously watched literal back.
-                // such that the sum of watched literals has maximal sum >= k
                 // 
-
-                SASSERT(coeff == c.coeff(w));
-                SASSERT(c.max_sum() + coeff >= k);
-                add_watch(c, c.find_lit(v, c.watch_size(), c.size()));
-                SASSERT(c.max_sum() >= k);
-                
                 switch(ctx.get_assignment(c.lit())) {
                 case l_false:
                     break;
@@ -506,24 +517,44 @@ namespace smt {
                 }
             }
             else if (tmp_sum >= k) {
-                // ineq should be true.
-                // this is handled below
+                //
+                // c.lit() <- true
+                // 
+                switch(ctx.get_assignment(c.lit())) {
+                case l_true:
+                    break;
+                case l_false: {
+                    literal_vector& lits = get_helpful_literals(c, true);
+                    lits.push_back(c.lit());
+                    add_clause(c, lits);
+                    break;
+                }
+                case l_undef: {
+                    add_assign(c, get_helpful_literals(c, false), c.lit());
+                    break;
+                }
+                }
             }
-            else if (c.max_sum() - c.max_coeff() < k) {
+            else if (c.max_sum() < k + c.max_coeff()) {
                 // tmp_sum < k <= c.max_sum()
                 // opportunities for unit propagation for unassigned 
                 // literals whose coefficients satisfy
                 // c.max_sum() - coeff < k
+
                 if (l_true == ctx.get_assignment(c.lit())) {
-                    literal_vector& lits = get_unhelpful_literals(c, false);
+                    literal_vector& lits = get_unhelpful_literals(c, true);
+                    lits.push_back(c.lit());
+                    numeral max_sum = c.max_sum() - coeff;
                     for (unsigned i = 0; i < c.size(); ++i) {
-                        if (c.max_sum() - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
+                        if (max_sum - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
                             add_assign(c, lits, c.lit(i));                            
                         }
                     }
                 }
             }
             else {
+                // c.max_sum() >= k + c.max_coeff()
+
                 // tmp_sum < k <= c.max_sum() - c.max_coeff()
                 // we might miss opportunities for unit propagation if 
                 // max_coeff is not the maximal coefficient
@@ -562,7 +593,8 @@ namespace smt {
         //   Progress was made.
         //   The watch list contains at least enough
         //   literals to force the assignment.
-        
+
+        return removed;
     }
 
     struct theory_pb::sort_expr {
@@ -759,11 +791,43 @@ namespace smt {
     void theory_pb::pop_scope_eh(unsigned num_scopes) {
         unsigned sz = m_ineqs_lim[m_ineqs_lim.size()-num_scopes];
         while (m_ineqs_trail.size() > sz) {
-            SASSERT(m_ineqs.contains(m_ineqs_trail.back()));
-            m_ineqs.remove(m_ineqs_trail.back());
-            m_ineqs_trail.pop_back();
+            bool_var v = m_ineqs_trail.back();
+            ineq* c = 0;
+            VERIFY(m_ineqs.find(v, c));
+            m_ineqs.remove(v);
+            m_ineqs_trail.pop_back();  
+            for (unsigned i = 0; i < c->watch_size(); ++i) {
+                bool_var w = c->lit(i).var();
+                ptr_vector<ineq>* ineqs = 0;
+                VERIFY(m_watch.find(w, ineqs));
+                for (unsigned j = 0; j < ineqs->size(); ++j) {
+                    if ((*ineqs)[j] == c) {                        
+                        std::swap((*ineqs)[j],(*ineqs)[ineqs->size()-1]);
+                        ineqs->pop_back();
+                        break;
+                    }
+                }
+            }
+            dealloc(c);
         }
         m_ineqs_lim.resize(m_ineqs_lim.size()-num_scopes);
+    }
+
+    void theory_pb::display(std::ostream& out) const {
+        u_map<ptr_vector<ineq>*>::iterator it = m_watch.begin(), end = m_watch.end();
+        for (; it != end; ++it) {
+            out << "watch: " << literal(it->m_key) << " |-> ";
+            watch_list const& wl = *it->m_value;
+            for (unsigned i = 0; i < wl.size(); ++i) {
+                out << wl[i]->lit() << " ";
+            }
+            out << "\n";
+        }
+        u_map<ineq*>::iterator itc = m_ineqs.begin(), endc = m_ineqs.end();
+        for (; itc != endc; ++itc) {
+            ineq& c = *itc->m_value;
+            display(out, c);
+        }
     }
 
     std::ostream& theory_pb::display(std::ostream& out, ineq& c) const {
@@ -779,6 +843,8 @@ namespace smt {
             << "propagations: " << c.m_num_propagations 
             << " max_coeff: "   << c.max_coeff() 
             << " watch size: "  << c.watch_size()
+            << " sum: "         << c.sum()
+            << " max-sum: "     << c.max_sum()
             << "\n";
         return out;
     }
@@ -793,6 +859,13 @@ namespace smt {
         inc_propagations(c);
         m_stats.m_num_propagations++;
         context& ctx = get_context();
+        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; 
+              for (unsigned i = 0; i < lits.size(); ++i) {
+                  tout << lits[i] << " ";
+              }
+              tout << "=> " << l << "\n";
+              display(tout, c););
+
         ctx.assign(l, ctx.mk_justification(
                        theory_propagation_justification(
                            get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
@@ -804,7 +877,12 @@ namespace smt {
         inc_propagations(c);
         m_stats.m_num_axioms++;
         context& ctx = get_context();
-        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
+        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; 
+              for (unsigned i = 0; i < lits.size(); ++i) {
+                  tout << lits[i] << " ";
+              }
+              tout << "\n";
+              display(tout, c););
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 

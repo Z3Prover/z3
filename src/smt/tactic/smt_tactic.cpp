@@ -135,7 +135,6 @@ public:
                             proof_converter_ref & pc,
                             expr_dependency_ref & core) {
         try {
-            IF_VERBOSE(0, verbose_stream() << "(smt.smt-tactic using the old SAT solver)\n";);
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " " 

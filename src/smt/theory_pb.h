@@ -110,10 +110,11 @@ namespace smt {
         literal compile_arg(expr* arg);
         void add_watch(ineq& c, unsigned index);
         void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
-        void assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
-        void assign_ineq(ineq& c);
+        bool assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
+        void assign_ineq(ineq& c, bool is_true);
 
         std::ostream& display(std::ostream& out, ineq& c) const;
+        virtual void display(std::ostream& out) const;
 
         void add_clause(ineq& c, literal_vector const& lits);
         void add_assign(ineq& c, literal_vector const& lits, literal l);
