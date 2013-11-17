@@ -444,6 +444,7 @@ namespace smt {
         if (c.lit().sign() == is_true) {
             c.negate();
         }
+        SASSERT(c.well_formed());
 
         context& ctx = get_context();
         numeral maxsum = 0;
