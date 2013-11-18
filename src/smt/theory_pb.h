@@ -33,7 +33,7 @@ namespace smt {
         typedef svector<std::pair<literal, numeral> > arg_t;
 
         struct stats {
-            unsigned m_num_axioms;
+            unsigned m_num_conflicts;
             unsigned m_num_propagations;
             unsigned m_num_predicates;
             unsigned m_num_compiles;

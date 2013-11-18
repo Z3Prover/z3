@@ -399,7 +399,7 @@ namespace smt {
     }
 
     void theory_pb::collect_statistics(::statistics& st) const {
-        st.update("pb axioms", m_stats.m_num_axioms);
+        st.update("pb conflicts", m_stats.m_num_conflicts);
         st.update("pb propagations", m_stats.m_num_propagations);
         st.update("pb predicates", m_stats.m_num_predicates);        
         st.update("pb compilations", m_stats.m_num_compiles);
@@ -911,7 +911,7 @@ namespace smt {
 
     void theory_pb::add_clause(ineq& c, literal conseq, literal_vector const& lits) {
         inc_propagations(c);
-        m_stats.m_num_axioms++;
+        m_stats.m_num_conflicts++;
         context& ctx = get_context();
         TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; 
               for (unsigned i = 0; i < lits.size(); ++i) {
@@ -920,9 +920,11 @@ namespace smt {
               tout << "\n";
               display(tout, c););
 
-        if (s_debug_conflict) {
-            resolve_conflict(conseq, c);
-        }
+        DEBUG_CODE(
+            IF_VERBOSE(0, verbose_stream() << s_debug_conflict << "\n";);
+            if (s_debug_conflict) {
+                resolve_conflict(conseq, c);
+            });
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
@@ -936,14 +938,20 @@ namespace smt {
         context& ctx = get_context();
         bool_var v = l.var();
         unsigned lvl = ctx.get_assign_level(v);
-        if (!ctx.is_marked(v) && lvl > ctx.get_base_level()) {
-            IF_VERBOSE(0, verbose_stream() << l << "*" << coeff << " marked. lvl: " << lvl << "\n";);
-            ctx.set_mark(v);
-            m_unmark.push_back(v);
-            if (lvl == m_conflict_lvl) {
-                ++m_num_marks;
+        IF_VERBOSE(0, verbose_stream() << "ante: " << l << "*" << coeff << " " << lvl << "\n";); 
+        if (lvl > ctx.get_base_level()) {
+            if (!ctx.is_marked(v)) {
+                ctx.set_mark(v);
+                m_unmark.push_back(v);
+                if (lvl == m_conflict_lvl) {
+                    IF_VERBOSE(0, verbose_stream() << "new mark\n";);
+                    ++m_num_marks;
+                }
             }
-            m_lemma.m_args.push_back(std::make_pair(l, coeff));                
+            m_lemma.m_args.push_back(std::make_pair(l, coeff));
+        }
+        else if (ctx.get_assignment(l) == l_true) {
+            m_lemma.m_k += coeff;
         }
     }
 
@@ -953,7 +961,9 @@ namespace smt {
         // assigned below current index 'idx'.
         context& ctx = get_context();
         for (unsigned i = 0; i < c.size(); ++i) {
-            process_antecedent(c.lit(i), c.coeff(i));
+            if (ctx.get_assignment(c.lit(i)) != l_undef) {
+                process_antecedent(c.lit(i), c.coeff(i));
+            }
         }
         process_antecedent(~c.lit(), 1);
         m_lemma.m_k += c.k();
@@ -963,14 +973,16 @@ namespace smt {
     // modeled after sat_solver/smt_context
     //
     void theory_pb::resolve_conflict(literal conseq, ineq& c) {
-        
+
+        IF_VERBOSE(0, display(verbose_stream(), c););
+
         bool_var v;
         context& ctx = get_context();
         unsigned& lvl = m_conflict_lvl = ctx.get_assign_level(c.lit());
         for (unsigned i = 0; i < c.size(); ++i) {
-            IF_VERBOSE(0, verbose_stream() << "conflict level: " << m_conflict_lvl << "\n";);
             v = c.lit(i).var(); 
             if (ctx.get_assignment(v) != l_undef) {
+                IF_VERBOSE(0, verbose_stream() << c.lit(i) << " " << ctx.get_assign_level(v) << "\n";);
                 lvl = std::max(lvl, ctx.get_assign_level(v));
             }
         }
@@ -994,15 +1006,17 @@ namespace smt {
             //
             // Resolve selected conseq with antecedents.
             // 
+            IF_VERBOSE(0, verbose_stream() << conseq << " " << js.get_kind() << "\n";);
             switch(js.get_kind()) {
+                
             case b_justification::CLAUSE: {
-                clause* cls = js.get_clause();
-                unsigned num_lits = cls->get_num_literals();
+                clause& cls = *js.get_clause();
+                unsigned num_lits = cls.get_num_literals();
                 for (unsigned i = 0; i < num_lits; ++i) {
-                    process_antecedent(cls->get_literal(i), 1);
+                    process_antecedent(cls.get_literal(i), 1);
                 }
                 m_lemma.m_k += 1;
-                justification* cjs = cls->get_justification();
+                justification* cjs = cls.get_justification();
                 if (cjs) {
                     // TBD
                     NOT_IMPLEMENTED_YET();
@@ -1011,7 +1025,7 @@ namespace smt {
             }
             case b_justification::BIN_CLAUSE:
                 m_lemma.m_k += 1;
-                process_antecedent(~js.get_literal(), 0);
+                process_antecedent(conseq, 1);
                 process_antecedent(~js.get_literal(), 1);
                 break;
             case b_justification::AXIOM:
