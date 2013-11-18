@@ -26,6 +26,8 @@ Notes:
 
 namespace smt {
 
+    bool theory_pb::s_debug_conflict = false; // true; // 
+
     void theory_pb::ineq::negate() {
         m_lit.neg();
         numeral sum = 0;
@@ -395,8 +397,6 @@ namespace smt {
         }
         ineqs->push_back(&c);
     }
-
-
 
     void theory_pb::collect_statistics(::statistics& st) const {
         st.update("pb axioms", m_stats.m_num_axioms);
@@ -920,7 +920,9 @@ namespace smt {
               tout << "\n";
               display(tout, c););
 
-        // DEBUG_CODE(resolve_conflict(conseq, c););
+        if (s_debug_conflict) {
+            resolve_conflict(conseq, c);
+        }
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
@@ -934,25 +936,27 @@ namespace smt {
         context& ctx = get_context();
         bool_var v = l.var();
         unsigned lvl = ctx.get_assign_level(v);
-		IF_VERBOSE(0, verbose_stream() << l << "*" << coeff << " marked: " << ctx.is_marked(v) << " lvl: " << lvl << "\n";);
         if (!ctx.is_marked(v) && lvl > ctx.get_base_level()) {
+            IF_VERBOSE(0, verbose_stream() << l << "*" << coeff << " marked. lvl: " << lvl << "\n";);
             ctx.set_mark(v);
+            m_unmark.push_back(v);
             if (lvl == m_conflict_lvl) {
                 ++m_num_marks;
             }
-            else {
-                m_lemma.m_args.push_back(std::make_pair(l, coeff));                
-            }
+            m_lemma.m_args.push_back(std::make_pair(l, coeff));                
         }
     }
 
     void theory_pb::process_ineq(ineq& c) {
         // TBD: create CUT.
-		context& ctx = get_context();
+        // only process literals that were 
+        // assigned below current index 'idx'.
+        context& ctx = get_context();
         for (unsigned i = 0; i < c.size(); ++i) {
-			process_antecedent(c.lit(i), c.coeff(i));
+            process_antecedent(c.lit(i), c.coeff(i));
         }
         process_antecedent(~c.lit(), 1);
+        m_lemma.m_k += c.k();
     }
 
     //
@@ -984,7 +988,7 @@ namespace smt {
         // point into stack of assigned literals
         literal_vector const& lits = ctx.assigned_literals();        
         SASSERT(!lits.empty());
-		unsigned idx = lits.size()-1;
+        unsigned idx = lits.size()-1;
    
         do {
             //
@@ -997,6 +1001,7 @@ namespace smt {
                 for (unsigned i = 0; i < num_lits; ++i) {
                     process_antecedent(cls->get_literal(i), 1);
                 }
+                m_lemma.m_k += 1;
                 justification* cjs = cls->get_justification();
                 if (cjs) {
                     // TBD
@@ -1005,7 +1010,8 @@ namespace smt {
                 break;                
             }
             case b_justification::BIN_CLAUSE:
-                SASSERT(conseq.var() != js.get_literal().var());
+                m_lemma.m_k += 1;
+                process_antecedent(~js.get_literal(), 0);
                 process_antecedent(~js.get_literal(), 1);
                 break;
             case b_justification::AXIOM:
@@ -1025,8 +1031,8 @@ namespace smt {
             //
             // find the next marked variable in the assignment stack
             //
-			SASSERT(idx > 0);
-			SASSERT(m_num_marks > 0);
+            SASSERT(idx > 0);
+            SASSERT(m_num_marks > 0);
             do {
                 conseq = lits[idx];
                 v = conseq.var();
@@ -1036,19 +1042,15 @@ namespace smt {
             
             js = ctx.get_justification(v);
             --m_num_marks;
-            ctx.unset_mark(v);
-			IF_VERBOSE(0, verbose_stream() << "unmark: " << v << "\n";);
         }
         while (m_num_marks > 0);
 
         // unset the marks on lemmas
-        for (unsigned i = 0; i < m_lemma.size(); ++i) {
-            bool_var v = m_lemma.lit(i).var();
-            if (ctx.is_marked(v)) {
-				IF_VERBOSE(0, verbose_stream() << "unmark: " << v << "\n";);
-                ctx.unset_mark(v);
-            }
-        }        
+        while (!m_unmark.empty()) {
+            ctx.unset_mark(m_unmark.back());
+            m_unmark.pop_back();
+        }
+
 
         TRACE("card", display(tout, m_lemma););
 

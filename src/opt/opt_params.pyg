@@ -6,6 +6,7 @@ def_module_params('opt',
 	                      ('maxsat_engine', SYMBOL, 'fu_malik', "select engine for non-weighted maxsat: 'fu_malik', 'core_maxsat'"),
                           ('pareto', BOOL, False, 'return a Pareto front (as opposed to a bounding box)'),
                           ('dump_benchmarks', BOOL, False, 'dump benchmarks for profiling'),
+                          ('debug_conflict', BOOL, False, 'debug conflict resolution'),
                           ))
 
 

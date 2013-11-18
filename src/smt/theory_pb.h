@@ -140,6 +140,7 @@ namespace smt {
         unsigned       m_num_marks;
         unsigned       m_conflict_lvl;
         ineq           m_lemma;
+        svector<bool_var> m_unmark;
         void resolve_conflict(literal conseq, ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c);
@@ -165,6 +166,6 @@ namespace smt {
         virtual void restart_eh();
         virtual void collect_statistics(::statistics & st) const;
         
-
+        static bool s_debug_conflict;
     };
 };
