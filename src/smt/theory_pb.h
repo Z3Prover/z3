@@ -28,6 +28,7 @@ namespace smt {
     class theory_pb : public theory {
 
         struct sort_expr;
+        class  pb_justification;
         typedef int64 numeral;
         typedef svector<std::pair<literal, numeral> > arg_t;
 
@@ -57,16 +58,9 @@ namespace smt {
             unsigned        m_compilation_threshold;
             lbool           m_compiled;
             
-            ineq(literal l):
-                m_lit(l),             
-                m_max_coeff(0),
-                m_watch_sz(0),
-                m_sum(0),
-                m_max_sum(0),
-                m_num_propagations(0),
-                m_compilation_threshold(UINT_MAX),
-                m_compiled(l_false)
-            {}
+            ineq(literal l) : m_lit(l) {
+                reset();
+            }
 
             literal lit() const { return m_lit; }
             numeral const & k() const { return m_k; }
@@ -90,9 +84,16 @@ namespace smt {
                 return begin;
             }
 
+            void reset();
+
             void negate();
 
+            lbool normalize();
+
             bool well_formed() const;
+
+            static numeral gcd(numeral a, numeral b);
+
         };
 
         typedef ptr_vector<ineq> watch_list;
@@ -109,8 +110,6 @@ namespace smt {
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
 
         // internalize_atom:
-        lbool normalize_ineq(arg_t& args, numeral& k);
-        static numeral gcd(numeral a, numeral b);
         literal compile_arg(expr* arg);
         void add_watch(ineq& c, unsigned index);
         void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
@@ -120,7 +119,7 @@ namespace smt {
         std::ostream& display(std::ostream& out, ineq& c) const;
         virtual void display(std::ostream& out) const;
 
-        void add_clause(ineq& c, literal_vector const& lits);
+        void add_clause(ineq& c, literal conseq, literal_vector const& lits);
         void add_assign(ineq& c, literal_vector const& lits, literal l);
         literal_vector& get_lits();
 
@@ -134,6 +133,16 @@ namespace smt {
         void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
         unsigned get_compilation_threshold(ineq& c);
+
+        //
+        // Conflict resolution, cutting plane derivation.
+        // 
+        unsigned       m_num_marks;
+        unsigned       m_conflict_lvl;
+        ineq           m_lemma;
+        void resolve_conflict(literal conseq, ineq& c);
+        void process_antecedent(literal l, numeral coeff);
+        void process_ineq(ineq& c);
     public:
         theory_pb(ast_manager& m);
         
@@ -142,7 +151,7 @@ namespace smt {
         virtual theory * mk_fresh(context * new_ctx);
         virtual bool internalize_atom(app * atom, bool gate_ctx);
         virtual bool internalize_term(app * term) { UNREACHABLE(); return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2) { }
+        virtual void new_eq_eh(theory_var v1, theory_var v2);
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
         virtual bool use_diseqs() const { return false; }
         virtual bool build_models() const { return false; }

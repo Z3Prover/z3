@@ -37,6 +37,156 @@ namespace smt {
         SASSERT(well_formed());
     }
 
+    void theory_pb::ineq::reset() {
+        m_max_coeff = 0;
+        m_watch_sz = 0;
+        m_sum = 0;
+        m_max_sum = 0;
+        m_num_propagations = 0;
+        m_compilation_threshold = UINT_MAX;
+        m_compiled = l_false;
+        m_args.reset();
+        m_k = 0;
+    }
+
+    theory_pb::numeral theory_pb::ineq::gcd(numeral a, numeral b) {
+        while (a != b) {
+            if (a == 0) return b;
+            if (b == 0) return a;
+            SASSERT(a != 0 && b != 0);
+            if (a < b) {
+                b %= a;
+            }
+            else {
+                a %= b;
+            }
+        }
+        return a;
+    }
+
+    lbool theory_pb::ineq::normalize() {
+
+        numeral& k = m_k;
+        arg_t& args = m_args;
+
+        // normalize first all literals to be positive:
+        // then we can compare them more easily.
+        for (unsigned i = 0; i < size(); ++i) {
+            if (lit(i).sign()) {
+                args[i].first.neg();
+                k -= coeff(i);
+                args[i].second = -coeff(i);
+            }
+        }
+        // remove constants
+        for (unsigned i = 0; i < size(); ++i) {
+            if (lit(i) == true_literal) {
+                k += coeff(i);
+                std::swap(args[i], args[size()-1]);
+                args.pop_back();
+            }
+            else if (lit(i) == false_literal) {
+                std::swap(args[i], args[size()-1]);
+                args.pop_back();                
+            }
+        }
+        // sort and coalesce arguments:
+        std::sort(args.begin(), args.end());
+        for (unsigned i = 0; i + 1 < size(); ++i) {
+            if (lit(i) == args[i+1].first) {
+                args[i].second += coeff(i+1);
+                for (unsigned j = i+1; j + 1 < size(); ++j) {
+                    args[j] = args[j+1];
+                }
+                args.pop_back();
+            }
+            if (coeff(i) == 0) {
+                for (unsigned j = i; j + 1 < size(); ++j) {
+                    args[j] = args[j+1];
+                }
+                args.pop_back();
+            }
+        }            
+        // 
+        // Ensure all coefficients are positive:
+        //    c*l + y >= k 
+        // <=> 
+        //    c*(1-~l) + y >= k
+        // <=>
+        //    c - c*~l + y >= k
+        // <=> 
+        //    -c*~l + y >= k - c
+        // 
+        numeral sum = 0;
+        for (unsigned i = 0; i < size(); ++i) {
+            numeral c = coeff(i);
+            if (c < 0) {
+                args[i].second = -c;
+                args[i].first = ~lit(i);
+                k -= c;
+            }
+            sum += coeff(i);
+        }
+        // detect tautologies:
+        if (k <= 0) {
+            args.reset();
+            return l_true;
+        }
+        // detect infeasible constraints:
+        if (sum < k) {
+            args.reset();
+            return l_false;
+        }
+        // Ensure the largest coefficient is not larger than k:
+        for (unsigned i = 0; i < size(); ++i) {
+            numeral c = coeff(i);
+            if (c > k) {
+                args[i].second = k;
+            }
+        }
+        SASSERT(!args.empty());
+
+        // apply cutting plane reduction:
+        numeral g = 0;
+        for (unsigned i = 0; g != 1 && i < size(); ++i) {
+            numeral c = coeff(i);
+            if (c != k) {
+                g = gcd(g, c);
+            }
+        }
+        if (g == 0) {
+            // all coefficients are equal to k.
+            for (unsigned i = 0; i < size(); ++i) {
+                SASSERT(coeff(i) == k);
+                args[i].second = 1;
+            }
+            k = 1;
+        }
+        else if (g > 1) {
+            //
+            // Example 5x + 5y + 2z + 2u >= 5
+            // becomes 3x + 3y + z + u >= 3
+            // 
+            numeral k_new = k / g;    
+            if ((k % g) != 0) {     // k_new is the ceiling of k / g.
+                k_new++;
+            }
+            for (unsigned i = 0; i < size(); ++i) {
+                numeral c = coeff(i);
+                if (c == k) {
+                    c = k_new;
+                }
+                else {
+                    c = c / g;
+                }
+                args[i].second = c;
+            }
+            k = k_new;            
+        }
+        SASSERT(well_formed());
+        return l_undef;
+    }
+
     bool theory_pb::ineq::well_formed() const {
         SASSERT(k() > 0);
         uint_set vars;
@@ -57,7 +207,8 @@ namespace smt {
     
     theory_pb::theory_pb(ast_manager& m):
         theory(m.mk_family_id("card")),
-        m_util(m)
+        m_util(m),
+        m_lemma(null_literal)
     {}
 
     theory_pb::~theory_pb() {
@@ -101,7 +252,7 @@ namespace smt {
             args[i].second = -args[i].second;
         }
         k = -k;
-        lbool is_true = normalize_ineq(args, k);
+        lbool is_true = c->normalize();
 
         literal lit(abv);
         switch(is_true) {
@@ -138,8 +289,9 @@ namespace smt {
                 ++log;
                 n *= 2;
             }
-            c->m_compilation_threshold = args.size()*log;
-            TRACE("card", tout << "compilation threshold: " << (args.size()*log) << "\n";);
+            unsigned th = 10*args.size()*log;
+            c->m_compilation_threshold = th;
+            TRACE("card", tout << "compilation threshold: " << th << "\n";);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
@@ -167,10 +319,34 @@ namespace smt {
                 ctx.set_var_theory(bv, get_id());
             }
             has_bv = (ctx.get_var_theory(bv) == get_id());
+#if 0
+        TBD:
+            if (!has_bv) {
+                if (!ctx.e_internalized(arg)) {
+                    ctx.internalize(arg, false);
+                    SASSERT(ctx.e_internalized(arg));
+                }
+                enode* n = ctx.get_enode(arg);
+                theory_var v = mk_var(n);
+                ctx.attach_th_var(n, this, v);
+            }
+#endif
+        }
+        else if (m.is_true(arg)) {
+            bv = true_bool_var;
+            has_bv = true;
+        }
+        else if (m.is_false(arg)) {
+            bv = true_bool_var;
+            has_bv = true;
+            negate = !negate;
         }
 
-        // pre-processing should better remove negations under cardinality.
+
         // assumes relevancy level = 2 or 0.
+        // TBD: should should have been like an uninterpreted
+        // function intenalize, where enodes for each argument
+        // is available. 
         if (!has_bv) {
             expr_ref tmp(m), fml(m);
             tmp = m.mk_fresh_const("card_proxy",m.mk_bool_sort());
@@ -220,141 +396,7 @@ namespace smt {
         ineqs->push_back(&c);
     }
 
-    theory_pb::numeral theory_pb::gcd(numeral a, numeral b) {
-        while (a != b) {
-            if (a == 0) return b;
-            if (b == 0) return a;
-            SASSERT(a != 0 && b != 0);
-            if (a < b) {
-                b %= a;
-            }
-            else {
-                a %= b;
-            }
-        }
-        return a;
-    }
 
-
-    lbool theory_pb::normalize_ineq(arg_t& args, numeral& k) {
-
-        // normalize first all literals to be positive:
-        // then we can compare them more easily.
-        for (unsigned i = 0; i < args.size(); ++i) {
-            if (args[i].first.sign()) {
-                args[i].first.neg();
-                k -= args[i].second;
-                args[i].second = -args[i].second;
-            }
-        }
-        // remove constants
-        for (unsigned i = 0; i < args.size(); ++i) {
-            if (args[i].first == true_literal) {
-                k += args[i].second;
-                std::swap(args[i], args[args.size()-1]);
-                args.pop_back();
-            }
-            else if (args[i].first == false_literal) {
-                std::swap(args[i], args[args.size()-1]);
-                args.pop_back();                
-            }
-        }
-        // sort and coalesce arguments:
-        std::sort(args.begin(), args.end());
-        for (unsigned i = 0; i + 1 < args.size(); ++i) {
-            if (args[i].first == args[i+1].first) {
-                args[i].second += args[i+1].second;
-                for (unsigned j = i+1; j + 1 < args.size(); ++j) {
-                    args[j] = args[j+1];
-                }
-                args.resize(args.size()-1);
-            }
-            if (args[i].second == 0) {
-                for (unsigned j = i; j + 1 < args.size(); ++j) {
-                    args[j] = args[j+1];
-                }
-                args.resize(args.size()-1);                
-            }
-        }            
-        // 
-        // Ensure all coefficients are positive:
-        //    c*l + y >= k 
-        // <=> 
-        //    c*(1-~l) + y >= k
-        // <=>
-        //    c - c*~l + y >= k
-        // <=> 
-        //    -c*~l + y >= k - c
-        // 
-        numeral sum = 0;
-        for (unsigned i = 0; i < args.size(); ++i) {
-            numeral c = args[i].second;
-            if (c < 0) {
-                args[i].second = -c;
-                args[i].first = ~args[i].first;
-                k -= c;
-            }
-            sum += args[i].second;
-        }
-        // detect tautologies:
-        if (k <= 0) {
-            args.reset();
-            return l_true;
-        }
-        // detect infeasible constraints:
-        if (sum < k) {
-            args.reset();
-            return l_false;
-        }
-        // Ensure the largest coefficient is not larger than k:
-        for (unsigned i = 0; i < args.size(); ++i) {
-            numeral c = args[i].second;
-            if (c > k) {
-                args[i].second = k;
-            }
-        }
-        SASSERT(!args.empty());
-
-        // apply cutting plane reduction:
-        numeral g = 0;
-        for (unsigned i = 0; g != 1 && i < args.size(); ++i) {
-            numeral c = args[i].second;
-            if (c != k) {
-                g = gcd(g, c);
-            }
-        }
-        if (g == 0) {
-            // all coefficients are equal to k.
-            for (unsigned i = 0; i < args.size(); ++i) {
-                SASSERT(args[i].second == k);
-                args[i].second = 1;
-            }
-            k = 1;
-        }
-        else if (g > 1) {
-            //
-            // Example 5x + 5y + 2z + 2u >= 5
-            // becomes 3x + 3y + z + u >= 3
-            // 
-            numeral k_new = k / g;    
-            if ((k % g) != 0) {     // k_new is the ceiling of k / g.
-                k_new++;
-            }
-            for (unsigned i = 0; i < args.size(); ++i) {
-                numeral c = args[i].second;
-                if (c == k) {
-                    c = k_new;
-                }
-                else {
-                    c = c / g;
-                }
-                args[i].second = c;
-            }
-            k = k_new;            
-        }
-
-        return l_undef;
-    }
 
     void theory_pb::collect_statistics(::statistics& st) const {
         st.update("pb axioms", m_stats.m_num_axioms);
@@ -382,6 +424,10 @@ namespace smt {
         m_assign_ineqs_lim.reset();
         m_stats.reset();
         m_to_compile.reset();
+    }
+
+    void theory_pb::new_eq_eh(theory_var v1, theory_var v2) {
+        IF_VERBOSE(0, verbose_stream() << v1 << " = " << v2 << "\n";);
     }
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
@@ -461,7 +507,7 @@ namespace smt {
         if (maxsum < c.k()) {
             literal_vector& lits = get_unhelpful_literals(c, true);
             lits.push_back(~c.lit());
-            add_clause(c, lits);
+            add_clause(c, c.lit(), lits);
             return;
         }
 
@@ -514,7 +560,7 @@ namespace smt {
                 // 
                 literal_vector& lits = get_unhelpful_literals(c, false);
                 lits.push_back(~c.lit());
-                add_clause(c, lits);
+                add_clause(c, literal(v, !is_true), lits);
             }
             else if (c.max_sum() < k + c.max_coeff()) {
                 //
@@ -804,9 +850,14 @@ namespace smt {
     std::ostream& theory_pb::display(std::ostream& out, ineq& c) const {
         ast_manager& m = get_manager();
         context& ctx = get_context();
-        expr_ref tmp(m);
-        ctx.literal2expr(c.lit(), tmp);
-        out << tmp << "\n";
+        if (c.lit() != null_literal) {
+            expr_ref tmp(m);
+            ctx.literal2expr(c.lit(), tmp);
+            out << tmp << "\n";
+        }
+        else {
+            out << "null\n";
+        }
         for (unsigned i = 0; i < c.size(); ++i) {
             out << c.coeff(i) << "*" << c.lit(i);
             if (i + 1 < c.size()) {
@@ -829,6 +880,17 @@ namespace smt {
         return m_literals;
     }
 
+    class theory_pb::pb_justification : public theory_propagation_justification {
+        ineq& m_ineq;
+    public:
+        pb_justification(ineq& c, family_id fid, region & r, 
+                      unsigned num_lits, literal const * lits, literal consequent):
+                      theory_propagation_justification(fid, r, num_lits, lits, consequent),
+                      m_ineq(c)
+                      {}
+        ineq& get_ineq() { return m_ineq; }
+    };
+
     void theory_pb::add_assign(ineq& c, literal_vector const& lits, literal l) {
         inc_propagations(c);
         m_stats.m_num_propagations++;
@@ -841,13 +903,13 @@ namespace smt {
               display(tout, c););
 
         ctx.assign(l, ctx.mk_justification(
-                       theory_propagation_justification(
-                           get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
+                       pb_justification(
+                           c, get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), l)));
     }
     
                    
 
-    void theory_pb::add_clause(ineq& c, literal_vector const& lits) {
+    void theory_pb::add_clause(ineq& c, literal conseq, literal_vector const& lits) {
         inc_propagations(c);
         m_stats.m_num_axioms++;
         context& ctx = get_context();
@@ -857,11 +919,139 @@ namespace smt {
               }
               tout << "\n";
               display(tout, c););
+
+        // DEBUG_CODE(resolve_conflict(conseq, c););
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
                                                    lits.size(), lits.c_ptr());
                    verbose_stream() << "\n";);
         // ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+
+    }
+
+    void theory_pb::process_antecedent(literal l, numeral coeff) {        
+        context& ctx = get_context();
+        bool_var v = l.var();
+        unsigned lvl = ctx.get_assign_level(v);
+		IF_VERBOSE(0, verbose_stream() << l << "*" << coeff << " marked: " << ctx.is_marked(v) << " lvl: " << lvl << "\n";);
+        if (!ctx.is_marked(v) && lvl > ctx.get_base_level()) {
+            ctx.set_mark(v);
+            if (lvl == m_conflict_lvl) {
+                ++m_num_marks;
+            }
+            else {
+                m_lemma.m_args.push_back(std::make_pair(l, coeff));                
+            }
+        }
+    }
+
+    void theory_pb::process_ineq(ineq& c) {
+        // TBD: create CUT.
+		context& ctx = get_context();
+        for (unsigned i = 0; i < c.size(); ++i) {
+			process_antecedent(c.lit(i), c.coeff(i));
+        }
+        process_antecedent(~c.lit(), 1);
+    }
+
+    //
+    // modeled after sat_solver/smt_context
+    //
+    void theory_pb::resolve_conflict(literal conseq, ineq& c) {
+        
+        bool_var v;
+        context& ctx = get_context();
+        unsigned& lvl = m_conflict_lvl = ctx.get_assign_level(c.lit());
+        for (unsigned i = 0; i < c.size(); ++i) {
+            IF_VERBOSE(0, verbose_stream() << "conflict level: " << m_conflict_lvl << "\n";);
+            v = c.lit(i).var(); 
+            if (ctx.get_assignment(v) != l_undef) {
+                lvl = std::max(lvl, ctx.get_assign_level(v));
+            }
+        }
+
+        if (lvl == ctx.get_base_level()) {
+            return;
+        }
+
+        b_justification js(ctx.mk_justification(
+                               pb_justification(c, get_id(), ctx.get_region(), 
+                                                0, 0, c.lit())));
+        m_lemma.reset();
+        m_num_marks = 0;
+
+        // point into stack of assigned literals
+        literal_vector const& lits = ctx.assigned_literals();        
+        SASSERT(!lits.empty());
+		unsigned idx = lits.size()-1;
+   
+        do {
+            //
+            // Resolve selected conseq with antecedents.
+            // 
+            switch(js.get_kind()) {
+            case b_justification::CLAUSE: {
+                clause* cls = js.get_clause();
+                unsigned num_lits = cls->get_num_literals();
+                for (unsigned i = 0; i < num_lits; ++i) {
+                    process_antecedent(cls->get_literal(i), 1);
+                }
+                justification* cjs = cls->get_justification();
+                if (cjs) {
+                    // TBD
+                    NOT_IMPLEMENTED_YET();
+                }
+                break;                
+            }
+            case b_justification::BIN_CLAUSE:
+                SASSERT(conseq.var() != js.get_literal().var());
+                process_antecedent(~js.get_literal(), 1);
+                break;
+            case b_justification::AXIOM:
+                break;
+            case b_justification::JUSTIFICATION: {
+                justification& j = *js.get_justification(); 
+                // only process pb justifications.
+                if (j.get_from_theory() != get_id()) break;
+                pb_justification& pbj = dynamic_cast<pb_justification&>(j);
+                // weaken the lemma and resolve.
+                process_ineq(pbj.get_ineq());
+                break;
+            }
+            default:
+                UNREACHABLE();
+            }
+            //
+            // find the next marked variable in the assignment stack
+            //
+			SASSERT(idx > 0);
+			SASSERT(m_num_marks > 0);
+            do {
+                conseq = lits[idx];
+                v = conseq.var();
+                --idx;
+            }
+            while (!ctx.is_marked(v));
+            
+            js = ctx.get_justification(v);
+            --m_num_marks;
+            ctx.unset_mark(v);
+			IF_VERBOSE(0, verbose_stream() << "unmark: " << v << "\n";);
+        }
+        while (m_num_marks > 0);
+
+        // unset the marks on lemmas
+        for (unsigned i = 0; i < m_lemma.size(); ++i) {
+            bool_var v = m_lemma.lit(i).var();
+            if (ctx.is_marked(v)) {
+				IF_VERBOSE(0, verbose_stream() << "unmark: " << v << "\n";);
+                ctx.unset_mark(v);
+            }
+        }        
+
+        TRACE("card", display(tout, m_lemma););
+
+        IF_VERBOSE(1, display(verbose_stream(), m_lemma););
     }
 }
