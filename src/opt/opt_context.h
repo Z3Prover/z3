@@ -60,6 +60,8 @@ namespace opt {
     private:
         lbool optimize_pareto();
         lbool optimize_box();
+
+        void validate_feasibility(maxsmt& ms);
     };
 
 }

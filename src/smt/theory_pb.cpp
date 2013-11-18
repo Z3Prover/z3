@@ -921,7 +921,6 @@ namespace smt {
               display(tout, c););
 
         DEBUG_CODE(
-            IF_VERBOSE(0, verbose_stream() << s_debug_conflict << "\n";);
             if (s_debug_conflict) {
                 resolve_conflict(conseq, c);
             });

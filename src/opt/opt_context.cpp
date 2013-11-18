@@ -70,8 +70,8 @@ namespace opt {
         lbool is_sat = l_true;
         map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
         for (; is_sat == l_true && it != end; ++it) {
-            maxsmt* ms = it->m_value;
-            is_sat = (*ms)(s);
+            maxsmt& ms = *it->m_value;
+            is_sat = ms(s);
         }
         if (is_sat == l_true) {           
             is_sat = m_optsmt(s);
@@ -159,6 +159,5 @@ namespace opt {
             it->m_value->updt_params(m_params);
         }
     }
-
 
 }

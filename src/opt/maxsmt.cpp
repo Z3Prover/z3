@@ -59,6 +59,16 @@ namespace opt {
                        verbose_stream() << "Satisfying soft constraints\n";
                        display_answer(verbose_stream());
                    });
+
+        DEBUG_CODE(if (is_sat == l_true) {
+                IF_VERBOSE(0, verbose_stream() << "validating assignment\n";);
+                m_s->push();
+                commit_assignment();
+                VERIFY(is_sat == m_s->check_sat(0,0));
+                m_s->pop(1);
+                // TBD: check that all extensions are unsat too
+
+            });
         return is_sat;
     }
 
