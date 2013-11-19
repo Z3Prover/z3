@@ -52,7 +52,6 @@ namespace smt {
             
             numeral         m_max_coeff;    // maximal coefficient.
             unsigned        m_watch_sz;     // number of literals being watched.
-            numeral         m_sum;          // sum of coefficients so far.
             numeral         m_max_sum;      // maximal sum of watch literals.
             unsigned        m_num_propagations;
             unsigned        m_compilation_threshold;
@@ -70,7 +69,6 @@ namespace smt {
 
             unsigned size() const { return m_args.size(); }
 
-            numeral const& sum() const { return m_sum; }
             numeral const& max_sum() const { return m_max_sum; }
             numeral const& max_coeff() const { return m_max_coeff; }
             

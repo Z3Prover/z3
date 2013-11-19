@@ -42,7 +42,6 @@ namespace smt {
     void theory_pb::ineq::reset() {
         m_max_coeff = 0;
         m_watch_sz = 0;
-        m_sum = 0;
         m_max_sum = 0;
         m_num_propagations = 0;
         m_compilation_threshold = UINT_MAX;
@@ -476,7 +475,6 @@ namespace smt {
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
         ptr_vector<ineq>* ineqs = 0;
-        TRACE("pb", tout << "assign: " << literal(v, !is_true) << "\n";);
 
         if (m_watch.find(v, ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
@@ -549,7 +547,7 @@ namespace smt {
         if (maxsum < c.k()) {
             literal_vector& lits = get_unhelpful_literals(c, false);
             lits.push_back(~c.lit());
-            add_clause(c, ~c.lit(), lits);
+            add_clause(c, ~lits[0], lits);
         }
         else {
             c.m_max_sum = 0;
@@ -602,7 +600,7 @@ namespace smt {
                 // 
                 literal_vector& lits = get_unhelpful_literals(c, false);
                 lits.push_back(~c.lit());
-                add_clause(c, ~literal(v, !is_true), lits);
+                add_clause(c, literal(v, !is_true), lits);
             }
             else {
                 del_watch(watch, watch_index, c, w);
@@ -919,13 +917,12 @@ namespace smt {
                 out << " + ";
             }
         }
-        out << " >= " << c.m_k  << "\n"
-            << "propagations: " << c.m_num_propagations 
-            << " max_coeff: "   << c.max_coeff() 
-            << " watch size: "  << c.watch_size()
-            << " sum: "         << c.sum()
-            << " max-sum: "     << c.max_sum()
-            << "\n";
+        out << " >= " << c.m_k  << "\n";
+        if (c.m_num_propagations) out << "propagations: " << c.m_num_propagations << " ";
+        if (c.max_coeff())  out << "max_coeff: "   << c.max_coeff() << " ";
+        if (c.watch_size()) out << "watch size: "  << c.watch_size() << " ";
+        if (c.max_sum())    out << "max-sum: "     << c.max_sum() << " ";
+        if (c.m_num_propagations || c.max_coeff() || c.watch_size() || c.max_sum()) out << "\n";
         return out;
     }
 
@@ -992,13 +989,16 @@ namespace smt {
         context& ctx = get_context();
         bool_var v = l.var();
         unsigned lvl = ctx.get_assign_level(v);
-        IF_VERBOSE(0, verbose_stream() << "ante: " << l << "*" << coeff << " " << lvl << "\n";); 
-        if (lvl > ctx.get_base_level()) {
+        IF_VERBOSE(2, verbose_stream() << "ante: " << l << "*" << coeff << " " << lvl << "\n";); 
+
+        if (ctx.get_assignment(l) != l_false) {
+            m_lemma.m_k -= coeff;
+        }
+        else if (lvl > ctx.get_base_level()) {
             if (!ctx.is_marked(v)) {
                 ctx.set_mark(v);
                 m_unmark.push_back(v);
                 if (lvl == m_conflict_lvl) {
-                    IF_VERBOSE(0, verbose_stream() << "new mark\n";);
                     ++m_num_marks;
                     if (v >= static_cast<bool_var>(m_conseq_index.size())) {
                         m_conseq_index.resize(v+1);
@@ -1012,9 +1012,6 @@ namespace smt {
             }
             m_lemma.m_args[m_lemma_index] = std::make_pair(l, coeff);
             m_lemma_index = m_lemma.size();
-        }
-        else if (ctx.get_assignment(l) != l_false) {
-            m_lemma.m_k += coeff;
         }
     }
 
@@ -1054,22 +1051,21 @@ namespace smt {
         }
         g = lc/coeff2;
         for (unsigned i = 0; i < c.size(); ++i) {
-            if (ctx.get_assignment(c.lit(i)) == l_false) {
-                process_antecedent(c.lit(i), g*c.coeff(i));
-            }
-            else if (conseq == c.lit(i)) {
+            if (conseq == c.lit(i)) {
                 // skip this one.
+                SASSERT(ctx.get_assignment(c.lit(i)) == l_true);
             }
-            else {
-                m_lemma.m_k += g*c.coeff(i);
+            else {                
+                process_antecedent(c.lit(i), g*c.coeff(i));
             }
         }
         m_lemma.m_k += g*c.k();
         //
-        // we most likely want c.lit() to be 
+        // TBD: we want c.lit() to be 
         // an antecedent in a real clause.
-        // process_antecedent(~c.lit(), 1);
+        // The coefficient 'g' is also incorrect.
         //
+        // process_antecedent(~c.lit(), g);
     }
 
     //
@@ -1077,23 +1073,19 @@ namespace smt {
     //
     void theory_pb::resolve_conflict(literal conseq, ineq& c) {
 
-        IF_VERBOSE(0, verbose_stream() << conseq << "\n"; display(verbose_stream(), c, true););
+        IF_VERBOSE(0, verbose_stream() << "RESOLVE: " << conseq << "\n"; display(verbose_stream(), c, true););
 
         bool_var v;
         context& ctx = get_context();
         unsigned& lvl = m_conflict_lvl = 0;
-        unsigned conseq_index = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) == l_false) {
                 lvl = std::max(lvl, ctx.get_assign_level(c.lit(i)));
             }
-            if (~conseq == c.lit(i)) {
-                conseq_index = i;
-            }
         }
+
         SASSERT(lvl >= ctx.get_assign_level(c.lit()));
         SASSERT(ctx.get_assignment(conseq) == l_true);
-        SASSERT(conseq_index > 0 || ~conseq == c.lit(0)); // conseq is negative in c
 
         if (lvl == ctx.get_base_level()) {
             return;
@@ -1104,22 +1096,39 @@ namespace smt {
         m_lemma_index = 0;
         process_ineq(c, null_literal, 1); // add consequent to lemma.
 
-        SASSERT(c.lit(conseq_index) == ~conseq);
-
         // point into stack of assigned literals
         literal_vector const& lits = ctx.assigned_literals();        
         SASSERT(!lits.empty());
         unsigned idx = lits.size()-1;
    
-        b_justification js = ctx.get_justification(conseq.var());
-
         do {
+
+            TRACE("pb", display(tout, m_lemma, true););
+            IF_VERBOSE(0, display(verbose_stream(), m_lemma, true););
+
+            //
+            // find the next marked variable in the assignment stack
+            //
+            do {
+                conseq = lits[idx];
+                v = conseq.var();
+                --idx;
+            }
+            while (!ctx.is_marked(v));
+
+            unsigned conseq_index = m_conseq_index[v];
+            numeral conseq_coeff = m_lemma.coeff(conseq_index);
+            m_lemma_index = conseq_index;
+
+            SASSERT(~conseq == m_lemma.lit(conseq_index));
+
+            --m_num_marks;
+            b_justification js = ctx.get_justification(v);
+
             //
             // Resolve selected conseq with antecedents.
             // 
-            IF_VERBOSE(0, verbose_stream() << conseq << " " << js.get_kind() << "\n";);
-            numeral conseq_coeff = m_lemma.coeff(conseq_index);
-            m_lemma_index = conseq_index;
+            IF_VERBOSE(0, verbose_stream() << "conseq: " << conseq << " at index: " << conseq_index << "\n";);
             switch(js.get_kind()) {
                 
             case b_justification::CLAUSE: {
@@ -1136,6 +1145,7 @@ namespace smt {
                     process_antecedent(cls.get_literal(i), conseq_coeff);
                 }
                 m_lemma.m_k += conseq_coeff;
+                TRACE("pb", for (unsigned i = 0; i < num_lits; ++i) tout << cls.get_literal(i) << " "; tout << "\n";);
                 justification* cjs = cls.get_justification();
                 if (cjs) {
                     // TBD
@@ -1146,6 +1156,7 @@ namespace smt {
             case b_justification::BIN_CLAUSE:
                 m_lemma.m_k += conseq_coeff;
                 process_antecedent(~js.get_literal(), conseq_coeff);
+                TRACE("pb", tout << "binary: " << js.get_literal() << "\n";);
                 break;
             case b_justification::AXIOM:
                 break;
@@ -1156,30 +1167,16 @@ namespace smt {
                 pb_justification& pbj = dynamic_cast<pb_justification&>(j);
                 // weaken the lemma and resolve.
                 process_ineq(pbj.get_ineq(), conseq, conseq_coeff);
+                TRACE("pb", display(tout, pbj.get_ineq()););
                 break;
             }
             default:
                 UNREACHABLE();
-            }
-            m_lemma.normalize();
-            //
-            // find the next marked variable in the assignment stack
-            //
-            SASSERT(idx > 0);
-            SASSERT(m_num_marks > 0);
-            do {
-                conseq = lits[idx];
-                v = conseq.var();
-                --idx;
-            }
-            while (!ctx.is_marked(v));
-            
-            conseq_index = m_conseq_index[v];
-
-            js = ctx.get_justification(v);            
-            --m_num_marks;
+            }          
         }
         while (m_num_marks > 0);
+
+        m_lemma.normalize();
 
         // unset the marks on lemmas
         while (!m_unmark.empty()) {
@@ -1187,8 +1184,8 @@ namespace smt {
             m_unmark.pop_back();
         }
 
-        TRACE("pb", display(tout, m_lemma););
+        TRACE("pb", display(tout << "lemma: ", m_lemma););
 
-        IF_VERBOSE(1, display(verbose_stream(), m_lemma););
+        IF_VERBOSE(1, display(verbose_stream() << "lemma: ", m_lemma););
     }
 }
