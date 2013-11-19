@@ -31,7 +31,6 @@ Revision History:
 #include"theory_dummy.h"
 #include"theory_dl.h"
 #include"theory_seq_empty.h"
-#include"theory_card.h"
 #include"theory_pb.h"
 
 namespace smt {
