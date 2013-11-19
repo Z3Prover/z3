@@ -116,7 +116,7 @@ namespace smt {
         bool assign_watch(bool_var v, bool is_true, watch_list& watch, unsigned index);
         void assign_ineq(ineq& c, bool is_true);
 
-        std::ostream& display(std::ostream& out, ineq& c) const;
+        std::ostream& display(std::ostream& out, ineq& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
 
         void add_clause(ineq& c, literal conseq, literal_vector const& lits);

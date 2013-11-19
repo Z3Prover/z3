@@ -545,7 +545,7 @@ namespace smt {
         if (maxsum < c.k()) {
             literal_vector& lits = get_unhelpful_literals(c, false);
             lits.push_back(~c.lit());
-            add_clause(c, c.lit(), lits);
+            add_clause(c, ~c.lit(), lits);
         }
         else {
             c.m_max_sum = 0;
@@ -598,7 +598,7 @@ namespace smt {
                 // 
                 literal_vector& lits = get_unhelpful_literals(c, false);
                 lits.push_back(~c.lit());
-                add_clause(c, literal(v, !is_true), lits);
+                add_clause(c, ~literal(v, !is_true), lits);
             }
             else {
                 del_watch(watch, watch_index, c, w);
@@ -892,7 +892,7 @@ namespace smt {
         }
     }
 
-    std::ostream& theory_pb::display(std::ostream& out, ineq& c) const {
+    std::ostream& theory_pb::display(std::ostream& out, ineq& c, bool values) const {
         ast_manager& m = get_manager();
         context& ctx = get_context();
         out << c.lit() << " ";
@@ -902,7 +902,15 @@ namespace smt {
             out << tmp << "\n";
         }
         for (unsigned i = 0; i < c.size(); ++i) {
-            out << c.coeff(i) << "*" << c.lit(i);
+            literal l(c.lit(i));
+            out << c.coeff(i) << "*" << l;
+            if (values) {
+                out << "@(" << ctx.get_assignment(l);
+                if (ctx.get_assignment(l) != l_undef) {
+                    out << ":" << ctx.get_assign_level(l);
+                }
+                out << ")";
+            }
             if (i + 1 < c.size()) {
                 out << " + ";
             }
@@ -943,7 +951,7 @@ namespace smt {
                   tout << lits[i] << " ";
               }
               tout << "=> " << l << "\n";
-              display(tout, c););
+              display(tout, c, true););
 
         ctx.assign(l, ctx.mk_justification(
                        pb_justification(
@@ -961,7 +969,7 @@ namespace smt {
                   tout << lits[i] << " ";
               }
               tout << "\n";
-              display(tout, c););
+              display(tout, c, true););
 
         DEBUG_CODE(
             if (s_debug_conflict) {
@@ -1016,19 +1024,22 @@ namespace smt {
     //
     void theory_pb::resolve_conflict(literal conseq, ineq& c) {
 
-        IF_VERBOSE(0, display(verbose_stream(), c););
+        IF_VERBOSE(0, verbose_stream() << conseq << "\n"; display(verbose_stream(), c, true););
 
         bool_var v;
         context& ctx = get_context();
-        unsigned& lvl = m_conflict_lvl = ctx.get_assign_level(c.lit());
+        unsigned& lvl = m_conflict_lvl = 0;
+        bool found = false;
         for (unsigned i = 0; i < c.size(); ++i) {
-            v = c.lit(i).var(); 
-            if (ctx.get_assignment(v) != l_undef) {
-                IF_VERBOSE(0, verbose_stream() << c.lit(i) << " " 
-                           << ctx.get_assign_level(v) << "\n";);
-                lvl = std::max(lvl, ctx.get_assign_level(v));
+            if (ctx.get_assignment(c.lit(i)) == l_false) {
+                lvl = std::max(lvl, ctx.get_assign_level(c.lit(i)));
             }
+            found = found || (~conseq == c.lit(i));
         }
+        SASSERT(lvl >= ctx.get_assign_level(c.lit()));
+        SASSERT(ctx.get_assignment(conseq) == l_true);
+        SASSERT(found); // conseq is negative in c
+
 
         if (lvl == ctx.get_base_level()) {
             return;
