@@ -351,7 +351,7 @@ namespace smt {
         // is available. 
         if (!has_bv) {
             expr_ref tmp(m), fml(m);
-            tmp = m.mk_fresh_const("card_proxy",m.mk_bool_sort());
+            tmp = m.mk_fresh_const("pb_proxy",m.mk_bool_sort());
             fml = m.mk_iff(tmp, arg);
             ctx.internalize(fml, false);
             SASSERT(ctx.b_internalized(tmp));
