@@ -429,6 +429,45 @@ namespace smt {
     void theory_pb::new_eq_eh(theory_var v1, theory_var v2) {
         IF_VERBOSE(0, verbose_stream() << v1 << " = " << v2 << "\n";);
     }
+    
+    final_check_status theory_pb::final_check_eh() {
+        TRACE("card", display(tout););
+        DEBUG_CODE(validate_final_check(););
+        return FC_DONE;
+    }
+
+    void theory_pb::validate_final_check() {
+        u_map<ineq*>::iterator itc = m_ineqs.begin(), endc = m_ineqs.end();
+        for (; itc != endc; ++itc) {
+            validate_final_check(*itc->m_value);                
+        }
+    }
+
+    void theory_pb::validate_final_check(ineq& c) {
+        context& ctx = get_context();
+
+        if (ctx.get_assignment(c.lit()) == l_undef) {
+            return;
+        }
+        numeral sum = 0, maxsum = 0;
+        for (unsigned i = 0; i < c.size(); ++i) {
+            switch(ctx.get_assignment(c.lit(i))) {
+            case l_true:
+                sum += c.coeff(i);
+            case l_undef:
+                maxsum += c.coeff(i);
+                break;
+            }
+        }
+        TRACE("card", display(tout << "validate: ", c);
+              tout << "sum: " << sum << " " << maxsum << " " << ctx.get_assignment(c.lit()) << "\n";
+              );
+
+        SASSERT(sum <= maxsum);
+        SASSERT((sum >= c.k()) == (ctx.get_assignment(c.lit()) == l_true));
+        SASSERT((maxsum < c.k()) == (ctx.get_assignment(c.lit()) == l_false));
+    }
+
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
@@ -447,7 +486,6 @@ namespace smt {
         if (m_ineqs.find(v, c)) {
             assign_ineq(*c, is_true);
         }
-        TRACE("card", display(tout););
     }
 
     literal_vector& theory_pb::get_helpful_literals(ineq& c, bool negate) {
@@ -505,21 +543,21 @@ namespace smt {
               display(tout, c); );
 
         if (maxsum < c.k()) {
-            literal_vector& lits = get_unhelpful_literals(c, true);
+            literal_vector& lits = get_unhelpful_literals(c, false);
             lits.push_back(~c.lit());
             add_clause(c, c.lit(), lits);
-            return;
         }
-
-        c.m_max_sum = 0;
-        c.m_watch_sz = 0;
-        for (unsigned i = 0; c.max_sum() < c.k() + c.max_coeff() && i < c.size(); ++i) {
-            if (ctx.get_assignment(c.lit(i)) != l_false) {
-                add_watch(c, i);
-            }       
+        else {
+            c.m_max_sum = 0;
+            c.m_watch_sz = 0;
+            for (unsigned i = 0; c.max_sum() < c.k() + c.max_coeff() && i < c.size(); ++i) {
+                if (ctx.get_assignment(c.lit(i)) != l_false) {
+                    add_watch(c, i);
+                }       
+            }
+            SASSERT(c.max_sum() >= c.k());
+            m_assign_ineqs_trail.push_back(&c);
         }
-        SASSERT(c.max_sum() >= c.k());
-        m_assign_ineqs_trail.push_back(&c);
     }
 
     /**
@@ -544,16 +582,16 @@ namespace smt {
             //
 
             numeral k = c.k();
-            del_watch(watch, watch_index, c, w);
-            removed = true;
+            numeral coeff = c.coeff(w);
 
-            for (unsigned i = c.watch_size(); c.max_sum() < k + c.max_coeff() && i < c.size(); ++i) {
+            for (unsigned i = c.watch_size(); c.max_sum() - coeff < k + c.max_coeff() && i < c.size(); ++i) {
                 if (ctx.get_assignment(c.lit(i)) != l_false) {
                     add_watch(c, i);
                 }
             }
-            
-            if (c.max_sum() < k) {
+
+        
+            if (c.max_sum() - coeff < k) {
                 //
                 // L: 3*x1 + 2*x2 + x4 >= 3, but x1 <- 0, x2 <- 0
                 // create clause x1 or x2 or ~L
@@ -562,32 +600,37 @@ namespace smt {
                 lits.push_back(~c.lit());
                 add_clause(c, literal(v, !is_true), lits);
             }
-            else if (c.max_sum() < k + c.max_coeff()) {
-                //
-                // opportunities for unit propagation for unassigned 
-                // literals whose coefficients satisfy
-                // c.max_sum() - coeff < k
-                //
-                // L: 3*x1 + 2*x2 + x4 >= 3, but x1 <- 0
-                // Create clauses x1 or ~L or x2 
-                //                x1 or ~L or x4
-                //
+            else {
+                del_watch(watch, watch_index, c, w);
+                removed = true;
+                if (c.max_sum() - coeff < k + c.max_coeff()) {
 
-                literal_vector& lits = get_unhelpful_literals(c, true);
-                lits.push_back(c.lit());
-                for (unsigned i = 0; i < c.size(); ++i) {
-                    if (c.max_sum() - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
-                        add_assign(c, lits, c.lit(i));                            
+                    //
+                    // opportunities for unit propagation for unassigned 
+                    // literals whose coefficients satisfy
+                    // c.max_sum() - coeff < k
+                    //
+                    // L: 3*x1 + 2*x2 + x4 >= 3, but x1 <- 0
+                    // Create clauses x1 or ~L or x2 
+                    //                x1 or ~L or x4
+                    //
+                    
+                    literal_vector& lits = get_unhelpful_literals(c, true);
+                    lits.push_back(c.lit());
+                    for (unsigned i = 0; i < c.size(); ++i) {
+                        if (c.max_sum() - c.coeff(i) < k && ctx.get_assignment(c.lit(i)) == l_undef) {
+                            add_assign(c, lits, c.lit(i));                            
+                        }
                     }
                 }
+                //
+                // else: c.max_sum() >= k + c.max_coeff()
+                // we might miss opportunities for unit propagation if 
+                // max_coeff is not the maximal coefficient
+                // of the current unassigned literal, but we can
+                // rely on eventually learning this from propagations.
+                //
             }
-            //
-            // else: c.max_sum() >= k + c.max_coeff()
-            // we might miss opportunities for unit propagation if 
-            // max_coeff is not the maximal coefficient
-            // of the current unassigned literal, but we can
-            // rely on eventually learning this from propagations.
-            //
         }
 
         //
@@ -736,10 +779,12 @@ namespace smt {
 
     void theory_pb::inc_propagations(ineq& c) {
         ++c.m_num_propagations;
+#if 1
         if (c.m_compiled == l_false && c.m_num_propagations > c.m_compilation_threshold) {
             c.m_compiled = l_undef;
             m_to_compile.push_back(&c);
         }
+#endif
     }
 
     void theory_pb::restart_eh() {
@@ -850,13 +895,11 @@ namespace smt {
     std::ostream& theory_pb::display(std::ostream& out, ineq& c) const {
         ast_manager& m = get_manager();
         context& ctx = get_context();
+        out << c.lit() << " ";
         if (c.lit() != null_literal) {
             expr_ref tmp(m);
             ctx.literal2expr(c.lit(), tmp);
             out << tmp << "\n";
-        }
-        else {
-            out << "null\n";
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             out << c.coeff(i) << "*" << c.lit(i);
@@ -960,7 +1003,7 @@ namespace smt {
         // assigned below current index 'idx'.
         context& ctx = get_context();
         for (unsigned i = 0; i < c.size(); ++i) {
-            if (ctx.get_assignment(c.lit(i)) != l_undef) {
+            if (ctx.get_assignment(c.lit(i)) == l_false) {
                 process_antecedent(c.lit(i), c.coeff(i));
             }
         }
@@ -981,7 +1024,8 @@ namespace smt {
         for (unsigned i = 0; i < c.size(); ++i) {
             v = c.lit(i).var(); 
             if (ctx.get_assignment(v) != l_undef) {
-                IF_VERBOSE(0, verbose_stream() << c.lit(i) << " " << ctx.get_assign_level(v) << "\n";);
+                IF_VERBOSE(0, verbose_stream() << c.lit(i) << " " 
+                           << ctx.get_assign_level(v) << "\n";);
                 lvl = std::max(lvl, ctx.get_assign_level(v));
             }
         }
@@ -991,8 +1035,9 @@ namespace smt {
         }
 
         b_justification js(ctx.mk_justification(
-                               pb_justification(c, get_id(), ctx.get_region(), 
-                                                0, 0, c.lit())));
+                               pb_justification(
+                                   c, get_id(), ctx.get_region(), 
+                                   0, 0, c.lit())));
         m_lemma.reset();
         m_num_marks = 0;
 

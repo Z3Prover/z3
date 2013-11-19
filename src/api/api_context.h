@@ -75,6 +75,7 @@ namespace api {
         family_id                  m_bv_fid;
         family_id                  m_dt_fid;
         family_id                  m_datalog_fid;
+        family_id                  m_pb_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -121,6 +122,7 @@ namespace api {
         family_id get_bv_fid() const { return m_bv_fid; }
         family_id get_dt_fid() const { return m_dt_fid; }
         family_id get_datalog_fid() const { return m_datalog_fid; }
+        family_id get_pb_fid() const { return m_pb_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
 
         Z3_error_code get_error_code() const { return m_error_code; }

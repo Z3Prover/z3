@@ -34,7 +34,7 @@ namespace opt {
         if (m_soft_constraints.empty()) {
             m_msolver = 0;
             is_sat = s.check_sat(0, 0);
-            m_answer.append(m_soft_constraints);
+            m_answer.reset();
         }
         else if (is_maxsat_problem(m_weights)) {
             if (m_maxsat_engine == symbol("core_maxsat")) {
@@ -64,7 +64,7 @@ namespace opt {
                 IF_VERBOSE(0, verbose_stream() << "validating assignment\n";);
                 m_s->push();
                 commit_assignment();
-                VERIFY(is_sat == m_s->check_sat(0,0));
+                VERIFY(l_true == m_s->check_sat(0,0));
                 m_s->pop(1);
                 // TBD: check that all extensions are unsat too
 
@@ -94,7 +94,7 @@ namespace opt {
         if (m_msolver) {
             return inf_eps(m_msolver->get_upper());
         }
-        return inf_eps();
+        return inf_eps(rational(m_soft_constraints.size()));
     }
 
     void maxsmt::commit_assignment() {

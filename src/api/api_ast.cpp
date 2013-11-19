@@ -24,6 +24,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"array_decl_plugin.h"
+#include"card_decl_plugin.h"
 #include"ast_translation.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"
@@ -1119,6 +1120,14 @@ extern "C" {
             default:
                 UNREACHABLE();
                 return Z3_OP_UNINTERPRETED;                
+            }
+        }
+
+        if (mk_c(c)->get_pb_fid() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_PB_LE: return Z3_OP_PB_LE;
+            case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+            default: UNREACHABLE();
             }
         }
 

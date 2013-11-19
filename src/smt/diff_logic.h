@@ -996,8 +996,9 @@ public:
 		    svector<dl_var> neighbours;
 		    get_neighbours_undirected(current, neighbours);
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+				DEBUG_CODE(
 			    edge_id id;
-			    SASSERT(prev == -1 || get_edge_id(prev, current, id) || get_edge_id(current, prev, id));
+				SASSERT(prev == -1 || get_edge_id(prev, current, id) || get_edge_id(current, prev, id)););
 			    if (!visited.contains(neighbours[i])) {
 				    nodes.push_back(neighbours[i]);
 			    }
@@ -1023,8 +1024,9 @@ public:
 		    get_neighbours_undirected(current, neighbours);
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
 			    dl_var & next = neighbours[i];
+				DEBUG_CODE(
 			    edge_id id;
-			    SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id));
+				SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););
 			    if (!visited.contains(next)) {
 				    parents[next] = current;
 				    depths[next] = depths[current] + 1;

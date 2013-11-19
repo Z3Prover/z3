@@ -144,6 +144,9 @@ namespace smt {
         void resolve_conflict(literal conseq, ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c);
+
+        void validate_final_check();
+        void validate_final_check(ineq& c);
     public:
         theory_pb(ast_manager& m);
         
@@ -156,7 +159,7 @@ namespace smt {
         virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
         virtual bool use_diseqs() const { return false; }
         virtual bool build_models() const { return false; }
-        virtual final_check_status final_check_eh() { return FC_DONE; }
+        virtual final_check_status final_check_eh();
 
         virtual void reset_eh();
         virtual void assign_eh(bool_var v, bool is_true);
