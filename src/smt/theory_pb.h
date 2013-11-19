@@ -93,6 +93,7 @@ namespace smt {
             bool well_formed() const;
 
             static numeral gcd(numeral a, numeral b);
+            static numeral lcm(numeral a, numeral b);
 
         };
 
@@ -137,13 +138,16 @@ namespace smt {
         //
         // Conflict resolution, cutting plane derivation.
         // 
-        unsigned       m_num_marks;
-        unsigned       m_conflict_lvl;
-        ineq           m_lemma;
+        unsigned          m_num_marks;
+        unsigned          m_conflict_lvl;
+        ineq              m_lemma;
+        unsigned_vector   m_conseq_index;
+        unsigned          m_lemma_index;
         svector<bool_var> m_unmark;
+        void set_next_index(unsigned i);
         void resolve_conflict(literal conseq, ineq& c);
         void process_antecedent(literal l, numeral coeff);
-        void process_ineq(ineq& c);
+        void process_ineq(ineq& c, literal conseq, numeral coeff);
 
         void validate_final_check();
         void validate_final_check(ineq& c);

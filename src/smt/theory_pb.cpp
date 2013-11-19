@@ -66,6 +66,10 @@ namespace smt {
         return a;
     }
 
+    theory_pb::numeral theory_pb::ineq::lcm(numeral a, numeral b) {
+        return (a*b)/gcd(a,b);
+    }
+
     lbool theory_pb::ineq::normalize() {
 
         numeral& k = m_k;
@@ -996,27 +1000,76 @@ namespace smt {
                 if (lvl == m_conflict_lvl) {
                     IF_VERBOSE(0, verbose_stream() << "new mark\n";);
                     ++m_num_marks;
+                    if (v >= static_cast<bool_var>(m_conseq_index.size())) {
+                        m_conseq_index.resize(v+1);
+                    }
+                    m_conseq_index[v] = m_lemma_index;
                 }
             }
-            m_lemma.m_args.push_back(std::make_pair(l, coeff));
+            SASSERT(m_lemma_index <= m_lemma.size());
+            if (m_lemma_index == m_lemma.size()) {
+                m_lemma.m_args.resize(m_lemma_index+1);
+            }
+            m_lemma.m_args[m_lemma_index] = std::make_pair(l, coeff);
+            m_lemma_index = m_lemma.size();
         }
-        else if (ctx.get_assignment(l) == l_true) {
+        else if (ctx.get_assignment(l) != l_false) {
             m_lemma.m_k += coeff;
         }
     }
 
-    void theory_pb::process_ineq(ineq& c) {
-        // TBD: create CUT.
-        // only process literals that were 
+    void theory_pb::process_ineq(ineq& c, literal conseq, numeral coeff1) {
+
+        //
+        // Create CUT.
+        // TBD only process literals that were 
         // assigned below current index 'idx'.
+        // and/or relevant to the conflict.
+        //
+
+        // 
+        // . find coeff2
+        // . find lcm of coefficients to conseq.
+        // . multiply m_lemma by lcm/coeff coefficient to align.
+        // . create lcm/coeff_2 to multiply on this side.
+        // . cut resolve constraints.
+        // 
+
         context& ctx = get_context();
+        numeral coeff2 = (conseq==null_literal)?1:0;
         for (unsigned i = 0; i < c.size(); ++i) {
-            if (ctx.get_assignment(c.lit(i)) == l_false) {
-                process_antecedent(c.lit(i), c.coeff(i));
+            if (c.lit(i) == conseq) {
+                coeff2 = c.coeff(i);
+                break;
             }
         }
-        process_antecedent(~c.lit(), 1);
-        m_lemma.m_k += c.k();
+        SASSERT(coeff2 > 0);
+        numeral lc = ineq::lcm(coeff1, coeff2);
+        numeral g = lc/coeff1;
+        if (g > 1) {
+            for (unsigned i = 0; i < m_lemma.size(); ++i) {
+                m_lemma.m_args[i].second *= g;
+            }
+            m_lemma.m_k *= g;
+        }
+        g = lc/coeff2;
+        for (unsigned i = 0; i < c.size(); ++i) {
+            if (ctx.get_assignment(c.lit(i)) == l_false) {
+                process_antecedent(c.lit(i), g*c.coeff(i));
+            }
+            else if (conseq == c.lit(i)) {
+                // skip this one.
+            }
+            else {
+                m_lemma.m_k += g*c.coeff(i);
+            }
+        }
+        m_lemma.m_k += g*c.k();
+        //
+        // we most likely want c.lit() to be 
+        // an antecedent in a real clause.
+        // process_antecedent(~c.lit(), 1);
+        //
     }
 
     //
@@ -1029,48 +1082,60 @@ namespace smt {
         bool_var v;
         context& ctx = get_context();
         unsigned& lvl = m_conflict_lvl = 0;
-        bool found = false;
+        unsigned conseq_index = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) == l_false) {
                 lvl = std::max(lvl, ctx.get_assign_level(c.lit(i)));
             }
-            found = found || (~conseq == c.lit(i));
+            if (~conseq == c.lit(i)) {
+                conseq_index = i;
+            }
         }
         SASSERT(lvl >= ctx.get_assign_level(c.lit()));
         SASSERT(ctx.get_assignment(conseq) == l_true);
-        SASSERT(found); // conseq is negative in c
-
+        SASSERT(conseq_index > 0 || ~conseq == c.lit(0)); // conseq is negative in c
 
         if (lvl == ctx.get_base_level()) {
             return;
         }
 
-        b_justification js(ctx.mk_justification(
-                               pb_justification(
-                                   c, get_id(), ctx.get_region(), 
-                                   0, 0, c.lit())));
-        m_lemma.reset();
         m_num_marks = 0;
+        m_lemma.reset();
+        m_lemma_index = 0;
+        process_ineq(c, null_literal, 1); // add consequent to lemma.
+
+        SASSERT(c.lit(conseq_index) == ~conseq);
 
         // point into stack of assigned literals
         literal_vector const& lits = ctx.assigned_literals();        
         SASSERT(!lits.empty());
         unsigned idx = lits.size()-1;
    
+        b_justification js = ctx.get_justification(conseq.var());
+
         do {
             //
             // Resolve selected conseq with antecedents.
             // 
             IF_VERBOSE(0, verbose_stream() << conseq << " " << js.get_kind() << "\n";);
+            numeral conseq_coeff = m_lemma.coeff(conseq_index);
+            m_lemma_index = conseq_index;
             switch(js.get_kind()) {
                 
             case b_justification::CLAUSE: {
                 clause& cls = *js.get_clause();
                 unsigned num_lits = cls.get_num_literals();
-                for (unsigned i = 0; i < num_lits; ++i) {
-                    process_antecedent(cls.get_literal(i), 1);
+                if (cls.get_literal(0) == conseq) {
+                    process_antecedent(cls.get_literal(1), conseq_coeff);
                 }
-                m_lemma.m_k += 1;
+                else {
+                    SASSERT(cls.get_literal(1) == conseq);
+                    process_antecedent(cls.get_literal(0), conseq_coeff);
+                }
+                for (unsigned i = 2; i < num_lits; ++i) {
+                    process_antecedent(cls.get_literal(i), conseq_coeff);
+                }
+                m_lemma.m_k += conseq_coeff;
                 justification* cjs = cls.get_justification();
                 if (cjs) {
                     // TBD
@@ -1079,9 +1144,8 @@ namespace smt {
                 break;                
             }
             case b_justification::BIN_CLAUSE:
-                m_lemma.m_k += 1;
-                process_antecedent(conseq, 1);
-                process_antecedent(~js.get_literal(), 1);
+                m_lemma.m_k += conseq_coeff;
+                process_antecedent(~js.get_literal(), conseq_coeff);
                 break;
             case b_justification::AXIOM:
                 break;
@@ -1091,12 +1155,13 @@ namespace smt {
                 if (j.get_from_theory() != get_id()) break;
                 pb_justification& pbj = dynamic_cast<pb_justification&>(j);
                 // weaken the lemma and resolve.
-                process_ineq(pbj.get_ineq());
+                process_ineq(pbj.get_ineq(), conseq, conseq_coeff);
                 break;
             }
             default:
                 UNREACHABLE();
             }
+            m_lemma.normalize();
             //
             // find the next marked variable in the assignment stack
             //
@@ -1109,7 +1174,9 @@ namespace smt {
             }
             while (!ctx.is_marked(v));
             
-            js = ctx.get_justification(v);
+            conseq_index = m_conseq_index[v];
+
+            js = ctx.get_justification(v);            
             --m_num_marks;
         }
         while (m_num_marks > 0);
@@ -1119,7 +1186,6 @@ namespace smt {
             ctx.unset_mark(m_unmark.back());
             m_unmark.pop_back();
         }
-
 
         TRACE("pb", display(tout, m_lemma););
 
