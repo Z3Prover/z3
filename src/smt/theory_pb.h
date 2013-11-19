@@ -21,7 +21,7 @@ Notes:
 --*/
 
 #include "smt_theory.h"
-#include "card_decl_plugin.h"
+#include "pb_decl_plugin.h"
 #include "smt_clause.h"
 
 namespace smt {
@@ -105,7 +105,7 @@ namespace smt {
         ptr_vector<ineq>         m_assign_ineqs_trail;
         unsigned_vector          m_assign_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
-        card_util                m_util;
+        pb_util                  m_util;
         stats                    m_stats;
         ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
 

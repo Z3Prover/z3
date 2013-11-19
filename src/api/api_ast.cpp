@@ -24,7 +24,7 @@ Revision History:
 #include"bv_decl_plugin.h"
 #include"datatype_decl_plugin.h"
 #include"array_decl_plugin.h"
-#include"card_decl_plugin.h"
+#include"pb_decl_plugin.h"
 #include"ast_translation.h"
 #include"ast_pp.h"
 #include"ast_ll_pp.h"

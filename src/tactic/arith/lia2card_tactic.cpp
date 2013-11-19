@@ -22,7 +22,7 @@ Notes:
 #include"ast_pp.h"
 #include"expr_safe_replace.h" // NB: should use proof-producing expr_substitute in polished version.
 
-#include"card_decl_plugin.h"
+#include"pb_decl_plugin.h"
 #include"arith_decl_plugin.h"
 
 class lia2card_tactic : public tactic {
@@ -31,7 +31,7 @@ class lia2card_tactic : public tactic {
         typedef obj_hashtable<expr> expr_set;
         ast_manager &                    m;
         arith_util                       a;
-        card_util                        m_card;
+        pb_util                        m_pb;
         obj_map<expr, ptr_vector<expr> > m_uses;
         obj_map<expr, expr*>             m_converted;
         expr_set                         m_01s;
@@ -39,7 +39,7 @@ class lia2card_tactic : public tactic {
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
             a(m),
-            m_card(m) {
+            m_pb(m) {
         }
         
         void set_cancel(bool f) {
@@ -73,7 +73,7 @@ class lia2card_tactic : public tactic {
                     bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
                     bounds.has_upper(x, hi, s2) && !s2 && hi.is_one()) {
                     m_01s.insert(x);
-                    TRACE("card", tout << "add bound " << mk_pp(x, m) << "\n";);
+                    TRACE("pb", tout << "add bound " << mk_pp(x, m) << "\n";);
                 }
             }
             if (m_01s.empty()) {
@@ -117,7 +117,7 @@ class lia2card_tactic : public tactic {
             }
             g->inc_depth();
             result.push_back(g.get());
-            TRACE("card", g->display(tout););
+            TRACE("pb", g->display(tout););
             SASSERT(g->is_well_sorted());
 
             // TBD: convert models for 0-1 variables.
@@ -181,13 +181,13 @@ class lia2card_tactic : public tactic {
                     sub.insert(fml, mk_ge(y, n));
                 }
                 else if (is_add(x, args) && is_unsigned(y, k)) { // x <= k
-                    sub.insert(fml, m_card.mk_at_most_k(args.size(), args.c_ptr(), k));
+                    sub.insert(fml, m_pb.mk_at_most_k(args.size(), args.c_ptr(), k));
                 }                
                 else if (is_add(y, args) && is_unsigned(x, k)) { // k <= y <=> not (y <= k-1)
                     if (k == 0) 
                         sub.insert(fml, m.mk_true());
                     else 
-                        sub.insert(fml, m.mk_not(m_card.mk_at_most_k(args.size(), args.c_ptr(), k-1)));
+                        sub.insert(fml, m.mk_not(m_pb.mk_at_most_k(args.size(), args.c_ptr(), k-1)));
                 }
                 else {
                     UNREACHABLE();
@@ -204,10 +204,10 @@ class lia2card_tactic : public tactic {
                     if (k == 0) 
                         sub.insert(fml, m.mk_false());                
                     else
-                        sub.insert(fml, m_card.mk_at_most_k(args.size(), args.c_ptr(), k-1));
+                        sub.insert(fml, m_pb.mk_at_most_k(args.size(), args.c_ptr(), k-1));
                 }                    
                 else if (is_add(y, args) && is_unsigned(x, k)) { // k < y <=> not (y <= k)
-                    sub.insert(fml, m.mk_not(m_card.mk_at_most_k(args.size(), args.c_ptr(), k)));
+                    sub.insert(fml, m.mk_not(m_pb.mk_at_most_k(args.size(), args.c_ptr(), k)));
                 }
                 else {
                     UNREACHABLE();
@@ -304,7 +304,7 @@ class lia2card_tactic : public tactic {
                 }
                 return true;
             }
-            TRACE("card", tout << "Use not validated: " << mk_pp(fml, m) << "\n";);
+            TRACE("pb", tout << "Use not validated: " << mk_pp(fml, m) << "\n";);
 
             return false;
         }

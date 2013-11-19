@@ -208,7 +208,7 @@ namespace smt {
     }
     
     theory_pb::theory_pb(ast_manager& m):
-        theory(m.mk_family_id("card")),
+        theory(m.mk_family_id("pb")),
         m_util(m),
         m_lemma(null_literal)
     {}
@@ -263,7 +263,7 @@ namespace smt {
             // fall-through
         case l_true: 
             ctx.mk_th_axiom(get_id(), 1, &lit);
-            TRACE("card", tout << mk_pp(atom, m) << " := " << lit << "\n";);
+            TRACE("pb", tout << mk_pp(atom, m) << " := " << lit << "\n";);
             dealloc(c);
             return true;
         case l_undef: 
@@ -293,7 +293,7 @@ namespace smt {
             }
             unsigned th = 10*args.size()*log;
             c->m_compilation_threshold = th;
-            TRACE("card", tout << "compilation threshold: " << th << "\n";);
+            TRACE("pb", tout << "compilation threshold: " << th << "\n";);
         }
         else {
             c->m_compilation_threshold = UINT_MAX;
@@ -301,7 +301,7 @@ namespace smt {
         m_ineqs.insert(abv, c);
         m_ineqs_trail.push_back(abv);
 
-        TRACE("card", display(tout, *c););
+        TRACE("pb", display(tout, *c););
 
         return true;
     }
@@ -431,7 +431,7 @@ namespace smt {
     }
     
     final_check_status theory_pb::final_check_eh() {
-        TRACE("card", display(tout););
+        TRACE("pb", display(tout););
         DEBUG_CODE(validate_final_check(););
         return FC_DONE;
     }
@@ -459,7 +459,7 @@ namespace smt {
                 break;
             }
         }
-        TRACE("card", display(tout << "validate: ", c);
+        TRACE("pb", display(tout << "validate: ", c);
               tout << "sum: " << sum << " " << maxsum << " " << ctx.get_assignment(c.lit()) << "\n";
               );
 
@@ -472,7 +472,7 @@ namespace smt {
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
         ptr_vector<ineq>* ineqs = 0;
-        TRACE("card", tout << "assign: " << literal(v, !is_true) << "\n";);
+        TRACE("pb", tout << "assign: " << literal(v, !is_true) << "\n";);
 
         if (m_watch.find(v, ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
@@ -538,7 +538,7 @@ namespace smt {
             }
         }
 
-        TRACE("card", 
+        TRACE("pb", 
               tout << "assign: " << c.lit() << " <- " << is_true << "\n";
               display(tout, c); );
 
@@ -636,7 +636,7 @@ namespace smt {
         //
         // else: the current set of watch remain a potentially feasible assignment.
         //
-        TRACE("card", 
+        TRACE("pb", 
               tout << "assign: " << literal(v) << " <- " << is_true << "\n";
               display(tout, c); );
 
@@ -748,7 +748,7 @@ namespace smt {
                 add_clause(~l,  a,  c);
                 add_clause(l,  ~a, ~b);
                 add_clause(l,   a, ~c);
-                TRACE("card", tout << mk_pp(t, m) << " ::= (if ";
+                TRACE("pb", tout << mk_pp(t, m) << " ::= (if ";
                       ctx.display_detailed_literal(tout, a);
                       ctx.display_detailed_literal(tout << " ", b);
                       ctx.display_detailed_literal(tout << " ", c);
@@ -765,7 +765,7 @@ namespace smt {
             if (b != null_literal) lits.push_back(b); 
             if (c != null_literal) lits.push_back(c);         
             justification* js = 0;
-            TRACE("card",
+            TRACE("pb",
                   ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX, 0);
         }            
@@ -815,12 +815,12 @@ namespace smt {
         }
         sn(in, out);
         literal at_least_k = se.internalize(c, out[k-1].get()); // first k outputs are 1.
-        TRACE("card", tout << "at_least: " << mk_pp(out[k-1].get(), m) << "\n";);
+        TRACE("pb", tout << "at_least: " << mk_pp(out[k-1].get(), m) << "\n";);
         
         literal thl = c.lit();
         se.add_clause(~thl, at_least_k);
         se.add_clause(thl, ~at_least_k);
-        TRACE("card", tout << c.lit() << "\n";);
+        TRACE("pb", tout << c.lit() << "\n";);
         // auxiliary clauses get removed when popping scopes.
         // we have to recompile the circuit after back-tracking.
         c.m_compiled = l_false;
@@ -938,7 +938,7 @@ namespace smt {
         inc_propagations(c);
         m_stats.m_num_propagations++;
         context& ctx = get_context();
-        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; 
+        TRACE("pb", tout << "#prop:" << c.m_num_propagations << " - "; 
               for (unsigned i = 0; i < lits.size(); ++i) {
                   tout << lits[i] << " ";
               }
@@ -956,7 +956,7 @@ namespace smt {
         inc_propagations(c);
         m_stats.m_num_conflicts++;
         context& ctx = get_context();
-        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; 
+        TRACE("pb", tout << "#prop:" << c.m_num_propagations << " - "; 
               for (unsigned i = 0; i < lits.size(); ++i) {
                   tout << lits[i] << " ";
               }
@@ -1110,7 +1110,7 @@ namespace smt {
         }
 
 
-        TRACE("card", display(tout, m_lemma););
+        TRACE("pb", display(tout, m_lemma););
 
         IF_VERBOSE(1, display(verbose_stream(), m_lemma););
     }

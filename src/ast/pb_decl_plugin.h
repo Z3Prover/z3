@@ -3,11 +3,11 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    card_decl_plugin.h
+    pb_decl_plugin.h
 
 Abstract:
 
-    Cardinality Constraints plugin
+    Pseudo-Boolean and Cardinality Constraints plugin
 
 Author:
 
@@ -24,26 +24,26 @@ hence:
 
 
 --*/
-#ifndef _CARD_DECL_PLUGIN_H_
-#define _CARD_DECL_PLUGIN_H_
+#ifndef _PB_DECL_PLUGIN_H_
+#define _PB_DECL_PLUGIN_H_
 
 #include"ast.h"
  
-enum card_op_kind {
+enum pb_op_kind {
     OP_AT_MOST_K,  // at most K Booleans are true.
     OP_PB_LE,      // pseudo-Boolean <= (generalizes at_most_k)
-    LAST_CARD_OP
+    LAST_PB_OP
 };
 
 
-class card_decl_plugin : public decl_plugin {
+class pb_decl_plugin : public decl_plugin {
     symbol m_at_most_sym;
     symbol m_pble_sym;
     func_decl * mk_at_most(unsigned arity, unsigned k);
     func_decl * mk_le(unsigned arity, int const* coeffs, int k);
 public:
-    card_decl_plugin();
-    virtual ~card_decl_plugin() {}
+    pb_decl_plugin();
+    virtual ~pb_decl_plugin() {}
 
     virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
         UNREACHABLE();
@@ -51,7 +51,7 @@ public:
     }
 
     virtual decl_plugin * mk_fresh() {
-        return alloc(card_decl_plugin);
+        return alloc(pb_decl_plugin);
     }
     
     //
@@ -65,11 +65,11 @@ public:
 };
 
 
-class card_util {
+class pb_util {
     ast_manager & m;
     family_id     m_fid;
 public:
-    card_util(ast_manager& m):m(m), m_fid(m.mk_family_id("card")) {}
+    pb_util(ast_manager& m):m(m), m_fid(m.mk_family_id("pb")) {}
     ast_manager & get_manager() const { return m; }
     family_id get_family_id() const { return m_fid; }
     app * mk_at_most_k(unsigned num_args, expr * const * args, unsigned k);
@@ -83,5 +83,5 @@ public:
 };
 
 
-#endif /* _CARD_DECL_PLUGIN_H_ */
+#endif /* _PB_DECL_PLUGIN_H_ */
 

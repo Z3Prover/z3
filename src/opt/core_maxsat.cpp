@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "core_maxsat.h"
-#include "card_decl_plugin.h"
+#include "pb_decl_plugin.h"
 #include "ast_pp.h"
 
 namespace opt {
@@ -120,10 +120,10 @@ namespace opt {
     }
 
     expr_ref core_maxsat::mk_at_most(expr_set const& set, unsigned k) {
-        card_util card(m);
+        pb_util pb(m);
         ptr_vector<expr> es;
         set2vector(set, es);
-        return expr_ref(card.mk_at_most_k(es.size(), es.c_ptr(), k), m);
+        return expr_ref(pb.mk_at_most_k(es.size(), es.c_ptr(), k), m);
     }
 
     expr* core_maxsat::get_not(expr* e) const {

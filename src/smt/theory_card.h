@@ -21,7 +21,7 @@ Notes:
 --*/
 
 #include "smt_theory.h"
-#include "card_decl_plugin.h"
+#include "pb_decl_plugin.h"
 #include "smt_clause.h"
 
 namespace smt {
@@ -69,7 +69,7 @@ namespace smt {
         unsigned_vector          m_watch_trail;
         unsigned_vector          m_watch_lim;
         literal_vector           m_literals;
-        card_util                m_util;
+        pb_util                  m_util;
         stats                    m_stats;
 
         void add_watch(bool_var bv, card* c);

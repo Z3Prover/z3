@@ -20,7 +20,7 @@ Revision History:
 #include"api_log_macros.h"
 #include"api_context.h"
 #include"api_util.h"
-#include"card_decl_plugin.h"
+#include"pb_decl_plugin.h"
 
 extern "C" {
     
@@ -30,7 +30,7 @@ extern "C" {
         LOG_Z3_mk_atmost(c, num_args, args, k);
         RESET_ERROR_CODE();
         parameter param(k);
-        card_util util(mk_c(c)->m());
+        pb_util util(mk_c(c)->m());
         ast* a = util.mk_at_most_k(num_args, to_exprs(args), k);
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
@@ -45,7 +45,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_pble(c, num_args, args, coeffs, k);
         RESET_ERROR_CODE();
-        card_util util(mk_c(c)->m());
+        pb_util util(mk_c(c)->m());
         ast* a = util.mk_le(num_args, coeffs, to_exprs(args), k);
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);

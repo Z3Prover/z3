@@ -53,7 +53,7 @@ Notes:
 namespace smt {
     
     theory_card::theory_card(ast_manager& m):
-        theory(m.mk_family_id("card")),
+        theory(m.mk_family_id("pb")),
         m_util(m)
     {}
 
@@ -79,7 +79,7 @@ namespace smt {
 
         m_stats.m_num_predicates++;
 
-        TRACE("card", tout << "internalize: " << mk_pp(atom, m) << "\n";);
+        TRACE("pb", tout << "internalize: " << mk_pp(atom, m) << "\n";);
 
         SASSERT(!ctx.b_internalized(atom));
         bool_var abv = ctx.mk_bool_var(atom);
@@ -370,7 +370,7 @@ namespace smt {
         int max = c.m_current_max;
         int k = c.m_k;
 
-        TRACE("card", 
+        TRACE("pb", 
               tout << mk_pp(c.m_app, m) << " min: " 
               << min << " max: " << max << "\n";);
 
@@ -474,7 +474,7 @@ namespace smt {
         ast_manager& m = get_manager();
         ptr_vector<card>* cards = 0;
         card* c = 0;
-        TRACE("card", tout << "assign: " << mk_pp(ctx.bool_var2expr(v), m) << " <- " << is_true << "\n";);
+        TRACE("pb", tout << "assign: " << mk_pp(ctx.bool_var2expr(v), m) << " <- " << is_true << "\n";);
 
         if (m_watch.find(v, cards)) {
             for (unsigned i = 0; i < cards->size(); ++i) {
@@ -618,7 +618,7 @@ namespace smt {
                 add_clause(~l,  a,  c);
                 add_clause(l,  ~a, ~b);
                 add_clause(l,   a, ~c);
-                TRACE("card", tout << p << " ::= (if ";
+                TRACE("pb", tout << p << " ::= (if ";
                       ctx.display_detailed_literal(tout, a);
                       ctx.display_detailed_literal(tout << " ", b);
                       ctx.display_detailed_literal(tout << " ", c);
@@ -635,7 +635,7 @@ namespace smt {
             if (b != null_literal) lits.push_back(b); 
             if (c != null_literal) lits.push_back(c);         
             justification* js = 0;
-            TRACE("card",
+            TRACE("pb",
                   ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
             ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX, 0);
         }            
@@ -656,7 +656,7 @@ namespace smt {
             ++log;
             n *= 2;
         }
-        TRACE("card", tout << "threshold:" << (num_args*log) << "\n";);
+        TRACE("pb", tout << "threshold:" << (num_args*log) << "\n";);
         return num_args*log;
     }
 
@@ -696,12 +696,12 @@ namespace smt {
             }
             sn(in, out);
             atmostk = ~se.internalize(c, out[k].get()); // k'th output is 0.
-            TRACE("card", tout << "~atmost: " << mk_pp(out[k].get(), m) << "\n";);
+            TRACE("pb", tout << "~atmost: " << mk_pp(out[k].get(), m) << "\n";);
         }
         literal thl = literal(c.m_bv);
         se.add_clause(~thl, atmostk);
         se.add_clause(thl, ~atmostk);
-        TRACE("card", tout << mk_pp(a, m) << "\n";);
+        TRACE("pb", tout << mk_pp(a, m) << "\n";);
         // auxiliary clauses get removed when popping scopes.
         // we have to recompile the circuit after back-tracking.
         ctx.push_trail(value_trail<context, bool>(c.m_compiled));
@@ -760,7 +760,7 @@ namespace smt {
         ++c.m_num_propagations;
         m_stats.m_num_axioms++;
         context& ctx = get_context();
-        TRACE("card", tout << "#prop:" << c.m_num_propagations << " - "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
+        TRACE("pb", tout << "#prop:" << c.m_num_propagations << " - "; ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()); tout << "\n";);
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 

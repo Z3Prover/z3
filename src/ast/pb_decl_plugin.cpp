@@ -3,7 +3,7 @@ Copyright (c) 2013 Microsoft Corporation
 
 Module Name:
 
-    card_decl_plugin.cpp
+    pb_decl_plugin.cpp
 
 Abstract:
 
@@ -17,14 +17,14 @@ Revision History:
 
 --*/
 
-#include "card_decl_plugin.h"
+#include "pb_decl_plugin.h"
 
-card_decl_plugin::card_decl_plugin():
+pb_decl_plugin::pb_decl_plugin():
     m_at_most_sym("at-most"),
     m_pble_sym("pble")
 {}
 
-func_decl * card_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                            unsigned arity, sort * const * domain, sort * range) {
     SASSERT(m_manager);
     ast_manager& m = *m_manager;
@@ -59,7 +59,7 @@ func_decl * card_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters,
     }
 }
 
-void card_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
+void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol::null) {
         op_names.push_back(builtin_name(m_at_most_sym.bare_str(), OP_AT_MOST_K));
         op_names.push_back(builtin_name(m_pble_sym.bare_str(), OP_PB_LE));
@@ -67,12 +67,12 @@ void card_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol con
 }
 
 
-app * card_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {
+app * pb_util::mk_at_most_k(unsigned num_args, expr * const * args, unsigned k) {
     parameter param(k);
     return m.mk_app(m_fid, OP_AT_MOST_K, 1, &param, num_args, args, m.mk_bool_sort());
 }
 
-app * card_util::mk_le(unsigned num_args, int const * coeffs, expr * const * args, int k) {
+app * pb_util::mk_le(unsigned num_args, int const * coeffs, expr * const * args, int k) {
     vector<parameter> params;
     params.push_back(parameter(k));
     for (unsigned i = 0; i < num_args; ++i) {
@@ -82,11 +82,11 @@ app * card_util::mk_le(unsigned num_args, int const * coeffs, expr * const * arg
 }
 
 
-bool card_util::is_at_most_k(app *a) const {
+bool pb_util::is_at_most_k(app *a) const {
     return is_app_of(a, m_fid, OP_AT_MOST_K);
 }
 
-bool card_util::is_at_most_k(app *a, unsigned& k) const {
+bool pb_util::is_at_most_k(app *a, unsigned& k) const {
     if (is_at_most_k(a)) {
         k = get_k(a);
         return true;
@@ -96,17 +96,17 @@ bool card_util::is_at_most_k(app *a, unsigned& k) const {
     }
 }
 
-int card_util::get_k(app *a) const {
+int pb_util::get_k(app *a) const {
     SASSERT(is_at_most_k(a) || is_le(a));
     return a->get_decl()->get_parameter(0).get_int();
 }
 
 
-bool card_util::is_le(app *a) const {
+bool pb_util::is_le(app *a) const {
     return is_app_of(a, m_fid, OP_PB_LE);
 }
 
-bool card_util::is_le(app* a, int& k) const {
+bool pb_util::is_le(app* a, int& k) const {
     if (is_le(a)) {
         k = get_k(a);
         return true;
@@ -116,7 +116,7 @@ bool card_util::is_le(app* a, int& k) const {
     }
 }
 
-int card_util::get_le_coeff(app* a, unsigned index) {
+int pb_util::get_le_coeff(app* a, unsigned index) {
     if (is_at_most_k(a)) {
         return 1;
     }
