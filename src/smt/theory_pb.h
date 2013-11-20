@@ -87,6 +87,7 @@ namespace smt {
             void negate();
 
             lbool normalize();
+            void unique();
 
             bool well_formed() const;
 
@@ -139,10 +140,15 @@ namespace smt {
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
         ineq              m_lemma;
+        literal_vector    m_antecedents;
+
+        // bool_var |-> index into m_lemma
         unsigned_vector   m_conseq_index;
-        unsigned          m_lemma_index;
-        svector<bool_var> m_unmark;
-        void set_next_index(unsigned i);
+        static const unsigned null_index = UINT_MAX;
+        bool is_marked(bool_var v) const;
+        void set_mark(bool_var v, unsigned idx);
+        void unset_mark(literal l);
+
         void resolve_conflict(literal conseq, ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
