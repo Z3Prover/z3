@@ -140,7 +140,7 @@ namespace smt {
         unsigned          m_num_marks;
         unsigned          m_conflict_lvl;
         ineq              m_lemma;
-        literal_vector    m_antecedents;
+        literal_vector    m_ineq_literals;
 
         // bool_var |-> index into m_lemma
         unsigned_vector   m_conseq_index;

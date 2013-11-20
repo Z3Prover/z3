@@ -880,6 +880,9 @@ typedef enum
       - Z3_OP_PB_LE: Generalized Pseudo-Boolean cardinality constraint.
               Example  2*x + 3*y <= 4
 
+      - Z3_OP_PB_GE: Generalized Pseudo-Boolean cardinality constraint.
+              Example  2*x + 3*y + 2*z >= 4
+
       - Z3_OP_UNINTERPRETED: kind used for uninterpreted symbols.
 */
 typedef enum {
@@ -1063,6 +1066,7 @@ typedef enum {
     // Pseudo Booleans
     Z3_OP_PB_AT_MOST=0x900,
     Z3_OP_PB_LE,
+    Z3_OP_PB_GE,
 
     Z3_OP_UNINTERPRETED         
 } Z3_decl_kind;

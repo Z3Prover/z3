@@ -26,7 +26,7 @@ Notes:
 
 namespace smt {
 
-    bool theory_pb::s_debug_conflict = false; // true; // 
+    bool theory_pb::s_debug_conflict = true; // false; // true; // 
 
     void theory_pb::ineq::negate() {
         m_lit.neg();
@@ -243,7 +243,7 @@ namespace smt {
         context& ctx   = get_context();
         ast_manager& m = get_manager();
         unsigned num_args = atom->get_num_args();
-        SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom));
+        SASSERT(m_util.is_at_most_k(atom) || m_util.is_le(atom) || m_util.is_ge(atom));
 
         if (ctx.b_internalized(atom)) {
             return false;
@@ -264,14 +264,16 @@ namespace smt {
         for (unsigned i = 0; i < num_args; ++i) {
             expr* arg = atom->get_arg(i);
             literal l = compile_arg(arg);
-            numeral c = m_util.get_le_coeff(atom, i);
+            numeral c = m_util.get_coeff(atom, i);
             args.push_back(std::make_pair(l, c));
         }
-        // turn W <= k into -W >= -k
-        for (unsigned i = 0; i < args.size(); ++i) {
-            args[i].second = -args[i].second;
+        if (m_util.is_at_most_k(atom) || m_util.is_le(atom)) {
+            // turn W <= k into -W >= -k
+            for (unsigned i = 0; i < args.size(); ++i) {
+                args[i].second = -args[i].second;
+            }
+            k = -k;
         }
-        k = -k;
         c->unique();
         lbool is_true = c->normalize();
 
@@ -921,7 +923,10 @@ namespace smt {
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l(c.lit(i));
-            out << c.coeff(i) << "*" << l;
+            if (c.coeff(i) != 1) {
+                out << c.coeff(i) << "*";
+            }
+            out << l;
             if (values) {
                 out << "@(" << ctx.get_assignment(l);
                 if (ctx.get_assignment(l) != l_undef) {
@@ -1091,7 +1096,7 @@ namespace smt {
 
         SASSERT(ctx.get_assignment(c.lit()) == l_true);
         if (ctx.get_assign_level(c.lit().var()) > ctx.get_base_level()) {
-            m_antecedents.push_back(~c.lit());
+            m_ineq_literals.push_back(c.lit());
         }
     }
 
@@ -1100,7 +1105,7 @@ namespace smt {
     //
     void theory_pb::resolve_conflict(literal conseq, ineq& c) {
         
-        TRACE("pb", tout << "RESOLVE: " << conseq << "\n"; display(verbose_stream(), c, true););
+        TRACE("pb", tout << "RESOLVE: " << conseq << "\n"; display(tout, c, true););
 
         bool_var v;
         context& ctx = get_context();
@@ -1120,7 +1125,7 @@ namespace smt {
 
         m_num_marks = 0;
         m_lemma.reset();
-        m_antecedents.reset();
+        m_ineq_literals.reset();
         process_ineq(c, null_literal, 1); // add consequent to lemma.
 
         // point into stack of assigned literals
@@ -1221,7 +1226,7 @@ namespace smt {
         IF_VERBOSE(1, display(verbose_stream() << "lemma: ", m_lemma););
 
         // TBD: 
-        // create clause m_antecedents \/ m_lemma;
+        // create clause m_literals \/ m_lemma;
         //
 #if 1
         ast_manager& m = get_manager();
@@ -1234,11 +1239,17 @@ namespace smt {
             coeffs.push_back(static_cast<int>(m_lemma.coeff(i)));
         }
         int k = static_cast<int>(m_lemma.k());
-        tmp = m_util.mk_le(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), k);
+        tmp = m_util.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), k);
         internalize_atom(to_app(tmp), false);
-        m_antecedents.push_back(literal(ctx.get_bool_var(tmp)));
-        justification* mjs = 0;
-        ctx.mk_clause(m_antecedents.size(), m_antecedents.c_ptr(), mjs, CLS_AUX_LEMMA, 0);
+        //m_ineq_literals.push_back(literal(ctx.get_bool_var(tmp)));
+        ctx.mark_as_relevant(tmp);
+        //justification* mjs = 0;
+        //ctx.mk_clause(m_ineq_literals.size(), m_ineq_literals.c_ptr(), mjs, CLS_AUX_LEMMA, 0);
+        literal l(ctx.get_bool_var(tmp));
+        ineq* cc = 0;
+        if (m_ineqs.find(l.var(), cc)) {
+            add_assign(*cc, m_ineq_literals, l);
+        }
 #endif
     }
 }
