@@ -153,6 +153,8 @@ namespace smt {
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
 
+        void hoist_maximal_values();
+
         void validate_final_check();
         void validate_final_check(ineq& c);
     public:

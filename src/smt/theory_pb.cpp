@@ -330,12 +330,14 @@ namespace smt {
     literal theory_pb::compile_arg(expr* arg) {
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        if (!ctx.b_internalized(arg)) {
-            ctx.internalize(arg, false);
-        }
+
         bool_var bv;
         bool has_bv = false;
         bool negate = m.is_not(arg, arg);
+        SASSERT(!m.is_not(arg));
+        if (!ctx.b_internalized(arg)) {
+            ctx.internalize(arg, false);
+        }
         if (ctx.b_internalized(arg)) {
             bv = ctx.get_bool_var(arg);
             if (null_theory_var == ctx.get_var_theory(bv)) {
@@ -993,10 +995,14 @@ namespace smt {
               tout << "\n";
               display(tout, c, true););
 
+#if 0
         DEBUG_CODE(
             if (s_debug_conflict) {
                 resolve_conflict(conseq, c);
             });
+#else
+        resolve_conflict(conseq, c);
+#endif
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
         IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
@@ -1176,6 +1182,11 @@ namespace smt {
                 
             case b_justification::CLAUSE: {
                 clause& cls = *js.get_clause();
+                justification* cjs = cls.get_justification();
+                if (cjs) {
+                    IF_VERBOSE(0, verbose_stream() << "skipping justification for clause over: " << conseq << "\n";);
+                    break;
+                }
                 unsigned num_lits = cls.get_num_literals();
                 if (cls.get_literal(0) == conseq) {
                     process_antecedent(cls.get_literal(1), conseq_coeff);
@@ -1188,11 +1199,6 @@ namespace smt {
                     process_antecedent(cls.get_literal(i), conseq_coeff);
                 }
                 TRACE("pb", for (unsigned i = 0; i < num_lits; ++i) tout << cls.get_literal(i) << " "; tout << "\n";);
-                justification* cjs = cls.get_justification();
-                if (cjs) {
-                    // TBD
-                    NOT_IMPLEMENTED_YET();
-                }
                 break;                
             }
             case b_justification::BIN_CLAUSE:
@@ -1204,7 +1210,10 @@ namespace smt {
             case b_justification::JUSTIFICATION: {
                 justification& j = *js.get_justification(); 
                 // only process pb justifications.
-                if (j.get_from_theory() != get_id()) break;
+                if (j.get_from_theory() != get_id()) {
+                    IF_VERBOSE(0, verbose_stream() << "skipping justification for " << conseq << "\n";);
+                    break;
+                }
                 pb_justification& pbj = dynamic_cast<pb_justification&>(j);
                 // weaken the lemma and resolve.
                 TRACE("pb", display(tout, pbj.get_ineq(), true););
@@ -1223,12 +1232,14 @@ namespace smt {
 
         TRACE("pb", display(tout << "lemma: ", m_lemma););
 
-        IF_VERBOSE(1, display(verbose_stream() << "lemma: ", m_lemma););
 
         // TBD: 
-        // create clause m_literals \/ m_lemma;
+        // create clause m_ineq_literals => m_lemma;
         //
 #if 1
+        hoist_maximal_values();
+        IF_VERBOSE(1, display(verbose_stream() << "lemma: ", m_lemma););
+
         ast_manager& m = get_manager();
         svector<int> coeffs;
         expr_ref_vector args(m);
@@ -1250,6 +1261,24 @@ namespace smt {
         if (m_ineqs.find(l.var(), cc)) {
             add_assign(*cc, m_ineq_literals, l);
         }
+        else {
+            ctx.assign(l, ctx.mk_justification(
+                           theory_propagation_justification(
+                               get_id(), ctx.get_region(), 
+                               m_ineq_literals.size(), m_ineq_literals.c_ptr(), l)));
+//            IF_VERBOSE(0, verbose_stream() << "Did not compile " << tmp << "\n";);
+        }
 #endif
+    }
+
+    void theory_pb::hoist_maximal_values() {
+        for (unsigned i = 0; i < m_lemma.size(); ++i) {
+            if (m_lemma.coeff(i) == m_lemma.k()) {
+                m_ineq_literals.push_back(~m_lemma.lit(i));
+                std::swap(m_lemma.m_args[i], m_lemma.m_args[m_lemma.size()-1]);
+                m_lemma.m_args.pop_back();
+                --i;
+            }
+        }
     }
 }
