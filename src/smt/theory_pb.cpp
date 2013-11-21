@@ -30,44 +30,26 @@ namespace smt {
 
     void theory_pb::ineq::negate() {
         m_lit.neg();
-        numeral sum = 0;
+        numeral sum(0);
         for (unsigned i = 0; i < size(); ++i) {
             m_args[i].first.neg();
             sum += coeff(i);
         }
-        m_k = sum - m_k + 1;
+        m_k = sum - m_k + numeral::one();
         SASSERT(well_formed());
     }
 
     void theory_pb::ineq::reset() {
-        m_max_coeff = 0;
+        m_max_coeff.reset();
         m_watch_sz = 0;
-        m_max_sum = 0;
+        m_max_sum.reset();
         m_num_propagations = 0;
         m_compilation_threshold = UINT_MAX;
         m_compiled = l_false;
         m_args.reset();
-        m_k = 0;
+        m_k.reset();
     }
 
-    theory_pb::numeral theory_pb::ineq::gcd(numeral a, numeral b) {
-        while (a != b) {
-            if (a == 0) return b;
-            if (b == 0) return a;
-            SASSERT(a != 0 && b != 0);
-            if (a < b) {
-                b %= a;
-            }
-            else {
-                a %= b;
-            }
-        }
-        return a;
-    }
-
-    theory_pb::numeral theory_pb::ineq::lcm(numeral a, numeral b) {
-        return (a*b)/gcd(a,b);
-    }
 
     void theory_pb::ineq::unique() {
         numeral& k = m_k;
@@ -103,7 +85,7 @@ namespace smt {
                 }
                 args.pop_back();
             }
-            if (coeff(i) == 0) {
+            if (coeff(i).is_zero()) {
                 for (unsigned j = i; j + 1 < size(); ++j) {
                     args[j] = args[j+1];
                 }
@@ -127,10 +109,10 @@ namespace smt {
         // <=> 
         //    -c*~l + y >= k - c
         // 
-        numeral sum = 0;
+        numeral sum(0);
         for (unsigned i = 0; i < size(); ++i) {
             numeral c = coeff(i);
-            if (c < 0) {
+            if (c.is_neg()) {
                 args[i].second = -c;
                 args[i].first = ~lit(i);
                 k -= c;
@@ -138,7 +120,7 @@ namespace smt {
             sum += coeff(i);
         }
         // detect tautologies:
-        if (k <= 0) {
+        if (k <= numeral::zero()) {
             args.reset();
             return l_true;
         }
@@ -147,8 +129,21 @@ namespace smt {
             args.reset();
             return l_false;
         }
+
+        // normalize to integers.
+        numeral d(denominator(k));
+        for (unsigned i = 0; i < size(); ++i) {
+            d = lcm(d, denominator(coeff(i)));
+        }
+        if (!d.is_one()) {
+            k *= d;
+            for (unsigned i = 0; i < size(); ++i) {
+                args[i].second *= d;
+            }            
+        }
+
         // Ensure the largest coefficient is not larger than k:
-        sum = 0;
+        sum = numeral::zero();
         for (unsigned i = 0; i < size(); ++i) {
             numeral c = coeff(i);
             if (c > k) {
@@ -161,45 +156,52 @@ namespace smt {
         // normalize tight inequalities to unit coefficients.
         if (sum == k) {
             for (unsigned i = 0; i < size(); ++i) {
-                args[i].second = 1;
+                args[i].second = numeral::one();
             }
-            k = size();
+            k = numeral(size());
         }
 
         // apply cutting plane reduction:
-        numeral g = 0;
-        for (unsigned i = 0; g != 1 && i < size(); ++i) {
+        numeral g(0);
+        for (unsigned i = 0; !g.is_one() && i < size(); ++i) {
             numeral c = coeff(i);
             if (c != k) {
-                g = gcd(g, c);
+                if (g.is_zero()) {
+                    g = c;
+                }
+                else {
+                    g = gcd(g, c);
+                }
             }
         }
-        if (g == 0) {
+        if (g.is_zero()) {
             // all coefficients are equal to k.
             for (unsigned i = 0; i < size(); ++i) {
                 SASSERT(coeff(i) == k);
-                args[i].second = 1;
+                args[i].second = numeral::one();
             }
-            k = 1;
+            k = numeral::one();
         }
-        else if (g > 1) {
+        else if (g > numeral::one()) {
             //
             // Example 5x + 5y + 2z + 2u >= 5
             // becomes 3x + 3y + z + u >= 3
             // 
-            numeral k_new = k / g;    
-            if ((k % g) != 0) {     // k_new is the ceiling of k / g.
+            numeral k_new = div(k, g);    
+            if (!(k % g).is_zero()) {     // k_new is the ceiling of k / g.
                 k_new++;
             }
             for (unsigned i = 0; i < size(); ++i) {
+                SASSERT(coeff(i).is_pos());
                 numeral c = coeff(i);
                 if (c == k) {
                     c = k_new;
                 }
                 else {
-                    c = c / g;
+                    c = div(c, g);
                 }
                 args[i].second = c;
+                SASSERT(coeff(i).is_pos());
             }
             k = k_new;            
         }
@@ -208,12 +210,12 @@ namespace smt {
     }
 
     bool theory_pb::ineq::well_formed() const {
-        SASSERT(k() > 0);
+        SASSERT(k().is_pos());
         uint_set vars;
-        numeral sum = 0;
+        numeral sum = numeral::zero();
         for (unsigned i = 0; i < size(); ++i) {
             SASSERT(coeff(i) <= k());
-            SASSERT(1 <= coeff(i));
+            SASSERT(numeral::one() <= coeff(i));
             SASSERT(lit(i) != true_literal);
             SASSERT(lit(i) != false_literal);
             SASSERT(lit(i) != null_literal);
@@ -274,6 +276,9 @@ namespace smt {
             }
             k = -k;
         }
+        else {
+            SASSERT(m_util.is_at_least_k(atom) || m_util.is_ge(atom));
+        }
         c->unique();
         lbool is_true = c->normalize();
 
@@ -295,7 +300,7 @@ namespace smt {
         
         // maximal coefficient:
         numeral& max_coeff = c->m_max_coeff;
-        max_coeff = 0;
+        max_coeff = numeral::zero();
         for (unsigned i = 0; i < args.size(); ++i) {
             max_coeff = std::max(max_coeff, args[i].second);
         }
@@ -304,7 +309,7 @@ namespace smt {
         // pre-compile threshold for cardinality
         bool is_cardinality = true;
         for (unsigned i = 0; is_cardinality && i < args.size(); ++i) {
-            is_cardinality = (args[i].second == 1);
+            is_cardinality = (args[i].second.is_one());
         }
         if (is_cardinality) {
             unsigned log = 1, n = 1;
@@ -472,7 +477,7 @@ namespace smt {
         if (ctx.get_assignment(c.lit()) == l_undef) {
             return;
         }
-        numeral sum = 0, maxsum = 0;
+        numeral sum = numeral::zero(), maxsum = numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {
             switch(ctx.get_assignment(c.lit(i))) {
             case l_true:
@@ -511,7 +516,7 @@ namespace smt {
     }
 
     literal_vector& theory_pb::get_helpful_literals(ineq& c, bool negate) {
-        numeral sum = 0;
+        numeral sum = numeral::zero();
         context& ctx = get_context();
         literal_vector& lits = get_lits();
         for (unsigned i = 0; sum < c.k() && i < c.size(); ++i) {
@@ -553,7 +558,7 @@ namespace smt {
         SASSERT(c.well_formed());
 
         context& ctx = get_context();
-        numeral maxsum = 0;
+        numeral maxsum = numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {
             if (ctx.get_assignment(c.lit(i)) != l_false) {
                 maxsum += c.coeff(i);
@@ -570,7 +575,7 @@ namespace smt {
             add_clause(c, ~lits[0], lits);
         }
         else {
-            c.m_max_sum = 0;
+            c.m_max_sum = numeral::zero();
             c.m_watch_sz = 0;
             for (unsigned i = 0; c.max_sum() < c.k() + c.max_coeff() && i < c.size(); ++i) {
                 if (ctx.get_assignment(c.lit(i)) != l_false) {
@@ -822,10 +827,9 @@ namespace smt {
         context& ctx = get_context();
         // only cardinality constraints are compiled.
         SASSERT(c.m_compilation_threshold < UINT_MAX);
-        DEBUG_CODE(for (unsigned i = 0; i < c.size(); ++i) SASSERT(c.coeff(i) == 1); );
-        unsigned k = static_cast<unsigned>(c.k());        
+        DEBUG_CODE(for (unsigned i = 0; i < c.size(); ++i) SASSERT(c.coeff(i).is_one()); );
+        unsigned k = c.k().get_unsigned();
         unsigned num_args = c.size();
-        SASSERT(0 <= k && k <= num_args);
 
         sort_expr se(*this);
         sorting_network<sort_expr> sn(se);
@@ -925,7 +929,7 @@ namespace smt {
         }
         for (unsigned i = 0; i < c.size(); ++i) {
             literal l(c.lit(i));
-            if (c.coeff(i) != 1) {
+            if (!c.coeff(i).is_one()) {
                 out << c.coeff(i) << "*";
             }
             out << l;
@@ -941,11 +945,11 @@ namespace smt {
             }
         }
         out << " >= " << c.m_k  << "\n";
-        if (c.m_num_propagations) out << "propagations: " << c.m_num_propagations << " ";
-        if (c.max_coeff())  out << "max_coeff: "   << c.max_coeff() << " ";
-        if (c.watch_size()) out << "watch size: "  << c.watch_size() << " ";
-        if (c.max_sum())    out << "max-sum: "     << c.max_sum() << " ";
-        if (c.m_num_propagations || c.max_coeff() || c.watch_size() || c.max_sum()) out << "\n";
+        if (c.m_num_propagations)    out << "propagations: " << c.m_num_propagations << " ";
+        if (c.max_coeff().is_pos())  out << "max_coeff: "   << c.max_coeff() << " ";
+        if (c.watch_size())          out << "watch size: "  << c.watch_size() << " ";
+        if (c.max_sum().is_pos())    out << "max-sum: "     << c.max_sum() << " ";
+        if (c.m_num_propagations || c.max_coeff().is_pos() || c.watch_size() || c.max_sum().is_pos()) out << "\n";
         return out;
     }
 
@@ -1077,23 +1081,25 @@ namespace smt {
         // 
 
         context& ctx = get_context();
-        numeral coeff2 = (conseq==null_literal)?1:0;
+        numeral coeff2 = (conseq==null_literal)?numeral::one():numeral::zero();
         for (unsigned i = 0; i < c.size(); ++i) {
             if (c.lit(i) == conseq) {
                 coeff2 = c.coeff(i);
                 break;
             }
         }
-        SASSERT(coeff2 > 0);
-        numeral lc = ineq::lcm(coeff1, coeff2);
+        SASSERT(coeff2.is_pos());
+        numeral lc = lcm(coeff1, coeff2);
         numeral g = lc/coeff1;
-        if (g > 1) {
+        SASSERT(g.is_int());
+        if (g > numeral::one()) {
             for (unsigned i = 0; i < m_lemma.size(); ++i) {
                 m_lemma.m_args[i].second *= g;
             }
             m_lemma.m_k *= g;
         }
         g = lc/coeff2;
+        SASSERT(g.is_int());
         m_lemma.m_k += g*c.k();
 
         for (unsigned i = 0; i < c.size(); ++i) {
@@ -1132,7 +1138,7 @@ namespace smt {
         m_num_marks = 0;
         m_lemma.reset();
         m_ineq_literals.reset();
-        process_ineq(c, null_literal, 1); // add consequent to lemma.
+        process_ineq(c, null_literal, numeral::one()); // add consequent to lemma.
 
         // point into stack of assigned literals
         literal_vector const& lits = ctx.assigned_literals();        
@@ -1241,15 +1247,15 @@ namespace smt {
         IF_VERBOSE(1, display(verbose_stream() << "lemma: ", m_lemma););
 
         ast_manager& m = get_manager();
-        svector<int> coeffs;
+        svector<rational> coeffs;
         expr_ref_vector args(m);
         expr_ref tmp(m);
         for (unsigned i = 0; i < m_lemma.size(); ++i) {
             ctx.literal2expr(m_lemma.lit(i), tmp);
             args.push_back(tmp);
-            coeffs.push_back(static_cast<int>(m_lemma.coeff(i)));
+            coeffs.push_back(m_lemma.coeff(i));
         }
-        int k = static_cast<int>(m_lemma.k());
+        numeral k = m_lemma.k();
         tmp = m_util.mk_ge(coeffs.size(), coeffs.c_ptr(), args.c_ptr(), k);
         internalize_atom(to_app(tmp), false);
         //m_ineq_literals.push_back(literal(ctx.get_bool_var(tmp)));

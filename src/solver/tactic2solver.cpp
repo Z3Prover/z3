@@ -181,7 +181,7 @@ void tactic2solver::set_cancel(bool f) {
 
 void tactic2solver::collect_statistics(statistics & st) const {    
     st.copy(m_stats);
-    SASSERT(m_stats.size() > 0);
+    //SASSERT(m_stats.size() > 0);
 }
 
 void tactic2solver::get_unsat_core(ptr_vector<expr> & r) {

@@ -29,8 +29,8 @@ namespace smt {
 
         struct sort_expr;
         class  pb_justification;
-        typedef int64 numeral;
-        typedef svector<std::pair<literal, numeral> > arg_t;
+        typedef rational numeral;
+        typedef vector<std::pair<literal, numeral> > arg_t;
 
         struct stats {
             unsigned m_num_conflicts;
@@ -91,8 +91,8 @@ namespace smt {
 
             bool well_formed() const;
 
-            static numeral gcd(numeral a, numeral b);
-            static numeral lcm(numeral a, numeral b);
+            //static numeral gcd(numeral a, numeral b);
+            //static numeral lcm(numeral a, numeral b);
 
         };
 

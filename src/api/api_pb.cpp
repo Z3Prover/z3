@@ -40,13 +40,17 @@ extern "C" {
 
 
     Z3_ast Z3_API Z3_mk_pble(Z3_context c, unsigned num_args, 
-                             Z3_ast const args[], int coeffs[],
+                             Z3_ast const args[], int _coeffs[],
                              int k) {
         Z3_TRY;
-        LOG_Z3_mk_pble(c, num_args, args, coeffs, k);
+        LOG_Z3_mk_pble(c, num_args, args, _coeffs, k);
         RESET_ERROR_CODE();
         pb_util util(mk_c(c)->m());
-        ast* a = util.mk_le(num_args, coeffs, to_exprs(args), k);
+        vector<rational> coeffs;
+        for (unsigned i = 0; i < num_args; ++i) {
+            coeffs.push_back(rational(_coeffs[i]));
+        }
+        ast* a = util.mk_le(num_args, coeffs.c_ptr(), to_exprs(args), rational(k));
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));

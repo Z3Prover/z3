@@ -31,6 +31,7 @@ hence:
  
 enum pb_op_kind {
     OP_AT_MOST_K,  // at most K Booleans are true.
+    OP_AT_LEAST_K, // at least K Booleans are true.
     OP_PB_LE,      // pseudo-Boolean <= (generalizes at_most_k)
     OP_PB_GE,      // pseudo-Boolean >= 
     LAST_PB_OP
@@ -39,11 +40,13 @@ enum pb_op_kind {
 
 class pb_decl_plugin : public decl_plugin {
     symbol m_at_most_sym;
+    symbol m_at_least_sym;
     symbol m_pble_sym;
     symbol m_pbge_sym;
     func_decl * mk_at_most(unsigned arity, unsigned k);
-    func_decl * mk_le(unsigned arity, int const* coeffs, int k);
-    func_decl * mk_ge(unsigned arity, int const* coeffs, int k);
+    func_decl * mk_at_least(unsigned arity, unsigned k);
+    func_decl * mk_le(unsigned arity, rational const* coeffs, int k);
+    func_decl * mk_ge(unsigned arity, rational const* coeffs, int k);
 public:
     pb_decl_plugin();
     virtual ~pb_decl_plugin() {}
@@ -76,16 +79,19 @@ public:
     ast_manager & get_manager() const { return m; }
     family_id get_family_id() const { return m_fid; }
     app * mk_at_most_k(unsigned num_args, expr * const * args, unsigned k);
-    app * mk_le(unsigned num_args, int const * coeffs, expr * const * args, int k);
-    app * mk_ge(unsigned num_args, int const * coeffs, expr * const * args, int k);
+    app * mk_at_least_k(unsigned num_args, expr * const * args, unsigned k);
+    app * mk_le(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
+    app * mk_ge(unsigned num_args, rational const * coeffs, expr * const * args, rational const& k);
     bool is_at_most_k(app *a) const;
-    bool is_at_most_k(app *a, unsigned& k) const;
-    int  get_k(app *a) const;
+    bool is_at_most_k(app *a, rational& k) const;
+    bool is_at_least_k(app *a) const;
+    bool is_at_least_k(app *a, rational& k) const;
+    rational get_k(app *a) const;
     bool is_le(app *a) const;
-    bool is_le(app* a, int& k) const;
+    bool is_le(app* a, rational& k) const;
     bool is_ge(app* a) const;
-    bool is_ge(app* a, int& k) const;
-    int  get_coeff(app* a, unsigned index); 
+    bool is_ge(app* a, rational& k) const;
+    rational get_coeff(app* a, unsigned index); 
 };
 
 
