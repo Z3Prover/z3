@@ -961,7 +961,6 @@ public:
         for (; it != end; ++it) {
             edge_id e_id = *it;
             edge & e     = m_edges[e_id];
-            if (!e.is_enabled()) continue;
             SASSERT(e.get_source() == current);
             dl_var neighbour = e.get_target();
             neighbours.push_back(neighbour);
@@ -972,7 +971,6 @@ public:
 	    for (; it != end; ++it) {
             edge_id e_id = *it;
             edge & e     = m_edges[e_id];
-            if (!e.is_enabled()) continue;
             SASSERT(e.get_target() == current);
             dl_var neighbour = e.get_source();
             neighbours.push_back(neighbour);
@@ -982,27 +980,41 @@ public:
     void dfs_undirected(dl_var start, svector<dl_var> & threads) {
         threads.reset();
         threads.resize(get_num_nodes());
-	    uint_set visited;
+	    uint_set discovered, explored;
 	    svector<dl_var> nodes;
+        discovered.insert(start);
 	    nodes.push_back(start);
 	    dl_var prev = -1;
 	    while(!nodes.empty()) {
 		    dl_var current = nodes.back();
-            nodes.pop_back();
-		    visited.insert(current);
-		    if (prev != -1)
+            SASSERT(discovered.contains(current) && !explored.contains(current));
+            std::cout << "thread[" << prev << "] --> " << current << std::endl;
+		    if (prev != -1) {
 			    threads[prev] = current;
+                std::cout << "thread[" << prev << "] --> " << current << std::endl;
+            }
 		    prev = current;
 		    svector<dl_var> neighbours;
 		    get_neighbours_undirected(current, neighbours);
+            SASSERT(!neighbours.empty());
+            bool found = false;
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
+                dl_var next = neighbours[i];
 				DEBUG_CODE(
 			    edge_id id;
-				SASSERT(prev == -1 || get_edge_id(prev, current, id) || get_edge_id(current, prev, id)););
-			    if (!visited.contains(neighbours[i])) {
-				    nodes.push_back(neighbours[i]);
+				SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););                
+			    if (!discovered.contains(next) && !explored.contains(next)) {
+                    discovered.insert(next);
+				    nodes.push_back(next);
+                    found = true;
+                    break;
 			    }
-		    }
+		    }            
+            SASSERT(!nodes.empty());
+            if (!found) {
+                explored.insert(current);
+                nodes.pop_back();
+            }
 	    }
 	    threads[prev] = start;
     }
@@ -1022,8 +1034,10 @@ public:
 		    SASSERT(visited.contains(current));
             svector<dl_var> neighbours;
 		    get_neighbours_undirected(current, neighbours);
+            SASSERT(!neighbours.empty());
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
-			    dl_var & next = neighbours[i];
+			    dl_var next = neighbours[i];
+                std::cout << "parents[" << next << "] --> " << current << std::endl;
 				DEBUG_CODE(
 			    edge_id id;
 				SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););

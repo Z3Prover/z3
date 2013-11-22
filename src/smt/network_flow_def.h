@@ -170,18 +170,21 @@ namespace smt {
     // FIXME: should declare pivot as a pivot_rule_impl and refactor
     template<typename Ext>
     bool network_flow<Ext>::choose_entering_edge(pivot_rule pr) {
-        if (pr == FIRST_ELIGIBLE) {
-            first_eligible_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
-            return pivot.choose_entering_edge();
+        pivot_rule_impl * pivot;
+        switch (pr) {
+        case FIRST_ELIGIBLE:
+            pivot = alloc(first_eligible_pivot, m_graph, m_potentials, m_states, m_enter_id);
+            break;
+        case BEST_ELIGIBLE:
+            pivot = alloc(best_eligible_pivot, m_graph, m_potentials, m_states, m_enter_id);
+            break;
+        case CANDIDATE_LIST:
+            pivot = alloc(best_eligible_pivot, m_graph, m_potentials, m_states, m_enter_id);
+            break;
+        default:
+            UNREACHABLE();
         }
-        else if (pr == BEST_ELIGIBLE) {
-            best_eligible_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
-            return pivot.choose_entering_edge();
-        }
-        else {
-            candidate_list_pivot pivot(m_graph, m_potentials, m_states, m_enter_id);
-            return pivot.choose_entering_edge();
-        } 
+        return pivot->choose_entering_edge();
     }
 
     // Minimize cost flows

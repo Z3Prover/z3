@@ -420,14 +420,15 @@ namespace smt {
 
     template<typename Ext>
     void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
-        unsigned num_nodes = m_graph.get_num_nodes();        
         m_tree_graph = alloc(graph);
+        m_tree = tree;
+        unsigned num_nodes = m_graph.get_num_nodes();
         for (unsigned i = 0; i < num_nodes; ++i) {
             m_tree_graph->init_var(i);
         }
 
         vector<edge> const & es = m_graph.get_all_edges();
-        svector<edge_id>::const_iterator it = tree.begin(), end = tree.end();
+        svector<edge_id>::const_iterator it = m_tree.begin(), end = m_tree.end();
         for(; it != end; ++it) {
             edge const & e = es[*it];
             m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
@@ -440,8 +441,7 @@ namespace smt {
 
     template<typename Ext>
     void basic_spanning_tree<Ext>::update(edge_id enter_id, edge_id leave_id) {
-        if (m_tree_graph)
-            dealloc(m_tree_graph);
+        if (m_tree_graph) dealloc(m_tree_graph);
         m_tree_graph = alloc(graph);
         unsigned num_nodes = m_graph.get_num_nodes();
         for (unsigned i = 0; i < num_nodes; ++i) {

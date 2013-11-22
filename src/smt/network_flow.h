@@ -82,7 +82,7 @@ namespace smt {
             bool choose_entering_edge() {return false;};
         };
         
-        class first_eligible_pivot : pivot_rule_impl {
+        class first_eligible_pivot : public pivot_rule_impl {
         private:
             edge_id m_next_edge;
 
@@ -117,7 +117,7 @@ namespace smt {
             };
         };
 
-        class best_eligible_pivot : pivot_rule_impl {
+        class best_eligible_pivot : public pivot_rule_impl {
         public:
             best_eligible_pivot(graph & g, vector<numeral> & potentials, 
                                  svector<edge_state> & states, edge_id & enter_id) : 
@@ -152,7 +152,7 @@ namespace smt {
             };
         };
 
-        class candidate_list_pivot : pivot_rule_impl {
+        class candidate_list_pivot : public pivot_rule_impl {
         private:
             edge_id m_next_edge;
             svector<edge_id> m_candidates;
