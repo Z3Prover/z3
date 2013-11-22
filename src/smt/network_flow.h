@@ -71,7 +71,6 @@ namespace smt {
             edge_id & m_enter_id;
 
         public: 
-            pivot_rule_impl() {}
             pivot_rule_impl(graph & g, vector<numeral> & potentials, 
                             svector<edge_state> & states, edge_id & enter_id) 
                 : m_graph(g),
@@ -79,7 +78,7 @@ namespace smt {
                   m_states(states),
                   m_enter_id(enter_id) {
             }
-            bool choose_entering_edge() {return false;};
+            virtual bool choose_entering_edge() = 0;
         };
         
         class first_eligible_pivot : public pivot_rule_impl {

@@ -74,7 +74,6 @@ namespace smt {
     private:
         graph * m_tree_graph;
 
-
     public:
         basic_spanning_tree(graph & g);
         void initialize(svector<edge_id> const & tree);

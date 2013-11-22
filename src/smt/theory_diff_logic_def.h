@@ -1007,9 +1007,9 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
     IF_VERBOSE(1,
         for (unsigned i = 0; i < objective.size(); ++i) {
-            verbose_stream() << "coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
+            verbose_stream() << "Coefficient " << objective[i].second << " of theory_var " << objective[i].first << "\n";
         }
-        verbose_stream() << "free coefficient " << m_objective_consts[v] << "\n";);
+        verbose_stream() << "Free coefficient " << m_objective_consts[v] << "\n";);
 
     // Objective coefficients now become balances
     vector<fin_numeral> balances(m_graph.get_num_nodes());
@@ -1018,24 +1018,33 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         fin_numeral balance(objective[i].second);
         balances[objective[i].first] = balance;
     }    
-    
+
     network_flow<GExt> net_flow(m_graph, balances);
     bool is_optimal = net_flow.min_cost();
     if (is_optimal) {
-        vector<numeral> potentials;
-        m_objective_value = net_flow.get_optimal_solution(potentials, true);
-        std::cout << "Objective value of var " << v << ": " << m_objective_value << std::endl;
-        m_objective_assignments[v] = potentials;
+        numeral objective_value = net_flow.get_optimal_solution(m_objective_assignments[v], true) + numeral(m_objective_consts[v]);
+        IF_VERBOSE(1, verbose_stream() << "Optimal value of objective " << v << ": " << objective_value << std::endl;);
+        
+        DEBUG_CODE(
+        numeral initial_value = numeral(m_objective_consts[v]);
+        for (unsigned i = 0; i < objective.size(); ++i) {
+            initial_value += fin_numeral(objective[i].second) * m_graph.get_assignment(objective[i].first);
+        }
+        IF_VERBOSE(1, verbose_stream() << "Initial value of objective " << v << ": " << initial_value << std::endl;);
+        SASSERT(objective_value >= initial_value););
+
+        vector<numeral> & current_assigments = m_objective_assignments[v];        
+        SASSERT(!current_assigments.empty());
         TRACE("network_flow",
-            for (unsigned i = 0; i < potentials.size(); ++i) {
-                tout << "v" << i << " -> " << potentials[i] << "\n";
+            for (unsigned i = 0; i < current_assigments.size(); ++i) {
+                tout << "v" << i << " -> " << current_assigments[i] << std::endl;
             });
-        rational r = m_objective_value.get_rational().to_rational();
-        rational i = m_objective_value.get_infinitesimal().to_rational();    
+        rational r = objective_value.get_rational().to_rational();
+        rational i = objective_value.get_infinitesimal().to_rational();    
         return inf_eps_rational<inf_rational>(inf_rational(r, i));
     } 
     else {
-        std::cout << "Unbounded objective" << std::endl;
+        IF_VERBOSE(1, verbose_stream() << "Unbounded objective" << std::endl;);
         return inf_eps_rational<inf_rational>::infinity();
     }
 }

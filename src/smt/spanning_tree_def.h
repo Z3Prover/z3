@@ -421,8 +421,7 @@ namespace smt {
     template<typename Ext>
     void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
         m_tree_graph = alloc(graph);
-        m_tree.reset();
-        m_tree.append(tree);
+        m_tree = tree;
         unsigned num_nodes = m_graph.get_num_nodes();
         for (unsigned i = 0; i < num_nodes; ++i) {
             m_tree_graph->init_var(i);
@@ -464,11 +463,25 @@ namespace smt {
         m_tree_graph->bfs_undirected(root, m_pred, m_depth);
         m_tree_graph->dfs_undirected(root, m_thread);
 
-        for (node x = m_thread[root]; x != root; x = m_thread[x]) {
+        vector<edge> const & tree_edges = m_tree_graph->get_all_edges();
+        for (unsigned i = 0; i < tree_edges.size(); ++i) {
+            edge const & e = tree_edges[i];
+            dl_var src = e.get_source();
+            dl_var tgt = e.get_target();
             edge_id id;
-            VERIFY(m_graph.get_edge_id(x, m_pred[x], id));
-            m_tree[x] = id;
+            VERIFY(m_graph.get_edge_id(src, tgt, id));
+            SASSERT(tgt == m_pred[src] || src == m_pred[tgt]);
+            if (tgt == m_pred[src]) {
+                m_tree[src] = id;
+            }
+            else {
+                m_tree[tgt] = id;
+            }
         }
+
+        node p = m_graph.get_source(enter_id);
+        node q = m_graph.get_target(enter_id);
+        m_root_t2 = p == m_pred[q] ? q : p;
     }
 
 }

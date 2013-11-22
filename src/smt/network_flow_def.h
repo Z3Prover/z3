@@ -40,6 +40,24 @@ namespace smt {
                 m_graph.add_edge(e.get_target(), e.get_source(), e.get_weight(), explanation());
             }
         }
+        TRACE("network_flow", { 
+            tout << "Solving different logic optimization problem:" << std::endl;
+            for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
+                tout << "(declare-fun v" << i << " () Real)" << std::endl;
+            }
+            vector<edge> const & es = m_graph.get_all_edges();
+            for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+                edge const & e = es[i];
+                tout << "(assert (<= (- v" << e.get_source() << " v" << e.get_target() << ") " << e.get_weight() << "))" << std::endl;
+            };
+            tout << "(maximize (+ ";
+            for (unsigned i = 0; i < balances.size(); ++i) {
+                tout << "(* " << balances[i] << " v" << i << ") ";
+            };
+            tout << "))" << std::endl;
+            tout << "(optimize)" << std::endl;
+            };);
+
         m_step = 0;
         m_tree = alloc(basic_spanning_tree<Ext>, m_graph);
     }
@@ -130,7 +148,7 @@ namespace smt {
     }
     
     template<typename Ext>
-    bool network_flow<Ext>::choose_leaving_edge() {
+    bool network_flow<Ext>::choose_leaving_edge() {        
         TRACE("network_flow", tout << "choose_leaving_edge...\n";);
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id); 
@@ -155,10 +173,10 @@ namespace smt {
                 tout << "Found leaving edge " << m_leave_id;
                 tout << " between node " << m_graph.get_source(m_leave_id);
                 tout << " and node " << m_graph.get_target(m_leave_id) << " with delta = " << *m_delta << "...\n";
-                });
+                });            
             return true;
         }
-        TRACE("network_flow", tout << "Can't find a leaving edge... The problem is unbounded.\n";);
+        TRACE("network_flow", tout << "Can't find a leaving edge... The problem is unbounded.\n";);        
         return false;
     }
 
@@ -179,7 +197,7 @@ namespace smt {
             pivot = alloc(best_eligible_pivot, m_graph, m_potentials, m_states, m_enter_id);
             break;
         case CANDIDATE_LIST:
-            pivot = alloc(best_eligible_pivot, m_graph, m_potentials, m_states, m_enter_id);
+            pivot = alloc(candidate_list_pivot, m_graph, m_potentials, m_states, m_enter_id);
             break;
         default:
             UNREACHABLE();
@@ -208,7 +226,7 @@ namespace smt {
             } 
             else {
                 m_states[m_leave_id] = m_states[m_leave_id] == LOWER ? UPPER : LOWER;
-            }            
+            }
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);
         SASSERT(check_optimal());

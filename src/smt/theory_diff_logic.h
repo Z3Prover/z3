@@ -192,7 +192,6 @@ namespace smt {
         vector<objective_term>         m_objectives;
         vector<rational>               m_objective_consts;
         vector<vector<numeral> >       m_objective_assignments;
-        numeral                        m_objective_value;
 
         // Set a conflict due to a negative cycle.
         void set_neg_cycle_conflict();
