@@ -283,7 +283,10 @@ namespace Duality {
       children[i] = ToTermTree(e->Children[i]);
     // Term top = ReducedDualEdge(e);
     Term top = e->dual.null() ? ctx.bool_val(true) : e->dual;
-    return new TermTree(top, children);
+    TermTree *res = new TermTree(top, children);
+    for(unsigned i = 0; i < e->constraints.size(); i++)
+      res->addTerm(e->constraints[i]);
+    return res;
   }
 
   TermTree *RPFP::GetGoalTree(Node *root){
@@ -375,6 +378,19 @@ namespace Duality {
       x = x && y;
   }
 
+  void RPFP::SetAnnotation(Node *root, const expr &t){
+    hash_map<ast, Term> memo;
+    Term b;
+    std::vector<Term> v;
+    RedVars(root, b, v);
+    memo[b] = ctx.bool_val(true);
+    for (unsigned i = 0; i < v.size(); i++)
+      memo[v[i]] = root->Annotation.IndParams[i];
+    Term annot = SubstRec(memo, t);
+    // Strengthen(ref root.Annotation.Formula, annot);
+    root->Annotation.Formula = annot;
+  }
+
   void RPFP::DecodeTree(Node *root, TermTree *interp, int persist)
   {
     std::vector<TermTree *> &ic = interp->getChildren();
@@ -384,16 +400,7 @@ namespace Duality {
 	for (unsigned i = 0; i < nc.size(); i++)
 	  DecodeTree(nc[i], ic[i], persist);
       }
-    hash_map<ast, Term> memo;
-    Term b;
-    std::vector<Term> v;
-    RedVars(root, b, v);
-    memo[b] = ctx.bool_val(true);
-    for (unsigned i = 0; i < v.size(); i++)
-      memo[v[i]] = root->Annotation.IndParams[i];
-    Term annot = SubstRec(memo, interp->getTerm());
-    // Strengthen(ref root.Annotation.Formula, annot);
-    root->Annotation.Formula = annot;
+    SetAnnotation(root,interp->getTerm());
 #if 0
     if(persist != 0)
       Z3_persist_ast(ctx,root->Annotation.Formula,persist);
@@ -511,6 +518,10 @@ namespace Duality {
     timer_stop("solver add");
   }
 
+  void RPFP::ConstrainParent(Edge *parent, Node *child){
+    ConstrainEdgeLocalized(parent,GetAnnotation(child));
+  } 
+
         
   /** For incremental solving, asserts the negation of the upper bound associated
    * with a node.
@@ -525,6 +536,24 @@ namespace Duality {
 	slvr.add(n->dual);
       }
   }
+
+  /** Assert a constraint on an edge in the SMT context. 
+   */
+
+  void RPFP::ConstrainEdge(Edge *e, const Term &t)
+  {
+    Term tl = Localize(e, t);
+    ConstrainEdgeLocalized(e,tl);
+  }
+
+  void RPFP::ConstrainEdgeLocalized(Edge *e, const Term &tl)
+  {
+    e->constraints.push_back(tl);
+    stack.back().constraints.push_back(e);
+    slvr.add(tl);
+  }
+
+
 
   /** Declare a constant in the background theory. */
 
@@ -1064,7 +1093,7 @@ namespace Duality {
 	  }
 	}
 	/* Unreachable! */
-	throw "error in RPFP::ImplicantRed";
+	std::cerr << "error in RPFP::ImplicantRed";
 	goto done;
       }
       else if(k == Not) {
@@ -1671,6 +1700,17 @@ namespace Duality {
     return eu;
   }
 
+  void RPFP::FixCurrentState(Edge *edge){
+    hash_set<ast> dont_cares;
+    resolve_ite_memo.clear();
+    timer_start("UnderapproxFormula");
+    Term dual = edge->dual.null() ? ctx.bool_val(true) : edge->dual;
+    Term eu = UnderapproxFormula(dual,dont_cares);
+    timer_stop("UnderapproxFormula");
+    ConstrainEdgeLocalized(edge,eu);
+  }
+
+
 
   RPFP::Term RPFP::ModelValueAsConstraint(const Term &t){
     if(t.is_array()){
@@ -1714,6 +1754,69 @@ namespace Duality {
     res = CreateRelation(p->Annotation.IndParams,funder);
   }
 
+  void RPFP::GreedyReduce(solver &s, std::vector<expr> &conjuncts){
+    // verify
+    s.push();
+    expr conj = ctx.make(And,conjuncts);
+    s.add(conj);
+    check_result res = s.check();
+    s.pop(1);
+    if(res != unsat)
+      throw "should be unsat";
+	
+    for(unsigned i = 0; i < conjuncts.size(); ){
+      std::swap(conjuncts[i],conjuncts.back());
+      expr save = conjuncts.back();
+      conjuncts.pop_back();
+      s.push();
+      expr conj = ctx.make(And,conjuncts);
+      s.add(conj);
+      check_result res = s.check();
+      s.pop(1);
+      if(res != unsat){
+	conjuncts.push_back(save);
+	std::swap(conjuncts[i],conjuncts.back());
+	i++;
+      }
+    }
+  }
+
+  void RPFP::NegateLits(std::vector<expr> &lits){
+    for(unsigned i = 0; i < lits.size(); i++){
+      expr &f = lits[i];
+      if(f.is_app() && f.decl().get_decl_kind() == Not)
+	f = f.arg(0);
+      else
+	f = !f;
+    }
+  }
+
+  expr RPFP::SimplifyOr(std::vector<expr> &lits){
+    if(lits.size() == 0)
+      return ctx.bool_val(false);
+    if(lits.size() == 1)
+      return lits[0];
+    return ctx.make(Or,lits);
+  }
+
+  void RPFP::Generalize(Node *node){
+    std::vector<expr> conjuncts;
+    expr fmla = GetAnnotation(node);
+    CollectConjuncts(fmla,conjuncts,false);
+    // try to remove conjuncts one at a tme
+    aux_solver.push();
+    Edge *edge = node->Outgoing;
+    if(!edge->dual.null())
+      aux_solver.add(edge->dual);
+    for(unsigned i = 0; i < edge->constraints.size(); i++){
+      expr tl = edge->constraints[i];
+      aux_solver.add(tl);
+    }
+    GreedyReduce(aux_solver,conjuncts);
+    aux_solver.pop(1);
+    NegateLits(conjuncts);
+    SetAnnotation(node,SimplifyOr(conjuncts));
+  }
 
   /** Push a scope. Assertions made after Push can be undone by Pop. */
 
@@ -1735,6 +1838,8 @@ namespace Duality {
 	  (*it)->dual = expr(ctx,NULL);
 	for(std::list<Node *>::iterator it = back.nodes.begin(), en = back.nodes.end(); it != en; ++it)
 	  (*it)->dual = expr(ctx,NULL);
+	for(std::list<Edge *>::iterator it = back.constraints.begin(), en = back.constraints.end(); it != en; ++it)
+	  (*it)->constraints.pop_back();
 	stack.pop_back();
       }
   }

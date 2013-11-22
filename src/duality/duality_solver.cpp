@@ -1270,18 +1270,24 @@ namespace Duality {
       }
     }
 
+    bool UpdateNodeToNode(Node *node, Node *top){
+      if(!node->Annotation.SubsetEq(top->Annotation)){
+	reporter->Update(node,top->Annotation);
+	indset->Update(node,top->Annotation);
+	updated_nodes.insert(node->map);
+	node->Annotation.IntersectWith(top->Annotation);
+	return true;
+      }
+      return false;
+    }
+
     /** Update the unwinding solution, using an interpolant for the
 	derivation tree. */
     void UpdateWithInterpolant(Node *node, RPFP *tree, Node *top){
       if(top->Outgoing)
 	for(unsigned i = 0; i < top->Outgoing->Children.size(); i++)
 	  UpdateWithInterpolant(node->Outgoing->Children[i],tree,top->Outgoing->Children[i]);
-      if(!node->Annotation.SubsetEq(top->Annotation)){
-	reporter->Update(node,top->Annotation);
-	indset->Update(node,top->Annotation);
-	updated_nodes.insert(node->map);
-	node->Annotation.IntersectWith(top->Annotation);
-      }
+      UpdateNodeToNode(node, top);
       heuristic->Update(node);
     }
 
@@ -1305,7 +1311,8 @@ namespace Duality {
       if(node->Bound.IsFull()) return true;
       reporter->Bound(node);
       int start_decs = rpfp->CumulativeDecisions();
-      DerivationTree dt(this,unwinding,reporter,heuristic,FullExpand);
+      DerivationTree *dtp = new DerivationTreeSlow(this,unwinding,reporter,heuristic,FullExpand);
+      DerivationTree &dt = *dtp;
       bool res = dt.Derive(unwinding,node,UseUnderapprox);
       int end_decs = rpfp->CumulativeDecisions();
       // std::cout << "decisions: " << (end_decs - start_decs)  << std::endl;
@@ -1321,6 +1328,7 @@ namespace Duality {
 	UpdateWithInterpolant(node,dt.tree,dt.top);
 	delete dt.tree;
       }
+      delete dtp;
       return !res;
     }
 
@@ -1491,7 +1499,7 @@ namespace Duality {
 	return res != unsat;
       }
 
-      bool Build(){
+      virtual bool Build(){
 #ifdef EFFORT_BOUNDED_STRAT
 	start_decs = tree->CumulativeDecisions();
 #endif
@@ -1545,7 +1553,7 @@ namespace Duality {
 	}
       }
 
-      void ExpandNode(RPFP::Node *p){
+      virtual void ExpandNode(RPFP::Node *p){
 	// tree->RemoveEdge(p->Outgoing);
 	Edge *edge = duality->GetNodeOutgoing(p->map,last_decs);
 	std::vector<RPFP::Node *> &cs = edge->Children;
@@ -1573,6 +1581,7 @@ namespace Duality {
       }
 #else
 #if 0
+
       void ExpansionChoices(std::set<Node *> &best){
 	std::vector <Node *> unused_set, used_set;
 	std::set<Node *> choices;
@@ -1668,7 +1677,7 @@ namespace Duality {
 #endif
 #endif
       
-      bool ExpandSomeNodes(bool high_priority = false){
+      bool ExpandSomeNodes(bool high_priority = false, int max = INT_MAX){
 #ifdef EFFORT_BOUNDED_STRAT
 	last_decs = tree->CumulativeDecisions() - start_decs;
 #endif
@@ -1679,16 +1688,193 @@ namespace Duality {
 	timer_stop("ExpansionChoices");
 	std::list<RPFP::Node *> leaves_copy = leaves; // copy so can modify orig
 	leaves.clear();
+	int count = 0;
 	for(std::list<RPFP::Node *>::iterator it = leaves_copy.begin(), en = leaves_copy.end(); it != en; ++it){
-	  if(choices.find(*it) != choices.end())
+	  if(choices.find(*it) != choices.end() && count < max){
+	    count++;
 	    ExpandNode(*it);
+	  }
 	  else leaves.push_back(*it);
 	}
 	timer_stop("ExpandSomeNodes");
 	return !choices.empty();
       }
 
+      void RemoveExpansion(RPFP::Node *p){
+	Edge *edge = p->Outgoing;
+	Node *parent = edge->Parent; 
+	std::vector<RPFP::Node *> cs = edge->Children;
+	tree->DeleteEdge(edge);
+	for(unsigned i = 0; i < cs.size(); i++)
+	  tree->DeleteNode(cs[i]);
+	leaves.push_back(parent);
+      }
     };
+
+    class DerivationTreeSlow : public DerivationTree {
+    public:
+      
+      struct stack_entry {
+	unsigned level; // SMT solver stack level
+	std::vector<Node *> expansions;
+      };
+
+      std::vector<stack_entry> stack;
+
+      hash_map<Node *, expr> updates;
+
+      DerivationTreeSlow(Duality *_duality, RPFP *rpfp, Reporter *_reporter, Heuristic *_heuristic, bool _full_expand) 
+	: DerivationTree(_duality, rpfp, _reporter, _heuristic, _full_expand) {
+	stack.push_back(stack_entry());
+      }
+
+      virtual bool Build(){
+
+	stack.back().level = tree->slvr.get_scope_level();
+
+	while (true)
+	{
+	  lbool res;
+
+	  unsigned slvr_level = tree->slvr.get_scope_level();
+	  if(slvr_level != stack.back().level)
+	    throw "stacks out of sync!";
+
+	  res = tree->Solve(top, 1);            // incremental solve, keep interpolants for one pop
+
+	  if (res == l_false) {
+	    if (stack.empty()) // should never happen
+	      return false;
+	    
+	    std::vector<Node *> &expansions = stack.back().expansions;
+	    int update_count = 0;
+	    for(unsigned i = 0; i < expansions.size(); i++){
+	      tree->Generalize(expansions[i]);
+	      if(RecordUpdate(expansions[i]))
+		update_count++;
+	    }
+	    if(update_count == 0)
+	      std::cout << "backtracked without learning\n";
+	    tree->Pop(1);	
+	    hash_set<Node *> leaves_to_remove;
+	    for(unsigned i = 0; i < expansions.size(); i++){
+	      Node *node = expansions[i];
+	      //	      if(node != top)
+	      //		tree->ConstrainParent(node->Incoming[0],node);
+	      std::vector<Node *> &cs = node->Outgoing->Children;
+	      for(unsigned i = 0; i < cs.size(); i++){
+		leaves_to_remove.insert(cs[i]);
+		UnmapNode(cs[i]);
+		if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
+		  throw "help!";
+	      }
+	      RemoveExpansion(node);
+	    }
+	    RemoveLeaves(leaves_to_remove);
+	    stack.pop_back();
+	    HandleUpdatedNodes();
+	    if(stack.size() == 1)
+	      return false;
+	  }
+	  else {
+	    tree->Push();
+	    std::vector<Node *> &expansions = stack.back().expansions;
+	    for(unsigned i = 0; i < expansions.size(); i++){
+	      tree->FixCurrentState(expansions[i]->Outgoing);
+	    }
+	    if(tree->slvr.check() == unsat)
+	      throw "help!";
+	    stack.push_back(stack_entry());
+	    stack.back().level = tree->slvr.get_scope_level();
+	    if(ExpandSomeNodes(false,1)){
+	      continue;
+	    }
+	    while(stack.size() > 1){
+	      tree->Pop(1);	
+	      stack.pop_back();
+	    }
+	    return true;
+	  }
+	}
+      }
+      
+      void RemoveLeaves(hash_set<Node *> &leaves_to_remove){
+	std::list<RPFP::Node *> leaves_copy;
+	leaves_copy.swap(leaves);
+	for(std::list<RPFP::Node *>::iterator it = leaves_copy.begin(), en = leaves_copy.end(); it != en; ++it){
+	  if(leaves_to_remove.find(*it) == leaves_to_remove.end())
+	    leaves.push_back(*it);
+	}
+      }
+
+      hash_map<Node *, std::vector<Node *> > node_map;
+      std::list<Node *> updated_nodes;
+
+      virtual void ExpandNode(RPFP::Node *p){
+	stack.back().expansions.push_back(p);
+	DerivationTree::ExpandNode(p);
+	std::vector<Node *> &new_nodes = p->Outgoing->Children;
+	for(unsigned i = 0; i < new_nodes.size(); i++){
+	  Node *n = new_nodes[i];
+	  node_map[n->map].push_back(n);
+	}
+      }
+
+      bool RecordUpdate(Node *node){
+	bool res = duality->UpdateNodeToNode(node->map,node);
+	if(res){
+	  std::vector<Node *> to_update = node_map[node->map];
+	  for(unsigned i = 0; i < to_update.size(); i++){
+	    Node *node2 = to_update[i];
+	    // maintain invariant that no nodes on updated list are created at current stack level
+	    if(node2 == node || !(node->Incoming.size() > 0 && AtCurrentStackLevel(node2->Incoming[0]->Parent))){
+	      updated_nodes.push_back(node2);
+	      if(node2 != node)
+		node2->Annotation = node->Annotation;
+	    }
+	  }
+	}
+	return res;
+      }
+      
+      void HandleUpdatedNodes(){
+	for(std::list<Node *>::iterator it = updated_nodes.begin(), en = updated_nodes.end(); it != en;){
+	  Node *node = *it;
+	  node->Annotation = node->map->Annotation;
+	  if(node->Incoming.size() > 0)
+	    tree->ConstrainParent(node->Incoming[0],node);
+	  if(AtCurrentStackLevel(node->Incoming[0]->Parent)){
+	    std::list<Node *>::iterator victim = it;
+	    ++it;
+	    updated_nodes.erase(victim);
+	  }
+	  else
+	    ++it;
+	}
+      }
+      
+      bool AtCurrentStackLevel(Node *node){
+	std::vector<Node *> vec = stack.back().expansions;
+	for(unsigned i = 0; i < vec.size(); i++)
+	  if(vec[i] == node)
+	    return true;
+	return false;
+      }
+
+      void UnmapNode(Node *node){
+	std::vector<Node *> &vec = node_map[node->map];
+	for(unsigned i = 0; i < vec.size(); i++){
+	  if(vec[i] == node){
+	    std::swap(vec[i],vec.back());
+	    vec.pop_back();
+	    return;
+	  }
+	}
+	throw "can't unmap node";
+      }
+
+    };
+
 
     class Covering {
 

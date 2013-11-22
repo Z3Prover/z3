@@ -867,6 +867,9 @@ namespace Duality {
 	  if(m_solver)
 	    m_solver->cancel();
 	}
+
+	unsigned get_scope_level(){return m_solver->get_scope_level();}
+
     };
 
 #if 0
@@ -1199,6 +1202,8 @@ namespace Duality {
 
       inline expr getTerm(){return term;}
 
+      inline std::vector<expr> &getTerms(){return terms;}
+
       inline std::vector<TermTree *> &getChildren(){
 	return children;
       }
@@ -1215,6 +1220,8 @@ namespace Duality {
       }
 
       inline void setTerm(expr t){term = t;}
+      
+      inline void addTerm(expr t){terms.push_back(t);}
 
       inline void setChildren(const std::vector<TermTree *> & _children){
 	children = _children;
@@ -1231,6 +1238,7 @@ namespace Duality {
 
     private:
       expr term;
+      std::vector<expr> terms;
       std::vector<TermTree *> children;
       int num;
     };

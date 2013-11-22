@@ -277,6 +277,7 @@ namespace Duality {
       public:
 	std::list<Edge *> edges;
 	std::list<Node *> nodes;
+	std::list<Edge *> constraints;
       };
       
       
@@ -286,6 +287,8 @@ namespace Duality {
       literals dualLabels;
       std::list<stack_entry> stack;
       std::vector<Term> axioms; // only saved here for printing purposes
+      solver aux_solver;
+
 
     public:
 
@@ -296,7 +299,7 @@ namespace Duality {
 	  inherit the axioms. 
       */
 
-    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx))
+    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx)),	aux_solver(*(_ls->ctx))
       {
         ls = _ls;
 	nodeCount = 0;
@@ -351,10 +354,10 @@ namespace Duality {
 	bool SubsetEq(const Transformer &other){
 	  Term t = owner->SubstParams(other.IndParams,IndParams,other.Formula);
 	  expr test = Formula && !t;
-	  owner->slvr.push();
-	  owner->slvr.add(test);
-	  check_result res = owner->slvr.check();
-	  owner->slvr.pop(1);
+	  owner->aux_solver.push();
+	  owner->aux_solver.add(test);
+	  check_result res = owner->aux_solver.check();
+	  owner->aux_solver.pop(1);
 	  return res == unsat;
 	}
 
@@ -444,6 +447,19 @@ namespace Duality {
 	return n;
       }
       
+      /** Delete a node. You can only do this if not connected to any edges.*/
+      void DeleteNode(Node *node){
+	if(node->Outgoing || !node->Incoming.empty())
+	  throw "cannot delete RPFP node";
+	for(std::vector<Node *>::iterator it = nodes.end(), en = nodes.begin(); it != en;){
+	  if(*(--it) == node){
+	    nodes.erase(it);
+	    break;
+	  }
+	}
+	delete node;
+      }
+
       /** This class represents a hyper-edge in the RPFP graph */
       
       class Edge
@@ -460,6 +476,7 @@ namespace Duality {
 	hash_map<ast,Term> varMap;
 	Edge *map;
 	Term labeled;
+	std::vector<Term> constraints;
 	
       Edge(Node *_Parent, const Transformer &_F, const std::vector<Node *> &_Children, RPFP *_owner, int _number)
 	: F(_F), Parent(_Parent), Children(_Children), dual(expr(_owner->ctx)) {
@@ -480,6 +497,29 @@ namespace Duality {
 	return e;
       }
       
+      
+      /** Delete a hyper-edge and unlink it from any nodes. */
+      void DeleteEdge(Edge *edge){
+	if(edge->Parent)
+	  edge->Parent->Outgoing = 0;
+	for(unsigned int i = 0; i < edge->Children.size(); i++){
+	  std::vector<Edge *> &ic = edge->Children[i]->Incoming;
+	  for(std::vector<Edge *>::iterator it = ic.begin(), en = ic.end(); it != en; ++it){
+	    if(*it == edge){
+	      ic.erase(it);
+	      break;
+	    }
+	  }
+	}
+	for(std::vector<Edge *>::iterator it = edges.end(), en = edges.begin(); it != en;){
+	  if(*(--it) == edge){
+	    edges.erase(it);
+	    break;
+	  }
+	}
+	delete edge;
+      }
+      
       /** Create an edge that lower-bounds its parent. */
       Edge *CreateLowerBoundEdge(Node *_Parent)
       {
@@ -494,12 +534,24 @@ namespace Duality {
       
       void AssertEdge(Edge *e, int persist = 0, bool with_children = false, bool underapprox = false);
 
-        
+      /* Constrain an edge by the annotation of one of its children. */
+
+      void ConstrainParent(Edge *parent, Node *child);
+
       /** For incremental solving, asserts the negation of the upper bound associated
        * with a node.
        * */
       
       void AssertNode(Node *n);
+
+      /** Assert a constraint on an edge in the SMT context. 
+       */
+      void ConstrainEdge(Edge *e, const Term &t);
+      
+      /** Fix the truth values of atomic propositions in the given
+	  edge to their values in the current assignment. */
+      void FixCurrentState(Edge *root);
+    
 
       /** Declare a constant in the background theory. */
 
@@ -591,6 +643,9 @@ namespace Duality {
 	  based on a previously computed counterexample. */
 
       Term ComputeUnderapprox(Node *root, int persist);
+
+      /** Try to strengthen the annotation of a node by removing disjuncts. */
+      void Generalize(Node *node);
 
       /** Push a scope. Assertions made after Push can be undone by Pop. */
       
@@ -803,7 +858,15 @@ namespace Duality {
 
       Term SubstBound(hash_map<int,Term> &subst, const Term &t);
 
+      void ConstrainEdgeLocalized(Edge *e, const Term &t);
 
+      void GreedyReduce(solver &s, std::vector<expr> &conjuncts);
+      
+      void NegateLits(std::vector<expr> &lits);
+
+      expr SimplifyOr(std::vector<expr> &lits);
+
+      void SetAnnotation(Node *root, const expr &t);
     };
     
     /** RPFP solver base class. */

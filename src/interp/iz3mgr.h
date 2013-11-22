@@ -631,6 +631,9 @@ class iz3mgr  {
   
   ast subst(ast var, ast t, ast e);
 
+  // apply a substitution defined by a map
+  ast subst(stl_ext::hash_map<ast,ast> &map, ast e);
+
   // apply a quantifier to a formula, with some optimizations
   // 1) bound variable does not occur -> no quantifier
   // 2) bound variable must be equal to some term -> substitute

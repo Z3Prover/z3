@@ -75,15 +75,16 @@ struct frame_reducer : public iz3mgr {
     }
   }
   
-  void get_frames(const std::vector<ast> &z3_preds, 
+  void get_frames(const std::vector<std::vector<ast> >&z3_preds, 
 		  const std::vector<int> &orig_parents,
-		  std::vector<ast> &assertions,
+		  std::vector<std::vector<ast> >&assertions,
 		  std::vector<int> &parents,
 		  z3pf proof){
     frames = z3_preds.size();
     orig_parents_copy = orig_parents;
     for(unsigned i = 0; i < z3_preds.size(); i++)
-      frame_map[z3_preds[i]] = i;
+      for(unsigned j = 0; j < z3_preds[i].size(); j++)
+	frame_map[z3_preds[i][j]] = i;
     used_frames.resize(frames);
     hash_set<ast> memo;
     get_proof_assumptions_rec(proof,memo,used_frames);
@@ -202,7 +203,7 @@ public:
   }                         
 
   void proof_to_interpolant(z3pf proof,
-			    const std::vector<ast> &cnsts,
+			    const std::vector<std::vector<ast> > &cnsts,
 			    const std::vector<int> &parents,
 			    std::vector<ast> &interps,
 			    const std::vector<ast> &theory,
@@ -216,7 +217,7 @@ public:
 
     // get rid of frames not used in proof
 
-    std::vector<ast> cnsts_vec;
+    std::vector<std::vector<ast> > cnsts_vec;
     std::vector<int> parents_vec;
     frame_reducer fr(*this);
     fr.get_frames(cnsts,parents,cnsts_vec,parents_vec,proof);
@@ -235,10 +236,7 @@ public:
 #define BINARY_INTERPOLATION
 #ifndef BINARY_INTERPOLATION    
     // create a translator
-    std::vector<std::vector<ast> > cnsts_vec_vec(cnsts_vec.size());
-    for(unsigned i = 0; i < cnsts_vec.size(); i++)
-      cnsts_vec_vec[i].push_back(cnsts_vec[i]);
-    iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec_vec,parents_vec,theory);
+    iz3translation *tr = iz3translation::create(*this,sp,cnsts_vec,parents_vec,theory);
     tr_killer.set(tr);
     
     // set the translation options, if needed
@@ -273,7 +271,8 @@ public:
       std::vector<std::vector<ast> > cnsts_vec_vec(2);
       for(unsigned j = 0; j < cnsts_vec.size(); j++){
 	bool is_A = the_base.in_range(j,rng);
-	cnsts_vec_vec[is_A ? 0 : 1].push_back(cnsts_vec[j]);
+	for(unsigned k = 0; k < cnsts_vec[j].size(); k++)
+	  cnsts_vec_vec[is_A ? 0 : 1].push_back(cnsts_vec[j][k]);
       }
 
       killme<iz3translation> tr_killer_i;
@@ -308,6 +307,19 @@ public:
   }
 
 
+  void proof_to_interpolant(z3pf proof,
+			    std::vector<ast> &cnsts,
+			    const std::vector<int> &parents,
+			    std::vector<ast> &interps,
+			    const std::vector<ast> &theory,
+			    interpolation_options_struct *options = 0
+			    ){
+    std::vector<std::vector<ast> > cnsts_vec(cnsts.size());
+    for(unsigned i = 0; i < cnsts.size(); i++)
+      cnsts_vec[i].push_back(cnsts[i]);
+    proof_to_interpolant(proof,cnsts_vec,parents,interps,theory,options);
+  }    
+
   // same as above, but represents the tree using an ast
 
   void proof_to_interpolant(const z3pf &proof,
@@ -322,7 +334,6 @@ public:
     
     to_parents_vec_representation(_cnsts, tree, cnsts, parents, theory, pos_map);
 
-    
     //use the parents vector representation to compute interpolant
     proof_to_interpolant(proof,cnsts,parents,interps,theory,options);
     
@@ -386,6 +397,35 @@ void iz3interpolate(ast_manager &_m_manager,
   std::vector<iz3mgr::ast> _theory(theory.size());
   for(unsigned i = 0; i < cnsts.size(); i++)
     _cnsts[i] = itp.cook(cnsts[i]);
+  for(unsigned i = 0; i < parents.size(); i++)
+    _parents[i] = parents[i];
+  for(unsigned i = 0; i < theory.size(); i++)
+    _theory[i] = itp.cook(theory[i]);
+  iz3mgr::ast _proof = itp.cook(proof);
+  itp.proof_to_interpolant(_proof,_cnsts,_parents,_interps,_theory,options);
+  interps.resize(_interps.size());
+  for(unsigned i = 0; i < interps.size(); i++)
+    interps[i] = itp.uncook(_interps[i]);
+}
+
+void iz3interpolate(ast_manager &_m_manager,
+		    ast *proof,
+		    const ::vector<ptr_vector<ast> > &cnsts,
+		    const ::vector<int> &parents,
+		    ptr_vector<ast> &interps,
+		    const ptr_vector<ast> &theory,
+		    interpolation_options_struct * options)
+{
+  iz3interp itp(_m_manager);
+  if(options)
+    options->apply(itp);
+  std::vector<std::vector<iz3mgr::ast> > _cnsts(cnsts.size());
+  std::vector<int> _parents(parents.size());
+  std::vector<iz3mgr::ast> _interps;
+  std::vector<iz3mgr::ast> _theory(theory.size());
+  for(unsigned i = 0; i < cnsts.size(); i++)
+    for(unsigned j = 0; j < cnsts[i].size(); j++)
+      _cnsts[i].push_back(itp.cook(cnsts[i][j]));
   for(unsigned i = 0; i < parents.size(); i++)
     _parents[i] = parents[i];
   for(unsigned i = 0; i < theory.size(); i++)

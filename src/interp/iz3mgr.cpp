@@ -815,6 +815,22 @@ iz3mgr::ast iz3mgr::subst(ast var, ast t, ast e){
   return subst(memo,var,t,e);
 }
 
+iz3mgr::ast iz3mgr::subst(stl_ext::hash_map<ast,ast> &subst_memo,ast e){
+  std::pair<ast,ast> foo(e,ast());
+  std::pair<hash_map<ast,ast>::iterator,bool> bar = subst_memo.insert(foo);
+  ast &res = bar.first->second;
+  if(bar.second){
+    int nargs = num_args(e);
+    std::vector<ast> args(nargs);
+    for(int i = 0; i < nargs; i++)
+      args[i] = subst(subst_memo,arg(e,i));
+    opr f = op(e);
+    if(f == Equal && args[0] == args[1]) res = mk_true();
+    else res = clone(e,args);
+  }
+  return res;
+}
+
   // apply a quantifier to a formula, with some optimizations
   // 1) bound variable does not occur -> no quantifier
   // 2) bound variable must be equal to some term -> substitute

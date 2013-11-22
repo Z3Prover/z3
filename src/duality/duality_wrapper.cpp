@@ -425,15 +425,18 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   
   static int linearize_assumptions(int num,
 				   TermTree *assumptions,
-				   std::vector<expr> &linear_assumptions, 
+				   std::vector<std::vector <expr> > &linear_assumptions, 
 				   std::vector<int> &parents){
     for(unsigned i = 0; i < assumptions->getChildren().size(); i++)
       num = linearize_assumptions(num, assumptions->getChildren()[i], linear_assumptions, parents);
-    linear_assumptions[num] = assumptions->getTerm();
+    // linear_assumptions[num].push_back(assumptions->getTerm());
     for(unsigned i = 0; i < assumptions->getChildren().size(); i++)
       parents[assumptions->getChildren()[i]->getNumber()] = num;
     parents[num] = SHRT_MAX; // in case we have no parent
-    linear_assumptions[num] = assumptions->getTerm();
+    linear_assumptions[num].push_back(assumptions->getTerm());
+    std::vector<expr> &ts = assumptions->getTerms();
+    for(unsigned i = 0; i < ts.size(); i++)
+      linear_assumptions[num].push_back(ts[i]);
     return num + 1;
   }
 
@@ -462,14 +465,15 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
   
   {
     int size = assumptions->number(0);
-    std::vector<expr> linear_assumptions(size);
+    std::vector<std::vector<expr> > linear_assumptions(size);
     std::vector<int> parents(size);
     linearize_assumptions(0,assumptions,linear_assumptions,parents);
 
     ptr_vector< ::ast> _interpolants(size-1);
-    ptr_vector< ::ast>_assumptions(size);
+    vector<ptr_vector< ::ast> >_assumptions(size);
     for(int i = 0; i < size; i++)
-      _assumptions[i] = linear_assumptions[i];
+      for(unsigned j = 0; j < linear_assumptions[i].size(); j++)
+	_assumptions[i].push_back(linear_assumptions[i][j]);
     ::vector<int> _parents; _parents.resize(parents.size());
     for(unsigned i = 0; i < parents.size(); i++)
       _parents[i] = parents[i];
@@ -481,7 +485,8 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     
     if(!incremental){
       for(unsigned i = 0; i < linear_assumptions.size(); i++)
-	add(linear_assumptions[i]);
+	for(unsigned j = 0; j < linear_assumptions[i].size(); j++)
+	  add(linear_assumptions[i][j]);
     }
     
     check_result res = check();
