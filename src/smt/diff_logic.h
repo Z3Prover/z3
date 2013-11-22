@@ -956,8 +956,8 @@ public:
 
     void get_neighbours_undirected(dl_var current, svector<dl_var> & neighbours) {
 	    neighbours.reset();
-	    edge_id_vector & edges = m_out_edges[current];
-        typename edge_id_vector::iterator it = edges.begin(), end = edges.end();
+	    edge_id_vector & out_edges = m_out_edges[current];
+        typename edge_id_vector::iterator it = out_edges.begin(), end = out_edges.end();
         for (; it != end; ++it) {
             edge_id e_id = *it;
             edge & e     = m_edges[e_id];
@@ -965,11 +965,10 @@ public:
             dl_var neighbour = e.get_target();
             neighbours.push_back(neighbour);
         }
-        edges = m_in_edges[current];
-        it = edges.begin();
-        end = edges.end();
-	    for (; it != end; ++it) {
-            edge_id e_id = *it;
+        edge_id_vector & in_edges = m_in_edges[current];
+        typename edge_id_vector::iterator it2 = in_edges.begin(), end2 = in_edges.end();
+	    for (; it2 != end2; ++it2) {
+            edge_id e_id = *it2;
             edge & e     = m_edges[e_id];
             SASSERT(e.get_target() == current);
             dl_var neighbour = e.get_source();
@@ -984,31 +983,28 @@ public:
 	    svector<dl_var> nodes;
         discovered.insert(start);
 	    nodes.push_back(start);
-	    dl_var prev = -1;
+	    dl_var prev = start;
 	    while(!nodes.empty()) {
 		    dl_var current = nodes.back();
             SASSERT(discovered.contains(current) && !explored.contains(current));
-            std::cout << "thread[" << prev << "] --> " << current << std::endl;
-		    if (prev != -1) {
-			    threads[prev] = current;
-                std::cout << "thread[" << prev << "] --> " << current << std::endl;
-            }
-		    prev = current;
 		    svector<dl_var> neighbours;
 		    get_neighbours_undirected(current, neighbours);
             SASSERT(!neighbours.empty());
             bool found = false;
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
                 dl_var next = neighbours[i];
-				DEBUG_CODE(
-			    edge_id id;
-				SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););                
-			    if (!discovered.contains(next) && !explored.contains(next)) {
+                DEBUG_CODE(
+                edge_id id;
+                SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););                
+                if (!discovered.contains(next) && !explored.contains(next)) {
+                    TRACE("diff_logic", tout << "thread[" << prev << "] --> " << next << std::endl;);
+                    threads[prev] = next;
+                    prev = next;
                     discovered.insert(next);
-				    nodes.push_back(next);
+	                nodes.push_back(next);
                     found = true;
                     break;
-			    }
+                }
 		    }            
             SASSERT(!nodes.empty());
             if (!found) {
@@ -1022,6 +1018,7 @@ public:
     void bfs_undirected(dl_var start, svector<dl_var> & parents, svector<dl_var> & depths) {
         parents.reset();
         parents.resize(get_num_nodes());
+        parents[start] = -1;
         depths.reset();
         depths.resize(get_num_nodes());
 	    uint_set visited;
@@ -1037,16 +1034,16 @@ public:
             SASSERT(!neighbours.empty());
 		    for (unsigned i = 0; i < neighbours.size(); ++i) {
 			    dl_var next = neighbours[i];
-                std::cout << "parents[" << next << "] --> " << current << std::endl;
-				DEBUG_CODE(
-			    edge_id id;
-				SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););
-			    if (!visited.contains(next)) {
-				    parents[next] = current;
-				    depths[next] = depths[current] + 1;
-				    visited.insert(next);
-				    nodes.push_front(next);
-			    }
+                DEBUG_CODE(
+                edge_id id;
+                SASSERT(get_edge_id(current, next, id) || get_edge_id(next, current, id)););
+                if (!visited.contains(next)) {
+                    TRACE("diff_logic", tout << "parents[" << next << "] --> " << current << std::endl;);
+	                parents[next] = current;
+	                depths[next] = depths[current] + 1;
+	                visited.insert(next);
+	                nodes.push_front(next);
+                }
 		    }
 	    }
     }

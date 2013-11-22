@@ -421,7 +421,8 @@ namespace smt {
     template<typename Ext>
     void basic_spanning_tree<Ext>::initialize(svector<edge_id> const & tree) {        
         m_tree_graph = alloc(graph);
-        m_tree = tree;
+        m_tree.reset();
+        m_tree.append(tree);
         unsigned num_nodes = m_graph.get_num_nodes();
         for (unsigned i = 0; i < num_nodes; ++i) {
             m_tree_graph->init_var(i);
@@ -456,7 +457,8 @@ namespace smt {
                 m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
             }
         }
-        m_tree_graph->add_edge(m_graph.get_source(enter_id), m_graph.get_target(enter_id), m_graph.get_weight(enter_id), explanation());
+        edge const & e = es[enter_id];
+        m_tree_graph->add_edge(e.get_source(), e.get_target(), e.get_weight(), explanation());
 
         node root = num_nodes - 1;
         m_tree_graph->bfs_undirected(root, m_pred, m_depth);
