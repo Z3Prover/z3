@@ -114,11 +114,17 @@ namespace smt {
         node src = m_graph.get_source(m_enter_id);
         node tgt = m_graph.get_target(m_enter_id);      
         numeral cost = m_potentials[src] - m_potentials[tgt] - m_graph.get_weight(m_enter_id);
-        numeral change = m_tree->in_subtree_t2(tgt) ? cost : -cost;
-        node start = m_graph.get_source(m_leave_id);
-        if (!m_tree->in_subtree_t2(start)) {
-            start = m_graph.get_target(m_leave_id);;
+        numeral change;
+        node start;
+        if (m_tree->in_subtree_t2(tgt)) {
+            change = cost;
+            start = tgt;
         }
+        else {
+            change = -cost;
+            start = src;
+        }
+        SASSERT(m_tree->in_subtree_t2(start));
         TRACE("network_flow", tout << "update_potentials of T_" << start << " with change = " << change << "...\n";);
         svector<node> descendants;
         m_tree->get_descendants(start, descendants);
@@ -185,7 +191,6 @@ namespace smt {
         m_tree->update(m_enter_id, m_leave_id);
     }
 
-    // FIXME: should declare pivot as a pivot_rule_impl and refactor
     template<typename Ext>
     bool network_flow<Ext>::choose_entering_edge(pivot_rule pr) {
         pivot_rule_impl * pivot;
@@ -218,14 +223,11 @@ namespace smt {
 				SASSERT(edge_in_tree(m_leave_id));
 				SASSERT(!edge_in_tree(m_enter_id));
                 m_states[m_enter_id] = BASIS;
-                m_states[m_leave_id] = (m_flows[m_leave_id].is_zero()) ? LOWER : UPPER;
+                m_states[m_leave_id] = LOWER;
                 update_spanning_tree();
                 update_potentials();                
                 TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
                 SASSERT(check_well_formed());
-            } 
-            else {
-                m_states[m_leave_id] = m_states[m_leave_id] == LOWER ? UPPER : LOWER;
             }
         }
         TRACE("network_flow", tout << "Found optimal solution.\n";);
@@ -241,7 +243,7 @@ namespace smt {
         for (unsigned i = 0; i < num_edges; ++i) {
             if (m_states[i] == BASIS) 
             {
-                objective_value += m_graph.get_weight(i).get_rational() * m_flows[i];
+                objective_value += m_flows[i].get_rational() * m_graph.get_weight(i);
             }
         }
         result.reset();
@@ -273,7 +275,10 @@ namespace smt {
         unsigned num_edges = m_graph.get_num_edges();
         for (unsigned i = 0; i < num_edges; ++i) {
             if (m_states[i] == BASIS) {
-                SASSERT(m_potentials[m_graph.get_source(i)] - m_potentials[m_graph.get_target(i)] == m_graph.get_weight(i));
+                dl_var src = m_graph.get_source(i);
+                dl_var tgt = m_graph.get_target(i);
+                numeral weight = m_graph.get_weight(i);
+                SASSERT(m_potentials[src] - m_potentials[tgt] == weight);
             }
         }
 
@@ -286,7 +291,7 @@ namespace smt {
         unsigned num_edges = m_graph.get_num_edges();
         for (unsigned i = 0; i < num_edges; ++i) {
             if (m_states[i] == BASIS) {
-                total_cost += m_graph.get_weight(i).get_rational() * m_flows[i];
+                total_cost += m_flows[i].get_rational() * m_graph.get_weight(i);
             }
         }
 

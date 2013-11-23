@@ -1031,7 +1031,8 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
             initial_value += fin_numeral(objective[i].second) * m_graph.get_assignment(objective[i].first);
         }
         IF_VERBOSE(1, verbose_stream() << "Initial value of objective " << v << ": " << initial_value << std::endl;);
-        SASSERT(objective_value >= initial_value););
+        // FIXME: Network Simplex lose precisions when handling infinitesimals
+        SASSERT(objective_value >= initial_value.get_rational()););
 
         vector<numeral> & current_assigments = m_objective_assignments[v];        
         SASSERT(!current_assigments.empty());
@@ -1092,11 +1093,17 @@ expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const
         vector<numeral> const & ns = m_objective_assignments[v];
         inf_rational val;
         rational r, s;
-        for (unsigned i = 0; i < t.size(); ++i) {
+        rational r0 = ns[0].get_rational().to_rational();
+        rational s0 = ns[0].get_infinitesimal().to_rational();
+        app * x;
+        app * x0 = get_enode(t[0].first)->get_owner();
+        // Assert improved bounds for x_i - x_0
+        for (unsigned i = 1; i < t.size(); ++i) {
             r = ns[i].get_rational().to_rational();
             s = ns[i].get_infinitesimal().to_rational(); 
-            val = inf_rational(r, s);
-            f = get_enode(t[i].first)->get_owner();
+            val = inf_rational(r - r0, s - s0);
+            x = get_enode(t[i].first)->get_owner();
+            f = m_util.mk_sub(x, x0);
             e = m_util.mk_numeral(val.get_rational(), m.get_sort(f));
             if (t[i].second.is_neg() && val.get_infinitesimal().is_pos()) {
                 disj.push_back(m_util.mk_le(f, e));
@@ -1111,6 +1118,7 @@ expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const
                 disj.push_back(m_util.mk_gt(f, e));
             }
             else {
+                UNREACHABLE();
             }
         }
         return m.mk_or(disj.size(), disj.c_ptr());

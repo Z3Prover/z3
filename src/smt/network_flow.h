@@ -54,7 +54,6 @@ namespace smt {
         enum edge_state {
             LOWER = 1,
             BASIS = 0,
-            UPPER = -1
         };
 
         typedef dl_var node;
