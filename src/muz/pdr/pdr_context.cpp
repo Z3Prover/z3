@@ -48,6 +48,7 @@ Notes:
 #include "qe_util.h"
 #include "scoped_proof.h"
 #include "blast_term_ite_tactic.h"
+#include "model_implicant.h"
 
 namespace pdr {
 
@@ -1978,7 +1979,7 @@ namespace pdr {
               tout << "Transition:\n" << mk_pp(T, m) << "\n";
               tout << "Phi:\n" << mk_pp(phi, m) << "\n";);
                       
-        model_evaluator mev(m);
+        model_implicant mev(m);
         expr_ref_vector mdl(m), forms(m), Phi(m);
         forms.push_back(T);
         forms.push_back(phi);

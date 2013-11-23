@@ -243,7 +243,7 @@ namespace opt {
         
         void set_solver() { 
             opt_solver & opt_s = opt_solver::to_opt(m_original_solver);
-            if (opt_s.is_dumping_benchmark())
+            if (opt_s.dump_benchmarks())
                 return;
 
             solver& current_solver = s();

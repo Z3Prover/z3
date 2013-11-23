@@ -71,6 +71,7 @@ namespace smt {
 
             numeral const& max_sum() const { return m_max_sum; }
             numeral const& max_coeff() const { return m_max_coeff; }
+            void set_max_coeff(numeral const& n) { m_max_coeff = n; }
             
             unsigned watch_size() const { return m_watch_sz; }
 
@@ -91,8 +92,7 @@ namespace smt {
 
             bool well_formed() const;
 
-            //static numeral gcd(numeral a, numeral b);
-            //static numeral lcm(numeral a, numeral b);
+            app_ref to_expr(context& ctx, ast_manager& m);
 
         };
 
@@ -119,7 +119,7 @@ namespace smt {
         std::ostream& display(std::ostream& out, ineq& c, bool values = false) const;
         virtual void display(std::ostream& out) const;
 
-        void add_clause(ineq& c, literal conseq, literal_vector const& lits);
+        void add_clause(ineq& c, literal_vector const& lits);
         void add_assign(ineq& c, literal_vector const& lits, literal l);
         literal_vector& get_lits();
 
@@ -149,7 +149,7 @@ namespace smt {
         void set_mark(bool_var v, unsigned idx);
         void unset_mark(literal l);
 
-        void resolve_conflict(literal conseq, ineq& c);
+        bool resolve_conflict(ineq& c);
         void process_antecedent(literal l, numeral coeff);
         void process_ineq(ineq& c, literal conseq, numeral coeff);
 
@@ -179,6 +179,5 @@ namespace smt {
         virtual void restart_eh();
         virtual void collect_statistics(::statistics & st) const;
         
-        static bool s_debug_conflict;
     };
 };

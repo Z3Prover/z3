@@ -35,7 +35,8 @@ namespace opt {
         m_context(mgr, m_params),
         m(mgr),
         m_objective_enabled(false),
-        m_is_dump(false) {
+        m_dump_benchmarks(false),
+        m_dump_count(0) {
         m_logic = l;
         if (m_logic != symbol::null)
             m_context.set_logic(m_logic);
@@ -45,7 +46,7 @@ namespace opt {
     }
 
     void opt_solver::updt_params(params_ref const & p) {
-        m_is_dump = p.get_bool("dump_benchmarks", false);
+        m_dump_benchmarks = p.get_bool("dump_benchmarks", false);
         m_params.updt_params(p);
         m_context.updt_params(p);
     }
@@ -105,22 +106,22 @@ namespace opt {
 
     static unsigned g_checksat_count = 0;
 
-    bool opt_solver::is_dumping_benchmark() {
-        return m_is_dump;
+    bool opt_solver::dump_benchmarks() {
+        return m_dump_benchmarks;
     }
 
     lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-        TRACE("opt_solver_na2as", {
-            tout << "opt_opt_solver::check_sat_core: " << m_context.size() << "\n";            
+        TRACE("opt", {
+            tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
-                    tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
+                tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
             }
         });
 
         lbool r = m_context.check(num_assumptions, assumptions);
-        if (m_is_dump) {
+        if (dump_benchmarks()) {
             std::stringstream file_name;
-            file_name << "opt_solver" << ++g_checksat_count << ".smt2";
+            file_name << "opt_solver" << ++m_dump_count << ".smt2";
             std::ofstream buffer(file_name.str().c_str());
             to_smt2_benchmark(buffer, "opt_solver", "QF_BV");
             buffer.close();
