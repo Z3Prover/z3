@@ -29,6 +29,7 @@ Revision History:
 #include"warning.h"
 #include"smt_model_generator.h"
 #include"network_flow_def.h"
+#include"model_implicant.h"
 
 using namespace smt;
 
@@ -1036,9 +1037,12 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
         vector<numeral> & current_assigments = m_objective_assignments[v];        
         SASSERT(!current_assigments.empty());
-        TRACE("network_flow",
-            for (unsigned i = 0; i < current_assigments.size(); ++i) {
-                tout << "v" << i << " -> " << current_assigments[i] << std::endl;
+        ast_manager& m = get_manager();
+        IF_VERBOSE(1,
+            verbose_stream() << "Optimal assigment:" << std::endl;
+            for (unsigned i = 0; i < objective.size(); ++i) {
+                theory_var v = objective[i].first;
+                verbose_stream() << mk_pp(get_enode(v)->get_owner(), m) << " |-> " << current_assigments[v] << std::endl;
             });
         rational r = objective_value.get_rational().to_rational();
         rational i = objective_value.get_infinitesimal().to_rational();    
@@ -1068,7 +1072,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 }
 
 template<typename Ext>
-expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+expr* theory_diff_logic<Ext>::block_objective(theory_var v, inf_rational const& val) {
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
@@ -1133,6 +1137,19 @@ expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const
     else {
         return m_util.mk_gt(f, e);
     }
+}
+
+template<typename Ext>
+expr* theory_diff_logic<Ext>::block_lower_bound(theory_var v, inf_rational const& val) {
+    expr * o = block_objective(v, val);
+    context & ctx = get_context();
+    model_ref mdl;
+    ctx.get_model(mdl);
+    ptr_vector<expr> formulas(ctx.get_num_asserted_formulas(), ctx.get_asserted_formulas());
+    ast_manager& m = get_manager();
+    model_implicant impl_extractor(m);
+    expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);
+    return m.mk_and(o, m.mk_not(m.mk_and(implicants.size(), implicants.c_ptr())));
 }
 
 template<typename Ext>

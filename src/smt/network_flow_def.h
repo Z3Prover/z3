@@ -295,6 +295,13 @@ namespace smt {
             }
         }
 
+        for (unsigned i = 0; i < num_edges; ++i) {
+            dl_var src = m_graph.get_source(i);
+            dl_var tgt = m_graph.get_target(i);
+            numeral weight = m_graph.get_weight(i);
+            SASSERT(m_potentials[src] - m_potentials[tgt] <= weight);
+        }
+
         // m_flows are zero on non-basic edges
         for (unsigned i = 0; i < m_flows.size(); ++i) {
             SASSERT(m_states[i] == BASIS || m_flows[i].is_zero());

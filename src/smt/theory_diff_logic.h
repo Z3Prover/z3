@@ -316,7 +316,9 @@ namespace smt {
 
         bool internalize_objective(expr * n, rational const& m, rational& r, objective_term & objective);
 
-    private:        
+    private:     
+
+        virtual expr* block_objective(theory_var v, inf_rational const& val);
 
         virtual void new_eq_eh(theory_var v1, theory_var v2, justification& j);
 

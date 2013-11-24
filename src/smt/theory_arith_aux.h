@@ -966,28 +966,78 @@ namespace smt {
         return x_i;
     }
 
+    template<typename Ext>
+    bool theory_arith<Ext>::get_theory_vars(expr * n, uint_set & vars) {
+        rational r;
+        expr* x, *y;
+        if (m_util.is_numeral(n, r)) {
+            return true;
+        }
+        else if (m_util.is_add(n)) {
+            for (unsigned i = 0; i < to_app(n)->get_num_args(); ++i) {
+                if (!get_theory_vars(to_app(n)->get_arg(i), vars)) {
+                    return false;
+                }
+            }
+        }
+        else if (m_util.is_mul(n, x, y) && m_util.is_numeral(x, r)) {
+            return get_theory_vars(y, vars);
+        }
+        else if (m_util.is_mul(n, y, x) && m_util.is_numeral(x, r)) {
+            return get_theory_vars(y, vars);
+        }
+        else if (!is_app(n)) {
+            return false;
+        }
+        else if (to_app(n)->get_family_id() == m_util.get_family_id()) {
+            return false;
+        }
+        else {
+            context & ctx = get_context();
+            SASSERT(ctx.e_internalized(n));
+            enode * e    = ctx.get_enode(n);
+            if (is_attached_to_var(e)) {
+                vars.insert(e->get_th_var(get_id()));
+            }
+            return true;
+        }
+        return true;
+    }
+
     //
     // add_objective(expr* term) internalizes the arithmetic term and creates
     // a row for it if it is not already internalized. 
     // Then return the variable corresponding to the term.
     //
 
-
     template<typename Ext>
     theory_var theory_arith<Ext>::add_objective(app* term) {
-        return internalize_term_core(term);
+        theory_var v = internalize_term_core(term);
+        uint_set vars;
+        if (get_theory_vars(term, vars)) {
+            m_objective_vars.insert(v, vars);
+        }
+        return v;
     }
 
     template<typename Ext>
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
         bool r = max_min(v, true); 
-        if (at_upper(v)) {
-            m_objective_value = get_value(v);
+        if (r || at_upper(v)) {
+            if (m_objective_vars.contains(v)) {
+                // FIXME: put this block inside verbose code
+                uint_set & vars = m_objective_vars[v];
+                uint_set::iterator it = vars.begin(), end = vars.end();
+                ast_manager& m = get_manager();
+                IF_VERBOSE(1,
+                    verbose_stream() << "Optimal assigment:" << std::endl;
+                    for (; it != end; ++it) {
+                        verbose_stream() << mk_pp(get_enode(*it)->get_owner(), m) << " |-> " << get_value(*it) << std::endl;
+                    };);
+            }
+            return inf_eps_rational<inf_rational>(get_value(v));
         }
-        else if (!r) {
-            m_objective_value = inf_eps_rational<inf_rational>::infinity();
-        }
-        return m_objective_value;        
+        return inf_eps_rational<inf_rational>::infinity();
     }
 
     /**
@@ -1414,8 +1464,6 @@ namespace smt {
             TRACE("maximize", tout << "v" << v << " " << (max ? "max" : "min") << " value is: " << get_value(v) << "\n";
                   display_row(tout, m_tmp_row, true); display_row_info(tout, m_tmp_row););
             
-            m_objective_value = get_value(v);            
-
             mk_bound_from_row(v, get_value(v), max ? B_UPPER : B_LOWER, m_tmp_row);
             
             return true;

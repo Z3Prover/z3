@@ -37,6 +37,7 @@ Revision History:
 #include"arith_simplifier_plugin.h"
 #include"arith_eq_solver.h"
 #include"theory_opt.h"
+#include"uint_set.h"
 
 namespace smt {
     
@@ -433,7 +434,7 @@ namespace smt {
         bool                    m_eager_gcd; // true if gcd should be applied at every add_row
         unsigned                m_final_check_idx;
 
-        inf_eps_rational<inf_rational>   m_objective_value;
+        u_map<uint_set>        m_objective_vars;
 
         // backtracking
         svector<bound_trail>    m_bound_trail;
@@ -1008,6 +1009,7 @@ namespace smt {
     private:
         bool_var m_bound_watch;
         inf_eps_rational<inf_rational> m_upper_bound;
+        bool get_theory_vars(expr * n, uint_set & vars);
     public:
         // -----------------------------------
         //

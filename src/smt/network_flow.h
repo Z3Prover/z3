@@ -93,8 +93,8 @@ namespace smt {
 
             bool choose_entering_edge() {
                 TRACE("network_flow", tout << "choose_entering_edge...\n";);        
-                unsigned num_edges = m_graph.get_num_edges();
-                for (unsigned i = m_next_edge; i < m_next_edge + num_edges; ++i) {
+                int num_edges = m_graph.get_num_edges();
+                for (int i = m_next_edge; i < m_next_edge + num_edges; ++i) {
                     edge_id id = (i >= num_edges) ? (i - num_edges) : i;
                     node src = m_graph.get_source(id);
                     node tgt = m_graph.get_target(id);
@@ -106,6 +106,10 @@ namespace smt {
                                 tout << "Found entering edge " << id << " between node ";
                                 tout << src << " and node " << tgt << " with reduced cost = " << cost << "...\n";
                             });
+                            m_next_edge = m_enter_id;
+                            if (m_next_edge >= num_edges) {
+                                m_next_edge -= num_edges;
+                            }
                             return true;
                         }
                     }
