@@ -50,9 +50,10 @@ namespace smt {
                 edge const & e = es[i];
                 tout << "(assert (<= (- v" << e.get_source() << " v" << e.get_target() << ") " << e.get_weight() << "))" << std::endl;
             };
-            tout << "(maximize (+ ";
+            tout << "(assert (= v0 0))" << std::endl;
+            tout << "(maximize (+";
             for (unsigned i = 0; i < balances.size(); ++i) {
-                tout << "(* " << balances[i] << " v" << i << ") ";
+                tout << " (* " << balances[i] << " v" << i << ")";
             };
             tout << "))" << std::endl;
             tout << "(optimize)" << std::endl;

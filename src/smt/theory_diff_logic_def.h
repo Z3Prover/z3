@@ -1015,10 +1015,16 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
     // Objective coefficients now become balances
     vector<fin_numeral> balances(m_graph.get_num_nodes());
     balances.fill(fin_numeral::zero());
+    fin_numeral sum = fin_numeral::zero();
     for (unsigned i = 0; i < objective.size(); ++i) {
         fin_numeral balance(objective[i].second);
         balances[objective[i].first] = balance;
+        sum += balance;
     }    
+    // HACK: assume that v0 is always value 0
+    if (balances[0].is_zero()) {
+        balances[0] = -sum;
+    }
 
     network_flow<GExt> net_flow(m_graph, balances);
     bool is_optimal = net_flow.min_cost();
@@ -1034,9 +1040,13 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         IF_VERBOSE(1, verbose_stream() << "Initial value of objective " << v << ": " << initial_value << std::endl;);
         // FIXME: Network Simplex lose precisions when handling infinitesimals
         SASSERT(objective_value >= initial_value.get_rational()););
-
         vector<numeral> & current_assigments = m_objective_assignments[v];        
         SASSERT(!current_assigments.empty());
+        // Normalize optimal assignments so that v0 is fixed to 0
+        for (unsigned i = 1; i < current_assigments.size(); ++i) {
+            current_assigments[i] -= current_assigments[0];
+        }
+
         ast_manager& m = get_manager();
         IF_VERBOSE(1,
             verbose_stream() << "Optimal assigment:" << std::endl;
