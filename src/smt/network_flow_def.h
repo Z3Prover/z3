@@ -40,27 +40,78 @@ namespace smt {
                 m_graph.add_edge(e.get_target(), e.get_source(), e.get_weight(), explanation());
             }
         }
-        TRACE("network_flow", { 
-            tout << "Solving different logic optimization problem:" << std::endl;
-            for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
-                tout << "(declare-fun v" << i << " () Real)" << std::endl;
-            }
-            vector<edge> const & es = m_graph.get_all_edges();
-            for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
-                edge const & e = es[i];
-                tout << "(assert (<= (- v" << e.get_source() << " v" << e.get_target() << ") " << e.get_weight() << "))" << std::endl;
-            };
-            tout << "(assert (= v0 0))" << std::endl;
-            tout << "(maximize (+";
-            for (unsigned i = 0; i < balances.size(); ++i) {
-                tout << " (* " << balances[i] << " v" << i << ")";
-            };
-            tout << "))" << std::endl;
-            tout << "(optimize)" << std::endl;
+        TRACE("network_flow", {
+            tout << "Different logic optimization:" << std::endl;
+            display_dual(tout);
+            tout << "Minimum cost flow:" << std::endl;
+            display(tout);
             };);
 
         m_step = 0;
         m_tree = alloc(basic_spanning_tree<Ext>, m_graph);
+    }
+
+    template<typename Ext>
+    void network_flow<Ext>::display(std::ofstream & os) {
+        vector<edge> const & es = m_graph.get_all_edges();
+        for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+            edge const & e = es[i];
+            os << "(declare-fun y_" << e.get_source() << "_" << e.get_target() << " () Real)" << std::endl;
+        };
+
+        for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+            edge const & e = es[i];
+            os << "(assert (>= y_" << e.get_source() << "_" << e.get_target() << " 0))" << std::endl;
+        };
+
+        for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
+            bool initialized = false;
+            for (unsigned j = 0; j < m_graph.get_num_edges(); ++j) {
+                edge const & e = es[j];
+                if (e.get_target() == i || e.get_source() == i) {
+                    if (!initialized) {
+                        os << "(assert (= (+";
+                    }
+                    initialized = true;
+                    if (e.get_target() == i) {
+                        os << " y_" << e.get_source() << "_" << e.get_target();
+                    }
+                    else {
+                        os << " (- y_" << e.get_source() << "_" << e.get_target() << ")";
+                    }
+                }
+            }
+            if(initialized) {
+                os << " " << m_balances[i] << ") 0))" << std::endl;
+            }
+        }
+        
+        os << "(minimize (+";
+        for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+            edge const & e = es[i];
+            os << " (* " << e.get_weight() << " y_" << e.get_source() << "_" << e.get_target() << ")";
+        };
+        os << "))" << std::endl;
+        os << "(optimize)" << std::endl;
+    }
+
+    template<typename Ext>
+    void network_flow<Ext>::display_dual(std::ofstream & os) {
+        for (unsigned i = 0; i < m_graph.get_num_nodes(); ++i) {
+            os << "(declare-fun v" << i << " () Real)" << std::endl;
+        }
+        vector<edge> const & es = m_graph.get_all_edges();
+        for (unsigned i = 0; i < m_graph.get_num_edges(); ++i) {
+            edge const & e = es[i];
+            os << "(assert (<= (- v" << e.get_source() << " v" << e.get_target() << ") " << e.get_weight() << "))" << std::endl;
+        };
+        os << "(assert (= v0 0))" << std::endl;
+        os << "(maximize (+";
+        for (unsigned i = 0; i < m_balances.size(); ++i) {
+            os << " (* " << m_balances[i] << " v" << i << ")";
+        };
+        os << "))" << std::endl;
+        os << "(optimize)" << std::endl;
     }
 
     template<typename Ext>
@@ -106,7 +157,7 @@ namespace smt {
         TRACE("network_flow", {
                 tout << pp_vector("Potentials", m_potentials, true) << pp_vector("Flows", m_flows);
             });
-        TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+        TRACE("network_flow", tout << "Spanning tree:\n"; display_spanning_tree(tout););
         SASSERT(check_well_formed());
     }
 
@@ -227,7 +278,7 @@ namespace smt {
                 m_states[m_leave_id] = LOWER;
                 update_spanning_tree();
                 update_potentials();                
-                TRACE("network_flow", tout << "Spanning tree:\n" << display_spanning_tree(););
+                TRACE("network_flow", tout << "Spanning tree:\n"; display_spanning_tree(tout););
                 SASSERT(check_well_formed());
             }
         }
@@ -316,32 +367,30 @@ namespace smt {
     }
 
     template<typename Ext>
-    std::string network_flow<Ext>::display_spanning_tree() {
+    void network_flow<Ext>::display_spanning_tree(std::ofstream & os) {
             ++m_step;;
-            std::ostringstream oss;
             std::string prefix = "T";
             prefix.append(std::to_string(m_step));
             prefix.append("_");
             unsigned root = m_graph.get_num_nodes() - 1;
             for (unsigned i = 0; i < root; ++i) {
-                oss << prefix << i << "[shape=circle,label=\"" << prefix << i << " [";
-                oss << m_potentials[i] << "/" << m_balances[i] << "]\"];\n";
+                os << prefix << i << "[shape=circle,label=\"" << prefix << i << " [";
+                os << m_potentials[i] << "/" << m_balances[i] << "]\"];\n";
             }
-            oss << prefix << root << "[shape=doublecircle,label=\"" << prefix << root << " [";
-            oss << m_potentials[root] << "/" << m_balances[root] << "]\"];\n";
+            os << prefix << root << "[shape=doublecircle,label=\"" << prefix << root << " [";
+            os << m_potentials[root] << "/" << m_balances[root] << "]\"];\n";
         
             unsigned num_edges = m_graph.get_num_edges();
             for (unsigned i = 0; i < num_edges; ++i) {
-                oss << prefix << m_graph.get_source(i) << " -> " << prefix << m_graph.get_target(i);
+                os << prefix << m_graph.get_source(i) << " -> " << prefix << m_graph.get_target(i);
                 if (m_states[i] == BASIS) {
-                    oss << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "/" << m_graph.get_weight(i) << "\"];\n";
+                    os << "[color=red,penwidth=3.0,label=\"" << m_flows[i] << "/" << m_graph.get_weight(i) << "\"];\n";
                 }
                 else {
-                    oss << "[label=\"" << m_flows[i] << "/" << m_graph.get_weight(i) << "\"];\n";
+                    os << "[label=\"" << m_flows[i] << "/" << m_graph.get_weight(i) << "\"];\n";
                 }
             }
-            oss << std::endl;
-            return oss.str();
+            os << std::endl;
     }
 }
 

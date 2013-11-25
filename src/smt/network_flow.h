@@ -279,12 +279,14 @@ namespace smt {
 
         void update_spanning_tree();
 
-        std::string display_spanning_tree();
-
         bool edge_in_tree(edge_id id) const;
 
         bool check_well_formed();
         bool check_optimal();
+
+        void display(std::ofstream & os);
+        void display_dual(std::ofstream & os);
+        void display_spanning_tree(std::ofstream & os);
 
     public:
 
