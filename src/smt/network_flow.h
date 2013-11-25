@@ -34,6 +34,17 @@ Notes:
 
 namespace smt {
 
+    enum min_flow_result {
+        // Min cost flow problem is infeasible.
+        // Diff logic optimization could be unbounded or infeasible.
+        INFEASIBLE,
+        // Min cost flow and diff logic optimization are both optimal.
+        OPTIMAL,
+        // Min cost flow problem is unbounded.
+        // Diff logic optimization has to be infeasible.
+        UNBOUNDED,
+    };
+
     enum pivot_rule {
         // First eligible edge pivot rule
         // Edges are traversed in a wraparound fashion
@@ -281,6 +292,7 @@ namespace smt {
 
         bool edge_in_tree(edge_id id) const;
 
+        bool is_infeasible();
         bool check_well_formed();
         bool check_optimal();
 
@@ -294,7 +306,7 @@ namespace smt {
         
         // Minimize cost flows
         // Return true if found an optimal solution, and return false if unbounded
-        bool min_cost(pivot_rule pr = FIRST_ELIGIBLE);
+        min_flow_result min_cost(pivot_rule pr = FIRST_ELIGIBLE);
 
         // Compute the optimal solution
         numeral get_optimal_solution(vector<numeral> & result, bool is_dual);

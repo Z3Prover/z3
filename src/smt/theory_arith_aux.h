@@ -1015,7 +1015,7 @@ namespace smt {
         theory_var v = internalize_term_core(term);
         uint_set vars;
         if (get_theory_vars(term, vars)) {
-            m_objective_vars.insert(v, vars);
+            m_objective_theory_vars.insert(v, vars);
         }
         return v;
     }
@@ -1024,9 +1024,9 @@ namespace smt {
     inf_eps_rational<inf_rational> theory_arith<Ext>::maximize(theory_var v) {
         bool r = max_min(v, true); 
         if (r || at_upper(v)) {
-            if (m_objective_vars.contains(v)) {
+            if (m_objective_theory_vars.contains(v)) {
                 // FIXME: put this block inside verbose code
-                uint_set & vars = m_objective_vars[v];
+                uint_set & vars = m_objective_theory_vars[v];
                 uint_set::iterator it = vars.begin(), end = vars.end();
                 ast_manager& m = get_manager();
                 IF_VERBOSE(1,

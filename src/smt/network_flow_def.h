@@ -263,13 +263,12 @@ namespace smt {
     }
 
     // Minimize cost flows
-    // Return true if found an optimal solution, and return false if unbounded
     template<typename Ext>
-    bool network_flow<Ext>::min_cost(pivot_rule pr) {
+    min_flow_result network_flow<Ext>::min_cost(pivot_rule pr) {
         initialize();
         while (choose_entering_edge(pr)) { 
             bool bounded = choose_leaving_edge();
-            if (!bounded) return false;
+            if (!bounded) return UNBOUNDED;
             update_flows();
             if (m_enter_id != m_leave_id) {
 				SASSERT(edge_in_tree(m_leave_id));
@@ -282,9 +281,23 @@ namespace smt {
                 SASSERT(check_well_formed());
             }
         }
+        if (is_infeasible()) return INFEASIBLE;
         TRACE("network_flow", tout << "Found optimal solution.\n";);
         SASSERT(check_optimal());
-        return true;
+        return OPTIMAL;
+    }
+
+    template<typename Ext>
+    bool network_flow<Ext>::is_infeasible() {
+#if 0
+        // Flows of artificial arcs should be zero
+        unsigned num_nodes = m_graph.get_num_nodes();
+        unsigned num_edges = m_graph.get_num_edges();
+        for (unsigned i = 1; i < num_nodes; ++i) {
+            if (m_flows[num_edges - i].is_pos()) return true;
+        }
+#endif
+        return false;
     }
 
     // Get the optimal solution

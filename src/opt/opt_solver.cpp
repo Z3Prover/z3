@@ -104,8 +104,6 @@ namespace opt {
         }
     }
 
-    static unsigned g_checksat_count = 0;
-
     bool opt_solver::dump_benchmarks() {
         return m_dump_benchmarks;
     }

@@ -434,7 +434,7 @@ namespace smt {
         bool                    m_eager_gcd; // true if gcd should be applied at every add_row
         unsigned                m_final_check_idx;
 
-        u_map<uint_set>        m_objective_vars;
+        u_map<uint_set>        m_objective_theory_vars;
 
         // backtracking
         svector<bound_trail>    m_bound_trail;

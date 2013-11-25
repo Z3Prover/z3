@@ -1027,8 +1027,8 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
     }
 
     network_flow<GExt> net_flow(m_graph, balances);
-    bool is_optimal = net_flow.min_cost();
-    if (is_optimal) {
+    min_flow_result result = net_flow.min_cost();
+    if (result == OPTIMAL) {
         numeral objective_value = net_flow.get_optimal_solution(m_objective_assignments[v], true) + numeral(m_objective_consts[v]);
         IF_VERBOSE(1, verbose_stream() << "Optimal value of objective " << v << ": " << objective_value << std::endl;);
         

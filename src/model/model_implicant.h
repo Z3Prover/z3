@@ -98,7 +98,7 @@ public:
        expr_ref_vector minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl);
     
     /**
-       \brief extract literals from formulas that satisfy formulas.
+       \brief extract literals from model that satisfy formulas.
        
        \pre model satisfies formulas
     */
