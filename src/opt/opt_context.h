@@ -59,7 +59,9 @@ namespace opt {
         lbool execute_box(compound_objective & obj);
         lbool execute_pareto(compound_objective & obj);
 
+        lbool optimize(objective & objective);
         lbool optimize();
+
         void set_cancel(bool f);
         void reset_cancel() { set_cancel(false); }
         void cancel() { set_cancel(true); }

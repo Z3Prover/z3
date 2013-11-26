@@ -111,6 +111,17 @@ namespace opt {
         return execute_lex(obj);
     }
 
+    lbool context::optimize(objective & objective) {
+        opt_solver& s = *m_solver.get(); 
+        solver::scoped_push _sp(s);
+
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            s.assert_expr(m_hard_constraints[i].get());
+        }
+
+        return execute(objective, false);
+    }
+
     lbool context::optimize() {
         // Construct objectives
         ptr_vector<objective> objectives;
@@ -133,14 +144,7 @@ namespace opt {
             objective = objective::mk_box(objectives.size(), objectives.c_ptr());
         }
 
-        opt_solver& s = *m_solver.get(); 
-        solver::scoped_push _sp(s);
-
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            s.assert_expr(m_hard_constraints[i].get());
-        }
-
-        lbool result = execute(*objective, false);
+        lbool result = optimize(*objective);
         dealloc(objective);
         return result;
     }
