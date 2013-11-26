@@ -249,8 +249,8 @@ private:
 };
 
 static expr* sexpr2expr(cmd_context & ctx, sexpr * s) {
-    NOT_IMPLEMENTED_YET();
-    return 0;
+    NOT_IMPLEMENTED_YET();    
+    return ctx.m().mk_true();
 }
 
 static opt::objective* sexpr2objective(cmd_context & ctx, sexpr * s) {

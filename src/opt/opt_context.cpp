@@ -90,25 +90,39 @@ namespace opt {
     
     lbool context::execute_lex(compound_objective & obj) {
         ptr_vector<objective> children(obj.num_children(), obj.children());
+        lbool result = l_true;
         for (unsigned i = 0; i < children.size(); ++i) {
-            lbool result = execute(*children[i], true);
-            if (result != l_true) return result;
+            result = execute(*children[i], true);
+            if (result != l_true) break;
         }
-        return l_true;
-    }
+        return result;
+    }    
 
     lbool context::execute_box(compound_objective & obj) {
         ptr_vector<objective> children(obj.num_children(), obj.children());
+        lbool result = l_true;
         for (unsigned i = 0; i < children.size(); ++i) {
-            lbool result = execute(*children[i], false);
-            if (result != l_true) return result;
+            push();
+            result = execute(*children[i], false);
+            pop(1);
+            if (result != l_true) break;
         }
-        return l_true;
+        return result;
     }
 
     lbool context::execute_pareto(compound_objective & obj) {
         // TODO: record a stream of results from pareto front
         return execute_lex(obj);
+    }
+
+    void context::push() {
+        opt_solver& s = *m_solver.get();
+        s.push();
+    }
+
+    void context::pop(unsigned sz) {
+        opt_solver& s = *m_solver.get();
+        s.pop(sz);
     }
 
     lbool context::optimize(objective & objective) {

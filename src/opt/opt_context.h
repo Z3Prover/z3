@@ -59,6 +59,9 @@ namespace opt {
         lbool execute_box(compound_objective & obj);
         lbool execute_pareto(compound_objective & obj);
 
+        void push();
+        void pop(unsigned sz);
+
         lbool optimize(objective & objective);
         lbool optimize();
 

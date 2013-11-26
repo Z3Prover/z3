@@ -1028,6 +1028,7 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
 
     network_flow<GExt> net_flow(m_graph, balances);
     min_flow_result result = net_flow.min_cost();
+    SASSERT(result != UNBOUNDED);
     if (result == OPTIMAL) {
         numeral objective_value = net_flow.get_optimal_solution(m_objective_assignments[v], true) + numeral(m_objective_consts[v]);
         IF_VERBOSE(1, verbose_stream() << "Optimal value of objective " << v << ": " << objective_value << std::endl;);
@@ -1059,6 +1060,8 @@ inf_eps_rational<inf_rational> theory_diff_logic<Ext>::maximize(theory_var v) {
         return inf_eps_rational<inf_rational>(inf_rational(r, i));
     } 
     else {
+        // Dual problem is infeasible, primal problem is unbounded
+        SASSERT(result == INFEASIBLE);
         IF_VERBOSE(1, verbose_stream() << "Unbounded objective" << std::endl;);
         return inf_eps_rational<inf_rational>::infinity();
     }
