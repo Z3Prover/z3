@@ -27,7 +27,8 @@ namespace opt {
     context::context(ast_manager& m):
         m(m),
         m_hard_constraints(m),
-        m_optsmt(m)
+        m_optsmt(m),
+        m_objs(m)
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
@@ -50,57 +51,98 @@ namespace opt {
         ms->add(f, w);
     }
 
-    lbool context::optimize() {
-        if (m_params.get_bool("pareto", false)) {            
-            return optimize_pareto();
-        }
-        else {
-            return optimize_box();
+    lbool context::execute(objective & obj, bool committed) {
+        switch (obj.type()) {
+        case MINIMIZE:
+        case MAXIMIZE: 
+            return execute_min_max(obj.get_min_max(), committed);
+        case MAXSAT:
+            return execute_maxsat(obj.get_maxsat(), committed);
+        case LEX:
+            return execute_lex(obj.get_compound());
+        case BOX:
+            return execute_box(obj.get_compound());
+        case PARETO:
+            return execute_pareto(obj.get_compound());
+        default:
+            UNREACHABLE();
+            return l_undef;
         }
     }
 
-    lbool context::optimize_box() {
+    lbool context::execute_min_max(min_max_objective & obj, bool committed) {
+        // HACK: reuse m_optsmt but add only a single objective each round
+        m_optsmt.add(to_app(obj.term()), obj.is_max());
+        opt_solver& s = *m_solver.get();
+        lbool result = m_optsmt(s);
+        if (committed) m_optsmt.commit_assignment(0);
+        return result;
+    }
+
+    lbool context::execute_maxsat(maxsat_objective & obj, bool committed) {
+        maxsmt* ms;
+        SASSERT(m_maxsmts.find(obj.get_id(), ms));
+        opt_solver& s = *m_solver.get();
+        lbool result = (*ms)(s);
+        if (committed) ms->commit_assignment();
+        return result;
+    }
+    
+    lbool context::execute_lex(compound_objective & obj) {
+        ptr_vector<objective> children(obj.num_children(), obj.children());
+        for (unsigned i = 0; i < children.size(); ++i) {
+            lbool result = execute(*children[i], true);
+            if (result != l_true) return result;
+        }
+        return l_true;
+    }
+
+    lbool context::execute_box(compound_objective & obj) {
+        ptr_vector<objective> children(obj.num_children(), obj.children());
+        for (unsigned i = 0; i < children.size(); ++i) {
+            lbool result = execute(*children[i], false);
+            if (result != l_true) return result;
+        }
+        return l_true;
+    }
+
+    lbool context::execute_pareto(compound_objective & obj) {
+        // TODO: record a stream of results from pareto front
+        return execute_lex(obj);
+    }
+
+    lbool context::optimize() {
+        // Construct objectives
+        ptr_vector<objective> objectives;
+        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
+        for (; it != end; ++it) {
+            objectives.push_back(objective::mk_maxsat(it->m_key));
+        }
+
+        for (unsigned i = 0; i < m_objs.size(); ++i) {
+            expr_ref e(m_objs[i].get(), m);
+            objective * o = m_ismaxs[i] ? objective::mk_max(e) : objective::mk_min(e);
+            objectives.push_back(o);
+        }
+
+        objective * objective;
+        if (m_params.get_bool("pareto", false)) {            
+            objective = objective::mk_pareto(objectives.size(), objectives.c_ptr());
+        }
+        else {
+            objective = objective::mk_box(objectives.size(), objectives.c_ptr());
+        }
+
         opt_solver& s = *m_solver.get(); 
         solver::scoped_push _sp(s);
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s.assert_expr(m_hard_constraints[i].get());
         }
-                
-        lbool is_sat = l_true;
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; is_sat == l_true && it != end; ++it) {
-            maxsmt& ms = *it->m_value;
-            is_sat = ms(s);
-        }
-        if (is_sat == l_true) {           
-            is_sat = m_optsmt(s);
-        }
-        return is_sat;
-    }
 
-    // finds a random pareto front.
-    // enumerating more is TBD, e.g., 
-    lbool context::optimize_pareto() {
-        opt_solver& s = *m_solver.get(); 
-        opt_solver::scoped_push _sp(s);
-
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            s.assert_expr(m_hard_constraints[i].get());
-        }
-                
-        lbool is_sat = l_true;
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; is_sat == l_true && it != end; ++it) {
-            maxsmt* ms = it->m_value;
-            is_sat = (*ms)(s);
-            ms->commit_assignment();            
-        }
-        for (unsigned i = 0; is_sat == l_true && i < m_optsmt.get_num_objectives(); ++i) {
-            is_sat = m_optsmt(s);
-            m_optsmt.commit_assignment(i);
-        }
-        return is_sat;
+        lbool result = execute(*objective, false);
+        dealloc(objective);
+        return result;
     }
 
     void context::display_assignment(std::ostream& out) {

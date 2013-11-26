@@ -29,6 +29,7 @@ Notes:
 #include "opt_solver.h"
 #include "optsmt.h"
 #include "maxsmt.h"
+#include "objective_ast.h"
 
 namespace opt {
 
@@ -42,12 +43,22 @@ namespace opt {
         params_ref          m_params;
         optsmt              m_optsmt;
         map_t               m_maxsmts;
+        expr_ref_vector     m_objs;
+        svector<bool>       m_ismaxs;
     public:
         context(ast_manager& m);
         ~context();
         void add_soft_constraint(expr* f, rational const& w, symbol const& id);
-        void add_objective(app* t, bool is_max) { m_optsmt.add(t, is_max); }
+        void add_objective(app* t, bool is_max) { m_objs.push_back(t); m_ismaxs.push_back(is_max); }
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
+
+        lbool execute(objective & obj, bool committed);
+        lbool execute_min_max(min_max_objective & obj, bool committed);
+        lbool execute_maxsat(maxsat_objective & obj, bool committed);
+        lbool execute_lex(compound_objective & obj);
+        lbool execute_box(compound_objective & obj);
+        lbool execute_pareto(compound_objective & obj);
+
         lbool optimize();
         void set_cancel(bool f);
         void reset_cancel() { set_cancel(false); }
@@ -58,9 +69,6 @@ namespace opt {
         static void collect_param_descrs(param_descrs & r);
         void updt_params(params_ref& p);
     private:
-        lbool optimize_pareto();
-        lbool optimize_box();
-
         void validate_feasibility(maxsmt& ms);
     };
 

@@ -56,7 +56,7 @@ namespace opt {
     }
     
     void opt_solver::collect_statistics(statistics & st) const {
-        // Hack to display fu_malik statistics
+        // HACK: display fu_malik statistics
         if (m_stats.size() > 0) {
             st.copy(m_stats);
         }
