@@ -393,6 +393,7 @@ namespace Duality {
       sort array_range() const;
     };
 
+    
     class func_decl : public ast {
     public:
         func_decl() : ast() {}
@@ -592,6 +593,36 @@ namespace Duality {
 
     };
     
+
+    typedef ::decl_kind pfrule;
+    
+    class proof : public ast {
+    public:
+      proof(context & c):ast(c) {}
+      proof(context & c, ::proof *s):ast(c, s) {}
+      proof(proof const & s):ast(s) {}
+      operator ::proof*() const { return to_app(raw()); }
+      proof & operator=(proof const & s) { return static_cast<proof&>(ast::operator=(s)); }
+
+      pfrule rule() const {
+	::func_decl *d = to_app(raw())->get_decl();
+	return d->get_decl_kind();
+      }
+
+      unsigned num_prems() const {
+	return to_app(raw())->get_num_args() - 1;
+      }
+      
+      expr conc() const {
+	return ctx().cook(to_app(raw())->get_arg(num_prems()));
+      }
+      
+      proof prem(unsigned i) const {
+	return proof(ctx(),to_app(to_app(raw())->get_arg(i)));
+      }
+      
+      void get_assumptions(std::vector<expr> &assumps);
+    };
 
 #if 0
 
@@ -869,6 +900,12 @@ namespace Duality {
 	}
 
 	unsigned get_scope_level(){return m_solver->get_scope_level();}
+
+	void show();
+
+	proof get_proof(){
+	  return proof(ctx(),m_solver->get_proof());
+	}
 
     };
 

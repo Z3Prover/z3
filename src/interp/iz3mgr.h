@@ -359,6 +359,12 @@ class iz3mgr  {
     return fid == m().get_basic_family_id() && k == BOOL_SORT;
   }
 
+  bool is_array_type(type t){
+    family_id fid = to_sort(t)->get_family_id(); 
+    decl_kind k = to_sort(t)->get_decl_kind();
+    return fid == m_array_fid && k == ARRAY_SORT;
+  }
+
   type get_range_type(symb s){
     return to_func_decl(s)->get_range();
   }

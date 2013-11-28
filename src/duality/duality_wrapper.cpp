@@ -481,9 +481,9 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     for(unsigned i = 0; i < theory.size(); i++)
       _theory[i] = theory[i];
     
-    push();
     
     if(!incremental){
+      push();
       for(unsigned i = 0; i < linear_assumptions.size(); i++)
 	for(unsigned j = 0; j < linear_assumptions[i].size(); j++)
 	  add(linear_assumptions[i][j]);
@@ -522,7 +522,8 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     }
 #endif
     
-    pop();
+    if(!incremental)
+      pop();
 
     return (res == unsat) ? l_false : ((res == sat) ? l_true : l_undef);
 
@@ -554,6 +555,29 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     return "";
   }
 
+  
+  static void get_assumptions_rec(stl_ext::hash_set<ast> &memo, const proof &pf, std::vector<expr> &assumps){
+    if(memo.find(pf) != memo.end())return;
+    memo.insert(pf);
+    pfrule dk = pf.rule();
+    if(dk == PR_ASSERTED){
+      expr con = pf.conc();
+      assumps.push_back(con);
+    }
+    else {
+      unsigned nprems = pf.num_prems();
+      for(unsigned i = 0; i < nprems; i++){
+	proof arg = pf.prem(i);
+	get_assumptions_rec(memo,arg,assumps);
+      }
+    }
+  }
+
+  void proof::get_assumptions(std::vector<expr> &assumps){
+    stl_ext::hash_set<ast> memo;
+    get_assumptions_rec(memo,*this,assumps);
+  }
+
 
   void ast::show() const{
     std::cout << mk_pp(raw(), m()) << std::endl;
@@ -564,6 +588,15 @@ expr context::make_quant(decl_kind op, const std::vector<sort> &_sorts, const st
     std::cout << std::endl;
   }
   
+  void solver::show() {
+    unsigned n = m_solver->get_num_assertions();
+    if(!n)
+      return;
+    ast_smt_pp pp(m());
+    for (unsigned i = 0; i < n-1; ++i)
+      pp.add_assumption(m_solver->get_assertion(i));
+    pp.display_smt2(std::cout, m_solver->get_assertion(n-1));
+  }
 
   void include_ast_show(ast &a){
     a.show();

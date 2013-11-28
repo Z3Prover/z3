@@ -142,6 +142,7 @@ namespace Duality {
            context *ctx;   /** Z3 context for formulas */
            solver *slvr;   /** Z3 solver */
            bool need_goals; /** Can the solver use the goal tree to optimize interpolants? */
+	   solver aux_solver; /** For temporary use -- don't leave assertions here. */
 
            /** Tree interpolation. This method assumes the formulas in TermTree
                "assumptions" are currently asserted in the solver. The return
@@ -177,6 +178,8 @@ namespace Duality {
 
 	   /** Cancel, throw Canceled object if possible. */
 	   virtual void cancel(){ }
+
+           LogicSolver(context &c) : aux_solver(c){}
 
 	   virtual ~LogicSolver(){}
       };
@@ -215,7 +218,7 @@ namespace Duality {
         }
 #endif
 
-        iZ3LogicSolver(context &c){
+      iZ3LogicSolver(context &c) : LogicSolver(c) {
           ctx = ictx = &c;
           slvr = islvr = new interpolating_solver(*ictx);
           need_goals = false;
@@ -287,9 +290,9 @@ namespace Duality {
       literals dualLabels;
       std::list<stack_entry> stack;
       std::vector<Term> axioms; // only saved here for printing purposes
-      solver aux_solver;
-
-
+      solver &aux_solver;
+      hash_set<ast> *proof_core;
+      
     public:
 
       /** Construct an RPFP graph with a given interpolating prover context. It is allowed to
@@ -299,13 +302,14 @@ namespace Duality {
 	  inherit the axioms. 
       */
 
-    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx)),	aux_solver(*(_ls->ctx))
+    RPFP(LogicSolver *_ls) : Z3User(*(_ls->ctx), *(_ls->slvr)), dualModel(*(_ls->ctx)), aux_solver(_ls->aux_solver)
       {
         ls = _ls;
 	nodeCount = 0;
 	edgeCount = 0;
 	stack.push_back(stack_entry());
         HornClauses = false;
+	proof_core = 0;
       }
 
       ~RPFP();
@@ -606,9 +610,13 @@ namespace Duality {
 
       lbool Solve(Node *root, int persist);
       
+      /** Same as Solve, but annotates only a single node. */
+
+      lbool SolveSingleNode(Node *root, Node *node);
+
       /** Get the constraint tree (but don't solve it) */
       
-      TermTree *GetConstraintTree(Node *root);
+      TermTree *GetConstraintTree(Node *root, Node *skip_descendant = 0);
   
       /** Dispose of the dual model (counterexample) if there is one. */
       
@@ -678,6 +686,12 @@ namespace Duality {
       /** Pop a scope (see Push). Note, you cannot pop axioms. */
       
       void Pop(int num_scopes);
+      
+      /** Return true if the given edge is used in the proof of unsat.
+	  Can be called only after Solve or Check returns an unsat result. */
+      
+      bool EdgeUsedInProof(Edge *edge);
+
 
       /** Convert a collection of clauses to Nodes and Edges in the RPFP.
 	  
@@ -762,8 +776,19 @@ namespace Duality {
 
       //      int GetLabelsRec(hash_map<ast,int> *memo, const Term &f, std::vector<symbol> &labels, bool labpos);
 
+      /** Compute and save the proof core for future calls to
+	  EdgeUsedInProof.  You only need to call this if you will pop
+	  the solver before calling EdgeUsedInProof.
+       */
+      void ComputeProofCore();
+
     private:
       
+      void ClearProofCore(){
+	if(proof_core)
+	  delete proof_core;
+	proof_core = 0;
+      }
 
       Term SuffixVariable(const Term &t, int n);
       
@@ -779,9 +804,13 @@ namespace Duality {
 
       Term ReducedDualEdge(Edge *e);
 
-      TermTree *ToTermTree(Node *root);
+      TermTree *ToTermTree(Node *root, Node *skip_descendant = 0);
 
       TermTree *ToGoalTree(Node *root);
+
+      void CollapseTermTreeRec(TermTree *root, TermTree *node);
+
+      TermTree *CollapseTermTree(TermTree *node);
 
       void DecodeTree(Node *root, TermTree *interp, int persist);
 

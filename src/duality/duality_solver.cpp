@@ -184,7 +184,7 @@ namespace Duality {
 	    best.insert(*it);
       }
 #else
-      virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool high_priority=false){
+      virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool high_priority=false, bool best_only=false){
 	if(high_priority) return;
 	int best_score = INT_MAX;
 	int worst_score = 0;
@@ -194,13 +194,13 @@ namespace Duality {
 	  best_score = std::min(best_score,score);
 	  worst_score = std::max(worst_score,score);
 	}
-	int cutoff = best_score + (worst_score-best_score)/2;
+	int cutoff = best_only ? best_score : (best_score + (worst_score-best_score)/2);
 	for(std::set<Node *>::iterator it = choices.begin(), en = choices.end(); it != en; ++it)
 	  if(scores[(*it)->map].updates <= cutoff)
 	    best.insert(*it);
       }
 #endif
-
+      
       /** Called when done expanding a tree */
       virtual void Done() {}
     };
@@ -1607,12 +1607,12 @@ namespace Duality {
 	heuristic->ChooseExpand(choices, best);
       }
 #else
-      void ExpansionChoicesFull(std::set<Node *> &best, bool high_priority){
+      void ExpansionChoicesFull(std::set<Node *> &best, bool high_priority, bool best_only = false){
 	std::set<Node *> choices;
 	for(std::list<RPFP::Node *>::iterator it = leaves.begin(), en = leaves.end(); it != en; ++it)
 	  if (high_priority || !tree->Empty(*it)) // if used in the counter-model
 	    choices.insert(*it);
-	heuristic->ChooseExpand(choices, best, high_priority);
+	heuristic->ChooseExpand(choices, best, high_priority, best_only);
       }
 
       void ExpansionChoicesRec(std::vector <Node *> &unused_set, std::vector <Node *> &used_set, 
@@ -1650,9 +1650,9 @@ namespace Duality {
       
       std::set<Node *> old_choices;
 
-      void ExpansionChoices(std::set<Node *> &best, bool high_priority){
+      void ExpansionChoices(std::set<Node *> &best, bool high_priority, bool best_only = false){
 	if(!underapprox || constrained || high_priority){
-	  ExpansionChoicesFull(best, high_priority);
+	  ExpansionChoicesFull(best, high_priority,best_only);
 	  return;
 	}
 	std::vector <Node *> unused_set, used_set;
@@ -1684,7 +1684,7 @@ namespace Duality {
 	timer_start("ExpandSomeNodes");
 	timer_start("ExpansionChoices");
 	std::set<Node *> choices;
-	ExpansionChoices(choices,high_priority);
+	ExpansionChoices(choices,high_priority,max != INT_MAX);
 	timer_stop("ExpansionChoices");
 	std::list<RPFP::Node *> leaves_copy = leaves; // copy so can modify orig
 	leaves.clear();
@@ -1740,38 +1740,54 @@ namespace Duality {
 	  if(slvr_level != stack.back().level)
 	    throw "stacks out of sync!";
 
-	  res = tree->Solve(top, 1);            // incremental solve, keep interpolants for one pop
+	  //	  res = tree->Solve(top, 1);            // incremental solve, keep interpolants for one pop
+	  check_result foo = tree->Check(top);
+	  res = foo == unsat ? l_false : l_true;
 
 	  if (res == l_false) {
 	    if (stack.empty()) // should never happen
 	      return false;
 	    
-	    std::vector<Node *> &expansions = stack.back().expansions;
-	    int update_count = 0;
-	    for(unsigned i = 0; i < expansions.size(); i++){
-	      tree->Generalize(expansions[i]);
-	      if(RecordUpdate(expansions[i]))
-		update_count++;
-	    }
-	    if(update_count == 0)
-	      std::cout << "backtracked without learning\n";
-	    tree->Pop(1);	
-	    hash_set<Node *> leaves_to_remove;
-	    for(unsigned i = 0; i < expansions.size(); i++){
-	      Node *node = expansions[i];
-	      //	      if(node != top)
-	      //		tree->ConstrainParent(node->Incoming[0],node);
-	      std::vector<Node *> &cs = node->Outgoing->Children;
-	      for(unsigned i = 0; i < cs.size(); i++){
-		leaves_to_remove.insert(cs[i]);
-		UnmapNode(cs[i]);
-		if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
-		  throw "help!";
+	    {
+	      std::vector<Node *> &expansions = stack.back().expansions;
+	      int update_count = 0;
+	      for(unsigned i = 0; i < expansions.size(); i++){
+		Node *node = expansions[i];
+		tree->SolveSingleNode(top,node);
+		tree->Generalize(node);
+		if(RecordUpdate(node))
+		  update_count++;
 	      }
-	      RemoveExpansion(node);
+	      if(update_count == 0)
+		std::cout << "backtracked without learning\n";
 	    }
-	    RemoveLeaves(leaves_to_remove);
-	    stack.pop_back();
+	    tree->ComputeProofCore(); // need to compute the proof core before popping solver
+	    while(1) {
+	      std::vector<Node *> &expansions = stack.back().expansions;
+	      bool prev_level_used = LevelUsedInProof(stack.size()-2); // need to compute this before pop
+	      tree->Pop(1);	
+	      hash_set<Node *> leaves_to_remove;
+	      for(unsigned i = 0; i < expansions.size(); i++){
+		Node *node = expansions[i];
+		//	      if(node != top)
+		//		tree->ConstrainParent(node->Incoming[0],node);
+		std::vector<Node *> &cs = node->Outgoing->Children;
+		for(unsigned i = 0; i < cs.size(); i++){
+		  leaves_to_remove.insert(cs[i]);
+		  UnmapNode(cs[i]);
+		  if(std::find(updated_nodes.begin(),updated_nodes.end(),cs[i]) != updated_nodes.end())
+		    throw "help!";
+		}
+		RemoveExpansion(node);
+	      }
+	      RemoveLeaves(leaves_to_remove);
+	      stack.pop_back();
+	      if(prev_level_used || stack.size() == 1) break;
+	      RemoveUpdateNodesAtCurrentLevel(); // this level is about to be deleted -- remove its children from update list
+	      std::vector<Node *> &unused_ex = stack.back().expansions;
+	      for(unsigned i = 0; i < unused_ex.size(); i++)
+		heuristic->Update(unused_ex[i]->map); // make it less likely to expand this node in future
+	    } 
 	    HandleUpdatedNodes();
 	    if(stack.size() == 1)
 	      return false;
@@ -1782,8 +1798,10 @@ namespace Duality {
 	    for(unsigned i = 0; i < expansions.size(); i++){
 	      tree->FixCurrentState(expansions[i]->Outgoing);
 	    }
+#if 0
 	    if(tree->slvr.check() == unsat)
 	      throw "help!";
+#endif
 	    stack.push_back(stack_entry());
 	    stack.back().level = tree->slvr.get_scope_level();
 	    if(ExpandSomeNodes(false,1)){
@@ -1798,6 +1816,27 @@ namespace Duality {
 	}
       }
       
+      bool LevelUsedInProof(unsigned level){
+	std::vector<Node *> &expansions = stack[level].expansions;
+	for(unsigned i = 0; i < expansions.size(); i++)
+	  if(tree->EdgeUsedInProof(expansions[i]->Outgoing))
+	    return true;
+	return false;
+      }
+
+      void RemoveUpdateNodesAtCurrentLevel() {
+	for(std::list<Node *>::iterator it = updated_nodes.begin(), en = updated_nodes.end(); it != en;){
+	  Node *node = *it;
+	  if(AtCurrentStackLevel(node->Incoming[0]->Parent)){
+	    std::list<Node *>::iterator victim = it;
+	    ++it;
+	    updated_nodes.erase(victim);
+	  }
+	  else
+	    ++it;
+	}
+      }
+
       void RemoveLeaves(hash_set<Node *> &leaves_to_remove){
 	std::list<RPFP::Node *> leaves_copy;
 	leaves_copy.swap(leaves);
@@ -2270,7 +2309,7 @@ namespace Duality {
 	return name;
       }
 
-      virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool high_priority){
+      virtual void ChooseExpand(const std::set<RPFP::Node *> &choices, std::set<RPFP::Node *> &best, bool high_priority, bool best_only){
 	if(!high_priority || !old_cex.tree){
 	  Heuristic::ChooseExpand(choices,best,false);
 	  return;

@@ -185,6 +185,7 @@ namespace Duality {
     return clone_quantifier(t,new_body);
   }
 
+
   RPFP::Term RPFP::LocalizeRec(Edge *e,  hash_map<ast,Term> &memo, const Term &t)
   {
     std::pair<ast,Term> foo(t,expr(ctx));
@@ -274,13 +275,15 @@ namespace Duality {
     return implies(b, Localize(e, e->F.Formula));
   }
 
-  TermTree *RPFP::ToTermTree(Node *root)
+  TermTree *RPFP::ToTermTree(Node *root, Node *skip_descendant)
   {
+    if(skip_descendant && root == skip_descendant)
+      return new TermTree(ctx.bool_val(true));
     Edge *e = root->Outgoing;
     if(!e) return new TermTree(ctx.bool_val(true), std::vector<TermTree *>());
     std::vector<TermTree *> children(e->Children.size());
     for(unsigned i = 0; i < children.size(); i++)
-      children[i] = ToTermTree(e->Children[i]);
+      children[i] = ToTermTree(e->Children[i],skip_descendant);
     // Term top = ReducedDualEdge(e);
     Term top = e->dual.null() ? ctx.bool_val(true) : e->dual;
     TermTree *res = new TermTree(top, children);
@@ -623,6 +626,7 @@ namespace Duality {
     TermTree *goals = NULL;
     if(ls->need_goals)
       goals = GetGoalTree(root);
+    ClearProofCore();
 
     // if (dualModel != null) dualModel.Dispose();
     // if (dualLabels != null) dualLabels.Dispose();
@@ -644,11 +648,54 @@ namespace Duality {
     return res;
   }
   
+  void RPFP::CollapseTermTreeRec(TermTree *root, TermTree *node){
+    root->addTerm(node->getTerm());
+    std::vector<Term> &cnsts = node->getTerms();
+    for(unsigned i = 0; i < cnsts.size(); i++)
+      root->addTerm(cnsts[i]);
+    std::vector<TermTree *> &chs = node->getChildren();
+    for(unsigned i = 0; i < chs.size(); i++){
+      CollapseTermTreeRec(root,chs[i]);
+    }
+  }
+
+  TermTree *RPFP::CollapseTermTree(TermTree *node){
+    std::vector<TermTree *> &chs = node->getChildren();
+    for(unsigned i = 0; i < chs.size(); i++)
+      CollapseTermTreeRec(node,chs[i]);
+    for(unsigned i = 0; i < chs.size(); i++)
+      delete chs[i];
+    chs.clear();
+    return node;
+  }
+    
+  lbool RPFP::SolveSingleNode(Node *root, Node *node)
+  {
+    timer_start("Solve");
+    TermTree *tree = CollapseTermTree(GetConstraintTree(root,node));
+    tree->getChildren().push_back(CollapseTermTree(ToTermTree(node)));
+    TermTree *interpolant = NULL;
+    ClearProofCore();
+
+    timer_start("interpolate_tree");
+    lbool res = ls->interpolate_tree(tree, interpolant, dualModel,0,true);
+    timer_stop("interpolate_tree");
+    if (res == l_false)
+      {
+	DecodeTree(node, interpolant->getChildren()[0], 0);
+	delete interpolant;
+      }
+
+    delete tree;
+    timer_stop("Solve");
+    return res;
+  }
+
   /** Get the constraint tree (but don't solve it) */
   
-  TermTree *RPFP::GetConstraintTree(Node *root)
+  TermTree *RPFP::GetConstraintTree(Node *root, Node *skip_descendant)
   {
-    return AddUpperBound(root, ToTermTree(root));
+    return AddUpperBound(root, ToTermTree(root,skip_descendant));
   }
   
   /** Dispose of the dual model (counterexample) if there is one. */
@@ -677,6 +724,7 @@ namespace Duality {
 
   check_result RPFP::Check(Node *root, std::vector<Node *> underapproxes, std::vector<Node *> *underapprox_core )
         {
+	  ClearProofCore();
 	  // if (dualModel != null) dualModel.Dispose();
 	  check_result res;
 	  if(!underapproxes.size())
@@ -713,6 +761,7 @@ namespace Duality {
 
   check_result RPFP::CheckUpdateModel(Node *root, std::vector<expr> assumps){
     // check_result temp1 = slvr.check(); // no idea why I need to do this
+    ClearProofCore();
     check_result res = slvr.check_keep_model(assumps.size(),&assumps[0]);
     dualModel = slvr.get_model();
     return res;
@@ -1760,9 +1809,9 @@ namespace Duality {
     expr conj = ctx.make(And,conjuncts);
     s.add(conj);
     check_result res = s.check();
-    s.pop(1);
     if(res != unsat)
       throw "should be unsat";
+    s.pop(1);
 	
     for(unsigned i = 0; i < conjuncts.size(); ){
       std::swap(conjuncts[i],conjuncts.back());
@@ -2276,8 +2325,28 @@ namespace Duality {
     
   }
 
+  void RPFP::ComputeProofCore(){
+    if(!proof_core){
+      std::vector<expr> assumps;
+      slvr.get_proof().get_assumptions(assumps);
+      proof_core = new hash_set<ast>;
+      for(unsigned i = 0; i < assumps.size(); i++)
+	proof_core->insert(assumps[i]);
+    }
+  }
+
+  bool RPFP::EdgeUsedInProof(Edge *edge){
+    ComputeProofCore();
+    if(!edge->dual.null() && proof_core->find(edge->dual) != proof_core->end())
+      return true;
+    for(unsigned i = 0; i < edge->constraints.size(); i++)
+      if(proof_core->find(edge->constraints[i]) != proof_core->end())
+	return true;
+    return false;
+  }
 
 RPFP::~RPFP(){
+    ClearProofCore();
     for(unsigned i = 0; i < nodes.size(); i++)
       delete nodes[i];
     for(unsigned i = 0; i < edges.size(); i++)

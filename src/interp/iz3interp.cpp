@@ -501,5 +501,3 @@ void interpolation_options_struct::apply(iz3base &b){
     b.set_option((*it).first,(*it).second);
 }
 
-
-

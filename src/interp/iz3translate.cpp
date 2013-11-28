@@ -1364,6 +1364,18 @@ public:
     return eq2;
   }
 
+  bool get_store_array(const ast &t, ast &res){
+    if(op(t) == Store){
+      res = t;
+      return true;
+    }
+    int nargs = num_args(t);
+    for(int i = 0; i < nargs; i++)
+      if(get_store_array(arg(t,i),res))
+	return true;
+    return false;
+  }
+
   // translate a Z3 proof term into interpolating proof system
 
   Iproof::node translate_main(ast proof, bool expect_clause = true){
@@ -1578,9 +1590,13 @@ public:
 	    throw unsupported();
 	  }
 	  break;
-	case ArrayTheory: // nothing fancy for this
-	  res = iproof->make_axiom(lits);
+	case ArrayTheory: {// nothing fancy for this
+	  ast store_array;
+	  if(!get_store_array(con,store_array))
+	    throw unsupported();
+	  res = iproof->make_axiom(lits,ast_scope(store_array));
 	  break;
+	}
 	default:
 	  throw unsupported();
 	}
