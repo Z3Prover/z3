@@ -48,6 +48,7 @@ namespace opt{
         SASSERT(num_parameters == 0);
         symbol name = get_name(static_cast<obj_kind>(k));
         func_decl_info info(get_family_id(), k, num_parameters, parameters);
+        range = mk_sort(OBJECTIVE_SORT, 0, 0);
         return m_manager->mk_func_decl(name, arity, domain, range, info);
     }
     

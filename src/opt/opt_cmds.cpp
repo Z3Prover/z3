@@ -80,9 +80,6 @@ public:
     }
 
     virtual void reset(cmd_context & ctx) { 
-        if (m_formula) {
-            ctx.m().dec_ref(m_formula);
-        }
         m_idx = 0; 
         m_formula = 0;
         m_id = symbol::null;
@@ -116,7 +113,6 @@ public:
             throw cmd_exception("Invalid type for expression. Expected Boolean type.");
         }
         m_formula = t;
-        ctx.m().inc_ref(t);
         ++m_idx;
     }
 
@@ -298,9 +294,6 @@ public:
         reset(ctx);
     }
     virtual void reset(cmd_context& ctx) {
-        if (m_objective) {
-            ctx.m().dec_ref(m_objective);
-        }
         m_objective = 0;
         m_idx = 0;
     }
@@ -312,7 +305,6 @@ public:
 
     virtual void set_next_arg(cmd_context & ctx, expr * arg) {
         m_objective = arg;
-        ctx.m().inc_ref(arg);
         ++m_idx;
     }
 
