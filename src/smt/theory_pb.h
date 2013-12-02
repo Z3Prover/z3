@@ -88,12 +88,12 @@ namespace smt {
             void negate();
 
             lbool normalize();
+
             void unique();
 
             bool well_formed() const;
 
             app_ref to_expr(context& ctx, ast_manager& m);
-
         };
 
         typedef ptr_vector<ineq> watch_list;
@@ -170,7 +170,6 @@ namespace smt {
         virtual bool use_diseqs() const { return false; }
         virtual bool build_models() const { return false; }
         virtual final_check_status final_check_eh();
-
         virtual void reset_eh();
         virtual void assign_eh(bool_var v, bool is_true);
         virtual void init_search_eh();

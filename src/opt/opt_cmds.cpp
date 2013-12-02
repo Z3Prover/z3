@@ -248,59 +248,6 @@ private:
     }
 };
 
-static expr* sexpr2expr(cmd_context & ctx, sexpr * s) {
-    NOT_IMPLEMENTED_YET();    
-    return ctx.m().mk_true();
-}
-
-static opt::objective* sexpr2objective(cmd_context & ctx, sexpr * s) {
-    if (s->is_symbol())
-        throw cmd_exception("invalid objective, more arguments expected ", s->get_symbol(), s->get_line(), s->get_pos());   
-    if (s->is_composite()) {
-        sexpr * head = s->get_child(0);
-        if (!head->is_symbol())
-            throw cmd_exception("invalid objective, symbol expected", s->get_line(), s->get_pos());
-        symbol const & cmd_name = head->get_symbol();
-        if (cmd_name == "maximize" || cmd_name == "minimize") {
-            if (s->get_num_children() != 2)
-                throw cmd_exception("invalid objective, wrong number of arguments ", s->get_line(), s->get_pos());
-            sexpr * arg = s->get_child(1);
-            expr_ref term(sexpr2expr(ctx, arg), ctx.m());
-            if (cmd_name == "maximize")
-                return opt::objective::mk_max(term);
-            else
-                return opt::objective::mk_min(term);
-        }
-        else if (cmd_name == "maxsat") {
-            if (s->get_num_children() != 2)
-                throw cmd_exception("invalid objective, wrong number of arguments ", s->get_line(), s->get_pos());
-            sexpr * arg = s->get_child(1);
-            if (!arg->is_symbol())
-                throw cmd_exception("invalid objective, symbol expected", s->get_line(), s->get_pos());
-            symbol const & id = arg->get_symbol();
-            // TODO: check whether id is declared via assert-weighted
-            return opt::objective::mk_maxsat(id);
-        }
-        else if (cmd_name == "lex" || cmd_name == "box" || cmd_name == "pareto") {
-            if (s->get_num_children() <= 2)
-                throw cmd_exception("invalid objective, wrong number of arguments ", s->get_line(), s->get_pos());
-            unsigned num_children = s->get_num_children();
-            ptr_vector<opt::objective> args;
-            for (unsigned i = 1; i < num_children; i++)
-                args.push_back(sexpr2objective(ctx, s->get_child(i)));
-            if (cmd_name == "lex") 
-                return opt::objective::mk_lex(args.size(), args.c_ptr());
-            else if (cmd_name == "box") 
-                return opt::objective::mk_box(args.size(), args.c_ptr());
-            else
-                return opt::objective::mk_pareto(args.size(), args.c_ptr());
-        }
-        else {
-            throw cmd_exception("invalid objective, unexpected input", s->get_line(), s->get_pos());
-        }
-    }
-    return 0;
-}
 
 class execute_cmd : public parametric_cmd {
 protected:
@@ -356,7 +303,7 @@ public:
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
             try {
-                opt::objective * o = sexpr2objective(ctx, m_objective);
+                opt::objective * o = sexpr2objective(ctx, *m_objective);
                 r = opt.optimize(*o);
                 dealloc(o);
             }
@@ -396,6 +343,98 @@ private:
         m_opt_ctx().collect_statistics(stats);
         stats.display_smt2(ctx.regular_stream());        
     }
+
+    expr_ref sexpr2expr(cmd_context & ctx, sexpr& s) {
+        expr_ref result(ctx.m());
+        switch(s.get_kind()) {
+        case sexpr::COMPOSITE: {
+            sexpr& h = *s.get_child(0);
+            if (!h.is_symbol()) {
+                throw cmd_exception("invalid head symbol", s.get_line(), s.get_pos());
+            }
+            symbol sym = h.get_symbol();
+            expr_ref_vector args(ctx.m());
+            for (unsigned i = 1; i < s.get_num_children(); ++i) {
+                args.push_back(sexpr2expr(ctx, *s.get_child(i)));
+            }
+            ctx.mk_app(sym, args.size(), args.c_ptr(), 0, 0, 0, result);
+            return result;
+        }
+        case sexpr::NUMERAL:                        
+        case sexpr::BV_NUMERAL:
+            // TBD: handle numerals 
+        case sexpr::STRING:
+        case sexpr::KEYWORD:
+            throw cmd_exception("non-supported expression", s.get_line(), s.get_pos());
+        case sexpr::SYMBOL:
+            ctx.mk_const(s.get_symbol(), result);
+            return result;
+        }
+    }
+
+    opt::objective_t get_objective_type(sexpr& s) {
+        if (!s.is_symbol())
+            throw cmd_exception("invalid objective, symbol expected", s.get_line(), s.get_pos());
+        symbol const & sym = s.get_symbol();
+        if (sym == symbol("maximize")) return opt::objective_t::MAXIMIZE;
+        if (sym == symbol("minimize")) return opt::objective_t::MINIMIZE;
+        if (sym == symbol("lex")) return opt::objective_t::LEX;
+        if (sym == symbol("box")) return opt::objective_t::BOX;
+        if (sym == symbol("pareto")) return opt::objective_t::PARETO;
+        throw cmd_exception("invalid objective, unexpected input", s.get_line(), s.get_pos());
+    }
+
+    opt::objective* sexpr2objective(cmd_context & ctx, sexpr& s) {
+        if (s.is_symbol())
+            throw cmd_exception("invalid objective, more arguments expected ", s.get_symbol(), s.get_line(), s.get_pos());   
+        if (s.is_composite()) {
+            sexpr * head = s.get_child(0);
+            opt::objective_t type = get_objective_type(*head);
+            switch(type) {
+            case opt::MAXIMIZE:
+            case opt::MINIMIZE: {
+                if (s.get_num_children() != 2)
+                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
+                sexpr * arg = s.get_child(1);
+                expr_ref term(sexpr2expr(ctx, *arg), ctx.m());
+                if (type == opt::MAXIMIZE) 
+                    return opt::objective::mk_max(term);
+                else
+                    return opt::objective::mk_min(term);
+            }
+            case opt::MAXSAT: {
+                if (s.get_num_children() != 2)
+                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
+                sexpr * arg = s.get_child(1);
+                if (!arg->is_symbol())
+                    throw cmd_exception("invalid objective, symbol expected", s.get_line(), s.get_pos());
+                symbol const & id = arg->get_symbol();
+                // TODO: check whether id is declared via assert-weighted
+                return opt::objective::mk_maxsat(id);
+            }
+            case opt::LEX:
+            case opt::BOX:
+            case opt::PARETO: {
+                if (s.get_num_children() <= 2)
+                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
+                unsigned num_children = s.get_num_children();
+                ptr_vector<opt::objective> args;
+                for (unsigned i = 1; i < num_children; i++)
+                    args.push_back(sexpr2objective(ctx, *s.get_child(i)));
+                switch(type) {
+                case opt::LEX:
+                    return opt::objective::mk_lex(args.size(), args.c_ptr());
+                case opt::BOX:
+                    return opt::objective::mk_box(args.size(), args.c_ptr());
+                case opt::PARETO:
+                    return opt::objective::mk_pareto(args.size(), args.c_ptr());
+                }
+            }
+            }
+        }
+        return 0;
+    }
+
 };
 
 void install_opt_cmds(cmd_context & ctx) {
