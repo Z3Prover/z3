@@ -35,16 +35,27 @@ Notes:
 class opt_context {
     cmd_context& ctx;
     scoped_ptr<opt::context> m_opt;
+    hashtable<symbol, symbol_hash_proc, symbol_eq_proc> m_ids;    
+
 public:
     opt_context(cmd_context& ctx): ctx(ctx) {}
     opt::context& operator()() { 
         if (!m_opt) {
-            m_opt = alloc(opt::context, ctx.m());
             decl_plugin * p = alloc(opt::objective_decl_plugin);
-            ctx.register_plugin(symbol("objective"), p, true);            
+            ctx.register_plugin(symbol("objective"), p, true);
+            m_opt = alloc(opt::context, ctx.m());
         }
         return *m_opt;
     }
+
+    bool contains(symbol const& s) const { return m_ids.contains(s); }
+
+    void insert(symbol const& s) { m_ids.insert(s); }
+
+    sort* obj_sort(cmd_context& ctx) {
+        return ctx.m().mk_sort(ctx.m().get_family_id(symbol("objective")), opt::OBJECTIVE_SORT);
+    }
+    
 };
 
 
@@ -121,6 +132,10 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         m_opt_ctx().add_soft_constraint(m_formula, m_weight, m_id);
+        if (!m_opt_ctx.contains(m_id)) {
+            ctx.insert(m_id, 0, ctx.m().mk_const(m_id, m_opt_ctx.obj_sort(ctx)));
+            m_opt_ctx.insert(m_id);
+        }
         reset(ctx);
     }
 
@@ -255,12 +270,14 @@ private:
 class execute_cmd : public parametric_cmd {
 protected:
     expr * m_objective;
+    unsigned m_idx;
     opt_context& m_opt_ctx;
 public:
     execute_cmd(opt_context& opt_ctx):
         parametric_cmd("optimize"),
-        m_opt_ctx(opt_ctx),
-        m_objective(0)
+        m_objective(0),
+        m_idx(0),
+        m_opt_ctx(opt_ctx)
     {}
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
@@ -271,10 +288,11 @@ public:
     }
 
     virtual char const * get_main_descr() const { return "check sat modulo objective function";}
-    virtual char const * get_usage() const { return "(<keyword> <value>)*"; }
+    virtual char const * get_usage() const { return "<objective> (<keyword> <value>)*"; }
     virtual void prepare(cmd_context & ctx) {
         parametric_cmd::prepare(ctx);
         reset(ctx);
+        m_opt_ctx(); // ensure symbol table is updated.
     }
     virtual void failure_cleanup(cmd_context & ctx) {
         reset(ctx);
@@ -284,16 +302,18 @@ public:
             ctx.m().dec_ref(m_objective);
         }
         m_objective = 0;
+        m_idx = 0;
     }
 
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_objective == 0) return CPK_EXPR;
+        if (m_idx == 0) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
     virtual void set_next_arg(cmd_context & ctx, expr * arg) {
         m_objective = arg;
         ctx.m().inc_ref(arg);
+        ++m_idx;
     }
 
     virtual void execute(cmd_context & ctx) {

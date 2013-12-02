@@ -689,7 +689,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (!m_global_decls) {
         m_func_decls_stack.push_back(sf_pair(s, f));
     }
-    TRACE("cmd_context", tout << "new sort decl\n" << mk_pp(f, m()) << "\n";);
+    TRACE("cmd_context", tout << "new function decl\n" << mk_pp(f, m()) << "\n";);
 }
 
 void cmd_context::insert(symbol const & s, psort_decl * p) {

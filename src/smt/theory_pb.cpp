@@ -550,8 +550,8 @@ namespace smt {
     void theory_pb::assign_eh(bool_var v, bool is_true) {
         context& ctx = get_context();
         ptr_vector<ineq>* ineqs = 0;
-        literal lit(v, !is_true);
-        if (m_watch.find(lit.index(), ineqs)) {
+        literal nlit(v, is_true);
+        if (m_watch.find(nlit.index(), ineqs)) {
             for (unsigned i = 0; i < ineqs->size(); ++i) {
                 if (assign_watch(v, is_true, *ineqs, i)) {
                     // i was removed from watch list.
@@ -1283,8 +1283,8 @@ namespace smt {
             UNREACHABLE();
             return false;
         case l_false:
-            add_assign(c, m_ineq_literals, false_literal);
-            break;
+            //add_assign(c, m_ineq_literals, false_literal);
+            //break;
         default: {
             app_ref tmp = m_lemma.to_expr(ctx, get_manager());
             internalize_atom(tmp, false);
