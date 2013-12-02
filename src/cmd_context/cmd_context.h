@@ -211,7 +211,6 @@ protected:
 
     void register_builtin_sorts(decl_plugin * p);
     void register_builtin_ops(decl_plugin * p);
-    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);
     void init_manager_core(bool new_manager);
     void init_manager();
     void init_external_manager();
@@ -298,7 +297,8 @@ public:
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
     void validate_model();
-    
+
+    void register_plugin(symbol const & name, decl_plugin * p, bool install_names);    
     bool is_func_decl(symbol const & s) const;
     bool is_sort_decl(symbol const& s) const { return m_psort_decls.contains(s); }
     void insert(cmd * c);

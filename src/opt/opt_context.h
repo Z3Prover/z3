@@ -29,7 +29,7 @@ Notes:
 #include "opt_solver.h"
 #include "optsmt.h"
 #include "maxsmt.h"
-#include "objective_ast.h"
+#include "objective_decl_plugin.h"
 
 namespace opt {
 
@@ -45,6 +45,7 @@ namespace opt {
         map_t               m_maxsmts;
         expr_ref_vector     m_objs;
         svector<bool>       m_ismaxs;
+        objective_util      m_obj_util;
     public:
         context(ast_manager& m);
         ~context();
@@ -52,17 +53,17 @@ namespace opt {
         void add_objective(app* t, bool is_max) { m_objs.push_back(t); m_ismaxs.push_back(is_max); }
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
 
-        lbool execute(objective & obj, bool committed);
-        lbool execute_min_max(min_max_objective & obj, bool committed);
-        lbool execute_maxsat(maxsat_objective & obj, bool committed);
-        lbool execute_lex(compound_objective & obj);
-        lbool execute_box(compound_objective & obj);
-        lbool execute_pareto(compound_objective & obj);
+        lbool execute(expr* obj, bool committed);
+        lbool execute_min_max(app* obj, bool committed);
+        lbool execute_maxsat(app* obj, bool committed);
+        lbool execute_lex(app* obj);
+        lbool execute_box(app* obj);
+        lbool execute_pareto(app* obj);
 
         void push();
         void pop(unsigned sz);
 
-        lbool optimize(objective & objective);
+        lbool optimize(expr* objective);
         lbool optimize();
 
         void set_cancel(bool f);

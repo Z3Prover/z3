@@ -30,6 +30,7 @@ Notes:
 #include "scoped_timer.h"
 #include "parametric_cmd.h"
 #include "objective_ast.h"
+#include "objective_decl_plugin.h"
 
 class opt_context {
     cmd_context& ctx;
@@ -39,6 +40,8 @@ public:
     opt::context& operator()() { 
         if (!m_opt) {
             m_opt = alloc(opt::context, ctx.m());
+            decl_plugin * p = alloc(opt::objective_decl_plugin);
+            ctx.register_plugin(symbol("objective"), p, true);            
         }
         return *m_opt;
     }
@@ -251,12 +254,13 @@ private:
 
 class execute_cmd : public parametric_cmd {
 protected:
-    sexpr * m_objective;
+    expr * m_objective;
     opt_context& m_opt_ctx;
 public:
     execute_cmd(opt_context& opt_ctx):
         parametric_cmd("optimize"),
-        m_opt_ctx(opt_ctx)
+        m_opt_ctx(opt_ctx),
+        m_objective(0)
     {}
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
@@ -270,19 +274,26 @@ public:
     virtual char const * get_usage() const { return "(<keyword> <value>)*"; }
     virtual void prepare(cmd_context & ctx) {
         parametric_cmd::prepare(ctx);
-        m_objective = 0;
+        reset(ctx);
     }
     virtual void failure_cleanup(cmd_context & ctx) {
         reset(ctx);
     }
+    virtual void reset(cmd_context& ctx) {
+        if (m_objective) {
+            ctx.m().dec_ref(m_objective);
+        }
+        m_objective = 0;
+    }
 
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_objective == 0) return CPK_SEXPR;
+        if (m_objective == 0) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, sexpr * arg) {
+    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
         m_objective = arg;
+        ctx.m().inc_ref(arg);
     }
 
     virtual void execute(cmd_context & ctx) {
@@ -303,9 +314,7 @@ public:
             scoped_timer timer(timeout, &eh);
             cmd_context::scoped_watch sw(ctx);
             try {
-                opt::objective * o = sexpr2objective(ctx, *m_objective);
-                r = opt.optimize(*o);
-                dealloc(o);
+                r = opt.optimize(m_objective);
             }
             catch (z3_error& ex) {
                 ctx.regular_stream() << "(error: " << ex.msg() << "\")" << std::endl;
@@ -343,6 +352,18 @@ private:
         m_opt_ctx().collect_statistics(stats);
         stats.display_smt2(ctx.regular_stream());        
     }
+};
+
+void install_opt_cmds(cmd_context & ctx) {
+    opt_context* opt_ctx = alloc(opt_context, ctx);
+    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
+    ctx.insert(alloc(execute_cmd, *opt_ctx));
+    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
+    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
+    //ctx.insert(alloc(optimize_cmd, *opt_ctx));
+}
+
+#if 0
 
     expr_ref sexpr2expr(cmd_context & ctx, sexpr& s) {
         expr_ref result(ctx.m());
@@ -370,17 +391,18 @@ private:
             ctx.mk_const(s.get_symbol(), result);
             return result;
         }
+        return result;
     }
 
     opt::objective_t get_objective_type(sexpr& s) {
         if (!s.is_symbol())
             throw cmd_exception("invalid objective, symbol expected", s.get_line(), s.get_pos());
         symbol const & sym = s.get_symbol();
-        if (sym == symbol("maximize")) return opt::objective_t::MAXIMIZE;
-        if (sym == symbol("minimize")) return opt::objective_t::MINIMIZE;
-        if (sym == symbol("lex")) return opt::objective_t::LEX;
-        if (sym == symbol("box")) return opt::objective_t::BOX;
-        if (sym == symbol("pareto")) return opt::objective_t::PARETO;
+        if (sym == symbol("maximize")) return opt::MAXIMIZE;
+        if (sym == symbol("minimize")) return opt::MINIMIZE;
+        if (sym == symbol("lex")) return opt::LEX;
+        if (sym == symbol("box")) return opt::BOX;
+        if (sym == symbol("pareto")) return opt::PARETO;
         throw cmd_exception("invalid objective, unexpected input", s.get_line(), s.get_pos());
     }
 
@@ -435,13 +457,4 @@ private:
         return 0;
     }
 
-};
-
-void install_opt_cmds(cmd_context & ctx) {
-    opt_context* opt_ctx = alloc(opt_context, ctx);
-    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
-    ctx.insert(alloc(execute_cmd, *opt_ctx));
-    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
-    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
-    //ctx.insert(alloc(optimize_cmd, *opt_ctx));
-}
+#endif
