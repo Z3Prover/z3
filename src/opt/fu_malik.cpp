@@ -149,7 +149,7 @@ namespace opt {
         }
 
         lbool step() {
-            IF_VERBOSE(0, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper_size << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat step " << m_soft.size() + 2 - m_upper_size << ")\n";);
             expr_ref_vector assumptions(m), block_vars(m);
             for (unsigned i = 0; i < m_soft.size(); ++i) {
                 assumptions.push_back(m.mk_not(m_aux[i].get()));
@@ -187,7 +187,7 @@ namespace opt {
                 //    ++i;
                 //}
 
-                IF_VERBOSE(0, verbose_stream() << "(opt.max_sat unsat-core of size " << core.size() << ")\n";);
+                IF_VERBOSE(1, verbose_stream() << "(opt.max_sat unsat-core of size " << core.size() << ")\n";);
             }
             else {
                 s().get_unsat_core(core);
@@ -214,7 +214,7 @@ namespace opt {
             }
             SASSERT (!block_vars.empty());
             assert_at_most_one(block_vars);
-            IF_VERBOSE(0, verbose_stream() << "(opt.max_sat # of non-blocked soft constraints: " << m_soft.size() - block_vars.size() << ")\n";);
+            IF_VERBOSE(1, verbose_stream() << "(opt.max_sat # of non-blocked soft constraints: " << m_soft.size() - block_vars.size() << ")\n";);
             return l_false;
         }
 
@@ -264,7 +264,7 @@ namespace opt {
                     m_s->assert_expr(current_solver.get_assertion(i));
                 }
                 m_use_new_bv_solver = true;
-                IF_VERBOSE(0, verbose_stream() << "Force to use the new BV solver." << std::endl;);
+                IF_VERBOSE(1, verbose_stream() << "Force to use the new BV solver." << std::endl;);
             }
         }
 

@@ -1046,14 +1046,10 @@ namespace smt {
 
         resolve_conflict(c);
 
-#if 1
         justification* js = 0;
         ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
-        IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), 
-                                                   lits.size(), lits.c_ptr());
+        IF_VERBOSE(2, ctx.display_literals_verbose(verbose_stream(), lits.size(), lits.c_ptr());
                    verbose_stream() << "\n";);
-        // ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-#endif
     }
 
     void theory_pb::set_mark(bool_var v, unsigned idx) {

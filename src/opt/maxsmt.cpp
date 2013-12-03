@@ -61,7 +61,6 @@ namespace opt {
                    });
 
         DEBUG_CODE(if (is_sat == l_true) {
-                IF_VERBOSE(0, verbose_stream() << "validating assignment\n";);
                 m_s->push();
                 commit_assignment();
                 VERIFY(l_true == m_s->check_sat(0,0));
