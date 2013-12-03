@@ -69,7 +69,7 @@ namespace opt {
         void validate_feasibility(maxsmt& ms);
 
         lbool execute(expr* obj, bool committed);
-        lbool execute_min_max(app* obj, bool committed);
+        lbool execute_min_max(app* obj, bool committed, bool is_max);
         lbool execute_maxsat(app* obj, bool committed);
         lbool execute_lex(app* obj);
         lbool execute_box(app* obj);

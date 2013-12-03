@@ -60,14 +60,14 @@ namespace opt {
             return execute_maxsat(obj, committed);
         }
         if (obj->get_family_id() != m_obj_util.get_family_id()) {
-            // error
-            return l_undef;
+            return execute_min_max(obj, committed, true);
         }
 
         switch (obj->get_decl_kind()) {
         case OP_MINIMIZE:
+            return execute_min_max(to_app(obj->get_arg(0)), committed, false);
         case OP_MAXIMIZE: 
-            return execute_min_max(obj, committed);
+            return execute_min_max(to_app(obj->get_arg(0)), committed, true);
         case OP_LEX:
             return execute_lex(obj);
         case OP_BOX:
@@ -80,14 +80,14 @@ namespace opt {
         }
     }
 
-    lbool context::execute_min_max(app* obj, bool committed) {
+    lbool context::execute_min_max(app* obj, bool committed, bool is_max) {
         // HACK: reuse m_optsmt but add only a single objective each round
-        bool is_max = (obj->get_decl_kind() == OP_MAXIMIZE);
-        m_optsmt.add(to_app(obj->get_arg(0)), is_max);
+        m_optsmt.add(obj, is_max);
         lbool result = m_optsmt(get_solver());
         if (committed) m_optsmt.commit_assignment(0);
         return result;
     }
+
 
     lbool context::execute_maxsat(app* obj, bool committed) {
         maxsmt* ms;
@@ -133,13 +133,14 @@ namespace opt {
     }
 
     lbool context::optimize(expr* objective) {
+        if (!objective) {
+            return optimize();
+        }
         opt_solver& s = get_solver();
         solver::scoped_push _sp(s);
-
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
             s.assert_expr(m_hard_constraints[i].get());
         }
-
         return execute(objective, false);
     }
 
@@ -147,23 +148,20 @@ namespace opt {
         // Construct objectives
         expr_ref_vector objectives(m);
         expr_ref objective(m);
-        objective_util util(m);
         map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
         for (; it != end; ++it) {
-            objectives.push_back(util.mk_maxsat(it->m_key));
+            objectives.push_back(m_obj_util.mk_maxsat(it->m_key));
         }
-
         for (unsigned i = 0; i < m_objs.size(); ++i) {
             expr_ref e(m_objs[i].get(), m);
-            app * o = m_ismaxs[i] ? util.mk_max(e) : util.mk_min(e);
+            app * o = m_ismaxs[i] ? m_obj_util.mk_max(e) : m_obj_util.mk_min(e);
             objectives.push_back(o);
         }
-
         if (m_params.get_bool("pareto", false)) {            
-            objective = util.mk_pareto(objectives.size(), objectives.c_ptr());
+            objective = m_obj_util.mk_pareto(objectives.size(), objectives.c_ptr());
         }
         else {
-            objective = util.mk_box(objectives.size(), objectives.c_ptr());
+            objective = m_obj_util.mk_box(objectives.size(), objectives.c_ptr());
         }
         return optimize(objective);
     }
