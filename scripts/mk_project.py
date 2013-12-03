@@ -69,7 +69,7 @@ def init_project_def():
     add_lib('smtparser', ['portfolio'], 'parsers/smt')
     add_lib('opt', ['smt', 'smtlogic_tactics'], 'opt')
     API_files = ['z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h']
-    add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure'],
+    add_lib('api', ['portfolio', 'user_plugin', 'smtparser', 'realclosure','opt'],
             includes2install=['z3.h', 'z3_v1.h', 'z3_macros.h'] + API_files)
     add_exe('shell', ['api', 'sat', 'extra_cmds','opt'], exe_name='z3')
     add_exe('test', ['api', 'fuzzing'], exe_name='test-z3', install=False)

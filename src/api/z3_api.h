@@ -47,6 +47,7 @@ DEFINE_TYPE(Z3_func_interp);
 #define Z3_func_interp_opt Z3_func_interp
 DEFINE_TYPE(Z3_func_entry);
 DEFINE_TYPE(Z3_fixedpoint);
+DEFINE_TYPE(Z3_optimize);
 DEFINE_TYPE(Z3_rcf_num);
 DEFINE_VOID(Z3_theory_data);
 #endif
