@@ -27,9 +27,7 @@ namespace opt {
     context::context(ast_manager& m):
         m(m),
         m_hard_constraints(m),
-        m_optsmt(m),
-        m_objs(m),
-        m_obj_util(m)
+        m_optsmt(m)
     {
         m_params.set_bool("model", true);
         m_params.set_bool("unsat_core", true);
@@ -48,35 +46,36 @@ namespace opt {
         if (!m_maxsmts.find(id, ms)) {
             ms = alloc(maxsmt, m);
             m_maxsmts.insert(id, ms);
+            m_objectives.push_back(objective(m, id));
         }
         ms->add(f, w);
     }
 
-    lbool context::execute(expr* _obj, bool committed) {
-        SASSERT(is_app(_obj));
-        app* obj = to_app(_obj);
+    void context::add_objective(app* t, bool is_max) {
+        app_ref tr(m);
+        m_objectives.push_back(objective(is_max, tr));
+    }
 
-        if (obj->get_family_id() == null_family_id) {
-            return execute_maxsat(obj, committed);
-        }
-        if (obj->get_family_id() != m_obj_util.get_family_id()) {
-            return execute_min_max(obj, committed, true);
+    lbool context::optimize() {
+        opt_solver& s = get_solver();
+        solver::scoped_push _sp(s);
+        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
+            s.assert_expr(m_hard_constraints[i].get());
         }
 
-        switch (obj->get_decl_kind()) {
-        case OP_MINIMIZE:
-            return execute_min_max(to_app(obj->get_arg(0)), committed, false);
-        case OP_MAXIMIZE: 
-            return execute_min_max(to_app(obj->get_arg(0)), committed, true);
-        case OP_LEX:
-            return execute_lex(obj);
-        case OP_BOX:
-            return execute_box(obj);
-        case OP_PARETO:
-            return execute_pareto(obj);
-        default:
-            UNREACHABLE();
-            return l_undef;
+        if (m_objectives.size() == 1) {
+            return execute(m_objectives[0], false);
+        }
+
+        symbol pri = m_params.get_sym("priority", symbol("lex"));
+        if (pri == symbol("pareto")) {
+            return execute_pareto();
+        }
+        else if (pri == symbol("box")) {
+            return execute_box();
+        }
+        else {
+            return execute_lex();
         }
     }
 
@@ -89,35 +88,44 @@ namespace opt {
     }
 
 
-    lbool context::execute_maxsat(app* obj, bool committed) {
+    lbool context::execute_maxsat(symbol const& id, bool committed) {
         maxsmt* ms;
-        VERIFY(m_maxsmts.find(obj->get_decl()->get_name(), ms));
+        VERIFY(m_maxsmts.find(id, ms));
         lbool result = (*ms)(get_solver());
         if (committed) ms->commit_assignment();
         return result;
     }
+
+    lbool context::execute(objective const& obj, bool committed) {
+        switch(obj.m_type) {
+        case O_MAXIMIZE: return execute_min_max(obj.m_term, committed, true);
+        case O_MINIMIZE: return execute_min_max(obj.m_term, committed, false);
+        case O_MAXSMT: return execute_maxsat(obj.m_id, committed);
+        default: UNREACHABLE(); return l_undef;
+        }
+    }
     
-    lbool context::execute_lex(app* obj) {
+    lbool context::execute_lex() {
         lbool r = l_true;
-        for (unsigned i = 0; r == l_true && i < obj->get_num_args(); ++i) {
-            r = execute(obj->get_arg(i), true);
+        for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
+            r = execute(m_objectives[i], true);
         }
         return r;
     }    
 
-    lbool context::execute_box(app* obj) {
+    lbool context::execute_box() {
         lbool r = l_true;
-        for (unsigned i = 0; r == l_true && i < obj->get_num_args(); ++i) {
+        for (unsigned i = 0; r == l_true && i < m_objectives.size(); ++i) {
             push();
-            r = execute(obj->get_arg(i), false);
+            r = execute(m_objectives[i], false);
             pop(1);
         }
         return r;
     }
 
-    lbool context::execute_pareto(app* obj) {
+    lbool context::execute_pareto() {
         // TODO: record a stream of results from pareto front
-        return execute_lex(obj);
+        return execute_lex();
     }
 
     opt_solver& context::get_solver() { 
@@ -132,60 +140,42 @@ namespace opt {
         get_solver().pop(sz);
     }
 
-    lbool context::optimize(expr* objective) {
-        if (!objective) {
-            return optimize();
-        }
-        opt_solver& s = get_solver();
-        solver::scoped_push _sp(s);
-        for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
-            s.assert_expr(m_hard_constraints[i].get());
-        }
-        return execute(objective, false);
-    }
-
-    lbool context::optimize() {
-        // Construct objectives
-        expr_ref_vector objectives(m);
-        expr_ref objective(m);
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            objectives.push_back(m_obj_util.mk_maxsat(it->m_key));
-        }
-        for (unsigned i = 0; i < m_objs.size(); ++i) {
-            expr_ref e(m_objs[i].get(), m);
-            app * o = m_ismaxs[i] ? m_obj_util.mk_max(e) : m_obj_util.mk_min(e);
-            objectives.push_back(o);
-        }
-        if (m_params.get_bool("pareto", false)) {            
-            objective = m_obj_util.mk_pareto(objectives.size(), objectives.c_ptr());
-        }
-        else {
-            objective = m_obj_util.mk_box(objectives.size(), objectives.c_ptr());
-        }
-        return optimize(objective);
-    }
-
     void context::display_assignment(std::ostream& out) {
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            maxsmt* ms = it->m_value;
-            if (it->m_key != symbol::null) {
-                out << it->m_key << " : ";
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MAXSMT: {
+                symbol s = obj.m_id;
+                if (s != symbol::null) {
+                    out << s << " : ";
+                }
+                maxsmt* ms = m_maxsmts.find(s);
+                out << ms->get_value() << "\n";
+                break;
             }
-            out << ms->get_value() << "\n";
+            default:
+                break;
+            }
         }
         m_optsmt.display_assignment(out);
     }
 
     void context::display_range_assignment(std::ostream& out) {
-        map_t::iterator it = m_maxsmts.begin(), end = m_maxsmts.end();
-        for (; it != end; ++it) {
-            maxsmt* ms = it->m_value;
-            if (it->m_key != symbol::null) {
-                out << it->m_key << " : ";
+        for (unsigned i = 0; i < m_objectives.size(); ++i) {
+            objective const& obj = m_objectives[i];
+            switch(obj.m_type) {
+            case O_MAXSMT: {
+                symbol s = obj.m_id;
+                if (s != symbol::null) {
+                    out << s << " : ";
+                }
+                maxsmt* ms = m_maxsmts.find(s);
+                out << "[" << ms->get_lower() << ":" << ms->get_upper() << "]\n";
+                break;
             }
-            out << "[" << ms->get_lower() << ":" << ms->get_upper() << "]\n";
+            default:
+                break;
+            }
         }
         m_optsmt.display_range_assignment(out);
     }

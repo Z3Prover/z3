@@ -29,8 +29,6 @@ Notes:
 #include "scoped_ctrl_c.h"
 #include "scoped_timer.h"
 #include "parametric_cmd.h"
-#include "objective_ast.h"
-#include "objective_decl_plugin.h"
 
 class opt_context {
     cmd_context& ctx;
@@ -41,21 +39,10 @@ public:
     opt_context(cmd_context& ctx): ctx(ctx) {}
     opt::context& operator()() { 
         if (!m_opt) {
-            decl_plugin * p = alloc(opt::objective_decl_plugin);
-            ctx.register_plugin(symbol("objective"), p, true);
             m_opt = alloc(opt::context, ctx.m());
         }
         return *m_opt;
-    }
-
-    bool contains(symbol const& s) const { return m_ids.contains(s); }
-
-    void insert(symbol const& s) { m_ids.insert(s); }
-
-    sort* obj_sort(cmd_context& ctx) {
-        return ctx.m().mk_sort(ctx.m().get_family_id(symbol("objective")), opt::OBJECTIVE_SORT);
-    }
-    
+    }    
 };
 
 
@@ -76,7 +63,6 @@ public:
     {}
 
     virtual ~assert_weighted_cmd() {
-        dealloc(&m_opt_ctx);
     }
 
     virtual void reset(cmd_context & ctx) { 
@@ -128,10 +114,81 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         m_opt_ctx().add_soft_constraint(m_formula, m_weight, m_id);
-        if (!m_opt_ctx.contains(m_id)) {
-            ctx.insert(m_id, 0, ctx.m().mk_const(m_id, m_opt_ctx.obj_sort(ctx)));
-            m_opt_ctx.insert(m_id);
+        reset(ctx);
+    }
+
+    virtual void finalize(cmd_context & ctx) { 
+    }
+
+};
+
+
+class assert_soft_cmd : public parametric_cmd {
+    opt_context& m_opt_ctx;
+    unsigned     m_idx;
+    expr*        m_formula;
+
+public:
+    assert_soft_cmd(cmd_context& ctx, opt_context& opt_ctx):
+        parametric_cmd("assert-soft"),
+        m_opt_ctx(opt_ctx),
+        m_idx(0),
+        m_formula(0)
+    {}
+
+    virtual ~assert_soft_cmd() {
+    }
+
+    virtual void reset(cmd_context & ctx) { 
+        m_idx = 0; 
+        m_formula = 0;
+    }
+
+    virtual char const * get_usage() const { return "<formula> [:weight <rational-weight>] [:id <symbol>]"; }
+    virtual char const * get_main_descr() const { return "assert soft constraint with optional weight and identifier"; }
+
+    // command invocation
+    virtual void prepare(cmd_context & ctx) {}
+    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+        if (m_idx == 0) return CPK_EXPR;
+        return parametric_cmd::next_arg_kind(ctx);
+    }
+
+    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+        p.insert("weight", CPK_UINT, "(default: 1) penalty of not satisfying constraint.");
+        p.insert("dweight", CPK_DOUBLE, "(default: 1.0) penalty as double of not satisfying constraint.");
+        p.insert("id", CPK_SYMBOL, "(default: null) partition identifier for soft constraints.");
+    }
+
+    virtual void set_next_arg(cmd_context & ctx, expr * t) {
+        SASSERT(m_idx == 0);
+        if (!ctx.m().is_bool(t)) {
+            throw cmd_exception("Invalid type for expression. Expected Boolean type.");
         }
+        m_formula = t;
+        ++m_idx;
+    }
+
+    virtual void failure_cleanup(cmd_context & ctx) {
+        reset(ctx);
+    }
+
+    virtual void execute(cmd_context & ctx) {
+        symbol w("weight");
+        rational weight = rational(ps().get_uint(symbol("weight"), 0));
+        if (weight.is_zero()) {
+            double d = ps().get_double(symbol("dweight"), 0.0);
+            if (d != 0.0) {
+                std::stringstream strm;
+                strm << d;
+                weight = rational(strm.str().c_str());
+            }
+        }
+        if (weight.is_zero()) {
+            weight = rational::one();
+        }
+        symbol id = ps().get_sym(symbol("id"), symbol::null);
+        m_opt_ctx().add_soft_constraint(m_formula, weight, id);
         reset(ctx);
     }
 
@@ -182,6 +239,10 @@ public:
         parametric_cmd("optimize"),
         m_opt_ctx(opt_ctx)
     {}
+
+    virtual ~optimize_cmd() {
+        dealloc(&m_opt_ctx);
+    }
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
         insert_timeout(p);
@@ -262,6 +323,19 @@ private:
     }
 };
 
+
+
+void install_opt_cmds(cmd_context & ctx) {
+    opt_context* opt_ctx = alloc(opt_context, ctx);
+    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
+    ctx.insert(alloc(assert_soft_cmd, ctx, *opt_ctx));
+    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
+    ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
+    ctx.insert(alloc(optimize_cmd, *opt_ctx));
+}
+
+#if 0
+    ctx.insert(alloc(execute_cmd, *opt_ctx));
 
 class execute_cmd : public parametric_cmd {
 protected:
@@ -365,108 +439,4 @@ private:
         stats.display_smt2(ctx.regular_stream());        
     }
 };
-
-void install_opt_cmds(cmd_context & ctx) {
-    opt_context* opt_ctx = alloc(opt_context, ctx);
-    ctx.insert(alloc(assert_weighted_cmd, ctx, *opt_ctx));
-    ctx.insert(alloc(execute_cmd, *opt_ctx));
-    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, true));
-    //ctx.insert(alloc(min_maximize_cmd, ctx, *opt_ctx, false));
-    //ctx.insert(alloc(optimize_cmd, *opt_ctx));
-}
-
-#if 0
-
-    expr_ref sexpr2expr(cmd_context & ctx, sexpr& s) {
-        expr_ref result(ctx.m());
-        switch(s.get_kind()) {
-        case sexpr::COMPOSITE: {
-            sexpr& h = *s.get_child(0);
-            if (!h.is_symbol()) {
-                throw cmd_exception("invalid head symbol", s.get_line(), s.get_pos());
-            }
-            symbol sym = h.get_symbol();
-            expr_ref_vector args(ctx.m());
-            for (unsigned i = 1; i < s.get_num_children(); ++i) {
-                args.push_back(sexpr2expr(ctx, *s.get_child(i)));
-            }
-            ctx.mk_app(sym, args.size(), args.c_ptr(), 0, 0, 0, result);
-            return result;
-        }
-        case sexpr::NUMERAL:                        
-        case sexpr::BV_NUMERAL:
-            // TBD: handle numerals 
-        case sexpr::STRING:
-        case sexpr::KEYWORD:
-            throw cmd_exception("non-supported expression", s.get_line(), s.get_pos());
-        case sexpr::SYMBOL:
-            ctx.mk_const(s.get_symbol(), result);
-            return result;
-        }
-        return result;
-    }
-
-    opt::objective_t get_objective_type(sexpr& s) {
-        if (!s.is_symbol())
-            throw cmd_exception("invalid objective, symbol expected", s.get_line(), s.get_pos());
-        symbol const & sym = s.get_symbol();
-        if (sym == symbol("maximize")) return opt::MAXIMIZE;
-        if (sym == symbol("minimize")) return opt::MINIMIZE;
-        if (sym == symbol("lex")) return opt::LEX;
-        if (sym == symbol("box")) return opt::BOX;
-        if (sym == symbol("pareto")) return opt::PARETO;
-        throw cmd_exception("invalid objective, unexpected input", s.get_line(), s.get_pos());
-    }
-
-    opt::objective* sexpr2objective(cmd_context & ctx, sexpr& s) {
-        if (s.is_symbol())
-            throw cmd_exception("invalid objective, more arguments expected ", s.get_symbol(), s.get_line(), s.get_pos());   
-        if (s.is_composite()) {
-            sexpr * head = s.get_child(0);
-            opt::objective_t type = get_objective_type(*head);
-            switch(type) {
-            case opt::MAXIMIZE:
-            case opt::MINIMIZE: {
-                if (s.get_num_children() != 2)
-                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
-                sexpr * arg = s.get_child(1);
-                expr_ref term(sexpr2expr(ctx, *arg), ctx.m());
-                if (type == opt::MAXIMIZE) 
-                    return opt::objective::mk_max(term);
-                else
-                    return opt::objective::mk_min(term);
-            }
-            case opt::MAXSAT: {
-                if (s.get_num_children() != 2)
-                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
-                sexpr * arg = s.get_child(1);
-                if (!arg->is_symbol())
-                    throw cmd_exception("invalid objective, symbol expected", s.get_line(), s.get_pos());
-                symbol const & id = arg->get_symbol();
-                // TODO: check whether id is declared via assert-weighted
-                return opt::objective::mk_maxsat(id);
-            }
-            case opt::LEX:
-            case opt::BOX:
-            case opt::PARETO: {
-                if (s.get_num_children() <= 2)
-                    throw cmd_exception("invalid objective, wrong number of arguments ", s.get_line(), s.get_pos());
-                unsigned num_children = s.get_num_children();
-                ptr_vector<opt::objective> args;
-                for (unsigned i = 1; i < num_children; i++)
-                    args.push_back(sexpr2objective(ctx, *s.get_child(i)));
-                switch(type) {
-                case opt::LEX:
-                    return opt::objective::mk_lex(args.size(), args.c_ptr());
-                case opt::BOX:
-                    return opt::objective::mk_box(args.size(), args.c_ptr());
-                case opt::PARETO:
-                    return opt::objective::mk_pareto(args.size(), args.c_ptr());
-                }
-            }
-            }
-        }
-        return 0;
-    }
-
 #endif
