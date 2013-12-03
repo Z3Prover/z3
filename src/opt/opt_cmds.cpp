@@ -148,15 +148,18 @@ public:
     virtual char const * get_main_descr() const { return "assert soft constraint with optional weight and identifier"; }
 
     // command invocation
-    virtual void prepare(cmd_context & ctx) {}
+    virtual void prepare(cmd_context & ctx) {
+        reset(ctx);
+    }
+
     virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
         if (m_idx == 0) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
     virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
-        p.insert("weight", CPK_UINT, "(default: 1) penalty of not satisfying constraint.");
-        p.insert("dweight", CPK_DOUBLE, "(default: 1.0) penalty as double of not satisfying constraint.");
+        p.insert("weight", CPK_NUMERAL, "(default: 1) penalty of not satisfying constraint.");
+        p.insert("dweight", CPK_DECIMAL, "(default: 1.0) penalty as double of not satisfying constraint.");
         p.insert("id", CPK_SYMBOL, "(default: null) partition identifier for soft constraints.");
     }
 
@@ -175,14 +178,9 @@ public:
 
     virtual void execute(cmd_context & ctx) {
         symbol w("weight");
-        rational weight = rational(ps().get_uint(symbol("weight"), 0));
+        rational weight = ps().get_rat(symbol("weight"), rational(0));
         if (weight.is_zero()) {
-            double d = ps().get_double(symbol("dweight"), 0.0);
-            if (d != 0.0) {
-                std::stringstream strm;
-                strm << d;
-                weight = rational(strm.str().c_str());
-            }
+            weight = ps().get_rat(symbol("dweight"), rational(0));
         }
         if (weight.is_zero()) {
             weight = rational::one();
