@@ -53,15 +53,6 @@ namespace opt {
         void add_objective(app* t, bool is_max) { m_objs.push_back(t); m_ismaxs.push_back(is_max); }
         void add_hard_constraint(expr* f) { m_hard_constraints.push_back(f);  }
 
-        lbool execute(expr* obj, bool committed);
-        lbool execute_min_max(app* obj, bool committed);
-        lbool execute_maxsat(app* obj, bool committed);
-        lbool execute_lex(app* obj);
-        lbool execute_box(app* obj);
-        lbool execute_pareto(app* obj);
-
-        void push();
-        void pop(unsigned sz);
 
         lbool optimize(expr* objective);
         lbool optimize();
@@ -76,6 +67,18 @@ namespace opt {
         void updt_params(params_ref& p);
     private:
         void validate_feasibility(maxsmt& ms);
+
+        lbool execute(expr* obj, bool committed);
+        lbool execute_min_max(app* obj, bool committed);
+        lbool execute_maxsat(app* obj, bool committed);
+        lbool execute_lex(app* obj);
+        lbool execute_box(app* obj);
+        lbool execute_pareto(app* obj);
+
+        void push();
+        void pop(unsigned sz);
+        opt_solver& get_solver();
+
     };
 
 }

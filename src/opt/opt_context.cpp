@@ -84,8 +84,7 @@ namespace opt {
         // HACK: reuse m_optsmt but add only a single objective each round
         bool is_max = (obj->get_decl_kind() == OP_MAXIMIZE);
         m_optsmt.add(to_app(obj->get_arg(0)), is_max);
-        opt_solver& s = *m_solver.get();
-        lbool result = m_optsmt(s);
+        lbool result = m_optsmt(get_solver());
         if (committed) m_optsmt.commit_assignment(0);
         return result;
     }
@@ -93,30 +92,27 @@ namespace opt {
     lbool context::execute_maxsat(app* obj, bool committed) {
         maxsmt* ms;
         VERIFY(m_maxsmts.find(obj->get_decl()->get_name(), ms));
-        opt_solver& s = *m_solver.get();
-        lbool result = (*ms)(s);
+        lbool result = (*ms)(get_solver());
         if (committed) ms->commit_assignment();
         return result;
     }
     
     lbool context::execute_lex(app* obj) {
-        lbool result = l_true;
-        for (unsigned i = 0; i < obj->get_num_args(); ++i) {
-            result = execute(obj->get_arg(i), true);
-            if (result != l_true) break;
+        lbool r = l_true;
+        for (unsigned i = 0; r == l_true && i < obj->get_num_args(); ++i) {
+            r = execute(obj->get_arg(i), true);
         }
-        return result;
+        return r;
     }    
 
     lbool context::execute_box(app* obj) {
-        lbool result = l_true;
-        for (unsigned i = 0; i < obj->get_num_args(); ++i) {
+        lbool r = l_true;
+        for (unsigned i = 0; r == l_true && i < obj->get_num_args(); ++i) {
             push();
-            result = execute(obj->get_arg(i), false);
+            r = execute(obj->get_arg(i), false);
             pop(1);
-            if (result != l_true) break;
         }
-        return result;
+        return r;
     }
 
     lbool context::execute_pareto(app* obj) {
@@ -124,18 +120,20 @@ namespace opt {
         return execute_lex(obj);
     }
 
+    opt_solver& context::get_solver() { 
+        return *m_solver.get(); 
+    }
+
     void context::push() {
-        opt_solver& s = *m_solver.get();
-        s.push();
+        get_solver().push();
     }
 
     void context::pop(unsigned sz) {
-        opt_solver& s = *m_solver.get();
-        s.pop(sz);
+        get_solver().pop(sz);
     }
 
     lbool context::optimize(expr* objective) {
-        opt_solver& s = *m_solver.get(); 
+        opt_solver& s = get_solver();
         solver::scoped_push _sp(s);
 
         for (unsigned i = 0; i < m_hard_constraints.size(); ++i) {
